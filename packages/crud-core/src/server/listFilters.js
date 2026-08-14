@@ -26,7 +26,7 @@ import {
   INVALID_CRUD_LIST_FILTER_QUERY_VALUE,
   normalizeCrudListFilterInvalidValues,
   parseCrudListFilterQueryValue
-} from "@jskit-ai/kernel/shared/support/crudListFilters";
+} from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 
 const DATE_FILTER_VALUE_PATTERN_SOURCE = "\\d{4}-\\d{2}-\\d{2}";
 const DATE_FILTER_PATTERN_SOURCE = `^${DATE_FILTER_VALUE_PATTERN_SOURCE}$`;

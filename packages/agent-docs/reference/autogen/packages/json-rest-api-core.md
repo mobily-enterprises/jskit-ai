@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/json-rest-api-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -39,6 +39,12 @@ Exports
 Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
+- `resolveCanonicalCalendarDate(value)`
+- `serializeJsonRestCalendarDate(value)`
+- `resolveCanonicalDateTime(value)`
+- `applyJsonRestCalendarDateWriteSerializers(scopeOptions = {})`
+- `normalizeJsonRestTemporalEntry(entry = null, scopes = {})`
+- `normalizeJsonRestTemporalDocument(document = null, scopes = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestFilterValue(value)`
@@ -52,9 +58,3 @@ Local functions
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 - `isJsonRestSparseFieldError(error = null)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

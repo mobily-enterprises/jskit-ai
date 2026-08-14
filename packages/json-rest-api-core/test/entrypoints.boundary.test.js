@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
@@ -31,7 +32,7 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.27");
 });
 
-test("server jsonRestApiHost entrypoint no longer exports host-side JSON:API simplification helpers", async () => {
+test("server jsonRestApiHost entrypoint exposes only the focused host API", async () => {
   const hostModule = await import("../src/server/jsonRestApiHost.js");
   assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
 });
@@ -363,6 +364,14 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
           })
         })
       }),
+      publishedOn: Object.freeze({
+        type: "date",
+        operations: Object.freeze({
+          output: Object.freeze({
+            required: true
+          })
+        })
+      }),
       bookingSteps: Object.freeze({
         type: "array",
         storage: Object.freeze({
@@ -417,6 +426,16 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(result.schema.createdAt.storage.serialize, serializer);
   assert.equal(result.schema.createdAt.storage.serialize(null), null);
   assert.equal(result.schema.createdAt.storage.writeSerializer, undefined);
+  assert.equal(
+    result.schema.publishedOn.storage.serialize(new Date("2024-02-29T00:00:00.000Z")),
+    "2024-02-29"
+  );
+  assert.equal(result.schema.publishedOn.storage.serialize("2024-02-29"), "2024-02-29");
+  assert.equal(result.schema.publishedOn.storage.serialize(null), null);
+  assert.throws(
+    () => result.schema.publishedOn.storage.serialize("2023-02-29"),
+    /valid YYYY-MM-DD/
+  );
   assert.equal(result.schema.bookingSteps.virtual, true);
   assert.equal(result.schema.pets.virtual, true);
   assert.equal(result.normalizeId, normalizeId);
@@ -620,6 +639,166 @@ test("createJsonRestApiHost installs json-rest-api query projections", async () 
   });
 
   assert.equal(typeof api.resources.projectionContacts.vars.queryFields.displayName.select, "function");
+});
+
+test("createJsonRestApiHost returns JSON-native temporal values from database records", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: {
+      config: {
+        client: "sqlite3"
+      }
+    },
+    async raw() {
+      return [{ version: "3.35.5" }];
+    },
+    transaction() {}
+  });
+  const api = await createJsonRestApiHost({ knex: fakeKnex });
+
+  await api.addResource("books", createJsonRestResourceScopeOptions({
+    tableName: "books",
+    schema: {
+      id: { type: "id", primary: true },
+      publishedOn: { type: "date" },
+      scheduledAt: { type: "dateTime" },
+      opensAt: { type: "time" }
+    }
+  }));
+  await api.addResource("holidays", createJsonRestResourceScopeOptions({
+    tableName: "holidays",
+    schema: {
+      id: { type: "id", primary: true },
+      observedOn: { type: "date" }
+    }
+  }));
+
+  const scheduledAt = new Date("2024-02-29T12:34:56.000Z");
+  const record = {
+    data: {
+      type: "books",
+      id: "1",
+      attributes: {
+        publishedOn: new Date("2024-02-29T00:00:00.000Z"),
+        scheduledAt,
+        opensAt: "09:45:00"
+      }
+    },
+    included: [{
+      type: "holidays",
+      id: "7",
+      attributes: {
+        observedOn: new Date("2024-03-01T00:00:00.000Z")
+      }
+    }]
+  };
+
+  await api.runHooks("finish", {
+    record
+  });
+
+  assert.equal(record.data.attributes.publishedOn, "2024-02-29");
+  assert.equal(record.data.attributes.scheduledAt, "2024-02-29T12:34:56.000Z");
+  assert.equal(record.data.attributes.opensAt, "09:45:00");
+  assert.equal(record.included[0].attributes.observedOn, "2024-03-01");
+});
+
+test("calendar date writes and responses keep leap day across server time zones", () => {
+  const hostModuleUrl = new URL(
+    "../src/server/jsonRestApiHost.js",
+    import.meta.url
+  ).href;
+  const script = `
+    import {
+      createJsonRestApiHost,
+      createJsonRestResourceScopeOptions
+    } from ${JSON.stringify(hostModuleUrl)};
+    const fakeKnex = Object.assign(() => {}, {
+      client: { config: { client: "sqlite3" } },
+      async raw() { return [{ version: "3.35.5" }]; },
+      transaction() {}
+    });
+    const api = await createJsonRestApiHost({ knex: fakeKnex });
+    const scopeOptions = createJsonRestResourceScopeOptions({
+      tableName: "books",
+      schema: {
+        id: { type: "id", primary: true },
+        publishedOn: { type: "date" },
+        scheduledAt: { type: "dateTime" },
+        opensAt: { type: "time" }
+      }
+    });
+    await api.addResource("books", scopeOptions);
+    const record = {
+      data: {
+        type: "books",
+        id: "1",
+        attributes: {
+          publishedOn: new Date("2024-02-29T00:00:00.000Z"),
+          scheduledAt: new Date("2024-02-29T12:34:56.000Z"),
+          opensAt: "09:45:00"
+        }
+      }
+    };
+    await api.runHooks("finish", { record });
+    process.stdout.write(JSON.stringify({
+      write: scopeOptions.schema.publishedOn.storage.serialize(
+        new Date("2024-02-29T00:00:00.000Z")
+      ),
+      publishedOn: record.data.attributes.publishedOn,
+      scheduledAt: record.data.attributes.scheduledAt,
+      opensAt: record.data.attributes.opensAt
+    }));
+  `;
+
+  for (const timezone of ["UTC", "Australia/Perth", "America/Los_Angeles", "Pacific/Kiritimati"]) {
+    const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        TZ: timezone
+      }
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), {
+      write: "2024-02-29",
+      publishedOn: "2024-02-29",
+      scheduledAt: "2024-02-29T12:34:56.000Z",
+      opensAt: "09:45:00"
+    }, timezone);
+  }
+});
+
+test("createJsonRestApiHost maps UTC database datetimes to RFC 3339 strings", async () => {
+  const fakeKnex = Object.assign(() => {}, {
+    client: { config: { client: "sqlite3" } },
+    async raw() {
+      return [{ version: "3.35.5" }];
+    },
+    transaction() {}
+  });
+  const api = await createJsonRestApiHost({ knex: fakeKnex });
+
+  await api.addResource("jobs", createJsonRestResourceScopeOptions({
+    tableName: "jobs",
+    schema: {
+      id: { type: "id", primary: true },
+      scheduledAt: { type: "dateTime" }
+    }
+  }));
+  const record = {
+    data: {
+      type: "jobs",
+      id: "1",
+      attributes: {
+        scheduledAt: "2024-02-29 12:34:56.123"
+      }
+    }
+  };
+
+  await api.runHooks("finish", { record });
+
+  assert.equal(record.data.attributes.scheduledAt, "2024-02-29T12:34:56.123Z");
 });
 
 test("returnNullWhenJsonRestResourceMissing only swallows missing-resource errors", async () => {

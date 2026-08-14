@@ -11,7 +11,10 @@ export {
   toIsoString,
   toInsertDateTime,
   toNullableDateTime,
-  toDatabaseDateTimeUtc
+  toDatabaseDateTimeUtc,
+  toJsonDate,
+  toJsonTime,
+  toJsonDateTime
 } from "./dateUtils.js";
 export { normalizeDialect, detectDialectFromClient } from "./dialect.js";
 export { normalizeText, normalizeDatabaseClient, toKnexClientId } from "./databaseClient.js";

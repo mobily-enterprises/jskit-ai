@@ -11,7 +11,7 @@ import {
   normalizeRecordId,
   normalizeUniqueTextList
 } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveCrudResourceScopeName } from "@jskit-ai/kernel/shared/support/crudLookup";
+import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import {
   normalizeJsonApiFieldList,
   normalizeJsonApiFieldsets
@@ -53,6 +53,9 @@ const JSON_REST_RESERVED_QUERY_KEYS = Object.freeze(new Set([
   "sort",
   "fields"
 ]));
+const JSON_REST_CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
+const JSON_REST_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u;
+const JSON_REST_DATABASE_UTC_DATE_TIME_PATTERN = /^(\d{4}-\d{2}-\d{2}) ((?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?)$/u;
 
 function isPlainJsonRestObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -104,6 +107,132 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
 
   return next;
 }
+
+function resolveCanonicalCalendarDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime())
+      ? ""
+      : value.toISOString().slice(0, 10);
+  }
+
+  const normalized = typeof value === "string" ? value.trim() : "";
+  const candidate = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/u)?.[1] || "";
+  if (!JSON_REST_CALENDAR_DATE_PATTERN.test(candidate)) {
+    return "";
+  }
+
+  const parsed = new Date(`${candidate}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== candidate) {
+    return "";
+  }
+
+  return candidate;
+}
+
+function serializeJsonRestCalendarDate(value) {
+  if (value == null) {
+    return value;
+  }
+
+  const canonical = resolveCanonicalCalendarDate(value);
+  if (!canonical) {
+    throw new TypeError("json-rest-api calendar date must be a valid YYYY-MM-DD value.");
+  }
+  return canonical;
+}
+
+function resolveCanonicalDateTime(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? "" : value.toISOString();
+  }
+
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (JSON_REST_DATE_TIME_PATTERN.test(normalized)) {
+    return normalized;
+  }
+
+  const databaseMatch = JSON_REST_DATABASE_UTC_DATE_TIME_PATTERN.exec(normalized);
+  return databaseMatch ? `${databaseMatch[1]}T${databaseMatch[2]}Z` : "";
+}
+
+function applyJsonRestCalendarDateWriteSerializers(scopeOptions = {}) {
+  const schema = normalizeJsonRestObject(scopeOptions.schema);
+  for (const fieldDefinition of Object.values(schema)) {
+    if (normalizeJsonRestText(fieldDefinition?.type).toLowerCase() !== "date") {
+      continue;
+    }
+    if (fieldDefinition?.virtual === true || fieldDefinition?.storage?.virtual === true) {
+      continue;
+    }
+
+    const storage = normalizeJsonRestObject(fieldDefinition.storage);
+    if (typeof storage.serialize === "function") {
+      continue;
+    }
+    fieldDefinition.storage = {
+      ...storage,
+      serialize: serializeJsonRestCalendarDate
+    };
+  }
+}
+
+function normalizeJsonRestTemporalEntry(entry = null, scopes = {}) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return entry;
+  }
+
+  const schema = normalizeJsonRestObject(
+    scopes?.[normalizeJsonRestText(entry.type)]?.vars?.schemaInfo?.schemaStructure
+  );
+  const attributes = normalizeJsonRestObject(entry.attributes);
+  for (const [fieldName, definition] of Object.entries(schema)) {
+    if (!Object.hasOwn(attributes, fieldName) || attributes[fieldName] == null) {
+      continue;
+    }
+
+    const fieldType = normalizeJsonRestText(definition?.type).toLowerCase();
+    const canonical = fieldType === "date"
+      ? resolveCanonicalCalendarDate(attributes[fieldName])
+      : fieldType === "datetime"
+        ? resolveCanonicalDateTime(attributes[fieldName])
+        : "";
+    if (canonical) {
+      attributes[fieldName] = canonical;
+    }
+  }
+
+  return entry;
+}
+
+function normalizeJsonRestTemporalDocument(document = null, scopes = {}) {
+  if (!document || typeof document !== "object" || Array.isArray(document)) {
+    return document;
+  }
+
+  const data = Array.isArray(document.data) ? document.data : [document.data];
+  for (const entry of data) {
+    normalizeJsonRestTemporalEntry(entry, scopes);
+  }
+  for (const entry of Array.isArray(document.included) ? document.included : []) {
+    normalizeJsonRestTemporalEntry(entry, scopes);
+  }
+  return document;
+}
+
+const JsonRestTemporalPlugin = Object.freeze({
+  name: "jskit-temporal",
+  dependencies: ["rest-api"],
+  install({ addHook, scopes }) {
+    addHook("finish", "normalizeCalendarDateDocuments", {}, ({ context }) => {
+      if (context?.record) {
+        normalizeJsonRestTemporalDocument(context.record, scopes);
+      }
+      if (context?.responseRecord) {
+        normalizeJsonRestTemporalDocument(context.responseRecord, scopes);
+      }
+    });
+  }
+});
 
 async function addResourceIfMissing(api, scopeName, resourceConfig) {
   if (api?.resources?.[scopeName]) {
@@ -548,6 +677,7 @@ function createJsonRestResourceScopeOptions(
   const scopeOptions = cloneJsonRestResourceValue(resource, {
     writeSerializers: normalizeJsonRestObject(writeSerializers)
   });
+  applyJsonRestCalendarDateWriteSerializers(scopeOptions);
   if (isPlainJsonRestObject(searchSchema)) {
     scopeOptions.searchSchema = {
       ...normalizeJsonRestObject(scopeOptions.searchSchema),
@@ -702,6 +832,7 @@ async function createJsonRestApiHost({ knex }) {
     },
     presets: JSON_REST_AUTOFILTER_PRESETS
   });
+  await api.use(JsonRestTemporalPlugin);
 
   return api;
 }

@@ -5,7 +5,6 @@ import {
   normalizeLowerText,
   normalizeRecordId,
   normalizeText,
-  nowDb,
   toIsoString
 } from "./repositoryUtils.js";
 import {
@@ -89,7 +88,7 @@ function normalizeCreatePayload(payload = {}) {
     normalized.avatarVersion = normalizeNullableVersion(source.avatarVersion);
   }
   if (Object.hasOwn(source, "avatarUpdatedAt")) {
-    normalized.avatarUpdatedAt = source.avatarUpdatedAt == null ? null : new Date(source.avatarUpdatedAt);
+    normalized.avatarUpdatedAt = source.avatarUpdatedAt == null ? null : toIsoString(source.avatarUpdatedAt);
   }
 
   return normalized;
@@ -238,7 +237,7 @@ function createRepository({ api, knex } = {}) {
           RESOURCE_TYPE,
           {
             displayName,
-            updatedAt: new Date()
+            updatedAt: new Date().toISOString()
           },
           {
             id: normalizedUserId
@@ -265,8 +264,8 @@ function createRepository({ api, knex } = {}) {
           {
             avatarStorageKey: avatar.avatarStorageKey ?? null,
             avatarVersion: avatar.avatarVersion ?? null,
-            avatarUpdatedAt: avatar.avatarUpdatedAt ?? nowDb(),
-            updatedAt: new Date()
+            avatarUpdatedAt: toIsoString(avatar.avatarUpdatedAt ?? new Date()),
+            updatedAt: new Date().toISOString()
           },
           {
             id: normalizedUserId
@@ -294,7 +293,7 @@ function createRepository({ api, knex } = {}) {
             avatarStorageKey: null,
             avatarVersion: null,
             avatarUpdatedAt: null,
-            updatedAt: new Date()
+            updatedAt: new Date().toISOString()
           },
           {
             id: normalizedUserId
@@ -350,7 +349,7 @@ function createRepository({ api, knex } = {}) {
                   email,
                   displayName,
                   username,
-                  updatedAt: new Date()
+                  updatedAt: new Date().toISOString()
                 },
                 {
                   id: normalizeDbRecordId(existing.id, { fallback: null })
@@ -378,7 +377,7 @@ function createRepository({ api, knex } = {}) {
               email,
               displayName,
               username,
-              createdAt: new Date()
+              createdAt: new Date().toISOString()
             }),
             transaction: trx
           },

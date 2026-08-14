@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -53,11 +54,12 @@ export default config;
   );
 }
 
-async function writeLocalSourcePackageDescriptor(appRoot) {
+async function writeLocalSourcePackagePackageMetadata(appRoot) {
   const packageRoot = path.join(appRoot, "packages", "source-feature");
   await writeJson(path.join(packageRoot, "package.json"), {
     name: "@demo/source-feature",
     version: "0.1.0",
+    description: "Local package for source mutation coverage.",
     type: "module"
   });
 
@@ -98,15 +100,10 @@ async function writeLocalSourcePackageDescriptor(appRoot) {
     }
   ];
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/source-feature",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(packageRoot),
+    `({
   kind: "runtime",
-  description: "Local package for source mutation coverage.",
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -131,7 +128,7 @@ async function writeLocalSourcePackageDescriptor(appRoot) {
     source: ${JSON.stringify(sourceMutations, null, 4)},
     files: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -141,11 +138,11 @@ function countOccurrences(source, pattern) {
   return (source.match(pattern) || []).length;
 }
 
-test("add package applies source mutations and update package keeps them idempotent", async () => {
+test("add package applies source mutations idempotently", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "source-mutation-app");
     await createMinimalApp(appRoot);
-    await writeLocalSourcePackageDescriptor(appRoot);
+    await writeLocalSourcePackagePackageMetadata(appRoot);
 
     const addResult = runCli({
       cwd: appRoot,
@@ -153,11 +150,11 @@ test("add package applies source mutations and update package keeps them idempot
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
-    const updateResult = runCli({
+    const secondAddResult = runCli({
       cwd: appRoot,
-      args: ["update", "package", "@demo/source-feature"]
+      args: ["add", "package", "@demo/source-feature"]
     });
-    assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
+    assert.equal(secondAddResult.status, 0, String(secondAddResult.stderr || ""));
 
     const providerSource = await readFile(
       path.join(appRoot, "packages", "main", "src", "client", "providers", "MainClientProvider.js"),
@@ -176,14 +173,6 @@ test("add package applies source mutations and update package keeps them idempot
 
     const accessPolicySource = await readFile(path.join(appRoot, "config", "surfaceAccessPolicies.js"), "utf8");
     assert.equal(countOccurrences(accessPolicySource, /export const surfaceAccessPolicies = \{\};/g), 1);
-
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
-    assert.equal(
-      lock?.installedPackages?.["@demo/source-feature"]?.managed?.source?.[
-        "packages/main/src/client/providers/MainClientProvider.js::demo-widget-register"
-      ]?.op,
-      "ensure-call"
-    );
 
     const showResult = runCli({
       cwd: appRoot,

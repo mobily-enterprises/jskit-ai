@@ -29,3 +29,35 @@ npm run docs:dev
 npm run docs:build
 npm run verify
 ```
+
+## Publishing
+
+The repository has two release intents. Prepare the source first:
+
+```bash
+npm run release:npm:prepare
+npm run verify
+```
+
+`prepare` increments every JSKIT package patch version, rewrites exact internal
+versions in workspace and template manifests, refreshes `package-lock.json`,
+and rebuilds the catalog and distributed agent documentation. Verify, review,
+and commit that source change.
+
+Then publish the committed versions:
+
+```bash
+NPM_TOKEN=... npm run release:npm:publish
+npm run verify:registry
+```
+
+`publish` edits nothing. It rejects stale internal versions and dependency
+cycles, then publishes the current packages directly to npm in dependency
+order. `verify:registry` contains the checks that require the public registry.
+
+For a one-shot release, `npm run release` runs `prepare`, the deterministic
+source verification gate, and `publish` in that order.
+
+If npm interrupts a publication after accepting some packages, fix the cause
+and prepare a new coordinated patch release. Published npm versions are
+immutable; there is no release-resume state in the repository.

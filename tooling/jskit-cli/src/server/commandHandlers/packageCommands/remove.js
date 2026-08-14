@@ -1,38 +1,27 @@
 import {
-  ensureArray,
   ensureObject,
   sortStrings
 } from "../../shared/collectionUtils.js";
-import {
-  isSensitiveManagedTextRecord,
-  sanitizeLockSecretsForWrite
-} from "../../cliRuntime/sensitiveLockState.js";
+
+const ROOT_DEPENDENCY_SECTIONS = Object.freeze([
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies"
+]);
 
 async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io }) {
   const {
     createCliError,
-    normalizeRelativePath,
     resolveAppRootFromCwd,
-    loadPackageRegistry,
-    loadAppLocalPackageRegistry,
-    mergePackageRegistries,
+    loadInstalledAppPackageRegistry,
+    installedPackageRecordFromRegistry,
     loadAppPackageJson,
-    loadLockFile,
-    hydratePackageRegistryFromInstalledNodeModules,
     resolveInstalledPackageIdInput,
-    getInstalledDependents,
-    restorePackageJsonField,
-    path,
-    readFileBufferIfExists,
-    removeEnvValue,
-    writeFile,
-    removeManagedViteProxyEntries,
-    assertManagedCiWorkflowUnmodified,
-    synchronizeManagedCiWorkflow,
-    hashBuffer,
-    rm,
+    removePackageJsonField,
     writeJsonFile,
-    runNpmInstall
+    runNpmInstall,
+    synchronizeAppCiWorkflow
   } = ctx;
 
   const targetType = String(positional[0] || "").trim();
@@ -42,166 +31,56 @@ async function runPackageRemoveCommand(ctx = {}, { positional, options, cwd, io 
   }
 
   const appRoot = await resolveAppRootFromCwd(cwd);
-  const packageRegistry = await loadPackageRegistry();
-  const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
-  const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
-  const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
-  const { lockPath, lock } = await loadLockFile(appRoot);
-  await assertManagedCiWorkflowUnmodified({
-    appRoot,
-    lock
-  });
-  const installed = ensureObject(lock.installedPackages);
-  await hydratePackageRegistryFromInstalledNodeModules({
-    appRoot,
-    packageRegistry: combinedPackageRegistry,
-    seedPackageIds: Object.keys(installed)
-  });
-  const resolvedTargetId = resolveInstalledPackageIdInput(targetId, installed);
-
+  const installedRegistry = await loadInstalledAppPackageRegistry(appRoot);
+  const installedRecord = installedPackageRecordFromRegistry(installedRegistry);
+  const resolvedTargetId = resolveInstalledPackageIdInput(targetId, installedRecord);
   if (!resolvedTargetId) {
     throw createCliError(`Package is not installed: ${targetId}`);
   }
 
-  const dependents = getInstalledDependents(lock, resolvedTargetId, combinedPackageRegistry);
-  if (dependents.length > 0) {
+  const { packageJsonPath, packageJson } = await loadAppPackageJson(appRoot);
+  const declaredSections = ROOT_DEPENDENCY_SECTIONS.filter((sectionName) =>
+    Object.prototype.hasOwnProperty.call(ensureObject(packageJson[sectionName]), resolvedTargetId)
+  );
+  if (declaredSections.length < 1) {
     throw createCliError(
-      `Cannot remove ${resolvedTargetId}; installed packages depend on it: ${dependents.join(", ")}`
+      `${resolvedTargetId} is installed transitively, not declared by this app. Remove the package that depends on it instead.`
     );
   }
 
-  const lockEntry = ensureObject(installed[resolvedTargetId]);
-  const packageEntry = combinedPackageRegistry.get(resolvedTargetId) || {
-    packageId: resolvedTargetId,
-    descriptor: {
-      options: {}
-    }
-  };
-  const managed = ensureObject(lockEntry.managed);
-  const touchedFiles = new Set();
-
-  const managedPackageJson = ensureObject(managed.packageJson);
-  for (const [dependencyId, managedChange] of Object.entries(ensureObject(managedPackageJson.dependencies))) {
-    if (restorePackageJsonField(packageJson, "dependencies", dependencyId, managedChange)) {
-      touchedFiles.add("package.json");
-    }
+  for (const sectionName of declaredSections) {
+    removePackageJsonField(packageJson, sectionName, resolvedTargetId);
   }
-  for (const [dependencyId, managedChange] of Object.entries(ensureObject(managedPackageJson.devDependencies))) {
-    if (restorePackageJsonField(packageJson, "devDependencies", dependencyId, managedChange)) {
-      touchedFiles.add("package.json");
-    }
-  }
-  for (const [scriptName, managedChange] of Object.entries(ensureObject(managedPackageJson.scripts))) {
-    if (restorePackageJsonField(packageJson, "scripts", scriptName, managedChange)) {
-      touchedFiles.add("package.json");
-    }
-  }
-
-  const managedText = ensureObject(managed.text);
-  for (const change of Object.values(managedText)) {
-    const changeRecord = ensureObject(change);
-    if (String(changeRecord.op || "") !== "upsert-env") {
-      continue;
-    }
-    if (isSensitiveManagedTextRecord({ packageEntry, record: changeRecord })) {
-      continue;
-    }
-    const relativeFile = String(changeRecord.file || "").trim();
-    if (!relativeFile) {
-      continue;
-    }
-    const absoluteFile = path.join(appRoot, relativeFile);
-    const existing = await readFileBufferIfExists(absoluteFile);
-    if (!existing.exists) {
-      continue;
-    }
-    const updated = removeEnvValue(
-      existing.buffer.toString("utf8"),
-      String(changeRecord.key || ""),
-      String(changeRecord.value || ""),
-      {
-        hadPrevious: Boolean(changeRecord.hadPrevious),
-        previousValue: String(changeRecord.previousValue || "")
-      }
-    );
-    if (updated.changed) {
-      await writeFile(absoluteFile, updated.content, "utf8");
-      touchedFiles.add(normalizeRelativePath(appRoot, absoluteFile));
-    }
-  }
-
-  await removeManagedViteProxyEntries({
-    appRoot,
-    packageId: resolvedTargetId,
-    managedViteChanges: ensureObject(managed.vite),
-    touchedFiles
-  });
-
-  for (const fileChange of ensureArray(managed.files)) {
-    const changeRecord = ensureObject(fileChange);
-    if (changeRecord.preserveOnRemove === true) {
-      continue;
-    }
-    const relativeFile = String(changeRecord.path || "").trim();
-    if (!relativeFile) {
-      continue;
-    }
-    const absoluteFile = path.join(appRoot, relativeFile);
-    const existing = await readFileBufferIfExists(absoluteFile);
-    if (!existing.exists) {
-      continue;
-    }
-    if (hashBuffer(existing.buffer) !== String(changeRecord.hash || "")) {
-      continue;
-    }
-
-    if (changeRecord.hadPrevious) {
-      const previousBuffer = Buffer.from(String(changeRecord.previousContentBase64 || ""), "base64");
-      await writeFile(absoluteFile, previousBuffer);
-    } else {
-      await rm(absoluteFile);
-    }
-    touchedFiles.add(relativeFile);
-  }
-
-  delete installed[resolvedTargetId];
-  await synchronizeManagedCiWorkflow({
-    appRoot,
-    lock,
-    packageRegistry: combinedPackageRegistry,
-    touchedFiles,
-    dryRun: options.dryRun === true
-  });
-  const touchedFileList = sortStrings([...touchedFiles]);
-
+  const touchedFiles = new Set(["package.json"]);
   if (!options.dryRun) {
     await writeJsonFile(packageJsonPath, packageJson);
-    sanitizeLockSecretsForWrite(lock, combinedPackageRegistry);
-    await writeJsonFile(lockPath, lock);
-    if (options.runNpmInstall) {
-      await runNpmInstall(appRoot, io.stderr);
+    await runNpmInstall(appRoot, io.stderr);
+    const ciResult = await synchronizeAppCiWorkflow({ appRoot });
+    if (ciResult.changed) {
+      touchedFiles.add(ciResult.path);
     }
   }
+  const touchedFileList = sortStrings([...touchedFiles]);
 
   if (options.json) {
     io.stdout.write(`${JSON.stringify({
       removedPackage: resolvedTargetId,
+      removedFrom: declaredSections,
       touchedFiles: touchedFileList,
-      lockPath: normalizeRelativePath(appRoot, lockPath),
+      retainedAppFiles: true,
       dryRun: options.dryRun
     }, null, 2)}\n`);
   } else {
-    io.stdout.write(`Removed package ${resolvedTargetId}.\n`);
+    io.stdout.write(`Removed dependency ${resolvedTargetId} from ${declaredSections.join(", ")}.\n`);
+    io.stdout.write("App-owned source files and migration history were retained.\n");
     io.stdout.write(`Touched files (${touchedFileList.length}):\n`);
     for (const touchedFile of touchedFileList) {
       io.stdout.write(`- ${touchedFile}\n`);
     }
-    io.stdout.write(`Lock file: ${normalizeRelativePath(appRoot, lockPath)}\n`);
     if (options.dryRun) {
       io.stdout.write("Dry run enabled: no files were written.\n");
     }
   }
-
   return 0;
 }
 

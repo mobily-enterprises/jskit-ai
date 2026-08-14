@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
+import { __testables as templateContextTestables } from "../src/server/buildTemplateContext.js";
 
 const testSupportDirectory = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(testSupportDirectory, "..");
@@ -18,8 +19,10 @@ function buildTemplateReplacements({
   surfaceRequiresWorkspace = true,
   requiresNamedPermissions = surfaceRequiresWorkspace === true,
   surfaceId = surfaceRequiresWorkspace ? "admin" : "home",
+  access = "authenticated",
   routeInternal = false
 } = {}) {
+  const publicAccess = access === "public";
   const routeWorkspaceSupportImports = surfaceRequiresWorkspace
     ? [
         'import { routeParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";',
@@ -29,7 +32,13 @@ function buildTemplateReplacements({
   const actionWorkspaceValidatorImport = surfaceRequiresWorkspace
     ? 'import { workspaceSlugParamsValidator } from "@jskit-ai/workspaces-core/server/validators/routeParamsValidator";'
     : "";
-  const actionPermissionSupport = requiresNamedPermissions
+  const actionPermissionSupport = publicAccess
+    ? [
+        "const publicPermission = Object.freeze({",
+        '  require: "none"',
+        "});"
+      ].join("\n")
+    : requiresNamedPermissions
     ? [
         "const actionPermissions = Object.freeze({",
         '  list: "crud.customers.list",',
@@ -44,21 +53,34 @@ function buildTemplateReplacements({
         '  require: "authenticated"',
         "});"
       ].join("\n");
-  const listActionPermission = requiresNamedPermissions
+  const listActionPermission = publicAccess
+    ? "publicPermission"
+    : requiresNamedPermissions
     ? '{ require: "all", permissions: [actionPermissions.list] }'
     : "authenticatedPermission";
-  const viewActionPermission = requiresNamedPermissions
+  const viewActionPermission = publicAccess
+    ? "publicPermission"
+    : requiresNamedPermissions
     ? '{ require: "all", permissions: [actionPermissions.view] }'
     : "authenticatedPermission";
-  const createActionPermission = requiresNamedPermissions
+  const createActionPermission = publicAccess
+    ? "publicPermission"
+    : requiresNamedPermissions
     ? '{ require: "all", permissions: [actionPermissions.create] }'
     : "authenticatedPermission";
-  const updateActionPermission = requiresNamedPermissions
+  const updateActionPermission = publicAccess
+    ? "publicPermission"
+    : requiresNamedPermissions
     ? '{ require: "all", permissions: [actionPermissions.update] }'
     : "authenticatedPermission";
-  const deleteActionPermission = requiresNamedPermissions
+  const deleteActionPermission = publicAccess
+    ? "publicPermission"
+    : requiresNamedPermissions
     ? '{ require: "all", permissions: [actionPermissions.delete] }'
     : "authenticatedPermission";
+  const actionInputExpressions = templateContextTestables.renderActionInputExpressions({
+    surfaceRequiresWorkspace
+  });
 
   return Object.freeze([
     ["${option:namespace|snake}", CRUD_NAMESPACE.snake],
@@ -68,72 +90,22 @@ function buildTemplateReplacements({
     ["__JSKIT_CRUD_TABLE_NAME__", JSON.stringify("customers")],
     ["__JSKIT_CRUD_ID_COLUMN__", JSON.stringify("id")],
     ["__JSKIT_CRUD_SURFACE_ID__", JSON.stringify(surfaceId)],
+    ["__JSKIT_CRUD_RESOURCE_API_ACCESS__", JSON.stringify(access)],
     ["__JSKIT_CRUD_ACTION_PERMISSION_SUPPORT__", actionPermissionSupport],
     ["__JSKIT_CRUD_ACTION_WORKSPACE_VALIDATOR_IMPORT__", actionWorkspaceValidatorImport],
-    ["__JSKIT_CRUD_LIST_ACTION_INPUT__", surfaceRequiresWorkspace
-      ? [
-          "composeSchemaDefinitions([",
-          "        workspaceSlugParamsValidator,",
-          "        ...createStandardCrudListQueryValidators({ resource }),",
-          "      ])"
-        ].join("\n")
-      : [
-          "composeSchemaDefinitions([",
-          "        ...createStandardCrudListQueryValidators({ resource }),",
-          "      ])"
-        ].join("\n")],
-    ["__JSKIT_CRUD_VIEW_ACTION_INPUT__", surfaceRequiresWorkspace
-      ? [
-          "composeSchemaDefinitions([",
-          "        workspaceSlugParamsValidator,",
-          "        recordIdParamsValidator,",
-          "        ...createStandardCrudViewQueryValidators(),",
-          "      ])"
-        ].join("\n")
-      : [
-          "composeSchemaDefinitions([",
-          "        recordIdParamsValidator,",
-          "        ...createStandardCrudViewQueryValidators(),",
-          "      ])"
-        ].join("\n")],
-    ["__JSKIT_CRUD_CREATE_ACTION_INPUT__", surfaceRequiresWorkspace
-      ? [
-          "composeSchemaDefinitions([",
-          "        workspaceSlugParamsValidator,",
-          "        resource.operations.create.body,",
-          "      ], {",
-          '        mode: "create"',
-          "      })"
-        ].join("\n")
-      : "resource.operations.create.body"],
-    ["__JSKIT_CRUD_UPDATE_ACTION_INPUT__", surfaceRequiresWorkspace
-      ? [
-          "composeSchemaDefinitions([",
-          "        workspaceSlugParamsValidator,",
-          "        recordIdParamsValidator,",
-          "        resource.operations.patch.body,",
-          "      ])"
-        ].join("\n")
-      : [
-          "composeSchemaDefinitions([",
-          "        recordIdParamsValidator,",
-          "        resource.operations.patch.body,",
-          "      ])"
-        ].join("\n")],
-    ["__JSKIT_CRUD_DELETE_ACTION_INPUT__", surfaceRequiresWorkspace
-      ? [
-          "composeSchemaDefinitions([",
-          "        workspaceSlugParamsValidator,",
-          "        recordIdParamsValidator,",
-          "      ])"
-        ].join("\n")
-      : "recordIdParamsValidator"],
+    ["__JSKIT_CRUD_LIST_ACTION_INPUT__", actionInputExpressions.list],
+    ["__JSKIT_CRUD_VIEW_ACTION_INPUT__", actionInputExpressions.view],
+    ["__JSKIT_CRUD_CREATE_ACTION_INPUT__", actionInputExpressions.create],
+    ["__JSKIT_CRUD_UPDATE_ACTION_INPUT__", actionInputExpressions.update],
+    ["__JSKIT_CRUD_DELETE_ACTION_INPUT__", actionInputExpressions.delete],
     ["__JSKIT_CRUD_LIST_ACTION_PERMISSION__", listActionPermission],
     ["__JSKIT_CRUD_VIEW_ACTION_PERMISSION__", viewActionPermission],
     ["__JSKIT_CRUD_CREATE_ACTION_PERMISSION__", createActionPermission],
     ["__JSKIT_CRUD_UPDATE_ACTION_PERMISSION__", updateActionPermission],
     ["__JSKIT_CRUD_DELETE_ACTION_PERMISSION__", deleteActionPermission],
     ["__JSKIT_CRUD_ROUTE_SURFACE_REQUIRES_WORKSPACE__", String(surfaceRequiresWorkspace === true)],
+    ["__JSKIT_CRUD_ROUTE_AUTH__", JSON.stringify(publicAccess ? "public" : "required")],
+    ["__JSKIT_CRUD_ROUTE_CSRF_PROTECTION__", String(!publicAccess)],
     ["__JSKIT_CRUD_ROUTE_BASE__", JSON.stringify(surfaceRequiresWorkspace ? "/w/:workspaceSlug" : "/")],
     ["__JSKIT_CRUD_ROUTE_WORKSPACE_SUPPORT_IMPORTS__", routeWorkspaceSupportImports],
     ["__JSKIT_CRUD_ROUTE_INTERNAL_LINE__", routeInternal === true ? "      internal: true," : ""],

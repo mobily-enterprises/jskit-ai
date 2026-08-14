@@ -1,6 +1,5 @@
 import {
   normalizeRecordId,
-  nowDb,
   isDuplicateEntryError,
   createWithTransaction
 } from "./repositoryUtils.js";
@@ -146,7 +145,7 @@ function createRepository({ api, knex } = {}) {
           RESOURCE_TYPE,
           {
             ...updatePayload,
-            updatedAt: nowDb()
+            updatedAt: new Date().toISOString()
           },
           {
             id: normalizedUserId

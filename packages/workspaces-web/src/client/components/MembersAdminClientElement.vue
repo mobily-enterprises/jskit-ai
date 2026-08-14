@@ -195,7 +195,7 @@ import { computed, toRefs, unref } from "vue";
 import { mdiContentCopy } from "@mdi/js";
 import { formatDateTime as formatKernelDateTime } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { requireBoolean, requireFunction, requireRecord } from "@jskit-ai/users-web/client/support/contractGuards";
+import { requireBoolean, requireFunction, requireRecord } from "@jskit-ai/http-web/client/support/contractGuards";
 
 const props = defineProps({
   forms: {

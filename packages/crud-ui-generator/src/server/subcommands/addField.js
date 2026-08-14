@@ -329,8 +329,7 @@ function insertFormFieldDefinition(source, insertion = {}) {
   const declaration = findArrayDeclarationBeforeIndex(source, insertion.arrayName, anchorIndex);
   if (!declaration || anchorIndex <= declaration.openIndex || anchorIndex >= declaration.closeIndex) {
     throw new Error(
-      `crud-ui-generator field found legacy form-field marker layout for ${insertion.arrayName}. ` +
-      "Run `jskit app migrate-source-mutations` before adding more generated form fields."
+      `crud-ui-generator field requires its generated marker inside the ${insertion.arrayName} array.`
     );
   }
 
@@ -432,6 +431,14 @@ function resolveGeneratedTargetComment(source = "", commentName = "") {
   return normalizeText(match?.[1]);
 }
 
+function resolveGeneratedTargetPath(appRoot, targetAbsolutePath, generatedTarget = "") {
+  const normalizedTarget = normalizeText(generatedTarget).replaceAll("\\", "/");
+  const targetPath = normalizedTarget.startsWith("/")
+    ? path.resolve(appRoot, normalizedTarget.replace(/^\/+/, ""))
+    : path.resolve(path.dirname(targetAbsolutePath), normalizedTarget);
+  return resolvePathWithinAppRoot(appRoot, targetPath);
+}
+
 function resolveOperationTargetFiles({
   appRoot,
   operationName,
@@ -469,8 +476,8 @@ function resolveOperationTargetFiles({
   }
 
   return {
-    screen: resolvePathWithinAppRoot(appRoot, path.resolve(path.dirname(targetAbsolutePath), screenTarget)),
-    "form-fields": resolvePathWithinAppRoot(appRoot, path.resolve(path.dirname(targetAbsolutePath), formFieldsTarget))
+    screen: resolveGeneratedTargetPath(appRoot, targetAbsolutePath, screenTarget),
+    "form-fields": resolveGeneratedTargetPath(appRoot, targetAbsolutePath, formFieldsTarget)
   };
 }
 

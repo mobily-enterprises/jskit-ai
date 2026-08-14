@@ -13,8 +13,8 @@ Rules:
 - Prefer the highest-level JSKIT runtime that matches the UI interaction.
 - Do not hand-roll local AJAX helpers when an existing JSKIT runtime already fits.
 - Do not use raw `fetch(...)` for normal app work.
-- Use `usePaths().api(...)` for custom scoped API paths instead of concatenating route params into URLs by hand.
-- Drop to `usersWebHttpClient.request(...)` only for exceptional low-level cases.
+- Use `usePaths().api(...)` from `@jskit-ai/shell-web/client/navigation/usePaths` for custom scoped API paths instead of concatenating route params into URLs by hand.
+- Drop to `httpWebClient.request(...)` only for exceptional low-level cases.
 
 Choose the function like this:
 
@@ -64,13 +64,13 @@ Use the CRUD wrappers when they fit:
 CRUD hook transport defaults:
 
 - CRUD hooks derive the standard JSON:API transport from the shared CRUD `resource` automatically.
-- Do not pass `transport` to CRUD hooks. If you need a non-standard wire contract, drop to `useList()`, `useView()`, `useAddEdit()`, or `usersWebHttpClient.request(...)` instead of the CRUD wrappers.
+- Do not pass `transport` to CRUD hooks. If you need a non-standard wire contract, drop to `useList()`, `useView()`, `useAddEdit()`, or `httpWebClient.request(...)` instead of the CRUD wrappers.
 
 Why this is the standard JSKIT shape:
 
 - `useCommand()` resolves the scoped API path for the current route and surface.
 - The higher-level list, view, add/edit, and command runtimes send requests through the shared HTTP runtime.
-- `usersWebHttpClient` already handles credentials and CSRF behavior.
+- `httpWebClient` already handles credentials and CSRF behavior.
 - `useEndpointResource()` is the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes add UI feedback and field-error handling on top.
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
 - Generated CRUD and lookup reads use all resource-defined output fields by default. Hydrated relationships use the target resource's output contract. Generated pages and lookup controls do not repeat those definitions as request fieldsets.
@@ -79,7 +79,9 @@ Why this is the standard JSKIT shape:
 - Sparse fieldsets are a serialization boundary, not an authorization mechanism. Server resources reject unknown fields, never serialize hidden fields, and preserve the fields needed internally for relationship linkage.
 - Fields that must never be exposed do not belong in the resource output schema.
 - Keep `apiUrlTemplate` path-only. Do not put `?include=...` or other query strings in URL templates.
-- If an app needs route-aware API URL rewriting, configure the users-web client once with `configureUsersWebHttpClient({ resolveRequestUrl })` before mounting the app. Do not replace `fetchImpl` just to rewrite paths.
+- Import neutral request and CRUD client APIs from `@jskit-ai/http-web`. `users-web` owns only account, profile, and user-specific shell UI.
+- Keep shared CRUD resource, field, lookup, namespace, and filter contracts in `@jskit-ai/resource-crud-core`; keep database-backed CRUD services and repositories in `@jskit-ai/crud-core`.
+- If an app needs route-aware API URL rewriting, configure the http-web client once with `configureHttpWebClient({ resolveRequestUrl })` before mounting the app. Do not replace `fetchImpl` just to rewrite paths.
 - `resolveRequestUrl` belongs at the HTTP client boundary. It runs after JSKIT encodes query params and before browser `fetch`, so reads, commands, request recovery metadata, JSON:API transport, credentials, and CSRF behavior stay on the standard path.
 
 Error presentation rules:

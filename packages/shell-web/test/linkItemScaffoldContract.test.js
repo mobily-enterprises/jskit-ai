@@ -3,7 +3,9 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 import {
   LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS,
   findLocalLinkItemDefinition,
@@ -14,14 +16,14 @@ const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
 function findFileMutation(id) {
-  const files = descriptor?.mutations?.files;
+  const files = packageMetadata?.mutations?.files;
   return Array.isArray(files)
     ? files.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
 }
 
 function findSourceMutation(id) {
-  const sourceMutations = descriptor?.mutations?.source;
+  const sourceMutations = packageMetadata?.mutations?.source;
   return Array.isArray(sourceMutations)
     ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
@@ -151,10 +153,18 @@ test("shell-web generic link items support the expected shared route and icon be
 
   assert.match(shellMenuSource, /exact:\s*\{/);
   assert.match(shellMenuSource, /:exact="props\.exact"/);
+  assert.match(shellMenuSource, /:aria-label="props\.label"/);
+  assert.match(shellMenuSource, /ShellNavigationTooltip/);
+  assert.match(shellMenuSource, /@keydown\.space="activateShellNavigationLinkOnSpace"/);
+  assert.doesNotMatch(shellMenuSource, /v-tooltip="props\.label"/);
   assert.match(shellMenuSource, /class="shell-menu-link-item"/);
   assert.match(shellMenuSource, /min-height:\s*48px/);
   assert.match(shellSurfaceAwareSource, /exact:\s*\{/);
   assert.match(shellSurfaceAwareSource, /:exact="props\.exact"/);
+  assert.match(shellSurfaceAwareSource, /:aria-label="props\.label"/);
+  assert.match(shellSurfaceAwareSource, /ShellNavigationTooltip/);
+  assert.match(shellSurfaceAwareSource, /@keydown\.space="activateShellNavigationLinkOnSpace"/);
+  assert.doesNotMatch(shellSurfaceAwareSource, /v-tooltip="props\.label"/);
   assert.match(shellSurfaceAwareSource, /class="shell-menu-link-item"/);
   assert.match(shellSurfaceAwareSource, /min-height:\s*48px/);
   assert.match(shellTabSource, /icon:\s*\{/);
@@ -163,6 +173,18 @@ test("shell-web generic link items support the expected shared route and icon be
   assert.match(shellTabSource, /stacked/);
   assert.match(shellTabSource, /min-height:\s*48px/);
   assert.match(shellTabSource, /<v-icon v-if="resolvedIcon" :icon="resolvedIcon" \/>/);
+
+  const tooltipSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "ShellNavigationTooltip.vue"),
+    "utf8"
+  );
+  assert.match(tooltipSource, /:theme="theme\.name\.value"/);
+  assert.match(tooltipSource, /location="end"/);
+  assert.match(tooltipSource, /:open-on-focus="true"/);
+  assert.match(tooltipSource, /:open-on-hover="true"/);
+  assert.match(tooltipSource, /--v-theme-inverse-surface, var\(--v-theme-on-surface\)/);
+  assert.match(tooltipSource, /--v-theme-inverse-on-surface, var\(--v-theme-surface\)/);
+  assert.match(tooltipSource, /opacity:\s*1\s*!important/);
 });
 
 test("shell-web binds the local link-item wrapper tokens into MainClientProvider", () => {

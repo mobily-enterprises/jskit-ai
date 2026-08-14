@@ -504,7 +504,7 @@ async function resolveSocketActorId(authService, socket) {
   if (!authResult || authResult.authenticated !== true) {
     return null;
   }
-  return normalizeRecordId(authResult?.profile?.id, { fallback: null });
+  return normalizeRecordId(authResult?.actor?.id, { fallback: null });
 }
 
 async function resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId) {

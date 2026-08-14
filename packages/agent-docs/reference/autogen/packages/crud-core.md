@@ -8,65 +8,11 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/crud-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
 ### src
-
-### `src/client/composables/createCrudClientSupport.js`
-Exports
-- `useCrudClientContext(source = {})`
-- `useCrudListRuntime(source = {})`
-- `useCrudCreateRuntime(source = {})`
-- `useCrudRecordRuntime(source = {}, { recordIdParam = "recordId" } = {})`
-- `createCrudClientSupport(source = {})`
-Local functions
-- `normalizeText(value = "")`
-- `normalizeRouteParams(params = {})`
-- `normalizePathTemplate(value = "")`
-- `resolvePathTemplate(pathTemplate = "", { routeParams = {}, params = {}, context = "resolvePathTemplate" } = {})`
-
-### `src/client/composables/crudClientSupportHelpers.js`
-Exports
-- `DEFAULT_CRUD_OWNERSHIP_FILTER`
-- `requireCrudNamespace`
-- `resolveCrudClientConfig(source = {})`
-- `formatDateTime`
-- `resolveCrudRecordChangedEvent`
-- `crudScopeQueryKey(namespace = "")`
-- `invalidateCrudQueries(queryClient, namespace = "")`
-- `crudListQueryKey(surfaceId = "", workspaceSlug = "", namespace = "")`
-- `crudViewQueryKey(surfaceId = "", workspaceSlug = "", recordId = "", namespace = "")`
-- `toRouteRecordId(value)`
-- `normalizeCrudRouteParamName(value, { context = "normalizeCrudRouteParamName" } = {})`
-- `resolveCrudRecordPathTemplates(relativePath = "", recordIdParam = "recordId")`
-- `resolveCrudRecordPathParams(recordIdLike = "", recordIdParam = "recordId")`
-Local functions
-- `normalizeRelativePath(value, { context = "resolveCrudClientConfig" } = {})`
-
-### `src/client/composables/useCrudRealtimeInvalidation.js`
-Exports
-- `useCrudRealtimeInvalidation(namespace = "", { event = "", enabled = true, matches = null, queryKey = null } = {})`
-
-### `src/client/index.js`
-Exports
-- `DEFAULT_CRUD_OWNERSHIP_FILTER`
-- `resolveCrudClientConfig`
-- `crudListQueryKey`
-- `crudViewQueryKey`
-- `crudScopeQueryKey`
-- `invalidateCrudQueries`
-- `formatDateTime`
-- `resolveCrudRecordChangedEvent`
-- `toRouteRecordId`
-- `requireCrudNamespace`
-- `useCrudClientContext`
-- `useCrudListRuntime`
-- `useCrudCreateRuntime`
-- `useCrudRecordRuntime`
-- `createCrudClientSupport`
-- `useCrudRealtimeInvalidation`
 
 ### `src/server/createCrudServiceFromResource.js`
 Exports
@@ -223,7 +169,7 @@ Exports
 - `requireCrudTableName(tableName, { context = "crudRepository" } = {})`
 - `deriveRepositoryMappingFromResource(resource = {}, { context = "crudRepository" } = {})`
 - `applyCrudListQueryFilters(query, { idColumn = "id", cursor = "", applyCursor = true, q = "", searchColumns = [], parentFilters = {}, parentFilterColumns = {} } = {})`
-- `mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] } = {})`
+- `mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [], serializerByKey = {} } = {})`
 - `buildWritePayload(sourcePayload = {}, fieldKeys = [], overrides = {}, { serializerByKey = {} } = {})`
 - `resolveColumnName(fieldKey, overrides = {})`
 - `resolveCrudIdColumn(idColumn, { fallback = "id" } = {})`
@@ -353,27 +299,3 @@ Exports
 Local functions
 - `requireCrudServiceRepository(runtime = {}, repository = null)`
 - `splitCrudListRepositoryCall(query = {}, options = {})`
-
-### `src/shared/crudFieldSupport.js`
-Exports
-- `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
-- `CRUD_LOOKUP_FORM_CONTROL_SELECT`
-- `CRUD_RUNTIME_LOOKUPS_FIELD_KEY`
-- `checkCrudLookupFormControl(value, { context = "crud field ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
-- `isCrudRuntimeOutputOnlyFieldKey(value = "", { lookupContainerKey = CRUD_RUNTIME_LOOKUPS_FIELD_KEY } = {})`
-
-### `src/shared/crudNamespaceSupport.js`
-Exports
-- `normalizeCrudNamespace`
-- `requireCrudNamespace`
-- `resolveCrudRecordChangedEvent`
-
-### `src/shared/crudResource.js`
-Exports
-- `defineCrudResource`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -23,47 +23,80 @@ async function writeJson(filePath, value) {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-async function writeDescriptor(filePath, descriptor) {
-  await writeFile(filePath, `export default ${JSON.stringify(descriptor, null, 2)};\n`, "utf8");
+async function writePackageMetadata(packageRoot, packageMetadata) {
+  const packageJsonPath = path.join(packageRoot, "package.json");
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const { packageId, version, description, ...jskit } = packageMetadata;
+  packageJson.name = packageId || packageJson.name;
+  packageJson.version = version || packageJson.version;
+  if (description) {
+    packageJson.description = description;
+  }
+  packageJson.jskit = Object.keys(jskit).length > 0 ? jskit : { kind: "runtime" };
+  await writeJson(packageJsonPath, packageJson);
 }
 
-test("resolveLocalPackageSources includes every lock-classified local package regardless of scope or exports", async () => {
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-resolution-"));
-  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-    lockVersion: 1,
-    installedPackages: {
-      "@local/main": {
-        source: {
-          type: "local-package",
-          packagePath: "packages/main"
-        }
-      },
-      "@local/feature": {
-        source: {
-          type: "app-local-package",
-          packagePath: "packages/feature"
-        }
-      },
-      "@example/local-utility": {
-        source: {
-          type: "local-package",
-          packagePath: "packages/utility"
-        }
-      },
-      "@example/published": {
-        source: {
-          type: "npm",
-          packagePath: "packages/published"
-        }
-      }
-    }
-  });
+async function pathExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-  const localPackages = await resolveLocalPackageSources({
-    appRoot: tempRoot,
-    lockPath: ".jskit/lock.json"
+async function declareInstalledPackages(appRoot, packages = {}) {
+  const packageJsonPath = path.join(appRoot, "package.json");
+  const packageJson = (await pathExists(packageJsonPath))
+    ? JSON.parse(await readFile(packageJsonPath, "utf8"))
+    : { name: "fixture-app", private: true, type: "module" };
+  packageJson.dependencies = { ...(packageJson.dependencies || {}) };
+
+  for (const [packageId, options] of Object.entries(packages)) {
+    const packagePath = String(options?.packagePath || "").trim();
+    const packageRoot = packagePath
+      ? path.join(appRoot, packagePath)
+      : path.join(appRoot, "node_modules", ...packageId.split("/"));
+    packageJson.dependencies[packageId] = packagePath ? `file:${packagePath}` : "1.0.0";
+    await mkdir(packageRoot, { recursive: true });
+    const installedPackageJsonPath = path.join(packageRoot, "package.json");
+    if (!(await pathExists(installedPackageJsonPath))) {
+      await writeJson(installedPackageJsonPath, {
+        name: packageId,
+        version: "1.0.0",
+        exports: options?.exports || {}
+      });
+    }
+    if (!JSON.parse(await readFile(installedPackageJsonPath, "utf8")).jskit) {
+      await writePackageMetadata(packageRoot, {
+        packageId,
+        version: "1.0.0"
+      });
+    }
+  }
+
+  await writeJson(packageJsonPath, packageJson);
+}
+
+test("resolveLocalPackageSources includes every file dependency regardless of scope or exports", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-resolution-"));
+  await declareInstalledPackages(tempRoot, {
+    "@local/main": { packagePath: "packages/main" },
+    "@local/feature": { packagePath: "packages/feature" },
+    "@example/local-utility": { packagePath: "packages/utility" },
+    "@example/published": {}
   });
+  const utilityPackageJsonPath = path.join(
+    tempRoot,
+    "packages",
+    "utility",
+    "package.json"
+  );
+  const utilityPackageJson = JSON.parse(await readFile(utilityPackageJsonPath, "utf8"));
+  delete utilityPackageJson.jskit;
+  await writeJson(utilityPackageJsonPath, utilityPackageJson);
+
+  const localPackages = await resolveLocalPackageSources({ appRoot: tempRoot });
   assert.deepEqual(localPackages.map((entry) => entry.packageId), [
     "@example/local-utility",
     "@local/feature",
@@ -110,22 +143,22 @@ test("createVirtualModuleSource renders deterministic client module imports", ()
   const source = createVirtualModuleSource([
     {
       packageId: "@z/pkg",
-      descriptorUiRoutes: [{ id: "z.route", path: "/z", scope: "global", componentKey: "z-view" }],
-      descriptorClientProviders: [{ export: "ZProvider", entrypoint: "src/client/providers/ZProvider.js" }]
+      packageMetadataUiRoutes: [{ id: "z.route", path: "/z", scope: "global", componentKey: "z-view" }],
+      packageMetadataClientProviders: [{ export: "ZProvider", entrypoint: "src/client/providers/ZProvider.js" }]
     },
     {
       packageId: "@a/pkg",
-      descriptorUiRoutes: [{ id: "a.route", path: "/a", scope: "global", componentKey: "a-view" }],
-      descriptorClientProviders: [{ export: "AProvider", entrypoint: "src/client/providers/AProvider.js" }]
+      packageMetadataUiRoutes: [{ id: "a.route", path: "/a", scope: "global", componentKey: "a-view" }],
+      packageMetadataClientProviders: [{ export: "AProvider", entrypoint: "src/client/providers/AProvider.js" }]
     }
   ]);
 
   assert.match(source, /import \* as clientModule0 from "@a\/pkg\/client";/);
   assert.match(source, /import \* as clientModule1 from "@z\/pkg\/client";/);
-  assert.match(source, /descriptorUiRoutes: \[\{"id":"a\.route","path":"\/a","scope":"global","componentKey":"a-view"\}\]/);
-  assert.match(source, /descriptorClientProviders: \[\{"export":"AProvider","entrypoint":"src\/client\/providers\/AProvider\.js"\}\]/);
-  assert.match(source, /descriptorUiRoutes: \[\{"id":"z\.route","path":"\/z","scope":"global","componentKey":"z-view"\}\]/);
-  assert.match(source, /descriptorClientProviders: \[\{"export":"ZProvider","entrypoint":"src\/client\/providers\/ZProvider\.js"\}\]/);
+  assert.match(source, /packageMetadataUiRoutes: \[\{"id":"a\.route","path":"\/a","scope":"global","componentKey":"a-view"\}\]/);
+  assert.match(source, /packageMetadataClientProviders: \[\{"export":"AProvider","entrypoint":"src\/client\/providers\/AProvider\.js"\}\]/);
+  assert.match(source, /packageMetadataUiRoutes: \[\{"id":"z\.route","path":"\/z","scope":"global","componentKey":"z-view"\}\]/);
+  assert.match(source, /packageMetadataClientProviders: \[\{"export":"ZProvider","entrypoint":"src\/client\/providers\/ZProvider\.js"\}\]/);
   assert.match(source, /bootClientModules/);
   assert.match(source, /installedClientModules/);
 });
@@ -135,22 +168,22 @@ test("resolveClientOptimizeExcludeSpecifiers excludes local/app-local package ro
     {
       packageId: "@z/pkg",
       sourceType: "packages-directory",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     },
     {
       packageId: "@a/pkg",
       sourceType: "app-local-package",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     },
     {
       packageId: "@b/pkg",
       sourceType: "local-package",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     },
     {
       packageId: "@c/pkg",
       sourceType: "npm",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     }
   ]);
 
@@ -164,19 +197,19 @@ test("resolveClientOptimizeExcludeSpecifiers excludes local/app-local package ro
   ]);
 });
 
-test("resolveClientOptimizeExcludeSpecifiers includes descriptor-declared excludes", () => {
+test("resolveClientOptimizeExcludeSpecifiers includes packageMetadata-declared excludes", () => {
   const exclude = resolveClientOptimizeExcludeSpecifiers([
     {
       packageId: "@z/pkg",
       sourceType: "packages-directory",
-      descriptorUiRoutes: [],
-      descriptorClientOptimizeExcludeSpecifiers: ["@z/pkg/client"]
+      packageMetadataUiRoutes: [],
+      packageMetadataClientOptimizeExcludeSpecifiers: ["@z/pkg/client"]
     },
     {
       packageId: "@a/pkg",
       sourceType: "local-package",
-      descriptorUiRoutes: [],
-      descriptorClientOptimizeExcludeSpecifiers: ["external-problem-dep"]
+      packageMetadataUiRoutes: [],
+      packageMetadataClientOptimizeExcludeSpecifiers: ["external-problem-dep"]
     }
   ]);
 
@@ -194,22 +227,22 @@ test("resolveClientOptimizeIncludeSpecifiers includes only non-local package cli
     {
       packageId: "@z/pkg",
       sourceType: "packages-directory",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     },
     {
       packageId: "@a/pkg",
       sourceType: "app-local-package",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     },
     {
       packageId: "@b/pkg",
       sourceType: "local-package",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     },
     {
       packageId: "@c/pkg",
       sourceType: "npm",
-      descriptorUiRoutes: []
+      packageMetadataUiRoutes: []
     }
   ]);
 
@@ -222,13 +255,13 @@ test("resolveClientOptimizeIncludeSpecifiers omits excluded package clients", ()
       {
         packageId: "@z/pkg",
         sourceType: "packages-directory",
-        descriptorUiRoutes: []
+        packageMetadataUiRoutes: []
       },
       {
         packageId: "@c/pkg",
         sourceType: "npm",
-        descriptorUiRoutes: [],
-        descriptorClientOptimizeIncludeSpecifiers: ["extra-dep"]
+        packageMetadataUiRoutes: [],
+        packageMetadataClientOptimizeIncludeSpecifiers: ["extra-dep"]
       }
     ],
     ["@z/pkg/client", "extra-dep"]
@@ -253,18 +286,16 @@ test("resolveInstalledClientPackageIds returns only installed packages with a cl
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-"));
   const appRoot = tempRoot;
 
-  await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
-  await writeJson(path.join(appRoot, ".jskit", "lock.json"), {
-    lockVersion: 1,
-    installedPackages: {
-      "@example/has-client": {},
-      "@example/no-client": {}
-    }
+  await declareInstalledPackages(appRoot, {
+    "@example/has-client": {},
+    "@example/no-client": {}
   });
 
   await mkdir(path.join(appRoot, "node_modules", "@example", "has-client"), { recursive: true });
   await writeJson(path.join(appRoot, "node_modules", "@example", "has-client", "package.json"), {
     name: "@example/has-client",
+    version: "1.0.0",
+    jskit: { kind: "runtime" },
     exports: {
       "./client": "./src/client/index.js"
     }
@@ -273,15 +304,14 @@ test("resolveInstalledClientPackageIds returns only installed packages with a cl
   await mkdir(path.join(appRoot, "node_modules", "@example", "no-client"), { recursive: true });
   await writeJson(path.join(appRoot, "node_modules", "@example", "no-client", "package.json"), {
     name: "@example/no-client",
+    version: "1.0.0",
+    jskit: { kind: "runtime" },
     exports: {
       "./server": "./src/server/index.js"
     }
   });
 
-  const packageIds = await resolveInstalledClientPackageIds({
-    appRoot,
-    lockPath: ".jskit/lock.json"
-  });
+  const packageIds = await resolveInstalledClientPackageIds({ appRoot });
 
   assert.deepEqual(packageIds, ["@example/has-client"]);
 });
@@ -289,23 +319,20 @@ test("resolveInstalledClientPackageIds returns only installed packages with a cl
 test("resolveInstalledClientModules returns installed modules with client exports", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-modules-"));
 
-  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-    lockVersion: 1,
-    installedPackages: {
-      "@example/has-client": {}
-    }
-  });
+  await declareInstalledPackages(tempRoot, { "@example/has-client": {} });
 
   const packageRoot = path.join(tempRoot, "node_modules", "@example", "has-client");
   await mkdir(packageRoot, { recursive: true });
   await writeJson(path.join(packageRoot, "package.json"), {
     name: "@example/has-client",
+    version: "1.0.0",
     exports: {
       "./client": "./src/client/index.js"
     }
   });
-  await writeDescriptor(path.join(packageRoot, "package.descriptor.mjs"), {
+  await writePackageMetadata(packageRoot, {
+    packageId: "@example/has-client",
+    version: "1.0.0",
     runtime: {
       client: {
         providers: [
@@ -335,50 +362,48 @@ test("resolveInstalledClientModules returns installed modules with client export
       }
     }
   });
-  const modules = await resolveInstalledClientModules({
-    appRoot: tempRoot,
-    lockPath: ".jskit/lock.json"
-  });
+  const modules = await resolveInstalledClientModules({ appRoot: tempRoot });
 
   assert.equal(modules.length, 1);
   assert.equal(modules[0].packageId, "@example/has-client");
-  assert.equal(modules[0].sourceType, "");
-  assert.equal(Array.isArray(modules[0].descriptorUiRoutes), true);
-  assert.equal(modules[0].descriptorUiRoutes.length, 1);
-  assert.equal(modules[0].descriptorUiRoutes[0].id, "auth.default-login-2");
-  assert.equal(Array.isArray(modules[0].descriptorClientProviders), true);
-  assert.equal(modules[0].descriptorClientProviders.length, 1);
-  assert.equal(modules[0].descriptorClientProviders[0].export, "HasClientProvider");
-  assert.equal(Array.isArray(modules[0].descriptorClientOptimizeIncludeSpecifiers), true);
-  assert.deepEqual(modules[0].descriptorClientOptimizeIncludeSpecifiers, ["mime-match"]);
+  assert.equal(modules[0].sourceType, "npm-package");
+  assert.equal(Array.isArray(modules[0].packageMetadataUiRoutes), true);
+  assert.equal(modules[0].packageMetadataUiRoutes.length, 1);
+  assert.equal(modules[0].packageMetadataUiRoutes[0].id, "auth.default-login-2");
+  assert.equal(Array.isArray(modules[0].packageMetadataClientProviders), true);
+  assert.equal(modules[0].packageMetadataClientProviders.length, 1);
+  assert.equal(modules[0].packageMetadataClientProviders[0].export, "HasClientProvider");
+  assert.equal(Array.isArray(modules[0].packageMetadataClientOptimizeIncludeSpecifiers), true);
+  assert.deepEqual(modules[0].packageMetadataClientOptimizeIncludeSpecifiers, ["mime-match"]);
 });
 
-test("resolveInstalledClientModules resolves descriptor via source.packagePath", async () => {
+test("resolveInstalledClientModules resolves a packageMetadata from a file dependency", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-package-path-"));
 
-  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-    lockVersion: 1,
-    installedPackages: {
-      "@example/has-client": {
-        source: {
-          type: "local-package",
-          packagePath: "packages/has-client"
-        }
-      }
-    }
+  await declareInstalledPackages(tempRoot, {
+    "@example/has-client": { packagePath: "packages/has-client" }
   });
 
   const packageRoot = path.join(tempRoot, "node_modules", "@example", "has-client");
   await mkdir(packageRoot, { recursive: true });
   await writeJson(path.join(packageRoot, "package.json"), {
     name: "@example/has-client",
+    version: "1.0.0",
     exports: {
       "./client": "./src/client/index.js"
     }
   });
   await mkdir(path.join(tempRoot, "packages", "has-client"), { recursive: true });
-  await writeDescriptor(path.join(tempRoot, "packages", "has-client", "package.descriptor.mjs"), {
+  await writeJson(path.join(tempRoot, "packages", "has-client", "package.json"), {
+    name: "@example/has-client",
+    version: "1.0.0",
+    exports: {
+      "./client": "./src/client/index.js"
+    }
+  });
+  await writePackageMetadata(path.join(tempRoot, "packages", "has-client"), {
+    packageId: "@example/has-client",
+    version: "1.0.0",
     runtime: {
       client: {
         providers: [
@@ -404,38 +429,19 @@ test("resolveInstalledClientModules resolves descriptor via source.packagePath",
     }
   });
 
-  const modules = await resolveInstalledClientModules({
-    appRoot: tempRoot,
-    lockPath: ".jskit/lock.json"
-  });
+  const modules = await resolveInstalledClientModules({ appRoot: tempRoot });
 
   assert.equal(modules.length, 1);
   assert.equal(modules[0].packageId, "@example/has-client");
   assert.equal(modules[0].sourceType, "local-package");
-  assert.equal(modules[0].descriptorUiRoutes.length, 1);
-  assert.equal(modules[0].descriptorUiRoutes[0].id, "local.route");
-  assert.equal(modules[0].descriptorClientProviders.length, 1);
-  assert.equal(modules[0].descriptorClientProviders[0].export, "LocalClientProvider");
+  assert.equal(modules[0].packageMetadataUiRoutes.length, 1);
+  assert.equal(modules[0].packageMetadataUiRoutes[0].id, "local.route");
+  assert.equal(modules[0].packageMetadataClientProviders.length, 1);
+  assert.equal(modules[0].packageMetadataClientProviders[0].export, "LocalClientProvider");
 });
 
-test("resolveLocalScopePackageIds reads @local packages from lock and package.json", async () => {
+test("resolveLocalScopePackageIds reads @local packages from package.json", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-"));
-  await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-  await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-    lockVersion: 1,
-    installedPackages: {
-      "@local/main": {
-        source: {
-          type: "packages-directory"
-        }
-      },
-      "@example/remote": {
-        source: {
-          type: "packages-directory"
-        }
-      }
-    }
-  });
   await writeJson(path.join(tempRoot, "package.json"), {
     name: "fixture-app",
     dependencies: {
@@ -447,12 +453,9 @@ test("resolveLocalScopePackageIds reads @local packages from lock and package.js
     }
   });
 
-  const packageIds = await resolveLocalScopePackageIds({
-    appRoot: tempRoot,
-    lockPath: ".jskit/lock.json"
-  });
+  const packageIds = await resolveLocalScopePackageIds({ appRoot: tempRoot });
 
-  assert.deepEqual(packageIds, ["@local/dev-only", "@local/feature", "@local/main"]);
+  assert.deepEqual(packageIds, ["@local/dev-only", "@local/feature"]);
 });
 
 test("createJskitClientBootstrapPlugin resolves and loads virtual module", async () => {
@@ -460,22 +463,14 @@ test("createJskitClientBootstrapPlugin resolves and loads virtual module", async
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@example/has-client": {
-          source: {
-            type: "packages-directory"
-          }
-        }
-      }
-    });
+    await declareInstalledPackages(tempRoot, { "@example/has-client": {} });
 
     const packageRoot = path.join(tempRoot, "node_modules", "@example", "has-client");
     await mkdir(packageRoot, { recursive: true });
     await writeJson(path.join(packageRoot, "package.json"), {
       name: "@example/has-client",
+      version: "1.0.0",
+      jskit: { kind: "runtime" },
       exports: {
         "./client": "./src/client/index.js"
       }
@@ -499,34 +494,11 @@ test("createJskitClientBootstrapPlugin resolves multiple local packages before V
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@local/main": {
-          source: {
-            type: "local-package",
-            packagePath: "packages/main"
-          }
-        },
-        "@local/feature": {
-          source: {
-            type: "app-local-package",
-            packagePath: "packages/feature"
-          }
-        },
-        "@example/local-utility": {
-          source: {
-            type: "local-package",
-            packagePath: "packages/utility"
-          }
-        },
-        "@example/published": {
-          source: {
-            type: "npm"
-          }
-        }
-      }
+    await declareInstalledPackages(tempRoot, {
+      "@local/main": { packagePath: "packages/main" },
+      "@local/feature": { packagePath: "packages/feature" },
+      "@example/local-utility": { packagePath: "packages/utility" },
+      "@example/published": {}
     });
 
     const packageFixtures = [
@@ -558,6 +530,7 @@ test("createJskitClientBootstrapPlugin resolves multiple local packages before V
     for (const fixture of packageFixtures) {
       const packageJson = {
         name: fixture.packageId,
+        version: "1.0.0",
         exports: fixture.exports
       };
       const sourcePackageRoot = path.join(tempRoot, "packages", fixture.packageDirectory);
@@ -566,12 +539,17 @@ test("createJskitClientBootstrapPlugin resolves multiple local packages before V
       await mkdir(installedPackageRoot, { recursive: true });
       await writeJson(path.join(sourcePackageRoot, "package.json"), packageJson);
       await writeJson(path.join(installedPackageRoot, "package.json"), packageJson);
+      await writePackageMetadata(sourcePackageRoot, {
+        packageId: fixture.packageId,
+        version: "1.0.0"
+      });
     }
 
     const publishedPackageRoot = path.join(tempRoot, "node_modules", "@example", "published");
     await mkdir(publishedPackageRoot, { recursive: true });
     await writeJson(path.join(publishedPackageRoot, "package.json"), {
       name: "@example/published",
+      version: "1.0.0",
       exports: {
         "./client": "./src/client/index.js"
       }
@@ -635,22 +613,14 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@example/has-client": {
-          source: {
-            type: "packages-directory"
-          }
-        }
-      }
-    });
+    await declareInstalledPackages(tempRoot, { "@example/has-client": {} });
 
     const packageRoot = path.join(tempRoot, "node_modules", "@example", "has-client");
     await mkdir(packageRoot, { recursive: true });
     await writeJson(path.join(packageRoot, "package.json"), {
       name: "@example/has-client",
+      version: "1.0.0",
+      jskit: { kind: "runtime" },
       exports: {
         "./client": "./src/client/index.js"
       }
@@ -674,32 +644,25 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
   }
 });
 
-test("createJskitClientBootstrapPlugin config lets descriptor excludes override automatic client includes", async () => {
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-descriptor-exclude-"));
+test("createJskitClientBootstrapPlugin config lets packageMetadata excludes override automatic client includes", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-packageMetadata-exclude-"));
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@example/app-bound-client": {
-          source: {
-            type: "npm"
-          }
-        }
-      }
-    });
+    await declareInstalledPackages(tempRoot, { "@example/app-bound-client": {} });
 
     const packageRoot = path.join(tempRoot, "node_modules", "@example", "app-bound-client");
     await mkdir(packageRoot, { recursive: true });
     await writeJson(path.join(packageRoot, "package.json"), {
       name: "@example/app-bound-client",
+      version: "1.0.0",
       exports: {
         "./client": "./src/client/index.js"
       }
     });
-    await writeDescriptor(path.join(packageRoot, "package.descriptor.mjs"), {
+    await writePackageMetadata(packageRoot, {
+      packageId: "@example/app-bound-client",
+      version: "1.0.0",
       metadata: {
         client: {
           optimizeDeps: {
@@ -731,32 +694,23 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@example/local-client": {
-          source: {
-            type: "local-package"
-          }
-        },
-        "@example/remote-client": {
-          source: {
-            type: "packages-directory"
-          }
-        }
-      }
+    await declareInstalledPackages(tempRoot, {
+      "@example/local-client": { packagePath: "packages/local-client" },
+      "@example/remote-client": {}
     });
 
-    const localPackageRoot = path.join(tempRoot, "node_modules", "@example", "local-client");
+    const localPackageRoot = path.join(tempRoot, "packages", "local-client");
     await mkdir(localPackageRoot, { recursive: true });
     await writeJson(path.join(localPackageRoot, "package.json"), {
       name: "@example/local-client",
+      version: "1.0.0",
       exports: {
         "./client": "./src/client/index.js"
       }
     });
-    await writeDescriptor(path.join(localPackageRoot, "package.descriptor.mjs"), {
+    await writePackageMetadata(localPackageRoot, {
+      packageId: "@example/local-client",
+      version: "1.0.0",
       metadata: {
         client: {
           optimizeDeps: {
@@ -770,6 +724,8 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
     await mkdir(remotePackageRoot, { recursive: true });
     await writeJson(path.join(remotePackageRoot, "package.json"), {
       name: "@example/remote-client",
+      version: "1.0.0",
+      jskit: { kind: "runtime" },
       exports: {
         "./client": "./src/client/index.js"
       }
@@ -796,10 +752,10 @@ test("createJskitClientBootstrapPlugin config preserves user resolve fields and 
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {}
+    await writeJson(path.join(tempRoot, "package.json"), {
+      name: "fixture-app",
+      private: true,
+      type: "module"
     });
 
     process.chdir(tempRoot);
@@ -822,39 +778,31 @@ test("createJskitClientBootstrapPlugin config preserves user resolve fields and 
   }
 });
 
-test("createJskitClientBootstrapPlugin config excludes all @local scoped packages from lock and package.json", async () => {
+test("createJskitClientBootstrapPlugin config excludes all @local scoped packages from package.json", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-config-"));
   const previousCwd = process.cwd();
 
   try {
-    await mkdir(path.join(tempRoot, ".jskit"), { recursive: true });
-    await writeJson(path.join(tempRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@local/main": {
-          source: {
-            type: "packages-directory"
-          }
-        },
-        "@example/remote-client": {
-          source: {
-            type: "packages-directory"
-          }
-        }
-      }
-    });
     await writeJson(path.join(tempRoot, "package.json"), {
       name: "fixture-app",
       dependencies: {
+        "@local/main": "file:packages/main",
         "@local/feature": "file:packages/feature",
         "@example/remote-client": "^1.0.0"
       }
+    });
+    await declareInstalledPackages(tempRoot, {
+      "@local/main": { packagePath: "packages/main" },
+      "@local/feature": { packagePath: "packages/feature" },
+      "@example/remote-client": {}
     });
 
     const remotePackageRoot = path.join(tempRoot, "node_modules", "@example", "remote-client");
     await mkdir(remotePackageRoot, { recursive: true });
     await writeJson(path.join(remotePackageRoot, "package.json"), {
       name: "@example/remote-client",
+      version: "1.0.0",
+      jskit: { kind: "runtime" },
       exports: {
         "./client": "./src/client/index.js"
       }

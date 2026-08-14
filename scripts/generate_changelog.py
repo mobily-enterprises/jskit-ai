@@ -143,7 +143,7 @@ SHOCK_LINES = {
     ],
     5: [
         "Existential level: this is a full application ecosystem now.",
-        "Existential level: annuity math appears to be legacy lore.",
+        "Existential level: annuity math appears to be enduring lore.",
         "Existential level: framework gravity has completely won.",
     ],
     6: [
@@ -229,7 +229,7 @@ def classify_drift(subject: str, files: list[str], stage: int) -> str:
     if calc_related and stage <= 2:
         return "Calculator DNA still clearly visible."
     if calc_related:
-        return "Calculator DNA still present, mostly as legacy heritage."
+        return "Calculator DNA still present, mostly as inherited heritage."
     if stage <= 1:
         return "Framework instincts are beginning to emerge."
     if stage <= 3:

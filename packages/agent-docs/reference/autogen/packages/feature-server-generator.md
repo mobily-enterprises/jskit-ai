@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/feature-server-generator/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -18,6 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `buildTemplateContext({ options = {} } = {})`
 Local functions
+- `runtimeDependencyVersion(packageName)`
 - `splitTextIntoWords(value)`
 - `wordsToPascal(words = [])`
 - `wordsToKebab(words = [])`
@@ -30,13 +31,9 @@ Local functions
 - `buildActionsContext({ surface })`
 - `buildServiceContext({ featureName, mode })`
 - `buildRouteContext({ surface })`
-- `buildDescriptorContext({ featureName, mode })`
+- `buildManifestContext({ featureName, mode })`
 
 ### templates
-
-### `templates/src/local-package/package.descriptor.mjs`
-Exports
-- None
 
 ### `templates/src/local-package/server/actions.js`
 Exports
@@ -66,9 +63,3 @@ Exports
 ### `templates/src/local-package/server/service.js`
 Exports
 - `createService({ featureRepository } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

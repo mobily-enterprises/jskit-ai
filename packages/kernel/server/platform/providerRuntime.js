@@ -2,13 +2,12 @@ import { ActionRuntimeServiceProvider } from "../actions/ActionRuntimeServicePro
 import { ServerRuntimeCoreServiceProvider } from "../runtime/ServerRuntimeCoreServiceProvider.js";
 import { createApplication } from "../kernel/index.js";
 import { createHttpRuntime } from "../http/lib/kernel.js";
-import { readLockFromApp } from "./providerRuntime/lockfile.js";
 import {
   collectGlobalUiPaths,
-  resolveInstalledPackageDescriptors,
-  resolveDescriptorLoadOrder,
-  validateDescriptorCapabilities
-} from "./providerRuntime/descriptorCatalog.js";
+  resolveInstalledJskitPackages,
+  resolvePackageLoadOrder,
+  validatePackageCapabilities
+} from "./providerRuntime/packageCatalog.js";
 import { loadPackageProviders, registerProviderClass } from "./providerRuntime/providerLoader.js";
 
 const KERNEL_BUILTIN_CAPABILITY_PROVIDERS = Object.freeze({
@@ -62,7 +61,6 @@ async function createProviderRuntimeApp({
 
 async function createProviderRuntimeFromApp({
   appRoot,
-  lockPath = ".jskit/lock.json",
   profile = "",
   env = {},
   logger = console,
@@ -72,39 +70,34 @@ async function createProviderRuntimeFromApp({
     throw new TypeError("createProviderRuntimeFromApp requires appRoot.");
   }
 
-  const { lock } = await readLockFromApp({
-    appRoot,
-    lockPath
+  const installedPackages = await resolveInstalledJskitPackages({
+    appRoot
   });
-  const descriptors = await resolveInstalledPackageDescriptors({
-    appRoot,
-    lock
-  });
-  validateDescriptorCapabilities(descriptors, {
+  validatePackageCapabilities(installedPackages, {
     builtinProvidersByCapability: KERNEL_BUILTIN_CAPABILITY_PROVIDERS
   });
-  const orderedDescriptors = resolveDescriptorLoadOrder(descriptors);
+  const orderedPackages = resolvePackageLoadOrder(installedPackages);
   const catalog = Object.freeze({
-    packageOrder: Object.freeze(orderedDescriptors.map((entry) => entry.packageId)),
-    globalUiPaths: collectGlobalUiPaths(orderedDescriptors),
-    descriptors: Object.freeze(orderedDescriptors)
+    packageOrder: Object.freeze(orderedPackages.map((entry) => entry.packageId)),
+    globalUiPaths: collectGlobalUiPaths(orderedPackages),
+    packages: Object.freeze(orderedPackages)
   });
 
   const orderedProviderClasses = [];
   const providerPackageIds = [];
   const seenProviderIds = new Map();
 
-  for (const descriptorEntry of catalog.descriptors) {
-    const packageProviders = await loadPackageProviders({ descriptorEntry });
+  for (const packageEntry of catalog.packages) {
+    const packageProviders = await loadPackageProviders({ packageEntry });
     if (packageProviders.length < 1) {
       continue;
     }
-    providerPackageIds.push(descriptorEntry.packageId);
+    providerPackageIds.push(packageEntry.packageId);
 
     for (const providerClass of packageProviders) {
       registerProviderClass({
         providerClass,
-        sourceId: descriptorEntry.packageId,
+        sourceId: packageEntry.packageId,
         seenProviderIds,
         orderedProviderClasses
       });

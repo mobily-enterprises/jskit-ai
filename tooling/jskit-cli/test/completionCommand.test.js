@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -27,7 +28,7 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function writeGeneratorPackage(appRoot, packageName, descriptorSource) {
+async function writeGeneratorPackage(appRoot, packageName, jskitSource) {
   const packageRoot = path.join(appRoot, "packages", packageName);
   await mkdir(packageRoot, { recursive: true });
   await writeFile(
@@ -43,7 +44,12 @@ async function writeGeneratorPackage(appRoot, packageName, descriptorSource) {
     )}\n`,
     "utf8"
   );
-  await writeFile(path.join(packageRoot, "package.descriptor.mjs"), descriptorSource, "utf8");
+  await writeJskitConfig(path.join(packageRoot), jskitSource);
+  const appPackageJsonPath = path.join(appRoot, "package.json");
+  const appPackageJson = JSON.parse(await readFile(appPackageJsonPath, "utf8"));
+  appPackageJson.devDependencies ||= {};
+  appPackageJson.devDependencies[`@jskit-ai/${packageName}`] = `file:packages/${packageName}`;
+  await writeFile(appPackageJsonPath, `${JSON.stringify(appPackageJson, null, 2)}\n`, "utf8");
 }
 
 test("completion bash prints an installable bash completion script", () => {
@@ -70,14 +76,6 @@ test("completion bash __complete__ lists only canonical top-level commands", () 
   assert.ok(completions.includes("list"));
   assert.ok(completions.includes("list-component-tokens"));
   assert.ok(completions.includes("show"));
-  assert.ok(!completions.includes("gen"));
-  assert.ok(!completions.includes("ls"));
-  assert.ok(!completions.includes("lp"));
-  assert.ok(!completions.includes("lct"));
-  assert.ok(!completions.includes("lpct"));
-  assert.ok(!completions.includes("list-link-items"));
-  assert.ok(!completions.includes("list-placement-component-tokens"));
-  assert.ok(!completions.includes("view"));
 });
 
 test("completion bash __complete__ exposes both create targets", () => {
@@ -100,14 +98,10 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.deepEqual(
     String(subcommandResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
     [
-      "adopt-managed-scripts",
-      "migrate-source-mutations",
       "preview-identity",
       "release",
-      "sync-ci",
       "update-packages",
-      "verify",
-      "verify-ui"
+      "verify"
     ]
   );
 
@@ -129,16 +123,6 @@ test("completion bash __complete__ lists app subcommands and app-specific option
   assert.deepEqual(
     String(releaseOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
     ["--dry-run", "--help", "--registry"]
-  );
-
-  const verifyUiOptionResult = runCli({
-    args: ["completion", "bash", "__complete__", "4", "--", "npx", "jskit", "app", "verify-ui", "--"]
-  });
-
-  assert.equal(verifyUiOptionResult.status, 0, String(verifyUiOptionResult.stderr || ""));
-  assert.deepEqual(
-    String(verifyUiOptionResult.stdout || "").trim().split(/\r?\n/u).filter(Boolean),
-    ["--against", "--auth-mode", "--command", "--feature", "--help"]
   );
 
   const verifyOptionResult = runCli({
@@ -179,7 +163,7 @@ test("completion bash --install writes a short loader file and updates bashrc", 
   });
 });
 
-test("completion bash __complete__ resolves descriptor-backed values from the current app", async () => {
+test("completion bash __complete__ resolves package metadata values from the current app", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "completion-app");
     await createMinimalApp(appRoot, { name: "completion-app" });
@@ -187,10 +171,7 @@ test("completion bash __complete__ resolves descriptor-backed values from the cu
     await writeGeneratorPackage(
       appRoot,
       "crud-ui-generator",
-      `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@jskit-ai/crud-ui-generator",
-  version: "0.1.0",
+      `({
   kind: "generator",
   options: {
     "resource-file": { inputType: "text" },
@@ -200,7 +181,6 @@ test("completion bash __complete__ resolves descriptor-backed values from the cu
       allowedValues: ["list", "view", "new", "edit"]
     }
   },
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: { server: { providers: [] }, client: { providers: [] } },
   metadata: {
@@ -213,16 +193,13 @@ test("completion bash __complete__ resolves descriptor-backed values from the cu
     }
   },
   mutations: { dependencies: { runtime: {}, dev: {} }, packageJson: { scripts: {} }, procfile: {}, files: [], text: [] }
-});\n`
+})\n`
     );
 
     await writeGeneratorPackage(
       appRoot,
       "crud-server-generator",
-      `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@jskit-ai/crud-server-generator",
-  version: "0.1.0",
+      `({
   kind: "generator",
   options: {
     "ownership-filter": {
@@ -231,7 +208,6 @@ test("completion bash __complete__ resolves descriptor-backed values from the cu
       allowedValues: ["auto", "public", "user", "workspace", "workspace_user"]
     }
   },
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: { server: { providers: [] }, client: { providers: [] } },
   metadata: {
@@ -243,7 +219,7 @@ test("completion bash __complete__ resolves descriptor-backed values from the cu
     }
   },
   mutations: { dependencies: { runtime: {}, dev: {} }, packageJson: { scripts: {} }, procfile: {}, files: [], text: [] }
-});\n`
+})\n`
     );
 
     const resourceDir = path.join(appRoot, "packages", "widgets", "src", "shared");

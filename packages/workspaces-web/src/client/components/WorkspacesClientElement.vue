@@ -12,10 +12,10 @@ import {
   WORKSPACES_TRANSPORT,
   WORKSPACE_INVITE_REDEEM_TRANSPORT
 } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
-import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
-import { useView } from "@jskit-ai/users-web/client/composables/useView";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
-import { useRealtimeQueryInvalidation } from "@jskit-ai/users-web/client/composables/useRealtimeQueryInvalidation";
+import { useCommand } from "@jskit-ai/http-web/client/composables/useCommand";
+import { useView } from "@jskit-ai/http-web/client/composables/useView";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
+import { useRealtimeQueryInvalidation } from "@jskit-ai/http-web/client/composables/useRealtimeQueryInvalidation";
 import { useWorkspaceSurfaceId } from "../composables/useWorkspaceSurfaceId.js";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -76,7 +76,7 @@ const redeemInviteModel = reactive({
   token: "",
   decision: ""
 });
-const bootstrapQueryKey = Object.freeze(["users-web", "bootstrap", "__none__"]);
+const bootstrapQueryKey = Object.freeze(["workspaces-web", "bootstrap", "__none__"]);
 const OWNERSHIP_PUBLIC = ROUTE_VISIBILITY_PUBLIC;
 
 const bootstrapView = useView({
@@ -179,12 +179,12 @@ function reportFeedback({
   }
 
   errorRuntime.report({
-    source: "users-web.workspaces-view",
+    source: "workspaces-web.workspaces-view",
     message: normalizedMessage,
     intent: "action-feedback",
     severity,
     channel,
-    dedupeKey: dedupeKey || `users-web.workspaces-view:${severity}:${normalizedMessage}`,
+    dedupeKey: dedupeKey || `workspaces-web.workspaces-view:${severity}:${normalizedMessage}`,
     dedupeWindowMs: 3000
   });
 }
@@ -235,7 +235,7 @@ async function openWorkspace(workspaceSlug) {
     reportFeedback({
       message: "Workspace surface is not configured.",
       severity: "error",
-      dedupeKey: "users-web.workspaces-view:workspace-surface-missing"
+      dedupeKey: "workspaces-web.workspaces-view:workspace-surface-missing"
     });
     return;
   }
@@ -259,7 +259,7 @@ async function openWorkspace(workspaceSlug) {
     reportFeedback({
       message: String(error?.message || "Unable to open workspace."),
       severity: "error",
-      dedupeKey: `users-web.workspaces-view:open-workspace:${normalizedSlug}`
+      dedupeKey: `workspaces-web.workspaces-view:open-workspace:${normalizedSlug}`
     });
   } finally {
     selectingWorkspaceSlug.value = "";
@@ -301,7 +301,7 @@ async function respondToInvite(invite, decision) {
     reportFeedback({
       message: "Invitation refused.",
       severity: "success",
-      dedupeKey: `users-web.workspaces-view:invite-refused:${token}`
+      dedupeKey: `workspaces-web.workspaces-view:invite-refused:${token}`
     });
   } catch (error) {
     reportFeedback({
@@ -309,7 +309,7 @@ async function respondToInvite(invite, decision) {
         error?.message || (normalizedDecision === "accept" ? "Unable to accept invite." : "Unable to refuse invite.")
       ),
       severity: "error",
-      dedupeKey: `users-web.workspaces-view:invite-${normalizedDecision}:${token}`
+      dedupeKey: `workspaces-web.workspaces-view:invite-${normalizedDecision}:${token}`
     });
   } finally {
     inviteAction.value = {
@@ -339,7 +339,7 @@ async function createWorkspace() {
     reportFeedback({
       message: "Workspace name is required.",
       severity: "error",
-      dedupeKey: "users-web.workspaces-view:create-workspace-name-required"
+      dedupeKey: "workspaces-web.workspaces-view:create-workspace-name-required"
     });
     return;
   }
@@ -358,7 +358,7 @@ async function createWorkspace() {
     reportFeedback({
       message: String(error?.message || "Unable to create workspace."),
       severity: "error",
-      dedupeKey: "users-web.workspaces-view:create-workspace-error"
+      dedupeKey: "workspaces-web.workspaces-view:create-workspace-error"
     });
   }
 }

@@ -11,9 +11,7 @@ exports.up = async function up(knex) {
     throw new Error(`Cannot install foreign keys before table "${TABLE_NAME}" exists.`);
   }
 
-  await knex.schema.alterTable(TABLE_NAME, (table) => {
-__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_LINES__
-  });
+__JSKIT_CRUD_MIGRATION_FOREIGN_KEY_BLOCK__
 };
 
 exports.down = async function down(knex) {
@@ -21,7 +19,5 @@ exports.down = async function down(knex) {
     return;
   }
 
-  await knex.schema.alterTable(TABLE_NAME, (table) => {
-__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_LINES__
-  });
+__JSKIT_CRUD_MIGRATION_DROP_FOREIGN_KEY_BLOCK__
 };

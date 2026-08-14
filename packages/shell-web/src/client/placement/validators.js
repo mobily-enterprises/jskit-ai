@@ -114,13 +114,6 @@ function normalizePlacementDefinition(value, { strict = false, source = "placeme
     return null;
   }
 
-  if (Object.hasOwn(value, "host") || Object.hasOwn(value, "position")) {
-    if (strict) {
-      throw new TypeError(`${source} must use "target" only. Legacy "host" and "position" fields are not supported.`);
-    }
-    return null;
-  }
-
   const id = normalizeText(value.id);
   if (!id) {
     if (strict) {

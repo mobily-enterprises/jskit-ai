@@ -5,12 +5,12 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import authLocalDescriptor from "../../../packages/auth-provider-local-core/package.descriptor.mjs";
-import authLocalDbDescriptor from "../../../packages/auth-provider-local-db-core/package.descriptor.mjs";
-import databaseDescriptor from "../../../packages/database-runtime/package.descriptor.mjs";
-import databaseMysqlDescriptor from "../../../packages/database-runtime-mysql/package.descriptor.mjs";
+import authLocalPackage from "../../../packages/auth-provider-local-core/package.json" with { type: "json" };
+import authLocalDbPackage from "../../../packages/auth-provider-local-db-core/package.json" with { type: "json" };
+import databasePackage from "../../../packages/database-runtime/package.json" with { type: "json" };
+import databaseMysqlPackage from "../../../packages/database-runtime-mysql/package.json" with { type: "json" };
 import { DIALECT_ID as MYSQL_DIALECT_ID } from "../../../packages/database-runtime-mysql/src/shared/dialect.js";
-import databasePostgresDescriptor from "../../../packages/database-runtime-postgres/package.descriptor.mjs";
+import databasePostgresPackage from "../../../packages/database-runtime-postgres/package.json" with { type: "json" };
 import { DIALECT_ID as POSTGRES_DIALECT_ID } from "../../../packages/database-runtime-postgres/src/shared/dialect.js";
 import { composeCiContributions } from "../../jskit-cli/src/server/cliRuntime/ci/composer.js";
 import {
@@ -26,11 +26,24 @@ const AGENT_DOCS_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/agent-d
 const CONFIG_ESLINT_PACKAGE_ROOT = fileURLToPath(new URL("../../config-eslint", import.meta.url));
 const JSKIT_CLI_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-cli", import.meta.url));
 const JSKIT_CATALOG_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
+
+function packageMetadata(packageJson) {
+  return {
+    ...packageJson.jskit,
+    packageId: packageJson.name,
+    version: packageJson.version,
+    description: packageJson.description
+  };
+}
+
+const authLocalMetadata = packageMetadata(authLocalPackage);
+const authLocalDbMetadata = packageMetadata(authLocalDbPackage);
+const databaseMetadata = packageMetadata(databasePackage);
 const DATABASE_CASES = Object.freeze([
   Object.freeze({
     id: "mariadb",
     label: "MariaDB",
-    descriptor: databaseMysqlDescriptor,
+    packageMetadata: packageMetadata(databaseMysqlPackage),
     dialectId: MYSQL_DIALECT_ID,
     serviceId: "mariadb",
     packageRoot: fileURLToPath(new URL("../../../packages/database-runtime-mysql", import.meta.url))
@@ -38,7 +51,7 @@ const DATABASE_CASES = Object.freeze([
   Object.freeze({
     id: "postgres",
     label: "PostgreSQL",
-    descriptor: databasePostgresDescriptor,
+    packageMetadata: packageMetadata(databasePostgresPackage),
     dialectId: POSTGRES_DIALECT_ID,
     serviceId: "postgres",
     packageRoot: fileURLToPath(new URL("../../../packages/database-runtime-postgres", import.meta.url))
@@ -80,10 +93,10 @@ function runChecked(command, args, { cwd, env = {}, label = command, timeout = 3
   return result;
 }
 
-function packageEntry(descriptor) {
+function packageEntry(packageMetadata) {
   return {
-    packageId: descriptor.packageId,
-    descriptor
+    packageId: packageMetadata.packageId,
+    packageMetadata
   };
 }
 
@@ -92,7 +105,7 @@ async function useCurrentCiPackageSources(appRoot, databaseCase) {
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
   packageJson.dependencies = packageJson.dependencies || {};
   packageJson.devDependencies = packageJson.devDependencies || {};
-  packageJson.dependencies[databaseCase.descriptor.packageId] =
+  packageJson.dependencies[databaseCase.packageMetadata.packageId] =
     `file:${databaseCase.packageRoot}`;
   packageJson.devDependencies["@jskit-ai/agent-docs"] =
     `file:${AGENT_DOCS_PACKAGE_ROOT}`;
@@ -102,16 +115,6 @@ async function useCurrentCiPackageSources(appRoot, databaseCase) {
     `file:${JSKIT_CLI_PACKAGE_ROOT}`;
   packageJson.devDependencies["@jskit-ai/jskit-catalog"] =
     `file:${JSKIT_CATALOG_PACKAGE_ROOT}`;
-  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
-}
-
-async function restoreManagedToolingSpecifiers(appRoot) {
-  const packageJsonPath = path.join(appRoot, "package.json");
-  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-  packageJson.devDependencies["@jskit-ai/agent-docs"] = "0.x";
-  packageJson.devDependencies["@jskit-ai/config-eslint"] = "0.x";
-  packageJson.devDependencies["@jskit-ai/jskit-cli"] = "0.x";
-  delete packageJson.devDependencies["@jskit-ai/jskit-catalog"];
   await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
@@ -189,10 +192,10 @@ for (const databaseCase of DATABASE_CASES) {
       const appName = `database-ci-clean-runner-${databaseCase.id}`;
       const appRoot = path.join(cwd, appName);
       const containerName = `jskit-database-ci-${databaseCase.id}-${process.pid}-${Date.now()}`;
-      const databaseService = databaseCase.descriptor.ci.services.find(
+      const databaseService = databaseCase.packageMetadata.ci.services.find(
         (entry) => entry.id === databaseCase.serviceId
       );
-      assert.ok(databaseService, `Expected ${databaseCase.label} descriptor service ${databaseCase.serviceId}.`);
+      assert.ok(databaseService, `Expected ${databaseCase.label} metadata service ${databaseCase.serviceId}.`);
 
       runChecked(process.execPath, [
         CREATE_APP_CLI,
@@ -209,7 +212,7 @@ for (const databaseCase of DATABASE_CASES) {
         [
           "add",
           "package",
-          databaseCase.descriptor.packageId,
+          databaseCase.packageMetadata.packageId,
           "--db-host",
           "local-only",
           "--db-port",
@@ -233,21 +236,29 @@ for (const databaseCase of DATABASE_CASES) {
         });
       }
 
-      const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
+      const installedPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
       for (const packageId of [
         "@jskit-ai/auth-provider-local-db-core",
-        databaseCase.descriptor.packageId,
+        databaseCase.packageMetadata.packageId,
         "@jskit-ai/users-core",
         "@jskit-ai/workspaces-core"
       ]) {
-        assert.ok(lock.installedPackages[packageId], `Expected ${packageId} to be installed through JSKIT.`);
+        assert.match(
+          String(installedPackageJson.dependencies[packageId] || ""),
+          /^\d+\.\d+\.\d+$/u,
+          `Expected ${packageId} to be installed exactly through npm.`
+        );
       }
+      assert.equal(
+        installedPackageJson.scripts["db:migrate"],
+        databasePackage.jskit.mutations.packageJson.scripts["db:migrate"]
+      );
 
       const ciModel = composeCiContributions([
-        packageEntry(authLocalDescriptor),
-        packageEntry(authLocalDbDescriptor),
-        packageEntry(databaseDescriptor),
-        packageEntry(databaseCase.descriptor)
+        packageEntry(authLocalMetadata),
+        packageEntry(authLocalDbMetadata),
+        packageEntry(databaseMetadata),
+        packageEntry(databaseCase.packageMetadata)
       ]);
       const workflowSource = await readFile(
         path.join(appRoot, JSKIT_CI_WORKFLOW_RELATIVE_PATH),
@@ -291,7 +302,6 @@ for (const databaseCase of DATABASE_CASES) {
           env: commandEnv,
           label: "npm ci"
         });
-        await restoreManagedToolingSpecifiers(appRoot);
         const migrationResult = runChecked("npm", ["run", "db:migrate"], {
           cwd: appRoot,
           env: commandEnv,

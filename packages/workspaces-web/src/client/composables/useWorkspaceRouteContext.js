@@ -1,5 +1,5 @@
 import { computed } from "vue";
-import { useSurfaceRouteContext } from "@jskit-ai/users-web/client/composables/useSurfaceRouteContext";
+import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { readWorkspaceRouteScope } from "../support/workspaceScopeSupport.js";
 
 function useWorkspaceRouteContext() {

@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/resource-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -27,9 +27,3 @@ Local functions
 - `normalizeOperationDefinition(operationName, operation = null, resourceMessages = null)`
 - `normalizeResourceOperations(operations = null, resourceMessages = null)`
 - `requireResourceNamespace(value, { context = "defineResource resource.namespace" } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

@@ -4,14 +4,16 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 import { resolveShellRouteTransitionKey } from "../src/client/support/routeTransitionKey.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
 function readOutlets(target = "") {
-  const outlets = descriptor?.metadata?.ui?.placements?.outlets;
+  const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
   const normalizedTarget = String(target || "").trim();
   return Array.isArray(outlets)
     ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
@@ -19,7 +21,7 @@ function readOutlets(target = "") {
 }
 
 function readContributions(target = "") {
-  const contributions = descriptor?.metadata?.ui?.placements?.contributions;
+  const contributions = packageMetadata?.metadata?.ui?.placements?.contributions;
   const normalizedTarget = String(target || "").trim();
   return Array.isArray(contributions)
     ? contributions.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
@@ -27,7 +29,7 @@ function readContributions(target = "") {
 }
 
 function readTopology(id = "", owner = "") {
-  const placements = descriptor?.metadata?.ui?.placements?.topology?.placements;
+  const placements = packageMetadata?.metadata?.ui?.placements?.topology?.placements;
   const normalizedId = String(id || "").trim();
   const normalizedOwner = String(owner || "").trim();
   return Array.isArray(placements)
@@ -46,12 +48,12 @@ function readPackageImportSpecifiers(source = "") {
 }
 
 function readClientContainerTokens() {
-  const tokens = descriptor?.metadata?.apiSummary?.containerTokens?.client;
+  const tokens = packageMetadata?.metadata?.apiSummary?.containerTokens?.client;
   return Array.isArray(tokens) ? tokens : [];
 }
 
 function findFileMutation(id) {
-  const files = descriptor?.mutations?.files;
+  const files = packageMetadata?.mutations?.files;
   return Array.isArray(files)
     ? files.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
@@ -95,12 +97,36 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
   assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
   assert.match(source, /data-testid="jskit-shell-drawer"/);
+  assert.match(source, /desktopDrawerClosedMode/);
+  assert.match(source, /default: "rail"/);
+  assert.match(source, /:rail="drawerPresentation\.rail"/);
+  assert.match(source, /drawerWidth/);
+  assert.match(source, /railWidth/);
+  assert.match(source, /navigationItemSpacing/);
+  assert.match(source, /:width="resolvedDrawerWidth"/);
+  assert.match(source, /:rail-width="resolvedRailWidth"/);
+  assert.match(source, /data-drawer-width="resolvedDrawerWidth"/);
+  assert.match(source, /data-navigation-item-spacing="resolvedNavigationItemSpacing"/);
+  assert.match(source, /data-rail-width="resolvedRailWidth"/);
+  assert.match(source, /data-layout="layoutClass"/);
+  assert.match(source, /measureDrawerContentWidth/);
+  assert.match(source, /DEFAULT_SHELL_NAVIGATION_ITEM_SPACING/);
+  assert.match(source, /:prepend-gap="resolvedNavigationItemSpacing"/);
+  assert.match(source, /--shell-navigation-drawer-inset:\s*12px/);
+  assert.match(source, /--shell-navigation-rail-width/);
+  assert.match(source, /padding-inline-start:\s*var\(--shell-navigation-drawer-inset\)/);
+  assert.doesNotMatch(source, /<v-list-subheader/);
+  assert.doesNotMatch(source, /:width="248"/);
+  assert.doesNotMatch(source, /:rail-width="80"/);
+  assert.match(source, /:model-value="drawerPresentation\.visible"/);
+  assert.match(source, /data-testid="jskit-shell-nav-toggle"/);
   assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
   assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
 
   const template = await readFile(path.join(PACKAGE_DIR, "templates", "src", "components", "ShellLayout.vue"), "utf8");
 
   assert.match(template, /PackageShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout"/);
+  assert.match(template, /drawerWidth, railWidth, navigationItemSpacing, and future shell props package-owned/);
   assert.match(template, /h\(PackageShellLayout, attrs, slots\)/);
   assert.doesNotMatch(template, /ShellOutlet|ShellRouteTransition|useShellLayoutState|pointerdown|v-navigation-drawer|v-bottom-navigation/);
 });
@@ -148,7 +174,7 @@ test("shell-web installs generated adaptive shell Playwright smoke coverage", as
   assert.match(source, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/);
   assert.match(helperSource, /generated adaptive shell smoke/);
   assert.match(helperSource, /390/);
-  assert.match(helperSource, /768/);
+  assert.match(helperSource, /1024/);
   assert.match(helperSource, /1280/);
   assert.match(helperSource, /jskit-shell-bottom-nav/);
   assert.match(helperSource, /jskit-shell-drawer/);
@@ -288,8 +314,9 @@ test("shell-web settings general child page exposes an adaptive drawer preferenc
   assert.match(source, /generated-ui-screen generated-ui-screen--settings settings-general-screen/);
   assert.match(source, /drawerDefaultOpen/);
   assert.match(source, /setDrawerDefaultOpen/);
-  assert.match(source, /Phone layouts keep primary navigation in the bottom bar/);
-  assert.match(source, /Open drawer by default on wider screens/);
+  assert.match(source, /collapsed navigation remains available as a rail/);
+  assert.match(source, /Phone layouts close the drawer/);
+  assert.match(source, /Start with expanded navigation on wider screens/);
   assert.match(source, /min-height:\s*48px/);
   assert.doesNotMatch(source, /live in this browser only|tiny example|starter settings/);
 });
@@ -326,7 +353,7 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
   assert.match(source, /outlet: "shell-layout:supporting-side-panel"/);
 });
 
-test("shell-web descriptor pre-optimizes package subpaths reached only through dynamic base-shell modules", async () => {
+test("shell-web packageMetadata pre-optimizes package subpaths reached only through dynamic base-shell modules", async () => {
   const [providerSource, placementSource, placementTopologySource, errorSource] = await Promise.all([
     readFile(path.join(PACKAGE_DIR, "src", "client", "providers", "ShellWebClientProvider.js"), "utf8"),
     readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8"),
@@ -353,16 +380,16 @@ test("shell-web descriptor pre-optimizes package subpaths reached only through d
     "@jskit-ai/shell-web/client/error"
   ]);
 
-  assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.include, [
+  assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.include, [
     "@jskit-ai/shell-web/client/placement",
     "@jskit-ai/shell-web/client/error"
   ]);
-  assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.exclude, [
+  assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.exclude, [
     "@jskit-ai/shell-web/client"
   ]);
 });
 
-test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+test("shell-web packageMetadata metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
   const homePageMutationIds = [
     "shell-web-page-home-wrapper",
     "shell-web-page-home",

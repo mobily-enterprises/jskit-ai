@@ -8,15 +8,29 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `tooling/testUtils/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
 ### root
 
+### `browserFixture.mjs`
+Exports
+- `createChromiumLaunchOptions({ env = process.env } = {})`
+- `reservePort()`
+- `startCapturedProcess(command, args, { cwd, env = {} } = {})`
+- `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {} } = {})`
+- `stopProcess(runtime)`
+
 ### `fakeFastify.mjs`
 Exports
 - `createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = {})`
+
+### `jskitPackage.mjs`
+Exports
+- `writeJskitConfig(packageRoot, jskitOrSource)`
+Local functions
+- `resolveJskitConfig(jskitOrSource)`
 
 ### `runCli.js`
 Exports

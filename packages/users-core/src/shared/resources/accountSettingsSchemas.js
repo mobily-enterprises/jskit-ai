@@ -64,7 +64,7 @@ const accountSecurityStatusSchema = createSchema({
     required: true,
     schema: accountSecuritySessionsSchema
   },
-  authPolicy: {
+  policy: {
     type: "object",
     required: true,
     schema: accountSecurityAuthPolicySchema

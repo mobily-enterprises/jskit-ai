@@ -1,4 +1,4 @@
-import { defineCrudListFilters } from "@jskit-ai/users-web/client/filters";
+import { defineCrudListFilters } from "@jskit-ai/http-web/client/filters";
 
 const listFilters = defineCrudListFilters({});
 

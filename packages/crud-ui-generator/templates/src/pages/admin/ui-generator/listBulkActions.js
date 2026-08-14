@@ -1,4 +1,4 @@
-import { defineCrudListBulkActions } from "@jskit-ai/users-web/client/bulkActions";
+import { defineCrudListBulkActions } from "@jskit-ai/http-web/client/bulkActions";
 
 const listBulkActions = defineCrudListBulkActions([]);
 

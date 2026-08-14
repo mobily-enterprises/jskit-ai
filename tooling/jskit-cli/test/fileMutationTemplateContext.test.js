@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -69,11 +70,9 @@ export { buildTemplateContext };
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageId: "@demo/template-context-feature",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(packageRoot),
+    `({
   kind: "runtime",
   runtime: {
     server: {
@@ -104,7 +103,7 @@ export { buildTemplateContext };
       }
     ]
   }
-});
+})
 `,
     "utf8"
   );
@@ -188,11 +187,9 @@ export { buildTemplateContext };
 
     await writeFile(path.join(packageRoot, "templates", "generated.txt"), "body=__BODY__\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/template-context-single-pass-feature",
-  version: "0.1.0",
+    await writeJskitConfig(
+      path.join(packageRoot),
+      `({
   kind: "runtime",
   runtime: {
     server: {
@@ -218,7 +215,7 @@ export { buildTemplateContext };
       }
     ]
   }
-});
+})
 `,
       "utf8"
     );
@@ -288,11 +285,9 @@ test("add package fails when file templateContext omits entrypoint", async () =>
 
     await writeFile(path.join(packageRoot, "templates", "generated.txt"), "body=__BODY__\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/template-context-missing-entrypoint-feature",
-  version: "0.1.0",
+    await writeJskitConfig(
+      path.join(packageRoot),
+      `({
   kind: "runtime",
   runtime: {
     server: {
@@ -317,7 +312,7 @@ test("add package fails when file templateContext omits entrypoint", async () =>
       }
     ]
   }
-});
+})
 `,
       "utf8"
     );
@@ -377,11 +372,9 @@ export { buildTemplateContext };
     await writeFile(path.join(packageRoot, "templates", "plain.txt"), "plain-copy\n", "utf8");
     await writeFile(path.join(packageRoot, "templates", "templated.txt"), "body=__BODY__\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/template-context-preflight-feature",
-  version: "0.1.0",
+    await writeJskitConfig(
+      path.join(packageRoot),
+      `({
   kind: "runtime",
   runtime: {
     server: {
@@ -411,7 +404,7 @@ export { buildTemplateContext };
       }
     ]
   }
-});
+})
 `,
       "utf8"
     );
@@ -476,11 +469,9 @@ export { buildTemplateContext };
       "utf8"
     );
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/template-context-migration-feature",
-  version: "0.1.0",
+    await writeJskitConfig(
+      path.join(packageRoot),
+      `({
   kind: "runtime",
   runtime: {
     server: {
@@ -509,7 +500,7 @@ export { buildTemplateContext };
       }
     ]
   }
-});
+})
 `,
       "utf8"
     );
@@ -573,11 +564,9 @@ export { buildTemplateContext };
       "utf8"
     );
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/template-context-append-text-feature",
-  version: "0.1.0",
+    await writeJskitConfig(
+      path.join(packageRoot),
+      `({
   kind: "runtime",
   runtime: {
     server: {
@@ -605,7 +594,7 @@ export { buildTemplateContext };
       }
     ]
   }
-});
+})
 `,
       "utf8"
     );
@@ -662,11 +651,9 @@ export { buildTemplateContext };
       "utf8"
     );
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/template-context-append-skip-feature",
-  version: "0.1.0",
+    await writeJskitConfig(
+      path.join(packageRoot),
+      `({
   kind: "runtime",
   runtime: {
     server: {
@@ -695,7 +682,7 @@ export { buildTemplateContext };
       }
     ]
   }
-});
+})
 `,
       "utf8"
     );

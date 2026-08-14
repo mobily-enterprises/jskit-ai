@@ -8,14 +8,10 @@ import {
   listAppCommandDefinitions,
   resolveAppCommandDefinition
 } from "./appCommandCatalog.js";
-import { runAppAdoptManagedScriptsCommand } from "./appCommands/adoptManagedScripts.js";
-import { runAppMigrateSourceMutationsCommand } from "./appCommands/migrateSourceMutations.js";
 import { runAppPreviewIdentityCommand } from "./appCommands/previewIdentity.js";
 import { runAppReleaseCommand } from "./appCommands/release.js";
-import { runAppSyncCiCommand } from "./appCommands/syncCi.js";
 import { runAppUpdatePackagesCommand } from "./appCommands/updatePackages.js";
 import { runAppVerifyCommand } from "./appCommands/verify.js";
-import { runAppVerifyUiCommand } from "./appCommands/verifyUi.js";
 
 function renderAppHelp(stream, definition = null) {
   const color = createColorFormatter(stream);
@@ -144,23 +140,11 @@ function createAppCommands(ctx = {}) {
         stdout
       });
     }
-    if (definition.name === "verify-ui") {
-      return runAppVerifyUiCommand(ctx, { appRoot, options, stdout, stderr });
-    }
     if (definition.name === "update-packages") {
       return runAppUpdatePackagesCommand(ctx, { appRoot, options, stdout, stderr });
     }
-    if (definition.name === "sync-ci") {
-      return runAppSyncCiCommand(ctx, { appRoot, options, stdout, stderr });
-    }
     if (definition.name === "release") {
       return runAppReleaseCommand(ctx, { appRoot, options, stdout, stderr });
-    }
-    if (definition.name === "adopt-managed-scripts") {
-      return runAppAdoptManagedScriptsCommand(ctx, { appRoot, options, stdout, stderr });
-    }
-    if (definition.name === "migrate-source-mutations") {
-      return runAppMigrateSourceMutationsCommand(ctx, { appRoot, options, stdout, stderr });
     }
     throw createCliError(`Unhandled app subcommand: ${definition.name}.`, {
       renderUsage: () => renderAppHelp(stderr, definition)

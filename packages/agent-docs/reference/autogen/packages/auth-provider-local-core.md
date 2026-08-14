@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/auth-provider-local-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -131,9 +131,3 @@ Local functions
 ### `src/server/providers/AuthProviderServiceProvider.js`
 Exports
 - `AuthProviderServiceProvider`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

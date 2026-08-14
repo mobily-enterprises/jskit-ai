@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/shell-web/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -65,7 +65,19 @@ Local functions
 Exports
 - None
 Local functions
+- `attachShellListeners()`
+- `detachShellListeners()`
+- `handleDrawerOpenChange(open)`
+- `handleLayoutClassChange(compact)`
+- `handleShellKeydown(event)`
+- `focusNavigationToggle()`
+- `initializeDrawerMeasurement()`
+- `resolveNavigationDrawerElement()`
+- `scheduleDrawerWidthMeasurement()`
+- `measureDrawerContentWidth()`
+- `measureRenderedText(element)`
 - `handlePullPointerDown(event)`
+- `handleDrawerVisibilityChange(open)`
 - `handlePullPointerMove(event)`
 - `handlePullPointerEnd(event)`
 - `handlePullPointerCancel(event)`
@@ -87,6 +99,10 @@ Local functions
 - `touchListIncludesActiveTouch(touchList)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
+Exports
+- None
+
+### `src/client/components/ShellNavigationTooltip.vue`
 Exports
 - None
 
@@ -233,6 +249,20 @@ Local functions
 - `normalizeParamsMap(params = null)`
 - `materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {})`
 - `resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {})`
+
+### `src/client/navigation/usePaths.js`
+Exports
+- `usePaths({ routeContext: sourceRouteContext = null } = {})`
+Local functions
+- `normalizePathSuffix(value = "")`
+- `resolveSurfaceId(value, fallback = "")`
+- `resolveDefaultSurfaceIdFromPlacementContext(placementContext = null)`
+- `normalizeRouteParams(params = null)`
+- `resolveRouteParams(baseParams = {}, overrideParams = null)`
+
+### `src/client/navigation/useSurfaceRouteContext.js`
+Exports
+- `useSurfaceRouteContext()`
 
 ### `src/client/placement/debug.js`
 Exports
@@ -404,6 +434,27 @@ Local functions
 Exports
 - `useShellLayoutStore`
 
+### `src/client/support/drawerPresentation.js`
+Exports
+- `DESKTOP_DRAWER_CLOSED_MODES`
+- `normalizeDesktopDrawerClosedMode(value = "rail")`
+- `resolveShellDrawerPresentation({ compact = false, open = false, desktopClosedMode = "rail" } = {})`
+- `resolveShellDrawerToggleLabel({ compact = false, open = false } = {})`
+
+### `src/client/support/drawerWidth.js`
+Exports
+- `DEFAULT_SHELL_DRAWER_WIDTH`
+- `DEFAULT_SHELL_NAVIGATION_ITEM_SPACING`
+- `DEFAULT_SHELL_RAIL_WIDTH`
+- `MAXIMUM_SHELL_DRAWER_WIDTH`
+- `MINIMUM_SHELL_DRAWER_WIDTH`
+- `normalizeShellDrawerWidth(value, fallback = DEFAULT_SHELL_DRAWER_WIDTH)`
+- `normalizeShellNavigationItemSpacing(value, fallback = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING)`
+- `normalizeShellRailWidth(value, fallback = DEFAULT_SHELL_RAIL_WIDTH)`
+- `resolveContentAwareDrawerWidth(measurements = [], { endGap = DEFAULT_SHELL_NAVIGATION_ITEM_SPACING, minimum = MINIMUM_SHELL_DRAWER_WIDTH, maximum = MAXIMUM_SHELL_DRAWER_WIDTH, fallback = DEFAULT_SHELL_DRAWER_WIDTH } = {})`
+Local functions
+- `clampNumber(value, minimum, maximum)`
+
 ### `src/client/support/menuLinkTarget.js`
 Exports
 - `normalizeMenuLinkPathname(pathname = "")`
@@ -413,6 +464,10 @@ Local functions
 - `interpolateBracketParams(pathTemplate = "", params = {})`
 - `isRelativeMenuLinkTarget(target = "")`
 - `surfaceRequiresWorkspaceFromPlacementContext(contextValue = null, surfaceId = "")`
+
+### `src/client/support/navigationLinkKeyboard.js`
+Exports
+- `activateShellNavigationLinkOnSpace(event)`
 
 ### `src/client/support/routeTransitionKey.js`
 Exports
@@ -499,8 +554,23 @@ Exports
 - `addPlacementTopology(value = {})`
 - `default`
 
-### root
+### fixtures
 
-### `package.descriptor.mjs`
+### `fixtures/adaptive-shell/src/App.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/main.js`
+Exports
+- None
+Local functions
+- `createSurfacePlacement(surface, order, label, suffix)`
+- `createSurfacePlacements(surface)`
+
+### `fixtures/adaptive-shell/src/ScreenPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/vite.config.mjs`
 Exports
 - None

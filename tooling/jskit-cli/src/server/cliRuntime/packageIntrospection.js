@@ -48,7 +48,7 @@ async function inspectPackageOfferings({ packageEntry }) {
     packageJson
   });
 
-  const runtime = ensureObject(packageEntry?.descriptor?.runtime);
+  const runtime = ensureObject(packageEntry?.packageMetadata?.runtime);
   const runtimeSides = [
     {
       side: "server",

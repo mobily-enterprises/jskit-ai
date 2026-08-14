@@ -17,7 +17,7 @@ test("console auth service decorator seeds first owner during session reads only
     async authenticateRequest(request) {
       return {
         authenticated: true,
-        profile: {
+        actor: {
           id: request.profileId
         }
       };
@@ -71,7 +71,7 @@ test("console auth service decorator safely shadows authenticateRequest on a fro
     calls.push({ request, args });
     return {
       authenticated: true,
-      profile: {
+      actor: {
         id: request.profileId
       }
     };
@@ -105,7 +105,7 @@ test("console auth service decorator safely shadows authenticateRequest on a fro
   assert.equal(Object.getPrototypeOf(decoratedAuthService), originalAuthService);
   assert.equal(originalAuthService.authenticateRequest, originalAuthenticateRequest);
   assert.equal(decoratedAuthService.readMarker(), "original-service");
-  assert.equal(result.profile.id, "42");
+  assert.equal(result.actor.id, "42");
   assert.deepEqual(ownerSeeds, ["42"]);
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].args, ["forwarded-argument"]);

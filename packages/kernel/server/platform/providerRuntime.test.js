@@ -8,75 +8,56 @@ import { createProviderRuntimeFromApp } from "./providerRuntime.js";
 
 async function createTestAppRoot(prefix) {
   const appRoot = await mkdtemp(path.join(tmpdir(), prefix));
-  await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
   await writeFile(
-    path.join(appRoot, ".jskit", "lock.json"),
-    `${JSON.stringify({ lockVersion: 1, installedPackages: {} }, null, 2)}\n`,
+    path.join(appRoot, "package.json"),
+    `${JSON.stringify({ name: "fixture-app", private: true, type: "module" }, null, 2)}\n`,
     "utf8"
   );
   return appRoot;
 }
 
-test("createProviderRuntimeFromApp discovers package providers from descriptor discover entries", async () => {
+async function declareLocalPackage(appRoot, packageId, packagePath, jskit = {}) {
+  await writeFile(
+    path.join(appRoot, "package.json"),
+    `${JSON.stringify({
+      name: "fixture-app",
+      private: true,
+      type: "module",
+      dependencies: {
+        [packageId]: `file:${packagePath}`
+      }
+    }, null, 2)}\n`,
+    "utf8"
+  );
+  const packageRoot = path.join(appRoot, packagePath);
+  await mkdir(packageRoot, { recursive: true });
+  await writeFile(
+    path.join(packageRoot, "package.json"),
+    `${JSON.stringify({
+      name: packageId,
+      version: "0.1.0",
+      description: "Local example package",
+      type: "module",
+      jskit
+    }, null, 2)}\n`,
+    "utf8"
+  );
+}
+
+test("createProviderRuntimeFromApp discovers package providers from package metadata", async () => {
   const appRoot = await createTestAppRoot("kernel-provider-runtime-discover-");
   try {
     await mkdir(path.join(appRoot, "packages", "local-example", "src", "server", "providers"), { recursive: true });
-    await writeFile(
-      path.join(appRoot, ".jskit", "lock.json"),
-      `${JSON.stringify(
-        {
-          lockVersion: 1,
-          installedPackages: {
-            "@local/example": {
-              packageId: "@local/example",
-              version: "0.1.0",
-              source: {
-                type: "local-package",
-                packagePath: "packages/local-example"
-              },
-              managed: {
-                packageJson: {
-                  dependencies: {},
-                  devDependencies: {},
-                  scripts: {}
-                },
-                text: {},
-                files: []
-              },
-              options: {},
-              installedAt: "2026-01-01T00:00:00.000Z"
-            }
-          }
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-    await writeFile(
-      path.join(appRoot, "packages", "local-example", "package.descriptor.mjs"),
-      [
-        "export default Object.freeze({",
-        "  packageVersion: 1,",
-        "  packageId: \"@local/example\",",
-        "  version: \"0.1.0\",",
-        "  description: \"Local example package\",",
-        "  dependsOn: [],",
-        "  capabilities: {",
-        "    provides: [],",
-        "    requires: []",
-        "  },",
-        "  runtime: {",
-        "    server: {",
-        "      providers: [",
-        "        { discover: { dir: \"src/server/providers\", pattern: \"*Provider.js\" } }",
-        "      ]",
-        "    }",
-        "  }",
-        "});"
-      ].join("\n"),
-      "utf8"
-    );
+    await declareLocalPackage(appRoot, "@local/example", "packages/local-example", {
+      capabilities: { provides: [], requires: [] },
+      runtime: {
+        server: {
+          providers: [
+            { discover: { dir: "src/server/providers", pattern: "*Provider.js" } }
+          ]
+        }
+      }
+    });
     await writeFile(
       path.join(appRoot, "packages", "local-example", "src", "server", "providers", "AlphaProvider.js"),
       [
@@ -145,64 +126,14 @@ test("createProviderRuntimeFromApp ignores app-local src/server/providers folder
   }
 });
 
-test("createProviderRuntimeFromApp resolves descriptor using source.packagePath", async () => {
+test("createProviderRuntimeFromApp resolves package metadata from a file dependency", async () => {
   const appRoot = await createTestAppRoot("kernel-provider-runtime-local-package-");
   try {
     await mkdir(path.join(appRoot, "packages", "local-example"), { recursive: true });
-    await writeFile(
-      path.join(appRoot, ".jskit", "lock.json"),
-      `${JSON.stringify(
-        {
-          lockVersion: 1,
-          installedPackages: {
-            "@local/example": {
-              packageId: "@local/example",
-              version: "0.1.0",
-              source: {
-                type: "local-package",
-                packagePath: "packages/local-example"
-              },
-              managed: {
-                packageJson: {
-                  dependencies: {},
-                  devDependencies: {},
-                  scripts: {}
-                },
-                text: {},
-                files: []
-              },
-              options: {},
-              installedAt: "2026-01-01T00:00:00.000Z"
-            }
-          }
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-    await writeFile(
-      path.join(appRoot, "packages", "local-example", "package.descriptor.mjs"),
-      [
-        "export default Object.freeze({",
-        "  packageVersion: 1,",
-        "  packageId: \"@local/example\",",
-        "  version: \"0.1.0\",",
-        "  description: \"Local example package\",",
-        "  dependsOn: [],",
-        "  capabilities: {",
-        "    provides: [],",
-        "    requires: []",
-        "  },",
-        "  runtime: {",
-        "    server: {",
-        "      providers: []",
-        "    }",
-        "  }",
-        "});"
-      ].join("\n"),
-      "utf8"
-    );
+    await declareLocalPackage(appRoot, "@local/example", "packages/local-example", {
+      capabilities: { provides: [], requires: [] },
+      runtime: { server: { providers: [] } }
+    });
 
     const runtime = await createProviderRuntimeFromApp({
       appRoot,
@@ -220,62 +151,16 @@ test("createProviderRuntimeFromApp wires fastify onClose to provider shutdown ex
   const appRoot = await createTestAppRoot("kernel-provider-runtime-fastify-close-");
   try {
     await mkdir(path.join(appRoot, "packages", "local-example", "src", "server", "providers"), { recursive: true });
-    await writeFile(
-      path.join(appRoot, ".jskit", "lock.json"),
-      `${JSON.stringify(
-        {
-          lockVersion: 1,
-          installedPackages: {
-            "@local/example": {
-              packageId: "@local/example",
-              version: "0.1.0",
-              source: {
-                type: "local-package",
-                packagePath: "packages/local-example"
-              },
-              managed: {
-                packageJson: {
-                  dependencies: {},
-                  devDependencies: {},
-                  scripts: {}
-                },
-                text: {},
-                files: []
-              },
-              options: {},
-              installedAt: "2026-01-01T00:00:00.000Z"
-            }
-          }
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-    await writeFile(
-      path.join(appRoot, "packages", "local-example", "package.descriptor.mjs"),
-      [
-        "export default Object.freeze({",
-        "  packageVersion: 1,",
-        "  packageId: \"@local/example\",",
-        "  version: \"0.1.0\",",
-        "  description: \"Local example package\",",
-        "  dependsOn: [],",
-        "  capabilities: {",
-        "    provides: [],",
-        "    requires: []",
-        "  },",
-        "  runtime: {",
-        "    server: {",
-        "      providers: [",
-        "        { discover: { dir: \"src/server/providers\", pattern: \"*Provider.js\" } }",
-        "      ]",
-        "    }",
-        "  }",
-        "});"
-      ].join("\n"),
-      "utf8"
-    );
+    await declareLocalPackage(appRoot, "@local/example", "packages/local-example", {
+      capabilities: { provides: [], requires: [] },
+      runtime: {
+        server: {
+          providers: [
+            { discover: { dir: "src/server/providers", pattern: "*Provider.js" } }
+          ]
+        }
+      }
+    });
     await writeFile(
       path.join(appRoot, "packages", "local-example", "src", "server", "providers", "CloseAwareProvider.js"),
       [

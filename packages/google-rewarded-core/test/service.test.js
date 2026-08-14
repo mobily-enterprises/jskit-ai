@@ -312,4 +312,11 @@ test("grantReward patches the watch session and creates an unlock receipt", asyn
   assert.equal(watchSessionsRepository.calls.patches.length, 1);
   assert.equal(watchSessionsRepository.calls.patches[0].recordId, "41");
   assert.equal(watchSessionsRepository.calls.patches[0].patch.status, "rewarded");
+  assert.equal(typeof watchSessionsRepository.calls.patches[0].patch.rewardedAt, "string");
+  assert.equal(
+    watchSessionsRepository.calls.patches[0].patch.completedAt,
+    watchSessionsRepository.calls.patches[0].patch.rewardedAt
+  );
+  assert.equal(createdReceiptPayloads[0].grantedAt, watchSessionsRepository.calls.patches[0].patch.rewardedAt);
+  assert.equal(typeof createdReceiptPayloads[0].unlockedUntil, "string");
 });

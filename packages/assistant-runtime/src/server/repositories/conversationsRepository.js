@@ -6,7 +6,7 @@ import {
   resolveInsertedId,
   stringifyJsonObject,
   toIso
-} from "@jskit-ai/assistant-core/server";
+} from "./repositoryPersistenceUtils.js";
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
 function normalizeWorkspaceId(value) {

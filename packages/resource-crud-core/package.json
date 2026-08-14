@@ -1,16 +1,51 @@
 {
   "name": "@jskit-ai/resource-crud-core",
-  "version": "0.1.88",
+  "version": "0.1.98",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "exports": {
+    "./shared/crudFieldContract": "./src/shared/crudFieldContract.js",
+    "./shared/crudListFilters": "./src/shared/crudListFilters.js",
+    "./shared/crudLookup": "./src/shared/crudLookup.js",
     "./shared/crudNamespaceSupport": "./src/shared/crudNamespaceSupport.js",
     "./shared/crudResource": "./src/shared/crudResource.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.145",
-    "@jskit-ai/resource-core": "0.1.88"
+    "@jskit-ai/kernel": "0.1.156",
+    "@jskit-ai/resource-core": "0.1.98"
+  },
+  "description": "Shared CRUD resource, field, lookup, filter, and namespace contracts.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "resource.crud-core"
+      ],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@jskit-ai/resource-crud-core": "0.1.98"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": [],
+      "text": []
+    }
   }
 }

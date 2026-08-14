@@ -25,7 +25,7 @@ JSKIT currently accepts three tenancy modes:
   - workspace slugs are user-selected rather than derived from the username
   - auto-provisioning is off by default, and self-creation is a separate policy choice
 
-Both `personal` and `workspaces` are workspace-capable modes, so they allow the workspace package descriptors to install the full workspace scaffold.
+Both `personal` and `workspaces` are workspace-capable modes, so they allow the workspace package metadata to install the full workspace scaffold.
 
 This chapter teaches `personal`, not `workspaces`.
 
@@ -58,68 +58,15 @@ npx jskit add package database-runtime-mysql \
   --db-password "$DB_PASSWORD"
 npx jskit add package users-web
 npx jskit add package console-web
-npm install
 npm run db:migrate
 ```
 
 If you are already continuing from the previous chapter, you do not need to rebuild the app from scratch. Read the textbox below first, then continue with the workspace package install.
 
-<DocsTerminalTip label="Important" title="Moving An Existing `none` App To `personal`">
-If you followed the guide in order, your existing app still has:
-
-```js
-config.tenancyMode = "none";
-```
-
-To move that app to workspace routing safely, do this **before** installing `workspaces-core` or `workspaces-web`:
-
-1. Edit `config/public.js` and change:
-
-```js
-config.tenancyMode = "personal";
-```
-
-2. Add `workspaces-core`
-3. Run `npx jskit update package users-core`
-4. Run `npm install`
-5. Add `workspaces-web`
-6. Run `npm install`
-7. Run `npm run db:migrate`
-
-The easy part to miss is step 3. If `users-web` / `users-core` were already installed while the app was still on `tenancyMode = "none"`, then changing `config.tenancyMode` and adding only the workspace packages is **not** enough. `npx jskit update package users-core` is required so the app-local `packages/users/...` scaffold is rewritten in its workspace-aware shape too.
-
-I checked the two failure modes while updating this chapter.
-
-- If the app is already in `personal` or `workspaces` mode when you add the workspace packages, JSKIT installs the full workspace scaffold, including:
-  - `src/pages/w/[workspaceSlug]...`
-  - `src/components/WorkspaceNotFoundCard.vue`
-  - `src/composables/useWorkspaceNotFoundState.js`
-  - the workspace placement entries in `src/placement.js`
-- If you add `workspaces-core` and `workspaces-web` while the app is still on `none`, JSKIT installs only the non-gated pieces. The app can still build, but those workspace route files and placements are missing.
-
-That last part is the trap: simply changing `config.tenancyMode` afterwards and running `npx jskit add package workspaces-core` or `workspaces-web` again does **not** backfill the skipped scaffold.
-
-If you already installed either workspace package while the app was still on `none`, the clean recovery path is:
-
-1. Change `config.tenancyMode` to `"personal"`
-2. Run `npx jskit update package users-core`
-3. Run `npx jskit update package workspaces-core`
-4. Run `npx jskit update package workspaces-web`
-5. Run `npm install`
-6. Run `npm run db:migrate`
-
-Why `users-core` is in that list too:
-
-- the workspace route scaffold comes from `workspaces-web`
-- but the app-owned `packages/users/...` CRUD scaffold also changes shape in workspace tenancy
-- if `users-web` was installed earlier while the app was still on `none`, the underlying `users-core` package had already written the non-workspace users scaffold
-
-So the recovery path has to refresh **both**:
-
-- the workspace surface scaffold from `workspaces-core` / `workspaces-web`
-- the workspace-aware users scaffold from `users-core`
-
-When I tested that recovery path, JSKIT warned that some migrations already existed and skipped re-installing them. That is expected. The important part is that `update package ...` re-applies the tenancy-sensitive scaffold after the tenancy mode has been fixed.
+<DocsTerminalTip label="Important" title="Choose Tenancy Before Generating User And Workspace Source">
+Set `config.tenancyMode = "personal"` before adding `users-core`,
+`workspaces-core`, or `workspaces-web`. Package generators read that decision when
+they create app-owned routes, placements, and user-package source.
 </DocsTerminalTip>
 
 ## Installing the workspace packages
@@ -128,24 +75,17 @@ If your app is already on `tenancyMode = "personal"`, run:
 
 ```bash
 npx jskit add package workspaces-core
-npm install
 npx jskit add package workspaces-web
-npm install
 npm run db:migrate
 ```
 
-<DocsTerminalTip label="Important" title="This Block Is Only The Fresh Workspace Install Path">
-These commands are complete only if the app was already on `tenancyMode = "personal"` when `users-web` / `users-core` were originally installed, or if you already ran the recovery `npx jskit update package users-core` step above.
-
-If you changed tenancy after installing users, do not skip that update. The workspace packages add workspace runtime and routes, but `users-core` is what rewrites the app-local users scaffold into its workspace-aware shape.
-</DocsTerminalTip>
 
 `workspaces-core` adds the server-side workspace runtime and schema migrations. `workspaces-web` adds the workspace-facing client surfaces, shell placements, and app-owned route files.
 
 If you want to inspect that package before installing it, this is a very good moment to use the CLI chapter's inspection command:
 
 ```bash
-npx jskit show @jskit-ai/workspaces-web --details
+npx jskit show package @jskit-ai/workspaces-web
 ```
 
 That output makes the package feel much less mysterious, because it shows the exact workspace shell contributions, settings outlets, client tokens, app-owned file writes, and capability requirements before you mutate the app.
@@ -604,7 +544,7 @@ That is exactly the kind of page `useWorkspaceRouteContext()` is for:
 ```vue
 <script setup>
 import { computed } from "vue";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useWorkspaceRouteContext } from "@jskit-ai/workspaces-web/client/composables/useWorkspaceRouteContext";
 
 const { workspaceSlugFromRoute, currentSurfaceId } = useWorkspaceRouteContext();

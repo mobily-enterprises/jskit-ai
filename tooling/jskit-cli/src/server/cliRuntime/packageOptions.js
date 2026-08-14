@@ -42,8 +42,8 @@ function parseSurfaceIdListForMutation(value = "") {
 }
 
 function resolveSurfaceVisibilityOptionPolicy(packageEntry = {}) {
-  const descriptor = ensureObject(packageEntry?.descriptor);
-  const optionPolicies = ensureObject(descriptor.optionPolicies);
+  const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+  const optionPolicies = ensureObject(packageMetadata.optionPolicies);
   const surfaceVisibilityPolicy = optionPolicies.surfaceVisibility;
   if (!surfaceVisibilityPolicy || surfaceVisibilityPolicy === false) {
     return null;
@@ -144,7 +144,7 @@ function resolveSchemaValidatedOptionNames(packageEntry = {}, validationType = "
     return [];
   }
 
-  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  const optionSchemas = ensureObject(packageEntry?.packageMetadata?.options);
   const candidateOptionNames = Array.isArray(optionNames) && optionNames.length > 0
     ? optionNames
     : Object.keys(optionSchemas);
@@ -199,7 +199,7 @@ function validateEnumOptionValues({
   }
 
   const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
-  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  const optionSchemas = ensureObject(packageEntry?.packageMetadata?.options);
   for (const optionName of validatedOptionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
     const value = String(resolvedOptions?.[optionName] || "").trim();
@@ -235,7 +235,7 @@ function validateCsvEnumOptionValues({
   }
 
   const packageId = String(packageEntry?.packageId || "").trim() || "unknown-package";
-  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  const optionSchemas = ensureObject(packageEntry?.packageMetadata?.options);
   for (const optionName of validatedOptionNames) {
     const schema = ensureObject(optionSchemas[optionName]);
     const value = String(resolvedOptions?.[optionName] || "").trim();
@@ -427,8 +427,11 @@ async function validateOptionValuesForPackage({
   });
 }
 
-async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "" } = {}) {
-  const optionSchemas = ensureObject(packageEntry.descriptor.options);
+async function resolvePackageOptions(packageEntry, inlineOptions, io, {
+  appRoot = "",
+  onPrompt = null
+} = {}) {
+  const optionSchemas = ensureObject(packageEntry.packageMetadata.options);
   const optionNames = Object.keys(optionSchemas);
   const resolved = {};
   const inlineOptionValues = ensureObject(inlineOptions);
@@ -539,6 +542,7 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
 
     if (schema.required) {
       const promptConfigContext = appRoot ? await loadConfigContext() : {};
+      onPrompt?.({ packageEntry, optionName, schema });
       assignResolvedOption(await promptForRequiredOption({
         ownerType: "package",
         ownerId: packageEntry.packageId,
@@ -571,7 +575,7 @@ async function resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot 
 }
 
 function validateInlineOptionsForPackage(packageEntry, inlineOptions) {
-  const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+  const optionSchemas = ensureObject(packageEntry?.packageMetadata?.options);
   const allowedOptionNames = Object.keys(optionSchemas);
   const allowed = new Set(allowedOptionNames);
   const providedOptionNames = Object.keys(ensureObject(inlineOptions));

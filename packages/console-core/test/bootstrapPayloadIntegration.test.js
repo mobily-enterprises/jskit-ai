@@ -56,7 +56,11 @@ test("bootstrap payload preserves consoleowner for authenticated users after use
         assert.equal(actionId, "auth.session.read");
         return {
           authenticated: true,
-          profile,
+          actor: {
+            id: profile.id,
+            displayName: profile.displayName,
+            email: profile.email
+          },
           session: {
             csrfToken: "csrf-1"
           }

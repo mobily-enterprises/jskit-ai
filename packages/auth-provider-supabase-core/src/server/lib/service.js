@@ -674,8 +674,9 @@ function createService(options) {
     if (!actor) {
       return result;
     }
+    const { profile: _profile, ...authResult } = result;
     return normalizeAuthResult({
-      ...result,
+      ...authResult,
       actor
     });
   }
@@ -774,7 +775,7 @@ function createService(options) {
       throw new AppError(401, "Authentication required.");
     }
 
-    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(devAuthResult.profile.id);
+    const passwordSignInPolicy = await resolvePasswordSignInPolicyForUserId(devAuthResult.actor.id);
     const authMethodsStatus = buildAuthMethodsStatusFromProviderIds([AUTH_METHOD_PASSWORD_PROVIDER], {
       ...passwordSignInPolicy,
       oauthProviders: authOAuthProviders

@@ -1,0 +1,4 @@
+interface:
+  display_name: "JSKIT"
+  short_description: "Build, debug, verify, and review JSKIT apps"
+  default_prompt: "Use $jskit to build, extend, troubleshoot, verify, or review this JSKIT application."

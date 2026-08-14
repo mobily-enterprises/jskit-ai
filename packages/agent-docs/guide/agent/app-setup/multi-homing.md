@@ -27,7 +27,7 @@ JSKIT currently accepts three tenancy modes:
   - workspace slugs are user-selected rather than derived from the username
   - auto-provisioning is off by default, and self-creation is a separate policy choice
 
-Both `personal` and `workspaces` are workspace-capable modes, so they allow the workspace package descriptors to install the full workspace scaffold.
+Both `personal` and `workspaces` are workspace-capable modes, so they allow the workspace package metadata to install the full workspace scaffold.
 
 This chapter teaches `personal`, not `workspaces`.
 
@@ -41,24 +41,16 @@ If your app is already on `tenancyMode = "personal"`, run:
 
 ```bash
 npx jskit add package workspaces-core
-npm install
 npx jskit add package workspaces-web
-npm install
 npm run db:migrate
 ```
-
-**Important: This Block Is Only The Fresh Workspace Install Path**
-
-These commands are complete only if the app was already on `tenancyMode = "personal"` when `users-web` / `users-core` were originally installed, or if you already ran the recovery `npx jskit update package users-core` step above.
-
-If you changed tenancy after installing users, do not skip that update. The workspace packages add workspace runtime and routes, but `users-core` is what rewrites the app-local users scaffold into its workspace-aware shape.
 
 `workspaces-core` adds the server-side workspace runtime and schema migrations. `workspaces-web` adds the workspace-facing client surfaces, shell placements, and app-owned route files.
 
 If you want to inspect that package before installing it, this is a very good moment to use the CLI chapter's inspection command:
 
 ```bash
-npx jskit show @jskit-ai/workspaces-web --details
+npx jskit show package @jskit-ai/workspaces-web
 ```
 
 That output makes the package feel much less mysterious, because it shows the exact workspace shell contributions, settings outlets, client tokens, app-owned file writes, and capability requirements before you mutate the app.
@@ -457,7 +449,7 @@ That is exactly the kind of page `useWorkspaceRouteContext()` is for:
 ```vue
 <script setup>
 import { computed } from "vue";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useWorkspaceRouteContext } from "@jskit-ai/workspaces-web/client/composables/useWorkspaceRouteContext";
 
 const { workspaceSlugFromRoute, currentSurfaceId } = useWorkspaceRouteContext();

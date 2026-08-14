@@ -1,9 +1,66 @@
 {
   "name": "@local/${option:feature-name|kebab}",
   "version": "0.1.0",
+  "description": "App-local non-CRUD feature package (${option:feature-name|kebab}).",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@jskit-ai/kernel": "0.1.156",
+    "json-rest-schema": "^1.0.17"__JSKIT_FEATURE_MANIFEST_DEPENDENCY_LINES__
+  },
   "exports": {
     "./server/actions": "./src/server/actions.js"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "feature.${option:feature-name|kebab}"
+      ],
+      "requires": [
+        "runtime.actions"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/${option:feature-name|pascal}Provider.js",
+            "export": "${option:feature-name|pascal}Provider"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server/actions",
+            "summary": "Exports generated feature action definitions with inline starter ids."
+          }
+        ],
+        "containerTokens": {
+          "server": [
+            "feature.${option:feature-name|kebab}.service"__JSKIT_FEATURE_METADATA_REPOSITORY_TOKEN_LINE__
+          ],
+          "client": []
+        }
+      },
+      "jskit": {
+        "scaffoldShape": "feature-server-v1",
+        "scaffoldMode": "${option:mode}",
+        "lane": "__JSKIT_FEATURE_METADATA_LANE__"
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {},
+        "dev": {}
+      },
+      "files": []
+    }
   }
 }

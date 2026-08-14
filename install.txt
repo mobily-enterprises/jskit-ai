@@ -372,7 +372,7 @@ Install app on Dokku:
 
   npm run jskit:update
   npm install
-  git add package.json package-lock.json .jskit/lock.json
+  git add package.json package-lock.json
   git commit -m "Prepare production deploy"
 
   # ========= SERVER (dokku) =========

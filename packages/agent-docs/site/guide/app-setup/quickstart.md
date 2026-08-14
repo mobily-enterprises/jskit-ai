@@ -77,7 +77,6 @@ npx jskit generate assistant settings-page \
   --surface admin \
   --name "Admin Assistant"
 
-npm install
 npm run db:migrate
 ```
 

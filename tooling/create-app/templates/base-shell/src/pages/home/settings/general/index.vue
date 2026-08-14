@@ -19,7 +19,7 @@ const drawerDefaultOpenModel = computed({
     <div>
       <h2 class="text-h6 mb-2">Navigation</h2>
       <p class="text-body-2 text-medium-emphasis mb-0">
-        Choose the default behavior for wider screens. Phone layouts keep primary navigation in the bottom bar.
+        On wider screens, collapsed navigation remains available as a rail. Phone layouts close the drawer and keep primary navigation in the bottom bar.
       </p>
     </div>
 
@@ -28,7 +28,7 @@ const drawerDefaultOpenModel = computed({
       color="primary"
       inset
       hide-details="auto"
-      label="Open drawer by default on wider screens"
+      label="Start with expanded navigation on wider screens"
     />
   </section>
 </template>

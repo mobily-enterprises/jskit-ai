@@ -15,7 +15,6 @@ npm install
 
 npx jskit add package auth-provider-local-core
 npx jskit add package auth-web
-npm install
 ```
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
@@ -72,7 +71,6 @@ npx jskit add package database-runtime-mysql \
   --db-name "$DB_NAME" \
   --db-user "$DB_USER" \
   --db-password "$DB_PASSWORD"
-npm install
 ```
 
 The first command adds the MySQL driver package and its generic JSKIT database runtime dependency, using the explicit connection values from those `DB_*` variables:
@@ -107,7 +105,7 @@ The app gets three database scripts in `package.json`:
 ```json
 {
   "scripts": {
-    "db:migrations:sync": "jskit migrations changed",
+    "db:migrations:sync": "jskit migrations sync",
     "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
     "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
     "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
@@ -155,9 +153,9 @@ Never modify or replace a generator-owned baseline migration. Later schema
 evolution must use a new immutable, package-owned additive migration in the
 table's app-local package, declared through `install-migration`.
 
-The npm scripts hide the easy-to-miss first step for normal use. `npm run db:migrate` and `npm run db:migrate:status` run `npm run db:migrations:sync` first, then run Knex. That means package upgrades can add new JSKIT-managed migration files before Knex checks what is pending.
+The npm scripts run `npm run db:migrations:sync` first, then run Knex. That means newly installed package migrations are present before Knex checks what is pending.
 
-### `jskit migrations ...` writes managed migration files
+### `jskit migrations sync` writes package migration files
 
 If you run the sync script directly:
 
@@ -165,7 +163,7 @@ If you run the sync script directly:
 npm run db:migrations:sync
 ```
 
-JSKIT checks the installed package state in `.jskit/lock.json` and materializes any managed migration files that need to exist in `migrations/`.
+JSKIT reads `install-migration` entries from `package.json.jskit` across the installed npm graph and writes any missing immutable migration files into `migrations/`.
 
 That command is about the app scaffold on disk.
 
@@ -192,26 +190,25 @@ So the clean mental model is:
 
 ### When you need each step
 
-In many normal `jskit add package ...` flows, JSKIT already materializes a package's managed migration files while the package is being applied.
+In normal `jskit add package ...` flows, JSKIT synchronizes package migration files after installation.
 
 That means the most common flow is still:
 
 ```bash
 npx jskit add package users-web
-npm install
 npm run db:migrate
 ```
 
-But if you ever need JSKIT to re-materialize or refresh the managed migration files for installed packages, that is when you use:
+You can also synchronize explicitly:
 
 ```bash
-npx jskit migrations changed
+npx jskit migrations sync
 npm run db:migrate
 ```
 
 So:
 
-- use `jskit migrations ...` when you need JSKIT to write or refresh managed migration files
+- use `jskit migrations sync` when you need JSKIT to write package migration files
 - use `npm run db:migrate` when you need Knex to apply pending migration files to the real database
 - sometimes you need only `npm run db:migrate`
 - sometimes, after repair or re-materialization work, you need **both**
@@ -234,7 +231,7 @@ This command:
 2. rejects duplicate or unsafe migration ids
 3. creates an editable template under the package's
    `templates/migrations/` directory
-4. adds the matching `install-migration` mutation to the package descriptor
+4. adds the matching `install-migration` mutation to `package.json.jskit`
 5. leaves the migration unmaterialized so its implementation can still be
    completed
 
@@ -242,12 +239,11 @@ Implement and test the template first. It intentionally fails if someone tries
 to apply the untouched scaffold. Then materialize and apply it:
 
 ```bash
-npx jskit migrations package @local/workflow-record-report-values
+npx jskit migrations sync
 npm run db:migrate
 ```
 
-The materialized migration and its lock record are managed artifacts. Once
-installed, the migration id and content are immutable. Any later correction
+Once synchronized, the migration id and content are immutable. Any later correction
 must use another additive migration with a new id.
 
 SQL inside the source-controlled migration is supported when Knex does not
@@ -644,13 +640,13 @@ After installing the MySQL runtime, the important new pieces in `package.json` l
 ```json
 {
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.x",
-    "@jskit-ai/database-runtime-mysql": "0.x",
+    "@jskit-ai/database-runtime": "0.1.148",
+    "@jskit-ai/database-runtime-mysql": "0.1.146",
     "knex": "^3.1.0",
     "mysql2": "^3.11.2"
   },
   "scripts": {
-    "db:migrations:sync": "jskit migrations changed",
+    "db:migrations:sync": "jskit migrations sync",
     "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
     "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
     "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
@@ -667,7 +663,7 @@ Those new dependencies divide into two roles:
 
 The migration scripts are also worth reading carefully:
 
-- `db:migrations:sync` writes or refreshes JSKIT-managed migration files in `migrations/`
+- `db:migrations:sync` writes missing immutable package migration files in `migrations/`
 - `db:migrate` syncs JSKIT-managed migration files, then applies all pending Knex migrations
 - `db:migrate:rollback` rolls back the last migration batch
 - `db:migrate:status` syncs JSKIT-managed migration files, then lists applied and pending migrations

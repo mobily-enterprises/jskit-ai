@@ -138,6 +138,36 @@ test("mapRecordRow omits keys whose source column is absent", () => {
   });
 });
 
+test("mapRecordRow serializes database temporal values for strict JSON resource output", () => {
+  const row = {
+    service_date: new Date("2026-08-13T23:59:58.123Z"),
+    opening_time: "07:08:09.123456",
+    scheduled_at: "2026-08-13 07:08:09.123456"
+  };
+  const mapped = mapRecordRow(
+    row,
+    ["serviceDate", "openingTime", "scheduledAt"],
+    {
+      serviceDate: "service_date",
+      openingTime: "opening_time",
+      scheduledAt: "scheduled_at"
+    },
+    {
+      serializerByKey: {
+        serviceDate: "date",
+        openingTime: "time",
+        scheduledAt: "datetime"
+      }
+    }
+  );
+
+  assert.deepEqual(mapped, {
+    serviceDate: "2026-08-13",
+    openingTime: "07:08:09.123456",
+    scheduledAt: "2026-08-13T07:08:09.123456Z"
+  });
+});
+
 test("buildWritePayload respects defined keys", () => {
   const payload = buildWritePayload(
     { foo: "bar", missing: true },
@@ -573,6 +603,36 @@ test("deriveRepositoryMappingFromResource tracks writable column-backed write se
   assert.deepEqual(mapping.writeSerializerByKey, {
     scheduledAt: "datetime-utc",
     archivedAt: "datetime-utc"
+  });
+  assert.deepEqual(mapping.outputSerializerByKey, {
+    scheduledAt: { type: "datetime" },
+    archivedAt: { type: "datetime" }
+  });
+});
+
+test("deriveRepositoryMappingFromResource tracks JSON temporal output serializers", () => {
+  const resource = {
+    operations: {
+      view: {
+        output: createOperationSchemaDefinition({
+          id: { type: "integer", required: true },
+          serviceDate: { type: "date", required: true },
+          openingTime: { type: "time", required: true },
+          scheduledAt: { type: "dateTime", temporalPrecision: 3, required: true }
+        })
+      },
+      create: {
+        body: createOperationSchemaDefinition({}, "create")
+      }
+    }
+  };
+
+  const mapping = deriveRepositoryMappingFromResource(resource);
+
+  assert.deepEqual(mapping.outputSerializerByKey, {
+    serviceDate: { type: "date" },
+    openingTime: { type: "time" },
+    scheduledAt: { type: "datetime", temporalPrecision: 3 }
   });
 });
 

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createSchema } from "json-rest-schema";
 import { createApplication } from "@jskit-ai/kernel/_testable";
 import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
 import { AuthActionsServiceProvider } from "../src/server/providers/AuthActionsServiceProvider.js";
@@ -204,5 +205,61 @@ test("AuthActionsServiceProvider registers shared auth actions against auth.prov
         realtimeEvent: "users.bootstrap.changed"
       }
     ]
+  );
+});
+
+test("AuthActionsServiceProvider leaves unrelated actions usable when no auth provider is selected", async () => {
+  const app = createApplication();
+
+  class PublicActionProvider {
+    static id = "public.actions";
+
+    static dependsOn = ["runtime.actions"];
+
+    register(targetApp) {
+      targetApp.action({
+        id: "public.ping",
+        domain: "public",
+        version: 1,
+        kind: "query",
+        channels: ["internal"],
+        surfaces: ["home"],
+        permission: { require: "none" },
+        input: {
+          schema: createSchema({}),
+          mode: "patch"
+        },
+        output: null,
+        idempotency: "none",
+        audit: { actionName: "public.ping" },
+        observability: {},
+        async execute() {
+          return { ok: true };
+        }
+      });
+    }
+  }
+
+  app.instance("appConfig", createAppConfigFixture());
+
+  await app.start({
+    providers: [ActionRuntimeServiceProvider, AuthActionsServiceProvider, PublicActionProvider]
+  });
+
+  const actionExecutor = app.make("actionExecutor");
+  assert.equal(
+    actionExecutor.listDefinitions().some((definition) => definition.id.startsWith("auth.")),
+    false
+  );
+  assert.deepEqual(
+    await actionExecutor.execute({
+      actionId: "public.ping",
+      input: {},
+      context: {
+        channel: "internal",
+        surface: "home"
+      }
+    }),
+    { ok: true }
   );
 });

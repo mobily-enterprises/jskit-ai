@@ -36,9 +36,9 @@ npx jskit mobile android doctor
 ```
 
 If doctor passes, the app is ready for the normal mobile workflow.
-The `jskit mobile android ...` commands expect the mobile runtime package to be
-installed in `package.json` and recorded in `.jskit/lock.json`; they do not
-install `@jskit-ai/mobile-capacitor` for you.
+The `jskit mobile android ...` commands expect
+`@jskit-ai/mobile-capacitor` in the installed npm graph; they do not install the
+runtime package for you.
 
 ## What you need on your machine
 
@@ -230,8 +230,8 @@ It also means:
 - the backend must be running on your laptop
 - the app needs an `adb reverse` tunnel
 
-If `apiBaseUrl` later points to a real remote `https://...` backend, the tunnel
-is no longer required.
+An `apiBaseUrl` that points to a remote `https://...` backend uses the device's
+normal network connection and does not need the tunnel.
 
 ## A good day-to-day loop
 

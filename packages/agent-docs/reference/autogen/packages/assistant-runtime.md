@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/assistant-runtime/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -141,6 +141,13 @@ Local functions
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
 - `resolveNextSequence(client, conversationId)`
 
+### `src/server/repositories/repositoryPersistenceUtils.js`
+Exports
+- `parseJsonObject`
+- `stringifyJsonObject(value)`
+- `toIso(value)`
+- `resolveInsertedId(insertResult)`
+
 ### `src/server/services/assistantConfigService.js`
 Exports
 - `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
@@ -232,11 +239,5 @@ Exports
 - None
 
 ### `templates/migrations/assistant_transcripts_initial.cjs`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None

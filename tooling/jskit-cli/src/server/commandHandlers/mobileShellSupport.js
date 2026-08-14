@@ -902,7 +902,7 @@ async function renderManagedMobileFile({
           rootDir: templateRoot
         };
 
-  const mutation = ensureArray(ensureObject(packageEntryForMutations.descriptor).mutations?.files)
+  const mutation = ensureArray(ensureObject(packageEntryForMutations.packageMetadata).mutations?.files)
     .map((entry) => interpolateFileMutationRecord(ensureObject(entry), {}, packageEntryForMutations.packageId))
     .find((entry) => normalizeRelativePosixPath(entry.to) === normalizedTargetPath);
   if (!mutation) {

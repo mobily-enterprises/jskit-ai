@@ -54,12 +54,21 @@ test("defineCrudResource derives standard CRUD operations and resource messages"
   const normalizedViewOutput = await validateSchemaPayload(resource.operations.view.output, {
     id: 7,
     name: " Example ",
-    createdAt: "2026-05-01 12:30:00.000",
+    createdAt: "2026-05-01T12:30:00.000Z",
     lookups: {}
   }, { phase: "output" });
   assert.equal(normalizedViewOutput.id, "7");
   assert.equal(normalizedViewOutput.name, "Example");
-  assert.ok(normalizedViewOutput.createdAt instanceof Date);
+  assert.equal(normalizedViewOutput.createdAt, "2026-05-01T12:30:00.000Z");
+});
+
+test("defineCrudResource supports an explicit standard CRUD operation subset", () => {
+  const resource = createContactsResource({
+    crudOperations: ["list", "view", "create"]
+  });
+
+  assert.deepEqual(Object.keys(resource.operations), ["list", "view", "create"]);
+  assert.equal(Object.hasOwn(resource, "crudOperations"), false);
 });
 
 test("defineCrudResource preserves and freezes resource-owned response defaults", () => {

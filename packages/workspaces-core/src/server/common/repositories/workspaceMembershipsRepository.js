@@ -136,6 +136,7 @@ function createRepository({ api, knex } = {}) {
     const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     if (existing) {
       if (existing.roleSid !== OWNER_ROLE_ID || existing.status !== "active") {
+        const updatedAt = new Date().toISOString();
         await api.resources.workspaceMemberships.patch(
           {
             inputRecord: createJsonApiInputRecord(
@@ -143,7 +144,7 @@ function createRepository({ api, knex } = {}) {
               {
                 roleSid: OWNER_ROLE_ID,
                 status: "active",
-                updatedAt: new Date()
+                updatedAt
               },
               {
                 id: existing.id
@@ -158,6 +159,7 @@ function createRepository({ api, knex } = {}) {
     }
 
     try {
+      const createdAt = new Date().toISOString();
       await api.resources.workspaceMemberships.post(
         {
           inputRecord: createJsonApiInputRecord(
@@ -165,8 +167,8 @@ function createRepository({ api, knex } = {}) {
             {
               roleSid: OWNER_ROLE_ID,
               status: "active",
-              createdAt: new Date(),
-              updatedAt: new Date()
+              createdAt,
+              updatedAt: createdAt
             },
             {
               relationships: createMembershipRelationships({
@@ -205,6 +207,7 @@ function createRepository({ api, knex } = {}) {
 
     if (!existing) {
       try {
+        const createdAt = new Date().toISOString();
         await api.resources.workspaceMemberships.post(
           {
             inputRecord: createJsonApiInputRecord(
@@ -212,8 +215,8 @@ function createRepository({ api, knex } = {}) {
               {
                 roleSid,
                 status,
-                createdAt: new Date(),
-                updatedAt: new Date()
+                createdAt,
+                updatedAt: createdAt
               },
               {
                 relationships: createMembershipRelationships({
@@ -234,6 +237,7 @@ function createRepository({ api, knex } = {}) {
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     }
 
+    const updatedAt = new Date().toISOString();
     await api.resources.workspaceMemberships.patch(
       {
         inputRecord: createJsonApiInputRecord(
@@ -241,7 +245,7 @@ function createRepository({ api, knex } = {}) {
           {
             roleSid,
             status,
-            updatedAt: new Date()
+            updatedAt
           },
           {
             id: existing.id

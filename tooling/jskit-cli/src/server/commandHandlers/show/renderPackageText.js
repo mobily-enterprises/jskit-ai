@@ -118,7 +118,7 @@ function renderPackagePayloadText({
   if (payload.description) {
     writeField("Description", payload.description);
   }
-  writeField("Descriptor", payload.descriptorPath, color.dim);
+  writeField("Manifest", payload.manifestPath, color.dim);
 
   if (summarySurfaces.length > 0) {
     stdout.write(`${color.heading("Summary:")}\n`);
@@ -243,12 +243,12 @@ function renderPackagePayloadText({
     writeWrappedItems
   });
 
-  if (payload.dependsOn.length > 0) {
+  if (payload.dependencies.length > 0) {
     writeWrappedItems({
       stdout,
-      heading: `${color.heading("Depends on")} ${color.installed(`(${payload.dependsOn.length})`)}:`,
+      heading: `${color.heading("Dependencies")} ${color.installed(`(${payload.dependencies.length})`)}:`,
       wrapWidth,
-      items: payload.dependsOn.map((dependencyId) => {
+      items: payload.dependencies.map((dependencyId) => {
         const text = String(dependencyId);
         return {
           text,

@@ -18,17 +18,17 @@ How to use it:
   - `page-scaffolding.md`
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - `child-cruds.md`
-- crud scaffold, crud server, crud ui, table creation, migrations, direct knex, weird-custom persistence, `crud-server-generator`, `crud-ui-generator`
+- crud scaffold, crud server, crud ui, table creation, migrations, direct knex, weird-custom persistence, fresh minimal app order, `crud-server-generator`, `crud-ui-generator`, `--delete-confirmation`
   - `crud-scaffolding.md`
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - `crud-links.md`
 - `definePage`, redirect, child redirect, settings landing, `redirectToChild`
   - `page-redirects.md`
-- live actions, checkbox, toggle, patch button, inline action, `useCommand()`
+- live actions, checkbox, toggle, patch button, delete confirmation, destructive action, inline action, `useCommand()`, `useCrudDeleteAction()`
   - `live-actions.md`
-- ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
+- ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `httpWebClient`
   - `client-requests.md`
-- playwright, browser test, e2e, ui verification, authenticated ui test, test auth, dev login as, dev auth bypass
+- playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`
 - generated UI contract, design contract, navigation roles, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
   - `generated-ui-contract-tracking.md`
@@ -36,7 +36,7 @@ How to use it:
   - `filters.md`
 - `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters
   - `server-search.md`
-- `actualField`, `storage.writeSerializer`, `storage.virtual`, computed field, virtual field, projection, `createCrudResourceRuntime`, `remainingBatchWeight`, datetime write serialization
+- `actualField`, `storage.writeSerializer`, `storage.virtual`, computed field, virtual field, projection, `createCrudResourceRuntime`, `remainingBatchWeight`, datetime write serialization, temporalPrecision, json-rest-schema dates
   - `crud-repository-mapping.md`
 - row policy, permission filtering, visibility before pagination, recursive CTE, descendants, package cycle, `RowPolicyPlugin`
   - `row-policies.md`

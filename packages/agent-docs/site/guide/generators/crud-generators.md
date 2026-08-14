@@ -29,6 +29,55 @@ It is meant to answer:
 
 Once that workflow is clear, continue with [Advanced CRUDs](/guide/generators/advanced-cruds) for the generated package anatomy, ownership model, and customization boundaries.
 
+## Fresh minimal Notes app: the complete command order
+
+The dependency install boundaries are part of the workflow. After the first
+install, use `npx --no-install jskit` so the command fails if the app-local CLI
+is unavailable instead of fetching a different copy.
+
+```bash
+npx @jskit-ai/create-app notes \
+  --target . \
+  --force \
+  --tenancy-mode none \
+  --minimal
+npm install
+
+npx --no-install jskit add package database-runtime-mysql
+
+# Create and select a fresh disposable database, then create the live `notes` table.
+
+npx --no-install jskit generate crud-server-generator scaffold \
+  --namespace notes \
+  --surface home \
+  --ownership-filter public \
+  --access public \
+  --table-name notes
+
+npx --no-install jskit generate crud-ui-generator crud notes \
+  --resource-file packages/notes/src/shared/noteResource.js \
+  --id-param noteId \
+  --display-fields title,body \
+  --parent-title contextual \
+  --navigation-role primary \
+  --delete-confirmation
+```
+
+The server generator resolves the complete package closure. `shell-web`
+establishes and owns `src/placement.js` before `realtime` contributes its
+placement, so do not pre-install the shell as a workaround.
+
+## Temporal values
+
+Temporal resource values are strings. `date` is `YYYY-MM-DD`; `time` is
+offset-free `HH:MM[:SS[.fraction]]`; and `dateTime` is RFC 3339 with seconds
+and a `Z` or numeric offset. Numeric epochs use `epochMilliseconds` or
+`epochSeconds`. Preserve `temporalPrecision`.
+
+Generated generic CRUD repositories convert database temporal values at the
+resource boundary. Custom repositories still need to return strict temporal
+strings and write ISO/RFC 3339 strings explicitly.
+
 ## The two generator packages
 
 ### `crud-server-generator` `@jskit-ai/crud-server-generator` `(0.1.47)`
@@ -290,7 +339,7 @@ installed. Later schema evolution must use a new immutable, package-owned
 additive migration in the table's app-local package, declared through
 `install-migration`.
 
-Create that source and descriptor mutation together with:
+Create that source and `package.json.jskit` mutation together with:
 
 ```bash
 npx jskit create migration \
@@ -299,7 +348,7 @@ npx jskit create migration \
 ```
 
 Implement the generated template before running
-`npx jskit migrations package @local/contacts`. SQL or Knex schema operations
+`npx jskit migrations sync`. SQL or Knex schema operations
 inside the source-controlled migration are supported. Running ad-hoc SQL
 against only one database is not, because it creates schema drift.
 
@@ -404,22 +453,6 @@ That file is the shared CRUD contract. The UI generator reads it to decide:
 
 So even though the server scaffold writes many files, the resource file is the bridge between the server and UI halves.
 
-### One install boundary to remember
-
-`crud-server-generator scaffold` also adds a new local app package dependency such as:
-
-```text
-@local/contacts
-```
-
-So before you build or run the app again, install that new local package:
-
-```bash
-npm install
-```
-
-The same rule applies after later server scaffolds such as `addresses` and `comments`. The UI generator can still read the generated resource file directly, but the app runtime needs the local package install boundary to be completed before the CRUD can boot normally.
-
 For standard CRUDs, that file is intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
 
 The generated server action validators are compact for the same reason.
@@ -447,7 +480,8 @@ npx jskit generate crud-ui-generator crud \
   w/[workspaceSlug]/admin/contacts \
   --resource-file packages/contacts/src/shared/contactResource.js \
   --id-param contactId \
-  --display-fields fullName,email,phone
+  --display-fields fullName,email,phone \
+  --delete-confirmation
 ```
 
 That creates the baseline CRUD route tree:
@@ -456,7 +490,26 @@ That creates the baseline CRUD route tree:
 - `w/[workspaceSlug]/admin/contacts/new.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/index.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/edit.vue`
-- shared `_components` files under the same route root
+- shared form files under the mirrored non-routed
+  `src/components/w/[workspaceSlug]/admin/contacts/` root
+
+The mirrored component root is intentional. The configured file router scans
+Vue files below `src/pages/`, so reusable Vue helpers must stay outside that
+directory or they become browser routes.
+
+`--delete-confirmation` is opt-in. When present, the generated view extends
+the public `CrudViewScreen` `actions` slot with `CrudDeleteAction`. That shared
+component owns the destructive button and Vuetify alert dialog. The public
+`useCrudDeleteAction()` composable resolves the current route id through the
+CRUD runtime, runs the shared resource's `DELETE` operation through
+`useCommand()`, disables duplicate submission, keeps a useful error on the
+record screen, invalidates the list query, and navigates to the generated list
+route after success. It supports custom `--id-param` names.
+
+The generator rejects this option when list or view is omitted, or when the
+shared resource has no `DELETE` operation. Without the flag, no delete control
+is generated. Do not substitute raw `fetch()` or import private `http-web`
+modules.
 
 Generated list, view, and lookup reads use the resource contract as their
 response authority. They return every field declared for output by default,
@@ -569,12 +622,6 @@ npx jskit generate crud-server-generator scaffold \
   --grant-role member
 ```
 
-Then install the generated local package:
-
-```bash
-npm install
-```
-
 ### Step 3: refine the generated lookup metadata by hand
 
 Open `packages/addresses/src/shared/addressResource.js` and add `labelKey: "fullName"` to the generated `contactId` relation:
@@ -618,7 +665,8 @@ That gives you a normal child route tree:
 - `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/new.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/[addressId]/index.vue`
 - `w/[workspaceSlug]/admin/contacts/[contactId]/addresses/[addressId]/edit.vue`
-- shared `_components` files under the same route root
+- shared form files under the mirrored non-routed
+  `src/components/w/[workspaceSlug]/admin/contacts/[contactId]/addresses/` root
 
 ### Step 5: remove the generated shell placement by hand
 
@@ -744,12 +792,6 @@ npx jskit generate crud-server-generator scaffold \
   --ownership-filter workspace \
   --table-name comments \
   --grant-role member
-```
-
-Then install the generated local package:
-
-```bash
-npm install
 ```
 
 ### Step 3: refine the generated lookup metadata by hand
@@ -883,7 +925,7 @@ Use this when:
 
 It is a maintenance tool, not the first step in the workflow.
 
-It patches the canonical `schema` inside the shared resource file. That matters because the standard CRUD validators are derived from that canonical schema; you are no longer maintaining separate authored `create` / `patch` / `view` validator blocks by hand.
+It patches the canonical `schema` inside the shared resource file. The standard CRUD validators are derived from that schema, so one authored field definition drives `create`, `patch`, and `view` validation.
 
 ## Summary
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   mkdir,
+  readFile,
   unlink,
   writeFile
 } from "node:fs/promises";
@@ -9,6 +10,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -31,18 +33,84 @@ async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
   );
 }
 
-async function scaffoldFeaturePackage(appRoot, featureName = "booking-engine", extraArgs = []) {
-  const result = runCli({
-    cwd: appRoot,
-    args: ["generate", "feature-server-generator", "scaffold", featureName, ...extraArgs]
-  });
-  assert.equal(result.status, 0, String(result.stderr || ""));
+async function scaffoldFeaturePackage(appRoot, featureName = "booking-engine") {
+  const featurePascal = featureName
+    .split(/[-_]/u)
+    .filter(Boolean)
+    .map((segment) => `${segment[0].toUpperCase()}${segment.slice(1)}`)
+    .join("");
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/package.json`,
+    `${JSON.stringify(
+      {
+        name: `@local/${featureName}`,
+        version: "0.1.0",
+        private: true,
+        type: "module",
+        jskit: {
+          kind: "runtime",
+          capabilities: {
+            provides: [`feature.${featureName}`],
+            requires: ["runtime.actions"]
+          },
+          runtime: {
+            server: {
+              providers: [{
+                entrypoint: `src/server/${featurePascal}Provider.js`,
+                export: `${featurePascal}Provider`
+              }]
+            },
+            client: {
+              providers: []
+            }
+          },
+          metadata: {
+            jskit: {
+              scaffoldShape: "feature-server-v1",
+              scaffoldMode: "json-rest",
+              lane: "default"
+            }
+          },
+          mutations: {
+            files: []
+          }
+        }
+      },
+      null,
+      2
+    )}\n`
+  );
+  await declareLocalPackage(appRoot, `@local/${featureName}`, featureName);
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/src/server/${featurePascal}Provider.js`,
+    `class ${featurePascal}Provider { register() {} boot() {} }\nexport { ${featurePascal}Provider };\n`
+  );
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/src/server/service.js`,
+    "function createService() { return {}; }\nexport { createService };\n"
+  );
+  await writeAppFile(
+    appRoot,
+    `packages/${featureName}/src/server/repository.js`,
+    `import { createJsonRestContext } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";\nfunction createRepository() { return createJsonRestContext({}); }\nexport { createRepository };\n`
+  );
 }
 
 async function writeAppFile(appRoot, relativePath, sourceText) {
   const absolutePath = path.join(appRoot, relativePath);
   await mkdir(path.dirname(absolutePath), { recursive: true });
   await writeFile(absolutePath, sourceText, "utf8");
+}
+
+async function declareLocalPackage(appRoot, packageId, packageDirectoryName) {
+  const manifestPath = path.join(appRoot, "package.json");
+  const packageJson = JSON.parse(await readFile(manifestPath, "utf8"));
+  packageJson.dependencies ||= {};
+  packageJson.dependencies[packageId] = `file:packages/${packageDirectoryName}`;
+  await writeFile(manifestPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
 async function createMainPackage(appRoot, { extraService = false } = {}) {
@@ -60,12 +128,9 @@ async function createMainPackage(appRoot, { extraService = false } = {}) {
     )}\n`
   );
 
-  await writeAppFile(
-    appRoot,
-    "packages/main/package.descriptor.mjs",
-    `export default Object.freeze({
-  packageId: "@local/main",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(appRoot, "packages/main"),
+    `({
   kind: "runtime",
   runtime: {
     server: {
@@ -88,9 +153,10 @@ async function createMainPackage(appRoot, { extraService = false } = {}) {
   mutations: {
     files: []
   }
-});
+})
 `
   );
+  await declareLocalPackage(appRoot, "@local/main", "main");
 
   await writeAppFile(
     appRoot,
@@ -140,12 +206,9 @@ async function createHandmadeFeaturePackage(appRoot, featureName = "billing-engi
     )}\n`
   );
 
-  await writeAppFile(
-    appRoot,
-    `packages/${featureName}/package.descriptor.mjs`,
-    `export default Object.freeze({
-  packageId: "@local/${featureName}",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(appRoot, "packages", featureName),
+    `({
   kind: "runtime",
   runtime: {
     server: {
@@ -181,9 +244,10 @@ async function createHandmadeFeaturePackage(appRoot, featureName = "billing-engi
   mutations: {
     files: []
   }
-});
+})
 `
   );
+  await declareLocalPackage(appRoot, `@local/${featureName}`, featureName);
 
   await writeAppFile(
     appRoot,
@@ -445,82 +509,5 @@ test("doctor emits warnings for packages/main feature creep and hand-made featur
       `${payload.warnings.join("\n")}`,
       /\[feature-lane:handmade-feature\]/
     );
-  });
-});
-
-test("doctor distinguishes managed app-owned main integration from undeclared domain files", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "doctor-main-integration-app");
-    await createMinimalApp(appRoot, { name: "doctor-main-integration-app" });
-    await createMainPackage(appRoot);
-    const managedFilePath = "packages/main/src/server/email/workspaceInviteEmail.js";
-
-    await writeAppFile(
-      appRoot,
-      ".jskit/lock.json",
-      `${JSON.stringify(
-        {
-          lockVersion: 1,
-          installedPackages: {
-            "@local/main": {
-              managed: {
-                files: [
-                  {
-                    path: managedFilePath,
-                    ownership: "app"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        null,
-        2
-      )}\n`
-    );
-
-    await writeAppFile(
-      appRoot,
-      managedFilePath,
-      "export { renderWorkspaceInviteEmail } from \"@local/invitations\";\n"
-    );
-
-    const healthyResult = runCli({
-      cwd: appRoot,
-      args: ["doctor", "--json"]
-    });
-    assert.equal(healthyResult.status, 0, String(healthyResult.stderr || ""));
-    const healthyPayload = JSON.parse(String(healthyResult.stdout || "{}"));
-    assert.deepEqual(healthyPayload.issues, []);
-    assert.deepEqual(healthyPayload.warnings, []);
-
-    await writeAppFile(
-      appRoot,
-      "packages/main/src/server/UnexpectedService.js",
-      "class UnexpectedService {}\nexport { UnexpectedService };\n"
-    );
-
-    const warningResult = runCli({
-      cwd: appRoot,
-      args: ["doctor", "--json"]
-    });
-    assert.equal(warningResult.status, 0, String(warningResult.stderr || ""));
-    const warningPayload = JSON.parse(String(warningResult.stdout || "{}"));
-    assert.equal(warningPayload.warnings.length, 1);
-    assert.match(String(warningPayload.warnings[0] || ""), /UnexpectedService\.js/);
-    assert.doesNotMatch(String(warningPayload.warnings[0] || ""), /workspaceInviteEmail\.js/);
-
-    await unlink(path.join(appRoot, "packages/main/src/server/UnexpectedService.js"));
-    await unlink(path.join(appRoot, managedFilePath));
-
-    const missingResult = runCli({
-      cwd: appRoot,
-      args: ["doctor", "--json"]
-    });
-    assert.equal(missingResult.status, 1, String(missingResult.stderr || ""));
-    const missingPayload = JSON.parse(String(missingResult.stdout || "{}"));
-    assert.match(String(missingPayload.issues[0] || ""), /managed file missing/);
-    assert.match(String(missingPayload.issues[0] || ""), /workspaceInviteEmail\.js/);
-    assert.deepEqual(missingPayload.warnings, []);
   });
 });

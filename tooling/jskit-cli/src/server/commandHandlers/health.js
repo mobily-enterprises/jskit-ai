@@ -9,28 +9,21 @@ import {
   ensureObject,
   sortStrings
 } from "../shared/collectionUtils.js";
-import {
-  UI_VERIFICATION_RECEIPT_RELATIVE_PATH,
-  isValidUiVerificationReceipt,
-  normalizeUiVerificationReceipt,
-  resolveChangedUiFilesFromGit
-} from "../shared/uiVerification.js";
+import { synchronizeInstalledMigrations } from "../cliRuntime/migrationSync.js";
 
 function createHealthCommands(ctx = {}) {
   const {
-    directoryLooksLikeJskitAppRoot,
     resolveAppRootFromCwd,
-    loadLockFile,
     loadPackageRegistry,
     loadBundleRegistry,
     loadAppLocalPackageRegistry,
+    loadInstalledAppPackageRegistry,
+    installedPackageRecordFromRegistry,
     mergePackageRegistries,
-    hydratePackageRegistryFromInstalledNodeModules,
-    validateManagedCiWorkflow,
     inspectPackageOfferings,
     fileExists,
     normalizeRelativePath,
-    normalizeRelativePosixPath,
+    synchronizeAppCiWorkflow,
     path
   } = ctx;
 
@@ -45,7 +38,6 @@ function createHealthCommands(ctx = {}) {
     "coverage",
     "dist",
     "docs",
-    "LEGACY",
     "node_modules",
     "test",
     "tests",
@@ -152,7 +144,7 @@ function createHealthCommands(ctx = {}) {
     { pattern: /from\s+["']knex["']/u, label: 'import "knex"' }
   ]);
 
-  function collectDescriptorContainerTokens({ packageId, side, values, issues }) {
+  function collectPackageMetadataContainerTokens({ packageId, side, values, issues }) {
     const declaredTokens = new Set();
     const duplicateTokens = new Set();
     let invalidCount = 0;
@@ -178,7 +170,7 @@ function createHealthCommands(ctx = {}) {
       issues.push({
         packageId,
         side,
-        code: "descriptor-token-invalid",
+        code: "package-metadata-token-invalid",
         message: `${packageId} (${side}): metadata.apiSummary.containerTokens includes ${invalidCount} non-string or empty token value(s).`
       });
     }
@@ -186,9 +178,9 @@ function createHealthCommands(ctx = {}) {
       issues.push({
         packageId,
         side,
-        code: "descriptor-token-duplicate",
+        code: "package-metadata-token-duplicate",
         token,
-        message: `${packageId} (${side}): descriptor token is declared more than once: ${token}.`
+        message: `${packageId} (${side}): metadata token is declared more than once: ${token}.`
       });
     }
 
@@ -579,8 +571,8 @@ function createHealthCommands(ctx = {}) {
     return imports;
   }
 
-  function normalizeFeatureLaneMetadata(descriptor = {}) {
-    const metadata = ensureObject(ensureObject(ensureObject(descriptor).metadata).jskit);
+  function normalizeFeatureLaneMetadata(packageMetadata = {}) {
+    const metadata = ensureObject(ensureObject(ensureObject(packageMetadata).metadata).jskit);
     return {
       scaffoldShape: String(metadata.scaffoldShape || "").trim(),
       scaffoldMode: String(metadata.scaffoldMode || "").trim(),
@@ -588,12 +580,12 @@ function createHealthCommands(ctx = {}) {
     };
   }
 
-  function normalizeJskitMetadata(descriptor = {}) {
-    return ensureObject(ensureObject(ensureObject(descriptor).metadata).jskit);
+  function normalizeJskitMetadata(packageMetadata = {}) {
+    return ensureObject(ensureObject(ensureObject(packageMetadata).metadata).jskit);
   }
 
   function isStandardCrudPackageEntry(packageEntry) {
-    const metadata = normalizeJskitMetadata(packageEntry?.descriptor);
+    const metadata = normalizeJskitMetadata(packageEntry?.packageMetadata);
     return STANDARD_CRUD_SCAFFOLD_SHAPES.has(
       String(metadata.scaffoldShape || "").trim()
     );
@@ -602,7 +594,7 @@ function createHealthCommands(ctx = {}) {
   function normalizeOwnedTableEntries(packageEntry) {
     const packageId = String(packageEntry?.packageId || "").trim();
     const packagePath = resolvePackageDisplayPath(packageEntry);
-    const metadata = normalizeJskitMetadata(packageEntry?.descriptor);
+    const metadata = normalizeJskitMetadata(packageEntry?.packageMetadata);
     const tableOwnership = ensureObject(metadata.tableOwnership);
     const normalized = [];
 
@@ -628,7 +620,7 @@ function createHealthCommands(ctx = {}) {
   }
 
   function packageAllowsDirectKnexUsage(packageEntry) {
-    const featureMetadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+    const featureMetadata = normalizeFeatureLaneMetadata(packageEntry?.packageMetadata);
     if (
       featureMetadata.scaffoldShape === FEATURE_SERVER_SCAFFOLD_SHAPE &&
       featureMetadata.scaffoldMode === "custom-knex" &&
@@ -637,7 +629,7 @@ function createHealthCommands(ctx = {}) {
       return true;
     }
 
-    const jskitMetadata = normalizeJskitMetadata(packageEntry?.descriptor);
+    const jskitMetadata = normalizeJskitMetadata(packageEntry?.packageMetadata);
     const scaffoldShape = String(jskitMetadata.scaffoldShape || "").trim();
     if (STANDARD_CRUD_SCAFFOLD_SHAPES.has(scaffoldShape)) {
       return true;
@@ -649,8 +641,8 @@ function createHealthCommands(ctx = {}) {
   }
 
   function packageRequiresCrudOwnershipProvenance(packageEntry) {
-    const descriptor = ensureObject(packageEntry?.descriptor);
-    const providedCapabilities = ensureArray(ensureObject(descriptor.capabilities).provides)
+    const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+    const providedCapabilities = ensureArray(ensureObject(packageMetadata.capabilities).provides)
       .map((value) => String(value || "").trim())
       .filter(Boolean);
     return providedCapabilities.some((value) => value.startsWith("crud."));
@@ -1129,25 +1121,25 @@ function createHealthCommands(ctx = {}) {
       }
 
       for (const ownershipEntry of normalizeOwnedTableEntries(packageEntry)) {
-        const descriptorPath = `${resolvePackageDisplayPath(packageEntry)}/package.descriptor.mjs`;
+        const manifestPath = `${resolvePackageDisplayPath(packageEntry)}/package.json`;
         let providerInfo = null;
         if (ownershipEntry.providerEntrypoint) {
           providerInfo = providerInfoByEntrypoint.get(ownershipEntry.providerEntrypoint) || null;
           if (!providerInfo) {
             issues.push(
-              `${descriptorPath}: [crud-ownership:provider-unresolved] table "${ownershipEntry.tableName}" points at providerEntrypoint "${ownershipEntry.providerEntrypoint}" but doctor could not resolve an ownershipFilter from that provider. Make sure the file exists and declares a literal CRUD_MODULE_CONFIG.ownershipFilter.`
+              `${manifestPath}: [crud-ownership:provider-unresolved] table "${ownershipEntry.tableName}" points at providerEntrypoint "${ownershipEntry.providerEntrypoint}" but doctor could not resolve an ownershipFilter from that provider. Make sure the file exists and declares a literal CRUD_MODULE_CONFIG.ownershipFilter.`
             );
           }
         } else if (serverProviderEntries.length === 1) {
           providerInfo = providerInfoByEntrypoint.get(serverProviderEntries[0].entrypoint) || null;
           if (!providerInfo) {
             issues.push(
-              `${descriptorPath}: [crud-ownership:provider-unresolved] table "${ownershipEntry.tableName}" relies on the package's only server provider, but doctor could not resolve a literal CRUD_MODULE_CONFIG.ownershipFilter from "${serverProviderEntries[0].entrypoint}".`
+              `${manifestPath}: [crud-ownership:provider-unresolved] table "${ownershipEntry.tableName}" relies on the package's only server provider, but doctor could not resolve a literal CRUD_MODULE_CONFIG.ownershipFilter from "${serverProviderEntries[0].entrypoint}".`
             );
           }
         } else if (serverProviderEntries.length > 1) {
           issues.push(
-            `${descriptorPath}: [crud-ownership:missing-provider-entrypoint] table "${ownershipEntry.tableName}" is claimed by a multi-provider CRUD package but does not declare metadata.jskit.tableOwnership.tables[].providerEntrypoint. Point it at the owning provider so doctor can verify the real ownershipFilter.`
+            `${manifestPath}: [crud-ownership:missing-provider-entrypoint] table "${ownershipEntry.tableName}" is claimed by a multi-provider CRUD package but does not declare metadata.jskit.tableOwnership.tables[].providerEntrypoint. Point it at the owning provider so doctor can verify the real ownershipFilter.`
           );
         }
 
@@ -1310,7 +1302,7 @@ function createHealthCommands(ctx = {}) {
       return "";
     }
 
-    const providers = ensureArray(ensureObject(ensureObject(packageEntry?.descriptor).runtime).server?.providers);
+    const providers = ensureArray(ensureObject(ensureObject(packageEntry?.packageMetadata).runtime).server?.providers);
     for (const rawProvider of providers) {
       const provider = ensureObject(rawProvider);
       const entrypoint = String(provider.entrypoint || "").trim();
@@ -1329,7 +1321,7 @@ function createHealthCommands(ctx = {}) {
       return [];
     }
 
-    const providers = ensureArray(ensureObject(ensureObject(packageEntry?.descriptor).runtime).server?.providers);
+    const providers = ensureArray(ensureObject(ensureObject(packageEntry?.packageMetadata).runtime).server?.providers);
     const resolved = [];
     for (const rawProvider of providers) {
       const provider = ensureObject(rawProvider);
@@ -1355,7 +1347,7 @@ function createHealthCommands(ctx = {}) {
   }
 
   async function collectFeatureLaneRuleIssuesForPackage({ appRoot, packageEntry, issues }) {
-    const metadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+    const metadata = normalizeFeatureLaneMetadata(packageEntry?.packageMetadata);
     if (metadata.scaffoldShape !== FEATURE_SERVER_SCAFFOLD_SHAPE) {
       return;
     }
@@ -1448,7 +1440,6 @@ function createHealthCommands(ctx = {}) {
   async function collectMainPackageFeatureLaneWarnings({
     appRoot,
     appLocalRegistry,
-    managedAppOwnedFilePaths,
     warnings
   }) {
     const mainPackageEntry = [...appLocalRegistry.values()].find((packageEntry) => {
@@ -1472,8 +1463,7 @@ function createHealthCommands(ctx = {}) {
     const extraDomainFiles = relativeServerFiles.filter(
       (relativePath) =>
         !MAIN_SERVER_BASELINE_RELATIVE_PATHS.has(relativePath) &&
-        MAIN_SERVER_DOMAIN_FILE_PATTERN.test(relativePath) &&
-        !managedAppOwnedFilePaths.has(normalizeRelativePath(appRoot, path.join(rootDir, relativePath)))
+        MAIN_SERVER_DOMAIN_FILE_PATTERN.test(relativePath)
     );
     if (extraDomainFiles.length > 0) {
       reasons.push(`extra server domain files: ${extraDomainFiles.join(", ")}`);
@@ -1520,27 +1510,25 @@ function createHealthCommands(ctx = {}) {
         continue;
       }
 
-      const metadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+      const metadata = normalizeFeatureLaneMetadata(packageEntry?.packageMetadata);
       if (metadata.scaffoldShape === FEATURE_SERVER_SCAFFOLD_SHAPE) {
         continue;
       }
 
-      const descriptor = ensureObject(packageEntry?.descriptor);
-      const capabilities = ensureObject(descriptor.capabilities);
+      const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+      const capabilities = ensureObject(packageMetadata.capabilities);
       const providedCapabilities = ensureArray(capabilities.provides)
         .map((value) => String(value || "").trim())
         .filter(Boolean);
-      const dependsOn = ensureArray(descriptor.dependsOn)
-        .map((value) => String(value || "").trim())
-        .filter(Boolean);
+      const dependencies = Object.keys(ensureObject(packageEntry?.packageJson?.dependencies));
       if (
         providedCapabilities.some((value) => value.startsWith("crud.")) ||
-        dependsOn.includes("@jskit-ai/crud-core")
+        dependencies.includes("@jskit-ai/crud-core")
       ) {
         continue;
       }
 
-      const serverProviders = ensureArray(ensureObject(ensureObject(descriptor.runtime).server).providers);
+      const serverProviders = ensureArray(ensureObject(ensureObject(packageMetadata.runtime).server).providers);
       const hasDirectServerProvider = serverProviders.some((rawProvider) => {
         const provider = ensureObject(rawProvider);
         const entrypoint = String(provider.entrypoint || "").trim();
@@ -1571,7 +1559,6 @@ function createHealthCommands(ctx = {}) {
   async function collectFeatureLaneDoctorIssues({
     appRoot,
     appLocalRegistry,
-    managedAppOwnedFilePaths,
     issues,
     warnings
   }) {
@@ -1590,7 +1577,6 @@ function createHealthCommands(ctx = {}) {
     await collectMainPackageFeatureLaneWarnings({
       appRoot,
       appLocalRegistry,
-      managedAppOwnedFilePaths,
       warnings
     });
     await collectHandmadeFeatureLaneWarnings({
@@ -1610,7 +1596,7 @@ function createHealthCommands(ctx = {}) {
       }
 
       const packagePath = resolvePackageDisplayPath(packageEntry);
-      const metadata = normalizeJskitMetadata(packageEntry?.descriptor);
+      const metadata = normalizeJskitMetadata(packageEntry?.packageMetadata);
       const scaffoldShape = String(metadata.scaffoldShape || "").trim();
       const ownedTables = normalizeOwnedTableEntries(packageEntry);
       if (ownedTables.length < 1) {
@@ -1645,7 +1631,7 @@ function createHealthCommands(ctx = {}) {
       .filter(Boolean);
 
     for (const packageEntry of packageEntries) {
-      const featureMetadata = normalizeFeatureLaneMetadata(packageEntry?.descriptor);
+      const featureMetadata = normalizeFeatureLaneMetadata(packageEntry?.packageMetadata);
       if (featureMetadata.scaffoldShape === FEATURE_SERVER_SCAFFOLD_SHAPE) {
         continue;
       }
@@ -2084,7 +2070,7 @@ function createHealthCommands(ctx = {}) {
 
         const lineNumber = resolveLineNumberFromIndex(sourceText, callSite.index);
         issues.push(
-          `${relativePath}:${lineNumber}: [crud:transport-derived] do not pass explicit transport to ${calleeName}(...). Let the shared CRUD resource derive JSON:API transport automatically, or drop to useList/useView/useAddEdit/usersWebHttpClient.request(...) for custom transport behavior.`
+          `${relativePath}:${lineNumber}: [crud:transport-derived] do not pass explicit transport to ${calleeName}(...). Let the shared CRUD resource derive JSON:API transport automatically, or drop to useList/useView/useAddEdit/httpWebClient.request(...) for custom transport behavior.`
         );
       }
     }
@@ -2239,73 +2225,11 @@ function createHealthCommands(ctx = {}) {
     }
   }
 
-  async function collectUiVerificationDoctorIssues({ appRoot, issues, against = "" }) {
-    if (!(await directoryLooksLikeJskitAppRoot(appRoot))) {
-      return;
-    }
-
-    const normalizedAgainst = String(against || "").trim();
-    const changedUiState = resolveChangedUiFilesFromGit(appRoot, {
-      against: normalizedAgainst
-    });
-    if (!changedUiState.available) {
-      if (normalizedAgainst) {
-        issues.push(
-          `[ui:verification] could not resolve changed UI files against ${JSON.stringify(normalizedAgainst)}: ${changedUiState.error || "unknown git error"}`
-        );
-      }
-      return;
-    }
-    if (changedUiState.paths.length < 1) {
-      return;
-    }
-
-    const receiptPath = path.join(appRoot, UI_VERIFICATION_RECEIPT_RELATIVE_PATH);
-    if (!(await fileExists(receiptPath))) {
-      const againstSegment = normalizedAgainst ? ` --against ${JSON.stringify(normalizedAgainst)}` : "";
-      issues.push(
-        `[ui:verification] changed UI files require a matching ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} receipt. Run jskit app verify-ui${againstSegment} --command "<playwright command>" --feature "<label>" --auth-mode <mode>. Current files: ${changedUiState.paths.join(", ")}`
-      );
-      return;
-    }
-
-    let parsedReceipt = null;
-    try {
-      parsedReceipt = JSON.parse(await readFile(receiptPath, "utf8"));
-    } catch (error) {
-      issues.push(
-        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return;
-    }
-
-    const receipt = normalizeUiVerificationReceipt(parsedReceipt);
-    if (!isValidUiVerificationReceipt(receipt)) {
-      issues.push(
-        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} is incomplete. It must include version, runner, recordedAt, feature, command, authMode, and changedUiFiles from jskit app verify-ui.`
-      );
-      return;
-    }
-
-    if (normalizedAgainst && receipt.against !== normalizedAgainst) {
-      issues.push(
-        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} was recorded against ${JSON.stringify(receipt.against || "<dirty-worktree>")} but doctor is checking against ${JSON.stringify(normalizedAgainst)}. Re-run jskit app verify-ui with the same --against value.`
-      );
-      return;
-    }
-
-    if (JSON.stringify(receipt.changedUiFiles) !== JSON.stringify(changedUiState.paths)) {
-      issues.push(
-        `[ui:verification] ${UI_VERIFICATION_RECEIPT_RELATIVE_PATH} does not match the current changed UI file set. Re-run jskit app verify-ui after the latest UI edits. Current files: ${changedUiState.paths.join(", ")}`
-      );
-    }
-  }
-
   function collectDiLabelParityIssuesForPackage({ packageEntry, packageInsights }) {
     const packageId = String(packageEntry?.packageId || "").trim();
-    const descriptor = ensureObject(packageEntry?.descriptor);
-    const metadataApiSummary = ensureObject(ensureObject(descriptor.metadata).apiSummary);
-    const descriptorTokenSummary = ensureObject(metadataApiSummary.containerTokens);
+    const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+    const metadataApiSummary = ensureObject(ensureObject(packageMetadata.metadata).apiSummary);
+    const metadataTokenSummary = ensureObject(metadataApiSummary.containerTokens);
     const bindingSections = ensureObject(ensureObject(packageInsights).containerBindings);
     const issues = [];
     const sides = ["server", "client"];
@@ -2313,10 +2237,10 @@ function createHealthCommands(ctx = {}) {
     collectProviderIntrospectionIssues({ packageId, packageInsights, issues });
 
     for (const side of sides) {
-      const declaredTokens = collectDescriptorContainerTokens({
+      const declaredTokens = collectPackageMetadataContainerTokens({
         packageId,
         side,
-        values: descriptorTokenSummary[side],
+        values: metadataTokenSummary[side],
         issues
       });
       const usedTokens = collectUsedContainerTokens({
@@ -2342,7 +2266,7 @@ function createHealthCommands(ctx = {}) {
           issues.push({
             packageId,
             side,
-            code: "descriptor-token-unused",
+            code: "metadata-token-unused",
             token,
             message: `${packageId} (${side}): token is declared in metadata.apiSummary.containerTokens.${side} but never bound by providers: ${token}.`
           });
@@ -2355,47 +2279,40 @@ function createHealthCommands(ctx = {}) {
 
   async function commandDoctor({ cwd, options, stdout }) {
     const appRoot = await resolveAppRootFromCwd(cwd);
-    const against = String(options?.inlineOptions?.against || "").trim();
-    const { lock } = await loadLockFile(appRoot);
-    const packageRegistry = await loadPackageRegistry();
+    const packageRegistry = await loadInstalledAppPackageRegistry(appRoot);
     const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
     const combinedPackageRegistry = mergePackageRegistries(packageRegistry, appLocalRegistry);
     const issues = [];
     const warnings = [];
-    const installed = ensureObject(lock.installedPackages);
-    const managedAppOwnedFilePaths = new Set();
-    await hydratePackageRegistryFromInstalledNodeModules({
-      appRoot,
-      packageRegistry: combinedPackageRegistry,
-      seedPackageIds: Object.keys(installed)
-    });
+    const installed = installedPackageRecordFromRegistry(packageRegistry);
 
-    const ciValidation = await validateManagedCiWorkflow({
-      appRoot,
-      lock,
-      packageRegistry: combinedPackageRegistry
-    });
-    issues.push(...ciValidation.issues.map((issue) => issue.message));
-
-    for (const [packageId, lockEntryValue] of Object.entries(installed)) {
-      const lockEntry = ensureObject(lockEntryValue);
-      if (!combinedPackageRegistry.has(packageId)) {
-        issues.push(`Installed package not found in package registry: ${packageId}`);
-        continue;
+    try {
+      const migrationResult = await synchronizeInstalledMigrations(ctx, {
+        appRoot,
+        check: true
+      });
+      if (migrationResult.changedFiles.length > 0) {
+        issues.push(
+          `[migrations:out-of-date] Migration files are stale: ${migrationResult.changedFiles.join(", ")}. Run: npx jskit migrations sync`
+        );
       }
+    } catch (error) {
+      issues.push(`[migrations:invalid] ${String(error?.message || error || "unknown migration synchronization error")}`);
+    }
 
-      const managed = ensureObject(lockEntry.managed);
-      for (const fileChange of ensureArray(managed.files)) {
-        const changeRecord = ensureObject(fileChange);
-        const relativePath = normalizeRelativePosixPath(changeRecord.path);
-        if (changeRecord.ownership === "app" && relativePath) {
-          managedAppOwnedFilePaths.add(relativePath);
-        }
-        const absolutePath = path.join(appRoot, relativePath);
-        if (!(await fileExists(absolutePath))) {
-          issues.push(`${packageId}: managed file missing: ${relativePath}`);
-        }
+    try {
+      const ciResult = await synchronizeAppCiWorkflow({ appRoot, dryRun: true });
+      const changedCiFiles = [];
+      if (ciResult.workflowChanged) {
+        changedCiFiles.push(ciResult.path);
       }
+      if (changedCiFiles.length > 0) {
+        issues.push(
+          `[ci:out-of-date] CI workflow is stale: ${changedCiFiles.join(", ")}. Run: npx jskit ci generate`
+        );
+      }
+    } catch (error) {
+      issues.push(`[ci:invalid] ${String(error?.message || error || "unknown CI synchronization error")}`);
     }
 
     await collectMdiSvgDoctorIssues({
@@ -2411,15 +2328,9 @@ function createHealthCommands(ctx = {}) {
       appLocalRegistry,
       issues
     });
-    await collectUiVerificationDoctorIssues({
-      appRoot,
-      issues,
-      against
-    });
     await collectFeatureLaneDoctorIssues({
       appRoot,
       appLocalRegistry,
-      managedAppOwnedFilePaths,
       issues,
       warnings
     });
@@ -2433,7 +2344,6 @@ function createHealthCommands(ctx = {}) {
 
     const payload = {
       appRoot,
-      lockVersion: lock.lockVersion,
       installedPackages: sortStrings(Object.keys(installed)),
       issues,
       warnings: sortStrings(warnings)
@@ -2465,7 +2375,7 @@ function createHealthCommands(ctx = {}) {
     return issues.length === 0 ? 0 : 1;
   }
 
-  async function commandLintDescriptors({ options, stdout }) {
+  async function commandLintPackages({ options, stdout }) {
     const packageRegistry = await loadPackageRegistry();
     const bundleRegistry = await loadBundleRegistry();
     const shouldCheckDiLabels = options.checkDiLabels === true;
@@ -2501,8 +2411,8 @@ function createHealthCommands(ctx = {}) {
     if (options.json) {
       stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
     } else {
-      const descriptorStatus = shouldCheckDiLabels && diLabelIssues.length > 0 ? "failed" : "passed";
-      stdout.write(`Descriptor lint ${descriptorStatus}.\n`);
+      const metadataStatus = shouldCheckDiLabels && diLabelIssues.length > 0 ? "failed" : "passed";
+      stdout.write(`Package metadata lint ${metadataStatus}.\n`);
       stdout.write(`Packages: ${payload.packageCount}\n`);
       stdout.write(`Bundles: ${payload.bundleCount}\n`);
       if (shouldCheckDiLabels) {
@@ -2526,7 +2436,7 @@ function createHealthCommands(ctx = {}) {
 
   return {
     commandDoctor,
-    commandLintDescriptors
+    commandLintPackages
   };
 }
 

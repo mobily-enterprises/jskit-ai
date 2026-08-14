@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runPackageGenerateCommand } from "../src/server/commandHandlers/packageCommands/generate.js";
-import { createCommandHandlerShared } from "../src/server/commandHandlers/shared.js";
 
 test("generate subcommands resolve package template root before invoking generator entrypoint", async () => {
   const packageEntry = {
     packageId: "@jskit-ai/demo-generator",
     rootDir: "",
-    descriptor: {
+    packageMetadata: {
       kind: "generator",
       metadata: {
         generatorSubcommands: {
@@ -20,8 +19,6 @@ test("generate subcommands resolve package template root before invoking generat
   };
   const packageRegistry = new Map([[packageEntry.packageId, packageEntry]]);
   const runCalls = [];
-  let stdout = "";
-  const { createCatalogFetchStatusReporter } = createCommandHandlerShared({});
 
   const exitCode = await runPackageGenerateCommand(
     {
@@ -42,22 +39,11 @@ test("generate subcommands resolve package template root before invoking generat
       },
       resolvePackageIdFromRegistryOrNodeModules: async ({ packageIdInput }) => packageIdInput,
       hydratePackageRegistryFromInstalledNodeModules: async () => {},
-      resolvePackageTemplateRoot: async ({ packageEntry, reportTemplateFetchStatus }) => {
-        reportTemplateFetchStatus({
-          packageEntry,
-          state: "start"
-        });
-        reportTemplateFetchStatus({
-          packageEntry,
-          state: "complete"
-        });
-        return "/tmp/materialized-generator";
-      },
+      resolvePackageTemplateRoot: async () => "/tmp/installed-generator",
       resolvePackageKind: () => "generator",
       resolveGeneratorPrimarySubcommand: () => "",
       hasGeneratorSubcommandDefinition: () => true,
       validateInlineOptionValuesForPackage: async () => {},
-      createCatalogFetchStatusReporter,
       runGeneratorSubcommand: async (payload) => {
         runCalls.push(payload);
         return 0;
@@ -72,7 +58,7 @@ test("generate subcommands resolve package template root before invoking generat
       },
       cwd: "/tmp/demo-app",
       io: {
-        stdout: { write(value) { stdout += String(value || ""); } },
+        stdout: { write() {} },
         stderr: { write() {} }
       }
     },
@@ -85,16 +71,14 @@ test("generate subcommands resolve package template root before invoking generat
 
   assert.equal(exitCode, 0);
   assert.equal(runCalls.length, 1);
-  assert.equal(runCalls[0].packageEntry.rootDir, "/tmp/materialized-generator");
-  assert.match(stdout, /Fetching @jskit-ai\/demo-generator\.\.\./);
-  assert.match(stdout, /Fetching @jskit-ai\/demo-generator\.\.\. done!/);
+  assert.equal(runCalls[0].packageEntry.rootDir, "/tmp/installed-generator");
 });
 
 test("generate routes inline options without an explicit subcommand to the primary subcommand", async () => {
   const packageEntry = {
     packageId: "@jskit-ai/demo-generator",
     rootDir: "",
-    descriptor: {
+    packageMetadata: {
       kind: "generator",
       metadata: {
         generatorPrimarySubcommand: "scaffold",
@@ -108,7 +92,6 @@ test("generate routes inline options without an explicit subcommand to the prima
   };
   const packageRegistry = new Map([[packageEntry.packageId, packageEntry]]);
   const runCommandAddCalls = [];
-  const { createCatalogFetchStatusReporter } = createCommandHandlerShared({});
 
   const exitCode = await runPackageGenerateCommand(
     {
@@ -134,9 +117,8 @@ test("generate routes inline options without an explicit subcommand to the prima
       resolveGeneratorPrimarySubcommand: () => "scaffold",
       hasGeneratorSubcommandDefinition: () => false,
       validateInlineOptionValuesForPackage: async () => {},
-      createCatalogFetchStatusReporter,
       runGeneratorSubcommand: async () => {
-        throw new Error("runGeneratorSubcommand should not be called for descriptor-backed primary subcommands");
+        throw new Error("runGeneratorSubcommand should not be called for packageMetadata-backed primary subcommands");
       },
       readdir: async () => {
         const error = new Error("missing");

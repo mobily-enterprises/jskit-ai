@@ -37,15 +37,14 @@ test("show rejects unsupported flags and prints command help", () => {
 test("migrations rejects unsupported flags and prints command help", () => {
   const result = runCli({
     cwd: CLI_ROOT,
-    args: ["migrations", "changed", "--run-npm-install"]
+    args: ["migrations", "sync", "--run-npm-install", "true"]
   });
 
   assert.equal(result.status, 1);
   const stderr = String(result.stderr || "");
   assert.match(stderr, /Unknown option for command migrations: --run-npm-install\./);
   assert.match(stderr, /Command: migrations/);
-  assert.match(stderr, /jskit migrations <all\|changed\|package> \[packageId] \[--<option> <value>\.\.\.] \[--dry-run] \[--json]/);
-  assert.match(stderr, /\[--verbose]/);
+  assert.match(stderr, /jskit migrations sync \[--check]/);
 });
 
 test("add rejects delegated inline options when no target contract is active", () => {

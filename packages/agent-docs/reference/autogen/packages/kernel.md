@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/kernel/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -189,99 +189,6 @@ Exports
 ### `shared/support/containerToken.js`
 Exports
 - `isContainerToken(value)`
-
-### `shared/support/crudFieldContract.js`
-Exports
-- `CRUD_FIELD_STORAGE_COLUMN`
-- `CRUD_FIELD_STORAGE_VIRTUAL`
-- `CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC`
-- `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
-- `CRUD_LOOKUP_FORM_CONTROL_SELECT`
-- `checkCrudLookupFormControl(value, { context = "crud field ui.formControl", defaultValue = CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE } = {})`
-- `resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {})`
-- `normalizeCrudFieldStorageConfig(fieldDefinition = {}, { context = "crud field storage", fieldKey = "" } = {})`
-- `buildCrudOperationSchemaFields(fields = {}, operationName = "")`
-- `buildCrudFieldContractMap(resource = {}, { context = "crud resource field contract" } = {})`
-- `resolveCrudFieldContractEntry(resource = {}, fieldKey = "", options = {})`
-Local functions
-- `cloneStructuredFieldMetadata(value = {})`
-- `mergeFieldContractEntry(target, source, { context = "crud field contract", fieldKey = "" } = {})`
-
-### `shared/support/crudListFilters.js`
-Exports
-- `CRUD_LIST_FILTER_TYPE_FLAG`
-- `CRUD_LIST_FILTER_TYPE_ENUM`
-- `CRUD_LIST_FILTER_TYPE_ENUM_MANY`
-- `CRUD_LIST_FILTER_TYPE_RECORD_ID`
-- `CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY`
-- `CRUD_LIST_FILTER_TYPE_DATE`
-- `CRUD_LIST_FILTER_TYPE_DATE_RANGE`
-- `CRUD_LIST_FILTER_TYPE_NUMBER_RANGE`
-- `CRUD_LIST_FILTER_TYPE_PRESENCE`
-- `CRUD_LIST_FILTER_TYPES`
-- `CRUD_LIST_FILTER_PRESENCE_PRESENT`
-- `CRUD_LIST_FILTER_PRESENCE_MISSING`
-- `CRUD_LIST_FILTER_PRESENCE_OPTIONS`
-- `CRUD_LIST_FILTER_INVALID_VALUES_REJECT`
-- `CRUD_LIST_FILTER_INVALID_VALUES_DISCARD`
-- `INVALID_CRUD_LIST_FILTER_QUERY_VALUE`
-- `normalizeCrudListFilterInvalidValues(value = "")`
-- `parseCrudListRangeQueryExpression(value = null)`
-- `formatCrudListRangeQueryExpression(startValue = "", endValue = "", { collapseExact = false } = {})`
-- `defineCrudListFilters(definitions = {})`
-- `createCrudListFilterEmptyValue(filter = {})`
-- `createCrudListFilterInitialValue(filter = {})`
-- `isCrudListFilterMultiValue(filter = {})`
-- `isCrudListFilterStructuredValue(filter = {})`
-- `normalizeCrudListFilterUiValue(filter = {}, rawValue)`
-- `areCrudListFilterUiValuesEqual(filter = {}, currentValue, expectedValue)`
-- `hasCrudListFilterUiValue(filter = {}, rawValue)`
-- `listCrudListFilterChipValues(filter = {}, rawValue)`
-- `formatCrudListFilterDefaultChipLabel(filter = {}, rawValue, { resolveAtomicValue = null } = {})`
-- `formatCrudListFilterQueryValue(filter = {}, value)`
-- `parseCrudListFilterQueryValue(filter = {}, value, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
-- `resolveCrudListFilterQueryKeys(definition = {})`
-- `resolveCrudListFilterOptionLabel(definition = {}, value = "", { fallback = "" } = {})`
-Local functions
-- `firstCrudListFilterValue(value)`
-- `isPrimitiveCrudListFilterInput(value)`
-- `isPrimitiveOrPrimitiveArrayCrudListFilterInput(value)`
-- `normalizeDateFilterText(value)`
-- `normalizeCanonicalRecordIdList(value)`
-- `normalizeFiniteFilterNumber(value)`
-- `normalizeAllowedFilterTextValue(value, allowedValues = new Set())`
-- `normalizeAllowedFilterTextValues(value, allowedValues = new Set())`
-- `resolveCrudListFilterAllowedValues(filter = {})`
-- `normalizeCrudListDateRangeUiValue(rawValue)`
-- `normalizeCrudListNumberRangeUiValue(rawValue)`
-- `matchCrudListFilterValues(currentValue, expectedValue)`
-- `rejectInvalidCrudListFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
-- `normalizeCrudListDateRangeQueryValue(value)`
-- `normalizeCrudListNumberRangeQueryValue(value)`
-- `normalizeCrudListFilterType(value = "")`
-- `normalizeCrudListFilterOption(rawOption = null, { context = "filter option" } = {})`
-- `normalizeCrudListFilterOptions(rawOptions = [], { context = "filter options" } = {})`
-- `normalizeCrudListFilterPresenceOptions(rawOptions = [])`
-- `normalizeCrudListFilterLookup(rawLookup = null)`
-- `resolveCrudListFilterOptionSet(rawDefinition = {}, type = "")`
-- `normalizeCrudListFilterDefinition(rawKey = "", rawDefinition = null)`
-
-### `shared/support/crudLookup.js`
-Exports
-- `DEFAULT_CRUD_LOOKUP_CONTAINER_KEY`
-- `normalizeCrudLookupApiPath(value = "")`
-- `normalizeCrudLookupNamespace(value = "")`
-- `resolveCrudLookupApiPathFromNamespace(value = "")`
-- `resolveCrudResourceScopeName(value = "")`
-- `normalizeCrudLookupContainerKey(value, { defaultValue = DEFAULT_CRUD_LOOKUP_CONTAINER_KEY, context = "crud lookup container key" } = {})`
-- `resolveCrudLookupContainerKey(resource = {}, options = {})`
-- `resolveCrudLookupFieldKeys(resource = {}, { allowKeys = [] } = {})`
-- `resolveCrudParentFilterKeys(resource = {})`
-- `resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {})`
-- `resolveCrudParentFilterFieldKeyFromRouteParam(resource = {}, routeParamKey = "")`
-Local functions
-- `resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {})`
-- `resolveCrudLookupCreateSchemaKeys(resource = {})`
 
 ### `shared/support/deepFreeze.js`
 Exports
@@ -682,13 +589,6 @@ Local functions
 Exports
 - `createComponentInteractionEmitter(emit)`
 
-### `client/descriptorSections.js`
-Exports
-- `normalizeDescriptorUiRoutes(value)`
-- `normalizeDescriptorClientProviders(value)`
-- `normalizeDescriptorClientOptimizeSpecifiers(value)`
-- `normalizeClientDescriptorSections(descriptorValue)`
-
 ### `client/index.js`
 Exports
 - `getClientAppConfig`
@@ -733,16 +633,23 @@ Local functions
 - `normalizeRoute(route, { packageId, index })`
 - `normalizeRouteList(routes, { packageId })`
 - `toVueRouteRecord(route)`
-- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger = null, source = "module", descriptorRouteDeclarations = null } = {})`
+- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger = null, source = "module", packageMetadataRouteDeclarations = null } = {})`
 - `isProviderClass(candidate)`
 - `normalizeExplicitProviderClasses(value, packageId)`
-- `resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders = [])`
-- `resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClientProviders = [])`
-- `buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = [] } = {})`
-- `assertRoutesDeclaredInDescriptor({ packageId, source, normalizedRoutes = [], descriptorRouteDeclarations = null } = {})`
-- `resolveDescriptorClientRoutes({ packageId, descriptorUiRoutes = [], routeComponents = {}, logger = null } = {})`
+- `resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = [])`
+- `resolveModuleProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = [])`
+- `buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {})`
+- `assertRoutesDeclaredInPackageMetadata({ packageId, source, normalizedRoutes = [], packageMetadataRouteDeclarations = null } = {})`
+- `resolvePackageMetadataClientRoutes({ packageId, packageMetadataUiRoutes = [], routeComponents = {}, logger = null } = {})`
 - `normalizeClientModuleEntries(clientModules)`
 - `createClientRuntimeApp({ profile = "client", app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+
+### `client/packageMetadataSections.js`
+Exports
+- `normalizePackageMetadataUiRoutes(value)`
+- `normalizePackageMetadataClientProviders(value)`
+- `normalizePackageMetadataClientOptimizeSpecifiers(value)`
+- `normalizeClientPackageMetadataSections(packageMetadataValue)`
 
 ### `client/pageRedirects.js`
 Exports
@@ -794,19 +701,19 @@ Exports
 - `resolveClientOptimizeExcludeSpecifiers(clientModules = [])`
 - `resolveCanonicalLocalPackageId(resolvedId, localPackage)`
 - `resolveLocalPackageForSpecifier(source, localPackages = [])`
-- `resolveLocalPackageSources({ appRoot, lockPath })`
+- `resolveLocalPackageSources({ appRoot })`
 - `resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = [])`
 - `resolveInstalledClientPackageIds(options)`
-- `resolveLocalScopePackageIds({ appRoot, lockPath })`
-- `resolveInstalledClientModules({ appRoot, lockPath })`
-- `createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {})`
+- `resolveLocalScopePackageIds({ appRoot })`
+- `resolveInstalledClientModules({ appRoot })`
+- `createJskitClientBootstrapPlugin()`
 Local functions
 - `isLocalScopePackageId(value)`
 - `readJsonFile(filePath, fallback)`
 - `hasClientExport(packageJson)`
 - `isPathInsideRoot(rootPath, candidatePath)`
 - `splitSpecifierSuffix(source)`
-- `normalizeClientModuleDescriptors(value)`
+- `normalizeClientModulePackageMetadataEntries(value)`
 - `resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {})`
 
 ### `client/vite/index.js`
@@ -1044,17 +951,7 @@ Exports
 ### `server/platform/providerRuntime.js`
 Exports
 - `createProviderRuntimeApp({ profile = "", providers = [], env = {}, logger = console, fastify = null } = {})`
-- `createProviderRuntimeFromApp({ appRoot, lockPath = ".jskit/lock.json", profile = "", env = {}, logger = console, fastify = null } = {})`
-
-### `server/platform/providerRuntime/descriptorCatalog.js`
-Exports
-- `collectGlobalUiPaths(descriptorEntries)`
-- `resolveInstalledPackageDescriptors({ appRoot, lock })`
-- `resolveDescriptorLoadOrder(descriptorEntries)`
-- `validateDescriptorCapabilities(descriptorEntries, { builtinProvidersByCapability = {} } = {})`
-Local functions
-- `normalizeUiRoutePath(pathValue)`
-- `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
+- `createProviderRuntimeFromApp({ appRoot, profile = "", env = {}, logger = console, fastify = null } = {})`
 
 ### `server/platform/providerRuntime/helpers.js`
 Exports
@@ -1065,20 +962,26 @@ Exports
 - `isInsidePackageRoot(packageRoot, candidatePath)`
 - `toAbsoluteSortedUniquePaths(values)`
 
-### `server/platform/providerRuntime/lockfile.js`
+### `server/platform/providerRuntime/packageCatalog.js`
 Exports
-- `readLockFromApp({ appRoot, lockPath = ".jskit/lock.json" } = {})`
+- `collectGlobalUiPaths(packageEntries)`
+- `resolveInstalledJskitPackages({ appRoot })`
+- `resolvePackageLoadOrder(packageEntries)`
+- `validatePackageCapabilities(packageEntries, { builtinProvidersByCapability = {} } = {})`
+Local functions
+- `normalizeUiRoutePath(pathValue)`
+- `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
 
 ### `server/platform/providerRuntime/providerLoader.js`
 Exports
-- `loadPackageProviders({ descriptorEntry })`
+- `loadPackageProviders({ packageEntry })`
 - `registerProviderClass({ providerClass, sourceId, seenProviderIds, orderedProviderClasses })`
 Local functions
-- `normalizeServerProviderDefinitions(descriptor, packageId)`
+- `normalizeServerProviderDefinitions(packageMetadata, packageId)`
 - `isProviderDefinition(value)`
 - `normalizeProviderExportValue(value, { packageId, label })`
 - `resolveProviderClassesFromModule(moduleNamespace, { packageId, providerExport })`
-- `collectDiscoveredProviderModulePaths({ descriptorEntry, providerDefinition })`
+- `collectDiscoveredProviderModulePaths({ packageEntry, providerDefinition })`
 
 ### `server/platform/runtime.js`
 Exports
@@ -1418,6 +1321,10 @@ Exports
 - `loadAppConfigFromAppRoot`
 - `loadAppConfigFromModuleUrl`
 - `importFreshModuleFromAbsolutePath`
+- `collectPackageDependencyIds`
+- `collectRootDependencySpecifiers`
+- `createPackageMetadata`
+- `discoverInstalledPackages`
 - `resolveRequiredAppRoot`
 - `toPosixPath`
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
@@ -1503,8 +1410,7 @@ Local functions
 - `normalizeAppRouteOutletTarget({ outlet = {}, sourcePath = "" } = {})`
 - `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `collectVueFilePaths(rootDirectoryPath)`
-- `readInstalledPackageStates(appRoot)`
-- `normalizePackageOutletTarget({ packageId = "", outlet = {}, descriptorPath = "" } = {})`
+- `normalizePackageOutletTarget({ packageId = "", outlet = {}, manifestPath = "" } = {})`
 - `collectInstalledPackageOutletTargets(appRoot)`
 - `withTopologySource(placement = {}, sourcePath = "")`
 - `loadAppPlacementTopology(appRoot)`
@@ -1568,11 +1474,16 @@ Exports
 - `fileExists(filePath)`
 - `readJsonFile(filePath, fallback = {})`
 
-### `internal/node/installedPackageDescriptor.js`
+### `internal/node/installedPackages.js`
 Exports
-- `loadInstalledPackageDescriptor({ appRoot, packageId, installedPackageState, required = false })`
-- `resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState, required = false })`
+- `JSKIT_PACKAGE_CONFIG_KEYS`
+- `ROOT_DEPENDENCY_SECTIONS`
+- `collectPackageDependencyIds(packageJson = {})`
+- `collectRootDependencySpecifiers(packageJson = {})`
+- `createPackageMetadata(packageJson = {})`
+- `discoverInstalledPackages({ appRoot } = {})`
 Local functions
-- `resolveNodeModulesDescriptorCandidatePaths({ appRoot, packageId })`
-- `resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageState })`
-- `normalizeDescriptorPayload(descriptorModule)`
+- `readJsonFile(filePath, fallback = {})`
+- `resolveFileDependencyRoot(appRoot, specifier = "")`
+- `resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRoot = "" })`
+- `resolvePackageRoots({ appRoot, packageId, directSpecifier = "", parentPackageRoot = "" })`

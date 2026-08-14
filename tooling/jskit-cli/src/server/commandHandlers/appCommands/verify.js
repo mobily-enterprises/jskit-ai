@@ -9,8 +9,7 @@ const BASELINE_VERIFY_SCRIPTS = Object.freeze([
 
 async function runAppVerifyCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr }) {
   const {
-    createCliError,
-    validateAppCiWorkflow
+    createCliError
   } = ctx;
   const inlineOptions =
     options?.inlineOptions && typeof options.inlineOptions === "object" ? options.inlineOptions : {};
@@ -20,13 +19,16 @@ async function runAppVerifyCommand(ctx = {}, { appRoot = "", options = {}, stdou
     throw createCliError("jskit app verify does not support --dry-run.", { exitCode: 1 });
   }
 
-  const ciValidation = await validateAppCiWorkflow({ appRoot });
-  if (!ciValidation.valid) {
-    throw createCliError(
-      ciValidation.issues.map((issue) => issue.message).join("\n"),
-      { exitCode: 1 }
-    );
-  }
+  await runLocalJskit(appRoot, ["migrations", "sync", "--check"], {
+    stdout,
+    stderr,
+    createCliError
+  });
+  await runLocalJskit(appRoot, ["ci", "generate", "--check"], {
+    stdout,
+    stderr,
+    createCliError
+  });
 
   for (const scriptName of BASELINE_VERIFY_SCRIPTS) {
     runExternalCommand("npm", ["run", "--if-present", scriptName], {

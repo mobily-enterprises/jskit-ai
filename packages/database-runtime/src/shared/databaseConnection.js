@@ -131,7 +131,8 @@ function resolveKnexConnectionFromEnvironment(
     return {
       ...connection,
       supportBigNumbers: true,
-      bigNumberStrings: true
+      bigNumberStrings: true,
+      dateStrings: ["DATE"]
     };
   }
 

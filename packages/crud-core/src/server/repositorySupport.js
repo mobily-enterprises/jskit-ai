@@ -1,6 +1,9 @@
 import {
   normalizeDbRecordId,
-  toDatabaseDateTimeUtc
+  toDatabaseDateTimeUtc,
+  toJsonDate,
+  toJsonTime,
+  toJsonDateTime
 } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
@@ -13,18 +16,23 @@ import {
   CRUD_FIELD_STORAGE_COLUMN,
   CRUD_FIELD_STORAGE_VIRTUAL,
   CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC
-} from "@jskit-ai/kernel/shared/support/crudFieldContract";
+} from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import {
+  isCrudRuntimeOutputOnlyFieldKey,
   resolveCrudLookupContainerKey,
   resolveCrudLookupFieldKeys
-} from "@jskit-ai/kernel/shared/support/crudLookup";
-import { isCrudRuntimeOutputOnlyFieldKey } from "../shared/crudFieldSupport.js";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
 
 const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 const CRUD_WRITE_SERIALIZERS = Object.freeze({
   [CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC]: (value) => toDatabaseDateTimeUtc(value)
+});
+const CRUD_OUTPUT_SERIALIZERS = Object.freeze({
+  date: toJsonDate,
+  time: toJsonTime,
+  datetime: toJsonDateTime
 });
 
 function normalizeCrudListCursor(cursor = null, { allowEmpty = true } = {}) {
@@ -285,9 +293,19 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
   }
 
   const outputRecordIdKeys = [];
+  const outputSerializerByKey = {};
   for (const [key, definition] of Object.entries(outputProperties)) {
     if (definitionIncludesRecordIdType(definition)) {
       outputRecordIdKeys.push(key);
+    }
+    const fieldType = resolveFieldDefinitionType(definition);
+    if (Object.hasOwn(CRUD_OUTPUT_SERIALIZERS, fieldType)) {
+      outputSerializerByKey[key] = Object.freeze({
+        type: fieldType,
+        ...(Number.isInteger(definition?.temporalPrecision)
+          ? { temporalPrecision: definition.temporalPrecision }
+          : {})
+      });
     }
   }
 
@@ -318,11 +336,17 @@ function deriveRepositoryMappingFromResource(resource = {}, { context = "crudRep
     virtualOutputKeys: Object.freeze(virtualOutputKeys),
     listSearchColumns: Object.freeze(listSearchColumns),
     parentFilterColumns: Object.freeze(parentFilterColumns),
-    outputRecordIdKeys: Object.freeze(outputRecordIdKeys)
+    outputRecordIdKeys: Object.freeze(outputRecordIdKeys),
+    outputSerializerByKey: Object.freeze(outputSerializerByKey)
   });
 }
 
-function mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] } = {}) {
+function mapRecordRow(
+  row,
+  fieldKeys = [],
+  overrides = {},
+  { recordIdKeys = [], serializerByKey = {} } = {}
+) {
   if (!row) {
     return null;
   }
@@ -333,6 +357,7 @@ function mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] }
       .filter(Boolean)
   );
   const mapped = {};
+  const normalizedSerializerByKey = normalizeObjectInput(serializerByKey);
   for (const key of fieldKeys) {
     const normalizedKey = String(key || "").trim();
     const columnName = resolveColumnName(normalizedKey, overrides);
@@ -348,6 +373,21 @@ function mapRecordRow(row, fieldKeys = [], overrides = {}, { recordIdKeys = [] }
     if (recordIdKeySet.has(normalizedKey)) {
       const normalizedIdValue = normalizeDbRecordId(rawValue, { fallback: null });
       mapped[normalizedKey] = normalizedIdValue || rawValue;
+      continue;
+    }
+
+    const serializerConfig = normalizedSerializerByKey[normalizedKey];
+    const serializerId = normalizeText(
+      typeof serializerConfig === "string" ? serializerConfig : serializerConfig?.type
+    ).toLowerCase();
+    if (serializerId && rawValue != null) {
+      const serializer = CRUD_OUTPUT_SERIALIZERS[serializerId];
+      if (typeof serializer !== "function") {
+        throw new Error(`crudRepository output serializer "${serializerId}" is not supported.`);
+      }
+      mapped[normalizedKey] = serializer(rawValue, {
+        temporalPrecision: serializerConfig?.temporalPrecision
+      });
       continue;
     }
 

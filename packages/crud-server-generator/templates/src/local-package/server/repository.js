@@ -66,10 +66,7 @@ function createRepository({ api, knex } = {}) {
           id: recordId,
           inputRecord: createJsonApiInputRecord(
             JSON_REST_SCOPE_NAME,
-            {
-              ...sourcePatch,
-              updatedAt: new Date()
-            },
+            sourcePatch,
             {
               resource
             }

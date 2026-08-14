@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/workspaces-web/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -44,36 +44,6 @@ Local functions
 - `onMemberRoleUpdate(member, roleSid)`
 - `onRemoveMember(member)`
 
-### `src/client/components/UsersProfileSurfaceSwitchMenuItem.vue`
-Exports
-- None
-
-### `src/client/components/UsersWorkspaceMembersMenuItem.vue`
-Exports
-- None
-
-### `src/client/components/UsersWorkspacePermissionMenuItem.vue`
-Exports
-- None
-Local functions
-- `normalizeRequiredPermissions(value)`
-
-### `src/client/components/UsersWorkspaceSelector.vue`
-Exports
-- None
-Local functions
-- `resolveBrowserPath()`
-- `navigateToWorkspace(slug)`
-- `workspaceAvatarStyle(workspace)`
-
-### `src/client/components/UsersWorkspaceSettingsMenuItem.vue`
-Exports
-- None
-
-### `src/client/components/UsersWorkspaceToolsWidget.vue`
-Exports
-- None
-
 ### `src/client/components/WorkspaceInviteLanding.vue`
 Exports
 - None
@@ -105,6 +75,20 @@ Local functions
 - `submitMemberRoleUpdate(member, roleSid)`
 - `submitRemoveMember(member)`
 
+### `src/client/components/WorkspaceMembersMenuItem.vue`
+Exports
+- None
+
+### `src/client/components/WorkspacePermissionMenuItem.vue`
+Exports
+- None
+Local functions
+- `normalizeRequiredPermissions(value)`
+
+### `src/client/components/WorkspaceProfileSurfaceSwitchMenuItem.vue`
+Exports
+- None
+
 ### `src/client/components/WorkspacesClientElement.vue`
 Exports
 - None
@@ -120,6 +104,22 @@ Local functions
 - `refuseInvite(invite)`
 - `createWorkspace()`
 - `refreshBootstrap()`
+
+### `src/client/components/WorkspaceSelector.vue`
+Exports
+- None
+Local functions
+- `resolveBrowserPath()`
+- `navigateToWorkspace(slug)`
+- `workspaceAvatarStyle(workspace)`
+
+### `src/client/components/WorkspaceSettingsMenuItem.vue`
+Exports
+- None
+
+### `src/client/components/WorkspaceToolsWidget.vue`
+Exports
+- None
 
 ### `src/client/composables/useWorkspaceRouteContext.js`
 Exports
@@ -146,18 +146,6 @@ Exports
 - `normalizeWorkspaceList(entries = [])`
 Local functions
 - `normalizeWorkspaceSlug(value = "")`
-
-### `src/client/lib/httpClient.js`
-Exports
-- `workspacesWebHttpClient`
-
-### `src/client/lib/permissions.js`
-Exports
-- `normalizePermissionList`
-- `arePermissionListsEqual(left, right)`
-- `hasPermission`
-Local functions
-- `toPermissionSet(values)`
 
 ### `src/client/lib/profileSurfaceMenuLinks.js`
 Exports
@@ -365,11 +353,5 @@ Exports
 - None
 
 ### `templates/src/surfaces/app/root.vue`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None

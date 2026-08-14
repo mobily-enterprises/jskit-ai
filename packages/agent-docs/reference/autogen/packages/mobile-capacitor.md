@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/mobile-capacitor/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -68,9 +68,3 @@ Local functions
 - `buildCapacitorServerBlock(mobileConfig = {})`
 - `buildAppLinkDomainsValue(appLinkDomains = [])`
 - `directoryContainsAnyFiles(directoryPath = "")`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

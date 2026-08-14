@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { resolveCrudFieldSchemaProperties } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+import { resolveCrudFieldSchemaProperties } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
 

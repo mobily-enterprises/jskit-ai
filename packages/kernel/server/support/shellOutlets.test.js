@@ -71,18 +71,13 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
     );
     await writeFileInApp(
       appRoot,
-      ".jskit/lock.json",
+      "package.json",
       `${JSON.stringify(
         {
-          lockVersion: 1,
-          installedPackages: {
-            "@example/users-web": {
-              packageId: "@example/users-web",
-              source: {
-                type: "npm-installed-package",
-                descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
-              }
-            }
+          name: "fixture-app",
+          private: true,
+          dependencies: {
+            "@example/users-web": "1.0.0"
           }
         },
         null,
@@ -91,23 +86,25 @@ test("discoverShellOutletTargetsFromApp includes installed package placement out
     );
     await writeFileInApp(
       appRoot,
-      "node_modules/@example/users-web/package.descriptor.mjs",
-      `export default {
-  packageId: "@example/users-web",
-  metadata: {
-    ui: {
-      placements: {
-        outlets: [
-          {
-            target: "admin-cog:primary-menu",
-            source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+      "node_modules/@example/users-web/package.json",
+      `${JSON.stringify({
+        name: "@example/users-web",
+        version: "1.0.0",
+        jskit: {
+          metadata: {
+            ui: {
+              placements: {
+                outlets: [
+                  {
+                    target: "admin-cog:primary-menu",
+                    source: "src/client/components/UsersWorkspaceToolsWidget.vue"
+                  }
+                ]
+              }
+            }
           }
-        ]
-      }
-    }
-  }
-};
-`
+        }
+      }, null, 2)}\n`
     );
 
     const discovered = await discoverShellOutletTargetsFromApp({ appRoot });

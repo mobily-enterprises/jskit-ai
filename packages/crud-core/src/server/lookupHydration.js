@@ -5,8 +5,8 @@ import {
   resolveCrudLookupApiPathFromNamespace,
   normalizeCrudLookupContainerKey,
   resolveCrudLookupContainerKey
-} from "@jskit-ai/kernel/shared/support/crudLookup";
-import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { normalizeCrudLookupApiPath } from "./lookupPathSupport.js";
 
 const DEFAULT_LOOKUP_INCLUDE = "*";

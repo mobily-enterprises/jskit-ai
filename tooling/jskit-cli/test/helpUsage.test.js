@@ -47,7 +47,8 @@ test("jskit help app prints app maintenance command help", () => {
   assertMaxLineLength(stdout);
   assert.match(stdout, /Command: app/);
   assert.match(stdout, /jskit app verify/);
-  assert.match(stdout, /adopt-managed-scripts/);
+  assert.match(stdout, /jskit migrations sync/);
+  assert.match(stdout, /jskit ci generate/);
   assert.match(stdout, /jskit app <subcommand> \[help\]/);
 });
 
@@ -85,23 +86,6 @@ test("jskit help completion prints completion command help", () => {
   assert.match(stdout, /jskit completion bash \[--install\]/);
   assert.match(stdout, /--install/);
   assert.match(stdout, /source <\(npx jskit completion bash\)/);
-});
-
-test("unsupported alias commands are rejected as unknown commands", () => {
-  for (const alias of [
-    "gen",
-    "ls",
-    "lp",
-    "lct",
-    "lpct",
-    "list-link-items",
-    "list-placement-component-tokens",
-    "view"
-  ]) {
-    const result = runCli({ args: [alias] });
-    assert.equal(result.status, 1, `expected ${alias} to fail`);
-    assert.match(String(result.stderr || ""), new RegExp(`Unknown command: ${alias.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}`));
-  }
 });
 
 test("jskit generate with no params lists available generators", () => {
@@ -275,7 +259,8 @@ test("jskit generate crud-ui-generator crud help includes common and advanced ex
     /admin\/customers\/\[customerId\]\/index\/pets/,
     /--id-param petId/
   ]);
-  assert.match(stdout, /Notes \(3\):/);
+  assert.match(stdout, /Notes \(4\):/);
+  assert.match(stdout, /--delete-confirmation to add the supported delete action/);
   assert.match(stdout, /same mental\s+model as ui-generator page/);
   assert.match(stdout, /target root already exists and is not empty, rerun with --force/);
 });

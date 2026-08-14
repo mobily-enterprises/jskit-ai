@@ -303,13 +303,6 @@ function normalizeShellOutletTargetRecord(
 ) {
   const record = normalizeObject(value);
   const resolvedContext = normalizeText(context) || "shell layout";
-  if (Object.hasOwn(record, "host") || Object.hasOwn(record, "position")) {
-    throw new Error(
-      `${resolvedContext} must declare ShellOutlet targets with "target" only. ` +
-      `Legacy "host" and "position" attributes are not supported.`
-    );
-  }
-
   const targetParts = resolveShellOutletTargetParts(
     {
       target: record.target

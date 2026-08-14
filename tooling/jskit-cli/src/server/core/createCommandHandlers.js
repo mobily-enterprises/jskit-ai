@@ -7,7 +7,7 @@ import { createMobileCommands } from "../commandHandlers/mobile.js";
 import { createHealthCommands } from "../commandHandlers/health.js";
 import { createCompletionCommands } from "../commandHandlers/completion.js";
 import { createBlueprintCommands } from "../commandHandlers/blueprint.js";
-import { createHelperMapCommands } from "../commandHandlers/helperMap.js";
+import { createSynchronizationCommands } from "../commandHandlers/synchronization.js";
 
 function createCommandHandlers(deps = {}) {
   const shared = createCommandHandlerShared(deps);
@@ -22,17 +22,14 @@ function createCommandHandlers(deps = {}) {
     commandCreate,
     commandAdd,
     commandGenerate,
-    commandUpdate,
-    commandMigrations,
-    commandPosition,
     commandRemove
   } = createPackageCommands(commandContext);
   const { commandApp } = createAppCommands(commandContext);
   const { commandMobile } = createMobileCommands(commandContext, { commandAdd });
-  const { commandDoctor, commandLintDescriptors } = createHealthCommands(commandContext);
+  const { commandDoctor, commandLintPackages } = createHealthCommands(commandContext);
   const { commandCompletion } = createCompletionCommands(commandContext);
   const { commandBlueprint } = createBlueprintCommands(commandContext);
-  const { commandHelperMap } = createHelperMapCommands(commandContext);
+  const { commandCi, commandMigrations } = createSynchronizationCommands(commandContext);
 
   return {
     commandList,
@@ -45,14 +42,12 @@ function createCommandHandlers(deps = {}) {
     commandCreate,
     commandAdd,
     commandGenerate,
-    commandMigrations,
-    commandPosition,
-    commandUpdate,
     commandRemove,
     commandDoctor,
-    commandLintDescriptors,
+    commandLintPackages,
     commandBlueprint,
-    commandHelperMap
+    commandCi,
+    commandMigrations
   };
 }
 

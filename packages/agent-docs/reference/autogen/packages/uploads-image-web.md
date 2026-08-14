@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/uploads-image-web/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -68,9 +68,3 @@ Exports
 - `DEFAULT_IMAGE_EDITOR_OPTIONS`
 - `DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES`
 - `DEFAULT_IMAGE_UPLOAD_MAX_BYTES`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

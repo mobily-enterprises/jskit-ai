@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import net from "node:net";
 import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  createChromiumLaunchOptions,
+  reservePort,
+  startCapturedProcess,
+  stopProcess
+} from "../../testUtils/browserFixture.mjs";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CREATE_APP_CLI = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
@@ -45,106 +50,6 @@ function runChecked(command, args, { cwd, label = command, timeout = 300_000 } =
   return result;
 }
 
-function startCapturedProcess(command, args, { cwd, env = {} } = {}) {
-  const child = spawn(command, args, {
-    cwd,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      NO_COLOR: "1",
-      FORCE_COLOR: "0",
-      ...env
-    }
-  });
-  let output = "";
-  const listeners = new Set();
-
-  function append(chunk) {
-    output += chunk.toString("utf8");
-    for (const listener of listeners) {
-      listener();
-    }
-  }
-
-  child.stdout.on("data", append);
-  child.stderr.on("data", append);
-
-  function waitFor(pattern, timeout = 30_000) {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const check = () => {
-        if (pattern.test(output)) {
-          finish(resolve);
-        }
-      };
-      const onExit = (code, signal) => {
-        finish(
-          reject,
-          new Error(
-            `${command} exited before ${pattern} (code=${code}, signal=${signal || "none"}).\n${output}`
-          )
-        );
-      };
-      const timer = setTimeout(() => {
-        finish(reject, new Error(`Timed out waiting for ${pattern}.\n${output}`));
-      }, timeout);
-      const finish = (complete, value) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(timer);
-        listeners.delete(check);
-        child.off("exit", onExit);
-        complete(value);
-      };
-
-      listeners.add(check);
-      child.on("exit", onExit);
-      check();
-    });
-  }
-
-  return Object.freeze({
-    child,
-    readOutput: () => output,
-    waitFor
-  });
-}
-
-async function stopProcess(runtime) {
-  const child = runtime?.child;
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-
-  await new Promise((resolve) => {
-    const forceTimer = setTimeout(() => {
-      child.kill("SIGKILL");
-    }, 5_000);
-    child.once("exit", () => {
-      clearTimeout(forceTimer);
-      resolve();
-    });
-    child.kill("SIGTERM");
-  });
-}
-
-async function reservePort() {
-  const server = net.createServer();
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
-  const port = address.port;
-  await new Promise((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()));
-  });
-  return port;
-}
-
 async function installPackedShellWeb(appRoot, tempRoot) {
   const packResult = runChecked(
     "npm",
@@ -157,6 +62,7 @@ async function installPackedShellWeb(appRoot, tempRoot) {
 
   const packageJsonPath = path.join(appRoot, "package.json");
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  packageJson.dependencies["@jskit-ai/kernel"] = `file:${KERNEL_PACKAGE_ROOT}`;
   packageJson.dependencies["@jskit-ai/shell-web"] = `file:${path.join(tempRoot, tarballName)}`;
   packageJson.devDependencies["@jskit-ai/agent-docs"] = `file:${AGENT_DOCS_PACKAGE_ROOT}`;
   packageJson.devDependencies["@jskit-ai/config-eslint"] = `file:${CONFIG_ESLINT_PACKAGE_ROOT}`;
@@ -195,6 +101,9 @@ async function configureLocalPackageCacheFixture(appRoot) {
     version: "0.1.0",
     private: true,
     type: "module",
+    jskit: {
+      kind: "runtime"
+    },
     exports: {
       "./client": "./browser/feature-client.js"
     }
@@ -236,26 +145,6 @@ async function configureLocalPackageCacheFixture(appRoot) {
   packageJson.dependencies["@fixture/local-utility"] = "file:packages/utility";
   packageJson.dependencies["@jskit-ai/kernel"] = `file:${KERNEL_PACKAGE_ROOT}`;
   await writeJson(packageJsonPath, packageJson);
-
-  const lockPath = path.join(appRoot, ".jskit", "lock.json");
-  const lock = JSON.parse(await readFile(lockPath, "utf8"));
-  lock.installedPackages["@fixture/local-feature"] = {
-    packageId: "@fixture/local-feature",
-    version: "0.1.0",
-    source: {
-      type: "local-package",
-      packagePath: "packages/feature"
-    }
-  };
-  lock.installedPackages["@fixture/local-utility"] = {
-    packageId: "@fixture/local-utility",
-    version: "0.1.0",
-    source: {
-      type: "app-local-package",
-      packagePath: "packages/utility"
-    }
-  };
-  await writeJson(lockPath, lock);
 }
 
 async function addOperationalScopeCacheReproduction(appRoot) {
@@ -407,6 +296,7 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
       });
       await viteRuntime.waitFor(new RegExp(`http://127\\.0\\.0\\.1:${vitePort}/`));
       await viteRuntime.waitFor(/dependencies optimized/u, 60_000);
+      await access(path.join(appRoot, "src", "typed-router.d.ts"));
 
       const initiallyOptimized = await readOptimizerMetadata(appRoot);
       for (const specifier of OPTIMIZED_SHELL_SUBPATHS) {
@@ -418,13 +308,7 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
 
       const navigationLogOffset = viteRuntime.readOutput().length;
       const chromium = await loadChromiumLauncher(appRoot);
-      const chromiumExecutablePath = String(
-        process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ""
-      ).trim();
-      browser = await chromium.launch({
-        headless: true,
-        ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {})
-      });
+      browser = await chromium.launch(createChromiumLaunchOptions());
       const page = await browser.newPage();
       const pageErrors = [];
       page.on("pageerror", (error) => {
@@ -488,15 +372,10 @@ test("generated Vite apps serve every installed local package from canonical edi
 
         const vitePort = await reservePort();
         viteRuntime = await startViteDevServer({ appRoot, vitePort });
+        await access(path.join(appRoot, "src", "typed-router.d.ts"));
 
         const chromiumLauncher = await loadChromiumLauncher(appRoot);
-        const chromiumExecutablePath = String(
-          process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ""
-        ).trim();
-        browser = await chromiumLauncher.launch({
-          headless: true,
-          ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {})
-        });
+        browser = await chromiumLauncher.launch(createChromiumLaunchOptions());
         const page = await browser.newPage();
 
         await page.goto(`http://127.0.0.1:${vitePort}/home`, { waitUntil: "domcontentloaded" });

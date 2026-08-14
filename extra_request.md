@@ -180,9 +180,9 @@ returned HTTP 200.
 The diff below is against `@jskit-ai/auth-provider-local-core@0.1.2`.
 
 ```diff
-diff --git a/package.descriptor.mjs b/package.descriptor.mjs
---- a/package.descriptor.mjs
-+++ b/package.descriptor.mjs
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
 @@ -47,7 +47,8 @@
        "containerTokens": {
          "server": [
@@ -547,4 +547,3 @@ diff --git a/test/providerRuntime.test.js b/test/providerRuntime.test.js
 - This does not require apps to store clear-text passwords.
 - This does not force bcrypt into JSKIT core. It only allows apps to provide their own verifier.
 - If the maintainer prefers a stronger name, `auth.local.passwordStrategy` could be renamed to `auth.local.passwords` or `auth.local.passwordHasher`, but the two-method shape should remain.
-

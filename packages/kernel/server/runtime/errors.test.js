@@ -60,7 +60,7 @@ test("isDomainError identifies DomainError subclasses and isAppError remains tru
   assert.equal(isAppError(appError), true);
 });
 
-test("createValidationError remains compatible", () => {
+test("createValidationError creates a 400 response with field errors", () => {
   const error = createValidationError({ email: "Invalid." });
 
   assert.equal(error.status, 400);

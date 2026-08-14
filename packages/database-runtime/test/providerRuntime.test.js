@@ -178,6 +178,7 @@ test("DatabaseRuntimeServiceProvider resolves knex from app root package context
     assert.equal(knex.__config.connection.database, "appdb");
     assert.equal(knex.__config.connection.user, "appuser");
     assert.equal(knex.__config.connection.password, "apppass");
+    assert.deepEqual(knex.__config.connection.dateStrings, ["DATE"]);
   });
 });
 

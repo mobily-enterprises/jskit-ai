@@ -59,13 +59,13 @@ async function applyInstallMigrationMutation({
     const existingManagedPath = normalizeRelativePosixPath(String(existingManagedRecord.path || "").trim());
     if (!existingManagedPath) {
       throw createCliError(
-        `${packageEntry.packageId}: managed migration ${migrationId} is missing path in lock.`
+        `${packageEntry.packageId}: migration ${migrationId} has no materialized path.`
       );
     }
     const resolvedManagedPath = resolveAppRelativePathWithinRoot(
       appRoot,
       existingManagedPath,
-      `${packageEntry.packageId} managed migration path for ${migrationId}`
+      `${packageEntry.packageId} migration path for ${migrationId}`
     );
     const relativePath = resolvedManagedPath.relativePath;
     const absolutePath = resolvedManagedPath.absolutePath;
@@ -101,7 +101,7 @@ async function applyInstallMigrationMutation({
     managedMigrationById.set(migrationId, nextManagedRecord);
     upsertManagedMigrationRecord(managedMigrations, nextManagedRecord);
     warnings.push(
-      `${packageEntry.packageId}: skipped migration ${migrationId} (already managed at ${nextManagedRecord.path}).`
+      `${packageEntry.packageId}: skipped migration ${migrationId} (already materialized at ${nextManagedRecord.path}).`
     );
     return;
   }

@@ -51,6 +51,15 @@ class AuthActionsServiceProvider {
         }
       );
     }
+  }
+
+  boot(app) {
+    // auth-core also owns the request policy used by deliberately public apps.
+    // Only contribute executable auth actions when one of the provider packages
+    // registered the service those actions require.
+    if (!app.has("authService")) {
+      return;
+    }
 
     app.actions(
       withActionDefaults(buildAuthActions(), {

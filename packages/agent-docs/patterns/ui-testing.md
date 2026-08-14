@@ -11,13 +11,26 @@ Rules:
 
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
 - Generator or package template UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
-- For generated UI, check horizontal overflow, clipped or invisible text, duplicate navigation, broken route placement, and tap targets under 48 px.
+- For generated UI, check horizontal overflow, clipped or invisible text, duplicate navigation, and broken route placement at every standard viewport. On compact screens, also check generated-screen tap targets under 48 px; medium and expanded layouts may use their documented denser controls.
 - Apps with `shell-web` installed should start from `tests/e2e/adaptive-shell.spec.ts` and extend it with feature-specific assertions.
+- The package helper reads the shell's rendered `data-layout` contract, waits for drawer transitions without fixed sleeps, verifies compact Escape/outside dismissal, checks content-aware drawer fit, and measures rail icon centring against the configured width. Do not replace it with viewport-name assumptions or immediate animation-time geometry reads.
 - Generated `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`. Do not copy base-URL, web-server, or storage-state logic into app tests.
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
+
+## Preserve baseline tests
+
+Generated baseline tests are app-owned and customizable. Adapt infrastructure
+tests in place when routes or behavior change so the baseline coverage remains
+truthful.
+
+When the starter product route is replaced, update the scaffold smoke test to
+visit and assert the new canonical route. Do not delete baseline browser
+coverage such as `tests/e2e/base-shell.spec.ts` or
+`tests/e2e/adaptive-shell.spec.ts`. JSKIT Doctor must continue to flag a
+managed test that is missing.
 
 ## Direct local authentication
 
@@ -69,22 +82,15 @@ The generated config applies that state to Playwright contexts and omits its loc
 
 Do not call `loginAsExistingUser()` against a managed preview. It is deliberately localhost-only. An ordinary request to `/api/dev-auth/login-as` without the private exchange header must return `403`.
 
-## Recording verification
+## Run verification
 
-After the Playwright command succeeds, record it with:
+Run the focused Playwright command directly:
 
 ```bash
-npx jskit app verify-ui \
-  --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
-  --feature "contacts filters" \
-  --auth-mode dev-auth-login-as
+npx playwright test tests/e2e/contacts.spec.ts -g filters
 ```
 
-Use `--auth-mode session-bootstrap` when a managed runner supplied authenticated storage state.
-
-`jskit app verify-ui` runs the command and records its command, auth-mode label, feature, and changed UI files in `.jskit/verification/ui.json`. The auth-mode option describes how the command was authenticated; it does not create a session or modify the Playwright context.
-
-For local pre-merge review, follow the recorded run with:
+For local pre-merge review, follow the focused run with:
 
 ```bash
 npx jskit doctor --against origin/main

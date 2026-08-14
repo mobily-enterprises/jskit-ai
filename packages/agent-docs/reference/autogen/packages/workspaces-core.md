@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/workspaces-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -38,15 +38,12 @@ Exports
 
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
-- `toNullableDateTime`
 - `toIsoString`
 - `isDuplicateEntryError`
 - `normalizeText`
 - `normalizeLowerText`
 - `normalizeRecordId`
 - `normalizeDbRecordId`
-- `nowDb()`
-- `toNullableIso(value)`
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
@@ -428,9 +425,3 @@ Local functions
 ### `templates/packages/main/src/server/email/workspaceInviteEmail.js`
 Exports
 - `renderWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

@@ -5,6 +5,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -46,7 +47,7 @@ async function createMinimalApp(appRoot) {
 async function createSurfaceMutationPackage({
   appRoot,
   packageName,
-  descriptorBody,
+  jskitSource,
   templates = {}
 }) {
   const packageRoot = path.join(appRoot, "packages", packageName);
@@ -73,7 +74,7 @@ async function createSurfaceMutationPackage({
     "utf8"
   );
 
-  await writeFile(path.join(packageRoot, "package.descriptor.mjs"), descriptorBody, "utf8");
+  await writeJskitConfig(path.join(packageRoot), jskitSource);
   for (const [templatePath, templateContent] of Object.entries(templates)) {
     const absoluteTemplatePath = path.join(packageRoot, templatePath);
     await mkdir(path.dirname(absoluteTemplatePath), { recursive: true });
@@ -89,13 +90,8 @@ test("files mutation resolves toSurface targets from config surfaceDefinitions.p
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-targeted",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-targeted",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "surface targeted files mutation",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -111,7 +107,7 @@ test("files mutation resolves toSurface targets from config surfaceDefinitions.p
     ],
     text: []
   }
-});
+})
 `,
       templates: {
         "templates/admin-page.vue": "<template>admin settings page</template>\n",
@@ -144,13 +140,8 @@ test("files mutation supports comma-separated toSurface values", async () => {
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-multi-targeted",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-multi-targeted",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "surface targeted files mutation",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -163,7 +154,7 @@ test("files mutation supports comma-separated toSurface values", async () => {
     files: [{ from: "templates/page.vue", toSurface: "app,admin", toSurfacePath: "workspace/assistant/index.vue" }],
     text: []
   }
-});
+})
 `,
       templates: {
         "templates/page.vue": "<template>assistant page</template>\n"
@@ -198,13 +189,8 @@ test("files mutation can target a surface defined by the same package install", 
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-defined-by-package",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-defined-by-package",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "surface targeted files mutation after surface config append",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -228,7 +214,7 @@ test("files mutation can target a surface defined by the same package install", 
       }
     ]
   }
-});
+})
 `,
       templates: {
         "templates/ops-root.vue": "<template>ops wrapper</template>\n",
@@ -258,13 +244,8 @@ test("files mutation fails when toSurface references unknown surface id", async 
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-unknown",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-unknown",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "invalid surface target",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -277,7 +258,7 @@ test("files mutation fails when toSurface references unknown surface id", async 
     files: [{ from: "templates/page.vue", toSurface: "missing", toSurfacePath: "index.vue" }],
     text: []
   }
-});
+})
 `,
       templates: {
         "templates/page.vue": "<template>missing</template>\n"
@@ -301,13 +282,8 @@ test("files mutation rejects path traversal in toSurfacePath", async () => {
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-traversal",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-traversal",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "invalid toSurfacePath",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -320,7 +296,7 @@ test("files mutation rejects path traversal in toSurfacePath", async () => {
     files: [{ from: "templates/page.vue", toSurface: "admin", toSurfacePath: "../escape.vue" }],
     text: []
   }
-});
+})
 `,
       templates: {
         "templates/page.vue": "<template>traversal</template>\n"
@@ -355,13 +331,8 @@ test("files mutation fails when toSurface references disabled surface id", async
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-disabled",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-disabled",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "disabled surface target",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -374,7 +345,7 @@ test("files mutation fails when toSurface references disabled surface id", async
     files: [{ from: "templates/page.vue", toSurface: "admin", toSurfacePath: "index.vue" }],
     text: []
   }
-});
+})
 `,
       templates: {
         "templates/page.vue": "<template>disabled</template>\n"
@@ -390,7 +361,7 @@ test("files mutation fails when toSurface references disabled surface id", async
   });
 });
 
-test("files mutation rejects descriptors that set both to and toSurface", async () => {
+test("files mutation rejects package metadata that set both to and toSurface", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "surface-mutation-both-targets");
     await createMinimalApp(appRoot);
@@ -398,13 +369,8 @@ test("files mutation rejects descriptors that set both to and toSurface", async 
     await createSurfaceMutationPackage({
       appRoot,
       packageName: "surface-both-targets",
-      descriptorBody: `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/surface-both-targets",
-  version: "0.1.0",
+      jskitSource: `({
   kind: "runtime",
-  description: "invalid dual destination",
-  dependsOn: [],
   capabilities: { provides: [], requires: [] },
   runtime: {
     server: { providers: [] },
@@ -417,7 +383,7 @@ test("files mutation rejects descriptors that set both to and toSurface", async 
     files: [{ from: "templates/page.vue", to: "src/pages/static.vue", toSurface: "admin", toSurfacePath: "index.vue" }],
     text: []
   }
-});
+})
 `,
       templates: {
         "templates/page.vue": "<template>both</template>\n"

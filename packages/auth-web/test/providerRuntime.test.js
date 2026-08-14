@@ -73,13 +73,13 @@ test("auth route provider registers routes and executes login/logout handlers", 
       if (actionId === "auth.login.password") {
         return {
           session: { access_token: "a", refresh_token: "r" },
-          profile: { displayName: "Ada" }
+          actor: { displayName: "Ada" }
         };
       }
       if (actionId === "auth.dev.loginAs") {
         return {
           session: { access_token: "dev-a", refresh_token: "dev-r" },
-          profile: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
+          actor: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
         };
       }
       if (actionId === "auth.logout") {
@@ -154,7 +154,7 @@ test("auth route provider registers dev login route only when dev auth bypass is
       if (actionId === "auth.dev.loginAs") {
         return {
           session: { access_token: "dev-a", refresh_token: "dev-r" },
-          profile: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
+          actor: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
         };
       }
       return {};
@@ -201,7 +201,7 @@ test("auth route provider does not resolve authService during boot", async () =>
       if (actionId === "auth.login.password") {
         return {
           session: { access_token: "a", refresh_token: "r" },
-          profile: { displayName: "Ada" }
+          actor: { displayName: "Ada" }
         };
       }
       return {};

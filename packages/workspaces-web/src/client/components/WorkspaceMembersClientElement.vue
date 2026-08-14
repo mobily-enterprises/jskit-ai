@@ -41,12 +41,12 @@ import {
   WORKSPACE_SETTINGS_TRANSPORT
 } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import MembersAdminClientElement from "./MembersAdminClientElement.vue";
-import { useCommand } from "@jskit-ai/users-web/client/composables/useCommand";
-import { useList } from "@jskit-ai/users-web/client/composables/useList";
-import { useView } from "@jskit-ai/users-web/client/composables/useView";
-import { usePaths } from "@jskit-ai/users-web/client/composables/usePaths";
-import { useAccess } from "@jskit-ai/users-web/client/composables/useAccess";
-import { useUiFeedback } from "@jskit-ai/users-web/client/composables/runtime/useUiFeedback";
+import { useCommand } from "@jskit-ai/http-web/client/composables/useCommand";
+import { useList } from "@jskit-ai/http-web/client/composables/useList";
+import { useView } from "@jskit-ai/http-web/client/composables/useView";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
+import { useAccess } from "@jskit-ai/http-web/client/composables/useAccess";
+import { useUiFeedback } from "@jskit-ai/http-web/client/composables/useUiFeedback";
 import { useWorkspaceRouteContext } from "../composables/useWorkspaceRouteContext.js";
 import { createWorkspaceRealtimeMatcher } from "../support/realtimeWorkspace.js";
 import { buildWorkspaceQueryKey } from "../support/workspaceQueryKeys.js";

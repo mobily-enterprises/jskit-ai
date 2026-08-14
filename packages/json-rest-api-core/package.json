@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.1.89",
+  "version": "0.1.100",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,8 +9,63 @@
     "./server/jsonRestApiHost": "./src/server/jsonRestApiHost.js"
   },
   "dependencies": {
+    "@jskit-ai/database-runtime": "0.1.156",
+    "@jskit-ai/kernel": "0.1.156",
+    "@jskit-ai/resource-crud-core": "0.1.98",
     "hooked-api": "1.x.x",
-    "json-rest-api": "^1.0.27",
-    "@jskit-ai/kernel": "0.1.145"
+    "json-rest-api": "^1.0.27"
+  },
+  "description": "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "json-rest-api.core"
+      ],
+      "requires": [
+        "runtime.database"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/JsonRestApiCoreServiceProvider.js",
+            "export": "JsonRestApiCoreServiceProvider"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server",
+            "summary": "Exports the shared internal json-rest-api host token and resource registration helpers, including server-only row policies."
+          }
+        ],
+        "containerTokens": {
+          "server": [
+            "internal.json-rest-api"
+          ],
+          "client": []
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {},
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": [],
+      "text": []
+    }
   }
 }

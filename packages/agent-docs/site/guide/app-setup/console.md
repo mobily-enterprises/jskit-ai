@@ -32,7 +32,6 @@ npx jskit add package database-runtime-mysql \
   --db-user "$DB_USER" \
   --db-password "$DB_PASSWORD"
 npx jskit add package users-web
-npm install
 npm run db:migrate
 ```
 
@@ -44,7 +43,6 @@ From inside `exampleapp`, run:
 
 ```bash
 npx jskit add package console-web
-npm install
 npm run db:migrate
 ```
 

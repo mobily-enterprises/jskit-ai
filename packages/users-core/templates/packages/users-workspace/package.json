@@ -1,0 +1,83 @@
+{
+  "name": "@local/users",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./shared": "./src/shared/index.js"
+  },
+  "description": "App-local CRUD package (users).",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "crud.users"
+      ],
+      "requires": [
+        "runtime.actions",
+        "runtime.database",
+        "auth.policy",
+        "json-rest-api.core"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/UsersProvider.js",
+            "export": "UsersProvider"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "jskit": {
+        "scaffoldShape": "users-core-crud-v1",
+        "tableOwnership": {
+          "tables": [
+            {
+              "tableName": "users",
+              "provenance": "users-core-template",
+              "ownerKind": "baseline-crud"
+            }
+          ]
+        }
+      },
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./shared",
+            "summary": "App-local CRUD shared resource."
+          }
+        ],
+        "containerTokens": {
+          "server": [
+            "repository.users",
+            "crud.users"
+          ]
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {},
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": []
+    }
+  },
+  "dependencies": {
+    "@jskit-ai/auth-core": "0.1.154",
+    "@jskit-ai/crud-core": "0.1.167",
+    "@jskit-ai/database-runtime": "0.1.156",
+    "@jskit-ai/http-runtime": "0.1.154",
+    "@jskit-ai/json-rest-api-core": "0.1.100",
+    "@jskit-ai/resource-crud-core": "0.1.98",
+    "@jskit-ai/users-core": "0.1.169",
+    "@jskit-ai/workspaces-core": "0.1.134"
+  }
+}

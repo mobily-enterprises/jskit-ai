@@ -1,6 +1,5 @@
 const OPTION_FLAG_LABELS = Object.freeze({
   dryRun: "--dry-run",
-  runNpmInstall: "--run-npm-install",
   full: "--full",
   expanded: "--expanded",
   details: "--details",
@@ -37,25 +36,9 @@ function canDelegateGenerateInlineOptions(positional = []) {
   return true;
 }
 
-function canDelegateMigrationsInlineOptions(positional = []) {
-  const [first, second] = Array.isArray(positional) ? positional : [];
-  return String(first || "").trim().toLowerCase() === "package" && Boolean(String(second || "").trim());
-}
-
-function canDelegatePackageTargetInlineOptions(positional = [], expectedTargetType = "") {
-  const [first, second] = Array.isArray(positional) ? positional : [];
-  const targetType = String(first || "").trim();
-  const targetId = String(second || "").trim();
-  if (!targetType || !targetId || isHelpToken(targetId)) {
-    return false;
-  }
-  return targetType === String(expectedTargetType || "").trim();
-}
-
 const COMMAND_DESCRIPTORS = Object.freeze({
   help: Object.freeze({
     command: "help",
-    aliases: Object.freeze([]),
     showInOverview: false,
     summary: "Show command-specific usage.",
     minimalUse: "jskit help [command]",
@@ -78,7 +61,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   completion: Object.freeze({
     command: "completion",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Print shell completion script support.",
     minimalUse: "jskit completion bash",
@@ -103,7 +85,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   create: Object.freeze({
     command: "create",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Scaffold an app-local package or package-owned migration.",
     minimalUse: "jskit create package <name>",
@@ -118,10 +99,10 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "No npm install runs unless --run-npm-install is passed.",
+      "Creating a package installs its file: dependency immediately.",
       "If --scope is omitted, scope is inferred from app name.",
       "If --package-id is omitted, it is derived from scope + name.",
-      "Migration creation writes one editable template and its install-migration descriptor mutation.",
+      "Migration creation writes one editable template and its package.json jskit mutation.",
       "Implement a migration template before materializing it; installed migration content is immutable."
     ]),
     examples: Object.freeze([
@@ -139,29 +120,28 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     fullUse:
-      "jskit create package <name> [--scope <scope>] [--package-id <id>] [--description <text>] [--dry-run] [--run-npm-install] [--json] | jskit create migration --package <app-local-package-id> --id <migration-id> [--dry-run] [--json]",
+      "jskit create package <name> [--scope <scope>] [--package-id <id>] [--description <text>] [--dry-run] [--json] | jskit create migration --package <app-local-package-id> --id <migration-id> [--dry-run] [--json]",
     showHelpOnBareInvocation: true,
     handlerName: "commandCreate",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "json"]),
     inlineOptionMode: "enumerated",
     allowedValueOptionNames: Object.freeze(["scope", "package-id", "description", "package", "id"])
   }),
   app: Object.freeze({
     command: "app",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run JSKIT-managed app maintenance helpers.",
     minimalUse: "jskit app verify",
     parameters: Object.freeze([
       Object.freeze({
         name: "<subcommand>",
-        description: "verify | update-packages | release | adopt-managed-scripts | migrate-source-mutations."
+        description: "verify | update-packages | release."
       })
     ]),
     defaults: Object.freeze([
       "The scaffold keeps npm run shortcuts such as verify and jskit:update, but their maintained behavior lives under jskit app.",
       "Use jskit app <subcommand> help for subcommand-specific usage.",
-      "--dry-run is accepted by update-packages, adopt-managed-scripts, migrate-source-mutations, and release."
+      "--dry-run is accepted by update-packages and release."
     ]),
     examples: Object.freeze([
       Object.freeze({
@@ -172,12 +152,10 @@ const COMMAND_DESCRIPTORS = Object.freeze({
         ])
       }),
       Object.freeze({
-        label: "Existing app migration",
+        label: "Explicit synchronization",
         lines: Object.freeze([
-          "jskit app adopt-managed-scripts --dry-run",
-          "jskit app adopt-managed-scripts --force",
-          "jskit app migrate-source-mutations --dry-run",
-          "jskit app migrate-source-mutations"
+          "jskit migrations sync",
+          "jskit ci generate"
         ])
       })
     ]),
@@ -189,9 +167,55 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: (positional = []) => Array.isArray(positional) && positional.length > 0
   }),
+  migrations: Object.freeze({
+    command: "migrations",
+    showInOverview: true,
+    summary: "Synchronize migration files from installed package metadata.",
+    minimalUse: "jskit migrations sync",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "sync",
+        description: "Synchronize immutable migration files without applying them to a database."
+      })
+    ]),
+    defaults: Object.freeze([
+      "Reads package.json.jskit metadata from the installed npm graph.",
+      "Writes missing immutable migration files only.",
+      "Use --check to compare without writing files.",
+      "Run npm run db:migrate separately to apply migrations to a database."
+    ]),
+    fullUse: "jskit migrations sync [--check]",
+    showHelpOnBareInvocation: true,
+    handlerName: "commandMigrations",
+    allowedFlagKeys: Object.freeze([]),
+    inlineOptionMode: "enumerated",
+    allowedValueOptionNames: Object.freeze(["check"])
+  }),
+  ci: Object.freeze({
+    command: "ci",
+    showInOverview: true,
+    summary: "Regenerate CI from installed package metadata.",
+    minimalUse: "jskit ci generate",
+    parameters: Object.freeze([
+      Object.freeze({
+        name: "generate",
+        description: "Render the package-aware JSKIT verification workflow."
+      })
+    ]),
+    defaults: Object.freeze([
+      "This command changes CI only; it never writes migrations or application source.",
+      "The workflow is fully generated and should not be edited in place.",
+      "Use --check to compare without writing files."
+    ]),
+    fullUse: "jskit ci generate [--check]",
+    showHelpOnBareInvocation: true,
+    handlerName: "commandCi",
+    allowedFlagKeys: Object.freeze([]),
+    inlineOptionMode: "enumerated",
+    allowedValueOptionNames: Object.freeze(["check"])
+  }),
   mobile: Object.freeze({
     command: "mobile",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run JSKIT-managed mobile-shell helpers.",
     minimalUse: "jskit mobile android dev",
@@ -220,7 +244,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   blueprint: Object.freeze({
     command: "blueprint",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Read, prompt, or set the app-level JSKIT blueprint.",
     minimalUse: "jskit blueprint",
@@ -258,47 +281,8 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       return subcommand === "prompt" || subcommand === "set";
     }
   }),
-  "helper-map": Object.freeze({
-    command: "helper-map",
-    aliases: Object.freeze([]),
-    showInOverview: true,
-    summary: "Read or update the generated app helper map.",
-    minimalUse: "jskit helper-map update",
-    parameters: Object.freeze([
-      Object.freeze({
-        name: "[update]",
-        description: "Without a subcommand, prints the saved helper map. update refreshes .jskit/helper-map files."
-      })
-    ]),
-    defaults: Object.freeze([
-      "The helper map is generated app state, not a hand-maintained workflow file.",
-      "The JSON file lives at .jskit/helper-map.json and the readable map lives at .jskit/helper-map.md.",
-      "Use the map before adding helpers, composables, service functions, maps, or package glue.",
-      "Use --json for a stable machine-readable response."
-    ]),
-    examples: Object.freeze([
-      Object.freeze({
-        label: "Refresh helper map",
-        lines: Object.freeze([
-          "jskit helper-map update",
-          "jskit helper-map --json"
-        ])
-      })
-    ]),
-    fullUse: "jskit helper-map [update] [--json]",
-    showHelpOnBareInvocation: false,
-    handlerName: "commandHelperMap",
-    allowedFlagKeys: Object.freeze(["json"]),
-    inlineOptionMode: "delegate",
-    allowedValueOptionNames: Object.freeze([]),
-    canDelegateInlineOptions: (positional = []) => {
-      const subcommand = String(Array.isArray(positional) ? positional[0] || "" : "").trim();
-      return subcommand === "update";
-    }
-  }),
   add: Object.freeze({
     command: "add",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Install a runtime bundle or package into the current app.",
     minimalUse: "jskit add package <packageId>",
@@ -313,23 +297,23 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "No npm install runs unless --run-npm-install is passed.",
+      "Writes exact JSKIT dependency versions, runs npm install, then synchronizes migrations and CI explicitly.",
+      "Any npm-installed package with package.json.jskit metadata can be targeted directly.",
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists bundles and runtime packages.",
-      "Existing matching version is skipped unless options force reapply."
+      "Generated app source belongs to the app after creation."
     ]),
     fullUse:
-      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]",
+      "jskit add <package|bundle> <id> [--<option> <value>...] [--dry-run] [--json] [--verbose]",
     showHelpOnBareInvocation: false,
     handlerName: "commandAdd",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json", "verbose"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "json", "verbose"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: canDelegateAddInlineOptions
   }),
   generate: Object.freeze({
     command: "generate",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Run a generator package (or generator subcommand).",
     minimalUse: "jskit generate <generatorId>",
@@ -348,7 +332,7 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "No npm install runs unless --run-npm-install is passed.",
+      "Package-metadata-defined generators install their declared dependencies, then synchronize migrations and CI.",
       "Short ids resolve to @jskit-ai/<id> when available.",
       "Running without args lists available generators.",
       "Running with only <generatorId> shows generator help.",
@@ -373,17 +357,16 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     fullUse:
-      "jskit generate <generatorId> [subcommand] [subcommand args...] [--<option> <value>...] [--dry-run] [--run-npm-install] [--json] [--verbose]",
+      "jskit generate <generatorId> [subcommand] [subcommand args...] [--<option> <value>...] [--dry-run] [--json] [--verbose]",
     showHelpOnBareInvocation: false,
     handlerName: "commandGenerate",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json", "verbose"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "json", "verbose"]),
     inlineOptionMode: "delegate",
     allowedValueOptionNames: Object.freeze([]),
     canDelegateInlineOptions: canDelegateGenerateInlineOptions
   }),
   list: Object.freeze({
     command: "list",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List bundles, runtime packages, or generator packages.",
     minimalUse: "jskit list",
@@ -408,7 +391,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "list-placements": Object.freeze({
     command: "list-placements",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List discovered UI placement targets.",
     minimalUse: "jskit list-placements",
@@ -429,7 +411,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   "list-component-tokens": Object.freeze({
     command: "list-component-tokens",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "List available placement component tokens.",
     minimalUse: "jskit list-component-tokens",
@@ -459,7 +440,6 @@ const COMMAND_DESCRIPTORS = Object.freeze({
   }),
   show: Object.freeze({
     command: "show",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Show detailed metadata for a bundle or package.",
     minimalUse: "jskit show <id>",
@@ -481,97 +461,8 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),
-  migrations: Object.freeze({
-    command: "migrations",
-    aliases: Object.freeze([]),
-    showInOverview: true,
-    summary: "Generate managed migration files only.",
-    minimalUse: "jskit migrations changed",
-    parameters: Object.freeze([
-      Object.freeze({
-        name: "<scope>",
-        description: "all | changed | package."
-      }),
-      Object.freeze({
-        name: "[packageId]",
-        description: "Required only when scope is package."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Inline options are accepted only for 'migrations package <packageId>'.",
-      "This command only materializes managed migration files; it does not run npm install.",
-      "Without --json, output lists touched migration files."
-    ]),
-    fullUse: "jskit migrations <all|changed|package> [packageId] [--<option> <value>...] [--dry-run] [--json] [--verbose]",
-    showHelpOnBareInvocation: true,
-    handlerName: "commandMigrations",
-    allowedFlagKeys: Object.freeze(["dryRun", "json", "verbose"]),
-    inlineOptionMode: "delegate",
-    allowedValueOptionNames: Object.freeze([]),
-    canDelegateInlineOptions: canDelegateMigrationsInlineOptions
-  }),
-  position: Object.freeze({
-    command: "position",
-    aliases: Object.freeze([]),
-    showInOverview: true,
-    summary: "Re-apply positioning-only mutations for an installed package.",
-    minimalUse: "jskit position element <packageId>",
-    parameters: Object.freeze([
-      Object.freeze({
-        name: "element",
-        description: "Target type for positioning command."
-      }),
-      Object.freeze({
-        name: "<packageId>",
-        description: "Installed package id to re-position."
-      })
-    ]),
-    defaults: Object.freeze([
-      "Only positioning mutations are applied.",
-      "This command does not run npm install.",
-      "Reads current options from lock unless overridden inline."
-    ]),
-    fullUse: "jskit position element <packageId> [--<option> <value>...] [--dry-run] [--json]",
-    showHelpOnBareInvocation: true,
-    handlerName: "commandPosition",
-    allowedFlagKeys: Object.freeze(["dryRun", "json"]),
-    inlineOptionMode: "delegate",
-    allowedValueOptionNames: Object.freeze([]),
-    canDelegateInlineOptions: (positional = []) => canDelegatePackageTargetInlineOptions(positional, "element")
-  }),
-  update: Object.freeze({
-    command: "update",
-    aliases: Object.freeze([]),
-    showInOverview: true,
-    summary: "Re-apply one installed package.",
-    minimalUse: "jskit update package <packageId>",
-    parameters: Object.freeze([
-      Object.freeze({
-        name: "package",
-        description: "Target type for update command."
-      }),
-      Object.freeze({
-        name: "<packageId>",
-        description: "Installed package id to re-apply."
-      })
-    ]),
-    defaults: Object.freeze([
-      "No npm install runs unless --run-npm-install is passed.",
-      "Existing non-secret lock options are reused unless overridden inline.",
-      "Secret options are read from the process environment, current .env values, or explicit inline options; they are not stored in the lock.",
-      "update reuses add package flow with forced reapply."
-    ]),
-    fullUse: "jskit update package <packageId> [--<option> <value>...] [--dry-run] [--run-npm-install] [--json]",
-    showHelpOnBareInvocation: true,
-    handlerName: "commandUpdate",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json"]),
-    inlineOptionMode: "delegate",
-    allowedValueOptionNames: Object.freeze([]),
-    canDelegateInlineOptions: (positional = []) => canDelegatePackageTargetInlineOptions(positional, "package")
-  }),
   remove: Object.freeze({
     command: "remove",
-    aliases: Object.freeze([]),
     showInOverview: true,
     summary: "Remove one installed package.",
     minimalUse: "jskit remove package <packageId>",
@@ -586,26 +477,25 @@ const COMMAND_DESCRIPTORS = Object.freeze({
       })
     ]),
     defaults: Object.freeze([
-      "No npm install runs unless --run-npm-install is passed.",
-      "Managed files and lock entries are removed for the package.",
-      "Local package source directories are not deleted."
+      "Runs npm install after removing the app's direct dependency.",
+      "App-owned source files, local package directories, and migrations are retained.",
+      "A normal removal synchronizes CI; --dry-run changes nothing. Existing migration files are retained."
     ]),
-    fullUse: "jskit remove package <packageId> [--dry-run] [--run-npm-install] [--json]",
+    fullUse: "jskit remove package <packageId> [--dry-run] [--json]",
     showHelpOnBareInvocation: true,
     handlerName: "commandRemove",
-    allowedFlagKeys: Object.freeze(["dryRun", "runNpmInstall", "json"]),
+    allowedFlagKeys: Object.freeze(["dryRun", "json"]),
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   }),
   doctor: Object.freeze({
     command: "doctor",
-    aliases: Object.freeze([]),
     showInOverview: true,
-    summary: "Validate lockfile and managed-file integrity.",
+    summary: "Validate the installed package graph, migrations, CI, and app architecture.",
     minimalUse: "jskit doctor",
     parameters: Object.freeze([]),
     defaults: Object.freeze([
-      "Validates lock entries, managed files, and registry visibility.",
+      "Validates installed package metadata, app structure, migration files, and CI.",
       "Reports issues as plain text by default.",
       "Use --json for machine-readable diagnostics.",
       "Use --against <base-ref> when changed-file checks should compare against a branch, tag, or commit."
@@ -617,51 +507,31 @@ const COMMAND_DESCRIPTORS = Object.freeze({
     inlineOptionMode: "enumerated",
     allowedValueOptionNames: Object.freeze(["against"])
   }),
-  "lint-descriptors": Object.freeze({
-    command: "lint-descriptors",
-    aliases: Object.freeze([]),
+  "lint-packages": Object.freeze({
+    command: "lint-packages",
     showInOverview: true,
-    summary: "Validate bundle and package descriptor contracts.",
-    minimalUse: "jskit lint-descriptors",
+    summary: "Validate bundle and package metadata contracts.",
+    minimalUse: "jskit lint-packages",
     parameters: Object.freeze([]),
     defaults: Object.freeze([
-      "Runs descriptor consistency checks.",
+      "Runs package.json jskit metadata consistency checks.",
       "check-di-labels is optional and adds stricter DI token label checks.",
       "Outputs plain text by default and supports --json."
     ]),
-    fullUse: "jskit lint-descriptors [--check-di-labels] [--json]",
+    fullUse: "jskit lint-packages [--check-di-labels] [--json]",
     showHelpOnBareInvocation: false,
-    handlerName: "commandLintDescriptors",
+    handlerName: "commandLintPackages",
     allowedFlagKeys: Object.freeze(["checkDiLabels", "json"]),
     inlineOptionMode: "none",
     allowedValueOptionNames: Object.freeze([])
   })
 });
 
-const COMMAND_ALIAS_TO_ID = Object.freeze(
-  Object.fromEntries(
-    Object.values(COMMAND_DESCRIPTORS)
-      .flatMap((descriptor) =>
-        Array.isArray(descriptor.aliases)
-          ? descriptor.aliases.map((alias) => [alias, descriptor.command])
-          : [])
-      .sort((left, right) => String(left[0] || "").localeCompare(String(right[0] || "")))
-  )
-);
-
 const COMMAND_IDS = Object.freeze(Object.keys(COMMAND_DESCRIPTORS));
 const KNOWN_COMMANDS = new Set(COMMAND_IDS);
 
-function resolveCommandAlias(rawCommand) {
-  const command = String(rawCommand || "").trim();
-  if (!command) {
-    return "";
-  }
-  return COMMAND_ALIAS_TO_ID[command] || command;
-}
-
 function resolveCommandDescriptor(rawCommand) {
-  const command = resolveCommandAlias(rawCommand);
+  const command = String(rawCommand || "").trim();
   if (!command) {
     return null;
   }
@@ -760,7 +630,6 @@ function validateCommandOptions(
 export {
   COMMAND_IDS,
   OPTION_FLAG_LABELS,
-  resolveCommandAlias,
   resolveCommandDescriptor,
   isKnownCommandName,
   listOverviewCommandDescriptors,

@@ -165,7 +165,7 @@ test("local auth provider registers, logs in, reads session, and logs out with f
     password: "correct horse battery staple",
     displayName: "Ada"
   });
-  assert.equal(registered.profile.email, "ada@example.com");
+  assert.equal(registered.actor.email, "ada@example.com");
   assert.equal(registered.actor.provider, "local");
   assert.equal(registered.requiresEmailConfirmation, false);
 
@@ -217,7 +217,7 @@ test("local file auth login-as issues native cookies for an existing user", asyn
   const impersonated = await authService.devLoginAs(createDevAuthExchangeRequest(), {
     email: "ADA@EXAMPLE.COM"
   });
-  assert.equal(impersonated.profile.email, "ada@example.com");
+  assert.equal(impersonated.actor.email, "ada@example.com");
   assert.equal(impersonated.session.purpose, "dev-auth");
   assert.equal(authService.getCapabilities().features.devLoginAs, true);
 
@@ -279,8 +279,8 @@ test("local login-as never invokes the mutating profile projector", async () => 
     cookies: reply.cookies
   }));
 
-  assert.equal(impersonated.profile.id, "app-user-ada");
-  assert.equal(authenticated.profile.id, "app-user-ada");
+  assert.equal(impersonated.actor.id, "app-user-ada");
+  assert.equal(authenticated.actor.id, "app-user-ada");
   assert.equal(findCalls, 2);
   assert.equal(syncCalls, 0);
 });
@@ -411,9 +411,9 @@ test("local auth provider applies auth service decorators for blocking and non-b
           hook: {
             hookId: "permissions",
             blocking: true,
-            async handle({ actor, profile }) {
+            async handle({ actor }) {
               calls.push({ hook: "permissions", email: actor.email });
-              if (profile?.displayName === "Block Permissions") {
+              if (actor.displayName === "Block Permissions") {
                 throw new Error("permission provisioning failed");
               }
             }
@@ -507,14 +507,14 @@ test("local auth provider resolves a custom password strategy from the container
 test("local auth password strategy supports partial overrides and rejects invalid methods", async () => {
   const strategy = normalizePasswordStrategy({
     verifyPassword(password, record) {
-      return record === `legacy:${this.realm}:${password}`;
+      return record === `custom:${this.realm}:${password}`;
     },
     realm: "users"
   });
 
   const defaultHashed = await strategy.hashPassword("new password value");
   assert.equal(await verifyPassword("new password value", defaultHashed), true);
-  assert.equal(await strategy.verifyPassword("old password value", "legacy:users:old password value"), true);
+  assert.equal(await strategy.verifyPassword("stored password value", "custom:users:stored password value"), true);
 
   const hashOnlyStrategy = normalizePasswordStrategy({
     async hashPassword(password) {
@@ -608,7 +608,7 @@ test("local auth login verifies password and creates session in one backend tran
   assert.equal(sessionCreated, true);
 });
 
-test("local auth service accepts a custom strategy for legacy stored password records", async () => {
+test("local auth service accepts a custom stored-password format", async () => {
   const passwordRecords = [];
   const sessions = [];
   const authService = createLocalAuthService({
@@ -617,26 +617,26 @@ test("local auth service accepts a custom strategy for legacy stored password re
         return callback({
           users: {
             async findByEmail(email) {
-              if (email !== "legacy@example.com") {
+              if (email !== "existing@example.com") {
                 return null;
               }
               return {
-                id: "usr_legacy",
+                id: "usr_existing",
                 email,
-                displayName: "Legacy User",
-                password: "legacy:legacy@example.com:old-password",
+                displayName: "Existing User",
+                password: "custom:existing@example.com:stored-password",
                 disabled: false
               };
             },
             async findById(userId) {
-              if (userId !== "usr_legacy") {
+              if (userId !== "usr_existing") {
                 return null;
               }
               return {
-                id: "usr_legacy",
-                email: "legacy@example.com",
-                displayName: "Legacy User",
-                password: passwordRecords.at(-1) || "legacy:legacy@example.com:old-password",
+                id: "usr_existing",
+                email: "existing@example.com",
+                displayName: "Existing User",
+                password: passwordRecords.at(-1) || "custom:existing@example.com:stored-password",
                 disabled: false
               };
             },
@@ -647,9 +647,9 @@ test("local auth service accepts a custom strategy for legacy stored password re
             async updatePassword(_userId, password) {
               passwordRecords.push(password);
               return {
-                id: "usr_legacy",
-                email: "legacy@example.com",
-                displayName: "Legacy User",
+                id: "usr_existing",
+                email: "existing@example.com",
+                displayName: "Existing User",
                 password,
                 disabled: false
               };
@@ -704,16 +704,16 @@ test("local auth service accepts a custom strategy for legacy stored password re
     },
     passwordStrategy: {
       async verifyPassword(password, record) {
-        return record === `legacy:legacy@example.com:${password}`;
+        return record === `custom:existing@example.com:${password}`;
       }
     }
   });
 
-  const legacyLogin = await authService.login({
-    email: "legacy@example.com",
-    password: "old-password"
+  const existingLogin = await authService.login({
+    email: "existing@example.com",
+    password: "stored-password"
   });
-  assert.equal(legacyLogin.actor.providerUserId, "usr_legacy");
+  assert.equal(existingLogin.actor.providerUserId, "usr_existing");
   assert.equal(sessions.length, 1);
 
   await authService.register({
@@ -1032,7 +1032,7 @@ test("local auth provider projects app profile when auth.profile.projector is in
     displayName: "Projected"
   });
 
-  assert.equal(registered.profile.id, "app-user-1");
+  assert.equal(registered.actor.id, "app-user-1");
   assert.equal(registered.actor.providerUserId, projectedProfiles[0].authProviderUserSid);
   assert.equal(registered.actor.appUserId, "app-user-1");
   assert.equal(registered.actor.profileSource, "users");

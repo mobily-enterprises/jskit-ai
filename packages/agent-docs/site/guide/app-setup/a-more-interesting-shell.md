@@ -32,10 +32,9 @@ The normal `create-app` template already has `shell-web`. If you deliberately cr
 
 ```bash
 npx jskit add package shell-web
-npm install
 ```
 
-That install is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app --minimal` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
+That package addition is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app --minimal` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
 </DocsTerminalTip>
 
 Open `http://localhost:5173/` in the browser. The app lands in the `home` surface inside a real shell with an app bar, a navigation drawer, and a settings route at `/home/settings`.
@@ -393,14 +392,14 @@ src/
 
 This chapter is where the default scaffold starts to feel layered instead of flat.
 
-### `package.json` and `.jskit/lock.json`
+### `package.json`
 
 The first file worth reopening is still `package.json`. Because the default app includes `shell-web`, the important shell dependency entries are already present:
 
 ```json
 {
   "dependencies": {
-    "@jskit-ai/shell-web": "0.x",
+    "@jskit-ai/shell-web": "0.1.152",
     "@mdi/js": "^7.4.47"
   }
 }
@@ -410,9 +409,9 @@ The important part is not just that `@jskit-ai/shell-web` appears. The package b
 
 It is also worth noticing what does **not** happen here. The `placed-element` and `page` commands from this chapter mutate app-owned files, but they do not add a permanent runtime dependency to `package.json`. They are tooling actions, not runtime package installs.
 
-The lock file records this too. In a default app, `.jskit/lock.json` already records `@local/main`, `@jskit-ai/shell-web`, and the exact files and text mutations that the shell package owns.
-
-That is worth noticing because the default scaffold is not just copied files. It starts with a JSKIT-managed runtime package that owns concrete changes in your app tree.
+The installed package exposes its runtime and generator metadata through
+`package.json.jskit`. The source created in the application is then reviewed
+and maintained as normal application code.
 
 ### The `home` surface gets a real wrapper
 
@@ -666,6 +665,8 @@ Request connectivity failures use a separate shell recovery path. Generated apps
 
 That recovery path is intentionally a safe `GET`/`HEAD` read refetch system, not a general HTTP replay system. User-visible reads should go through Query-backed JSKIT primitives such as `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, or generated CRUD screen composables. Those primitives mark Query entries with `jskit.requestRecoveryMethod`, so the shell only offers Retry for safe reads. Do not catch raw `fetch(...)` failures in each panel just to call the shell recovery runtime manually.
 
+These neutral request and CRUD client APIs are exported by `@jskit-ai/http-web`. They do not require the users, authentication, uploads, storage, or database products.
+
 For a custom endpoint read, attach the recovery label to the Query-backed resource:
 
 ```js
@@ -700,9 +701,9 @@ Writes are different. JSKIT does not automatically replay `POST`, `PATCH`, `PUT`
 Some apps need API URLs to be scoped by the active route before the browser request is sent. Configure that once at app startup instead of replacing `fetchImpl` in a local transport wrapper:
 
 ```js
-import { configureUsersWebHttpClient } from "@jskit-ai/users-web/client/lib/httpClient";
+import { configureHttpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 
-configureUsersWebHttpClient({
+configureHttpWebClient({
   csrf: {
     enabled: false
   },
@@ -717,7 +718,7 @@ configureUsersWebHttpClient({
 });
 ```
 
-Call `configureUsersWebHttpClient()` before Vue mounts or before JSKIT composables are created. The resolver can close over the app router/store when it needs route data, and the `context` argument carries request details such as `originalUrl`, `method`, `requestOptions`, and whether the request is a stream. After configuration, normal `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, and `useCommand()` calls use the configured client. `resolveRequestUrl` runs after JSKIT adds query strings and before the underlying browser `fetch`, so request recovery metadata, JSON:API transport, credentials, CSRF, and command feedback stay on the standard path.
+Call `configureHttpWebClient()` before Vue mounts or before JSKIT composables are created. The resolver can close over the app router/store when it needs route data, and the `context` argument carries request details such as `originalUrl`, `method`, `requestOptions`, and whether the request is a stream. After configuration, normal `useEndpointResource()`, `useList()`, `useView()`, `useAddEdit()`, and `useCommand()` calls use the configured client. `resolveRequestUrl` runs after JSKIT adds query strings and before the underlying browser `fetch`, so request recovery metadata, JSON:API transport, credentials, CSRF, and command feedback stay on the standard path.
 
 For packages that create their own client, use the same lower-level hook directly:
 
@@ -758,6 +759,78 @@ import {
 
 - whether the drawer is open right now
 - whether the drawer should open by default on load
+
+The closed presentation is adaptive and uses Vuetify's Material navigation
+components. On compact/mobile layouts the temporary drawer closes completely.
+On medium and expanded layouts it collapses to a navigation rail by default,
+so primary navigation remains visible. Opening it restores the full drawer.
+Escape and outside dismissal close only the compact temporary drawer and return
+focus to the shell navigation toggle. They do not collapse permanent desktop
+navigation.
+
+The open drawer is content-aware by default. After the visible semantic
+placements and fonts settle, `ShellLayout` measures the rendered labels and
+uses Material's 12px outer item inset and one `navigationItemSpacing` value for
+the icon-to-label gap and the space between the widest label and the drawer
+edge. The spacing defaults to 12 CSS pixels and can be set from 8–24px. The
+shell remeasures when placements, localization, fonts, spacing, the active
+surface, or the window layout change, and clamps unusually long labels to a safe range. The
+surface label appears once in the top app bar; the drawer starts with its
+destinations instead of repeating that label as an uppercase subheader.
+
+The closed desktop rail remains 80 CSS pixels wide by default, with every icon
+and its Material selected-state indicator centred in the rail. The expanded
+drawer uses the same icon centreline, so toggling the drawer reveals or hides
+labels without making the icons jump sideways. The empty space around a 24px
+icon in the default rail is intentional Material touch/indicator space, not a
+second drawer padding. Products that deliberately need a denser rail can set
+`railWidth`; the shell still enforces a 48px minimum target. Rail tooltips use
+one explicit opaque theme color pair and open on pointer hover or keyboard
+focus.
+
+The app-owned `ShellLayout` can opt into a fully hidden wide drawer when the
+product has another discoverable navigation affordance:
+
+```vue
+<ShellLayout desktop-drawer-closed-mode="hidden">
+  <RouterView />
+</ShellLayout>
+```
+
+The default is `desktop-drawer-closed-mode="rail"`. Prefer that Material 3
+pattern; do not imitate a rail with custom CSS or a second menu registry.
+
+Applications that need product-specific dimensions or spacing can use the
+public props instead of overriding Vuetify drawer CSS:
+
+```vue
+<ShellLayout :drawer-width="280" :rail-width="64" :navigation-item-spacing="12">
+  <RouterView />
+</ShellLayout>
+```
+
+Omit `drawer-width` to retain content-aware sizing. Omit `rail-width` to retain
+the 80px Material navigation-rail default. Drawer overrides are clamped to
+120–360px and rail overrides to 48–160px so shell navigation cannot consume an
+unsafe share of the viewport or shrink below its touch targets. The app-owned
+`src/components/ShellLayout.vue` wrapper also forwards
+`navigation-item-spacing`, so an application does not need to copy or restyle
+the drawer implementation.
+
+### Updating an existing shell app
+
+Commit the app's work and run:
+
+```bash
+npm run jskit:update
+```
+
+Keep the generated/app-owned `src/components/ShellLayout.vue` wrapper and let
+it continue forwarding attributes to the package component. No copied drawer,
+`.v-navigation-drawer` CSS, duplicate surface heading, or replacement smoke
+test is required. If the product intentionally wants a denser desktop rail,
+set the supported prop in that wrapper, for example `:rail-width="64"`; omit it
+to keep the Material 3 80px default.
 
 `useShellErrorPresentationStore()` exposes the current banner, snackbar, and dialog presentation state behind `ShellErrorHost`.
 

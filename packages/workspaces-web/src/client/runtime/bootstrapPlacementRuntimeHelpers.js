@@ -7,7 +7,7 @@ import {
 } from "@jskit-ai/shell-web/client/placement";
 import { parseWorkspacePathname } from "@jskit-ai/workspaces-core/shared/support/workspacePathModel";
 import { extractWorkspaceSlugFromSurfacePathname } from "../lib/workspaceSurfacePaths.js";
-import { workspacesWebHttpClient } from "../lib/httpClient.js";
+import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
 import { buildBootstrapApiPath } from "../lib/bootstrap.js";
 import {
   normalizeWorkspaceBootstrapStatusValue
@@ -127,7 +127,7 @@ function countPendingInvites(entries = []) {
 }
 
 async function fetchBootstrapPayload(workspaceSlug = "") {
-  return workspacesWebHttpClient.request(buildBootstrapApiPath(workspaceSlug), {
+  return httpWebClient.request(buildBootstrapApiPath(workspaceSlug), {
     method: "GET"
   });
 }

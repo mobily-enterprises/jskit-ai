@@ -39,7 +39,7 @@ function buildCapabilityGraph(packageRegistry) {
   };
 
   for (const [packageId, packageEntry] of packageRegistry.entries()) {
-    const capabilities = ensureObject(packageEntry?.descriptor?.capabilities);
+    const capabilities = ensureObject(packageEntry?.packageMetadata?.capabilities);
     for (const capabilityId of listDeclaredCapabilities(capabilities, "provides")) {
       ensureNode(capabilityId).providers.add(packageId);
     }
@@ -69,14 +69,14 @@ function createCapabilityPackageDetail(packageId, packageRegistry) {
   const packageEntry = packageRegistry.get(packageId);
   return {
     packageId,
-    version: String(packageEntry?.version || packageEntry?.descriptor?.version || "").trim(),
-    descriptorPath: String(packageEntry?.descriptorRelativePath || "").trim()
+    version: String(packageEntry?.version || packageEntry?.packageMetadata?.version || "").trim(),
+    manifestPath: String(packageEntry?.manifestRelativePath || "").trim()
   };
 }
 
-function buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependsOn = [], provides = [], requires = [] }) {
+function buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependencies = [], provides = [], requires = [] }) {
   const graph = buildCapabilityGraph(packageRegistry);
-  const dependsOnSet = new Set(ensureArray(dependsOn).map((value) => String(value || "").trim()).filter(Boolean));
+  const dependencySet = new Set(ensureArray(dependencies).map((value) => String(value || "").trim()).filter(Boolean));
 
   function buildCapabilityRecord(capabilityId) {
     const node = graph.get(capabilityId) || {
@@ -85,12 +85,12 @@ function buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependsO
     };
     const providers = sortStrings(ensureArray(node.providers));
     const requirers = sortStrings(ensureArray(node.requirers));
-    const providersInDependsOn = providers.filter((providerId) => dependsOnSet.has(providerId));
+    const providersInDependencies = providers.filter((providerId) => dependencySet.has(providerId));
     return {
       capabilityId,
       providers,
       requirers,
-      providersInDependsOn,
+      providersInDependencies,
       providerDetails: providers.map((providerId) => createCapabilityPackageDetail(providerId, packageRegistry)),
       requirerDetails: requirers.map((requirerId) => createCapabilityPackageDetail(requirerId, packageRegistry)),
       isProvidedByCurrentPackage: providers.includes(packageId),
@@ -125,7 +125,7 @@ function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
     if (!packageEntry) {
       continue;
     }
-    const provides = listDeclaredCapabilities(packageEntry.descriptor.capabilities, "provides");
+    const provides = listDeclaredCapabilities(packageEntry.packageMetadata.capabilities, "provides");
     for (const capabilityId of provides) {
       if (!providersByCapability.has(capabilityId)) {
         providersByCapability.set(capabilityId, new Set());
@@ -140,7 +140,7 @@ function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
     if (!packageEntry) {
       continue;
     }
-    const requires = listDeclaredCapabilities(packageEntry.descriptor.capabilities, "requires");
+    const requires = listDeclaredCapabilities(packageEntry.packageMetadata.capabilities, "requires");
     for (const capabilityId of requires) {
       const selectedProviders = providersByCapability.get(capabilityId);
       if (selectedProviders && selectedProviders.size > 0) {
@@ -152,7 +152,7 @@ function collectPlannedCapabilityIssues(plannedPackageIds, packageRegistry) {
         if (selectedPackageSet.has(candidatePackageId)) {
           continue;
         }
-        const candidateProvides = listDeclaredCapabilities(candidatePackageEntry.descriptor.capabilities, "provides");
+        const candidateProvides = listDeclaredCapabilities(candidatePackageEntry.packageMetadata.capabilities, "provides");
         if (candidateProvides.includes(capabilityId)) {
           availableProviders.push(candidatePackageId);
         }
@@ -182,7 +182,7 @@ function collectExclusiveCapabilityIssues(plannedPackageIds, packageRegistry) {
       if (!packageEntry) {
         continue;
       }
-      const provides = listDeclaredCapabilities(packageEntry.descriptor.capabilities, "provides");
+      const provides = listDeclaredCapabilities(packageEntry.packageMetadata.capabilities, "provides");
       if (provides.includes(capabilityId)) {
         providers.push(packageId);
       }

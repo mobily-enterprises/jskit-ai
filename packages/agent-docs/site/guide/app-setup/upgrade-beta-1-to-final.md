@@ -1,0 +1,239 @@
+# Upgrade guide from Beta 1 to Final Release
+
+> Temporary migration guide. Delete this page after every maintained application has upgraded to the Final Release package model.
+
+This is a one-way upgrade. Final Release does not read, translate, or preserve Beta 1 JSKIT state.
+
+## 1. Start from a clean commit
+
+Commit or stash application work. Record the current database migration status and make a normal database backup before changing packages.
+
+Do not run a Final Release JSKIT command until the package manifests have been converted.
+
+## 2. Move package metadata into package.json
+
+For every JSKIT package, move the exported metadata from `package.descriptor.mjs` into the package's top-level `jskit` object.
+
+Keep identity in standard npm fields:
+
+```json
+{
+  "name": "@acme/example-core",
+  "version": "1.2.3",
+  "description": "Example runtime package.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "server": { "providers": [] },
+      "client": { "providers": [] }
+    },
+    "mutations": {
+      "dependencies": { "runtime": {}, "dev": {} },
+      "files": []
+    }
+  }
+}
+```
+
+Remove `packageId`, `version`, and `description` from the moved object. Delete every `package.descriptor.mjs` after its data is represented in `package.json`.
+
+## 3. Use npm dependencies for package relationships
+
+Move every package relationship from `jskit.dependsOn` to the appropriate standard npm field:
+
+- `dependencies` for required runtime packages;
+- `optionalDependencies` for optional runtime integrations;
+- `peerDependencies` for host-provided libraries;
+- `devDependencies` for build and generator tooling.
+
+Pin `@jskit-ai/*` packages to exact versions. Remove `jskit.dependsOn` completely.
+
+Keep provider-class `static dependsOn` declarations. Those order providers inside the runtime container and are not npm package relationships.
+
+## 4. Remove Beta 1 project state
+
+Delete these paths from the application:
+
+```text
+.jskit/lock.json
+.jskit/verification/
+```
+
+Remove ignore rules created solely for `.jskit/verification/`.
+
+Do not translate either file into a replacement. Final Release derives package state from `package.json`, `package-lock.json`, installed package manifests, application config, migration files, and generated CI.
+
+## 5. Replace command usage
+
+Update scripts, workflow files, runbooks, and automation:
+
+| Beta 1 | Final Release |
+| --- | --- |
+| `jskit package migrations ...` | `jskit migrations sync` |
+| `jskit app sync-ci` | `jskit ci generate` |
+| CI drift validation through `doctor` alone | `jskit migrations sync --check` and `jskit ci generate --check` |
+| `jskit update package ...` | update npm versions explicitly or run `jskit app update-packages` |
+| `jskit position element ...` | edit application-owned placements directly |
+| `jskit app verify-ui ...` | run the application's Playwright command directly |
+
+Delete automation for package adoption, source-mutation migration, managed-script adoption, UI receipts, or package replay. Final Release has no corresponding commands.
+
+## 6. Install the coordinated Final Release
+
+Update every direct `@jskit-ai/*` dependency in the root application and npm workspaces to the coordinated Final Release versions, then install from scratch with the application's normal npm workflow:
+
+```bash
+npm install
+npm ls
+```
+
+Resolve npm peer or capability errors as package-graph errors. Do not add overrides that mix Beta 1 and Final Release packages.
+
+## 7. Move neutral web operations out of users-web
+
+Final Release owns browser request, command, list, view, add/edit, permission,
+paging, and generated CRUD UI APIs in `@jskit-ai/http-web`. There are no
+`users-web` compatibility exports.
+
+Add the coordinated `@jskit-ai/http-web` version to every application or
+workspace that uses these APIs. Keep `@jskit-ai/users-web` only where the code
+actually uses account, profile, or user-specific shell UI.
+
+Update imports as follows:
+
+| Beta 1 import or API | Final Release import or API |
+| --- | --- |
+| `@jskit-ai/users-web/client/composables/useCommand` | `@jskit-ai/http-web/client/composables/useCommand` |
+| `@jskit-ai/users-web/client/composables/useEndpointResource` | `@jskit-ai/http-web/client/composables/useEndpointResource` |
+| `@jskit-ai/users-web/client/composables/useList` | `@jskit-ai/http-web/client/composables/useList` |
+| `@jskit-ai/users-web/client/composables/useView` | `@jskit-ai/http-web/client/composables/useView` |
+| `@jskit-ai/users-web/client/composables/useAddEdit` | `@jskit-ai/http-web/client/composables/useAddEdit` |
+| `@jskit-ai/users-web/client/composables/useAccess` | `@jskit-ai/http-web/client/composables/useAccess` |
+| `@jskit-ai/users-web/client/composables/usePagedCollection` | `@jskit-ai/http-web/client/composables/usePagedCollection` |
+| `@jskit-ai/users-web/client/composables/useRealtimeQueryInvalidation` | `@jskit-ai/http-web/client/composables/useRealtimeQueryInvalidation` |
+| `@jskit-ai/users-web/client/composables/runtime/useUiFeedback` | `@jskit-ai/http-web/client/composables/useUiFeedback` |
+| `@jskit-ai/users-web/client/composables/useCrud*` | `@jskit-ai/http-web/client/composables/useCrud*` |
+| `@jskit-ai/users-web/client/components/Crud*` | `@jskit-ai/http-web/client/components/Crud*` |
+| `@jskit-ai/users-web/client/filters` | `@jskit-ai/http-web/client/filters` |
+| `@jskit-ai/users-web/client/bulkActions` | `@jskit-ai/http-web/client/bulkActions` |
+| `@jskit-ai/users-web/client/rowActions` | `@jskit-ai/http-web/client/rowActions` |
+| `@jskit-ai/users-web/client/lib/permissions` | `@jskit-ai/http-web/client/lib/permissions` |
+| `@jskit-ai/users-web/client/support/contractGuards` | `@jskit-ai/http-web/client/support/contractGuards` |
+| `configureUsersWebHttpClient(...)` | `configureHttpWebClient(...)` from `@jskit-ai/http-web/client/lib/httpClient` |
+| `usersWebHttpClient` | `httpWebClient` from `@jskit-ai/http-web/client/lib/httpClient` |
+
+Search every application workspace, generated route tree, test fixture, and
+app bootstrap. An application that leaves even one removed import will fail at
+module resolution; this is intentional because Final Release contains no
+forwarding bridge.
+
+`crud-ui-generator` now installs `@jskit-ai/http-web`. `ui-generator` installs
+no users product. Existing generated files are application-owned, so update
+their imports directly or deliberately regenerate them and review the diff.
+
+After all imports are updated, remove `@jskit-ai/users-web` from any workspace
+that used it only for neutral client APIs. This prevents those applications
+from activating users, authentication, uploads, storage, or database
+capabilities accidentally.
+
+## 8. Use the separated CRUD package boundaries
+
+Final Release separates shared resource contracts, browser CRUD, and
+database-backed CRUD:
+
+- `@jskit-ai/resource-crud-core` owns environment-neutral CRUD resource,
+  field, lookup, namespace, and list-filter contracts;
+- `@jskit-ai/http-web` owns browser request runtimes and generated CRUD UI;
+- `@jskit-ai/crud-core` owns database-backed server CRUD services and
+  repositories.
+
+Update shared-contract imports as follows:
+
+| Beta 1 import | Final Release import |
+| --- | --- |
+| `@jskit-ai/kernel/shared/support/crudFieldContract` | `@jskit-ai/resource-crud-core/shared/crudFieldContract` |
+| `@jskit-ai/kernel/shared/support/crudLookup` | `@jskit-ai/resource-crud-core/shared/crudLookup` |
+| `@jskit-ai/kernel/shared/support/crudListFilters` | `@jskit-ai/resource-crud-core/shared/crudListFilters` |
+| `@jskit-ai/crud-core/shared/crudResource` | `@jskit-ai/resource-crud-core/shared/crudResource` |
+| `@jskit-ai/crud-core/shared/crudNamespaceSupport` | `@jskit-ai/resource-crud-core/shared/crudNamespaceSupport` |
+| `checkCrudLookupFormControl` from `@jskit-ai/crud-core/shared/crudFieldSupport` | `checkCrudLookupFormControl` from `@jskit-ai/resource-crud-core/shared/crudFieldContract` |
+| `isCrudRuntimeOutputOnlyFieldKey` from `@jskit-ai/crud-core/shared/crudFieldSupport` | `isCrudRuntimeOutputOnlyFieldKey` from `@jskit-ai/resource-crud-core/shared/crudLookup` |
+
+There is no `@jskit-ai/crud-core/client` surface. Replace browser imports from
+that surface with the corresponding `@jskit-ai/http-web` API. Add
+`@jskit-ai/resource-crud-core` directly wherever application code imports its
+contracts. Remove `@jskit-ai/crud-core` from client-only and generator-only
+workspaces; retain it only where database-backed server CRUD is used.
+
+The current CRUD UI templates import `@jskit-ai/http-web`, and the CRUD UI
+generator no longer installs the server CRUD runtime. Existing generated files
+are application-owned, so update their imports directly or deliberately
+regenerate them and review the diff.
+
+If application tests or package tooling refer to workspaces-web mutation IDs,
+rename the `users-web-*` prefix on workspaces-web-owned mutations to
+`workspaces-web-*`. Package-internal `UsersWorkspace*` component paths are not
+public APIs; remove any direct imports and use the exported workspaces-web
+provider surface.
+
+If application code imported repository persistence helpers from
+`@jskit-ai/assistant-core/server`, keep those helpers with the repository that
+uses them or use the matching database-runtime primitive. Assistant core no
+longer owns database persistence utilities.
+
+## 9. Generate deterministic projections
+
+Synchronize package migration files without applying them:
+
+```bash
+npx jskit migrations sync
+```
+
+Review the migration diff. Existing Knex migration files and migration-table history remain intact.
+
+Runtime-package migration mutations must be deterministic without install
+options. Convert an option-parameterized runtime migration into a generator
+mutation, or materialize it as a fixed app-local package migration before the
+upgrade.
+
+Generate the JSKIT CI workflow:
+
+```bash
+npx jskit ci generate
+```
+
+Move application-specific CI into separate workflow files. The generated JSKIT workflow is replaced in full whenever this command runs.
+
+## 10. Verify the application
+
+```bash
+npx jskit lint-packages
+npx jskit doctor
+npx jskit migrations sync --check
+npx jskit ci generate --check
+npm run verify
+```
+
+Run the application's Playwright suite directly for UI changes.
+
+Apply database migrations only after reviewing the synchronized files:
+
+```bash
+npm run db:migrate
+```
+
+Commit package manifests, `package-lock.json`, synchronized migrations, generated CI, and required application changes together.
+
+## 11. Update strict resource boundaries
+
+Applications that pass JavaScript `Date` objects into resource validation must convert them to strings. `date` uses `YYYY-MM-DD`; `time` uses offset-free `HH:MM[:SS[.fraction]]`; and `dateTime` uses RFC 3339 with seconds and a `Z` or numeric offset. Select `epochMilliseconds` or `epochSeconds` explicitly for numeric epochs and preserve `temporalPrecision`.
+
+Generated generic CRUD repositories serialize supported database temporal output. Custom repositories must return strict temporal strings and write ISO/RFC 3339 strings themselves.
+
+For a generated view that needs delete confirmation, rerun its `crud-ui-generator crud` command with `--delete-confirmation`. Use `--force` only when replacing generated page output deliberately. For a customized view, preserve the customization and add the public `CrudViewScreen` `actions` slot, `CrudDeleteAction`, and `useCrudDeleteAction()` integration.
+
+Review the complete application diff and run its full verification suite before applying database migrations.

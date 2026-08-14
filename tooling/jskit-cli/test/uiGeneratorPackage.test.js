@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, cp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, constants as fsConstants, cp, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { compileScript, compileTemplate, parse as parseVueSfc } from "@vue/compiler-sfc";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeInstalledPackagesLock } from "./testLock.js";
+import { declareInstalledPackages } from "./testInstalledPackages.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -17,9 +18,25 @@ const RESOURCE_CRUD_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "resourc
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
 );
-const runCli = createCliRunner(CLI_PATH);
+const invokeCli = createCliRunner(CLI_PATH);
+
+function runCli(options = {}) {
+  const appRoot = String(options.cwd || "");
+  return invokeCli({
+    ...options,
+    env: {
+      ...process.env,
+      ...(options.env || {}),
+      PATH: `${path.join(appRoot, ".test-bin")}:${process.env.PATH || ""}`
+    }
+  });
+}
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
+  const fakeNpmPath = path.join(appRoot, ".test-bin", "npm");
+  await mkdir(path.dirname(fakeNpmPath), { recursive: true });
+  await writeFile(fakeNpmPath, "#!/usr/bin/env node\n", "utf8");
+  await chmod(fakeNpmPath, 0o755);
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
   await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
@@ -167,7 +184,7 @@ export {
     "utf8"
   );
 
-  await writeInstalledPackagesLock(appRoot, {
+  await declareInstalledPackages(appRoot, {
     "@jskit-ai/shell-web": {
       packageId: "@jskit-ai/shell-web",
       version: "0.1.0"
@@ -196,7 +213,10 @@ async function installCrudUiGeneratorPackage(appRoot) {
   );
 }
 
-async function writeCustomerResource(appRoot, { includeResourceNamespace = true } = {}) {
+async function writeCustomerResource(appRoot, {
+  includeResourceNamespace = true,
+  includeDelete = false
+} = {}) {
   const resourceFile = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
   await mkdir(path.dirname(resourceFile), { recursive: true });
   await writeFile(
@@ -237,7 +257,7 @@ const canonicalResource = defineCrudResource({
       }
     }
   },
-  crudOperations: ["list", "view", "create", "patch"]
+  crudOperations: ["list", "view", "create", "patch"${includeDelete ? ', "delete"' : ""}]
 });
 
 const resource = ${includeResourceNamespace ? "canonicalResource" : "{ ...canonicalResource }"};
@@ -257,18 +277,50 @@ async function fileExists(absolutePath) {
   }
 }
 
+async function listRelativeVueFiles(rootPath, currentPath = rootPath) {
+  const entries = await readdir(currentPath, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const entryPath = path.join(currentPath, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await listRelativeVueFiles(rootPath, entryPath));
+      continue;
+    }
+    if (entry.isFile() && entry.name.endsWith(".vue")) {
+      files.push(path.relative(rootPath, entryPath).replaceAll(path.sep, "/"));
+    }
+  }
+  return files.sort();
+}
+
+function assertVueModuleCompiles(source, filename) {
+  const parsed = parseVueSfc(source, { filename });
+  assert.deepEqual(parsed.errors, []);
+  compileScript(parsed.descriptor, {
+    id: `generated-${path.basename(filename)}`
+  });
+  const templateResult = compileTemplate({
+    id: `generated-${path.basename(filename)}`,
+    filename,
+    source: parsed.descriptor.template?.content || ""
+  });
+  assert.deepEqual(templateResult.errors, []);
+}
+
 function resolveGeneratedPaths(appRoot, targetRoot, idParam = "customerId") {
   const generatedRoot = path.join(appRoot, "src", "pages", targetRoot);
+  const generatedComponentsRoot = path.join(appRoot, "src", "components", targetRoot);
   return {
     generatedRoot,
+    generatedComponentsRoot,
     listPagePath: path.join(generatedRoot, "index.vue"),
     listBulkActionsPath: path.join(generatedRoot, "listBulkActions.js"),
     listFiltersPath: path.join(generatedRoot, "listFilters.js"),
     viewPagePath: path.join(generatedRoot, `[${idParam}]`, "index.vue"),
     newPagePath: path.join(generatedRoot, "new.vue"),
     editPagePath: path.join(generatedRoot, `[${idParam}]`, "edit.vue"),
-    addEditFormPath: path.join(generatedRoot, "_components", "CrudAddEditForm.vue"),
-    addEditFormFieldsPath: path.join(generatedRoot, "_components", "CrudAddEditFormFields.js")
+    addEditFormPath: path.join(generatedComponentsRoot, "CrudAddEditForm.vue"),
+    addEditFormFieldsPath: path.join(generatedComponentsRoot, "CrudAddEditFormFields.js")
   };
 }
 
@@ -281,6 +333,7 @@ async function generateCrudUiPackage(
     idParam = "customerId",
     linkPlacement = "",
     namespace = "",
+    deleteConfirmation = false,
     force = false
   } = {}
 ) {
@@ -298,6 +351,7 @@ async function generateCrudUiPackage(
     ...(displayFields ? ["--display-fields", displayFields] : []),
     ...(linkPlacement ? ["--link-placement", linkPlacement] : []),
     ...(namespace ? ["--namespace", namespace] : []),
+    ...(deleteConfirmation ? ["--delete-confirmation"] : []),
     ...(force ? ["--force"] : [])
   ];
 
@@ -324,6 +378,12 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.equal(await fileExists(paths.editPagePath), true);
     assert.equal(await fileExists(paths.addEditFormPath), true);
     assert.equal(await fileExists(paths.addEditFormFieldsPath), true);
+    assert.deepEqual(await listRelativeVueFiles(paths.generatedRoot), [
+      "[customerId]/edit.vue",
+      "[customerId]/index.vue",
+      "index.vue",
+      "new.vue"
+    ]);
 
     const listPageSource = await readFile(paths.listPagePath, "utf8");
     assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
@@ -338,10 +398,20 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.doesNotMatch(listPageSource, /<th>Id<\/th>/);
     assert.doesNotMatch(listPageSource, /<td>\{\{ record\.id \}\}<\/td>/);
 
+    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
+    assert.doesNotMatch(viewPageSource, /useCrudDeleteAction/);
+    assert.doesNotMatch(viewPageSource, /role="alertdialog"/);
+
     const newPageSource = await readFile(paths.newPagePath, "utf8");
-    assert.match(newPageSource, /import CrudAddEditForm from "\.\/_components\/CrudAddEditForm\.vue";/);
+    assert.match(
+      newPageSource,
+      /import CrudAddEditForm from "\/src\/components\/admin\/ops\/customers-ui\/CrudAddEditForm\.vue";/
+    );
     assert.match(newPageSource, /UI_CREATE_FORM_FIELDS/);
-    assert.match(newPageSource, /jskit:crud-ui-form-fields-target \.\/_components\/CrudAddEditFormFields\.js/);
+    assert.match(
+      newPageSource,
+      /jskit:crud-ui-form-fields-target \/src\/components\/admin\/ops\/customers-ui\/CrudAddEditFormFields\.js/
+    );
 
     const addEditFormFieldsSource = await readFile(paths.addEditFormFieldsPath, "utf8");
     assert.match(addEditFormFieldsSource, /crud\.ui\.form-fields\.customers\.new\.v1/);
@@ -355,8 +425,14 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(listBulkActionsSource, /const listBulkActions = defineCrudListBulkActions\(\[\]\);/);
 
     const editPageSource = await readFile(paths.editPagePath, "utf8");
-    assert.match(editPageSource, /import CrudAddEditForm from "\.\.\/_components\/CrudAddEditForm\.vue";/);
-    assert.match(editPageSource, /jskit:crud-ui-form-fields-target \.\.\/_components\/CrudAddEditFormFields\.js/);
+    assert.match(
+      editPageSource,
+      /import CrudAddEditForm from "\/src\/components\/admin\/ops\/customers-ui\/CrudAddEditForm\.vue";/
+    );
+    assert.match(
+      editPageSource,
+      /jskit:crud-ui-form-fields-target \/src\/components\/admin\/ops\/customers-ui\/CrudAddEditFormFields\.js/
+    );
 
     const placementSource = await readFile(path.join(appRoot, "src", "placement.js"), "utf8");
     assert.match(placementSource, /jskit:crud-ui-generator\.page\.link:admin:\/ops\/customers-ui/);
@@ -365,6 +441,68 @@ test("generate @jskit-ai/crud-ui-generator crud scaffolds CRUD pages at an expli
     assert.match(placementSource, /kind: "link"/);
     assert.doesNotMatch(placementSource, /componentToken: "local\.main\.ui\.surface-aware-menu-link-item"/);
     assert.match(placementSource, /scopedSuffix: "\/ops\/customers-ui"/);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator adds delete confirmation only when requested", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-delete-confirmation");
+    await createMinimalApp(appRoot, { name: "crud-ui-delete-confirmation" });
+    await writeCustomerResource(appRoot, { includeDelete: true });
+    await generateCrudUiPackage(appRoot, {
+      targetRoot: "admin/notes",
+      idParam: "noteId",
+      deleteConfirmation: true
+    });
+
+    const paths = resolveGeneratedPaths(appRoot, "admin/notes", "noteId");
+    const viewPageSource = await readFile(paths.viewPagePath, "utf8");
+    assert.match(
+      viewPageSource,
+      /import \{ useCrudDeleteAction \} from "@jskit-ai\/http-web\/client\/composables\/useCrudDeleteAction";/
+    );
+    assert.match(
+      viewPageSource,
+      /import CrudDeleteAction from "@jskit-ai\/http-web\/client\/components\/CrudDeleteAction";/
+    );
+    assert.match(viewPageSource, /<CrudDeleteAction/);
+    assert.match(viewPageSource, /:action="deleteAction"/);
+    assert.match(viewPageSource, /const UI_RECORD_ID_PARAM = "noteId";/);
+    assert.match(viewPageSource, /const UI_VIEW_API_URL = `\$\{UI_API_BASE_URL\}\/\:\$\{UI_RECORD_ID_PARAM\}`;/);
+    assert.match(viewPageSource, /const deleteAction = useCrudDeleteAction\(\{/);
+    assert.match(viewPageSource, /resource: uiResource/);
+    assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL/);
+    assert.doesNotMatch(viewPageSource, /<v-dialog|\bactivator=|mdiDeleteOutline/);
+    assert.doesNotMatch(viewPageSource, /\bfetch\s*\(/);
+    assert.doesNotMatch(viewPageSource, /http-web\/src\/|\/internal\//);
+    assert.doesNotMatch(viewPageSource, /__JSKIT_UI_/);
+    assertVueModuleCompiles(viewPageSource, paths.viewPagePath);
+  });
+});
+
+test("generate @jskit-ai/crud-ui-generator rejects delete confirmation for a resource without delete", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "crud-ui-delete-unsupported");
+    await createMinimalApp(appRoot, { name: "crud-ui-delete-unsupported" });
+    await writeCustomerResource(appRoot);
+    await installCrudUiGeneratorPackage(appRoot);
+
+    const result = runCli({
+      cwd: appRoot,
+      args: [
+        "generate",
+        "@jskit-ai/crud-ui-generator",
+        "crud",
+        "admin/notes",
+        "--resource-file",
+        "packages/customers/src/shared/customerResource.js",
+        "--delete-confirmation"
+      ]
+    });
+
+    assert.equal(result.status, 1);
+    assert.match(String(result.stderr || ""), /missing operations\.delete/);
+    assert.equal(await fileExists(path.join(appRoot, "src/pages/admin/notes")), false);
   });
 });
 
@@ -678,9 +816,6 @@ test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target r
 `,
       "utf8"
     );
-    const lockPath = path.join(appRoot, ".jskit", "lock.json");
-    const lockBefore = await readFile(lockPath, "utf8");
-
     const result = runCli({
       cwd: appRoot,
       args: [
@@ -700,8 +835,6 @@ test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target r
       String(result.stderr || ""),
       /crud-ui-generator crud will not overwrite existing target root src\/pages\/admin\/products\. Re-run with --force to overwrite it\./
     );
-    assert.equal(await readFile(lockPath, "utf8"), lockBefore);
-
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
     assert.match(listPageSource, /custom products page/);
   });
@@ -778,15 +911,21 @@ test("generate @jskit-ai/crud-ui-generator accepts route roots with a src/pages 
         "crud",
         "src/pages/admin/products",
         "--resource-file",
-        "packages/customers/src/shared/customerResource.js",
-        "--operations",
-        "list"
+        "packages/customers/src/shared/customerResource.js"
       ]
     });
 
     assert.equal(result.status, 0, String(result.stderr || ""));
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
     assert.match(listPageSource, /Search, review, and update Customers from this screen\./);
+    assert.equal(
+      await fileExists(path.join(appRoot, "src/components/admin/products/CrudAddEditForm.vue")),
+      true
+    );
+    assert.equal(
+      await fileExists(path.join(appRoot, "src/components/src/pages/admin/products/CrudAddEditForm.vue")),
+      false
+    );
   });
 });
 

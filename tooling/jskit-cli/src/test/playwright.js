@@ -5,6 +5,7 @@ const DEFAULT_VIEWPORTS = Object.freeze([
   Object.freeze({ name: "medium", width: 768, height: 1024 }),
   Object.freeze({ name: "expanded", width: 1280, height: 900 })
 ]);
+const INTERACTIVE_SELECTOR = "a[href], button, [role='button'], .v-btn, .v-list-item";
 
 function normalizeBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/u, "");
@@ -49,15 +50,17 @@ async function expectNoHorizontalOverflow(page, expect) {
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
 }
 
-async function expectVisibleTapTargets(page, expect) {
-  const heights = await page.locator("a[href], button, [role='button'], .v-btn, .v-list-item").evaluateAll(
-    (elements) => elements
+async function expectVisibleTapTargets(screen, expect) {
+  const heights = await screen.locator(INTERACTIVE_SELECTOR).evaluateAll(
+    (elements, interactiveSelector) => elements
       .filter((element) => {
         const rect = element.getBoundingClientRect();
         const style = window.getComputedStyle(element);
         return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
       })
-      .map((element) => element.getBoundingClientRect().height)
+      .filter((element) => !element.parentElement?.closest(interactiveSelector))
+      .map((element) => element.getBoundingClientRect().height),
+    INTERACTIVE_SELECTOR
   );
 
   for (const height of heights) {
@@ -79,9 +82,12 @@ async function runGeneratedAppSmokeCase({
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
   await page.goto(smokePath);
   await expect(page.locator("body")).toBeVisible();
-  await expect(page.getByText(expectedText)).toBeVisible();
-  await expect(page.locator(".generated-ui-screen").first()).toBeVisible();
-  await expectVisibleTapTargets(page, expect);
+  const screen = page.locator(".generated-ui-screen").first();
+  await expect(screen).toBeVisible();
+  await expect(screen).toContainText(expectedText);
+  if (viewport.name === "compact") {
+    await expectVisibleTapTargets(screen, expect);
+  }
   await expectNoHorizontalOverflow(page, expect);
 }
 

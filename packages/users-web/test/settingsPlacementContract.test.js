@@ -4,13 +4,25 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
+test("account settings load state exposes a local retry action", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "AccountSettingsClientElement.vue"),
+    "utf8"
+  );
+
+  assert.match(source, /settingsLoadError/);
+  assert.match(source, /@click="runtime\.refreshSettings"/);
+});
+
 function readOutlets(host = "") {
-  const outlets = descriptor?.metadata?.ui?.placements?.outlets;
+  const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
   const normalizedTarget = String(host || "").trim();
   return Array.isArray(outlets)
     ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
@@ -18,7 +30,7 @@ function readOutlets(host = "") {
 }
 
 function findTopology(id, owner = "") {
-  const placements = descriptor?.metadata?.ui?.placements?.topology?.placements;
+  const placements = packageMetadata?.metadata?.ui?.placements?.topology?.placements;
   const normalizedId = String(id || "").trim();
   const normalizedOwner = String(owner || "").trim();
   return Array.isArray(placements)
@@ -31,28 +43,28 @@ function findTopology(id, owner = "") {
 }
 
 function findContribution(id) {
-  const contributions = descriptor?.metadata?.ui?.placements?.contributions;
+  const contributions = packageMetadata?.metadata?.ui?.placements?.contributions;
   return Array.isArray(contributions)
     ? contributions.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
 }
 
 function findTextMutation(id) {
-  const textMutations = descriptor?.mutations?.text;
+  const textMutations = packageMetadata?.mutations?.text;
   return Array.isArray(textMutations)
     ? textMutations.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
 }
 
 function findSourceMutation(id) {
-  const sourceMutations = descriptor?.mutations?.source;
+  const sourceMutations = packageMetadata?.mutations?.source;
   return Array.isArray(sourceMutations)
     ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
 }
 
 function findFileMutation(id) {
-  const fileMutations = descriptor?.mutations?.files;
+  const fileMutations = packageMetadata?.mutations?.files;
   return Array.isArray(fileMutations)
     ? fileMutations.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
@@ -197,7 +209,7 @@ test("users-web account settings section templates use direct settings panels", 
   }
 });
 
-test("users-web descriptor metadata advertises home cog outlet and standard home settings placements", () => {
+test("users-web packageMetadata metadata advertises home cog outlet and standard home settings placements", () => {
   assert.deepEqual(
     readOutlets("home-cog:primary-menu"),
     [

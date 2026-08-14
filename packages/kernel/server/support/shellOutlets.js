@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { loadInstalledPackageDescriptor } from "../../internal/node/installedPackageDescriptor.js";
+import { discoverInstalledPackages } from "../../internal/node/installedPackages.js";
 import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
 import { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 import {
@@ -15,7 +15,6 @@ import {
 } from "../../shared/support/shellLayoutTargets.js";
 
 const VUE_DISCOVERY_IGNORED_ERROR_CODES = new Set(["ENOENT", "ENOTDIR", "EACCES", "EPERM"]);
-const LOCK_FILE_RELATIVE_PATH = ".jskit/lock.json";
 const PLACEMENT_TOPOLOGY_RELATIVE_PATH = "src/placementTopology.js";
 const ROUTE_TAG_PATTERN = /<route\b([^>]*)>([\s\S]*?)<\/route>/g;
 const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
@@ -174,33 +173,10 @@ async function collectVueFilePaths(rootDirectoryPath) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
-async function readInstalledPackageStates(appRoot) {
-  const lockPath = path.resolve(appRoot, LOCK_FILE_RELATIVE_PATH);
-  let lockSource = "";
-  try {
-    lockSource = await readFile(lockPath, "utf8");
-  } catch (error) {
-    const errorCode = normalizeText(error?.code).toUpperCase();
-    if (errorCode === "ENOENT") {
-      return {};
-    }
-    throw error;
-  }
-
-  let lockPayload = {};
-  try {
-    lockPayload = JSON.parse(lockSource);
-  } catch (error) {
-    throw new Error(`Invalid JSON in ${LOCK_FILE_RELATIVE_PATH}.`);
-  }
-
-  return normalizeObject(lockPayload.installedPackages);
-}
-
 function normalizePackageOutletTarget({
   packageId = "",
   outlet = {},
-  descriptorPath = ""
+  manifestPath = ""
 } = {}) {
   const normalizedPackageId = normalizeText(packageId);
   if (!normalizedPackageId) {
@@ -218,7 +194,7 @@ function normalizePackageOutletTarget({
   const source = normalizeText(outletRecord.source);
   const sourcePath = source
     ? `package:${normalizedPackageId}:${toPosixPath(source)}`
-    : `package:${normalizedPackageId}${descriptorPath ? `:${toPosixPath(descriptorPath)}` : ""}`;
+    : `package:${normalizedPackageId}${manifestPath ? `:${toPosixPath(manifestPath)}` : ""}`;
 
   return Object.freeze({
     ...normalizedTarget,
@@ -229,19 +205,13 @@ function normalizePackageOutletTarget({
 }
 
 async function collectInstalledPackageOutletTargets(appRoot) {
-  const installedPackageStates = await readInstalledPackageStates(appRoot);
-  const packageIds = Object.keys(installedPackageStates).sort((left, right) => left.localeCompare(right));
+  const installedPackages = await discoverInstalledPackages({ appRoot });
   const targets = [];
 
-  for (const packageId of packageIds) {
-    const installedPackageState = normalizeObject(installedPackageStates[packageId]);
-    const descriptorRecord = await loadInstalledPackageDescriptor({
-      appRoot,
-      packageId,
-      installedPackageState
-    });
-    const descriptor = normalizeObject(descriptorRecord.descriptor);
-    const metadata = normalizeObject(descriptor.metadata);
+  for (const installedPackage of installedPackages) {
+    const packageId = installedPackage.packageId;
+    const packageMetadata = normalizeObject(installedPackage.packageMetadata);
+    const metadata = normalizeObject(packageMetadata.metadata);
     const ui = normalizeObject(metadata.ui);
     const placements = normalizeObject(ui.placements);
     const outlets = Array.isArray(placements.outlets) ? placements.outlets : [];
@@ -249,7 +219,7 @@ async function collectInstalledPackageOutletTargets(appRoot) {
       const normalizedTarget = normalizePackageOutletTarget({
         packageId,
         outlet,
-        descriptorPath: descriptorRecord.descriptorPath
+        manifestPath: installedPackage.manifestPath
       });
       if (normalizedTarget) {
         targets.push(normalizedTarget);
@@ -297,19 +267,13 @@ async function loadAppPlacementTopology(appRoot) {
 }
 
 async function collectInstalledPackagePlacementTopology(appRoot) {
-  const installedPackageStates = await readInstalledPackageStates(appRoot);
-  const packageIds = Object.keys(installedPackageStates).sort((left, right) => left.localeCompare(right));
+  const installedPackages = await discoverInstalledPackages({ appRoot });
   const placements = [];
 
-  for (const packageId of packageIds) {
-    const installedPackageState = normalizeObject(installedPackageStates[packageId]);
-    const descriptorRecord = await loadInstalledPackageDescriptor({
-      appRoot,
-      packageId,
-      installedPackageState
-    });
-    const descriptor = normalizeObject(descriptorRecord.descriptor);
-    const metadata = normalizeObject(descriptor.metadata);
+  for (const installedPackage of installedPackages) {
+    const packageId = installedPackage.packageId;
+    const packageMetadata = normalizeObject(installedPackage.packageMetadata);
+    const metadata = normalizeObject(packageMetadata.metadata);
     const ui = normalizeObject(metadata.ui);
     const placementsMeta = normalizeObject(ui.placements);
     const topology = placementsMeta.topology;
@@ -324,7 +288,7 @@ async function collectInstalledPackagePlacementTopology(appRoot) {
       placements.push(
         withTopologySource(
           placement,
-          `package:${packageId}${descriptorRecord.descriptorPath ? `:${toPosixPath(descriptorRecord.descriptorPath)}` : ""}`
+          `package:${packageId}${installedPackage.manifestPath ? `:${toPosixPath(installedPackage.manifestPath)}` : ""}`
         )
       );
     }

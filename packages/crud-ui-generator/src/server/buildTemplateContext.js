@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import {
   requireCrudNamespace
 } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
@@ -6,7 +7,7 @@ import {
   resolvePageLinkTargetDetails,
   resolvePageTargetDetails
 } from "@jskit-ai/kernel/server/support";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeBoolean, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveGeneratedUiNavigationRoleLinkPlacement,
   shouldCreateGeneratedUiNavigationLink
@@ -34,7 +35,7 @@ import {
   resolveRecordChangedEventName,
   resolveRecordIdExpression
 } from "./resourceSupport.js";
-import descriptor from "../../package.descriptor.mjs";
+const packageMetadata = createRequire(import.meta.url)("../../package.json").jskit;
 
 const DEFAULT_ALLOWED_OPERATIONS = Object.freeze(["list", "view", "new", "edit"]);
 const DEFAULT_ALLOWED_PARENT_TITLE_VALUES = Object.freeze(["contextual", "none"]);
@@ -59,15 +60,15 @@ function resolveAllowedValues(schema = {}, fallbackValues = []) {
   );
 }
 
-const OPERATION_VALUES = resolveAllowedValues(descriptor?.options?.operations, DEFAULT_ALLOWED_OPERATIONS);
+const OPERATION_VALUES = resolveAllowedValues(packageMetadata?.options?.operations, DEFAULT_ALLOWED_OPERATIONS);
 const ALLOWED_OPERATIONS = new Set(OPERATION_VALUES);
-const DEFAULT_OPERATIONS = normalizeText(descriptor?.options?.operations?.defaultValue) || OPERATION_VALUES.join(",");
+const DEFAULT_OPERATIONS = normalizeText(packageMetadata?.options?.operations?.defaultValue) || OPERATION_VALUES.join(",");
 const PARENT_TITLE_VALUES = resolveAllowedValues(
-  descriptor?.options?.["parent-title"],
+  packageMetadata?.options?.["parent-title"],
   DEFAULT_ALLOWED_PARENT_TITLE_VALUES
 );
 const ALLOWED_PARENT_TITLE_VALUES = new Set(PARENT_TITLE_VALUES);
-const DEFAULT_PARENT_TITLE_MODE = normalizeText(descriptor?.options?.["parent-title"]?.defaultValue).toLowerCase()
+const DEFAULT_PARENT_TITLE_MODE = normalizeText(packageMetadata?.options?.["parent-title"]?.defaultValue).toLowerCase()
   || PARENT_TITLE_VALUES[0]
   || "contextual";
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
@@ -198,6 +199,15 @@ function resolveListTargetFile(targetRoot = "") {
   return `${normalizeRelativeAppPath(targetRoot)}/index.vue`;
 }
 
+function resolveFormHelperPaths(targetRoot = "") {
+  const normalizedTargetRoot = normalizeRelativeAppPath(targetRoot);
+  const componentRoot = `src/components/${normalizedTargetRoot}`;
+  return Object.freeze({
+    componentImportPath: `/${componentRoot}/${DEFAULT_FORM_COMPONENT_FILE}`,
+    fieldsImportPath: `/${componentRoot}/${DEFAULT_FORM_FIELDS_FILE}`
+  });
+}
+
 function parseOperationsOption(options) {
   const rawValue = normalizeText(options?.operations) || DEFAULT_OPERATIONS;
 
@@ -257,6 +267,22 @@ function parseParentTitleOption(options) {
   }
 
   return parentTitleMode;
+}
+
+function resolveBooleanFlagOption(options = {}, optionName = "") {
+  const normalizedOptionName = normalizeText(optionName);
+  if (!normalizedOptionName || !Object.prototype.hasOwnProperty.call(options, normalizedOptionName)) {
+    return false;
+  }
+
+  const value = options[normalizedOptionName];
+  if (value === undefined || value === true) {
+    return true;
+  }
+  if (value === "" || value == null || value === false) {
+    return false;
+  }
+  return normalizeBoolean(value);
 }
 
 function shouldCreateNavigationLink(options = {}, inferenceContext = {}) {
@@ -388,7 +414,7 @@ function buildCrudFieldsSlotProps(fields = [], { includeMode = false } = {}) {
 
 function buildLookupImportLine(fields = []) {
   return hasLookupFormFields(fields)
-    ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/users-web/client/composables/crudLookupFieldRuntime";'
+    ? 'import { createCrudLookupFieldRuntime } from "@jskit-ai/http-web/client/composables/crudLookupFieldRuntime";'
     : "";
 }
 
@@ -626,7 +652,7 @@ function buildListParentTitleImportLine(parentTitleMode = "contextual") {
     return "";
   }
 
-  return 'import { useCrudListParentTitle } from "@jskit-ai/users-web/client/composables/useCrudListParentTitle";';
+  return 'import { useCrudListParentTitle } from "@jskit-ai/http-web/client/composables/useCrudListParentTitle";';
 }
 
 function buildListHeadingTitleSetup({
@@ -661,9 +687,37 @@ const listHeadingTitle = computed(() => {
 });`;
 }
 
+function buildViewDeleteActionSlot({
+  resourceSingularTitle = "Record"
+} = {}) {
+  const label = normalizeText(resourceSingularTitle) || "Record";
+  return `    <template #actions>
+      <CrudDeleteAction
+        :action="deleteAction"
+        resource-singular-title="${label}"
+      />
+    </template>`;
+}
+
+function buildViewDeleteSetup({ resourceNamespace = "resource" } = {}) {
+  const namespace = requireCrudNamespace(resourceNamespace, {
+    context: "crud-ui-generator delete setup namespace"
+  });
+  return `
+
+const deleteAction = useCrudDeleteAction({
+  screen,
+  resource: uiResource,
+  resourceNamespace: ${JSON.stringify(namespace)},
+  apiUrlTemplate: UI_VIEW_API_URL,
+  fallbackDeleteError: "Unable to delete record."
+});`;
+}
+
 async function buildUiTemplateContext({ appRoot, options } = {}) {
   const targetRoot = requireTargetRootOption(options);
   const listTargetFile = resolveListTargetFile(targetRoot);
+  const formHelperPaths = resolveFormHelperPaths(targetRoot);
   const selectedOperations = parseOperationsOption(options);
   const selectedDisplayFields = parseDisplayFieldsOption(options);
   const parentTitleMode = parseParentTitleOption(options);
@@ -689,6 +743,26 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
   const hasViewOperation = selectedOperations.has("view");
   const hasNewOperation = selectedOperations.has("new");
   const hasEditOperation = selectedOperations.has("edit");
+  const hasDeleteConfirmation = resolveBooleanFlagOption(options, "delete-confirmation");
+
+  if (hasDeleteConfirmation && !hasViewOperation) {
+    throw new Error(
+      'crud-ui-generator option "delete-confirmation" requires operations to include view.'
+    );
+  }
+  if (hasDeleteConfirmation && !hasListOperation) {
+    throw new Error(
+      'crud-ui-generator option "delete-confirmation" requires operations to include list so successful deletion has a safe destination.'
+    );
+  }
+  if (hasDeleteConfirmation) {
+    const deleteOperation = requireOperation(resource, "delete", { context: "crud-ui-generator" });
+    if (normalizeText(deleteOperation?.method).toUpperCase() !== "DELETE") {
+      throw new Error(
+        'crud-ui-generator option "delete-confirmation" requires resource operations.delete.method to be DELETE.'
+      );
+    }
+  }
 
   let listRealtimeEvents = [defaultRecordChangedEvent];
   let listFieldsAll = [];
@@ -830,6 +904,8 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     }),
     __JSKIT_UI_FORM_COMPONENT_FILE__: DEFAULT_FORM_COMPONENT_FILE,
     __JSKIT_UI_FORM_FIELDS_FILE__: DEFAULT_FORM_FIELDS_FILE,
+    __JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__: formHelperPaths.componentImportPath,
+    __JSKIT_UI_FORM_FIELDS_IMPORT_PATH__: formHelperPaths.fieldsImportPath,
     __JSKIT_UI_SURFACE_ID__: pageTarget.surfaceId,
     __JSKIT_UI_LIST_HEADER_COLUMNS__: buildListHeaderColumns(listFields),
     __JSKIT_UI_LIST_ROW_COLUMNS__: buildListRowColumns(listFields),
@@ -840,6 +916,20 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_LIST_REALTIME_EVENTS__: JSON.stringify(listRealtimeEvents),
     __JSKIT_UI_LIST_RECORD_ID_EXPR__: resolveRecordIdExpression(recordIdFields),
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
+    __JSKIT_UI_VIEW_DELETE_ACTION_SLOT__: hasDeleteConfirmation
+      ? buildViewDeleteActionSlot({
+        resourceSingularTitle: resourceLabels.singularTitle
+      })
+      : "",
+    __JSKIT_UI_VIEW_DELETE_IMPORT_LINE__: hasDeleteConfirmation
+      ? [
+          'import CrudDeleteAction from "@jskit-ai/http-web/client/components/CrudDeleteAction";',
+          'import { useCrudDeleteAction } from "@jskit-ai/http-web/client/composables/useCrudDeleteAction";'
+        ].join("\n")
+      : "",
+    __JSKIT_UI_VIEW_DELETE_SETUP__: hasDeleteConfirmation
+      ? buildViewDeleteSetup({ resourceNamespace })
+      : "",
     __JSKIT_UI_VIEW_TITLE_FALLBACK_FIELD_KEY__: JSON.stringify(viewTitleFallbackFieldKey),
     __JSKIT_UI_RECORD_CHANGED_EVENT__: JSON.stringify(defaultRecordChangedEvent),
     __JSKIT_UI_HAS_LIST_ROUTE__: hasListOperation ? "true" : "false",

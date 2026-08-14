@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -25,35 +26,17 @@ async function createAppWithLocalMain(appRoot) {
       "@local/main": "file:packages/main"
     }
   });
-  await writeJson(path.join(appRoot, ".jskit", "lock.json"), {
-    lockVersion: 1,
-    installedPackages: {
-      "@local/main": {
-        packageId: "@local/main",
-        version: "0.1.0",
-        source: {
-          type: "local-package",
-          packagePath: "packages/main",
-          descriptorPath: "packages/main/package.descriptor.mjs"
-        }
-      }
-    }
-  });
   await writeJson(path.join(appRoot, "packages", "main", "package.json"), {
     name: "@local/main",
     version: "0.1.0",
+    description: "App-local main composition and glue scaffold.",
     private: true,
     type: "module"
   });
-  await writeFile(
-    path.join(appRoot, "packages", "main", "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@local/main",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(appRoot, "packages", "main"),
+    `({
   kind: "runtime",
-  description: "App-local main composition and glue scaffold.",
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -96,12 +79,12 @@ async function createAppWithLocalMain(appRoot) {
     text: [],
     files: []
   }
-});\n`,
+})\n`,
     "utf8"
   );
 }
 
-test("show package renders grouped file write plan from descriptor mutations", () => {
+test("show package renders grouped file write plan from packageMetadata mutations", () => {
   const result = runCli({
     cwd: path.resolve(path.dirname(CLI_PATH), ".."),
     args: ["show", "auth-web"]
@@ -126,7 +109,7 @@ test("show package renders grouped file write plan from descriptor mutations", (
   assert.match(stdout, /Placement contributions \(default entries\) \(\d+\):/);
   assert.match(stdout, /auth\.profile\.widget/);
   assert.match(stdout, /auth\.profile\.menu\.sign-out/);
-  assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
+  assert.match(stdout, /Code introspection:\n- Source files unavailable \(package metadata only\)\./);
   assert.match(stdout, /Introspection notes \(\d+\):/);
   assert.match(stdout, /src\/views\/auth\/LoginView\.vue \(id:auth-view-login\):\n\s+Install minimal login container/);
   assert.match(stdout, /src\/views\/auth\/SignOutView\.vue \(id:auth-view-signout\):\n\s+Install minimal sign-out container/);
@@ -146,7 +129,7 @@ test("show package --details renders expanded capability graph details", () => {
   assert.match(stdout, /auth\.provider/);
   assert.match(stdout, /@jskit-ai\/auth-provider-supabase-core@0\.\d+\.\d+/);
   assert.match(stdout, /providers \(\d+\):/);
-  assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
+  assert.match(stdout, /Code introspection:\n- Source files unavailable \(package metadata only\)\./);
 });
 
 test("show feature-server-generator --details renders generator commands and ownership guidance", () => {
@@ -165,6 +148,18 @@ test("show feature-server-generator --details renders generator commands and own
   assert.match(stdout, /packages\/main: stays composition\/glue only/);
 });
 
+test("show crud-ui-generator --details exposes the delete confirmation lane", () => {
+  const result = runCli({
+    cwd: path.resolve(path.dirname(CLI_PATH), ".."),
+    args: ["show", "crud-ui-generator", "--details"]
+  });
+
+  assert.equal(result.status, 0, String(result.stderr || ""));
+  const stdout = stripVTControlCharacters(String(result.stdout || ""));
+  assert.match(stdout, /--delete-confirmation/);
+  assert.match(stdout, /delete-confirmation \[optional\]/);
+});
+
 test("show package resolves app-local packages from the current app", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "local-show-app");
@@ -178,7 +173,7 @@ test("show package resolves app-local packages from the current app", async () =
     assert.equal(result.status, 0, String(result.stderr || ""));
     const stdout = stripVTControlCharacters(String(result.stdout || ""));
     assert.match(stdout, /Package:\s+@local\/main/);
-    assert.match(stdout, /Descriptor:\s+packages\/main\/package\.descriptor\.mjs/);
+    assert.match(stdout, /Manifest:\s+packages\/main\/package\.json/);
     assert.match(stdout, /Description:\s+App-local main composition and glue scaffold\./);
     assert.match(stdout, /App-local main lane/);
   });
@@ -197,45 +192,8 @@ test("show package --json resolves app-local package payloads from the current a
     assert.equal(result.status, 0, String(result.stderr || ""));
     const payload = JSON.parse(String(result.stdout || "{}"));
     assert.equal(payload.packageId, "@local/main");
-    assert.equal(payload.descriptorPath, "packages/main/package.descriptor.mjs");
+    assert.equal(payload.manifestPath, "packages/main/package.json");
     assert.equal(payload.description, "App-local main composition and glue scaffold.");
-  });
-});
-
-test("show package reports missing app-local descriptors recorded in the lock", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "local-show-missing-app");
-    await writeJson(path.join(appRoot, "package.json"), {
-      name: "local-show-missing-app",
-      version: "0.1.0",
-      private: true,
-      type: "module"
-    });
-    await writeJson(path.join(appRoot, ".jskit", "lock.json"), {
-      lockVersion: 1,
-      installedPackages: {
-        "@local/main": {
-          packageId: "@local/main",
-          version: "0.1.0",
-          source: {
-            type: "local-package",
-            packagePath: "packages/main",
-            descriptorPath: "packages/main/package.descriptor.mjs"
-          }
-        }
-      }
-    });
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["show", "@local/main", "--details"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      String(result.stderr || ""),
-      /Local package @local\/main is recorded in \.jskit\/lock\.json but descriptor is missing at packages\/main\/package\.descriptor\.mjs\./
-    );
   });
 });
 
@@ -247,7 +205,7 @@ test("show package --debug-exports includes re-export provenance details", () =>
 
   assert.equal(result.status, 0, String(result.stderr || ""));
   const stdout = stripVTControlCharacters(String(result.stdout || ""));
-  assert.match(stdout, /Code introspection:\n- Source files unavailable \(descriptor metadata only\)\./);
+  assert.match(stdout, /Code introspection:\n- Source files unavailable \(package metadata only\)\./);
   assert.doesNotMatch(stdout, /Package exports \(/);
   assert.doesNotMatch(stdout, /re-export sources:/);
 });

@@ -5,11 +5,11 @@
 </template>
 
 <script setup>
-import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_CREATE_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
-import CrudAddEditForm from "./_components/__JSKIT_UI_FORM_COMPONENT_FILE__";
-import { UI_CREATE_FORM_FIELDS } from "./_components/__JSKIT_UI_FORM_FIELDS_FILE__";
+import CrudAddEditForm from "__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__";
+import { UI_CREATE_FORM_FIELDS } from "__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__";
 
 const UI_OPERATION_ADAPTER = null;
 const UI_RECORD_ID_PARAM = "__JSKIT_UI_RECORD_ID_PARAM__";
@@ -19,8 +19,8 @@ const UI_VIEW_URL = __JSKIT_UI_NEW_PAGE_VIEW_URL__;
 const UI_CANCEL_URL = UI_LIST_URL;
 const UI_RECORD_CHANGED_EVENT = __JSKIT_UI_RECORD_CHANGED_EVENT__;
 
-// jskit:crud-ui-fields-target ./_components/__JSKIT_UI_FORM_COMPONENT_FILE__
-// jskit:crud-ui-form-fields-target ./_components/__JSKIT_UI_FORM_FIELDS_FILE__
+// jskit:crud-ui-fields-target __JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__
+// jskit:crud-ui-form-fields-target __JSKIT_UI_FORM_FIELDS_IMPORT_PATH__
 
 __JSKIT_UI_CREATE_LOOKUP_RUNTIME_SETUP__
 

@@ -14,8 +14,8 @@ __JSKIT_UI_EDIT_FORM_COLUMNS_DIRECT__
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import CrudAddEditScreen from "@jskit-ai/users-web/client/components/CrudAddEditScreen";
-import { useCrudAddEditScreen } from "@jskit-ai/users-web/client/composables/useCrudAddEditScreen";
+import CrudAddEditScreen from "@jskit-ai/http-web/client/components/CrudAddEditScreen";
+import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
 __JSKIT_UI_EDIT_LOOKUP_IMPORT_LINE__
 import { resource as uiResource } from "__JSKIT_UI_RESOURCE_IMPORT_PATH__";
 

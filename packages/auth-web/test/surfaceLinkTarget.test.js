@@ -67,7 +67,7 @@ test("resolveSurfaceLinkTarget returns explicit target unchanged", () => {
   assert.equal(to, "/custom/target");
 });
 
-test("resolveSurfaceLinkTarget no longer requires workspace slug for surface links", () => {
+test("resolveSurfaceLinkTarget resolves surface links without a workspace slug", () => {
   const to = resolveSurfaceLinkTarget({
     context: {
       surfaceConfig: createPlacementContext().surfaceConfig

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createCliRunner } from "../../testUtils/runCli.js";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
+import { declareInstalledPackages } from "./testInstalledPackages.js";
 import {
   buildManagedDeepLinkIntentFilterBlock,
   ensureMobileConfigStub,
@@ -97,29 +98,6 @@ const DEFAULT_ANDROID_VARIABLES_GRADLE = `ext {
 }
 `;
 
-function createManagedRecord(packageId, version) {
-  return {
-    packageId,
-    version,
-    source: {
-      type: "packages-directory"
-    },
-    managed: {
-      packageJson: {
-        dependencies: {},
-        devDependencies: {},
-        scripts: {}
-      },
-      text: {},
-      vite: {},
-      files: [],
-      migrations: []
-    },
-    options: {},
-    installedAt: "2026-05-07T00:00:00.000Z"
-  };
-}
-
 async function writeExecutable(filePath, source) {
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFile(filePath, source, "utf8");
@@ -151,7 +129,6 @@ async function createMobileReadyApp(appRoot, {
   devServerUrl = ""
 } = {}) {
   await mkdir(path.join(appRoot, "config"), { recursive: true });
-  await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
   await mkdir(path.join(appRoot, "node_modules", ".bin"), { recursive: true });
   await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
 
@@ -169,6 +146,9 @@ async function createMobileReadyApp(appRoot, {
     )}\n`,
     "utf8"
   );
+  await declareInstalledPackages(appRoot, {
+    "@jskit-ai/shell-web": {}
+  });
 
   await writeFile(
     path.join(appRoot, "config", "public.js"),
@@ -233,34 +213,12 @@ export {
     "utf8"
   );
 
-  await writeFile(
-    path.join(appRoot, ".jskit", "lock.json"),
-    `${JSON.stringify(
-      {
-        lockVersion: 1,
-        installedPackages: {
-          "@jskit-ai/shell-web": createManagedRecord("@jskit-ai/shell-web", "0.1.62")
-        }
-      },
-      null,
-      2
-    )}\n`,
-    "utf8"
-  );
 }
 
-async function markPackageAsInstalled(appRoot, packageId, version = "0.1.0") {
-  const packageJsonPath = path.join(appRoot, "package.json");
-  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-  packageJson.dependencies ||= {};
-  packageJson.dependencies[packageId] = "0.x";
-  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
-
-  const lockPath = path.join(appRoot, ".jskit", "lock.json");
-  const lock = JSON.parse(await readFile(lockPath, "utf8"));
-  lock.installedPackages ||= {};
-  lock.installedPackages[packageId] = createManagedRecord(packageId, version);
-  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
+async function markPackageAsInstalled(appRoot, packageId) {
+  await declareInstalledPackages(appRoot, {
+    [packageId]: {}
+  });
 }
 
 async function seedInstalledCapacitorShell(appRoot, {
@@ -395,24 +353,6 @@ test("jskit mobile help reflects the implemented file names and dry-run scope", 
     assert.doesNotMatch(String(syncHelp.stdout || ""), /capacitor\.config\.ts/u);
     assert.match(String(runHelp.stdout || ""), /--dry-run/u);
     assert.match(String(runHelp.stdout || ""), /--target <device-id>/u);
-  });
-});
-
-test("jskit mobile add capacitor is no longer supported", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "app");
-
-    await createMobileReadyApp(appRoot);
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["mobile", "add", "capacitor"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(String(result.stderr || ""), /Unknown mobile platform: add/u);
-    assert.match(String(result.stderr || ""), /jskit mobile <platform> <subcommand>/u);
-    assert.doesNotMatch(String(result.stderr || ""), /- add:/u);
   });
 });
 

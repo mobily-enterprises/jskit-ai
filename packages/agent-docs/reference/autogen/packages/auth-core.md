@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/auth-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -45,7 +45,6 @@ Exports
 Exports
 - `createAuthIdentityId(provider, providerUserId)`
 - `normalizeAuthActor(value = {}, options = {})`
-- `buildLegacyProfileFromActor(actorLike)`
 - `normalizeAuthResult(value = {}, options = {})`
 Local functions
 - `normalizeDisplayName(value, email = "")`
@@ -126,7 +125,6 @@ Exports
 - `mergeAuthPolicy`
 - `createAuthIdentityId`
 - `normalizeAuthActor`
-- `buildLegacyProfileFromActor`
 - `normalizeAuthResult`
 - `AUTH_OPERATION_UNSUPPORTED_CODE`
 - `createUnsupportedAuthOperationError`
@@ -494,9 +492,3 @@ Exports
 - `runAuthSignOutFlow({ authApi, clearCsrfTokenCache = null, afterSignOut = null } = {})`
 Local functions
 - `normalizeAuthApi(authApi)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

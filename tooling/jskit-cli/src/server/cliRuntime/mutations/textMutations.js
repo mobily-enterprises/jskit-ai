@@ -14,7 +14,6 @@ import {
   normalizeSkipChecks
 } from "../../shared/optionInterpolation.js";
 import {
-  normalizeFileMutationRecord,
   normalizeMutationWhen,
   shouldApplyMutationWhen
 } from "../mutationWhen.js";
@@ -31,7 +30,7 @@ import {
 import { normalizeMutationRelativeFilePath } from "./mutationPathUtils.js";
 import {
   isSensitiveTextMutation
-} from "../sensitiveLockState.js";
+} from "../sensitiveOptions.js";
 
 const PRE_FILE_CONFIG_MUTATION_TARGETS = new Set([
   "config/public.js",
@@ -193,15 +192,6 @@ async function applyTextMutations(
   }
 }
 
-function isPositioningTextMutation(value = {}) {
-  const mutation = ensureObject(value);
-  const operation = String(mutation.op || "").trim();
-  if (operation !== "append-text") {
-    return false;
-  }
-  return normalizeMutationRelativeFilePath(mutation.file) === "src/placement.js";
-}
-
 function isPreFileConfigTextMutation(value = {}) {
   const mutation = ensureObject(value);
   const operation = String(mutation.op || "").trim();
@@ -229,21 +219,7 @@ function partitionPreFileConfigTextMutations(textMutations = []) {
   };
 }
 
-function resolvePositioningMutations(descriptorMutations = {}) {
-  const mutations = ensureObject(descriptorMutations);
-  const files = ensureArray(mutations.files).filter((mutationValue) => {
-    const normalized = normalizeFileMutationRecord(mutationValue);
-    return Boolean(normalized.toSurface);
-  });
-  const text = ensureArray(mutations.text).filter((mutationValue) => isPositioningTextMutation(mutationValue));
-  return {
-    files,
-    text
-  };
-}
-
 export {
   applyTextMutations,
-  partitionPreFileConfigTextMutations,
-  resolvePositioningMutations
+  partitionPreFileConfigTextMutations
 };

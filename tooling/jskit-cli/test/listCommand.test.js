@@ -1,16 +1,23 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot, { name = "tmp-app", installedPackages = {} } = {}) {
-  await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
+  const dependencies = Object.fromEntries(Object.entries(installedPackages).map(([packageId, record]) => [
+    packageId,
+    record?.source?.type === "local-package"
+      ? `file:${record.source.packagePath}`
+      : String(record?.version || "0.1.0")
+  ]));
+  await mkdir(appRoot, { recursive: true });
   await writeFile(
     path.join(appRoot, "package.json"),
     `${JSON.stringify(
@@ -18,25 +25,29 @@ async function createMinimalApp(appRoot, { name = "tmp-app", installedPackages =
         name,
         version: "0.1.0",
         private: true,
-        type: "module"
+        type: "module",
+        dependencies
       },
       null,
       2
     )}\n`,
     "utf8"
   );
-  await writeFile(
-    path.join(appRoot, ".jskit", "lock.json"),
-    `${JSON.stringify(
-      {
-        lockVersion: 1,
-        installedPackages
-      },
-      null,
-      2
-    )}\n`,
-    "utf8"
-  );
+  for (const [packageId, record] of Object.entries(installedPackages)) {
+    const packageRoot = record?.source?.type === "local-package"
+      ? path.join(appRoot, record.source.packagePath)
+      : path.join(appRoot, "node_modules", ...packageId.split("/"));
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(path.join(packageRoot, "package.json"), `${JSON.stringify({
+      name: packageId,
+      version: String(record?.version || "0.1.0"),
+      type: "module",
+      jskit: record?.jskit || {
+        kind: "runtime",
+        runtime: { server: { providers: [] }, client: { providers: [] } }
+      }
+    }, null, 2)}\n`, "utf8");
+  }
 }
 
 async function writeVueFile(appRoot, relativePath, source) {
@@ -49,7 +60,7 @@ async function writePlacementTopology(appRoot, source) {
   await writeVueFile(appRoot, "src/placementTopology.js", source);
 }
 
-test("list packages shows installed local packages section for lock-only package ids", async () => {
+test("list packages shows installed local packages from file dependencies", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-local-packages-app");
     await createMinimalApp(appRoot, {
@@ -65,7 +76,7 @@ test("list packages shows installed local packages section for lock-only package
           source: {
             type: "local-package",
             packagePath: "packages/local-feature",
-            descriptorPath: "packages/local-feature/package.descriptor.mjs"
+            manifestPath: "packages/local-feature/package.json"
           }
         }
       }
@@ -96,7 +107,7 @@ test("list packages --json includes installedLocalPackages payload", async () =>
           source: {
             type: "local-package",
             packagePath: "packages/local-feature",
-            descriptorPath: "packages/local-feature/package.descriptor.mjs"
+            manifestPath: "packages/local-feature/package.json"
           }
         }
       }
@@ -117,8 +128,6 @@ test("list packages --json includes installedLocalPackages payload", async () =>
       }
     ]);
 
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
-    assert.equal(lock.installedPackages["@demo-app/local-feature"].version, "0.3.2");
   });
 });
 
@@ -488,7 +497,7 @@ test("list-placements includes installed package metadata topology", async () =>
           packageId: "@example/users-web",
           source: {
             type: "npm-installed-package",
-            descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
+            manifestPath: "node_modules/@example/users-web/package.json"
           }
         }
       }
@@ -503,11 +512,9 @@ test("list-placements includes installed package metadata topology", async () =>
 </template>
 `
     );
-    await writeVueFile(
-      appRoot,
-      "node_modules/@example/users-web/package.descriptor.mjs",
-      `export default {
-  packageId: "@example/users-web",
+    await writeJskitConfig(
+      path.join(appRoot, "node_modules/@example/users-web"),
+      `({
   metadata: {
     ui: {
       placements: {
@@ -531,7 +538,7 @@ test("list-placements includes installed package metadata topology", async () =>
       }
     }
   }
-};
+})
 `
     );
 
@@ -591,24 +598,6 @@ test("list-placements --concrete discovers route meta placement outlets", async 
   });
 });
 
-test("list placements mode reports dedicated command migration", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "list-placements-migration-app");
-    await createMinimalApp(appRoot, { name: "list-placements-migration-app" });
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["list", "placements"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      String(result.stderr || ""),
-      /moved to a dedicated command: jskit list-placements/i
-    );
-  });
-});
-
 test("list-component-tokens discovers placement-linked tokens from app files and installed package metadata", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "list-placement-component-tokens-app");
@@ -619,7 +608,7 @@ test("list-component-tokens discovers placement-linked tokens from app files and
           packageId: "@example/users-web",
           source: {
             type: "npm-installed-package",
-            descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
+            manifestPath: "node_modules/@example/users-web/package.json"
           }
         }
       }
@@ -643,11 +632,9 @@ addPlacement({
 registerMainClientComponent("local.main.ui.custom-pill", () => null);
 `
     );
-    await writeVueFile(
-      appRoot,
-      "node_modules/@example/users-web/package.descriptor.mjs",
-      `export default {
-  packageId: "@example/users-web",
+    await writeJskitConfig(
+      path.join(appRoot, "node_modules/@example/users-web"),
+      `({
   metadata: {
     apiSummary: {
       containerTokens: {
@@ -667,7 +654,7 @@ registerMainClientComponent("local.main.ui.custom-pill", () => null);
       }
     }
   }
-};
+})
 `
     );
 
@@ -697,16 +684,14 @@ test("list-component-tokens --all includes declared client container tokens", as
           packageId: "@example/users-web",
           source: {
             type: "npm-installed-package",
-            descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
+            manifestPath: "node_modules/@example/users-web/package.json"
           }
         }
       }
     });
-    await writeVueFile(
-      appRoot,
-      "node_modules/@example/users-web/package.descriptor.mjs",
-      `export default {
-  packageId: "@example/users-web",
+    await writeJskitConfig(
+      path.join(appRoot, "node_modules/@example/users-web"),
+      `({
   metadata: {
     apiSummary: {
       containerTokens: {
@@ -719,7 +704,7 @@ test("list-component-tokens --all includes declared client container tokens", as
       }
     }
   }
-};
+})
 `
     );
 
@@ -784,23 +769,5 @@ addPlacement({ componentToken: "auth.web.profile.menu.link-item" });
     const stdout = String(result.stdout || "");
     assert.match(stdout, /local\.main\.ui\.tab-link-item/);
     assert.doesNotMatch(stdout, /auth\.web\.profile\.menu\.link-item/);
-  });
-});
-
-test("list placement-component-tokens mode reports dedicated command migration", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "list-placement-component-tokens-migration-app");
-    await createMinimalApp(appRoot, { name: "list-placement-component-tokens-migration-app" });
-
-    const result = runCli({
-      cwd: appRoot,
-      args: ["list", "placement-component-tokens"]
-    });
-
-    assert.equal(result.status, 1);
-    assert.match(
-      String(result.stderr || ""),
-      /moved to a dedicated command: jskit list-component-tokens/i
-    );
   });
 });

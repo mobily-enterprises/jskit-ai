@@ -56,6 +56,57 @@ test("request serializes json body and injects csrf token for unsafe methods", a
   assert.equal(calls[1][1].body, JSON.stringify({ demo: true }));
 });
 
+test("request-level csrf false skips session preflight and is not forwarded to fetch", async (t) => {
+  for (const method of ["POST", "PATCH", "DELETE"]) {
+    await t.test(method, async () => {
+      const calls = [];
+      const client = createHttpClient({
+        fetchImpl: async (url, options) => {
+          calls.push([url, options]);
+          return mockResponse({ data: { ok: true } });
+        }
+      });
+
+      await client.request("/api/books/1", {
+        method,
+        csrf: false,
+        body: method === "DELETE" ? undefined : { title: "Book" }
+      });
+
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0][0], "/api/books/1");
+      assert.equal(Object.hasOwn(calls[0][1], "csrf"), false);
+      assert.equal(Object.hasOwn(calls[0][1].headers, "csrf-token"), false);
+    });
+  }
+});
+
+test("request-level csrf false does not retry a csrf-shaped failure", async () => {
+  const calls = [];
+  const client = createHttpClient({
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return mockResponse({
+        status: 403,
+        data: {
+          error: {
+            code: "CSRF_TOKEN_INVALID"
+          }
+        }
+      });
+    }
+  });
+
+  await assert.rejects(
+    client.request("/api/books/1", {
+      method: "DELETE",
+      csrf: false
+    })
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "/api/books/1");
+});
+
 test("request resolves request urls after query encoding and before fetch", async () => {
   const calls = [];
   const contexts = [];

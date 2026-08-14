@@ -118,7 +118,6 @@ function buildActor(user, profile = null) {
 
 function buildAuthResult({ user, session, appProfile = null }) {
   return normalizeAuthResult({
-    profile: appProfile || buildProfile(user),
     actor: buildActor(user, appProfile),
     session
   });

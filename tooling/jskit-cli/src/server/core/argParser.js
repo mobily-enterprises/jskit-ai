@@ -1,4 +1,4 @@
-import { isKnownCommandName, resolveCommandAlias } from "./commandCatalog.js";
+import { isKnownCommandName } from "./commandCatalog.js";
 
 function parseArgs(argv, { createCliError } = {}) {
   if (typeof createCliError !== "function") {
@@ -13,7 +13,6 @@ function parseArgs(argv, { createCliError } = {}) {
       command: "help",
       options: {
         dryRun: false,
-        runNpmInstall: false,
         full: false,
         expanded: false,
         details: false,
@@ -31,7 +30,7 @@ function parseArgs(argv, { createCliError } = {}) {
   }
 
   const rawCommand = String(args.shift() || "help").trim() || "help";
-  const command = resolveCommandAlias(rawCommand);
+  const command = rawCommand;
 
   if (!isKnownCommandName(command)) {
     throw createCliError(`Unknown command: ${rawCommand}`, { showUsage: true });
@@ -39,7 +38,6 @@ function parseArgs(argv, { createCliError } = {}) {
 
   const options = {
     dryRun: false,
-    runNpmInstall: false,
     full: false,
     expanded: false,
     details: false,
@@ -65,10 +63,6 @@ function parseArgs(argv, { createCliError } = {}) {
 
     if (token === "--dry-run") {
       options.dryRun = true;
-      continue;
-    }
-    if (token === "--run-npm-install") {
-      options.runNpmInstall = true;
       continue;
     }
     if (token === "--full") {
@@ -113,6 +107,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--force") {
       options.inlineOptions.force = "true";
+      continue;
+    }
+    if (token === "--check") {
+      options.inlineOptions.check = "true";
       continue;
     }
     if (token === "--install") {

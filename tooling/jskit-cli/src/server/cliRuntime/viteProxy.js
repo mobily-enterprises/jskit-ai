@@ -306,60 +306,6 @@ async function applyViteMutations(
   await writeViteDevProxyConfig(appRoot, nextConfig, touchedFiles, { dryRun });
 }
 
-async function removeManagedViteProxyEntries({
-  appRoot,
-  packageId,
-  managedViteChanges = {},
-  touchedFiles = null,
-  dryRun = false
-} = {}) {
-  const managedChanges = Object.values(ensureObject(managedViteChanges))
-    .map((entry) => ensureObject(entry))
-    .filter((entry) => String(entry.op || "").trim() === "upsert-vite-proxy");
-  if (managedChanges.length < 1) {
-    return;
-  }
-
-  const { exists, config: currentConfig } = await loadViteDevProxyConfig(appRoot, {
-    context: `vite proxy config while removing ${packageId}`
-  });
-  if (!exists) {
-    return;
-  }
-
-  let nextEntries = [...currentConfig.entries];
-  for (const change of managedChanges) {
-    const changeId = String(change.id || "").trim();
-    const changePath = String(change.path || "").trim();
-    if (!changeId) {
-      continue;
-    }
-    nextEntries = nextEntries.filter((entry) => {
-      if (entry.packageId !== packageId || entry.id !== changeId) {
-        return true;
-      }
-      if (changePath && entry.path !== changePath) {
-        return true;
-      }
-      return false;
-    });
-  }
-
-  const nextConfig = normalizeViteDevProxyConfig(
-    {
-      entries: nextEntries
-    },
-    {
-      context: `vite proxy config while removing ${packageId}`
-    }
-  );
-  if (JSON.stringify(currentConfig) === JSON.stringify(nextConfig)) {
-    return;
-  }
-
-  await writeViteDevProxyConfig(appRoot, nextConfig, touchedFiles, { dryRun });
-}
-
 export {
   createEmptyViteDevProxyConfig,
   normalizeViteDevProxyPath,
@@ -369,6 +315,5 @@ export {
   loadViteDevProxyConfig,
   writeViteDevProxyConfig,
   normalizeViteProxyMutationRecord,
-  applyViteMutations,
-  removeManagedViteProxyEntries
+  applyViteMutations
 };

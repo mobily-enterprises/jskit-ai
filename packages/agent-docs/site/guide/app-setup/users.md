@@ -35,7 +35,6 @@ npx jskit add package database-runtime-mysql \
   --db-name "$DB_NAME" \
   --db-user "$DB_USER" \
   --db-password "$DB_PASSWORD"
-npm install
 ```
 
 If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
@@ -46,16 +45,15 @@ From inside `exampleapp`, run:
 
 ```bash
 npx jskit add package users-web
-npm install
 npm run db:migrate
 ```
 
 The first command adds `users-web`, but the important part is what arrives with it through its dependency chain.
 
-- `users-web` adds the account-facing UI and client runtime pieces
+- `users-web` adds account, profile, and user-specific shell UI
 - `users-core` arrives as a dependency and adds the persistent users/account server layer and schema migrations
 
-`npm install` downloads those new runtime packages and their dependencies. `npm run db:migrate` is the crucial step that makes the new tables real in MySQL.
+`jskit add` installs those runtime packages and their dependencies. `npm run db:migrate` is the separate step that makes the new tables real in MySQL.
 
 In the normal install flow, JSKIT materializes the managed `users-core` migration files while the package install is being applied. Then `npm run db:migrate` is what actually runs those files against MySQL.
 
@@ -73,14 +71,13 @@ That means the app is expected to project authenticated identities into the pers
 So the correct flow is:
 
 1. add `users-web`
-2. run `npm install`
-3. if you need JSKIT to refresh the managed migration files, run `npx jskit migrations changed`
-4. run `npm run db:migrate`
-5. only then start the app and sign in
+2. run `npx jskit migrations sync --check`
+3. run `npm run db:migrate`
+4. only then start the app and sign in
 
-Most of the time, step 3 is not needed because `jskit add package users-web` already wrote the managed migration files. But the distinction still matters:
+`jskit add package users-web` already synchronizes package migration files. The distinction still matters:
 
-- `jskit migrations changed` writes or refreshes JSKIT-managed migration files in `migrations/`
+- `jskit migrations sync` writes missing immutable package migration files in `migrations/`
 - `npm run db:migrate` actually applies pending migrations to MySQL
 </DocsTerminalTip>
 
@@ -175,7 +172,7 @@ That one binding explains the deepest change in the chapter.
 
 Before this chapter, auth could authenticate a user without creating a persistent app-owned user row. After this chapter, auth providers can call `auth.profile.projector.syncIdentityProfile(...)` and get back a persistent users-backed profile.
 
-`users-core` also writes this server-only config line for Supabase compatibility:
+`users-core` also selects users-backed Supabase profile projection:
 
 ```js
 config.auth ||= {};
@@ -394,13 +391,8 @@ Under the hood, `users-core` wires those contributors into the users-backed prof
 
 The next chapter uses exactly that pattern. `workspaces-core` registers a contributor so the workspace layer can react when a new user enters the system.
 
-One forward-looking warning matters here. If this app later changes from `tenancyMode = "none"` to `personal` or `workspaces`, the app-local users scaffold written by `users-core` also needs to be refreshed. The multi-homing chapter calls out that recovery step explicitly with:
-
-```bash
-npx jskit update package users-core
-```
-
-That is not only a workspace-package concern. The generated `packages/users/...` scaffold itself changes shape when tenancy becomes workspace-aware.
+Choose `config.tenancyMode` before adding `users-core`. The generator uses that
+application decision to create the correct app-owned users package shape.
 
 ## Summary
 

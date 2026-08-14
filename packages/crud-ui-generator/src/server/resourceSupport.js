@@ -1,18 +1,18 @@
 import path from "node:path";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
-  checkCrudLookupFormControl,
-  isCrudRuntimeOutputOnlyFieldKey
-} from "@jskit-ai/crud-core/shared/crudFieldSupport";
+  checkCrudLookupFormControl
+} from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   normalizeCrudLookupApiPath,
   normalizeCrudLookupNamespace,
   normalizeCrudLookupContainerKey,
+  isCrudRuntimeOutputOnlyFieldKey,
   resolveCrudLookupApiPathFromNamespace,
   resolveCrudLookupContainerKey
-} from "@jskit-ai/kernel/shared/support/crudLookup";
-import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
+} from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { buildCrudFieldContractMap } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
 import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -327,6 +327,16 @@ function resolveJsonRestCastType(schema = {}) {
   return normalizeText(source?.[JSON_REST_TRANSPORT_EXTENSION_KEY]?.castType).toLowerCase();
 }
 
+function resolveTemporalPrecision(...schemas) {
+  for (const schema of schemas) {
+    const value = schema?.[JSON_REST_TRANSPORT_EXTENSION_KEY]?.metadata?.temporalPrecision;
+    if (Number.isInteger(value) && value >= 0) {
+      return value;
+    }
+  }
+  return null;
+}
+
 function resolveSchemaType(schema) {
   const source = resolveUnionSchemaVariant(schema);
   const rawType = source?.type;
@@ -360,6 +370,7 @@ function resolveSchemaType(schema) {
     type: schemaType,
     format,
     schema: source,
+    temporalPrecision: resolveTemporalPrecision(source, schema),
     nullable: hasNullableAnyOf || hasNullableOneOf || hasNullableType
   };
 }
@@ -664,6 +675,22 @@ function resolveFormFieldComponent(fieldType, relation = null) {
   return "text";
 }
 
+function resolveTemporalInputStep(field = {}) {
+  const format = normalizeText(field?.format).toLowerCase();
+  if (format !== "date-time" && format !== "time") {
+    return "";
+  }
+
+  const precision = field?.temporalPrecision;
+  if (!Number.isInteger(precision) || precision < 0) {
+    return "any";
+  }
+  if (precision === 0) {
+    return "1";
+  }
+  return String(1 / (10 ** precision));
+}
+
 function buildDefaultNullableBooleanOptions() {
   return [
     { label: "Unset", value: null },
@@ -770,6 +797,10 @@ function createFormFieldDefinitions(
         : resolveFormFieldComponent(schemaType.type, relation),
       maxLength: toPositiveInteger(schemaType.schema?.maxLength)
     };
+    const temporalPrecision = schemaType.temporalPrecision;
+    if (temporalPrecision !== null) {
+      fieldDefinition.temporalPrecision = temporalPrecision;
+    }
     if (selectOptions.length > 0) {
       fieldDefinition.options = selectOptions;
     }
@@ -1015,11 +1046,13 @@ ${lookupAttributeLines.join("\n")}
       const maxLength = Number.isInteger(field?.maxLength) && field.maxLength > 0
         ? String(field.maxLength)
         : "undefined";
+      const temporalInputStep = resolveTemporalInputStep(field);
+      const stepAttribute = temporalInputStep ? `\n            step="${temporalInputStep}"` : "";
       return `        <v-col cols="12" md="6">
           <v-text-field
             v-model="${formAccessor}"
             label="${label}"
-            type="${escapeHtml(inputType)}"
+            type="${escapeHtml(inputType)}"${stepAttribute}
             variant="outlined"
             density="comfortable"
             :maxlength="${maxLength}"

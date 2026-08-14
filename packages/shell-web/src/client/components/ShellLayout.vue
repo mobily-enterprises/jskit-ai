@@ -2,6 +2,7 @@
 import {
   computed,
   inject,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -9,6 +10,19 @@ import {
 } from "vue";
 import { useDisplay } from "vuetify";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
+import {
+  resolveShellDrawerPresentation,
+  resolveShellDrawerToggleLabel
+} from "../support/drawerPresentation.js";
+import {
+  DEFAULT_SHELL_DRAWER_WIDTH,
+  DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
+  DEFAULT_SHELL_RAIL_WIDTH,
+  normalizeShellDrawerWidth,
+  normalizeShellNavigationItemSpacing,
+  normalizeShellRailWidth,
+  resolveContentAwareDrawerWidth
+} from "../support/drawerWidth.js";
 import ShellOutlet from "./ShellOutlet.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
 
@@ -28,6 +42,22 @@ const props = defineProps({
   subtitle: {
     type: String,
     default: ""
+  },
+  desktopDrawerClosedMode: {
+    type: String,
+    default: "rail"
+  },
+  drawerWidth: {
+    type: Number,
+    default: null
+  },
+  railWidth: {
+    type: Number,
+    default: DEFAULT_SHELL_RAIL_WIDTH
+  },
+  navigationItemSpacing: {
+    type: Number,
+    default: DEFAULT_SHELL_NAVIGATION_ITEM_SPACING
   }
 });
 
@@ -47,7 +77,14 @@ const display = useDisplay();
 const refreshRuntime = inject("jskit.shell-web.runtime.web-refresh.client", null);
 const pullDistance = ref(0);
 const pullRefreshing = ref(false);
+const wideDrawerOpen = ref(Boolean(drawerDefaultOpen.value));
+const navigationToggle = ref(null);
+const navigationDrawer = ref(null);
+const measuredDrawerWidth = ref(DEFAULT_SHELL_DRAWER_WIDTH);
 let activePull = null;
+let drawerContentObserver = null;
+let drawerMeasurementFrame = null;
+let shellMounted = false;
 
 const PULL_REFRESH_TRIGGER_DISTANCE = 72;
 const PULL_REFRESH_MAX_DISTANCE = 112;
@@ -63,6 +100,25 @@ const layoutClass = computed(() => {
   return "expanded";
 });
 const isCompactLayout = computed(() => layoutClass.value === "compact");
+const drawerPresentation = computed(() => resolveShellDrawerPresentation({
+  compact: isCompactLayout.value,
+  open: drawerOpen.value,
+  desktopClosedMode: props.desktopDrawerClosedMode
+}));
+const drawerToggleLabel = computed(() => resolveShellDrawerToggleLabel({
+  compact: isCompactLayout.value,
+  open: drawerOpen.value
+}));
+const resolvedDrawerWidth = computed(() => {
+  if (props.drawerWidth !== null && props.drawerWidth !== undefined) {
+    return normalizeShellDrawerWidth(props.drawerWidth);
+  }
+  return normalizeShellDrawerWidth(measuredDrawerWidth.value);
+});
+const resolvedRailWidth = computed(() => normalizeShellRailWidth(props.railWidth));
+const resolvedNavigationItemSpacing = computed(() =>
+  normalizeShellNavigationItemSpacing(props.navigationItemSpacing)
+);
 const pullProgress = computed(() =>
   Math.min(100, Math.round((pullDistance.value / PULL_REFRESH_TRIGGER_DISTANCE) * 100))
 );
@@ -80,18 +136,31 @@ const pullRefreshStyle = computed(() => ({
 }));
 
 watch(
+  drawerOpen,
+  handleDrawerOpenChange
+);
+
+watch(
   isCompactLayout,
-  (compact) => {
-    setDrawerOpen(compact ? false : drawerDefaultOpen.value);
-  },
+  handleLayoutClassChange,
   { immediate: true }
 );
 
-onMounted(() => {
+watch(drawerPresentation, scheduleDrawerWidthMeasurement, { flush: "post" });
+watch(resolvedSurface, scheduleDrawerWidthMeasurement, { flush: "post" });
+watch(resolvedNavigationItemSpacing, scheduleDrawerWidthMeasurement, { flush: "post" });
+
+onMounted(attachShellListeners);
+onBeforeUnmount(detachShellListeners);
+
+function attachShellListeners() {
+  shellMounted = true;
   if (typeof window !== "object") {
     return;
   }
 
+  window.addEventListener("keydown", handleShellKeydown);
+  window.addEventListener("resize", scheduleDrawerWidthMeasurement, { passive: true });
   window.addEventListener("pointerdown", handlePullPointerDown, { capture: true, passive: true });
   window.addEventListener("pointermove", handlePullPointerMove, { capture: true, passive: false });
   window.addEventListener("pointerup", handlePullPointerEnd, { capture: true, passive: true });
@@ -100,13 +169,22 @@ onMounted(() => {
   window.addEventListener("touchmove", handlePullTouchMove, { capture: true, passive: false });
   window.addEventListener("touchend", handlePullTouchEnd, { capture: true, passive: true });
   window.addEventListener("touchcancel", handlePullTouchCancel, { capture: true, passive: true });
-});
 
-onBeforeUnmount(() => {
+  if (document?.fonts) {
+    void document.fonts.ready.then(scheduleDrawerWidthMeasurement);
+    document.fonts.addEventListener?.("loadingdone", scheduleDrawerWidthMeasurement);
+  }
+  void nextTick().then(initializeDrawerMeasurement);
+}
+
+function detachShellListeners() {
+  shellMounted = false;
   if (typeof window !== "object") {
     return;
   }
 
+  window.removeEventListener("keydown", handleShellKeydown);
+  window.removeEventListener("resize", scheduleDrawerWidthMeasurement);
   window.removeEventListener("pointerdown", handlePullPointerDown, { capture: true });
   window.removeEventListener("pointermove", handlePullPointerMove, { capture: true });
   window.removeEventListener("pointerup", handlePullPointerEnd, { capture: true });
@@ -115,7 +193,135 @@ onBeforeUnmount(() => {
   window.removeEventListener("touchmove", handlePullTouchMove, { capture: true });
   window.removeEventListener("touchend", handlePullTouchEnd, { capture: true });
   window.removeEventListener("touchcancel", handlePullTouchCancel, { capture: true });
-});
+  document?.fonts?.removeEventListener?.("loadingdone", scheduleDrawerWidthMeasurement);
+  drawerContentObserver?.disconnect();
+  drawerContentObserver = null;
+  if (drawerMeasurementFrame !== null) {
+    window.cancelAnimationFrame(drawerMeasurementFrame);
+    drawerMeasurementFrame = null;
+  }
+}
+
+function handleDrawerOpenChange(open) {
+  if (!isCompactLayout.value) {
+    wideDrawerOpen.value = Boolean(open);
+  }
+}
+
+function handleLayoutClassChange(compact) {
+  setDrawerOpen(compact ? false : wideDrawerOpen.value);
+}
+
+function handleShellKeydown(event) {
+  if (
+    event?.defaultPrevented ||
+    event?.key !== "Escape" ||
+    !isCompactLayout.value ||
+    !drawerOpen.value
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  setDrawerOpen(false);
+  void nextTick().then(focusNavigationToggle);
+}
+
+function focusNavigationToggle() {
+  const toggleElement = navigationToggle.value?.$el || navigationToggle.value;
+  toggleElement?.focus?.({ preventScroll: true });
+}
+
+function initializeDrawerMeasurement() {
+  const drawerElement = resolveNavigationDrawerElement();
+  const drawerContent = drawerElement?.querySelector?.(".v-navigation-drawer__content") || drawerElement;
+  if (typeof MutationObserver === "function" && drawerContent) {
+    drawerContentObserver?.disconnect();
+    drawerContentObserver = new MutationObserver(scheduleDrawerWidthMeasurement);
+    drawerContentObserver.observe(drawerContent, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+  scheduleDrawerWidthMeasurement();
+}
+
+function resolveNavigationDrawerElement() {
+  const exposedElement = navigationDrawer.value?.$el || navigationDrawer.value || null;
+  if (typeof exposedElement?.getBoundingClientRect === "function") {
+    return exposedElement;
+  }
+  if (typeof document === "object") {
+    return document.getElementById("jskit-shell-drawer");
+  }
+  return null;
+}
+
+function scheduleDrawerWidthMeasurement() {
+  if (
+    !shellMounted ||
+    props.drawerWidth !== null && props.drawerWidth !== undefined ||
+    !drawerPresentation.value.visible ||
+    drawerPresentation.value.rail ||
+    typeof window !== "object"
+  ) {
+    return;
+  }
+
+  if (drawerMeasurementFrame !== null) {
+    window.cancelAnimationFrame(drawerMeasurementFrame);
+  }
+  drawerMeasurementFrame = window.requestAnimationFrame(measureDrawerContentWidth);
+}
+
+function measureDrawerContentWidth() {
+  drawerMeasurementFrame = null;
+  const drawerElement = resolveNavigationDrawerElement();
+  if (!drawerElement || typeof document !== "object") {
+    return;
+  }
+
+  const drawerRect = drawerElement.getBoundingClientRect();
+  const drawerStyle = window.getComputedStyle(drawerElement);
+  const rightToLeft = drawerStyle.direction === "rtl";
+  const endBorderWidth = Number.parseFloat(
+    rightToLeft ? drawerStyle.borderLeftWidth : drawerStyle.borderRightWidth
+  ) || 0;
+  const measurements = [];
+
+  for (const label of drawerElement.querySelectorAll(".v-list-item-title")) {
+    const labelStyle = window.getComputedStyle(label);
+    if (labelStyle.display === "none" || labelStyle.visibility === "hidden") {
+      continue;
+    }
+    const textRect = measureRenderedText(label);
+    if (!textRect || textRect.width <= 0) {
+      continue;
+    }
+    measurements.push({
+      logicalStart: rightToLeft
+        ? drawerRect.right - textRect.right
+        : textRect.left - drawerRect.left,
+      textWidth: textRect.width
+    });
+  }
+
+  const nextWidth = resolveContentAwareDrawerWidth(measurements, {
+    endGap: resolvedNavigationItemSpacing.value + endBorderWidth
+  });
+  if (Math.abs(nextWidth - measuredDrawerWidth.value) >= 0.25) {
+    measuredDrawerWidth.value = nextWidth;
+  }
+}
+
+function measureRenderedText(element) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  const rect = range.getBoundingClientRect();
+  range.detach?.();
+  return rect;
+}
 
 function handlePullPointerDown(event) {
   if (!canStartPullRefresh(event)) {
@@ -130,6 +336,12 @@ function handlePullPointerDown(event) {
     startY: event.clientY,
     pointerCancelled: false
   };
+}
+
+function handleDrawerVisibilityChange(open) {
+  if (isCompactLayout.value || drawerPresentation.value.closedMode === "hidden" || open === false) {
+    setDrawerOpen(open);
+  }
 }
 
 function handlePullPointerMove(event) {
@@ -358,8 +570,12 @@ function touchListIncludesActiveTouch(touchList) {
     data-testid="jskit-shell-app-bar"
   >
     <v-app-bar-nav-icon
+      ref="navigationToggle"
       class="shell-layout__nav-toggle"
-      aria-label="Toggle navigation menu"
+      data-testid="jskit-shell-nav-toggle"
+      :aria-label="drawerToggleLabel"
+      :aria-expanded="drawerOpen"
+      aria-controls="jskit-shell-drawer"
       @click="toggleDrawer"
     />
 
@@ -400,17 +616,36 @@ function touchListIncludesActiveTouch(touchList) {
   </div>
 
   <v-navigation-drawer
-    v-model="drawerOpen"
+    ref="navigationDrawer"
+    id="jskit-shell-drawer"
+    :model-value="drawerPresentation.visible"
     border
-    class="bg-surface"
+    class="shell-layout__drawer bg-surface"
     data-testid="jskit-shell-drawer"
+    :data-layout="layoutClass"
+    :data-presentation="drawerPresentation.kind"
+    :data-drawer-width-mode="props.drawerWidth === null || props.drawerWidth === undefined ? 'content' : 'fixed'"
+    :data-drawer-width="resolvedDrawerWidth"
+    :data-navigation-item-spacing="resolvedNavigationItemSpacing"
+    :data-rail-width="resolvedRailWidth"
+    :style="{
+      '--shell-navigation-item-spacing': `${resolvedNavigationItemSpacing}px`,
+      '--shell-navigation-rail-width': `${resolvedRailWidth}px`
+    }"
     :temporary="isCompactLayout"
     :permanent="!isCompactLayout"
-    :width="248"
+    :width="resolvedDrawerWidth"
+    :rail="drawerPresentation.rail"
+    :rail-width="resolvedRailWidth"
+    @update:model-value="handleDrawerVisibilityChange"
   >
-    <slot name="menu" :surface="resolvedSurface">
-      <v-list nav density="comfortable" class="pt-2">
-        <v-list-subheader class="text-uppercase text-caption">{{ resolvedSurfaceLabel }}</v-list-subheader>
+    <slot name="menu" :surface="resolvedSurface" :rail="drawerPresentation.rail">
+      <v-list
+        nav
+        density="comfortable"
+        class="pt-2"
+        :prepend-gap="resolvedNavigationItemSpacing"
+      >
         <ShellOutlet
           target="shell-layout:primary-menu"
           default
@@ -493,6 +728,73 @@ function touchListIncludesActiveTouch(touchList) {
 .shell-layout__nav-toggle {
   min-height: 48px;
   min-width: 48px;
+}
+
+.shell-layout__drawer :deep(.v-list-item-title) {
+  white-space: nowrap;
+}
+
+.shell-layout__drawer {
+  --shell-navigation-drawer-inset: 12px;
+  --shell-navigation-icon-size: 24px;
+}
+
+.shell-layout__drawer[data-presentation="drawer"] :deep(.v-list--nav) {
+  padding-inline-end: calc(var(--shell-navigation-item-spacing) / 2);
+  padding-inline-start: var(--shell-navigation-drawer-inset);
+}
+
+.shell-layout__drawer[data-presentation="drawer"] :deep(.v-list-item) {
+  padding-inline-end: calc(var(--shell-navigation-item-spacing) / 2);
+  padding-inline-start: max(
+    0px,
+    calc(
+      var(--shell-navigation-rail-width) / 2 -
+      var(--shell-navigation-icon-size) / 2 -
+      var(--shell-navigation-drawer-inset)
+    )
+  );
+}
+
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item) {
+  grid-template-areas: "prepend";
+  grid-template-columns: minmax(0, 1fr);
+  inline-size: 100%;
+  min-height: 48px;
+  min-width: 48px;
+  padding-inline: 0;
+}
+
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item__prepend) {
+  inline-size: 100%;
+  justify-content: center;
+  min-width: 0;
+}
+
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item__prepend .v-list-item__spacer),
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item__content),
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item__append) {
+  display: none;
+}
+
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item__overlay) {
+  border-radius: 999px;
+  inset-block: 8px;
+  inset-inline: 4px;
+}
+
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item--active > .v-list-item__overlay) {
+  background: color-mix(
+    in srgb,
+    rgb(var(--v-theme-primary)) 18%,
+    rgb(var(--v-theme-surface))
+  );
+  opacity: 1;
+}
+
+.shell-layout__drawer[data-presentation="rail"] :deep(.v-list-item--active .v-icon) {
+  color: rgb(var(--v-theme-primary));
+  opacity: 1;
 }
 
 .shell-layout__top-right {

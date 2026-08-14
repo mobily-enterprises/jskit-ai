@@ -334,7 +334,7 @@ Future provider-neutral event rules, when that seam is added:
 
 - [x] Create `packages/auth-provider-local-db-core/`.
 - [x] Add `package.json`.
-- [x] Add `package.descriptor.mjs`.
+- [x] Define the package's `package.json.jskit` metadata.
 - [x] Add server provider entrypoint.
 - [x] Add exports for backend factory and provider.
 - [x] Add package to workspace/catalog flow.

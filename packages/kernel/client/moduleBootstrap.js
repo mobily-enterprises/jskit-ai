@@ -1,7 +1,7 @@
 import { createApplication } from "../shared/runtime/application.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isRecord } from "../shared/support/normalize.js";
-import { normalizeDescriptorClientProviders, normalizeDescriptorUiRoutes } from "./descriptorSections.js";
+import { normalizePackageMetadataClientProviders, normalizePackageMetadataUiRoutes } from "./packageMetadataSections.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
 function normalizePackageId(value) {
@@ -110,7 +110,7 @@ function registerClientModuleRoutes({
   seenRouteNames,
   logger = null,
   source = "module",
-  descriptorRouteDeclarations = null
+  packageMetadataRouteDeclarations = null
 } = {}) {
   const normalizedPackageId = normalizePackageId(packageId);
   if (!normalizedPackageId) {
@@ -124,11 +124,11 @@ function registerClientModuleRoutes({
   }
 
   const normalizedRoutes = normalizeRouteList(routes, { packageId: normalizedPackageId });
-  assertRoutesDeclaredInDescriptor({
+  assertRoutesDeclaredInPackageMetadata({
     packageId: normalizedPackageId,
     source,
     normalizedRoutes,
-    descriptorRouteDeclarations
+    packageMetadataRouteDeclarations
   });
   const activeRoutes = filterRoutesBySurface(normalizedRoutes, {
     surfaceRuntime,
@@ -224,11 +224,11 @@ function normalizeExplicitProviderClasses(value, packageId) {
   return providers;
 }
 
-function resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders = []) {
+function resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = []) {
   const providers = [];
   const seenProviderIds = new Set();
 
-  for (const providerDeclaration of descriptorClientProviders) {
+  for (const providerDeclaration of packageMetadataClientProviders) {
     const exportName = String(providerDeclaration?.export || "").trim();
     if (!exportName) {
       continue;
@@ -237,13 +237,13 @@ function resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptor
     const providerClass = moduleNamespace?.[exportName];
     if (!isProviderClass(providerClass)) {
       throw new TypeError(
-        `Client module ${packageId} descriptor provider export "${exportName}" is missing or invalid in "${packageId}/client".`
+        `Client module ${packageId} packageMetadata provider export "${exportName}" is missing or invalid in "${packageId}/client".`
       );
     }
 
     const providerId = String(providerClass.id || "").trim();
     if (!providerId) {
-      throw new TypeError(`Client module ${packageId} descriptor provider "${exportName}" requires static id.`);
+      throw new TypeError(`Client module ${packageId} packageMetadata provider "${exportName}" requires static id.`);
     }
 
     if (seenProviderIds.has(providerId)) {
@@ -256,7 +256,7 @@ function resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptor
   return providers;
 }
 
-function resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClientProviders = []) {
+function resolveModuleProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = []) {
   if (!isRecord(moduleNamespace)) {
     return [];
   }
@@ -266,21 +266,21 @@ function resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClie
     return explicitProviders;
   }
 
-  if (Array.isArray(descriptorClientProviders) && descriptorClientProviders.length > 0) {
-    return resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders);
+  if (Array.isArray(packageMetadataClientProviders) && packageMetadataClientProviders.length > 0) {
+    return resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders);
   }
   return [];
 }
 
-function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = [] } = {}) {
+function buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {}) {
   const normalizedPackageId = normalizePackageId(packageId);
-  const descriptorRoutes = normalizeDescriptorUiRoutes(descriptorUiRoutes);
+  const packageMetadataRoutes = normalizePackageMetadataUiRoutes(packageMetadataUiRoutes);
   const byId = new Map();
 
-  for (const descriptorRoute of descriptorRoutes) {
-    const routeId = String(descriptorRoute.id || "").trim();
-    const routePath = String(descriptorRoute.path || "").trim();
-    const routeScope = String(descriptorRoute.scope || "surface")
+  for (const packageMetadataRoute of packageMetadataRoutes) {
+    const routeId = String(packageMetadataRoute.id || "").trim();
+    const routePath = String(packageMetadataRoute.path || "").trim();
+    const routeScope = String(packageMetadataRoute.scope || "surface")
       .trim()
       .toLowerCase();
     if (!routeId || !routePath) {
@@ -291,7 +291,7 @@ function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = 
       const existingRoute = byId.get(routeId);
       if (existingRoute.path !== routePath || existingRoute.scope !== routeScope) {
         throw new Error(
-          `Descriptor ui routes for ${normalizedPackageId} define duplicate id "${routeId}" with conflicting declarations.`
+          `PackageMetadata ui routes for ${normalizedPackageId} define duplicate id "${routeId}" with conflicting declarations.`
         );
       }
       continue;
@@ -310,18 +310,18 @@ function buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = 
   return Object.freeze({ byId });
 }
 
-function assertRoutesDeclaredInDescriptor({
+function assertRoutesDeclaredInPackageMetadata({
   packageId,
   source,
   normalizedRoutes = [],
-  descriptorRouteDeclarations = null
+  packageMetadataRouteDeclarations = null
 } = {}) {
   const normalizedSource = String(source || "").trim();
   if (normalizedSource !== "clientRoutes") {
     return;
   }
 
-  const byId = descriptorRouteDeclarations?.byId instanceof Map ? descriptorRouteDeclarations.byId : new Map();
+  const byId = packageMetadataRouteDeclarations?.byId instanceof Map ? packageMetadataRouteDeclarations.byId : new Map();
   const normalizedPackageId = normalizePackageId(packageId);
 
   for (const route of normalizedRoutes) {
@@ -342,7 +342,7 @@ function assertRoutesDeclaredInDescriptor({
     }
     if (String(declaredRoute.path || "").trim() !== routePath) {
       throw new Error(
-        `Global client route "${routeId}" from ${normalizedPackageId} (${source}) path "${routePath}" does not match descriptor metadata.ui.routes path "${declaredRoute.path}".`
+        `Global client route "${routeId}" from ${normalizedPackageId} (${source}) path "${routePath}" does not match packageMetadata metadata.ui.routes path "${declaredRoute.path}".`
       );
     }
     if (String(declaredRoute.scope || "").trim().toLowerCase() !== "global") {
@@ -353,30 +353,30 @@ function assertRoutesDeclaredInDescriptor({
   }
 }
 
-function resolveDescriptorClientRoutes({
+function resolvePackageMetadataClientRoutes({
   packageId,
-  descriptorUiRoutes = [],
+  packageMetadataUiRoutes = [],
   routeComponents = {},
   logger = null
 } = {}) {
   const normalizedPackageId = normalizePackageId(packageId);
-  const descriptorRoutes = normalizeDescriptorUiRoutes(descriptorUiRoutes);
-  if (descriptorRoutes.length < 1) {
+  const packageMetadataRoutes = normalizePackageMetadataUiRoutes(packageMetadataUiRoutes);
+  if (packageMetadataRoutes.length < 1) {
     return Object.freeze([]);
   }
   if (!isRecord(routeComponents)) {
     throw new TypeError(
-      `Client module ${normalizedPackageId} declares descriptor ui routes but does not export a routeComponents map.`
+      `Client module ${normalizedPackageId} declares packageMetadata ui routes but does not export a routeComponents map.`
     );
   }
 
   const log = createStructuredLogger(logger);
   const routes = [];
   const skippedRoutes = [];
-  for (const descriptorRoute of descriptorRoutes) {
-    const routeId = String(descriptorRoute.id || "").trim();
-    const routePath = String(descriptorRoute.path || "").trim();
-    const autoRegister = descriptorRoute.autoRegister !== false;
+  for (const packageMetadataRoute of packageMetadataRoutes) {
+    const routeId = String(packageMetadataRoute.id || "").trim();
+    const routePath = String(packageMetadataRoute.path || "").trim();
+    const autoRegister = packageMetadataRoute.autoRegister !== false;
     if (!autoRegister) {
       skippedRoutes.push(
         Object.freeze({
@@ -390,32 +390,32 @@ function resolveDescriptorClientRoutes({
 
     if (!routeId || !routePath) {
       throw new Error(
-        `Descriptor ui route from ${normalizedPackageId} requires id and path when autoRegister is enabled.`
+        `PackageMetadata ui route from ${normalizedPackageId} requires id and path when autoRegister is enabled.`
       );
     }
 
-    const componentKey = String(descriptorRoute.componentKey || "").trim();
+    const componentKey = String(packageMetadataRoute.componentKey || "").trim();
     if (!componentKey) {
       throw new Error(
-        `Descriptor ui route "${routeId}" from ${normalizedPackageId} requires componentKey when autoRegister is enabled.`
+        `PackageMetadata ui route "${routeId}" from ${normalizedPackageId} requires componentKey when autoRegister is enabled.`
       );
     }
 
     const routeComponent = routeComponents[componentKey];
     if (!isRouteComponent(routeComponent)) {
       throw new Error(
-        `Descriptor ui route "${routeId}" from ${normalizedPackageId} references unknown routeComponents key "${componentKey}".`
+        `PackageMetadata ui route "${routeId}" from ${normalizedPackageId} references unknown routeComponents key "${componentKey}".`
       );
     }
 
-    const scope = String(descriptorRoute.scope || "surface")
+    const scope = String(packageMetadataRoute.scope || "surface")
       .trim()
       .toLowerCase();
-    const surface = String(descriptorRoute.surface || "")
+    const surface = String(packageMetadataRoute.surface || "")
       .trim()
       .toLowerCase();
-    const guard = isRecord(descriptorRoute.guard) ? { ...descriptorRoute.guard } : {};
-    const baseMeta = isRecord(descriptorRoute.meta) ? { ...descriptorRoute.meta } : {};
+    const guard = isRecord(packageMetadataRoute.guard) ? { ...packageMetadataRoute.guard } : {};
+    const baseMeta = isRecord(packageMetadataRoute.meta) ? { ...packageMetadataRoute.meta } : {};
     const baseMetaJskit = isRecord(baseMeta.jskit) ? { ...baseMeta.jskit } : {};
 
     routes.push(
@@ -424,7 +424,7 @@ function resolveDescriptorClientRoutes({
         path: routePath,
         scope,
         ...(surface ? { surface } : {}),
-        ...(String(descriptorRoute.name || "").trim() ? { name: String(descriptorRoute.name || "").trim() } : {}),
+        ...(String(packageMetadataRoute.name || "").trim() ? { name: String(packageMetadataRoute.name || "").trim() } : {}),
         component: routeComponent,
         meta: {
           ...baseMeta,
@@ -435,7 +435,7 @@ function resolveDescriptorClientRoutes({
             routeId,
             scope,
             componentKey,
-            source: "descriptor.ui.routes",
+            source: "packageMetadata.ui.routes",
             ...(surface ? { surface } : {})
           }
         }
@@ -446,11 +446,11 @@ function resolveDescriptorClientRoutes({
   log.debug(
     {
       packageId: normalizedPackageId,
-      descriptorRouteCount: descriptorRoutes.length,
+      packageMetadataRouteCount: packageMetadataRoutes.length,
       autoRegisterRouteCount: routes.length,
       skippedRoutes
     },
-    "Processed descriptor ui routes."
+    "Processed packageMetadata ui routes."
   );
 
   return Object.freeze(routes);
@@ -471,8 +471,8 @@ function normalizeClientModuleEntries(clientModules) {
       return Object.freeze({
         packageId,
         module: moduleNamespace,
-        descriptorUiRoutes: normalizeDescriptorUiRoutes(entry?.descriptorUiRoutes),
-        descriptorClientProviders: normalizeDescriptorClientProviders(entry?.descriptorClientProviders)
+        packageMetadataUiRoutes: normalizePackageMetadataUiRoutes(entry?.packageMetadataUiRoutes),
+        packageMetadataClientProviders: normalizePackageMetadataClientProviders(entry?.packageMetadataClientProviders)
       });
     })
     .filter(Boolean)
@@ -552,7 +552,7 @@ async function bootClientModules({
     "Starting JSKIT client module bootstrap."
   );
   for (const entry of moduleEntries) {
-    const providers = resolveModuleProviderClasses(entry.module, entry.packageId, entry.descriptorClientProviders);
+    const providers = resolveModuleProviderClasses(entry.module, entry.packageId, entry.packageMetadataClientProviders);
     log.debug(
       {
         packageId: entry.packageId,
@@ -578,7 +578,7 @@ async function bootClientModules({
   const seenRoutePaths = new Set();
   const seenRouteNames = new Set();
   const routeResults = [];
-  const registerRoutesForEntry = (routeList, packageId, source = "module", descriptorRouteDeclarations = null) => {
+  const registerRoutesForEntry = (routeList, packageId, source = "module", packageMetadataRouteDeclarations = null) => {
     if (!routeList || routeList.length === 0) {
       return null;
     }
@@ -592,7 +592,7 @@ async function bootClientModules({
       seenRouteNames,
       logger: log,
       source,
-      descriptorRouteDeclarations
+      packageMetadataRouteDeclarations
     });
     log.debug(
       {
@@ -616,20 +616,20 @@ async function bootClientModules({
     return result;
   };
   for (const entry of moduleEntries) {
-    const descriptorRouteDeclarations = buildDescriptorRouteDeclarationIndex({
+    const packageMetadataRouteDeclarations = buildPackageMetadataRouteDeclarationIndex({
       packageId: entry.packageId,
-      descriptorUiRoutes: entry.descriptorUiRoutes
+      packageMetadataUiRoutes: entry.packageMetadataUiRoutes
     });
-    const descriptorRoutes = resolveDescriptorClientRoutes({
+    const packageMetadataRoutes = resolvePackageMetadataClientRoutes({
       packageId: entry.packageId,
-      descriptorUiRoutes: entry.descriptorUiRoutes,
+      packageMetadataUiRoutes: entry.packageMetadataUiRoutes,
       routeComponents: entry.module.routeComponents,
       logger: log
     });
-    registerRoutesForEntry(descriptorRoutes, entry.packageId, "descriptor.ui.routes", descriptorRouteDeclarations);
+    registerRoutesForEntry(packageMetadataRoutes, entry.packageId, "packageMetadata.ui.routes", packageMetadataRouteDeclarations);
 
     const moduleRoutes = Array.isArray(entry.module.clientRoutes) ? entry.module.clientRoutes : [];
-    registerRoutesForEntry(moduleRoutes, entry.packageId, "clientRoutes", descriptorRouteDeclarations);
+    registerRoutesForEntry(moduleRoutes, entry.packageId, "clientRoutes", packageMetadataRouteDeclarations);
 
   }
 

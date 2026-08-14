@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validatePackageDescriptorShape } from "../src/server/cliRuntime/descriptorValidation.js";
+import { validatePackageMetadataShape } from "../src/server/cliRuntime/packageMetadataValidation.js";
 
-function createDescriptor(ci) {
+function createPackageMetadata(ci) {
   return {
     packageId: "@jskit-ai/ci-contract-test",
     version: "0.1.0",
@@ -15,8 +15,8 @@ function createDescriptor(ci) {
   };
 }
 
-test("descriptor validation normalizes a package CI contract", () => {
-  const descriptor = validatePackageDescriptorShape(createDescriptor({
+test("package metadata validation normalizes a package CI contract", () => {
+  const packageMetadata = validatePackageMetadataShape(createPackageMetadata({
     environment: {
       PORT: 3306,
       ENABLED: true
@@ -43,39 +43,39 @@ test("descriptor validation normalizes a package CI contract", () => {
         command: "npm run prepare:database"
       }
     ]
-  }), "fixture/package.descriptor.mjs");
+  }), "fixture/package.json#jskit");
 
-  assert.deepEqual(descriptor.ci.environment, {
+  assert.deepEqual(packageMetadata.ci.environment, {
     ENABLED: "true",
     PORT: "3306"
   });
-  assert.equal(descriptor.ci.services[0].id, "database");
-  assert.equal(descriptor.ci.steps[0].phase, "before-verify");
+  assert.equal(packageMetadata.ci.services[0].id, "database");
+  assert.equal(packageMetadata.ci.steps[0].phase, "before-verify");
 });
 
-test("descriptor validation rejects malformed CI environment, services, and steps", () => {
+test("package metadata validation rejects malformed CI environment, services, and steps", () => {
   assert.throws(
-    () => validatePackageDescriptorShape(createDescriptor({ environment: [] }), "environment.descriptor.mjs"),
+    () => validatePackageMetadataShape(createPackageMetadata({ environment: [] }), "environment.package.json#jskit"),
     /ci\.environment must be an object/u
   );
   assert.throws(
-    () => validatePackageDescriptorShape(createDescriptor({ services: [{ image: "database:test" }] }), "service.descriptor.mjs"),
+    () => validatePackageMetadataShape(createPackageMetadata({ services: [{ image: "database:test" }] }), "service.package.json#jskit"),
     /ci\.services\[0\]\.id must match/u
   );
   assert.throws(
-    () => validatePackageDescriptorShape(createDescriptor({
+    () => validatePackageMetadataShape(createPackageMetadata({
       steps: [{ id: "prepare", phase: "after-verify", label: "Prepare", command: "npm run prepare" }]
-    }), "step.descriptor.mjs"),
+    }), "step.package.json#jskit"),
     /phase must be one of: before-verify/u
   );
   assert.throws(
-    () => validatePackageDescriptorShape(createDescriptor({
+    () => validatePackageMetadataShape(createPackageMetadata({
       steps: [{ id: "verify", phase: "before-verify", label: "Replace verify", command: "false" }]
-    }), "reserved.descriptor.mjs"),
+    }), "reserved.package.json#jskit"),
     /id "verify" is reserved/u
   );
   assert.throws(
-    () => validatePackageDescriptorShape(createDescriptor({ env: { DB_CLIENT: "mysql2" } }), "typo.descriptor.mjs"),
+    () => validatePackageMetadataShape(createPackageMetadata({ env: { DB_CLIENT: "mysql2" } }), "typo.package.json#jskit"),
     /ci contains unsupported field: env/u
   );
 });

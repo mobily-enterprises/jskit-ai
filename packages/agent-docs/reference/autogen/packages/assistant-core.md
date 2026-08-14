@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/assistant-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -100,10 +100,6 @@ Exports
 - `writeNdjson`
 - `resolveWorkspaceSlug`
 - `createServiceToolCatalog`
-- `parseJsonObject`
-- `resolveInsertedId`
-- `stringifyJsonObject`
-- `toIso`
 
 ### `src/server/lib/aiClient.js`
 Exports
@@ -188,13 +184,6 @@ Local functions
 - `canUseToolOnSurface(entry = {}, context = {})`
 - `resolveActionBackedToolEntries(scope)`
 - `resolveActionToolEntries(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
-
-### `src/server/repositories/repositoryPersistenceUtils.js`
-Exports
-- `parseJsonObject`
-- `stringifyJsonObject(value)`
-- `toIso(value)`
-- `resolveInsertedId(insertResult)`
 
 ### `src/shared/assistantPaths.js`
 Exports
@@ -303,9 +292,3 @@ Exports
 ### `src/shared/support/positiveInteger.js`
 Exports
 - `toPositiveInteger(value, fallback = 0)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

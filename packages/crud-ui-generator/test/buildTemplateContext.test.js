@@ -154,7 +154,8 @@ function buildCrudResourceSource({
   namespace = "customers",
   tableName = namespace,
   schemaSource = "",
-  includeNamespace = true
+  includeNamespace = true,
+  crudOperations = ["list", "view", "create", "patch"]
 } = {}) {
   return `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
@@ -164,7 +165,7 @@ const canonicalResource = defineCrudResource({
   schema: {
 ${schemaSource}
   },
-  crudOperations: ["list", "view", "create", "patch"]
+  crudOperations: ${JSON.stringify(crudOperations)}
 });
 
 const resource = ${includeNamespace ? "canonicalResource" : "{ ...canonicalResource }"};
@@ -292,6 +293,7 @@ const TEMPORAL_RESOURCE_SCHEMA_SOURCE = `    dob: {
     },
     appointmentAt: {
       type: "dateTime",
+      temporalPrecision: 3,
       required: true,
       nullable: true,
       operations: {
@@ -302,6 +304,7 @@ const TEMPORAL_RESOURCE_SCHEMA_SOURCE = `    dob: {
     },
     preferredTime: {
       type: "time",
+      temporalPrecision: 6,
       required: true,
       nullable: true,
       operations: {
@@ -315,6 +318,13 @@ const FULL_RESOURCE_SOURCE = buildCrudResourceSource({
   namespace: "customers",
   tableName: "customers",
   schemaSource: FULL_RESOURCE_SCHEMA_SOURCE
+});
+
+const FULL_RESOURCE_WITH_DELETE_SOURCE = buildCrudResourceSource({
+  namespace: "customers",
+  tableName: "customers",
+  schemaSource: FULL_RESOURCE_SCHEMA_SOURCE,
+  crudOperations: ["list", "view", "create", "patch", "delete"]
 });
 
 const NULLABLE_BOOLEAN_RESOURCE_SOURCE = buildCrudResourceSource({
@@ -369,6 +379,90 @@ test("buildUiTemplateContext defaults operations to the full CRUD set when omitt
   });
 });
 
+test("buildUiTemplateContext omits delete support unless explicitly requested", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_WITH_DELETE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions()
+    });
+
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, "");
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, "");
+    assert.equal(context.__JSKIT_UI_VIEW_DELETE_SETUP__, "");
+  });
+});
+
+test("buildUiTemplateContext renders the supported delete confirmation lane", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_WITH_DELETE_SOURCE);
+
+    const context = await buildUiTemplateContext({
+      appRoot,
+      options: createOptions({
+        "delete-confirmation": true,
+        "id-param": "noteId"
+      })
+    });
+
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /CrudDeleteAction/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /:action="deleteAction"/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /resource-singular-title="Customer"/);
+    assert.doesNotMatch(context.__JSKIT_UI_VIEW_DELETE_ACTION_SLOT__, /<v-dialog|\bactivator=|@click=/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, /CrudDeleteAction/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, /useCrudDeleteAction/);
+    assert.doesNotMatch(context.__JSKIT_UI_VIEW_DELETE_IMPORT_LINE__, /@mdi\/js/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_SETUP__, /resource: uiResource/);
+    assert.match(context.__JSKIT_UI_VIEW_DELETE_SETUP__, /apiUrlTemplate: UI_VIEW_API_URL/);
+    assert.equal(context.__JSKIT_UI_RECORD_ID_PARAM__, "noteId");
+  });
+});
+
+test("buildUiTemplateContext rejects delete confirmation without list and view routes", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_WITH_DELETE_SOURCE);
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          operations: "list",
+          "delete-confirmation": true
+        })
+      }),
+      /delete-confirmation" requires operations to include view/
+    );
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          operations: "view",
+          "delete-confirmation": true
+        })
+      }),
+      /delete-confirmation" requires operations to include list/
+    );
+  });
+});
+
+test("buildUiTemplateContext rejects delete confirmation when the resource has no delete operation", async () => {
+  await withTempApp(async (appRoot) => {
+    await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
+
+    await assert.rejects(
+      buildUiTemplateContext({
+        appRoot,
+        options: createOptions({
+          "delete-confirmation": true
+        })
+      }),
+      /missing operations\.delete/
+    );
+  });
+});
+
 test("buildUiTemplateContext derives CRUD placeholders from the explicit target-root and resource", async () => {
   await withTempApp(async (appRoot) => {
     await writeResource(appRoot, RESOURCE_FILE, FULL_RESOURCE_SOURCE);
@@ -396,6 +490,14 @@ test("buildUiTemplateContext derives CRUD placeholders from the explicit target-
     assert.match(context.__JSKIT_UI_LIST_HEADING_TITLE_SETUP__, /listRuntime,\n {2}resource: uiResource/);
     assert.equal(context.__JSKIT_UI_FORM_COMPONENT_FILE__, "CrudAddEditForm.vue");
     assert.equal(context.__JSKIT_UI_FORM_FIELDS_FILE__, "CrudAddEditFormFields.js");
+    assert.equal(
+      context.__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__,
+      "/src/components/admin/customers/CrudAddEditForm.vue"
+    );
+    assert.equal(
+      context.__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__,
+      "/src/components/admin/customers/CrudAddEditFormFields.js"
+    );
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
     assert.equal(context.__JSKIT_UI_HAS_LIST_ROUTE__, "true");
     assert.equal(context.__JSKIT_UI_HAS_VIEW_ROUTE__, "true");
@@ -568,9 +670,13 @@ test("buildUiTemplateContext maps json-rest temporal cast types to date-aware fo
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"dob"[\s\S]*"inputType":"date"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"appointmentAt"[\s\S]*"inputType":"datetime-local"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"preferredTime"[\s\S]*"inputType":"time"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"appointmentAt"[\s\S]*"temporalPrecision":3/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_FIELDS__, /"key":"preferredTime"[\s\S]*"temporalPrecision":6/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.dob[\s\S]*type="date"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.appointmentAt[\s\S]*type="datetime-local"/);
     assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.preferredTime[\s\S]*type="time"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.appointmentAt[\s\S]*step="0\.001"/);
+    assert.match(context.__JSKIT_UI_CREATE_FORM_COLUMNS__, /formState\.preferredTime[\s\S]*step="0\.000001"/);
   });
 });
 
@@ -897,6 +1003,10 @@ test("buildUiTemplateContext accepts target-roots with a src/pages prefix", asyn
 
     assert.equal(context.__JSKIT_UI_SURFACE_ID__, "admin");
     assert.equal(context.__JSKIT_UI_MENU_PLACEMENT_ID__, "ui-generator.page.admin.customers.link");
+    assert.equal(
+      context.__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__,
+      "/src/components/admin/customers/CrudAddEditForm.vue"
+    );
   });
 });
 
@@ -964,8 +1074,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   }
 
   assert.match(listTemplateSource, /resource: uiResource,/);
-  assert.match(listTemplateSource, /import CrudListScreen from "@jskit-ai\/users-web\/client\/components\/CrudListScreen"/);
-  assert.match(listTemplateSource, /import \{ useCrudListScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudListScreen"/);
+  assert.match(listTemplateSource, /import CrudListScreen from "@jskit-ai\/http-web\/client\/components\/CrudListScreen"/);
+  assert.match(listTemplateSource, /import \{ useCrudListScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudListScreen"/);
   assert.match(listTemplateSource, /import \{ listBulkActions \} from "\.\/listBulkActions\.js"/);
   assert.match(listTemplateSource, /import \{ listFilters \} from "\.\/listFilters\.js"/);
   assert.match(listTemplateSource, /const screen = useCrudListScreen\(\{/);
@@ -994,8 +1104,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
 
   assert.match(viewTemplateSource, /import \{ resource as uiResource \} from/);
   assert.match(viewTemplateSource, /resource: uiResource,/);
-  assert.match(viewTemplateSource, /import CrudViewScreen from "@jskit-ai\/users-web\/client\/components\/CrudViewScreen"/);
-  assert.match(viewTemplateSource, /import \{ useCrudViewScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudViewScreen"/);
+  assert.match(viewTemplateSource, /import CrudViewScreen from "@jskit-ai\/http-web\/client\/components\/CrudViewScreen"/);
+  assert.match(viewTemplateSource, /import \{ useCrudViewScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudViewScreen"/);
   assert.match(viewTemplateSource, /const screen = useCrudViewScreen\(\{/);
   assert.match(viewTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
   assert.match(viewTemplateSource, /#fields="\{ view \}"/);
@@ -1004,8 +1114,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(viewTemplateSource, /transport:\s*UI_VIEW_TRANSPORT,/);
 
   assert.match(newTemplateSource, /resource: uiResource,/);
-  assert.match(newTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
-  assert.match(newTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(newTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/http-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(newTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(newTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
   assert.match(newTemplateSource, /#fields=/);
   assert.doesNotMatch(newTemplateSource, /<v-card\b|<v-card-title/);
@@ -1013,8 +1123,8 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(newTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editTemplateSource, /resource: uiResource,/);
-  assert.match(editTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
-  assert.match(editTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(editTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/http-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(editTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(editTemplateSource, /const screen = useCrudAddEditScreen\(\{/);
   assert.match(editTemplateSource, /preserveCancelQuery: true/);
   assert.match(editTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);
@@ -1023,20 +1133,26 @@ test("crud ui templates derive JSON:API transport from the shared CRUD resource"
   assert.doesNotMatch(editTemplateSource, /const UI_EDIT_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(editTemplateSource, /transport:\s*UI_EDIT_TRANSPORT,/);
 
-  assert.match(addEditFormTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/users-web\/client\/components\/CrudAddEditScreen"/);
+  assert.match(addEditFormTemplateSource, /import CrudAddEditScreen from "@jskit-ai\/http-web\/client\/components\/CrudAddEditScreen"/);
   assert.match(addEditFormTemplateSource, /<CrudAddEditScreen/);
   assert.match(addEditFormTemplateSource, /#fields=/);
   assert.doesNotMatch(addEditFormTemplateSource, /generated-ui-screen|ui-generator-add-edit-form__header|<v-sheet/);
+  assert.match(newWrapperTemplateSource, /from "__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__"/);
+  assert.match(newWrapperTemplateSource, /from "__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__"/);
+  assert.match(newWrapperTemplateSource, /crud-ui-fields-target __JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__/);
+  assert.match(editWrapperTemplateSource, /from "__JSKIT_UI_FORM_COMPONENT_IMPORT_PATH__"/);
+  assert.match(editWrapperTemplateSource, /from "__JSKIT_UI_FORM_FIELDS_IMPORT_PATH__"/);
+  assert.match(editWrapperTemplateSource, /crud-ui-form-fields-target __JSKIT_UI_FORM_FIELDS_IMPORT_PATH__/);
 
   assert.match(newWrapperTemplateSource, /resource: uiResource,/);
-  assert.match(newWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(newWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(newWrapperTemplateSource, /:screen="screen"/);
   assert.doesNotMatch(newWrapperTemplateSource, /<v-card\b/);
   assert.doesNotMatch(newWrapperTemplateSource, /const UI_CREATE_TRANSPORT = Object\.freeze\(\{/);
   assert.doesNotMatch(newWrapperTemplateSource, /transport:\s*UI_CREATE_TRANSPORT,/);
 
   assert.match(editWrapperTemplateSource, /resource: uiResource,/);
-  assert.match(editWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/users-web\/client\/composables\/useCrudAddEditScreen"/);
+  assert.match(editWrapperTemplateSource, /import \{ useCrudAddEditScreen \} from "@jskit-ai\/http-web\/client\/composables\/useCrudAddEditScreen"/);
   assert.match(editWrapperTemplateSource, /:screen="screen"/);
   assert.match(editWrapperTemplateSource, /preserveCancelQuery: true/);
   assert.match(editWrapperTemplateSource, /requestRecoveryLabel: "__JSKIT_UI_RESOURCE_SINGULAR_TITLE__"/);

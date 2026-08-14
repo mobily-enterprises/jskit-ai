@@ -125,6 +125,38 @@ test("template createRepository builds mutable JSON:API input documents for writ
   });
 });
 
+test("template createRepository patches only the fields supplied by the caller", async () => {
+  const calls = [];
+  const api = {
+    resources: {
+      customers: {
+        async patch(params) {
+          calls.push(params);
+          return { data: { type: "customers", id: "7", attributes: { name: "Changed" } } };
+        }
+      }
+    }
+  };
+  const knex = {
+    async transaction(work) {
+      return work("trx");
+    }
+  };
+
+  const repository = createRepository({ api, knex });
+  await repository.patchDocumentById("7", { name: "Changed" }, {});
+
+  assert.deepEqual(calls[0].inputRecord, {
+    data: {
+      type: "customers",
+      attributes: {
+        name: "Changed"
+      }
+    }
+  });
+  assert.equal(Object.hasOwn(calls[0].inputRecord.data.attributes, "updatedAt"), false);
+});
+
 test("template createRepository returns null for successful deletes", async () => {
   const calls = [];
   const api = {

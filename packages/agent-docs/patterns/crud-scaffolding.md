@@ -14,12 +14,32 @@ Check first:
 - `jskit show crud-server-generator --details`
 - whether the request is server-only CRUD or server-plus-UI CRUD
 
+## Fresh minimal-app order
+
+After `create-app`, run `npm install` before invoking the local CLI, and then
+use `npx --no-install jskit` so a missing local CLI fails clearly. For a fresh
+minimal CRUD app, the complete order is:
+
+1. create the app
+2. `npm install`
+3. add the database runtime
+4. `npm install`
+5. create the live table in a fresh disposable development database
+6. run `crud-server-generator scaffold`
+7. `npm install`
+8. run `crud-ui-generator crud`
+
+The server generator resolves its complete package dependency closure. In
+particular, `shell-web` owns and establishes `src/placement.js` before
+`realtime` appends its placement. Do not pre-install `shell-web` as a
+workaround.
+
 ## Non-negotiable database contract
 
 Before database, schema, CRUD, repository, or persistence work, read this
 pattern completely. Use the database selected for this app's development
-runtime; never alter a production, legacy, historical, or other valuable
-database to develop or verify schema changes. Prove the complete migration
+runtime; never alter a production or other valuable database to develop or
+verify schema changes. Prove the complete migration
 chain against a fresh disposable database before reporting completion.
 
 For normal app-owned CRUD tables:
@@ -67,6 +87,7 @@ Rules:
 - Generated CRUD UI must be compact-first. Lists need searchable cards on compact widths and tables only for medium/expanded layouts.
 - Generated CRUD list screens need real loading, empty, and error states. Empty copy should name the resource, such as "No customers yet", and offer the create action when available.
 - Generated CRUD view/new/edit screens should use page headers plus direct sheet panels. Do not use generic card shells as the page architecture.
+- Keep generated reusable Vue helpers outside `src/pages/`; the file router inventories every Vue file below that root as a browser route. CRUD form helpers mirror the validated target root under `src/components/`.
 - Permission-gated generated CRUD lists should pass `readEnabled` into `useCrudListScreen(...)` instead of replacing the shared list wrapper.
 - Compact CRUD actions should be reachable without a drawer. Use a mobile-visible primary action or FAB for create flows.
 - Row actions should be declared with `defineCrudListRowActions(...)` in a page-local `listRowActions.js` and passed into `useCrudListScreen(...)`; the shared list screen owns the compact/wide action rendering.
@@ -74,6 +95,28 @@ Rules:
 - Bulk actions should be declared in the generated page-local `listBulkActions.js`. The generated list owns selection state, keeps selection controls hidden until actions exist, and exposes selected ids/records to action handlers.
 - Structured filters should use shared filter definitions and collapse to compact filter controls/sheets when they outgrow simple search. Do not stack dense desktop filter bars on phone widths.
 - Use `--navigation-role` for CRUD list placement intent. Main resources can stay `primary`; nested/detail/workflow CRUD routes should usually be `secondary`, `workflow`, or `none`.
+- Add `--delete-confirmation` when the generated view needs the standard
+  destructive record action. The flag requires list and view pages and a
+  resource with a `DELETE` operation; it uses `CrudDeleteAction` in the public
+  view-screen action slot and the standard command composable rather than
+  generating page-local dialog or request code.
+
+## Temporal values at resource boundaries
+
+Resource validators accept strict string temporal values and reject JavaScript
+`Date` objects:
+
+- `date` is `YYYY-MM-DD`
+- `time` is offset-free `HH:MM[:SS[.fraction]]`
+- `dateTime` is RFC 3339 with seconds and `Z` or a numeric offset
+
+Use `epochMilliseconds` or `epochSeconds` for numeric epoch values after
+checking the stored unit. Preserve the field's
+`temporalPrecision`; do not truncate meaningful fractional seconds.
+
+Generated generic CRUD repositories serialize database temporal outputs
+before resource validation. App-owned/custom repositories must return strict
+strings and must write ISO/RFC 3339 strings rather than passing `Date` objects.
 
 ## Baseline generation versus later schema evolution
 
@@ -92,10 +135,10 @@ The initial CRUD scaffold and a later schema change are different operations:
   ```
 
 - The authoring command creates an editable migration template and adds its
-  `install-migration` mutation to the owning package descriptor in one
-  operation. Implement and test the template before materializing it.
-- Materialize the completed source with
-  `npx jskit migrations package <package-id>`, then apply it with
+  `install-migration` mutation to the owning package's `package.json.jskit` in
+  one operation. Implement and test the template before synchronizing it.
+- Synchronize the completed source with
+  `npx jskit migrations sync`, then apply it with
   `npm run db:migrate`.
 - SQL or Knex schema operations inside that source-controlled migration are
   supported. Ad-hoc SQL applied only to one database is not: it creates schema

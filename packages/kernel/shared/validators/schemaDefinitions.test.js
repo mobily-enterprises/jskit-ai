@@ -5,6 +5,7 @@ import {
   normalizeSingleSchemaDefinition,
   resolveSchemaTransportSchemaDefinition
 } from "./schemaDefinitions.js";
+import { validateSchemaPayload } from "./schemaPayloadValidation.js";
 
 test("normalizeSingleSchemaDefinition validates mode eagerly", () => {
   const definition = {
@@ -48,4 +49,42 @@ test("resolveSchemaTransportSchemaDefinition still resolves valid definitions", 
   assert.equal(transportSchema.type, "object");
   assert.equal(transportSchema.additionalProperties, false);
   assert.equal(transportSchema.properties.name.type, "string");
+});
+
+test("temporal schemas preserve strict JSON strings", () => {
+  const definition = {
+    schema: createSchema({
+      serviceDate: { type: "date", required: true },
+      openingTime: { type: "time", required: true },
+      scheduledAt: { type: "dateTime", required: true }
+    }),
+    mode: "replace"
+  };
+  const payload = {
+    serviceDate: "2026-08-13",
+    openingTime: "07:08:09.123",
+    scheduledAt: "2026-08-13T07:08:09.123+08:00"
+  };
+
+  assert.deepEqual(validateSchemaPayload(definition, payload), payload);
+  assert.throws(
+    () => validateSchemaPayload(definition, {
+      serviceDate: new Date("2026-08-13T00:00:00.000Z"),
+      openingTime: new Date("2026-08-13T07:08:09.123Z"),
+      scheduledAt: new Date("2026-08-13T07:08:09.123Z")
+    }),
+    /Schema validation failed\./
+  );
+});
+
+test("removed timestamp schemas fail instead of silently changing meaning", () => {
+  const definition = {
+    schema: createSchema({ occurredAt: { type: "timestamp" } }),
+    mode: "replace"
+  };
+
+  assert.throws(
+    () => validateSchemaPayload(definition, { occurredAt: 1 }),
+    /No casting function for type: timestamp/
+  );
 });

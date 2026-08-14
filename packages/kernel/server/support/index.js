@@ -2,6 +2,12 @@ export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
 export { resolveAppConfig, resolveMobileConfig, resolveClientAssetMode, resolveMobileCallbackUrls } from "./appConfig.js";
 export { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
 export { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
+export {
+  collectPackageDependencyIds,
+  collectRootDependencySpecifiers,
+  createPackageMetadata,
+  discoverInstalledPackages
+} from "../../internal/node/installedPackages.js";
 export { resolveRequiredAppRoot, toPosixPath } from "./path.js";
 export {
   DEFAULT_PAGE_LINK_COMPONENT_TOKEN,

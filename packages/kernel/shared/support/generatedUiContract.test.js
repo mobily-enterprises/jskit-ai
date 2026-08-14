@@ -15,7 +15,7 @@ import {
   shouldCreateGeneratedUiNavigationLink
 } from "./generatedUiContract.js";
 
-test("generated UI navigation role metadata is descriptor-ready", () => {
+test("generated UI navigation role metadata is package-ready", () => {
   assert.deepEqual(
     GENERATED_UI_NAVIGATION_ROLE_VALUES,
     ["primary", "secondary", "utility", "detail", "workflow", "none"]
@@ -205,4 +205,14 @@ test("generated UI responsive smoke profile requires compact medium expanded che
     }),
     /missing:medium-viewport/
   );
+});
+
+test("generated UI responsive smoke profile accepts a Vuetify md viewport", () => {
+  assert.doesNotThrow(() => assertGeneratedUiSourceContract(
+    "390 1024 1280 scrollWidth toBeGreaterThanOrEqual(48) generated-ui-screen",
+    {
+      profile: "responsive-smoke",
+      sourceName: "tests/e2e/example.spec.ts"
+    }
+  ));
 });

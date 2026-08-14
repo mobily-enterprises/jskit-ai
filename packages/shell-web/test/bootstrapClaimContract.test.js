@@ -3,14 +3,16 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 const CREATE_APP_TEMPLATE_DIR = path.resolve(PACKAGE_DIR, "..", "..", "tooling", "create-app", "templates", "minimal-shell");
 
 function findFileMutation(id) {
-  const files = descriptor?.mutations?.files;
+  const files = packageMetadata?.mutations?.files;
   return Array.isArray(files)
     ? files.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;

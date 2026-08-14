@@ -24,19 +24,13 @@ function createAuthIdentityId(provider, providerUserId) {
 
 function normalizeAuthActor(value = {}, options = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const provider = normalizeAuthProviderId(source.provider || source.authProvider || options.provider, {
+  const provider = normalizeAuthProviderId(source.provider || options.provider, {
     fallback: normalizeAuthProviderId(options.provider, { fallback: "unknown" })
   });
-  const providerUserId = normalizeProviderUserId(
-    source.providerUserId ||
-      source.authProviderUserSid ||
-      source.sub ||
-      source.userId ||
-      source.id
-  );
+  const providerUserId = normalizeProviderUserId(source.providerUserId);
   const email = normalizeEmail(source.email || "");
-  const displayName = normalizeDisplayName(source.displayName || source.username || source.name, email);
-  const appUserId = normalizeOpaqueId(source.appUserId || source.profileId || source.userProfileId, {
+  const displayName = normalizeDisplayName(source.displayName, email);
+  const appUserId = normalizeOpaqueId(source.appUserId, {
     fallback: null
   });
   const id = appUserId || providerUserId;
@@ -58,40 +52,19 @@ function normalizeAuthActor(value = {}, options = {}) {
   });
 }
 
-function buildLegacyProfileFromActor(actorLike) {
-  const actor = normalizeAuthActor(actorLike);
-  if (!actor) {
-    return null;
-  }
-  return Object.freeze({
-    id: actor.id || actor.appUserId || actor.providerUserId || actor.authIdentityId,
-    email: actor.email,
-    displayName: actor.displayName,
-    authProvider: actor.provider,
-    authProviderUserSid: actor.providerUserId
-  });
-}
-
 function normalizeAuthResult(value = {}, options = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
-  const actor = normalizeAuthActor(source.actor, options) || normalizeAuthActor(source.profile, {
-    ...options,
-    profileSource: "users"
-  });
-  const profile = source.profile && typeof source.profile === "object"
-    ? source.profile
-    : buildLegacyProfileFromActor(actor);
+  const actor = normalizeAuthActor(source.actor, options);
+  const { profile: _profile, ...result } = source;
 
   return Object.freeze({
-    ...source,
-    ...(actor ? { actor } : {}),
-    ...(profile ? { profile } : {})
+    ...result,
+    ...(actor ? { actor } : {})
   });
 }
 
 export {
   createAuthIdentityId,
   normalizeAuthActor,
-  buildLegacyProfileFromActor,
   normalizeAuthResult
 };

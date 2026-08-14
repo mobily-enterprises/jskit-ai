@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `tooling/create-app/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -79,10 +79,6 @@ Exports
 - `surfaceAccessPolicies`
 
 ### `templates/base-shell/eslint.config.mjs`
-Exports
-- None
-
-### `templates/base-shell/packages/main/package.descriptor.mjs`
 Exports
 - None
 
@@ -236,10 +232,6 @@ Exports
 Exports
 - None
 
-### `templates/minimal-shell/packages/main/package.descriptor.mjs`
-Exports
-- None
-
 ### `templates/minimal-shell/packages/main/src/client/index.js`
 Exports
 - `MainClientProvider`
@@ -331,11 +323,5 @@ Exports
 ### bin
 
 ### `bin/jskit-create-app.js`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None

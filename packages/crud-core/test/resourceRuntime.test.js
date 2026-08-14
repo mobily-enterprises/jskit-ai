@@ -499,6 +499,64 @@ test("list uses resource table and id defaults", async () => {
   assert.ok(calls.some((call) => call[0] === "where" && call[1] === "contact_id" && call[2] === ">" && call[3] === "2"));
 });
 
+test("list converts database temporal values before strict resource validation", async () => {
+  const resource = {
+    namespace: "appointments",
+    tableName: "appointments",
+    operations: {
+      view: {
+        output: {
+          schema: createSchema({
+            id: {
+              ...recordIdSchema,
+              required: true
+            },
+            serviceDate: {
+              type: "date",
+              required: true
+            },
+            openingTime: {
+              type: "time",
+              required: true
+            },
+            scheduledAt: {
+              type: "dateTime",
+              required: true
+            }
+          }),
+          mode: "replace"
+        }
+      },
+      create: {
+        body: {
+          schema: createSchema({}),
+          mode: "create"
+        }
+      }
+    }
+  };
+  const { knex } = createKnexDouble([
+    {
+      id: 3,
+      service_date: new Date("2026-08-13T23:59:58.123Z"),
+      opening_time: "07:08:09.123456",
+      scheduled_at: "2026-08-13 07:08:09.123456"
+    }
+  ]);
+  const repository = createCrudResourceRuntime(resource, knex);
+
+  const result = await repository.list();
+
+  assert.deepEqual(result.items, [
+    {
+      id: "3",
+      serviceDate: "2026-08-13",
+      openingTime: "07:08:09.123456",
+      scheduledAt: "2026-08-13T07:08:09.123456Z"
+    }
+  ]);
+});
+
 test("list respects bound list config", async () => {
   const { knex, calls } = createKnexDouble([
     { contact_id: 3, first_name: "Tony" },

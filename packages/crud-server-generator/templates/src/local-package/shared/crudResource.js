@@ -3,6 +3,7 @@ import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudReso
 const resource = defineCrudResource({
   namespace: "${option:namespace|snake}",
   tableName: __JSKIT_CRUD_TABLE_NAME__,
+  apiAccess: __JSKIT_CRUD_RESOURCE_API_ACCESS__,
   schema: {
 __JSKIT_CRUD_RESOURCE_SCHEMA_PROPERTIES__
   },

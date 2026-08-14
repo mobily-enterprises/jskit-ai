@@ -55,7 +55,6 @@ npx jskit add package users-web
 npx jskit add package console-web
 npx jskit add package workspaces-core
 npx jskit add package workspaces-web
-npm install
 npm run db:migrate
 ```
 

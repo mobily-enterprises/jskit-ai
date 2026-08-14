@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -71,11 +72,9 @@ async function createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageId: "@demo/surface-policy",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(packageRoot),
+    `({
   kind: "runtime",
   runtime: {
     server: {
@@ -112,7 +111,7 @@ async function createSurfaceVisibilityPolicyPackage(appRoot, { surfaceOptionName
       }
     ]
   }
-});\n`,
+})\n`,
     "utf8"
   );
 }

@@ -232,8 +232,8 @@ test("workspacesRepository.insert writes canonical fields through json-rest-api"
   assert.equal(state.postPayload.attributes?.name, "TonyMobily3");
   assert.equal(state.postPayload.attributes?.isPersonal, false);
   assert.equal(state.postPayload.attributes?.avatarUrl, "");
-  assert.equal(typeof state.postPayload.attributes?.createdAt, "object");
-  assert.equal(typeof state.postPayload.attributes?.updatedAt, "object");
+  assert.equal(typeof state.postPayload.attributes?.createdAt, "string");
+  assert.equal(state.postPayload.attributes?.updatedAt, state.postPayload.attributes?.createdAt);
   assert.equal(inserted.id, "1");
   assert.equal(inserted.ownerUserId, "9");
 });
@@ -290,7 +290,7 @@ test("workspacesRepository.updateById patches canonical fields and updatedAt", a
 
   assert.equal(state.patchPayload.id, "7");
   assert.equal(state.patchPayload.attributes?.name, "TonyMobily 4");
-  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "object");
+  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "string");
 });
 
 test("workspacesRepository.listForUserId keeps membership fields outside the canonical workspace row", async () => {

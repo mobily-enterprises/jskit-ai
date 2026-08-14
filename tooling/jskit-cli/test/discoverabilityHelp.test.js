@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitConfig } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -36,6 +37,7 @@ async function writeRuntimePackageWithOptions(appRoot) {
       {
         name: "@demo/runtime",
         version: "0.1.0",
+        description: "Demo runtime package for option help tests.",
         type: "module"
       },
       null,
@@ -44,14 +46,10 @@ async function writeRuntimePackageWithOptions(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/runtime",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(packageRoot),
+    `({
   kind: "runtime",
-  description: "Demo runtime package for option help tests.",
   options: {
     "workspace-slug": {
       required: true,
@@ -68,7 +66,6 @@ async function writeRuntimePackageWithOptions(appRoot) {
       promptHint: "Optional route prefix."
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -94,7 +91,7 @@ async function writeRuntimePackageWithOptions(appRoot) {
     files: [],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -109,6 +106,7 @@ async function writeGeneratorPackageWithExamples(appRoot) {
       {
         name: "@demo/generator",
         version: "0.1.0",
+        description: "Demo generator package for help examples.",
         type: "module"
       },
       null,
@@ -117,14 +115,10 @@ async function writeGeneratorPackageWithExamples(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@demo/generator",
-  version: "0.1.0",
+  await writeJskitConfig(
+    path.join(packageRoot),
+    `({
   kind: "generator",
-  description: "Demo generator package for help examples.",
   options: {
     "runtime-surface": {
       required: true,
@@ -134,7 +128,6 @@ async function writeGeneratorPackageWithExamples(appRoot) {
       promptHint: "Surface where the generated page will run."
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -180,7 +173,7 @@ async function writeGeneratorPackageWithExamples(appRoot) {
     files: [],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -269,6 +262,24 @@ test("generate <generatorId> <subcommand> help prints subcommand contract", asyn
     assert.match(stdout, /--table-name <text> \[optional; default: <empty>\]/);
     assert.match(stdout, /--id-column <text> \[optional; default: id\]/);
     assert.doesNotMatch(stdout, /--namespace <text> \[required\]/);
+  });
+});
+
+test("crud-server-generator scaffold help exposes explicit access selection", async () => {
+  await withTempDir(async (cwd) => {
+    const appRoot = path.join(cwd, "discoverability-crud-scaffold-help-app");
+    await createMinimalApp(appRoot, { name: "discoverability-crud-scaffold-help-app" });
+
+    const result = runCli({
+      cwd: appRoot,
+      args: ["generate", "crud-server-generator", "scaffold", "help"]
+    });
+
+    assert.equal(result.status, 0, String(result.stderr || ""));
+    const stdout = String(result.stdout || "");
+    assert.match(stdout, /Generator subcommand help: @jskit-ai\/crud-server-generator scaffold/);
+    assert.match(stdout, /--access <text> \[optional; default: authenticated\]/);
+    assert.match(stdout, /authenticated \| public; public\s+requires a non-workspace surface with public ownership/);
   });
 });
 

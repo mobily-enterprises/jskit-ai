@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/database-runtime/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -53,9 +53,18 @@ Exports
 - `toInsertDateTime(dateLike, fallback = new Date())`
 - `toNullableDateTime(value)`
 - `toDatabaseDateTimeUtc(value)`
+- `toJsonDate(value)`
+- `toJsonTime(value, { temporalPrecision } = {})`
+- `toJsonDateTime(value, { temporalPrecision } = {})`
 Local functions
 - `toDateOrThrow(value)`
 - `pad(value, size = 2)`
+- `requireValidDateParts(year, month, day)`
+- `requireValidTimeParts(hours, minutes, seconds = 0)`
+- `parseDateParts(value)`
+- `normalizeTemporalPrecision(value)`
+- `formatFraction(milliseconds, temporalPrecision)`
+- `requireAllowedFraction(fraction, temporalPrecision)`
 
 ### `src/shared/dialect.js`
 Exports
@@ -84,6 +93,9 @@ Exports
 - `toInsertDateTime`
 - `toNullableDateTime`
 - `toDatabaseDateTimeUtc`
+- `toJsonDate`
+- `toJsonTime`
+- `toJsonDateTime`
 - `normalizeDialect`
 - `detectDialectFromClient`
 - `normalizeText`
@@ -208,9 +220,3 @@ Exports
 ### `templates/knexfile.js`
 Exports
 - `default`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

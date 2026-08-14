@@ -64,7 +64,11 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
       async executeAction() {
         return {
           authenticated: true,
-          profile,
+          actor: {
+            id: profile.id,
+            displayName: profile.displayName,
+            email: profile.email
+          },
           session: {
             csrfToken: "csrf-1"
           }

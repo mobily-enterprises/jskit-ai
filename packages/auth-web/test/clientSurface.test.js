@@ -2,15 +2,17 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 import {
   useSignOut as fromRuntimeUseSignOut,
   createSignOutAction as fromRuntimeCreateSignOutAction,
   performSignOutRequest as fromRuntimePerformSignOutRequest
 } from "../src/client/runtime/useSignOut.js";
 
-test("auth-web descriptor declares auth surface ui routes", () => {
-  const uiRoutes = Array.isArray(descriptor?.metadata?.ui?.routes) ? descriptor.metadata.ui.routes : [];
+test("auth-web packageMetadata declares auth surface ui routes", () => {
+  const uiRoutes = Array.isArray(packageMetadata?.metadata?.ui?.routes) ? packageMetadata.metadata.ui.routes : [];
   const authRoutes = uiRoutes.filter((route) => String(route?.path || "").startsWith("/auth/"));
   const resetRoute = authRoutes.find((route) => route.id === "auth.reset-password");
 

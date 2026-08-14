@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.122",
+  "version": "0.1.132",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,19 +11,78 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.144",
-    "@jskit-ai/http-runtime": "0.1.143",
-    "@jskit-ai/kernel": "0.1.145",
-    "@jskit-ai/resource-crud-core": "0.1.88",
-    "@jskit-ai/resource-core": "0.1.88",
-    "@jskit-ai/users-core": "0.1.158",
-    "dompurify": "^3.4.12",
-    "json-rest-schema": "1.x.x",
+    "@jskit-ai/http-runtime": "0.1.154",
+    "@jskit-ai/kernel": "0.1.156",
+    "@jskit-ai/resource-core": "0.1.98",
+    "@jskit-ai/resource-crud-core": "0.1.98",
+    "dompurify": "^3.4.13",
+    "json-rest-schema": "^1.0.17",
     "marked": "^17.0.4",
     "openai": "^6.22.0"
   },
   "peerDependencies": {
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
+  },
+  "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "assistant.core"
+      ],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./client",
+            "summary": "Exports reusable assistant UI primitives, HTTP helpers, and client API builders."
+          },
+          {
+            "subpath": "./server",
+            "summary": "Exports reusable assistant AI/provider and NDJSON streaming helpers."
+          },
+          {
+            "subpath": "./shared",
+            "summary": "Exports reusable assistant validators, path helpers, query keys, and stream/settings events."
+          }
+        ],
+        "containerTokens": {
+          "server": [],
+          "client": []
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@jskit-ai/http-runtime": "0.1.154",
+          "@jskit-ai/kernel": "0.1.156",
+          "@jskit-ai/resource-core": "0.1.98",
+          "@jskit-ai/resource-crud-core": "0.1.98",
+          "dompurify": "^3.4.13",
+          "json-rest-schema": "^1.0.17",
+          "marked": "^17.0.4",
+          "openai": "^6.22.0"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": [],
+      "text": []
+    }
   }
 }

@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/crud-ui-generator/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `LEGACY/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
 
 ## Sections
 
@@ -29,9 +29,11 @@ Local functions
 - `normalizeRelativeAppPath(value = "")`
 - `requireTargetRootOption(options = {})`
 - `resolveListTargetFile(targetRoot = "")`
+- `resolveFormHelperPaths(targetRoot = "")`
 - `parseOperationsOption(options)`
 - `parseDisplayFieldsOption(options)`
 - `parseParentTitleOption(options)`
+- `resolveBooleanFlagOption(options = {}, optionName = "")`
 - `shouldCreateNavigationLink(options = {}, inferenceContext = {})`
 - `resolveNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
 - `validateDisplayFieldsForOperation(selectedFieldKeys, fields, operationName)`
@@ -59,6 +61,8 @@ Local functions
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`
+- `buildViewDeleteActionSlot({ resourceSingularTitle = "Record" } = {})`
+- `buildViewDeleteSetup({ resourceNamespace = "resource" } = {})`
 
 ### `src/server/resourceSupport.js`
 Exports
@@ -94,6 +98,7 @@ Local functions
 - `resolveSchemaReference(ref = "", rootSchema = {}, { context = "ui-generator", contextLabel = "schema" } = {})`
 - `resolveObjectSchema(schema = {}, contextLabel, { context = "ui-generator", rootSchema = schema } = {})`
 - `resolveJsonRestCastType(schema = {})`
+- `resolveTemporalPrecision(...schemas)`
 - `resolveSchemaType(schema)`
 - `toFieldLabel(key)`
 - `isSupportedSelectOptionValue(value)`
@@ -107,6 +112,7 @@ Local functions
 - `toLookupRelation(fieldContractMap = {}, fieldKey = "", { lookupContainerKey = "lookups" } = {})`
 - `resolveFormInputType(fieldType, fieldFormat)`
 - `resolveFormFieldComponent(fieldType, relation = null)`
+- `resolveTemporalInputStep(field = {})`
 - `buildDefaultNullableBooleanOptions()`
 - `toPositiveInteger(value)`
 - `toAccessorExpression(baseName, fieldKey)`
@@ -138,6 +144,7 @@ Local functions
 - `resolveAnchorScopeStart(source = "", { anchorIndex = -1, anchor = "" } = {})`
 - `buildAnchorInsertions(operationName, field)`
 - `resolveGeneratedTargetComment(source = "", commentName = "")`
+- `resolveGeneratedTargetPath(appRoot, targetAbsolutePath, generatedTarget = "")`
 - `resolveOperationTargetFiles({ appRoot, operationName, targetAbsolutePath, source = "" } = {})`
 - `parseSubcommandArgs(args = [])`
 
@@ -181,11 +188,5 @@ Exports
 - None
 
 ### `templates/src/pages/admin/ui-generator/ViewElement.vue`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None

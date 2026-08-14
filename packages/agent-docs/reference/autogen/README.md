@@ -28,6 +28,7 @@ Startup navigation stays in `KERNEL_MAP.md`.
 - [google-rewarded-core](/packages/agent-docs/reference/autogen/packages/google-rewarded-core.md)
 - [google-rewarded-web](/packages/agent-docs/reference/autogen/packages/google-rewarded-web.md)
 - [http-runtime](/packages/agent-docs/reference/autogen/packages/http-runtime.md)
+- [http-web](/packages/agent-docs/reference/autogen/packages/http-web.md)
 - [json-rest-api-core](/packages/agent-docs/reference/autogen/packages/json-rest-api-core.md)
 - [kernel](/packages/agent-docs/reference/autogen/packages/kernel.md)
 - [mobile-capacitor](/packages/agent-docs/reference/autogen/packages/mobile-capacitor.md)
