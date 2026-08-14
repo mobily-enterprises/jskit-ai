@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import test from "node:test";
@@ -7,9 +7,20 @@ import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
+const MINIMAL_APP_PACKAGE_JSON_PATH = fileURLToPath(
+  new URL("../../create-app/templates/minimal-shell/package.json", import.meta.url)
+);
 const runCli = createCliRunner(CLI_PATH);
 
 async function createMinimalApp(appRoot) {
+  const generatedAppPackageJson = JSON.parse(
+    await readFile(MINIMAL_APP_PACKAGE_JSON_PATH, "utf8")
+  );
+  const thirdPartyDependencies = Object.fromEntries(
+    Object.entries(generatedAppPackageJson.dependencies).filter(
+      ([packageId]) => !packageId.startsWith("@jskit-ai/") && !packageId.startsWith("@local/")
+    )
+  );
   await mkdir(appRoot, { recursive: true });
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
@@ -20,7 +31,8 @@ async function createMinimalApp(appRoot) {
         name: "tmp-app",
         version: "0.1.0",
         private: true,
-        type: "module"
+        type: "module",
+        dependencies: thirdPartyDependencies
       },
       null,
       2
