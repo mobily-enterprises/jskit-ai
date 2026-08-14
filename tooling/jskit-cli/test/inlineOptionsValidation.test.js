@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -55,9 +56,9 @@ test("add package fails on unknown inline option for target package", async () =
       "utf8"
     );
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/no-options",
   version: "0.1.0",
   kind: "runtime",
@@ -76,7 +77,7 @@ test("add package fails on unknown inline option for target package", async () =
       dev: {}
     }
   }
-});\n`,
+})\n`,
       "utf8"
     );
 

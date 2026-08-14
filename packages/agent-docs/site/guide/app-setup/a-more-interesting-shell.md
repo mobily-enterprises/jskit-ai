@@ -32,10 +32,9 @@ The normal `create-app` template already has `shell-web`. If you deliberately cr
 
 ```bash
 npx jskit add package shell-web
-npm install
 ```
 
-That install is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app --minimal` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
+That package addition is intentionally strict: `shell-web` only takes over scaffold files if they are still **exactly** the same as the files that `create-app --minimal` originally wrote. If you have already edited those starter files, `shell-web` refuses to claim them instead of overwriting your work.
 </DocsTerminalTip>
 
 Open `http://localhost:5173/` in the browser. The app lands in the `home` surface inside a real shell with an app bar, a navigation drawer, and a settings route at `/home/settings`.
@@ -393,14 +392,14 @@ src/
 
 This chapter is where the default scaffold starts to feel layered instead of flat.
 
-### `package.json` and `.jskit/lock.json`
+### `package.json`
 
 The first file worth reopening is still `package.json`. Because the default app includes `shell-web`, the important shell dependency entries are already present:
 
 ```json
 {
   "dependencies": {
-    "@jskit-ai/shell-web": "0.x",
+    "@jskit-ai/shell-web": "0.1.152",
     "@mdi/js": "^7.4.47"
   }
 }
@@ -410,9 +409,9 @@ The important part is not just that `@jskit-ai/shell-web` appears. The package b
 
 It is also worth noticing what does **not** happen here. The `placed-element` and `page` commands from this chapter mutate app-owned files, but they do not add a permanent runtime dependency to `package.json`. They are tooling actions, not runtime package installs.
 
-The lock file records this too. In a default app, `.jskit/lock.json` already records `@local/main`, `@jskit-ai/shell-web`, and the exact files and text mutations that the shell package owns.
-
-That is worth noticing because the default scaffold is not just copied files. It starts with a JSKIT-managed runtime package that owns concrete changes in your app tree.
+The installed package exposes its runtime and generator metadata through
+`package.json.jskit`. The source created in the application is then reviewed
+and maintained as normal application code.
 
 ### The `home` surface gets a real wrapper
 

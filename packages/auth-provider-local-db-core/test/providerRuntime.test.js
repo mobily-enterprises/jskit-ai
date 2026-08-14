@@ -7,7 +7,9 @@ import { createLocalAuthService, hashPassword } from "@jskit-ai/auth-provider-lo
 import { AuthLocalServiceProvider } from "@jskit-ai/auth-provider-local-core/server/providers/AuthLocalServiceProvider";
 import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import { AuthLocalDbBackendServiceProvider } from "../src/server/providers/AuthLocalDbBackendServiceProvider.js";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 
 const DEV_AUTH_SECRET_HEADER = "x-jskit-dev-auth-secret";
 const DEV_AUTH_SECRET = "local-db-preview-exchange-secret";
@@ -467,13 +469,13 @@ test("local auth DB backend still supports lazy profile projection", async () =>
   assert.equal(registered.actor.profileSource, "users");
 });
 
-test("package descriptor installs portable local auth DB migrations", () => {
-  const files = descriptor.mutations.files.map((file) => file.from);
+test("package metadata installs portable local auth DB migrations", () => {
+  const files = packageMetadata.mutations.files.map((file) => file.from);
   assert.deepEqual(files, ["templates/migrations/auth_local_db_initial.cjs"]);
-  assert.equal(descriptor.ci.environment.AUTH_LOCAL_BACKEND, "db");
-  assert.deepEqual(descriptor.ci.services, []);
+  assert.equal(packageMetadata.ci.environment.AUTH_LOCAL_BACKEND, "db");
+  assert.deepEqual(packageMetadata.ci.services, []);
   assert.deepEqual(
-    descriptor.metadata.jskit.tableOwnership.tables.map((table) => table.tableName),
+    packageMetadata.metadata.jskit.tableOwnership.tables.map((table) => table.tableName),
     [
       LOCAL_AUTH_DB_TABLES.users,
       LOCAL_AUTH_DB_TABLES.sessions,

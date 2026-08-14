@@ -15,7 +15,7 @@ import {
   shouldCreateGeneratedUiNavigationLink
 } from "./generatedUiContract.js";
 
-test("generated UI navigation role metadata is descriptor-ready", () => {
+test("generated UI navigation role metadata is package-ready", () => {
   assert.deepEqual(
     GENERATED_UI_NAVIGATION_ROLE_VALUES,
     ["primary", "secondary", "utility", "detail", "workflow", "none"]

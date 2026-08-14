@@ -170,10 +170,6 @@ Exports
 Exports
 - None
 
-### `templates/src/local-package/package.descriptor.mjs`
-Exports
-- None
-
 ### `templates/src/local-package/server/actions.js`
 Exports
 - `createActions({ surface } = {})`
@@ -205,12 +201,6 @@ Exports
 ### `templates/src/local-package/shared/index.js`
 Exports
 - `resource`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None
 
 ### test-support
 

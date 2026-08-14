@@ -36,9 +36,9 @@ npx jskit mobile android doctor
 ```
 
 If doctor passes, the app is ready for the normal mobile workflow.
-The `jskit mobile android ...` commands expect the mobile runtime package to be
-installed in `package.json` and recorded in `.jskit/lock.json`; they do not
-install `@jskit-ai/mobile-capacitor` for you.
+The `jskit mobile android ...` commands expect
+`@jskit-ai/mobile-capacitor` in the installed npm graph; they do not install the
+runtime package for you.
 
 ## What you need on your machine
 

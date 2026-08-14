@@ -18,8 +18,6 @@ Recognize these files as signs of a real JSKIT app when they exist:
 - package.json
 - config/public.js
 - src/main.js
-- packages/main/package.descriptor.mjs
-- .jskit/lock.json
 
 If the app is empty or only a fresh minimal scaffold, keep platform choices explicit and provisional until decided. Do not treat a missing `config.tenancyMode` line or untouched minimal scaffold as a final tenancy decision.
 

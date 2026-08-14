@@ -27,10 +27,11 @@ Rules:
 
   `--delete-confirmation` requires generated list and view pages plus a shared
   resource with a `DELETE` operation. It extends the view through the public
-  `CrudViewScreen` `actions` slot and `useCrudDeleteAction()`: Vuetify owns the
-  alert dialog, `useCommand()` owns the request state, the shared resource owns
-  the DELETE contract, and successful deletion invalidates the list query and
-  navigates to the generated list route.
+  `CrudViewScreen` `actions` slot with `CrudDeleteAction` and wires it to
+  `useCrudDeleteAction()`: the shared component owns the alert dialog,
+  `useCommand()` owns the request state, the shared resource owns the DELETE
+  contract, and successful deletion invalidates the list query and navigates
+  to the generated list route.
 
 Good live-action pattern:
 

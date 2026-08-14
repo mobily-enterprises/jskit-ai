@@ -61,8 +61,7 @@ Local functions
 - `resolveCrudRelativePath(namespace = "")`
 - `buildListParentTitleImportLine(parentTitleMode = "contextual")`
 - `buildListHeadingTitleSetup({ parentTitleMode = "contextual", resourceNamespace = "", routeTitle = "Records" } = {})`
-- `buildViewDeleteActionSlot({ resourceNamespace = "resource", resourceSingularTitle = "Record" } = {})`
-- `buildViewDeleteDialog({ resourceNamespace = "resource", resourceSingularTitle = "Record" } = {})`
+- `buildViewDeleteActionSlot({ resourceSingularTitle = "Record" } = {})`
 - `buildViewDeleteSetup({ resourceNamespace = "resource" } = {})`
 
 ### `src/server/resourceSupport.js`
@@ -189,11 +188,5 @@ Exports
 - None
 
 ### `templates/src/pages/admin/ui-generator/ViewElement.vue`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None

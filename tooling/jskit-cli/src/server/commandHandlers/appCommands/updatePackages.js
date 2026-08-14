@@ -34,8 +34,6 @@ const DEPENDENCY_SECTIONS = Object.freeze([
   })
 ]);
 const JSKIT_PACKAGE_PATTERN = /^@jskit-ai\/[a-z0-9._-]+$/iu;
-const JSKIT_CLI_PACKAGE = "@jskit-ai/jskit-cli";
-const UPDATE_PACKAGES_BOOTSTRAPPED_ENV = "JSKIT_UPDATE_PACKAGES_BOOTSTRAPPED";
 const PROGRESS_INTERVAL_MS = 5_000;
 
 function collectJskitPackageNames(packageMap = {}) {
@@ -63,11 +61,6 @@ function resolveExactVersion(packageName = "", rawVersion = "", createCliError) 
     });
   }
   return normalizedVersion;
-}
-
-function resolveMajorRange(packageName = "", version = "", createCliError) {
-  const exactVersion = resolveExactVersion(packageName, version, createCliError);
-  return `${exactVersion.slice(0, exactVersion.indexOf("."))}.x`;
 }
 
 function resolveRegistryArgs(registryUrl = "") {
@@ -220,70 +213,6 @@ function resolveRequiredDirectPeerUpdates({
   return Object.freeze(updates);
 }
 
-function collectChangedInstalledPackageIds(lock = {}, latestVersions = new Map()) {
-  const installedPackages = ensureObject(lock.installedPackages);
-  return sortStrings(
-    [...latestVersions.entries()]
-      .filter(([packageId, targetVersion]) => {
-        if (!Object.prototype.hasOwnProperty.call(installedPackages, packageId)) {
-          return false;
-        }
-        const installedPackage = ensureObject(installedPackages[packageId]);
-        return String(installedPackage.version || "").trim() !== targetVersion;
-      })
-      .map(([packageId]) => packageId)
-  );
-}
-
-async function reapplyChangedInstalledPackages({
-  appRoot,
-  createCliError,
-  dryRun,
-  latestVersions,
-  loadLockFile,
-  stderr,
-  stdout
-}) {
-  const { lock } = await loadLockFile(appRoot);
-  const packageIds = collectChangedInstalledPackageIds(lock, latestVersions);
-  if (packageIds.length < 1) {
-    stdout?.write("[jskit:update] managed package state is already current.\n");
-    return;
-  }
-
-  stdout?.write(`[jskit:update] managed packages requiring reapply: ${packageIds.join(", ")}.\n`);
-  if (dryRun) {
-    return;
-  }
-
-  for (const [index, packageId] of packageIds.entries()) {
-    const { lock: currentLock } = await loadLockFile(appRoot);
-    const currentVersion = String(
-      ensureObject(ensureObject(currentLock.installedPackages)[packageId]).version || ""
-    ).trim();
-    if (currentVersion === latestVersions.get(packageId)) {
-      continue;
-    }
-    stdout?.write(
-      `[jskit:update] reapplying managed package ${index + 1}/${packageIds.length}: ${packageId}.\n`
-    );
-    await runLocalJskitAsync(appRoot, ["update", "package", packageId], {
-      stdout,
-      stderr,
-      createCliError
-    });
-  }
-
-  const { lock: updatedLock } = await loadLockFile(appRoot);
-  const remainingPackageIds = collectChangedInstalledPackageIds(updatedLock, latestVersions);
-  if (remainingPackageIds.length > 0) {
-    throw createCliError(
-      `Managed package reapply finished with stale lock versions: ${remainingPackageIds.join(", ")}.`
-    );
-  }
-  stdout?.write("[jskit:update] managed package state is current.\n");
-}
-
 function formatElapsedTime(elapsedMilliseconds = 0) {
   const elapsedSeconds = Math.max(0, Math.floor(Number(elapsedMilliseconds) / 1000));
   if (elapsedSeconds < 1) {
@@ -336,17 +265,6 @@ function hasNpmWorkspaces(packageJson = {}) {
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
-}
-
-async function readOptionalFile(filePath) {
-  try {
-    return await readFile(filePath, "utf8");
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return "";
-    }
-    throw error;
-  }
 }
 
 async function resolveWorkspaceDirectories({
@@ -404,28 +322,21 @@ async function resolveWorkspaceDirectories({
   return [...workspaceDirectories].sort((left, right) => left.localeCompare(right));
 }
 
-function descriptorJskitPackageNames(source = "") {
-  const packageNames = new Set();
-  const patterns = [
-    /(["'])(@jskit-ai\/[a-z0-9._-]+)\1\s*:\s*(["'])[^"']+\3/giu,
-    /(["'])(@jskit-ai\/[a-z0-9._-]+)\1\s*:\s*\{[^{}]*?(?:["'](?:version|value)["']|version|value)\s*:\s*(["'])[^"']+\3/giu
-  ];
-  for (const pattern of patterns) {
-    for (const match of String(source || "").matchAll(pattern)) {
-      packageNames.add(match[2]);
-    }
-  }
-  return [...packageNames].sort((left, right) => left.localeCompare(right));
+function collectJskitMutationPackageNames(packageJson = {}) {
+  const dependencyMutations = ensureObject(ensureObject(packageJson.jskit).mutations?.dependencies);
+  return sortStrings([
+    ...new Set([
+      ...collectJskitPackageNames(dependencyMutations.runtime),
+      ...collectJskitPackageNames(dependencyMutations.dev)
+    ])
+  ]);
 }
 
 async function loadWorkspacePackages(workspaceDirectories = []) {
   const workspacePackages = [];
   for (const directory of workspaceDirectories) {
     const packageJsonPath = path.join(directory, "package.json");
-    const descriptorPath = path.join(directory, "package.descriptor.mjs");
     workspacePackages.push({
-      descriptorPath,
-      descriptorSource: await readOptionalFile(descriptorPath),
       directory,
       packageJson: await readJson(packageJsonPath),
       packageJsonPath
@@ -473,39 +384,40 @@ function updateWorkspaceManifest(packageJson = {}, latestVersions = new Map(), c
   for (const section of DEPENDENCY_SECTIONS) {
     const packageMap = packageJson?.[section.name];
     for (const packageName of collectJskitPackageNames(packageMap)) {
-      const targetRange = resolveMajorRange(packageName, latestVersions.get(packageName), createCliError);
-      if (packageMap[packageName] === targetRange) {
+      const targetVersion = resolveExactVersion(packageName, latestVersions.get(packageName), createCliError);
+      if (packageMap[packageName] === targetVersion) {
         continue;
       }
-      packageMap[packageName] = targetRange;
-      updates.push(`${packageName}@${targetRange}`);
+      packageMap[packageName] = targetVersion;
+      updates.push(`${packageName}@${targetVersion}`);
+    }
+  }
+  const dependencyMutations = ensureObject(ensureObject(packageJson.jskit).mutations?.dependencies);
+  for (const mutationSection of ["runtime", "dev"]) {
+    const packageMap = ensureObject(dependencyMutations[mutationSection]);
+    for (const packageName of collectJskitPackageNames(packageMap)) {
+      const targetVersion = resolveExactVersion(packageName, latestVersions.get(packageName), createCliError);
+      const currentValue = packageMap[packageName];
+      if (typeof currentValue === "string") {
+        if (currentValue !== targetVersion) {
+          packageMap[packageName] = targetVersion;
+          updates.push(`jskit.mutations.dependencies.${mutationSection}.${packageName}@${targetVersion}`);
+        }
+        continue;
+      }
+      const record = ensureObject(currentValue);
+      const versionField = Object.prototype.hasOwnProperty.call(record, "version")
+        ? "version"
+        : Object.prototype.hasOwnProperty.call(record, "value")
+          ? "value"
+          : "";
+      if (versionField && record[versionField] !== targetVersion) {
+        record[versionField] = targetVersion;
+        updates.push(`jskit.mutations.dependencies.${mutationSection}.${packageName}@${targetVersion}`);
+      }
     }
   }
   return updates;
-}
-
-function updateWorkspaceDescriptor(source = "", latestVersions = new Map(), createCliError) {
-  const updates = [];
-  const replaceVersion = (match, keyQuote, packageName, separator, valueQuote, currentVersion) => {
-    const targetRange = resolveMajorRange(packageName, latestVersions.get(packageName), createCliError);
-    if (currentVersion === targetRange) {
-      return match;
-    }
-    updates.push(`${packageName}@${targetRange}`);
-    return `${keyQuote}${packageName}${keyQuote}${separator}${valueQuote}${targetRange}${valueQuote}`;
-  };
-  let nextSource = String(source || "").replace(
-    /(["'])(@jskit-ai\/[a-z0-9._-]+)\1(\s*:\s*)(["'])([^"']+)\4/giu,
-    replaceVersion
-  );
-  nextSource = nextSource.replace(
-    /(["'])(@jskit-ai\/[a-z0-9._-]+)\1(\s*:\s*\{[^{}]*?(?:["'](?:version|value)["']|version|value)\s*:\s*)(["'])([^"']+)\4/giu,
-    replaceVersion
-  );
-  return {
-    nextSource,
-    updates
-  };
 }
 
 async function synchronizeWorkspacePackageSpecs({
@@ -531,7 +443,7 @@ async function synchronizeWorkspacePackageSpecs({
     for (const packageName of collectManifestJskitPackageNames(workspacePackage.packageJson)) {
       workspaceJskitPackages.add(packageName);
     }
-    for (const packageName of descriptorJskitPackageNames(workspacePackage.descriptorSource)) {
+    for (const packageName of collectJskitMutationPackageNames(workspacePackage.packageJson)) {
       workspaceJskitPackages.add(packageName);
     }
   }
@@ -552,35 +464,18 @@ async function synchronizeWorkspacePackageSpecs({
       latestVersions,
       createCliError
     );
-    if (manifestUpdates.length > 0) {
-      const relativePath = path.relative(appRoot, workspacePackage.packageJsonPath).replaceAll(path.sep, "/");
-      changedFiles.push(relativePath);
-      stdout?.write(`[jskit:update] workspace manifest ${relativePath} -> ${manifestUpdates.join(", ")}\n`);
-      if (!dryRun) {
-        await writeFile(
-          workspacePackage.packageJsonPath,
-          `${JSON.stringify(workspacePackage.packageJson, null, 2)}\n`,
-          "utf8"
-        );
-      }
-    }
-
-    if (!workspacePackage.descriptorSource) {
+    if (manifestUpdates.length < 1) {
       continue;
     }
-    const descriptorResult = updateWorkspaceDescriptor(
-      workspacePackage.descriptorSource,
-      latestVersions,
-      createCliError
-    );
-    if (descriptorResult.updates.length < 1) {
-      continue;
-    }
-    const relativePath = path.relative(appRoot, workspacePackage.descriptorPath).replaceAll(path.sep, "/");
+    const relativePath = path.relative(appRoot, workspacePackage.packageJsonPath).replaceAll(path.sep, "/");
     changedFiles.push(relativePath);
-    stdout?.write(`[jskit:update] workspace descriptor ${relativePath} -> ${descriptorResult.updates.join(", ")}\n`);
+    stdout?.write(`[jskit:update] workspace manifest ${relativePath} -> ${manifestUpdates.join(", ")}\n`);
     if (!dryRun) {
-      await writeFile(workspacePackage.descriptorPath, descriptorResult.nextSource, "utf8");
+      await writeFile(
+        workspacePackage.packageJsonPath,
+        `${JSON.stringify(workspacePackage.packageJson, null, 2)}\n`,
+        "utf8"
+      );
     }
   }
 
@@ -675,15 +570,40 @@ async function updateRootPackages({
   return true;
 }
 
+async function assertRootJskitVersionsAreExact({
+  appRoot,
+  createCliError,
+  latestVersions
+}) {
+  const packageJson = await readJson(path.join(appRoot, "package.json"));
+  const mismatches = [];
+  for (const section of DEPENDENCY_SECTIONS) {
+    const packageMap = ensureObject(packageJson[section.name]);
+    for (const packageName of collectJskitPackageNames(packageMap)) {
+      const expectedVersion = latestVersions.get(packageName);
+      if (expectedVersion && String(packageMap[packageName] || "").trim() !== expectedVersion) {
+        mismatches.push(
+          `${section.name}.${packageName}=${String(packageMap[packageName] || "").trim()} (expected ${expectedVersion})`
+        );
+      }
+    }
+  }
+  if (mismatches.length > 0) {
+    throw createCliError(
+      `npm did not preserve exact root JSKIT versions: ${mismatches.join(", ")}.`,
+      { exitCode: 1 }
+    );
+  }
+}
+
 async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr }) {
   const {
     createCliError,
     loadAppPackageJson,
-    loadLockFile,
-    assertAppManagedCiWorkflowUnmodified
+    assertAppCiCanSynchronize
   } = ctx;
 
-  await assertAppManagedCiWorkflowUnmodified({ appRoot });
+  await assertAppCiCanSynchronize({ appRoot });
   const { packageJson } = await loadAppPackageJson(appRoot);
   const registryUrl = String(options?.inlineOptions?.registry || "").trim();
   const registryArgs = resolveRegistryArgs(registryUrl);
@@ -694,71 +614,9 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
     stdout?.write("[jskit:update] dry-run mode enabled.\n");
   }
 
-  const cliSection = DEPENDENCY_SECTIONS.find((section) =>
-    Object.prototype.hasOwnProperty.call(packageJson?.[section.name] || {}, JSKIT_CLI_PACKAGE)
-  );
-  if (
-    !dryRun &&
-    cliSection &&
-    process.env[UPDATE_PACKAGES_BOOTSTRAPPED_ENV] !== "1"
-  ) {
-    await resolveLatestVersions([JSKIT_CLI_PACKAGE], latestVersions, {
-      appRoot,
-      createCliError,
-      registryArgs,
-      stderr,
-      stdout
-    });
-    const latestCliVersion = latestVersions.get(JSKIT_CLI_PACKAGE);
-    let installedCliVersion = "";
-    try {
-      installedCliVersion = String(
-        (await readJson(path.join(appRoot, "node_modules", "@jskit-ai", "jskit-cli", "package.json")))?.version || ""
-      ).trim();
-    } catch (error) {
-      if (error?.code !== "ENOENT") {
-        throw error;
-      }
-    }
-
-    if (installedCliVersion !== latestCliVersion) {
-      stdout?.write(`[jskit:update] bootstrapping ${JSKIT_CLI_PACKAGE}@${latestCliVersion}.\n`);
-      await runExternalCommandAsync(
-        "npm",
-        [
-          "install",
-          ...cliSection.installArgs,
-          ...registryArgs,
-          `${JSKIT_CLI_PACKAGE}@${latestCliVersion}`
-        ],
-        {
-          cwd: appRoot,
-          stdout,
-          stderr,
-          createCliError
-        }
-      );
-    }
-
-    stdout?.write("[jskit:update] handing the update to the current local CLI.\n");
-    await runLocalJskitAsync(
-      appRoot,
-      ["app", "update-packages", ...registryArgs],
-      {
-        env: {
-          [UPDATE_PACKAGES_BOOTSTRAPPED_ENV]: "1"
-        },
-        stdout,
-        stderr,
-        createCliError
-      }
-    );
-    return 0;
-  }
-
   await runWithProgress(
     async () => {
-      const updatedRootPackages = await updateRootPackages({
+      await updateRootPackages({
         appRoot,
         createCliError,
         dryRun,
@@ -768,38 +626,11 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
         stderr,
         stdout
       });
-      if (!updatedRootPackages) {
-        return;
-      }
-      await reapplyChangedInstalledPackages({
-        appRoot,
-        createCliError,
-        dryRun,
-        latestVersions,
-        loadLockFile,
-        stderr,
-        stdout
-      });
-      if (dryRun) {
-        return;
-      }
-      stdout?.write("[jskit:update] generating managed migrations for changed packages.\n");
-      await runLocalJskitAsync(appRoot, ["migrations", "changed"], {
-        stdout,
-        stderr,
-        createCliError
-      });
-      stdout?.write("[jskit:update] synchronizing the managed CI workflow.\n");
-      await runLocalJskitAsync(appRoot, ["app", "sync-ci"], {
-        stdout,
-        stderr,
-        createCliError
-      });
     },
     {
       activity: dryRun
         ? "checking root JSKIT package updates"
-        : "updating root JSKIT packages and managed artifacts",
+        : "installing exact root JSKIT package versions",
       stdout,
       step: "Step 1/3"
     }
@@ -823,7 +654,7 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
       });
     },
     {
-      activity: "aligning JSKIT ranges in workspace manifests and descriptors",
+      activity: "aligning exact JSKIT versions in workspace manifests",
       stdout,
       step: "Step 2/3"
     }
@@ -834,28 +665,45 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
 
   if (dryRun) {
     stdout?.write(
-      `[jskit:update] Step 3/3 skipped in dry-run mode: ${workspaceResult.packageNames.length} workspace JSKIT packages would be refreshed.\n`
+      `[jskit:update] Step 3/3 skipped in dry-run mode: npm install, migration sync, and CI sync were not run.\n`
     );
-  } else if (workspaceResult.packageNames.length > 0) {
+  } else {
     await runWithProgress(
-      () => runExternalCommandAsync(
-        "npm",
-        ["update", ...registryArgs, "--workspaces", ...workspaceResult.packageNames],
-        {
-          cwd: appRoot,
+      async () => {
+        if (workspaceResult.packageNames.length > 0) {
+          await runExternalCommandAsync(
+            "npm",
+            ["install", ...registryArgs],
+            {
+              cwd: appRoot,
+              stdout,
+              stderr,
+              createCliError
+            }
+          );
+        }
+        await assertRootJskitVersionsAreExact({
+          appRoot,
+          createCliError,
+          latestVersions
+        });
+        await runLocalJskitAsync(appRoot, ["migrations", "sync"], {
           stdout,
           stderr,
           createCliError
-        }
-      ),
+        });
+        await runLocalJskitAsync(appRoot, ["ci", "generate"], {
+          stdout,
+          stderr,
+          createCliError
+        });
+      },
       {
-        activity: `refreshing ${workspaceResult.packageNames.length} workspace JSKIT packages and updating the lockfile`,
+        activity: "refreshing npm resolution and synchronizing generated migrations and CI",
         stdout,
         step: "Step 3/3"
       }
     );
-  } else {
-    stdout?.write("[jskit:update] Step 3/3 skipped: no workspace JSKIT packages were found.\n");
   }
 
   stdout?.write("[jskit:update] done.\n");
@@ -863,11 +711,9 @@ async function runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {
 }
 
 export {
-  collectChangedInstalledPackageIds,
   findRangeIntersectionVersion,
   formatElapsedTime,
   resolveRequiredDirectPeerUpdates,
-  reapplyChangedInstalledPackages,
   runAppUpdatePackagesCommand,
   runWithProgress
 };

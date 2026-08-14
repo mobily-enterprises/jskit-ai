@@ -46,7 +46,6 @@ npx @jskit-ai/create-app notes \
 npm install
 
 npx --no-install jskit add package database-runtime-mysql
-npm install
 
 # Create and select a fresh disposable database, then create the live `notes` table.
 
@@ -56,7 +55,6 @@ npx --no-install jskit generate crud-server-generator scaffold \
   --ownership-filter public \
   --access public \
   --table-name notes
-npm install
 
 npx --no-install jskit generate crud-ui-generator crud notes \
   --resource-file packages/notes/src/shared/noteResource.js \
@@ -73,26 +71,29 @@ placement, so do not pre-install the shell as a workaround.
 
 ## Existing-app migration checklist
 
-JSKIT is still version 0, so this release uses a direct code migration rather
-than a legacy compatibility layer:
+Strict temporal resource values require one coordinated application migration.
+There is no compatibility alias or automatic coercion for JavaScript `Date`
+objects at resource boundaries:
 
-1. Commit the app's current work, then run `npm run jskit:update`.
-2. If the app declares `json-rest-schema` directly, install
-   `json-rest-schema@^1.0.17`.
+1. Commit the application's current work and update its direct `@jskit-ai/*`
+   dependencies to one coordinated, exact release set.
+2. If the application declares `json-rest-schema` directly, use
+   `json-rest-schema` 1.0.17 or newer and review its temporal validation before
+   installing dependencies.
 3. Replace resource-bound JavaScript `Date` values with strings. `date` is
    `YYYY-MM-DD`; `time` is offset-free `HH:MM[:SS[.fraction]]`; and `dateTime`
-   is RFC 3339 with seconds and a `Z` or numeric offset. Replace the removed
-   `timestamp` type with `epochMilliseconds` or `epochSeconds` only after
-   checking the existing numeric unit. Preserve `temporalPrecision`.
+   is RFC 3339 with seconds and a `Z` or numeric offset. Use
+   `epochMilliseconds` or `epochSeconds` only after checking the existing
+   numeric unit. Preserve `temporalPrecision`.
 4. For a standard generated view delete action, rerun the original
    `crud-ui-generator crud` command with `--delete-confirmation`. Add `--force`
-   only when you deliberately want to replace unchanged generated page output.
-   For a customized view, preserve the customization and add the public
-   `CrudViewScreen` `actions` slot plus `useCrudDeleteAction()` integration
-   described below.
-5. Keep every managed path recorded in `.jskit/lock.json`. Adapt managed shell
-   and browser tests in place; never delete them because a starter route was
-   replaced.
+   only when you deliberately want to replace generated page output. For a
+   customized view, preserve the customization and add the public
+   `CrudViewScreen` `actions` slot, `CrudDeleteAction`, and
+   `useCrudDeleteAction()` integration described below.
+5. Review the generated diff, keep application-owned customizations and browser
+   tests, then run the application's full verification suite before applying
+   database migrations.
 
 Generated generic CRUD repositories convert database temporal values at the
 resource boundary. Custom repositories still need to return strict temporal
@@ -359,7 +360,7 @@ installed. Later schema evolution must use a new immutable, package-owned
 additive migration in the table's app-local package, declared through
 `install-migration`.
 
-Create that source and descriptor mutation together with:
+Create that source and `package.json.jskit` mutation together with:
 
 ```bash
 npx jskit create migration \
@@ -368,7 +369,7 @@ npx jskit create migration \
 ```
 
 Implement the generated template before running
-`npx jskit migrations package @local/contacts`. SQL or Knex schema operations
+`npx jskit migrations sync`. SQL or Knex schema operations
 inside the source-controlled migration are supported. Running ad-hoc SQL
 against only one database is not, because it creates schema drift.
 
@@ -473,22 +474,6 @@ That file is the shared CRUD contract. The UI generator reads it to decide:
 
 So even though the server scaffold writes many files, the resource file is the bridge between the server and UI halves.
 
-### One install boundary to remember
-
-`crud-server-generator scaffold` also adds a new local app package dependency such as:
-
-```text
-@local/contacts
-```
-
-So before you build or run the app again, install that new local package:
-
-```bash
-npm install
-```
-
-The same rule applies after later server scaffolds such as `addresses` and `comments`. The UI generator can still read the generated resource file directly, but the app runtime needs the local package install boundary to be completed before the CRUD can boot normally.
-
 For standard CRUDs, that file is intentionally compact. It uses `defineCrudResource(...)` from `@jskit-ai/resource-crud-core`, authors the canonical `schema` / `searchSchema` / `defaultSort` / `autofilter` shape once, and lets JSKIT derive the standard CRUD operation contracts from it.
 
 The generated server action validators are compact for the same reason.
@@ -534,13 +519,13 @@ Vue files below `src/pages/`, so reusable Vue helpers must stay outside that
 directory or they become browser routes.
 
 `--delete-confirmation` is opt-in. When present, the generated view extends
-the public `CrudViewScreen` `actions` slot with a destructive Delete button and
-a Vuetify alert dialog. The public `useCrudDeleteAction()` composable resolves
-the current route id through the CRUD runtime, runs the shared resource's
-`DELETE` operation through `useCommand()`, disables duplicate submission,
-keeps a useful error on the record screen, invalidates the list query, and
-navigates to the generated list route after success. It supports custom
-`--id-param` names.
+the public `CrudViewScreen` `actions` slot with `CrudDeleteAction`. That shared
+component owns the destructive button and Vuetify alert dialog. The public
+`useCrudDeleteAction()` composable resolves the current route id through the
+CRUD runtime, runs the shared resource's `DELETE` operation through
+`useCommand()`, disables duplicate submission, keeps a useful error on the
+record screen, invalidates the list query, and navigates to the generated list
+route after success. It supports custom `--id-param` names.
 
 The generator rejects this option when list or view is omitted, or when the
 shared resource has no `DELETE` operation. Without the flag, no delete control
@@ -656,12 +641,6 @@ npx jskit generate crud-server-generator scaffold \
   --ownership-filter workspace \
   --table-name addresses \
   --grant-role member
-```
-
-Then install the generated local package:
-
-```bash
-npm install
 ```
 
 ### Step 3: refine the generated lookup metadata by hand
@@ -834,12 +813,6 @@ npx jskit generate crud-server-generator scaffold \
   --ownership-filter workspace \
   --table-name comments \
   --grant-role member
-```
-
-Then install the generated local package:
-
-```bash
-npm install
 ```
 
 ### Step 3: refine the generated lookup metadata by hand

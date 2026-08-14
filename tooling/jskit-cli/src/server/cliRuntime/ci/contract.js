@@ -17,9 +17,9 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function invalidCiContract(message, { descriptorPath = "", packageId = "" } = {}) {
-  const location = String(descriptorPath || packageId || "package descriptor").trim();
-  return createCliError(`Invalid package descriptor at ${location}: ${message}`);
+function invalidCiContract(message, { metadataPath = "", packageId = "" } = {}) {
+  const location = String(metadataPath || packageId || "package metadata").trim();
+  return createCliError(`Invalid package metadata at ${location}: ${message}`);
 }
 
 function requirePlainObject(value, label, context) {

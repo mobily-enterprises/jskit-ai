@@ -26,13 +26,15 @@ That seed writes only `AGENTS.md`. It is not a runnable app yet. The agent shoul
 ```bash
 npx @jskit-ai/create-app exampleapp --target . --force --tenancy-mode <mode>
 npm install
+npx jskit migrations sync
+npx jskit ci generate
 ```
 
 After that promotion, the overwritten app `AGENTS.md` stays deliberately small. Use it with the distributed JSKIT agent docs when planning or implementing app changes. The durable app memory lives in `.jskit/APP_BLUEPRINT.md` and should describe product and architecture decisions, not become an implementation task list.
 
 After creating the real app scaffolding (the default shell-web app, not the seed wrapper), you will need to run `npm install` to install dependencies.
 
-If you deliberately need the older bare scaffold, use `--minimal` or `--template minimal-shell`. That is useful for descriptor tests or unusual package-development flows, but it is not the normal starting point for a JSKIT app:
+If you deliberately need the bare scaffold, use `--minimal` or `--template minimal-shell`. That is useful for package-development flows, but it is not the normal starting point for a JSKIT app:
 
 ```bash
 npx @jskit-ai/create-app exampleapp --minimal --tenancy-mode none
@@ -45,9 +47,9 @@ claims have not been edited first. After the initial `npm install`, prefer
 fails clearly.
 
 When a minimal app's first feature is generated CRUD, do not pre-install the
-shell as a workaround. Add the database runtime, run `npm install`, create the
-live disposable table, run `crud-server-generator scaffold`, run
-`npm install` again, and then run `crud-ui-generator crud`. The server
+shell as a workaround. Add the database runtime, create the live disposable
+table, run `crud-server-generator scaffold`, and then run
+`crud-ui-generator crud`. The server
 generator installs the shell/realtime dependency closure in the correct order.
 The complete Notes command lane is in [CRUD Generators](/guide/generators/crud-generators#fresh-minimal-notes-app-the-complete-command-order).
 
@@ -77,7 +79,6 @@ npx jskit add package database-runtime-mysql \
 npx jskit add package users-web
 npx jskit add package console-web
 
-npm install
 npm run db:migrate
 ```
 
@@ -191,9 +192,10 @@ The most important parts look like this:
   "dependencies": {
     "@local/main": "file:packages/main",
     "@fastify/static": "^9.1.3",
-    "@jskit-ai/kernel": "0.x",
+    "@jskit-ai/kernel": "0.1.148",
     "@tanstack/vue-query": "^5.101.0",
-    "@jskit-ai/http-runtime": "0.x",
+    "@jskit-ai/http-runtime": "0.1.146",
+    "@jskit-ai/shell-web": "0.1.152",
     "fastify": "^5.8.5",
     "json-rest-schema": "^1.0.17",
     "pinia": "^3.0.4",
@@ -202,9 +204,9 @@ The most important parts look like this:
     "vuetify": "^4.1.2"
   },
   "devDependencies": {
-    "@jskit-ai/agent-docs": "0.x",
-    "@jskit-ai/config-eslint": "0.x",
-    "@jskit-ai/jskit-cli": "0.x",
+    "@jskit-ai/agent-docs": "0.1.119",
+    "@jskit-ai/config-eslint": "0.1.145",
+    "@jskit-ai/jskit-cli": "0.2.179",
     "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^10.8.0",
@@ -214,7 +216,7 @@ The most important parts look like this:
 }
 ```
 
-Published JSKIT libraries and tooling support Node.js 22 from 22.13.0 onward, Node.js 24, and Node.js 26. Newly generated applications deliberately require Node 26: their app-level `engines` contract, `.nvmrc`, and JSKIT-managed verification workflow all name that runtime. The app-level contract is the runtime boundary for the app and its installed JSKIT runtime packages, while independently consumed JSKIT CLI and tooling packages retain the wider supported range. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
+Published JSKIT libraries and tooling support Node.js 22 from 22.13.0 onward, Node.js 24, and Node.js 26. Newly generated applications deliberately require Node 26: their app-level `engines` contract, `.nvmrc`, and generated verification workflow all name that runtime. The app-level contract is the runtime boundary for the app and its installed JSKIT runtime packages, while independently consumed JSKIT CLI and tooling packages retain the wider supported range. The dependency on `@local/main` points at `file:packages/main`, which means your app already contains its own local JSKIT package. The maintenance scripts are also useful to notice early, because they show an important ownership boundary in JSKIT.
 
 `verify`, `jskit:update`, and `release` are intentionally thin wrappers. They stay in `package.json` because they are convenient app-local shortcuts, but the real implementation lives in `jskit app ...`, not in copied scaffold scripts.
 
@@ -224,11 +226,11 @@ The Playwright scaffold follows the same rule. `playwright.config.mjs` delegates
 
 The scaffold also configures `src/typed-router.d.ts` as generated output. It is intentionally absent from a fresh scaffold and ignored by Git; the Vue Router Vite plugin writes it during the first `npm run dev` or `npm run build` route scan.
 
-`jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks JSKIT-managed app state: installed package visibility, lock-file-backed managed files, and other JSKIT-specific health rules. It is there because a JSKIT app is not only code. It is also a descriptor-driven managed project.
+`jskit app verify` is worth noticing specifically. Linting, tests, and builds check your source code and runtime behavior. The JSKIT part of that flow runs `doctor`, which checks the installed package graph, capabilities, migrations, generated CI, surfaces, placements, and other JSKIT-specific health rules.
 
-The starter scaffold also writes `.github/workflows/jskit-verify.yml`. JSKIT generates and owns that workflow as a projection of installed package `ci` contracts. The baseline runs checkout, Node 26 setup, `npm ci`, and `npm run verify`. Packages can add job environment values, service containers, and explicit `before-verify` steps without taking ownership of the whole YAML file. For example, the database runtime adds migrations before verification. Its MySQL driver adds a MariaDB service with synthetic CI-only credentials and `DB_CLIENT=mysql2`; its Postgres driver adds the equivalent Postgres service and `DB_CLIENT=pg`.
+After `npm install`, run `npx jskit ci generate` to write `.github/workflows/jskit-verify.yml` from installed package `ci` contracts. The baseline runs checkout, Node 26 setup, `npm ci`, and `npm run verify`. Packages can add job environment values, service containers, and explicit `before-verify` steps. For example, the database runtime adds migrations before verification. Its MySQL driver adds a MariaDB service with synthetic CI-only credentials and `DB_CLIENT=mysql2`; its Postgres driver adds the equivalent Postgres service and `DB_CLIENT=pg`.
 
-The workflow content hash is recorded in `.jskit/lock.json`. Package lifecycle commands refresh it when installed requirements change and refuse to overwrite a workflow that differs from its recorded version. Application-specific CI belongs in another workflow. Use `npx jskit app sync-ci` to refresh an unmodified managed file, or `npx jskit app sync-ci --force` when you explicitly intend to replace an edited file that is already recorded as JSKIT-owned. The `--against <base-ref>` review mode still exists for local pre-merge checks and advanced CI pipelines, but the starter workflow does not assume it.
+`npx jskit ci generate` replaces that one workflow in full. Do not edit it. Put application-specific CI in separate workflow files, and use `npx jskit ci generate --check` in validation lanes.
 
 The surface-specific script names are also worth noticing early, even in this tiny app. `dev:home`, `server:home`, and `build:home` are the first concrete places where surface selection shows up in the scaffold. They work by setting `VITE_SURFACE=home` on the client side and `SERVER_SURFACE=home` on the server side. In this first chapter, where `home` is the only surface, those variants behave almost the same as the default commands. Later, once more surfaces exist, those scripts become the simplest way to run or build just one surface at a time.
 
@@ -463,7 +465,7 @@ async function bootInstalledClientModules(context = {}) {
 }
 ```
 
-That is why Vite is involved. The browser cannot safely discover installed packages by itself at runtime. It cannot scan `.jskit/lock.json`, inspect `node_modules`, and turn that into bundler-visible imports. Vite needs a normal import graph up front. The plugin creates that graph for the app.
+That is why Vite is involved. The browser cannot inspect the installed npm graph and turn it into bundler-visible imports at runtime. Vite needs a normal import graph up front. The plugin creates that graph for the app.
 
 If this were plain Vue without that plugin, you would have to maintain the list yourself:
 
@@ -494,16 +496,22 @@ In a brand-new shell app, there are no extra installed client modules yet, so th
 
 #### The main package (client side)
 
-One more client-side piece is worth seeing before looking at page files: the starter app already has its own client provider. The app-local package declares it in `packages/main/package.descriptor.mjs` like this:
+One more client-side piece is worth seeing before looking at page files: the starter app already has its own client provider. The app-local package declares it in `packages/main/package.json` like this:
 
-```js
-client: {
-  providers: [
-    {
-      entrypoint: "src/client/providers/MainClientProvider.js",
-      export: "MainClientProvider"
+```json
+{
+  "jskit": {
+    "runtime": {
+      "client": {
+        "providers": [
+          {
+            "entrypoint": "src/client/providers/MainClientProvider.js",
+            "export": "MainClientProvider"
+          }
+        ]
+      }
     }
-  ]
+  }
 }
 ```
 
@@ -711,35 +719,36 @@ The small `server/lib/` directory exists to keep that server boot code tidy. `ru
 
 #### The main package (server side)
 
-The most unusual part of the scaffold, if you are new to JSKIT, is `packages/main/`. This is the app-local runtime package. It is not there by accident, and it is not just a convenience folder. JSKIT treats your app itself as a local package with a descriptor, client provider hooks, and server provider hooks. That is why the folder contains `package.descriptor.mjs` and a small `src/` tree of its own.
+The most unusual part of the scaffold, if you are new to JSKIT, is `packages/main/`. This is the app-local runtime package. It is not there by accident, and it is not just a convenience folder. JSKIT treats your app itself as a local package with package metadata, client provider hooks, and server provider hooks. That is why the folder contains `package.json` and a small `src/` tree of its own.
 
-You already saw the client-side provider in the client bootstrap path. The server side uses the same model: the descriptor tells JSKIT which provider class belongs to the local package, and the runtime calls `register()` and then `boot()`.
+You already saw the client-side provider in the client bootstrap path. The server side uses the same model: `package.json.jskit` tells JSKIT which provider class belongs to the local package, and the runtime calls `register()` and then `boot()`.
 
-The server part of that descriptor looks like this:
+The server part of that metadata looks like this:
 
-```js
-export default Object.freeze({
-  packageVersion: 1,
-  packageId: "@local/main",
-  version: "0.1.0",
-  kind: "runtime",
-  runtime: {
-    server: {
-      providerEntrypoint: "src/server/MainServiceProvider.js",
-      providers: [
-        {
-          entrypoint: "src/server/MainServiceProvider.js",
-          export: "MainServiceProvider"
-        }
-      ]
-    }
-  },
-  metadata: {
-    server: {
-      routes: []
+```json
+{
+  "name": "@local/main",
+  "version": "0.1.0",
+  "jskit": {
+    "kind": "runtime",
+    "runtime": {
+      "server": {
+        "providerEntrypoint": "src/server/MainServiceProvider.js",
+        "providers": [
+          {
+            "entrypoint": "src/server/MainServiceProvider.js",
+            "export": "MainServiceProvider"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "server": {
+        "routes": []
+      }
     }
   }
-});
+}
 ```
 
 This is the moment where the scaffold stops looking like "just a Vue app". The app is declaring itself as a runtime package that JSKIT can discover, load, and mutate safely.
@@ -775,59 +784,10 @@ npx jskit generate feature-server-generator scaffold booking-engine
 
 That keeps the ownership boundary clear: `packages/main` stays composition-only, while real server features get their own provider, service, and optional repository seams. The client side uses the same provider lifecycle; you already saw the matching pattern earlier in the client boot path.
 
-The `.jskit/lock.json` file is also important. Treat it like JSKIT's own lock and state file. It records which runtime packages JSKIT believes are installed and which managed changes they introduced. When you use `jskit add`, `jskit update`, or generators that depend on installed package state, this file is part of the source of truth. It belongs in version control, and you should not hand-edit it.
-
-This file is narrower than `package.json`. `package.json` lists every npm dependency the app needs, including plain libraries such as Vue, Fastify, and Vuetify. `.jskit/lock.json` tracks JSKIT package-install state: which JSKIT runtime packages were installed, which files, text mutations, and dependency entries JSKIT manages on their behalf, and the owned hash of app-level projections such as the composed CI workflow.
-
-On a brand-new default app, the lock file is telling you that the app-local package and the standard shell package are installed from the start:
-
-```json
-{
-  "lockVersion": 1,
-  "installedPackages": {
-    "@local/main": {
-      "packageId": "@local/main",
-      "version": "0.1.0",
-      "source": {
-        "type": "local-package",
-        "packagePath": "packages/main",
-        "descriptorPath": "packages/main/package.descriptor.mjs"
-      },
-      "managed": { "...": "..." }
-    },
-    "@jskit-ai/shell-web": {
-      "packageId": "@jskit-ai/shell-web",
-      "source": {
-        "type": "catalog"
-      },
-      "managed": {
-        "packageJson": {
-          "dependencies": {
-            "@jskit-ai/shell-web": {
-              "value": "0.x"
-            },
-            "@mdi/js": {
-              "value": "^7.4.47"
-            }
-          }
-        },
-        "files": { "...": "..." },
-        "text": { "...": "..." }
-      }
-    }
-  },
-  "managed": {
-    "ciWorkflow": {
-      "path": ".github/workflows/jskit-verify.yml",
-      "hash": "<generated-sha256>"
-    }
-  }
-}
-```
-
-That is a useful anchor point. Before you add anything else, JSKIT already knows about the runtime package that belongs to your app and the shell runtime package that owns the default shell files, placement config, and error host wiring.
-
-That is why you saw `@jskit-ai/kernel` and `@jskit-ai/http-runtime` earlier in `package.json`, but you do not see them as separate installed packages here. They are npm dependencies of the scaffold, while `.jskit/lock.json` records JSKIT package install state and managed app mutations.
+The root `package.json`, its exact JSKIT dependency versions, and
+`package-lock.json` define the installed graph. JSKIT reads each installed
+package's `package.json.jskit` metadata directly. The local `@local/main`
+package participates through its normal `file:packages/main` dependency.
 
 ### Other files and options
 
@@ -843,4 +803,4 @@ Use `--minimal` only when you deliberately need the bare scaffold. If you later 
 
 ## Summary
 
-At the end of this first step, you should have more than a generated folder. You should have a mental map. `src/` is the web app, `server.js` is the runtime server, `config/` defines surfaces and shared behavior, `packages/main/` is your app's own local JSKIT package, and `.jskit/lock.json` records what JSKIT has done to the project. That is the foundation the next chapters will build on.
+At the end of this first step, you should have more than a generated folder. You should have a mental map. `src/` is the web app, `server.js` is the runtime server, `config/` defines surfaces and shared behavior, `packages/main/` is your app's own local JSKIT package, and the npm package graph supplies JSKIT runtime metadata. That is the foundation the next chapters will build on.

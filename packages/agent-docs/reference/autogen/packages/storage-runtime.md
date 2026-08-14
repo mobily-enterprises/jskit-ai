@@ -31,9 +31,3 @@ Exports
 - `createStorageBinding(scope, { rootDir = process.cwd() } = {})`
 Local functions
 - `resolveFsBasePath(fsBasePath, { rootDir } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

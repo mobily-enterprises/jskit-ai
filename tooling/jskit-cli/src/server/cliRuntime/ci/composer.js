@@ -38,8 +38,8 @@ function normalizePackageEntries(packageEntries = []) {
   }
   return entries
     .map((entry) => ({
-      packageId: String(entry?.packageId || entry?.descriptor?.packageId || "").trim(),
-      descriptor: entry?.descriptor && typeof entry.descriptor === "object" ? entry.descriptor : {}
+      packageId: String(entry?.packageId || entry?.packageMetadata?.packageId || "").trim(),
+      packageMetadata: entry?.packageMetadata && typeof entry.packageMetadata === "object" ? entry.packageMetadata : {}
     }))
     .filter((entry) => Boolean(entry.packageId))
     .sort((left, right) => left.packageId.localeCompare(right.packageId));
@@ -58,7 +58,7 @@ function conflict({ kind, id, existing, incoming, existingPackages, incomingPack
     `${kind}-conflict`,
     `Conflicting CI ${label} "${id}" from ${[...existingPackages].sort().join(", ")} and ${incomingPackage}. ` +
       `Existing value: ${formatConflictValue(existing)}. Incoming value: ${formatConflictValue(incoming)}. ` +
-      "Align the package descriptors or remove one of the conflicting packages.",
+      "Align the package metadata or remove one of the conflicting packages.",
     {
       kind,
       id,
@@ -88,10 +88,10 @@ function composeCiContributions(packageEntries = []) {
   const contributingPackages = new Set();
 
   for (const packageEntry of normalizePackageEntries(packageEntries)) {
-    const { packageId, descriptor } = packageEntry;
-    const contribution = normalizeCiContribution(descriptor.ci, {
+    const { packageId, packageMetadata } = packageEntry;
+    const contribution = normalizeCiContribution(packageMetadata.ci, {
       packageId,
-      descriptorPath: packageId
+      metadataPath: packageId
     });
     const contributes =
       Object.keys(contribution.environment).length > 0 ||

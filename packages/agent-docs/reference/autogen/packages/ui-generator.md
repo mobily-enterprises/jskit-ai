@@ -125,9 +125,3 @@ Local functions
 - `normalizeExpectedTopologyVariantTargets(variantTargets = null)`
 - `describeTopologyVariantTargets(variantTargets = {})`
 - `placementMatchesExpectedVariantTargets(placement = {}, expectedVariantTargets = null)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

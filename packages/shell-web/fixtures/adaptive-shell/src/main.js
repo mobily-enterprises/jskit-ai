@@ -52,7 +52,9 @@ function createSurfacePlacement(surface, order, label, suffix) {
 function createSurfacePlacements(surface) {
   return [
     createSurfacePlacement(surface, 10, "Home", "/"),
-    createSurfacePlacement(surface, 20, "Assistant", "/assistant"),
+    surface === "home"
+      ? createSurfacePlacement(surface, 20, "Settings", "/settings")
+      : createSurfacePlacement(surface, 20, "Assistant", "/assistant"),
     createSurfacePlacement(surface, 30, "Contacts", "/contacts"),
     createSurfacePlacement(surface, 40, "Bookings", "/bookings"),
     createSurfacePlacement(surface, 50, "Rostering", "/rostering")
@@ -117,6 +119,8 @@ placementRuntime.setContext({
 
 const routes = [
   { path: "/", redirect: "/home" },
+  { path: "/home/settings", redirect: "/home/settings/general" },
+  { path: "/home/settings/general", component: ScreenPage, meta: { title: "General settings" } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } }

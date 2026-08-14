@@ -1,6 +1,5 @@
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
-import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
 import {
   ensureArray,
   ensureObject,
@@ -55,20 +54,20 @@ function toShortPackageId(packageId = "") {
 }
 
 function resolveGeneratorPrimarySubcommand(packageEntry = {}) {
-  const descriptor = ensureObject(packageEntry?.descriptor);
-  const metadata = ensureObject(descriptor.metadata);
-  return String(metadata.generatorPrimarySubcommand || descriptor.generatorPrimarySubcommand || "").trim();
+  const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+  const metadata = ensureObject(packageMetadata.metadata);
+  return String(metadata.generatorPrimarySubcommand || packageMetadata.generatorPrimarySubcommand || "").trim();
 }
 
 function resolveGeneratorDescription(packageEntry = {}) {
-  const descriptor = ensureObject(packageEntry?.descriptor);
-  return String(descriptor.description || "").trim();
+  const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+  return String(packageMetadata.description || "").trim();
 }
 
 function resolveGeneratorQuickStartRows(packageEntry = {}, { limit = 3 } = {}) {
-  const descriptor = ensureObject(packageEntry?.descriptor);
-  const metadata = ensureObject(descriptor.metadata);
-  const subcommands = ensureObject(metadata.generatorSubcommands || descriptor.generatorSubcommands);
+  const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+  const metadata = ensureObject(packageMetadata.metadata);
+  const subcommands = ensureObject(metadata.generatorSubcommands || packageMetadata.generatorSubcommands);
   const primarySubcommandName = resolveGeneratorPrimarySubcommand(packageEntry);
   const primarySubcommand = ensureObject(subcommands[primarySubcommandName]);
   const examples = ensureArray(primarySubcommand.examples);
@@ -422,42 +421,6 @@ async function readFileIfExists(filePath = "") {
   }
 }
 
-async function resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {}) {
-  const source = ensureObject(installedPackageEntry.source);
-  const descriptorRelativePath = String(source.descriptorPath || "").trim();
-  if (!descriptorRelativePath) {
-    return null;
-  }
-
-  const descriptorAbsolutePath = path.resolve(appRoot, descriptorRelativePath);
-  const descriptorSource = await readFileIfExists(descriptorAbsolutePath);
-  if (!descriptorSource) {
-    return null;
-  }
-
-  let descriptorModule = null;
-  try {
-    descriptorModule = await importFreshModuleFromAbsolutePath(descriptorAbsolutePath);
-  } catch {
-    return null;
-  }
-
-  const descriptor = ensureObject(descriptorModule?.default);
-  if (Object.keys(descriptor).length < 1) {
-    return null;
-  }
-
-  const resolvedPackageId = String(descriptor.packageId || packageId || "").trim();
-  if (!resolvedPackageId) {
-    return null;
-  }
-
-  return Object.freeze({
-    packageId: resolvedPackageId,
-    descriptor
-  });
-}
-
 async function collectProviderSourceFiles(rootPath = "") {
   const files = [];
   const stack = [path.resolve(String(rootPath || ""))];
@@ -500,11 +463,11 @@ function createListCommands(ctx = {}) {
     createColorFormatter,
     normalizeRelativePosixPath,
     resolveAppRootFromCwd,
-    loadLockFile,
     loadPackageRegistry,
     loadBundleRegistry,
     loadAppLocalPackageRegistry,
-    resolveInstalledNodeModulePackageEntry,
+    loadInstalledAppPackageRegistry,
+    installedPackageRecordFromRegistry,
     discoverPlacementTopologyFromApp,
     discoverShellOutletSourcePathsFromApp,
     discoverShellOutletTargetsFromApp,
@@ -518,16 +481,16 @@ function createListCommands(ctx = {}) {
 
     const appRoot = await resolveAppRootFromCwd(cwd);
     const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
-    const { lock } = await loadLockFile(appRoot);
-    const installedPackageEntries = ensureObject(lock.installedPackages);
+    const installedRegistry = await loadInstalledAppPackageRegistry(appRoot);
+    const installedPackageEntries = installedPackageRecordFromRegistry(installedRegistry);
     const installedPackages = new Set(Object.keys(installedPackageEntries));
     const installedUnknownPackageIds = sortStrings(
       [...installedPackages].filter((packageId) => !packageRegistry.has(packageId))
     );
     const installedLocalPackageIds = sortStrings(
       installedUnknownPackageIds.filter((packageId) => {
-        const lockEntry = ensureObject(installedPackageEntries[packageId]);
-        const sourceType = String(ensureObject(lockEntry.source).type || "").trim();
+        const installedEntry = ensureObject(installedPackageEntries[packageId]);
+        const sourceType = String(ensureObject(installedEntry.source).type || "").trim();
         return sourceType === "local-package" || sourceType === "app-local-package" || appLocalRegistry.has(packageId);
       })
     );
@@ -598,8 +561,8 @@ function createListCommands(ctx = {}) {
         lines.push("");
         lines.push(color.heading("Installed local packages:"));
         for (const packageId of installedLocalPackageIds) {
-          const lockEntry = ensureObject(installedPackageEntries[packageId]);
-          const version = String(lockEntry.version || "").trim();
+          const installedEntry = ensureObject(installedPackageEntries[packageId]);
+          const version = String(installedEntry.version || "").trim();
           const versionLabel = version ? ` ${color.version(`(${version})`)}` : "";
           lines.push(`- ${color.item(packageId)}${versionLabel}${color.installed(" (installed)")}`);
         }
@@ -609,8 +572,8 @@ function createListCommands(ctx = {}) {
         lines.push("");
         lines.push(color.heading("Installed external packages:"));
         for (const packageId of installedExternalPackageIds) {
-          const lockEntry = ensureObject(installedPackageEntries[packageId]);
-          const version = String(lockEntry.version || "").trim();
+          const installedEntry = ensureObject(installedPackageEntries[packageId]);
+          const version = String(installedEntry.version || "").trim();
           const versionLabel = version ? ` ${color.version(`(${version})`)}` : "";
           lines.push(`- ${color.item(packageId)}${versionLabel}${color.installed(" (installed)")}`);
         }
@@ -727,20 +690,20 @@ function createListCommands(ctx = {}) {
           : [],
         installedLocalPackages: shouldListPackages
           ? installedLocalPackageIds.map((packageId) => {
-            const lockEntry = ensureObject(installedPackageEntries[packageId]);
+            const installedEntry = ensureObject(installedPackageEntries[packageId]);
             return {
               packageId,
-              version: String(lockEntry.version || "").trim()
+              version: String(installedEntry.version || "").trim()
             };
           })
           : [],
         installedExternalPackages: shouldListPackages
           ? installedExternalPackageIds.map((packageId) => {
-            const lockEntry = ensureObject(installedPackageEntries[packageId]);
+            const installedEntry = ensureObject(installedPackageEntries[packageId]);
             return {
               packageId,
-              version: String(lockEntry.version || "").trim(),
-              source: ensureObject(lockEntry.source)
+              version: String(installedEntry.version || "").trim(),
+              source: ensureObject(installedEntry.source)
             };
           })
           : [],
@@ -883,45 +846,8 @@ function createListCommands(ctx = {}) {
     const tokenPrefixFilter = String(options?.inlineOptions?.prefix || "").trim();
     const includeAllClientContainerTokens = options?.all === true;
     const onlyLinkItemTokens = !includeAllClientContainerTokens;
-    const { lock } = await loadLockFile(appRoot);
-    const packageRegistry = await loadPackageRegistry();
-    const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
-    const installedPackageEntries = ensureObject(lock.installedPackages);
-    const installedPackageIds = sortStrings(Object.keys(installedPackageEntries));
-
-    const packageEntryById = new Map();
-    for (const [packageId, packageEntry] of packageRegistry.entries()) {
-      packageEntryById.set(packageId, packageEntry);
-    }
-    for (const [packageId, packageEntry] of appLocalRegistry.entries()) {
-      packageEntryById.set(packageId, packageEntry);
-    }
-    for (const packageId of installedPackageIds) {
-      if (packageEntryById.has(packageId)) {
-        continue;
-      }
-      const installedPackageEntry = ensureObject(installedPackageEntries[packageId]);
-      const descriptorFromLockEntry = await resolveDescriptorFromLockEntry({
-        appRoot,
-        packageId,
-        installedPackageEntry
-      });
-      if (descriptorFromLockEntry) {
-        packageEntryById.set(packageId, descriptorFromLockEntry);
-        packageEntryById.set(descriptorFromLockEntry.packageId, descriptorFromLockEntry);
-        continue;
-      }
-      if (typeof resolveInstalledNodeModulePackageEntry !== "function") {
-        continue;
-      }
-      const resolvedNodeModuleEntry = await resolveInstalledNodeModulePackageEntry({
-        appRoot,
-        packageId
-      });
-      if (resolvedNodeModuleEntry) {
-        packageEntryById.set(resolvedNodeModuleEntry.packageId, resolvedNodeModuleEntry);
-      }
-    }
+    const packageEntryById = await loadInstalledAppPackageRegistry(appRoot);
+    const installedPackageIds = sortStrings([...packageEntryById.keys()]);
 
     const tokenSourceByToken = new Map();
     for (const packageId of installedPackageIds) {
@@ -929,8 +855,8 @@ function createListCommands(ctx = {}) {
       if (!packageEntry) {
         continue;
       }
-      const descriptor = ensureObject(packageEntry.descriptor);
-      const metadata = ensureObject(descriptor.metadata);
+      const packageMetadata = ensureObject(packageEntry.packageMetadata);
+      const metadata = ensureObject(packageMetadata.metadata);
       const ui = ensureObject(metadata.ui);
       const placements = ensureObject(ui.placements);
       const contributions = normalizePlacementContributions(placements.contributions);

@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 import crudCorePackage from "../../crud-core/package.json" with { type: "json" };
 import resourceCrudCorePackage from "../../resource-crud-core/package.json" with { type: "json" };
 
@@ -11,21 +13,20 @@ const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(TEST_DIRECTORY, "..");
 
 function readFileMutationById(id) {
-  return descriptor.mutations.files.find((entry) => entry.id === id) || null;
+  return packageMetadata.mutations.files.find((entry) => entry.id === id) || null;
 }
 
 test("users-core installs the app-local users package scaffold", () => {
-  assert.equal(descriptor.mutations.dependencies.runtime["@local/users"], "file:packages/users");
-  assert.equal(descriptor.mutations.dependencies.runtime["@jskit-ai/crud-core"], crudCorePackage.version);
+  assert.equal(packageMetadata.mutations.dependencies.runtime["@local/users"], "file:packages/users");
+  assert.equal(packageMetadata.mutations.dependencies.runtime["@jskit-ai/crud-core"], crudCorePackage.version);
   assert.equal(
-    descriptor.mutations.dependencies.runtime["@jskit-ai/resource-crud-core"],
+    packageMetadata.mutations.dependencies.runtime["@jskit-ai/resource-crud-core"],
     resourceCrudCorePackage.version
   );
 
   const expectedFileIds = [
-    "users-core-users-package-json",
-    "users-core-users-package-descriptor-base",
-    "users-core-users-package-descriptor-workspace",
+    "users-core-users-package-json-base",
+    "users-core-users-package-json-workspace",
     "users-core-users-provider-base",
     "users-core-users-provider-workspace",
     "users-core-users-actions-base",
@@ -82,8 +83,8 @@ test("users-core installs all users profile schema migrations", async () => {
 });
 
 test("users-core base users package templates stay aligned with non-workspace apps", async () => {
-  const packageDescriptorSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/package.descriptor.mjs"),
+  const packageManifestSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/packages/users/package.json"),
     "utf8"
   );
   const providerSource = await readFile(
@@ -107,13 +108,13 @@ test("users-core base users package templates stay aligned with non-workspace ap
     "utf8"
   );
 
-  assert.doesNotMatch(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
-  assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
-  assert.match(packageDescriptorSource, /json-rest-api\.core/);
-  assert.match(packageDescriptorSource, /scaffoldShape: "users-core-crud-v1"/);
-  assert.match(packageDescriptorSource, /tableName: "users"/);
-  assert.match(packageDescriptorSource, /provenance: "users-core-template"/);
-  assert.doesNotMatch(packageDescriptorSource, /server\/actionIds/);
+  assert.doesNotMatch(packageManifestSource, /@jskit-ai\/workspaces-core/);
+  assert.match(packageManifestSource, /@jskit-ai\/json-rest-api-core/);
+  assert.match(packageManifestSource, /json-rest-api\.core/);
+  assert.match(packageManifestSource, /"scaffoldShape": "users-core-crud-v1"/);
+  assert.match(packageManifestSource, /"tableName": "users"/);
+  assert.match(packageManifestSource, /"provenance": "users-core-template"/);
+  assert.doesNotMatch(packageManifestSource, /server\/actionIds/);
   assert.match(providerSource, /surface: "home"/);
   assert.doesNotMatch(providerSource, /routeSurfaceRequiresWorkspace/);
   assert.doesNotMatch(providerSource, /createCrudLookup/);
@@ -155,8 +156,8 @@ test("users-core base users package templates stay aligned with non-workspace ap
 });
 
 test("users-core workspace users package templates stay aligned with workspace apps", async () => {
-  const packageDescriptorSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users-workspace/package.descriptor.mjs"),
+  const packageManifestSource = await readFile(
+    path.join(PACKAGE_ROOT, "templates/packages/users-workspace/package.json"),
     "utf8"
   );
   const providerSource = await readFile(
@@ -176,13 +177,13 @@ test("users-core workspace users package templates stay aligned with workspace a
     "utf8"
   );
 
-  assert.match(packageDescriptorSource, /@jskit-ai\/workspaces-core/);
-  assert.match(packageDescriptorSource, /@jskit-ai\/json-rest-api-core/);
-  assert.match(packageDescriptorSource, /json-rest-api\.core/);
-  assert.match(packageDescriptorSource, /scaffoldShape: "users-core-crud-v1"/);
-  assert.match(packageDescriptorSource, /tableName: "users"/);
-  assert.match(packageDescriptorSource, /provenance: "users-core-template"/);
-  assert.doesNotMatch(packageDescriptorSource, /server\/actionIds/);
+  assert.match(packageManifestSource, /@jskit-ai\/workspaces-core/);
+  assert.match(packageManifestSource, /@jskit-ai\/json-rest-api-core/);
+  assert.match(packageManifestSource, /json-rest-api\.core/);
+  assert.match(packageManifestSource, /"scaffoldShape": "users-core-crud-v1"/);
+  assert.match(packageManifestSource, /"tableName": "users"/);
+  assert.match(packageManifestSource, /"provenance": "users-core-template"/);
+  assert.doesNotMatch(packageManifestSource, /server\/actionIds/);
   assert.match(providerSource, /surface: "admin"/);
   assert.match(providerSource, /routeSurfaceRequiresWorkspace/);
   assert.doesNotMatch(providerSource, /createCrudLookup/);

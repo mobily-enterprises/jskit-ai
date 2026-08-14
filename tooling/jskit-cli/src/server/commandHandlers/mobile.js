@@ -414,45 +414,17 @@ async function runLocalBinary(binaryName, args = [], {
   });
 }
 
-function hasPackageDependency(packageJson = {}, packageId = "") {
-  const sections = [
-    packageJson?.dependencies,
-    packageJson?.devDependencies,
-    packageJson?.optionalDependencies
-  ];
-  return sections.some((section) => (
-    section &&
-    typeof section === "object" &&
-    !Array.isArray(section) &&
-    Object.prototype.hasOwnProperty.call(section, packageId)
-  ));
-}
-
-async function readJsonFileForMobileCommand(filePath = "", label = "", createCliError) {
-  try {
-    return JSON.parse(await readFile(filePath, "utf8"));
-  } catch (error) {
-    const message = String(error?.message || error || "unknown error");
-    throw createCliError(`Could not read ${label}: ${message}`);
-  }
-}
-
 async function assertMobileRuntimePackageInstalled({
   ctx,
   appRoot
 } = {}) {
   const {
-    path: pathModule,
-    createCliError
+    createCliError,
+    loadInstalledAppPackageRegistry
   } = ctx;
-  const packageJsonPath = pathModule.join(appRoot, "package.json");
-  const lockPath = pathModule.join(appRoot, ".jskit", "lock.json");
-  const packageJson = await readJsonFileForMobileCommand(packageJsonPath, "package.json", createCliError);
-  const lock = await readJsonFileForMobileCommand(lockPath, ".jskit/lock.json", createCliError);
-  const hasDependency = hasPackageDependency(packageJson, CAPACITOR_RUNTIME_PACKAGE_ID);
-  const hasLockRecord = Boolean(lock?.installedPackages?.[CAPACITOR_RUNTIME_PACKAGE_ID]);
+  const installedPackages = await loadInstalledAppPackageRegistry(appRoot);
 
-  if (!hasDependency || !hasLockRecord) {
+  if (!installedPackages.has(CAPACITOR_RUNTIME_PACKAGE_ID)) {
     throw createCliError(
       `Mobile Capacitor runtime package is not installed for this app. Run jskit add package ${CAPACITOR_RUNTIME_PACKAGE_ID} first.`
     );

@@ -682,13 +682,6 @@ Local functions
 Exports
 - `createComponentInteractionEmitter(emit)`
 
-### `client/descriptorSections.js`
-Exports
-- `normalizeDescriptorUiRoutes(value)`
-- `normalizeDescriptorClientProviders(value)`
-- `normalizeDescriptorClientOptimizeSpecifiers(value)`
-- `normalizeClientDescriptorSections(descriptorValue)`
-
 ### `client/index.js`
 Exports
 - `getClientAppConfig`
@@ -733,16 +726,23 @@ Local functions
 - `normalizeRoute(route, { packageId, index })`
 - `normalizeRouteList(routes, { packageId })`
 - `toVueRouteRecord(route)`
-- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger = null, source = "module", descriptorRouteDeclarations = null } = {})`
+- `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger = null, source = "module", packageMetadataRouteDeclarations = null } = {})`
 - `isProviderClass(candidate)`
 - `normalizeExplicitProviderClasses(value, packageId)`
-- `resolveDescriptorProviderClasses(moduleNamespace, packageId, descriptorClientProviders = [])`
-- `resolveModuleProviderClasses(moduleNamespace, packageId, descriptorClientProviders = [])`
-- `buildDescriptorRouteDeclarationIndex({ packageId, descriptorUiRoutes = [] } = {})`
-- `assertRoutesDeclaredInDescriptor({ packageId, source, normalizedRoutes = [], descriptorRouteDeclarations = null } = {})`
-- `resolveDescriptorClientRoutes({ packageId, descriptorUiRoutes = [], routeComponents = {}, logger = null } = {})`
+- `resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = [])`
+- `resolveModuleProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = [])`
+- `buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {})`
+- `assertRoutesDeclaredInPackageMetadata({ packageId, source, normalizedRoutes = [], packageMetadataRouteDeclarations = null } = {})`
+- `resolvePackageMetadataClientRoutes({ packageId, packageMetadataUiRoutes = [], routeComponents = {}, logger = null } = {})`
 - `normalizeClientModuleEntries(clientModules)`
 - `createClientRuntimeApp({ profile = "client", app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+
+### `client/packageMetadataSections.js`
+Exports
+- `normalizePackageMetadataUiRoutes(value)`
+- `normalizePackageMetadataClientProviders(value)`
+- `normalizePackageMetadataClientOptimizeSpecifiers(value)`
+- `normalizeClientPackageMetadataSections(packageMetadataValue)`
 
 ### `client/pageRedirects.js`
 Exports
@@ -794,19 +794,19 @@ Exports
 - `resolveClientOptimizeExcludeSpecifiers(clientModules = [])`
 - `resolveCanonicalLocalPackageId(resolvedId, localPackage)`
 - `resolveLocalPackageForSpecifier(source, localPackages = [])`
-- `resolveLocalPackageSources({ appRoot, lockPath })`
+- `resolveLocalPackageSources({ appRoot })`
 - `resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = [])`
 - `resolveInstalledClientPackageIds(options)`
-- `resolveLocalScopePackageIds({ appRoot, lockPath })`
-- `resolveInstalledClientModules({ appRoot, lockPath })`
-- `createJskitClientBootstrapPlugin({ lockPath = ".jskit/lock.json" } = {})`
+- `resolveLocalScopePackageIds({ appRoot })`
+- `resolveInstalledClientModules({ appRoot })`
+- `createJskitClientBootstrapPlugin()`
 Local functions
 - `isLocalScopePackageId(value)`
 - `readJsonFile(filePath, fallback)`
 - `hasClientExport(packageJson)`
 - `isPathInsideRoot(rootPath, candidatePath)`
 - `splitSpecifierSuffix(source)`
-- `normalizeClientModuleDescriptors(value)`
+- `normalizeClientModulePackageMetadataEntries(value)`
 - `resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {})`
 
 ### `client/vite/index.js`
@@ -1044,17 +1044,7 @@ Exports
 ### `server/platform/providerRuntime.js`
 Exports
 - `createProviderRuntimeApp({ profile = "", providers = [], env = {}, logger = console, fastify = null } = {})`
-- `createProviderRuntimeFromApp({ appRoot, lockPath = ".jskit/lock.json", profile = "", env = {}, logger = console, fastify = null } = {})`
-
-### `server/platform/providerRuntime/descriptorCatalog.js`
-Exports
-- `collectGlobalUiPaths(descriptorEntries)`
-- `resolveInstalledPackageDescriptors({ appRoot, lock })`
-- `resolveDescriptorLoadOrder(descriptorEntries)`
-- `validateDescriptorCapabilities(descriptorEntries, { builtinProvidersByCapability = {} } = {})`
-Local functions
-- `normalizeUiRoutePath(pathValue)`
-- `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
+- `createProviderRuntimeFromApp({ appRoot, profile = "", env = {}, logger = console, fastify = null } = {})`
 
 ### `server/platform/providerRuntime/helpers.js`
 Exports
@@ -1065,20 +1055,26 @@ Exports
 - `isInsidePackageRoot(packageRoot, candidatePath)`
 - `toAbsoluteSortedUniquePaths(values)`
 
-### `server/platform/providerRuntime/lockfile.js`
+### `server/platform/providerRuntime/packageCatalog.js`
 Exports
-- `readLockFromApp({ appRoot, lockPath = ".jskit/lock.json" } = {})`
+- `collectGlobalUiPaths(packageEntries)`
+- `resolveInstalledJskitPackages({ appRoot })`
+- `resolvePackageLoadOrder(packageEntries)`
+- `validatePackageCapabilities(packageEntries, { builtinProvidersByCapability = {} } = {})`
+Local functions
+- `normalizeUiRoutePath(pathValue)`
+- `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
 
 ### `server/platform/providerRuntime/providerLoader.js`
 Exports
-- `loadPackageProviders({ descriptorEntry })`
+- `loadPackageProviders({ packageEntry })`
 - `registerProviderClass({ providerClass, sourceId, seenProviderIds, orderedProviderClasses })`
 Local functions
-- `normalizeServerProviderDefinitions(descriptor, packageId)`
+- `normalizeServerProviderDefinitions(packageMetadata, packageId)`
 - `isProviderDefinition(value)`
 - `normalizeProviderExportValue(value, { packageId, label })`
 - `resolveProviderClassesFromModule(moduleNamespace, { packageId, providerExport })`
-- `collectDiscoveredProviderModulePaths({ descriptorEntry, providerDefinition })`
+- `collectDiscoveredProviderModulePaths({ packageEntry, providerDefinition })`
 
 ### `server/platform/runtime.js`
 Exports
@@ -1418,6 +1414,10 @@ Exports
 - `loadAppConfigFromAppRoot`
 - `loadAppConfigFromModuleUrl`
 - `importFreshModuleFromAbsolutePath`
+- `collectPackageDependencyIds`
+- `collectRootDependencySpecifiers`
+- `createPackageMetadata`
+- `discoverInstalledPackages`
 - `resolveRequiredAppRoot`
 - `toPosixPath`
 - `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
@@ -1503,8 +1503,7 @@ Local functions
 - `normalizeAppRouteOutletTarget({ outlet = {}, sourcePath = "" } = {})`
 - `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `collectVueFilePaths(rootDirectoryPath)`
-- `readInstalledPackageStates(appRoot)`
-- `normalizePackageOutletTarget({ packageId = "", outlet = {}, descriptorPath = "" } = {})`
+- `normalizePackageOutletTarget({ packageId = "", outlet = {}, manifestPath = "" } = {})`
 - `collectInstalledPackageOutletTargets(appRoot)`
 - `withTopologySource(placement = {}, sourcePath = "")`
 - `loadAppPlacementTopology(appRoot)`
@@ -1568,11 +1567,15 @@ Exports
 - `fileExists(filePath)`
 - `readJsonFile(filePath, fallback = {})`
 
-### `internal/node/installedPackageDescriptor.js`
+### `internal/node/installedPackages.js`
 Exports
-- `loadInstalledPackageDescriptor({ appRoot, packageId, installedPackageState, required = false })`
-- `resolveDescriptorPathForInstalledPackage({ appRoot, packageId, installedPackageState, required = false })`
+- `ROOT_DEPENDENCY_SECTIONS`
+- `collectPackageDependencyIds(packageJson = {})`
+- `collectRootDependencySpecifiers(packageJson = {})`
+- `createPackageMetadata(packageJson = {})`
+- `discoverInstalledPackages({ appRoot } = {})`
 Local functions
-- `resolveNodeModulesDescriptorCandidatePaths({ appRoot, packageId })`
-- `resolveDescriptorCandidatePaths({ appRoot, packageId, installedPackageState })`
-- `normalizeDescriptorPayload(descriptorModule)`
+- `readJsonFile(filePath, fallback = {})`
+- `resolveFileDependencyRoot(appRoot, specifier = "")`
+- `resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRoot = "" })`
+- `resolvePackageRoots({ appRoot, packageId, directSpecifier = "", parentPackageRoot = "" })`

@@ -234,9 +234,3 @@ Exports
 ### `templates/migrations/assistant_transcripts_initial.cjs`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

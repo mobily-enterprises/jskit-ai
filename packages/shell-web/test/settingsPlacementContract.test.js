@@ -4,14 +4,16 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 import { resolveShellRouteTransitionKey } from "../src/client/support/routeTransitionKey.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
 function readOutlets(target = "") {
-  const outlets = descriptor?.metadata?.ui?.placements?.outlets;
+  const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
   const normalizedTarget = String(target || "").trim();
   return Array.isArray(outlets)
     ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
@@ -19,7 +21,7 @@ function readOutlets(target = "") {
 }
 
 function readContributions(target = "") {
-  const contributions = descriptor?.metadata?.ui?.placements?.contributions;
+  const contributions = packageMetadata?.metadata?.ui?.placements?.contributions;
   const normalizedTarget = String(target || "").trim();
   return Array.isArray(contributions)
     ? contributions.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
@@ -27,7 +29,7 @@ function readContributions(target = "") {
 }
 
 function readTopology(id = "", owner = "") {
-  const placements = descriptor?.metadata?.ui?.placements?.topology?.placements;
+  const placements = packageMetadata?.metadata?.ui?.placements?.topology?.placements;
   const normalizedId = String(id || "").trim();
   const normalizedOwner = String(owner || "").trim();
   return Array.isArray(placements)
@@ -46,12 +48,12 @@ function readPackageImportSpecifiers(source = "") {
 }
 
 function readClientContainerTokens() {
-  const tokens = descriptor?.metadata?.apiSummary?.containerTokens?.client;
+  const tokens = packageMetadata?.metadata?.apiSummary?.containerTokens?.client;
   return Array.isArray(tokens) ? tokens : [];
 }
 
 function findFileMutation(id) {
-  const files = descriptor?.mutations?.files;
+  const files = packageMetadata?.mutations?.files;
   return Array.isArray(files)
     ? files.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
@@ -351,7 +353,7 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
   assert.match(source, /outlet: "shell-layout:supporting-side-panel"/);
 });
 
-test("shell-web descriptor pre-optimizes package subpaths reached only through dynamic base-shell modules", async () => {
+test("shell-web packageMetadata pre-optimizes package subpaths reached only through dynamic base-shell modules", async () => {
   const [providerSource, placementSource, placementTopologySource, errorSource] = await Promise.all([
     readFile(path.join(PACKAGE_DIR, "src", "client", "providers", "ShellWebClientProvider.js"), "utf8"),
     readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8"),
@@ -378,16 +380,16 @@ test("shell-web descriptor pre-optimizes package subpaths reached only through d
     "@jskit-ai/shell-web/client/error"
   ]);
 
-  assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.include, [
+  assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.include, [
     "@jskit-ai/shell-web/client/placement",
     "@jskit-ai/shell-web/client/error"
   ]);
-  assert.deepEqual(descriptor?.metadata?.client?.optimizeDeps?.exclude, [
+  assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.exclude, [
     "@jskit-ai/shell-web/client"
   ]);
 });
 
-test("shell-web descriptor metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
+test("shell-web packageMetadata metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
   const homePageMutationIds = [
     "shell-web-page-home-wrapper",
     "shell-web-page-home",

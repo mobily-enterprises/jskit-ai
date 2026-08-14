@@ -35,8 +35,8 @@ function toShortPackageId(packageId = "") {
 }
 
 function resolvePackageSummary(entry = {}) {
-  const descriptor = ensureObject(entry?.descriptor);
-  return String(descriptor.description || "").trim();
+  const packageMetadata = ensureObject(entry?.packageMetadata);
+  return String(packageMetadata.description || "").trim();
 }
 
 function resolveHelpText(rawValue = "", helpTextKey = "") {
@@ -49,8 +49,8 @@ function resolveHelpText(rawValue = "", helpTextKey = "") {
 }
 
 function buildPackageOptionRows(packageEntry = {}) {
-  const descriptor = ensureObject(packageEntry?.descriptor);
-  const optionSchemas = ensureObject(descriptor.options);
+  const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+  const optionSchemas = ensureObject(packageMetadata.options);
   const rows = [];
 
   for (const optionName of sortStrings(Object.keys(optionSchemas))) {
@@ -305,10 +305,10 @@ function appendSeparatedBlocks(lines = [], blocks = []) {
 }
 
 function resolveGeneratorSubcommandMetadata(packageEntry = {}) {
-  const descriptor = ensureObject(packageEntry?.descriptor);
-  const metadata = ensureObject(descriptor.metadata);
-  const subcommands = ensureObject(metadata.generatorSubcommands || descriptor.generatorSubcommands);
-  const primarySubcommand = String(metadata.generatorPrimarySubcommand || descriptor.generatorPrimarySubcommand || "")
+  const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+  const metadata = ensureObject(packageMetadata.metadata);
+  const subcommands = ensureObject(metadata.generatorSubcommands || packageMetadata.generatorSubcommands);
+  const primarySubcommand = String(metadata.generatorPrimarySubcommand || packageMetadata.generatorPrimarySubcommand || "")
     .trim()
     .toLowerCase();
   const subcommandNames = new Set(sortStrings(Object.keys(subcommands)));

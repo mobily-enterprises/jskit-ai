@@ -42,7 +42,7 @@ function loadKnexFactory() {
     moduleValue = symlinkSafeRequire("knex");
   } catch {
     throw new Error(
-      "Knex package is not installed. Re-run `npx jskit update package database-runtime` to apply runtime dependencies."
+      "Knex package is not installed. Run `npm install`, then `npx jskit migrations sync`."
     );
   }
 

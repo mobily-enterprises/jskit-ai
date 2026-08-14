@@ -87,9 +87,3 @@ Exports
 ### `templates/migrations/console_core_generic_initial.cjs`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

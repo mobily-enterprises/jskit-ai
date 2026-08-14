@@ -79,17 +79,17 @@ function writeCapabilityRecord({
     }
 
     if (includeDependsOnProviders) {
-      const providersInDependsOn = ensureArray(record.providersInDependsOn).map((packageId) => ({
+      const providersInDependencies = ensureArray(record.providersInDependencies).map((packageId) => ({
         text: String(packageId),
         rendered: color.item(String(packageId))
       }));
-      if (providersInDependsOn.length > 0) {
+      if (providersInDependencies.length > 0) {
         writeWrappedItems({
           stdout,
-          heading: `  ${color.installed(`providers in dependsOn (${providersInDependsOn.length}):`)}`,
+          heading: `  ${color.installed(`providers in dependencies (${providersInDependencies.length}):`)}`,
           lineIndent: "    ",
           wrapWidth,
-          items: providersInDependsOn
+          items: providersInDependencies
         });
       }
     }
@@ -113,9 +113,9 @@ function writeCapabilityRecord({
 function formatPackageSummary(detail) {
   const packageId = String(detail?.packageId || "").trim();
   const version = String(detail?.version || "").trim();
-  const descriptorPath = String(detail?.descriptorPath || "").trim();
+  const manifestPath = String(detail?.manifestPath || "").trim();
   const versionSuffix = version ? `@${version}` : "";
-  const pathSuffix = descriptorPath ? ` [${descriptorPath}]` : "";
+  const pathSuffix = manifestPath ? ` [${manifestPath}]` : "";
   return `${packageId}${versionSuffix}${pathSuffix}`;
 }
 

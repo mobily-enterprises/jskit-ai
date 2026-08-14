@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test, { after, before } from "node:test";
 import { chromium, expect } from "@playwright/test";
+import { createChromiumLaunchOptions } from "../../../testUtils/browserFixture.mjs";
 import { runGeneratedAppSmokeCase } from "../../src/test/playwright.js";
 
 let browser;
 
 before(async () => {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch(createChromiumLaunchOptions());
 });
 
 after(async () => {

@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -47,6 +48,17 @@ test("add package applies option interpolation and conditional file mutations", 
         null,
         2
       )}\n`,
+      "utf8"
+    );
+    const generatedDependencyRoot = path.join(appRoot, "packages", "generated-client-profiles");
+    await mkdir(generatedDependencyRoot, { recursive: true });
+    await writeFile(
+      path.join(generatedDependencyRoot, "package.json"),
+      `${JSON.stringify({
+        name: "@demo/generated-client-profiles",
+        version: "1.2.3",
+        type: "module"
+      }, null, 2)}\n`,
       "utf8"
     );
 
@@ -97,9 +109,9 @@ test("add package applies option interpolation and conditional file mutations", 
       "utf8"
     );
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/option-feature",
   version: "0.1.0",
   kind: "runtime",
@@ -132,7 +144,7 @@ test("add package applies option interpolation and conditional file mutations", 
   mutations: {
     dependencies: {
       runtime: {
-        "@demo/generated-\${option:namespace|kebab|default(default)}": "1.2.3"
+        "@demo/generated-\${option:namespace|kebab|default(default)}": "file:packages/generated-client-profiles"
       },
       dev: {}
     },
@@ -217,7 +229,7 @@ test("add package applies option interpolation and conditional file mutations", 
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 
@@ -278,113 +290,11 @@ test("add package applies option interpolation and conditional file mutations", 
     const migrationContent = await readFile(migrationPath, "utf8");
     assert.match(migrationContent, /module\.exports = "public";/);
 
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "package", "@demo/option-feature"]
-    });
-    assert.equal(updateResult.status, 0, String(updateResult.stderr || ""));
-
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
-    const installedPackage = lock?.installedPackages?.["@demo/option-feature"];
-    const managedMigrations = Array.isArray(installedPackage?.managed?.migrations)
-      ? installedPackage.managed.migrations
-      : [];
-    assert.equal(managedMigrations.length, 1);
-    assert.equal(managedMigrations[0].id, "demo-client-profiles");
-    assert.match(String(managedMigrations[0].path || ""), /^migrations\/\d{14}_demo-client-profiles\.cjs$/);
-    assert.match(String(managedMigrations[0].hash || ""), /^[a-f0-9]{64}$/);
-
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    assert.equal(appPackageJson.dependencies["@demo/generated-client-profiles"], "1.2.3");
-  });
-});
-
-test("update package fails when an install-migration source changes for the same id", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "migration-immutability-app");
-    await createMinimalApp(appRoot, { name: "migration-immutability-app" });
-
-    const packageRoot = path.join(appRoot, "packages", "migration-feature");
-    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
-    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
-
-    await writeFile(
-      path.join(packageRoot, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "@demo/migration-feature",
-          version: "0.1.0",
-          type: "module"
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
+    assert.equal(
+      appPackageJson.dependencies["@demo/generated-client-profiles"],
+      "file:packages/generated-client-profiles"
     );
-
-    await writeFile(
-      path.join(packageRoot, "src", "server", "Provider.js"),
-      "class Provider { static id = \"demo.migration\"; register() {} boot() {} }\nexport { Provider };\n",
-      "utf8"
-    );
-
-    await writeFile(
-      path.join(packageRoot, "templates", "migration.cjs"),
-      "module.exports = \"v1\";\n",
-      "utf8"
-    );
-
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/migration-feature",
-  version: "0.1.0",
-  kind: "runtime",
-  runtime: {
-    server: {
-      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
-    },
-    client: {
-      providers: []
-    }
-  },
-  mutations: {
-    dependencies: {
-      runtime: {},
-      dev: {}
-    },
-    files: [
-      {
-        op: "install-migration",
-        from: "templates/migration.cjs",
-        toDir: "migrations",
-        extension: ".cjs",
-        id: "demo-migration-immutability"
-      }
-    ]
-  }
-});\n`,
-      "utf8"
-    );
-
-    const addResult = runCli({
-      cwd: appRoot,
-      args: ["add", "package", "@demo/migration-feature"]
-    });
-    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
-
-    await writeFile(
-      path.join(packageRoot, "templates", "migration.cjs"),
-      "module.exports = \"v2\";\n",
-      "utf8"
-    );
-
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "package", "@demo/migration-feature"]
-    });
-    assert.equal(updateResult.status, 1);
-    assert.match(String(updateResult.stderr || ""), /migration demo-migration-immutability changed after install/i);
   });
 });
 
@@ -418,9 +328,9 @@ test("add package allows empty rendered install-migration files", async () => {
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/empty-migration",
   version: "0.1.0",
   kind: "runtime",
@@ -447,7 +357,7 @@ test("add package allows empty rendered install-migration files", async () => {
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 
@@ -495,9 +405,9 @@ test("remove then re-add package reuses existing timestamped migration by id", a
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"v1\";\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/migration-readd",
   version: "0.1.0",
   kind: "runtime",
@@ -524,7 +434,7 @@ test("remove then re-add package reuses existing timestamped migration by id", a
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 
@@ -534,11 +444,10 @@ test("remove then re-add package reuses existing timestamped migration by id", a
     });
     assert.equal(addResult.status, 0, String(addResult.stderr || ""));
 
-    const lockPath = path.join(appRoot, ".jskit", "lock.json");
-    const lockAfterFirstAdd = JSON.parse(await readFile(lockPath, "utf8"));
-    const firstMigrationPath =
-      lockAfterFirstAdd?.installedPackages?.["@demo/migration-readd"]?.managed?.migrations?.[0]?.path || "";
-    assert.match(String(firstMigrationPath), /^migrations\/\d{14}_demo-migration-readd\.cjs$/);
+    const firstMigrationFiles = (await readdir(path.join(appRoot, "migrations")))
+      .filter((entry) => /_demo-migration-readd\.cjs$/.test(entry))
+      .sort();
+    assert.equal(firstMigrationFiles.length, 1);
 
     const removeResult = runCli({
       cwd: appRoot,
@@ -552,21 +461,10 @@ test("remove then re-add package reuses existing timestamped migration by id", a
     });
     assert.equal(readdResult.status, 0, String(readdResult.stderr || ""));
 
-    const lockAfterReadd = JSON.parse(await readFile(lockPath, "utf8"));
-    const managedMigrations = Array.isArray(
-      lockAfterReadd?.installedPackages?.["@demo/migration-readd"]?.managed?.migrations
-    )
-      ? lockAfterReadd.installedPackages["@demo/migration-readd"].managed.migrations
-      : [];
-    assert.equal(managedMigrations.length, 1);
-    assert.equal(managedMigrations[0].id, "demo-migration-readd");
-    assert.equal(managedMigrations[0].path, firstMigrationPath);
-    assert.equal(managedMigrations[0].skipped, true);
-
     const migrationFiles = (await readdir(path.join(appRoot, "migrations")))
       .filter((entry) => /_demo-migration-readd\.cjs$/.test(entry))
       .sort();
-    assert.equal(migrationFiles.length, 1);
+    assert.deepEqual(migrationFiles, firstMigrationFiles);
   });
 });
 
@@ -600,9 +498,9 @@ test("add package fails when install-migration is missing id", async () => {
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/migration-id-required",
   version: "0.1.0",
   kind: "runtime",
@@ -627,7 +525,7 @@ test("add package fails when install-migration is missing id", async () => {
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 
@@ -670,9 +568,9 @@ test("add package fails when install-migration id is not lowercase-safe", async 
     );
     await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/migration-id-case",
   version: "0.1.0",
   kind: "runtime",
@@ -698,7 +596,7 @@ test("add package fails when install-migration id is not lowercase-safe", async 
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 
@@ -708,91 +606,6 @@ test("add package fails when install-migration id is not lowercase-safe", async 
     });
     assert.equal(addResult.status, 1);
     assert.match(String(addResult.stderr || ""), /install-migration mutation.*id.*must match/i);
-  });
-});
-
-test("update package rejects managed migration paths outside app root", async () => {
-  await withTempDir(async (cwd) => {
-    const appRoot = path.join(cwd, "migration-path-hardening-app");
-    await createMinimalApp(appRoot, { name: "migration-path-hardening-app" });
-
-    const packageRoot = path.join(appRoot, "packages", "migration-path-hardening");
-    await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
-    await mkdir(path.join(packageRoot, "templates"), { recursive: true });
-
-    await writeFile(
-      path.join(packageRoot, "package.json"),
-      `${JSON.stringify(
-        {
-          name: "@demo/migration-path-hardening",
-          version: "0.1.0",
-          type: "module"
-        },
-        null,
-        2
-      )}\n`,
-      "utf8"
-    );
-
-    await writeFile(
-      path.join(packageRoot, "src", "server", "Provider.js"),
-      "class Provider { static id = \"demo.migration.path\"; register() {} boot() {} }\nexport { Provider };\n",
-      "utf8"
-    );
-    await writeFile(path.join(packageRoot, "templates", "migration.cjs"), "module.exports = \"ok\";\n", "utf8");
-
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
-  packageId: "@demo/migration-path-hardening",
-  version: "0.1.0",
-  kind: "runtime",
-  runtime: {
-    server: {
-      providers: [{ entrypoint: "src/server/Provider.js", export: "Provider" }]
-    },
-    client: {
-      providers: []
-    }
-  },
-  mutations: {
-    dependencies: {
-      runtime: {},
-      dev: {}
-    },
-    files: [
-      {
-        op: "install-migration",
-        from: "templates/migration.cjs",
-        toDir: "migrations",
-        id: "demo-migration-path-hardening"
-      }
-    ]
-  }
-});\n`,
-      "utf8"
-    );
-
-    const addResult = runCli({
-      cwd: appRoot,
-      args: ["add", "package", "@demo/migration-path-hardening"]
-    });
-    assert.equal(addResult.status, 0, String(addResult.stderr || ""));
-
-    const lockPath = path.join(appRoot, ".jskit", "lock.json");
-    const lock = JSON.parse(await readFile(lockPath, "utf8"));
-    lock.installedPackages["@demo/migration-path-hardening"].managed.migrations[0].path = "../outside.cjs";
-    await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`, "utf8");
-
-    const updateResult = runCli({
-      cwd: appRoot,
-      args: ["update", "package", "@demo/migration-path-hardening"]
-    });
-    assert.equal(updateResult.status, 1);
-    assert.match(
-      String(updateResult.stderr || ""),
-      /managed migration path.*(safe relative path|stay within app root)/i
-    );
   });
 });
 
@@ -835,9 +648,9 @@ test("add package evaluates when.config conditions from app config", async () =>
     await writeFile(path.join(packageRoot, "templates", "workspace.txt"), "workspace\n", "utf8");
     await writeFile(path.join(packageRoot, "templates", "none.txt"), "none\n", "utf8");
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/config-feature",
   version: "0.1.0",
   kind: "runtime",
@@ -873,7 +686,7 @@ test("add package evaluates when.config conditions from app config", async () =>
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 
@@ -937,9 +750,9 @@ test("add package resolves option defaultFromConfig from app config", async () =
       "utf8"
     );
 
-    await writeFile(
-      path.join(packageRoot, "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(packageRoot),
+      `({
   packageId: "@demo/default-from-config-feature",
   version: "0.1.0",
   kind: "runtime",
@@ -969,7 +782,7 @@ test("add package resolves option defaultFromConfig from app config", async () =
       }
     ]
   }
-});\n`,
+})\n`,
       "utf8"
     );
 

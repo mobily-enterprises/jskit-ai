@@ -4,6 +4,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { buildUiPageTemplateContext } from "../src/server/buildTemplateContext.js";
+import { writeJskitPackageMetadata } from "../../../tooling/testUtils/jskitPackage.mjs";
 
 async function withTempApp(run) {
   const appRoot = await mkdtemp(path.join(tmpdir(), "ui-generator-"));
@@ -245,30 +246,27 @@ test("buildUiPageTemplateContext supports explicit package semantic link placeme
         linkRenderer: "local.main.ui.surface-aware-menu-link-item"
       })
     ]);
+    await writeFileInApp(appRoot, "package.json", `${JSON.stringify({
+      name: "ui-generator-test-app",
+      version: "0.1.0",
+      private: true,
+      type: "module",
+      dependencies: {
+        "@example/users-web": "0.1.0"
+      }
+    }, null, 2)}\n`);
     await writeFileInApp(
       appRoot,
-      ".jskit/lock.json",
-      `${JSON.stringify(
-        {
-          lockVersion: 1,
-          installedPackages: {
-            "@example/users-web": {
-              packageId: "@example/users-web",
-              source: {
-                type: "npm-installed-package",
-                descriptorPath: "node_modules/@example/users-web/package.descriptor.mjs"
-              }
-            }
-          }
-        },
-        null,
-        2
-      )}\n`
+      "node_modules/@example/users-web/package.json",
+      `${JSON.stringify({
+        name: "@example/users-web",
+        version: "0.1.0",
+        type: "module"
+      }, null, 2)}\n`
     );
-    await writeFileInApp(
-      appRoot,
-      "node_modules/@example/users-web/package.descriptor.mjs",
-      `export default {
+    await writeJskitPackageMetadata(
+      path.join(appRoot, "node_modules/@example/users-web"),
+      `({
   packageId: "@example/users-web",
   metadata: {
     ui: {
@@ -304,7 +302,7 @@ test("buildUiPageTemplateContext supports explicit package semantic link placeme
       }
     }
   }
-};
+})
 `
     );
 

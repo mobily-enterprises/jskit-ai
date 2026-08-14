@@ -5,12 +5,10 @@ export {
 
 export {
   applyTextMutations,
-  partitionPreFileConfigTextMutations,
-  resolvePositioningMutations
+  partitionPreFileConfigTextMutations
 } from "./mutations/textMutations.js";
 
 export {
   applySourceMutations,
-  partitionPreFileConfigSourceMutations,
-  resolvePositioningSourceMutations
+  partitionPreFileConfigSourceMutations
 } from "./mutations/sourceMutations.js";

@@ -19,6 +19,7 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   const listSource = await readComponent("CrudListScreen.vue");
   const viewSource = await readComponent("CrudViewScreen.vue");
   const addEditSource = await readComponent("CrudAddEditScreen.vue");
+  const deleteActionSource = await readComponent("CrudDeleteAction.vue");
 
   assert.match(listSource, /CrudListBulkActionSurface/);
   assert.match(listSource, /CrudListFilterSurface/);
@@ -36,7 +37,10 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   );
   assert.match(listSource, /button-label="More"/);
   assert.match(listSource, /selectableRows/);
-  assert.match(listSource, /min-height:\s*48px/);
+  assert.match(
+    listSource,
+    /\.ui-generator-list-element :deep\(\.v-btn\)\s*\{\s*min-height:\s*48px;/
+  );
   assert.match(listSource, /<slot[\s\S]*name="card-fields"/);
   assert.match(listSource, /<slot name="table-header"/);
   assert.match(listSource, /<slot[\s\S]*name="table-row"/);
@@ -55,6 +59,11 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   assert.match(addEditSource, /addEdit\.canRetryLoad/);
   assert.match(addEditSource, /@click="addEdit\.refresh"/);
   assert.match(addEditSource, /<slot[\s\S]*name="fields"/);
+
+  assert.match(deleteActionSource, /@click="action\.request"/);
+  assert.match(deleteActionSource, /@click="action\.confirm"/);
+  assert.match(deleteActionSource, /@click="closeDialog"/);
+  assert.doesNotMatch(deleteActionSource, /\bactivator=/);
 });
 
 test("CRUD screen composables expose generated page extension inputs", async () => {

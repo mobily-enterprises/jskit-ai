@@ -192,6 +192,20 @@ async function readNavigationIconCenters(drawer) {
   return centers;
 }
 
+function isRequestedOrDescendantLocation(actualUrl, targetUrl) {
+  const normalizePathname = (value) => {
+    const pathname = String(value || "/");
+    return pathname === "/" ? pathname : pathname.replace(/\/+$/u, "");
+  };
+  const actualPathname = normalizePathname(actualUrl.pathname);
+  const targetPathname = normalizePathname(targetUrl.pathname);
+  const pathMatches = actualPathname === targetPathname || (
+    targetPathname !== "/" && actualPathname.startsWith(`${targetPathname}/`)
+  );
+
+  return pathMatches && actualUrl.search === targetUrl.search;
+}
+
 async function expectCentredRailNavigation(page, drawer, expect, expandedIconCenters) {
   const links = drawer.locator("a.shell-menu-link-item[href]");
   await expect(links.first()).toBeVisible();
@@ -236,8 +250,14 @@ async function expectCentredRailNavigation(page, drawer, expect, expandedIconCen
   await navigationLink.locator(".v-icon").first().click();
   await expect.poll(() => {
     const actual = new URL(page.url());
-    return `${actual.pathname}${actual.search}`;
-  }).toBe(`${targetUrl.pathname}${targetUrl.search}`);
+    const leftOriginalLocation = (
+      actual.pathname !== currentUrl.pathname ||
+      actual.search !== currentUrl.search
+    );
+    return leftOriginalLocation && isRequestedOrDescendantLocation(actual, targetUrl);
+  }, {
+    message: "Shell navigation did not reach the requested route or its canonical descendant."
+  }).toBe(true);
 }
 
 async function openCompactDrawer(page, expect) {
@@ -339,4 +359,9 @@ function runAdaptiveShellSmoke({
   });
 }
 
-export { DEFAULT_VIEWPORTS, runAdaptiveShellSmoke, runAdaptiveShellSmokeCase };
+export {
+  DEFAULT_VIEWPORTS,
+  isRequestedOrDescendantLocation,
+  runAdaptiveShellSmoke,
+  runAdaptiveShellSmokeCase
+};

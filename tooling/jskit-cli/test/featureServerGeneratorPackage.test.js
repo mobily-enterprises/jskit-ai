@@ -81,16 +81,15 @@ test("generate feature-server-generator scaffold creates the default json-rest p
     const packageRoot = path.join(appRoot, "packages", "booking-engine");
     const providerSource = await readFile(path.join(packageRoot, "src", "server", "BookingEngineProvider.js"), "utf8");
     const repositorySource = await readFile(path.join(packageRoot, "src", "server", "repository.js"), "utf8");
-    const descriptorSource = await readFile(path.join(packageRoot, "package.descriptor.mjs"), "utf8");
+    const generatedPackageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
 
     assert.match(providerSource, /INTERNAL_JSON_REST_API/);
     assert.match(providerSource, /feature\.booking-engine\.repository/);
     assert.match(repositorySource, /createJsonRestContext/);
     assert.match(repositorySource, /persistence: "json-rest"/);
-    assert.match(descriptorSource, /scaffoldMode: "json-rest"/);
-    assert.match(descriptorSource, /lane: "default"/);
+    assert.equal(generatedPackageJson.jskit.metadata.jskit.scaffoldMode, "json-rest");
+    assert.equal(generatedPackageJson.jskit.metadata.jskit.lane, "default");
     assert.equal(await fileExists(path.join(packageRoot, "src", "server", "registerRoutes.js")), false);
     assert.match(providerSource, /boot\(\) \{\}/);
     assert.doesNotMatch(providerSource, /import \{ registerRoutes \}/);
@@ -101,7 +100,6 @@ test("generate feature-server-generator scaffold creates the default json-rest p
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], "string");
     assert.equal(appPackageJson.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(appPackageJson.dependencies["@jskit-ai/feature-server-generator"], undefined);
-    assert.equal(lock.installedPackages["@local/booking-engine"].source.type, "app-local-package");
   });
 });
 
@@ -135,7 +133,7 @@ test("generate feature-server-generator scaffold supports orchestrator mode with
     const actionsSource = await readFile(path.join(packageRoot, "src", "server", "actions.js"), "utf8");
     const serviceSource = await readFile(path.join(packageRoot, "src", "server", "service.js"), "utf8");
     const routesSource = await readFile(path.join(packageRoot, "src", "server", "registerRoutes.js"), "utf8");
-    const descriptorSource = await readFile(path.join(packageRoot, "package.descriptor.mjs"), "utf8");
+    const generatedPackageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.equal(await fileExists(path.join(packageRoot, "src", "server", "repository.js")), false);
@@ -144,8 +142,8 @@ test("generate feature-server-generator scaffold supports orchestrator mode with
     assert.match(serviceSource, /orchestration logic/);
     assert.match(routesSource, /surface: normalizedRouteSurface/);
     assert.match(routesSource, /auth: "public"/);
-    assert.match(descriptorSource, /scaffoldMode: "orchestrator"/);
-    assert.match(descriptorSource, /lane: "default"/);
+    assert.equal(generatedPackageJson.jskit.metadata.jskit.scaffoldMode, "orchestrator");
+    assert.equal(generatedPackageJson.jskit.metadata.jskit.lane, "default");
     assert.equal(appPackageJson.dependencies["@local/availability-engine"], "file:packages/availability-engine");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/kernel"], "string");
     assert.equal(appPackageJson.dependencies["json-rest-schema"], "^1.0.17");
@@ -177,14 +175,14 @@ test("generate feature-server-generator scaffold supports the explicit custom-kn
     const packageRoot = path.join(appRoot, "packages", "invoice-rollup");
     const providerSource = await readFile(path.join(packageRoot, "src", "server", "InvoiceRollupProvider.js"), "utf8");
     const repositorySource = await readFile(path.join(packageRoot, "src", "server", "repository.js"), "utf8");
-    const descriptorSource = await readFile(path.join(packageRoot, "package.descriptor.mjs"), "utf8");
+    const generatedPackageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
 
     assert.match(providerSource, /jskit\.database\.knex/);
     assert.match(repositorySource, /createWithTransaction/);
     assert.match(repositorySource, /persistence: "custom-knex"/);
-    assert.match(descriptorSource, /scaffoldMode: "custom-knex"/);
-    assert.match(descriptorSource, /lane: "weird-custom"/);
+    assert.equal(generatedPackageJson.jskit.metadata.jskit.scaffoldMode, "custom-knex");
+    assert.equal(generatedPackageJson.jskit.metadata.jskit.lane, "weird-custom");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime"], "string");
     assert.equal(typeof appPackageJson.dependencies["@jskit-ai/database-runtime-mysql"], "string");
     assert.equal(appPackageJson.dependencies["@jskit-ai/json-rest-api-core"], undefined);

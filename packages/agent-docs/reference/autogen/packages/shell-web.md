@@ -540,12 +540,6 @@ Exports
 - `addPlacementTopology(value = {})`
 - `default`
 
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None
-
 ### fixtures
 
 ### `fixtures/adaptive-shell/src/App.vue`

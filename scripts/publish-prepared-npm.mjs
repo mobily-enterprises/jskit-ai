@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/shared/packageIdHelpers.js";
 
@@ -171,14 +171,11 @@ async function discoverWorkspacePackages(repoRoot = REPO_ROOT) {
       if (!name.startsWith("@jskit-ai/")) {
         continue;
       }
-      const descriptorPath = path.join(dir, "package.descriptor.mjs");
       records.push({
         name,
         version: String(packageJson.version || "").trim(),
         dir,
         packageJson,
-        descriptorPath: await fileExists(descriptorPath) ? descriptorPath : "",
-        descriptor: null,
         dependencies: [],
         registryRequirements: []
       });
@@ -222,15 +219,6 @@ function addDependencyReference(referenceMap, { name, version, source, ordersBef
 async function hydrateWorkspaceRecords(records, recordsToHydrate = records) {
   const recordByName = new Map(records.map((record) => [record.name, record]));
   for (const record of recordsToHydrate) {
-    if (record.descriptorPath) {
-      const descriptorUrl = `${pathToFileURL(record.descriptorPath).href}?prepared=${Date.now()}_${Math.random()}`;
-      const moduleValue = await import(descriptorUrl);
-      record.descriptor = moduleValue.default;
-      if (record.descriptor?.packageId !== record.name || record.descriptor?.version !== record.version) {
-        throw new Error(`Descriptor identity does not match ${record.name}@${record.version}.`);
-      }
-    }
-
     const references = new Map();
     for (const field of DEPENDENCY_FIELDS) {
       for (const [name, value] of Object.entries(record.packageJson[field] || {})) {
@@ -245,8 +233,8 @@ async function hydrateWorkspaceRecords(records, recordsToHydrate = records) {
       }
     }
 
-    const runtimeMutations = record.descriptor?.mutations?.dependencies?.runtime || {};
-    const devMutations = record.descriptor?.mutations?.dependencies?.dev || {};
+    const runtimeMutations = record.packageJson?.jskit?.mutations?.dependencies?.runtime || {};
+    const devMutations = record.packageJson?.jskit?.mutations?.dependencies?.dev || {};
     for (const [field, entries] of [["runtime", runtimeMutations], ["dev", devMutations]]) {
       for (const [name, value] of Object.entries(entries)) {
         if (!name.startsWith("@jskit-ai/") || name === record.name) {
@@ -254,27 +242,10 @@ async function hydrateWorkspaceRecords(records, recordsToHydrate = records) {
         }
         const version = exactDependencyVersion(value);
         if (!version) {
-          throw new Error(`${record.name} has a non-exact descriptor ${field} reference to ${name}.`);
+          throw new Error(`${record.name} has a non-exact package.json jskit ${field} reference to ${name}.`);
         }
-        addDependencyReference(references, { name, version, source: `descriptor#mutations.dependencies.${field}` });
+        addDependencyReference(references, { name, version, source: `package.json#jskit.mutations.dependencies.${field}` });
       }
-    }
-    for (const name of record.descriptor?.dependsOn || []) {
-      if (!String(name).startsWith("@jskit-ai/") || name === record.name) {
-        continue;
-      }
-      const version = references.get(name)?.version || recordByName.get(name)?.version || "";
-      if (!version) {
-        // `dependsOn` may name a logical package supplied by an application or
-        // bundle rather than an npm workspace. Only exact npm identities can
-        // participate in registry closure.
-        continue;
-      }
-      addDependencyReference(references, {
-        name,
-        version,
-        source: "descriptor#dependsOn"
-      });
     }
 
     if (record.name === "@jskit-ai/jskit-catalog") {
@@ -292,7 +263,7 @@ async function hydrateWorkspaceRecords(records, recordsToHydrate = records) {
         }
         // Catalog entries are publication-closure references, not npm install
         // edges. Treating them as ordering edges would create the artificial
-        // catalog -> CLI -> catalog cycle for tooling descriptors.
+        // catalog -> CLI -> catalog cycle for tooling metadata.
         addDependencyReference(references, {
           name,
           version,
@@ -301,7 +272,7 @@ async function hydrateWorkspaceRecords(records, recordsToHydrate = records) {
         });
 
         for (const field of ["runtime", "dev"]) {
-          const mutations = entry?.descriptor?.mutations?.dependencies?.[field] || {};
+          const mutations = entry?.jskit?.mutations?.dependencies?.[field] || {};
           for (const [dependencyName, value] of Object.entries(mutations)) {
             if (!dependencyName.startsWith("@jskit-ai/") || dependencyName === record.name) {
               continue;
@@ -309,7 +280,7 @@ async function hydrateWorkspaceRecords(records, recordsToHydrate = records) {
             const dependencyVersion = exactDependencyVersion(value);
             if (!dependencyVersion) {
               throw new Error(
-                `Catalog descriptor ${entry.packageId} has a non-exact ${field} dependency on ${dependencyName}.`
+                `Catalog entry ${entry.packageId} has a non-exact ${field} dependency on ${dependencyName}.`
               );
             }
             const key = `${dependencyName}@${dependencyVersion}`;

@@ -16,7 +16,6 @@ From inside `exampleapp`, run:
 
 ```bash
 npx jskit add package console-web
-npm install
 npm run db:migrate
 ```
 

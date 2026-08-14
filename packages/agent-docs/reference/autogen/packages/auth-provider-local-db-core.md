@@ -48,9 +48,3 @@ Exports
 ### `templates/migrations/auth_local_db_initial.cjs`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

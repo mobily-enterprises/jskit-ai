@@ -20,11 +20,11 @@ Rules:
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
 
-## Preserve managed baseline tests
+## Preserve baseline tests
 
-“App-owned” means customizable, not disposable while the package remains
-installed. Never delete or rename a test path recorded in `.jskit/lock.json`.
-Generated and managed infrastructure tests must be adapted in place.
+Generated baseline tests are app-owned and customizable. Adapt infrastructure
+tests in place when routes or behavior change so the baseline coverage remains
+truthful.
 
 When the starter product route is replaced, update the scaffold smoke test to
 visit and assert the new canonical route. Do not delete baseline browser
@@ -82,22 +82,15 @@ The generated config applies that state to Playwright contexts and omits its loc
 
 Do not call `loginAsExistingUser()` against a managed preview. It is deliberately localhost-only. An ordinary request to `/api/dev-auth/login-as` without the private exchange header must return `403`.
 
-## Recording verification
+## Run verification
 
-After the Playwright command succeeds, record it with:
+Run the focused Playwright command directly:
 
 ```bash
-npx jskit app verify-ui \
-  --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
-  --feature "contacts filters" \
-  --auth-mode dev-auth-login-as
+npx playwright test tests/e2e/contacts.spec.ts -g filters
 ```
 
-Use `--auth-mode session-bootstrap` when a managed runner supplied authenticated storage state.
-
-`jskit app verify-ui` runs the command and records its command, auth-mode label, feature, and changed UI files in `.jskit/verification/ui.json`. The auth-mode option describes how the command was authenticated; it does not create a session or modify the Playwright context.
-
-For local pre-merge review, follow the recorded run with:
+For local pre-merge review, follow the focused run with:
 
 ```bash
 npx jskit doctor --against origin/main

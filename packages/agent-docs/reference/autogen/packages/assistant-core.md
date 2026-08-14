@@ -303,9 +303,3 @@ Exports
 ### `src/shared/support/positiveInteger.js`
 Exports
 - `toPositiveInteger(value, fallback = 0)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

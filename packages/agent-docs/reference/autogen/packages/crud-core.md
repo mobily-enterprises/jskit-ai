@@ -371,9 +371,3 @@ Exports
 ### `src/shared/crudResource.js`
 Exports
 - `defineCrudResource`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

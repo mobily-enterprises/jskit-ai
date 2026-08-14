@@ -13,7 +13,6 @@ function parseArgs(argv, { createCliError } = {}) {
       command: "help",
       options: {
         dryRun: false,
-        runNpmInstall: false,
         full: false,
         expanded: false,
         details: false,
@@ -39,7 +38,6 @@ function parseArgs(argv, { createCliError } = {}) {
 
   const options = {
     dryRun: false,
-    runNpmInstall: false,
     full: false,
     expanded: false,
     details: false,
@@ -65,10 +63,6 @@ function parseArgs(argv, { createCliError } = {}) {
 
     if (token === "--dry-run") {
       options.dryRun = true;
-      continue;
-    }
-    if (token === "--run-npm-install") {
-      options.runNpmInstall = true;
       continue;
     }
     if (token === "--full") {
@@ -113,6 +107,10 @@ function parseArgs(argv, { createCliError } = {}) {
     }
     if (token === "--force") {
       options.inlineOptions.force = "true";
+      continue;
+    }
+    if (token === "--check") {
+      options.inlineOptions.check = "true";
       continue;
     }
     if (token === "--install") {

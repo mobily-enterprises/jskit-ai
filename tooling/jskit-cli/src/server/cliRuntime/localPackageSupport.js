@@ -1,11 +1,7 @@
 import { createCliError } from "../shared/cliError.js";
-import {
-  ensureArray,
-  ensureObject,
-  sortStrings
-} from "../shared/collectionUtils.js";
+import { ensureObject } from "../shared/collectionUtils.js";
 
-function resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } = {}) {
+function resolvePackageDependencySpecifier(packageEntry) {
   const source = ensureObject(packageEntry?.source);
   const sourceType = String(source.type || packageEntry?.sourceType || "").trim();
   if (sourceType === "app-local-package" || sourceType === "local-package") {
@@ -18,13 +14,6 @@ function resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } 
   const publishedVersion = String(
     packageEntry?.version || packageEntry?.packageJson?.version || ""
   ).trim();
-  if (sourceType === "npm-installed-package") {
-    const normalizedExisting = String(existingValue || "").trim();
-    if (normalizedExisting) {
-      return normalizedExisting;
-    }
-  }
-
   if (publishedVersion) {
     return normalizeJskitDependencySpecifier(packageEntry?.packageId, publishedVersion);
   }
@@ -37,13 +26,7 @@ function normalizeJskitDependencySpecifier(packageId, dependencySpecifier) {
   if (!normalizedSpecifier || !normalizedPackageId.startsWith("@jskit-ai/")) {
     return normalizedSpecifier;
   }
-
-  const semverMatch = /^(\d+)\.\d+\.\d+(?:[.+-][0-9A-Za-z.-]+)?$/.exec(normalizedSpecifier);
-  if (!semverMatch) {
-    return normalizedSpecifier;
-  }
-
-  return `${semverMatch[1]}.x`;
+  return normalizedSpecifier;
 }
 
 function normalizePackageNameSegment(rawValue, { label = "package name" } = {}) {
@@ -118,144 +101,25 @@ function resolveLocalPackageId({ rawName, appPackageName, inlineOptions }) {
   };
 }
 
-function createLocalPackageDescriptorTemplate({ packageId, description }) {
-  return `export default Object.freeze({
-  packageVersion: 1,
-  packageId: "${packageId}",
-  version: "0.1.0",
-  kind: "runtime",
-  description: ${JSON.stringify(String(description || ""))},
-  dependsOn: [
-    // "@jskit-ai/kernel"
-  ],
-  capabilities: {
-    provides: [
-      // "example.feature"
-    ],
-    requires: [
-      // "example.dependency"
-    ]
-  },
-  options: {
-    // "example-option": {
-    //   required: true,
-    //   promptLabel: "Enter option value",
-    //   promptHint: "Used by mutations.text interpolation",
-    //   defaultValue: "example"
-    // }
-  },
-  runtime: {
-    server: {
-      providers: [
-        // {
-        //   entrypoint: "src/server/providers/ExampleServerProvider.js",
-        //   export: "ExampleServerProvider"
-        // }
-      ]
+function createLocalPackageMetadata() {
+  return {
+    kind: "runtime",
+    capabilities: {
+      provides: [],
+      requires: []
     },
-    client: {
-      providers: [
-        // {
-        //   entrypoint: "src/client/providers/ExampleClientProvider.js",
-        //   export: "ExampleClientProvider"
-        // }
-      ]
-    }
-  },
-  metadata: {
-    server: {
-      routes: [
-        // {
-        //   method: "GET",
-        //   path: "/api/example",
-        //   summary: "Describe server route validator"
-        // }
-      ]
+    runtime: {
+      server: { providers: [] },
+      client: { providers: [] }
     },
-    ui: {
-      routes: [
-        // {
-        //   id: "example.route",
-        //   path: "/example",
-        //   scope: "global",
-        //   name: "example-route",
-        //   componentKey: "example-route",
-        //   autoRegister: true,
-        //   guard: {
-        //     policy: "public"
-        //   },
-        //   purpose: "Describe what this route is for."
-        // }
-      ],
-      elements: [
-        // {
-        //   key: "example-route",
-        //   export: "ExampleView",
-        //   entrypoint: "src/client/views/ExampleView.vue",
-        //   purpose: "UI element exposed by this package."
-        // }
-      ],
-      overrides: [
-        // {
-        //   targetId: "some.existing.route",
-        //   mode: "replace",
-        //   reason: "Explain override intent."
-        // }
-      ]
-    }
-  },
-  mutations: {
-    dependencies: {
-      runtime: {
-        // "@example/runtime-dependency": "^1.0.0"
+    mutations: {
+      dependencies: {
+        runtime: {},
+        dev: {}
       },
-      dev: {
-        // "@example/dev-dependency": "^1.0.0"
-      }
-    },
-    packageJson: {
-      scripts: {
-        // "lint:example": "eslint src/example"
-      }
-    },
-    procfile: {
-      // worker: "node ./bin/worker.js"
-    },
-    vite: {
-      proxy: [
-        // {
-        //   id: "example-socket-proxy",
-        //   path: "/socket.io",
-        //   changeOrigin: true,
-        //   ws: true,
-        //   target: "http://localhost:3000",
-        //   reason: "Explain why this proxy is needed."
-        // }
-      ]
-    },
-    text: [
-      // {
-      //   op: "upsert-env",
-      //   file: ".env",
-      //   key: "EXAMPLE_ENV",
-      //   value: "\${option:example-option}",
-      //   reason: "Explain why this env var is needed.",
-      //   category: "runtime-config",
-      //   id: "example-env"
-      // }
-    ],
-    files: [
-      // {
-      //   from: "templates/src/pages/example/index.vue",
-      //   to: "src/pages/example/index.vue",
-      //   reason: "Explain what is scaffolded.",
-      //   category: "example",
-      //   id: "example-file"
-      // }
-    ]
-  }
-});
-`;
+      files: []
+    }
+  };
 }
 
 function createLocalPackageScaffoldFiles({ packageId, packageDescription }) {
@@ -266,6 +130,7 @@ function createLocalPackageScaffoldFiles({ packageId, packageDescription }) {
         {
           name: packageId,
           version: "0.1.0",
+          description: String(packageDescription || ""),
           private: true,
           type: "module",
           exports: {
@@ -273,18 +138,12 @@ function createLocalPackageScaffoldFiles({ packageId, packageDescription }) {
             "./client": "./src/client/index.js",
             "./server": "./src/server/index.js",
             "./shared": "./src/shared/index.js"
-          }
+          },
+          jskit: createLocalPackageMetadata()
         },
         null,
         2
       )}\n`
-    },
-    {
-      relativePath: "package.descriptor.mjs",
-      content: createLocalPackageDescriptorTemplate({
-        packageId,
-        description: packageDescription
-      })
     },
     {
       relativePath: "src/index.js",
@@ -322,56 +181,12 @@ function createLocalPackageScaffoldFiles({ packageId, packageDescription }) {
         "",
         "## Next Steps",
         "",
-        "- Define runtime providers in `package.descriptor.mjs`.",
+        "- Define JSKIT runtime providers in the `jskit` object in `package.json`.",
         "- Add client/server exports under `src/`.",
-        "- Keep package version in sync with descriptor version.",
         ""
       ].join("\n")
     }
   ];
-}
-
-function resolveLocalDependencyOrder(initialPackageIds, packageRegistry) {
-  const ordered = [];
-  const visited = new Set();
-  const visiting = new Set();
-  const externalDependencies = new Set();
-
-  function visit(packageId, lineage = []) {
-    if (visited.has(packageId)) {
-      return;
-    }
-    if (visiting.has(packageId)) {
-      const cyclePath = [...lineage, packageId].join(" -> ");
-      throw createCliError(`Dependency cycle detected: ${cyclePath}`);
-    }
-
-    const packageEntry = packageRegistry.get(packageId);
-    if (!packageEntry) {
-      throw createCliError(`Unknown package: ${packageId}`);
-    }
-
-    visiting.add(packageId);
-    for (const dependencyId of ensureArray(packageEntry.descriptor.dependsOn).map((value) => String(value))) {
-      if (packageRegistry.has(dependencyId)) {
-        visit(dependencyId, [...lineage, packageId]);
-      } else {
-        externalDependencies.add(dependencyId);
-      }
-    }
-    visiting.delete(packageId);
-    visited.add(packageId);
-    ordered.push(packageId);
-  }
-
-  for (const packageId of initialPackageIds) {
-    visit(packageId);
-  }
-
-  return {
-    ordered,
-    externalDependencies: sortStrings([...externalDependencies])
-  };
 }
 
 export {
@@ -382,6 +197,5 @@ export {
   normalizeRelativePosixPath,
   toFileDependencySpecifier,
   resolveLocalPackageId,
-  createLocalPackageScaffoldFiles,
-  resolveLocalDependencyOrder
+  createLocalPackageScaffoldFiles
 };

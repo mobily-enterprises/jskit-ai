@@ -425,9 +425,3 @@ Local functions
 ### `templates/packages/main/src/server/email/workspaceInviteEmail.js`
 Exports
 - `renderWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

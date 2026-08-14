@@ -47,7 +47,8 @@ test("jskit help app prints app maintenance command help", () => {
   assertMaxLineLength(stdout);
   assert.match(stdout, /Command: app/);
   assert.match(stdout, /jskit app verify/);
-  assert.match(stdout, /adopt-managed-scripts/);
+  assert.match(stdout, /jskit migrations sync/);
+  assert.match(stdout, /jskit ci generate/);
   assert.match(stdout, /jskit app <subcommand> \[help\]/);
 });
 

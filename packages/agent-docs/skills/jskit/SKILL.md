@@ -21,8 +21,8 @@ Discover only a missing fact or exact-command failure, then resume the lane.
 ## Establish context
 
 1. Read the request and nearest `AGENTS.md`.
-2. Inspect `package.json`, `.jskit/lock.json`, the existing tree, and the
-   current diff when reviewing changes.
+2. Inspect `package.json`, `package-lock.json`, installed package metadata, the
+   existing tree, and the current diff when reviewing changes.
 3. Read `.jskit/APP_BLUEPRINT.md` when present; do not invent requirements.
 4. Load only the task-relevant direct reference:
    - For creation, package selection, CLI use, or generators, read
@@ -41,8 +41,8 @@ or permission decisions when they would materially change the application.
 ## Discovery fallback
 
 Use the narrowest CLI query for a missing fact. Prefer existing packages,
-generators, placements, and high-level composables. Never hand-edit
-`.jskit/lock.json` or bypass managed-file lifecycle checks.
+generators, placements, and high-level composables. Generate migration and CI
+projections with their intent-specific commands.
 
 ## Implement a change
 

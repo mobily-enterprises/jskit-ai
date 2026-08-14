@@ -337,7 +337,7 @@ test("resolveInternalRouteOption rejects invalid internal flag values instead of
   );
 });
 
-test("resolveInternalRouteOption does not confuse descriptor defaults with explicit internal flags", () => {
+test("resolveInternalRouteOption does not confuse package metadata defaults with explicit internal flags", () => {
   assert.equal(__testables.resolveInternalRouteOption({}), false);
   assert.equal(__testables.resolveInternalRouteOption({ internal: "" }), false);
   assert.equal(__testables.resolveInternalRouteOption({ internal: false }), false);

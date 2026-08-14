@@ -20,7 +20,6 @@ import {
   loadMutationWhenConfigContext,
   resolveAppRelativePathWithinRoot
 } from "../ioAndMigrations.js";
-import { normalizeRelativePosixPath } from "../localPackageSupport.js";
 import {
   interpolateFileMutationRecord,
   renderTemplateFile,
@@ -33,20 +32,9 @@ async function prepareFileMutations(
   packageEntry,
   options,
   appRoot,
-  fileMutations,
-  existingManagedFiles = []
+  fileMutations
 ) {
   const mutationList = ensureArray(fileMutations);
-  const existingManagedFilesByPath = new Map();
-  for (const managedFileValue of ensureArray(existingManagedFiles)) {
-    const managedFile = ensureObject(managedFileValue);
-    const managedPath = normalizeRelativePosixPath(managedFile.path);
-    if (!managedPath) {
-      continue;
-    }
-    existingManagedFilesByPath.set(managedPath, managedFile);
-  }
-
   const preparedMutations = [];
   for (const [mutationIndex, mutationValue] of mutationList.entries()) {
     const normalizedMutation = normalizeFileMutationRecord(mutationValue);
@@ -144,16 +132,6 @@ async function prepareFileMutations(
 
       for (const targetPath of targetPaths) {
         const relativeTargetPath = normalizeRelativePath(appRoot, targetPath);
-        if (existingManagedFilesByPath.has(relativeTargetPath)) {
-          const existing = await readFileBufferIfExists(targetPath);
-          if (!existing.exists) {
-            throw createCliError(
-              `${packageEntry.packageId}: app-owned file ${relativeTargetPath} is managed in lock but missing on disk. Restore it before updating, or remove and re-add the package intentionally.`
-            );
-          }
-          continue;
-        }
-
         const existing = await readFileBufferIfExists(targetPath);
         if (!existing.exists) {
           continue;
@@ -193,28 +171,14 @@ async function applyFileMutations(
   packageEntry,
   appRoot,
   preparedMutations,
-  managedFiles,
-  managedMigrations,
+  fileChanges,
+  migrationChanges,
   touchedFiles,
   warnings = [],
-  existingManagedFiles = [],
-  {
-    dryRun = false,
-    reapplyManagedAppFiles = false
-  } = {}
+  { dryRun = false } = {}
 ) {
-  const existingManagedFilesByPath = new Map();
-  for (const managedFileValue of ensureArray(existingManagedFiles)) {
-    const managedFile = ensureObject(managedFileValue);
-    const managedPath = normalizeRelativePosixPath(managedFile.path);
-    if (!managedPath) {
-      continue;
-    }
-    existingManagedFilesByPath.set(managedPath, managedFile);
-  }
-
   const managedMigrationById = new Map();
-  for (const managedMigrationValue of ensureArray(managedMigrations)) {
+  for (const managedMigrationValue of ensureArray(migrationChanges)) {
     const managedMigration = ensureObject(managedMigrationValue);
     const migrationId = String(managedMigration.id || "").trim();
     if (!migrationId) {
@@ -231,7 +195,7 @@ async function applyFileMutations(
           packageEntry,
           preparedMutation,
           appRoot,
-          managedMigrations,
+          managedMigrations: migrationChanges,
           managedMigrationById,
           touchedFiles,
           warnings,
@@ -247,37 +211,11 @@ async function applyFileMutations(
     for (const targetPath of ensureArray(preparedMutation.targetPaths)) {
       const relativeTargetPath = normalizeRelativePath(appRoot, targetPath);
       const previous = await readFileBufferIfExists(targetPath);
-      const existingManaged = existingManagedFilesByPath.get(relativeTargetPath);
-      const existingManagedHash = String(existingManaged?.hash || "").trim();
-      const currentContentMatchesManagedVersion =
-        previous.exists &&
-        existingManagedHash &&
-        hashBuffer(previous.buffer) === existingManagedHash;
-      const canSafelyReapplyManagedAppFile =
-        reapplyManagedAppFiles === true &&
-        (!previous.exists || currentContentMatchesManagedVersion);
-
-      if (mutation.ownership === "app" && existingManaged && !canSafelyReapplyManagedAppFile) {
-        managedFiles.push({
-          ...existingManaged,
-          path: relativeTargetPath,
-          ownership: mutation.ownership,
-          preserveOnRemove: mutation.preserveOnRemove,
-          reason: mutation.reason || String(existingManaged.reason || ""),
-          category: mutation.category || String(existingManaged.category || ""),
-          id: mutation.id || String(existingManaged.id || "")
-        });
-        continue;
-      }
-
       if (mutation.ownership === "app" && previous.exists && hashBuffer(previous.buffer) === renderedSourceHash) {
-        managedFiles.push({
+        fileChanges.push({
           path: relativeTargetPath,
           ownership: mutation.ownership,
           hash: renderedSourceHash,
-          hadPrevious: true,
-          previousContentBase64: previous.buffer.toString("base64"),
-          preserveOnRemove: mutation.preserveOnRemove,
           reason: mutation.reason,
           category: mutation.category,
           id: mutation.id
@@ -290,13 +228,10 @@ async function applyFileMutations(
         await writeFile(targetPath, renderedSourceContent, "utf8");
       }
 
-      managedFiles.push({
+      fileChanges.push({
         path: relativeTargetPath,
         ownership: mutation.ownership,
         hash: renderedSourceHash,
-        hadPrevious: previous.exists,
-        previousContentBase64: previous.exists ? previous.buffer.toString("base64") : "",
-        preserveOnRemove: mutation.preserveOnRemove,
         reason: mutation.reason,
         category: mutation.category,
         id: mutation.id

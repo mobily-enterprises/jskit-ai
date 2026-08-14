@@ -82,10 +82,6 @@ Exports
 Exports
 - None
 
-### `templates/base-shell/packages/main/package.descriptor.mjs`
-Exports
-- None
-
 ### `templates/base-shell/packages/main/src/client/index.js`
 Exports
 - `MainClientProvider`
@@ -236,10 +232,6 @@ Exports
 Exports
 - None
 
-### `templates/minimal-shell/packages/main/package.descriptor.mjs`
-Exports
-- None
-
 ### `templates/minimal-shell/packages/main/src/client/index.js`
 Exports
 - `MainClientProvider`
@@ -331,11 +323,5 @@ Exports
 ### bin
 
 ### `bin/jskit-create-app.js`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None

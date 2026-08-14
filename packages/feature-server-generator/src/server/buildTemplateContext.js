@@ -219,29 +219,28 @@ function buildRouteContext({ surface }) {
   });
 }
 
-function buildDescriptorContext({ featureName, mode }) {
+function buildManifestContext({ featureName, mode }) {
   const isJsonRest = mode === "json-rest";
   const isCustomKnex = mode === "custom-knex";
   const isPersistent = isJsonRest || isCustomKnex;
-  const dependsOnLines = [];
+  const dependencyLines = [];
   if (isJsonRest) {
-    dependsOnLines.push('    "@jskit-ai/json-rest-api-core"');
+    dependencyLines.push('    "@jskit-ai/json-rest-api-core": "0.1.92"');
   }
   if (isCustomKnex) {
-    dependsOnLines.push('    "@jskit-ai/database-runtime"');
+    dependencyLines.push('    "@jskit-ai/database-runtime": "0.1.148"');
   }
 
-  const descriptorDependsOnLines = dependsOnLines.length > 0
-    ? `,\n${dependsOnLines.join(",\n")}`
+  const manifestDependencyLines = dependencyLines.length > 0
+    ? `,\n${dependencyLines.join(",\n")}`
     : "";
-  const descriptorRepositoryTokenLine = isPersistent ? `,\n          "feature.${featureName}.repository"` : "";
+  const metadataRepositoryTokenLine = isPersistent ? `,\n          "feature.${featureName}.repository"` : "";
   const lane = isCustomKnex ? "weird-custom" : "default";
 
   return Object.freeze({
-    "__JSKIT_FEATURE_DESCRIPTOR_DEPENDS_ON_LINES__": descriptorDependsOnLines,
-    "__JSKIT_FEATURE_DESCRIPTOR_CAPABILITY_REQUIRES_LINES__": "",
-    "__JSKIT_FEATURE_DESCRIPTOR_REPOSITORY_TOKEN_LINE__": descriptorRepositoryTokenLine,
-    "__JSKIT_FEATURE_DESCRIPTOR_LANE__": lane
+    "__JSKIT_FEATURE_MANIFEST_DEPENDENCY_LINES__": manifestDependencyLines,
+    "__JSKIT_FEATURE_METADATA_REPOSITORY_TOKEN_LINE__": metadataRepositoryTokenLine,
+    "__JSKIT_FEATURE_METADATA_LANE__": lane
   });
 }
 
@@ -267,7 +266,7 @@ async function buildTemplateContext({ options = {} } = {}) {
     ...buildActionsContext({ surface }),
     ...buildServiceContext({ featureName, mode }),
     ...buildRouteContext({ surface }),
-    ...buildDescriptorContext({ featureName, mode })
+    ...buildManifestContext({ featureName, mode })
   });
 }
 

@@ -29,6 +29,7 @@ export default defineConfig({
             { text: "Quickstart", link: "/guide/app-setup/quickstart" },
             { text: "Initial Scaffolding", link: "/guide/app-setup/initial-scaffolding" },
             { text: "Working With The JSKIT CLI", link: "/guide/app-setup/working-with-the-jskit-cli" },
+            { text: "Upgrade guide from Beta 1 to Final Release", link: "/guide/app-setup/upgrade-beta-1-to-final" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
             { text: "Authentication", link: "/guide/app-setup/authentication" },
             { text: "Database Layer", link: "/guide/app-setup/database-layer" },

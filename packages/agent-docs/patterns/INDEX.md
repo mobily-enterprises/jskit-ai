@@ -28,7 +28,7 @@ How to use it:
   - `live-actions.md`
 - ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `usersWebHttpClient`
   - `client-requests.md`
-- playwright, browser test, e2e, ui verification, managed test, `.jskit/lock.json`, authenticated ui test, test auth, dev login as, dev auth bypass
+- playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`
 - generated UI contract, design contract, navigation roles, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
   - `generated-ui-contract-tracking.md`

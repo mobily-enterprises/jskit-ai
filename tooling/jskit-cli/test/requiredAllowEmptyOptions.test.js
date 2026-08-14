@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -52,9 +53,9 @@ async function createMinimalPackage({ appRoot, packageId, optionsSource }) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "${packageId}",
   version: "0.1.0",
   kind: "runtime",
@@ -81,7 +82,7 @@ async function createMinimalPackage({ appRoot, packageId, optionsSource }) {
       }
     ]
   }
-});\n`,
+})\n`,
     "utf8"
   );
 }
@@ -160,12 +161,13 @@ test("add package interpolates upsert-env keys before writing .env", async () =>
   }`
     });
 
-    const descriptorPath = path.join(appRoot, 'packages', 'interpolated-upsert-env-key', 'package.descriptor.mjs');
-    const descriptorSource = await readFile(descriptorPath, 'utf8');
+    const manifestPath = path.join(appRoot, "packages", "interpolated-upsert-env-key", "package.json");
+    const packageJson = JSON.parse(await readFile(manifestPath, "utf8"));
+    packageJson.jskit.mutations.text[0].key = "${option:env-prefix}_REDIS_URL";
     await writeFile(
-      descriptorPath,
-      descriptorSource.replace('key: "REDIS_URL"', 'key: "${option:env-prefix}_REDIS_URL"'),
-      'utf8'
+      manifestPath,
+      `${JSON.stringify(packageJson, null, 2)}\n`,
+      "utf8"
     );
 
     const addResult = runCli({

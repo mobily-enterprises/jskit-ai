@@ -68,9 +68,3 @@ Local functions
 - `buildCapacitorServerBlock(mobileConfig = {})`
 - `buildAppLinkDomainsValue(appLinkDomains = [])`
 - `directoryContainsAnyFiles(directoryPath = "")`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

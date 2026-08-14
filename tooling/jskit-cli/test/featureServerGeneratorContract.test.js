@@ -11,6 +11,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -77,9 +78,9 @@ export { config };
       )}\n`,
       "utf8"
     );
-    await writeFile(
-      path.join(appRoot, "packages", "main", "package.descriptor.mjs"),
-      `export default Object.freeze({
+    await writeJskitPackageMetadata(
+      path.join(appRoot, "packages", "main"),
+      `({
   packageId: "@local/main",
   version: "0.1.0",
   kind: "runtime",
@@ -108,7 +109,7 @@ export { config };
     files: [],
     text: []
   }
-});
+})
 `,
       "utf8"
     );
@@ -178,7 +179,6 @@ test("feature-server-generator json-rest scaffold emits exact inventory and dele
     const packageRoot = path.join(appRoot, "packages", "booking-engine");
     const generatedFiles = await collectRelativeFiles(packageRoot);
     assert.deepEqual(generatedFiles, sortPaths([
-      "package.descriptor.mjs",
       "package.json",
       "src/server/BookingEngineProvider.js",
       "src/server/actions.js",
@@ -250,7 +250,6 @@ test("feature-server-generator orchestrator scaffold emits exact inventory and k
     const packageRoot = path.join(appRoot, "packages", "availability-engine");
     const generatedFiles = await collectRelativeFiles(packageRoot);
     assert.deepEqual(generatedFiles, sortPaths([
-      "package.descriptor.mjs",
       "package.json",
       "src/server/AvailabilityEngineProvider.js",
       "src/server/actions.js",
@@ -310,7 +309,6 @@ test("feature-server-generator custom-knex scaffold emits exact inventory while 
     const packageRoot = path.join(appRoot, "packages", "invoice-rollup");
     const generatedFiles = await collectRelativeFiles(packageRoot);
     assert.deepEqual(generatedFiles, sortPaths([
-      "package.descriptor.mjs",
       "package.json",
       "src/server/InvoiceRollupProvider.js",
       "src/server/actions.js",
@@ -376,9 +374,10 @@ test("feature-server-generator end-to-end scaffolds dedicated feature packages o
 
     const generatedPackageRoot = path.join(appRoot, "packages", "billing-engine");
     const appPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    const lock = JSON.parse(await readFile(path.join(appRoot, ".jskit", "lock.json"), "utf8"));
+    const generatedPackageJson = JSON.parse(await readFile(path.join(generatedPackageRoot, "package.json"), "utf8"));
 
-    assert.equal(await fileExists(path.join(generatedPackageRoot, "package.descriptor.mjs")), true);
+    assert.equal(generatedPackageJson.name, "@local/billing-engine");
+    assert.equal(generatedPackageJson.jskit.kind, "runtime");
     assert.equal(await fileExists(path.join(appRoot, "packages", "main", "billing-engine")), false);
     assert.equal(
       await fileExists(path.join(appRoot, "packages", "main", "src", "server", "BillingEngineProvider.js")),
@@ -386,7 +385,5 @@ test("feature-server-generator end-to-end scaffolds dedicated feature packages o
     );
     assert.deepEqual(await collectRelativeFiles(mainPackageRoot), mainBefore);
     assert.equal(appPackageJson.dependencies["@local/billing-engine"], "file:packages/billing-engine");
-    assert.equal(lock.installedPackages["@local/billing-engine"].source.packagePath, "packages/billing-engine");
-    assert.equal(lock.installedPackages["@local/billing-engine"].source.type, "app-local-package");
   });
 });

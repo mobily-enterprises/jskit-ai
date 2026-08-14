@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -44,10 +45,9 @@ async function writeRuntimePackageWithOptions(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "@demo/runtime",
   version: "0.1.0",
   kind: "runtime",
@@ -68,7 +68,6 @@ async function writeRuntimePackageWithOptions(appRoot) {
       promptHint: "Optional route prefix."
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -94,7 +93,7 @@ async function writeRuntimePackageWithOptions(appRoot) {
     files: [],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -117,10 +116,9 @@ async function writeGeneratorPackageWithExamples(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "@demo/generator",
   version: "0.1.0",
   kind: "generator",
@@ -134,7 +132,6 @@ async function writeGeneratorPackageWithExamples(appRoot) {
       promptHint: "Surface where the generated page will run."
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -180,7 +177,7 @@ async function writeGeneratorPackageWithExamples(appRoot) {
     files: [],
     text: []
   }
-});
+})
 `,
     "utf8"
   );

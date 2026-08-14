@@ -1,7 +1,10 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { importFreshModuleFromAbsolutePath } from "@jskit-ai/kernel/server/support";
+import {
+  collectPackageDependencyIds,
+  createPackageMetadata,
+  discoverInstalledPackages
+} from "@jskit-ai/kernel/server/support";
 import { createCliError } from "../shared/cliError.js";
 import {
   ensureArray,
@@ -21,11 +24,11 @@ import {
   normalizeRelativePath
 } from "./ioAndMigrations.js";
 import {
-  validatePackageDescriptorShape,
-  validateAppLocalPackageDescriptorShape,
+  validatePackageMetadataShape,
+  validateAppLocalPackageMetadataShape,
   createPackageEntry,
   isGeneratorPackageEntry
-} from "./descriptorValidation.js";
+} from "./packageMetadataValidation.js";
 
 function normalizeRelativePosixPath(pathValue) {
   return String(pathValue || "")
@@ -48,20 +51,20 @@ function mergePackageRegistries(...registries) {
   return merged;
 }
 
-function validateBundleDescriptorShape(descriptor, descriptorPath) {
-  const normalized = ensureObject(descriptor);
+function validateBundleMetadataShape(packageMetadata, metadataPath) {
+  const normalized = ensureObject(packageMetadata);
   const bundleId = String(normalized.bundleId || "").trim();
   const version = String(normalized.version || "").trim();
   const packages = ensureArray(normalized.packages).map((value) => String(value));
 
   if (!bundleId) {
-    throw createCliError(`Invalid bundle descriptor at ${descriptorPath}: missing bundleId.`);
+    throw createCliError(`Invalid bundle metadata at ${metadataPath}: missing bundleId.`);
   }
   if (!version) {
-    throw createCliError(`Invalid bundle descriptor at ${descriptorPath}: missing version.`);
+    throw createCliError(`Invalid bundle metadata at ${metadataPath}: missing version.`);
   }
   if (packages.length < 2) {
-    throw createCliError(`Invalid bundle descriptor at ${descriptorPath}: bundles must contain at least two packages.`);
+    throw createCliError(`Invalid bundle metadata at ${metadataPath}: bundles must contain at least two packages.`);
   }
 
   return normalized;
@@ -82,8 +85,7 @@ async function loadAppLocalPackageRegistry(appRoot) {
 
     const packageRoot = path.join(localPackagesRoot, entry.name);
     const packageJsonPath = path.join(packageRoot, "package.json");
-    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-    if (!(await fileExists(packageJsonPath)) || !(await fileExists(descriptorPath))) {
+    if (!(await fileExists(packageJsonPath))) {
       continue;
     }
 
@@ -93,28 +95,31 @@ async function loadAppLocalPackageRegistry(appRoot) {
       throw createCliError(`Invalid app-local package at ${normalizeRelativePath(appRoot, packageRoot)}: package.json missing name.`);
     }
 
-    const descriptorModule = await importFreshModuleFromAbsolutePath(descriptorPath);
-    const descriptor = validateAppLocalPackageDescriptorShape(descriptorModule?.default, descriptorPath, {
+    const rawPackageMetadata = createPackageMetadata(packageJson);
+    if (!rawPackageMetadata) {
+      continue;
+    }
+    const packageMetadata = validateAppLocalPackageMetadataShape(rawPackageMetadata, packageJsonPath, {
       expectedPackageId: packageId,
       fallbackVersion: String(packageJson?.version || "").trim()
     });
 
     const relativeDir = normalizeRelativePath(appRoot, packageRoot);
-    const descriptorRelativePath = normalizeRelativePath(appRoot, descriptorPath);
+    const manifestRelativePath = normalizeRelativePath(appRoot, packageJsonPath);
     registry.set(
       packageId,
       createPackageEntry({
-        packageId: descriptor.packageId,
-        version: descriptor.version,
-        descriptor,
+        packageId: packageMetadata.packageId,
+        version: packageMetadata.version,
+        packageMetadata,
         rootDir: packageRoot,
         relativeDir,
-        descriptorRelativePath,
+        manifestRelativePath,
         packageJson,
         sourceType: "app-local-package",
         source: {
           packagePath: normalizeRelativePosixPath(relativeDir),
-          descriptorPath: descriptorRelativePath
+          manifestPath: manifestRelativePath
         }
       })
     );
@@ -135,41 +140,43 @@ async function loadCatalogPackageRegistry() {
   for (const packageRecord of packageRecords) {
     const record = ensureObject(packageRecord);
     const packageId = String(record.packageId || "").trim();
-    const descriptorPath = `${normalizeRelativePath(CLI_PACKAGE_ROOT, CATALOG_PACKAGES_PATH)}#${packageId || "unknown"}`;
-    const descriptor = validatePackageDescriptorShape(record.descriptor, descriptorPath);
+    const manifestPath = `${normalizeRelativePath(CLI_PACKAGE_ROOT, CATALOG_PACKAGES_PATH)}#${packageId || "unknown"}`;
     if (!packageId) {
-      throw createCliError(`Invalid catalog package entry at ${descriptorPath}: missing packageId.`);
+      throw createCliError(`Invalid catalog package entry at ${manifestPath}: missing packageId.`);
     }
-    if (descriptor.packageId !== packageId) {
-      throw createCliError(
-        `Invalid catalog package entry at ${descriptorPath}: descriptor packageId ${descriptor.packageId} does not match catalog packageId ${packageId}.`
-      );
-    }
-
-    const version = String(record.version || descriptor.version || "").trim();
+    const version = String(record.version || "").trim();
     if (!version) {
-      throw createCliError(`Invalid catalog package entry at ${descriptorPath}: missing version.`);
+      throw createCliError(`Invalid catalog package entry at ${manifestPath}: missing version.`);
     }
+    const packageMetadata = validatePackageMetadataShape({
+      ...ensureObject(record.jskit),
+      packageId,
+      version,
+      ...(String(record.description || "").trim()
+        ? { description: String(record.description).trim() }
+        : {})
+    }, manifestPath);
 
     registry.set(
       packageId,
       createPackageEntry({
         packageId,
         version,
-        descriptor: {
-          ...descriptor,
+        packageMetadata: {
+          ...packageMetadata,
           version
         },
         rootDir: "",
         relativeDir: "",
-        descriptorRelativePath: descriptorPath,
+        manifestRelativePath: manifestPath,
         packageJson: {
+          ...ensureObject(record.packageJson),
           name: packageId,
           version
         },
         sourceType: "catalog",
         source: {
-          descriptorPath
+          manifestPath
         }
       })
     );
@@ -203,31 +210,30 @@ async function loadInstalledNodeModulePackageEntry({ appRoot, packageId }) {
 
   const packageJson = await readJsonFile(packageJsonPath);
   const resolvedPackageId = String(packageJson?.name || "").trim() || normalizedPackageId;
-  const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-  if (!(await fileExists(descriptorPath))) {
+  const packageMetadata = createPackageMetadata(packageJson);
+  if (!packageMetadata) {
     return null;
   }
 
-  const descriptorModule = await importFreshModuleFromAbsolutePath(descriptorPath);
-  const descriptor = validateAppLocalPackageDescriptorShape(descriptorModule?.default, descriptorPath, {
+  const validatedMetadata = validateAppLocalPackageMetadataShape(packageMetadata, packageJsonPath, {
     expectedPackageId: resolvedPackageId,
     fallbackVersion: String(packageJson?.version || "").trim()
   });
   const relativeDir = normalizeRelativePath(appRoot, packageRoot);
-  const descriptorRelativePath = normalizeRelativePath(appRoot, descriptorPath);
+  const manifestRelativePath = normalizeRelativePath(appRoot, packageJsonPath);
 
   return createPackageEntry({
-    packageId: descriptor.packageId,
-    version: descriptor.version,
-    descriptor,
+    packageId: validatedMetadata.packageId,
+    version: validatedMetadata.version,
+    packageMetadata: validatedMetadata,
     rootDir: packageRoot,
     relativeDir,
-    descriptorRelativePath,
+    manifestRelativePath,
     packageJson,
     sourceType: "npm-installed-package",
     source: {
       packagePath: normalizeRelativePosixPath(relativeDir),
-      descriptorPath: descriptorRelativePath
+      manifestPath: manifestRelativePath
     }
   });
 }
@@ -269,7 +275,7 @@ async function hydratePackageRegistryFromInstalledNodeModules({
   appRoot,
   packageRegistry,
   seedPackageIds = [],
-  preferInstalledDescriptors = false
+  preferInstalledPackages = false
 }) {
   const queue = ensureArray(seedPackageIds)
     .map((value) => String(value || "").trim())
@@ -284,10 +290,10 @@ async function hydratePackageRegistryFromInstalledNodeModules({
     visited.add(packageId);
 
     let packageEntry = packageRegistry.get(packageId);
-    const shouldResolveInstalledDescriptor =
+    const shouldResolveInstalledPackage =
       !packageEntry ||
-      (preferInstalledDescriptors && packageEntry.sourceType !== "app-local-package");
-    if (shouldResolveInstalledDescriptor) {
+      (preferInstalledPackages && packageEntry.sourceType !== "app-local-package");
+    if (shouldResolveInstalledPackage) {
       const resolvedEntry = await resolveInstalledNodeModulePackageEntry({
         appRoot,
         packageId
@@ -304,8 +310,7 @@ async function hydratePackageRegistryFromInstalledNodeModules({
       }
     }
 
-    const dependsOn = ensureArray(packageEntry?.descriptor?.dependsOn).map((value) => String(value || "").trim()).filter(Boolean);
-    for (const dependencyId of dependsOn) {
+    for (const dependencyId of collectPackageDependencyIds(packageEntry?.packageJson)) {
       if (!visited.has(dependencyId)) {
         queue.push(dependencyId);
       }
@@ -325,17 +330,65 @@ async function loadBundleRegistry() {
       continue;
     }
 
-    const descriptorPath = path.join(BUNDLES_ROOT, entry.name, "bundle.descriptor.mjs");
-    if (!(await fileExists(descriptorPath))) {
+    const bundlePath = path.join(BUNDLES_ROOT, entry.name, "bundle.json");
+    if (!(await fileExists(bundlePath))) {
       continue;
     }
 
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href);
-    const descriptor = validateBundleDescriptorShape(descriptorModule?.default, descriptorPath);
-    bundles.set(descriptor.bundleId, descriptor);
+    const packageMetadata = validateBundleMetadataShape(await readJsonFile(bundlePath), bundlePath);
+    bundles.set(packageMetadata.bundleId, packageMetadata);
   }
 
   return bundles;
+}
+
+async function loadInstalledAppPackageRegistry(appRoot) {
+  const discoveredPackages = await discoverInstalledPackages({ appRoot });
+  const registry = new Map();
+  for (const discoveredPackage of discoveredPackages) {
+    registry.set(
+      discoveredPackage.packageId,
+      createPackageEntry({
+        packageId: discoveredPackage.packageId,
+        version: discoveredPackage.version,
+        packageMetadata: discoveredPackage.packageMetadata,
+        rootDir: discoveredPackage.packageRoot,
+        relativeDir: normalizeRelativePath(appRoot, discoveredPackage.packageRoot),
+        manifestRelativePath: normalizeRelativePath(appRoot, discoveredPackage.manifestPath),
+        packageJson: discoveredPackage.packageJson,
+        sourceType: discoveredPackage.sourceType === "local-package"
+          ? "app-local-package"
+          : "npm-installed-package",
+        source: {
+          type: discoveredPackage.sourceType === "local-package"
+            ? "app-local-package"
+            : "npm-installed-package",
+          packagePath: normalizeRelativePosixPath(
+            normalizeRelativePath(appRoot, discoveredPackage.sourcePackageRoot)
+          ),
+          manifestPath: normalizeRelativePosixPath(
+            normalizeRelativePath(appRoot, discoveredPackage.manifestPath)
+          )
+        }
+      })
+    );
+  }
+  return registry;
+}
+
+function installedPackageRecordFromRegistry(packageRegistry = new Map()) {
+  return Object.fromEntries(
+    [...packageRegistry.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([packageId, packageEntry]) => [
+        packageId,
+        {
+          packageId,
+          version: String(packageEntry?.version || "").trim(),
+          source: ensureObject(packageEntry?.source)
+        }
+      ])
+  );
 }
 
 export {
@@ -345,5 +398,7 @@ export {
   loadPackageRegistry,
   resolveInstalledNodeModulePackageEntry,
   hydratePackageRegistryFromInstalledNodeModules,
-  loadBundleRegistry
+  loadBundleRegistry,
+  loadInstalledAppPackageRegistry,
+  installedPackageRecordFromRegistry
 };

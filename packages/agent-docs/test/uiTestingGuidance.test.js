@@ -78,10 +78,9 @@ test("UI testing guidance uses private local exchange support and managed storag
   }
 });
 
-test("managed app-owned tests are customizable but not disposable", async () => {
+test("app-owned baseline tests are customizable but remain verified", async () => {
   const relativePaths = [
     "patterns/ui-testing.md",
-    "site/guide/app-setup/working-with-the-jskit-cli.md",
     "skills/jskit/references/ui-operations.md"
   ];
   const sources = await Promise.all(
@@ -90,7 +89,6 @@ test("managed app-owned tests are customizable but not disposable", async () => 
 
   for (const source of sources) {
     assert.match(source, /App-owned.*customizable|“App-owned”.*customizable/is);
-    assert.match(source, /Never delete or rename.*\.jskit\/lock\.json/is);
     assert.match(source, /adapt.*in place/is);
     assert.match(source, /canonical route/is);
     assert.match(source, /Doctor.*missing/is);

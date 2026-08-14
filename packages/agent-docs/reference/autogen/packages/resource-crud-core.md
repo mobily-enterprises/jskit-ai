@@ -43,9 +43,3 @@ Local functions
 - `createDefaultCrudOperations(resource = {})`
 - `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
 - `mergeCrudOperations(defaultOperations = {}, overrides = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

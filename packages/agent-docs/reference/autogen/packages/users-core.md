@@ -283,10 +283,6 @@ Local functions
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `resolveUniqueUsername(baseUsername, usedUsernames)`
 
-### `templates/packages/users-workspace/package.descriptor.mjs`
-Exports
-- None
-
 ### `templates/packages/users-workspace/src/server/actions.js`
 Exports
 - `createActions({ surface } = {})`
@@ -302,10 +298,6 @@ Exports
 - `UsersProvider`
 Local functions
 - `resolveCrudPolicyFromApp(app)`
-
-### `templates/packages/users/package.descriptor.mjs`
-Exports
-- None
 
 ### `templates/packages/users/src/server/actions.js`
 Exports
@@ -338,9 +330,3 @@ Exports
 ### `templates/packages/users/src/shared/userResource.js`
 Exports
 - `resource`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

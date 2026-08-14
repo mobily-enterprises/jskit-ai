@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 import { access, readdir, readFile, writeFile, mkdir } from "node:fs/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -52,8 +52,8 @@ async function collectPackageRoots(packagesRoot) {
     }
 
     const absolute = path.join(packagesRoot, entry.name);
-    const descriptorPath = path.join(absolute, "package.descriptor.mjs");
-    if (await fileExists(descriptorPath)) {
+    const packageJsonPath = path.join(absolute, "package.json");
+    if (await fileExists(packageJsonPath) && Object.keys((await readJson(packageJsonPath)).jskit || {}).length > 0) {
       directories.push(absolute);
       continue;
     }
@@ -64,8 +64,11 @@ async function collectPackageRoots(packagesRoot) {
         continue;
       }
       const nestedAbsolute = path.join(absolute, child.name);
-      const nestedDescriptor = path.join(nestedAbsolute, "package.descriptor.mjs");
-      if (await fileExists(nestedDescriptor)) {
+      const nestedPackageJsonPath = path.join(nestedAbsolute, "package.json");
+      if (
+        await fileExists(nestedPackageJsonPath) &&
+        Object.keys((await readJson(nestedPackageJsonPath)).jskit || {}).length > 0
+      ) {
         directories.push(nestedAbsolute);
       }
     }
@@ -84,31 +87,20 @@ async function buildCatalog({ repoRoot, packagesRoot, outputPath }) {
   const entries = [];
 
   for (const packageRoot of packageRoots) {
-    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
     const packageJsonPath = path.join(packageRoot, "package.json");
-
-    const descriptorModule = await import(pathToFileURL(descriptorPath).href + `?t=${Date.now()}_${Math.random()}`);
-    const descriptor = descriptorModule?.default && typeof descriptorModule.default === "object" ? descriptorModule.default : null;
-    if (!descriptor) {
-      throw new Error(`Invalid descriptor at ${descriptorPath}`);
-    }
-
     const packageJson = await readJson(packageJsonPath);
-    const packageId = String(descriptor.packageId || "").trim();
-    const descriptorVersion = String(descriptor.version || "").trim();
-    const packageJsonName = String(packageJson?.name || "").trim();
-    const packageJsonVersion = String(packageJson?.version || "").trim();
+    const packageId = String(packageJson?.name || "").trim();
+    const version = String(packageJson?.version || "").trim();
+    const jskit = packageJson?.jskit && typeof packageJson.jskit === "object" && !Array.isArray(packageJson.jskit)
+      ? packageJson.jskit
+      : null;
 
     if (!packageId) {
-      throw new Error(`Missing packageId in ${descriptorPath}`);
+      throw new Error(`Missing package name in ${packageJsonPath}`);
     }
-    if (packageJsonName !== packageId) {
-      throw new Error(
-        `Package mismatch in ${packageRoot}: descriptor has ${packageId} but package.json has ${packageJsonName || "(empty)"}`
-      );
+    if (!jskit) {
+      throw new Error(`Missing jskit metadata in ${packageJsonPath}`);
     }
-
-    const version = descriptorVersion || packageJsonVersion;
     if (!version) {
       throw new Error(`Missing version for ${packageId} in ${packageRoot}`);
     }
@@ -116,10 +108,15 @@ async function buildCatalog({ repoRoot, packagesRoot, outputPath }) {
     entries.push({
       packageId,
       version,
-      descriptor: {
-        ...descriptor,
-        version
-      }
+      ...(String(packageJson.description || "").trim()
+        ? { description: String(packageJson.description).trim() }
+        : {}),
+      jskit,
+      packageJson: Object.fromEntries(
+        ["dependencies", "optionalDependencies", "peerDependencies"]
+          .filter((sectionName) => packageJson[sectionName] && typeof packageJson[sectionName] === "object")
+          .map((sectionName) => [sectionName, packageJson[sectionName]])
+      )
     });
   }
 

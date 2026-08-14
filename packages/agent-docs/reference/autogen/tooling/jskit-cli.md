@@ -50,22 +50,16 @@ Exports
 - `directoryLooksLikeJskitAppRoot(directoryPath)`
 - `resolveAppRootFromCwd(cwd)`
 - `loadAppPackageJson(appRoot)`
-- `createDefaultLock()`
-- `loadLockFile(appRoot)`
-- `createManagedPackageJsonChange(hadPrevious, previousValue, value)`
 - `ensurePackageJsonSection(packageJson, sectionName)`
 - `applyPackageJsonField(packageJson, sectionName, key, value)`
 - `removePackageJsonField(packageJson, sectionName, key)`
-- `restorePackageJsonField(packageJson, sectionName, key, managedChange)`
 - `parseEnvLineValue(line, key)`
 - `upsertEnvValue(content, key, value)`
-- `removeEnvValue(content, key, expectedValue, previous)`
-- `writeJsonFile`
 
 ### `src/server/cliRuntime/capabilitySupport.js`
 Exports
 - `listDeclaredCapabilities(capabilitiesSection, fieldName)`
-- `buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependsOn = [], provides = [], requires = [] })`
+- `buildCapabilityDetailsForPackage({ packageRegistry, packageId, dependencies = [], provides = [], requires = [] })`
 - `validatePlannedCapabilityClosure(plannedPackageIds, packageRegistry, actionLabel)`
 Local functions
 - `buildCapabilityGraph(packageRegistry)`
@@ -93,7 +87,7 @@ Exports
 - `normalizeCiContribution(value, context = {})`
 Local functions
 - `isPlainObject(value)`
-- `invalidCiContract(message, { descriptorPath = "", packageId = "" } = {})`
+- `invalidCiContract(message, { metadataPath = "", packageId = "" } = {})`
 - `requirePlainObject(value, label, context)`
 - `rejectUnknownKeys(value, allowedKeys, label, context)`
 - `normalizeCiScalar(value, label, context)`
@@ -107,8 +101,6 @@ Local functions
 Exports
 - `GENERATED_WORKFLOW_HEADER`
 - `JSKIT_CI_WORKFLOW_RELATIVE_PATH`
-- `LEGACY_CI_WORKFLOW_RELATIVE_PATH`
-- `LEGACY_VERIFY_WORKFLOW_HASH`
 - `buildGithubWorkflowDocument(model = {})`
 - `parseGithubWorkflow(source = "")`
 - `renderGithubServiceOptions(service = {})`
@@ -119,28 +111,14 @@ Local functions
 
 ### `src/server/cliRuntime/ci/managedWorkflow.js`
 Exports
-- `assertAppManagedCiWorkflowUnmodified({ appRoot })`
-- `assertManagedCiWorkflowUnmodified({ appRoot, lock, allowManagedOverwrite = false })`
-- `composeInstalledPackageCi({ lock, packageRegistry, installedPackageIds = null })`
-- `synchronizeAppCiWorkflow({ appRoot, allowManagedOverwrite = false, dryRun = false })`
-- `synchronizeManagedCiWorkflow({ appRoot, lock, packageRegistry, installedPackageIds = null, touchedFiles = null, dryRun = false, allowManagedOverwrite = false })`
-- `validateAppCiWorkflow({ appRoot })`
-- `validateManagedCiWorkflow({ appRoot, lock, packageRegistry })`
+- `assertAppCiCanSynchronize({ appRoot })`
+- `composeInstalledPackageCi({ packageRegistry, installedPackageIds = null })`
+- `synchronizeAppCiWorkflow({ appRoot, dryRun = false })`
+- `synchronizeCiWorkflow({ appRoot, packageRegistry, installedPackageIds = null, touchedFiles = null, dryRun = false })`
 Local functions
-- `contentHash(content = "")`
-- `collectInstalledPackageEntries({ lock, packageRegistry, installedPackageIds = null })`
-- `managedCiRecord(lock = {})`
-- `setManagedCiRecord(lock, record)`
-- `recoveryError(message, { force = false } = {})`
-- `inspectWorkflowOwnership({ appRoot, lock })`
-- `createValidationIssue(code, message, details = {})`
-- `formatRequirementPackages(packageIds = [])`
-- `describeCiRequirements(model = {})`
-- `normalizeActualEnvironment(value)`
-- `collectEnvironmentIssues({ expected, actual, sources, issues })`
-- `collectServiceIssues({ model, verifyJob, issues })`
-- `collectStepIssues({ model, verifyJob, issues })`
-- `loadAppCiContext(appRoot)`
+- `collectInstalledPackageEntries({ packageRegistry, installedPackageIds = null })`
+- `inspectCiFiles(appRoot)`
+- `assertCiCanSynchronize({ appRoot })`
 
 ### `src/server/cliRuntime/completion.js`
 Exports
@@ -159,13 +137,11 @@ Local functions
 - `resolveAllowedValues(schema = {})`
 - `ensureTrailingSlash(value = "")`
 - `pathExists(targetPath)`
-- `readJsonFile(filePath)`
 - `safeReaddir(directoryPath)`
 - `walkDirectory(rootPath, { includeDirectories = false, includeFiles = true, fileFilter = null } = {})`
-- `importDefaultModule(modulePath)`
 - `loadCommandCatalog()`
 - `isDirectoryLike(entry)`
-- `discoverDescriptorPackages(appRoot)`
+- `discoverJskitPackages(appRoot)`
 - `discoverBundleIds(appRoot)`
 - `toShortPackageId(packageId = "")`
 - `discoverGenerators(appRoot)`
@@ -198,19 +174,6 @@ Local functions
 - `completeGenerateCommand({ appRoot, words, cword, catalogModule })`
 - `completeCommand({ appRoot, words, cword, catalogModule })`
 
-### `src/server/cliRuntime/descriptorValidation.js`
-Exports
-- `validatePackageDescriptorShape(descriptor, descriptorPath)`
-- `validateAppLocalPackageDescriptorShape(descriptor, descriptorPath, { expectedPackageId = "", fallbackVersion = "" } = {})`
-- `createPackageEntry({ packageId, version, descriptor, rootDir = "", relativeDir = "", descriptorRelativePath = "", packageJson = {}, sourceType = "", source = {} })`
-- `isGeneratorPackageEntry(packageEntry)`
-Local functions
-- `normalizePackageKind(rawValue, descriptorPath)`
-- `validateFileMutationShape(descriptor, descriptorPath)`
-- `validateSourceMutationShape(descriptor, descriptorPath)`
-- `validateLifecycleHookSpec(spec = {}, descriptorPath, label = "lifecycle hook")`
-- `validateLifecycleShape(descriptor, descriptorPath)`
-
 ### `src/server/cliRuntime/ioAndMigrations.js`
 Exports
 - `buildFileWriteGroups(fileMutations, { packageId = "" } = {})`
@@ -237,7 +200,7 @@ Local functions
 
 ### `src/server/cliRuntime/localPackageSupport.js`
 Exports
-- `resolvePackageDependencySpecifier(packageEntry, { existingValue = "" } = {})`
+- `resolvePackageDependencySpecifier(packageEntry)`
 - `normalizePackageNameSegment(rawValue, { label = "package name" } = {})`
 - `normalizeScopeName(rawScope)`
 - `resolveDefaultLocalScopeFromAppName(appPackageName)`
@@ -245,10 +208,14 @@ Exports
 - `toFileDependencySpecifier(relativePath)`
 - `resolveLocalPackageId({ rawName, appPackageName, inlineOptions })`
 - `createLocalPackageScaffoldFiles({ packageId, packageDescription })`
-- `resolveLocalDependencyOrder(initialPackageIds, packageRegistry)`
 Local functions
 - `normalizeJskitDependencySpecifier(packageId, dependencySpecifier)`
-- `createLocalPackageDescriptorTemplate({ packageId, description })`
+- `createLocalPackageMetadata()`
+
+### `src/server/cliRuntime/migrationSync.js`
+Exports
+- `packageHasInstallMigrations(packageEntry = {})`
+- `synchronizeInstalledMigrations(ctx = {}, { appRoot = "", check = false } = {})`
 
 ### `src/server/cliRuntime/mutationApplication.js`
 Exports
@@ -256,15 +223,13 @@ Exports
 - `prepareFileMutations`
 - `applyTextMutations`
 - `partitionPreFileConfigTextMutations`
-- `resolvePositioningMutations`
 - `applySourceMutations`
 - `partitionPreFileConfigSourceMutations`
-- `resolvePositioningSourceMutations`
 
 ### `src/server/cliRuntime/mutations/fileMutations.js`
 Exports
-- `applyFileMutations(packageEntry, appRoot, preparedMutations, managedFiles, managedMigrations, touchedFiles, warnings = [], existingManagedFiles = [], { dryRun = false, reapplyManagedAppFiles = false } = {})`
-- `prepareFileMutations(packageEntry, options, appRoot, fileMutations, existingManagedFiles = [])`
+- `applyFileMutations(packageEntry, appRoot, preparedMutations, fileChanges, migrationChanges, touchedFiles, warnings = [], { dryRun = false } = {})`
+- `prepareFileMutations(packageEntry, options, appRoot, fileMutations)`
 
 ### `src/server/cliRuntime/mutations/installMigrationMutation.js`
 Exports
@@ -278,7 +243,6 @@ Exports
 Exports
 - `applySourceMutations(packageEntry, appRoot, sourceMutations, options, managedSource, touchedFiles, { dryRun = false } = {})`
 - `partitionPreFileConfigSourceMutations(sourceMutations = [])`
-- `resolvePositioningSourceMutations(descriptorMutations = {})`
 Local functions
 - `createSourceFile(relativeFile, sourceText)`
 - `normalizeSourceText(value = "")`
@@ -297,7 +261,6 @@ Local functions
 - `ensureExportConst(sourceText, relativeFile, mutation, options, packageId, mutationId)`
 - `applySourceMutationToContent(sourceText, relativeFile, mutation, options, packageId)`
 - `createManagedSourceRecord(relativeFile, mutation)`
-- `isPositioningSourceMutation(value = {})`
 - `isPreFileConfigSourceMutation(value = {})`
 
 ### `src/server/cliRuntime/mutations/surfaceTargets.js`
@@ -319,9 +282,7 @@ Exports
 Exports
 - `applyTextMutations(packageEntry, appRoot, textMutations, options, managedText, touchedFiles, { dryRun = false } = {})`
 - `partitionPreFileConfigTextMutations(textMutations = [])`
-- `resolvePositioningMutations(descriptorMutations = {})`
 Local functions
-- `isPositioningTextMutation(value = {})`
 - `isPreFileConfigTextMutation(value = {})`
 
 ### `src/server/cliRuntime/mutationWhen.js`
@@ -342,18 +303,14 @@ Local functions
 
 ### `src/server/cliRuntime/packageInstallFlow.js`
 Exports
-- `adoptAppLocalPackageDependencies({ appRoot, appPackageJson, lock })`
-- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, lock, packageRegistry, touchedFiles, reportTemplateFetchStatus = null, dryRun = false })`
-- `applyPackageMigrationsOnly({ packageEntry, packageOptions, appRoot, lock, touchedFiles, dryRun = false })`
-- `applyPackagePositioning({ packageEntry, packageOptions, appRoot, lock, touchedFiles, dryRun = false })`
+- `applyPackageInstall({ packageEntry, packageOptions, appRoot, appPackageJson, packageRegistry, touchedFiles, directInstall = false, dryRun = false })`
+- `applyStatelessPackageMigrations({ packageEntry, packageOptions = {}, appRoot, touchedFiles, dryRun = false })`
 Local functions
-- `createManagedRecordBase(packageEntry, options)`
-- `cloneManagedMap(value = {})`
-- `cloneManagedArray(value = [])`
+- `createMutationResult(packageEntry)`
+- `recordPackageJsonChange(result, sectionName, key, value)`
 - `normalizeModeToken(value = "")`
 - `isWorkspaceCapableTenancyMode(value = "")`
 - `collectInstallWarnings({ packageEntry, appRoot, appPackageJson })`
-- `resolveManagedSourceRecord(packageEntry, existingInstall = {})`
 - `dependencyMutationUsesWhen(entries = [])`
 
 ### `src/server/cliRuntime/packageIntrospection.js`
@@ -402,11 +359,24 @@ Local functions
 - `collectConstTokenAssignments(source)`
 - `resolveTokenFromExpression(expression, constAssignments, visited = new Set())`
 
+### `src/server/cliRuntime/packageMetadataValidation.js`
+Exports
+- `validatePackageMetadataShape(packageMetadata, metadataPath)`
+- `validateAppLocalPackageMetadataShape(packageMetadata, metadataPath, { expectedPackageId = "", fallbackVersion = "" } = {})`
+- `createPackageEntry({ packageId, version, packageMetadata, rootDir = "", relativeDir = "", manifestRelativePath = "", packageJson = {}, sourceType = "", source = {} })`
+- `isGeneratorPackageEntry(packageEntry)`
+Local functions
+- `normalizePackageKind(rawValue, metadataPath)`
+- `validateFileMutationShape(packageMetadata, metadataPath)`
+- `validateSourceMutationShape(packageMetadata, metadataPath)`
+- `validateLifecycleHookSpec(spec = {}, metadataPath, label = "lifecycle hook")`
+- `validateLifecycleShape(packageMetadata, metadataPath)`
+
 ### `src/server/cliRuntime/packageOptions.js`
 Exports
 - `normalizeSurfaceIdForMutation(value = "")`
 - `parseSurfaceIdListForMutation(value = "")`
-- `resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "" } = {})`
+- `resolvePackageOptions(packageEntry, inlineOptions, io, { appRoot = "", onPrompt = null } = {})`
 - `validateInlineOptionsForPackage(packageEntry, inlineOptions)`
 - `validateInlineOptionValuesForPackage(packageEntry, inlineOptions, { appRoot = "", optionNames = null } = {})`
 Local functions
@@ -433,44 +403,33 @@ Exports
 - `loadAppLocalPackageRegistry(appRoot)`
 - `loadPackageRegistry()`
 - `resolveInstalledNodeModulePackageEntry({ appRoot, packageId })`
-- `hydratePackageRegistryFromInstalledNodeModules({ appRoot, packageRegistry, seedPackageIds = [], preferInstalledDescriptors = false })`
+- `hydratePackageRegistryFromInstalledNodeModules({ appRoot, packageRegistry, seedPackageIds = [], preferInstalledPackages = false })`
 - `loadBundleRegistry()`
+- `loadInstalledAppPackageRegistry(appRoot)`
+- `installedPackageRecordFromRegistry(packageRegistry = new Map())`
 Local functions
 - `normalizeRelativePosixPath(pathValue)`
-- `validateBundleDescriptorShape(descriptor, descriptorPath)`
+- `validateBundleMetadataShape(packageMetadata, metadataPath)`
 - `loadCatalogPackageRegistry()`
 - `loadInstalledNodeModulePackageEntry({ appRoot, packageId })`
 
 ### `src/server/cliRuntime/packageTemplateResolution.js`
 Exports
-- `buildCatalogPackageCacheInstallArgs(packageSpec)`
-- `cleanupMaterializedPackageRoots()`
-- `materializeCatalogPackageRoot({ packageEntry, appRoot, reportTemplateFetchStatus = null, installCatalogPackage = installCatalogPackageIntoCache } = {})`
-- `resolvePackageTemplateRoot({ packageEntry, appRoot, reportTemplateFetchStatus = null, materializeCatalogRoot = materializeCatalogPackageRoot } = {})`
+- `cleanupPackageRootCaches()`
+- `resolvePackageTemplateRoot({ packageEntry, appRoot } = {})`
 Local functions
-- `isInternalCatalogPackageEntry(packageEntry = {})`
-- `encodePackageCacheSegment(value = "")`
-- `buildMaterializedCacheKey(packageEntry = {})`
-- `buildMaterializedInstallRoot({ appRoot, packageEntry })`
-- `ensureMaterializedInstallWorkspace(installRoot)`
-- `installCatalogPackageIntoCache({ installRoot, packageEntry })`
+- `hasJskitPackageManifest(packageRoot)`
 - `resolvePackageRootFromNodeModules({ appRoot, packageId })`
 - `loadLocalWorkspacePackageIdIndex()`
 - `resolvePackageRootFromLocalWorkspace({ packageId })`
 
-### `src/server/cliRuntime/sensitiveLockState.js`
+### `src/server/cliRuntime/sensitiveOptions.js`
 Exports
 - `collectOptionReferences(value = "")`
 - `isSensitiveEnvKey(key = "")`
-- `isSensitiveManagedTextRecord({ packageEntry = {}, record = {} } = {})`
 - `isSensitivePackageOption(packageEntry = {}, optionName = "")`
 - `isSensitiveTextMutation({ packageEntry = {}, mutation = {}, resolvedKey = "" } = {})`
-- `resolveSensitiveOptionEnvFallbacks({ packageEntry = {}, appRoot = "", optionInput = {}, readFileBufferIfExists, environment = process.env } = {})`
-- `sanitizeInstalledPackageRecordForLock(record = {}, packageEntry = {})`
-- `sanitizeLockSecretsForWrite(lock = {}, packageRegistry = null)`
-- `sanitizeManagedTextForLock(packageEntry = {}, managedText = {})`
-- `sanitizePackageOptionsForLock(packageEntry = {}, options = {})`
-- `sanitizePackageOptionsForResolve(packageEntry = {}, options = {})`
+- `resolveOptionEnvFallbacks({ packageEntry = {}, appRoot = "", optionInput = {}, readFileBufferIfExists, environment = process.env } = {})`
 Local functions
 - `isSensitiveName(value = "")`
 - `textValueReferencesSensitiveOption(packageEntry = {}, value = "")`
@@ -488,7 +447,6 @@ Exports
 - `writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null, { dryRun = false } = {})`
 - `normalizeViteProxyMutationRecord(value = {})`
 - `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles, { dryRun = false } = {})`
-- `removeManagedViteProxyEntries({ appRoot, packageId, managedViteChanges = {}, touchedFiles = null, dryRun = false } = {})`
 
 ### `src/server/commandHandlers/app.js`
 Exports
@@ -499,40 +457,10 @@ Local functions
 ### `src/server/commandHandlers/appCommandCatalog.js`
 Exports
 - `APP_SCRIPT_WRAPPERS`
-- `COPIED_APP_SCRIPT_VALUES`
-- `COPIED_APP_SCRIPT_FILES`
 - `APP_COMMAND_DEFINITIONS`
 - `listAppCommandDefinitions()`
 - `resolveAppCommandDefinition(rawName = "")`
 - `buildAppCommandOptionMeta(subcommandName = "")`
-
-### `src/server/commandHandlers/appCommands/adoptManagedScripts.js`
-Exports
-- `runAppAdoptManagedScriptsCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
-Local functions
-- `shouldRewriteScript(currentValue = "", scriptName = "", force = false)`
-
-### `src/server/commandHandlers/appCommands/migrateSourceMutations.js`
-Exports
-- `buildCrudFormFieldPushMigration(sourceText = "")`
-- `buildMainClientProviderMigration(sourceText = "")`
-- `runAppMigrateSourceMutationsCommand(_ctx = {}, { appRoot = "", options = {}, stdout })`
-Local functions
-- `createSourceFile(sourceText = "")`
-- `readStringLiteralValue(node)`
-- `readRegisterMainClientComponentToken(statement)`
-- `escapeRegExp(value = "")`
-- `findMatchingDelimiter(sourceText = "", openIndex = -1, openChar = "(", closeChar = ")")`
-- `readLineIndent(sourceText = "", index = 0)`
-- `readFormFieldKey(sourceText = "")`
-- `readFormFieldKeys(sourceText = "")`
-- `formatArrayEntry(entrySource = "", indent = " ")`
-- `findFormFieldArrayDeclaration(sourceText = "", arrayName = "")`
-- `findLineRangeContaining(sourceText = "", searchText = "", { afterIndex = -1 } = {})`
-- `findFormFieldPushCalls(sourceText = "", arrayName = "")`
-- `buildArrayContentWithAddedEntries(existingContent = "", entries = [], indent = "", { marker = "" } = {})`
-- `applyTextReplacements(sourceText = "", replacements = [])`
-- `collectCrudFormFieldCandidateFiles(appRoot = "")`
 
 ### `src/server/commandHandlers/appCommands/previewIdentity.js`
 Exports
@@ -575,24 +503,17 @@ Exports
 Local functions
 - `ensureCommandSucceeded(result, label, { createCliError, cwd = "", stdout, stderr, quiet = false } = {})`
 
-### `src/server/commandHandlers/appCommands/syncCi.js`
-Exports
-- `runAppSyncCiCommand(ctx = {}, { appRoot = "", options = {}, stdout })`
-
 ### `src/server/commandHandlers/appCommands/updatePackages.js`
 Exports
-- `collectChangedInstalledPackageIds(lock = {}, latestVersions = new Map())`
 - `findRangeIntersectionVersion(ranges = [])`
 - `formatElapsedTime(elapsedMilliseconds = 0)`
 - `resolveRequiredDirectPeerUpdates({ createCliError, packageJson = {}, packageManifests = new Map() } = {})`
-- `reapplyChangedInstalledPackages({ appRoot, createCliError, dryRun, latestVersions, loadLockFile, stderr, stdout })`
 - `runAppUpdatePackagesCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 - `runWithProgress(task, { activity, progressIntervalMs = PROGRESS_INTERVAL_MS, stdout, step } = {})`
 Local functions
 - `collectJskitPackageNames(packageMap = {})`
 - `collectManifestJskitPackageNames(packageJson = {})`
 - `resolveExactVersion(packageName = "", rawVersion = "", createCliError)`
-- `resolveMajorRange(packageName = "", version = "", createCliError)`
 - `resolveRegistryArgs(registryUrl = "")`
 - `resolveInstallSpecs(packageNames = [], latestVersions = new Map())`
 - `parseRegistryPackageManifest(rawValue, packageName, createCliError)`
@@ -600,23 +521,18 @@ Local functions
 - `resolveDeclaredDependencySection(packageJson = {}, packageName = "")`
 - `hasNpmWorkspaces(packageJson = {})`
 - `readJson(filePath)`
-- `readOptionalFile(filePath)`
 - `resolveWorkspaceDirectories({ appRoot, createCliError, packageJson, stderr, stdout })`
-- `descriptorJskitPackageNames(source = "")`
+- `collectJskitMutationPackageNames(packageJson = {})`
 - `loadWorkspacePackages(workspaceDirectories = [])`
 - `resolveLatestVersions(packageNames = [], latestVersions = new Map(), { appRoot, createCliError, registryArgs, stderr, stdout })`
 - `updateWorkspaceManifest(packageJson = {}, latestVersions = new Map(), createCliError)`
-- `updateWorkspaceDescriptor(source = "", latestVersions = new Map(), createCliError)`
 - `synchronizeWorkspacePackageSpecs({ appRoot, createCliError, dryRun, latestVersions, packageJson, registryArgs, stderr, stdout })`
 - `updateRootPackages({ appRoot, createCliError, dryRun, latestVersions, packageJson, registryArgs, stderr, stdout })`
+- `assertRootJskitVersionsAreExact({ appRoot, createCliError, latestVersions })`
 
 ### `src/server/commandHandlers/appCommands/verify.js`
 Exports
 - `runAppVerifyCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
-
-### `src/server/commandHandlers/appCommands/verifyUi.js`
-Exports
-- `runAppVerifyUiCommand(ctx = {}, { appRoot = "", options = {}, stdout, stderr })`
 
 ### `src/server/commandHandlers/blueprint.js`
 Exports
@@ -673,7 +589,6 @@ Local functions
 - `appendUnmappedConcreteTargetWarnings(lines, { color, concreteTargets = [] } = {})`
 - `appendSemanticPlacementGroups(lines, { color, semanticPlacements = [], concreteTargets = [], showLayoutDetails = false } = {})`
 - `readFileIfExists(filePath = "")`
-- `resolveDescriptorFromLockEntry({ appRoot = "", packageId = "", installedPackageEntry = {} } = {})`
 - `collectProviderSourceFiles(rootPath = "")`
 
 ### `src/server/commandHandlers/mobile.js`
@@ -693,8 +608,6 @@ Local functions
 - `resolveAndroidDeviceTarget({ ctx, appRoot, explicitTarget = "", commandLabel = "this mobile command" } = {})`
 - `resolveInstalledMobileConfigForCommand({ appRoot, createCliError } = {})`
 - `runLocalBinary(binaryName, args = [], { appRoot, cwd = appRoot, env = {}, stderr, stdout, pathModule, createCliError, dryRun = false } = {})`
-- `hasPackageDependency(packageJson = {}, packageId = "")`
-- `readJsonFileForMobileCommand(filePath = "", label = "", createCliError)`
 - `assertMobileRuntimePackageInstalled({ ctx, appRoot } = {})`
 - `refreshManagedMobileFiles({ ctx, appRoot, options = {}, stdout } = {})`
 - `runMobileSyncAndroidCommand({ ctx, appRoot, options = {}, stdout, stderr })`
@@ -761,13 +674,19 @@ Exports
 
 ### `src/server/commandHandlers/packageCommands/add.js`
 Exports
+- `orderRuntimePackagesForConfiguration(packageRegistry, requestedPackageIds, resolvePackageKind)`
 - `runPackageAddCommand(ctx = {}, { positional, options, cwd, io })`
 Local functions
-- `collectPlacementComponentTokensFromManagedRecords(installedPackageRecords = [])`
+- `resolveAvailablePackageSource({ packageEntry, appRoot })`
+- `withResolvedPackageSource({ packageEntry, packageRoot, appRoot })`
+- `declareDirectPackageDependency({ packageEntry, packageJson, packageKind })`
+- `serializeDependencyState(packageJson = {})`
+- `collectPlannedRuntimePackageIds({ packageJson, packageRegistry, targetPackageIds, resolvePackageKind })`
+- `collectPlacementComponentTokensFromMutationResults(mutationResults = [])`
 - `renderWrappedShellCommand(binaryName, args = [], { maxWidth = 100, continuationIndent = " " } = {})`
 - `runLocalProjectBinary(binaryName, args = [], { appRoot, io, pathModule = path, createCliError, explanation = "", dryRun = false } = {})`
 - `installAppDependenciesForHook({ appRoot, io, pathModule = path, createCliError, dryRun = false } = {})`
-- `resolvePackageOptionInputForInstall({ packageEntry, existingInstall, packageInlineOptions, appRoot, readFileBufferIfExists })`
+- `resolvePackageOptionInputForInstall({ packageEntry, packageInlineOptions, appRoot, readFileBufferIfExists })`
 - `validateHookResult(result = {}, { packageId = "", hookLabel = "" } = {})`
 - `loadInstallHook({ packageEntry, appRoot, hookSpec, hookLabel = "" } = {})`
 - `createInstallHookHelpers({ ctx, appRoot, io, appPackageJson } = {})`
@@ -779,16 +698,8 @@ Exports
 
 ### `src/server/commandHandlers/packageCommands/createMigration.js`
 Exports
-- `addInstallMigrationMutationToDescriptor(source = "", mutation = {})`
 - `createMigrationTemplate({ packageId, migrationId } = {})`
 - `runMigrationCreateCommand(ctx = {}, { options, cwd, io })`
-Local functions
-- `maskNonCode(source = "")`
-- `findMatchingDelimiter(source, openIndex, openCharacter, closeCharacter)`
-- `findMutationsFilesArray(source = "")`
-- `lineIndentAt(source = "", index = 0)`
-- `renderInstallMigrationMutation({ from, id, indent } = {})`
-- `writeMigrationSourceAndDescriptor({ descriptorPath, descriptorSource, migrationPath, migrationSource, mkdir, rename, rm, writeFile, path } = {})`
 
 ### `src/server/commandHandlers/packageCommands/discoverabilityHelp.js`
 Exports
@@ -828,20 +739,12 @@ Exports
 Local functions
 - `resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "")`
 - `resolveSubcommandRequiresShellWeb(packageEntry = {}, subcommandName = "")`
-- `mapDescriptorBackedSubcommandArgsToInlineOptions(packageEntry = {}, subcommandName = "", subcommandArgs = [], inlineOptions = {}, createCliError)`
+- `mapPackageMetadataBackedSubcommandArgsToInlineOptions(packageEntry = {}, subcommandName = "", subcommandArgs = [], inlineOptions = {}, createCliError)`
 - `resolveSubcommandRequiresInput(packageEntry = {}, subcommandName = "")`
 - `collectUnexpectedGeneratorSubcommandOptionNames(packageEntry = {}, subcommandName = "", inlineOptions = {})`
 - `resolveCreateTargetPolicy(packageEntry = {}, subcommandName = "")`
 - `normalizeRelativePathWithinApp(appRoot = "", targetPath = "", createCliError)`
-- `enforceDescriptorBackedCreateTargetPolicy({ packageEntry, subcommandName, inlineOptions = {}, appRoot = "", packageIdInput = "", createCliError, readdir } = {})`
-
-### `src/server/commandHandlers/packageCommands/migrations.js`
-Exports
-- `runPackageMigrationsCommand(ctx = {}, { positional, options, cwd, io })`
-
-### `src/server/commandHandlers/packageCommands/position.js`
-Exports
-- `runPackagePositionCommand(ctx = {}, { positional, options, cwd, io })`
+- `enforcePackageMetadataBackedCreateTargetPolicy({ packageEntry, subcommandName, inlineOptions = {}, appRoot = "", packageIdInput = "", createCliError, readdir } = {})`
 
 ### `src/server/commandHandlers/packageCommands/remove.js`
 Exports
@@ -865,10 +768,6 @@ Local functions
 - `hasProvisionedTokenRegistration(providerSource = "", componentToken = "")`
 - `loadMainClientProviderSource({ appRoot = "", createCliError, componentToken = "" } = {})`
 - `ensureProvisionedProviderRegistration(definition, { appRoot = "", createCliError, dryRun = false, touchedFiles = new Set() } = {})`
-
-### `src/server/commandHandlers/packageCommands/update.js`
-Exports
-- `runPackageUpdateCommand(ctx = {}, { positional, options, cwd, io }, { runCommandAdd })`
 
 ### `src/server/commandHandlers/shared.js`
 Exports
@@ -912,6 +811,12 @@ Local functions
 - `resolveOwnershipGuidance(payload = {})`
 - `renderDependencyMutationSpec(versionSpec)`
 
+### `src/server/commandHandlers/synchronization.js`
+Exports
+- `createSynchronizationCommands(ctx = {})`
+Local functions
+- `parseIntentInvocation({ positional = [], options = {}, createCliError, commandName, intent })`
+
 ### `src/server/core/argParser.js`
 Exports
 - `parseArgs(argv, { createCliError } = {})`
@@ -934,8 +839,6 @@ Local functions
 - `isHelpToken(value = "")`
 - `canDelegateAddInlineOptions(positional = [])`
 - `canDelegateGenerateInlineOptions(positional = [])`
-- `canDelegateMigrationsInlineOptions(positional = [])`
-- `canDelegatePackageTargetInlineOptions(positional = [], expectedTargetType = "")`
 - `sortOptionLabels(labels = [])`
 
 ### `src/server/core/createCliRunner.js`
@@ -948,7 +851,7 @@ Exports
 
 ### `src/server/core/dispatchCli.js`
 Exports
-- `createRunCli({ parseArgs, printUsage, shouldShowCommandHelpOnBareInvocation, validateCommandOptions, resolveCommandDescriptor, commandHandlers, cleanupMaterializedPackageRoots, createCliError } = {})`
+- `createRunCli({ parseArgs, printUsage, shouldShowCommandHelpOnBareInvocation, validateCommandOptions, resolveCommandDescriptor, commandHandlers, cleanupPackageRootCaches, createCliError } = {})`
 
 ### `src/server/core/usageHelp.js`
 Exports
@@ -1004,7 +907,6 @@ Exports
 Exports
 - `runCli`
 - `synchronizeAppCiWorkflow`
-- `validateAppCiWorkflow`
 - `composeCiContributions`
 - `JSKIT_CI_WORKFLOW_RELATIVE_PATH`
 - `renderGithubWorkflow`
@@ -1074,35 +976,8 @@ Exports
 Local functions
 - `resolveCatalogPackagesPath()`
 
-### `src/server/shared/uiVerification.js`
-Exports
-- `UI_VERIFICATION_AUTH_MODES`
-- `UI_VERIFICATION_RECEIPT_RELATIVE_PATH`
-- `UI_VERIFICATION_RECEIPT_VERSION`
-- `UI_VERIFICATION_RUNNER`
-- `isUiVerificationAuthMode(value = "")`
-- `isUiVerificationPath(relativePath = "")`
-- `isValidUiVerificationReceipt(receipt)`
-- `normalizeUiVerificationReceipt(rawReceipt = {})`
-- `resolveChangedPathsFromGit(appRoot = "", { against = "", pathspecs = ["src", "packages"] } = {})`
-- `resolveChangedUiFilesFromGit(appRoot = "", { against = "" } = {})`
-- `sortUniqueStrings(values = [])`
-Local functions
-- `normalizeText(value = "")`
-- `readGitPathList(appRoot = "", args = [])`
-
 ### bin
 
 ### `bin/jskit.js`
-Exports
-- None
-
-### bundles
-
-### `bundles/auth-base/bundle.descriptor.mjs`
-Exports
-- None
-
-### `bundles/auth-local/bundle.descriptor.mjs`
 Exports
 - None

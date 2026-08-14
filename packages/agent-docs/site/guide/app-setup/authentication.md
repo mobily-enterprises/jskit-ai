@@ -27,7 +27,6 @@ From inside `exampleapp`, run:
 ```bash
 npx jskit add package auth-provider-local-core
 npx jskit add package auth-web
-npm install
 ```
 
 These package installs add the provider-neutral auth core, the auth web layer, and the local provider. They give the app working register, login, logout, session, and password recovery flows without requiring an external auth service.
@@ -496,9 +495,9 @@ The first new place to inspect is `package.json`:
     "build:auth": "VITE_SURFACE=auth vite build"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.x",
-    "@jskit-ai/auth-provider-local-core": "0.x",
-    "@jskit-ai/auth-web": "0.x"
+    "@jskit-ai/auth-core": "0.1.146",
+    "@jskit-ai/auth-provider-local-core": "0.1.49",
+    "@jskit-ai/auth-web": "0.1.148"
   }
 }
 ```
@@ -1055,22 +1054,15 @@ The storage-state file is a secret because it can contain authenticated cookies.
 
 Tests using managed state do not call `loginAsExistingUser()`. They begin with the runner-provided identity already present and navigate using relative paths. An ordinary browser or proxy request to `/api/dev-auth/login-as` without the private header must continue to fail with `403 Dev auth exchange is not authorized.`
 
-#### Recording the result
+#### Running the verification
 
-After the actual Playwright flow succeeds, record it through JSKIT:
+Run the focused Playwright flow directly:
 
 ```bash
-npx jskit app verify-ui \
-  --command "npx playwright test tests/e2e/contacts.spec.ts -g filters" \
-  --feature "contacts filters" \
-  --auth-mode dev-auth-login-as
+npx playwright test tests/e2e/contacts.spec.ts -g filters
 ```
 
-Use `--auth-mode session-bootstrap` when a managed runner supplied authenticated storage state.
-
-`jskit app verify-ui` executes the command and records the command, auth-mode label, feature, and changed UI files. The `--auth-mode` value describes how the Playwright command was authenticated. It does not create a session, inject a secret, or alter the browser context.
-
-For local pre-merge review, follow the recorded run with:
+For local pre-merge review, follow the focused run with:
 
 ```bash
 npx jskit doctor --against origin/main

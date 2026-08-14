@@ -131,9 +131,3 @@ Local functions
 ### `src/server/providers/AuthProviderServiceProvider.js`
 Exports
 - `AuthProviderServiceProvider`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

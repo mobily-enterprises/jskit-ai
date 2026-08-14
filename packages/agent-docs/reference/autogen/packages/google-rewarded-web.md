@@ -63,9 +63,3 @@ Exports
 ### `src/shared/index.js`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, cp, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, constants as fsConstants, cp, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { compileScript, compileTemplate, parse as parseVueSfc } from "@vue/compiler-sfc";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeInstalledPackagesLock } from "./testLock.js";
+import { declareInstalledPackages } from "./testInstalledPackages.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -18,9 +18,25 @@ const RESOURCE_CRUD_CORE_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "resourc
 const JSON_REST_SCHEMA_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../node_modules/json-rest-schema/package.json", import.meta.url))
 );
-const runCli = createCliRunner(CLI_PATH);
+const invokeCli = createCliRunner(CLI_PATH);
+
+function runCli(options = {}) {
+  const appRoot = String(options.cwd || "");
+  return invokeCli({
+    ...options,
+    env: {
+      ...process.env,
+      ...(options.env || {}),
+      PATH: `${path.join(appRoot, ".test-bin")}:${process.env.PATH || ""}`
+    }
+  });
+}
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
+  const fakeNpmPath = path.join(appRoot, ".test-bin", "npm");
+  await mkdir(path.dirname(fakeNpmPath), { recursive: true });
+  await writeFile(fakeNpmPath, "#!/usr/bin/env node\n", "utf8");
+  await chmod(fakeNpmPath, 0o755);
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
   await mkdir(path.join(appRoot, "packages", "main", "src", "client", "providers"), { recursive: true });
@@ -168,7 +184,7 @@ export {
     "utf8"
   );
 
-  await writeInstalledPackagesLock(appRoot, {
+  await declareInstalledPackages(appRoot, {
     "@jskit-ai/shell-web": {
       packageId: "@jskit-ai/shell-web",
       version: "0.1.0"
@@ -447,20 +463,18 @@ test("generate @jskit-ai/crud-ui-generator adds delete confirmation only when re
       viewPageSource,
       /import \{ useCrudDeleteAction \} from "@jskit-ai\/users-web\/client\/composables\/useCrudDeleteAction";/
     );
-    assert.match(viewPageSource, /import \{ mdiDeleteOutline \} from "@mdi\/js";/);
-    assert.match(viewPageSource, /:prepend-icon="mdiDeleteOutline"/);
-    assert.doesNotMatch(viewPageSource, /mdi-delete-outline/);
+    assert.match(
+      viewPageSource,
+      /import CrudDeleteAction from "@jskit-ai\/users-web\/client\/components\/CrudDeleteAction";/
+    );
+    assert.match(viewPageSource, /<CrudDeleteAction/);
+    assert.match(viewPageSource, /:action="deleteAction"/);
     assert.match(viewPageSource, /const UI_RECORD_ID_PARAM = "noteId";/);
     assert.match(viewPageSource, /const UI_VIEW_API_URL = `\$\{UI_API_BASE_URL\}\/\:\$\{UI_RECORD_ID_PARAM\}`;/);
     assert.match(viewPageSource, /const deleteAction = useCrudDeleteAction\(\{/);
     assert.match(viewPageSource, /resource: uiResource/);
     assert.match(viewPageSource, /apiUrlTemplate: UI_VIEW_API_URL/);
-    assert.match(viewPageSource, /role="alertdialog"/);
-    assert.match(viewPageSource, /deleteAction\.request/);
-    assert.match(viewPageSource, /deleteAction\.isDeleting/);
-    assert.match(viewPageSource, /deleteAction\.error/);
-    assert.match(viewPageSource, /deleteAction\.confirm/);
-    assert.match(viewPageSource, />\s*Cancel\s*</);
+    assert.doesNotMatch(viewPageSource, /<v-dialog|\bactivator=|mdiDeleteOutline/);
     assert.doesNotMatch(viewPageSource, /\bfetch\s*\(/);
     assert.doesNotMatch(viewPageSource, /users-web\/src\/|\/internal\//);
     assert.doesNotMatch(viewPageSource, /__JSKIT_UI_/);
@@ -804,9 +818,6 @@ test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target r
 `,
       "utf8"
     );
-    const lockPath = path.join(appRoot, ".jskit", "lock.json");
-    const lockBefore = await readFile(lockPath, "utf8");
-
     const result = runCli({
       cwd: appRoot,
       args: [
@@ -826,8 +837,6 @@ test("generate @jskit-ai/crud-ui-generator refuses a non-empty existing target r
       String(result.stderr || ""),
       /crud-ui-generator crud will not overwrite existing target root src\/pages\/admin\/products\. Re-run with --force to overwrite it\./
     );
-    assert.equal(await readFile(lockPath, "utf8"), lockBefore);
-
     const listPageSource = await readFile(path.join(appRoot, "src/pages/admin/products/index.vue"), "utf8");
     assert.match(listPageSource, /custom products page/);
   });

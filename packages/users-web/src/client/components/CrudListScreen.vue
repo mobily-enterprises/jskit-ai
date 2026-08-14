@@ -486,7 +486,7 @@ function setSelectableRowsSelected(selected = true) {
     width: 100%;
   }
 
-  .ui-generator-list-header__actions :deep(.v-btn) {
+  .ui-generator-list-element :deep(.v-btn) {
     min-height: 48px;
   }
 

@@ -27,7 +27,6 @@ From inside `exampleapp`, run:
 
 ```bash
 npx jskit add package assistant-runtime
-npm install
 npm run db:migrate
 ```
 

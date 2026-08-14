@@ -22,6 +22,9 @@ const RESOURCE_CORE_PACKAGE_DIR = path.dirname(
 const RESOURCE_CRUD_CORE_PACKAGE_DIR = path.dirname(
   fileURLToPath(new URL("../../../packages/resource-crud-core/package.json", import.meta.url))
 );
+const SHELL_WEB_PACKAGE_DIR = path.dirname(
+  fileURLToPath(new URL("../../../packages/shell-web/package.json", import.meta.url))
+);
 const runCli = createCliRunner(CLI_PATH);
 const withCreateAppTempDir = (run) => withTempDir(run, { prefix: "jskit-create-app-" });
 
@@ -49,12 +52,17 @@ async function linkTestPackage(nodeModulesDir, packageName, packageDir) {
 async function writeCrudCustomerResource(appRoot) {
   const resourcePath = path.join(appRoot, "packages", "customers", "src", "shared", "customerResource.js");
   const nodeModulesDir = path.join(appRoot, "node_modules");
+  const appPackageJsonPath = path.join(appRoot, "package.json");
+  const appPackageJson = JSON.parse(await readFile(appPackageJsonPath, "utf8"));
+  appPackageJson.dependencies["@jskit-ai/resource-crud-core"] = `file:${RESOURCE_CRUD_CORE_PACKAGE_DIR}`;
+  await writeFile(appPackageJsonPath, `${JSON.stringify(appPackageJson, null, 2)}\n`, "utf8");
   await mkdir(path.dirname(resourcePath), { recursive: true });
   await mkdir(nodeModulesDir, { recursive: true });
   await linkTestPackage(nodeModulesDir, "json-rest-schema", JSON_REST_SCHEMA_PACKAGE_DIR);
   await linkTestPackage(nodeModulesDir, "@jskit-ai/kernel", KERNEL_PACKAGE_DIR);
   await linkTestPackage(nodeModulesDir, "@jskit-ai/resource-core", RESOURCE_CORE_PACKAGE_DIR);
   await linkTestPackage(nodeModulesDir, "@jskit-ai/resource-crud-core", RESOURCE_CRUD_CORE_PACKAGE_DIR);
+  await linkTestPackage(nodeModulesDir, "@jskit-ai/shell-web", SHELL_WEB_PACKAGE_DIR);
   await writeFile(
     resourcePath,
     `import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
@@ -156,9 +164,9 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.equal(packageJson.scripts["jskit:update"], "jskit app update-packages");
     assert.equal(packageJson.dependencies["@local/main"], "file:packages/main");
     assert.equal(packageJson.dependencies["@fastify/static"], "^9.1.3");
-    assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.x$/);
+    assert.match(packageJson.dependencies["@jskit-ai/http-runtime"], /^\d+\.\d+\.\d+$/);
     assert.equal(packageJson.dependencies["@mdi/js"], "^7.4.47");
-    assert.match(packageJson.dependencies["@jskit-ai/shell-web"], /^\d+\.x$/);
+    assert.match(packageJson.dependencies["@jskit-ai/shell-web"], /^\d+\.\d+\.\d+$/);
     assert.equal(
       Object.keys(packageJson.dependencies).some((entry) => entry.includes("type-provider") && entry.includes("fastify")),
       false
@@ -190,19 +198,14 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
 
     const gitignore = await readFile(path.join(appRoot, ".gitignore"), "utf8");
     assert.match(gitignore, /node_modules\//);
-    assert.match(gitignore, /\.jskit\/verification\//);
     assert.match(gitignore, /src\/typed-router\.d\.ts/);
     await assert.rejects(access(path.join(appRoot, "src/typed-router.d.ts")), /ENOENT/);
 
-    const verifyWorkflow = await readFile(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"), "utf8");
-    assert.match(verifyWorkflow, /Generated and managed by JSKIT/);
-    assert.match(verifyWorkflow, /node-version: 26/u);
-    assert.match(verifyWorkflow, /npm_config_engine_strict: "true"/u);
-    assert.match(verifyWorkflow, /npm_config_strict_allow_scripts: "true"/u);
-    assert.match(verifyWorkflow, /run: npm run verify/);
-    assert.doesNotMatch(verifyWorkflow, /jskit app verify --against/);
-    assert.doesNotMatch(verifyWorkflow, /jskit app verify-ui/);
-    await assert.rejects(access(path.join(appRoot, ".github", "workflows", "verify.yml")), /ENOENT/);
+    await assert.rejects(
+      access(path.join(appRoot, ".github", "workflows", "jskit-verify.yml")),
+      /ENOENT/
+    );
+    assert.match(result.stdout, /npx jskit ci generate/u);
 
     const indexHtml = await readFile(path.join(appRoot, "index.html"), "utf8");
     assert.match(indexHtml, /<title>Sample App<\/title>/);
@@ -332,16 +335,22 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     await assert.rejects(access(path.join(appRoot, "packages/main/src/server/services/index.js")), /ENOENT/);
     await assert.rejects(access(path.join(appRoot, "packages/main/src/server/routes/index.js")), /ENOENT/);
 
-    const localMainDescriptor = await readFile(path.join(appRoot, "packages/main/package.descriptor.mjs"), "utf8");
-    assert.match(localMainDescriptor, /packageId:\s*"@local\/main"/);
-    assert.match(localMainDescriptor, /description:\s*"App-local main composition and glue scaffold\."/);
-    assert.match(localMainDescriptor, /providerEntrypoint:\s*"src\/server\/MainServiceProvider\.js"/);
-    assert.match(localMainDescriptor, /entrypoint:\s*"src\/server\/MainServiceProvider\.js"/);
-    assert.match(localMainDescriptor, /export:\s*"MainServiceProvider"/);
-    assert.match(localMainDescriptor, /title:\s*"App-local main lane"/);
-    assert.match(localMainDescriptor, /feature-server-generator scaffold booking-engine/);
-    assert.match(localMainDescriptor, /entrypoint:\s*"src\/client\/providers\/MainClientProvider\.js"/);
-    assert.match(localMainDescriptor, /export:\s*"MainClientProvider"/);
+    const localMainPackage = JSON.parse(await readFile(path.join(appRoot, "packages/main/package.json"), "utf8"));
+    assert.equal(localMainPackage.name, "@local/main");
+    assert.equal(localMainPackage.description, "App-local main composition and glue scaffold.");
+    assert.equal(localMainPackage.jskit.runtime.server.providerEntrypoint, "src/server/MainServiceProvider.js");
+    assert.deepEqual(localMainPackage.jskit.runtime.server.providers, [
+      { entrypoint: "src/server/MainServiceProvider.js", export: "MainServiceProvider" }
+    ]);
+    assert.deepEqual(localMainPackage.jskit.runtime.client.providers, [
+      { entrypoint: "src/client/providers/MainClientProvider.js", export: "MainClientProvider" }
+    ]);
+    assert.equal(localMainPackage.jskit.metadata.jskit.ownershipGuidance.title, "App-local main lane");
+    assert.ok(
+      localMainPackage.jskit.metadata.jskit.ownershipGuidance.examples.includes(
+        "jskit generate feature-server-generator scaffold booking-engine"
+      )
+    );
 
     const localMainClientEntrypoint = await readFile(path.join(appRoot, "packages/main/src/client/index.js"), "utf8");
     assert.match(localMainClientEntrypoint, /MainClientProvider/);
@@ -365,32 +374,6 @@ test("create-app scaffolds the base shell with placeholder replacements", async 
     assert.doesNotMatch(localMainClientProvider, /String\(componentToken \|\| ""\)\.trim\(\)/);
     assert.doesNotMatch(localMainClientProvider, /Object\.freeze\(\{\s*token,\s*resolveComponent\s*\}\)/);
     assert.doesNotMatch(localMainClientProvider, /requires application singleton/);
-
-    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
-    assert.equal(lockfile.managed.ciWorkflow.path, ".github/workflows/jskit-verify.yml");
-    assert.match(lockfile.managed.ciWorkflow.hash, /^[a-f0-9]{64}$/u);
-    assert.ok(lockfile.installedPackages["@local/main"]);
-    assert.equal(lockfile.installedPackages["@local/main"].source.type, "local-package");
-    assert.equal(lockfile.installedPackages["@local/main"].source.packagePath, "packages/main");
-    assert.equal(lockfile.installedPackages["@local/main"].source.descriptorPath, "packages/main/package.descriptor.mjs");
-    assert.ok(lockfile.installedPackages["@jskit-ai/shell-web"]);
-    assert.equal(lockfile.installedPackages["@jskit-ai/shell-web"].source.type, "catalog");
-    assert.equal(
-      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.dependencies["@jskit-ai/shell-web"].value,
-      "0.x"
-    );
-    assert.equal(
-      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.devDependencies["@playwright/test"].value,
-      "1.61.1"
-    );
-    assert.equal(
-      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.devDependencies["@playwright/test"].previousValue,
-      "1.61.1"
-    );
-    assert.equal(
-      lockfile.installedPackages["@jskit-ai/shell-web"].managed.packageJson.devDependencies["@playwright/test"].hadPrevious,
-      true
-    );
 
     const notFoundView = await readFile(path.join(appRoot, "src/views/NotFound.vue"), "utf8");
     assert.match(notFoundView, /The page you requested does not exist\./);
@@ -713,15 +696,12 @@ test("create-app applies explicit app title when --title is provided", async () 
   });
 });
 
-test("generated default shell app passes jskit doctor and keeps minimal Procfile", async () => {
+test("generated default shell app keeps the minimal runtime shape", async () => {
   await withCreateAppTempDir(async (cwd) => {
     const createResult = runCli({ cwd, args: ["shell-only-app"] });
     assert.equal(createResult.status, 0, createResult.stderr);
 
     const appRoot = path.join(cwd, "shell-only-app");
-    const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
-    assert.equal(doctorResult.status, 0, doctorResult.stderr);
-
     const procfile = await readFile(path.join(appRoot, "Procfile"), "utf8");
     assert.equal(procfile, "release: npm run db:migrate\nweb: npm run start\n");
     await assert.rejects(access(path.join(appRoot, "framework")), /ENOENT/);
@@ -769,13 +749,10 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
       "vue-demi@0.14.10": true
     });
     assert.equal(await readFile(path.join(appRoot, ".nvmrc"), "utf8"), "26\n");
-    const verifyWorkflowBefore = await readFile(
-      path.join(appRoot, ".github", "workflows", "jskit-verify.yml"),
-      "utf8"
+    await assert.rejects(
+      access(path.join(appRoot, ".github", "workflows", "jskit-verify.yml")),
+      /ENOENT/
     );
-    assert.match(verifyWorkflowBefore, /node-version: 26/u);
-    assert.match(verifyWorkflowBefore, /npm_config_engine_strict: "true"/u);
-    assert.match(verifyWorkflowBefore, /npm_config_strict_allow_scripts: "true"/u);
     assert.equal(packageJsonBefore.dependencies["@jskit-ai/shell-web"], undefined);
     assert.equal(packageJsonBefore.dependencies["json-rest-schema"], "^1.0.17");
     assert.equal(packageJsonBefore.dependencies["vue-router"], "^5.1.0");
@@ -808,12 +785,11 @@ test("create-app minimal mode keeps the bare scaffold and can still install shel
     assert.equal(addShellWebResult.status, 0, addShellWebResult.stderr);
 
     const packageJsonAfter = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
     const appVue = await readFile(path.join(appRoot, "src/App.vue"), "utf8");
     const homeViewAfter = await readFile(path.join(appRoot, "src/pages/home/index.vue"), "utf8");
 
-    assert.match(packageJsonAfter.dependencies["@jskit-ai/shell-web"], /^\d+\.x$/);
-    assert.ok(lockfile.installedPackages["@jskit-ai/shell-web"]);
+    assert.match(packageJsonAfter.dependencies["@jskit-ai/shell-web"], /^file:/);
+    await access(path.join(appRoot, ".github", "workflows", "jskit-verify.yml"));
     assert.match(appVue, /ShellErrorHost/);
     assert.match(homeViewAfter, /home-surface-screen/);
     await access(path.join(appRoot, "src/components/ShellLayout.vue"));
@@ -903,211 +879,5 @@ test("fresh app CRUD scaffolds encode explicit M3 action hierarchy and stable se
     assert.match(addEditFormSource, /CrudAddEditScreen/);
     assert.match(addEditFormSource, /#fields=/);
     assert.match(viteConfigSource, /routesFolder:\s*"src\/pages"/);
-  });
-});
-
-test("workspaces-web workspace tenancy mode installs workspace surfaces and wrappers", async () => {
-  await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["users-workspace-app", "--tenancy-mode", "workspaces"] });
-    assert.equal(createResult.status, 0, createResult.stderr);
-
-    const appRoot = path.join(cwd, "users-workspace-app");
-
-    const addProviderResult = runJskit({
-      cwd: appRoot,
-      args: [
-        "add",
-        "package",
-        "auth-provider-supabase-core",
-        "--auth-supabase-url",
-        "https://example.supabase.co",
-        "--auth-supabase-publishable-key",
-        "sb_publishable_example",
-        "--app-public-url",
-        "http://localhost:5173"
-      ]
-    });
-    assert.equal(addProviderResult.status, 0, addProviderResult.stderr);
-
-    const addDatabaseDriverResult = runJskit({
-      cwd: appRoot,
-      args: [
-        "add",
-        "package",
-        "database-runtime-postgres",
-        "--db-name",
-        "app_db",
-        "--db-user",
-        "app_user",
-        "--db-password",
-        "app_password"
-      ]
-    });
-    assert.equal(addDatabaseDriverResult.status, 0, addDatabaseDriverResult.stderr);
-
-    const addWorkspacesWebResult = runJskit({
-      cwd: appRoot,
-      args: ["add", "package", "workspaces-web"]
-    });
-    assert.equal(addWorkspacesWebResult.status, 0, addWorkspacesWebResult.stderr);
-
-    const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
-    const appWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug].vue"), "utf8");
-    const adminWrapper = await readFile(path.join(appRoot, "src/pages/w/[workspaceSlug]/admin.vue"), "utf8");
-    const accountRootPage = await readFile(path.join(appRoot, "src/pages/account/index.vue"), "utf8");
-    await assert.rejects(access(path.join(appRoot, "src/pages/account/settings/index.vue")), /ENOENT/);
-    const placement = await readFile(path.join(appRoot, "src/placement.js"), "utf8");
-    const mainClientProvider = await readFile(
-      path.join(appRoot, "packages/main/src/client/providers/MainClientProvider.js"),
-      "utf8"
-    );
-    const accountSettingsInvitesSection = await readFile(
-      path.join(appRoot, "packages/main/src/client/components/AccountSettingsInvitesSection.vue"),
-      "utf8"
-    );
-    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    const accountPendingInvitesCue = await readFile(
-      path.join(appRoot, "packages/main/src/client/components/AccountPendingInvitesCue.vue"),
-      "utf8"
-    );
-
-    assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
-    assert.match(homeWrapper, /"surface":\s*"home"/);
-    assert.match(adminWrapper, /@\/components\/ShellLayout\.vue/);
-    assert.match(adminWrapper, /"surface":\s*"admin"/);
-    assert.match(appWrapper, /@\/components\/ShellLayout\.vue/);
-    assert.match(appWrapper, /"surface":\s*"app"/);
-    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
-    assert.match(publicConfig, /config\.surfaceDefinitions\.home = \{/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.admin = \{/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.app = \{/);
-    assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]"/);
-    assert.match(publicConfig, /pagesRoot:\s*"w\/\[workspaceSlug\]\/admin"/);
-    assert.match(publicConfig, /config\.surfaceDefinitions\.account = \{/);
-    assert.match(accountRootPage, /<AccountSettingsClientElement \/>/);
-    assert.match(
-      accountRootPage,
-      /import AccountSettingsClientElement from "@jskit-ai\/users-web\/client\/components\/AccountSettingsClientElement";/
-    );
-    assert.doesNotMatch(accountRootPage, /components\/account\/settings\/AccountSettingsClientElement\.vue/);
-    await assert.rejects(
-      access(path.join(appRoot, "src/components/account/settings/AccountSettingsClientElement.vue")),
-      /ENOENT/
-    );
-    assert.match(placement, /id:\s*"workspaces\.account\.invites\.cue"/);
-    assert.match(placement, /componentToken:\s*"local\.main\.account\.pending-invites\.cue"/);
-    assert.match(placement, /id:\s*"workspaces\.account\.settings\.invites"/);
-    assert.match(placement, /target:\s*"settings\.sections"/);
-    assert.match(placement, /owner:\s*"account-settings"/);
-    assert.match(placement, /componentToken:\s*"local\.main\.account-settings\.section\.invites"/);
-    assert.match(mainClientProvider, /import AccountPendingInvitesCue from "\.\.\/components\/AccountPendingInvitesCue\.vue";/);
-    assert.match(
-      mainClientProvider,
-      /import AccountSettingsInvitesSection from "\.\.\/components\/AccountSettingsInvitesSection\.vue";/
-    );
-    assert.match(
-      mainClientProvider,
-      /registerMainClientComponent\("local\.main\.account\.pending-invites\.cue", \(\) => AccountPendingInvitesCue\);/
-    );
-    assert.match(
-      mainClientProvider,
-      /registerMainClientComponent\("local\.main\.account-settings\.section\.invites", \(\) => AccountSettingsInvitesSection\);/
-    );
-    assert.match(accountPendingInvitesCue, /section:\s*"invites"/);
-    assert.match(
-      accountSettingsInvitesSection,
-      /@jskit-ai\/workspaces-web\/client\/components\/AccountSettingsInvitesSection/
-    );
-    assert.match(packageJson.dependencies["@jskit-ai/workspaces-core"], /^\d+\.x$/);
-    assert.match(packageJson.dependencies["@jskit-ai/workspaces-web"], /^\d+\.x$/);
-    assert.equal(packageJson.scripts["server:account"], "SERVER_SURFACE=account node ./bin/server.js");
-    assert.equal(packageJson.scripts["server:app"], "SERVER_SURFACE=app node ./bin/server.js");
-    assert.equal(packageJson.scripts["server:admin"], "SERVER_SURFACE=admin node ./bin/server.js");
-    assert.equal(packageJson.scripts["dev:account"], "VITE_SURFACE=account vite");
-    assert.equal(packageJson.scripts["dev:app"], "VITE_SURFACE=app vite");
-    assert.equal(packageJson.scripts["dev:admin"], "VITE_SURFACE=admin vite");
-    await assert.rejects(access(path.join(appRoot, "src/pages/console.vue")), /ENOENT/);
-  });
-});
-
-test("generated default shell app supports auth progressive installation", async () => {
-  await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["shell-auth-app"] });
-    assert.equal(createResult.status, 0, createResult.stderr);
-
-    const appRoot = path.join(cwd, "shell-auth-app");
-    const publicConfigPath = path.join(appRoot, "config/public.js");
-    const publicConfig = await readFile(publicConfigPath, "utf8");
-    await writeFile(publicConfigPath, `${publicConfig}\nconfig.tenancyMode = "workspaces";\n`, "utf8");
-
-    const addLocalProviderResult = runJskit({
-      cwd: appRoot,
-      args: ["add", "package", "auth-provider-local-core"]
-    });
-    assert.equal(addLocalProviderResult.status, 0, addLocalProviderResult.stderr);
-
-    const addAuthWebResult = runJskit({
-      cwd: appRoot,
-      args: ["add", "package", "auth-web"]
-    });
-    assert.equal(addAuthWebResult.status, 0, addAuthWebResult.stderr);
-
-    const doctorResult = runJskit({ cwd: appRoot, args: ["doctor"] });
-    assert.equal(doctorResult.status, 0, doctorResult.stderr);
-
-    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
-    assert.ok(lockfile.installedPackages["@jskit-ai/auth-provider-local-core"]);
-    assert.ok(lockfile.installedPackages["@jskit-ai/auth-web"]);
-    const packageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
-    assert.equal(packageJson.scripts["server:auth"], "SERVER_SURFACE=auth node ./bin/server.js");
-    assert.equal(packageJson.scripts["dev:auth"], "VITE_SURFACE=auth vite");
-    assert.equal(packageJson.scripts["build:auth"], "VITE_SURFACE=auth vite build");
-    assert.match(packageJson.dependencies["@jskit-ai/auth-provider-local-core"], /^\d+\.x$/);
-    assert.match(packageJson.dependencies["@jskit-ai/auth-core"], /^\d+\.x$/);
-    assert.match(packageJson.dependencies["@jskit-ai/auth-web"], /^\d+\.x$/);
-
-    const homeWrapper = await readFile(path.join(appRoot, "src/pages/home.vue"), "utf8");
-    assert.match(homeWrapper, /@\/components\/ShellLayout\.vue/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/app.vue")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/admin.vue")), /ENOENT/);
-  });
-});
-
-test("crud-core keeps a public shell free of users and auth application mutations", async () => {
-  await withCreateAppTempDir(async (cwd) => {
-    const createResult = runCli({ cwd, args: ["public-crud-app", "--tenancy-mode", "none"] });
-    assert.equal(createResult.status, 0, createResult.stderr);
-
-    const appRoot = path.join(cwd, "public-crud-app");
-    const addCrudResult = runJskit({
-      cwd: appRoot,
-      args: ["add", "package", "crud-core"]
-    });
-    assert.equal(addCrudResult.status, 0, addCrudResult.stderr);
-
-    const lockfile = JSON.parse(await readFile(path.join(appRoot, ".jskit/lock.json"), "utf8"));
-    assert.ok(lockfile.installedPackages["@jskit-ai/crud-core"]);
-    for (const packageId of [
-      "@jskit-ai/users-core",
-      "@jskit-ai/users-web",
-      "@jskit-ai/auth-core",
-      "@jskit-ai/auth-web",
-      "@jskit-ai/auth-provider-local-core",
-      "@jskit-ai/auth-provider-supabase-core"
-    ]) {
-      assert.equal(lockfile.installedPackages[packageId], undefined, `${packageId} must remain uninstalled`);
-    }
-
-    const publicConfig = await readFile(path.join(appRoot, "config/public.js"), "utf8");
-    assert.doesNotMatch(publicConfig, /config\.surfaceDefinitions\.(?:auth|account)\s*=/u);
-    await assert.rejects(access(path.join(appRoot, "packages/users")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "src/pages/account.vue")), /ENOENT/);
-    await assert.rejects(access(path.join(appRoot, "src/views/auth")), /ENOENT/);
-
-    const crudCorePackage = JSON.parse(
-      await readFile(fileURLToPath(new URL("../../../packages/crud-core/package.json", import.meta.url)), "utf8")
-    );
-    assert.equal(typeof crudCorePackage.dependencies["@jskit-ai/users-core"], "string");
-    assert.equal(typeof crudCorePackage.dependencies["@jskit-ai/users-web"], "string");
   });
 });

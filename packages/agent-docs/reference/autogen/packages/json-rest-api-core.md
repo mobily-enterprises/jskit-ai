@@ -58,9 +58,3 @@ Local functions
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 - `isJsonRestSparseFieldError(error = null)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

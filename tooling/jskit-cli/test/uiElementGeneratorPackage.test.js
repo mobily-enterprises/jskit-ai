@@ -1,21 +1,37 @@
 import assert from "node:assert/strict";
-import { access, constants as fsConstants, cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, chmod, constants as fsConstants, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { readLocalLinkItemComponentSource } from "@jskit-ai/shell-web/server/support/localLinkItemScaffolds";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeInstalledPackagesLock } from "./testLock.js";
+import { declareInstalledPackages } from "./testInstalledPackages.js";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const UI_GENERATOR_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "ui-generator");
 const KERNEL_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "kernel");
 const SHELL_WEB_SOURCE_ROOT = path.join(REPO_ROOT, "packages", "shell-web");
-const runCli = createCliRunner(CLI_PATH);
+const invokeCli = createCliRunner(CLI_PATH);
+
+function runCli(options = {}) {
+  const appRoot = String(options.cwd || "");
+  return invokeCli({
+    ...options,
+    env: {
+      ...process.env,
+      ...(options.env || {}),
+      PATH: `${path.join(appRoot, ".test-bin")}:${process.env.PATH || ""}`
+    }
+  });
+}
 
 async function createMinimalApp(appRoot, { name = "tmp-app" } = {}) {
+  const fakeNpmPath = path.join(appRoot, ".test-bin", "npm");
+  await mkdir(path.dirname(fakeNpmPath), { recursive: true });
+  await writeFile(fakeNpmPath, "#!/usr/bin/env node\n", "utf8");
+  await chmod(fakeNpmPath, 0o755);
   await mkdir(path.join(appRoot, "config"), { recursive: true });
   await mkdir(path.join(appRoot, "src"), { recursive: true });
   await mkdir(path.join(appRoot, "src", "components"), { recursive: true });
@@ -203,7 +219,7 @@ export {
     "utf8"
   );
 
-  await writeInstalledPackagesLock(appRoot, {
+  await declareInstalledPackages(appRoot, {
     "@jskit-ai/shell-web": {
       packageId: "@jskit-ai/shell-web",
       version: "0.1.0"
@@ -273,11 +289,14 @@ test("generate @jskit-ai/ui-generator page scaffolds page and menu placement", a
   });
 });
 
-test("generate @jskit-ai/ui-generator page requires shell-web to be installed in lock", async () => {
+test("generate @jskit-ai/ui-generator page requires shell-web to be installed", async () => {
   await withTempDir(async (cwd) => {
     const appRoot = path.join(cwd, "ui-element-generator-shell-gate");
     await createMinimalApp(appRoot, { name: "ui-element-generator-shell-gate" });
-    await writeInstalledPackagesLock(appRoot, {});
+    const packageJsonPath = path.join(appRoot, "package.json");
+    const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+    delete packageJson.dependencies["@jskit-ai/shell-web"];
+    await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
     await installUiGeneratorPackage(appRoot);
 
     const result = runCli({
@@ -323,9 +342,6 @@ test("generate @jskit-ai/ui-generator with no subcommand shows generator help wi
       "utf8"
     );
     const packageJsonBefore = await readFile(packageJsonPath, "utf8");
-    const lockPath = path.join(appRoot, ".jskit", "lock.json");
-    const lockBefore = await readFile(lockPath, "utf8");
-
     const result = runCli({
       cwd: appRoot,
       args: ["generate", "@jskit-ai/ui-generator"]
@@ -337,7 +353,6 @@ test("generate @jskit-ai/ui-generator with no subcommand shows generator help wi
 
     const packageJsonAfter = await readFile(packageJsonPath, "utf8");
     assert.equal(packageJsonAfter, packageJsonBefore);
-    assert.equal(await readFile(lockPath, "utf8"), lockBefore);
   });
 });
 

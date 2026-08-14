@@ -4,8 +4,7 @@ import test from "node:test";
 import {
   resolvePackageLockRefreshSteps,
   STAGING_TAG,
-  topologicalPublishOrder,
-  updateDescriptorTextForPackage
+  topologicalPublishOrder
 } from "./release-npm.mjs";
 
 test("selective releases rebuild nested exact workspace dependencies then validate normally", () => {
@@ -16,72 +15,6 @@ test("selective releases rebuild nested exact workspace dependencies then valida
     ["install", "--package-lock-only", "--ignore-scripts", "--force"],
     ["install", "--package-lock-only", "--ignore-scripts"]
   ]);
-});
-
-test("release descriptor updates cover direct and conditional JSKIT dependency versions", () => {
-  const source = `
-export default {
-  mutations: {
-    dependencies: {
-      runtime: {
-        "@jskit-ai/kernel": "0.1.1",
-        '@jskit-ai/kernel': '0.1.2',
-        "@jskit-ai/database-runtime": {
-          version: "0.1.3",
-          when: { option: "mode", notEquals: "orchestrator" }
-        },
-        '@jskit-ai/database-runtime': {
-          'version': '0.1.4',
-          when: { option: 'mode', equals: 'json-rest' }
-        }
-      }
-    }
-  }
-};
-`;
-
-  const kernelUpdated = updateDescriptorTextForPackage(
-    source,
-    "@jskit-ai/kernel",
-    "0.1.120"
-  );
-  const fullyUpdated = updateDescriptorTextForPackage(
-    kernelUpdated,
-    "@jskit-ai/database-runtime",
-    "0.1.119"
-  );
-
-  assert.match(fullyUpdated, /"@jskit-ai\/kernel": "0\.1\.120"/u);
-  assert.match(fullyUpdated, /'@jskit-ai\/kernel': '0\.1\.120'/u);
-  assert.equal(
-    fullyUpdated.match(/(?:"version"|'version'|version):?\s*["']0\.1\.119["']/gu)?.length,
-    2
-  );
-  assert.match(fullyUpdated, /notEquals: "orchestrator"/u);
-  assert.match(fullyUpdated, /equals: 'json-rest'/u);
-});
-
-test("release descriptor updates leave other package versions unchanged", () => {
-  const source = `
-export default {
-  mutations: {
-    dependencies: {
-      runtime: {
-        "@jskit-ai/kernel": "0.1.119",
-        "@jskit-ai/http-runtime": {
-          version: "0.1.117",
-          when: { option: "transport", equals: "http" }
-        }
-      }
-    }
-  }
-};
-`;
-
-  const updated = updateDescriptorTextForPackage(source, "@jskit-ai/kernel", "0.1.120");
-
-  assert.match(updated, /"@jskit-ai\/kernel": "0\.1\.120"/u);
-  assert.match(updated, /version: "0\.1\.117"/u);
 });
 
 test("release publication reserves a non-consumer staging tag", () => {
@@ -147,16 +80,6 @@ test("prepared selected CRUD and toolchain manifests pin one exact dependency gr
     readWorkspacePackageJson("tooling/jskit-cli"),
     readWorkspacePackageJson("tooling/create-app")
   ]);
-  const createAppDescriptor = (
-    await import(new URL("../tooling/create-app/package.descriptor.mjs", import.meta.url))
-  ).default;
-  const crudServerGeneratorDescriptor = (
-    await import(new URL("../packages/crud-server-generator/package.descriptor.mjs", import.meta.url))
-  ).default;
-  const usersWebDescriptor = (
-    await import(new URL("../packages/users-web/package.descriptor.mjs", import.meta.url))
-  ).default;
-
   assert.equal(usersWeb.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
   assert.equal(usersWeb.dependencies["@jskit-ai/users-core"], usersCore.version);
   assert.equal(crudCore.dependencies["@jskit-ai/database-runtime"], databaseRuntime.version);
@@ -164,7 +87,7 @@ test("prepared selected CRUD and toolchain manifests pin one exact dependency gr
   assert.equal(crudCore.dependencies["@jskit-ai/users-core"], usersCore.version);
   assert.equal(crudCore.dependencies["@jskit-ai/users-web"], usersWeb.version);
   assert.equal(
-    usersWebDescriptor.mutations.dependencies.runtime["@jskit-ai/users-core"],
+    usersWeb.jskit.mutations.dependencies.runtime["@jskit-ai/users-core"],
     usersCore.version
   );
   assert.equal(crudServerGenerator.dependencies["@jskit-ai/crud-core"], crudCore.version);
@@ -172,20 +95,19 @@ test("prepared selected CRUD and toolchain manifests pin one exact dependency gr
   assert.equal(crudServerGenerator.dependencies["@jskit-ai/http-runtime"], httpRuntime.version);
   assert.equal(crudServerGenerator.dependencies["@jskit-ai/json-rest-api-core"], jsonRestApiCore.version);
   assert.equal(
-    crudServerGeneratorDescriptor.mutations.dependencies.runtime["@jskit-ai/auth-core"],
+    crudServerGenerator.jskit.mutations.dependencies.runtime["@jskit-ai/auth-core"],
     authCore.version
   );
   assert.equal(
-    crudServerGeneratorDescriptor.mutations.dependencies.runtime["@jskit-ai/database-runtime"],
+    crudServerGenerator.jskit.mutations.dependencies.runtime["@jskit-ai/database-runtime"],
     databaseRuntime.version
   );
   assert.equal(
-    crudServerGeneratorDescriptor.mutations.dependencies.runtime["@jskit-ai/json-rest-api-core"],
+    crudServerGenerator.jskit.mutations.dependencies.runtime["@jskit-ai/json-rest-api-core"],
     jsonRestApiCore.version
   );
   assert.equal(crudUiGenerator.dependencies["@jskit-ai/crud-core"], crudCore.version);
 
   assert.equal(cli.dependencies["@jskit-ai/jskit-catalog"], catalog.version);
-  assert.equal(createAppDescriptor.version, createApp.version);
   assert.equal(createApp.dependencies["@jskit-ai/jskit-cli"], cli.version);
 });

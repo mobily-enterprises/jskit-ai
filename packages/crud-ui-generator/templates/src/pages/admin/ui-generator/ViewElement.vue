@@ -11,7 +11,6 @@ __JSKIT_UI_VIEW_COLUMNS__
       <!-- jskit:crud-ui-fields:view -->
     </template>
   </CrudViewScreen>
-__JSKIT_UI_VIEW_DELETE_DIALOG__
 </template>
 
 <script setup>

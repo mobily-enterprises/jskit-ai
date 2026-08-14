@@ -32,7 +32,7 @@ test("bootClientModules registers global routes regardless of surface mode", asy
     clientModules: [
       {
         packageId: "@example/auth",
-        descriptorUiRoutes: [
+        packageMetadataUiRoutes: [
           {
             id: "auth.login",
             path: "/auth/login",
@@ -107,7 +107,7 @@ test("bootClientModules filters surface routes by mode", async () => {
   assert.equal(router.routes[0].path, "/admin/dashboard");
 });
 
-test("bootClientModules registers descriptor and clientRoutes with providers only", async () => {
+test("bootClientModules registers packageMetadata and clientRoutes with providers only", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
@@ -139,7 +139,7 @@ test("bootClientModules registers descriptor and clientRoutes with providers onl
       },
       {
         packageId: "@example/zeta",
-        descriptorUiRoutes: [
+        packageMetadataUiRoutes: [
           {
             id: "auth.default-login-2",
             name: "auth-default-login-2",
@@ -287,7 +287,7 @@ test("bootClientModules rejects non-declared global clientRoutes", async () => {
       clientModules: [
         {
           packageId: "@example/strict",
-          descriptorUiRoutes: [
+          packageMetadataUiRoutes: [
             {
               id: "auth.default-login-2",
               path: "/auth/default-login-2",
@@ -330,7 +330,7 @@ test("bootClientModules allows non-declared surface clientRoutes", async () => {
     clientModules: [
       {
         packageId: "@example/surface-programmatic",
-        descriptorUiRoutes: [],
+        packageMetadataUiRoutes: [],
         module: {
           clientRoutes: [
             {
@@ -355,7 +355,7 @@ test("bootClientModules allows non-declared surface clientRoutes", async () => {
   assert.equal(router.routes[0].path, "/admin/projects");
 });
 
-test("bootClientModules loads client providers declared in descriptorClientProviders", async () => {
+test("bootClientModules loads client providers declared in packageMetadataClientProviders", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
@@ -363,8 +363,8 @@ test("bootClientModules loads client providers declared in descriptorClientProvi
   await bootClientModules({
     clientModules: [
       {
-        packageId: "@example/descriptor-providers",
-        descriptorClientProviders: [
+        packageId: "@example/packageMetadata-providers",
+        packageMetadataClientProviders: [
           {
             entrypoint: "src/client/providers/ExampleProvider.js",
             export: "ExampleProvider"
@@ -372,7 +372,7 @@ test("bootClientModules loads client providers declared in descriptorClientProvi
         ],
         module: {
           ExampleProvider: class {
-            static id = "example.descriptor.provider";
+            static id = "example.packageMetadata.provider";
             register() {
               events.push("register");
             }
@@ -392,7 +392,7 @@ test("bootClientModules loads client providers declared in descriptorClientProvi
   assert.deepEqual(events, ["register", "boot"]);
 });
 
-test("bootClientModules throws when descriptorClientProviders export is missing", async () => {
+test("bootClientModules throws when packageMetadataClientProviders export is missing", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
 
@@ -401,7 +401,7 @@ test("bootClientModules throws when descriptorClientProviders export is missing"
       clientModules: [
         {
           packageId: "@example/missing-provider-export",
-          descriptorClientProviders: [
+          packageMetadataClientProviders: [
             {
               entrypoint: "src/client/providers/MissingProvider.js",
               export: "MissingProvider"
@@ -415,6 +415,6 @@ test("bootClientModules throws when descriptorClientProviders export is missing"
       surfaceMode: "all",
       logger: { info() {}, warn() {}, error() {} }
     }),
-    /descriptor provider export "MissingProvider" is missing or invalid/
+    /packageMetadata provider export "MissingProvider" is missing or invalid/
   );
 });

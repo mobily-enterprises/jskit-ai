@@ -1,109 +1,22 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import net from "node:net";
 import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
 import {
+  createChromiumLaunchOptions,
+  startViteFixture,
+  stopProcess
+} from "../../../tooling/testUtils/browserFixture.mjs";
+import {
   DEFAULT_VIEWPORTS,
   runAdaptiveShellSmokeCase
 } from "../src/test/adaptiveShellSmoke.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const REPOSITORY_ROOT = path.resolve(TEST_DIRECTORY, "../../..");
 const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/adaptive-shell");
-const VITE_CLI = path.join(REPOSITORY_ROOT, "node_modules", "vite", "bin", "vite.js");
 const RUN_BROWSER_TEST = process.env.JSKIT_SHELL_WEB_BROWSER_INTEGRATION === "1";
-
-function startVite(port) {
-  const child = spawn(process.execPath, [
-    VITE_CLI,
-    "--config",
-    path.join(FIXTURE_ROOT, "vite.config.mjs"),
-    "--port",
-    String(port),
-    "--clearScreen",
-    "false"
-  ], {
-    cwd: FIXTURE_ROOT,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      NO_COLOR: "1",
-      FORCE_COLOR: "0"
-    }
-  });
-  let output = "";
-  child.stdout.on("data", collectOutput);
-  child.stderr.on("data", collectOutput);
-
-  function collectOutput(chunk) {
-    output += chunk.toString("utf8");
-  }
-
-  async function waitUntilReady() {
-    await new Promise((resolve, reject) => {
-      const startedAt = Date.now();
-      const timer = setInterval(checkReadiness, 50);
-
-      function checkReadiness() {
-        if (new RegExp(`http://127\\.0\\.0\\.1:${port}/`, "u").test(output)) {
-          clearInterval(timer);
-          resolve();
-          return;
-        }
-        if (child.exitCode !== null) {
-          clearInterval(timer);
-          reject(new Error(`Vite exited before becoming ready.\n${output}`));
-          return;
-        }
-        if (Date.now() - startedAt >= 30_000) {
-          clearInterval(timer);
-          reject(new Error(`Timed out waiting for Vite.\n${output}`));
-        }
-      }
-    });
-  }
-
-  return Object.freeze({ child, waitUntilReady });
-}
-
-async function stopVite(runtime) {
-  const child = runtime?.child;
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-  await new Promise((resolve) => {
-    const forceTimer = setTimeout(forceStop, 5_000);
-    child.once("exit", finishStop);
-    child.kill("SIGTERM");
-
-    function forceStop() {
-      child.kill("SIGKILL");
-    }
-
-    function finishStop() {
-      clearTimeout(forceTimer);
-      resolve();
-    }
-  });
-}
-
-async function reservePort() {
-  const server = net.createServer();
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
-  await new Promise((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
-  });
-  return address.port;
-}
 
 function parseRgb(color) {
   const channels = String(color || "").match(/[\d.]+/gu)?.map(Number) || [];
@@ -260,25 +173,22 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1 to run shell-web browser integration",
   timeout: 180_000
 }, async () => {
-  const port = await reservePort();
-  const vite = startVite(port);
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
   let browser = null;
 
   try {
-    await vite.waitUntilReady();
-    const executablePath = String(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || "").trim();
-    browser = await chromium.launch({
-      headless: true,
-      ...(executablePath ? { executablePath } : {})
-    });
+    browser = await chromium.launch(createChromiumLaunchOptions());
     const context = await browser.newContext({
-      baseURL: `http://127.0.0.1:${port}`,
+      baseURL: vite.baseURL,
       locale: "en-US"
     });
 
     for (const viewport of DEFAULT_VIEWPORTS) {
       const page = await context.newPage();
       await runAdaptiveShellSmokeCase({ page, expect, viewport });
+      if (viewport.name !== "compact") {
+        await expect(page).toHaveURL(/\/home\/settings\/general$/u);
+      }
       await page.close();
     }
 
@@ -324,6 +234,6 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     await context.close();
   } finally {
     await browser?.close();
-    await stopVite(vite);
+    await stopProcess(vite);
   }
 });

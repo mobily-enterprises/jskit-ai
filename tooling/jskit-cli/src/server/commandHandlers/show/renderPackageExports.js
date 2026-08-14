@@ -19,7 +19,7 @@ function writePackageExportsSection({
 
   if (!introspectionAvailable) {
     stdout.write(`${color.heading("Code introspection:")}\n`);
-    stdout.write(`- ${color.dim("Source files unavailable (descriptor metadata only).")}\n`);
+    stdout.write(`- ${color.dim("Source files unavailable (package metadata only).")}\n`);
     return;
   }
 

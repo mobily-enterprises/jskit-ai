@@ -30,13 +30,9 @@ Local functions
 - `buildActionsContext({ surface })`
 - `buildServiceContext({ featureName, mode })`
 - `buildRouteContext({ surface })`
-- `buildDescriptorContext({ featureName, mode })`
+- `buildManifestContext({ featureName, mode })`
 
 ### templates
-
-### `templates/src/local-package/package.descriptor.mjs`
-Exports
-- None
 
 ### `templates/src/local-package/server/actions.js`
 Exports
@@ -66,9 +62,3 @@ Exports
 ### `templates/src/local-package/server/service.js`
 Exports
 - `createService({ featureRepository } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

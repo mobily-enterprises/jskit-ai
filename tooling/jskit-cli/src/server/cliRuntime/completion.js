@@ -1,8 +1,9 @@
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { access, readdir, readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { buildCrudFieldContractMap } from "@jskit-ai/kernel/shared/support/crudFieldContract";
 import {
+  discoverInstalledPackages,
   discoverPlacementTopologyFromApp,
   discoverShellOutletTargetsFromApp
 } from "@jskit-ai/kernel/server/support";
@@ -18,10 +19,9 @@ import {
 } from "../core/commandCatalog.js";
 
 const WRAPPER_COMMANDS = new Set(["npx", "jsx"]);
-const KNOWN_GENERATE_FLAG_OPTIONS = Object.freeze(["dry-run", "run-npm-install", "json", "verbose"]);
+const KNOWN_GENERATE_FLAG_OPTIONS = Object.freeze(["dry-run", "json", "verbose"]);
 const BOOLEAN_OPTION_NAMES = new Set([
   "dry-run",
-  "run-npm-install",
   "full",
   "expanded",
   "details",
@@ -31,14 +31,12 @@ const BOOLEAN_OPTION_NAMES = new Set([
   "json",
   "all",
   "help",
-  "force"
+  "force",
+  "check"
 ]);
 const LIST_MODES = Object.freeze(["bundles", "packages", "generators"]);
 const ADD_TARGET_TYPES = Object.freeze(["package", "bundle"]);
-const POSITION_TARGET_TYPES = Object.freeze(["element"]);
-const UPDATE_TARGET_TYPES = Object.freeze(["package"]);
 const REMOVE_TARGET_TYPES = Object.freeze(["package"]);
-const MIGRATION_SCOPES = Object.freeze(["all", "changed", "package"]);
 
 function normalizeText(value = "") {
   return String(value || "").trim();
@@ -97,11 +95,6 @@ async function pathExists(targetPath) {
   }
 }
 
-async function readJsonFile(filePath) {
-  const source = await readFile(filePath, "utf8");
-  return JSON.parse(source);
-}
-
 async function safeReaddir(directoryPath) {
   try {
     return await readdir(directoryPath, { withFileTypes: true });
@@ -144,12 +137,6 @@ async function walkDirectory(rootPath, { includeDirectories = false, includeFile
   return entries;
 }
 
-async function importDefaultModule(modulePath) {
-  const moduleUrl = `${pathToFileURL(modulePath).href}?mtime=${Date.now()}`;
-  const imported = await import(moduleUrl);
-  return imported?.default;
-}
-
 async function loadCommandCatalog() {
   return {
     COMMAND_IDS,
@@ -163,54 +150,16 @@ function isDirectoryLike(entry) {
   return Boolean(entry && (entry.isDirectory() || entry.isSymbolicLink()));
 }
 
-async function discoverDescriptorPackages(appRoot) {
-  const packageDirs = [];
-
-  for (const entry of await safeReaddir(path.join(appRoot, "packages"))) {
-    if (isDirectoryLike(entry)) {
-      packageDirs.push(path.join(appRoot, "packages", entry.name));
-    }
-  }
-
-  for (const entry of await safeReaddir(path.join(appRoot, "node_modules", "@jskit-ai"))) {
-    if (isDirectoryLike(entry)) {
-      packageDirs.push(path.join(appRoot, "node_modules", "@jskit-ai", entry.name));
-    }
-  }
-
-  const discovered = [];
-  for (const packageDir of packageDirs) {
-    const descriptorPath = path.join(packageDir, "package.descriptor.mjs");
-    if (!(await pathExists(descriptorPath))) {
-      continue;
-    }
-    try {
-      const descriptor = await importDefaultModule(descriptorPath);
-      const packageJsonPath = path.join(packageDir, "package.json");
-      const packageJson = (await pathExists(packageJsonPath)) ? await readJsonFile(packageJsonPath) : {};
-      const packageId = normalizeText(descriptor?.packageId || packageJson?.name || path.basename(packageDir));
-      if (!packageId) {
-        continue;
-      }
-      discovered.push(
-        Object.freeze({
-          packageDir,
-          packageId,
-          descriptor: descriptor && typeof descriptor === "object" ? descriptor : {}
-        })
-      );
-    } catch {
-      // Ignore malformed descriptors during completion discovery.
-    }
-  }
-
-  return uniqueSorted(discovered.map((entry) => entry.packageId)).map((packageId) =>
-    discovered.find((entry) => entry.packageId === packageId)
-  );
+async function discoverJskitPackages(appRoot) {
+  return (await discoverInstalledPackages({ appRoot })).map((entry) => Object.freeze({
+    packageDir: entry.packageRoot,
+    packageId: entry.packageId,
+    packageMetadata: entry.packageMetadata
+  }));
 }
 
 async function discoverBundleIds(appRoot) {
-  const bundleDescriptorPaths = [];
+  const bundlePaths = [];
 
   for (const packageDir of [
     ...((await safeReaddir(path.join(appRoot, "packages"))).filter((entry) => isDirectoryLike(entry)).map((entry) =>
@@ -225,23 +174,23 @@ async function discoverBundleIds(appRoot) {
       if (!entry.isDirectory()) {
         continue;
       }
-      const descriptorPath = path.join(bundlesDir, entry.name, "bundle.descriptor.mjs");
-      if (await pathExists(descriptorPath)) {
-        bundleDescriptorPaths.push(descriptorPath);
+      const bundlePath = path.join(bundlesDir, entry.name, "bundle.json");
+      if (await pathExists(bundlePath)) {
+        bundlePaths.push(bundlePath);
       }
     }
   }
 
   const bundleIds = [];
-  for (const descriptorPath of bundleDescriptorPaths) {
+  for (const bundlePath of bundlePaths) {
     try {
-      const descriptor = await importDefaultModule(descriptorPath);
-      const bundleId = normalizeText(descriptor?.bundleId);
+      const bundleMetadata = JSON.parse(await readFile(bundlePath, "utf8"));
+      const bundleId = normalizeText(bundleMetadata?.bundleId);
       if (bundleId) {
         bundleIds.push(bundleId);
       }
     } catch {
-      // Ignore malformed bundle descriptors.
+      // Ignore malformed bundle metadata.
     }
   }
 
@@ -257,10 +206,10 @@ function toShortPackageId(packageId = "") {
 }
 
 async function discoverGenerators(appRoot) {
-  const packages = await discoverDescriptorPackages(appRoot);
+  const packages = await discoverJskitPackages(appRoot);
   const generators = [];
   for (const entry of packages) {
-    if (normalizeText(entry?.descriptor?.kind) !== "generator") {
+    if (normalizeText(entry?.packageMetadata?.kind) !== "generator") {
       continue;
     }
     const shortId = toShortPackageId(entry.packageId);
@@ -268,7 +217,7 @@ async function discoverGenerators(appRoot) {
       Object.freeze({
         packageId: entry.packageId,
         shortId,
-        descriptor: entry.descriptor
+        packageMetadata: entry.packageMetadata
       })
     );
   }
@@ -276,10 +225,10 @@ async function discoverGenerators(appRoot) {
 }
 
 async function discoverRuntimePackages(appRoot) {
-  const packages = await discoverDescriptorPackages(appRoot);
+  const packages = await discoverJskitPackages(appRoot);
   const runtimeIds = [];
   for (const entry of packages) {
-    if (normalizeText(entry?.descriptor?.kind) === "generator") {
+    if (normalizeText(entry?.packageMetadata?.kind) === "generator") {
       continue;
     }
     runtimeIds.push(entry.packageId);
@@ -616,9 +565,9 @@ async function completeOptionValue({
   optionMeta = {}
 } = {}) {
   const normalizedOptionName = normalizeText(optionName);
-  const descriptorOption = optionMeta?.descriptorOption || {};
-  const validationType = normalizeText(descriptorOption?.validationType).toLowerCase();
-  const allowedValues = resolveAllowedValues(descriptorOption);
+  const packageOption = optionMeta?.packageOption || {};
+  const validationType = normalizeText(packageOption?.validationType).toLowerCase();
+  const allowedValues = resolveAllowedValues(packageOption);
   let suggestions = [];
 
   if (normalizedOptionName === "resource-file") {
@@ -782,7 +731,6 @@ function buildCommandOptionMeta(command = "", catalogModule) {
   for (const flagKey of Array.isArray(descriptor.allowedFlagKeys) ? descriptor.allowedFlagKeys : []) {
     const labels = {
       dryRun: "dry-run",
-      runNpmInstall: "run-npm-install",
       full: "full",
       expanded: "expanded",
       details: "details",
@@ -820,22 +768,22 @@ function buildGeneratorOptionMeta(generator = null, subcommandName = "") {
   }
   optionMeta.help = { inputType: "flag" };
 
-  const descriptorOptions = generator?.descriptor?.options && typeof generator.descriptor.options === "object"
-    ? generator.descriptor.options
+  const packageOptions = generator?.packageMetadata?.options && typeof generator.packageMetadata.options === "object"
+    ? generator.packageMetadata.options
     : {};
-  const subcommand = generator?.descriptor?.metadata?.generatorSubcommands?.[subcommandName] || {};
+  const subcommand = generator?.packageMetadata?.metadata?.generatorSubcommands?.[subcommandName] || {};
   for (const optionName of Array.isArray(subcommand.optionNames) ? subcommand.optionNames : []) {
-    const descriptorOption = descriptorOptions?.[optionName] || {};
+    const packageOption = packageOptions?.[optionName] || {};
     optionMeta[optionName] = {
-      inputType: normalizeText(descriptorOption.inputType) || (BOOLEAN_OPTION_NAMES.has(optionName) ? "flag" : "text"),
-      descriptorOption
+      inputType: normalizeText(packageOption.inputType) || (BOOLEAN_OPTION_NAMES.has(optionName) ? "flag" : "text"),
+      packageOption
     };
   }
   return optionMeta;
 }
 
 function resolveImplicitGeneratorSubcommand(generator = null, tokensAfterGenerator = [], currentToken = "") {
-  const metadata = generator?.descriptor?.metadata || {};
+  const metadata = generator?.packageMetadata?.metadata || {};
   const subcommands = metadata.generatorSubcommands && typeof metadata.generatorSubcommands === "object"
     ? metadata.generatorSubcommands
     : {};
@@ -975,7 +923,7 @@ async function completeGenerateCommand({ appRoot, words, cword, catalogModule })
   }
 
   const generatorContext = resolveImplicitGeneratorSubcommand(generator, words.slice(3, cword), currentToken);
-  const metadata = generator?.descriptor?.metadata || {};
+  const metadata = generator?.packageMetadata?.metadata || {};
   const subcommands = metadata.generatorSubcommands && typeof metadata.generatorSubcommands === "object"
     ? metadata.generatorSubcommands
     : {};
@@ -1098,6 +1046,12 @@ async function completeCommand({ appRoot, words, cword, catalogModule }) {
       if (command === "create" && positionalIndex === 0) {
         return filterByPrefix(["migration", "package"], positionalCurrent);
       }
+      if (command === "migrations" && positionalIndex === 0) {
+        return filterByPrefix(["sync"], positionalCurrent);
+      }
+      if (command === "ci" && positionalIndex === 0) {
+        return filterByPrefix(["generate"], positionalCurrent);
+      }
       if (command === "add") {
         if (positionalIndex === 0) {
           return filterByPrefix(ADD_TARGET_TYPES, positionalCurrent);
@@ -1119,30 +1073,6 @@ async function completeCommand({ appRoot, words, cword, catalogModule }) {
           [...(await discoverRuntimePackages(appRoot)), ...(await discoverBundleIds(appRoot))],
           positionalCurrent
         );
-      }
-      if (command === "migrations") {
-        if (positionalIndex === 0) {
-          return filterByPrefix(MIGRATION_SCOPES, positionalCurrent);
-        }
-        if (positionalIndex === 1 && parseState.positionals[0] === "package") {
-          return filterByPrefix(await discoverRuntimePackages(appRoot), positionalCurrent);
-        }
-      }
-      if (command === "position") {
-        if (positionalIndex === 0) {
-          return filterByPrefix(POSITION_TARGET_TYPES, positionalCurrent);
-        }
-        if (positionalIndex === 1 && parseState.positionals[0] === "element") {
-          return filterByPrefix(await discoverRuntimePackages(appRoot), positionalCurrent);
-        }
-      }
-      if (command === "update") {
-        if (positionalIndex === 0) {
-          return filterByPrefix(UPDATE_TARGET_TYPES, positionalCurrent);
-        }
-        if (positionalIndex === 1 && parseState.positionals[0] === "package") {
-          return filterByPrefix(await discoverRuntimePackages(appRoot), positionalCurrent);
-        }
       }
       if (command === "remove") {
         if (positionalIndex === 0) {

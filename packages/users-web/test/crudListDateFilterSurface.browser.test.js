@@ -1,98 +1,21 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import net from "node:net";
 import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+import {
+  createChromiumLaunchOptions,
+  startViteFixture,
+  stopProcess
+} from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const REPOSITORY_ROOT = path.resolve(TEST_DIRECTORY, "../../..");
 const PACKAGE_ROOT = path.resolve(TEST_DIRECTORY, "..");
 const FIXTURE_ROOT = path.join(PACKAGE_ROOT, "fixtures", "crud-list-date-filters");
-const VITE_CLI = path.join(REPOSITORY_ROOT, "node_modules", "vite", "bin", "vite.js");
 const RUN_BROWSER_TEST = process.env.JSKIT_USERS_WEB_DATE_FILTER_VISUAL_INTEGRATION === "1";
 const VIEWPORT_WIDTHS = Object.freeze([375, 768, 1280, 1440]);
 const QUERY = "?status=active&submittedOn=2026-04-18&arrivalDate=2026-05-04..2026-05-10";
-
-function startCapturedProcess(command, args, { cwd } = {}) {
-  const child = spawn(command, args, {
-    cwd,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: {
-      ...process.env,
-      NO_COLOR: "1",
-      FORCE_COLOR: "0"
-    }
-  });
-  let output = "";
-
-  child.stdout.on("data", (chunk) => {
-    output += chunk.toString("utf8");
-  });
-  child.stderr.on("data", (chunk) => {
-    output += chunk.toString("utf8");
-  });
-
-  function waitFor(pattern, timeout = 30_000) {
-    return new Promise((resolve, reject) => {
-      const startedAt = Date.now();
-      const timer = setInterval(() => {
-        if (pattern.test(output)) {
-          clearInterval(timer);
-          resolve();
-          return;
-        }
-        if (child.exitCode !== null) {
-          clearInterval(timer);
-          reject(new Error(`Vite exited before ${pattern}.\n${output}`));
-          return;
-        }
-        if (Date.now() - startedAt >= timeout) {
-          clearInterval(timer);
-          reject(new Error(`Timed out waiting for ${pattern}.\n${output}`));
-        }
-      }, 50);
-    });
-  }
-
-  return {
-    child,
-    readOutput: () => output,
-    waitFor
-  };
-}
-
-async function stopProcess(runtime) {
-  const child = runtime?.child;
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    return;
-  }
-
-  await new Promise((resolve) => {
-    const forceTimer = setTimeout(() => child.kill("SIGKILL"), 5_000);
-    child.once("exit", () => {
-      clearTimeout(forceTimer);
-      resolve();
-    });
-    child.kill("SIGTERM");
-  });
-}
-
-async function reservePort() {
-  const server = net.createServer();
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
-  await new Promise((resolve, reject) => {
-    server.close((error) => error ? reject(error) : resolve());
-  });
-  return address.port;
-}
 
 async function readContract(page) {
   return JSON.parse(await page.getByTestId("date-filter-contract").textContent());
@@ -108,7 +31,7 @@ async function openCompactFilters(page) {
 
 async function assertResponsiveDateControls(page, width) {
   await page.setViewportSize({ width, height: 900 });
-  await page.goto(`http://127.0.0.1:${page.__jskitPort}/${QUERY}`, {
+  await page.goto(`/${QUERY}`, {
     waitUntil: "networkidle"
   });
   await openCompactFilters(page);
@@ -158,37 +81,23 @@ test("CRUD date filters render and operate without clipping across responsive la
     : "set JSKIT_USERS_WEB_DATE_FILTER_VISUAL_INTEGRATION=1 to run the browser visual regression",
   timeout: 180_000
 }, async () => {
-  const port = await reservePort();
-  const viteRuntime = startCapturedProcess(process.execPath, [
-    VITE_CLI,
-    "--config",
-    path.join(FIXTURE_ROOT, "vite.config.mjs"),
-    "--port",
-    String(port),
-    "--clearScreen",
-    "false"
-  ], { cwd: FIXTURE_ROOT });
+  const viteRuntime = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
   let browser = null;
 
   try {
-    await viteRuntime.waitFor(new RegExp(`http://127\\.0\\.0\\.1:${port}/`, "u"));
-    const chromiumExecutablePath = String(
-      process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || ""
-    ).trim();
-    browser = await chromium.launch({
-      headless: true,
-      ...(chromiumExecutablePath ? { executablePath: chromiumExecutablePath } : {})
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const context = await browser.newContext({
+      baseURL: viteRuntime.baseURL,
+      locale: "en-US"
     });
-    const context = await browser.newContext({ locale: "en-US" });
     const page = await context.newPage();
-    page.__jskitPort = port;
 
     for (const width of VIEWPORT_WIDTHS) {
       await assertResponsiveDateControls(page, width);
     }
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto(`http://127.0.0.1:${port}/${QUERY}`, { waitUntil: "networkidle" });
+    await page.goto(`/${QUERY}`, { waitUntil: "networkidle" });
     assert.deepEqual(await readContract(page), {
       values: {
         submittedOn: "2026-04-18",

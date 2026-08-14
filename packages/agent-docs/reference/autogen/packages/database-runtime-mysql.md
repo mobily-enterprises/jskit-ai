@@ -57,9 +57,3 @@ Local functions
 - `requireIdColumn(columns, idColumn)`
 - `requirePrimaryKeyContainsId(primaryKeyColumns, idColumn)`
 - `requireSupportedForeignKeys(foreignKeys, primaryKeyColumnsByTable)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

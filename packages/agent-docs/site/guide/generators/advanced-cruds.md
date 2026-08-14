@@ -247,7 +247,6 @@ migrations/
 
 packages/contacts/
   package.json
-  package.descriptor.mjs
   src/server/ContactsProvider.js
   src/server/actions.js
   src/server/registerRoutes.js
@@ -279,7 +278,7 @@ Two important notes:
 
 ## What each server file owns
 
-### `package.json` and `package.descriptor.mjs`
+### `package.json`
 
 These make the CRUD a real local package.
 
@@ -288,7 +287,7 @@ They own:
 - package identity
 - runtime dependencies
 - provider registration metadata
-- descriptor-driven install/runtime metadata
+- `package.json.jskit` install and runtime metadata
 
 They do **not** own CRUD behavior directly. They describe how the package plugs into the app.
 

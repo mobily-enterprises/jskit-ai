@@ -214,9 +214,3 @@ Exports
 ### `templates/migrations/google_rewarded_watch_sessions_initial.cjs`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

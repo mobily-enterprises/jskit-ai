@@ -14,9 +14,23 @@ Use this on demand; do not load the full index at startup.
 
 ### root
 
+### `browserFixture.mjs`
+Exports
+- `createChromiumLaunchOptions({ env = process.env } = {})`
+- `reservePort()`
+- `startCapturedProcess(command, args, { cwd, env = {} } = {})`
+- `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {} } = {})`
+- `stopProcess(runtime)`
+
 ### `fakeFastify.mjs`
 Exports
 - `createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = {})`
+
+### `jskitPackage.mjs`
+Exports
+- `writeJskitPackageMetadata(packageRoot, metadataOrExpression)`
+Local functions
+- `resolveMetadata(metadataOrExpression)`
 
 ### `runCli.js`
 Exports

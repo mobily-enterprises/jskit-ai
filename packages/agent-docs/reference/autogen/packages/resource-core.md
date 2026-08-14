@@ -27,9 +27,3 @@ Local functions
 - `normalizeOperationDefinition(operationName, operation = null, resourceMessages = null)`
 - `normalizeResourceOperations(operations = null, resourceMessages = null)`
 - `requireResourceNamespace(value, { context = "defineResource resource.namespace" } = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

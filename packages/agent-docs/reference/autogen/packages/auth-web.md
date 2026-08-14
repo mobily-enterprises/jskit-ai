@@ -312,9 +312,3 @@ Exports
 ### `templates/src/views/auth/SignOutView.vue`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

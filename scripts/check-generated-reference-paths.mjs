@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 import { access, readFile, readdir } from "node:fs/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 
@@ -32,7 +32,7 @@ function shouldValidateSourcePath(value = "") {
   return normalized.includes("/") || normalized.includes("\\");
 }
 
-function collectRelativePathReferences(node, location = "descriptor", references = []) {
+function collectRelativePathReferences(node, location = "package.json.jskit", references = []) {
   if (Array.isArray(node)) {
     for (let index = 0; index < node.length; index += 1) {
       collectRelativePathReferences(node[index], `${location}[${index}]`, references);
@@ -77,7 +77,7 @@ function collectRelativePathReferences(node, location = "descriptor", references
   return references;
 }
 
-async function collectPackageDescriptorRecords(packagesRoot) {
+async function collectPackageManifestRecords(packagesRoot) {
   const records = [];
   const levelOne = await readdir(packagesRoot, { withFileTypes: true });
 
@@ -87,13 +87,17 @@ async function collectPackageDescriptorRecords(packagesRoot) {
     }
 
     const absolute = path.join(packagesRoot, entry.name);
-    const descriptorPath = path.join(absolute, "package.descriptor.mjs");
-    if (await fileExists(descriptorPath)) {
-      records.push({
-        packageRoot: absolute,
-        descriptorPath
-      });
-      continue;
+    const packageJsonPath = path.join(absolute, "package.json");
+    if (await fileExists(packageJsonPath)) {
+      const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+      if (isPlainObject(packageJson.jskit)) {
+        records.push({
+          packageRoot: absolute,
+          packageJsonPath,
+          packageJson
+        });
+        continue;
+      }
     }
 
     const nested = await readdir(absolute, { withFileTypes: true }).catch(() => []);
@@ -103,14 +107,19 @@ async function collectPackageDescriptorRecords(packagesRoot) {
       }
 
       const nestedAbsolute = path.join(absolute, child.name);
-      const nestedDescriptorPath = path.join(nestedAbsolute, "package.descriptor.mjs");
-      if (!(await fileExists(nestedDescriptorPath))) {
+      const nestedPackageJsonPath = path.join(nestedAbsolute, "package.json");
+      if (!(await fileExists(nestedPackageJsonPath))) {
+        continue;
+      }
+      const packageJson = JSON.parse(await readFile(nestedPackageJsonPath, "utf8"));
+      if (!isPlainObject(packageJson.jskit)) {
         continue;
       }
 
       records.push({
         packageRoot: nestedAbsolute,
-        descriptorPath: nestedDescriptorPath
+        packageJsonPath: nestedPackageJsonPath,
+        packageJson
       });
     }
   }
@@ -118,7 +127,7 @@ async function collectPackageDescriptorRecords(packagesRoot) {
   return records.sort((left, right) => left.packageRoot.localeCompare(right.packageRoot));
 }
 
-async function collectToolingDescriptorRecords(toolingRoot) {
+async function collectToolingManifestRecords(toolingRoot) {
   const records = [];
   const levelOne = await readdir(toolingRoot, { withFileTypes: true }).catch(() => []);
 
@@ -128,27 +137,23 @@ async function collectToolingDescriptorRecords(toolingRoot) {
     }
 
     const packageRoot = path.join(toolingRoot, entry.name);
-    const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-    if (!(await fileExists(descriptorPath))) {
+    const packageJsonPath = path.join(packageRoot, "package.json");
+    if (!(await fileExists(packageJsonPath))) {
+      continue;
+    }
+    const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+    if (!isPlainObject(packageJson.jskit)) {
       continue;
     }
 
     records.push({
       packageRoot,
-      descriptorPath
+      packageJsonPath,
+      packageJson
     });
   }
 
   return records.sort((left, right) => left.packageRoot.localeCompare(right.packageRoot));
-}
-
-async function importDescriptorModule(descriptorPath) {
-  const descriptorModule = await import(`${pathToFileURL(descriptorPath).href}?t=${Date.now()}_${Math.random()}`);
-  const descriptor = descriptorModule?.default;
-  if (!isPlainObject(descriptor)) {
-    throw new TypeError(`Invalid descriptor default export in ${descriptorPath}`);
-  }
-  return descriptor;
 }
 
 function toRepoRelative(repoRoot, absolutePath) {
@@ -173,25 +178,24 @@ async function validatePathReferences({ repoRoot, ownerLabel, packageRoot, node,
   return errors;
 }
 
-async function validateDescriptorRecords({ repoRoot, records }) {
+async function validateManifestRecords({ repoRoot, records }) {
   const errors = [];
   const byPackageId = new Map();
 
   for (const record of records) {
-    const descriptor = await importDescriptorModule(record.descriptorPath);
-    const packageId = String(descriptor?.packageId || "").trim();
+    const packageId = String(record.packageJson?.name || "").trim();
     if (packageId) {
       byPackageId.set(packageId, record.packageRoot);
     }
 
-    const descriptorErrors = await validatePathReferences({
+    const manifestErrors = await validatePathReferences({
       repoRoot,
-      ownerLabel: toRepoRelative(repoRoot, record.descriptorPath),
+      ownerLabel: toRepoRelative(repoRoot, record.packageJsonPath),
       packageRoot: record.packageRoot,
-      node: descriptor,
-      locationPrefix: "descriptor"
+      node: record.packageJson.jskit,
+      locationPrefix: "package.json.jskit"
     });
-    errors.push(...descriptorErrors);
+    errors.push(...manifestErrors);
   }
 
   return {
@@ -215,14 +219,14 @@ async function validateCatalog({ repoRoot, packageRootsById }) {
       continue;
     }
 
-    const descriptorErrors = await validatePathReferences({
+    const metadataErrors = await validatePathReferences({
       repoRoot,
       ownerLabel: `tooling/jskit-catalog/catalog/packages.json (${packageId})`,
       packageRoot,
-      node: entry?.descriptor || {},
-      locationPrefix: "descriptor"
+      node: entry?.jskit || {},
+      locationPrefix: "package.json.jskit"
     });
-    errors.push(...descriptorErrors);
+    errors.push(...metadataErrors);
   }
 
   return errors;
@@ -231,9 +235,9 @@ async function validateCatalog({ repoRoot, packageRootsById }) {
 async function validateGeneratedReferencePaths({ repoRoot = process.cwd() } = {}) {
   const packagesRoot = path.join(repoRoot, "packages");
   const toolingRoot = path.join(repoRoot, "tooling");
-  const packageRecords = await collectPackageDescriptorRecords(packagesRoot);
-  const toolingRecords = await collectToolingDescriptorRecords(toolingRoot);
-  const descriptorValidation = await validateDescriptorRecords({
+  const packageRecords = await collectPackageManifestRecords(packagesRoot);
+  const toolingRecords = await collectToolingManifestRecords(toolingRoot);
+  const manifestValidation = await validateManifestRecords({
     repoRoot,
     records: [
       ...packageRecords,
@@ -242,22 +246,22 @@ async function validateGeneratedReferencePaths({ repoRoot = process.cwd() } = {}
   });
   const catalogErrors = await validateCatalog({
     repoRoot,
-    packageRootsById: descriptorValidation.byPackageId
+    packageRootsById: manifestValidation.byPackageId
   });
   const errors = [
-    ...descriptorValidation.errors,
+    ...manifestValidation.errors,
     ...catalogErrors
   ];
 
   if (errors.length > 0) {
-    process.stderr.write("Generated descriptor/catalog path check failed:\n");
+    process.stderr.write("Generated package metadata/catalog path check failed:\n");
     for (const error of errors) {
       process.stderr.write(`- ${error}\n`);
     }
-    throw new Error(`Found ${errors.length} generated descriptor/catalog path issue(s).`);
+    throw new Error(`Found ${errors.length} generated package metadata/catalog path issue(s).`);
   }
 
-  process.stdout.write("Generated descriptor/catalog paths are valid.\n");
+  process.stdout.write("Generated package metadata/catalog paths are valid.\n");
 }
 
 if (path.resolve(process.argv[1] || "") === SCRIPT_PATH) {

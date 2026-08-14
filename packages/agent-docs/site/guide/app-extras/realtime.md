@@ -33,7 +33,6 @@ npx jskit add package users-web
 npx jskit add package console-web
 npx jskit add package workspaces-core
 npx jskit add package workspaces-web
-npm install
 npm run db:migrate
 ```
 
@@ -53,10 +52,9 @@ From inside `exampleapp`, run:
 
 ```bash
 npx jskit add package realtime
-npm install
 ```
 
-The first command records the runtime package in the app and updates the existing scaffold. The second command downloads the new dependencies, especially `socket.io`, `socket.io-client`, and the optional Redis adapter pieces.
+The command records the exact runtime package in the app, installs its npm graph, and updates the existing scaffold, including `socket.io`, `socket.io-client`, and the optional Redis adapter pieces.
 
 Unlike the database, users, console, and workspace chapters, this one does **not** need `npm run db:migrate`. `realtime` does not add schema files. It is transport infrastructure, not persistence.
 

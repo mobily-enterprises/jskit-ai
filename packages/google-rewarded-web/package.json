@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/google-rewarded-web",
-  "version": "0.1.84",
+  "version": "0.1.85",
   "private": true,
   "type": "module",
   "exports": {
@@ -8,5 +8,70 @@
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
     "./shared": "./src/shared/index.js"
+  },
+  "description": "Google rewarded client runtime with a fullscreen gate host and GPT orchestration.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "google-rewarded.web"
+      ],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": [
+          {
+            "entrypoint": "src/client/providers/GoogleRewardedClientProvider.js",
+            "export": "GoogleRewardedClientProvider"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./client",
+            "summary": "Exports the Google rewarded client provider, runtime composable, and fullscreen gate host."
+          }
+        ],
+        "containerTokens": {
+          "server": [],
+          "client": [
+            "google-rewarded.web.runtime"
+          ]
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@jskit-ai/google-rewarded-core": "0.1.85",
+          "@jskit-ai/http-runtime": "0.1.147",
+          "@jskit-ai/kernel": "0.1.149",
+          "@jskit-ai/shell-web": "0.1.153"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "vite": {
+        "proxy": []
+      },
+      "text": [],
+      "files": []
+    }
+  },
+  "dependencies": {
+    "@jskit-ai/google-rewarded-core": "0.1.85",
+    "@jskit-ai/http-runtime": "0.1.147",
+    "@jskit-ai/kernel": "0.1.149",
+    "@jskit-ai/shell-web": "0.1.153"
   }
 }

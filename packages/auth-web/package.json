@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.148",
+  "version": "0.1.149",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -20,11 +20,11 @@
     "./test/playwright": "./src/test/playwright.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.146",
-    "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.147",
-    "@jskit-ai/shell-web": "0.1.148",
-    "@jskit-ai/http-runtime": "0.1.146"
+    "@jskit-ai/auth-core": "0.1.147",
+    "@jskit-ai/http-runtime": "0.1.147",
+    "@jskit-ai/kernel": "0.1.149",
+    "@jskit-ai/shell-web": "0.1.153",
+    "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
     "@tanstack/vue-query": "^5.90.5",
@@ -32,5 +32,371 @@
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
     "vuetify": "^4.0.0"
+  },
+  "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "auth.server-routes",
+        "auth.web-login"
+      ],
+      "requires": [
+        "auth.access",
+        "auth.provider",
+        "validators.http",
+        "auth.policy",
+        "runtime.web-placement"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providerEntrypoint": "src/server/providers/AuthWebServiceProvider.js",
+        "providers": [
+          {
+            "entrypoint": "src/server/providers/AuthWebServiceProvider.js",
+            "export": "AuthWebServiceProvider"
+          },
+          {
+            "entrypoint": "src/server/providers/AuthRouteServiceProvider.js",
+            "export": "AuthRouteServiceProvider"
+          }
+        ]
+      },
+      "client": {
+        "providers": [
+          {
+            "entrypoint": "src/client/providers/AuthWebClientProvider.js",
+            "export": "AuthWebClientProvider"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./client",
+            "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
+          },
+          {
+            "subpath": "./server",
+            "summary": "Exports auth web server providers, controller/service classes, route builders, and HTTP schema modules."
+          },
+          {
+            "subpath": "./test/playwright",
+            "summary": "Exports the localhost-only Playwright helper for creating a dev-auth session in the tested browser context."
+          }
+        ],
+        "containerTokens": {
+          "server": [
+            "auth.web.service"
+          ],
+          "client": [
+            "runtime.auth-guard.client",
+            "auth.login.component",
+            "auth.login.useLoginView",
+            "auth.web.profile.widget",
+            "auth.web.profile.menu.link-item"
+          ]
+        }
+      },
+      "server": {
+        "routes": [
+          {
+            "method": "POST",
+            "path": "/api/login",
+            "summary": "Log in with configured credentials"
+          },
+          {
+            "method": "POST",
+            "path": "/api/login/otp/request",
+            "summary": "Request one-time email login code"
+          },
+          {
+            "method": "POST",
+            "path": "/api/login/otp/verify",
+            "summary": "Verify one-time email login code and create session"
+          },
+          {
+            "method": "POST",
+            "path": "/api/logout",
+            "summary": "Log out and clear session cookies"
+          },
+          {
+            "method": "GET",
+            "path": "/api/oauth/:provider/start",
+            "summary": "Start OAuth login with configured provider"
+          },
+          {
+            "method": "POST",
+            "path": "/api/oauth/complete",
+            "summary": "Complete OAuth code exchange and set session cookies"
+          },
+          {
+            "method": "POST",
+            "path": "/api/password/forgot",
+            "summary": "Request a password reset email"
+          },
+          {
+            "method": "POST",
+            "path": "/api/password/recovery",
+            "summary": "Complete password recovery link exchange"
+          },
+          {
+            "method": "POST",
+            "path": "/api/password/reset",
+            "summary": "Set a new password for authenticated recovery session"
+          },
+          {
+            "method": "POST",
+            "path": "/api/register",
+            "summary": "Register a new user"
+          },
+          {
+            "method": "GET",
+            "path": "/api/session",
+            "summary": "Get current session status and CSRF token"
+          }
+        ]
+      },
+      "ui": {
+        "routes": [
+          {
+            "id": "auth.login",
+            "path": "/auth/login",
+            "scope": "surface",
+            "surface": "auth",
+            "name": "auth-login",
+            "componentKey": "auth-login",
+            "autoRegister": false,
+            "guard": {
+              "policy": "public"
+            },
+            "purpose": "Public login route for authentication flows."
+          },
+          {
+            "id": "auth.signout",
+            "path": "/auth/signout",
+            "scope": "surface",
+            "surface": "auth",
+            "name": "auth-signout",
+            "componentKey": "auth-signout",
+            "autoRegister": false,
+            "guard": {
+              "policy": "public"
+            },
+            "purpose": "Public sign-out route that clears session then returns to login."
+          },
+          {
+            "id": "auth.reset-password",
+            "path": "/auth/reset-password",
+            "scope": "surface",
+            "surface": "auth",
+            "name": "auth-reset-password",
+            "componentKey": "auth-reset-password",
+            "autoRegister": false,
+            "guard": {
+              "policy": "public"
+            },
+            "purpose": "Public password reset screen for recovery links."
+          },
+          {
+            "id": "auth.default-login",
+            "path": "/auth/default-login",
+            "scope": "surface",
+            "surface": "auth",
+            "name": "auth-default-login",
+            "componentKey": "auth-default-login",
+            "autoRegister": true,
+            "guard": {
+              "policy": "public"
+            },
+            "purpose": "Default module-supplied login screen."
+          }
+        ],
+        "elements": [],
+        "overrides": [],
+        "placements": {
+          "outlets": [
+            {
+              "target": "auth-profile-menu:primary-menu",
+              "surfaces": [
+                "*"
+              ],
+              "source": "src/client/views/AuthProfileWidget.vue"
+            }
+          ],
+          "topology": {
+            "placements": [
+              {
+                "id": "auth.profile-menu",
+                "description": "Authenticated profile menu actions.",
+                "surfaces": [
+                  "*"
+                ],
+                "variants": {
+                  "compact": {
+                    "outlet": "auth-profile-menu:primary-menu",
+                    "renderers": {
+                      "link": "auth.web.profile.menu.link-item"
+                    }
+                  },
+                  "medium": {
+                    "outlet": "auth-profile-menu:primary-menu",
+                    "renderers": {
+                      "link": "auth.web.profile.menu.link-item"
+                    }
+                  },
+                  "expanded": {
+                    "outlet": "auth-profile-menu:primary-menu",
+                    "renderers": {
+                      "link": "auth.web.profile.menu.link-item"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "contributions": [
+            {
+              "id": "auth.profile.widget",
+              "target": "shell.status",
+              "kind": "component",
+              "surfaces": [
+                "*"
+              ],
+              "order": 1000,
+              "componentToken": "auth.web.profile.widget",
+              "source": "mutations.text#auth-web-placement-block"
+            },
+            {
+              "id": "auth.profile.menu.sign-in",
+              "target": "auth.profile-menu",
+              "kind": "link",
+              "surfaces": [
+                "*"
+              ],
+              "order": 200,
+              "when": "auth.authenticated !== true",
+              "source": "mutations.text#auth-web-placement-block"
+            },
+            {
+              "id": "auth.profile.menu.sign-out",
+              "target": "auth.profile-menu",
+              "kind": "link",
+              "surfaces": [
+                "*"
+              ],
+              "order": 1000,
+              "when": "auth.authenticated === true",
+              "source": "mutations.text#auth-web-placement-block"
+            }
+          ]
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@mdi/js": "^7.4.47",
+          "@jskit-ai/auth-core": "0.1.147",
+          "@jskit-ai/http-runtime": "0.1.147",
+          "@jskit-ai/kernel": "0.1.149",
+          "@jskit-ai/shell-web": "0.1.153"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {
+          "server:auth": "SERVER_SURFACE=auth node ./bin/server.js",
+          "dev:auth": "VITE_SURFACE=auth vite",
+          "build:auth": "VITE_SURFACE=auth vite build"
+        }
+      },
+      "procfile": {},
+      "files": [
+        {
+          "from": "templates/src/views/auth/LoginView.vue",
+          "to": "src/views/auth/LoginView.vue",
+          "ownership": "app",
+          "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default.",
+          "category": "auth-web",
+          "id": "auth-view-login"
+        },
+        {
+          "from": "templates/src/views/auth/SignOutView.vue",
+          "to": "src/views/auth/SignOutView.vue",
+          "ownership": "app",
+          "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
+          "category": "auth-web",
+          "id": "auth-view-signout"
+        },
+        {
+          "from": "templates/src/views/auth/ResetPasswordView.vue",
+          "to": "src/views/auth/ResetPasswordView.vue",
+          "ownership": "app",
+          "reason": "Install minimal password reset container that renders the module-provided DefaultResetPasswordView by default.",
+          "category": "auth-web",
+          "id": "auth-view-reset-password"
+        },
+        {
+          "from": "templates/src/pages/auth/login.vue",
+          "to": "src/pages/auth/login.vue",
+          "ownership": "app",
+          "reason": "Provide an auth-surface /auth/login wrapper that renders the package login view.",
+          "category": "auth-web",
+          "id": "auth-page-login"
+        },
+        {
+          "from": "templates/src/pages/auth/signout.vue",
+          "to": "src/pages/auth/signout.vue",
+          "ownership": "app",
+          "reason": "Provide an auth-surface /auth/signout wrapper that renders the package sign-out view.",
+          "category": "auth-web",
+          "id": "auth-page-signout"
+        },
+        {
+          "from": "templates/src/pages/auth/reset-password.vue",
+          "to": "src/pages/auth/reset-password.vue",
+          "ownership": "app",
+          "reason": "Provide an auth-surface /auth/reset-password wrapper that renders the package password reset view.",
+          "category": "auth-web",
+          "id": "auth-page-reset-password"
+        }
+      ],
+      "text": [
+        {
+          "op": "append-text",
+          "file": "config/public.js",
+          "position": "bottom",
+          "skipIfContains": "config.surfaceDefinitions.auth = {",
+          "value": "\nconfig.surfaceDefinitions.auth = {\n  id: \"auth\",\n  label: \"Auth\",\n  pagesRoot: \"auth\",\n  enabled: true,\n  requiresAuth: false,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
+          "reason": "Register auth surface definition in public surface config.",
+          "category": "auth-web",
+          "id": "auth-web-surface-config-auth"
+        },
+        {
+          "op": "append-text",
+          "file": "src/placement.js",
+          "position": "bottom",
+          "skipIfContains": "id: \"auth.profile.widget\"",
+          "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 200,\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => auth?.authenticated !== true\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 1000,\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
+          "reason": "Append auth profile placement entries into app-owned placement registry.",
+          "category": "auth-web",
+          "id": "auth-web-placement-block"
+        },
+        {
+          "op": "append-text",
+          "file": "src/placementTopology.js",
+          "position": "bottom",
+          "skipIfContains": "id: \"auth.profile-menu\"",
+          "value": "\naddPlacementTopology({\n  id: \"auth.profile-menu\",\n  description: \"Authenticated profile menu actions.\",\n  surfaces: [\"*\"],\n  variants: {\n    compact: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    medium: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    }\n  }\n});\n",
+          "reason": "Append auth profile menu topology into the app-owned placement topology.",
+          "category": "auth-web",
+          "id": "auth-web-profile-menu-topology"
+        }
+      ]
+    }
   }
 }

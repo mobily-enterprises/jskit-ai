@@ -17,6 +17,7 @@ test("users-web exports are explicit and aligned with production/template usage"
       "./client",
       "./client/components/AccountSettingsClientElement",
       "./client/components/CrudAddEditScreen",
+      "./client/components/CrudDeleteAction",
       "./client/components/CrudListBulkActionSurface",
       "./client/components/CrudListFilterSurface",
       "./client/components/CrudListScreen",

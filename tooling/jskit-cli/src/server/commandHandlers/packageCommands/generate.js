@@ -10,16 +10,16 @@ import { interpolateOptionValue } from "../../shared/optionInterpolation.js";
 const SHELL_WEB_PACKAGE_ID = "@jskit-ai/shell-web";
 
 function resolveGeneratorSubcommandDefinitionMetadata(packageEntry = {}, subcommandName = "") {
-  const descriptor = packageEntry?.descriptor && typeof packageEntry.descriptor === "object"
-    ? packageEntry.descriptor
+  const packageMetadata = packageEntry?.packageMetadata && typeof packageEntry.packageMetadata === "object"
+    ? packageEntry.packageMetadata
     : {};
-  const metadata = descriptor?.metadata && typeof descriptor.metadata === "object"
-    ? descriptor.metadata
+  const metadata = packageMetadata?.metadata && typeof packageMetadata.metadata === "object"
+    ? packageMetadata.metadata
     : {};
   const subcommands = metadata?.generatorSubcommands && typeof metadata.generatorSubcommands === "object"
     ? metadata.generatorSubcommands
-    : descriptor?.generatorSubcommands && typeof descriptor.generatorSubcommands === "object"
-      ? descriptor.generatorSubcommands
+    : packageMetadata?.generatorSubcommands && typeof packageMetadata.generatorSubcommands === "object"
+      ? packageMetadata.generatorSubcommands
       : {};
   const normalizedSubcommandName = String(subcommandName || "").trim();
   if (!normalizedSubcommandName) {
@@ -33,7 +33,7 @@ function resolveSubcommandRequiresShellWeb(packageEntry = {}, subcommandName = "
   return resolveGeneratorSubcommandDefinitionMetadata(packageEntry, subcommandName)?.requiresShellWeb === true;
 }
 
-function mapDescriptorBackedSubcommandArgsToInlineOptions(
+function mapPackageMetadataBackedSubcommandArgsToInlineOptions(
   packageEntry = {},
   subcommandName = "",
   subcommandArgs = [],
@@ -133,7 +133,7 @@ function normalizeRelativePathWithinApp(appRoot = "", targetPath = "", createCli
   };
 }
 
-async function enforceDescriptorBackedCreateTargetPolicy({
+async function enforcePackageMetadataBackedCreateTargetPolicy({
   packageEntry,
   subcommandName,
   inlineOptions = {},
@@ -205,11 +205,10 @@ async function runPackageGenerateCommand(
     resolvePackageKind,
     resolveGeneratorPrimarySubcommand,
     hasGeneratorSubcommandDefinition,
-    loadLockFile,
+    loadInstalledAppPackageRegistry,
     readdir,
     validateInlineOptionValuesForPackage,
-    runGeneratorSubcommand,
-    createCatalogFetchStatusReporter = () => () => {}
+    runGeneratorSubcommand
   } = ctx;
 
   const firstToken = String(positional[0] || "").trim();
@@ -223,10 +222,6 @@ async function runPackageGenerateCommand(
   const targetId = firstToken === "package" ? secondToken : firstToken;
   const subcommandName = firstToken === "package" ? thirdToken : secondToken;
   const subcommandArgs = firstToken === "package" ? positional.slice(3) : positional.slice(2);
-  const reportTemplateFetchStatus = createCatalogFetchStatusReporter(io, {
-    enabled: options.json !== true
-  });
-
   async function resolveGeneratorPackageEntry(packageIdInput = "") {
     const appRoot = await resolveAppRootFromCwd(cwd);
     const packageRegistry = await loadPackageRegistry();
@@ -368,8 +363,8 @@ async function runPackageGenerateCommand(
       optionNames: validatedOptionNames
     });
     if (resolveSubcommandRequiresShellWeb(packageEntry, normalizedSubcommandName)) {
-      const { lock } = await loadLockFile(appRoot);
-      if (!lock?.installedPackages?.[SHELL_WEB_PACKAGE_ID]) {
+      const installedPackageRegistry = await loadInstalledAppPackageRegistry(appRoot);
+      if (!installedPackageRegistry.has(SHELL_WEB_PACKAGE_ID)) {
         const commandLabel = `${String(targetId || resolvedPackageId || "").trim() || resolvedPackageId} ${normalizedSubcommandName}`.trim();
         throw createCliError(
           `Generator command ${commandLabel} requires ${SHELL_WEB_PACKAGE_ID} to be installed in this app. Run: npx jskit add package shell-web`
@@ -383,7 +378,7 @@ async function runPackageGenerateCommand(
       normalizedSubcommandName === primarySubcommand &&
       !hasGeneratorSubcommandDefinition(packageEntry, normalizedSubcommandName)
     ) {
-      const inlineOptionsForPrimarySubcommand = mapDescriptorBackedSubcommandArgsToInlineOptions(
+      const inlineOptionsForPrimarySubcommand = mapPackageMetadataBackedSubcommandArgsToInlineOptions(
         packageEntry,
         normalizedSubcommandName,
         normalizedSubcommandArgs,
@@ -393,7 +388,7 @@ async function runPackageGenerateCommand(
       await validateInlineOptionValuesForPackage(packageEntry, inlineOptionsForPrimarySubcommand, {
         appRoot
       });
-      await enforceDescriptorBackedCreateTargetPolicy({
+      await enforcePackageMetadataBackedCreateTargetPolicy({
         packageEntry,
         subcommandName: normalizedSubcommandName,
         inlineOptions: inlineOptionsForPrimarySubcommand,
@@ -416,8 +411,7 @@ async function runPackageGenerateCommand(
 
     const templateRoot = await resolvePackageTemplateRoot({
       packageEntry,
-      appRoot,
-      reportTemplateFetchStatus
+      appRoot
     });
     const executablePackageEntry =
       templateRoot === packageEntry.rootDir

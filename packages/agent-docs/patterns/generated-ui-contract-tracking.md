@@ -4,7 +4,7 @@ Use this file to track the generator-level UI contract work. Keep entries concre
 
 ## Goal
 
-Generated JSKIT apps should feel like real adaptive apps by default, not framework demos. The contract must be enforced in generators, descriptors, docs, and tests so it does not drift.
+Generated JSKIT apps should feel like real adaptive apps by default, not framework demos. The contract must be enforced in generators, package metadata, docs, and tests so it does not drift.
 
 ## Current Scope
 
@@ -31,7 +31,7 @@ Generated JSKIT apps should feel like real adaptive apps by default, not framewo
 
 - [x] `npm run lint`
 - [x] `npm run check:runtime-deps`
-- [x] `npm run jskit -- lint-descriptors`
+- [x] `npx jskit lint-packages`
 - [x] `npm run catalog:build`
 - [x] `npm run agent-docs:build`
 - [x] `npm test --workspace @jskit-ai/kernel`
@@ -50,7 +50,7 @@ Generated JSKIT apps should feel like real adaptive apps by default, not framewo
 - Do not weaken semantic placement defaults while adding navigation inference.
 - Do not turn the contract into runtime business logic; it is generator and template policy.
 - Do not remove intentional cards from specialist UI components just to satisfy a broad scan.
-- Keep generated files deterministic and update catalog/agent-doc outputs when descriptors or exported symbols change.
+- Keep generated files deterministic and update catalog/agent-doc outputs when package metadata or exported symbols change.
 - Kernel shared UI contract must stay surface-id agnostic. Concrete mappings like admin/console to operator profile belong in generators or package templates.
 - Item 3 is complete for current generated surfaces: page, CRUD, shell, and starter outputs require compact/medium/expanded coverage, horizontal overflow checks, generated screen checks, and compact generated-screen 48px tap target checks. Calendar/grid/bottom-sheet specialist generators remain future scope until those generators exist.
 - Item 5 is complete for current generators: `primary`, `secondary`, `utility`, `detail`, `workflow`, and `none` are centralized in the generated UI contract, generators consume that contract, and `utility` resolves to seeded `shell.global-actions` topology.

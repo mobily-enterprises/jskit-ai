@@ -68,7 +68,7 @@ test("shouldServePathForSurface allows api and matching enabled surfaces", () =>
   );
 });
 
-test("shouldServePathForSurface allows descriptor-declared global ui paths", () => {
+test("shouldServePathForSurface allows packageMetadata-declared global ui paths", () => {
   const surfaceRuntime = createFakeSurfaceRuntime();
   assert.equal(
     shouldServePathForSurface({

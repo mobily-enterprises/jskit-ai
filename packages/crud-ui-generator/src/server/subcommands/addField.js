@@ -330,7 +330,7 @@ function insertFormFieldDefinition(source, insertion = {}) {
   if (!declaration || anchorIndex <= declaration.openIndex || anchorIndex >= declaration.closeIndex) {
     throw new Error(
       `crud-ui-generator field found legacy form-field marker layout for ${insertion.arrayName}. ` +
-      "Run `jskit app migrate-source-mutations` before adding more generated form fields."
+      `Move the generated field marker inside the ${insertion.arrayName} array, or regenerate the screen with the current generator.`
     );
   }
 

@@ -19,11 +19,10 @@ Choose the truthful `--navigation-role`. Override with semantic
 diagnosis. Let the generator create the route and placement before adapting
 app-owned output. State why before hand-writing a normal page.
 
-## Managed app-owned files
+## App-owned files
 
-“App-owned” means customizable, not disposable while its package is installed.
-Never delete or rename a path recorded in `.jskit/lock.json`; adapt managed
-infrastructure tests in place. When replacing a starter route, update its smoke
+App-owned generated files are customizable. Adapt infrastructure tests in place.
+When replacing a starter route, update its smoke
 test to the new canonical route instead of deleting baseline browser coverage.
 Doctor must continue to report a missing managed test.
 
@@ -65,11 +64,8 @@ install a browser when a managed runner supplies one.
 
 For explicitly enabled direct-local auth, use `loginAsExistingUser()` from
 `@jskit-ai/auth-web/test/playwright`; never expose its secret to browser code,
-URLs, or client env. Record a successful supported run with:
+URLs, or client env. Run the focused test directly:
 
 ```bash
-npx --no-install jskit app verify-ui \
-  --command "<exact successful Playwright command>" \
-  --feature "<changed behavior>" \
-  --auth-mode <dev-auth-login-as|session-bootstrap>
+npx playwright test <test-file> -g "<changed behavior>"
 ```

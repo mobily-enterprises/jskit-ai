@@ -84,7 +84,7 @@ test("latest JSKIT app keeps managed wrapper scripts and JSKIT dependency specif
   assert.ok(devDependencies.length > 0, "Expected JSKIT dev dependencies to be present.");
 
   for (const [name, value] of [...runtimeDependencies, ...devDependencies]) {
-    assert.match(value, /^(0\.x|\d+\.\d+\.\d+)$/, `Expected ${name} to use a managed JSKIT version specifier.`);
+    assert.match(value, /^\d+\.\d+\.\d+$/, `Expected ${name} to use an exact JSKIT version.`);
   }
 
   for (const [scriptName, expectedValue] of Object.entries(EXPECTED_MANAGED_SCRIPTS)) {
@@ -113,7 +113,6 @@ test("starter shell keeps one JSKIT-managed hosted CI workflow", async () => {
   assert.match(workflowSource, /run: npm run verify/);
   assert.ok(workflowSource.indexOf("run: npm ci") < workflowSource.indexOf("run: npm run verify"));
   assert.doesNotMatch(workflowSource, /jskit app verify --against/);
-  assert.doesNotMatch(workflowSource, /jskit app verify-ui/);
   await assert.rejects(access(path.join(APP_ROOT, ".github", "workflows", "verify.yml")), /ENOENT/);
 });
 

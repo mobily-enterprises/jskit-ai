@@ -5,7 +5,7 @@ function createRunCli({
   validateCommandOptions,
   resolveCommandDescriptor,
   commandHandlers,
-  cleanupMaterializedPackageRoots,
+  cleanupPackageRootCaches,
   createCliError
 } = {}) {
   if (typeof parseArgs !== "function") {
@@ -26,8 +26,8 @@ function createRunCli({
   if (!commandHandlers || typeof commandHandlers !== "object") {
     throw new TypeError("createRunCli requires commandHandlers.");
   }
-  if (typeof cleanupMaterializedPackageRoots !== "function") {
-    throw new TypeError("createRunCli requires cleanupMaterializedPackageRoots.");
+  if (typeof cleanupPackageRootCaches !== "function") {
+    throw new TypeError("createRunCli requires cleanupPackageRootCaches.");
   }
   if (typeof createCliError !== "function") {
     throw new TypeError("createRunCli requires createCliError.");
@@ -89,7 +89,7 @@ function createRunCli({
       }
       return 1;
     } finally {
-      await cleanupMaterializedPackageRoots();
+      await cleanupPackageRootCaches();
     }
   };
 }

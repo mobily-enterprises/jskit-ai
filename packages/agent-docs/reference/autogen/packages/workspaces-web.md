@@ -367,9 +367,3 @@ Exports
 ### `templates/src/surfaces/app/root.vue`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

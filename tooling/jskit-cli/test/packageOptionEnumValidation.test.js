@@ -23,10 +23,10 @@ class CaptureOutput extends Writable {
   }
 }
 
-test("validateInlineOptionValuesForPackage accepts enum and csv-enum values from descriptor metadata", async () => {
+test("validateInlineOptionValuesForPackage accepts enum and csv-enum values from package metadata", async () => {
   const packageEntry = {
     packageId: "@demo/enum-generator",
-    descriptor: {
+    packageMetadata: {
       options: {
         "ownership-filter": {
           validationType: "enum",
@@ -49,7 +49,7 @@ test("validateInlineOptionValuesForPackage accepts enum and csv-enum values from
 test("validateInlineOptionValuesForPackage rejects unsupported enum and csv-enum values", async () => {
   const packageEntry = {
     packageId: "@demo/enum-generator",
-    descriptor: {
+    packageMetadata: {
       options: {
         "ownership-filter": {
           validationType: "enum",
@@ -73,10 +73,10 @@ test("validateInlineOptionValuesForPackage rejects unsupported enum and csv-enum
   );
 });
 
-test("resolvePackageOptions normalizes descriptor flag options without empty-string ambiguity", async () => {
+test("resolvePackageOptions normalizes packageMetadata flag options without empty-string ambiguity", async () => {
   const packageEntry = {
     packageId: "@demo/flag-generator",
-    descriptor: {
+    packageMetadata: {
       options: {
         force: {
           required: false,
@@ -104,7 +104,7 @@ test("resolvePackageOptions normalizes descriptor flag options without empty-str
   assert.equal((await resolvePackageOptions(packageEntry, { internal: "false" }, {}, {})).internal, "false");
 });
 
-test("resolvePackageOptions offers descriptor-backed choices for required enum options", async () => {
+test("resolvePackageOptions offers packageMetadata-backed choices for required enum options", async () => {
   const stdin = new PassThrough();
   stdin.isTTY = true;
   const stdout = new CaptureOutput();
@@ -112,7 +112,7 @@ test("resolvePackageOptions offers descriptor-backed choices for required enum o
 
   const packageEntry = {
     packageId: "@demo/enum-generator",
-    descriptor: {
+    packageMetadata: {
       options: {
         "ownership-filter": {
           required: true,

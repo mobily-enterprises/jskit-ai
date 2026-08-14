@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-server-generator",
-  "version": "0.1.161",
+  "version": "0.1.162",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,12 +13,351 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.2",
-    "@jskit-ai/crud-core": "0.1.159",
-    "@jskit-ai/database-runtime": "0.1.148",
-    "@jskit-ai/http-runtime": "0.1.146",
-    "@jskit-ai/json-rest-api-core": "0.1.92",
-    "@jskit-ai/kernel": "0.1.147",
-    "@jskit-ai/resource-crud-core": "0.1.90",
+    "@jskit-ai/auth-core": "0.1.147",
+    "@jskit-ai/crud-core": "0.1.160",
+    "@jskit-ai/database-runtime": "0.1.149",
+    "@jskit-ai/http-runtime": "0.1.147",
+    "@jskit-ai/json-rest-api-core": "0.1.93",
+    "@jskit-ai/kernel": "0.1.149",
+    "@jskit-ai/realtime": "0.1.146",
+    "@jskit-ai/resource-crud-core": "0.1.91",
     "recast": "^0.23.11"
+  },
+  "description": "CRUD server generator with routes, actions, and persistence scaffolding.",
+  "jskit": {
+    "kind": "generator",
+    "options": {
+      "namespace": {
+        "required": true,
+        "inputType": "text",
+        "defaultValue": "",
+        "promptLabel": "CRUD namespace",
+        "promptHint": "Required slug (example: customers, appointments, vendors)."
+      },
+      "surface": {
+        "required": false,
+        "inputType": "text",
+        "validationType": "enabled-surface-id",
+        "promptLabel": "Target surface",
+        "promptHint": "Optional for non-workspace apps; otherwise must match an enabled surface id."
+      },
+      "ownership-filter": {
+        "required": true,
+        "inputType": "text",
+        "defaultValue": "auto",
+        "validationType": "enum",
+        "allowedValues": [
+          "auto",
+          "public",
+          "user",
+          "workspace",
+          "workspace_user"
+        ],
+        "promptLabel": "Ownership filter",
+        "promptHint": "auto | public | user | workspace | workspace_user"
+      },
+      "access": {
+        "required": false,
+        "inputType": "text",
+        "defaultValue": "authenticated",
+        "validationType": "enum",
+        "allowedValues": [
+          "authenticated",
+          "public"
+        ],
+        "promptLabel": "CRUD access",
+        "promptHint": "authenticated | public; public requires a non-workspace surface with public ownership."
+      },
+      "directory-prefix": {
+        "required": false,
+        "inputType": "text",
+        "defaultValue": "",
+        "promptLabel": "Route path prefix",
+        "promptHint": "Optional subpath prepended to the CRUD route path (example: crm or ops/team-a)."
+      },
+      "table-name": {
+        "required": false,
+        "inputType": "text",
+        "defaultValue": "",
+        "defaultFromOptionTemplate": "${option:namespace}",
+        "promptLabel": "Table name",
+        "promptHint": "Existing MySQL table to introspect for CRUD schema generation (defaults to namespace)."
+      },
+      "id-column": {
+        "required": false,
+        "inputType": "text",
+        "defaultValue": "id",
+        "promptLabel": "Id column",
+        "promptHint": "Primary key column used by CRUD endpoints (default: id)."
+      },
+      "force": {
+        "required": false,
+        "inputType": "flag",
+        "defaultValue": "",
+        "promptLabel": "Force overwrite",
+        "promptHint": "Overwrite generated scaffold files if the namespace package directory already exists."
+      },
+      "internal": {
+        "required": false,
+        "inputType": "flag",
+        "defaultValue": "",
+        "promptLabel": "Internal HTTP routes",
+        "promptHint": "Mark generated CRUD HTTP routes as internal-only so they are not publicly registered."
+      },
+      "grant-role": {
+        "required": false,
+        "inputType": "text",
+        "defaultValue": "",
+        "promptLabel": "CRUD permission grant role",
+        "promptHint": "Configured workspace role that receives generated CRUD permissions; choose this or --no-role-grant."
+      },
+      "no-role-grant": {
+        "required": false,
+        "inputType": "flag",
+        "defaultValue": "",
+        "promptLabel": "Skip automatic role grant",
+        "promptHint": "Generate normal CRUD permissions without assigning them to a workspace role."
+      }
+    },
+    "optionPolicies": {
+      "surfaceVisibility": {
+        "visibilityOption": "ownership-filter"
+      }
+    },
+    "capabilities": {
+      "provides": [
+        "crud"
+      ],
+      "requires": [
+        "runtime.actions",
+        "runtime.database",
+        "auth.policy",
+        "json-rest-api.core"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/CrudProvider.js",
+            "export": "CrudProvider"
+          }
+        ]
+      }
+    },
+    "lifecycle": {
+      "install": {
+        "prepare": {
+          "entrypoint": "src/server/buildTemplateContext.js",
+          "export": "prepareInstallHook"
+        }
+      }
+    },
+    "metadata": {
+      "generatorPrimarySubcommand": "scaffold",
+      "generatorSubcommands": {
+        "scaffold": {
+          "description": "Scaffold a CRUD resource package for a table (same behavior as running generate with no subcommand).",
+          "optionNames": [
+            "namespace",
+            "surface",
+            "ownership-filter",
+            "access",
+            "table-name",
+            "id-column",
+            "directory-prefix",
+            "force",
+            "internal",
+            "grant-role",
+            "no-role-grant"
+          ],
+          "createTarget": {
+            "pathTemplate": "packages/${option:namespace|kebab}",
+            "label": "package directory",
+            "allowExistingEmptyDirectory": false
+          }
+        },
+        "scaffold-field": {
+          "entrypoint": "src/server/subcommands/addField.js",
+          "export": "runGeneratorSubcommand",
+          "description": "Patch one writable field into an existing generated CRUD resource module.",
+          "positionalArgs": [
+            {
+              "name": "<fieldKey>",
+              "required": true,
+              "description": "Resource field key (camelCase) resolved from the DB snapshot."
+            },
+            {
+              "name": "<targetFile>",
+              "required": true,
+              "description": "Path to the generated CRUD resource file relative to app root."
+            }
+          ],
+          "optionNames": [
+            "table-name",
+            "id-column"
+          ]
+        }
+      },
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server",
+            "summary": "Scaffold package runtime provider (no-op) plus reference CRUD server modules."
+          },
+          {
+            "subpath": "./shared",
+            "summary": "Exports shared CRUD resource and module config helpers."
+          }
+        ],
+        "containerTokens": {
+          "server": []
+        }
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@jskit-ai/auth-core": "0.1.147",
+          "@jskit-ai/crud-core": "0.1.160",
+          "@jskit-ai/database-runtime": "0.1.149",
+          "@jskit-ai/http-runtime": "0.1.147",
+          "@jskit-ai/json-rest-api-core": "0.1.93",
+          "@jskit-ai/kernel": "0.1.149",
+          "@jskit-ai/realtime": "0.1.146",
+          "@jskit-ai/resource-crud-core": "0.1.91",
+          "@local/${option:namespace|kebab}": "file:packages/${option:namespace|kebab}"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": [
+        {
+          "op": "install-migration",
+          "from": "templates/migrations/crud_initial.cjs",
+          "toDir": "migrations",
+          "extension": ".cjs",
+          "reason": "Install CRUD schema migration.",
+          "category": "crud",
+          "id": "crud-initial-schema-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "op": "install-migration",
+          "from": "templates/migrations/crud_foreign_keys.cjs",
+          "toDir": "migrations/constraints",
+          "extension": ".cjs",
+          "reason": "Install CRUD foreign keys after all table-creation migrations.",
+          "category": "crud",
+          "id": "crud-foreign-keys-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "from": "templates/src/local-package/package.json",
+          "to": "packages/${option:namespace|kebab}/package.json",
+          "reason": "Install app-local CRUD package manifest.",
+          "category": "crud",
+          "id": "crud-local-package-json-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "from": "templates/src/local-package/server/CrudProvider.js",
+          "to": "packages/${option:namespace|kebab}/src/server/${option:namespace|pascal}Provider.js",
+          "reason": "Install app-local CRUD server provider.",
+          "category": "crud",
+          "id": "crud-local-package-server-provider-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "from": "templates/src/local-package/server/actions.js",
+          "to": "packages/${option:namespace|kebab}/src/server/actions.js",
+          "reason": "Install app-local CRUD action definitions.",
+          "category": "crud",
+          "id": "crud-local-package-server-actions-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "from": "templates/src/local-package/server/registerRoutes.js",
+          "to": "packages/${option:namespace|kebab}/src/server/registerRoutes.js",
+          "reason": "Install app-local CRUD route registration.",
+          "category": "crud",
+          "id": "crud-local-package-server-routes-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "from": "templates/src/local-package/server/repository.js",
+          "to": "packages/${option:namespace|kebab}/src/server/repository.js",
+          "reason": "Install app-local CRUD repository.",
+          "category": "crud",
+          "id": "crud-local-package-server-repository-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        },
+        {
+          "from": "templates/src/local-package/server/service.js",
+          "to": "packages/${option:namespace|kebab}/src/server/service.js",
+          "reason": "Install app-local CRUD service.",
+          "category": "crud",
+          "id": "crud-local-package-server-service-${option:namespace|snake}"
+        },
+        {
+          "from": "templates/src/local-package/shared/index.js",
+          "to": "packages/${option:namespace|kebab}/src/shared/index.js",
+          "reason": "Install app-local CRUD shared exports.",
+          "category": "crud",
+          "id": "crud-local-package-shared-index-${option:namespace|snake}"
+        },
+        {
+          "from": "templates/src/local-package/shared/crudResource.js",
+          "to": "packages/${option:namespace|kebab}/src/shared/${option:namespace|singular|camel}Resource.js",
+          "reason": "Install app-local CRUD resource.",
+          "category": "crud",
+          "id": "crud-local-package-shared-resource-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        }
+      ],
+      "text": [
+        {
+          "op": "append-text",
+          "file": "config/roles.js",
+          "position": "bottom",
+          "skipIfContains": "\"crud.${option:namespace|snake}.list\"",
+          "value": "__JSKIT_CRUD_ROLE_CATALOG_PERMISSION_GRANTS__",
+          "reason": "Grant generated CRUD action permissions to the selected role in the app-owned role catalog.",
+          "category": "crud",
+          "id": "crud-role-catalog-permissions-${option:namespace|snake}",
+          "templateContext": {
+            "entrypoint": "src/server/buildTemplateContext.js",
+            "export": "buildTemplateContext"
+          }
+        }
+      ]
+    }
   }
 }

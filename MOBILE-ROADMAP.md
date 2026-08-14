@@ -192,7 +192,7 @@ It should not own:
 
 ```txt
 packages/mobile-capacitor/
-  package.descriptor.mjs
+  package.json
   src/
     client/
       index.js

@@ -21,7 +21,7 @@ import {
   resolveCrudResourceScopeName
 } from "@jskit-ai/kernel/shared/support/crudLookup";
 import { toCamelCase, toSnakeCase } from "@jskit-ai/kernel/shared/support/stringCase";
-import descriptor from "../../package.descriptor.mjs";
+const packageMetadata = createRequire(import.meta.url)("../../package.json").jskit;
 
 const DEFAULT_ID_COLUMN = "id";
 const DEFAULT_OWNERSHIP_FILTER_VALUES = Object.freeze(["auto", "public", "user", "workspace", "workspace_user"]);
@@ -51,19 +51,19 @@ function resolveAllowedValues(schema = {}, fallbackValues = []) {
 }
 
 const OWNERSHIP_FILTER_ALLOWED_VALUES = resolveAllowedValues(
-  descriptor?.options?.["ownership-filter"],
+  packageMetadata?.options?.["ownership-filter"],
   DEFAULT_OWNERSHIP_FILTER_VALUES
 );
 const OWNERSHIP_FILTER_AUTO = normalizeText(
-  descriptor?.options?.["ownership-filter"]?.defaultValue
+  packageMetadata?.options?.["ownership-filter"]?.defaultValue
 ).toLowerCase() || "auto";
 const OWNERSHIP_FILTER_VALUES = new Set(OWNERSHIP_FILTER_ALLOWED_VALUES);
 const ACCESS_ALLOWED_VALUES = resolveAllowedValues(
-  descriptor?.options?.access,
+  packageMetadata?.options?.access,
   DEFAULT_ACCESS_VALUES
 );
 const ACCESS_DEFAULT = normalizeText(
-  descriptor?.options?.access?.defaultValue
+  packageMetadata?.options?.access?.defaultValue
 ).toLowerCase() || "authenticated";
 const ACCESS_VALUES = new Set(ACCESS_ALLOWED_VALUES);
 

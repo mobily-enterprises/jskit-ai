@@ -89,9 +89,3 @@ Exports
 Local functions
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
 - `buildSocketIoRedisAdapterKey(redisNamespace = "")`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

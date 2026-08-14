@@ -410,15 +410,6 @@ async function applySourceMutations(
   }
 }
 
-function isPositioningSourceMutation(value = {}) {
-  const mutation = ensureObject(value);
-  const operation = String(mutation.op || "").trim();
-  if (operation !== "ensure-call") {
-    return false;
-  }
-  return normalizeMutationRelativeFilePath(mutation.file) === "src/placement.js";
-}
-
 function isPreFileConfigSourceMutation(value = {}) {
   const mutation = ensureObject(value);
   const operation = String(mutation.op || "").trim();
@@ -446,13 +437,7 @@ function partitionPreFileConfigSourceMutations(sourceMutations = []) {
   };
 }
 
-function resolvePositioningSourceMutations(descriptorMutations = {}) {
-  const mutations = ensureObject(descriptorMutations);
-  return ensureArray(mutations.source).filter((mutationValue) => isPositioningSourceMutation(mutationValue));
-}
-
 export {
   applySourceMutations,
-  partitionPreFileConfigSourceMutations,
-  resolvePositioningSourceMutations
+  partitionPreFileConfigSourceMutations
 };

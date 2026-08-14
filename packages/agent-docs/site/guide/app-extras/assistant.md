@@ -47,7 +47,6 @@ npx jskit add package console-web
 npx jskit add package workspaces-core
 npx jskit add package workspaces-web
 npx jskit add package realtime
-npm install
 npm run db:migrate
 ```
 
@@ -78,7 +77,6 @@ From inside `exampleapp`, run:
 
 ```bash
 npx jskit add package assistant-runtime
-npm install
 npm run db:migrate
 ```
 

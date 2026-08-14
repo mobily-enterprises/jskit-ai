@@ -5,7 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
-import { writeInstalledPackagesLock } from "./testLock.js";
+import { declareInstalledPackages } from "./testInstalledPackages.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -55,16 +56,14 @@ async function writeGeneratorPackage(appRoot, { requiresShellWeb = false } = {})
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "@demo/generator",
   version: "0.1.0",
   kind: "generator",
   description: "Demo generator",
   options: {},
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -99,7 +98,7 @@ async function writeGeneratorPackage(appRoot, { requiresShellWeb = false } = {})
     files: [],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -186,7 +185,7 @@ test("generate <packageId> <subcommand> runs when the subcommand requires shell-
     const appRoot = path.join(cwd, "generator-subcommand-shell-ready-app");
     await createMinimalApp(appRoot, { name: "generator-subcommand-shell-ready-app" });
     await writeGeneratorPackage(appRoot, { requiresShellWeb: true });
-    await writeInstalledPackagesLock(appRoot, {
+    await declareInstalledPackages(appRoot, {
       "@jskit-ai/shell-web": {
         packageId: "@jskit-ai/shell-web",
         version: "0.1.0"

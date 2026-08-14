@@ -31,9 +31,3 @@ Exports
 Exports
 - `DIALECT_ID`
 - `getDialectId`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

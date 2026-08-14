@@ -187,7 +187,7 @@ description: Why JSKIT-AI is more than a stack.
     <h2>AI that builds inside the framework</h2>
     <ul>
       <li>app blueprint memory</li>
-      <li>scoped verification receipts</li>
+      <li>deterministic verification</li>
       <li>chunked delivery</li>
       <li>deslop passes</li>
       <li>JSKIT audits</li>

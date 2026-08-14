@@ -68,9 +68,3 @@ Exports
 - `DEFAULT_IMAGE_EDITOR_OPTIONS`
 - `DEFAULT_IMAGE_UPLOAD_ALLOWED_MIME_TYPES`
 - `DEFAULT_IMAGE_UPLOAD_MAX_BYTES`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import {
   requireCrudNamespace
 } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
@@ -34,7 +35,7 @@ import {
   resolveRecordChangedEventName,
   resolveRecordIdExpression
 } from "./resourceSupport.js";
-import descriptor from "../../package.descriptor.mjs";
+const packageMetadata = createRequire(import.meta.url)("../../package.json").jskit;
 
 const DEFAULT_ALLOWED_OPERATIONS = Object.freeze(["list", "view", "new", "edit"]);
 const DEFAULT_ALLOWED_PARENT_TITLE_VALUES = Object.freeze(["contextual", "none"]);
@@ -59,15 +60,15 @@ function resolveAllowedValues(schema = {}, fallbackValues = []) {
   );
 }
 
-const OPERATION_VALUES = resolveAllowedValues(descriptor?.options?.operations, DEFAULT_ALLOWED_OPERATIONS);
+const OPERATION_VALUES = resolveAllowedValues(packageMetadata?.options?.operations, DEFAULT_ALLOWED_OPERATIONS);
 const ALLOWED_OPERATIONS = new Set(OPERATION_VALUES);
-const DEFAULT_OPERATIONS = normalizeText(descriptor?.options?.operations?.defaultValue) || OPERATION_VALUES.join(",");
+const DEFAULT_OPERATIONS = normalizeText(packageMetadata?.options?.operations?.defaultValue) || OPERATION_VALUES.join(",");
 const PARENT_TITLE_VALUES = resolveAllowedValues(
-  descriptor?.options?.["parent-title"],
+  packageMetadata?.options?.["parent-title"],
   DEFAULT_ALLOWED_PARENT_TITLE_VALUES
 );
 const ALLOWED_PARENT_TITLE_VALUES = new Set(PARENT_TITLE_VALUES);
-const DEFAULT_PARENT_TITLE_MODE = normalizeText(descriptor?.options?.["parent-title"]?.defaultValue).toLowerCase()
+const DEFAULT_PARENT_TITLE_MODE = normalizeText(packageMetadata?.options?.["parent-title"]?.defaultValue).toLowerCase()
   || PARENT_TITLE_VALUES[0]
   || "contextual";
 const DEFAULT_LIST_HIDDEN_FIELD_KEYS = new Set(["createdAt", "updatedAt"]);
@@ -687,88 +688,15 @@ const listHeadingTitle = computed(() => {
 }
 
 function buildViewDeleteActionSlot({
-  resourceNamespace = "resource",
   resourceSingularTitle = "Record"
 } = {}) {
-  const namespace = requireCrudNamespace(resourceNamespace, {
-    context: "crud-ui-generator delete action namespace"
-  });
   const label = normalizeText(resourceSingularTitle) || "Record";
   return `    <template #actions>
-      <v-btn
-        id="delete-${namespace}-button"
-        color="error"
-        variant="tonal"
-        :prepend-icon="mdiDeleteOutline"
-        min-height="48"
-        :disabled="!deleteAction.canDelete"
-        @click="deleteAction.request"
-      >
-        Delete ${label}
-      </v-btn>
+      <CrudDeleteAction
+        :action="deleteAction"
+        resource-singular-title="${label}"
+      />
     </template>`;
-}
-
-function buildViewDeleteDialog({
-  resourceNamespace = "resource",
-  resourceSingularTitle = "Record"
-} = {}) {
-  const namespace = requireCrudNamespace(resourceNamespace, {
-    context: "crud-ui-generator delete dialog namespace"
-  });
-  const label = normalizeText(resourceSingularTitle) || "Record";
-  const titleId = `delete-${namespace}-dialog-title`;
-  const descriptionId = `delete-${namespace}-dialog-description`;
-
-  return `
-
-  <v-dialog
-    v-model="deleteAction.isOpen"
-    activator="#delete-${namespace}-button"
-    max-width="32rem"
-    role="alertdialog"
-    aria-modal="true"
-    aria-labelledby="${titleId}"
-    aria-describedby="${descriptionId}"
-    :persistent="deleteAction.isDeleting"
-  >
-    <v-card>
-      <v-card-title id="${titleId}">Delete ${label}?</v-card-title>
-      <v-card-text>
-        <p id="${descriptionId}" class="mb-0">
-          This permanently deletes this ${label.toLowerCase()}. This action cannot be undone.
-        </p>
-        <v-alert
-          v-if="deleteAction.error"
-          class="mt-4"
-          type="error"
-          variant="tonal"
-        >
-          {{ deleteAction.error }}
-        </v-alert>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
-          autofocus
-          variant="text"
-          :disabled="deleteAction.isDeleting"
-          @click="deleteAction.cancel"
-        >
-          Cancel
-        </v-btn>
-        <v-btn
-          color="error"
-          variant="flat"
-          :loading="deleteAction.isDeleting"
-          :disabled="!deleteAction.canDelete"
-          @click="deleteAction.confirm"
-        >
-          Delete
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>`;
 }
 
 function buildViewDeleteSetup({ resourceNamespace = "resource" } = {}) {
@@ -990,19 +918,12 @@ async function buildUiTemplateContext({ appRoot, options } = {}) {
     __JSKIT_UI_VIEW_COLUMNS__: buildViewColumns(viewFields),
     __JSKIT_UI_VIEW_DELETE_ACTION_SLOT__: hasDeleteConfirmation
       ? buildViewDeleteActionSlot({
-        resourceNamespace,
-        resourceSingularTitle: resourceLabels.singularTitle
-      })
-      : "",
-    __JSKIT_UI_VIEW_DELETE_DIALOG__: hasDeleteConfirmation
-      ? buildViewDeleteDialog({
-        resourceNamespace,
         resourceSingularTitle: resourceLabels.singularTitle
       })
       : "",
     __JSKIT_UI_VIEW_DELETE_IMPORT_LINE__: hasDeleteConfirmation
       ? [
-          'import { mdiDeleteOutline } from "@mdi/js";',
+          'import CrudDeleteAction from "@jskit-ai/users-web/client/components/CrudDeleteAction";',
           'import { useCrudDeleteAction } from "@jskit-ai/users-web/client/composables/useCrudDeleteAction";'
         ].join("\n")
       : "",

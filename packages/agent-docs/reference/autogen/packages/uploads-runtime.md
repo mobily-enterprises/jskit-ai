@@ -77,9 +77,3 @@ Exports
 - `normalizeMaxUploadBytes(value, fallback = DEFAULT_IMAGE_UPLOAD_MAX_BYTES)`
 - `normalizeMimeType(value)`
 - `normalizeUploadPolicy(policy = {}, defaults = {})`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

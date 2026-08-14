@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -67,10 +68,9 @@ async function writeSubcommandGeneratorPackage(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "@demo/subcommand-generator",
   version: "0.1.0",
   kind: "generator",
@@ -86,7 +86,6 @@ async function writeSubcommandGeneratorPackage(appRoot) {
       validationType: "enabled-surface-id"
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -121,7 +120,7 @@ async function writeSubcommandGeneratorPackage(appRoot) {
     files: [],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -171,10 +170,9 @@ async function writePrimaryGeneratorPackage(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "@demo/primary-generator",
   version: "0.1.0",
   kind: "generator",
@@ -186,7 +184,6 @@ async function writePrimaryGeneratorPackage(appRoot) {
       validationType: "enabled-surface-id"
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -226,7 +223,7 @@ async function writePrimaryGeneratorPackage(appRoot) {
     ],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -256,10 +253,9 @@ async function writeCreateTargetPrimaryGeneratorPackage(appRoot) {
     "utf8"
   );
 
-  await writeFile(
-    path.join(packageRoot, "package.descriptor.mjs"),
-    `export default Object.freeze({
-  packageVersion: 1,
+  await writeJskitPackageMetadata(
+    path.join(packageRoot),
+    `({
   packageId: "@demo/create-target-generator",
   version: "0.1.0",
   kind: "generator",
@@ -275,7 +271,6 @@ async function writeCreateTargetPrimaryGeneratorPackage(appRoot) {
       defaultValue: ""
     }
   },
-  dependsOn: [],
   capabilities: {
     provides: [],
     requires: []
@@ -320,7 +315,7 @@ async function writeCreateTargetPrimaryGeneratorPackage(appRoot) {
     ],
     text: []
   }
-});
+})
 `,
     "utf8"
   );
@@ -377,7 +372,6 @@ test("generate primary install-style commands reject disabled surface ids before
       /Invalid option for package @demo\/primary-generator: --surface references disabled surface "disabled" in config\/public\.js\./
     );
     assert.equal(await fileExists(path.join(appRoot, "tmp", "primary-generator.txt")), false);
-    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
   });
 });
 
@@ -399,7 +393,6 @@ test("generate primary install-style commands with required options do not show 
     );
     assert.doesNotMatch(String(result.stdout || ""), /Generator subcommand help:/);
     assert.equal(await fileExists(path.join(appRoot, "tmp", "primary-generator.txt")), false);
-    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
   });
 });
 
@@ -427,7 +420,6 @@ test("generate primary install-style commands reject existing create targets unl
       /create-target-generator scaffold will not overwrite existing package directory packages\/demo-thing\. Re-run with --force to overwrite it\./
     );
     assert.equal(await fileExists(path.join(appRoot, "packages", "demo-thing", "marker.txt")), false);
-    assert.equal(await fileExists(path.join(appRoot, ".jskit", "lock.json")), false);
   });
 });
 

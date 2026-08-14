@@ -1,8 +1,7 @@
 export { runCli } from "./core/createCliRunner.js";
 export * from "./appBlueprint.js";
 export {
-  synchronizeAppCiWorkflow,
-  validateAppCiWorkflow
+  synchronizeAppCiWorkflow
 } from "./cliRuntime/ci/managedWorkflow.js";
 export {
   composeCiContributions

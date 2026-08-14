@@ -10,10 +10,10 @@ import {
   toAbsoluteSortedUniquePaths
 } from "./helpers.js";
 
-function normalizeServerProviderDefinitions(descriptor, packageId) {
+function normalizeServerProviderDefinitions(packageMetadata, packageId) {
   const runtime =
-    descriptor && typeof descriptor.runtime === "object" && descriptor.runtime && !Array.isArray(descriptor.runtime)
-      ? descriptor.runtime
+    packageMetadata && typeof packageMetadata.runtime === "object" && packageMetadata.runtime && !Array.isArray(packageMetadata.runtime)
+      ? packageMetadata.runtime
       : {};
   const server =
     runtime && typeof runtime.server === "object" && runtime.server && !Array.isArray(runtime.server)
@@ -162,11 +162,11 @@ function resolveProviderClassesFromModule(moduleNamespace, { packageId, provider
   return discovered;
 }
 
-async function collectDiscoveredProviderModulePaths({ descriptorEntry, providerDefinition }) {
-  const discoverRoot = path.resolve(descriptorEntry.packageRoot, providerDefinition.discoverDir);
-  if (!isInsidePackageRoot(descriptorEntry.packageRoot, discoverRoot)) {
+async function collectDiscoveredProviderModulePaths({ packageEntry, providerDefinition }) {
+  const discoverRoot = path.resolve(packageEntry.packageRoot, providerDefinition.discoverDir);
+  if (!isInsidePackageRoot(packageEntry.packageRoot, discoverRoot)) {
     throw new Error(
-      `Package ${descriptorEntry.packageId} runtime.server.providers[] discover.dir escapes package root: ${providerDefinition.discoverDir}`
+      `Package ${packageEntry.packageId} runtime.server.providers[] discover.dir escapes package root: ${providerDefinition.discoverDir}`
     );
   }
   if (!(await fileExists(discoverRoot))) {
@@ -176,7 +176,7 @@ async function collectDiscoveredProviderModulePaths({ descriptorEntry, providerD
   const patternMatcher = createWildcardMatcher(providerDefinition.discoverPattern);
   if (!(patternMatcher instanceof RegExp)) {
     throw new Error(
-      `Package ${descriptorEntry.packageId} runtime.server.providers[] discover.pattern is invalid: ${providerDefinition.discoverPattern}`
+      `Package ${packageEntry.packageId} runtime.server.providers[] discover.pattern is invalid: ${providerDefinition.discoverPattern}`
     );
   }
   const collectedPaths = [];
@@ -227,8 +227,8 @@ function registerProviderClass({ providerClass, sourceId, seenProviderIds, order
   orderedProviderClasses.push(providerClass);
 }
 
-async function loadPackageProviders({ descriptorEntry }) {
-  const providerDefinitions = normalizeServerProviderDefinitions(descriptorEntry.descriptor, descriptorEntry.packageId);
+async function loadPackageProviders({ packageEntry }) {
+  const providerDefinitions = normalizeServerProviderDefinitions(packageEntry.packageMetadata, packageEntry.packageId);
   if (providerDefinitions.length < 1) {
     return Object.freeze([]);
   }
@@ -237,7 +237,7 @@ async function loadPackageProviders({ descriptorEntry }) {
   for (const providerDefinition of providerDefinitions) {
     if (providerDefinition.type === "discover") {
       const discoveredProviderPaths = await collectDiscoveredProviderModulePaths({
-        descriptorEntry,
+        packageEntry,
         providerDefinition
       });
 
@@ -245,8 +245,8 @@ async function loadPackageProviders({ descriptorEntry }) {
         const providerModule = await import(pathToFileURL(discoveredProviderPath).href);
         providerClasses.push(
           ...resolveProviderClassesFromModule(providerModule, {
-            packageId: `${descriptorEntry.packageId} (${normalizeRelativePath(
-              descriptorEntry.packageRoot,
+            packageId: `${packageEntry.packageId} (${normalizeRelativePath(
+              packageEntry.packageRoot,
               discoveredProviderPath
             )})`,
             providerExport: ""
@@ -256,22 +256,22 @@ async function loadPackageProviders({ descriptorEntry }) {
       continue;
     }
 
-    const providerModulePath = path.resolve(descriptorEntry.packageRoot, providerDefinition.providerEntrypoint);
-    if (!isInsidePackageRoot(descriptorEntry.packageRoot, providerModulePath)) {
+    const providerModulePath = path.resolve(packageEntry.packageRoot, providerDefinition.providerEntrypoint);
+    if (!isInsidePackageRoot(packageEntry.packageRoot, providerModulePath)) {
       throw new Error(
-        `Package ${descriptorEntry.packageId} runtime.server.providers[] entrypoint escapes package root: ${providerDefinition.providerEntrypoint}`
+        `Package ${packageEntry.packageId} runtime.server.providers[] entrypoint escapes package root: ${providerDefinition.providerEntrypoint}`
       );
     }
     if (!(await fileExists(providerModulePath))) {
       throw new Error(
-        `Package ${descriptorEntry.packageId} runtime.server.providers[] entrypoint not found: ${providerDefinition.providerEntrypoint}`
+        `Package ${packageEntry.packageId} runtime.server.providers[] entrypoint not found: ${providerDefinition.providerEntrypoint}`
       );
     }
 
     const providerModule = await import(pathToFileURL(providerModulePath).href);
     providerClasses.push(
       ...resolveProviderClassesFromModule(providerModule, {
-        packageId: descriptorEntry.packageId,
+        packageId: packageEntry.packageId,
         providerExport: providerDefinition.providerExport
       })
     );

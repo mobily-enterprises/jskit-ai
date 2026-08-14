@@ -12,17 +12,14 @@ function createShowCommand(ctx = {}) {
     createColorFormatter,
     resolveWrapWidth,
     writeWrappedItems,
-    normalizeRelativePath,
     normalizeRelativePosixPath,
     resolveAppRootFromCwd,
     resolvePackageIdInput,
     loadPackageRegistry,
     loadBundleRegistry,
     loadAppLocalPackageRegistry,
-    loadLockFile,
+    loadInstalledAppPackageRegistry,
     mergePackageRegistries,
-    path,
-    fileExists,
     inspectPackageOfferings,
     buildFileWriteGroups,
     listDeclaredCapabilities,
@@ -81,81 +78,6 @@ function createShowCommand(ctx = {}) {
     }
   }
 
-  function isLocalPackageLockEntry(lockEntry = {}) {
-    const sourceType = String(lockEntry?.source?.type || "").trim();
-    return sourceType === "local-package" || sourceType === "app-local-package";
-  }
-
-  function resolveInstalledLocalPackageEntry(lock = {}, id = "") {
-    const normalizedId = String(id || "").trim();
-    if (!normalizedId) {
-      return null;
-    }
-
-    const installedPackages = lock?.installedPackages || {};
-    const directEntry = installedPackages[normalizedId];
-    if (directEntry && isLocalPackageLockEntry(directEntry)) {
-      return {
-        packageId: normalizedId,
-        lockEntry: directEntry
-      };
-    }
-
-    for (const [packageId, lockEntry] of Object.entries(installedPackages)) {
-      if (!isLocalPackageLockEntry(lockEntry)) {
-        continue;
-      }
-      const recordedPackageId = String(lockEntry?.packageId || "").trim();
-      if (recordedPackageId === normalizedId) {
-        return {
-          packageId,
-          lockEntry
-        };
-      }
-    }
-
-    return null;
-  }
-
-  async function assertInstalledLocalPackageIsDiscoverable({ appRoot, id }) {
-    const { lock } = await loadLockFile(appRoot);
-    const installedLocalPackage = resolveInstalledLocalPackageEntry(lock, id);
-    if (!installedLocalPackage) {
-      return;
-    }
-
-    const { packageId, lockEntry } = installedLocalPackage;
-    const source = lockEntry?.source || {};
-    const descriptorPath = String(source.descriptorPath || "").trim();
-    if (!descriptorPath) {
-      throw createCliError(
-        `Local package ${packageId} is recorded in .jskit/lock.json but has no descriptorPath.`
-      );
-    }
-
-    const absoluteDescriptorPath = path.resolve(appRoot, descriptorPath);
-    if (!(await fileExists(absoluteDescriptorPath))) {
-      throw createCliError(
-        `Local package ${packageId} is recorded in .jskit/lock.json but descriptor is missing at ${descriptorPath}.`
-      );
-    }
-
-    const packagePath = String(source.packagePath || "").trim();
-    if (packagePath) {
-      const packageJsonPath = path.join(appRoot, packagePath, "package.json");
-      if (!(await fileExists(packageJsonPath))) {
-        throw createCliError(
-          `Local package ${packageId} is recorded in .jskit/lock.json but package.json is missing at ${packagePath}/package.json.`
-        );
-      }
-    }
-
-    const descriptorLabel = normalizeRelativePath(appRoot, absoluteDescriptorPath);
-    throw createCliError(
-      `Local package ${packageId} is recorded in .jskit/lock.json but was not discoverable from ${descriptorLabel}. Ensure its package.json name matches the descriptor packageId.`
-    );
-  }
-
   async function resolveAppLocalShowTarget({ id, cwd, catalogPackageRegistry }) {
     let appRoot = "";
     try {
@@ -165,15 +87,15 @@ function createShowCommand(ctx = {}) {
     }
 
     const appLocalRegistry = await loadAppLocalPackageRegistry(appRoot);
-    const resolvedPackageId = resolvePackageIdInput(id, appLocalRegistry);
+    const installedPackageRegistry = await loadInstalledAppPackageRegistry(appRoot);
+    const appPackageRegistry = mergePackageRegistries(appLocalRegistry, installedPackageRegistry);
+    const resolvedPackageId = resolvePackageIdInput(id, appPackageRegistry);
     if (resolvedPackageId) {
       return {
-        packageRegistry: mergePackageRegistries(catalogPackageRegistry, appLocalRegistry),
-        packageEntry: appLocalRegistry.get(resolvedPackageId)
+        packageRegistry: mergePackageRegistries(catalogPackageRegistry, appPackageRegistry),
+        packageEntry: appPackageRegistry.get(resolvedPackageId)
       };
     }
-
-    await assertInstalledLocalPackageIsDiscoverable({ appRoot, id });
     return null;
   }
 

@@ -151,8 +151,6 @@ test("closure retains exact JSKIT dependencies that are not in this workspace", 
       version: "0.1.4",
       dependencies: { "@jskit-ai/external": "0.1.9" }
     },
-    descriptorPath: "",
-    descriptor: null,
     dependencies: []
   };
   await hydrateWorkspaceRecords([record], [record]);
@@ -164,7 +162,7 @@ test("closure retains exact JSKIT dependencies that are not in this workspace", 
   }]);
 });
 
-test("catalog closure includes exact dependencies embedded in catalog descriptors", async () => {
+test("catalog closure includes exact dependencies embedded in catalog metadata", async () => {
   const tempRoot = await mkdtemp(path.join(tmpdir(), "jskit-catalog-closure-test-"));
   try {
     const catalogDir = path.join(tempRoot, "catalog");
@@ -173,7 +171,7 @@ test("catalog closure includes exact dependencies embedded in catalog descriptor
       packages: [{
         packageId: "@jskit-ai/consumer",
         version: "0.1.4",
-        descriptor: {
+        jskit: {
           mutations: {
             dependencies: {
               runtime: { "@jskit-ai/kernel": "0.1.146" }
@@ -187,8 +185,6 @@ test("catalog closure includes exact dependencies embedded in catalog descriptor
       version: "0.1.168",
       dir: tempRoot,
       packageJson: { name: "@jskit-ai/jskit-catalog", version: "0.1.168" },
-      descriptorPath: "",
-      descriptor: null,
       dependencies: [],
       registryRequirements: []
     };

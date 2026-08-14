@@ -66,9 +66,3 @@ Exports
 ### `templates/src/pages/settings/assistant/index.vue`
 Exports
 - None
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

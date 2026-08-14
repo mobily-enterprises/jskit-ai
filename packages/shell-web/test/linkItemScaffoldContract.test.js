@@ -3,7 +3,9 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import descriptor from "../package.descriptor.mjs";
+import packageJson from "../package.json" with { type: "json" };
+
+const packageMetadata = packageJson.jskit;
 import {
   LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS,
   findLocalLinkItemDefinition,
@@ -14,14 +16,14 @@ const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
 function findFileMutation(id) {
-  const files = descriptor?.mutations?.files;
+  const files = packageMetadata?.mutations?.files;
   return Array.isArray(files)
     ? files.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;
 }
 
 function findSourceMutation(id) {
-  const sourceMutations = descriptor?.mutations?.source;
+  const sourceMutations = packageMetadata?.mutations?.source;
   return Array.isArray(sourceMutations)
     ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
     : null;

@@ -494,9 +494,3 @@ Exports
 - `runAuthSignOutFlow({ authApi, clearCsrfTokenCache = null, afterSignOut = null } = {})`
 Local functions
 - `normalizeAuthApi(authApi)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

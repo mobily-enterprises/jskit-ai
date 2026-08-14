@@ -30,8 +30,7 @@ test("resolveAppRootFromCwd prefers the real JSKIT app root over nested local pa
     const nestedPackageRoot = path.join(appRoot, "packages", "main");
 
     await writePackageJson(appRoot, { name: "example-app" });
-    await mkdir(path.join(appRoot, ".jskit"), { recursive: true });
-    await writeFile(path.join(appRoot, ".jskit", "lock.json"), "{\n  \"lockVersion\": 1,\n  \"installedPackages\": {}\n}\n", "utf8");
+    await writeFile(path.join(appRoot, "app.json"), "{}\n", "utf8");
     await writePackageJson(nestedPackageRoot, { name: "@local/main" });
 
     const resolvedRoot = await resolveAppRootFromCwd(nestedPackageRoot);

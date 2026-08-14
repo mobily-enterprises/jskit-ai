@@ -358,7 +358,7 @@ class SafetyProvider {
 
 The organisation-units package never imports safety. Installing safety adds the grant; omitting safety leaves that grant absent.
 
-The package descriptor dependency must point in the same direction as the provider dependency: safety declares organisation-units, and organisation-units does not declare safety.
+The npm dependency must point in the same direction as the provider dependency: safety depends on organisation-units, and organisation-units does not depend on safety.
 
 ## Descendant visibility with a recursive CTE
 

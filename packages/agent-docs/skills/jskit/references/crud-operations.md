@@ -81,10 +81,11 @@ npx --no-install jskit generate crud-ui-generator crud notes \
 `--delete-confirmation` requires generated list and view pages and a shared
 resource with a `DELETE` operation. It supports a custom `--id-param` and fails
 clearly when the contract is unsupported. The view uses the public
-`CrudViewScreen` `actions` slot and `useCrudDeleteAction()`. A Vuetify alert
-dialog provides Cancel/Delete; `useCommand()` owns pending/error state and the
-resource request; success invalidates the CRUD list and navigates there. Do not
-inspect private `users-web` code, add a page transport, or use raw `fetch()`.
+`CrudViewScreen` `actions` slot, `CrudDeleteAction`, and
+`useCrudDeleteAction()`. The shared component owns the Cancel/Delete dialog;
+`useCommand()` owns pending/error state and the resource request; success
+invalidates the CRUD list and navigates there. Do not inspect private
+`users-web` code, add a page transport, or use raw `fetch()`.
 
 ## Strict temporal values
 
@@ -99,7 +100,7 @@ the boundary (normally `toISOString()` for `dateTime`). `timestamp` is removed:
 after checking the existing unit, use `epochMilliseconds` or `epochSeconds`.
 Honor `temporalPrecision` without silently truncating fractions. Generated CRUD
 serializes supported database temporal output; custom repositories must return
-strict strings and write ISO/RFC 3339 strings themselves. There is no compatibility alias.
+strict strings and write ISO/RFC 3339 strings themselves.
 
 ## Migration ownership
 
@@ -108,7 +109,7 @@ changes are immutable additive migrations owned by the app-local package:
 
 ```bash
 npx --no-install jskit create migration --package <package-id> --id <id>
-npx --no-install jskit migrations package <package-id>
+npx --no-install jskit migrations sync
 npm run db:migrate
 ```
 

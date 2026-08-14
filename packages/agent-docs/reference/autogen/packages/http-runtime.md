@@ -371,9 +371,3 @@ Exports
 Exports
 - `rewriteEmbeddedTransportSchemaRefs(value, { rootRef = "#", definitionRefByName = {} } = {})`
 - `createEmbeddableTransportSchemaDocument(schemaDocument = {}, rootDefinitionName = "TransportSchema")`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

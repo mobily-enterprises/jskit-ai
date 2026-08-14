@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   mkdir,
+  readFile,
   writeFile
 } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,7 @@ import path from "node:path";
 import test from "node:test";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 import { createCliRunner } from "../../testUtils/runCli.js";
+import { writeJskitPackageMetadata } from "../../testUtils/jskitPackage.mjs";
 
 const CLI_PATH = fileURLToPath(new URL("../bin/jskit.js", import.meta.url));
 const runCli = createCliRunner(CLI_PATH);
@@ -131,25 +133,19 @@ async function writeKnexfile(appRoot, { client = "mysql2" } = {}) {
   );
 }
 
-async function writeLockFile(appRoot, installedPackageIds = []) {
-  const installedPackages = Object.fromEntries(
-    installedPackageIds.map((packageId) => [packageId, {}])
-  );
-  await writeAppFile(
-    appRoot,
-    ".jskit/lock.json",
-    `${JSON.stringify(
-      {
-        lockVersion: 1,
-        installedPackages
-      },
-      null,
-      2
-    )}\n`
-  );
+async function declareInstalledPackages(appRoot, installedPackageIds = []) {
+  const manifestPath = path.join(appRoot, "package.json");
+  const packageJson = JSON.parse(await readFile(manifestPath, "utf8"));
+  packageJson.dependencies ||= {};
+  for (const packageId of installedPackageIds) {
+    const packageDirectoryName = String(packageId).split("/").at(-1);
+    packageJson.dependencies[packageId] = `file:packages/${packageDirectoryName}`;
+  }
+  await writeFile(manifestPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
-async function writePackageDescriptor(appRoot, packageDirectoryName, descriptorSource, extraFiles = {}) {
+async function writePackageMetadata(appRoot, packageDirectoryName, metadataExpression, extraFiles = {}) {
+  const packageRoot = path.join(appRoot, "packages", packageDirectoryName);
   await writeAppFile(
     appRoot,
     `packages/${packageDirectoryName}/package.json`,
@@ -163,7 +159,7 @@ async function writePackageDescriptor(appRoot, packageDirectoryName, descriptorS
       2
     )}\n`
   );
-  await writeAppFile(appRoot, `packages/${packageDirectoryName}/package.descriptor.mjs`, descriptorSource);
+  await writeJskitPackageMetadata(packageRoot, metadataExpression);
 
   for (const [relativePath, body] of Object.entries(extraFiles)) {
     await writeAppFile(appRoot, `packages/${packageDirectoryName}/${relativePath}`, body);
@@ -190,10 +186,10 @@ async function writeGeneratedCrudPackage(appRoot, {
     .filter(Boolean)
     .map((part) => `${part[0]?.toUpperCase() || ""}${part.slice(1)}`)
     .join("")}Provider`;
-  await writePackageDescriptor(
+  await writePackageMetadata(
     appRoot,
     packageDirectoryName,
-    `export default Object.freeze({
+    `({
   packageId: "@local/${packageDirectoryName}",
   version: "0.1.0",
   kind: "runtime",
@@ -229,7 +225,7 @@ async function writeGeneratedCrudPackage(appRoot, {
   mutations: {
     files: []
   }
-});
+})
 `,
     {
       [`src/server/${className}.js`]: createCrudProviderStub(ownershipFilter, className)
@@ -243,12 +239,12 @@ test("doctor accepts live tables owned by generated CRUD metadata", async () => 
     await createMinimalApp(appRoot, { name: "doctor-table-ownership-crud-app" });
     await installFakeKnex(appRoot, { tables: ["contacts"] });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/contacts"]);
+    await declareInstalledPackages(appRoot, ["@local/contacts"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "contacts",
-      `export default Object.freeze({
+      `({
   packageId: "@local/contacts",
   version: "0.1.0",
   kind: "runtime",
@@ -288,7 +284,7 @@ test("doctor accepts live tables owned by generated CRUD metadata", async () => 
   mutations: {
     files: []
       }
-});
+})
 `,
       {
         "src/server/ContactsProvider.js": createCrudProviderStub("public", "ContactsProvider")
@@ -410,12 +406,12 @@ test("doctor allows the baseline users package provenance for the users table", 
     await createMinimalApp(appRoot, { name: "doctor-table-ownership-users-app" });
     await installFakeKnex(appRoot, { tables: ["users"] });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/users"]);
+    await declareInstalledPackages(appRoot, ["@local/users"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "users",
-      `export default Object.freeze({
+      `({
   packageId: "@local/users",
   version: "0.1.0",
   kind: "runtime",
@@ -455,7 +451,7 @@ test("doctor allows the baseline users package provenance for the users table", 
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/UsersProvider.js": createCrudProviderStub("public", "UsersProvider")
@@ -499,10 +495,10 @@ test("doctor flags direct knex in app-owned packages outside explicit exception 
       )}\n`
     );
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "reporting-engine",
-      `export default Object.freeze({
+      `({
   packageId: "@local/reporting-engine",
   version: "0.1.0",
   kind: "runtime",
@@ -530,7 +526,7 @@ test("doctor flags direct knex in app-owned packages outside explicit exception 
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/ReportingEngineProvider.js": "class ReportingEngineProvider {}\nexport { ReportingEngineProvider };\n",
@@ -563,12 +559,12 @@ test("doctor requires CRUD ownership filters to match direct reserved owner colu
       }
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/contacts"]);
+    await declareInstalledPackages(appRoot, ["@local/contacts"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "contacts",
-      `export default Object.freeze({
+      `({
   packageId: "@local/contacts",
   version: "0.1.0",
   kind: "runtime",
@@ -603,7 +599,7 @@ test("doctor requires CRUD ownership filters to match direct reserved owner colu
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/ContactsProvider.js": createCrudProviderStub("workspace", "ContactsProvider")
@@ -648,12 +644,12 @@ test("doctor keeps noncanonical user foreign keys as domain relationships for ex
       ]
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/notification-outbox-items"]);
+    await declareInstalledPackages(appRoot, ["@local/notification-outbox-items"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "notification-outbox-items",
-      `export default Object.freeze({
+      `({
   packageId: "@local/notification-outbox-items",
   version: "0.1.0",
   kind: "runtime",
@@ -688,7 +684,7 @@ test("doctor keeps noncanonical user foreign keys as domain relationships for ex
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/NotificationOutboxItemsProvider.js": createCrudProviderStub(
@@ -740,12 +736,12 @@ test("doctor supports multiple CRUD providers in one package when table ownershi
       }
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/google-rewarded-core"]);
+    await declareInstalledPackages(appRoot, ["@local/google-rewarded-core"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "google-rewarded-core",
-      `export default Object.freeze({
+      `({
   packageId: "@local/google-rewarded-core",
   version: "0.1.0",
   kind: "runtime",
@@ -793,7 +789,7 @@ test("doctor supports multiple CRUD providers in one package when table ownershi
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/rules/GoogleRewardedRulesProvider.js": createCrudProviderStub("workspace", "GoogleRewardedRulesProvider"),
@@ -827,12 +823,12 @@ test("doctor rejects CRUD metadata whose ownership filter drifts from the provid
       }
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/google-rewarded-core"]);
+    await declareInstalledPackages(appRoot, ["@local/google-rewarded-core"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "google-rewarded-core",
-      `export default Object.freeze({
+      `({
   packageId: "@local/google-rewarded-core",
   version: "0.1.0",
   kind: "runtime",
@@ -869,7 +865,7 @@ test("doctor rejects CRUD metadata whose ownership filter drifts from the provid
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js": createCrudProviderStub("workspace_user", "GoogleRewardedWatchSessionsProvider")
@@ -902,12 +898,12 @@ test("doctor rejects CRUD metadata when the owning provider cannot be resolved",
       }
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/contacts"]);
+    await declareInstalledPackages(appRoot, ["@local/contacts"]);
 
-    await writePackageDescriptor(
+    await writePackageMetadata(
       appRoot,
       "contacts",
-      `export default Object.freeze({
+      `({
   packageId: "@local/contacts",
   version: "0.1.0",
   kind: "runtime",
@@ -944,7 +940,7 @@ test("doctor rejects CRUD metadata when the owning provider cannot be resolved",
   mutations: {
     files: []
   }
-});
+})
 `
     );
 
@@ -957,7 +953,7 @@ test("doctor rejects CRUD metadata when the owning provider cannot be resolved",
     const payload = JSON.parse(String(doctorResult.stdout || "{}"));
     assert.match(
       payload.issues.join("\n"),
-      /packages\/contacts\/package\.descriptor\.mjs: \[crud-ownership:provider-unresolved\] table "contacts" points at providerEntrypoint "src\/server\/ContactsProvider\.js" but doctor could not resolve an ownershipFilter from that provider/
+      /packages\/contacts\/package\.json: \[crud-ownership:provider-unresolved\] table "contacts" points at providerEntrypoint "src\/server\/ContactsProvider\.js" but doctor could not resolve an ownershipFilter from that provider/
     );
   });
 });
@@ -1042,11 +1038,11 @@ test("doctor allows auxiliary join tables to inherit ownership without direct ow
       ]
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/products"]);
-    await writePackageDescriptor(
+    await declareInstalledPackages(appRoot, ["@local/products"]);
+    await writePackageMetadata(
       appRoot,
       "products",
-      `export default Object.freeze({
+      `({
   packageId: "@local/products",
   version: "0.1.0",
   kind: "runtime",
@@ -1081,7 +1077,7 @@ test("doctor allows auxiliary join tables to inherit ownership without direct ow
   mutations: {
     files: []
   }
-});
+})
 `,
       {
         "src/server/ProductsProvider.js": createCrudProviderStub("workspace", "ProductsProvider")
@@ -1132,7 +1128,7 @@ test("doctor rejects a generated CRUD table with a composite primary key", async
       }
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/items"]);
+    await declareInstalledPackages(appRoot, ["@local/items"]);
     await writeGeneratedCrudPackage(appRoot, {
       ownershipFilter: "workspace"
     });
@@ -1172,7 +1168,7 @@ test("doctor rejects a generated CRUD foreign key to a non-primary business key"
       ]
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/items"]);
+    await declareInstalledPackages(appRoot, ["@local/items"]);
     await writeGeneratedCrudPackage(appRoot);
     await writeAppFile(
       appRoot,
@@ -1238,7 +1234,7 @@ test("doctor rejects a composite foreign key on a generated CRUD table", async (
       ]
     });
     await writeKnexfile(appRoot);
-    await writeLockFile(appRoot, ["@local/items"]);
+    await declareInstalledPackages(appRoot, ["@local/items"]);
     await writeGeneratedCrudPackage(appRoot, {
       ownershipFilter: "workspace"
     });

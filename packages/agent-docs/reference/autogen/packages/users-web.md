@@ -48,6 +48,13 @@ Local functions
 - `resolveFieldErrors(fieldKey)`
 - `resolveCancelTo(target = cancelTo.value)`
 
+### `src/client/components/CrudDeleteAction.vue`
+Exports
+- None
+Local functions
+- `closeDialog()`
+- `handleDialogModelUpdate(isOpen)`
+
 ### `src/client/components/CrudListBulkActionSurface.vue`
 Exports
 - None
@@ -620,6 +627,7 @@ Exports
 - `UsersWebClientProvider`
 - `AccountSettingsClientElement`
 - `CrudAddEditScreen`
+- `CrudDeleteAction`
 - `CrudListBulkActionSurface`
 - `CrudListFilterSurface`
 - `CrudListScreen`
@@ -711,12 +719,6 @@ Exports
 - None
 
 ### `templates/src/pages/account/index.vue`
-Exports
-- None
-
-### root
-
-### `package.descriptor.mjs`
 Exports
 - None
 

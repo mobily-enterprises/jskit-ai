@@ -227,9 +227,3 @@ Local functions
 - `assertSelectedAuthProvider(env)`
 - `resolveOptionalRepositories(scope)`
 - `isDeferredJsonRestBootGap(app, error)`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

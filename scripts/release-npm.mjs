@@ -2,7 +2,7 @@
 import { mkdtemp, readFile, readdir, rm, stat, writeFile, cp } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import { resolvePackageIdInput } from "../tooling/jskit-cli/src/server/shared/packageIdHelpers.js";
 
@@ -197,19 +197,13 @@ async function discoverWorkspacePackages() {
         continue;
       }
 
-      const descriptorPath = path.join(packageRoot, "package.descriptor.mjs");
-      const hasDescriptor = await fileExists(descriptorPath);
-
       records.push({
         name: packageName,
         dir: packageRoot,
         relativeDir: toPosixPath(path.relative(REPO_ROOT, packageRoot)),
         packageJsonPath,
         packageJson,
-        descriptorPath: hasDescriptor ? descriptorPath : "",
-        descriptor: null,
-        packageJsonLocalDeps: new Set(),
-        descriptorLocalDeps: new Set()
+        packageJsonLocalDeps: new Set()
       });
     }
   }
@@ -220,10 +214,6 @@ async function discoverWorkspacePackages() {
 
 function toPosixPath(value) {
   return String(value || "").split(path.sep).join("/");
-}
-
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function bumpPatch(version) {
@@ -253,22 +243,8 @@ function collectPackageJsonLocalDeps(packageJson, localNames) {
     }
   }
 
-  return dependencies;
-}
-
-function collectDescriptorLocalDeps(descriptor, localNames) {
-  const dependencies = new Set();
-
-  const dependsOn = Array.isArray(descriptor?.dependsOn) ? descriptor.dependsOn : [];
-  for (const dependencyName of dependsOn) {
-    const normalized = String(dependencyName || "").trim();
-    if (localNames.has(normalized)) {
-      dependencies.add(normalized);
-    }
-  }
-
-  const runtimeDependencies = descriptor?.mutations?.dependencies?.runtime;
-  const devDependencies = descriptor?.mutations?.dependencies?.dev;
+  const runtimeDependencies = packageJson?.jskit?.mutations?.dependencies?.runtime;
+  const devDependencies = packageJson?.jskit?.mutations?.dependencies?.dev;
 
   for (const entry of [runtimeDependencies, devDependencies]) {
     if (!entry || typeof entry !== "object") {
@@ -286,30 +262,10 @@ function collectDescriptorLocalDeps(descriptor, localNames) {
   return dependencies;
 }
 
-async function loadDescriptors(records) {
-  for (const record of records) {
-    if (!record.descriptorPath) {
-      continue;
-    }
-
-    const descriptorUrl = `${pathToFileURL(record.descriptorPath).href}?t=${Date.now()}_${Math.random()}`;
-    const moduleValue = await import(descriptorUrl);
-    const descriptor = moduleValue?.default;
-    if (!descriptor || typeof descriptor !== "object") {
-      throw new Error(`Invalid descriptor default export in ${record.descriptorPath}`);
-    }
-    record.descriptor = descriptor;
-  }
-}
-
 function hydrateLocalDependencyMaps(records) {
   const localNames = new Set(records.map((record) => record.name));
   for (const record of records) {
-    const packageJsonDeps = collectPackageJsonLocalDeps(record.packageJson, localNames);
-    const descriptorDeps = collectDescriptorLocalDeps(record.descriptor, localNames);
-
-    record.packageJsonLocalDeps = packageJsonDeps;
-    record.descriptorLocalDeps = descriptorDeps;
+    record.packageJsonLocalDeps = collectPackageJsonLocalDeps(record.packageJson, localNames);
   }
 }
 
@@ -370,6 +326,41 @@ async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions
       }
     }
 
+    for (const mutationField of ["runtime", "dev"]) {
+      const dependencyMutations = packageJson?.jskit?.mutations?.dependencies?.[mutationField];
+      if (!dependencyMutations || typeof dependencyMutations !== "object") {
+        continue;
+      }
+      for (const dependencyName of Object.keys(dependencyMutations)) {
+        if (!nextVersions.has(dependencyName)) {
+          continue;
+        }
+        const nextVersion = nextVersions.get(dependencyName);
+        const currentValue = dependencyMutations[dependencyName];
+        if (typeof currentValue === "string") {
+          if (currentValue !== nextVersion) {
+            dependencyMutations[dependencyName] = nextVersion;
+            changed = true;
+            dependencyChanged = true;
+          }
+          continue;
+        }
+        if (!currentValue || typeof currentValue !== "object") {
+          continue;
+        }
+        const versionField = Object.prototype.hasOwnProperty.call(currentValue, "version")
+          ? "version"
+          : Object.prototype.hasOwnProperty.call(currentValue, "value")
+            ? "value"
+            : "";
+        if (versionField && currentValue[versionField] !== nextVersion) {
+          currentValue[versionField] = nextVersion;
+          changed = true;
+          dependencyChanged = true;
+        }
+      }
+    }
+
     if (!onlyMode && dependencyChanged && !publishSet.has(record.name)) {
       throw new Error(
         `Internal dependency version changed for ${record.name} but package is not marked for publish. Expand dependency closure.`
@@ -387,68 +378,6 @@ async function updateWorkspacePackageJsonFiles(records, publishSet, nextVersions
     }
 
     await writeFile(record.packageJsonPath, nextRaw, "utf8");
-  }
-}
-
-function updateDescriptorTextForPackage(text, packageName, nextVersion) {
-  const escapedPackageName = escapeRegExp(packageName);
-  const directVersionPattern = new RegExp(
-    `((?:"${escapedPackageName}"|'${escapedPackageName}')\\s*:\\s*(["']))([^"']+)(\\2)`,
-    "g"
-  );
-  const conditionalVersionPattern = new RegExp(
-    `((?:"${escapedPackageName}"|'${escapedPackageName}')\\s*:\\s*\\{\\s*(?:"version"|'version'|version)\\s*:\\s*(["']))([^"']+)(\\2)`,
-    "g"
-  );
-
-  return text
-    .replace(directVersionPattern, `$1${nextVersion}$4`)
-    .replace(conditionalVersionPattern, `$1${nextVersion}$4`);
-}
-
-function updateDescriptorVersion(text, nextVersion) {
-  const versionPattern = /(^\s*(?:"version"|version)\s*:\s*")([^"]+)("\s*,?\s*$)/m;
-  if (!versionPattern.test(text)) {
-    throw new Error("Descriptor does not contain a top-level version field.");
-  }
-  return text.replace(versionPattern, `$1${nextVersion}$3`);
-}
-
-async function updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, { dryRun, onlyMode = false }) {
-  const recordsToProcess = onlyMode ? records.filter((record) => publishSet.has(record.name)) : records;
-
-  for (const record of recordsToProcess) {
-    if (!record.descriptorPath) {
-      continue;
-    }
-
-    let text = await readFile(record.descriptorPath, "utf8");
-    let nextText = text;
-
-    if (publishSet.has(record.name)) {
-      nextText = updateDescriptorVersion(nextText, nextVersions.get(record.name));
-    }
-
-    for (const [packageName, nextVersion] of nextVersions.entries()) {
-      nextText = updateDescriptorTextForPackage(nextText, packageName, nextVersion);
-    }
-
-    if (nextText === text) {
-      continue;
-    }
-
-    if (!onlyMode && !publishSet.has(record.name)) {
-      throw new Error(
-        `Descriptor dependency versions changed for ${record.name} but package is not marked for publish. Expand dependency closure.`
-      );
-    }
-
-    if (dryRun) {
-      process.stdout.write(`[dry-run] update ${toPosixPath(path.relative(REPO_ROOT, record.descriptorPath))}\n`);
-      continue;
-    }
-
-    await writeFile(record.descriptorPath, nextText, "utf8");
   }
 }
 
@@ -853,7 +782,6 @@ async function main() {
     throw new Error("No @jskit-ai workspace packages found under packages/ and tooling/.");
   }
 
-  await loadDescriptors(records);
   hydrateLocalDependencyMaps(records);
   const recordByName = new Map(records.map((record) => [record.name, record]));
   const onlyMode = options.only.length > 0;
@@ -890,11 +818,6 @@ async function main() {
     dryRun: options.dryRun,
     onlyMode
   });
-  await updateWorkspaceDescriptorFiles(records, publishSet, nextVersions, {
-    dryRun: options.dryRun,
-    onlyMode
-  });
-
   refreshPackageLock({ dryRun: options.dryRun, onlyMode });
 
   runRootNpmScript({
@@ -977,6 +900,5 @@ export {
   promotePublishedPackages,
   resolvePackageLockRefreshSteps,
   topologicalPublishOrder,
-  waitForPublishedVersions,
-  updateDescriptorTextForPackage
+  waitForPublishedVersions
 };

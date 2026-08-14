@@ -20,7 +20,7 @@ function createCommandHandlerShared(ctx = {}) {
     fileExists
   } = ctx;
 
-  function renderResolvedSummary(commandType, targetId, resolvedPackageIds, touchedFiles, appRoot, lockPath, externalDependencies) {
+  function renderResolvedSummary(commandType, targetId, resolvedPackageIds, touchedFiles, externalDependencies) {
     const lines = [];
     lines.push(`${commandType} ${targetId}.`);
     lines.push(`Resolved packages (${resolvedPackageIds.length}):`);
@@ -39,46 +39,7 @@ function createCommandHandlerShared(ctx = {}) {
     for (const touchedFile of touchedFiles) {
       lines.push(`- ${touchedFile}`);
     }
-    lines.push(`Lock file: ${normalizeRelativePath(appRoot, lockPath)}`);
     return lines.join("\n");
-  }
-
-  function createCatalogFetchStatusReporter(io = {}, { enabled = true } = {}) {
-    if (enabled !== true) {
-      return () => {};
-    }
-
-    const stdout = io?.stdout;
-    if (!stdout || typeof stdout.write !== "function") {
-      return () => {};
-    }
-
-    const activeFetchLabels = new Set();
-    return ({ packageEntry, state } = {}) => {
-      const packageId = String(packageEntry?.packageId || "").trim();
-      const version = String(packageEntry?.version || "").trim();
-      const packageLabel = version ? `${packageId}@${version}` : packageId;
-      if (!packageLabel) {
-        return;
-      }
-
-      if (state === "start") {
-        if (activeFetchLabels.has(packageLabel)) {
-          return;
-        }
-        activeFetchLabels.add(packageLabel);
-        stdout.write(`Fetching ${packageLabel}...\n`);
-        return;
-      }
-
-      if (state === "complete") {
-        if (!activeFetchLabels.has(packageLabel)) {
-          return;
-        }
-        activeFetchLabels.delete(packageLabel);
-        stdout.write(`Fetching ${packageLabel}... done!\n`);
-      }
-    };
   }
 
   async function runNpmInstall(appRoot, stderr) {
@@ -102,41 +63,20 @@ function createCommandHandlerShared(ctx = {}) {
     });
   }
 
-  function getInstalledDependents(lock, packageId, packageRegistry) {
-    const dependents = [];
-    const installedPackageIds = Object.keys(ensureObject(lock.installedPackages));
-
-    for (const installedId of installedPackageIds) {
-      if (installedId === packageId) {
-        continue;
-      }
-      const packageEntry = packageRegistry.get(installedId);
-      if (!packageEntry) {
-        continue;
-      }
-      const dependencies = ensureArray(packageEntry.descriptor.dependsOn).map((value) => String(value));
-      if (dependencies.includes(packageId)) {
-        dependents.push(installedId);
-      }
-    }
-
-    return sortStrings(dependents);
-  }
-
   function resolvePackageKind(packageEntry) {
-    const descriptor = ensureObject(packageEntry?.descriptor);
-    const normalizedKind = String(descriptor.kind || "").trim().toLowerCase();
+    const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+    const normalizedKind = String(packageMetadata.kind || "").trim().toLowerCase();
     if (normalizedKind === "runtime" || normalizedKind === "generator") {
       return normalizedKind;
     }
-    const packageId = String(packageEntry?.packageId || descriptor.packageId || "unknown-package").trim();
+    const packageId = String(packageEntry?.packageId || packageMetadata.packageId || "unknown-package").trim();
     throw createCliError(
-      `Invalid package descriptor for ${packageId}: missing/invalid kind (expected runtime or generator).`
+      `Invalid package metadata for ${packageId}: missing/invalid kind (expected runtime or generator).`
     );
   }
 
   function resolvePackageOptionNames(packageEntry) {
-    const optionSchemas = ensureObject(packageEntry?.descriptor?.options);
+    const optionSchemas = ensureObject(packageEntry?.packageMetadata?.options);
     return Object.keys(optionSchemas);
   }
 
@@ -155,9 +95,9 @@ function createCommandHandlerShared(ctx = {}) {
   }
 
   function resolveGeneratorSubcommands(packageEntry) {
-    const descriptor = ensureObject(packageEntry?.descriptor);
-    const metadata = ensureObject(descriptor.metadata);
-    return ensureObject(metadata.generatorSubcommands || descriptor.generatorSubcommands);
+    const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+    const metadata = ensureObject(packageMetadata.metadata);
+    return ensureObject(metadata.generatorSubcommands || packageMetadata.generatorSubcommands);
   }
 
   function resolveGeneratorSubcommandDefinition(packageEntry, subcommandName) {
@@ -189,9 +129,9 @@ function createCommandHandlerShared(ctx = {}) {
   }
 
   function resolveGeneratorPrimarySubcommand(packageEntry) {
-    const descriptor = ensureObject(packageEntry?.descriptor);
-    const metadata = ensureObject(descriptor.metadata);
-    return String(metadata.generatorPrimarySubcommand || descriptor.generatorPrimarySubcommand || "")
+    const packageMetadata = ensureObject(packageEntry?.packageMetadata);
+    const metadata = ensureObject(packageMetadata.metadata);
+    return String(metadata.generatorPrimarySubcommand || packageMetadata.generatorPrimarySubcommand || "")
       .trim()
       .toLowerCase();
   }
@@ -356,9 +296,7 @@ function createCommandHandlerShared(ctx = {}) {
 
   return {
     renderResolvedSummary,
-    createCatalogFetchStatusReporter,
     runNpmInstall,
-    getInstalledDependents,
     resolvePackageKind,
     resolveBundleInlineOptionsForPackage,
     resolveGeneratorSubcommandDefinition,

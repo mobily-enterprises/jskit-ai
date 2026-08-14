@@ -72,7 +72,7 @@
 
 ## Phase 4: Build `google-rewarded-core`
 
-- [x] Create `packages/google-rewarded-core/package.descriptor.mjs`.
+- [x] Define `packages/google-rewarded-core/package.json.jskit`.
 - [x] Keep package-level migrations out of `google-rewarded-core` unless a real non-CRUD workflow table is explicitly justified.
 - [x] Add the server provider:
   - `src/server/GoogleRewardedCoreProvider.js`
@@ -124,7 +124,7 @@
 
 ## Phase 7: Build `google-rewarded-web`
 
-- [x] Create `packages/google-rewarded-web/package.descriptor.mjs`.
+- [x] Define `packages/google-rewarded-web/package.json.jskit`.
 - [x] Add the client provider:
   - `src/client/providers/GoogleRewardedClientProvider.js`
 - [x] Add a client runtime abstraction for gate requests and GPT orchestration.

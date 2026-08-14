@@ -162,6 +162,7 @@ test("fresh CRUD and generated delete guidance is complete and distributed", asy
   assert.match(allGuidance, /npm install[\s\S]*crud-ui-generator crud/);
   assert.match(allGuidance, /--delete-confirmation/);
   assert.match(allGuidance, /CrudViewScreen/);
+  assert.match(allGuidance, /CrudDeleteAction/);
   assert.match(allGuidance, /useCrudDeleteAction\(\)/);
   assert.match(allGuidance, /useCommand\(\)/);
   assert.match(allGuidance, /custom `--id-param`|Custom `--id-param`/);

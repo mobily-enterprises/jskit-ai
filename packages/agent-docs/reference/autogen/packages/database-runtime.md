@@ -220,9 +220,3 @@ Exports
 ### `templates/knexfile.js`
 Exports
 - `default`
-
-### root
-
-### `package.descriptor.mjs`
-Exports
-- None

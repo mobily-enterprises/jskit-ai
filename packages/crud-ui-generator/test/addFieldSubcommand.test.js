@@ -378,7 +378,7 @@ UI_EDIT_FORM_FIELDS.push({ key: "firstName", component: "text" });
         args: ["vetId", "edit", editFile],
         options: {}
       }),
-      /Run `jskit app migrate-source-mutations` before adding more generated form fields/
+      /Move the generated field marker inside the UI_EDIT_FORM_FIELDS array, or regenerate the screen with the current generator/
     );
 
     const editSource = await readFile(path.join(appRoot, editFile), "utf8");

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-crud-core",
-  "version": "0.1.90",
+  "version": "0.1.91",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,7 +10,39 @@
     "./shared/crudResource": "./src/shared/crudResource.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.147",
-    "@jskit-ai/resource-core": "0.1.90"
+    "@jskit-ai/kernel": "0.1.149",
+    "@jskit-ai/resource-core": "0.1.91"
+  },
+  "description": "CRUD-specific resource-definition helpers and namespace support.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "resource.crud-core"
+      ],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "mutations": {
+      "dependencies": {
+        "runtime": {
+          "@jskit-ai/resource-crud-core": "0.1.91"
+        },
+        "dev": {}
+      },
+      "packageJson": {
+        "scripts": {}
+      },
+      "procfile": {},
+      "files": [],
+      "text": []
+    }
   }
 }

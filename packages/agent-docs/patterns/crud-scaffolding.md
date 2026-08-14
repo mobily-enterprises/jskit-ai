@@ -97,8 +97,9 @@ Rules:
 - Use `--navigation-role` for CRUD list placement intent. Main resources can stay `primary`; nested/detail/workflow CRUD routes should usually be `secondary`, `workflow`, or `none`.
 - Add `--delete-confirmation` when the generated view needs the standard
   destructive record action. The flag requires list and view pages and a
-  resource with a `DELETE` operation; it uses the public view-screen action
-  slot and command composable rather than generated raw request code.
+  resource with a `DELETE` operation; it uses `CrudDeleteAction` in the public
+  view-screen action slot and the standard command composable rather than
+  generating page-local dialog or request code.
 
 ## Temporal values at resource boundaries
 
@@ -109,15 +110,13 @@ validators no longer coerce JavaScript `Date` objects:
 - `time` is offset-free `HH:MM[:SS[.fraction]]`
 - `dateTime` is RFC 3339 with seconds and `Z` or a numeric offset
 
-The removed `timestamp` type must become `epochMilliseconds` or
-`epochSeconds` after checking the stored unit. Preserve the field's
+Use `epochMilliseconds` or `epochSeconds` for numeric epoch values after
+checking the stored unit. Preserve the field's
 `temporalPrecision`; do not truncate meaningful fractional seconds.
 
 Generated generic CRUD repositories serialize database temporal outputs
 before resource validation. App-owned/custom repositories must return strict
 strings and must write ISO/RFC 3339 strings rather than passing `Date` objects.
-This is a version-0 breaking contract: update application code instead of
-adding a legacy temporal parser.
 
 ## Baseline generation versus later schema evolution
 
@@ -136,10 +135,10 @@ The initial CRUD scaffold and a later schema change are different operations:
   ```
 
 - The authoring command creates an editable migration template and adds its
-  `install-migration` mutation to the owning package descriptor in one
-  operation. Implement and test the template before materializing it.
-- Materialize the completed source with
-  `npx jskit migrations package <package-id>`, then apply it with
+  `install-migration` mutation to the owning package's `package.json.jskit` in
+  one operation. Implement and test the template before synchronizing it.
+- Synchronize the completed source with
+  `npx jskit migrations sync`, then apply it with
   `npm run db:migrate`.
 - SQL or Knex schema operations inside that source-controlled migration are
   supported. Ad-hoc SQL applied only to one database is not: it creates schema

@@ -33,20 +33,17 @@ import {
 import {
   buildFileWriteGroups,
   fileExists,
-  hashBuffer,
   normalizeMigrationId,
   normalizeRelativePath,
-  readFileBufferIfExists
+  readFileBufferIfExists,
+  writeJsonFile
 } from "../cliRuntime/ioAndMigrations.js";
 import {
   directoryLooksLikeJskitAppRoot,
   resolveAppRootFromCwd,
   loadAppPackageJson,
-  loadLockFile,
   applyPackageJsonField,
-  restorePackageJsonField,
-  removeEnvValue,
-  writeJsonFile
+  removePackageJsonField
 } from "../cliRuntime/appState.js";
 import {
   mergePackageRegistries,
@@ -54,14 +51,15 @@ import {
   loadPackageRegistry,
   resolveInstalledNodeModulePackageEntry,
   hydratePackageRegistryFromInstalledNodeModules,
-  loadBundleRegistry
+  loadBundleRegistry,
+  loadInstalledAppPackageRegistry,
+  installedPackageRecordFromRegistry
 } from "../cliRuntime/packageRegistries.js";
 import {
   normalizeRelativePosixPath,
   toFileDependencySpecifier,
   resolveLocalPackageId,
-  createLocalPackageScaffoldFiles,
-  resolveLocalDependencyOrder
+  createLocalPackageScaffoldFiles
 } from "../cliRuntime/localPackageSupport.js";
 import {
   listDeclaredCapabilities,
@@ -84,25 +82,17 @@ import {
 } from "../cliRuntime/packageOptions.js";
 import {
   resolvePackageTemplateRoot,
-  cleanupMaterializedPackageRoots
+  cleanupPackageRootCaches
 } from "../cliRuntime/packageTemplateResolution.js";
 import {
   applyPackageInstall,
-  applyPackageMigrationsOnly,
-  applyPackagePositioning,
-  adoptAppLocalPackageDependencies
+  applyStatelessPackageMigrations
 } from "../cliRuntime/packageInstallFlow.js";
 import {
-  removeManagedViteProxyEntries
-} from "../cliRuntime/viteProxy.js";
-import {
-  assertAppManagedCiWorkflowUnmodified,
-  assertManagedCiWorkflowUnmodified,
+  assertAppCiCanSynchronize,
   composeInstalledPackageCi,
   synchronizeAppCiWorkflow,
-  synchronizeManagedCiWorkflow,
-  validateAppCiWorkflow,
-  validateManagedCiWorkflow
+  synchronizeCiWorkflow
 } from "../cliRuntime/ci/managedWorkflow.js";
 
 const commandHandlers = createCommandHandlers(
@@ -115,9 +105,10 @@ const commandHandlers = createCommandHandlers(
     normalizeRelativePosixPath,
     directoryLooksLikeJskitAppRoot,
     resolveAppRootFromCwd,
-    loadLockFile,
     loadPackageRegistry,
     loadBundleRegistry,
+    loadInstalledAppPackageRegistry,
+    installedPackageRecordFromRegistry,
     loadAppLocalPackageRegistry,
     mergePackageRegistries,
     resolvePackageIdInput,
@@ -127,26 +118,21 @@ const commandHandlers = createCommandHandlers(
     resolvePackageTemplateRoot,
     validateInlineOptionsForPackage,
     validateInlineOptionValuesForPackage,
-    resolveLocalDependencyOrder,
     validatePlannedCapabilityClosure,
     resolvePackageOptions,
     applyPackageInstall,
-    applyPackageMigrationsOnly,
-    applyPackagePositioning,
-    adoptAppLocalPackageDependencies,
-    assertAppManagedCiWorkflowUnmodified,
-    assertManagedCiWorkflowUnmodified,
+    applyStatelessPackageMigrations,
+    assertAppCiCanSynchronize,
     composeInstalledPackageCi,
     synchronizeAppCiWorkflow,
-    synchronizeManagedCiWorkflow,
-    validateAppCiWorkflow,
-    validateManagedCiWorkflow,
+    synchronizeCiWorkflow,
     loadAppPackageJson,
     resolveLocalPackageId,
     createLocalPackageScaffoldFiles,
     normalizeMigrationId,
     fileExists,
     applyPackageJsonField,
+    removePackageJsonField,
     toFileDependencySpecifier,
     writeJsonFile,
     writeFile,
@@ -164,11 +150,7 @@ const commandHandlers = createCommandHandlers(
     shouldShowPackageExportTarget,
     classifyExportedSymbols,
     deriveProviderDisplayName,
-    restorePackageJsonField,
     readFileBufferIfExists,
-    removeEnvValue,
-    removeManagedViteProxyEntries,
-    hashBuffer,
     rm,
     discoverShellOutletSourcePathsFromApp,
     discoverShellOutletTargetsFromApp,
@@ -183,7 +165,7 @@ const runCli = createRunCli({
   validateCommandOptions,
   resolveCommandDescriptor,
   commandHandlers,
-  cleanupMaterializedPackageRoots,
+  cleanupPackageRootCaches,
   createCliError
 });
 
