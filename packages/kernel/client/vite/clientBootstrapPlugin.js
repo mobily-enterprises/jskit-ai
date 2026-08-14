@@ -223,15 +223,15 @@ function resolveInstalledViteProxyEntries(installedPackages = [], { proxyTarget 
       }
 
       ownerByPath.set(routePath, packageId);
-      proxyEntries[routePath] = Object.freeze({
+      proxyEntries[routePath] = {
         target,
         ...(Object.hasOwn(config, "changeOrigin") ? { changeOrigin: config.changeOrigin === true } : {}),
         ...(Object.hasOwn(config, "ws") ? { ws: config.ws === true } : {})
-      });
+      };
     }
   }
 
-  return Object.freeze(proxyEntries);
+  return proxyEntries;
 }
 
 async function resolveInstalledClientPackageIds(options) {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { access, readFile, rm } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
@@ -18,14 +18,15 @@ import {
   parseGithubWorkflow,
   renderGithubWorkflow
 } from "../../jskit-cli/src/server/cliRuntime/ci/githubWorkflow.js";
+import {
+  CURRENT_JSKIT_WORKSPACE_NPM_ENV,
+  restoreCurrentJskitDependencyVersions,
+  stageCurrentJskitWorkspaces
+} from "../../testUtils/currentJskitWorkspaces.mjs";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CREATE_APP_CLI = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI = fileURLToPath(new URL("../../jskit-cli/bin/jskit.js", import.meta.url));
-const AGENT_DOCS_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/agent-docs", import.meta.url));
-const CONFIG_ESLINT_PACKAGE_ROOT = fileURLToPath(new URL("../../config-eslint", import.meta.url));
-const JSKIT_CLI_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-cli", import.meta.url));
-const JSKIT_CATALOG_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
 
 function packageMetadata(packageJson) {
   return {
@@ -45,16 +46,14 @@ const DATABASE_CASES = Object.freeze([
     label: "MariaDB",
     packageMetadata: packageMetadata(databaseMysqlPackage),
     dialectId: MYSQL_DIALECT_ID,
-    serviceId: "mariadb",
-    packageRoot: fileURLToPath(new URL("../../../packages/database-runtime-mysql", import.meta.url))
+    serviceId: "mariadb"
   }),
   Object.freeze({
     id: "postgres",
     label: "PostgreSQL",
     packageMetadata: packageMetadata(databasePostgresPackage),
     dialectId: POSTGRES_DIALECT_ID,
-    serviceId: "postgres",
-    packageRoot: fileURLToPath(new URL("../../../packages/database-runtime-postgres", import.meta.url))
+    serviceId: "postgres"
   })
 ]);
 const DATABASE_CASE_BY_ID = new Map(DATABASE_CASES.map((entry) => [entry.id, entry]));
@@ -82,6 +81,7 @@ function runChecked(command, args, { cwd, env = {}, label = command, timeout = 3
     env: {
       ...process.env,
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+      ...CURRENT_JSKIT_WORKSPACE_NPM_ENV,
       ...env
     }
   });
@@ -98,24 +98,6 @@ function packageEntry(packageMetadata) {
     packageId: packageMetadata.packageId,
     packageMetadata
   };
-}
-
-async function useCurrentCiPackageSources(appRoot, databaseCase) {
-  const packageJsonPath = path.join(appRoot, "package.json");
-  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-  packageJson.dependencies = packageJson.dependencies || {};
-  packageJson.devDependencies = packageJson.devDependencies || {};
-  packageJson.dependencies[databaseCase.packageMetadata.packageId] =
-    `file:${databaseCase.packageRoot}`;
-  packageJson.devDependencies["@jskit-ai/agent-docs"] =
-    `file:${AGENT_DOCS_PACKAGE_ROOT}`;
-  packageJson.devDependencies["@jskit-ai/config-eslint"] =
-    `file:${CONFIG_ESLINT_PACKAGE_ROOT}`;
-  packageJson.devDependencies["@jskit-ai/jskit-cli"] =
-    `file:${JSKIT_CLI_PACKAGE_ROOT}`;
-  packageJson.devDependencies["@jskit-ai/jskit-catalog"] =
-    `file:${JSKIT_CATALOG_PACKAGE_ROOT}`;
-  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
 }
 
 function dockerRunArgs(containerName, service) {
@@ -205,6 +187,7 @@ for (const databaseCase of DATABASE_CASES) {
         "--tenancy-mode",
         "personal"
       ], { cwd, label: "create-app" });
+      const currentJskitPackages = await stageCurrentJskitWorkspaces(appRoot);
 
       const packageCommands = [
         ["add", "package", "auth-provider-local-core"],
@@ -235,6 +218,7 @@ for (const databaseCase of DATABASE_CASES) {
           label: `jskit ${args.join(" ")}`
         });
       }
+      await restoreCurrentJskitDependencyVersions(appRoot, currentJskitPackages);
 
       const installedPackageJson = JSON.parse(await readFile(path.join(appRoot, "package.json"), "utf8"));
       for (const packageId of [
@@ -275,7 +259,6 @@ for (const databaseCase of DATABASE_CASES) {
       assert.equal(workflow.jobs.verify.env.AUTH_PROVIDER, "local");
       assert.equal(workflow.jobs.verify.env.AUTH_LOCAL_BACKEND, "db");
 
-      await useCurrentCiPackageSources(appRoot, databaseCase);
       runChecked("npm", ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"], {
         cwd: appRoot,
         label: "create clean package-lock"

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant",
-  "version": "0.1.165",
+  "version": "0.1.166",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,8 +9,8 @@
     "./server/buildTemplateContext": "./src/server/buildTemplateContext.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-runtime": "0.1.128",
-    "@jskit-ai/kernel": "0.1.157"
+    "@jskit-ai/assistant-runtime": "0.1.129",
+    "@jskit-ai/kernel": "0.1.158"
   },
   "description": "Install assistant runtime/config for one surface and scaffold assistant pages at explicit target files.",
   "jskit": {

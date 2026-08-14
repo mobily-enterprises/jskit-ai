@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/storage-runtime",
-  "version": "0.1.154",
+  "version": "0.1.155",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,7 +10,7 @@
     "./server/providers/StorageRuntimeServiceProvider": "./src/server/providers/StorageRuntimeServiceProvider.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.157",
+    "@jskit-ai/kernel": "0.1.158",
     "unstorage": "^1.17.5"
   },
   "jskit": {
@@ -59,7 +59,7 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/kernel": "0.1.157",
+          "@jskit-ai/kernel": "0.1.158",
           "unstorage": "^1.17.3"
         },
         "dev": {}

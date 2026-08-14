@@ -470,6 +470,8 @@ test("resolveInstalledViteProxyEntries derives proxy config directly from packag
       ws: true
     }
   });
+  proxy["/socket.io"].prependPath = false;
+  assert.equal(proxy["/socket.io"].prependPath, false);
 });
 
 test("resolveInstalledViteProxyEntries rejects ambiguous package proxy paths", () => {
