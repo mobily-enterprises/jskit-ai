@@ -13,7 +13,7 @@ test("buildTemplateContext emits json-rest provider and package metadata wiring"
     }
   });
 
-  assert.equal(context.__JSKIT_FEATURE_PROVIDER_DEPENDS_ON__, '"runtime.actions", "json-rest-api.core"');
+  assert.equal(context.__JSKIT_FEATURE_PROVIDER_STARTS_AFTER__, '"runtime.actions"');
   assert.match(context.__JSKIT_FEATURE_PROVIDER_REPOSITORY_IMPORT__, /INTERNAL_JSON_REST_API/);
   assert.match(context.__JSKIT_FEATURE_PROVIDER_REPOSITORY_REGISTRATION__, /feature\.booking-engine\.repository/);
   assert.equal(
@@ -36,7 +36,7 @@ test("buildTemplateContext emits orchestrator service placeholders and enabled-s
     }
   });
 
-  assert.equal(context.__JSKIT_FEATURE_PROVIDER_DEPENDS_ON__, '"runtime.actions"');
+  assert.equal(context.__JSKIT_FEATURE_PROVIDER_STARTS_AFTER__, '"runtime.actions"');
   assert.equal(context.__JSKIT_FEATURE_PROVIDER_REPOSITORY_IMPORT__, "");
   assert.equal(context.__JSKIT_FEATURE_PROVIDER_REPOSITORY_REGISTRATION__, "");
   assert.equal(context.__JSKIT_FEATURE_PROVIDER_SERVICE_FACTORY_ARG__, "{}");
@@ -55,7 +55,7 @@ test("buildTemplateContext emits custom-knex route wiring and weird-custom lane 
     }
   });
 
-  assert.equal(context.__JSKIT_FEATURE_PROVIDER_DEPENDS_ON__, '"runtime.actions", "runtime.database"');
+  assert.equal(context.__JSKIT_FEATURE_PROVIDER_STARTS_AFTER__, '"runtime.actions"');
   assert.match(context.__JSKIT_FEATURE_PROVIDER_REPOSITORY_IMPORT__, /createRepository/);
   assert.match(context.__JSKIT_FEATURE_PROVIDER_BOOT_METHOD__, /routeRelativePath: "admin\/invoice-rollup"/);
   assert.match(context.__JSKIT_FEATURE_PROVIDER_BOOT_METHOD__, /routeSurface: "admin"/);

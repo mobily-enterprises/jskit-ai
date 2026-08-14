@@ -5,7 +5,7 @@ import { createAuthSessionEventsService } from "../services/authSessionEventsSer
 class AuthActionsServiceProvider {
   static id = "auth.actions";
 
-  static dependsOn = ["runtime.actions"];
+  static startsAfter = ["runtime.actions"];
 
   register(app) {
     if (

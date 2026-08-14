@@ -47,7 +47,7 @@ So the first visible value of the package is not a whole new screen. It is a tin
 
 The app already had a browser dev server on `5173` and a backend runtime on `3000`.
 
-`realtime` extends that setup by writing a websocket proxy entry into `.jskit/vite.dev.proxy.json` for `/socket.io`. That matters because the browser should still talk to the frontend dev server on `5173`, while Vite quietly forwards websocket traffic to the backend runtime on `3000`.
+`realtime` declares a websocket proxy for `/socket.io` in its published `package.json.jskit` metadata. The JSKIT Vite plugin reads that declaration from the installed npm graph and forwards websocket traffic from the frontend dev server on `5173` to the backend runtime on `3000`.
 
 So one of the main values of this package is that you do **not** have to hand-edit Vite config just to make socket.io work in local development.
 
@@ -210,26 +210,26 @@ REALTIME_REDIS_URL=
 
 That empty value is deliberate. It means the app can start with the in-memory adapter locally, and you can fill in a real Redis URL later if you need cross-instance fan-out.
 
-### `.jskit/vite.dev.proxy.json` gains a websocket proxy entry
+### Package metadata declares the websocket proxy
 
-After the install, the app has:
+The installed `@jskit-ai/realtime` package declares:
 
 ```json
 {
-  "version": 1,
-  "entries": [
-    {
-      "packageId": "@jskit-ai/realtime",
-      "id": "realtime-socket-io",
-      "path": "/socket.io",
-      "changeOrigin": true,
-      "ws": true
+  "jskit": {
+    "vite": {
+      "proxy": {
+        "/socket.io": {
+          "changeOrigin": true,
+          "ws": true
+        }
+      }
     }
-  ]
+  }
 }
 ```
 
-That one entry is what lets the browser dev server proxy websocket traffic correctly during local development.
+`createJskitClientBootstrapPlugin({ proxyTarget })` reads that metadata directly. The application owns only its normal Vite config and proxy target; installing or removing the npm package changes the active proxy on the next Vite start without generated project state.
 
 ### `src/placement.js` includes the shell status placement
 

@@ -8,8 +8,6 @@ import {
 class GoogleRewardedClientProvider {
   static id = "google-rewarded.web.client";
 
-  static dependsOn = ["shell.web.client"];
-
   register(app) {
     if (!app || typeof app.singleton !== "function") {
       throw new Error("GoogleRewardedClientProvider requires application singleton().");

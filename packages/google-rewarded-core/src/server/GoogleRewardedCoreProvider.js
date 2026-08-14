@@ -7,7 +7,7 @@ import { registerRoutes } from "./registerRoutes.js";
 class GoogleRewardedCoreProvider {
   static id = "google-rewarded.core";
 
-  static dependsOn = ["runtime.actions"];
+  static startsAfter = ["runtime.actions"];
 
   register(app) {
     if (

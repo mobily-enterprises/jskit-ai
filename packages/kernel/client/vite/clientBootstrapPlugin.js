@@ -4,7 +4,7 @@ import {
   collectRootDependencySpecifiers,
   discoverInstalledPackages
 } from "../../internal/node/installedPackages.js";
-import { normalizeObject } from "../../shared/support/normalize.js";
+import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
   normalizePackageMetadataClientProviders,
@@ -15,6 +15,7 @@ import {
 
 const CLIENT_BOOTSTRAP_VIRTUAL_ID = "virtual:jskit-client-bootstrap";
 const CLIENT_BOOTSTRAP_RESOLVED_ID = `\0${CLIENT_BOOTSTRAP_VIRTUAL_ID}`;
+const CLIENT_BOOTSTRAP_MODULE_SPECIFIER = "@jskit-ai/kernel/client/moduleBootstrap";
 const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
   "@tanstack/vue-query",
   "pinia",
@@ -132,8 +133,7 @@ function resolveCanonicalLocalPackageId(resolvedId, localPackage) {
     : "";
 }
 
-async function resolveInstalledClientModules({ appRoot }) {
-  const installedPackages = await discoverInstalledPackages({ appRoot });
+function resolveClientModulesFromInstalledPackages(installedPackages = []) {
   const modules = [];
   for (const installedPackage of installedPackages) {
     if (!hasClientExport(installedPackage.packageJson)) {
@@ -154,6 +154,85 @@ async function resolveInstalledClientModules({ appRoot }) {
   }
 
   return Object.freeze(modules);
+}
+
+async function resolveInstalledClientModules({ appRoot }) {
+  return resolveClientModulesFromInstalledPackages(
+    await discoverInstalledPackages({ appRoot })
+  );
+}
+
+function resolveInstalledViteProxyEntries(installedPackages = [], { proxyTarget = "" } = {}) {
+  const fallbackTarget = String(proxyTarget || "").trim();
+  const proxyEntries = {};
+  const ownerByPath = new Map();
+
+  for (const installedPackage of [...installedPackages].sort((left, right) =>
+    String(left?.packageId || "").localeCompare(String(right?.packageId || "")))) {
+    const packageId = String(installedPackage?.packageId || "").trim();
+    const vite = installedPackage?.packageMetadata?.vite;
+    if (vite == null) {
+      continue;
+    }
+    if (!isRecord(vite) || (vite.proxy != null && !isRecord(vite.proxy))) {
+      throw new Error(`${packageId} package.json#jskit.vite.proxy must be an object.`);
+    }
+    const proxy = normalizeObject(vite.proxy);
+
+    for (const routePath of sortStrings(Object.keys(proxy))) {
+      if (!routePath.startsWith("/") || routePath.startsWith("//")) {
+        throw new Error(`Vite proxy path ${JSON.stringify(routePath)} from ${packageId} must start with one "/".`);
+      }
+      if (ownerByPath.has(routePath)) {
+        throw new Error(
+          `Vite proxy path ${JSON.stringify(routePath)} is declared by both ${ownerByPath.get(routePath)} and ${packageId}.`
+        );
+      }
+
+      const config = proxy[routePath];
+      if (!isRecord(config)) {
+        throw new Error(
+          `Vite proxy path ${JSON.stringify(routePath)} from ${packageId} must be an object.`
+        );
+      }
+      const unknownFields = Object.keys(config)
+        .filter((field) => !["changeOrigin", "target", "ws"].includes(field))
+        .sort();
+      if (unknownFields.length > 0) {
+        throw new Error(
+          `Vite proxy path ${JSON.stringify(routePath)} from ${packageId} has unsupported ${unknownFields.length === 1 ? "field" : "fields"}: ${unknownFields.join(", ")}.`
+        );
+      }
+      for (const field of ["changeOrigin", "ws"]) {
+        if (Object.hasOwn(config, field) && typeof config[field] !== "boolean") {
+          throw new Error(
+            `Vite proxy path ${JSON.stringify(routePath)} from ${packageId} requires ${field} to be boolean.`
+          );
+        }
+      }
+      if (Object.hasOwn(config, "target") && typeof config.target !== "string") {
+        throw new Error(
+          `Vite proxy path ${JSON.stringify(routePath)} from ${packageId} requires target to be a string.`
+        );
+      }
+
+      const target = String(config.target || "").trim() || fallbackTarget;
+      if (!target) {
+        throw new Error(
+          `Vite proxy path ${JSON.stringify(routePath)} from ${packageId} requires target or createJskitClientBootstrapPlugin({ proxyTarget }).`
+        );
+      }
+
+      ownerByPath.set(routePath, packageId);
+      proxyEntries[routePath] = {
+        target,
+        ...(Object.hasOwn(config, "changeOrigin") ? { changeOrigin: config.changeOrigin === true } : {}),
+        ...(Object.hasOwn(config, "ws") ? { ws: config.ws === true } : {})
+      };
+    }
+  }
+
+  return proxyEntries;
 }
 
 async function resolveInstalledClientPackageIds(options) {
@@ -214,7 +293,7 @@ function createVirtualModuleSource(clientModules = []) {
 
   const entriesSource = moduleEntries.length > 0 ? moduleEntries.join(",\n") : "";
 
-  return `${importLines.join("\n")}${importLines.length > 0 ? "\n\n" : ""}import { bootClientModules } from "@jskit-ai/kernel/client/moduleBootstrap";
+  return `${importLines.join("\n")}${importLines.length > 0 ? "\n\n" : ""}import { bootClientModules } from ${JSON.stringify(CLIENT_BOOTSTRAP_MODULE_SPECIFIER)};
 
 const installedClientModules = Object.freeze([
 ${entriesSource}
@@ -269,7 +348,7 @@ function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
   return sortStrings([...userDedupe, ...CLIENT_RUNTIME_DEDUPE_SPECIFIERS]);
 }
 
-function createJskitClientBootstrapPlugin() {
+function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
   let appRoot = process.cwd();
   let localPackages = Object.freeze([]);
   let resolvePackageSpecifier = null;
@@ -280,8 +359,10 @@ function createJskitClientBootstrapPlugin() {
     enforce: "pre",
     async config(userConfig = {}) {
       appRoot = process.cwd();
-      const clientModules = await resolveInstalledClientModules({
-        appRoot
+      const installedPackages = await discoverInstalledPackages({ appRoot });
+      const clientModules = resolveClientModulesFromInstalledPackages(installedPackages);
+      const installedProxyEntries = resolveInstalledViteProxyEntries(installedPackages, {
+        proxyTarget
       });
       const localScopePackageIds = await resolveLocalScopePackageIds({
         appRoot
@@ -295,10 +376,20 @@ function createJskitClientBootstrapPlugin() {
       const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
       const userExclude = sortStrings(userOptimizeDeps.exclude);
       const userInclude = sortStrings(userOptimizeDeps.include);
-      const exclude = sortStrings([...userExclude, ...clientExcludeSpecifiers, ...localScopeExcludeSpecifiers]);
+      const exclude = sortStrings([
+        ...userExclude,
+        ...clientExcludeSpecifiers,
+        ...localScopeExcludeSpecifiers
+      ]);
       const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
-      const include = sortStrings([...userInclude, ...clientIncludeSpecifiers].filter((specifier) => !exclude.includes(specifier)));
+      const include = sortStrings([
+        ...userInclude,
+        ...clientIncludeSpecifiers,
+        CLIENT_BOOTSTRAP_MODULE_SPECIFIER
+      ].filter((specifier) => !exclude.includes(specifier)));
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
+      const userServer = normalizeObject(userConfig.server);
+      const userProxyEntries = normalizeObject(userServer.proxy);
 
       return {
         optimizeDeps: {
@@ -309,6 +400,12 @@ function createJskitClientBootstrapPlugin() {
         resolve: {
           ...userResolve,
           dedupe
+        },
+        server: {
+          proxy: {
+            ...installedProxyEntries,
+            ...userProxyEntries
+          }
         }
       };
     },
@@ -368,5 +465,6 @@ export {
   resolveInstalledClientPackageIds,
   resolveLocalScopePackageIds,
   resolveInstalledClientModules,
+  resolveInstalledViteProxyEntries,
   createJskitClientBootstrapPlugin
 };

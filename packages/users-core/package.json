@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.1.169",
+  "version": "0.1.172",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,15 +11,15 @@
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.154",
-    "@jskit-ai/database-runtime": "0.1.156",
-    "@jskit-ai/http-runtime": "0.1.154",
-    "@jskit-ai/json-rest-api-core": "0.1.100",
-    "@jskit-ai/kernel": "0.1.156",
-    "@jskit-ai/resource-core": "0.1.98",
-    "@jskit-ai/resource-crud-core": "0.1.98",
-    "@jskit-ai/storage-runtime": "0.1.153",
-    "@jskit-ai/uploads-runtime": "0.1.131",
+    "@jskit-ai/auth-core": "0.1.157",
+    "@jskit-ai/database-runtime": "0.1.159",
+    "@jskit-ai/http-runtime": "0.1.157",
+    "@jskit-ai/json-rest-api-core": "0.1.103",
+    "@jskit-ai/kernel": "0.1.159",
+    "@jskit-ai/resource-core": "0.1.101",
+    "@jskit-ai/resource-crud-core": "0.1.101",
+    "@jskit-ai/storage-runtime": "0.1.156",
+    "@jskit-ai/uploads-runtime": "0.1.134",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Users/account runtime plus HTTP routes for account features.",
@@ -156,16 +156,16 @@
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/auth-core": "0.1.154",
-          "@jskit-ai/crud-core": "0.1.167",
-          "@jskit-ai/database-runtime": "0.1.156",
-          "@jskit-ai/http-runtime": "0.1.154",
-          "@jskit-ai/json-rest-api-core": "0.1.100",
-          "@jskit-ai/kernel": "0.1.156",
-          "@jskit-ai/resource-core": "0.1.98",
-          "@jskit-ai/resource-crud-core": "0.1.98",
+          "@jskit-ai/auth-core": "0.1.157",
+          "@jskit-ai/crud-core": "0.1.170",
+          "@jskit-ai/database-runtime": "0.1.159",
+          "@jskit-ai/http-runtime": "0.1.157",
+          "@jskit-ai/json-rest-api-core": "0.1.103",
+          "@jskit-ai/kernel": "0.1.159",
+          "@jskit-ai/resource-core": "0.1.101",
+          "@jskit-ai/resource-crud-core": "0.1.101",
           "@local/users": "file:packages/users",
-          "@jskit-ai/uploads-runtime": "0.1.131"
+          "@jskit-ai/uploads-runtime": "0.1.134"
         },
         "dev": {}
       },

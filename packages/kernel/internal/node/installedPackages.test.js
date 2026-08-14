@@ -39,7 +39,8 @@ test("createPackageMetadata accepts only the canonical package.json.jskit fields
     "mutations",
     "optionPolicies",
     "options",
-    "runtime"
+    "runtime",
+    "vite"
   ]);
   assert.throws(
     () => createPackageMetadata({

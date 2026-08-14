@@ -11,16 +11,15 @@ import {
   startCapturedProcess,
   stopProcess
 } from "../../testUtils/browserFixture.mjs";
+import {
+  CURRENT_JSKIT_WORKSPACE_NPM_ENV,
+  restoreCurrentJskitDependencyVersions,
+  stageCurrentJskitWorkspaces
+} from "../../testUtils/currentJskitWorkspaces.mjs";
 import { withTempDir } from "../../testUtils/tempDir.mjs";
 
 const CREATE_APP_CLI = fileURLToPath(new URL("../bin/jskit-create-app.js", import.meta.url));
 const JSKIT_CLI = fileURLToPath(new URL("../../jskit-cli/bin/jskit.js", import.meta.url));
-const AGENT_DOCS_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/agent-docs", import.meta.url));
-const CONFIG_ESLINT_PACKAGE_ROOT = fileURLToPath(new URL("../../config-eslint", import.meta.url));
-const JSKIT_CLI_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-cli", import.meta.url));
-const JSKIT_CATALOG_PACKAGE_ROOT = fileURLToPath(new URL("../../jskit-catalog", import.meta.url));
-const KERNEL_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/kernel", import.meta.url));
-const SHELL_WEB_PACKAGE_ROOT = fileURLToPath(new URL("../../../packages/shell-web", import.meta.url));
 const RUN_COLD_START_INTEGRATION = process.env.JSKIT_VITE_COLD_START_INTEGRATION === "1";
 const RUN_LOCAL_PACKAGE_CACHE_INTEGRATION = process.env.JSKIT_VITE_LOCAL_PACKAGE_CACHE_INTEGRATION === "1";
 const OPTIMIZED_SHELL_SUBPATHS = Object.freeze([
@@ -39,7 +38,8 @@ function runChecked(command, args, { cwd, label = command, timeout = 300_000 } =
       ...process.env,
       NO_COLOR: "1",
       FORCE_COLOR: "0",
-      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+      ...CURRENT_JSKIT_WORKSPACE_NPM_ENV
     }
   });
   assert.equal(
@@ -48,32 +48,6 @@ function runChecked(command, args, { cwd, label = command, timeout = 300_000 } =
     `${label} failed.\nstdout:\n${String(result.stdout || "")}\nstderr:\n${String(result.stderr || "")}`
   );
   return result;
-}
-
-async function installPackedShellWeb(appRoot, tempRoot) {
-  const packResult = runChecked(
-    "npm",
-    ["pack", SHELL_WEB_PACKAGE_ROOT, "--pack-destination", tempRoot, "--json"],
-    { cwd: tempRoot, label: "pack current shell-web" }
-  );
-  const packPayload = JSON.parse(packResult.stdout);
-  const tarballName = String(packPayload?.[0]?.filename || "").trim();
-  assert.ok(tarballName, `npm pack did not report a tarball.\n${packResult.stdout}`);
-
-  const packageJsonPath = path.join(appRoot, "package.json");
-  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-  packageJson.dependencies["@jskit-ai/kernel"] = `file:${KERNEL_PACKAGE_ROOT}`;
-  packageJson.dependencies["@jskit-ai/shell-web"] = `file:${path.join(tempRoot, tarballName)}`;
-  packageJson.devDependencies["@jskit-ai/agent-docs"] = `file:${AGENT_DOCS_PACKAGE_ROOT}`;
-  packageJson.devDependencies["@jskit-ai/config-eslint"] = `file:${CONFIG_ESLINT_PACKAGE_ROOT}`;
-  packageJson.devDependencies["@jskit-ai/jskit-cli"] = `file:${JSKIT_CLI_PACKAGE_ROOT}`;
-  packageJson.devDependencies["@jskit-ai/jskit-catalog"] = `file:${JSKIT_CATALOG_PACKAGE_ROOT}`;
-  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`, "utf8");
-
-  runChecked("npm", ["install", "--no-audit", "--no-fund"], {
-    cwd: appRoot,
-    label: "fresh generated-app npm install"
-  });
 }
 
 async function writeJson(filePath, value) {
@@ -143,7 +117,6 @@ async function configureLocalPackageCacheFixture(appRoot) {
   const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
   packageJson.dependencies["@fixture/local-feature"] = "file:packages/feature";
   packageJson.dependencies["@fixture/local-utility"] = "file:packages/utility";
-  packageJson.dependencies["@jskit-ai/kernel"] = `file:${KERNEL_PACKAGE_ROOT}`;
   await writeJson(packageJsonPath, packageJson);
 }
 
@@ -257,6 +230,7 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
         "--initial-bundles",
         "auth"
       ], { cwd: tempRoot, label: "create generated auth app" });
+      const currentJskitPackages = await stageCurrentJskitWorkspaces(appRoot);
       runChecked(process.execPath, [JSKIT_CLI, "add", "package", "auth-provider-local-core"], {
         cwd: appRoot,
         label: "add local auth provider"
@@ -265,7 +239,11 @@ test("fresh generated shell-web/auth app optimizes dynamic shell subpaths before
         cwd: appRoot,
         label: "add auth web"
       });
-      await installPackedShellWeb(appRoot, tempRoot);
+      await restoreCurrentJskitDependencyVersions(appRoot, currentJskitPackages);
+      runChecked("npm", ["install", "--no-audit", "--no-fund"], {
+        cwd: appRoot,
+        label: "fresh generated-app npm install"
+      });
 
       const viteCachePath = path.join(appRoot, "node_modules", ".vite");
       await rm(viteCachePath, { recursive: true, force: true });
@@ -367,6 +345,7 @@ test("generated Vite apps serve every installed local package from canonical edi
           "--template",
           template
         ], { cwd: tempRoot, label: `create ${template} cache fixture` });
+        await stageCurrentJskitWorkspaces(appRoot);
         await configureLocalPackageCacheFixture(appRoot);
         installGeneratedAppWithCurrentKernel(appRoot);
 

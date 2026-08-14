@@ -4,7 +4,7 @@ export {
   KernelError,
   ProviderNormalizationError,
   DuplicateProviderError,
-  ProviderDependencyError,
+  ProviderStartOrderError,
   ProviderLifecycleError
 } from "../../shared/runtime/kernelErrors.js";
 export { KernelCoreServiceProvider } from "./KernelCoreServiceProvider.js";

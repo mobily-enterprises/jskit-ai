@@ -7,7 +7,7 @@ __JSKIT_FEATURE_PROVIDER_ROUTE_IMPORT__
 class ${option:feature-name|pascal}Provider {
   static id = "feature.${option:feature-name|kebab}";
 
-  static dependsOn = [__JSKIT_FEATURE_PROVIDER_DEPENDS_ON__];
+  static startsAfter = [__JSKIT_FEATURE_PROVIDER_STARTS_AFTER__];
 
   register(app) {
     if (

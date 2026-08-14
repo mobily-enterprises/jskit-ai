@@ -54,7 +54,7 @@ Move every package relationship from `jskit.dependsOn` to the appropriate standa
 
 Pin `@jskit-ai/*` packages to exact versions. Remove `jskit.dependsOn` completely.
 
-Keep provider-class `static dependsOn` declarations. Those order providers inside the runtime container and are not npm package relationships.
+Rename provider-class `static dependsOn` to `static startsAfter`, then audit every entry. Keep only providers whose registration or boot must complete before the declaring provider reaches the same phase. JSKIT completes registration for the entire graph before beginning any boot method, so a lazily consumed service does not justify an ordering edge.
 
 ## 4. Remove Beta 1 project state
 
@@ -63,11 +63,22 @@ Delete these paths from the application:
 ```text
 .jskit/lock.json
 .jskit/verification/
+.jskit/vite.dev.proxy.json
 ```
 
 Remove ignore rules created solely for `.jskit/verification/`.
 
-Do not translate either file into a replacement. Final Release derives package state from `package.json`, `package-lock.json`, installed package manifests, application config, migration files, and generated CI.
+Do not translate these paths into replacements. Final Release derives package state from `package.json`, `package-lock.json`, installed package manifests, application config, migration files, and generated CI.
+
+Delete the app-local Vite proxy loader and any `vite.shared.mjs` file used only for that generated JSON. Pass the application's API target to the standard plugin instead:
+
+```js
+createJskitClientBootstrapPlugin({
+  proxyTarget: apiProxyTarget
+})
+```
+
+Installed packages now declare development proxies in `package.json.jskit.vite.proxy`, and the plugin derives the active proxy table directly whenever Vite starts.
 
 ## 5. Replace command usage
 

@@ -4,8 +4,6 @@ import { buildRoutes } from "../routes/authRoutes.js";
 class AuthRouteServiceProvider {
   static id = "auth.routes";
 
-  static dependsOn = ["auth.web"];
-
   register(app) {
     if (!app || typeof app.has !== "function") {
       throw new Error("AuthRouteServiceProvider requires application has().");

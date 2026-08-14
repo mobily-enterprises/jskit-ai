@@ -60,7 +60,7 @@ function createAssistantAiClientFactory(config = {}) {
 class AssistantProvider {
   static id = "assistant.chat.service";
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "users.core"];
+  static startsAfter = ["runtime.actions"];
 
   register(app) {
     if (

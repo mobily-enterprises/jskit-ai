@@ -4,8 +4,6 @@ import { createLocalDbBackend } from "../lib/dbBackend.js";
 class AuthLocalDbBackendServiceProvider {
   static id = "auth.provider.local.db";
 
-  static dependsOn = ["runtime.database"];
-
   register(app) {
     if (!app || typeof app.singleton !== "function" || typeof app.has !== "function") {
       throw new Error("AuthLocalDbBackendServiceProvider requires application singleton()/has().");

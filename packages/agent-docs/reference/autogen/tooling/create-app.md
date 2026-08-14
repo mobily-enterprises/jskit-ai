@@ -207,11 +207,6 @@ Exports
 Local functions
 - `clientEntry(()`
 
-### `templates/base-shell/vite.shared.mjs`
-Exports
-- `toPositiveInt(value, fallback)`
-- `loadViteDevProxyEntries({ appRootUrl = import.meta.url, fallbackTarget = "" } = {})`
-
 ### `templates/minimal-shell/bin/server.js`
 Exports
 - None
@@ -314,11 +309,6 @@ Exports
 - None
 Local functions
 - `clientEntry(()`
-
-### `templates/minimal-shell/vite.shared.mjs`
-Exports
-- `toPositiveInt(value, fallback)`
-- `loadViteDevProxyEntries({ appRootUrl = import.meta.url, fallbackTarget = "" } = {})`
 
 ### bin
 

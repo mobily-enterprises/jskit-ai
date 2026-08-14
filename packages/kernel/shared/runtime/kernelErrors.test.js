@@ -6,7 +6,8 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { KernelError } from "./kernelErrors.js";
+import { Application, createProviderClass } from "./application.js";
+import { KernelError, ProviderStartOrderError } from "./kernelErrors.js";
 
 const APPLICATION_PATH = fileURLToPath(new URL("./application.js", import.meta.url));
 
@@ -20,6 +21,69 @@ test("KernelError preserves structured details while exposing the standard cause
   assert.equal(error.cause, cause);
   assert.equal(error.details.cause, cause);
   assert.equal(error.details.providerId, "example.provider");
+});
+
+test("startsAfter orders provider registration, boot, and shutdown", async () => {
+  const calls = [];
+  const EarlierProvider = createProviderClass({
+    id: "example.earlier",
+    register() {
+      calls.push("register:earlier");
+    },
+    boot() {
+      calls.push("boot:earlier");
+    },
+    shutdown() {
+      calls.push("shutdown:earlier");
+    }
+  });
+  const LaterProvider = createProviderClass({
+    id: "example.later",
+    startsAfter: ["example.earlier"],
+    register() {
+      calls.push("register:later");
+    },
+    boot() {
+      calls.push("boot:later");
+    },
+    shutdown() {
+      calls.push("shutdown:later");
+    }
+  });
+
+  const app = new Application();
+  await app.start({ providers: [LaterProvider, EarlierProvider] });
+  await app.shutdown();
+
+  assert.deepEqual(calls, [
+    "register:earlier",
+    "register:later",
+    "boot:earlier",
+    "boot:later",
+    "shutdown:later",
+    "shutdown:earlier"
+  ]);
+});
+
+test("startsAfter rejects missing providers and start-order cycles", () => {
+  const missingApp = new Application();
+  assert.throws(
+    () => missingApp.configureProviders([{ id: "example.later", startsAfter: ["example.missing"] }]),
+    (error) =>
+      error instanceof ProviderStartOrderError &&
+      /starts after missing provider "example\.missing"/u.test(error.message)
+  );
+
+  const cycleApp = new Application();
+  assert.throws(
+    () => cycleApp.configureProviders([
+      { id: "example.alpha", startsAfter: ["example.beta"] },
+      { id: "example.beta", startsAfter: ["example.alpha"] }
+    ]),
+    (error) =>
+      error instanceof ProviderStartOrderError &&
+      /Provider start-order cycle detected/u.test(error.message)
+  );
 });
 
 test("provider lifecycle failures expose their cause in Node test output", async (context) => {

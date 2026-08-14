@@ -16,7 +16,8 @@ import {
   resolveClientOptimizeExcludeSpecifiers,
   resolveLocalScopePackageIds,
   resolveInstalledClientPackageIds,
-  resolveInstalledClientModules
+  resolveInstalledClientModules,
+  resolveInstalledViteProxyEntries
 } from "./clientBootstrapPlugin.js";
 
 async function writeJson(filePath, value) {
@@ -440,6 +441,69 @@ test("resolveInstalledClientModules resolves a packageMetadata from a file depen
   assert.equal(modules[0].packageMetadataClientProviders[0].export, "LocalClientProvider");
 });
 
+test("resolveInstalledViteProxyEntries derives proxy config directly from package metadata", () => {
+  const proxy = resolveInstalledViteProxyEntries(
+    [
+      {
+        packageId: "@example/realtime",
+        packageMetadata: {
+          vite: {
+            proxy: {
+              "/socket.io": {
+                changeOrigin: true,
+                ws: true
+              }
+            }
+          }
+        }
+      }
+    ],
+    {
+      proxyTarget: "http://localhost:3000"
+    }
+  );
+
+  assert.deepEqual(proxy, {
+    "/socket.io": {
+      target: "http://localhost:3000",
+      changeOrigin: true,
+      ws: true
+    }
+  });
+  proxy["/socket.io"].prependPath = false;
+  assert.equal(proxy["/socket.io"].prependPath, false);
+});
+
+test("resolveInstalledViteProxyEntries rejects ambiguous package proxy paths", () => {
+  assert.throws(
+    () => resolveInstalledViteProxyEntries(
+      ["@example/alpha", "@example/beta"].map((packageId) => ({
+        packageId,
+        packageMetadata: {
+          vite: {
+            proxy: {
+              "/socket.io": { target: "http://localhost:3000" }
+            }
+          }
+        }
+      }))
+    ),
+    /declared by both @example\/alpha and @example\/beta/u
+  );
+});
+
+test("resolveInstalledViteProxyEntries rejects malformed package proxy metadata", () => {
+  assert.throws(
+    () => resolveInstalledViteProxyEntries([
+      {
+        packageId: "@example/realtime",
+        packageMetadata: { vite: { proxy: { "/socket.io": { ws: "yes" } } } }
+      }
+    ], { proxyTarget: "http://localhost:3000" }),
+    /requires ws to be boolean/u
+  );
+});
+
 test("resolveLocalScopePackageIds reads @local packages from package.json", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-"));
   await writeJson(path.join(tempRoot, "package.json"), {
@@ -484,6 +548,57 @@ test("createJskitClientBootstrapPlugin resolves and loads virtual module", async
     const source = await plugin.load(CLIENT_BOOTSTRAP_RESOLVED_ID);
     assert.match(String(source || ""), /@example\/has-client\/client/);
     assert.match(String(source || ""), /bootInstalledClientModules/);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin contributes installed package proxies without generated state", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-proxy-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await declareInstalledPackages(tempRoot, { "@example/realtime": {} });
+    const packageRoot = path.join(tempRoot, "node_modules", "@example", "realtime");
+    await writePackageMetadata(packageRoot, {
+      packageId: "@example/realtime",
+      version: "1.0.0",
+      vite: {
+        proxy: {
+          "/socket.io": {
+            changeOrigin: true,
+            ws: true
+          }
+        }
+      }
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin({
+      proxyTarget: "http://localhost:3000"
+    });
+    const config = await plugin.config({
+      server: {
+        proxy: {
+          "/api": {
+            target: "http://localhost:3000",
+            changeOrigin: true
+          }
+        }
+      }
+    });
+
+    assert.deepEqual(config.server.proxy, {
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true
+      },
+      "/socket.io": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        ws: true
+      }
+    });
   } finally {
     process.chdir(previousCwd);
   }
@@ -637,7 +752,11 @@ test("createJskitClientBootstrapPlugin config excludes installed client package 
 
     assert.equal(Array.isArray(result?.optimizeDeps?.exclude), true);
     assert.deepEqual(result.optimizeDeps.exclude, ["already/excluded"]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/has-client/client", "a"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/has-client/client",
+      "@jskit-ai/kernel/client/moduleBootstrap",
+      "a"
+    ]);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
@@ -683,7 +802,11 @@ test("createJskitClientBootstrapPlugin config lets packageMetadata excludes over
     });
 
     assert.deepEqual(result.optimizeDeps.exclude, ["@example/app-bound-client/client", "user-excluded"]);
-    assert.deepEqual(result.optimizeDeps.include, ["safe-helper", "user-helper"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@jskit-ai/kernel/client/moduleBootstrap",
+      "safe-helper",
+      "user-helper"
+    ]);
   } finally {
     process.chdir(previousCwd);
   }
@@ -740,7 +863,11 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
       "@example/local-client/client",
       "@example/local-client/shared"
     ]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client", "mime-match"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/remote-client/client",
+      "@jskit-ai/kernel/client/moduleBootstrap",
+      "mime-match"
+    ]);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
@@ -820,7 +947,10 @@ test("createJskitClientBootstrapPlugin config excludes all @local scoped package
       "@local/main/client",
       "@local/main/shared"
     ]);
-    assert.deepEqual(result.optimizeDeps.include, ["@example/remote-client/client"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/remote-client/client",
+      "@jskit-ai/kernel/client/moduleBootstrap"
+    ]);
   } finally {
     process.chdir(previousCwd);
   }

@@ -9,7 +9,6 @@ import {
   normalizeFileMutationRecord,
   shouldApplyMutationWhen
 } from "./mutationWhen.js";
-import { applyViteMutations } from "./viteProxy.js";
 import {
   applyPackageJsonField,
   removePackageJsonField
@@ -39,7 +38,6 @@ function createMutationResult(packageEntry) {
       },
       text: {},
       source: {},
-      vite: {},
       files: [],
       migrations: []
     }
@@ -338,16 +336,6 @@ async function applyPackageInstall({
     touchedFiles,
     { dryRun }
   );
-  await applyViteMutations(
-    packageEntryForMutations,
-    appRoot,
-    ensureObject(mutations.vite),
-    packageOptions,
-    result.changes.vite,
-    touchedFiles,
-    { dryRun }
-  );
-
   warnings.push(...await collectInstallWarnings({ packageEntry, appRoot, appPackageJson }));
   if (warnings.length > 0) {
     result.warnings = warnings;

@@ -7,8 +7,6 @@ const STORAGE_RUNTIME_SERVER_API = Object.freeze({
 class StorageRuntimeServiceProvider {
   static id = "runtime.storage";
 
-  static dependsOn = ["runtime.server"];
-
   register(app) {
     if (!app || typeof app.singleton !== "function") {
       throw new Error("StorageRuntimeServiceProvider requires application singleton().");

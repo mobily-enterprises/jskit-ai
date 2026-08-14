@@ -30,8 +30,7 @@ const REQUIRED_TOP_LEVEL_ENTRIES = Object.freeze([
   "server.js",
   "src",
   "tests",
-  "vite.config.mjs",
-  "vite.shared.mjs"
+  "vite.config.mjs"
 ]);
 
 async function readPackageJson() {

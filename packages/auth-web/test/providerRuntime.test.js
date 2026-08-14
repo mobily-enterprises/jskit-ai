@@ -43,6 +43,10 @@ function createReplyStub() {
   };
 }
 
+class MockActionRuntimeProvider {
+  static id = "runtime.actions";
+}
+
 test("auth route provider registers routes and executes login/logout handlers", async () => {
   const events = [];
   const fastify = createFastifyStub();
@@ -96,7 +100,7 @@ test("auth route provider registers routes and executes login/logout handlers", 
     static id = "auth.provider";
   }
 
-  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
 
   const registration = httpRuntime.registerRoutes();
   assert.equal(registration.routeCount > 0, true);
@@ -165,7 +169,7 @@ test("auth route provider registers dev login route only when dev auth bypass is
     static id = "auth.provider";
   }
 
-  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
 
   const registration = httpRuntime.registerRoutes();
   assert.equal(registration.routeCount > 0, true);
@@ -212,7 +216,7 @@ test("auth route provider does not resolve authService during boot", async () =>
     static id = "auth.provider";
   }
 
-  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
   assert.equal(authServiceResolutions, 0);
 
   const registration = httpRuntime.registerRoutes();
@@ -290,7 +294,7 @@ test("auth session route preserves provider capabilities through response valida
     static id = "auth.provider";
   }
 
-  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
 
   const registration = httpRuntime.registerRoutes();
   assert.equal(registration.routeCount > 0, true);
@@ -347,7 +351,7 @@ test("auth session route exposes denial reason when policy clears a rejected aut
     static id = "auth.provider";
   }
 
-  await app.start({ providers: [MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
+  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
 
   const registration = httpRuntime.registerRoutes();
   assert.equal(registration.routeCount > 0, true);

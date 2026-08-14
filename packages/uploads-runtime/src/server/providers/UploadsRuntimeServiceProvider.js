@@ -25,8 +25,6 @@ const UPLOADS_RUNTIME_SERVER_API = Object.freeze({
 class UploadsRuntimeServiceProvider {
   static id = "runtime.uploads";
 
-  static dependsOn = ["runtime.server"];
-
   register(app) {
     if (!app || typeof app.singleton !== "function") {
       throw new Error("UploadsRuntimeServiceProvider requires application singleton().");

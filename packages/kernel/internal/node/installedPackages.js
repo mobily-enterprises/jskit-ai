@@ -19,7 +19,8 @@ const JSKIT_PACKAGE_CONFIG_KEYS = Object.freeze([
   "mutations",
   "optionPolicies",
   "options",
-  "runtime"
+  "runtime",
+  "vite"
 ]);
 
 async function readJsonFile(filePath, fallback = {}) {

@@ -44,7 +44,7 @@ function installCapacitorAwareGlobalFetch({ adapter = null, apiBaseUrl = "", glo
 class MobileCapacitorClientProvider {
   static id = "mobile.capacitor.client";
 
-  static dependsOn = ["shell.web.client"];
+  static startsAfter = ["shell.web.client"];
 
   register(app) {
     if (!app || typeof app.singleton !== "function") {

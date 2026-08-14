@@ -435,18 +435,6 @@ Local functions
 - `isExactOptionReference(value = "", optionName = "")`
 - `readEnvValue(content = "", key = "")`
 
-### `src/server/cliRuntime/viteProxy.js`
-Exports
-- `createEmptyViteDevProxyConfig()`
-- `normalizeViteDevProxyPath(value = "", { context = "vite proxy entry" } = {})`
-- `normalizeViteDevProxyEntry(value = {}, { context = "vite proxy entry" } = {})`
-- `normalizeViteDevProxyConfig(value = {}, { context = "vite proxy config" } = {})`
-- `resolveViteDevProxyConfigAbsolutePath(appRoot)`
-- `loadViteDevProxyConfig(appRoot, { context = "vite proxy config" } = {})`
-- `writeViteDevProxyConfig(appRoot, config = {}, touchedFiles = null, { dryRun = false } = {})`
-- `normalizeViteProxyMutationRecord(value = {})`
-- `applyViteMutations(packageEntry, appRoot, viteMutations, options, managedVite, touchedFiles, { dryRun = false } = {})`
-
 ### `src/server/commandHandlers/app.js`
 Exports
 - `createAppCommands(ctx = {})`

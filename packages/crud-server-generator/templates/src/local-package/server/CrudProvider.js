@@ -33,7 +33,7 @@ function resolveCrudPolicyFromApp(app) {
 class ${option:namespace|pascal}Provider {
   static id = "crud.${option:namespace|snake}";
 
-  static dependsOn = ["runtime.actions", "runtime.database", "auth.policy.fastify", "local.main", "json-rest-api.core"];
+  static startsAfter = ["json-rest-api.core", "local.main", "runtime.actions"];
 
   register(app) {
     const crudPolicy = resolveCrudPolicyFromApp(app);

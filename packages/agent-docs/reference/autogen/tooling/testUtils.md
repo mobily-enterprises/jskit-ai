@@ -22,6 +22,15 @@ Exports
 - `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {} } = {})`
 - `stopProcess(runtime)`
 
+### `currentJskitWorkspaces.mjs`
+Exports
+- `CURRENT_JSKIT_WORKSPACE_NPM_ENV`
+- `restoreCurrentJskitDependencyVersions(appRoot, packages)`
+- `stageCurrentJskitWorkspaces(appRoot)`
+Local functions
+- `readJson(filePath)`
+- `collectCurrentJskitPackages()`
+
 ### `fakeFastify.mjs`
 Exports
 - `createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = {})`

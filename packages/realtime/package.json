@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/realtime",
-  "version": "0.1.153",
+  "version": "0.1.156",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -15,8 +15,8 @@
     "./client/runtime": "./src/client/runtime.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.156",
-    "@jskit-ai/shell-web": "0.1.160",
+    "@jskit-ai/kernel": "0.1.159",
+    "@jskit-ai/shell-web": "0.1.163",
     "@socket.io/redis-adapter": "^8.3.0",
     "redis": "^5.8.2",
     "socket.io": "^4.8.3",
@@ -115,11 +115,19 @@
         }
       }
     },
+    "vite": {
+      "proxy": {
+        "/socket.io": {
+          "changeOrigin": true,
+          "ws": true
+        }
+      }
+    },
     "mutations": {
       "dependencies": {
         "runtime": {
-          "@jskit-ai/kernel": "0.1.156",
-          "@jskit-ai/shell-web": "0.1.160",
+          "@jskit-ai/kernel": "0.1.159",
+          "@jskit-ai/shell-web": "0.1.163",
           "@socket.io/redis-adapter": "^8.3.0",
           "redis": "^5.8.2",
           "socket.io": "^4.8.3",
@@ -132,16 +140,6 @@
       },
       "procfile": {},
       "files": [],
-      "vite": {
-        "proxy": [
-          {
-            "id": "realtime-socket-io",
-            "path": "/socket.io",
-            "changeOrigin": true,
-            "ws": true
-          }
-        ]
-      },
       "text": [
         {
           "file": ".env",

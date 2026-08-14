@@ -4,14 +4,10 @@ import vue from "@vitejs/plugin-vue";
 import vuetify from "vite-plugin-vuetify";
 import VueRouter from "vue-router/vite";
 import { createJskitClientBootstrapPlugin } from "@jskit-ai/kernel/client/vite";
-import { loadViteDevProxyEntries, toPositiveInt } from "./vite.shared.mjs";
 
-const devPort = toPositiveInt(process.env.VITE_DEV_PORT, 5173);
+const configuredDevPort = Number.parseInt(String(process.env.VITE_DEV_PORT || "").trim(), 10);
+const devPort = Number.isInteger(configuredDevPort) && configuredDevPort > 0 ? configuredDevPort : 5173;
 const apiProxyTarget = String(process.env.VITE_API_PROXY_TARGET || "").trim() || "http://localhost:3000";
-const viteModuleProxyEntries = loadViteDevProxyEntries({
-  appRootUrl: import.meta.url,
-  fallbackTarget: apiProxyTarget
-});
 const clientEntry = (() => {
   const normalized = String(process.env.VITE_CLIENT_ENTRY || "").trim();
   if (!normalized) {
@@ -34,7 +30,9 @@ export default defineConfig({
     }
   },
   plugins: [
-    createJskitClientBootstrapPlugin(),
+    createJskitClientBootstrapPlugin({
+      proxyTarget: apiProxyTarget
+    }),
     VueRouter({
       routesFolder: "src/pages",
       // Generated on the first Vite dev/build scan and intentionally gitignored.
@@ -77,8 +75,7 @@ export default defineConfig({
       "/api": {
         target: apiProxyTarget,
         changeOrigin: true
-      },
-      ...viteModuleProxyEntries
+      }
     }
   }
 });

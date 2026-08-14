@@ -92,13 +92,7 @@ function buildProviderContext({ featureName, mode, routePrefix, surface }) {
   const isCustomKnex = mode === "custom-knex";
   const hasRoutes = Boolean(routePrefix);
 
-  const dependsOn = ["runtime.actions"];
-  if (isJsonRest) {
-    dependsOn.push("json-rest-api.core");
-  }
-  if (isCustomKnex) {
-    dependsOn.push("runtime.database");
-  }
+  const startsAfter = ["runtime.actions"];
 
   let repositoryImport = "";
   let repositoryRegistration = "";
@@ -148,7 +142,7 @@ function buildProviderContext({ featureName, mode, routePrefix, surface }) {
   }
 
   return Object.freeze({
-    "__JSKIT_FEATURE_PROVIDER_DEPENDS_ON__": quoteArray(dependsOn),
+    "__JSKIT_FEATURE_PROVIDER_STARTS_AFTER__": quoteArray(startsAfter),
     "__JSKIT_FEATURE_PROVIDER_REPOSITORY_IMPORT__": repositoryImport,
     "__JSKIT_FEATURE_PROVIDER_ROUTE_IMPORT__": routeImport,
     "__JSKIT_FEATURE_PROVIDER_REPOSITORY_REGISTRATION__": repositoryRegistration,
