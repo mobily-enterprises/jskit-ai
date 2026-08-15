@@ -213,6 +213,26 @@ test("buildCrudFormPayload serializes cleared nullable typed fields as null", ()
   });
 });
 
+test("buildCrudFormPayload preserves explicit null for nullable string fields", () => {
+  const payload = buildCrudFormPayload(
+    [
+      { key: "sex", type: "string", nullable: true, component: "select" },
+      { key: "nickname", type: "string", nullable: true },
+      { key: "requiredName", type: "string", nullable: false }
+    ],
+    {
+      sex: null,
+      nickname: null,
+      requiredName: null
+    }
+  );
+
+  assert.deepEqual(payload, {
+    sex: null,
+    nickname: null
+  });
+});
+
 test("buildCrudFormPayload preserves nullable booleans while keeping non-nullable booleans binary", () => {
   const fields = [
     { key: "active", type: "boolean" },

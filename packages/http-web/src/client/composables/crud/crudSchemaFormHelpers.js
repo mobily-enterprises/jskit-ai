@@ -296,7 +296,7 @@ function buildCrudFormPayload(fields = [], model = {}) {
     }
 
     if (rawValue == null) {
-      if (clearAsNull) {
+      if (isNullableFormField(field)) {
         payload[fieldKey] = null;
       }
       continue;
