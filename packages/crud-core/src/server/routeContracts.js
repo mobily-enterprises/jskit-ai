@@ -440,10 +440,13 @@ function createLookupIncludedResolver(definition = null, {
 function createCrudJsonApiRouteContracts({
   resource = {},
   routeParamsValidator = null,
+  operations = ["list", "view", "create", "update", "delete"],
+  operationInputs = {},
   listSearchQueryValidator = defaultListSearchQueryValidator,
   lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator,
   listFilterQueryValidator = null
 } = {}) {
+  const enabledOperations = new Set(operations);
   const listRouteQueryValidator = composeSchemaDefinitions(
     createStandardCrudListQueryValidators({
       resource,
@@ -465,9 +468,9 @@ function createCrudJsonApiRouteContracts({
     : recordIdParamsValidator;
   const routeType = resource?.namespace;
   const viewOutput = resource?.operations?.view?.output;
-  const createBody = resource?.operations?.create?.body;
+  const createBody = operationInputs.create || resource?.operations?.create?.body;
   const createOutput = resource?.operations?.create?.output;
-  const patchBody = resource?.operations?.patch?.body;
+  const patchBody = operationInputs.update || resource?.operations?.patch?.body;
   const patchOutput = resource?.operations?.patch?.output;
   const outputAttributeExcludeKeys = resolveOutputAttributeExcludeKeys(resource);
   const lookupContainerKey = resolveLookupContainerKey(resource);
@@ -507,7 +510,7 @@ function createCrudJsonApiRouteContracts({
   });
 
   return Object.freeze({
-    listRouteContract: createJsonApiResourceRouteContract({
+    listRouteContract: enabledOperations.has("list") ? createJsonApiResourceRouteContract({
       type: routeType,
       query: listRouteQueryValidator,
       output: viewOutput,
@@ -519,8 +522,8 @@ function createCrudJsonApiRouteContracts({
       getRecordAttributes: viewRecordAttributes,
       getRecordRelationships: viewRecordRelationships,
       getIncluded: viewIncluded
-    }),
-    viewRouteContract: createJsonApiResourceRouteContract({
+    }) : null,
+    viewRouteContract: enabledOperations.has("view") ? createJsonApiResourceRouteContract({
       type: routeType,
       query: viewRouteQueryValidator,
       output: viewOutput,
@@ -532,8 +535,8 @@ function createCrudJsonApiRouteContracts({
       getRecordAttributes: viewRecordAttributes,
       getRecordRelationships: viewRecordRelationships,
       getIncluded: viewIncluded
-    }),
-    createRouteContract: createJsonApiResourceRouteContract({
+    }) : null,
+    createRouteContract: enabledOperations.has("create") ? createJsonApiResourceRouteContract({
       type: routeType,
       body: createBody,
       output: createOutput,
@@ -547,8 +550,8 @@ function createCrudJsonApiRouteContracts({
       getRecordAttributes: createRecordAttributes,
       getRecordRelationships: createRecordRelationships,
       getIncluded: createIncluded
-    }),
-    updateRouteContract: createJsonApiResourceRouteContract({
+    }) : null,
+    updateRouteContract: enabledOperations.has("update") ? createJsonApiResourceRouteContract({
       type: routeType,
       body: patchBody,
       output: patchOutput,
@@ -561,12 +564,12 @@ function createCrudJsonApiRouteContracts({
       getRecordAttributes: patchRecordAttributes,
       getRecordRelationships: patchRecordRelationships,
       getIncluded: patchIncluded
-    }),
-    deleteRouteContract: createJsonApiResourceRouteContract({
+    }) : null,
+    deleteRouteContract: enabledOperations.has("delete") ? createJsonApiResourceRouteContract({
       type: routeType,
       outputKind: "no-content",
       successStatus: 204
-    }),
+    }) : null,
     recordRouteParamsValidator
   });
 }

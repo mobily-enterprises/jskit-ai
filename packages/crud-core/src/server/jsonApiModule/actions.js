@@ -11,16 +11,22 @@ import {
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
 
-function createActionInput(resource, operation, scopeInputValidator = null) {
+function createActionInput(
+  resource,
+  operation,
+  scopeInputValidator = null,
+  listFilterQueryValidator = null,
+  operationInputs = {}
+) {
   const definitions = scopeInputValidator ? [scopeInputValidator] : [];
   if (operation === "list") {
-    definitions.push(...createStandardCrudListQueryValidators({ resource }));
+    definitions.push(...createStandardCrudListQueryValidators({ resource, listFilterQueryValidator }));
   } else if (operation === "view") {
     definitions.push(recordIdParamsValidator, ...createStandardCrudViewQueryValidators());
   } else if (operation === "create") {
-    definitions.push(resource.operations.create.body);
+    definitions.push(operationInputs.create || resource.operations.create.body);
   } else if (operation === "update") {
-    definitions.push(recordIdParamsValidator, resource.operations.patch.body);
+    definitions.push(recordIdParamsValidator, operationInputs.update || resource.operations.patch.body);
   } else {
     definitions.push(recordIdParamsValidator);
   }
@@ -42,15 +48,25 @@ function createCrudJsonApiActions({
   service,
   surface,
   permissionForOperation,
+  operations = CRUD_OPERATION_NAMES,
   scopeInputValidator = null,
-  scopeInputKeys = []
+  scopeInputKeys = [],
+  listFilterQueryValidator = null,
+  beforeOperation = null,
+  operationInputs = {}
 } = {}) {
   const actionId = (operation) => `crud.${namespace}.${operation}`;
   if (!service || typeof service !== "object") {
     throw new TypeError("createCrudJsonApiActions requires service.");
   }
   const permission = (operation) => permissionForOperation(operation);
-  const input = (operation) => createActionInput(resource, operation, scopeInputValidator);
+  const input = (operation) => createActionInput(
+    resource,
+    operation,
+    scopeInputValidator,
+    listFilterQueryValidator,
+    operationInputs
+  );
   const recordChangedEvent = resolveCrudRecordChangedEvent(namespace);
   const mutationEvent = (operation, entityId) => createEntityChangedActionEvent({
     source: "crud",
@@ -62,22 +78,34 @@ function createCrudJsonApiActions({
       audience: "event_scope"
     }
   });
+  async function prepare(operation, value, context) {
+    if (beforeOperation) {
+      await beforeOperation(Object.freeze({
+        operation,
+        input: value,
+        context,
+        resource,
+        service
+      }));
+    }
+  }
 
   const actions = [
     {
       operation: "list",
       kind: "query",
       idempotency: "none",
-      execute: (value, context) => service.queryDocuments(
-        omitInputKeys(value, scopeInputKeys),
-        { context }
-      )
+      async execute(value, context) {
+        await prepare("list", value, context);
+        return service.queryDocuments(omitInputKeys(value, scopeInputKeys), { context });
+      }
     },
     {
       operation: "view",
       kind: "query",
       idempotency: "none",
-      execute(value, context) {
+      async execute(value, context) {
+        await prepare("view", value, context);
         const query = omitInputKeys(value, [...scopeInputKeys, "recordId"]);
         return service.getDocumentById(value.recordId, query, { context });
       }
@@ -87,17 +115,18 @@ function createCrudJsonApiActions({
       kind: "command",
       idempotency: "optional",
       events: [mutationEvent("created", ({ result }) => result?.data?.id ?? result?.value?.data?.id)],
-      execute: (value, context) => service.createDocument(
-        omitInputKeys(value, scopeInputKeys),
-        { context }
-      )
+      async execute(value, context) {
+        await prepare("create", value, context);
+        return service.createDocument(omitInputKeys(value, scopeInputKeys), { context });
+      }
     },
     {
       operation: "update",
       kind: "command",
       idempotency: "optional",
       events: [mutationEvent("updated", ({ input: value }) => value?.recordId)],
-      execute(value, context) {
+      async execute(value, context) {
+        await prepare("update", value, context);
         const patch = omitInputKeys(value, [...scopeInputKeys, "recordId"]);
         return service.patchDocumentById(value.recordId, patch, { context });
       }
@@ -107,14 +136,15 @@ function createCrudJsonApiActions({
       kind: "command",
       idempotency: "optional",
       events: [mutationEvent("deleted", ({ input: value }) => value?.recordId)],
-      execute: (value, context) => service.deleteDocumentById(
-        value.recordId,
-        { context }
-      )
+      async execute(value, context) {
+        await prepare("delete", value, context);
+        return service.deleteDocumentById(value.recordId, { context });
+      }
     }
   ];
 
-  return Object.freeze(actions.map((definition) => {
+  const enabledOperations = new Set(operations);
+  return Object.freeze(actions.filter((definition) => enabledOperations.has(definition.operation)).map((definition) => {
     const id = actionId(definition.operation);
     return Object.freeze({
       id,

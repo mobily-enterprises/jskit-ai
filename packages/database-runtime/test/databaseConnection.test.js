@@ -87,6 +87,7 @@ test("resolveKnexConnectionFromEnvironment keeps only MySQL DATE columns as stri
   assert.deepEqual(mysqlConnection.dateStrings, ["DATE"]);
   assert.equal(mysqlConnection.supportBigNumbers, true);
   assert.equal(mysqlConnection.bigNumberStrings, true);
+  assert.equal(mysqlConnection.timezone, "Z");
 
   const postgresConnection = resolveKnexConnectionFromEnvironment({
     DB_CLIENT: "pg",
@@ -100,4 +101,5 @@ test("resolveKnexConnectionFromEnvironment keeps only MySQL DATE columns as stri
   });
 
   assert.equal(postgresConnection.dateStrings, undefined);
+  assert.equal(postgresConnection.timezone, undefined);
 });

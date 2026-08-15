@@ -33,11 +33,7 @@
       "provides": [
         "users.web"
       ],
-      "requires": [
-        "runtime.http-web",
-        "runtime.web-placement",
-        "users.server-routes"
-      ]
+      "requires": []
     },
     "runtime": {
       "server": {

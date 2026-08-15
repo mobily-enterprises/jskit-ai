@@ -437,8 +437,7 @@
             "auth.service",
             "runtime.actions",
             "runtime.env",
-            "runtime.http",
-            "runtime.web-placement"
+            "runtime.http"
           ]
         },
         "runtime": {
@@ -1334,11 +1333,7 @@
           "provides": [
             "runtime.http-web"
           ],
-          "requires": [
-            "runtime.http-client",
-            "runtime.web-error",
-            "runtime.web-placement"
-          ]
+          "requires": []
         },
         "runtime": {
           "server": {
@@ -2385,11 +2380,7 @@
           "provides": [
             "users.web"
           ],
-          "requires": [
-            "runtime.http-web",
-            "runtime.web-placement",
-            "users.server-routes"
-          ]
+          "requires": []
         },
         "runtime": {
           "server": {

@@ -10,7 +10,17 @@ import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/share
 import { assertCrudOperationName, createCrudJsonApiActions } from "./jsonApiModule/actions.js";
 import { createCrudJsonApiRepository } from "./jsonApiModule/repository.js";
 import { registerCrudJsonApiRoutes } from "./jsonApiModule/routes.js";
-import { createCrudJsonApiService } from "./jsonApiModule/service.js";
+import { createCrudJsonApiService as createDefaultService } from "./jsonApiModule/service.js";
+
+const RESERVED_REQUIREMENT_NAMES = Object.freeze(["database", "http", "jsonRestApi"]);
+const CRUD_SERVICE_METHOD_BY_OPERATION = Object.freeze({
+  list: "queryDocuments",
+  view: "getDocumentById",
+  create: "createDocument",
+  update: "patchDocumentById",
+  delete: "deleteDocumentById"
+});
+const CRUD_SERVICE_METHODS = new Set(Object.values(CRUD_SERVICE_METHOD_BY_OPERATION));
 
 function normalizeAccess(resource = {}) {
   const access = normalizeText(resource.apiAccess).toLowerCase() || "authenticated";
@@ -54,6 +64,39 @@ function assertWorkspaceScope(scope, ownershipFilter) {
   }
 }
 
+function normalizeFeatureRequirements(requires = {}) {
+  if (!requires || typeof requires !== "object" || Array.isArray(requires)) {
+    throw new TypeError("defineCrudJsonApiFeature requires must be an object.");
+  }
+  for (const name of RESERVED_REQUIREMENT_NAMES) {
+    if (Object.hasOwn(requires, name)) {
+      throw new TypeError(`defineCrudJsonApiFeature requires reserves the local name ${name}.`);
+    }
+  }
+  return Object.freeze({ ...requires });
+}
+
+function operationsFromResource(resource) {
+  const operationMap = Object.freeze({
+    list: "list",
+    view: "view",
+    create: "create",
+    patch: "update",
+    delete: "delete"
+  });
+  return Object.keys(resource?.operations || {})
+    .map((operation) => operationMap[operation])
+    .filter(Boolean);
+}
+
+function normalizeOperations(operations, resource) {
+  const source = operations === undefined ? operationsFromResource(resource) : operations;
+  if (!Array.isArray(source) || source.length < 1) {
+    throw new TypeError("defineCrudJsonApiFeature operations must be a non-empty array.");
+  }
+  return Object.freeze([...new Set(source.map((operation) => assertCrudOperationName(operation)))]);
+}
+
 function resolveActionPermission(operation, { access, workspaceScoped, permissions } = {}) {
   const operationName = assertCrudOperationName(operation);
   const explicitPermission = permissions?.[operationName];
@@ -75,6 +118,13 @@ function resolveActionPermission(operation, { access, workspaceScoped, permissio
   return Object.freeze({ require: "authenticated" });
 }
 
+function projectEnabledServiceOperations(service, operations) {
+  const enabledMethods = new Set(operations.map((operation) => CRUD_SERVICE_METHOD_BY_OPERATION[operation]));
+  return Object.freeze(Object.fromEntries(
+    Object.entries(service).filter(([name]) => !CRUD_SERVICE_METHODS.has(name) || enabledMethods.has(name))
+  ));
+}
+
 function defineCrudJsonApiFeature({
   resource,
   id = "",
@@ -83,8 +133,17 @@ function defineCrudJsonApiFeature({
   ownershipFilter = "",
   relativePath = "",
   internal = false,
+  routes = true,
+  listFilterQueryValidator = null,
+  searchSchema = null,
   permissions = null,
-  scope = {}
+  scope = {},
+  requires = {},
+  decorateRepository = null,
+  decorateService = null,
+  beforeOperation = null,
+  operationInputs = {},
+  operations = undefined
 } = {}) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError("defineCrudJsonApiFeature requires resource.");
@@ -106,6 +165,23 @@ function defineCrudJsonApiFeature({
     throw new TypeError('A public CRUD feature requires ownershipFilter "public".');
   }
   const normalizedScope = normalizeScope(scope);
+  const featureRequirements = normalizeFeatureRequirements(requires);
+  const enabledOperations = normalizeOperations(operations, resource);
+  if (typeof routes !== "boolean") {
+    throw new TypeError("defineCrudJsonApiFeature routes must be a boolean.");
+  }
+  if (decorateRepository != null && typeof decorateRepository !== "function") {
+    throw new TypeError("defineCrudJsonApiFeature decorateRepository must be a function.");
+  }
+  if (decorateService != null && typeof decorateService !== "function") {
+    throw new TypeError("defineCrudJsonApiFeature decorateService must be a function.");
+  }
+  if (beforeOperation != null && typeof beforeOperation !== "function") {
+    throw new TypeError("defineCrudJsonApiFeature beforeOperation must be a function.");
+  }
+  if (!operationInputs || typeof operationInputs !== "object" || Array.isArray(operationInputs)) {
+    throw new TypeError("defineCrudJsonApiFeature operationInputs must be an object.");
+  }
   assertWorkspaceScope(normalizedScope, normalizedOwnershipFilter);
   const workspaceScoped = isWorkspaceRouteVisibility(normalizedOwnershipFilter);
   const resourceScopeName = resolveCrudResourceScopeName(namespace);
@@ -119,38 +195,64 @@ function defineCrudJsonApiFeature({
     requires: {
       database: "runtime.database",
       http: "runtime.http",
-      jsonRestApi: "runtime.json-rest-api"
+      jsonRestApi: "runtime.json-rest-api",
+      ...featureRequirements
     },
     provides: {
       resourceApi: featureCapability
     },
-    async setup({ database, http, jsonRestApi }) {
+    async setup({ database, http, jsonRestApi, ...featureDependencies }) {
       await addResourceIfMissing(
         jsonRestApi,
         resourceScopeName,
         createJsonRestResourceScopeOptions(resource, {
+          ...(searchSchema ? { searchSchema } : {}),
           writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
         })
       );
-      const repository = createCrudJsonApiRepository({
+      const defaultRepository = createCrudJsonApiRepository({
         api: jsonRestApi,
         knex: database.knex,
         resource,
         resourceScopeName
       });
-      const service = createCrudJsonApiService({ repository });
-      registerCrudJsonApiRoutes(http.router, {
-        namespace,
-        resource,
-        routeBase: normalizedScope.routeBase,
-        relativePath: normalizedRelativePath,
-        surface: normalizedSurface,
-        ownershipFilter: normalizedOwnershipFilter,
-        access,
-        internal,
-        routeParamsValidator: normalizedScope.routeParamsValidator,
-        scopeInput: normalizedScope.input
-      });
+      const repository = decorateRepository
+        ? await decorateRepository(Object.freeze({
+            repository: defaultRepository,
+            resource,
+            database,
+            http,
+            jsonRestApi,
+            ...featureDependencies
+          }))
+        : defaultRepository;
+      const defaultService = createDefaultService({ repository });
+      const decoratedService = decorateService
+        ? await decorateService(Object.freeze({
+            service: defaultService,
+            repository,
+            resource,
+            ...featureDependencies
+        }))
+        : defaultService;
+      const service = projectEnabledServiceOperations(decoratedService, enabledOperations);
+      if (routes) {
+        registerCrudJsonApiRoutes(http.router, {
+          namespace,
+          resource,
+          routeBase: normalizedScope.routeBase,
+          relativePath: normalizedRelativePath,
+          surface: normalizedSurface,
+          ownershipFilter: normalizedOwnershipFilter,
+          access,
+          internal,
+          operations: enabledOperations,
+          listFilterQueryValidator,
+          operationInputs,
+          routeParamsValidator: normalizedScope.routeParamsValidator,
+          scopeInput: normalizedScope.input
+        });
+      }
       return {
         resourceApi: Object.freeze({ repository, resource, service })
       };
@@ -161,6 +263,10 @@ function defineCrudJsonApiFeature({
         resource,
         service: resourceApi.service,
         surface: normalizedSurface,
+        operations: enabledOperations,
+        listFilterQueryValidator,
+        beforeOperation,
+        operationInputs,
         permissionForOperation: (operation) => resolveActionPermission(operation, {
           access,
           workspaceScoped,

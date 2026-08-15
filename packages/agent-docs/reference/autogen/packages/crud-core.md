@@ -45,12 +45,16 @@ Local functions
 
 ### `src/server/defineCrudJsonApiFeature.js`
 Exports
-- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, permissions = null, scope = {} } = {})`
+- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, searchSchema = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, beforeOperation = null, operationInputs = {}, operations = undefined } = {})`
 Local functions
 - `normalizeAccess(resource = {})`
 - `normalizeScope(scope = {})`
 - `assertWorkspaceScope(scope, ownershipFilter)`
+- `normalizeFeatureRequirements(requires = {})`
+- `operationsFromResource(resource)`
+- `normalizeOperations(operations, resource)`
 - `resolveActionPermission(operation, { access, workspaceScoped, permissions } = {})`
+- `projectEnabledServiceOperations(service, operations)`
 
 ### `src/server/fieldAccess.js`
 Exports
@@ -70,9 +74,9 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActions({ namespace, resource, service, surface, permissionForOperation, scopeInputValidator = null, scopeInputKeys = [] } = {})`
+- `createCrudJsonApiActions({ namespace, resource, service, surface, permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator = null, scopeInputKeys = [], listFilterQueryValidator = null, beforeOperation = null, operationInputs = {} } = {})`
 Local functions
-- `createActionInput(resource, operation, scopeInputValidator = null)`
+- `createActionInput(resource, operation, scopeInputValidator = null, listFilterQueryValidator = null, operationInputs = {})`
 - `omitInputKeys(input = {}, keys = [])`
 
 ### `src/server/jsonApiModule/repository.js`
@@ -81,7 +85,7 @@ Exports
 
 ### `src/server/jsonApiModule/routes.js`
 Exports
-- `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase = "/", relativePath, surface, ownershipFilter, access, internal = false, routeParamsValidator = null, scopeInput = null } = {})`
+- `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase = "/", relativePath, surface, ownershipFilter, access, internal = false, operations = ["list", "view", "create", "update", "delete"], operationInputs = {}, listFilterQueryValidator = null, routeParamsValidator = null, scopeInput = null } = {})`
 Local functions
 - `createScopeInput(scopeInput, request)`
 
@@ -275,7 +279,7 @@ Local functions
 
 ### `src/server/routeContracts.js`
 Exports
-- `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, listFilterQueryValidator = null } = {})`
+- `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, operations = ["list", "view", "create", "update", "delete"], operationInputs = {}, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, listFilterQueryValidator = null } = {})`
 Local functions
 - `isRecord(value)`
 - `resolveSchemaFieldDefinitions(definition = null)`

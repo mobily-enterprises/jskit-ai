@@ -45,7 +45,8 @@ export {
   parseJsonValue,
   toDbJson,
   runInTransaction,
-  createWithTransaction
+  createWithTransaction,
+  lockScopedRecordId
 } from "./repositoryOptions.js";
 export {
   normalizeBatchSize,

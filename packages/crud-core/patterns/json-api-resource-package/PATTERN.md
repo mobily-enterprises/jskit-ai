@@ -57,8 +57,32 @@ to the framework module and exports the resulting provider.
 Change the package name, resource fields, table, surface, ownership filter,
 relative route, messages, and migration. Supply explicit permissions when the
 surface uses named policy. For workspace ownership, add the workspace route and
-action validators through the module's `scope` option. Move to an explicit
-feature service when operations stop being conventional CRUD.
+action validators through the module's `scope` option. The feature exposes the
+operations declared by the resource. Use `operations` only to narrow that
+surface further; do not register unused mutation actions and routes. Use
+`routes: false` only for an internal
+capability/action surface that deliberately has no HTTP API. When otherwise-standard
+CRUD needs product validation, auditing, or an access guard, name the exact
+capabilities in `requires` and provide `decorateService({ service, repository,
+resource, ...dependencies })`; override only the domain methods that earn extra
+behavior while retaining the framework repository, standard service methods,
+actions, and routes. When the product needs only a few additional queries or
+locking operations, provide `decorateRepository({ repository, database, http,
+jsonRestApi, resource, ...dependencies })`; return the standard methods plus
+only those unique persistence operations instead of copying the CRUD
+repository. Move to an explicit feature when the public operations
+themselves stop being conventional CRUD.
+
+Use `beforeOperation({ operation, input, context, service, resource })` for a
+small product authorization or validation guard that must run before a
+standard action. It is not a second service layer.
+
+If a product-specific list filter needs additional transport validation and
+JSON API search mapping, pass its validator as `listFilterQueryValidator` and
+its storage mapping as `searchSchema`; keep that contract next to the feature.
+Use `operationInputs.create` or `operationInputs.update` when a standard CRUD
+operation intentionally accepts a small virtual product field that is handled
+by the service decorator rather than stored on the resource row.
 
 ## Verification
 

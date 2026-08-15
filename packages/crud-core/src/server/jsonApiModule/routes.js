@@ -23,6 +23,9 @@ function registerCrudJsonApiRoutes(router, {
   ownershipFilter,
   access,
   internal = false,
+  operations = ["list", "view", "create", "update", "delete"],
+  operationInputs = {},
+  listFilterQueryValidator = null,
   routeParamsValidator = null,
   scopeInput = null
 } = {}) {
@@ -37,6 +40,9 @@ function registerCrudJsonApiRoutes(router, {
   });
   const routeContracts = createCrudJsonApiRouteContracts({
     resource,
+    operations,
+    operationInputs,
+    listFilterQueryValidator,
     ...(routeParamsValidator ? { routeParamsValidator } : {})
   });
   const routeBaseContract = Object.freeze({
@@ -47,6 +53,7 @@ function registerCrudJsonApiRoutes(router, {
     visibility: checkRouteVisibility(ownershipFilter)
   });
   const actionId = (operation) => `crud.${namespace}.${operation}`;
+  const enabledOperations = new Set(operations);
 
   function paramsContract({ record = false } = {}) {
     if (record) {
@@ -55,7 +62,7 @@ function registerCrudJsonApiRoutes(router, {
     return routeParamsValidator ? { params: routeParamsValidator } : {};
   }
 
-  router.register(
+  if (enabledOperations.has("list")) router.register(
     "GET",
     basePath,
     {
@@ -76,7 +83,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  router.register(
+  if (enabledOperations.has("view")) router.register(
     "GET",
     `${basePath}/:recordId`,
     {
@@ -98,7 +105,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  router.register(
+  if (enabledOperations.has("create")) router.register(
     "POST",
     basePath,
     {
@@ -119,7 +126,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  router.register(
+  if (enabledOperations.has("update")) router.register(
     "PATCH",
     `${basePath}/:recordId`,
     {
@@ -141,7 +148,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  router.register(
+  if (enabledOperations.has("delete")) router.register(
     "DELETE",
     `${basePath}/:recordId`,
     {

@@ -143,6 +143,7 @@ Exports
 - `toDbJson`
 - `runInTransaction`
 - `createWithTransaction`
+- `lockScopedRecordId`
 - `normalizeBatchSize`
 - `normalizeCutoffDateOrThrow`
 - `normalizeDeletedRowCount`
@@ -181,6 +182,9 @@ Exports
 - `toDbJson(value)`
 - `runInTransaction(knex, callback)`
 - `createWithTransaction(knex)`
+- `lockScopedRecordId({ trx, tableName, recordId, scopeId, idColumn = "id", scopeColumn = "workspace_id" } = {})`
+Local functions
+- `requireSqlIdentifier(value, label)`
 
 ### `src/shared/repositoryScope.js`
 Exports

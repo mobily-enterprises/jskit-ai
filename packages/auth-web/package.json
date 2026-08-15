@@ -47,8 +47,7 @@
         "auth.service",
         "runtime.actions",
         "runtime.env",
-        "runtime.http",
-        "runtime.web-placement"
+        "runtime.http"
       ]
     },
     "runtime": {

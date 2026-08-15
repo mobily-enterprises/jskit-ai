@@ -106,7 +106,8 @@ test("DatabaseProvider exposes one cohesive database capability", async () => {
       password: "apppass",
       supportBigNumbers: true,
       bigNumberStrings: true,
-      dateStrings: ["DATE"]
+      dateStrings: ["DATE"],
+      timezone: "Z"
     });
     assert.equal(typeof database.transactionManager.inTransaction, "function");
     assert.equal(typeof database.resolveRepoClient, "function");

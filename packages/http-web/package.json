@@ -64,11 +64,7 @@
       "provides": [
         "runtime.http-web"
       ],
-      "requires": [
-        "runtime.http-client",
-        "runtime.web-error",
-        "runtime.web-placement"
-      ]
+      "requires": []
     },
     "runtime": {
       "server": {

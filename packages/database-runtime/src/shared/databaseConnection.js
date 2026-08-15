@@ -132,7 +132,8 @@ function resolveKnexConnectionFromEnvironment(
       ...connection,
       supportBigNumbers: true,
       bigNumberStrings: true,
-      dateStrings: ["DATE"]
+      dateStrings: ["DATE"],
+      timezone: "Z"
     };
   }
 
