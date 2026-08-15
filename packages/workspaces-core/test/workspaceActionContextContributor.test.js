@@ -47,8 +47,7 @@ test("workspace action context contributor resolves workspace context for worksp
       requestMeta: {
         request
       }
-    },
-    request
+    }
   });
 
   assert.deepEqual(calls, [
@@ -147,8 +146,7 @@ test("workspace action context contributor always resolves and stores resolved c
       requestMeta: {
         request
       }
-    },
-    request
+    }
   });
 
   assert.deepEqual(calls, [
@@ -224,8 +222,7 @@ test("workspace action context contributor resolves context for workspace-visibl
       requestMeta: {
         request
       }
-    },
-    request
+    }
   });
 
   assert.deepEqual(calls, [
@@ -306,8 +303,7 @@ test("workspace action context contributor resolves context for workspace surfac
       requestMeta: {
         request
       }
-    },
-    request
+    }
   });
 
   assert.deepEqual(calls, [
@@ -376,10 +372,9 @@ test("workspace action context contributor permits missing membership only for a
     },
     input: { workspaceSlug: "acme" },
     context: {
-      requestMeta: { request }
-    },
-    request,
-    surface: "app"
+      requestMeta: { request },
+      surface: "app"
+    }
   });
 
   assert.equal(calls.length, 1);

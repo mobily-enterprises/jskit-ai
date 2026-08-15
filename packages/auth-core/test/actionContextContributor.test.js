@@ -6,11 +6,15 @@ test("auth action context contributor skips empty placeholder values", () => {
   const contributor = createAuthActionContextContributor();
 
   const contribution = contributor.contribute({
-    request: {
-      user: null,
-      workspace: null,
-      membership: null,
-      permissions: []
+    context: {
+      requestMeta: {
+        request: {
+          user: null,
+          workspace: null,
+          membership: null,
+          permissions: []
+        }
+      }
     }
   });
 
@@ -33,7 +37,11 @@ test("auth action context contributor contributes real request context values", 
     permissions: ["workspace.settings.update", "", "  "]
   };
 
-  const contribution = contributor.contribute({ request });
+  const contribution = contributor.contribute({
+    context: {
+      requestMeta: { request }
+    }
+  });
 
   assert.deepEqual(contribution, {
     actor: request.user,

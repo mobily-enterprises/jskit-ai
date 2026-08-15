@@ -50,6 +50,10 @@ questionnaire.
   API; custom Knex is an explicit, reviewed exception.
 - Ordinary HTTP and assistant exposure is projected from actions. Explicit
   route code exists only for a genuinely custom transport.
+- Register routes, actions, contributors, and other catalogue entries during
+  `setup()`. Runtime catalogues may be sealed before provider `boot()` begins.
+  Reserve `boot()` for starting long-lived work such as consumers, schedulers,
+  or notification loops after the application structure is complete.
 - Application source contains no scaffold-shape, lane, provenance, receipt, or
   authoring-history metadata.
 
@@ -95,6 +99,7 @@ illustrative status query with narrow product language before shipping.
 ## Avoid
 
 - product logic in the provider or `packages/main`
+- registering routes or action catalogue entries from `boot()`
 - direct SQL in actions, routes, or services
 - a repository for an orchestration-only feature
 - generic `execute(anything)` operations in finished product code
