@@ -1,6 +1,6 @@
 ---
 name: jskit
-description: Build, extend, troubleshoot, review, deslop, and verify JSKIT apps using its CLI, packages, generators, surfaces, placements, CRUDs, managed files, and verification conventions.
+description: Build, extend, troubleshoot, review, deslop, and verify JSKIT apps using its CLI, packages, generators, surfaces, placements, CRUDs, managed files, verification conventions, and Vue/Vuetify Material 3 UI contract. Use for every JSKIT UI creation, modification, review, or cleanup task.
 ---
 
 # JSKIT
@@ -31,6 +31,8 @@ Discover only a missing fact or exact-command failure, then resume the lane.
      [CRUD operations](references/crud-operations.md) completely.
    - For routes, placements, user-facing UI, or browser verification, read
      [UI operations](references/ui-operations.md).
+   - For every Vue/Vuetify UI creation, modification, review, or deslop task,
+     also read [Material 3](references/material-3.md) completely before acting.
 
 Those files are the complete operational references required by this skill.
 Do not depend on sibling docs. Do not load irrelevant references.
@@ -64,8 +66,9 @@ unless requested in the current task.
 For review-only work, report without editing. Check duplicated/dead/wrong code,
 accidental abstraction, incomplete states, missed high-level JSKIT seams,
 invalid routing/ownership/permission/migration/managed-file choices, weak
-Vuetify/Material behavior, and proportional verification. Put findings first
-by severity with file references; state when none exist.
+Vuetify/Material behavior, and proportional verification. For affected UI, run
+the Material 3 audit in the selected reference. Put findings first by severity
+with file references; state when none exist.
 
 ## Verify
 

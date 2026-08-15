@@ -43,7 +43,7 @@
     "@jskit-ai/shell-web": "0.1.163"
   },
   "devDependencies": {
-    "@jskit-ai/agent-docs": "0.1.130",
+    "@jskit-ai/agent-docs": "0.1.131",
     "@jskit-ai/config-eslint": "0.1.156",
     "@jskit-ai/jskit-cli": "0.2.190",
     "@playwright/test": "__PLAYWRIGHT_VERSION__",

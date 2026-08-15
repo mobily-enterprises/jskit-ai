@@ -20,6 +20,7 @@ test("the single JSKIT skill covers implementation and review without removed wo
   assert.deepEqual(referenceFiles, [
     "app-operations.md",
     "crud-operations.md",
+    "material-3.md",
     "ui-operations.md",
   ]);
   for (const file of referenceFiles) {
@@ -49,6 +50,7 @@ test("the single JSKIT skill covers implementation and review without removed wo
   assert.match(skill, /skip `help`, `list`, `show --details`, `list-placements`, sibling docs,\s+`node_modules` or generator-source inspection, plus any verification the\s+caller owns/u);
   assert.match(skill, /Discover only a missing fact or exact-command failure/u);
   const crudReference = references.find(({ file }) => file === "crud-operations.md").source;
+  const materialReference = references.find(({ file }) => file === "material-3.md").source;
   const uiReference = references.find(({ file }) => file === "ui-operations.md").source;
   assert.match(
     crudReference,
@@ -57,11 +59,26 @@ test("the single JSKIT skill covers implementation and review without removed wo
   assert.match(crudReference, /Never run these merely to reconfirm caller-supplied facts/u);
   assert.match(uiReference, /custom sibling\/child links,\s+resolve current dynamic params with their runtime to an absolute URL\/route\s+object/u);
   assert.match(uiReference, /never bind its route-template\/relative string raw to Vue Router `to`/u);
+  assert.match(skill, /every Vue\/Vuetify UI creation, modification, review, or deslop task/u);
+  assert.match(skill, /Material 3 audit/u);
+  assert.match(materialReference, /Use the installed public APIs rather than adding `@material\/web`/u);
+  assert.match(materialReference, /central `createVuetify\(\.\.\.\)` configuration/u);
+  assert.match(materialReference, /Use elevation `0` through `5`/u);
+  assert.match(materialReference, /at least\s+48 CSS-pixel interactive targets/u);
+  assert.match(materialReference, /resource that cannot render uses a\s+stable in-page error and retry state/u);
+  assert.match(materialReference, /user-triggered command uses JSKIT's shared action\s+feedback\/snackbar path/u);
+  assert.match(materialReference, /Never insert a transient command-error alert above\s+page content where it shifts the working layout/u);
+  assert.match(materialReference, /All user-visible\s+loading uses Material skeletons that reserve the final content geometry/u);
+  assert.match(materialReference, /never use a generic spinner or circular progress indicator/u);
+  assert.match(materialReference, /stable disabled\/pending label and shared feedback, not a spinner/u);
+  assert.match(materialReference, /Playwright at compact, medium, and expanded widths/u);
+  assert.match(materialReference, /Do not declare Material 3 compliance from visual resemblance alone/u);
   assert.doesNotMatch(operationalSource, /<agent-docs>|node_modules\/@jskit-ai\/agent-docs/u);
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])\.\.\//mu);
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])(?:patterns|guide\/agent|site\/guide)\//mu);
   assert.doesNotMatch(operationalSource, /Genesis|Program module|module bound/u);
-  assert.ok(Buffer.byteLength(operationalSource) <= 14 * 1024);
+  assert.ok(Buffer.byteLength(operationalSource) <= 20 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 13 * 1024);
 });
 
 test("UI testing guidance uses private local exchange support and managed storage state", async () => {
