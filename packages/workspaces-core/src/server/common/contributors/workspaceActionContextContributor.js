@@ -30,15 +30,22 @@ function normalizeWorkspaceSurfaceIds(surfaceIds = []) {
   return normalized;
 }
 
-function createWorkspaceActionContextContributor({ workspaceService, workspaceSurfaceIds = [] } = {}) {
+function createWorkspaceActionContextContributor({
+  workspaceService,
+  workspaceMembershipOptionalSurfaceIds = [],
+  workspaceSurfaceIds = []
+} = {}) {
   const contributorId = "workspaces.context";
+  const workspaceMembershipOptionalSurfaceIdSet = normalizeWorkspaceSurfaceIds(
+    workspaceMembershipOptionalSurfaceIds
+  );
   const workspaceSurfaceIdSet = normalizeWorkspaceSurfaceIds(workspaceSurfaceIds);
 
   requireServiceMethod(workspaceService, "resolveWorkspaceContextForUserBySlug", contributorId);
 
   return Object.freeze({
     contributorId,
-    async contribute({ definition = null, input, context, request } = {}) {
+    async contribute({ definition = null, input, context, request, surface = "" } = {}) {
       const payload = normalizeObject(input);
       if (!Object.hasOwn(payload, "workspaceSlug")) {
         return {};
@@ -47,6 +54,7 @@ function createWorkspaceActionContextContributor({ workspaceService, workspaceSu
       const actionSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
       const hasWorkspaceActionSurface = actionSurfaces.some((surfaceId) => workspaceSurfaceIdSet.has(surfaceId));
       const routeSurfaceId = normalizeSurfaceId(request?.routeOptions?.config?.surface);
+      const activeSurfaceId = routeSurfaceId || normalizeSurfaceId(surface || context?.surface);
       const hasWorkspaceSurface = workspaceSurfaceIdSet.has(routeSurfaceId);
       const routeVisibilityInput =
         request && request.routeOptions && request.routeOptions.config
@@ -58,10 +66,18 @@ function createWorkspaceActionContextContributor({ workspaceService, workspaceSu
         return {};
       }
 
+      const resolveOptions = { request };
+      if (
+        !hasWorkspaceRouteVisibility &&
+        workspaceMembershipOptionalSurfaceIdSet.has(activeSurfaceId)
+      ) {
+        resolveOptions.requireMembership = false;
+      }
+
       const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
         resolveActionUser(context, payload),
         payload.workspaceSlug,
-        { request }
+        resolveOptions
       );
 
       const contribution = {

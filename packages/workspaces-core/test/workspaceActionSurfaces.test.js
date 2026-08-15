@@ -2,8 +2,43 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   materializeWorkspaceActionSurfacesFromAppConfig,
-  resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig
+  resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
+  resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig
 } from "../src/server/support/workspaceActionSurfaces.js";
+
+test("resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig honors explicit surface policy overrides", () => {
+  const surfaceIds = resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig({
+    surfaceAccessPolicies: {
+      workspace_authenticated: {
+        requireWorkspaceMembership: false
+      },
+      workspace_member: {
+        requireWorkspaceMembership: true
+      }
+    },
+    surfaceDefinitions: {
+      app: {
+        id: "app",
+        enabled: true,
+        requiresWorkspace: true,
+        accessPolicyId: "workspace_authenticated"
+      },
+      admin: {
+        id: "admin",
+        enabled: true,
+        requiresWorkspace: true,
+        accessPolicyId: "workspace_member"
+      },
+      implicit: {
+        id: "implicit",
+        enabled: true,
+        requiresWorkspace: true
+      }
+    }
+  });
+
+  assert.deepEqual(surfaceIds, ["app"]);
+});
 
 test("materializeWorkspaceActionSurfacesFromAppConfig resolves workspace surfaces from appConfig", () => {
   const actionDefinitions = [

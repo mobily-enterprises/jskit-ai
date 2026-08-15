@@ -117,3 +117,34 @@ test("workspace auth policy context resolver skips workspace lookup when workspa
   assert.equal(called, false);
   assert.deepEqual(resolved, {});
 });
+
+test("workspace auth policy context resolver treats optional context as membership-optional", async () => {
+  const calls = [];
+  const request = {
+    params: { workspaceSlug: "acme" }
+  };
+  const actor = { id: 7 };
+  const resolver = createWorkspaceAuthPolicyContextResolver({
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(resolvedActor, workspaceSlug, options) {
+        calls.push({ resolvedActor, workspaceSlug, options });
+        return {
+          workspace: { id: 11, slug: workspaceSlug },
+          membership: null,
+          permissions: []
+        };
+      }
+    }
+  });
+
+  const resolved = await resolver({
+    request,
+    actor,
+    meta: { contextPolicy: "optional" }
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.requireMembership, false);
+  assert.equal(resolved.membership, null);
+  assert.deepEqual(resolved.permissions, []);
+});
