@@ -128,7 +128,8 @@ function evaluatePackageExportsContract({
   requiredExports = [],
   scanRoots = [
     path.join(repoRoot, "packages"),
-    path.join(repoRoot, "tooling", "create-app", "templates")
+    path.join(repoRoot, "packages", "agent-docs", "patterns", "minimal-foundation", "example"),
+    path.join(repoRoot, "packages", "agent-docs", "patterns", "shell-foundation", "example")
   ]
 }) {
   const packageJsonPath = path.join(packageDir, "package.json");

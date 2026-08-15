@@ -41,13 +41,13 @@ Exports
 Local functions
 - `resolveJskitConfig(jskitOrSource)`
 
+### `patternApp.mjs`
+Exports
+- `copyFoundationPattern({ cwd, name, pattern = "shell-foundation" } = {})`
+
 ### `runCli.js`
 Exports
 - `createCliRunner(cliPath)`
-
-### `runJskit.mjs`
-Exports
-- `runJskit({ cwd, args = [], input = undefined } = {})`
 
 ### `tempDir.mjs`
 Exports

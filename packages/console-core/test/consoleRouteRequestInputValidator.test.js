@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ConsoleCoreServiceProvider } from "../src/server/ConsoleCoreServiceProvider.js";
+import { registerConsoleSettingsRoutes } from "../src/server/consoleSettings/bootConsoleSettingsRoutes.js";
 
 function createReplyDouble() {
   return {
@@ -26,9 +26,7 @@ function findRoute(routes, { method, path }) {
   return routes.find((route) => route.method === method && route.path === path) || null;
 }
 
-async function registerRoutes({
-  consoleService = {}
-} = {}) {
+async function registerRoutes() {
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -41,27 +39,7 @@ async function registerRoutes({
     }
   };
 
-  const bindings = new Map([
-    ["jskit.http.router", router],
-    ["actionExecutor", {}]
-  ]);
-
-  bindings.set("consoleService", consoleService);
-
-  const app = {
-    has(token) {
-      return bindings.has(token);
-    },
-    make(token) {
-      if (!bindings.has(token)) {
-        throw new Error(`Missing test binding for token: ${String(token)}`);
-      }
-      return bindings.get(token);
-    }
-  };
-
-  const provider = new ConsoleCoreServiceProvider();
-  await provider.boot(app);
+  registerConsoleSettingsRoutes(router);
 
   return registeredRoutes;
 }

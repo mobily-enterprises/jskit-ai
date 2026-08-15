@@ -5,6 +5,10 @@
   "scripts": {
     "test": "node --test"
   },
+  "exports": {
+    "./server/ConsoleFeature": "./src/server/ConsoleFeature.js",
+    "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js"
+  },
   "dependencies": {
     "@jskit-ai/auth-core": "0.1.157",
     "@jskit-ai/database-runtime": "0.1.159",
@@ -19,21 +23,22 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "console.core",
-        "console.server-routes"
+        "console.core"
       ],
       "requires": [
+        "auth.extensions",
         "runtime.actions",
+        "runtime.bootstrap",
         "runtime.database",
-        "users.core"
+        "runtime.http"
       ]
     },
     "runtime": {
       "server": {
         "providers": [
           {
-            "entrypoint": "src/server/ConsoleCoreServiceProvider.js",
-            "export": "ConsoleCoreServiceProvider"
+            "entrypoint": "src/server/ConsoleFeature.js",
+            "export": "ConsoleFeature"
           }
         ]
       },
@@ -46,9 +51,7 @@
         "tableOwnership": {
           "tables": [
             {
-              "tableName": "console_settings",
-              "provenance": "runtime-package",
-              "ownerKind": "package-runtime"
+              "tableName": "console_settings"
             }
           ]
         }
@@ -57,7 +60,7 @@
         "surfaces": [
           {
             "subpath": "./server",
-            "summary": "Exports ConsoleCoreServiceProvider plus console settings services, routes, and action definitions."
+            "summary": "Exports the explicit Console feature with owner access, settings actions, bootstrap, and routes."
           },
           {
             "subpath": "./shared",
@@ -68,10 +71,7 @@
             "summary": "Exports no runtime API today (reserved client entrypoint)."
           }
         ],
-        "containerTokens": {
-          "server": [],
-          "client": []
-        }
+        "capabilities": ["console.core"]
       },
       "server": {
         "routes": [
@@ -88,34 +88,10 @@
         ]
       }
     },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/auth-core": "0.1.157",
-          "@jskit-ai/database-runtime": "0.1.159",
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/resource-crud-core": "0.1.101",
-          "@jskit-ai/users-core": "0.1.172"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/console_core_generic_initial.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install console settings schema migration.",
-          "category": "migration",
-          "id": "console-core-generic-initial-schema"
-        }
-      ],
-      "text": []
+    "migrations": {
+      "directories": [
+        "migrations"
+      ]
     }
   }
 }

@@ -1,6 +1,3 @@
-export {
-  resolveActionContributors,
-  resolveActionContextContributors,
-  registerActionContextContributor,
-  ActionRuntimeServiceProvider
-} from "./ActionRuntimeServiceProvider.js";
+export { createActionCatalogue } from "./actionCatalogue.js";
+export { createActionProvider } from "./actionProvider.js";
+export { createEntityChangedActionEvent } from "./actionEvents.js";

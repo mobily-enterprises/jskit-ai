@@ -1,46 +1,31 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { StorageRuntimeServiceProvider } from "../src/server/providers/StorageRuntimeServiceProvider.js";
+import test from "node:test";
 
-function createSingletonApp() {
-  const singletons = new Map();
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { StorageProvider } from "../src/server/providers/StorageProvider.js";
 
-  return {
-    has(token) {
-      return singletons.has(token);
-    },
-    singleton(token, factory) {
-      singletons.set(token, factory(this));
-    },
-    make(token) {
-      if (!singletons.has(token)) {
-        throw new Error(`Token ${String(token)} is not registered.`);
-      }
-      return singletons.get(token);
+test("StorageProvider provides the configured storage instance directly", async () => {
+  let storage;
+  const consumer = defineProvider({
+    id: "test.storage.consumer",
+    requires: { value: "runtime.storage" },
+    setup({ value }) {
+      storage = value;
+      return {};
     }
-  };
-}
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "runtime.app-root": process.cwd(),
+      "runtime.env": { JSKIT_STORAGE_DRIVER: "memory" }
+    },
+    providers: [StorageProvider, consumer]
+  });
 
-test("StorageRuntimeServiceProvider registers runtime storage api and storage binding", async () => {
-  const app = createSingletonApp();
-  app.singleton("jskit.env", () => ({
-    JSKIT_STORAGE_DRIVER: "memory"
-  }));
-
-  const provider = new StorageRuntimeServiceProvider();
-  provider.register(app);
-
-  assert.equal(app.has("runtime.storage"), true);
-  assert.equal(app.has("jskit.storage"), true);
-
-  const runtimeStorageApi = app.make("runtime.storage");
-  assert.equal(typeof runtimeStorageApi.createStorageBinding, "function");
-
-  const storage = app.make("jskit.storage");
+  await runtime.start();
   assert.equal(typeof storage.setItemRaw, "function");
   assert.equal(typeof storage.getItemRaw, "function");
-
   await storage.setItemRaw("tests/storage-runtime", Buffer.from("ok"));
-  const value = await storage.getItemRaw("tests/storage-runtime");
-  assert.equal(Buffer.from(value).toString(), "ok");
+  assert.equal(Buffer.from(await storage.getItemRaw("tests/storage-runtime")).toString(), "ok");
+  await runtime.shutdown();
 });

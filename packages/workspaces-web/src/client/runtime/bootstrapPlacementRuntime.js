@@ -28,21 +28,24 @@ import {
 } from "./bootstrapPlacementRuntimeHelpers.js";
 import { resolveErrorStatusCode } from "../support/runtimeNormalization.js";
 
-function createBootstrapPlacementRuntime({ app, logger = null } = {}) {
-  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
-    throw new Error("createBootstrapPlacementRuntime requires application has()/make().");
-  }
-  if (!app.has("runtime.web-placement.client")) {
+function createBootstrapPlacementRuntime({
+  bootstrapRuntime,
+  placementRuntime,
+  realtime = null,
+  router = null,
+  vueApp = null,
+  logger = null
+} = {}) {
+  if (!placementRuntime || typeof placementRuntime.getContext !== "function") {
     throw new Error("createBootstrapPlacementRuntime requires shell-web placement runtime.");
   }
+  if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
+    throw new Error("createBootstrapPlacementRuntime requires shell-web bootstrap runtime.");
+  }
 
-  const runtimeLogger = logger || createProviderLogger(app);
-  const placementRuntime = app.make("runtime.web-placement.client");
-  const router = app.has("jskit.client.router") ? app.make("jskit.client.router") : null;
-  let vuetifyThemeController = resolveVuetifyThemeController(
-    app.has("jskit.client.vue.app") ? app.make("jskit.client.vue.app") : null
-  );
-  const socket = app.has("runtime.realtime.client.socket") ? app.make("runtime.realtime.client.socket") : null;
+  const runtimeLogger = createProviderLogger(logger);
+  let vuetifyThemeController = resolveVuetifyThemeController(vueApp);
+  const socket = realtime?.socket || null;
   const cleanup = [];
   let shutdownRequested = false;
   let lastRouteWorkspaceSlug = resolveRouteState(placementRuntime, router).workspaceSlug;
@@ -181,11 +184,7 @@ function createBootstrapPlacementRuntime({ app, logger = null } = {}) {
     if (vuetifyThemeController) {
       return vuetifyThemeController;
     }
-    if (!app.has("jskit.client.vue.app")) {
-      return null;
-    }
-
-    vuetifyThemeController = resolveVuetifyThemeController(app.make("jskit.client.vue.app"));
+    vuetifyThemeController = resolveVuetifyThemeController(vueApp);
     return vuetifyThemeController;
   }
 
@@ -386,25 +385,12 @@ function createBootstrapPlacementRuntime({ app, logger = null } = {}) {
     return null;
   }
 
-  function resolveBootstrapRuntime() {
-    if (!app.has("runtime.web-bootstrap.client")) {
-      throw new Error("createBootstrapPlacementRuntime requires shell-web bootstrap runtime.");
-    }
-
-    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
-    if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
-      throw new Error("createBootstrapPlacementRuntime requires runtime.web-bootstrap.client.refresh().");
-    }
-
-    return bootstrapRuntime;
-  }
-
   function refresh(reason = "manual") {
     if (shutdownRequested) {
       return Promise.resolve(null);
     }
 
-    return resolveBootstrapRuntime().refresh(reason);
+    return bootstrapRuntime.refresh(reason);
   }
 
   function enforceCurrentWorkspaceStatus() {

@@ -61,10 +61,9 @@ function isActionExecuting(action = {}) {
         :variant="action.variant"
         :prepend-icon="action.icon || undefined"
         :disabled="isActionDisabled(action)"
-        :loading="isActionExecuting(action)"
         @click="execute(action)"
       >
-        {{ action.label }}
+        {{ isActionExecuting(action) ? `${action.label}…` : action.label }}
       </v-btn>
     </div>
 
@@ -76,7 +75,7 @@ function isActionExecuting(action = {}) {
         <v-list-item
           v-for="action in actions"
           :key="action.key"
-          :title="action.label"
+          :title="isActionExecuting(action) ? `${action.label}…` : action.label"
           :prepend-icon="action.icon || undefined"
           :disabled="isActionDisabled(action)"
           @click="execute(action)"

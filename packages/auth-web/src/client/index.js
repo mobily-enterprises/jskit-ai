@@ -1,4 +1,3 @@
-import { AuthWebClientProvider } from "./providers/AuthWebClientProvider.js";
 import DefaultLoginView from "./views/DefaultLoginView.vue";
 import DefaultSignOutView from "./views/DefaultSignOutView.vue";
 import DefaultResetPasswordView from "./views/DefaultResetPasswordView.vue";
@@ -24,6 +23,4 @@ const routeComponents = Object.freeze({
   "auth-reset-password": DefaultResetPasswordView
 });
 
-const clientProviders = Object.freeze([AuthWebClientProvider]);
-
-export { routeComponents, clientProviders };
+export { routeComponents };

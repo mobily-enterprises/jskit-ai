@@ -32,13 +32,9 @@ test("createPackageMetadata derives package identity from package.json", () => {
 test("createPackageMetadata accepts only the canonical package.json.jskit fields", () => {
   assert.deepEqual(JSKIT_PACKAGE_CONFIG_KEYS, [
     "capabilities",
-    "ci",
     "kind",
-    "lifecycle",
     "metadata",
-    "mutations",
-    "optionPolicies",
-    "options",
+    "migrations",
     "runtime",
     "vite"
   ]);
@@ -93,4 +89,29 @@ test("discoverInstalledPackages resolves file tarballs from node_modules", async
   assert.equal(packages[0].packageId, "@jskit-ai/shell-web");
   assert.equal(packages[0].packageRoot, installedPackageRoot);
   assert.equal(packages[0].sourceType, "npm-package");
+});
+
+test("discoverInstalledPackages excludes development-only packages from runtime composition", async (context) => {
+  const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-package-dev-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  const runtimeRoot = path.join(appRoot, "node_modules", "@example", "runtime");
+  const docsRoot = path.join(appRoot, "node_modules", "@example", "docs");
+  await mkdir(runtimeRoot, { recursive: true });
+  await mkdir(docsRoot, { recursive: true });
+  await writeFile(
+    path.join(appRoot, "package.json"),
+    JSON.stringify({
+      dependencies: { "@example/runtime": "1.0.0" },
+      devDependencies: { "@example/docs": "1.0.0" }
+    })
+  );
+  for (const [packageRoot, name] of [[runtimeRoot, "@example/runtime"], [docsRoot, "@example/docs"]]) {
+    await writeFile(
+      path.join(packageRoot, "package.json"),
+      JSON.stringify({ name, version: "1.0.0", jskit: { kind: "runtime" } })
+    );
+  }
+
+  const packages = await discoverInstalledPackages({ appRoot });
+  assert.deepEqual(packages.map((entry) => entry.packageId), ["@example/runtime"]);
 });

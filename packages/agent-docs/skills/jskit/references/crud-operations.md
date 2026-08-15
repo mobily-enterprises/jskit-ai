@@ -3,90 +3,52 @@
 Read this completely before database, schema, CRUD, repository, or persistence
 work.
 
-## Establish the contract
+## Establish the product contract
 
-Take the database adapter, surface, access, and ownership from the request and
-app authority. Inspect only a generator whose exact lane or option values are
-missing, or whose supplied command failed:
+Take the database, surface, access, ownership, operations, and fields from the
+request, current application, and product documentation. Ask when a material
+choice is missing. Do not translate the work into generator options.
 
-```bash
-npx --no-install jskit show crud-server-generator --details
-npx --no-install jskit show crud-ui-generator --details
-```
-
-Never run these merely to reconfirm caller-supplied facts.
+Inspect the generated source pattern index and read the narrow matching
+package-owned pattern. `crud/resource-contract` is the baseline shared resource
+example, `crud/json-api-resource-package` owns standard server composition, and
+`crud/crud-screen-set` owns the routed list, view, create, edit, and delete UI.
+Child-resource and row-policy patterns own their respective variations.
 
 Normal app-owned CRUD tables use one non-null integer primary key. Every
 foreign key is single-column and targets that key; multi-column unique indexes
 are business constraints, never relationship targets. Only direct
-`workspace_id` and `user_id` columns are generated ownership. Names such as
-`recipient_user_id` are domain relationships. Match the ownership filter to
-the reserved columns exactly, and test allowed plus cross-workspace cases.
-Stop before generation when these contracts disagree.
+`workspace_id` and `user_id` columns are reserved ownership. Names such as
+`recipient_user_id` are domain relationships. Match mandatory visibility to
+the actual ownership columns and test allowed plus cross-owner cases.
 
-## Conventional one-table CRUD
+## Author the resource normally
 
-Create the validated table first in a fresh disposable development database;
-the server generator reads its live shape:
+For a conventional resource:
 
-```bash
-npx --no-install jskit generate crud-server-generator scaffold \
-  --namespace <resource> \
-  --surface <surface> \
-  --ownership-filter <public|user|workspace|workspace_user> \
-  --access <public|authenticated> \
-  --table-name <table>
-```
+1. Write an immutable app-owned migration.
+2. Define the shared resource contract through `defineCrudResource()`.
+3. Use `defineCrudJsonApiFeature()` for standard repository, service, action,
+   permission, resource-host, and route mechanics.
+4. Write only product-specific validation, policy, queries, messages, and
+   orchestration in application code.
+5. Build routed screens from the matching `http-web`/CRUD UI pattern.
 
-Use public access only on a non-workspace surface with public ownership. A
-workspace CRUD chooses exactly one of `--grant-role <role>` or
-`--no-role-grant`; never invent a role. `--internal` keeps the generated
-repository/service/resource ownership chain but suppresses public HTTP routes.
+The shared resource is canonical for names, fields, operations, validation,
+transport, messages, and route parameters. Do not hand-build a second request
+schema, raw-fetch client, or UI-only serializer. Prefer the high-level
+`useCrudListScreen()`, `useCrudViewScreen()`, and `useCrudAddEditScreen()`
+contracts for standard screens; use `useCommand()` and
+`useEndpointResource()` for genuinely non-standard operations.
 
-Run `npm install`, then generate UI from the exact shared resource:
+## Record deletion
 
-```bash
-npx --no-install jskit generate crud-ui-generator crud \
-  <pages-root>/<plural-route> \
-  --resource-file packages/<namespace>/src/shared/<singular>Resource.js \
-  --parent-title contextual
-```
-
-The target is relative to `src/pages/`, starts with the selected surface's
-nonempty configured `pagesRoot` (for example `home/books`), and has no leading
-slash. For a surface deliberately configured with an empty root, use
-only the plural route. Use the exact singular resource filename emitted by the server generator; do not guess it.
-
-That resource is canonical. Do not hand-build routes, validators, HTTP helpers,
-or UI before it exists. Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
-`useCrudAddEditScreen()` for routed screens; the corresponding `useCrud*()`
-composables for routed behavior; and `useList()`, `useView()`, `useAddEdit()`,
-`useCommand()`, or `useEndpointResource()` for non-standard contracts. Standard
-CRUD derives JSON:API transport from the resource—never use raw `fetch()`.
-
-## Generated record deletion
-
-Request ordinary routed deletion explicitly:
-
-```bash
-npx --no-install jskit generate crud-ui-generator crud notes \
-  --resource-file packages/notes/src/shared/noteResource.js \
-  --id-param noteId \
-  --display-fields title,body \
-  --parent-title contextual \
-  --navigation-role primary \
-  --delete-confirmation
-```
-
-`--delete-confirmation` requires generated list and view pages and a shared
-resource with a `DELETE` operation. It supports a custom `--id-param` and fails
-clearly when the contract is unsupported. The view uses the public
-`CrudViewScreen` `actions` slot, `CrudDeleteAction`, and
-`useCrudDeleteAction()`. The shared component owns the Cancel/Delete dialog;
-`useCommand()` owns pending/error state and the resource request; success
-invalidates the CRUD list and navigates there. Import the public client runtime
-from `@jskit-ai/http-web`; do not inspect package-private code, add a page
-transport, or use raw `fetch()`.
+Deletion requires an explicit shared `DELETE` operation and a product decision
+about confirmation. Standard routed deletion uses `CrudDeleteAction` and
+`useCrudDeleteAction()` through the view actions slot. The shared component
+owns confirmation UI; `useCommand()` owns pending/error feedback and request
+execution; success invalidates the list and returns to it. Do not rebuild this
+with raw `fetch()` or an app-specific transport helper.
 
 ## Strict temporal values
 
@@ -99,23 +61,17 @@ With `json-rest-schema` 1.0.17, temporal resource values are strings:
 Do not pass JavaScript `Date` objects through resource validation; convert at
 the boundary (normally `toISOString()` for `dateTime`). Numeric epochs use
 `epochMilliseconds` or `epochSeconds`. Honor `temporalPrecision` without
-silently truncating fractions. Generated CRUD
-serializes supported database temporal output; custom repositories must return
-strict strings and write ISO/RFC 3339 strings themselves.
+silently truncating fractions. Database repositories return strict strings.
 
 ## Migration ownership
 
-Never compete with or alter a generator-owned baseline migration. Later schema
-changes are immutable additive migrations owned by the app-local package:
+Migrations are immutable application source. Author them in the package that
+owns the resource and use the database runtime's public migration contract.
+Never make a live table or a generator the sole source of truth. Read-only
+schema inspection is useful when adopting or diagnosing an existing database,
+not as compulsory authoring.
 
-```bash
-npx --no-install jskit create migration --package <package-id> --id <id>
-npx --no-install jskit migrations sync
-npm run db:migrate
-```
-
-An exceptional persistence lane requires explicit developer approval recorded
-in `.jskit/WORKBOARD.md` and `.jskit/table-ownership.json`, plus
-`.jskit/APP_BLUEPRINT.md` when architectural. Before sign-off, rebuild from
-zero in a fresh disposable database, compare schema, test ownership boundaries,
-run Doctor, and run the verifier.
+Before sign-off, rebuild from zero in a fresh disposable database, compare the
+schema, test ownership boundaries and failure cases, and run current-state
+verification. Do not create a workboard entry, ownership receipt, generation
+record, or historical proof that tooling ran.

@@ -18,9 +18,9 @@ Use this on demand; do not load the full index at startup.
 Exports
 - None
 
-### `src/server/providers/DatabaseRuntimeMysqlServiceProvider.js`
+### `src/server/providers/MysqlDatabaseDriverProvider.js`
 Exports
-- `DatabaseRuntimeMysqlServiceProvider`
+- `MysqlDatabaseDriverProvider`
 
 ### `src/shared/dialect.js`
 Exports
@@ -57,3 +57,13 @@ Local functions
 - `requireIdColumn(columns, idColumn)`
 - `requirePrimaryKeyContainsId(primaryKeyColumns, idColumn)`
 - `requireSupportedForeignKeys(foreignKeys, primaryKeyColumnsByTable)`
+
+### patterns
+
+### `patterns/mysql-application/example/knexfile.js`
+Exports
+- None
+
+### `patterns/mysql-application/example/scripts/prepare-database.js`
+Exports
+- None

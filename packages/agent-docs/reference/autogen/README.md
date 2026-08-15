@@ -5,6 +5,10 @@ Do not edit manually.
 
 This directory contains generated, on-demand package maps.
 Startup navigation stays in `KERNEL_MAP.md`.
+AI-first source patterns are indexed in `PATTERN_INDEX.md`.
+
+## Pattern Index
+- [Published source patterns](/packages/agent-docs/reference/autogen/PATTERN_INDEX.md)
 
 ## Package Maps
 - [agent-docs](/packages/agent-docs/reference/autogen/packages/agent-docs.md)

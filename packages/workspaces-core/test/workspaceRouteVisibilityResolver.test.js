@@ -81,3 +81,34 @@ test("workspace route visibility resolver still marks workspace_user as actor-sc
     userId: "user_99"
   });
 });
+
+test("workspace route visibility honors membership-optional workspace surfaces", async () => {
+  const calls = [];
+  const request = {
+    routeOptions: { config: { surface: "customer" } }
+  };
+  const resolver = createWorkspaceRouteVisibilityResolver({
+    workspaceMembershipOptionalSurfaceIds: ["customer"],
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, options) {
+        calls.push({ actor, workspaceSlug, options });
+        return { workspace: { id: 11 } };
+      }
+    }
+  });
+
+  const contribution = await resolver.resolve({
+    visibility: "workspace_user",
+    context: { actor: { id: "user_99" } },
+    input: { workspaceSlug: "dog-and-groom" },
+    request
+  });
+
+  assert.equal(calls[0].options.requireMembership, false);
+  assert.deepEqual(contribution, {
+    scopeKind: "workspace_user",
+    requiresActorScope: true,
+    scopeOwnerId: "11",
+    userId: "user_99"
+  });
+});

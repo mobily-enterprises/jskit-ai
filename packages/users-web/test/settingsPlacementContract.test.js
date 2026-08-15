@@ -3,13 +3,19 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import packageJson from "../package.json" with { type: "json" };
-
-const packageMetadata = packageJson.jskit;
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
+const placements = packageJson.jskit?.metadata?.ui?.placements;
+
+function contributions() {
+  return Array.isArray(placements?.contributions) ? placements.contributions : [];
+}
+
+function contribution(id) {
+  return contributions().find((entry) => entry.id === id) || null;
+}
 
 test("account settings load state exposes a local retry action", async () => {
   const source = await readFile(
@@ -21,449 +27,119 @@ test("account settings load state exposes a local retry action", async () => {
   assert.match(source, /@click="runtime\.refreshSettings"/);
 });
 
-function readOutlets(host = "") {
-  const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
-  const normalizedTarget = String(host || "").trim();
-  return Array.isArray(outlets)
-    ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
-    : [];
-}
-
-function findTopology(id, owner = "") {
-  const placements = packageMetadata?.metadata?.ui?.placements?.topology?.placements;
-  const normalizedId = String(id || "").trim();
-  const normalizedOwner = String(owner || "").trim();
-  return Array.isArray(placements)
-    ? placements.find((entry) => {
-        const entryId = String(entry?.id || "").trim();
-        const entryOwner = String(entry?.owner || "").trim();
-        return entryId === normalizedId && entryOwner === normalizedOwner;
-      }) || null
-    : null;
-}
-
-function findContribution(id) {
-  const contributions = packageMetadata?.metadata?.ui?.placements?.contributions;
-  return Array.isArray(contributions)
-    ? contributions.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findTextMutation(id) {
-  const textMutations = packageMetadata?.mutations?.text;
-  return Array.isArray(textMutations)
-    ? textMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findSourceMutation(id) {
-  const sourceMutations = packageMetadata?.mutations?.source;
-  return Array.isArray(sourceMutations)
-    ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findFileMutation(id) {
-  const fileMutations = packageMetadata?.mutations?.files;
-  return Array.isArray(fileMutations)
-    ? fileMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function expectContribution(id, expected = {}) {
-  const contribution = findContribution(id);
-  assert.ok(contribution, `Expected contribution "${id}".`);
-
-  for (const [key, value] of Object.entries(expected)) {
-    assert.deepEqual(contribution[key], value);
-  }
-}
-
-function expectTextMutation(id, { reason = "", category = "", skipIfContains = "", snippets = [] } = {}) {
-  const mutation = findTextMutation(id);
-  assert.ok(mutation, `Expected text mutation "${id}".`);
-  assert.equal(mutation.op, "append-text");
-  assert.equal(mutation.file, "src/placement.js");
-  assert.equal(mutation.position, "bottom");
-  assert.equal(mutation.id, id);
-
-  if (reason) {
-    assert.equal(mutation.reason, reason);
-  }
-
-  if (category) {
-    assert.equal(mutation.category, category);
-  }
-
-  if (skipIfContains) {
-    assert.equal(mutation.skipIfContains, skipIfContains);
-  }
-
-  for (const snippet of snippets) {
-    assert.ok(mutation.value.includes(snippet), `Expected mutation "${id}" to include "${snippet}".`);
-  }
-}
-
-test("users-web home tools widget exposes home-cog outlet", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "UsersHomeToolsWidget.vue"), "utf8");
+test("users-web home tools widget exposes the semantic home-cog outlet", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "UsersHomeToolsWidget.vue"),
+    "utf8"
+  );
 
   assert.match(source, /import \{ HOME_COG_OUTLET \} from "\.\.\/\.\.\/shared\/toolsOutletContracts\.js";/);
   assert.match(source, /<ShellOutletMenuWidget/);
   assert.match(source, /:target="HOME_COG_OUTLET\.target"/);
-  assert.match(source, /:aria-label="HOME_COG_OUTLET\.ariaLabel"/);
   assert.doesNotMatch(source, /default-link-component-token/);
 });
 
-test("users-web account page template uses the package-owned account settings host", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "account", "index.vue"), "utf8");
+test("account settings pattern keeps the app-owned route and sections as adaptable examples", async () => {
+  const exampleRoot = path.join(PACKAGE_DIR, "patterns", "account-settings", "example");
+  const page = await readFile(path.join(exampleRoot, "src", "pages", "account", "index.vue"), "utf8");
 
   assert.match(
-    source,
+    page,
     /import AccountSettingsClientElement from "@jskit-ai\/users-web\/client\/components\/AccountSettingsClientElement";/
   );
-  assert.doesNotMatch(source, /components\/account\/settings\/AccountSettingsClientElement\.vue/);
+
+  for (const filename of [
+    "AccountSettingsProfileSection.vue",
+    "AccountSettingsPreferencesSection.vue",
+    "AccountSettingsNotificationsSection.vue"
+  ]) {
+    const source = await readFile(
+      path.join(exampleRoot, "src", "components", "account", "settings", filename),
+      "utf8"
+    );
+    assert.match(source, /account-settings-section/);
+    assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
+  }
 });
 
-test("users-web package-owned account settings host is fully placement-backed", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "src", "client", "components", "AccountSettingsClientElement.vue"),
-    "utf8"
-  );
-
-  assertGeneratedUiSourceContract(source, {
-    forbidCardShell: true,
-    sourceName: "AccountSettingsClientElement.vue",
-    requiredPatterns: [
-      {
-        id: "account-settings-header",
-        pattern: /settings-panel__header/,
-        message: "Account settings host needs a direct settings panel header."
-      },
-      {
-        id: "account-settings-sections",
-        pattern: /useAccountSettingsSections/,
-        message: "Account settings host must remain placement-backed."
-      }
-    ]
-  });
-  assert.match(source, /useAccountSettingsSections/);
-  assert.match(source, /settings-panel__header/);
-  assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
-  assert.doesNotMatch(source, /AccountSettingsProfileSection/);
-  assert.doesNotMatch(source, /AccountSettingsPreferencesSection/);
-  assert.doesNotMatch(source, /AccountSettingsNotificationsSection/);
-});
-
-test("users-web profile form element uses a direct panel instead of card scaffolding", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ProfileClientElement.vue"), "utf8");
-
-  assertGeneratedUiSourceContract(source, {
-    forbidCardShell: true,
-    sourceName: "ProfileClientElement.vue",
-    requiredPatterns: [
-      {
-        id: "profile-panel-body",
-        pattern: /profile-client-panel__body/,
-        message: "Profile editor needs a direct panel body."
-      }
-    ]
-  });
-  assert.match(source, /profile-client-panel__body/);
-  assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle|v-card-text|v-card-item/);
-});
-
-test("users-web profile email ownership copy is provider-neutral", async () => {
-  const sourcePaths = [
+test("profile copy remains authentication-provider neutral", async () => {
+  for (const sourcePath of [
     path.join("src", "client", "components", "ProfileClientElement.vue"),
-    path.join("templates", "src", "components", "account", "settings", "AccountSettingsProfileSection.vue")
-  ];
-
-  for (const sourcePath of sourcePaths) {
+    path.join(
+      "patterns",
+      "account-settings",
+      "example",
+      "src",
+      "components",
+      "account",
+      "settings",
+      "AccountSettingsProfileSection.vue"
+    )
+  ]) {
     const source = await readFile(path.join(PACKAGE_DIR, sourcePath), "utf8");
     assert.match(source, /Managed by your sign-in account/);
     assert.doesNotMatch(source, /Managed by Supabase Auth/);
   }
 });
 
-test("users-web account settings section templates use direct settings panels", async () => {
-  for (const relativePath of [
-    path.join("templates", "src", "components", "account", "settings", "AccountSettingsProfileSection.vue"),
-    path.join("templates", "src", "components", "account", "settings", "AccountSettingsPreferencesSection.vue"),
-    path.join("templates", "src", "components", "account", "settings", "AccountSettingsNotificationsSection.vue")
-  ]) {
-    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
+test("package-owned account settings host is placement-backed rather than scaffold-backed", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "AccountSettingsClientElement.vue"),
+    "utf8"
+  );
 
-    assertGeneratedUiSourceContract(source, {
-      forbidCardShell: true,
-      sourceName: relativePath,
-      requiredPatterns: [
-        {
-          id: "account-settings-section",
-          pattern: /account-settings-section/,
-          message: "Account settings sections need the direct section panel primitive."
-        }
-      ]
-    });
-    assert.match(source, /account-settings-section/);
-    assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
-  }
+  assert.match(source, /useAccountSettingsSections/);
+  assert.match(source, /settings-panel__header/);
+  assert.doesNotMatch(source, /AccountSettingsProfileSection|AccountSettingsPreferencesSection|AccountSettingsNotificationsSection/);
 });
 
-test("users-web packageMetadata metadata advertises home cog outlet and standard home settings placements", () => {
+test("users-web declares semantic outlets and topology without source mutations", () => {
+  assert.equal(packageJson.jskit?.mutations, undefined);
+  assert.deepEqual(placements?.outlets, [
+    {
+      target: "home-cog:primary-menu",
+      surfaces: ["home"],
+      source: "src/client/components/UsersHomeToolsWidget.vue"
+    },
+    {
+      target: "account-settings:sections",
+      surfaces: ["account"],
+      source: "src/client/components/AccountSettingsClientElement.vue"
+    }
+  ]);
   assert.deepEqual(
-    readOutlets("home-cog:primary-menu"),
+    placements?.topology?.placements?.map(({ id, owner = null }) => ({ id, owner })),
     [
-      {
-        target: "home-cog:primary-menu",
-        surfaces: ["home"],
-        source: "src/client/components/UsersHomeToolsWidget.vue"
-      }
+      { id: "home.tools-menu", owner: null },
+      { id: "settings.sections", owner: "account-settings" }
     ]
   );
-  assert.deepEqual(
-    readOutlets("account-settings:sections"),
-    [
-      {
-        target: "account-settings:sections",
-        surfaces: ["account"],
-        source: "src/client/components/AccountSettingsClientElement.vue"
-      }
-    ]
-  );
-  assert.deepEqual(findTopology("home.tools-menu"), {
-    id: "home.tools-menu",
-    description: "Home surface tools menu actions.",
-    surfaces: ["home"],
-    variants: {
-      compact: {
-        outlet: "home-cog:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      },
-      medium: {
-        outlet: "home-cog:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      },
-      expanded: {
-        outlet: "home-cog:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      }
-    }
-  });
-  assert.deepEqual(findTopology("settings.sections", "account-settings"), {
-    id: "settings.sections",
-    owner: "account-settings",
-    description: "Account settings content sections.",
-    surfaces: ["account"],
-    variants: {
-      compact: {
-        outlet: "account-settings:sections"
-      },
-      medium: {
-        outlet: "account-settings:sections"
-      },
-      expanded: {
-        outlet: "account-settings:sections"
-      }
-    }
-  });
+});
 
-  expectContribution("users.profile.menu.settings", {
-    target: "auth.profile-menu",
-    kind: "link",
-    surfaces: ["*"],
-    order: 500,
-    when: "auth.authenticated === true",
-    source: "mutations.text#users-web-profile-settings-placement"
-  });
-
-  expectContribution("users.home.tools.widget", {
+test("semantic contributions identify live package source or reusable pattern source", () => {
+  assert.deepEqual(contribution("users.home.tools.widget"), {
+    id: "users.home.tools.widget",
     target: "shell.status",
     kind: "component",
     surfaces: ["home"],
     order: 900,
     componentToken: "users.web.home.tools.widget",
     when: "auth.authenticated === true",
-    source: "mutations.text#users-web-home-tools-placement"
+    source: "src/client/components/UsersHomeToolsWidget.vue"
   });
-
-  expectContribution("users.home.menu.settings", {
-    target: "home.tools-menu",
-    kind: "link",
-    surfaces: ["home"],
-    order: 100,
-    when: "auth.authenticated === true",
-    source: "mutations.text#users-web-home-tools-placement"
-  });
-  assert.equal(findContribution("users.home.settings.general"), null);
-  expectContribution("users.account.settings.profile", {
-    target: "settings.sections",
-    owner: "account-settings",
-    kind: "component",
-    surfaces: ["account"],
-    order: 100,
-    componentToken: "local.main.account-settings.section.profile",
-    source: "mutations.text#users-web-account-settings-sections-placement"
-  });
-  expectContribution("users.account.settings.preferences", {
-    target: "settings.sections",
-    owner: "account-settings",
-    kind: "component",
-    surfaces: ["account"],
-    order: 200,
-    componentToken: "local.main.account-settings.section.preferences",
-    source: "mutations.text#users-web-account-settings-sections-placement"
-  });
-  expectContribution("users.account.settings.notifications", {
-    target: "settings.sections",
-    owner: "account-settings",
-    kind: "component",
-    surfaces: ["account"],
-    order: 300,
-    componentToken: "local.main.account-settings.section.notifications",
-    source: "mutations.text#users-web-account-settings-sections-placement"
-  });
-
-  expectTextMutation("users-web-home-tools-placement", {
-    reason: "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
-    category: "users-web",
-    skipIfContains: 'id: "users.home.tools.widget"',
-    snippets: [
-      'id: "users.home.tools.widget"',
-      'componentToken: "users.web.home.tools.widget"',
-      'id: "users.home.menu.settings"',
-      'target: "home.tools-menu"',
-      'kind: "link"',
-      'scopedSuffix: "/settings"',
-      'unscopedSuffix: "/settings"'
-    ]
-  });
-  assert.equal(findTextMutation("users-web-home-tools-topology")?.file, "src/placementTopology.js");
-  assert.match(findTextMutation("users-web-home-tools-topology")?.value || "", /id: "home\.tools-menu"/);
-  assert.match(findTextMutation("users-web-home-tools-topology")?.value || "", /outlet: "home-cog:primary-menu"/);
-  expectTextMutation("users-web-account-settings-sections-placement", {
-    reason: "Append users-web account settings section placements into the app-owned placement registry.",
-    category: "users-web",
-    skipIfContains: 'id: "users.account.settings.profile"',
-    snippets: [
-      'id: "users.account.settings.profile"',
-      'target: "settings.sections"',
-      'owner: "account-settings"',
-      'componentToken: "local.main.account-settings.section.profile"',
-      'value: "profile"',
-      'id: "users.account.settings.preferences"',
-      'componentToken: "local.main.account-settings.section.preferences"',
-      'value: "preferences"',
-      'id: "users.account.settings.notifications"',
-      'componentToken: "local.main.account-settings.section.notifications"',
-      'value: "notifications"'
-    ]
-  });
-  assert.equal(findTextMutation("users-web-account-settings-topology")?.file, "src/placementTopology.js");
-  assert.match(findTextMutation("users-web-account-settings-topology")?.value || "", /id: "settings\.sections"/);
-  assert.match(findTextMutation("users-web-account-settings-topology")?.value || "", /owner: "account-settings"/);
-  assert.match(findTextMutation("users-web-account-settings-topology")?.value || "", /outlet: "account-settings:sections"/);
-
-  expectTextMutation("users-web-profile-settings-placement", {
-    reason: "Append users-web profile settings menu placement into app-owned placement registry.",
-    category: "users-web",
-    skipIfContains: 'id: "users.profile.menu.settings"',
-    snippets: [
-      'id: "users.profile.menu.settings"',
-      'target: "auth.profile-menu"',
-      'kind: "link"',
-      'label: "Settings"',
-      'to: "/account"'
-    ]
-  });
-
-  assert.equal(findFileMutation("users-web-component-account-settings-root"), null);
-  assert.equal(findFileMutation("users-web-component-account-settings-invites"), null);
-  assert.deepEqual(findFileMutation("users-web-component-account-settings-profile"), {
-    from: "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
-    to: "src/components/account/settings/AccountSettingsProfileSection.vue",
-    ownership: "app",
-    reason: "Install app-owned account settings profile section scaffold.",
-    category: "users-web",
-    id: "users-web-component-account-settings-profile"
-  });
-  assert.deepEqual(findFileMutation("users-web-component-account-settings-preferences"), {
-    from: "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
-    to: "src/components/account/settings/AccountSettingsPreferencesSection.vue",
-    ownership: "app",
-    reason: "Install app-owned account settings preferences section scaffold.",
-    category: "users-web",
-    id: "users-web-component-account-settings-preferences"
-  });
-  assert.deepEqual(findFileMutation("users-web-component-account-settings-notifications"), {
-    from: "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
-    to: "src/components/account/settings/AccountSettingsNotificationsSection.vue",
-    ownership: "app",
-    reason: "Install app-owned account settings notifications section scaffold.",
-    category: "users-web",
-    id: "users-web-component-account-settings-notifications"
-  });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-profile-import"), {
-    op: "ensure-import",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    defaultImport: "AccountSettingsProfileSection",
-    from: "/src/components/account/settings/AccountSettingsProfileSection.vue",
-    reason: "Bind the app-owned account profile settings section into local main client provider imports.",
-    category: "users-web",
-    id: "users-web-main-client-provider-account-settings-profile-import"
-  });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-preferences-import"), {
-    op: "ensure-import",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    defaultImport: "AccountSettingsPreferencesSection",
-    from: "/src/components/account/settings/AccountSettingsPreferencesSection.vue",
-    reason: "Bind the app-owned account preferences settings section into local main client provider imports.",
-    category: "users-web",
-    id: "users-web-main-client-provider-account-settings-preferences-import"
-  });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-notifications-import"), {
-    op: "ensure-import",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    defaultImport: "AccountSettingsNotificationsSection",
-    from: "/src/components/account/settings/AccountSettingsNotificationsSection.vue",
-    reason: "Bind the app-owned account notifications settings section into local main client provider imports.",
-    category: "users-web",
-    id: "users-web-main-client-provider-account-settings-notifications-import"
-  });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-profile-register"), {
-    op: "ensure-call",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    callee: "registerMainClientComponent",
-    args: ["\"local.main.account-settings.section.profile\"", "() => AccountSettingsProfileSection"],
-    beforeClass: "MainClientProvider",
-    reason: "Bind the app-owned account profile settings section token into local main client provider registry.",
-    category: "users-web",
-    id: "users-web-main-client-provider-account-settings-profile-register"
-  });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-preferences-register"), {
-    op: "ensure-call",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    callee: "registerMainClientComponent",
-    args: ["\"local.main.account-settings.section.preferences\"", "() => AccountSettingsPreferencesSection"],
-    beforeClass: "MainClientProvider",
-    reason: "Bind the app-owned account preferences settings section token into local main client provider registry.",
-    category: "users-web",
-    id: "users-web-main-client-provider-account-settings-preferences-register"
-  });
-  assert.deepEqual(findSourceMutation("users-web-main-client-provider-account-settings-notifications-register"), {
-    op: "ensure-call",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    callee: "registerMainClientComponent",
-    args: ["\"local.main.account-settings.section.notifications\"", "() => AccountSettingsNotificationsSection"],
-    beforeClass: "MainClientProvider",
-    reason: "Bind the app-owned account notifications settings section token into local main client provider registry.",
-    category: "users-web",
-    id: "users-web-main-client-provider-account-settings-notifications-register"
-  });
-
+  assert.equal(contribution("users.profile.menu.settings")?.source, "patterns/account-settings/PATTERN.md");
+  assert.equal(contribution("users.home.menu.settings")?.source, "patterns/account-settings/PATTERN.md");
+  assert.equal(
+    contribution("users.account.settings.profile")?.source,
+    "patterns/account-settings/example/src/components/account/settings/AccountSettingsProfileSection.vue"
+  );
+  assert.equal(
+    contribution("users.account.settings.preferences")?.source,
+    "patterns/account-settings/example/src/components/account/settings/AccountSettingsPreferencesSection.vue"
+  );
+  assert.equal(
+    contribution("users.account.settings.notifications")?.source,
+    "patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue"
+  );
+  assert.equal(contribution("users.home.settings.general"), null);
 });

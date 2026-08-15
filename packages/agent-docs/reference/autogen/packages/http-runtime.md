@@ -53,13 +53,13 @@ Exports
 - `resolveFieldErrors`
 - `createValidationFailure({ error = "Validation failed.", code = "validation_failed", fieldErrors = {} } = {})`
 
-### `src/server/providers/HttpClientRuntimeServiceProvider.js`
+### `src/server/providers/HttpClientProvider.js`
 Exports
-- `HttpClientRuntimeServiceProvider`
+- `HttpClientProvider`
 
-### `src/server/providers/HttpValidatorsServiceProvider.js`
+### `src/server/providers/HttpValidatorsProvider.js`
 Exports
-- `HttpValidatorsServiceProvider`
+- `HttpValidatorsProvider`
 
 ### `src/shared/clientRuntime/client.js`
 Exports
@@ -192,10 +192,6 @@ Exports
 - `withJsonApiErrorResponses`
 - `createJsonApiResourceRouteTransport`
 - `createJsonApiResourceRouteContract`
-
-### `src/shared/providers/singletonApiProvider.js`
-Exports
-- `SingletonApiProvider`
 
 ### `src/shared/support/fieldErrors.js`
 Exports

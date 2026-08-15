@@ -89,17 +89,6 @@ function materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds 
   return Object.freeze(materialized.map((entry) => Object.freeze({ ...entry })));
 }
 
-function registerWorkspaceActionSurfaceSources(app) {
-  if (!app || typeof app.actionSurfaceSource !== "function") {
-    return;
-  }
-
-  app.actionSurfaceSource("workspace", ({ scope }) => {
-    const appConfig = scope?.has?.("appConfig") ? scope.make("appConfig") : {};
-    return resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
-  });
-}
-
 function materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {}) {
   const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(appConfig);
   return materializeWorkspaceActionSurfaces(actions, { workspaceSurfaceIds });
@@ -130,6 +119,5 @@ export {
   resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig,
   resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
   materializeWorkspaceActionSurfaces,
-  materializeWorkspaceActionSurfacesFromAppConfig,
-  registerWorkspaceActionSurfaceSources
+  materializeWorkspaceActionSurfacesFromAppConfig
 };

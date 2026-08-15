@@ -12,6 +12,249 @@ Use this on demand; do not load the full index at startup.
 
 ## Sections
 
+### patterns
+
+### `patterns/feature-package/example/booking-engine/src/server/actions.js`
+Exports
+- `ACTION_GET_STATUS`
+- `createActions({ bookingEngine } = {})`
+
+### `patterns/feature-package/example/booking-engine/src/server/BookingEngineProvider.js`
+Exports
+- `BookingEngineProvider`
+
+### `patterns/feature-package/example/booking-engine/src/server/inputSchemas.js`
+Exports
+- `statusQueryInputValidator`
+
+### `patterns/feature-package/example/variations/AvailabilityEngineProvider.js`
+Exports
+- `AvailabilityEngineProvider`
+
+### `patterns/feature-package/example/variations/customKnexRepository.js`
+Exports
+- `createRepository({ knex } = {})`
+
+### `patterns/feature-package/example/variations/InvoiceRollupProvider.js`
+Exports
+- `InvoiceRollupProvider`
+
+### `patterns/feature-package/example/variations/orchestratorService.js`
+Exports
+- `createService()`
+
+### `patterns/minimal-foundation/example/bin/server.js`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/config/public.js`
+Exports
+- `config`
+
+### `patterns/minimal-foundation/example/config/server.js`
+Exports
+- `config`
+
+### `patterns/minimal-foundation/example/config/surfaceAccessPolicies.js`
+Exports
+- `surfaceAccessPolicies`
+
+### `patterns/minimal-foundation/example/eslint.config.mjs`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/packages/main/src/shared/index.js`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/packages/main/src/shared/schemas/index.js`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/playwright.config.mjs`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/server.js`
+Exports
+- `createServer()`
+- `startServer(options = {})`
+Local functions
+- `toRequestPathname(urlValue)`
+- `isApiPath(pathname)`
+- `hasFileExtension(pathname)`
+- `resolveGlobalUiPaths(runtimeGlobalUiPaths = [])`
+- `resolveStaticFilePath(pathname)`
+- `canServeStaticFile(distRoot, relativePath)`
+
+### `patterns/minimal-foundation/example/server/lib/runtimeEnv.js`
+Exports
+- `resolveRuntimeEnv()`
+Local functions
+- `toPort(value, fallback = 3000)`
+- `ensureRuntimeEnvLoaded()`
+
+### `patterns/minimal-foundation/example/server/lib/surfaceRuntime.js`
+Exports
+- `surfaceRuntime`
+
+### `patterns/minimal-foundation/example/src/App.vue`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/src/main.js`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/src/pages/home.vue`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/src/pages/home/index.vue`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/src/views/NotFound.vue`
+Exports
+- None
+
+### `patterns/minimal-foundation/example/vite.config.mjs`
+Exports
+- None
+Local functions
+- `clientEntry(()`
+
+### `patterns/shell-foundation/example/bin/server.js`
+Exports
+- None
+
+### `patterns/shell-foundation/example/config/public.js`
+Exports
+- `config`
+
+### `patterns/shell-foundation/example/config/server.js`
+Exports
+- `config`
+
+### `patterns/shell-foundation/example/config/surfaceAccessPolicies.js`
+Exports
+- `surfaceAccessPolicies`
+
+### `patterns/shell-foundation/example/eslint.config.mjs`
+Exports
+- None
+
+### `patterns/shell-foundation/example/packages/main/src/client/index.js`
+Exports
+- `MainClientProvider`
+
+### `patterns/shell-foundation/example/packages/main/src/client/providers/MainClientProvider.js`
+Exports
+- `MainClientProvider`
+
+### `patterns/shell-foundation/example/packages/main/src/shared/index.js`
+Exports
+- None
+
+### `patterns/shell-foundation/example/packages/main/src/shared/schemas/index.js`
+Exports
+- None
+
+### `patterns/shell-foundation/example/playwright.config.mjs`
+Exports
+- None
+
+### `patterns/shell-foundation/example/server.js`
+Exports
+- `createServer()`
+- `startServer(options = {})`
+Local functions
+- `toRequestPathname(urlValue)`
+- `isApiPath(pathname)`
+- `hasFileExtension(pathname)`
+- `resolveGlobalUiPaths(runtimeGlobalUiPaths = [])`
+- `resolveStaticFilePath(pathname)`
+- `canServeStaticFile(distRoot, relativePath)`
+
+### `patterns/shell-foundation/example/server/lib/runtimeEnv.js`
+Exports
+- `resolveRuntimeEnv()`
+Local functions
+- `toPort(value, fallback = 3000)`
+- `ensureRuntimeEnvLoaded()`
+
+### `patterns/shell-foundation/example/server/lib/surfaceRuntime.js`
+Exports
+- `surfaceRuntime`
+
+### `patterns/shell-foundation/example/src/App.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/components/menus/MenuLinkItem.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/components/menus/SurfaceAwareMenuLinkItem.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/components/menus/TabLinkItem.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/components/ShellLayout.vue`
+Exports
+- `default`
+
+### `patterns/shell-foundation/example/src/error.js`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/main.js`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/pages/home.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/pages/home/index.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/pages/home/settings.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/pages/home/settings/general/index.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/pages/home/settings/index.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/src/placement.js`
+Exports
+- `addPlacement`
+- `getPlacements()`
+
+### `patterns/shell-foundation/example/src/placementTopology.js`
+Exports
+- `addPlacementTopology(value = {})`
+- `default`
+
+### `patterns/shell-foundation/example/src/views/NotFound.vue`
+Exports
+- None
+
+### `patterns/shell-foundation/example/vite.config.mjs`
+Exports
+- None
+Local functions
+- `clientEntry(()`
+
 ### site
 
 ### `site/.vitepress/config.mjs`

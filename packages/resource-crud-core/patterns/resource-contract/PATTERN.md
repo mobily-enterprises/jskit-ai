@@ -1,0 +1,103 @@
+---
+id: crud/resource-contract
+title: Owner-scoped CRUD resource contract
+summary: Define an authenticated application resource whose records belong to the current user.
+keywords: authenticated, crud, database, owner-scoped, resource, user
+requires: @jskit-ai/resource-crud-core
+---
+
+# Owner-scoped CRUD resource contract
+
+## Use when
+
+Use this pattern when an authenticated application stores records that belong
+to one user and standard list, view, create, patch, and delete behaviour fits
+the product.
+
+The example is intentionally a normal source file. Copy it directly when the
+shape fits, adapt its fields and language for another entity, or read it as a
+reference for `defineCrudResource()`.
+
+## Do not use when
+
+Do not use this pattern for public records, workspace-owned records, inherited
+ownership, composite identities, or a domain whose operations do not match
+normal CRUD behaviour. Select a pattern matching the real ownership and
+operation model instead of changing `autofilter` merely to make a test pass.
+
+## Product decisions
+
+Know these decisions before adapting the example:
+
+- whether records truly belong to the current user
+- which fields are required, optional, nullable, searchable, or hidden
+- whether a value is free text or a constrained vocabulary
+- which operations the product actually exposes
+- the user-facing success and failure language
+
+Those decisions come from the product conversation or existing application,
+not from a JSKIT questionnaire.
+
+## Invariants
+
+- The persisted table has a normal single-column primary key.
+- User ownership is represented by a non-null `user_id` column.
+- The resource's hidden `userId` field maps to that ownership column.
+- `autofilter: "user"` is used only for genuine current-user ownership.
+- Output, create, and patch participation is explicit on each product field.
+- Temporal database values use the declared storage serializer.
+- The source-controlled migration and resource contract agree.
+- Server policy tests prove that one user cannot read or mutate another user's
+  records.
+
+## Framework APIs
+
+The example uses `defineCrudResource()` from
+`@jskit-ai/resource-crud-core/shared/crudResource`. That API derives the normal
+CRUD operation validators from one readable field contract.
+
+Higher layers should consume this resource through JSKIT's CRUD service,
+repository, route, and UI APIs. They should not rebuild field validators or
+serialize requests independently.
+
+## Example files
+
+- `example/bookResource.js` is a complete resource contract for personal book
+  records.
+
+The example deliberately uses a concrete domain. Rename and edit normal source
+rather than feeding it through placeholder interpolation.
+
+## Variation points
+
+Safe adaptations include:
+
+- namespace and table name
+- product fields and validation
+- searchable fields and default sort
+- enabled CRUD operations
+- user-facing messages
+- lookup relationships supported by the resource APIs
+
+Changing ownership, access, identity, or persistence architecture selects a
+different pattern and requires corresponding policy and migration evidence.
+
+## Verification
+
+- Import the resource and prove all intended operations exist.
+- Validate representative accepted and rejected field values.
+- Rebuild the table from source-controlled migrations in a disposable database.
+- Run positive current-user CRUD tests.
+- Run negative cross-user read and mutation tests.
+- Run the application's focused tests and broad verifier at sign-off.
+
+## Avoid
+
+- generator provenance or scaffold-shape metadata
+- a field-by-field questionnaire
+- a live table as the only source of schema truth
+- app-specific request serializers that duplicate the resource contract
+- hidden ownership aliases other than the framework's explicit ownership field
+- durable receipts recording that this pattern was copied
+- changing an installed baseline migration instead of adding a new migration
+

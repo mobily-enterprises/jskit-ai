@@ -45,7 +45,7 @@ function requireRequestContext(context, actionId) {
   throw new Error(`${actionId} requires request context.`);
 }
 
-const baseAuthActions = Object.freeze([
+const authActionSpecifications = Object.freeze([
   {
     id: "auth.register",
     version: 1,
@@ -58,8 +58,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.register"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.register(input);
+    async run(authService, input) {
+      return authService.register(input);
     }
   },
   {
@@ -74,8 +74,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.register.confirmation.resend"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.resendRegisterConfirmation(input);
+    async run(authService, input) {
+      return authService.resendRegisterConfirmation(input);
     }
   },
   {
@@ -90,8 +90,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.login.password"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.login(input);
+    async run(authService, input) {
+      return authService.login(input);
     }
   },
   {
@@ -106,8 +106,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.login.otp.request"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.requestOtpLogin(input);
+    async run(authService, input) {
+      return authService.requestOtpLogin(input);
     }
   },
   {
@@ -122,8 +122,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.login.otp.verify"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.verifyOtpLogin(input);
+    async run(authService, input) {
+      return authService.verifyOtpLogin(input);
     }
   },
   {
@@ -138,8 +138,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.login.oauth.start"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.oauthStart(input);
+    async run(authService, input) {
+      return authService.oauthStart(input);
     }
   },
   {
@@ -154,8 +154,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.login.oauth.complete"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.oauthComplete(input);
+    async run(authService, input) {
+      return authService.oauthComplete(input);
     }
   },
   {
@@ -170,8 +170,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.dev.loginAs"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.authService.devLoginAs(
+    async run(authService, input, context) {
+      return authService.devLoginAs(
         requireRequestContext(context, "auth.dev.loginAs"),
         input
       );
@@ -189,8 +189,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.password.reset.request"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.requestPasswordReset(input);
+    async run(authService, input) {
+      return authService.requestPasswordReset(input);
     }
   },
   {
@@ -205,8 +205,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.password.recovery.complete"
     },
     observability: {},
-    async execute(input, _context, deps) {
-      return deps.authService.completePasswordRecovery(input);
+    async run(authService, input) {
+      return authService.completePasswordRecovery(input);
     }
   },
   {
@@ -221,8 +221,8 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.password.reset"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input);
+    async run(authService, input, context) {
+      return authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input);
     }
   },
   {
@@ -238,19 +238,13 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.logout"
     },
     observability: {},
-    async execute(_input, context, deps) {
+    async run(authService, _input, context) {
       let logoutResult = {
         ok: true,
         clearSession: true
       };
-      if (deps.authService && typeof deps.authService.logout === "function") {
-        logoutResult = await deps.authService.logout(requireRequestContext(context, "auth.logout"));
-      }
-
-      if (deps.authSessionEventsService && typeof deps.authSessionEventsService.notifySessionChanged === "function") {
-        await deps.authSessionEventsService.notifySessionChanged({
-          context
-        });
+      if (typeof authService.logout === "function") {
+        logoutResult = await authService.logout(requireRequestContext(context, "auth.logout"));
       }
       return {
         ok: logoutResult?.ok !== false,
@@ -270,14 +264,23 @@ const baseAuthActions = Object.freeze([
       actionName: "auth.session.read"
     },
     observability: {},
-    async execute(_input, context, deps) {
-      return deps.authService.authenticateRequest(requireRequestContext(context, "auth.session.read"));
+    async run(authService, _input, context) {
+      return authService.authenticateRequest(requireRequestContext(context, "auth.session.read"));
     }
   }
 ]);
 
-function buildAuthActions() {
-  return baseAuthActions;
+function buildAuthActions({ authService } = {}) {
+  if (!authService || typeof authService !== "object") {
+    throw new TypeError("buildAuthActions requires authService.");
+  }
+  return Object.freeze(authActionSpecifications.map(({ run, surfacesFrom: _surfaceSource, ...definition }) => Object.freeze({
+    ...definition,
+    surfaces: ["*"],
+    execute(input, context) {
+      return run(authService, input, context);
+    }
+  })));
 }
 
-export { baseAuthActions, buildAuthActions, requireRequestContext };
+export { authActionSpecifications, buildAuthActions, requireRequestContext };

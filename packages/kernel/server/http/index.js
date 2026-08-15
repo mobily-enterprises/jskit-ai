@@ -1,1 +1,2 @@
-export { registerRouteVisibilityResolver } from "../registries/routeVisibilityResolverRegistry.js";
+export { createCapabilityHttpRuntime } from "./capabilityHttpRuntime.js";
+export { HttpProvider } from "./HttpProvider.js";

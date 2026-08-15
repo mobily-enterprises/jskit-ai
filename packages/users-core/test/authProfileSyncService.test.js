@@ -33,7 +33,7 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
         return { userId: Number(userId) };
       }
     },
-    lifecycleContributors: [
+    resolveLifecycleContributors: () => [
       {
         contributorId: "test.lifecycle",
         async afterIdentityProfileSynced({ created, options = {} } = {}) {
@@ -91,7 +91,7 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
         return { userId: "7" };
       }
     },
-    lifecycleContributors: [
+    resolveLifecycleContributors: () => [
       {
         contributorId: "test.lifecycle",
         async afterIdentityProfileSynced({ created } = {}) {

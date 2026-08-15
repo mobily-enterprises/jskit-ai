@@ -1,0 +1,69 @@
+---
+id: realtime/realtime-application
+title: Realtime application
+summary: Add JSKIT realtime events with an optional Redis backplane and an explicit shell status contribution.
+keywords: redis, realtime, socket.io, sockets, status, websocket
+requires: @jskit-ai/realtime, @jskit-ai/shell-web
+---
+
+# Realtime application
+
+## Use when
+
+Use this pattern when the product needs server-to-client events or live query
+refresh. Install the realtime package normally, then add only the product's
+listeners and desired shell contribution.
+
+## Do not use when
+
+Do not add realtime merely to poll less often, or before event ownership and
+delivery semantics are clear. A single-process application does not need Redis.
+
+## Product decisions
+
+Decide which events are public contracts, their scopes and payloads, reconnect
+behavior, whether a connection indicator belongs in the UI, and whether the
+deployment needs a Redis backplane.
+
+## Invariants
+
+- Empty `REALTIME_REDIS_URL` means the in-process adapter.
+- Redis credentials stay outside Git.
+- Listeners are registered through the public provider seams.
+- The status indicator is an explicit app placement, not a source mutation.
+- Event payloads do not become an undocumented second API.
+
+## Framework APIs
+
+Server features declare their successful domain events on their actions. The
+installed `RealtimeProvider` delivers only events with an explicit realtime
+name and audience. Client features use `RealtimeClientProvider` and the public
+listener registration helpers from `@jskit-ai/realtime`. Use the normal shell
+placement registry for the optional status component.
+
+## Example files
+
+`example/package.json` declares realtime and shell runtime packages.
+`example/.env.example` documents the optional Redis input.
+`example/src/placement.js` adds the standard connection indicator explicitly.
+
+## Variation points
+
+Omit the placement when the product does not need a visible connection state.
+Change event listeners, Redis provisioning, and client invalidation behavior to
+match the product. Keep transport retry policy in the realtime runtime.
+
+## Verification
+
+- Test in-process delivery without Redis.
+- When Redis is selected, test delivery across two server processes.
+- Disconnect and reconnect a browser and verify recovery behavior.
+- Confirm the status contribution renders in compact and expanded shells.
+
+## Avoid
+
+- prompting for optional Redis configuration during package installation
+- appending source into placement files
+- leaking Redis values to client config
+- generic “data changed” payloads with no scope
+- receipts, provenance, or mutation history

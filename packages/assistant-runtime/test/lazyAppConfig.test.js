@@ -51,7 +51,6 @@ function createWorkspaceServerScopeSupport() {
 }
 
 function createAssistantTestApp({
-  resolveCurrentAppConfig = () => null,
   workspaceScopeSupport = null,
   router = null
 } = {}) {
@@ -59,29 +58,7 @@ function createAssistantTestApp({
 
   return {
     router: resolvedRouter,
-    app: {
-      make(token) {
-        if (token === "jskit.http.router") {
-          return resolvedRouter;
-        }
-        if (token === "appConfig") {
-          return resolveCurrentAppConfig();
-        }
-        if (token === "workspaces.server.scope-support" && workspaceScopeSupport) {
-          return workspaceScopeSupport;
-        }
-        throw new Error(`Unexpected token: ${token}`);
-      },
-      has(token) {
-        if (token === "jskit.http.router") {
-          return true;
-        }
-        if (token === "appConfig") {
-          return Boolean(resolveCurrentAppConfig());
-        }
-        return token === "workspaces.server.scope-support" && Boolean(workspaceScopeSupport);
-      }
-    }
+    workspaceScopeSupport
   };
 }
 
@@ -91,11 +68,13 @@ function findRoute(routes, { method, path }) {
 
 test("registerRoutes exposes JSON:API contracts for assistant settings and transcript endpoints", () => {
   const testApp = createAssistantTestApp({
-    workspaceScopeSupport: createWorkspaceServerScopeSupport(),
-    resolveCurrentAppConfig: () => createAssistantAppConfig()
+    workspaceScopeSupport: createWorkspaceServerScopeSupport()
   });
 
-  registerRoutes(testApp.app);
+  registerRoutes(testApp.router, {
+    config: createAssistantAppConfig(),
+    workspaceScopeSupport: testApp.workspaceScopeSupport
+  });
   const routes = testApp.router.list();
   const publicSettingsReadRoute = findRoute(routes, {
     method: "GET",
@@ -125,16 +104,13 @@ test("registerRoutes exposes JSON:API contracts for assistant settings and trans
   assert.equal(publicConversationMessagesRoute?.schema?.response?.[200]?.required?.[0], "data");
 });
 
-test("registerRoutes resolves appConfig lazily when handlers run", async () => {
-  let currentAppConfig = null;
+test("registerRoutes builds workspace action input from explicit config and scope support", async () => {
   const workspaceScopeSupport = createWorkspaceServerScopeSupport();
   const testApp = createAssistantTestApp({
-    workspaceScopeSupport,
-    resolveCurrentAppConfig: () => currentAppConfig
+    workspaceScopeSupport
   });
 
-  registerRoutes(testApp.app);
-  currentAppConfig = createAssistantAppConfig();
+  registerRoutes(testApp.router, { config: createAssistantAppConfig(), workspaceScopeSupport });
   const routes = testApp.router.list();
 
   const route = findRoute(routes, {
@@ -194,16 +170,13 @@ test("registerRoutes resolves appConfig lazily when handlers run", async () => {
 });
 
 test("registerRoutes returns clear AppError payload for pre-stream assistant failures", async () => {
-  let currentAppConfig = null;
   let capturedInput = null;
   const workspaceScopeSupport = createWorkspaceServerScopeSupport();
   const testApp = createAssistantTestApp({
-    workspaceScopeSupport,
-    resolveCurrentAppConfig: () => currentAppConfig
+    workspaceScopeSupport
   });
 
-  registerRoutes(testApp.app);
-  currentAppConfig = createAssistantAppConfig();
+  registerRoutes(testApp.router, { config: createAssistantAppConfig(), workspaceScopeSupport });
   const routes = testApp.router.list();
 
   const route = findRoute(routes, {
@@ -271,9 +244,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
   });
 });
 
-test("chat service resolves appConfig lazily when conversations are listed", async () => {
-  let currentAppConfig = {};
-
+test("chat service uses explicit app config when conversations are listed", async () => {
   const chatService = createChatService({
     aiClientFactory: {
       resolveClient() {
@@ -293,11 +264,9 @@ test("chat service resolves appConfig lazily when conversations are listed", asy
     },
     serviceToolCatalog: {},
     assistantConfigService: {},
-    resolveAppConfig: () => currentAppConfig,
+    appConfig: createAssistantAppConfig(),
     workspaceScopeSupport: createWorkspaceServerScopeSupport()
   });
-
-  currentAppConfig = createAssistantAppConfig();
 
   const response = await chatService.listConversations(
     {
@@ -339,7 +308,7 @@ test("chat service rejects workspace-scoped assistant surfaces when workspace su
     },
     serviceToolCatalog: {},
     assistantConfigService: {},
-    resolveAppConfig: () => createAssistantAppConfig()
+    appConfig: createAssistantAppConfig()
   });
 
   await assert.rejects(
@@ -367,10 +336,10 @@ test("chat service rejects workspace-scoped assistant surfaces when workspace su
 
 test("registerRoutes omits workspace assistant routes when workspace scope support is unavailable", () => {
   const testApp = createAssistantTestApp({
-    resolveCurrentAppConfig: () => createAssistantAppConfig()
+    workspaceScopeSupport: null
   });
 
-  registerRoutes(testApp.app);
+  registerRoutes(testApp.router, { config: createAssistantAppConfig() });
   const routes = testApp.router.list();
 
   assert.equal(

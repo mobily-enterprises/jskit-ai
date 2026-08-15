@@ -14,13 +14,8 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/server/JsonRestApiCoreServiceProvider.js`
-Exports
-- `JsonRestApiCoreServiceProvider`
-
 ### `src/server/jsonRestApiHost.js`
 Exports
-- `INTERNAL_JSON_REST_API`
 - `JSON_REST_AUTOFILTER_PRESETS`
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
@@ -35,10 +30,10 @@ Exports
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
 - `createJsonRestApiHost({ knex })`
-- `registerJsonRestApiHost(app)`
 Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
+- `applyJsonRestStorageColumns(scopeOptions = {})`
 - `resolveCanonicalCalendarDate(value)`
 - `serializeJsonRestCalendarDate(value)`
 - `resolveCanonicalDateTime(value)`
@@ -58,3 +53,7 @@ Local functions
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
 - `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 - `isJsonRestSparseFieldError(error = null)`
+
+### `src/server/JsonRestApiProvider.js`
+Exports
+- `JsonRestApiProvider`

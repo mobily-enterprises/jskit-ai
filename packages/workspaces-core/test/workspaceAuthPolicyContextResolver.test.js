@@ -148,3 +148,33 @@ test("workspace auth policy context resolver treats optional context as membersh
   assert.equal(resolved.membership, null);
   assert.deepEqual(resolved.permissions, []);
 });
+
+test("workspace auth policy honors membership-optional workspace surfaces", async () => {
+  const calls = [];
+  const request = {
+    params: { workspaceSlug: "dog-and-groom" },
+    routeOptions: { config: { surface: "customer" } }
+  };
+  const resolver = createWorkspaceAuthPolicyContextResolver({
+    workspaceMembershipOptionalSurfaceIds: ["customer"],
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, options) {
+        calls.push({ actor, workspaceSlug, options });
+        return {
+          workspace: { id: 11, slug: workspaceSlug },
+          membership: null,
+          permissions: []
+        };
+      }
+    }
+  });
+
+  const resolved = await resolver({
+    request,
+    actor: { id: 7 },
+    meta: { contextPolicy: "required" }
+  });
+
+  assert.equal(calls[0].options.requireMembership, false);
+  assert.equal(resolved.membership, null);
+});

@@ -166,7 +166,7 @@ Exports
 
 ### `src/server/lib/serviceToolCatalog.js`
 Exports
-- `createServiceToolCatalog(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
+- `createServiceToolCatalog(actions, { barredActionIds = [], skipActionPrefixes = [] } = {})`
 Local functions
 - `normalizeAssistantExtension(value)`
 - `normalizeAssistantActionExtension(action = {})`
@@ -182,8 +182,8 @@ Local functions
 - `hasAutomationChannel(action = {})`
 - `normalizeSurfaceList(value)`
 - `canUseToolOnSurface(entry = {}, context = {})`
-- `resolveActionBackedToolEntries(scope)`
-- `resolveActionToolEntries(scope, { barredActionIds = [], skipActionPrefixes = [] } = {})`
+- `resolveActionBackedToolEntries(actions)`
+- `resolveActionToolEntries(actions, { barredActionIds = [], skipActionPrefixes = [] } = {})`
 
 ### `src/shared/assistantPaths.js`
 Exports

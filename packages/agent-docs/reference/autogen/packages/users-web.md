@@ -26,7 +26,6 @@ Exports
 ### `src/client/bootstrap/user-bootstrap-handler.js`
 Exports
 - `createUsersBootstrapUserHandler()`
-- `registerUsersBootstrapPayloadHandlers(app)`
 
 ### `src/client/components/AccountSettingsClientElement.vue`
 Exports
@@ -78,7 +77,6 @@ Exports
 Exports
 - `UsersWebClientProvider`
 - `AccountSettingsClientElement`
-- `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
 Exports
@@ -110,20 +108,20 @@ Exports
 Exports
 - `HOME_COG_OUTLET`
 
-### templates
+### patterns
 
-### `templates/src/components/account/settings/AccountSettingsNotificationsSection.vue`
+### `patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue`
 Exports
 - None
 
-### `templates/src/components/account/settings/AccountSettingsPreferencesSection.vue`
+### `patterns/account-settings/example/src/components/account/settings/AccountSettingsPreferencesSection.vue`
 Exports
 - None
 
-### `templates/src/components/account/settings/AccountSettingsProfileSection.vue`
+### `patterns/account-settings/example/src/components/account/settings/AccountSettingsProfileSection.vue`
 Exports
 - None
 
-### `templates/src/pages/account/index.vue`
+### `patterns/account-settings/example/src/pages/account/index.vue`
 Exports
 - None

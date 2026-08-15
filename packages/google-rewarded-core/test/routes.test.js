@@ -35,16 +35,7 @@ function mountRoutes() {
     }
   };
 
-  const app = {
-    make(token) {
-      if (token !== "jskit.http.router") {
-        throw new Error(`Unexpected token: ${String(token)}`);
-      }
-      return router;
-    }
-  };
-
-  registerRoutes(app);
+  registerRoutes(router);
   return registeredRoutes;
 }
 

@@ -1,4 +1,5 @@
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import {
   createAsyncModuleRecoveryState,
   guardedReloadApp,
@@ -42,7 +43,7 @@ import { createWebPlacementRuntime } from "../placement/runtime.js";
 import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 import { createShellBootstrapRuntime } from "../runtime/bootstrapRuntime.js";
-import { registerBootstrapPayloadHandler } from "../bootstrap/bootstrapPayloadHandlerRegistry.js";
+import { createBootstrapPayloadHandlerRegistry } from "../bootstrap/bootstrapPayloadHandlerRegistry.js";
 import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStatus.js";
 
 // Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
@@ -221,22 +222,15 @@ function isPullRefreshQuery(query = null) {
 }
 
 function createShellRefreshRuntime({
-  app,
+  bootstrapRuntime = null,
+  queryClient = null,
+  errorRuntime = null,
   logger = null
 } = {}) {
-  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
-    throw new Error("createShellRefreshRuntime requires application has()/make().");
-  }
-
-  const runtimeLogger = logger || createSharedProviderLogger(app);
+  const runtimeLogger = createSharedProviderLogger(logger);
   let refreshQueue = Promise.resolve(null);
 
   async function refreshBootstrap(reason) {
-    if (!app.has("runtime.web-bootstrap.client")) {
-      return false;
-    }
-
-    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
     if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
       return false;
     }
@@ -246,11 +240,6 @@ function createShellRefreshRuntime({
   }
 
   async function refetchPullQueries() {
-    if (!app.has("jskit.client.query-client")) {
-      return false;
-    }
-
-    const queryClient = app.make("jskit.client.query-client");
     if (!queryClient || typeof queryClient.refetchQueries !== "function") {
       return false;
     }
@@ -275,11 +264,6 @@ function createShellRefreshRuntime({
       "Shell refresh failed."
     );
 
-    if (!app.has("runtime.web-error.client")) {
-      return;
-    }
-
-    const errorRuntime = app.make("runtime.web-error.client");
     if (!errorRuntime || typeof errorRuntime.report !== "function") {
       return;
     }
@@ -372,12 +356,7 @@ function installVueErrorBridge(vueApp, errorRuntime, logger) {
   };
 }
 
-function installRouterErrorBridge(app, errorRuntime, logger) {
-  if (!app.has("jskit.client.router")) {
-    return;
-  }
-
-  const router = app.make("jskit.client.router");
+function installRouterErrorBridge(router, errorRuntime, logger) {
   if (!router || typeof router.onError !== "function") {
     return;
   }
@@ -410,28 +389,16 @@ function installRouterErrorBridge(app, errorRuntime, logger) {
 }
 
 function createShellAsyncModuleRecoveryRuntime({
-  app,
+  router = null,
+  errorRuntime = null,
   logger = null
 } = {}) {
-  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
-    throw new Error("createShellAsyncModuleRecoveryRuntime requires application has()/make().");
-  }
-
-  const runtimeLogger = logger || createSharedProviderLogger(app);
+  const runtimeLogger = createSharedProviderLogger(logger);
   const state = createAsyncModuleRecoveryState();
   let installedRecovery = null;
 
-  function errorRuntime() {
-    if (!app.has("runtime.web-error.client")) {
-      return null;
-    }
-    const runtime = app.make("runtime.web-error.client");
-    return runtime && typeof runtime.report === "function" ? runtime : null;
-  }
-
   function report(nextState = state) {
-    const runtime = errorRuntime();
-    if (!runtime) {
+    if (!errorRuntime || typeof errorRuntime.report !== "function") {
       runtimeLogger.warn(
         {
           label: String(nextState?.label || "")
@@ -442,7 +409,7 @@ function createShellAsyncModuleRecoveryRuntime({
     }
 
     try {
-      return runtime.report({
+      return errorRuntime.report({
         source: "shell-web.async-module-recovery",
         message: String(nextState?.message || "A required app module could not load."),
         cause: nextState?.error || null,
@@ -503,7 +470,7 @@ function createShellAsyncModuleRecoveryRuntime({
     installedRecovery = installAsyncModuleRecoveryHandlers({
       state,
       label: "App module",
-      router: app.has("jskit.client.router") ? app.make("jskit.client.router") : null,
+      router,
       onNotify: report
     });
     return installedRecovery;
@@ -524,18 +491,26 @@ function createShellAsyncModuleRecoveryRuntime({
   });
 }
 
-class ShellWebClientProvider {
-  static id = "shell.web.client";
-
-  register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-      throw new Error("ShellWebClientProvider requires application singleton()/tag().");
-    }
-
-    const logger = createSharedProviderLogger(isRecord(app) ? app : null);
-    registerBootstrapPayloadHandler(app, "shell.web.bootstrap.surfaceAccessHandler", () =>
+const ShellWebClientProvider = defineProvider({
+  id: "shell.web.client",
+  requires: {
+    components: "client.components",
+    loggerInput: "client.logger",
+    pinia: "client.pinia",
+    queryClient: "client.query",
+    router: "client.router",
+    surfaceRuntime: "client.surface",
+    vueApp: "client.vue"
+  },
+  provides: {
+    shell: "client.shell"
+  },
+  setup({ components, loggerInput, queryClient, router }) {
+    const logger = createSharedProviderLogger(loggerInput);
+    const bootstrapHandlers = createBootstrapPayloadHandlerRegistry();
+    bootstrapHandlers.register(
       Object.freeze({
-        handlerId: "shell.web.bootstrap.surfaceAccess",
+        handlerId: "shell.web.bootstrap.surface-access",
         order: 0,
         applyBootstrapPayload({ payload = {}, placementRuntime, source } = {}) {
           placementRuntime.setContext(
@@ -543,77 +518,76 @@ class ShellWebClientProvider {
               surfaceAccess:
                 payload?.surfaceAccess && typeof payload.surfaceAccess === "object" ? payload.surfaceAccess : {}
             },
-            {
-              source
-            }
+            { source }
           );
         },
         handleBootstrapError({ error, placementRuntime, source } = {}) {
           if (resolveBootstrapErrorStatusCode(error) !== 401) {
             return;
           }
-
-          placementRuntime.setContext(
-            {
-              surfaceAccess: {}
-            },
-            {
-              source
-            }
-          );
+          placementRuntime.setContext({ surfaceAccess: {} }, { source });
         }
       })
     );
-    app.singleton("runtime.web-placement.client", () => createWebPlacementRuntime({ app, logger }));
-    app.singleton("runtime.web-bootstrap.client", (scope) =>
-      createShellBootstrapRuntime({
-        app: scope,
-        logger
-      })
-    );
-    app.singleton("runtime.web-refresh.client", (scope) =>
-      createShellRefreshRuntime({
-        app: scope,
-        logger
-      })
-    );
-    app.singleton("runtime.web-async-module-recovery.client", (scope) =>
-      createShellAsyncModuleRecoveryRuntime({
-        app: scope,
-        logger
-      })
-    );
-    app.singleton("runtime.web-request-recovery.client", (scope) =>
-      createShellRequestRecoveryRuntime({
-        app: scope,
-        logger
-      })
-    );
-    app.singleton("runtime.web-error.presentation-store.client", () => createErrorPresentationStore());
-    app.singleton("runtime.web-error.client", (scope) =>
-      createErrorRuntime({
-        presenters: createDefaultMaterialErrorPresenters({
-          store: scope.make("runtime.web-error.presentation-store.client")
-        }),
-        policy: createDefaultErrorPolicy(),
-        moduleDefaultPresenterId: "material.snackbar",
-        logger
-      })
-    );
-  }
 
-  async boot(app) {
-    if (!app || typeof app.make !== "function" || typeof app.has !== "function") {
-      throw new Error("ShellWebClientProvider requires application make()/has().");
-    }
+    const errorPresentationStore = createErrorPresentationStore();
+    const errorRuntime = createErrorRuntime({
+      presenters: createDefaultMaterialErrorPresenters({ store: errorPresentationStore }),
+      policy: createDefaultErrorPolicy(),
+      moduleDefaultPresenterId: "material.snackbar",
+      logger
+    });
+    const placementRuntime = createWebPlacementRuntime({ components, logger });
+    const asyncModuleRecoveryRuntime = createShellAsyncModuleRecoveryRuntime({
+      router,
+      errorRuntime,
+      logger
+    });
+    const requestRecoveryRuntime = createShellRequestRecoveryRuntime({
+      queryClient,
+      errorRuntime,
+      logger
+    });
+    const bootstrapRuntime = createShellBootstrapRuntime({
+      handlers: bootstrapHandlers,
+      placementRuntime,
+      requestRecoveryRuntime,
+      router,
+      logger
+    });
+    const refreshRuntime = createShellRefreshRuntime({
+      bootstrapRuntime,
+      queryClient,
+      errorRuntime,
+      logger
+    });
 
-    const logger = createSharedProviderLogger(isRecord(app) ? app : null);
-    const errorRuntime = app.make("runtime.web-error.client");
-    const asyncModuleRecoveryRuntime = app.make("runtime.web-async-module-recovery.client");
-    const requestRecoveryRuntime = app.make("runtime.web-request-recovery.client");
+    return {
+      shell: Object.freeze({
+        asyncModuleRecovery: asyncModuleRecoveryRuntime,
+        bootstrap: bootstrapRuntime,
+        bootstrapHandlers,
+        error: errorRuntime,
+        errorPresentationStore,
+        placement: placementRuntime,
+        refresh: refreshRuntime,
+        requestRecovery: requestRecoveryRuntime
+      })
+    };
+  },
+  async boot({ loggerInput, pinia, router, surfaceRuntime, vueApp }, { outputs }) {
+    const logger = createSharedProviderLogger(loggerInput);
+    const {
+      asyncModuleRecovery: asyncModuleRecoveryRuntime,
+      bootstrap: bootstrapRuntime,
+      error: errorRuntime,
+      errorPresentationStore,
+      placement: placementRuntime,
+      refresh: refreshRuntime,
+      requestRecovery: requestRecoveryRuntime
+    } = outputs.shell;
     asyncModuleRecoveryRuntime.install();
 
-    const placementRuntime = app.make("runtime.web-placement.client");
     if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
       const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime);
       if (typeof placementRuntime.replacePlacementTopology === "function") {
@@ -622,9 +596,6 @@ class ShellWebClientProvider {
       const placements = await loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime);
       placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
       const appConfig = getClientAppConfig();
-      const surfaceRuntime = app.has("jskit.client.surface.runtime")
-        ? app.make("jskit.client.surface.runtime")
-        : null;
       const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
         tenancyMode: appConfig?.tenancyMode
       });
@@ -647,25 +618,16 @@ class ShellWebClientProvider {
     applyAppErrorConfig(errorRuntime, errorConfig);
     requestRecoveryRuntime.install();
 
-    const bootstrapRuntime = app.make("runtime.web-bootstrap.client");
     if (bootstrapRuntime && typeof bootstrapRuntime.initialize === "function") {
       await bootstrapRuntime.initialize();
     }
 
-    if (!app.has("jskit.client.vue.app")) {
-      return;
-    }
-
-    const vueApp = app.make("jskit.client.vue.app");
     if (!vueApp || typeof vueApp.provide !== "function" || typeof vueApp.use !== "function") {
       return;
     }
-    const pinia = app.make("jskit.client.pinia");
     if (!pinia) {
       throw new Error("ShellWebClientProvider requires Pinia installed in the client app.");
     }
-    const errorPresentationStore = app.make("runtime.web-error.presentation-store.client");
-    const refreshRuntime = app.make("runtime.web-refresh.client");
     useShellErrorPresentationStore(pinia).attachRuntimeStore(errorPresentationStore);
 
     vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
@@ -679,9 +641,13 @@ class ShellWebClientProvider {
     );
 
     installVueErrorBridge(vueApp, errorRuntime, logger);
-    installRouterErrorBridge(app, errorRuntime, logger);
+    installRouterErrorBridge(router, errorRuntime, logger);
+  },
+  shutdown(_dependencies, { outputs }) {
+    outputs.shell.requestRecovery.dispose();
+    outputs.shell.asyncModuleRecovery.dispose();
   }
-}
+});
 
 export {
   ShellWebClientProvider,

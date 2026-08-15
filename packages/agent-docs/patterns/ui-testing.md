@@ -10,11 +10,13 @@ Use when:
 Rules:
 
 - Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
-- Generator or package template UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
-- For generated UI, check horizontal overflow, clipped or invisible text, duplicate navigation, and broken route placement at every standard viewport. On compact screens, also check generated-screen tap targets under 48 px; medium and expanded layouts may use their documented denser controls.
+- Pattern and framework UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
+- Check horizontal overflow, clipped or invisible text, duplicate navigation, and broken route placement at every standard viewport. On compact screens, also check screen tap targets under 48 px; medium and expanded layouts may use their documented denser controls.
 - Apps with `shell-web` installed should start from `tests/e2e/adaptive-shell.spec.ts` and extend it with feature-specific assertions.
 - The package helper reads the shell's rendered `data-layout` contract, waits for drawer transitions without fixed sleeps, verifies compact Escape/outside dismissal, checks content-aware drawer fit, and measures rail icon centring against the configured width. Do not replace it with viewport-name assumptions or immediate animation-time geometry reads.
-- Generated `playwright.config.mjs` delegates to `@jskit-ai/jskit-cli/test/playwright`. Do not copy base-URL, web-server, or storage-state logic into app tests.
+- Start from the application-foundation Playwright configuration and keep it
+  app-owned. Do not duplicate base-URL, web-server, or storage-state logic in
+  individual tests.
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
@@ -22,15 +24,14 @@ Rules:
 
 ## Preserve baseline tests
 
-Generated baseline tests are app-owned and customizable. Adapt infrastructure
+Foundation-pattern baseline tests are app-owned and customizable. Adapt infrastructure
 tests in place when routes or behavior change so the baseline coverage remains
 truthful.
 
 When the starter product route is replaced, update the scaffold smoke test to
 visit and assert the new canonical route. Do not delete baseline browser
 coverage such as `tests/e2e/base-shell.spec.ts` or
-`tests/e2e/adaptive-shell.spec.ts`. JSKIT Doctor must continue to flag a
-managed test that is missing.
+`tests/e2e/adaptive-shell.spec.ts`.
 
 ## Direct local authentication
 
@@ -78,7 +79,7 @@ VIBE64_PLAYWRIGHT_STORAGE_STATE=/secure/temp/playwright-state.json \
 playwright test tests/e2e/contacts.spec.ts
 ```
 
-The generated config applies that state to Playwright contexts and omits its local `webServer`. Tests then navigate with relative paths and begin with the runner-provided identity already authenticated.
+The app-owned config applies that state to Playwright contexts and omits its local `webServer`. Tests then navigate with relative paths and begin with the runner-provided identity already authenticated.
 
 Do not call `loginAsExistingUser()` against a managed preview. It is deliberately localhost-only. An ordinary request to `/api/dev-auth/login-as` without the private exchange header must return `403`.
 
@@ -90,11 +91,8 @@ Run the focused Playwright command directly:
 npx playwright test tests/e2e/contacts.spec.ts -g filters
 ```
 
-For local pre-merge review, follow the focused run with:
-
-```bash
-npx jskit doctor --against origin/main
-```
+For local pre-merge review, follow the focused run with the application's
+ordinary lint, package, build, and test scripts.
 
 Do not mark the chunk done if:
 

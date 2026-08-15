@@ -37,31 +37,8 @@
             "subpath": "./client",
             "summary": "Exports the Google rewarded client provider, runtime composable, and fullscreen gate host."
           }
-        ],
-        "containerTokens": {
-          "server": [],
-          "client": [
-            "google-rewarded.web.runtime"
-          ]
-        }
+        ]
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/google-rewarded-core": "0.1.95",
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/shell-web": "0.1.163"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "text": [],
-      "files": []
     }
   },
   "dependencies": {

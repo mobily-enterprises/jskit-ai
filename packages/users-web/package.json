@@ -71,14 +71,7 @@
             "subpath": "./client/account-settings/sections",
             "summary": "Exports placement-backed account settings section helpers."
           }
-        ],
-        "containerTokens": {
-          "server": [],
-          "client": [
-            "users.web.home.tools.widget",
-            "users.web.profile.element"
-          ]
-        }
+        ]
       },
       "ui": {
         "placements": {
@@ -158,7 +151,7 @@
               ],
               "order": 500,
               "when": "auth.authenticated === true",
-              "source": "mutations.text#users-web-profile-settings-placement"
+              "source": "patterns/account-settings/PATTERN.md"
             },
             {
               "id": "users.home.tools.widget",
@@ -170,7 +163,7 @@
               "order": 900,
               "componentToken": "users.web.home.tools.widget",
               "when": "auth.authenticated === true",
-              "source": "mutations.text#users-web-home-tools-placement"
+              "source": "src/client/components/UsersHomeToolsWidget.vue"
             },
             {
               "id": "users.home.menu.settings",
@@ -181,7 +174,7 @@
               ],
               "order": 100,
               "when": "auth.authenticated === true",
-              "source": "mutations.text#users-web-home-tools-placement"
+              "source": "patterns/account-settings/PATTERN.md"
             },
             {
               "id": "users.account.settings.profile",
@@ -193,7 +186,7 @@
               ],
               "order": 100,
               "componentToken": "local.main.account-settings.section.profile",
-              "source": "mutations.text#users-web-account-settings-sections-placement"
+              "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsProfileSection.vue"
             },
             {
               "id": "users.account.settings.preferences",
@@ -205,7 +198,7 @@
               ],
               "order": 200,
               "componentToken": "local.main.account-settings.section.preferences",
-              "source": "mutations.text#users-web-account-settings-sections-placement"
+              "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsPreferencesSection.vue"
             },
             {
               "id": "users.account.settings.notifications",
@@ -217,196 +210,11 @@
               ],
               "order": 300,
               "componentToken": "local.main.account-settings.section.notifications",
-              "source": "mutations.text#users-web-account-settings-sections-placement"
+              "source": "patterns/account-settings/example/src/components/account/settings/AccountSettingsNotificationsSection.vue"
             }
           ]
         }
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/http-web": "0.1.4",
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/shell-web": "0.1.163",
-          "@jskit-ai/uploads-image-web": "0.1.134",
-          "@jskit-ai/users-core": "0.1.172"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {
-          "server:account": "SERVER_SURFACE=account node ./bin/server.js",
-          "dev:account": "VITE_SURFACE=account vite",
-          "build:account": "VITE_SURFACE=account vite build"
-        }
-      },
-      "procfile": {},
-      "files": [
-        {
-          "from": "templates/src/pages/account/index.vue",
-          "to": "src/pages/account/index.vue",
-          "ownership": "app",
-          "reason": "Install app-owned account surface root page scaffold.",
-          "category": "users-web",
-          "id": "users-web-page-account-root"
-        },
-        {
-          "from": "templates/src/components/account/settings/AccountSettingsProfileSection.vue",
-          "to": "src/components/account/settings/AccountSettingsProfileSection.vue",
-          "ownership": "app",
-          "reason": "Install app-owned account settings profile section scaffold.",
-          "category": "users-web",
-          "id": "users-web-component-account-settings-profile"
-        },
-        {
-          "from": "templates/src/components/account/settings/AccountSettingsPreferencesSection.vue",
-          "to": "src/components/account/settings/AccountSettingsPreferencesSection.vue",
-          "ownership": "app",
-          "reason": "Install app-owned account settings preferences section scaffold.",
-          "category": "users-web",
-          "id": "users-web-component-account-settings-preferences"
-        },
-        {
-          "from": "templates/src/components/account/settings/AccountSettingsNotificationsSection.vue",
-          "to": "src/components/account/settings/AccountSettingsNotificationsSection.vue",
-          "ownership": "app",
-          "reason": "Install app-owned account settings notifications section scaffold.",
-          "category": "users-web",
-          "id": "users-web-component-account-settings-notifications"
-        }
-      ],
-      "text": [
-        {
-          "op": "append-text",
-          "file": "config/public.js",
-          "position": "bottom",
-          "skipIfContains": "config.surfaceDefinitions.account = {",
-          "value": "\nconfig.surfaceDefinitions.account = {\n  id: \"account\",\n  label: \"Account\",\n  pagesRoot: \"account\",\n  enabled: true,\n  requiresAuth: true,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
-          "reason": "Register account surface definition in public surface config.",
-          "category": "users-web",
-          "id": "users-web-surface-config-account"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placement.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"users.profile.menu.settings\"",
-          "value": "\naddPlacement({\n  id: \"users.profile.menu.settings\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 500,\n  props: {\n    label: \"Settings\",\n    to: \"/account\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
-          "reason": "Append users-web profile settings menu placement into app-owned placement registry.",
-          "category": "users-web",
-          "id": "users-web-profile-settings-placement"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placement.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"users.home.tools.widget\"",
-          "value": "\naddPlacement({\n  id: \"users.home.tools.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"home\"],\n  order: 900,\n  componentToken: \"users.web.home.tools.widget\",\n  when: ({ auth }) => auth?.authenticated === true\n});\n\naddPlacement({\n  id: \"users.home.menu.settings\",\n  target: \"home.tools-menu\",\n  kind: \"link\",\n  surfaces: [\"home\"],\n  order: 100,\n  props: {\n    label: \"Settings\",\n    surface: \"home\",\n    scopedSuffix: \"/settings\",\n    unscopedSuffix: \"/settings\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
-          "reason": "Append users-web home tools widget and settings menu placements into app-owned placement registry.",
-          "category": "users-web",
-          "id": "users-web-home-tools-placement"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placementTopology.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"home.tools-menu\"",
-          "value": "\naddPlacementTopology({\n  id: \"home.tools-menu\",\n  description: \"Home surface tools menu actions.\",\n  surfaces: [\"home\"],\n  variants: {\n    compact: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    medium: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"home-cog:primary-menu\",\n      renderers: {\n        link: \"local.main.ui.surface-aware-menu-link-item\"\n      }\n    }\n  }\n});\n",
-          "reason": "Append users-web home tools semantic topology into app-owned placement topology.",
-          "category": "users-web",
-          "id": "users-web-home-tools-topology"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placement.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"users.account.settings.profile\"",
-          "value": "\naddPlacement({\n  id: \"users.account.settings.profile\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 100,\n  componentToken: \"local.main.account-settings.section.profile\",\n  props: {\n    title: \"Profile\",\n    value: \"profile\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.preferences\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 200,\n  componentToken: \"local.main.account-settings.section.preferences\",\n  props: {\n    title: \"Preferences\",\n    value: \"preferences\",\n    usesSharedRuntime: true\n  }\n});\n\naddPlacement({\n  id: \"users.account.settings.notifications\",\n  target: \"settings.sections\",\n  owner: \"account-settings\",\n  kind: \"component\",\n  surfaces: [\"account\"],\n  order: 300,\n  componentToken: \"local.main.account-settings.section.notifications\",\n  props: {\n    title: \"Notifications\",\n    value: \"notifications\",\n    usesSharedRuntime: true\n  }\n});\n",
-          "reason": "Append users-web account settings section placements into the app-owned placement registry.",
-          "category": "users-web",
-          "id": "users-web-account-settings-sections-placement"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placementTopology.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"settings.sections\"",
-          "value": "\naddPlacementTopology({\n  id: \"settings.sections\",\n  owner: \"account-settings\",\n  description: \"Account settings content sections.\",\n  surfaces: [\"account\"],\n  variants: {\n    compact: {\n      outlet: \"account-settings:sections\"\n    },\n    medium: {\n      outlet: \"account-settings:sections\"\n    },\n    expanded: {\n      outlet: \"account-settings:sections\"\n    }\n  }\n});\n",
-          "reason": "Append users-web account settings semantic topology into app-owned placement topology.",
-          "category": "users-web",
-          "id": "users-web-account-settings-topology"
-        }
-      ],
-      "source": [
-        {
-          "op": "ensure-import",
-          "file": "packages/main/src/client/providers/MainClientProvider.js",
-          "defaultImport": "AccountSettingsProfileSection",
-          "from": "/src/components/account/settings/AccountSettingsProfileSection.vue",
-          "reason": "Bind the app-owned account profile settings section into local main client provider imports.",
-          "category": "users-web",
-          "id": "users-web-main-client-provider-account-settings-profile-import"
-        },
-        {
-          "op": "ensure-import",
-          "file": "packages/main/src/client/providers/MainClientProvider.js",
-          "defaultImport": "AccountSettingsPreferencesSection",
-          "from": "/src/components/account/settings/AccountSettingsPreferencesSection.vue",
-          "reason": "Bind the app-owned account preferences settings section into local main client provider imports.",
-          "category": "users-web",
-          "id": "users-web-main-client-provider-account-settings-preferences-import"
-        },
-        {
-          "op": "ensure-import",
-          "file": "packages/main/src/client/providers/MainClientProvider.js",
-          "defaultImport": "AccountSettingsNotificationsSection",
-          "from": "/src/components/account/settings/AccountSettingsNotificationsSection.vue",
-          "reason": "Bind the app-owned account notifications settings section into local main client provider imports.",
-          "category": "users-web",
-          "id": "users-web-main-client-provider-account-settings-notifications-import"
-        },
-        {
-          "op": "ensure-call",
-          "file": "packages/main/src/client/providers/MainClientProvider.js",
-          "callee": "registerMainClientComponent",
-          "args": [
-            "\"local.main.account-settings.section.profile\"",
-            "() => AccountSettingsProfileSection"
-          ],
-          "beforeClass": "MainClientProvider",
-          "reason": "Bind the app-owned account profile settings section token into local main client provider registry.",
-          "category": "users-web",
-          "id": "users-web-main-client-provider-account-settings-profile-register"
-        },
-        {
-          "op": "ensure-call",
-          "file": "packages/main/src/client/providers/MainClientProvider.js",
-          "callee": "registerMainClientComponent",
-          "args": [
-            "\"local.main.account-settings.section.preferences\"",
-            "() => AccountSettingsPreferencesSection"
-          ],
-          "beforeClass": "MainClientProvider",
-          "reason": "Bind the app-owned account preferences settings section token into local main client provider registry.",
-          "category": "users-web",
-          "id": "users-web-main-client-provider-account-settings-preferences-register"
-        },
-        {
-          "op": "ensure-call",
-          "file": "packages/main/src/client/providers/MainClientProvider.js",
-          "callee": "registerMainClientComponent",
-          "args": [
-            "\"local.main.account-settings.section.notifications\"",
-            "() => AccountSettingsNotificationsSection"
-          ],
-          "beforeClass": "MainClientProvider",
-          "reason": "Bind the app-owned account notifications settings section token into local main client provider registry.",
-          "category": "users-web",
-          "id": "users-web-main-client-provider-account-settings-notifications-register"
-        }
-      ]
     }
   }
 }

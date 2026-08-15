@@ -1,35 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HttpClientRuntimeServiceProvider } from "../src/server/providers/HttpClientRuntimeServiceProvider.js";
-import { HttpClientRuntimeClientProvider } from "../src/client/providers/HttpClientRuntimeClientProvider.js";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { HttpClientProvider } from "../src/server/providers/HttpClientProvider.js";
 
-function createSingletonApp() {
-  const singletons = new Map();
-  return {
-    singletons,
-    singleton(token, factory) {
-      singletons.set(token, factory(this));
+test("HttpClientProvider provides the server HTTP client API", async () => {
+  let httpClient;
+  const consumer = defineProvider({
+    id: "test.http-client.consumer",
+    requires: { value: "runtime.http-client" },
+    setup({ value }) {
+      httpClient = value;
+      return {};
     }
-  };
-}
-
-test("HttpClientRuntimeServiceProvider registers runtime http client api", () => {
-  const app = createSingletonApp();
-  const provider = new HttpClientRuntimeServiceProvider();
-  provider.register(app);
-
-  assert.equal(app.singletons.has("runtime.http-client"), true);
-  const api = app.singletons.get("runtime.http-client");
-  assert.equal(typeof api.createHttpClient, "function");
-});
-
-test("HttpClientRuntimeClientProvider registers client http client api", () => {
-  const app = createSingletonApp();
-  const provider = new HttpClientRuntimeClientProvider();
-  provider.register(app);
-
-  assert.equal(app.singletons.has("runtime.http-client.client"), true);
-  const api = app.singletons.get("runtime.http-client.client");
-  assert.equal(typeof api.createHttpClient, "function");
+  });
+  const runtime = createCapabilityRuntime({ providers: [HttpClientProvider, consumer] });
+  await runtime.start();
+  assert.equal(typeof httpClient.createHttpClient, "function");
+  assert.equal(typeof httpClient.shouldRetryForCsrfFailure, "function");
+  await runtime.shutdown();
 });

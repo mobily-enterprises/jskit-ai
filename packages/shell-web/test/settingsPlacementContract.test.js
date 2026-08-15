@@ -3,7 +3,6 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import packageJson from "../package.json" with { type: "json" };
 
 const packageMetadata = packageJson.jskit;
@@ -47,24 +46,16 @@ function readPackageImportSpecifiers(source = "") {
   );
 }
 
-function readClientContainerTokens() {
-  const tokens = packageMetadata?.metadata?.apiSummary?.containerTokens?.client;
-  return Array.isArray(tokens) ? tokens : [];
-}
-
-function findFileMutation(id) {
-  const files = packageMetadata?.mutations?.files;
-  return Array.isArray(files)
-    ? files.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-test("shell-web home settings template exposes surface-derived settings outlets", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings.vue"), "utf8");
+test("shell-web application pattern exposes surface-derived settings outlets", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "pages", "home", "settings.vue"),
+    "utf8"
+  );
 
   assert.match(source, /target="home-settings:primary-menu"/);
-  assert.match(source, /generated-ui-screen generated-ui-screen--settings settings-shell/);
-  assert.match(source, /--generated-ui-screen-title-size/);
+  assert.match(source, /class="settings-shell d-flex flex-column ga-4"/);
+  assert.match(source, /--settings-shell-title-size/);
+  assert.doesNotMatch(source, /generated-ui/u);
   assert.doesNotMatch(source, /default-link-component-token/);
   assert.match(source, /<RouterView \/>/);
 });
@@ -123,7 +114,10 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
   assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
 
-  const template = await readFile(path.join(PACKAGE_DIR, "templates", "src", "components", "ShellLayout.vue"), "utf8");
+  const template = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "components", "ShellLayout.vue"),
+    "utf8"
+  );
 
   assert.match(template, /PackageShellLayout from "@jskit-ai\/shell-web\/client\/components\/ShellLayout"/);
   assert.match(template, /drawerWidth, railWidth, navigationItemSpacing, and future shell props package-owned/);
@@ -150,8 +144,11 @@ test("shell-web error host keeps snackbar color stable while closing", async () 
   assert.doesNotMatch(source, /resolveSeverityColor\(snackbarEntry\?\.severity\)/);
 });
 
-test("shell-web error template uses intent-driven default presentation", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "error.js"), "utf8");
+test("shell-web application pattern uses intent-driven default error presentation", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "error.js"),
+    "utf8"
+  );
 
   assert.match(source, /resourceLoadChannel:\s*"silent"/);
   assert.match(source, /actionFeedbackChannel:\s*"snackbar"/);
@@ -159,20 +156,19 @@ test("shell-web error template uses intent-driven default presentation", async (
   assert.match(source, /blockingChannel:\s*"dialog"/);
 });
 
-test("shell-web installs generated adaptive shell Playwright smoke coverage", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "tests", "e2e", "adaptive-shell.spec.ts"), "utf8");
+test("shell-web application pattern includes adaptive shell Playwright coverage", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "tests", "e2e", "adaptive-shell.spec.ts"),
+    "utf8"
+  );
   const helperSource = await readFile(path.join(PACKAGE_DIR, "src", "test", "adaptiveShellSmoke.js"), "utf8");
 
-  assertGeneratedUiSourceContract(helperSource, {
-    profile: "responsive-smoke",
-    sourceName: "adaptiveShellSmoke.js"
-  });
   assert.match(source, /DEFAULT_VIEWPORTS, runAdaptiveShellSmokeCase/);
   assert.match(source, /test\(`/);
   assert.match(source, /runAdaptiveShellSmokeCase\(\{ page, expect, viewport \}\)/);
   assert.doesNotMatch(source, /runAdaptiveShellSmoke\(\{/);
   assert.match(source, /@jskit-ai\/shell-web\/test\/adaptiveShellSmoke/);
-  assert.match(helperSource, /generated adaptive shell smoke/);
+  assert.match(helperSource, /adaptive shell smoke/);
   assert.match(helperSource, /390/);
   assert.match(helperSource, /1024/);
   assert.match(helperSource, /1280/);
@@ -180,6 +176,8 @@ test("shell-web installs generated adaptive shell Playwright smoke coverage", as
   assert.match(helperSource, /jskit-shell-drawer/);
   assert.match(helperSource, /scrollWidth/);
   assert.match(helperSource, /toBeGreaterThanOrEqual\(48\)/);
+  assert.match(helperSource, /getByRole\("button", \{ name: "Close navigation menu" \}\)/);
+  assert.doesNotMatch(helperSource, /\.v-navigation-drawer__scrim|generated-ui-screen/u);
 
   const packageJson = JSON.parse(await readFile(path.join(PACKAGE_DIR, "package.json"), "utf8"));
   assert.equal(packageJson?.exports?.["./test/adaptiveShellSmoke"], "./src/test/adaptiveShellSmoke.js");
@@ -296,22 +294,37 @@ test("shell-web route transition key preserves no-motion surfaces and animated p
   );
 });
 
-test("shell-web settings landing page redirects to the starter child page", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "index.vue"), "utf8");
+test("shell-web pattern settings landing page redirects to its child page", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "pages", "home", "settings", "index.vue"),
+    "utf8"
+  );
 
   assert.match(source, /@jskit-ai\/kernel\/client\/pageRedirects/);
   assert.match(source, /definePage/);
   assert.match(source, /redirectToChild\("general"\)/);
 });
 
-test("shell-web settings general child page exposes an adaptive drawer preference", async () => {
+test("shell-web pattern settings page exposes an adaptive drawer preference", async () => {
   const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "settings", "general", "index.vue"),
+    path.join(
+      PACKAGE_DIR,
+      "patterns",
+      "application-shell",
+      "example",
+      "src",
+      "pages",
+      "home",
+      "settings",
+      "general",
+      "index.vue"
+    ),
     "utf8"
   );
 
   assert.match(source, /useShellLayoutState/);
-  assert.match(source, /generated-ui-screen generated-ui-screen--settings settings-general-screen/);
+  assert.match(source, /class="settings-general-screen d-flex flex-column ga-4"/);
+  assert.doesNotMatch(source, /generated-ui/u);
   assert.match(source, /drawerDefaultOpen/);
   assert.match(source, /setDrawerDefaultOpen/);
   assert.match(source, /collapsed navigation remains available as a rail/);
@@ -321,8 +334,11 @@ test("shell-web settings general child page exposes an adaptive drawer preferenc
   assert.doesNotMatch(source, /live in this browser only|tiny example|starter settings/);
 });
 
-test("shell-web placement template seeds default Home and Settings adaptive navigation", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8");
+test("shell-web application pattern demonstrates Home and Settings adaptive navigation", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "placement.js"),
+    "utf8"
+  );
 
   assert.match(source, /id: "shell-web\.home\.menu\.home"/);
   assert.match(source, /target: "shell\.primary-nav"/);
@@ -341,8 +357,11 @@ test("shell-web placement template seeds default Home and Settings adaptive navi
   assert.doesNotMatch(source, /to: "\.\/general"/);
 });
 
-test("shell-web placement topology seeds global actions as a semantic shell placement", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "placementTopology.js"), "utf8");
+test("shell-web application pattern demonstrates semantic global actions", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "placementTopology.js"),
+    "utf8"
+  );
 
   assert.match(source, /id: "shell\.global-actions"/);
   assert.match(source, /description: "Global surface actions that should stay outside primary navigation\."/);
@@ -353,12 +372,12 @@ test("shell-web placement topology seeds global actions as a semantic shell plac
   assert.match(source, /outlet: "shell-layout:supporting-side-panel"/);
 });
 
-test("shell-web packageMetadata pre-optimizes package subpaths reached only through dynamic base-shell modules", async () => {
+test("shell-web packageMetadata pre-optimizes package subpaths reached through dynamic shell modules", async () => {
   const [providerSource, placementSource, placementTopologySource, errorSource] = await Promise.all([
     readFile(path.join(PACKAGE_DIR, "src", "client", "providers", "ShellWebClientProvider.js"), "utf8"),
-    readFile(path.join(PACKAGE_DIR, "templates", "src", "placement.js"), "utf8"),
-    readFile(path.join(PACKAGE_DIR, "templates", "src", "placementTopology.js"), "utf8"),
-    readFile(path.join(PACKAGE_DIR, "templates", "src", "error.js"), "utf8")
+    readFile(path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "placement.js"), "utf8"),
+    readFile(path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "placementTopology.js"), "utf8"),
+    readFile(path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "error.js"), "utf8")
   ]);
 
   assert.deepEqual(
@@ -389,30 +408,10 @@ test("shell-web packageMetadata pre-optimizes package subpaths reached only thro
   ]);
 });
 
-test("shell-web packageMetadata metadata advertises adaptive shell outlets, default links, and installs the scaffold page", () => {
-  const homePageMutationIds = [
-    "shell-web-page-home-wrapper",
-    "shell-web-page-home",
-    "shell-web-page-home-settings-shell",
-    "shell-web-page-home-settings",
-    "shell-web-page-home-settings-general"
-  ];
-  for (const mutationId of homePageMutationIds) {
-    assert.deepEqual(findFileMutation(mutationId)?.when, {
-      config: "surfaceDefinitions.home.enabled",
-      equals: "true"
-    });
-  }
-
-  assert.deepEqual(readClientContainerTokens(), [
-    "runtime.web-placement.client",
-    "runtime.web-bootstrap.client",
-    "runtime.web-refresh.client",
-    "runtime.web-async-module-recovery.client",
-    "runtime.web-request-recovery.client",
-    "runtime.web-error.client",
-    "runtime.web-error.presentation-store.client"
-  ]);
+test("shell-web metadata advertises adaptive shell outlets and pattern-backed links", () => {
+  assert.equal(packageMetadata?.mutations, undefined);
+  assert.equal(Object.hasOwn(packageMetadata?.metadata?.apiSummary || {}, "containerTokens"), false);
+  assert.deepEqual(packageMetadata?.capabilities?.provides, ["client.shell"]);
 
   assert.deepEqual(
     readOutlets("shell-layout:primary-bottom-nav"),
@@ -453,7 +452,7 @@ test("shell-web packageMetadata metadata advertises adaptive shell outlets, defa
       {
         target: "home-settings:primary-menu",
         surfaces: ["home"],
-        source: "templates/src/pages/home/settings.vue"
+        source: "patterns/application-shell/example/src/pages/home/settings.vue"
       }
     ]
   );
@@ -467,7 +466,7 @@ test("shell-web packageMetadata metadata advertises adaptive shell outlets, defa
         kind: "link",
         surfaces: ["home"],
         order: 50,
-        source: "templates/src/placement.js"
+        source: "patterns/application-shell/example/src/placement.js"
       },
       {
         id: "shell-web.home.menu.settings",
@@ -475,7 +474,7 @@ test("shell-web packageMetadata metadata advertises adaptive shell outlets, defa
         kind: "link",
         surfaces: ["home"],
         order: 100,
-        source: "templates/src/placement.js"
+        source: "patterns/application-shell/example/src/placement.js"
       }
     ]
   );
@@ -490,7 +489,7 @@ test("shell-web packageMetadata metadata advertises adaptive shell outlets, defa
         kind: "link",
         surfaces: ["home"],
         order: 100,
-        source: "templates/src/placement.js"
+        source: "patterns/application-shell/example/src/placement.js"
       }
     ]
   );
@@ -519,67 +518,17 @@ test("shell-web packageMetadata metadata advertises adaptive shell outlets, defa
     "shell-layout:supporting-side-panel"
   );
 
-  assert.deepEqual(findFileMutation("shell-web-page-home-settings-shell"), {
-    from: "templates/src/pages/home/settings.vue",
-    toSurface: "home",
-    toSurfacePath: "settings.vue",
-    ownership: "app",
-    reason: "Install shell-driven home settings shell route with section navigation.",
-    category: "shell-web",
-    id: "shell-web-page-home-settings-shell",
-    when: {
-      config: "surfaceDefinitions.home.enabled",
-      equals: "true"
-    }
-  });
-
-  assert.deepEqual(findFileMutation("shell-web-page-home-settings"), {
-    from: "templates/src/pages/home/settings/index.vue",
-    toSurface: "home",
-    toSurfacePath: "settings/index.vue",
-    ownership: "app",
-    reason: "Install shell-driven home settings redirect so the starter settings shell lands on a real child page.",
-    category: "shell-web",
-    id: "shell-web-page-home-settings",
-    when: {
-      config: "surfaceDefinitions.home.enabled",
-      equals: "true"
-    }
-  });
-
-  assert.deepEqual(findFileMutation("shell-web-page-home-settings-general"), {
-    from: "templates/src/pages/home/settings/general/index.vue",
-    toSurface: "home",
-    toSurfacePath: "settings/general/index.vue",
-    ownership: "app",
-    reason: "Install shell-driven general settings child page with a tiny browser-local shell preference example.",
-    category: "shell-web",
-    id: "shell-web-page-home-settings-general",
-    when: {
-      config: "surfaceDefinitions.home.enabled",
-      equals: "true"
-    }
-  });
-
-  assert.deepEqual(findFileMutation("shell-web-test-adaptive-shell-smoke"), {
-    from: "templates/tests/e2e/adaptive-shell.spec.ts",
-    to: "tests/e2e/adaptive-shell.spec.ts",
-    ownership: "app",
-    reason: "Install compact/medium/expanded Playwright smoke coverage for the adaptive shell.",
-    category: "shell-web",
-    id: "shell-web-test-adaptive-shell-smoke"
-  });
 });
 
-test("shell-web home starter page relies on adaptive shell navigation instead of dead feature buttons", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "src", "pages", "home", "index.vue"), "utf8");
+test("shell-web pattern home page relies on adaptive navigation instead of dead feature buttons", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "pages", "home", "index.vue"),
+    "utf8"
+  );
 
-  assertGeneratedUiSourceContract(source, {
-    profile: "shell-home",
-    sourceName: "shell-web home/index.vue"
-  });
-  assert.match(source, /generated-ui-screen generated-ui-screen--app home-surface-screen/);
-  assert.match(source, /--generated-ui-screen-title-size/);
+  assert.match(source, /class="home-surface-screen d-flex flex-column ga-4"/);
+  assert.match(source, /--home-surface-title-size/);
+  assert.doesNotMatch(source, /generated-ui/u);
   assert.match(source, /Core services are available\./);
   assert.match(source, /to="\/home\/settings\/general"/);
   assert.doesNotMatch(source, /Use bottom navigation|Replace this content|Main public surface/);

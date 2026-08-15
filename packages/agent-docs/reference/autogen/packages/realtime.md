@@ -30,51 +30,48 @@ Local functions
 - `resolveEnabled(value)`
 - `resolveEventName(value)`
 
-### `src/client/listeners.js`
-Exports
-- `normalizeRealtimeClientListener(entry)`
-- `registerRealtimeClientListener(app, token, factory)`
-- `resolveRealtimeClientListeners(scope)`
-Local functions
-- `normalizeListenerEntries(value)`
-
 ### `src/client/RealtimeClientProvider.js`
 Exports
 - `RealtimeClientProvider`
+- `resolveRealtimeClientConfig({ env = {}, mobile = null } = {})`
 Local functions
-- `isCapacitorRuntimeAvailable(app)`
-- `resolveRealtimeClientConfig(app)`
+- `createRealtimeClient({ config, loggerInput } = {})`
 
 ### `src/client/runtime.js`
 Exports
 - `createSocketIoClient({ url = "", options = {}, connect = connectSocketIoClient } = {})`
 - `disconnectSocketIoClient(socket)`
 
-### `src/server/RealtimeServiceProvider.js`
+### `src/server/realtimeAudience.js`
 Exports
-- `RealtimeServiceProvider`
+- `registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null })`
+- `resolveAudienceTargets(audience, event, { database = null, logger })`
 Local functions
 - `normalizeArray(value)`
 - `roomForUser(userId)`
 - `roomForWorkspace(workspaceId)`
 - `roomForWorkspaceUser(workspaceId, userId)`
-- `parseCookieHeader(value = "")`
-- `createProviderLogger(scope, { debugEnabled = false } = {})`
-- `parseDebugFlag(value, fallback = null)`
-- `resolveRealtimeServerDebugEnabled(scope)`
-- `buildRealtimeDispatchIndex(registrations = [])`
-- `mergeRealtimePayload(event, payloadPatch)`
 - `resolveScopeWorkspaceId(scope = {})`
 - `resolveScopeUserId(scope = {})`
-- `applyAudiencePreset(preset, { event, rooms, flags, logger } = {})`
-- `addAudienceRoomsFromObject(selection, { event, rooms, flags, logger } = {})`
-- `collectUserIdsFromQueryRows(rows = [])`
-- `resolveAudienceQueryRooms(userQuery, { scope, event, logger } = {})`
-- `resolveAudienceTargets(dispatcher, event, { scope, logger } = {})`
+- `applyAudiencePreset(preset, { event, rooms, flags, logger })`
+- `addAudienceRooms(selection, state)`
+- `collectUserIds(rows)`
+- `parseCookieHeader(value = "")`
 - `resolveSocketActorId(authService, socket)`
-- `resolveActorWorkspaceIds(workspaceMembershipsRepository, actorId)`
-- `resolveOptionalScopeBinding(scope, token = "")`
-- `registerRealtimeSocketAudienceBootstrap(scope, io, logger)`
+
+### `src/server/realtimeDelivery.js`
+Exports
+- `createRealtimeDelivery({ io, database = null, logger })`
+Local functions
+- `publicRealtimePayload(event)`
+
+### `src/server/RealtimeProvider.js`
+Exports
+- `RealtimeProvider`
+Local functions
+- `parseDebugFlag(value, fallback = null)`
+- `debugEnabled(config, env)`
+- `createRealtimeCapability({ io })`
 
 ### `src/server/runtime.js`
 Exports
@@ -89,3 +86,9 @@ Exports
 Local functions
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
 - `buildSocketIoRedisAdapterKey(redisNamespace = "")`
+
+### patterns
+
+### `patterns/realtime-application/example/src/placement.js`
+Exports
+- `getPlacements()`

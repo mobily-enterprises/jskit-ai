@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-test("auth-web client index defines provider-based client routes surface", () => {
+test("auth-web client index exports its routes and declarative provider", () => {
   const source = readFileSync(fileURLToPath(new URL("../src/client/index.js", import.meta.url)), "utf8");
 
   assert.equal(source.includes('export { useAuthStore } from "./stores/useAuthStore.js";'), true);
@@ -14,7 +14,7 @@ test("auth-web client index defines provider-based client routes surface", () =>
   assert.equal(source.includes('"auth-login": DefaultLoginView'), true);
   assert.equal(source.includes('"auth-signout": DefaultSignOutView'), true);
   assert.equal(source.includes('"auth-default-login": DefaultLoginView'), true);
-  assert.equal(source.includes("const clientProviders = Object.freeze([AuthWebClientProvider]);"), true);
+  assert.equal(source.includes('export { AuthWebClientProvider } from "./providers/AuthWebClientProvider.js";'), true);
   assert.equal(source.includes("async function bootClient(context) {"), false);
-  assert.equal(source.includes("export { routeComponents, clientProviders };"), true);
+  assert.equal(source.includes("export { routeComponents };"), true);
 });

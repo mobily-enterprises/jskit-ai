@@ -14,6 +14,20 @@ import { createNoopAuditAdapter } from "./audit.js";
 import { createNoopObservabilityAdapter } from "./observability.js";
 import { normalizeExecutionContext } from "./executionContext.js";
 
+async function publishActionEvents(events, builders, execution) {
+  if (!Array.isArray(builders) || builders.length === 0) return;
+  if (!events || typeof events.publish !== "function") {
+    throw new TypeError("Action event publishing requires runtime.events.publish().");
+  }
+  for (const builder of builders) {
+    const built = await builder(execution);
+    const values = Array.isArray(built) ? built : [built];
+    for (const event of values) {
+      if (event != null) await events.publish(event);
+    }
+  }
+}
+
 function normalizeOutcomeErrorCode(error) {
   return String(error?.code || "ACTION_EXECUTION_FAILED").trim();
 }
@@ -76,6 +90,7 @@ async function executeActionPipeline({
   idempotencyAdapter,
   auditAdapter,
   observabilityAdapter,
+  events,
   logger = console
 } = {}) {
   const normalizedContext = normalizeExecutionContext(context);
@@ -166,6 +181,13 @@ async function executeActionPipeline({
 
     const executionResult = await definition.execute(normalizedInput, normalizedContext, deps);
     const normalizedResult = await normalizeActionOutput(definition, executionResult, normalizedContext);
+
+    await publishActionEvents(events, definition.events, Object.freeze({
+      definition,
+      input: normalizedInput,
+      result: normalizedResult,
+      context: normalizedContext
+    }));
 
     if (idempotencyClaim && typeof normalizedIdempotencyAdapter.markSucceeded === "function") {
       await normalizedIdempotencyAdapter.markSucceeded({

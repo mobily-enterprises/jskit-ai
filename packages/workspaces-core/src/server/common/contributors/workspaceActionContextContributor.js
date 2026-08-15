@@ -67,10 +67,7 @@ function createWorkspaceActionContextContributor({
       }
 
       const resolveOptions = { request };
-      if (
-        !hasWorkspaceRouteVisibility &&
-        workspaceMembershipOptionalSurfaceIdSet.has(activeSurfaceId)
-      ) {
+      if (workspaceMembershipOptionalSurfaceIdSet.has(activeSurfaceId)) {
         resolveOptions.requireMembership = false;
       }
 

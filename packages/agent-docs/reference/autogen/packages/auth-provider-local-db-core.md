@@ -39,12 +39,12 @@ Exports
 - `createLocalDbBackend`
 - `LOCAL_AUTH_DB_TABLES`
 
-### `src/server/providers/AuthLocalDbBackendServiceProvider.js`
+### `src/server/providers/AuthLocalDatabaseBackendProvider.js`
 Exports
-- `AuthLocalDbBackendServiceProvider`
+- `AuthLocalDatabaseBackendProvider`
 
-### templates
+### migrations
 
-### `templates/migrations/auth_local_db_initial.cjs`
+### `migrations/auth_local_db_initial.cjs`
 Exports
 - None

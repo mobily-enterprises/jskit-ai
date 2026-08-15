@@ -100,19 +100,13 @@ function runRowAction(action = {}) {
       <v-list-item
         v-for="action in visibleRowActions"
         :key="action.key"
-        :title="action.label"
+        :title="isRowActionLoading(action) ? `${action.label}…` : action.label"
         :base-color="action.color"
         :disabled="isRowActionDisabled(action)"
         @click="runRowAction(action)"
       >
-        <template v-if="isRowActionLoading(action) || action.icon" #prepend>
-          <v-progress-circular
-            v-if="isRowActionLoading(action)"
-            indeterminate
-            size="18"
-            width="2"
-          />
-          <v-icon v-else :icon="action.icon" />
+        <template v-if="action.icon" #prepend>
+          <v-icon :icon="action.icon" />
         </template>
       </v-list-item>
     </v-list>

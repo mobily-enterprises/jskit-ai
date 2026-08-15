@@ -17,15 +17,16 @@ Use this on demand; do not load the full index at startup.
 ### `src/client/index.js`
 Exports
 - `MobileCapacitorClientProvider`
+- `MobileCapacitorRuntimeProvider`
 - `createMobileCapacitorRuntime`
 - `createGlobalCapacitorAppAdapter`
 - `createNoopCapacitorAppAdapter`
 - `resolveCapacitorAppPlugin`
-- `clientProviders`
 
 ### `src/client/providers/MobileCapacitorClientProvider.js`
 Exports
 - `MobileCapacitorClientProvider`
+- `MobileCapacitorRuntimeProvider`
 - `installCapacitorAwareGlobalFetch({ adapter = null, apiBaseUrl = "", globalObject = globalThis } = {})`
 
 ### `src/client/runtime/apiRequestClient.js`
@@ -56,15 +57,3 @@ Local functions
 Exports
 - `createCapacitorAwareOAuthLaunchClient({ adapter = null, browserPlugin = Browser, location = null, apiBaseUrl = "" } = {})`
 - `resolveCapacitorLaunchUrl(url = "", apiBaseUrl = "")`
-
-### `src/server/buildTemplateContext.js`
-Exports
-- `buildTemplateContext({ appRoot } = {})`
-- `prepareInstallHook({ appRoot, appPackageJson = {}, io, dryRun = false, helpers = {} } = {})`
-- `finalizeInstallHook({ appRoot, io, dryRun = false, skipManagedFinalize = false, helpers = {} } = {})`
-Local functions
-- `requireNonEmptyText(value, label = "value")`
-- `requireUrl(value, label = "value", { allowHttp = true, allowHttps = true } = {})`
-- `buildCapacitorServerBlock(mobileConfig = {})`
-- `buildAppLinkDomainsValue(appLinkDomains = [])`
-- `directoryContainsAnyFiles(directoryPath = "")`

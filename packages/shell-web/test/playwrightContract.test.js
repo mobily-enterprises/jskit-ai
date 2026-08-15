@@ -9,17 +9,6 @@ import {
 
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("shell-web owns the exact Playwright dependency used by its generated smoke", async () => {
-  const packageJson = JSON.parse(await readFile(path.join(PACKAGE_ROOT, "package.json"), "utf8"));
-  const rootPackage = JSON.parse(await readFile(path.resolve(PACKAGE_ROOT, "../../package.json"), "utf8"));
-
-  assert.equal(packageJson.jskit.mutations.dependencies.dev["@playwright/test"], "1.61.1");
-  assert.equal(
-    packageJson.jskit.mutations.dependencies.dev["@playwright/test"],
-    rootPackage.devDependencies["@playwright/test"]
-  );
-});
-
 test("adaptive shell smoke navigates through Playwright baseURL", async () => {
   const source = await readFile(path.join(PACKAGE_ROOT, "src/test/adaptiveShellSmoke.js"), "utf8");
 
@@ -69,7 +58,8 @@ test("adaptive shell smoke follows rendered layout state and waits for drawer tr
   assert.match(source, /data-rail-width/u);
   assert.match(source, /expect\.poll/u);
   assert.match(source, /toBeFocused/u);
-  assert.match(source, /v-navigation-drawer__scrim/u);
+  assert.match(source, /getByRole\("button", \{ name: "Close navigation menu" \}\)/u);
+  assert.doesNotMatch(source, /v-navigation-drawer__scrim/u);
   assert.match(source, /page\.keyboard\.press\("Escape"\)[\s\S]*data-presentation", "drawer"/u);
   assert.match(source, /centers\.push\(box\.x \+ box\.width \/ 2\)/u);
   assert.match(source, /fit\.endGap - configuredSpacing/u);

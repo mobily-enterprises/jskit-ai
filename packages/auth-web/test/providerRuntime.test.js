@@ -1,21 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication, createHttpRuntime } from "@jskit-ai/kernel/_testable";
-import { AuthRouteServiceProvider } from "../src/server/providers/AuthRouteServiceProvider.js";
-import { AuthWebServiceProvider } from "../src/server/providers/AuthWebServiceProvider.js";
+import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { createCapabilityRuntime } from "@jskit-ai/kernel/shared/capabilities";
+import { AuthFeature } from "@jskit-ai/auth-core/server/providers/AuthFeature";
+import { HttpProvider } from "@jskit-ai/kernel/server/http";
+import { AuthWebFeature } from "../src/server/AuthWebFeature.js";
 
 function createFastifyStub() {
-  const routes = [];
-  const hooks = [];
   return {
-    hooks,
-    routes,
+    hooks: [],
+    routes: [],
     errorHandler: null,
     addHook(name, handler) {
-      hooks.push({ name, handler });
+      this.hooks.push({ name, handler });
     },
     route(definition) {
-      routes.push(definition);
+      this.routes.push(definition);
     },
     setErrorHandler(handler) {
       this.errorHandler = handler;
@@ -43,329 +43,114 @@ function createReplyStub() {
   };
 }
 
-class MockActionRuntimeProvider {
-  static id = "runtime.actions";
-}
-
-test("auth route provider registers routes and executes login/logout handlers", async () => {
-  const events = [];
-  const fastify = createFastifyStub();
-  const app = createApplication();
-  const httpRuntime = createHttpRuntime({ app, fastify });
-
-  const authService = {
-    writeSessionCookies(_reply, session) {
-      events.push({ type: "writeSession", session });
+function createAuthService(events = []) {
+  return {
+    async register(input) {
+      return {
+        actor: { displayName: input.displayName, email: input.email },
+        session: { access_token: "register-a", refresh_token: "register-r" },
+        requiresEmailConfirmation: false
+      };
     },
-    clearSessionCookies() {
-      events.push({ type: "clearSession" });
+    async resendRegisterConfirmation() {
+      return { ok: true, message: "Confirmation sent." };
     },
-    getOAuthProviderCatalog() {
-      return { providers: [], defaultProvider: "" };
-    }
-  };
-
-  app.instance("authService", authService);
-  app.instance("actionExecutor", {
-    async execute({ actionId }) {
-      if (actionId === "auth.register.confirmation.resend") {
-        return {
-          ok: true,
-          message: "If an account exists for that email, a confirmation email has been sent."
-        };
-      }
-      if (actionId === "auth.login.password") {
-        return {
-          session: { access_token: "a", refresh_token: "r" },
-          actor: { displayName: "Ada" }
-        };
-      }
-      if (actionId === "auth.dev.loginAs") {
-        return {
-          session: { access_token: "dev-a", refresh_token: "dev-r" },
-          actor: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
-        };
-      }
-      if (actionId === "auth.logout") {
-        return {
-          ok: true,
-          clearSession: true
-        };
-      }
-      return {};
-    }
-  });
-
-  class MockAuthProvider {
-    static id = "auth.provider";
-  }
-
-  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
-
-  const registration = httpRuntime.registerRoutes();
-  assert.equal(registration.routeCount > 0, true);
-
-  const loginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/login");
-  assert.ok(loginRoute);
-  const loginReply = createReplyStub();
-  await loginRoute.handler({ body: { email: "ada@example.com", password: "pass" } }, loginReply);
-  assert.equal(loginReply.statusCode, 200);
-  assert.equal(loginReply.payload.username, "Ada");
-
-  const resendConfirmationRoute = fastify.routes.find(
-    (route) => route.method === "POST" && route.url === "/api/register/confirmation/resend"
-  );
-  assert.ok(resendConfirmationRoute);
-  const resendConfirmationReply = createReplyStub();
-  await resendConfirmationRoute.handler({ body: { email: "ada@example.com" } }, resendConfirmationReply);
-  assert.equal(resendConfirmationReply.statusCode, 200);
-  assert.equal(resendConfirmationReply.payload.ok, true);
-
-  const devLoginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/dev-auth/login-as");
-  assert.equal(devLoginRoute, undefined);
-
-  const logoutRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/logout");
-  assert.ok(logoutRoute);
-  const logoutReply = createReplyStub();
-  await logoutRoute.handler({}, logoutReply);
-  assert.equal(logoutReply.statusCode, 200);
-  assert.equal(logoutReply.payload.ok, true);
-
-  assert.equal(events.some((entry) => entry.type === "writeSession"), true);
-  assert.equal(events.some((entry) => entry.type === "clearSession"), true);
-});
-
-test("auth route provider registers dev login route only when dev auth bypass is enabled in env", async () => {
-  const fastify = createFastifyStub();
-  const app = createApplication();
-  const httpRuntime = createHttpRuntime({ app, fastify });
-
-  const authService = {
-    writeSessionCookies() {},
-    clearSessionCookies() {},
-    getOAuthProviderCatalog() {
-      return { providers: [], defaultProvider: "" };
-    }
-  };
-
-  app.instance("jskit.env", {
-    NODE_ENV: "development",
-    AUTH_DEV_BYPASS_ENABLED: "true"
-  });
-  app.instance("authService", authService);
-  app.instance("actionExecutor", {
-    async execute({ actionId }) {
-      if (actionId === "auth.dev.loginAs") {
-        return {
-          session: { access_token: "dev-a", refresh_token: "dev-r" },
-          actor: { id: "7", displayName: "Dev Ada", email: "ada@example.com" }
-        };
-      }
-      return {};
-    }
-  });
-
-  class MockAuthProvider {
-    static id = "auth.provider";
-  }
-
-  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
-
-  const registration = httpRuntime.registerRoutes();
-  assert.equal(registration.routeCount > 0, true);
-
-  const devLoginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/dev-auth/login-as");
-  assert.ok(devLoginRoute);
-  const devLoginReply = createReplyStub();
-  await devLoginRoute.handler({ body: { userId: "7" } }, devLoginReply);
-  assert.equal(devLoginReply.statusCode, 200);
-  assert.equal(devLoginReply.payload.userId, "7");
-  assert.equal(devLoginReply.payload.username, "Dev Ada");
-});
-
-test("auth route provider does not resolve authService during boot", async () => {
-  const fastify = createFastifyStub();
-  const app = createApplication();
-  const httpRuntime = createHttpRuntime({ app, fastify });
-  let authServiceResolutions = 0;
-
-  app.singleton("authService", () => {
-    authServiceResolutions += 1;
-    return {
-      writeSessionCookies() {},
-      clearSessionCookies() {},
-      getOAuthProviderCatalog() {
-        return { providers: [], defaultProvider: "" };
-      }
-    };
-  });
-
-  app.instance("actionExecutor", {
-    async execute({ actionId }) {
-      if (actionId === "auth.login.password") {
-        return {
-          session: { access_token: "a", refresh_token: "r" },
-          actor: { displayName: "Ada" }
-        };
-      }
-      return {};
-    }
-  });
-
-  class MockAuthProvider {
-    static id = "auth.provider";
-  }
-
-  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
-  assert.equal(authServiceResolutions, 0);
-
-  const registration = httpRuntime.registerRoutes();
-  assert.equal(registration.routeCount > 0, true);
-  assert.equal(authServiceResolutions, 0);
-
-  const loginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/login");
-  assert.ok(loginRoute);
-  const loginReply = createReplyStub();
-  await loginRoute.handler({ body: { email: "ada@example.com", password: "pass" } }, loginReply);
-  assert.equal(loginReply.statusCode, 200);
-  assert.equal(authServiceResolutions, 1);
-});
-
-test("auth session route preserves provider capabilities through response validation", async () => {
-  const fastify = createFastifyStub();
-  const app = createApplication();
-  const httpRuntime = createHttpRuntime({ app, fastify });
-
-  app.instance("authService", {
-    writeSessionCookies() {},
-    clearSessionCookies() {},
+    async login() {
+      return {
+        session: { access_token: "a", refresh_token: "r" },
+        actor: { displayName: "Ada", email: "ada@example.com" }
+      };
+    },
+    async devLoginAs(_request, input) {
+      return {
+        session: { access_token: "dev-a", refresh_token: "dev-r" },
+        actor: { id: input.userId || "7", displayName: "Dev Ada", email: "ada@example.com" }
+      };
+    },
+    async logout() {
+      return { ok: true, clearSession: true };
+    },
+    async authenticateRequest() {
+      return { authenticated: false };
+    },
     getCapabilities() {
       return {
-        provider: {
-          id: "local",
-          label: "Local"
-        },
+        provider: { id: "local", label: "Local" },
         features: {
-          password: {
-            login: true,
-            register: true,
-            change: true,
-            methodToggle: false
-          },
-          passwordRecovery: {
-            request: true,
-            complete: true,
-            delivery: "dev-log"
-          },
-          otp: {
-            login: false
-          },
-          oauthLogin: {
-            enabled: false,
-            providers: [],
-            defaultProvider: null
-          },
+          password: { login: true, register: true, change: true, methodToggle: false },
+          passwordRecovery: { request: true, complete: true, delivery: "dev-log" },
+          otp: { login: false },
+          oauthLogin: { enabled: false, providers: [], defaultProvider: null },
           emailConfirmation: false,
           profileUpdate: true,
-          providerLinking: {
-            start: false,
-            unlink: false
-          },
+          providerLinking: { start: false, unlink: false },
           securityStatus: true,
           signOutOtherSessions: true,
           appProfileProjection: false,
           devLoginAs: false
         }
       };
-    }
-  });
-  app.instance("actionExecutor", {
-    async execute({ actionId }) {
-      if (actionId === "auth.session.read") {
-        return {
-          authenticated: false
-        };
-      }
-      return {};
-    }
-  });
-
-  class MockAuthProvider {
-    static id = "auth.provider";
-  }
-
-  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
-
-  const registration = httpRuntime.registerRoutes();
-  assert.equal(registration.routeCount > 0, true);
-
-  const sessionRoute = fastify.routes.find((route) => route.method === "GET" && route.url === "/api/session");
-  assert.ok(sessionRoute);
-  const sessionReply = createReplyStub();
-  await sessionRoute.handler({}, sessionReply);
-
-  assert.equal(sessionReply.statusCode, 200);
-  assert.equal(sessionReply.payload.authenticated, false);
-  assert.equal(sessionReply.payload.authCapabilities.provider.id, "local");
-  assert.equal(sessionReply.payload.authCapabilities.features.password.login, true);
-  assert.equal(sessionReply.payload.authCapabilities.features.password.register, true);
-});
-
-test("auth session route exposes denial reason when policy clears a rejected authenticated session", async () => {
-  const events = [];
-  const fastify = createFastifyStub();
-  const app = createApplication();
-  const httpRuntime = createHttpRuntime({ app, fastify });
-
-  const authService = {
-    writeSessionCookies() {
-      events.push({ type: "writeSession" });
+    },
+    writeSessionCookies(_reply, session) {
+      events.push({ type: "writeSession", session });
     },
     clearSessionCookies() {
       events.push({ type: "clearSession" });
-    },
-    getOAuthProviderCatalog() {
-      return { providers: [], defaultProvider: "" };
     }
   };
+}
 
-  app.instance("authService", authService);
-  app.instance("actionExecutor", {
-    async execute({ actionId }) {
-      if (actionId === "auth.session.read") {
-        return {
-          authenticated: false,
-          clearSession: true,
-          transientFailure: false,
-          authDenied: {
-            code: "not_allowlisted",
-            message: "This account is not allowed to access this application."
-          }
-        };
-      }
-      return {};
+async function startAuthWeb({ env = {}, authService = null } = {}) {
+  const fastify = createFastifyStub();
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "auth.service": authService || createAuthService(),
+      "runtime.env": { NODE_ENV: "test", ...env },
+      "runtime.fastify": fastify
+    },
+    providers: [createActionProvider(), HttpProvider, AuthFeature, AuthWebFeature]
+  });
+  await runtime.start();
+  return { fastify, runtime };
+}
+
+test("AuthWebFeature registers direct action-backed login and logout routes", async () => {
+  const events = [];
+  const { fastify } = await startAuthWeb({ authService: createAuthService(events) });
+  const loginRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/login");
+  const loginReply = createReplyStub();
+  await loginRoute.handler({ body: { email: "ada@example.com", password: "password value" } }, loginReply);
+  assert.equal(loginReply.statusCode, 200);
+  assert.equal(loginReply.payload.username, "Ada");
+
+  const logoutRoute = fastify.routes.find((route) => route.method === "POST" && route.url === "/api/logout");
+  const logoutReply = createReplyStub();
+  await logoutRoute.handler({}, logoutReply);
+  assert.deepEqual(logoutReply.payload, { ok: true });
+  assert.equal(events.some((entry) => entry.type === "writeSession"), true);
+  assert.equal(events.some((entry) => entry.type === "clearSession"), true);
+});
+
+test("AuthWebFeature exposes dev login only when the explicit dev policy enables it", async () => {
+  const disabled = await startAuthWeb();
+  assert.equal(disabled.fastify.routes.some((route) => route.url === "/api/dev-auth/login-as"), false);
+  const enabled = await startAuthWeb({
+    env: {
+      NODE_ENV: "development",
+      AUTH_DEV_BYPASS_ENABLED: "true",
+      AUTH_DEV_BYPASS_SECRET: "test-secret"
     }
   });
+  assert.equal(enabled.fastify.routes.some((route) => route.url === "/api/dev-auth/login-as"), true);
+});
 
-  class MockAuthProvider {
-    static id = "auth.provider";
-  }
-
-  await app.start({ providers: [MockActionRuntimeProvider, MockAuthProvider, AuthWebServiceProvider, AuthRouteServiceProvider] });
-
-  const registration = httpRuntime.registerRoutes();
-  assert.equal(registration.routeCount > 0, true);
-
+test("auth session route returns provider capabilities", async () => {
+  const { fastify } = await startAuthWeb();
   const sessionRoute = fastify.routes.find((route) => route.method === "GET" && route.url === "/api/session");
-  assert.ok(sessionRoute);
-  const sessionReply = createReplyStub();
-  await sessionRoute.handler({}, sessionReply);
-
-  assert.equal(sessionReply.statusCode, 200);
-  assert.equal(sessionReply.payload.authenticated, false);
-  assert.deepEqual(sessionReply.payload.authDenied, {
-    code: "not_allowlisted",
-    message: "This account is not allowed to access this application."
-  });
-  assert.deepEqual(events, [{ type: "clearSession" }]);
+  const reply = createReplyStub();
+  await sessionRoute.handler({}, reply);
+  assert.equal(reply.statusCode, 200);
+  assert.equal(reply.payload.authenticated, false);
+  assert.equal(reply.payload.authCapabilities.provider.id, "local");
+  assert.equal(reply.payload.authCapabilities.features.password.register, true);
 });

@@ -1,0 +1,67 @@
+---
+id: auth/supabase-auth
+title: Supabase authentication
+summary: Add Supabase authentication through normal npm composition, explicit environment values, and app-owned auth policy.
+keywords: auth, authentication, oauth, sessions, supabase
+requires: @jskit-ai/auth-provider-supabase-core
+---
+
+# Supabase authentication
+
+## Use when
+
+Use this pattern when the product deliberately chooses Supabase as its identity
+provider. Install the runtime package normally and configure the application
+environment and visible OAuth providers explicitly.
+
+## Do not use when
+
+Do not use this pattern for local credential storage, a custom identity
+provider, or an application whose authentication decision is still open.
+
+## Product decisions
+
+Decide the public application URL, allowed sign-in methods, visible OAuth
+providers, callback URLs, account-linking policy, and where deployment secrets
+live. Obtain the project URL and publishable key from the selected Supabase
+project.
+
+## Invariants
+
+- Secrets and environment-specific values stay outside committed source.
+- The application owns auth/profile and OAuth visibility policy.
+- The installed runtime package supplies the provider implementation and its
+  npm dependency closure.
+- No setup questionnaire or source mutation is required.
+
+## Framework APIs
+
+Use `@jskit-ai/auth-provider-supabase-core` for the provider and
+`@jskit-ai/auth-core` policy contracts. Configure `config.auth` through the
+application's ordinary server configuration.
+
+## Example files
+
+`example/package.json` declares the selected provider. `example/.env.example`
+names required environment inputs without credentials. `example/config/server.js`
+shows the app-owned profile and OAuth visibility decisions.
+
+## Variation points
+
+Change the OAuth provider list, default provider, profile projection mode,
+public URL, and deployment secret source. Compose account/profile packages only
+when the product needs their behavior.
+
+## Verification
+
+- Start the application with missing values and confirm concise diagnostics.
+- Complete sign-in, callback, refresh, sign-out, and rejected-session cases.
+- Verify allowed redirect origins and negative cross-origin behavior.
+- Run the application auth and browser tests.
+
+## Avoid
+
+- committing provider keys
+- silently selecting Supabase for the user
+- generated configuration fragments with hidden overwrite rules
+- setup receipts, provenance, replay logs, or questionnaire answers

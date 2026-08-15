@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { registerBootstrapPayloadHandler } from "../src/client/bootstrap/bootstrapPayloadHandlerRegistry.js";
+import { createBootstrapPayloadHandlerRegistry } from "../src/client/bootstrap/bootstrapPayloadHandlerRegistry.js";
 import { createShellBootstrapRuntime } from "../src/client/runtime/bootstrapRuntime.js";
 
 function createPlacementRuntime(initialContext = {}) {
@@ -32,52 +32,6 @@ function createPlacementRuntime(initialContext = {}) {
   };
 }
 
-function createAppDouble({ placementRuntime, realtimeSocket = null } = {}) {
-  const singletons = new Map();
-  const singletonInstances = new Map();
-  return {
-    singleton(token, factory) {
-      singletons.set(token, factory);
-    },
-    tag(token, tagName) {
-      const current = this._tags.get(tagName) || [];
-      current.push(token);
-      this._tags.set(tagName, current);
-    },
-    resolveTag(tagName) {
-      return (this._tags.get(tagName) || []).map((token) => this.make(token));
-    },
-    _tags: new Map(),
-    has(token) {
-      if (token === "runtime.web-placement.client") {
-        return true;
-      }
-      if (token === "runtime.realtime.client.socket") {
-        return Boolean(realtimeSocket);
-      }
-      return singletons.has(token) || singletonInstances.has(token);
-    },
-    make(token) {
-      if (token === "runtime.web-placement.client") {
-        return placementRuntime;
-      }
-      if (token === "runtime.realtime.client.socket") {
-        return realtimeSocket;
-      }
-      if (singletonInstances.has(token)) {
-        return singletonInstances.get(token);
-      }
-      const factory = singletons.get(token);
-      if (!factory) {
-        throw new Error(`Unknown token ${String(token)}`);
-      }
-      const instance = factory(this);
-      singletonInstances.set(token, instance);
-      return instance;
-    }
-  };
-}
-
 test("shell bootstrap runtime refreshes /api/bootstrap on init and applies registered handlers", async () => {
   const placementRuntime = createPlacementRuntime({
     auth: {}
@@ -97,9 +51,8 @@ test("shell bootstrap runtime refreshes /api/bootstrap on init and applies regis
   const calls = [];
   const observedRequests = [];
   const observedResolveMeta = [];
-  const app = createAppDouble({ placementRuntime });
-  registerBootstrapPayloadHandler(app, "test.bootstrap.request", () =>
-    Object.freeze({
+  const handlers = createBootstrapPayloadHandlerRegistry();
+  handlers.register(Object.freeze({
       handlerId: "test.bootstrap.request",
       order: -10,
       resolveBootstrapRequest() {
@@ -115,10 +68,8 @@ test("shell bootstrap runtime refreshes /api/bootstrap on init and applies regis
       applyBootstrapPayload({ request }) {
         observedRequests.push(request);
       }
-    })
-  );
-  registerBootstrapPayloadHandler(app, "test.bootstrap.request-meta", () =>
-    Object.freeze({
+    }));
+  handlers.register(Object.freeze({
       handlerId: "test.bootstrap.request-meta",
       order: -5,
       resolveBootstrapRequest({ request }) {
@@ -126,10 +77,8 @@ test("shell bootstrap runtime refreshes /api/bootstrap on init and applies regis
         return {};
       },
       applyBootstrapPayload() {}
-    })
-  );
-  registerBootstrapPayloadHandler(app, "test.bootstrap.surfaceAccess", () =>
-    Object.freeze({
+    }));
+  handlers.register(Object.freeze({
       handlerId: "test.bootstrap.surfaceAccess",
       order: 0,
       applyBootstrapPayload({ payload, placementRuntime: targetRuntime }) {
@@ -137,11 +86,11 @@ test("shell bootstrap runtime refreshes /api/bootstrap on init and applies regis
           surfaceAccess: payload.surfaceAccess || {}
         });
       }
-    })
-  );
+    }));
 
   const runtime = createShellBootstrapRuntime({
-    app,
+    handlers,
+    placementRuntime,
     fetchImplementation: async (url) => {
       calls.push(String(url || ""));
       const payload = payloads.shift() || {};

@@ -17,20 +17,6 @@ function findRoute(method, routePath) {
     : null;
 }
 
-function findFileMutation(id) {
-  const fileMutations = packageMetadata?.mutations?.files;
-  return Array.isArray(fileMutations)
-    ? fileMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findSourceMutation(id) {
-  const sourceMutations = packageMetadata?.mutations?.source;
-  return Array.isArray(sourceMutations)
-    ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
 test("workspaces-core packageMetadata advertises public invite resolution route metadata", () => {
   assert.deepEqual(findRoute("GET", "/api/workspace/invitations/resolve"), {
     method: "GET",
@@ -39,55 +25,35 @@ test("workspaces-core packageMetadata advertises public invite resolution route 
   });
 });
 
-test("workspaces-core installs an app-owned editable role catalog", async () => {
-  const source = await readFile(path.join(PACKAGE_DIR, "templates", "config", "roles.js"), "utf8");
+test("workspaces-core publishes an app-owned editable role catalog pattern", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "patterns", "workspace-server", "example", "config", "roles.js"),
+    "utf8"
+  );
 
   assert.match(source, /export const roleCatalog/);
-  assert.deepEqual(findFileMutation("users-core-app-owned-role-catalog-config"), {
-    from: "templates/config/roles.js",
-    to: "config/roles.js",
-    ownership: "app",
-    preserveOnRemove: true,
-    reason: "Install app-owned role catalog in a dedicated config file.",
-    category: "workspaces-core",
-    id: "users-core-app-owned-role-catalog-config"
-  });
+  assert.equal(Object.hasOwn(packageMetadata, "mutations"), false);
 });
 
-test("workspaces-core installs an app-owned editable workspace invite email template", async () => {
+test("workspaces-core publishes an app-owned editable workspace invite email pattern", async () => {
   const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "server", "email", "workspaceInviteEmail.js"),
+    path.join(
+      PACKAGE_DIR,
+      "patterns",
+      "workspace-server",
+      "example",
+      "packages",
+      "main",
+      "src",
+      "server",
+      "email",
+      "workspaceInviteEmail.js"
+    ),
     "utf8"
   );
 
   assert.match(source, /function renderWorkspaceInviteEmail/);
   assert.match(source, /export \{ renderWorkspaceInviteEmail \}/);
   assert.match(source, /inviteUrl/);
-  assert.deepEqual(findFileMutation("workspaces-core-main-workspace-invite-email-template"), {
-    from: "templates/packages/main/src/server/email/workspaceInviteEmail.js",
-    to: "packages/main/src/server/email/workspaceInviteEmail.js",
-    ownership: "app",
-    preserveOnRemove: true,
-    reason: "Install app-owned editable workspace invite email template.",
-    category: "workspaces-core",
-    id: "workspaces-core-main-workspace-invite-email-template"
-  });
-  assert.deepEqual(findSourceMutation("workspaces-core-server-config-workspace-invite-email-import"), {
-    op: "ensure-import",
-    file: "config/server.js",
-    namedImports: ["renderWorkspaceInviteEmail"],
-    from: "../packages/main/src/server/email/workspaceInviteEmail.js",
-    reason: "Load app-owned workspace invite email renderer from packages/main.",
-    category: "workspaces-core",
-    id: "workspaces-core-server-config-workspace-invite-email-import"
-  });
-  assert.deepEqual(findSourceMutation("workspaces-core-server-config-workspace-invite-email-template"), {
-    op: "ensure-assignment",
-    file: "config/server.js",
-    target: "config.workspaceInviteEmailTemplate",
-    value: "renderWorkspaceInviteEmail",
-    reason: "Bind app-owned workspace invite email renderer into server config.",
-    category: "workspaces-core",
-    id: "workspaces-core-server-config-workspace-invite-email-template"
-  });
+  assert.deepEqual(packageMetadata.migrations, { directories: ["migrations"] });
 });

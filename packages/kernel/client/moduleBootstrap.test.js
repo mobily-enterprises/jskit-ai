@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { defineProvider } from "../shared/capabilities/index.js";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
 import { bootClientModules } from "./moduleBootstrap.js";
 
@@ -115,25 +116,37 @@ test("bootClientModules registers packageMetadata and clientRoutes with provider
   const pinia = { id: "pinia-instance" };
   const queryClient = { id: "query-client-instance" };
   const implicitPinia = { id: "implicit-vue-global-pinia" };
-  class ExampleClientProvider {
-    static id = "example.client";
-    register(app) {
-      events.push("register");
-      app.instance("example.value", 42);
-      app.instance("example.pinia", app.make("jskit.client.pinia"));
-      app.instance("example.queryClient", app.make("jskit.client.query-client"));
-    }
+  let receivedPinia = null;
+  let receivedQueryClient = null;
+  const ExampleClientProvider = defineProvider({
+    id: "example.client",
+    requires: {
+      components: "client.components",
+      pinia: "client.pinia",
+      queryClient: "client.query"
+    },
+    setup({ components, pinia: runtimePinia, queryClient: runtimeQueryClient }) {
+      events.push("setup");
+      components.register("example.login", loginComponent);
+      receivedPinia = runtimePinia;
+      receivedQueryClient = runtimeQueryClient;
+    },
     boot() {
       events.push("boot");
     }
-  }
+  });
 
   const result = await bootClientModules({
     clientModules: [
       {
         packageId: "@example/alpha",
+        packageMetadataClientProviders: [
+          {
+            entrypoint: "src/client/providers/ExampleClientProvider.js",
+            export: "ExampleClientProvider"
+          }
+        ],
         module: {
-          clientProviders: [ExampleClientProvider],
           ExampleClientProvider
         }
       },
@@ -199,7 +212,7 @@ test("bootClientModules registers packageMetadata and clientRoutes with provider
     logger: { info() {}, warn() {}, error() {} }
   });
 
-  assert.deepEqual(events, ["register", "boot"]);
+  assert.deepEqual(events, ["setup", "boot"]);
   assert.equal(result.providerCount, 1);
   assert.equal(result.routeCount, 2);
   assert.equal(router.routes.length, 2);
@@ -207,10 +220,11 @@ test("bootClientModules registers packageMetadata and clientRoutes with provider
   assert.equal(router.routes[0].component, loginComponent);
   assert.equal(router.routes[1].path, "/auth/login");
   assert.equal(router.routes[1].component, loginComponent);
-  assert.equal(result.runtimeApp.make("example.value"), 42);
-  assert.equal(result.runtimeApp.make("example.pinia"), pinia);
-  assert.equal(result.runtimeApp.make("example.queryClient"), queryClient);
-  assert.notEqual(result.runtimeApp.make("example.pinia"), implicitPinia);
+  assert.equal(result.components.get("example.login"), loginComponent);
+  assert.equal(receivedPinia, pinia);
+  assert.equal(receivedQueryClient, queryClient);
+  assert.notEqual(receivedPinia, implicitPinia);
+  assert.equal(result.runtime.diagnostics().lifecycleState, "started");
 });
 
 test("bootClientModules does not auto-discover providers from module exports", async () => {
@@ -218,15 +232,15 @@ test("bootClientModules does not auto-discover providers from module exports", a
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
 
-  class ExampleClientProvider {
-    static id = "example.client";
-    register() {
-      events.push("register");
-    }
+  const ExampleClientProvider = defineProvider({
+    id: "example.client",
+    setup() {
+      events.push("setup");
+    },
     boot() {
       events.push("boot");
     }
-  }
+  });
 
   const result = await bootClientModules({
     clientModules: [
@@ -359,6 +373,15 @@ test("bootClientModules loads client providers declared in packageMetadataClient
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();
   const events = [];
+  const ExampleProvider = defineProvider({
+    id: "example.packageMetadata.provider",
+    setup() {
+      events.push("setup");
+    },
+    boot() {
+      events.push("boot");
+    }
+  });
 
   await bootClientModules({
     clientModules: [
@@ -371,15 +394,7 @@ test("bootClientModules loads client providers declared in packageMetadataClient
           }
         ],
         module: {
-          ExampleProvider: class {
-            static id = "example.packageMetadata.provider";
-            register() {
-              events.push("register");
-            }
-            boot() {
-              events.push("boot");
-            }
-          }
+          ExampleProvider
         }
       }
     ],
@@ -389,7 +404,7 @@ test("bootClientModules loads client providers declared in packageMetadataClient
     logger: { info() {}, warn() {}, error() {} }
   });
 
-  assert.deepEqual(events, ["register", "boot"]);
+  assert.deepEqual(events, ["setup", "boot"]);
 });
 
 test("bootClientModules throws when packageMetadataClientProviders export is missing", async () => {
@@ -415,6 +430,6 @@ test("bootClientModules throws when packageMetadataClientProviders export is mis
       surfaceMode: "all",
       logger: { info() {}, warn() {}, error() {} }
     }),
-    /packageMetadata provider export "MissingProvider" is missing or invalid/
+    /packageMetadata provider export "MissingProvider" must be a capability provider/
   );
 });

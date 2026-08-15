@@ -4,32 +4,45 @@ import WorkspaceToolsWidget from "../components/WorkspaceToolsWidget.vue";
 import WorkspaceSettingsMenuItem from "../components/WorkspaceSettingsMenuItem.vue";
 import WorkspaceMembersMenuItem from "../components/WorkspaceMembersMenuItem.vue";
 import MembersAdminClientElement from "../components/MembersAdminClientElement.vue";
-import { registerBootstrapPayloadHandler } from "@jskit-ai/shell-web/client/bootstrap";
 import { createBootstrapPlacementRuntime } from "../runtime/bootstrapPlacementRuntime.js";
 import {
   WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
   createWorkspaceScopeSupport
 } from "../support/workspaceScopeSupport.js";
 
-class WorkspacesWebClientProvider {
-  static id = "workspaces.web.client";
-  static startsAfter = ["shell.web.client"];
+const WorkspacesWebClientProvider = defineProvider({
+  id: "workspaces.web.client",
+  requires: {
+    components: "client.components",
+    logger: "client.logger",
+    router: "client.router",
+    shell: "client.shell",
+    vueApp: "client.vue"
+  },
+  optional: {
+    realtime: "client.realtime"
+  },
+  provides: {
+    workspaces: "client.workspaces"
+  },
+  setup({ components, logger, realtime, router, shell, vueApp }) {
+    components.register("workspaces.web.profile.menu.surface-switch-item", WorkspaceProfileSurfaceSwitchMenuItem);
+    components.register("workspaces.web.workspace.selector", WorkspaceSelector);
+    components.register("workspaces.web.workspace.tools.widget", WorkspaceToolsWidget);
+    components.register("workspaces.web.workspace-settings.menu-item", WorkspaceSettingsMenuItem);
+    components.register("workspaces.web.workspace-members.menu-item", WorkspaceMembersMenuItem);
+    components.register("workspaces.web.members-admin.element", MembersAdminClientElement);
 
-  register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-      throw new Error("WorkspacesWebClientProvider requires application singleton()/tag().");
-    }
-
-    app.singleton("workspaces.web.profile.menu.surface-switch-item", () => WorkspaceProfileSurfaceSwitchMenuItem);
-    app.singleton("workspaces.web.workspace.selector", () => WorkspaceSelector);
-    app.singleton("workspaces.web.workspace.tools.widget", () => WorkspaceToolsWidget);
-    app.singleton("workspaces.web.workspace-settings.menu-item", () => WorkspaceSettingsMenuItem);
-    app.singleton("workspaces.web.workspace-members.menu-item", () => WorkspaceMembersMenuItem);
-    app.singleton("workspaces.web.members-admin.element", () => MembersAdminClientElement);
-    app.singleton("workspaces.web.bootstrap-placement.runtime", (scope) => createBootstrapPlacementRuntime({ app: scope }));
-    registerBootstrapPayloadHandler(app, "workspaces.web.bootstrap.handler", (scope) => {
-      const runtime = scope.make("workspaces.web.bootstrap-placement.runtime");
-      return Object.freeze({
+    const runtime = createBootstrapPlacementRuntime({
+      bootstrapRuntime: shell.bootstrap,
+      placementRuntime: shell.placement,
+      realtime,
+      router,
+      vueApp,
+      logger
+    });
+    shell.bootstrapHandlers.register(
+      Object.freeze({
         handlerId: "workspaces.web.bootstrap",
         order: 100,
         resolveBootstrapRequest(input = {}) {
@@ -41,46 +54,37 @@ class WorkspacesWebClientProvider {
         handleBootstrapError(input = {}) {
           return runtime.handleBootstrapError(input);
         }
-      });
-    });
-    app.singleton("workspaces.web.scope-support", () => createWorkspaceScopeSupport());
-  }
-
-  async boot(app) {
-    if (!app || typeof app.make !== "function") {
-      throw new Error("WorkspacesWebClientProvider boot requires application make().");
-    }
-
-    const runtime = app.make("workspaces.web.bootstrap-placement.runtime");
+      })
+    );
+    return {
+      workspaces: Object.freeze({
+        bootstrap: runtime,
+        scopeSupport: createWorkspaceScopeSupport()
+      })
+    };
+  },
+  async boot({ vueApp }, { outputs }) {
+    const runtime = outputs.workspaces.bootstrap;
     if (runtime && typeof runtime.initialize === "function") {
       await runtime.initialize();
     }
 
-    if (!app.has("jskit.client.vue.app")) {
-      return;
-    }
-
-    const vueApp = app.make("jskit.client.vue.app");
     if (!vueApp || typeof vueApp.provide !== "function") {
       return;
     }
 
     vueApp.provide(
       WORKSPACES_WEB_SCOPE_SUPPORT_INJECTION_KEY,
-      app.make("workspaces.web.scope-support")
+      outputs.workspaces.scopeSupport
     );
-  }
-
-  shutdown(app) {
-    if (!app || typeof app.make !== "function") {
-      return;
-    }
-
-    const runtime = app.make("workspaces.web.bootstrap-placement.runtime");
+  },
+  shutdown(_dependencies, { outputs }) {
+    const runtime = outputs.workspaces.bootstrap;
     if (runtime && typeof runtime.shutdown === "function") {
       runtime.shutdown();
     }
   }
-}
+});
 
 export { WorkspacesWebClientProvider };
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";

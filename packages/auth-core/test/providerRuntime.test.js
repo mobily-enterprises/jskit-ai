@@ -1,122 +1,94 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel/_testable";
-import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
-import { AccessCoreServiceProvider } from "../src/server/providers/AccessCoreServiceProvider.js";
-import { AuthActionsServiceProvider } from "../src/server/providers/AuthActionsServiceProvider.js";
-import { FastifyAuthPolicyServiceProvider } from "../src/server/providers/FastifyAuthPolicyServiceProvider.js";
-import { AUTH_POLICY_CONTEXT_RESOLVER_TAG } from "../src/server/authPolicyContextResolverRegistry.js";
+import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { HttpProvider } from "@jskit-ai/kernel/server/http";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
+import { AuthExtensionsProvider } from "../src/server/providers/AuthExtensionsProvider.js";
+import { AuthFeature } from "../src/server/providers/AuthFeature.js";
+import { AuthPolicyProvider } from "../src/server/providers/AuthPolicyProvider.js";
 
-test("FastifyAuthPolicyServiceProvider registers auth policy plugin through provider boot", async () => {
-  const { fastify, state } = createFakeFastifyPolicyRuntime();
-  const bag = new Map([
-    ["jskit.fastify", fastify],
-    ["jskit.env", { NODE_ENV: "test" }],
-    ["jskit.logger", console],
-    [
-      "authService",
-      {
-        async authenticateRequest() {
-          return {
-            authenticated: false,
-            actor: null,
-            transientFailure: false
-          };
-        }
-      }
-    ]
-  ]);
+function createFastify() {
+  const fixture = createFakeFastifyPolicyRuntime();
+  fixture.fastify.route = () => {};
+  fixture.fastify.setErrorHandler = () => {};
+  return fixture;
+}
 
-  const app = {
-    has(token) {
-      return bag.has(token);
-    },
-    make(token) {
-      if (!bag.has(token)) {
-        throw new Error(`Missing token ${String(token)}`);
-      }
-      return bag.get(token);
-    }
+function runtimeInputs(fastify) {
+  return {
+    "runtime.env": { NODE_ENV: "test" },
+    "runtime.fastify": fastify
   };
+}
 
-  const provider = new FastifyAuthPolicyServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-
+test("AuthPolicyProvider installs Fastify policy and explicit action/visibility contributors", async () => {
+  const { fastify, state } = createFastify();
+  const runtime = createCapabilityRuntime({
+    inputs: runtimeInputs(fastify),
+    providers: [
+      createActionProvider(),
+      HttpProvider,
+      AuthExtensionsProvider,
+      AuthFeature,
+      AuthPolicyProvider
+    ]
+  });
+  await runtime.start();
   assert.ok(state.requestDecorators.has("user"));
   assert.ok(state.requestDecorators.has("workspace"));
   assert.ok(state.requestDecorators.has("membership"));
   assert.ok(state.requestDecorators.has("permissions"));
   assert.equal(typeof state.preHandler, "function");
   assert.ok(state.registeredPlugins.length >= 3);
+  assert.ok(runtime.diagnostics().capabilityIds.includes("auth.policy"));
 });
 
-test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolver", async () => {
-  const { fastify, state } = createFakeFastifyPolicyRuntime();
-  const makeCalls = [];
-  const resolveTagCalls = [];
-  const bag = new Map([
-    ["jskit.fastify", fastify],
-    ["jskit.env", { NODE_ENV: "test" }],
-    ["jskit.logger", console],
-    [
-      "authService",
-      {
-        async authenticateRequest() {
+test("AuthPolicyProvider resolves registered workspace context without a service container", async () => {
+  const { fastify, state } = createFastify();
+  const AuthService = defineProvider({
+    id: "test.auth.service",
+    provides: { service: "auth.service" },
+    setup() {
+      return {
+        service: {
+          async authenticateRequest() {
+            return { authenticated: true, actor: { id: 7 }, transientFailure: false };
+          }
+        }
+      };
+    }
+  });
+  const WorkspaceContext = defineProvider({
+    id: "test.workspace-auth-context",
+    requires: { extensions: "auth.extensions" },
+    setup({ extensions }) {
+      extensions.registerPolicyContextResolver({
+        resolverId: "workspace",
+        async resolveAuthPolicyContext({ actor, request }) {
           return {
-            authenticated: true,
-            actor: { id: 7 },
-            transientFailure: false
+            workspace: { id: 11, slug: String(request?.params?.workspaceSlug || "").toLowerCase() },
+            membership: { roleSid: "member" },
+            permissions: actor?.id === 7 ? ["projects.read"] : []
           };
         }
-      }
-    ]
-  ]);
-
-  const app = {
-    has(token) {
-      return bag.has(token);
-    },
-    make(token) {
-      makeCalls.push(String(token));
-      if (!bag.has(token)) {
-        throw new Error(`Missing token ${String(token)}`);
-      }
-      return bag.get(token);
-    },
-    resolveTag(tag) {
-      resolveTagCalls.push(String(tag));
-      if (tag !== AUTH_POLICY_CONTEXT_RESOLVER_TAG) {
-        return [];
-      }
-
-      return [
-        {
-          resolverId: "workspace",
-          order: 10,
-          async resolveAuthPolicyContext({ actor, request }) {
-            return {
-              workspace: { id: 11, slug: String(request?.params?.workspaceSlug || "").toLowerCase() },
-              membership: { roleSid: "member" },
-              permissions: actor?.id === 7 ? ["projects.read"] : []
-            };
-          }
-        },
-        async () => ({
-          permissions: ["settings.manage"]
-        })
-      ];
+      });
+      return {};
     }
-  };
-
-  const provider = new FastifyAuthPolicyServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-
-  assert.deepEqual(makeCalls, ["jskit.env", "jskit.fastify"]);
-  assert.deepEqual(resolveTagCalls, []);
-
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: runtimeInputs(fastify),
+    providers: [
+      createActionProvider(),
+      HttpProvider,
+      AuthExtensionsProvider,
+      AuthService,
+      WorkspaceContext,
+      AuthFeature,
+      AuthPolicyProvider
+    ]
+  });
+  await runtime.start();
   const request = {
     method: "GET",
     raw: { url: "/api/w/acme/projects" },
@@ -129,51 +101,28 @@ test("FastifyAuthPolicyServiceProvider wires optional auth policy context resolv
       }
     }
   };
-
   await state.preHandler(request, {});
-  assert.ok(makeCalls.includes("authService"));
-  assert.deepEqual(resolveTagCalls, [AUTH_POLICY_CONTEXT_RESOLVER_TAG]);
-  assert.equal(request.workspace?.id, 11);
-  assert.equal(request.workspace?.slug, "acme");
-  assert.equal(request.membership?.roleSid, "member");
-  assert.deepEqual(request.permissions, ["settings.manage", "projects.read"]);
+  assert.deepEqual(request.workspace, { id: 11, slug: "acme" });
+  assert.deepEqual(request.membership, { roleSid: "member" });
+  assert.deepEqual(request.permissions, ["projects.read"]);
 });
 
-test("auth-core providers boot without a selected provider and deny protected API requests", async () => {
-  const { fastify, state } = createFakeFastifyPolicyRuntime();
-  const app = createApplication();
-
-  app.instance("appConfig", {
-    surfaceModeAll: "all",
-    surfaceDefaultId: "home",
-    surfaceDefinitions: {
-      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false }
-    }
-  });
-  app.instance("jskit.fastify", fastify);
-  app.instance("jskit.env", { NODE_ENV: "test" });
-
-  await app.start({
+test("auth policy denies protected routes when no auth service is installed", async () => {
+  const { fastify, state } = createFastify();
+  const runtime = createCapabilityRuntime({
+    inputs: runtimeInputs(fastify),
     providers: [
-      ActionRuntimeServiceProvider,
-      AccessCoreServiceProvider,
-      AuthActionsServiceProvider,
-      FastifyAuthPolicyServiceProvider
+      createActionProvider(),
+      HttpProvider,
+      AuthExtensionsProvider,
+      AuthFeature,
+      AuthPolicyProvider
     ]
   });
-
-  const request = {
+  await runtime.start();
+  await assert.rejects(() => state.preHandler({
     method: "GET",
     raw: { url: "/api/protected" },
-    routeOptions: {
-      config: {
-        authPolicy: "required"
-      }
-    }
-  };
-
-  await assert.rejects(
-    () => state.preHandler(request, {}),
-    /Authentication required/
-  );
+    routeOptions: { config: { authPolicy: "required" } }
+  }, {}), /Authentication required/);
 });

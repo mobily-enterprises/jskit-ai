@@ -14,7 +14,6 @@ const DEPENDENCY_FIELDS = Object.freeze([
   "peerDependencies",
   "optionalDependencies"
 ]);
-const MUTATION_DEPENDENCY_FIELDS = Object.freeze(["runtime", "dev"]);
 const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 
 function parseArgs(argv = []) {
@@ -120,16 +119,6 @@ async function discoverWorkspacePackages() {
   return records.sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function mutationDependencyVersion(value) {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return String(value.version || "");
-  }
-  return "";
-}
-
 function collectPublishDependencies(packageJson, localNames) {
   const dependencies = new Set();
   for (const field of DEPENDENCY_FIELDS) {
@@ -181,41 +170,17 @@ function updatePackageDependencyVersions(packageJson, versions) {
     }
   }
 
-  for (const field of MUTATION_DEPENDENCY_FIELDS) {
-    const dependencies = packageJson?.jskit?.mutations?.dependencies?.[field];
-    if (!dependencies || typeof dependencies !== "object") {
-      continue;
-    }
-    for (const dependencyName of Object.keys(dependencies)) {
-      if (!versions.has(dependencyName)) {
-        continue;
-      }
-      const nextVersion = versions.get(dependencyName);
-      const value = dependencies[dependencyName];
-      if (typeof value === "string") {
-        if (value !== nextVersion) {
-          dependencies[dependencyName] = nextVersion;
-          changed = true;
-        }
-        continue;
-      }
-      if (value && typeof value === "object" && !Array.isArray(value) && value.version !== nextVersion) {
-        value.version = nextVersion;
-        changed = true;
-      }
-    }
-  }
   return changed;
 }
 
-async function collectTemplatePackageJsonPaths(packageRoot) {
-  const templatesRoot = path.join(packageRoot, "templates");
-  if (!(await fileExists(templatesRoot))) {
+async function collectPatternPackageJsonPaths(packageRoot) {
+  const patternsRoot = path.join(packageRoot, "patterns");
+  if (!(await fileExists(patternsRoot))) {
     return [];
   }
 
   const results = [];
-  const directories = [templatesRoot];
+  const directories = [patternsRoot];
   while (directories.length > 0) {
     const directory = directories.pop();
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -230,30 +195,10 @@ async function collectTemplatePackageJsonPaths(packageRoot) {
   return results.sort();
 }
 
-function updateTemplatedPackageJsonContents(contents, versions) {
-  try {
-    const packageJson = JSON.parse(contents);
-    const changed = updatePackageDependencyVersions(packageJson, versions);
-    return { changed, contents: serializeJson(packageJson) };
-  } catch (error) {
-    if (!(error instanceof SyntaxError) || !/__JSKIT_[A-Z0-9_]+__/u.test(contents)) {
-      throw error;
-    }
-  }
-
-  let changed = false;
-  const updated = contents.replace(
-    /"(@jskit-ai\/[^"\\]+)"(\s*:\s*)"([^"]*)"/gu,
-    (match, dependencyName, separator, currentVersion) => {
-      const nextVersion = versions.get(dependencyName);
-      if (!nextVersion || currentVersion === nextVersion) {
-        return match;
-      }
-      changed = true;
-      return `"${dependencyName}"${separator}"${nextVersion}"`;
-    }
-  );
-  return { changed, contents: updated };
+function updatePatternPackageJsonContents(contents, versions) {
+  const packageJson = JSON.parse(contents);
+  const changed = updatePackageDependencyVersions(packageJson, versions);
+  return { changed, contents: serializeJson(packageJson) };
 }
 
 async function writePreparedFile(absolutePath, contents, { dryRun }) {
@@ -271,10 +216,10 @@ async function prepareManifests(records, versions, { dryRun }) {
     record.packageJson.version = versions.get(record.name);
     await writePreparedFile(record.packageJsonPath, serializeJson(record.packageJson), { dryRun });
 
-    for (const templatePath of await collectTemplatePackageJsonPaths(record.dir)) {
-      const update = updateTemplatedPackageJsonContents(await readFile(templatePath, "utf8"), versions);
+    for (const patternPath of await collectPatternPackageJsonPaths(record.dir)) {
+      const update = updatePatternPackageJsonContents(await readFile(patternPath, "utf8"), versions);
       if (update.changed) {
-        await writePreparedFile(templatePath, update.contents, { dryRun });
+        await writePreparedFile(patternPath, update.contents, { dryRun });
       }
     }
   }
@@ -338,19 +283,6 @@ function collectVersionMismatches(packageJson, versions, source) {
       }
     }
   }
-  for (const field of MUTATION_DEPENDENCY_FIELDS) {
-    for (const [dependencyName, value] of Object.entries(packageJson?.jskit?.mutations?.dependencies?.[field] || {})) {
-      if (!versions.has(dependencyName)) {
-        continue;
-      }
-      const declaredVersion = mutationDependencyVersion(value);
-      if (declaredVersion !== versions.get(dependencyName)) {
-        mismatches.push(
-          `${source}#jskit.mutations.dependencies.${field}.${dependencyName} is ${declaredVersion || "missing"}; expected ${versions.get(dependencyName)}`
-        );
-      }
-    }
-  }
   return mismatches;
 }
 
@@ -362,10 +294,10 @@ async function validateReleaseState(records) {
       mismatches.push(`${record.name} is private and cannot be published`);
     }
     mismatches.push(...collectVersionMismatches(record.packageJson, versions, record.name));
-    for (const templatePath of await collectTemplatePackageJsonPaths(record.dir)) {
-      const contents = await readFile(templatePath, "utf8");
-      if (updateTemplatedPackageJsonContents(contents, versions).changed) {
-        mismatches.push(`${toPosixPath(path.relative(REPO_ROOT, templatePath))} has stale JSKIT versions`);
+    for (const patternPath of await collectPatternPackageJsonPaths(record.dir)) {
+      const contents = await readFile(patternPath, "utf8");
+      if (updatePatternPackageJsonContents(contents, versions).changed) {
+        mismatches.push(`${toPosixPath(path.relative(REPO_ROOT, patternPath))} has stale JSKIT versions`);
       }
     }
   }
@@ -500,13 +432,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 export {
   bumpPatch,
   collectPublishDependencies,
-  collectTemplatePackageJsonPaths,
+  collectPatternPackageJsonPaths,
   collectVersionMismatches,
   discoverWorkspacePackages,
-  mutationDependencyVersion,
   parseArgs,
   topologicalPublishOrder,
   updatePackageDependencyVersions,
-  updateTemplatedPackageJsonContents,
+  updatePatternPackageJsonContents,
   validateReleaseState
 };

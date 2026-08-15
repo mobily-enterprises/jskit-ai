@@ -137,3 +137,9 @@ Local functions
 - `createDefaultCrudOperations(resource = {})`
 - `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
 - `mergeCrudOperations(defaultOperations = {}, overrides = {})`
+
+### patterns
+
+### `patterns/resource-contract/example/bookResource.js`
+Exports
+- `bookResource`

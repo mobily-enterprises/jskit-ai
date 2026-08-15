@@ -262,16 +262,22 @@ function evaluateAuthGuard({ guard, context, loginRoute, authState = DEFAULT_AUT
 function installGuardEvaluator({ loginRoute = DEFAULT_LOGIN_ROUTE, getAuthState }) {
   const root = asGlobalObject();
   if (!root || typeof getAuthState !== "function") {
-    return;
+    return () => {};
   }
 
-  root[GLOBAL_GUARD_EVALUATOR_KEY] = ({ guard, context } = {}) => {
+  const evaluator = ({ guard, context } = {}) => {
     return evaluateAuthGuard({
       guard,
       context,
       loginRoute,
       authState: getAuthState()
     });
+  };
+  root[GLOBAL_GUARD_EVALUATOR_KEY] = evaluator;
+  return () => {
+    if (root[GLOBAL_GUARD_EVALUATOR_KEY] === evaluator) {
+      delete root[GLOBAL_GUARD_EVALUATOR_KEY];
+    }
   };
 }
 
@@ -422,6 +428,7 @@ function createAuthGuardRuntime({
   let authState = DEFAULT_AUTH_STATE;
   let activeRefreshPromise = null;
   let listenersInstalled = false;
+  const cleanup = [];
   const listeners = new Set();
   const subscribe = createListenerSubscription(listeners);
 
@@ -475,13 +482,12 @@ function createAuthGuardRuntime({
       return authState;
     }
 
-    installGuardEvaluator({
-      loginRoute: currentLoginRoute,
-      getAuthState: () => authState
-    });
-
     if (!listenersInstalled) {
       listenersInstalled = true;
+      cleanup.push(installGuardEvaluator({
+        loginRoute: currentLoginRoute,
+        getAuthState: () => authState
+      }));
       const onReconnect = () => {
         void refresh();
       };
@@ -503,20 +509,24 @@ function createAuthGuardRuntime({
       if (windowTarget) {
         if (reconnectRefreshEnabled) {
           windowTarget.addEventListener("online", onReconnect);
+          cleanup.push(() => windowTarget.removeEventListener("online", onReconnect));
         }
         if (foregroundRefreshEnabled) {
           windowTarget.addEventListener("focus", onWindowFocus);
+          cleanup.push(() => windowTarget.removeEventListener("focus", onWindowFocus));
         }
       }
 
       const documentTarget = getDocumentEventTarget();
       if (foregroundRefreshEnabled && documentTarget) {
         documentTarget.addEventListener("visibilitychange", onVisibilityChange);
+        cleanup.push(() => documentTarget.removeEventListener("visibilitychange", onVisibilityChange));
       }
 
       if (socket) {
         for (const eventName of realtimeEvents) {
           socket.on(eventName, onRealtimeRefresh);
+          cleanup.push(() => socket.off(eventName, onRealtimeRefresh));
         }
       }
     }
@@ -526,7 +536,18 @@ function createAuthGuardRuntime({
     });
   }
 
+  function dispose() {
+    for (const release of cleanup.splice(0, cleanup.length).reverse()) {
+      try {
+        release();
+      } catch {}
+    }
+    listeners.clear();
+    listenersInstalled = false;
+  }
+
   return Object.freeze({
+    dispose,
     initialize,
     refresh,
     getState,

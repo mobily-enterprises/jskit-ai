@@ -25,3 +25,33 @@ Local functions
 - `readJson(absolutePath)`
 - `buildCatalog({ repoRoot, packagesRoot, outputPath })`
 - `main()`
+
+### `scripts/pattern-assets.mjs`
+Exports
+- `PATTERN_DOCUMENT_NAME`
+- `PATTERN_EXAMPLE_DIRECTORY`
+- `REQUIRED_PATTERN_SECTIONS`
+- `assertUniquePatternIds(patterns = [])`
+- `discoverPackagePatterns({ packageRoot, packageJson } = {})`
+- `parsePatternDocument(source = "", { documentPath = PATTERN_DOCUMENT_NAME } = {})`
+Local functions
+- `normalizeText(value = "")`
+- `normalizePath(value = "")`
+- `sortedUniqueStrings(values = [])`
+- `parseCommaSeparatedValue(value = "")`
+- `requirePatternFrontMatter(source = "", { documentPath = PATTERN_DOCUMENT_NAME } = {})`
+- `requirePatternSections(body = "", { documentPath = PATTERN_DOCUMENT_NAME } = {})`
+- `directoryExists(directoryPath)`
+- `collectFiles(rootDirectory)`
+
+### `scripts/verify-packages.mjs`
+Exports
+- None
+Local functions
+- `fileExists(filePath)`
+- `discoverFrameworkPackages()`
+- `requireStringArray(value, label)`
+- `validateProviderList(packageRecord, side)`
+- `validateMigrations(packageRecord, migrationOwners)`
+- `validatePackage(packageRecord, localVersions, migrationOwners)`
+- `main()`

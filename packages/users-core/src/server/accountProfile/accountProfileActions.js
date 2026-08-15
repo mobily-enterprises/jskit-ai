@@ -5,19 +5,20 @@ import {
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
+import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
 const settingsProfileUpdateInputValidator = deepFreeze({
   schema: userProfileResource.operations.patch.body.schema,
   mode: userProfileResource.operations.patch.body.mode
 });
 
-const accountProfileActions = deepFreeze([
+const accountProfileActionSpecifications = deepFreeze([
   {
     id: "settings.read",
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -28,8 +29,8 @@ const accountProfileActions = deepFreeze([
       actionName: "settings.read"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountProfileService.getForUser(resolveRequest(context), resolveActionUser(context, input), {
+    async run(accountProfileService, input, context) {
+      return accountProfileService.getForUser(resolveRequest(context), resolveActionUser(context, input), {
         context
       });
     }
@@ -39,7 +40,7 @@ const accountProfileActions = deepFreeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -50,8 +51,9 @@ const accountProfileActions = deepFreeze([
       actionName: "settings.profile.update"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountProfileService.updateProfile(
+    events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+    async run(accountProfileService, input, context) {
+      return accountProfileService.updateProfile(
         resolveRequest(context),
         resolveActionUser(context, input),
         input,
@@ -66,7 +68,7 @@ const accountProfileActions = deepFreeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -77,7 +79,8 @@ const accountProfileActions = deepFreeze([
       actionName: "settings.profile.avatar.upload"
     },
     observability: {},
-    async execute(input, context, deps) {
+    events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+    async run(accountProfileService, input, context) {
       const avatarUpload = {
         stream: input.stream,
         mimeType: input.mimeType,
@@ -85,7 +88,7 @@ const accountProfileActions = deepFreeze([
         uploadDimension: input.uploadDimension
       };
 
-      return deps.accountProfileService.uploadAvatar(
+      return accountProfileService.uploadAvatar(
         resolveRequest(context),
         resolveActionUser(context, input),
         avatarUpload,
@@ -100,7 +103,7 @@ const accountProfileActions = deepFreeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -111,8 +114,9 @@ const accountProfileActions = deepFreeze([
       actionName: "settings.profile.avatar.delete"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountProfileService.deleteAvatar(
+    events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+    async run(accountProfileService, input, context) {
+      return accountProfileService.deleteAvatar(
         resolveRequest(context),
         resolveActionUser(context, input),
         {
@@ -123,4 +127,14 @@ const accountProfileActions = deepFreeze([
   }
 ]);
 
-export { accountProfileActions };
+function buildAccountProfileActions({ accountProfileService } = {}) {
+  if (!accountProfileService) throw new TypeError("buildAccountProfileActions requires accountProfileService.");
+  return accountProfileActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(accountProfileService, input, context);
+    }
+  }));
+}
+
+export { accountProfileActionSpecifications, buildAccountProfileActions };

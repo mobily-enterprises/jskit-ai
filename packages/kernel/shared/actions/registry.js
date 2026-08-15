@@ -114,6 +114,7 @@ function createActionRegistry({
   idempotencyAdapter,
   auditAdapter,
   observabilityAdapter,
+  events,
   logger = console
 } = {}) {
   const normalizedContributors = normalizeContributors(contributors);
@@ -129,6 +130,7 @@ function createActionRegistry({
       idempotencyAdapter,
       auditAdapter,
       observabilityAdapter,
+      events,
       logger
     });
 
@@ -156,6 +158,7 @@ function createActionRegistry({
       idempotencyAdapter,
       auditAdapter,
       observabilityAdapter,
+      events,
       logger
     });
 

@@ -622,3 +622,35 @@ Exports
 ### `fixtures/crud-list-date-filters/vite.config.mjs`
 Exports
 - None
+
+### patterns
+
+### `patterns/crud-screen-set/example/books/BookEditPage.vue`
+Exports
+- None
+
+### `patterns/crud-screen-set/example/books/BookFormFields.vue`
+Exports
+- None
+
+### `patterns/crud-screen-set/example/books/BookListPage.vue`
+Exports
+- None
+
+### `patterns/crud-screen-set/example/books/BookNewPage.vue`
+Exports
+- None
+
+### `patterns/crud-screen-set/example/books/BookViewPage.vue`
+Exports
+- None
+
+### `patterns/crud-screen-set/example/books/formFields.js`
+Exports
+- `bookFormFields`
+
+### `patterns/crud-screen-set/example/books/listExtensions.js`
+Exports
+- `listBulkActions`
+- `listFilters`
+- `listRowActions`

@@ -224,7 +224,7 @@ test("realtime entity change publisher adds service, semantic, and realtime meta
     source: "vibe64",
     entity: "project",
     event: "vibe64.project.changed",
-    serviceToken: "vibe64.terminals.service",
+    serviceId: "vibe64.terminals",
     methodName: "projectRuntime"
   });
 
@@ -259,7 +259,7 @@ test("realtime entity change publisher adds service, semantic, and realtime meta
     id: "workspace_23"
   });
   assert.equal(payload?.actorId, "user_17");
-  assert.equal(payload?.meta?.service?.token, "vibe64.terminals.service");
+  assert.equal(payload?.meta?.service?.id, "vibe64.terminals");
   assert.equal(payload?.meta?.service?.method, "projectRuntime");
   assert.equal(payload?.meta?.action, "runtime-closed");
   assert.equal(payload?.meta?.reason, "user-request");

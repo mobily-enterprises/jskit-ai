@@ -25,19 +25,6 @@ test("auth-web packageMetadata declares auth surface ui routes", () => {
   assert.equal(resetRoute?.autoRegister, false);
 });
 
-test("auth-web auth page templates declare public route guard", () => {
-  const loginTemplatePath = fileURLToPath(new URL("../templates/src/pages/auth/login.vue", import.meta.url));
-  const signOutTemplatePath = fileURLToPath(new URL("../templates/src/pages/auth/signout.vue", import.meta.url));
-  const resetTemplatePath = fileURLToPath(new URL("../templates/src/pages/auth/reset-password.vue", import.meta.url));
-  const loginTemplateSource = readFileSync(loginTemplatePath, "utf8");
-  const signOutTemplateSource = readFileSync(signOutTemplatePath, "utf8");
-  const resetTemplateSource = readFileSync(resetTemplatePath, "utf8");
-
-  assert.match(loginTemplateSource, /"guard"\s*:\s*\{\s*"policy"\s*:\s*"public"\s*\}/);
-  assert.match(signOutTemplateSource, /"guard"\s*:\s*\{\s*"policy"\s*:\s*"public"\s*\}/);
-  assert.match(resetTemplateSource, /"guard"\s*:\s*\{\s*"policy"\s*:\s*"public"\s*\}/);
-});
-
 test("auth-web exports runtime signout helpers directly", () => {
   assert.equal(typeof fromRuntimeUseSignOut, "function");
   assert.equal(typeof fromRuntimeCreateSignOutAction, "function");
@@ -72,12 +59,15 @@ test("auth-web runtime/useLoginView composes login view state, validation, and a
   assert.match(runtimeUseLoginViewSource, /export\s+\{\s*useLoginView\s*\};/);
 });
 
-test("auth-web client provider registers a mobile auth callback completion token", () => {
+test("auth-web client capability includes mobile callback completion", () => {
   const providerPath = fileURLToPath(new URL("../src/client/providers/AuthWebClientProvider.js", import.meta.url));
+  const authClientPath = fileURLToPath(new URL("../src/client/runtime/authClient.js", import.meta.url));
   const providerSource = readFileSync(providerPath, "utf8");
+  const authClientSource = readFileSync(authClientPath, "utf8");
 
-  assert.match(providerSource, /auth\.mobile-callback\.client/);
-  assert.match(providerSource, /completeOAuthCallbackFromUrl/);
+  assert.match(providerSource, /auth: "client\.auth"/);
+  assert.match(authClientSource, /mobileCallback/);
+  assert.match(authClientSource, /completeOAuthCallbackFromUrl/);
 });
 
 test("auth profile activator preserves the generated tap-target contract", () => {

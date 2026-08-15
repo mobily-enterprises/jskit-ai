@@ -5,56 +5,13 @@ import {
   BaseRepository,
   buildPaginationMeta,
   createTransactionManager,
-  createWithTransaction,
-  registerDatabaseRuntime,
+  createWithTransaction
 } from "../src/shared/index.js";
 
 function createKnexStub() {
   return {
     async transaction(callback) {
       return callback({ trxId: "trx-1" });
-    }
-  };
-}
-
-function createSingletonApp() {
-  const singletons = new Map();
-  const instances = new Map();
-
-  return {
-    has(token) {
-      return singletons.has(token) || instances.has(token);
-    },
-    instance(token, value) {
-      if (this.has(token)) {
-        throw new Error(`Token ${String(token)} is already registered.`);
-      }
-      instances.set(token, value);
-    },
-    singleton(token, factory) {
-      if (this.has(token)) {
-        throw new Error(`Token ${String(token)} is already registered.`);
-      }
-      singletons.set(token, {
-        factory,
-        resolved: false,
-        value: undefined
-      });
-    },
-    make(token) {
-      if (instances.has(token)) {
-        return instances.get(token);
-      }
-      if (!singletons.has(token)) {
-        throw new Error(`Token ${String(token)} is not registered.`);
-      }
-      const entry = singletons.get(token);
-      if (!entry.resolved) {
-        entry.value = entry.factory(this);
-        entry.resolved = true;
-        instances.set(token, entry.value);
-      }
-      return entry.value;
     }
   };
 }
@@ -94,14 +51,4 @@ test("pagination helpers generate stable metadata", () => {
     hasPrev: true,
     hasNext: true
   });
-});
-
-test("registerDatabaseRuntime binds knex and transaction manager tokens", () => {
-  const app = createSingletonApp();
-  const knex = createKnexStub();
-
-  const runtime = registerDatabaseRuntime(app, { knex });
-  assert.strictEqual(runtime.knex, knex);
-  assert.equal(typeof runtime.transactionManager.inTransaction, "function");
-  assert.strictEqual(app.make("jskit.database.knex"), knex);
 });

@@ -30,33 +30,27 @@ Local functions
 
 ### `src/server/crudModuleConfig.js`
 Exports
-- `CRUD_MODULE_ID`
-- `DEFAULT_OWNERSHIP_FILTER`
 - `CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO`
-- `normalizeCrudNamespace`
-- `normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {})`
 - `normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {})`
 - `isWorkspaceRouteVisibility`
 - `requireCrudNamespace`
-- `resolveCrudNamespacePath(namespace = "")`
 - `resolveCrudRelativePath(namespace = "")`
 - `normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSurfacePolicy" } = {})`
-- `resolveCrudApiBasePath({ namespace = "", surfaceRequiresWorkspace = false } = {})`
-- `resolveCrudTableName(namespace = "")`
-- `resolveCrudActionIdPrefix(namespace = "")`
-- `resolveCrudContributorId(namespace = "")`
-- `resolveCrudDomain(namespace = "")`
-- `resolveCrudConfig(source = {})`
 - `resolveCrudSurfacePolicy(sourceConfig = {}, { surfaceDefinitions = {}, defaultSurfaceId = "", context = "resolveCrudSurfacePolicy" } = {})`
 - `resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}, options = {})`
-- `resolveCrudConfigsFromModules(modulesSource = {})`
-- `resolveCrudConfigFromModules(modulesSource = {}, options = {})`
 Local functions
 - `asRecord(value)`
-- `resolveCrudTokenPart(namespace = "")`
-- `resolveCrudToken(namespace = "", suffix = "")`
 - `normalizeSurfaceDefinitions(sourceDefinitions = {})`
 - `resolveOwnershipFilterFromSurfaceDefinition(definition = {})`
+
+### `src/server/defineCrudJsonApiFeature.js`
+Exports
+- `defineCrudJsonApiFeature({ resource, id = "", capability = "", surface, ownershipFilter = "", relativePath = "", internal = false, permissions = null, scope = {} } = {})`
+Local functions
+- `normalizeAccess(resource = {})`
+- `normalizeScope(scope = {})`
+- `assertWorkspaceScope(scope, ownershipFilter)`
+- `resolveActionPermission(operation, { access, workspaceScoped, permissions } = {})`
 
 ### `src/server/fieldAccess.js`
 Exports
@@ -72,6 +66,30 @@ Local functions
 - `resolveOperationPolicyValue(operationPolicy, input = {}, action = "*")`
 - `resolveRoleMatrixPolicy(matrix = {}, operation = "readable", input = {})`
 - `applyReadableFieldPolicyToRecord(record, allowedFields, outputRules = null, { context = "crudFieldAccess" } = {})`
+
+### `src/server/jsonApiModule/actions.js`
+Exports
+- `assertCrudOperationName(operation = "")`
+- `createCrudJsonApiActions({ namespace, resource, service, surface, permissionForOperation, scopeInputValidator = null, scopeInputKeys = [] } = {})`
+Local functions
+- `createActionInput(resource, operation, scopeInputValidator = null)`
+- `omitInputKeys(input = {}, keys = [])`
+
+### `src/server/jsonApiModule/repository.js`
+Exports
+- `createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } = {})`
+
+### `src/server/jsonApiModule/routes.js`
+Exports
+- `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase = "/", relativePath, surface, ownershipFilter, access, internal = false, routeParamsValidator = null, scopeInput = null } = {})`
+Local functions
+- `createScopeInput(scopeInput, request)`
+
+### `src/server/jsonApiModule/service.js`
+Exports
+- `createCrudJsonApiService({ repository } = {})`
+Local functions
+- `requireDocument(document = null)`
 
 ### `src/server/listFilters.js`
 Exports
@@ -155,7 +173,6 @@ Exports
 ### `src/server/lookups.js`
 Exports
 - `resolveCrudLookupToken`
-- `createCrudLookupResolver(scope, { context = "crudLookup" } = {})`
 - `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
 Local functions
 - `normalizeLookupOwnershipFilter(value, { context = "crudLookup ownershipFilter" } = {})`
@@ -299,3 +316,21 @@ Exports
 Local functions
 - `requireCrudServiceRepository(runtime = {}, repository = null)`
 - `splitCrudListRepositoryCall(query = {}, options = {})`
+
+### patterns
+
+### `patterns/json-api-resource-package/example/migrations/20260815000000_books.cjs`
+Exports
+- None
+
+### `patterns/json-api-resource-package/example/packages/books/src/server/BooksFeature.js`
+Exports
+- `BooksFeature`
+
+### `patterns/json-api-resource-package/example/packages/books/src/shared/bookResource.js`
+Exports
+- `bookResource`
+
+### `patterns/json-api-resource-package/example/packages/books/src/shared/index.js`
+Exports
+- `bookResource`

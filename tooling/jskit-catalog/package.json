@@ -14,6 +14,7 @@
   },
   "scripts": {
     "catalog:build": "node ./scripts/build-catalog.mjs",
+    "verify:packages": "node ./scripts/verify-packages.mjs",
     "test": "node --test"
   },
   "engines": {

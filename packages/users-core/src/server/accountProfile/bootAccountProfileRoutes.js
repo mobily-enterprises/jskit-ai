@@ -1,7 +1,6 @@
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES } from "@jskit-ai/uploads-runtime/shared";
-import { readSingleMultipartFile } from "@jskit-ai/uploads-runtime/server/multipart/readSingleMultipartFile";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
@@ -13,12 +12,16 @@ const USER_SETTINGS_RESOURCE_TRANSPORT = Object.freeze({
   getRecordId: resolveAccountSettingsResourceId
 });
 
-function bootAccountProfileRoutes(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootAccountProfileRoutes requires application make().");
+function registerAccountProfileRoutes(router, { accountProfileService, authService, uploads } = {}) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerAccountProfileRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
+  if (!accountProfileService || typeof accountProfileService.readAvatar !== "function") {
+    throw new TypeError("registerAccountProfileRoutes requires accountProfileService.");
+  }
+  if (!uploads || typeof uploads.readSingleMultipartFile !== "function") {
+    throw new TypeError("registerAccountProfileRoutes requires runtime.uploads.");
+  }
 
   router.register(
     "GET",
@@ -63,7 +66,6 @@ function bootAccountProfileRoutes(app) {
         input: request.input.body
       });
 
-      const authService = app.make("authService");
       if (result?.session && typeof authService.writeSessionCookies === "function") {
         authService.writeSessionCookies(reply, result.session);
       }
@@ -83,7 +85,6 @@ function bootAccountProfileRoutes(app) {
       }
     },
     async function (request, reply) {
-      const accountProfileService = app.make("users.accountProfile.service");
       const avatar = await accountProfileService.readAvatar(request, request.user, {
         context: {
           actor: request.user
@@ -120,7 +121,7 @@ function bootAccountProfileRoutes(app) {
       )
     },
     async function (request, reply) {
-      const filePart = await readSingleMultipartFile(request, {
+      const filePart = await uploads.readSingleMultipartFile(request, {
         fieldName: "avatar",
         required: true,
         fieldErrorKey: "avatar",
@@ -165,4 +166,4 @@ function bootAccountProfileRoutes(app) {
   );
 }
 
-export { bootAccountProfileRoutes };
+export { registerAccountProfileRoutes };

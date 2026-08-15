@@ -136,7 +136,6 @@ Exports
 - `WorkspacesWebClientProvider`
 - `WorkspaceMembersClientElement`
 - `WorkspaceInviteLanding`
-- `clientProviders`
 
 ### `src/client/lib/bootstrap.js`
 Exports
@@ -247,7 +246,7 @@ Exports
 - `WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN`
 - `WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED`
 - `WORKSPACE_BOOTSTRAP_STATUS_ERROR`
-- `createBootstrapPlacementRuntime({ app, logger = null } = {})`
+- `createBootstrapPlacementRuntime({ bootstrapRuntime, placementRuntime, realtime = null, router = null, vueApp = null, logger = null } = {})`
 
 ### `src/client/runtime/bootstrapPlacementRuntimeConstants.js`
 Exports
@@ -264,7 +263,7 @@ Exports
 ### `src/client/runtime/bootstrapPlacementRuntimeHelpers.js`
 Exports
 - `countPendingInvites(entries = [])`
-- `createProviderLogger(app)`
+- `createProviderLogger(logger)`
 - `fetchBootstrapPayload(workspaceSlug = "")`
 - `isGuardDenied(outcome)`
 - `normalizeSearch(search = "")`
@@ -300,9 +299,9 @@ Exports
 Exports
 - `ADMIN_COG_OUTLET`
 
-### templates
+### patterns
 
-### `templates/packages/main/src/client/components/AccountPendingInvitesCue.vue`
+### `patterns/workspace-surfaces/example/packages/main/src/client/components/AccountPendingInvitesCue.vue`
 Exports
 - None
 Local functions
@@ -310,48 +309,48 @@ Local functions
 - `resolveReturnTo()`
 - `resolveReturnToHref()`
 
-### `templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue`
+### `patterns/workspace-surfaces/example/packages/main/src/client/components/AccountSettingsInvitesSection.vue`
 Exports
 - None
 
-### `templates/src/components/WorkspaceNotFoundCard.vue`
+### `patterns/workspace-surfaces/example/src/components/WorkspaceNotFoundCard.vue`
 Exports
 - None
 
-### `templates/src/composables/useWorkspaceNotFoundState.js`
+### `patterns/workspace-surfaces/example/src/composables/useWorkspaceNotFoundState.js`
 Exports
 - `useWorkspaceNotFoundState()`
 
-### `templates/src/pages/admin/members/index.vue`
+### `patterns/workspace-surfaces/example/src/pages/admin/members/index.vue`
 Exports
 - None
 
-### `templates/src/pages/admin/workspace/settings.vue`
+### `patterns/workspace-surfaces/example/src/pages/admin/workspace/settings.vue`
 Exports
 - None
 
-### `templates/src/pages/admin/workspace/settings/index.vue`
+### `patterns/workspace-surfaces/example/src/pages/admin/workspace/settings/index.vue`
 Exports
 - None
 
-### `templates/src/pages/invite/[token].vue`
+### `patterns/workspace-surfaces/example/src/pages/invite/[token].vue`
 Exports
 - None
 
-### `templates/src/surfaces/admin/index.vue`
+### `patterns/workspace-surfaces/example/src/surfaces/admin/index.vue`
 Exports
 - None
 Local functions
 - `adminChildPath(suffix = "")`
 
-### `templates/src/surfaces/admin/root.vue`
+### `patterns/workspace-surfaces/example/src/surfaces/admin/root.vue`
 Exports
 - None
 
-### `templates/src/surfaces/app/index.vue`
+### `patterns/workspace-surfaces/example/src/surfaces/app/index.vue`
 Exports
 - None
 
-### `templates/src/surfaces/app/root.vue`
+### `patterns/workspace-surfaces/example/src/surfaces/app/root.vue`
 Exports
 - None

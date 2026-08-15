@@ -81,11 +81,10 @@ function handleDialogModelUpdate(isOpen) {
         <v-btn
           color="error"
           variant="flat"
-          :loading="action.isDeleting"
           :disabled="!action.canDelete"
           @click="action.confirm"
         >
-          Delete
+          {{ action.isDeleting ? "Deleting…" : "Delete" }}
         </v-btn>
       </v-card-actions>
     </v-card>

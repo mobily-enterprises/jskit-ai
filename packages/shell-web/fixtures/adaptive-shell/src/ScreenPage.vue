@@ -7,7 +7,7 @@ const title = computed(() => String(route.meta.title || "Shell fixture"));
 </script>
 
 <template>
-  <main class="generated-ui-screen" tabindex="-1">
+  <main tabindex="-1">
     <h1>{{ title }}</h1>
     <p>Package-owned browser fixture for the adaptive shell contract.</p>
   </main>

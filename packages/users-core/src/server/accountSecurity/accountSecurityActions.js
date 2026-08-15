@@ -13,13 +13,13 @@ const oauthLinkStartInputValidator = composeSchemaDefinitions([
   context: "accountSecurityActions.oauthLinkStartInputValidator"
 });
 
-const accountSecurityActions = Object.freeze([
+const accountSecurityActionSpecifications = Object.freeze([
   {
     id: "settings.security.password.change",
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -30,8 +30,8 @@ const accountSecurityActions = Object.freeze([
       actionName: "settings.security.password.change"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountSecurityService.changePassword(
+    async run(accountSecurityService, input, context) {
+      return accountSecurityService.changePassword(
         resolveRequest(context),
         resolveActionUser(context, input),
         input,
@@ -46,7 +46,7 @@ const accountSecurityActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -57,8 +57,8 @@ const accountSecurityActions = Object.freeze([
       actionName: "settings.security.password_method.toggle"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountSecurityService.setPasswordMethodEnabled(
+    async run(accountSecurityService, input, context) {
+      return accountSecurityService.setPasswordMethodEnabled(
         resolveRequest(context),
         resolveActionUser(context, input),
         input,
@@ -73,7 +73,7 @@ const accountSecurityActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -84,8 +84,8 @@ const accountSecurityActions = Object.freeze([
       actionName: "settings.security.oauth.link.start"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountSecurityService.startOAuthProviderLink(
+    async run(accountSecurityService, input, context) {
+      return accountSecurityService.startOAuthProviderLink(
         resolveRequest(context),
         resolveActionUser(context, input),
         input,
@@ -100,7 +100,7 @@ const accountSecurityActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -111,8 +111,8 @@ const accountSecurityActions = Object.freeze([
       actionName: "settings.security.oauth.unlink"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountSecurityService.unlinkOAuthProvider(
+    async run(accountSecurityService, input, context) {
+      return accountSecurityService.unlinkOAuthProvider(
         resolveRequest(context),
         resolveActionUser(context, input),
         input,
@@ -127,7 +127,7 @@ const accountSecurityActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -138,12 +138,22 @@ const accountSecurityActions = Object.freeze([
       actionName: "settings.security.sessions.logout_others"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveActionUser(context, input), {
+    async run(accountSecurityService, input, context) {
+      return accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveActionUser(context, input), {
         context
       });
     }
   }
 ]);
 
-export { accountSecurityActions };
+function buildAccountSecurityActions({ accountSecurityService } = {}) {
+  if (!accountSecurityService) throw new TypeError("buildAccountSecurityActions requires accountSecurityService.");
+  return accountSecurityActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(accountSecurityService, input, context);
+    }
+  }));
+}
+
+export { accountSecurityActionSpecifications, buildAccountSecurityActions };

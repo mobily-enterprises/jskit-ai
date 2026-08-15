@@ -2,7 +2,7 @@
 
 Use when:
 
-- customizing generated CRUD pages
+- customizing standard CRUD pages
 - wiring buttons or links on list/view/edit pages
 - building nested CRUD links
 

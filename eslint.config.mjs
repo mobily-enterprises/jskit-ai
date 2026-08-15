@@ -9,8 +9,7 @@ export default [
       "**/coverage/**",
       "**/.cache/**",
       "**/.jskit/**",
-      "packages/**/templates/**",
-      "tooling/create-app/templates/**"
+      "packages/**/templates/**"
     ]
   },
   ...baseConfig,

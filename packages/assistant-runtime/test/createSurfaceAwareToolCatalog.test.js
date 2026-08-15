@@ -4,8 +4,9 @@ import { createSurfaceAwareToolCatalog } from "../src/server/support/createSurfa
 
 test("surface-aware tool catalog applies per-surface skip and barred configuration", async () => {
   const observed = [];
+  const actions = { listDefinitions: () => [], async execute() {} };
   const catalog = createSurfaceAwareToolCatalog(
-    {},
+    actions,
     {
       appConfig: {
         assistantServer: {
@@ -18,7 +19,8 @@ test("surface-aware tool catalog applies per-surface skip and barred configurati
           }
         }
       },
-      createCatalog(_scope, options = {}) {
+      createCatalog(receivedActions, options = {}) {
+        assert.equal(receivedActions, actions);
         observed.push(options);
         return {
           resolveToolSet(context = {}) {

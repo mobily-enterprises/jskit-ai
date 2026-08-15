@@ -1,5 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
-import { resolveAppConfig } from "@jskit-ai/kernel/server/support";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
@@ -22,7 +21,6 @@ import {
 import { resolveAssistantSurfaceConfig } from "../shared/assistantSurfaces.js";
 import { actionIds } from "./actionIds.js";
 import { assistantSurfaceRouteParamsValidator } from "./inputSchemas.js";
-import { resolveWorkspaceServerScopeSupport } from "./support/workspaceScopeSupport.js";
 
 function requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null) {
   if (!workspaceScopeSupport) {
@@ -499,14 +497,11 @@ function registerRuntimeRoutes(
   );
 }
 
-function registerRoutes(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("registerRoutes requires application make().");
+function registerRoutes(router, { config = {}, workspaceScopeSupport = null } = {}) {
+  if (!router || typeof router.register !== "function") {
+    throw new Error("registerRoutes requires an HTTP router.");
   }
-
-  const router = app.make("jskit.http.router");
-  const resolveCurrentAppConfig = () => resolveAppConfig(app);
-  const workspaceScopeSupport = resolveWorkspaceServerScopeSupport(app);
+  const resolveCurrentAppConfig = () => config;
 
   registerSettingsRoutes(router, resolveCurrentAppConfig, {
     requiresWorkspace: false

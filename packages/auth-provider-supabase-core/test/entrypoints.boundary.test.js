@@ -3,8 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const EXPECTED_EXPORTS = Object.freeze({
-  "./server/providers/AuthSupabaseServiceProvider": "./src/server/providers/AuthSupabaseServiceProvider.js",
-  "./server/providers/AuthProviderServiceProvider": "./src/server/providers/AuthProviderServiceProvider.js",
+  "./server/providers/AuthSupabaseProvider": "./src/server/providers/AuthSupabaseProvider.js",
   "./server/lib/index": "./src/server/lib/index.js",
   "./client": "./src/client/index.js"
 });

@@ -6,6 +6,11 @@ const vueConfig = Object.freeze([
   ...vue.configs["flat/recommended"],
   {
     files: [VUE_RELATED_FILES],
+    languageOptions: {
+      globals: {
+        definePage: "readonly"
+      }
+    },
     rules: {
       "vue/multi-word-component-names": "off",
       "vue/max-attributes-per-line": "off",

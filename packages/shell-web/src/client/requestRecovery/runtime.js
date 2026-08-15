@@ -235,17 +235,10 @@ function resolveQueryHash(query = null) {
 }
 
 function installRecoverableQueryObserver({
-  app,
+  queryClient,
   runtime,
   logger
 } = {}) {
-  if (!app?.has?.("jskit.client.query-client")) {
-    return Object.freeze({
-      dispose() {}
-    });
-  }
-
-  const queryClient = app.make("jskit.client.query-client");
   const queryCache =
     queryClient && typeof queryClient.getQueryCache === "function"
       ? queryClient.getQueryCache()
@@ -373,24 +366,13 @@ function installRecoverableQueryObserver({
 }
 
 function createShellRequestRecoveryRuntime({
-  app,
+  queryClient = null,
+  errorRuntime = null,
   logger = null
 } = {}) {
-  if (!app || typeof app.has !== "function" || typeof app.make !== "function") {
-    throw new Error("createShellRequestRecoveryRuntime requires application has()/make().");
-  }
-
-  const runtimeLogger = logger || createSharedProviderLogger(app);
+  const runtimeLogger = createSharedProviderLogger(logger);
   let installedQueryObserver = null;
   let reloadAttempt = 0;
-
-  function errorRuntime() {
-    if (!app.has("runtime.web-error.client")) {
-      return null;
-    }
-    const runtime = app.make("runtime.web-error.client");
-    return runtime && typeof runtime.report === "function" ? runtime : null;
-  }
 
   async function reload({
     label = "App",
@@ -445,11 +427,10 @@ function createShellRequestRecoveryRuntime({
   }
 
   function dismiss(presentationId = "", options = {}) {
-    const runtime = errorRuntime();
-    if (!runtime || typeof runtime.dismiss !== "function") {
+    if (!errorRuntime || typeof errorRuntime.dismiss !== "function") {
       return 0;
     }
-    return runtime.dismiss(presentationId, options);
+    return errorRuntime.dismiss(presentationId, options);
   }
 
   function report(error = null, options = {}) {
@@ -457,9 +438,8 @@ function createShellRequestRecoveryRuntime({
       return null;
     }
 
-    const runtime = errorRuntime();
     const source = normalizeText(options.source, "shell-web.request-recovery");
-    if (!runtime) {
+    if (!errorRuntime || typeof errorRuntime.report !== "function") {
       runtimeLogger.warn(
         {
           source,
@@ -478,7 +458,7 @@ function createShellRequestRecoveryRuntime({
         : null;
 
     try {
-      return runtime.report({
+      return errorRuntime.report({
         source,
         message: requestRecoveryMessage(error, options),
         cause: error || null,
@@ -508,7 +488,7 @@ function createShellRequestRecoveryRuntime({
     }
 
     installedQueryObserver = installRecoverableQueryObserver({
-      app,
+      queryClient,
       runtime: api,
       logger: runtimeLogger
     });

@@ -16,17 +16,17 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/common/contributors/workspaceActionContextContributor.js`
 Exports
-- `createWorkspaceActionContextContributor({ workspaceService, workspaceSurfaceIds = [] } = {})`
+- `createWorkspaceActionContextContributor({ workspaceService, workspaceMembershipOptionalSurfaceIds = [], workspaceSurfaceIds = [] } = {})`
 Local functions
 - `normalizeWorkspaceSurfaceIds(surfaceIds = [])`
 
 ### `src/server/common/contributors/workspaceAuthPolicyContextResolver.js`
 Exports
-- `createWorkspaceAuthPolicyContextResolver({ workspaceService } = {})`
+- `createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] } = {})`
 
 ### `src/server/common/contributors/workspaceRouteVisibilityResolver.js`
 Exports
-- `createWorkspaceRouteVisibilityResolver({ workspaceService } = {})`
+- `createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds = [] } = {})`
 Local functions
 - `buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {})`
 
@@ -91,11 +91,17 @@ Exports
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
-- `ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS`
-- `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, workspaceEntityId = ({ args }) => args?.[0]?.id, bootstrapEntityId = ({ args }) => args?.[0]?.id, bootstrapAudience = "event_scope" } = {})`
+- `INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE`
+- `createInviteDecisionEvents()`
+- `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, bootstrapEntityId = workspaceId, bootstrapAudience = "event_scope" } = {})`
 Local functions
-- `resolveActorScopedEntityId({ options } = {})`
-- `resolveWorkspaceSlugPayload({ args } = {})`
+- `resultValue({ result } = {})`
+- `actorId({ context } = {})`
+- `workspaceId(execution = {})`
+- `workspaceSlugPayload(execution = {})`
+- `createActorEvent({ source, entity, realtimeEvent })`
+- `createWorkspaceAudienceEvent({ entity, realtimeEvent })`
+- `onlyAccepted(builder)`
 
 ### `src/server/common/support/resolveActionUser.js`
 Exports
@@ -111,18 +117,6 @@ Exports
 - `routeParamsValidator`
 - `workspaceSlugParamsValidator`
 
-### `src/server/registerWorkspaceBootstrap.js`
-Exports
-- `registerWorkspaceBootstrap(app)`
-
-### `src/server/registerWorkspaceCore.js`
-Exports
-- `registerWorkspaceCore(app)`
-
-### `src/server/registerWorkspaceRepositories.js`
-Exports
-- `registerWorkspaceRepositories(app)`
-
 ### `src/server/support/resolveWorkspace.js`
 Exports
 - `resolveWorkspace(context = {}, input = {})`
@@ -132,10 +126,10 @@ Local functions
 ### `src/server/support/workspaceActionSurfaces.js`
 Exports
 - `resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {})`
+- `resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(appConfig = {})`
 - `resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {})`
 - `materializeWorkspaceActionSurfaces(actions = [], { workspaceSurfaceIds = [] } = {})`
 - `materializeWorkspaceActionSurfacesFromAppConfig(actions = [], { appConfig = {} } = {})`
-- `registerWorkspaceActionSurfaceSources(app)`
 Local functions
 - `normalizeSurfaceIds(surfaceIds = [])`
 - `resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate)`
@@ -150,10 +144,6 @@ Exports
 - `readWorkspaceSlugFromRouteParams(params = {})`
 - `buildWorkspaceInputFromRouteParams(params = {})`
 
-### `src/server/support/workspaceServerScopeSupport.js`
-Exports
-- `createWorkspaceServerScopeSupport()`
-
 ### `src/server/workspaceBootstrapContributor.js`
 Exports
 - `createWorkspaceBootstrapContributor({ workspaceService, workspacePendingInvitationsService, userProfilesRepository, workspaceInvitationsEnabled = false, appConfig = {}, tenancyProfile = null } = {})`
@@ -167,21 +157,18 @@ Local functions
 
 ### `src/server/workspaceDirectory/bootWorkspaceDirectoryRoutes.js`
 Exports
-- `bootWorkspaceDirectoryRoutes(app)`
+- `registerWorkspaceDirectoryRoutes(router, { config = {}, workspaceSelfCreateEnabled = false } = {})`
 Local functions
 - `resolveWorkspaceRecordId(record = {}, context = {})`
 
-### `src/server/workspaceDirectory/registerWorkspaceDirectory.js`
-Exports
-- `registerWorkspaceDirectory(app)`
-
 ### `src/server/workspaceDirectory/workspaceDirectoryActions.js`
 Exports
-- `workspaceDirectoryActions`
+- `workspaceDirectoryActionSpecifications`
+- `buildWorkspaceDirectoryActions({ workspaceService } = {})`
 
 ### `src/server/workspaceMembers/bootWorkspaceMembers.js`
 Exports
-- `bootWorkspaceMembers(app)`
+- `registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitationsEnabled = false } = {})`
 Local functions
 - `resolveWorkspaceAggregateRecordId(record = {}, context = {})`
 
@@ -190,13 +177,6 @@ Exports
 - `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
 Local functions
 - `escapeHtml(value = "")`
-
-### `src/server/workspaceMembers/registerWorkspaceMembers.js`
-Exports
-- `registerWorkspaceMembers(app)`
-Local functions
-- `resolveWorkspaceMembersInviteExpiresInMs(appConfig = {})`
-- `resolveWorkspaceInviteEmailTemplate(scope, appConfig = {})`
 
 ### `src/server/workspaceMembers/workspaceInviteUrls.js`
 Exports
@@ -208,7 +188,8 @@ Local functions
 
 ### `src/server/workspaceMembers/workspaceMembersActions.js`
 Exports
-- `workspaceMembersActions`
+- `workspaceMembersActionSpecifications`
+- `buildWorkspaceMembersActions({ workspaceMembersService } = {})`
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
@@ -216,59 +197,55 @@ Exports
 
 ### `src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js`
 Exports
-- `bootWorkspacePendingInvitations(app)`
+- `registerWorkspacePendingInvitationsRoutes(router)`
 Local functions
 - `resolveAuthenticatedUserRecordId(_record, context = {})`
 - `resolveInviteResolutionRecordId(record = {})`
 
-### `src/server/workspacePendingInvitations/registerWorkspacePendingInvitations.js`
-Exports
-- `registerWorkspacePendingInvitations(app)`
-Local functions
-- `workspaceAudienceFromEntityId({ event } = {})`
-- `actorUserEntityId({ options } = {})`
-- `createActorUserEvent({ source, entity, realtimeEvent })`
-- `createWorkspaceAudienceEvent({ entity, realtimeEvent })`
-- `createInviteDecisionEvents({ includeDirectoryAndMembers = false } = {})`
-
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsActions.js`
 Exports
-- `workspacePendingInvitationsActions`
+- `workspacePendingInvitationsActionSpecifications`
+- `buildWorkspacePendingInvitationsActions({ workspacePendingInvitationsService } = {})`
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
 - `createService({ workspaceInvitesRepository, workspaceMembershipsRepository } = {})`
 
-### `src/server/WorkspacesCoreServiceProvider.js`
-Exports
-- `WorkspacesCoreServiceProvider`
-
 ### `src/server/workspaceSettings/bootWorkspaceSettings.js`
 Exports
-- `bootWorkspaceSettings(app)`
+- `registerWorkspaceSettingsRoutes(router, { config = {} } = {})`
 Local functions
 - `resolveWorkspaceSettingsRecordId(record = {}, context = {})`
 
-### `src/server/workspaceSettings/registerWorkspaceSettings.js`
-Exports
-- `registerWorkspaceSettings(app)`
-Local functions
-- `resolveWorkspaceSettingsDefaultInvitesEnabled(appConfig = {})`
-
 ### `src/server/workspaceSettings/workspaceSettingsActions.js`
 Exports
-- `workspaceSettingsActions`
+- `workspaceSettingsActionSpecifications`
+- `buildWorkspaceSettingsActions({ workspaceSettingsService } = {})`
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository({ api, knex } = {})`
+- `createRepository({ api, knex, defaultInvitesEnabled = true } = {})`
 Local functions
 - `pickPatchFields(source = {})`
-- `createDefaultWorkspaceSettingsCreatePayload(workspaceId)`
+- `createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled)`
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
 - `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled = true, roleCatalog = null } = {})`
+
+### `src/server/WorkspacesFeature.js`
+Exports
+- `WorkspacesFeature`
+- `createWorkspacesRuntime({ config, database, env, jsonRestApi } = {})`
+- `installWorkspaceResources(jsonRestApi)`
+Local functions
+- `requirePositiveInteger(value, label)`
+- `requireBoolean(value, label)`
+- `resolveInviteEmailTemplate(config)`
+
+### `src/server/WorkspacesIntegrationsProvider.js`
+Exports
+- `WorkspacesIntegrationsProvider`
 
 ### `src/shared/jsonApiTransports.js`
 Exports
@@ -397,24 +374,20 @@ Local functions
 - `resolveWorkspacePolicyOverrides(appConfig = {})`
 - `resolveWorkspacePolicy(mode, overrides = {})`
 
-### templates
+### migrations
 
-### `templates/config/roles.js`
-Exports
-- `roleCatalog`
-
-### `templates/migrations/workspaces_core_initial.cjs`
+### `migrations/workspaces_core_initial.cjs`
 Exports
 - None
 
-### `templates/migrations/workspaces_core_workspace_settings_single_name_source.cjs`
+### `migrations/workspaces_core_workspace_settings_single_name_source.cjs`
 Exports
 - None
 Local functions
 - `hasTable(knex, tableName)`
 - `hasColumn(knex, tableName, columnName)`
 
-### `templates/migrations/workspaces_core_workspaces_drop_color.cjs`
+### `migrations/workspaces_core_workspaces_drop_color.cjs`
 Exports
 - None
 Local functions
@@ -422,6 +395,12 @@ Local functions
 - `hasColumn(knex, tableName, columnName)`
 - `normalizeHexColor(value)`
 
-### `templates/packages/main/src/server/email/workspaceInviteEmail.js`
+### patterns
+
+### `patterns/workspace-server/example/config/roles.js`
+Exports
+- `roleCatalog`
+
+### `patterns/workspace-server/example/packages/main/src/server/email/workspaceInviteEmail.js`
 Exports
 - `renderWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`

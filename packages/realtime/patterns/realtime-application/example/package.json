@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@jskit-ai/realtime": "0.1.156",
+    "@jskit-ai/shell-web": "0.1.163"
+  }
+}

@@ -242,6 +242,25 @@ function normalizeActionExtensions(value) {
   });
 }
 
+function normalizeActionEvents(value, actionId) {
+  if (value == null) return Object.freeze([]);
+  if (!Array.isArray(value)) {
+    throw createActionRuntimeError(500, `Action definition "${actionId}" events must be an array.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+  return Object.freeze(value.map((builder, index) => {
+    if (typeof builder !== "function") {
+      throw createActionRuntimeError(
+        500,
+        `Action definition "${actionId}" events[${index}] must be a function.`,
+        { code: "ACTION_DEFINITION_INVALID" }
+      );
+    }
+    return builder;
+  }));
+}
+
 function normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {}) {
   const source = definition && typeof definition === "object" ? definition : {};
 
@@ -312,6 +331,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     }),
     observability: normalizeObservabilityConfig(source.observability),
     extensions: normalizeActionExtensions(source.extensions),
+    events: normalizeActionEvents(source.events, id),
     execute: source.execute,
     contributorId: normalizeText(contributorId)
   });

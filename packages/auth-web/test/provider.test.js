@@ -1,240 +1,50 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createPinia } from "pinia";
+
 import {
-  AUTH_GUARD_RUNTIME_INJECTION_KEY,
-  AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY
-} from "../src/client/runtime/inject.js";
-import { bootAuthClientProvider } from "../src/client/providers/bootAuthClientProvider.js";
-import { useAuthStore } from "../src/client/stores/useAuthStore.js";
+  createAuthClient,
+  createMobileCallbackCompleter
+} from "../src/client/runtime/authClient.js";
 
-function createAuthRuntimeStub(initialState = {}) {
-  let state = Object.freeze({
-    authenticated: Boolean(initialState.authenticated),
-    username: String(initialState.username || ""),
-    oauthDefaultProvider: String(initialState.oauthDefaultProvider || ""),
-    oauthProviders: Array.isArray(initialState.oauthProviders)
-      ? Object.freeze([...initialState.oauthProviders])
-      : Object.freeze([])
-  });
-  let initializeCalls = 0;
-  const listeners = new Set();
-
+function createShell() {
   return {
-    async initialize() {
-      initializeCalls += 1;
-      return state;
+    bootstrap: {
+      async refresh() {}
     },
-    async refresh() {
-      return state;
-    },
-    getState() {
-      return state;
-    },
-    subscribe(listener) {
-      if (typeof listener === "function") {
-        listeners.add(listener);
-      }
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    push(nextState = {}) {
-      state = Object.freeze({
-        authenticated: Boolean(nextState.authenticated),
-        username: String(nextState.username || ""),
-        oauthDefaultProvider: String(nextState.oauthDefaultProvider || ""),
-        oauthProviders: Array.isArray(nextState.oauthProviders)
-          ? Object.freeze([...nextState.oauthProviders])
-          : Object.freeze([])
-      });
-
-      for (const listener of listeners) {
-        listener(state);
-      }
-    },
-    get initializeCalls() {
-      return initializeCalls;
-    }
-  };
-}
-
-function createAppDouble({ authGuardRuntime, bootstrapRuntime = null, oauthLaunchClient = null } = {}) {
-  const singletons = new Map();
-  const singletonInstances = new Map();
-  const provided = [];
-  const pinia = createPinia();
-  const vueApp = {
-    provide(key, value) {
-      provided.push({ key, value });
-    }
-  };
-
-  return {
-    singletons,
-    provided,
-    pinia,
-    vueApp,
-    singleton(token, factory) {
-      singletons.set(token, factory);
-    },
-    has(token) {
-      if (token === "jskit.client.vue.app") {
-        return true;
-      }
-      if (token === "jskit.client.pinia") {
-        return true;
-      }
-      if (token === "runtime.web-placement.client") {
-        return true;
-      }
-      if (token === "runtime.auth-guard.client") {
-        return true;
-      }
-      if (token === "runtime.web-bootstrap.client") {
-        return Boolean(bootstrapRuntime);
-      }
-      if (token === "auth.oauth-launch.client") {
-        return Boolean(oauthLaunchClient);
-      }
-      return singletons.has(token) || singletonInstances.has(token);
-    },
-    make(token) {
-      if (token === "jskit.client.vue.app") {
-        return vueApp;
-      }
-      if (token === "jskit.client.pinia") {
-        return pinia;
-      }
-      if (token === "runtime.web-placement.client") {
+    placement: {
+      getContext() {
         return {
-          getContext() {
-            return Object.freeze({
-              surfaceConfig: Object.freeze({
-                enabledSurfaceIds: Object.freeze(["home"]),
-                defaultSurfaceId: "home",
-                surfaces: Object.freeze({
-                  home: Object.freeze({
-                    id: "home",
-                    origin: "",
-                    pagesRoot: "home"
-                  }),
-                  auth: Object.freeze({
-                    id: "auth",
-                    origin: "",
-                    pagesRoot: "auth"
-                  })
-                })
-              })
-            });
+          surfaceConfig: {
+            defaultSurfaceId: "app",
+            enabledSurfaceIds: ["app", "auth"]
           }
         };
+      },
+      setContext() {
+        return this.getContext();
       }
-      if (token === "runtime.auth-guard.client") {
-        return authGuardRuntime;
-      }
-      if (token === "runtime.web-bootstrap.client") {
-        return bootstrapRuntime;
-      }
-      if (token === "auth.oauth-launch.client") {
-        return oauthLaunchClient;
-      }
-      if (singletonInstances.has(token)) {
-        return singletonInstances.get(token);
-      }
-      const factory = singletons.get(token);
-      if (!factory) {
-        throw new Error(`Unknown token ${String(token)}`);
-      }
-      const instance = factory(this);
-      singletonInstances.set(token, instance);
-      return instance;
     }
   };
 }
 
-test("auth web client boot binds explicit Pinia store state and raw runtime injection together", async () => {
-  const authGuardRuntime = createAuthRuntimeStub({
-    authenticated: true,
-    username: "ada"
-  });
-  const app = createAppDouble({ authGuardRuntime });
-
-  await bootAuthClientProvider(app);
-
-  const authStore = useAuthStore(app.pinia);
-  assert.equal(authStore.runtime, authGuardRuntime);
-  assert.equal(authStore.authenticated, true);
-  assert.equal(authStore.username, "ada");
-  assert.equal(authGuardRuntime.initializeCalls, 1);
-
-  authGuardRuntime.push({
-    authenticated: true,
-    username: "grace"
-  });
-
-  assert.equal(authStore.username, "grace");
-
-  const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
-  assert.equal(providedByKey.get(AUTH_GUARD_RUNTIME_INJECTION_KEY), authGuardRuntime);
-  assert.equal(typeof providedByKey.get(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY)?.open, "function");
-});
-
-test("auth web client boot refreshes shared bootstrap runtime on auth changes", async () => {
-  const authGuardRuntime = createAuthRuntimeStub({
-    authenticated: false,
-    username: ""
-  });
-  const refreshCalls = [];
-  const app = createAppDouble({
-    authGuardRuntime,
-    bootstrapRuntime: {
-      async refresh(reason) {
-        refreshCalls.push(String(reason || ""));
-        return null;
+test("auth client groups guard, OAuth, and mobile callback behavior without a container", () => {
+  const provided = new Map();
+  const auth = createAuthClient({
+    pinia: createPinia(),
+    shell: createShell(),
+    vueApp: {
+      provide(key, value) {
+        provided.set(key, value);
       }
     }
   });
 
-  await bootAuthClientProvider(app);
-  assert.deepEqual(refreshCalls, []);
-
-  authGuardRuntime.push({
-    authenticated: true,
-    username: "ada"
-  });
-
-  assert.deepEqual(refreshCalls, ["auth.state"]);
-});
-
-test("auth web client boot prefers an explicitly registered OAuth launch client", async () => {
-  const authGuardRuntime = createAuthRuntimeStub({
-    authenticated: false
-  });
-  const launchCalls = [];
-  const oauthLaunchClient = {
-    async open(input = {}) {
-      launchCalls.push(input);
-      return true;
-    }
-  };
-  const app = createAppDouble({
-    authGuardRuntime,
-    oauthLaunchClient
-  });
-
-  await bootAuthClientProvider(app);
-
-  const providedByKey = new Map(app.provided.map((entry) => [entry.key, entry.value]));
-  const injectedLaunchClient = providedByKey.get(AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY);
-  assert.equal(injectedLaunchClient, oauthLaunchClient);
-
-  await injectedLaunchClient.open({
-    url: "/api/oauth/google/start?returnTo=%2Fw%2Facme"
-  });
-  assert.deepEqual(launchCalls, [
-    {
-      url: "/api/oauth/google/start?returnTo=%2Fw%2Facme"
-    }
-  ]);
+  assert.equal(typeof auth.guard.initialize, "function");
+  assert.equal(typeof auth.oauthLaunch.open, "function");
+  assert.equal(typeof auth.mobileCallback.completeFromUrl, "function");
+  assert.equal(typeof auth.initialize, "function");
+  assert.equal(typeof auth.dispose, "function");
+  assert.equal(typeof createMobileCallbackCompleter().completeFromUrl, "function");
+  assert.equal(provided.size, 0);
 });

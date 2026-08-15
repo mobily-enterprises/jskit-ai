@@ -16,13 +16,13 @@ const workspaceUpdateInputValidator = composeSchemaDefinitions([
   context: "workspaceDirectoryActions.workspaceUpdateInputValidator"
 });
 
-const workspaceDirectoryActions = Object.freeze([
+const workspaceDirectoryActionSpecifications = Object.freeze([
   {
     id: "workspace.workspaces.create",
     version: 1,
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -38,8 +38,8 @@ const workspaceDirectoryActions = Object.freeze([
         description: "Create a workspace for the authenticated user."
       }
     },
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
+    async run(workspaceService, input, context) {
+      return returnJsonApiData(await workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
         request: resolveRequest(context),
         context
       }));
@@ -50,7 +50,7 @@ const workspaceDirectoryActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -61,9 +61,9 @@ const workspaceDirectoryActions = Object.freeze([
       actionName: "workspace.workspaces.list"
     },
     observability: {},
-    async execute(input, context, deps) {
+    async run(workspaceService, input, context) {
       return returnJsonApiData({
-        items: await deps.workspaceService.listWorkspacesForAuthenticatedUser(resolveActionUser(context, input), {
+        items: await workspaceService.listWorkspacesForAuthenticatedUser(resolveActionUser(context, input), {
           request: resolveRequest(context),
           context
         }),
@@ -76,7 +76,7 @@ const workspaceDirectoryActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "any",
       permissions: ["workspace.settings.view", "workspace.settings.update"]
@@ -88,8 +88,8 @@ const workspaceDirectoryActions = Object.freeze([
       actionName: "workspace.workspaces.read"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceService.getWorkspaceForAuthenticatedUser(
+    async run(workspaceService, input, context) {
+      return returnJsonApiData(await workspaceService.getWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,
         {
@@ -104,7 +104,7 @@ const workspaceDirectoryActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.settings.update"]
@@ -121,9 +121,9 @@ const workspaceDirectoryActions = Object.freeze([
         description: "Update workspace profile fields."
       }
     },
-    async execute(input, context, deps) {
+    async run(workspaceService, input, context) {
       const { workspaceSlug, ...patch } = input;
-      return returnJsonApiData(await deps.workspaceService.updateWorkspaceForAuthenticatedUser(
+      return returnJsonApiData(await workspaceService.updateWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         workspaceSlug,
         patch,
@@ -136,4 +136,14 @@ const workspaceDirectoryActions = Object.freeze([
   }
 ]);
 
-export { workspaceDirectoryActions };
+function buildWorkspaceDirectoryActions({ workspaceService } = {}) {
+  if (!workspaceService) throw new TypeError("buildWorkspaceDirectoryActions requires workspaceService.");
+  return workspaceDirectoryActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(workspaceService, input, context);
+    }
+  }));
+}
+
+export { workspaceDirectoryActionSpecifications, buildWorkspaceDirectoryActions };

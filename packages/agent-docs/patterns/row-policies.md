@@ -9,10 +9,9 @@ Use when:
 
 Read first:
 
-- `packages/agent-docs/site/guide/generators/row-policies.md`
 - the owning CRUD provider and shared resource
-- the generated CRUD repository and service templates
-- `packages/crud-server-generator/test/crudService.test.js`
+- the package-owned CRUD server pattern
+- `packages/crud-core/test/defineCrudJsonApiFeature.test.js`
 
 Default JSKIT pattern:
 
@@ -60,7 +59,7 @@ Avoid:
 
 - filtering `document.data` in `service.js`
 - accepting visible ids or hierarchy roots from client query parameters
-- installing `RowPolicyPlugin` in generated applications
-- adding a default policy file to every generated CRUD
+- installing `RowPolicyPlugin` in applications
+- adding a default policy file to every CRUD
 - returning a Knex builder or promise from a synchronous grouped contribution
 - swallowing a policy error and retrying without mandatory visibility

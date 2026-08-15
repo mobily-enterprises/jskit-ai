@@ -27,20 +27,6 @@
       "client": {
         "providers": []
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/resource-core": "0.1.101"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": []
     }
   }
 }

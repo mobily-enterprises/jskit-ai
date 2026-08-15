@@ -1,6 +1,5 @@
 export {
-  BOOTSTRAP_PAYLOAD_HANDLER_TAG,
-  registerBootstrapPayloadHandler,
-  resolveBootstrapPayloadHandlers
+  createBootstrapPayloadHandlerRegistry,
+  normalizeBootstrapPayloadHandler
 } from "./bootstrapPayloadHandlerRegistry.js";
 export { resolveBootstrapErrorStatusCode } from "./bootstrapErrorStatus.js";

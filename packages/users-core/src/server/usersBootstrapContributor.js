@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { normalizeBoolean, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";
 
@@ -30,34 +30,13 @@ function getOAuthProviderCatalogPayload(authService) {
   };
 }
 
-function resolveBooleanConfigValue(value, fallback) {
-  if (value === undefined || value === null || value === "") {
-    return fallback;
-  }
-
-  return normalizeBoolean(value);
-}
-
-function resolveAppState(appConfig = {}) {
-  const features = {
-    assistantEnabled: resolveBooleanConfigValue(appConfig.assistantEnabled, false),
-    assistantRequiredPermission: normalizeText(appConfig.assistantRequiredPermission),
-    socialEnabled: resolveBooleanConfigValue(appConfig.socialEnabled, false),
-    socialFederationEnabled: resolveBooleanConfigValue(appConfig.socialFederationEnabled, false)
-  };
-
-  return {
-    features
-  };
-}
-
-function createAnonymousBootstrapPayload({ appState, surfaceAccess = {} }) {
+function createAnonymousBootstrapPayload({ surfaceAccess = {} }) {
   return {
     session: {
       authenticated: false
     },
     profile: null,
-    app: appState,
+    app: {},
     surfaceAccess: normalizeObject(surfaceAccess),
     userSettings: null,
     requestMeta: {
@@ -80,11 +59,9 @@ function mapUserSettingsBootstrap(settings = {}) {
 function createUsersBootstrapContributor({
   userProfilesRepository,
   userSettingsRepository,
-  appConfig = {},
   authService
 } = {}) {
   const contributorId = "users.bootstrap";
-  const appState = resolveAppState(appConfig);
 
   requireServiceMethod(userProfilesRepository, "findById", contributorId, {
     serviceLabel: "internal.repository.user-profiles"
@@ -114,7 +91,6 @@ function createUsersBootstrapContributor({
       const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;
       const inheritedSurfaceAccess = normalizeObject(existingPayload?.surfaceAccess);
       let payload = createAnonymousBootstrapPayload({
-        appState,
         surfaceAccess: inheritedSurfaceAccess
       });
 
@@ -132,7 +108,7 @@ function createUsersBootstrapContributor({
             email: latestProfile.email,
             avatar: accountAvatarFormatter(latestProfile, userSettings)
           },
-          app: appState,
+          app: {},
           surfaceAccess: inheritedSurfaceAccess,
           userSettings: mapUserSettingsBootstrap(userSettings),
           requestMeta: {

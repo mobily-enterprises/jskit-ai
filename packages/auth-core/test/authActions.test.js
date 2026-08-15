@@ -1,265 +1,88 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSchema } from "json-rest-schema";
-import { createApplication } from "@jskit-ai/kernel/_testable";
-import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
-import { AuthActionsServiceProvider } from "../src/server/providers/AuthActionsServiceProvider.js";
+import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { buildAuthActions } from "../src/server/actions/auth.contributor.js";
+import { AuthFeature } from "../src/server/providers/AuthFeature.js";
 
-function createAppConfigFixture() {
-  return {
-    surfaceModeAll: "all",
-    surfaceDefaultId: "home",
-    surfaceDefinitions: {
-      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false },
-      console: {
-        id: "console",
-        pagesRoot: "console",
-        enabled: true,
-        requiresAuth: true,
-        requiresWorkspace: false
-      }
-    }
-  };
-}
-
-test("auth logout action delegates to selected auth provider and notifies session changes", async () => {
-  const action = buildAuthActions().find((definition) => definition.id === "auth.logout");
-  const request = {
-    id: "request-1"
-  };
+test("auth logout action delegates directly to the selected auth service", async () => {
   const calls = [];
-
-  const result = await action.execute(
-    {},
-    {
-      requestMeta: {
-        request
-      }
-    },
-    {
-      authService: {
-        async logout(receivedRequest) {
-          calls.push({
-            type: "logout",
-            request: receivedRequest
-          });
-          return {
-            ok: true,
-            clearSession: true
-          };
-        }
-      },
-      authSessionEventsService: {
-        async notifySessionChanged(payload) {
-          calls.push({
-            type: "notify",
-            context: payload.context
-          });
-        }
-      }
+  const authService = {
+    async logout(request) {
+      calls.push(request);
+      return { ok: true, clearSession: true };
     }
-  );
-
-  assert.deepEqual(result, {
+  };
+  const action = buildAuthActions({ authService }).find((definition) => definition.id === "auth.logout");
+  const request = { id: "request-1" };
+  assert.deepEqual(await action.execute({}, { requestMeta: { request } }), {
     ok: true,
     clearSession: true
   });
-  assert.deepEqual(calls, [
-    {
-      type: "logout",
-      request
-    },
-    {
-      type: "notify",
-      context: {
-        requestMeta: {
-          request
-        }
-      }
-    }
-  ]);
+  assert.deepEqual(calls, [request]);
 });
 
-test("shared dev login-as action passes the trusted request to the selected auth provider", async () => {
-  const action = buildAuthActions().find((definition) => definition.id === "auth.dev.loginAs");
-  const request = {
-    headers: {
-      "x-jskit-dev-auth-secret": "secret"
-    }
-  };
-  const input = {
-    email: "ada@example.com"
-  };
+test("shared dev login-as action passes the trusted request to auth.service", async () => {
+  const input = { email: "ada@example.com" };
+  const request = { headers: { "x-jskit-dev-auth-secret": "secret" } };
   let received = null;
-
-  const result = await action.execute(input, {
-    requestMeta: {
-      request
-    }
-  }, {
+  const action = buildAuthActions({
     authService: {
       async devLoginAs(receivedRequest, receivedInput) {
-        received = {
-          input: receivedInput,
-          request: receivedRequest
-        };
-        return {
-          ok: true
-        };
+        received = { input: receivedInput, request: receivedRequest };
+        return { ok: true };
       }
     }
-  });
-
-  assert.deepEqual(result, { ok: true });
+  }).find((definition) => definition.id === "auth.dev.loginAs");
+  assert.deepEqual(await action.execute(input, { requestMeta: { request } }), { ok: true });
   assert.deepEqual(received, { input, request });
 });
 
-test("AuthActionsServiceProvider registers shared auth actions against auth.provider", async () => {
-  const app = createApplication();
-  const logoutCalls = [];
-  const published = [];
-  class SelectedAuthProvider {
-    static id = "auth.provider";
-
-    register(targetApp) {
-      targetApp.singleton("authService", () => ({
-        async logout(request) {
-          logoutCalls.push(request);
-          return {
-            ok: true,
-            clearSession: true
-          };
-        },
-        async authenticateRequest() {
-          return {
-            authenticated: false,
-            actor: null,
-            transientFailure: false
-          };
+test("AuthFeature contributes actions only when auth.service exists", async () => {
+  let actions = null;
+  const SelectedAuthProvider = defineProvider({
+    id: "test.auth.service",
+    provides: { service: "auth.service" },
+    setup() {
+      return {
+        service: {
+          async authenticateRequest() {
+            return { authenticated: false, actor: null, transientFailure: false };
+          },
+          async logout() {
+            return { ok: true, clearSession: true };
+          }
         }
-      }));
-    }
-  }
-
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("domainEvents", {
-    async publish(payload) {
-      published.push(payload);
+      };
     }
   });
-
-  await app.start({
-    providers: [ActionRuntimeServiceProvider, SelectedAuthProvider, AuthActionsServiceProvider]
-  });
-
-  const actionExecutor = app.make("actionExecutor");
-  const definitions = actionExecutor.listDefinitions();
-  assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.register"), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
-  assert.deepEqual(definitions.find((definition) => definition.id === "auth.session.read")?.surfaces, [
-    "home",
-    "console"
-  ]);
-
-  const request = { id: "request-2" };
-  const result = await actionExecutor.execute({
-    actionId: "auth.logout",
-    input: {},
-    context: {
-      channel: "internal",
-      surface: "home",
-      requestMeta: { request },
-      actor: { id: 42 }
+  const ProbeProvider = defineProvider({
+    id: "test.auth.actions.probe",
+    requires: { catalogue: "runtime.actions" },
+    setup({ catalogue }) {
+      actions = catalogue;
+      return {};
     }
   });
-
-  assert.deepEqual(result, {
-    ok: true,
-    clearSession: true
+  const runtime = createCapabilityRuntime({
+    providers: [createActionProvider(), SelectedAuthProvider, AuthFeature, ProbeProvider]
   });
-  assert.deepEqual(logoutCalls, [request]);
-  assert.equal(published.length, 2);
-  assert.deepEqual(
-    published.map((event) => ({
-      source: event.source,
-      entity: event.entity,
-      operation: event.operation,
-      entityId: event.entityId,
-      realtimeEvent: event.meta?.realtime?.event
-    })),
-    [
-      {
-        source: "auth",
-        entity: "session",
-        operation: "updated",
-        entityId: "42",
-        realtimeEvent: "auth.session.changed"
-      },
-      {
-        source: "users",
-        entity: "bootstrap",
-        operation: "updated",
-        entityId: "42",
-        realtimeEvent: "users.bootstrap.changed"
-      }
-    ]
-  );
-});
+  await runtime.start();
+  assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.login.password"), true);
+  assert.deepEqual(actions.getDefinition("auth.session.read").surfaces, ["*"]);
 
-test("AuthActionsServiceProvider leaves unrelated actions usable when no auth provider is selected", async () => {
-  const app = createApplication();
-
-  class PublicActionProvider {
-    static id = "public.actions";
-
-    static startsAfter = ["runtime.actions"];
-
-    register(targetApp) {
-      targetApp.action({
-        id: "public.ping",
-        domain: "public",
-        version: 1,
-        kind: "query",
-        channels: ["internal"],
-        surfaces: ["home"],
-        permission: { require: "none" },
-        input: {
-          schema: createSchema({}),
-          mode: "patch"
-        },
-        output: null,
-        idempotency: "none",
-        audit: { actionName: "public.ping" },
-        observability: {},
-        async execute() {
-          return { ok: true };
-        }
-      });
+  let publicActions = null;
+  const EmptyProbe = defineProvider({
+    id: "test.auth.empty-probe",
+    requires: { catalogue: "runtime.actions" },
+    setup({ catalogue }) {
+      publicActions = catalogue;
+      return {};
     }
-  }
-
-  app.instance("appConfig", createAppConfigFixture());
-
-  await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthActionsServiceProvider, PublicActionProvider]
   });
-
-  const actionExecutor = app.make("actionExecutor");
-  assert.equal(
-    actionExecutor.listDefinitions().some((definition) => definition.id.startsWith("auth.")),
-    false
-  );
-  assert.deepEqual(
-    await actionExecutor.execute({
-      actionId: "public.ping",
-      input: {},
-      context: {
-        channel: "internal",
-        surface: "home"
-      }
-    }),
-    { ok: true }
-  );
+  const noAuthRuntime = createCapabilityRuntime({
+    providers: [createActionProvider(), AuthFeature, EmptyProbe]
+  });
+  await noAuthRuntime.start();
+  assert.deepEqual(publicActions.listDefinitions(), []);
 });

@@ -18,7 +18,7 @@ An established JSKIT prop or component wins over generic Material advice.
 
 Use this order:
 
-1. Reuse the JSKIT package, generator, shared screen, shell, placement, or
+1. Reuse the JSKIT package, source pattern, shared screen, shell, placement, or
    high-level composable that owns the behavior.
 2. Use the matching Vuetify component and its public props, variants, slots,
    density, responsive, theme, and accessibility behavior.

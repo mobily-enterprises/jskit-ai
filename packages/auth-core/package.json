@@ -6,16 +6,18 @@
     "test": "node --test"
   },
   "exports": {
-    "./server/providers/AccessCoreServiceProvider": "./src/server/providers/AccessCoreServiceProvider.js",
-    "./server/providers/FastifyAuthPolicyServiceProvider": "./src/server/providers/FastifyAuthPolicyServiceProvider.js",
-    "./server/providers/AuthActionsServiceProvider": "./src/server/providers/AuthActionsServiceProvider.js",
+    "./server/providers/AuthAccessProvider": "./src/server/providers/AuthAccessProvider.js",
+    "./server/providers/AuthExtensionsProvider": "./src/server/providers/AuthExtensionsProvider.js",
+    "./server/providers/AuthFeature": "./src/server/providers/AuthFeature.js",
+    "./server/providers/AuthPolicyProvider": "./src/server/providers/AuthPolicyProvider.js",
     "./server/actions/auth.contributor": "./src/server/actions/auth.contributor.js",
-    "./server/services/authSessionEventsService": "./src/server/services/authSessionEventsService.js",
+    "./server/authExtensions": "./src/server/authExtensions.js",
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
     "./server/authActor": "./src/server/authActor.js",
     "./server/booleanFlag": "./src/server/booleanFlag.js",
     "./server/devAuth": "./src/server/devAuth.js",
+    "./server/deferredAuthService": "./src/server/deferredAuthService.js",
     "./server/unsupportedOperation": "./src/server/unsupportedOperation.js",
     "./server/utils": "./src/server/utils.js",
     "./server/validators": "./src/server/validators.js",
@@ -67,25 +69,35 @@
     "capabilities": {
       "provides": [
         "auth.access",
+        "auth.extensions",
         "auth.policy"
       ],
-      "requires": []
+      "requires": [
+        "runtime.actions",
+        "runtime.env",
+        "runtime.fastify",
+        "runtime.http"
+      ]
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/AccessCoreServiceProvider.js",
+        "providerEntrypoint": "src/server/providers/AuthAccessProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/AccessCoreServiceProvider.js",
-            "export": "AccessCoreServiceProvider"
+            "entrypoint": "src/server/providers/AuthAccessProvider.js",
+            "export": "AuthAccessProvider"
           },
           {
-            "entrypoint": "src/server/providers/AuthActionsServiceProvider.js",
-            "export": "AuthActionsServiceProvider"
+            "entrypoint": "src/server/providers/AuthExtensionsProvider.js",
+            "export": "AuthExtensionsProvider"
           },
           {
-            "entrypoint": "src/server/providers/FastifyAuthPolicyServiceProvider.js",
-            "export": "FastifyAuthPolicyServiceProvider"
+            "entrypoint": "src/server/providers/AuthFeature.js",
+            "export": "AuthFeature"
+          },
+          {
+            "entrypoint": "src/server/providers/AuthPolicyProvider.js",
+            "export": "AuthPolicyProvider"
           }
         ]
       },
@@ -94,10 +106,6 @@
           {
             "entrypoint": "src/client/providers/AccessCoreClientProvider.js",
             "export": "AccessCoreClientProvider"
-          },
-          {
-            "entrypoint": "src/client/providers/FastifyAuthPolicyClientProvider.js",
-            "export": "FastifyAuthPolicyClientProvider"
           }
         ]
       }
@@ -107,7 +115,7 @@
         "surfaces": [
           {
             "subpath": "./client",
-            "summary": "Exports client auth access APIs plus AccessCoreClientProvider/FastifyAuthPolicyClientProvider."
+            "summary": "Exports the client auth access API and its capability provider."
           },
           {
             "subpath": "./server",
@@ -118,33 +126,10 @@
             "summary": "Exports shared auth client helpers (createApi and runAuthSignOutFlow), with structured subpaths at ./shared/authApi and ./shared/signOutFlow."
           }
         ],
-        "containerTokens": {
-          "server": [
-            "auth.access",
-            "auth.session.events.service"
-          ],
-          "client": [
-            "auth.access.client"
-          ]
-        }
+        "clientCapabilities": [
+          "auth.access.client"
+        ]
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/kernel": "0.1.159",
-          "@fastify/cookie": "^11.0.2",
-          "@fastify/csrf-protection": "^7.1.0",
-          "@fastify/rate-limit": "^10.3.0"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": []
     }
   }
 }

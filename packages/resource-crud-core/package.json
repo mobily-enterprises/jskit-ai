@@ -32,20 +32,6 @@
       "client": {
         "providers": []
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/resource-crud-core": "0.1.101"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": []
     }
   }
 }

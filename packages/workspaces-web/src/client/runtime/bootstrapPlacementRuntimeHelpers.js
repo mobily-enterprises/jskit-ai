@@ -14,8 +14,8 @@ import {
 } from "../support/runtimeNormalization.js";
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
 
-function createProviderLogger(app) {
-  return createSharedProviderLogger(app);
+function createProviderLogger(logger) {
+  return createSharedProviderLogger(logger);
 }
 
 function resolveRouteState(placementRuntime, router) {

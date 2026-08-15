@@ -7,7 +7,9 @@
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./server/providers/DatabaseRuntimeServiceProvider": "./src/server/providers/DatabaseRuntimeServiceProvider.js",
+    "./server/providers/DatabaseProvider": "./src/server/providers/DatabaseProvider.js",
+    "./server/databaseSetup": "./src/server/databaseSetup.js",
+    "./server/knexMigrationConfig": "./src/server/knexMigrationConfig.js",
     "./shared": "./src/shared/index.js",
     "./shared/dateUtils": "./src/shared/dateUtils.js",
     "./shared/databaseClient": "./src/shared/databaseClient.js",
@@ -25,7 +27,8 @@
     "./shared/transactions": "./src/shared/transactions.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.159"
+    "@jskit-ai/kernel": "0.1.159",
+    "knex": "^3.1.0"
   },
   "jskit": {
     "kind": "runtime",
@@ -39,11 +42,10 @@
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/DatabaseRuntimeServiceProvider.js",
-            "export": "DatabaseRuntimeServiceProvider"
+            "entrypoint": "src/server/providers/DatabaseProvider.js",
+            "export": "DatabaseProvider"
           }
         ]
       },
@@ -56,7 +58,15 @@
         "surfaces": [
           {
             "subpath": "./server",
-            "summary": "Exports DatabaseRuntimeServiceProvider plus registerDatabaseRuntime for server container wiring."
+            "summary": "Provides the cohesive runtime.database capability with Knex, transactions, the selected driver, and repository utilities."
+          },
+          {
+            "subpath": "./server/databaseSetup",
+            "summary": "Migrates the installed package graph and runs one explicit app-owned seed operation without a CLI or persistent setup record."
+          },
+          {
+            "subpath": "./server/knexMigrationConfig",
+            "summary": "Builds fixed-dialect Knex migration configuration and discovers immutable migrations directly from installed JSKIT packages."
           },
           {
             "subpath": "./shared",
@@ -66,71 +76,8 @@
             "subpath": "./client",
             "summary": "Exports no runtime API today (reserved client entrypoint)."
           }
-        ],
-        "containerTokens": {
-          "server": [
-            "runtime.database",
-            "runtime.database.driver",
-            "jskit.database.knex",
-            "jskit.database.transactionManager"
-          ],
-          "client": []
-        }
+        ]
       }
-    },
-    "ci": {
-      "environment": {},
-      "services": [],
-      "steps": [
-        {
-          "id": "database-migrations",
-          "phase": "before-verify",
-          "label": "Apply database migrations",
-          "command": "npm run db:migrate"
-        }
-      ]
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/kernel": "0.1.159",
-          "dotenv": "^16.4.5",
-          "knex": "^3.1.0"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {
-          "db:migrations:sync": "jskit migrations sync",
-          "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
-          "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-          "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
-        }
-      },
-      "procfile": {},
-      "files": [
-        {
-          "from": "templates/knexfile.js",
-          "to": "knexfile.js",
-          "reason": "Install root Knex configuration so app scripts can run migrations through Knex CLI.",
-          "category": "database-runtime",
-          "id": "database-runtime-knexfile"
-        },
-        {
-          "from": "templates/migrations/.gitkeep",
-          "to": "migrations/.gitkeep",
-          "reason": "Ensure migrations directory exists so Knex migration commands can run before any module installs migrations.",
-          "category": "database-runtime",
-          "id": "database-runtime-migrations-dir"
-        },
-        {
-          "from": "templates/migrations/constraints/.gitkeep",
-          "to": "migrations/constraints/.gitkeep",
-          "reason": "Ensure the ordered deferred-constraint migration directory exists.",
-          "category": "database-runtime",
-          "id": "database-runtime-constraint-migrations-dir"
-        }
-      ]
     }
   }
 }

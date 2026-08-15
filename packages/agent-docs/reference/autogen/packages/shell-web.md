@@ -31,18 +31,13 @@ Exports
 
 ### `src/client/bootstrap/bootstrapPayloadHandlerRegistry.js`
 Exports
-- `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
-- `registerBootstrapPayloadHandler(app, token, factory)`
-- `resolveBootstrapPayloadHandlers(scope)`
-Local functions
-- `assertTaggableApp(app, context = "bootstrap payload handler registry")`
+- `createBootstrapPayloadHandlerRegistry()`
 - `normalizeBootstrapPayloadHandler(entry)`
 
 ### `src/client/bootstrap/index.js`
 Exports
-- `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
-- `registerBootstrapPayloadHandler`
-- `resolveBootstrapPayloadHandlers`
+- `createBootstrapPayloadHandlerRegistry`
+- `normalizeBootstrapPayloadHandler`
 - `resolveBootstrapErrorStatusCode`
 
 ### `src/client/components/ShellErrorHost.vue`
@@ -227,10 +222,8 @@ Exports
 - `isRecoverableRequestError`
 - `requestRecoveryMessage`
 - `useShellRequestRecoveryRuntime`
-- `BOOTSTRAP_PAYLOAD_HANDLER_TAG`
-- `registerBootstrapPayloadHandler`
-- `resolveBootstrapPayloadHandlers`
-- `clientProviders`
+- `createBootstrapPayloadHandlerRegistry`
+- `normalizeBootstrapPayloadHandler`
 
 ### `src/client/lib/menuIcons.js`
 Exports
@@ -305,7 +298,7 @@ Exports
 
 ### `src/client/placement/runtime.js`
 Exports
-- `createWebPlacementRuntime({ app, logger = null } = {})`
+- `createWebPlacementRuntime({ components, contextContributors = [], logger = null } = {})`
 Local functions
 - `ensureArray(value)`
 - `NOOP()`
@@ -317,8 +310,8 @@ Local functions
 - `matchesSurface(placementSurfaces, requestedSurface)`
 - `resolveTopologyPlacement(topologyEntries = [], placement = {}, requestedSurface = WEB_PLACEMENT_SURFACE_ANY)`
 - `resolveRenderablePlacement({ placement = {}, topologyEntries = [], requestedSurface = WEB_PLACEMENT_SURFACE_ANY, requestedTarget = "", requestedLayoutClass = "compact" } = {})`
-- `resolveContextContributors(app, baseContext = {}, logger)`
-- `resolvePlacementComponent(app, placement, logger, missingTokens, invalidComponentTokens, failedTokens)`
+- `resolveContextContributors(contributors, baseContext = {}, logger)`
+- `resolvePlacementComponent(components, placement, logger, missingTokens, invalidComponentTokens, failedTokens)`
 - `shouldIncludePlacement(placement, placementContext, logger)`
 
 ### `src/client/placement/surfaceContext.js`
@@ -371,10 +364,10 @@ Local functions
 - `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null)`
 - `applyAppErrorConfig(errorRuntime, errorConfig = {})`
 - `isPullRefreshQuery(query = null)`
-- `createShellRefreshRuntime({ app, logger = null } = {})`
+- `createShellRefreshRuntime({ bootstrapRuntime = null, queryClient = null, errorRuntime = null, logger = null } = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
-- `installRouterErrorBridge(app, errorRuntime, logger)`
-- `createShellAsyncModuleRecoveryRuntime({ app, logger = null } = {})`
+- `installRouterErrorBridge(router, errorRuntime, logger)`
+- `createShellAsyncModuleRecoveryRuntime({ router = null, errorRuntime = null, logger = null } = {})`
 
 ### `src/client/requestRecovery/index.js`
 Exports
@@ -391,7 +384,7 @@ Exports
 
 ### `src/client/requestRecovery/runtime.js`
 Exports
-- `createShellRequestRecoveryRuntime({ app, logger = null } = {})`
+- `createShellRequestRecoveryRuntime({ queryClient = null, errorRuntime = null, logger = null } = {})`
 - `isRecoverableRequestError(error = null)`
 - `requestRecoveryMessage(error = null, { label = "Request", message = "" } = {})`
 Local functions
@@ -413,11 +406,11 @@ Local functions
 - `recoverableQueryError(query = null)`
 - `createQueryRetry(queryClient, query = null)`
 - `resolveQueryHash(query = null)`
-- `installRecoverableQueryObserver({ app, runtime, logger } = {})`
+- `installRecoverableQueryObserver({ queryClient, runtime, logger } = {})`
 
 ### `src/client/runtime/bootstrapRuntime.js`
 Exports
-- `createShellBootstrapRuntime({ app, logger = null, fetchImplementation = globalThis.fetch, bootstrapPath = DEFAULT_BOOTSTRAP_PATH } = {})`
+- `createShellBootstrapRuntime({ handlers, placementRuntime, requestRecoveryRuntime = null, router = null, logger, fetchImplementation = globalThis.fetch, bootstrapPath = DEFAULT_BOOTSTRAP_PATH } = {})`
 Local functions
 - `normalizeObject(value)`
 - `buildBootstrapUrl({ path = DEFAULT_BOOTSTRAP_PATH, query = {} } = {})`
@@ -475,85 +468,6 @@ Exports
 Local functions
 - `normalizeText(value = "")`
 
-### `src/server/support/localLinkItemScaffolds.js`
-Exports
-- `LOCAL_LINK_ITEM_COMPONENT_DEFINITIONS`
-- `LOCAL_LINK_ITEM_COMPONENT_TOKENS`
-- `findLocalLinkItemDefinition(componentToken = "")`
-- `readLocalLinkItemComponentSource(componentTokenOrDefinition = "")`
-- `resolveLocalLinkItemTemplateAbsolutePath(componentTokenOrDefinition = "")`
-Local functions
-- `createLocalLinkItemDefinition({ token = "", componentFile = "", componentName = "", templateFile = "" } = {})`
-- `resolveLocalLinkItemDefinition(componentTokenOrDefinition = "")`
-
-### templates
-
-### `templates/expected-existing/src/App.vue`
-Exports
-- None
-
-### `templates/expected-existing/src/pages/home.vue`
-Exports
-- None
-
-### `templates/expected-existing/src/pages/home/index.vue`
-Exports
-- None
-
-### `templates/src/App.vue`
-Exports
-- None
-
-### `templates/src/components/menus/MenuLinkItem.vue`
-Exports
-- None
-
-### `templates/src/components/menus/SurfaceAwareMenuLinkItem.vue`
-Exports
-- None
-
-### `templates/src/components/menus/TabLinkItem.vue`
-Exports
-- None
-
-### `templates/src/components/ShellLayout.vue`
-Exports
-- `default`
-
-### `templates/src/error.js`
-Exports
-- None
-
-### `templates/src/pages/home.vue`
-Exports
-- None
-
-### `templates/src/pages/home/index.vue`
-Exports
-- None
-
-### `templates/src/pages/home/settings.vue`
-Exports
-- None
-
-### `templates/src/pages/home/settings/general/index.vue`
-Exports
-- None
-
-### `templates/src/pages/home/settings/index.vue`
-Exports
-- None
-
-### `templates/src/placement.js`
-Exports
-- `addPlacement`
-- `getPlacements()`
-
-### `templates/src/placementTopology.js`
-Exports
-- `addPlacementTopology(value = {})`
-- `default`
-
 ### fixtures
 
 ### `fixtures/adaptive-shell/src/App.vue`
@@ -574,3 +488,104 @@ Exports
 ### `fixtures/adaptive-shell/vite.config.mjs`
 Exports
 - None
+
+### patterns
+
+### `patterns/application-shell/example/expected-existing/src/App.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/expected-existing/src/pages/home.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/expected-existing/src/pages/home/index.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/App.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/components/menus/MenuLinkItem.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/components/menus/SurfaceAwareMenuLinkItem.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/components/menus/TabLinkItem.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/components/ShellLayout.vue`
+Exports
+- `default`
+
+### `patterns/application-shell/example/src/error.js`
+Exports
+- None
+
+### `patterns/application-shell/example/src/pages/home.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/pages/home/index.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/pages/home/settings.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/pages/home/settings/general/index.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/pages/home/settings/index.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/placement.js`
+Exports
+- `addPlacement`
+- `getPlacements()`
+
+### `patterns/application-shell/example/src/placementTopology.js`
+Exports
+- `addPlacementTopology(value = {})`
+- `default`
+
+### `patterns/page-and-placement/example/packages/main/src/client/providers/MainClientProvider.js`
+Exports
+- `MainClientProvider`
+
+### `patterns/page-and-placement/example/src/components/SyncStatusElement.vue`
+Exports
+- None
+
+### `patterns/page-and-placement/example/src/pages/home/reports.vue`
+Exports
+- None
+
+### `patterns/page-and-placement/example/src/pages/home/reports/activity.vue`
+Exports
+- None
+
+### `patterns/page-and-placement/example/src/pages/home/reports/index.vue`
+Exports
+- None
+
+### `patterns/page-and-placement/example/src/pages/home/reports/overview.vue`
+Exports
+- None
+
+### `patterns/page-and-placement/example/src/placement.js`
+Exports
+- `getPlacements()`
+
+### `patterns/page-and-placement/example/src/placementTopology.js`
+Exports
+- `addPlacementTopology(value = {})`
+- `default`

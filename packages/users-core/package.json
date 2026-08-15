@@ -6,7 +6,9 @@
     "test": "node --test"
   },
   "exports": {
-    "./server/profileSyncLifecycleContributorRegistry": "./src/server/profileSyncLifecycleContributorRegistry.js",
+    "./server/UsersFeature": "./src/server/UsersFeature.js",
+    "./server/UsersIdentityProvider": "./src/server/UsersIdentityProvider.js",
+    "./server/usersExtensions": "./src/server/usersExtensions.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
@@ -28,24 +30,35 @@
     "capabilities": {
       "provides": [
         "users.core",
-        "users.server-routes"
+        "users.identity",
+        "users.extensions"
       ],
       "requires": [
+        "auth.extensions",
+        "auth.service",
         "runtime.actions",
+        "runtime.bootstrap",
         "runtime.database",
-        "json-rest-api.core",
+        "runtime.http",
+        "runtime.json-rest-api",
         "runtime.storage",
-        "runtime.uploads",
-        "auth.provider",
-        "auth.policy"
+        "runtime.uploads"
       ]
     },
     "runtime": {
       "server": {
         "providers": [
           {
-            "entrypoint": "src/server/UsersCoreServiceProvider.js",
-            "export": "UsersCoreServiceProvider"
+            "entrypoint": "src/server/UsersExtensionsProvider.js",
+            "export": "UsersExtensionsProvider"
+          },
+          {
+            "entrypoint": "src/server/UsersIdentityProvider.js",
+            "export": "UsersIdentityProvider"
+          },
+          {
+            "entrypoint": "src/server/UsersFeature.js",
+            "export": "UsersFeature"
           }
         ]
       },
@@ -58,9 +71,7 @@
         "tableOwnership": {
           "tables": [
             {
-              "tableName": "user_settings",
-              "provenance": "runtime-package",
-              "ownerKind": "package-runtime"
+              "tableName": "user_settings"
             }
           ]
         }
@@ -69,7 +80,7 @@
         "surfaces": [
           {
             "subpath": "./server",
-            "summary": "Exports UsersCoreServiceProvider plus account feature route registration modules and action definitions."
+            "summary": "Exports the explicit users feature, account services, repositories, actions, and extension API."
           },
           {
             "subpath": "./shared",
@@ -80,13 +91,11 @@
             "summary": "Exports no runtime API today (reserved client entrypoint)."
           }
         ],
-        "containerTokens": {
-          "server": [
-            "users.profile.sync.service",
-            "auth.profile.projector"
-          ],
-          "client": []
-        }
+        "capabilities": [
+          "users.core",
+          "users.identity",
+          "users.extensions"
+        ]
       },
       "server": {
         "routes": [
@@ -153,230 +162,9 @@
         ]
       }
     },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/auth-core": "0.1.157",
-          "@jskit-ai/crud-core": "0.1.170",
-          "@jskit-ai/database-runtime": "0.1.159",
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/json-rest-api-core": "0.1.103",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/resource-core": "0.1.101",
-          "@jskit-ai/resource-crud-core": "0.1.101",
-          "@local/users": "file:packages/users",
-          "@jskit-ai/uploads-runtime": "0.1.134"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/users_core_generic_initial.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install users/account core schema migration.",
-          "category": "migration",
-          "id": "users-core-generic-initial-schema"
-        },
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/users_core_profile_username.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install users profile username migration.",
-          "category": "migration",
-          "id": "users-core-profile-username-schema"
-        },
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/users_core_profile_updated_at.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install users profile updated-at migration.",
-          "category": "migration",
-          "id": "users-core-profile-updated-at-schema"
-        },
-        {
-          "from": "templates/packages/users/package.json",
-          "to": "packages/users/package.json",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users package manifest for non-workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-package-json-base",
-          "when": {
-            "config": "tenancyMode",
-            "notIn": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users-workspace/package.json",
-          "to": "packages/users/package.json",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users package manifest for workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-package-json-workspace",
-          "when": {
-            "config": "tenancyMode",
-            "in": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users/src/server/UsersProvider.js",
-          "to": "packages/users/src/server/UsersProvider.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD provider for non-workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-provider-base",
-          "when": {
-            "config": "tenancyMode",
-            "notIn": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users-workspace/src/server/UsersProvider.js",
-          "to": "packages/users/src/server/UsersProvider.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD provider for workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-provider-workspace",
-          "when": {
-            "config": "tenancyMode",
-            "in": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users/src/server/actions.js",
-          "to": "packages/users/src/server/actions.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD actions for non-workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-actions-base",
-          "when": {
-            "config": "tenancyMode",
-            "notIn": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users-workspace/src/server/actions.js",
-          "to": "packages/users/src/server/actions.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD actions for workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-actions-workspace",
-          "when": {
-            "config": "tenancyMode",
-            "in": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users/src/server/registerRoutes.js",
-          "to": "packages/users/src/server/registerRoutes.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD routes for non-workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-routes-base",
-          "when": {
-            "config": "tenancyMode",
-            "notIn": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users-workspace/src/server/registerRoutes.js",
-          "to": "packages/users/src/server/registerRoutes.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD routes for workspace tenancy.",
-          "category": "users-core",
-          "id": "users-core-users-routes-workspace",
-          "when": {
-            "config": "tenancyMode",
-            "in": [
-              "personal",
-              "workspaces"
-            ]
-          }
-        },
-        {
-          "from": "templates/packages/users/src/server/repository.js",
-          "to": "packages/users/src/server/repository.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD repository.",
-          "category": "users-core",
-          "id": "users-core-users-repository"
-        },
-        {
-          "from": "templates/packages/users/src/server/service.js",
-          "to": "packages/users/src/server/service.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users CRUD service.",
-          "category": "users-core",
-          "id": "users-core-users-service"
-        },
-        {
-          "from": "templates/packages/users/src/shared/index.js",
-          "to": "packages/users/src/shared/index.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users shared entrypoint.",
-          "category": "users-core",
-          "id": "users-core-users-shared-index"
-        },
-        {
-          "from": "templates/packages/users/src/shared/userResource.js",
-          "to": "packages/users/src/shared/userResource.js",
-          "ownership": "app",
-          "preserveOnRemove": true,
-          "reason": "Install app-owned users shared resource.",
-          "category": "users-core",
-          "id": "users-core-users-resource"
-        }
-      ],
-      "text": [
-        {
-          "op": "append-text",
-          "file": "config/server.js",
-          "position": "bottom",
-          "skipIfContains": "config.auth.profileMode = \"users\";",
-          "value": "\nconfig.auth ||= {};\nconfig.auth.profileMode = \"users\";\n",
-          "reason": "Enable users-backed auth profile sync when users-core is installed.",
-          "category": "runtime-config",
-          "id": "users-core-auth-profile-mode"
-        }
+    "migrations": {
+      "directories": [
+        "migrations"
       ]
     }
   }

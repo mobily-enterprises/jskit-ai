@@ -1,63 +1,36 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { DatabaseRuntimeServiceProvider } from "../src/server/providers/DatabaseRuntimeServiceProvider.js";
+import { defineProvider, createCapabilityRuntime } from "@jskit-ai/kernel/shared/capabilities";
+import { DatabaseProvider } from "../src/server/providers/DatabaseProvider.js";
 
-function createSingletonApp() {
-  const singletons = new Map();
-  const instances = new Map();
-
-  return {
-    has(token) {
-      return singletons.has(token) || instances.has(token);
-    },
-    singleton(token, factory) {
-      if (this.has(token)) {
-        throw new Error(`Token ${String(token)} is already registered.`);
-      }
-      singletons.set(token, {
-        factory,
-        resolved: false,
-        value: undefined
-      });
-    },
-    instance(token, value) {
-      if (this.has(token)) {
-        throw new Error(`Token ${String(token)} is already registered.`);
-      }
-      instances.set(token, value);
-    },
-    make(token) {
-      if (instances.has(token)) {
-        return instances.get(token);
-      }
-      if (!singletons.has(token)) {
-        throw new Error(`Token ${String(token)} is not registered.`);
-      }
-      const entry = singletons.get(token);
-      if (!entry.resolved) {
-        entry.value = entry.factory(this);
-        entry.resolved = true;
-        instances.set(token, entry.value);
-      }
-      return entry.value;
+function driverProvider(dialectId = "mysql2") {
+  return defineProvider({
+    id: `test.database.driver.${dialectId}`,
+    provides: { driver: "runtime.database.driver" },
+    setup() {
+      return {
+        driver: Object.freeze({
+          DIALECT_ID: dialectId,
+          getDialectId: () => dialectId
+        })
+      };
     }
-  };
+  });
 }
 
-function createKnexStub() {
-  return {
-    destroyCalls: 0,
-    async transaction(callback) {
-      return callback({ trxId: "trx-1" });
-    },
-    async destroy() {
-      this.destroyCalls += 1;
+function databaseConsumer(onDatabase) {
+  return defineProvider({
+    id: "test.database.consumer",
+    requires: { database: "runtime.database" },
+    setup({ database }) {
+      onDatabase(database);
+      return {};
     }
-  };
+  });
 }
 
 async function withAppRootKnexStub(callback) {
@@ -67,12 +40,7 @@ async function withAppRootKnexStub(callback) {
   await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: "runtime-app", private: true }), "utf8");
   await writeFile(
     path.join(knexPackageDir, "package.json"),
-    JSON.stringify({
-      name: "knex",
-      version: "0.0.0-test",
-      main: "index.js",
-      type: "commonjs"
-    }),
+    JSON.stringify({ name: "knex", version: "0.0.0-test", main: "index.js", type: "commonjs" }),
     "utf8"
   );
   await writeFile(
@@ -82,9 +50,11 @@ async function withAppRootKnexStub(callback) {
       "  return {",
       "    __source: 'app-root-knex',",
       "    __config: config,",
+      "    destroyCalls: 0,",
       "    transaction: async function transaction(callback) {",
       "      return callback({ trxId: 'trx-app-root' });",
-      "    }",
+      "    },",
+      "    destroy: async function destroy() { this.destroyCalls += 1; }",
       "  };",
       "};",
       ""
@@ -101,120 +71,91 @@ async function withAppRootKnexStub(callback) {
   }
 }
 
-test("DatabaseRuntimeServiceProvider registers runtime api", () => {
-  const app = createSingletonApp();
-  const provider = new DatabaseRuntimeServiceProvider();
-  provider.register(app);
-
-  assert.equal(app.has("runtime.database"), true);
-  const api = app.make("runtime.database");
-  assert.equal(typeof api.createTransactionManager, "function");
-  assert.equal(typeof api.resolveRepoClient, "function");
-});
-
-test("DatabaseRuntimeServiceProvider registers transaction manager when Knex is pre-bound", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.database.knex", createKnexStub());
-
-  const provider = new DatabaseRuntimeServiceProvider();
-  provider.register(app);
-
-  assert.equal(app.has("jskit.database.transactionManager"), true);
-  const transactionManager = app.make("jskit.database.transactionManager");
-  const result = await transactionManager.inTransaction(async (trx) => trx.trxId);
-  assert.equal(result, "trx-1");
-});
-
-test("DatabaseRuntimeServiceProvider driver token resolves to registered mysql driver", () => {
-  const app = createSingletonApp();
-  app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
-
-  const provider = new DatabaseRuntimeServiceProvider();
-  provider.register(app);
-
-  const driver = app.make("runtime.database.driver");
-  assert.deepEqual(driver, { DIALECT_ID: "mysql2" });
-});
-
-test("DatabaseRuntimeServiceProvider driver token throws when no driver registered", () => {
-  const app = createSingletonApp();
-  const provider = new DatabaseRuntimeServiceProvider();
-  provider.register(app);
-
-  assert.throws(() => app.make("runtime.database.driver"), /No database driver is registered\./);
-});
-
-test("DatabaseRuntimeServiceProvider driver token throws when multiple drivers are registered", () => {
-  const app = createSingletonApp();
-  app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
-  app.instance("runtime.database.driver.postgres", Object.freeze({ DIALECT_ID: "pg" }));
-
-  const provider = new DatabaseRuntimeServiceProvider();
-  provider.register(app);
-
-  assert.throws(() => app.make("runtime.database.driver"), /Multiple database drivers are registered\./);
-});
-
-test("DatabaseRuntimeServiceProvider resolves knex from app root package context", async () => {
+test("DatabaseProvider exposes one cohesive database capability", async () => {
   await withAppRootKnexStub(async () => {
-    const app = createSingletonApp();
-    app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
-    app.instance("jskit.env", {
-      DB_HOST: "db.local",
-      DB_PORT: "3307",
-      DB_NAME: "appdb",
-      DB_USER: "appuser",
-      DB_PASSWORD: "apppass"
+    let database;
+    const runtime = createCapabilityRuntime({
+      inputs: {
+        "runtime.env": {
+          DB_HOST: "db.local",
+          DB_PORT: "3307",
+          DB_NAME: "appdb",
+          DB_USER: "appuser",
+          DB_PASSWORD: "apppass"
+        }
+      },
+      providers: [
+        driverProvider(),
+        DatabaseProvider,
+        databaseConsumer((value) => {
+          database = value;
+        })
+      ]
     });
 
-    const provider = new DatabaseRuntimeServiceProvider();
-    provider.register(app);
+    await runtime.start();
 
-    const knex = app.make("jskit.database.knex");
-    assert.equal(knex.__source, "app-root-knex");
-    assert.equal(knex.__config.client, "mysql2");
-    assert.equal(knex.__config.connection.host, "db.local");
-    assert.equal(knex.__config.connection.port, 3307);
-    assert.equal(knex.__config.connection.database, "appdb");
-    assert.equal(knex.__config.connection.user, "appuser");
-    assert.equal(knex.__config.connection.password, "apppass");
-    assert.deepEqual(knex.__config.connection.dateStrings, ["DATE"]);
+    assert.equal(database.driver.DIALECT_ID, "mysql2");
+    assert.equal(database.knex.__source, "app-root-knex");
+    assert.equal(database.knex.__config.client, "mysql2");
+    assert.deepEqual(database.knex.__config.connection, {
+      host: "db.local",
+      port: 3307,
+      database: "appdb",
+      user: "appuser",
+      password: "apppass",
+      supportBigNumbers: true,
+      bigNumberStrings: true,
+      dateStrings: ["DATE"]
+    });
+    assert.equal(typeof database.transactionManager.inTransaction, "function");
+    assert.equal(typeof database.resolveRepoClient, "function");
+
+    await runtime.shutdown();
+    assert.equal(database.knex.destroyCalls, 1);
+    assert.deepEqual(await runtime.shutdown(), []);
+    assert.equal(database.knex.destroyCalls, 1);
   });
 });
 
-test("DatabaseRuntimeServiceProvider resolves knex config from DATABASE_URL when DB_* vars are omitted", async () => {
+test("DatabaseProvider accepts DATABASE_URL without redundant DB_CLIENT", async () => {
   await withAppRootKnexStub(async () => {
-    const app = createSingletonApp();
-    app.instance("runtime.database.driver.mysql", Object.freeze({ DIALECT_ID: "mysql2" }));
-    app.instance("jskit.env", {
-      DATABASE_URL: "mysql://urluser:urlpass@db.url.local:3308/url_db_name"
+    let database;
+    const runtime = createCapabilityRuntime({
+      inputs: {
+        "runtime.env": {
+          DATABASE_URL: "mysql://urluser:urlpass@db.url.local:3308/url_db_name"
+        }
+      },
+      providers: [driverProvider(), DatabaseProvider, databaseConsumer((value) => { database = value; })]
     });
 
-    const provider = new DatabaseRuntimeServiceProvider();
-    provider.register(app);
-
-    const knex = app.make("jskit.database.knex");
-    assert.equal(knex.__source, "app-root-knex");
-    assert.equal(knex.__config.client, "mysql2");
-    assert.equal(knex.__config.connection.host, "db.url.local");
-    assert.equal(knex.__config.connection.port, 3308);
-    assert.equal(knex.__config.connection.database, "url_db_name");
-    assert.equal(knex.__config.connection.user, "urluser");
-    assert.equal(knex.__config.connection.password, "urlpass");
+    await runtime.start();
+    assert.equal(database.knex.__config.connection.host, "db.url.local");
+    assert.equal(database.knex.__config.connection.port, 3308);
+    assert.equal(database.knex.__config.connection.database, "url_db_name");
+    assert.equal(database.knex.__config.connection.user, "urluser");
+    assert.equal(database.knex.__config.connection.password, "urlpass");
+    await runtime.shutdown();
   });
 });
 
-test("DatabaseRuntimeServiceProvider destroys resolved knex during shutdown", async () => {
-  const app = createSingletonApp();
-  const knex = createKnexStub();
-  app.instance("jskit.database.knex", knex);
+test("DatabaseProvider rejects environment dialect mismatch", async () => {
+  await withAppRootKnexStub(async () => {
+    const runtime = createCapabilityRuntime({
+      inputs: {
+        "runtime.env": {
+          DB_CLIENT: "pg",
+          DB_NAME: "appdb",
+          DB_USER: "appuser"
+        }
+      },
+      providers: [driverProvider(), DatabaseProvider]
+    });
 
-  const provider = new DatabaseRuntimeServiceProvider();
-  provider.register(app);
-
-  await provider.shutdown(app);
-  assert.equal(knex.destroyCalls, 1);
-
-  await provider.shutdown(app);
-  assert.equal(knex.destroyCalls, 1);
+    await assert.rejects(
+      runtime.start(),
+      /DB_CLIENT="pg" does not match installed database driver "mysql2"\./
+    );
+  });
 });

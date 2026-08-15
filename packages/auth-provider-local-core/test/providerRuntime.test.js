@@ -3,13 +3,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel/_testable";
-import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
-import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
+import { createActionProvider } from "@jskit-ai/kernel/server/actions";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
-import { AuthActionsServiceProvider } from "@jskit-ai/auth-core/server/providers/AuthActionsServiceProvider";
-import { AuthLocalServiceProvider } from "../src/server/providers/AuthLocalServiceProvider.js";
-import { AuthProviderServiceProvider } from "../src/server/providers/AuthProviderServiceProvider.js";
+import { AuthFeature } from "@jskit-ai/auth-core/server/providers/AuthFeature";
+import { AuthLocalProvider } from "../src/server/providers/AuthLocalProvider.js";
 import {
   createLocalAuthRegisterHookDecorator,
   createLocalAuthService,
@@ -20,23 +19,6 @@ import {
 } from "../src/server/lib/index.js";
 
 const DEV_AUTH_SECRET = "local-preview-exchange-secret";
-
-function createAppConfigFixture() {
-  return {
-    surfaceModeAll: "all",
-    surfaceDefaultId: "home",
-    surfaceDefinitions: {
-      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false },
-      console: {
-        id: "console",
-        pagesRoot: "console",
-        enabled: true,
-        requiresAuth: true,
-        requiresWorkspace: false
-      }
-    }
-  };
-}
 
 function createReplyFixture() {
   const cookies = {};
@@ -94,67 +76,82 @@ function devAuthEnv() {
 async function createStartedApp({
   env = {},
   profileProjector = null,
-  profileProjectorFactory = null,
   passwordStrategy = null,
   invitationContextResolver = null,
   logger = null,
-  configureApp = null
+  configureExtensions = null
 } = {}) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-"));
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "local",
+  const backend = createLocalFileBackend({ storeDir });
+  const extensions = createAuthExtensions();
+  const runtimeLogger = logger || {
+    info() {},
+    warn() {},
+    error() {},
+    debug() {}
+  };
+  if (typeof configureExtensions === "function") configureExtensions(extensions, runtimeLogger);
+  if (profileProjector) {
+    extensions.registerProfileProjector({
+      projectorId: "test.profile",
+      ...profileProjector
+    });
+  }
+  if (invitationContextResolver) {
+    extensions.registerInvitationContextResolver({
+      resolverId: "test.invitation",
+      ...invitationContextResolver
+    });
+  }
+  let authService = null;
+  let actionExecutor = null;
+  const probe = defineProvider({
+    id: "test.auth.probe",
+    requires: {
+      actions: "runtime.actions",
+      service: "auth.service"
+    },
+    setup({ actions, service }) {
+      actionExecutor = actions;
+      authService = service;
+      return {};
+    }
+  });
+  const inputs = {
+    "runtime.app-root": storeDir,
+    "runtime.env": {
     AUTH_LOCAL_STORE_DIR: storeDir,
     AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
     APP_PUBLIC_URL: "http://localhost:5173",
     NODE_ENV: "test",
     ...env
-  });
-  app.instance(
-    "jskit.logger",
-    logger || {
-      info() {},
-      warn() {},
-      error() {},
-      debug() {}
-    }
-  );
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  if (profileProjector) {
-    app.instance("auth.profile.projector", profileProjector);
-  }
-  if (profileProjectorFactory) {
-    app.singleton("auth.profile.projector", profileProjectorFactory);
-  }
-  if (passwordStrategy) {
-    app.instance("auth.local.passwordStrategy", passwordStrategy);
-  }
-  if (invitationContextResolver) {
-    app.instance("auth.invitationContextResolver", invitationContextResolver);
-  }
-  if (typeof configureApp === "function") {
-    configureApp(app);
-  }
-  await app.start({
+    },
+    "runtime.logger": runtimeLogger,
+    "auth.extensions": extensions,
+    "auth.local.backend": backend,
+    ...(passwordStrategy ? { "auth.local.password-strategy": passwordStrategy } : {}),
+  };
+  const runtime = createCapabilityRuntime({
+    inputs,
     providers: [
-      ActionRuntimeServiceProvider,
-      AuthLocalServiceProvider,
-      AuthProviderServiceProvider,
-      AuthActionsServiceProvider
+      createActionProvider(),
+      AuthLocalProvider,
+      AuthFeature,
+      probe
     ]
   });
+  await runtime.start();
   return {
-    app,
+    actionExecutor,
+    authService,
+    backend,
+    runtime,
     storeDir
   };
 }
 
 test("local auth provider registers, logs in, reads session, and logs out with file backend", async () => {
-  const { app, storeDir } = await createStartedApp();
-  const authService = app.make("authService");
+  const { actionExecutor, authService, storeDir } = await createStartedApp();
   const capabilities = authService.getCapabilities();
   assert.equal(capabilities.provider.id, "local");
   assert.equal(capabilities.features.password.login, true);
@@ -178,7 +175,6 @@ test("local auth provider registers, logs in, reads session, and logs out with f
   assert.equal(session.authenticated, true);
   assert.equal(session.actor.email, "ada@example.com");
 
-  const actionExecutor = app.make("actionExecutor");
   const definitions = actionExecutor.listDefinitions();
   assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
   const actionSession = await actionExecutor.execute({
@@ -204,10 +200,9 @@ test("local auth provider registers, logs in, reads session, and logs out with f
 });
 
 test("local file auth login-as issues native cookies for an existing user", async () => {
-  const { app } = await createStartedApp({
+  const { authService } = await createStartedApp({
     env: devAuthEnv()
   });
-  const authService = app.make("authService");
   await authService.register({
     displayName: "Ada",
     email: "ada@example.com",
@@ -244,7 +239,7 @@ test("local login-as never invokes the mutating profile projector", async () => 
   };
   let findCalls = 0;
   let syncCalls = 0;
-  const { app } = await createStartedApp({
+  const { authService } = await createStartedApp({
     env: devAuthEnv(),
     profileProjector: {
       async findByIdentity() {
@@ -260,7 +255,6 @@ test("local login-as never invokes the mutating profile projector", async () => 
       }
     }
   });
-  const authService = app.make("authService");
   const registered = await authService.register({
     displayName: "Ada",
     email: "ada@example.com",
@@ -286,7 +280,7 @@ test("local login-as never invokes the mutating profile projector", async () => 
 });
 
 test("local login-as rejects missing, disabled, and unprojected users", async () => {
-  const { app } = await createStartedApp({
+  const { authService, backend } = await createStartedApp({
     env: devAuthEnv(),
     profileProjector: {
       async findByIdentity() {
@@ -297,7 +291,6 @@ test("local login-as rejects missing, disabled, and unprojected users", async ()
       }
     }
   });
-  const backend = app.make("auth.local.backend");
   const password = await hashPassword("stored password value");
   await backend.withTransaction(async (tx) => {
     await tx.users.create({
@@ -315,7 +308,6 @@ test("local login-as rejects missing, disabled, and unprojected users", async ()
       password
     });
   });
-  const authService = app.make("authService");
 
   for (const email of [
     "missing@example.com",
@@ -330,10 +322,9 @@ test("local login-as rejects missing, disabled, and unprojected users", async ()
 });
 
 test("local login-as rejects missing, incorrect, and non-loopback exchange authorization", async () => {
-  const { app } = await createStartedApp({
+  const { authService } = await createStartedApp({
     env: devAuthEnv()
   });
-  const authService = app.make("authService");
   await authService.register({
     displayName: "Ada",
     email: "ada@example.com",
@@ -379,7 +370,7 @@ test("local auth provider rejects dev login-as enablement in production", async 
 test("local auth provider applies auth service decorators for blocking and non-blocking hooks", async () => {
   const calls = [];
   const errors = [];
-  const { app } = await createStartedApp({
+  const { authService } = await createStartedApp({
     logger: {
       info() {},
       warn(payload, message) {
@@ -388,12 +379,11 @@ test("local auth provider applies auth service decorators for blocking and non-b
       error() {},
       debug() {}
     },
-    configureApp(app) {
-      registerAuthServiceDecorator(app, "test.auth.local.nonBlockingHook", (scope) => ({
-        ...createLocalAuthRegisterHookDecorator({
+    configureExtensions(extensions, runtimeLogger) {
+      extensions.registerServiceDecorator(createLocalAuthRegisterHookDecorator({
           decoratorId: "test.auth.local.nonBlockingHook",
           order: 20,
-          logger: scope.make("jskit.logger"),
+          logger: runtimeLogger,
           hook: {
             hookId: "audit",
             blocking: false,
@@ -402,10 +392,8 @@ test("local auth provider applies auth service decorators for blocking and non-b
               throw new Error("audit unavailable");
             }
           }
-        })
-      }));
-      registerAuthServiceDecorator(app, "test.auth.local.blockingHook", () =>
-        createLocalAuthRegisterHookDecorator({
+        }));
+      extensions.registerServiceDecorator(createLocalAuthRegisterHookDecorator({
           decoratorId: "test.auth.local.blockingHook",
           order: 10,
           hook: {
@@ -418,11 +406,9 @@ test("local auth provider applies auth service decorators for blocking and non-b
               }
             }
           }
-        })
-      );
+        }));
     }
   });
-  const authService = app.make("authService");
 
   const registered = await authService.register({
     email: "hooks@example.com",
@@ -472,7 +458,7 @@ test("local auth register hook decorators require explicit blocking mode", () =>
   );
 });
 
-test("local auth provider resolves a custom password strategy from the container", async () => {
+test("local auth provider accepts a custom password strategy capability", async () => {
   const passwordStrategy = {
     prefix: "strategy",
     async hashPassword(password) {
@@ -487,8 +473,7 @@ test("local auth provider resolves a custom password strategy from the container
       return record?.algorithm === "test-password" && record?.hash === `${this.prefix}-${password}`;
     }
   };
-  const { app } = await createStartedApp({ passwordStrategy });
-  const authService = app.make("authService");
+  const { authService } = await createStartedApp({ passwordStrategy });
 
   await authService.register({
     email: "strategy@example.com",
@@ -751,8 +736,7 @@ test("local auth password strategy handles register, reset, login, and change pa
       );
     }
   };
-  const { app } = await createStartedApp({ passwordStrategy });
-  const authService = app.make("authService");
+  const { authService } = await createStartedApp({ passwordStrategy });
 
   await authService.register({
     email: "strategy-paths@example.com",
@@ -817,8 +801,7 @@ test("local auth password strategy handles register, reset, login, and change pa
 });
 
 test("local auth provider completes recovery through a recovery-scoped session", async () => {
-  const { app } = await createStartedApp();
-  const authService = app.make("authService");
+  const { authService } = await createStartedApp();
   await authService.register({
     email: "Recovery@example.com",
     password: "correct horse battery staple",
@@ -890,8 +873,7 @@ test("local auth provider completes recovery through a recovery-scoped session",
 });
 
 test("local auth reset invalidates other outstanding recovery tokens for the user", async () => {
-  const { app } = await createStartedApp();
-  const authService = app.make("authService");
+  const { authService } = await createStartedApp();
   await authService.register({
     email: "recovery-tokens@example.com",
     password: "correct horse battery staple",
@@ -933,8 +915,7 @@ test("local auth reset invalidates other outstanding recovery tokens for the use
 });
 
 test("local auth provider changes password through the account-security contract", async () => {
-  const { app } = await createStartedApp();
-  const authService = app.make("authService");
+  const { authService } = await createStartedApp();
   const registered = await authService.register({
     email: "Security@example.com",
     password: "correct horse battery staple",
@@ -982,36 +963,9 @@ test("local auth provider changes password through the account-security contract
   assert.equal(login.actor.email, "security@example.com");
 });
 
-test("local auth provider defers profile projector resolution until projection is needed", async () => {
-  let projectorFactoryCalls = 0;
-  const { app } = await createStartedApp({
-    profileProjectorFactory() {
-      projectorFactoryCalls += 1;
-      return {
-        async syncIdentityProfile(profile) {
-          return {
-            ...profile,
-            id: "projected-user",
-            profileSource: "users"
-          };
-        }
-      };
-    }
-  });
-  assert.equal(projectorFactoryCalls, 0);
-  const authService = app.make("authService");
-  assert.equal(projectorFactoryCalls, 0);
-  const registered = await authService.register({
-    email: "projected@example.com",
-    password: "correct horse battery staple",
-    displayName: "Projected User"
-  });
-  assert.equal(projectorFactoryCalls, 1);
-  assert.equal(registered.actor.appUserId, "projected-user");
-});
 test("local auth provider projects app profile when auth.profile.projector is installed", async () => {
   const projectedProfiles = [];
-  const { app } = await createStartedApp({
+  const { authService } = await createStartedApp({
     profileProjector: {
       async syncIdentityProfile(profile) {
         projectedProfiles.push(profile);
@@ -1023,7 +977,6 @@ test("local auth provider projects app profile when auth.profile.projector is in
       }
     }
   });
-  const authService = app.make("authService");
   assert.equal(authService.getCapabilities().features.appProfileProjection, true);
 
   const registered = await authService.register({
@@ -1041,7 +994,7 @@ test("local auth provider projects app profile when auth.profile.projector is in
 test("local auth provider passes resolved invitation context into profile projection during registration", async () => {
   const resolverCalls = [];
   const projectionCalls = [];
-  const { app } = await createStartedApp({
+  const { authService } = await createStartedApp({
     invitationContextResolver: {
       async resolveInvitationContext(invitation) {
         resolverCalls.push(invitation);
@@ -1067,7 +1020,6 @@ test("local auth provider passes resolved invitation context into profile projec
       }
     }
   });
-  const authService = app.make("authService");
 
   const registered = await authService.register({
     email: "Invitee@Example.com",
@@ -1103,44 +1055,16 @@ test("local auth provider passes resolved invitation context into profile projec
   assert.equal(registered.actor.appUserId, "invited-app-user");
 });
 
-test("local auth provider rejects AUTH_PROVIDER mismatches", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "supabase",
-    NODE_ENV: "test"
-  });
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthLocalServiceProvider]
-      }),
-    (error) => /AUTH_PROVIDER is "supabase"/.test(String(error.details?.cause?.message || error.message || ""))
-  );
-});
-
 test("local auth provider requires an explicit public URL for SMTP recovery", async () => {
-  const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-"));
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "local",
-    AUTH_LOCAL_STORE_DIR: storeDir,
-    AUTH_LOCAL_SMTP_HOST: "smtp.example.com",
-    AUTH_LOCAL_SMTP_FROM: "support@example.com",
-    NODE_ENV: "test"
-  });
-
   await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthLocalServiceProvider]
-      }),
-    (error) =>
-      /APP_PUBLIC_URL is required when local auth SMTP recovery is configured/.test(
-        String(error.details?.cause?.message || error.message || "")
-      )
+    () => createStartedApp({
+      env: {
+        APP_PUBLIC_URL: "",
+        AUTH_LOCAL_SMTP_HOST: "smtp.example.com",
+        AUTH_LOCAL_SMTP_FROM: "support@example.com"
+      }
+    }),
+    /APP_PUBLIC_URL is required when local auth SMTP recovery is configured/
   );
 });
 

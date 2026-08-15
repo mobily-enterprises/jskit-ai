@@ -16,7 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `exportsContract.mjs`
 Exports
-- `evaluatePackageExportsContract({ repoRoot, packageDir, packageId, requiredExports = [], scanRoots = [ path.join(repoRoot, "packages"), path.join(repoRoot, "tooling", "create-app", "templates") ] })`
+- `evaluatePackageExportsContract({ repoRoot, packageDir, packageId, requiredExports = [], scanRoots = [ path.join(repoRoot, "packages"), path.join(repoRoot, "packages", "agent-docs", "patterns", "minimal-foundation", "example"), path.join(repoRoot, "packages", "agent-docs", "patterns", "shell-foundation", "example") ] })`
 Local functions
 - `normalizeSlash(value)`
 - `shouldScanFile(filePath)`

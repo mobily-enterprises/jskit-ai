@@ -1,4 +1,5 @@
 import { normalizeOpaqueId, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 
 function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {}) {
   const requiresActorScope = visibility === "workspace_user";
@@ -17,10 +18,19 @@ function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId =
   return contribution;
 }
 
-function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
+function createWorkspaceRouteVisibilityResolver({
+  workspaceService,
+  workspaceMembershipOptionalSurfaceIds = []
+} = {}) {
   if (!workspaceService || typeof workspaceService.resolveWorkspaceContextForUserBySlug !== "function") {
     throw new Error("workspace route visibility resolver requires workspaceService.resolveWorkspaceContextForUserBySlug().");
   }
+
+  const membershipOptionalSurfaceIds = new Set(
+    (Array.isArray(workspaceMembershipOptionalSurfaceIds) ? workspaceMembershipOptionalSurfaceIds : [])
+      .map((entry) => normalizeSurfaceId(entry))
+      .filter(Boolean)
+  );
 
   return Object.freeze({
     resolverId: "workspaces.visibility",
@@ -46,9 +56,17 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService } = {}) {
             : {};
         }
 
-        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, {
-          request
-        });
+        const activeSurfaceId = normalizeSurfaceId(
+          request?.routeOptions?.config?.surface || context?.surface
+        );
+        const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
+          actor,
+          workspaceSlug,
+          {
+            request,
+            ...(membershipOptionalSurfaceIds.has(activeSurfaceId) ? { requireMembership: false } : {})
+          }
+        );
         const resolvedWorkspaceOwnerId = normalizeRecordId(resolvedWorkspaceContext?.workspace?.id, { fallback: null });
         if (!resolvedWorkspaceOwnerId) {
           return visibility === "workspace_user"

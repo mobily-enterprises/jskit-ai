@@ -19,7 +19,7 @@ Rules:
 Choose the function like this:
 
 ```js
-// 1. Generated CRUD route screen
+// 1. Standard CRUD route screen
 const screen = useCrudListScreen({ ... });
 
 // 2. Button/toggle/small mutation
@@ -38,15 +38,15 @@ const form = useAddEdit({ ... });
 const resource = useEndpointResource({ ... });
 ```
 
-Use the shared CRUD screen wrappers when the route is a generated CRUD page:
+Use the shared CRUD screen wrappers when the route is a standard CRUD page:
 
 - `useCrudListScreen()` plus `CrudListScreen` for list route pages
 - `useCrudViewScreen()` plus `CrudViewScreen` for record view route pages
-- `useCrudAddEditScreen()` plus `CrudAddEditScreen` for generated new/edit route pages
+- `useCrudAddEditScreen()` plus `CrudAddEditScreen` for new/edit route pages
 
-Generated screen wrapper extension rules:
+Screen wrapper extension rules:
 
-- Use `useCrudListScreen({ readEnabled })` for permission-gated generated list reads instead of splitting the page or replacing the shared list screen.
+- Use `useCrudListScreen({ readEnabled })` for permission-gated list reads instead of splitting the page or replacing the shared list screen.
 - Use `useCrudListScreen({ requestQueryParams })` for list includes or other endpoint query params instead of putting query strings in `apiSuffix`.
 - Use `useCrudViewScreen({ requestQueryParams })` for detail includes instead of putting query strings in `apiUrlTemplate`.
 - Use `requestFieldsets` only when a specialised caller intentionally needs a typed JSON:API sparse fieldset. Ordinary generated reads use the complete resource output contract.
@@ -73,7 +73,7 @@ Why this is the standard JSKIT shape:
 - `httpWebClient` already handles credentials and CSRF behavior.
 - `useEndpointResource()` is the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes add UI feedback and field-error handling on top.
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
-- Generated CRUD and lookup reads use all resource-defined output fields by default. Hydrated relationships use the target resource's output contract. Generated pages and lookup controls do not repeat those definitions as request fieldsets.
+- Standard CRUD and lookup reads use all resource-defined output fields by default. Hydrated relationships use the target resource's output contract. Pages and lookup controls do not repeat those definitions as request fieldsets.
 - Put exceptional large fields in `resource.contract.response.defaultExclude`. The target resource owns that default even when it is included by another resource.
 - `requestFieldsets` remains an explicit specialised override and accepts the canonical typed shape, for example `{ jobs: ["id", "status"], contacts: ["id", "displayName"] }`. It participates in both the request and the query cache key.
 - Sparse fieldsets are a serialization boundary, not an authorization mechanism. Server resources reject unknown fields, never serialize hidden fields, and preserve the fields needed internally for relationship linkage.

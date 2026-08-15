@@ -9,6 +9,7 @@
     "./server/controllers/AuthController": "./src/server/controllers/AuthController.js",
     "./server/services/AuthWebService": "./src/server/services/AuthWebService.js",
     "./server/routes/authRoutes": "./src/server/routes/authRoutes.js",
+    "./server/AuthWebFeature": "./src/server/AuthWebFeature.js",
     "./client": "./src/client/index.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultResetPasswordView": "./src/client/views/DefaultResetPasswordView.vue",
@@ -38,28 +39,24 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "auth.server-routes",
+        "auth.web",
         "auth.web-login"
       ],
       "requires": [
-        "auth.access",
-        "auth.provider",
-        "validators.http",
-        "auth.policy",
+        "auth.service",
+        "runtime.actions",
+        "runtime.env",
+        "runtime.http",
         "runtime.web-placement"
       ]
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/AuthWebServiceProvider.js",
+        "providerEntrypoint": "src/server/AuthWebFeature.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/AuthWebServiceProvider.js",
-            "export": "AuthWebServiceProvider"
-          },
-          {
-            "entrypoint": "src/server/providers/AuthRouteServiceProvider.js",
-            "export": "AuthRouteServiceProvider"
+            "entrypoint": "src/server/AuthWebFeature.js",
+            "export": "AuthWebFeature"
           }
         ]
       },
@@ -88,18 +85,13 @@
             "summary": "Exports the localhost-only Playwright helper for creating a dev-auth session in the tested browser context."
           }
         ],
-        "containerTokens": {
-          "server": [
-            "auth.web.service"
-          ],
-          "client": [
+        "clientCapabilities": [
             "runtime.auth-guard.client",
             "auth.login.component",
             "auth.login.useLoginView",
             "auth.web.profile.widget",
             "auth.web.profile.menu.link-item"
-          ]
-        }
+        ]
       },
       "server": {
         "routes": [
@@ -268,7 +260,7 @@
               ],
               "order": 1000,
               "componentToken": "auth.web.profile.widget",
-              "source": "mutations.text#auth-web-placement-block"
+              "source": "src/client/views/AuthProfileWidget.vue"
             },
             {
               "id": "auth.profile.menu.sign-in",
@@ -279,7 +271,7 @@
               ],
               "order": 200,
               "when": "auth.authenticated !== true",
-              "source": "mutations.text#auth-web-placement-block"
+              "source": "patterns/auth-surface/example/src/pages/auth/login.vue"
             },
             {
               "id": "auth.profile.menu.sign-out",
@@ -290,113 +282,11 @@
               ],
               "order": 1000,
               "when": "auth.authenticated === true",
-              "source": "mutations.text#auth-web-placement-block"
+              "source": "patterns/auth-surface/example/src/pages/auth/signout.vue"
             }
           ]
         }
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@mdi/js": "^7.4.47",
-          "@jskit-ai/auth-core": "0.1.157",
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/shell-web": "0.1.163"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {
-          "server:auth": "SERVER_SURFACE=auth node ./bin/server.js",
-          "dev:auth": "VITE_SURFACE=auth vite",
-          "build:auth": "VITE_SURFACE=auth vite build"
-        }
-      },
-      "procfile": {},
-      "files": [
-        {
-          "from": "templates/src/views/auth/LoginView.vue",
-          "to": "src/views/auth/LoginView.vue",
-          "ownership": "app",
-          "reason": "Install minimal login container that renders the module-provided DefaultLoginView by default.",
-          "category": "auth-web",
-          "id": "auth-view-login"
-        },
-        {
-          "from": "templates/src/views/auth/SignOutView.vue",
-          "to": "src/views/auth/SignOutView.vue",
-          "ownership": "app",
-          "reason": "Install minimal sign-out container that renders the module-provided SignOutView by default (edit the scaffolded file to customize).",
-          "category": "auth-web",
-          "id": "auth-view-signout"
-        },
-        {
-          "from": "templates/src/views/auth/ResetPasswordView.vue",
-          "to": "src/views/auth/ResetPasswordView.vue",
-          "ownership": "app",
-          "reason": "Install minimal password reset container that renders the module-provided DefaultResetPasswordView by default.",
-          "category": "auth-web",
-          "id": "auth-view-reset-password"
-        },
-        {
-          "from": "templates/src/pages/auth/login.vue",
-          "to": "src/pages/auth/login.vue",
-          "ownership": "app",
-          "reason": "Provide an auth-surface /auth/login wrapper that renders the package login view.",
-          "category": "auth-web",
-          "id": "auth-page-login"
-        },
-        {
-          "from": "templates/src/pages/auth/signout.vue",
-          "to": "src/pages/auth/signout.vue",
-          "ownership": "app",
-          "reason": "Provide an auth-surface /auth/signout wrapper that renders the package sign-out view.",
-          "category": "auth-web",
-          "id": "auth-page-signout"
-        },
-        {
-          "from": "templates/src/pages/auth/reset-password.vue",
-          "to": "src/pages/auth/reset-password.vue",
-          "ownership": "app",
-          "reason": "Provide an auth-surface /auth/reset-password wrapper that renders the package password reset view.",
-          "category": "auth-web",
-          "id": "auth-page-reset-password"
-        }
-      ],
-      "text": [
-        {
-          "op": "append-text",
-          "file": "config/public.js",
-          "position": "bottom",
-          "skipIfContains": "config.surfaceDefinitions.auth = {",
-          "value": "\nconfig.surfaceDefinitions.auth = {\n  id: \"auth\",\n  label: \"Auth\",\n  pagesRoot: \"auth\",\n  enabled: true,\n  requiresAuth: false,\n  requiresWorkspace: false,\n  origin: \"\"\n};\n",
-          "reason": "Register auth surface definition in public surface config.",
-          "category": "auth-web",
-          "id": "auth-web-surface-config-auth"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placement.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"auth.profile.widget\"",
-          "value": "\naddPlacement({\n  id: \"auth.profile.widget\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 1000,\n  componentToken: \"auth.web.profile.widget\"\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-in\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 200,\n  props: {\n    label: \"Sign in\",\n    to: \"/auth/login\"\n  },\n  when: ({ auth }) => auth?.authenticated !== true\n});\n\naddPlacement({\n  id: \"auth.profile.menu.sign-out\",\n  target: \"auth.profile-menu\",\n  kind: \"link\",\n  surfaces: [\"*\"],\n  order: 1000,\n  props: {\n    label: \"Sign out\",\n    to: \"/auth/signout\"\n  },\n  when: ({ auth }) => auth?.authenticated === true\n});\n",
-          "reason": "Append auth profile placement entries into app-owned placement registry.",
-          "category": "auth-web",
-          "id": "auth-web-placement-block"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placementTopology.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"auth.profile-menu\"",
-          "value": "\naddPlacementTopology({\n  id: \"auth.profile-menu\",\n  description: \"Authenticated profile menu actions.\",\n  surfaces: [\"*\"],\n  variants: {\n    compact: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    medium: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    },\n    expanded: {\n      outlet: \"auth-profile-menu:primary-menu\",\n      renderers: {\n        link: \"auth.web.profile.menu.link-item\"\n      }\n    }\n  }\n});\n",
-          "reason": "Append auth profile menu topology into the app-owned placement topology.",
-          "category": "auth-web",
-          "id": "auth-web-profile-menu-topology"
-        }
-      ]
     }
   }
 }

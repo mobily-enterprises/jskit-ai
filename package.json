@@ -6,14 +6,11 @@
     "node": "^22.13.0 || ^24.0.0 || ^26.0.0"
   },
   "scripts": {
-    "app:create": "node ./tooling/create-app/bin/jskit-create-app.js",
-    "app:create:interactive": "node ./tooling/create-app/bin/jskit-create-app.js --interactive",
     "lint": "eslint packages tooling scripts --max-warnings=0",
+    "lint:packages": "node ./tooling/jskit-catalog/scripts/verify-packages.mjs",
     "check:runtime-deps": "node ./scripts/check-runtime-dependencies.mjs",
-    "verify": "npm run lint && npm run test:release-npm && npm run check:runtime-deps && npm run jskit -- lint-packages && npm run generated:check && npm --workspaces --if-present test",
+    "verify": "npm run lint && npm run test:release-npm && npm run check:runtime-deps && npm run lint:packages && npm run generated:check && npm --workspaces --if-present test",
     "verify:registry": "npm run security:audit && npm --workspaces --if-present run test:registry",
-    "check:di-labels": "npm run jskit -- lint-packages --check-di-labels",
-    "jskit": "node ./tooling/jskit-cli/bin/jskit.js",
     "release": "npm run release:npm:prepare && npm run verify && npm run release:npm:publish",
     "catalog:build": "npm run --workspace tooling/jskit-catalog catalog:build",
     "cloc:actual": "cloc --vcs=git --include-ext=js,cjs,mjs,jsx,ts,tsx,vue,py,go,rs,java,kt,swift,rb,php,cs,cpp,c,h,sql,sh,bash,zsh,ps1,rst,adoc,txt --exclude-dir=node_modules,dist,build,coverage,.next,.nuxt,.turbo,.cache,storybook-static,vendor,tmp,temp,.output,.vercel .",

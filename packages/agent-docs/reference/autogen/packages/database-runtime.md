@@ -18,18 +18,31 @@ Use this on demand; do not load the full index at startup.
 Exports
 - None
 
-### `src/server/providers/DatabaseRuntimeServiceProvider.js`
+### `src/server/databaseSetup.js`
 Exports
-- `DatabaseRuntimeServiceProvider`
+- `prepareDatabaseFromApp({ client, appRoot = process.cwd(), environment = process.env, migrationsDirectory = "migrations", seed } = {})`
+- `runDatabaseSetup({ knex, seed, appRoot = process.cwd(), environment = process.env } = {})`
 Local functions
-- `resolveDatabaseEnv(scope)`
-- `resolveDriverDialectId(driver)`
+- `normalizeMigrationResult(result)`
+
+### `src/server/knexFactory.js`
+Exports
 - `loadKnexFactory()`
-- `resolveRegisteredDriver(scope)`
-- `resolveRegisteredDrivers(scope)`
-- `resolveSingleRegisteredDriver(scope)`
-- `createKnexConfig(scope)`
-- `createKnexInstance(scope)`
+
+### `src/server/knexMigrationConfig.js`
+Exports
+- `createKnexMigrationConfig({ client, environment = process.env, appRoot = process.cwd(), migrationsDirectory = "migrations", packageMigrationDirectories = [] } = {})`
+- `createKnexMigrationConfigFromApp(options = {})`
+- `discoverPackageMigrationDirectories({ appRoot = process.cwd() } = {})`
+Local functions
+- `directoryExists(directory)`
+
+### `src/server/providers/DatabaseProvider.js`
+Exports
+- `DatabaseProvider`
+Local functions
+- `resolveDriverDialectId(driver)`
+- `createDatabase({ driver, env })`
 
 ### `src/shared/databaseClient.js`
 Exports
@@ -87,7 +100,6 @@ Exports
 - `createTransactionManager`
 - `BaseRepository`
 - `buildPaginationMeta`
-- `registerDatabaseRuntime`
 - `normalizeDateInput`
 - `toIsoString`
 - `toInsertDateTime`
@@ -185,15 +197,6 @@ Exports
 - `deleteRowsOlderThan({ client, tableName, dateColumn, cutoffDate, batchSize, applyFilters })`
 - `__testables`
 
-### `src/shared/runtime.js`
-Exports
-- `registerDatabaseRuntime(app, { knex } = {})`
-Local functions
-- `ensureContainerInterface(app)`
-- `ensureKnexInterface(knex)`
-- `ensureKnexBinding(app, knex)`
-- `ensureTransactionManagerBinding(app)`
-
 ### `src/shared/runtimeErrors.js`
 Exports
 - `DatabaseRuntimeError`
@@ -214,9 +217,3 @@ Exports
 - `DEFAULT_VISIBILITY_COLUMNS`
 - `applyVisibility(queryBuilder, visibilityContext = {})`
 - `applyVisibilityOwners(payload = {}, visibilityContext = {})`
-
-### templates
-
-### `templates/knexfile.js`
-Exports
-- `default`

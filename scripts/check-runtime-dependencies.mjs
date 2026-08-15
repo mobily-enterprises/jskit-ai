@@ -49,10 +49,17 @@ const DYNAMIC_IMPORT_PATTERN = /^\s*import\s*\(\s*["']([^"']+)["']\s*\)/gm;
 
 async function listWorkspacePackageDirs() {
   const entries = await readdir(PACKAGES_DIR, { withFileTypes: true });
-  return entries
+  const directories = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(PACKAGES_DIR, entry.name))
     .sort();
+  const packages = [];
+  for (const directory of directories) {
+    if (await fileExists(path.join(directory, "package.json"))) {
+      packages.push(directory);
+    }
+  }
+  return packages;
 }
 
 async function fileExists(targetPath) {

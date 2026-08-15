@@ -18,8 +18,6 @@ import {
 } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
-const INTERNAL_JSON_REST_API = "internal.json-rest-api";
-
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
   public: Object.freeze([]),
   workspace: Object.freeze([
@@ -837,23 +835,7 @@ async function createJsonRestApiHost({ knex }) {
   return api;
 }
 
-async function registerJsonRestApiHost(app) {
-  if (!app || typeof app.instance !== "function" || typeof app.make !== "function" || typeof app.has !== "function") {
-    throw new Error("registerJsonRestApiHost requires application instance()/make()/has().");
-  }
-
-  if (app.has(INTERNAL_JSON_REST_API)) {
-    return app.make(INTERNAL_JSON_REST_API);
-  }
-
-  const knex = app.make("jskit.database.knex");
-  const api = await createJsonRestApiHost({ knex });
-  app.instance(INTERNAL_JSON_REST_API, api);
-  return api;
-}
-
 export {
-  INTERNAL_JSON_REST_API,
   JSON_REST_AUTOFILTER_PRESETS,
   addResourceIfMissing,
   buildJsonRestQueryParams,
@@ -867,6 +849,5 @@ export {
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue,
-  createJsonRestApiHost,
-  registerJsonRestApiHost
+  createJsonRestApiHost
 };

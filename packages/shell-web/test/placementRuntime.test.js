@@ -3,22 +3,16 @@ import test from "node:test";
 import { definePlacement } from "../src/client/placement/validators.js";
 import { createWebPlacementRuntime } from "../src/client/placement/runtime.js";
 
-function createAppStub({ tokens = {}, contextContributors = [] } = {}) {
+function createComponentsStub({ tokens = {} } = {}) {
   return {
     has(token) {
       return Object.prototype.hasOwnProperty.call(tokens, token);
     },
-    make(token) {
+    get(token) {
       if (!this.has(token)) {
         throw new Error(`Unknown token: ${String(token)}`);
       }
       return tokens[token];
-    },
-    resolveTag(tagName) {
-      if (tagName === "web-placement.context.client") {
-        return contextContributors;
-      }
-      return [];
     }
   };
 }
@@ -60,14 +54,14 @@ function semanticTopologyEntry({
 }
 
 test("web placement runtime resolves semantic targets through topology variants", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.bottom": () => null,
       "component.menu": () => null
     }
   });
 
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({ components });
   runtime.replacePlacementTopology([
     semanticTopologyEntry({
       id: "shell.primary-nav",
@@ -109,13 +103,13 @@ test("web placement runtime resolves semantic targets through topology variants"
 });
 
 test("web placement runtime accepts append-only topology objects", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.menu": () => null
     }
   });
 
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({ components });
   runtime.replacePlacementTopology({
     placements: [
       semanticTopologyEntry({
@@ -146,7 +140,7 @@ test("web placement runtime accepts append-only topology objects", () => {
 });
 
 test("web placement runtime filters by surface/host/position, resolves component tokens, and sorts by order", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.alerts": () => null,
       "component.profile": () => null,
@@ -154,7 +148,7 @@ test("web placement runtime filters by surface/host/position, resolves component
     }
   });
 
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({ components });
   runtime.replacePlacements([
     definePlacement({
       id: "test.menu",
@@ -195,14 +189,14 @@ test("web placement runtime filters by surface/host/position, resolves component
 });
 
 test("web placement runtime preserves source order when placements share the same order", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.beta": () => null,
       "component.alpha": () => null
     }
   });
 
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({ components });
   runtime.replacePlacements([
     definePlacement({
       id: "test.beta",
@@ -228,19 +222,19 @@ test("web placement runtime preserves source order when placements share the sam
 });
 
 test("web placement runtime applies context contributors and placement when() predicates", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.guest": () => null,
       "component.authenticated": () => null
-    },
-    contextContributors: [
-      () => ({
-        auth: { authenticated: true }
-      })
-    ]
+    }
   });
 
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({
+    components,
+    contextContributors: [
+      () => ({ auth: { authenticated: true } })
+    ]
+  });
   runtime.replacePlacements([
     definePlacement({
       id: "guest.item",
@@ -265,20 +259,18 @@ test("web placement runtime applies context contributors and placement when() pr
 });
 
 test("web placement runtime uses runtime context and local context overrides contributor values", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.allowed": () => null
-    },
-    contextContributors: [
-      () => ({
-        auth: {
-          authenticated: false
-        }
-      })
-    ]
+    }
   });
 
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({
+    components,
+    contextContributors: [
+      () => ({ auth: { authenticated: false } })
+    ]
+  });
   runtime.replacePlacements([
     definePlacement({
       id: "allowed",
@@ -311,8 +303,8 @@ test("web placement runtime uses runtime context and local context overrides con
 });
 
 test("web placement runtime notifies subscribers on placement and context updates", () => {
-  const app = createAppStub();
-  const runtime = createWebPlacementRuntime({ app });
+  const components = createComponentsStub();
+  const runtime = createWebPlacementRuntime({ components });
   const events = [];
   const unsubscribe = runtime.subscribe((event) => {
     events.push(event.type);
@@ -336,8 +328,8 @@ test("web placement runtime notifies subscribers on placement and context update
 });
 
 test("web placement runtime rejects duplicate placement ids", () => {
-  const app = createAppStub();
-  const runtime = createWebPlacementRuntime({ app });
+  const components = createComponentsStub();
+  const runtime = createWebPlacementRuntime({ components });
 
   assert.throws(() => {
     runtime.replacePlacements([
@@ -360,11 +352,11 @@ test("web placement runtime rejects duplicate placement ids", () => {
 });
 
 test("web placement runtime skips throwing component tokens and logs resolution errors once", () => {
-  const app = {
+  const components = {
     has(token) {
       return token === "component.bad" || token === "component.good";
     },
-    make(token) {
+    get(token) {
       if (token === "component.bad") {
         throw new Error("bad component token");
       }
@@ -372,15 +364,12 @@ test("web placement runtime skips throwing component tokens and logs resolution 
         return () => null;
       }
       throw new Error(`Unknown token: ${String(token)}`);
-    },
-    resolveTag() {
-      return [];
     }
   };
 
   const errors = [];
   const runtime = createWebPlacementRuntime({
-    app,
+    components,
     logger: {
       warn() {},
       error(payload, message) {
@@ -417,11 +406,11 @@ test("web placement runtime skips throwing component tokens and logs resolution 
 
 test("web placement runtime clears failed token cache when placements are replaced", () => {
   let shouldThrow = true;
-  const app = {
+  const components = {
     has(token) {
       return token === "component.toggle";
     },
-    make(token) {
+    get(token) {
       if (token !== "component.toggle") {
         throw new Error(`Unknown token: ${String(token)}`);
       }
@@ -429,14 +418,11 @@ test("web placement runtime clears failed token cache when placements are replac
         throw new Error("toggle failure");
       }
       return () => null;
-    },
-    resolveTag() {
-      return [];
     }
   };
 
   const runtime = createWebPlacementRuntime({
-    app,
+    components,
     logger: {
       warn() {},
       error() {}
@@ -475,14 +461,14 @@ test("web placement runtime clears failed token cache when placements are replac
 });
 
 test("web placement runtime follows explicit surface targeting without role indirection", () => {
-  const app = createAppStub({
+  const components = createComponentsStub({
     tokens: {
       "component.global": () => null,
       "component.app": () => null,
       "component.admin": () => null
     }
   });
-  const runtime = createWebPlacementRuntime({ app });
+  const runtime = createWebPlacementRuntime({ components });
   runtime.replacePlacements([
     definePlacement({
       id: "global.banner",

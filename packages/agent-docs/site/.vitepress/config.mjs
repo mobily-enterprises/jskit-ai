@@ -27,9 +27,7 @@ export default defineConfig({
           text: "App Setup",
           items: [
             { text: "Quickstart", link: "/guide/app-setup/quickstart" },
-            { text: "Initial Scaffolding", link: "/guide/app-setup/initial-scaffolding" },
-            { text: "Working With The JSKIT CLI", link: "/guide/app-setup/working-with-the-jskit-cli" },
-            { text: "Upgrade guide from Beta 1 to Final Release", link: "/guide/app-setup/upgrade-beta-1-to-final" },
+            { text: "Application Foundations", link: "/guide/app-setup/initial-scaffolding" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
             { text: "Authentication", link: "/guide/app-setup/authentication" },
             { text: "Database Layer", link: "/guide/app-setup/database-layer" },
@@ -44,16 +42,6 @@ export default defineConfig({
             { text: "Mobile Capacitor", link: "/guide/app-extras/mobile-capacitor" },
             { text: "Realtime", link: "/guide/app-extras/realtime" },
             { text: "Assistant", link: "/guide/app-extras/assistant" }
-          ]
-        },
-        {
-          text: "Generators",
-          items: [
-            { text: "Intro", link: "/guide/generators/intro" },
-            { text: "UI Generators", link: "/guide/generators/ui-generators" },
-            { text: "CRUD Generators", link: "/guide/generators/crud-generators" },
-            { text: "Advanced CRUDs", link: "/guide/generators/advanced-cruds" },
-            { text: "Row Policies", link: "/guide/generators/row-policies" }
           ]
         }
       ]

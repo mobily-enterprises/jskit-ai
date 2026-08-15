@@ -42,6 +42,7 @@ Local functions
 - `normalizeAuditConfig(audit, { actionId })`
 - `normalizeObservabilityConfig(observability)`
 - `normalizeActionExtensions(value)`
+- `normalizeActionEvents(value, actionId)`
 
 ### `shared/actions/audit.js`
 Exports
@@ -66,19 +67,15 @@ Exports
 Local functions
 - `resolveRequestIdempotencyKey(context)`
 
-### `shared/actions/index.js`
-Exports
-- `normalizeActionDefinition`
-- `withActionDefaults`
-
 ### `shared/actions/observability.js`
 Exports
 - `createNoopObservabilityAdapter()`
 
 ### `shared/actions/pipeline.js`
 Exports
-- `executeActionPipeline({ definition, input, context, deps = {}, idempotencyAdapter, auditAdapter, observabilityAdapter, logger = console } = {})`
+- `executeActionPipeline({ definition, input, context, deps = {}, idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
 Local functions
+- `publishActionEvents(events, builders, execution)`
 - `normalizeOutcomeErrorCode(error)`
 - `buildActionLogPayload({ definition, context, outcome, durationMs, errorCode, idempotencyReplay })`
 - `emitAuditEvent(adapter, payload)`
@@ -97,7 +94,7 @@ Local functions
 
 ### `shared/actions/registry.js`
 Exports
-- `createActionRegistry({ contributors = [], idempotencyAdapter, auditAdapter, observabilityAdapter, logger = console } = {})`
+- `createActionRegistry({ contributors = [], idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
 - `__testables`
 Local functions
 - `normalizeContributors(contributors)`
@@ -118,77 +115,35 @@ Exports
 Exports
 - `withActionDefaults(actions = [], defaults = {})`
 
+### `shared/capabilities/defineProvider.js`
+Exports
+- `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
+- `normalizeArchitectureId(value, label)`
+Local functions
+- `normalizeCapabilityMap(value, label)`
+- `assertDistinctLocalNames(maps)`
+- `normalizeLifecycleMethod(value, label)`
+
+### `shared/capabilities/index.js`
+Exports
+- `defineProvider`
+- `createCapabilityRuntime`
+
+### `shared/capabilities/runtime.js`
+Exports
+- `createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } = {})`
+Local functions
+- `normalizeProviderDefinition(value)`
+- `normalizeInputCapabilities(value)`
+- `providerCapabilityIds(provider, field)`
+- `buildProviderOrder(providers, inputCapabilities)`
+- `resolveProviderDependencies(provider, capabilities)`
+- `normalizeProviderOutputs(provider, value)`
+
 ### `shared/index.js`
 Exports
 - `resolveLinkPath`
 - `normalizePathname`
-
-### `shared/runtime/application.js`
-Exports
-- `Application`
-- `createApplication(options = {})`
-- `createProviderClass({ id, startsAfter = [], register = null, boot = null, shutdown = null } = {})`
-Local functions
-- `normalizeStringArray(value)`
-- `nowMilliseconds()`
-- `createProviderLifecycleError(providerId, phase, cause)`
-
-### `shared/runtime/container.js`
-Exports
-- `Container`
-- `createContainer(options = {})`
-- `tokenLabel(token)`
-Local functions
-- `normalizeToken(token)`
-- `ensureFactory(factory, token)`
-- `normalizeTagName(tagName)`
-- `normalizeScopeId(scopeId)`
-
-### `shared/runtime/containerErrors.js`
-Exports
-- `ContainerError`
-- `InvalidTokenError`
-- `InvalidFactoryError`
-- `DuplicateBindingError`
-- `UnresolvedTokenError`
-- `CircularDependencyError`
-
-### `shared/runtime/index.js`
-Exports
-- `Container`
-- `createContainer`
-- `tokenLabel`
-- `ContainerError`
-- `InvalidTokenError`
-- `InvalidFactoryError`
-- `DuplicateBindingError`
-- `UnresolvedTokenError`
-- `CircularDependencyError`
-- `Application`
-- `createApplication`
-- `createProviderClass`
-- `ServiceProvider`
-- `KernelError`
-- `ProviderNormalizationError`
-- `DuplicateProviderError`
-- `ProviderStartOrderError`
-- `ProviderLifecycleError`
-
-### `shared/runtime/kernelErrors.js`
-Exports
-- `KernelError`
-- `ProviderNormalizationError`
-- `DuplicateProviderError`
-- `ProviderStartOrderError`
-- `ProviderLifecycleError`
-
-### `shared/runtime/serviceProvider.js`
-Exports
-- `ServiceProvider`
-
-### `shared/support/containerToken.js`
-Exports
-- `isContainerToken(value)`
 
 ### `shared/support/deepFreeze.js`
 Exports
@@ -197,35 +152,6 @@ Exports
 ### `shared/support/formatDateTime.js`
 Exports
 - `formatDateTime(value, { fallback = "unknown" } = {})`
-
-### `shared/support/generatedUiContract.js`
-Exports
-- `GENERATED_UI_FORBIDDEN_CARD_SHELL_PATTERNS`
-- `GENERATED_UI_FORBIDDEN_LIVE_COPY_PATTERNS`
-- `GENERATED_UI_NAVIGATION_ROLE_DEFAULT`
-- `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
-- `GENERATED_UI_NAVIGATION_ROLE_OPTION`
-- `GENERATED_UI_NAVIGATION_ROLE_VALUES`
-- `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
-- `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
-- `GENERATED_UI_SURFACE_PROFILES`
-- `assertGeneratedUiSourceContract(source = "", options = {})`
-- `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
-- `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
-- `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
-- `isGeneratedUiNoLinkNavigationRole(value = "")`
-- `normalizeGeneratedUiNavigationRole(value = "")`
-- `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
-- `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
-- `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
-Local functions
-- `matchesGeneratedUiContractPattern(source = "", pattern)`
-- `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
-- `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
-- `resolveGeneratedUiSourceContractProfile(profile = "")`
-- `hasExplicitGeneratedUiNavigationRole(options = {})`
-- `normalizeGeneratedUiRouteSegments(routePath = "")`
-- `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
 
 ### `shared/support/index.js`
 Exports
@@ -373,10 +299,6 @@ Exports
 Exports
 - `toCamelCase(value = "")`
 - `toSnakeCase(value = "")`
-
-### `shared/support/tokens.js`
-Exports
-- `isContainerToken`
 
 ### `shared/support/visibility.js`
 Exports
@@ -589,6 +511,12 @@ Local functions
 Exports
 - `createComponentInteractionEmitter(emit)`
 
+### `client/componentRegistry.js`
+Exports
+- `createClientComponentRegistry()`
+Local functions
+- `normalizeComponentId(value)`
+
 ### `client/index.js`
 Exports
 - `getClientAppConfig`
@@ -634,15 +562,13 @@ Local functions
 - `normalizeRouteList(routes, { packageId })`
 - `toVueRouteRecord(route)`
 - `registerClientModuleRoutes({ packageId, routes = [], router, surfaceRuntime, surfaceMode, seenRoutePaths, seenRouteNames, logger = null, source = "module", packageMetadataRouteDeclarations = null } = {})`
-- `isProviderClass(candidate)`
-- `normalizeExplicitProviderClasses(value, packageId)`
-- `resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = [])`
-- `resolveModuleProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = [])`
+- `resolvePackageMetadataProviders(moduleNamespace, packageId, packageMetadataClientProviders = [])`
+- `resolveModuleProviders(moduleNamespace, packageId, packageMetadataClientProviders = [])`
 - `buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {})`
 - `assertRoutesDeclaredInPackageMetadata({ packageId, source, normalizedRoutes = [], packageMetadataRouteDeclarations = null } = {})`
 - `resolvePackageMetadataClientRoutes({ packageId, packageMetadataUiRoutes = [], routeComponents = {}, logger = null } = {})`
 - `normalizeClientModuleEntries(clientModules)`
-- `createClientRuntimeApp({ profile = "client", app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
+- `createClientRuntime({ profile = "client", providers = [], app, pinia = null, queryClient = null, router, env, logger, surfaceRuntime, surfaceMode } = {})`
 
 ### `client/packageMetadataSections.js`
 Exports
@@ -724,59 +650,67 @@ Exports
 
 ### server
 
-### `server/actions/ActionRuntimeServiceProvider.js`
+### `server/actions/actionCatalogue.js`
 Exports
-- `resolveActionContributors(scope)`
-- `resolveActionContextContributors(scope)`
-- `registerActionContextContributor(app, token, factory)`
-- `ActionRuntimeServiceProvider`
+- `createActionCatalogue({ idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = null } = {})`
 Local functions
-- `createSurfaceRuntimeFromAppConfig(scope)`
-- `normalizeDependencyMap(value, { context = "action dependencies" } = {})`
-- `createActionExecutor(actionRegistry)`
-- `createActionContributorToken()`
-- `materializeDependencies(scope, dependencyMap, { context = "action.dependencies" } = {})`
-- `materializeAction(scope, actionDefinition)`
-- `registerActionDefinition(app, actionSpec, { context = "app.action" } = {})`
-- `normalizeSingleActionRegistration(actionDefinition, { context = "app.action" } = {})`
-- `installActionRegistrationApi(app)`
+- `normalizeRegistration(value)`
+
+### `server/actions/actionEvents.js`
+Exports
+- `createEntityChangedActionEvent({ source, entity, operation, entityId, realtime = null } = {})`
+Local functions
+- `resolveValue(value, execution)`
+- `normalizeRealtime(value, execution)`
+
+### `server/actions/actionProvider.js`
+Exports
+- `createActionProvider(options = {})`
 
 ### `server/actions/index.js`
 Exports
-- `resolveActionContributors`
-- `resolveActionContextContributors`
-- `registerActionContextContributor`
-- `ActionRuntimeServiceProvider`
+- `createActionCatalogue`
+- `createActionProvider`
+- `createEntityChangedActionEvent`
 
-### `server/container/ContainerCoreServiceProvider.js`
+### `server/features/defineFeature.js`
 Exports
-- `ContainerCoreServiceProvider`
+- `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null } = {})`
+Local functions
+- `exactOutputNames(value, expectedNames, featureId)`
+- `normalizeActionFactory(value, featureId)`
+- `applyActionDefaults(actions, defaults, featureId)`
+- `withoutActionCatalogue(dependencies)`
 
-### `server/container/index.js`
+### `server/features/index.js`
 Exports
-- `Container`
-- `createContainer`
-- `tokenLabel`
-- `ContainerError`
-- `InvalidTokenError`
-- `InvalidFactoryError`
-- `DuplicateBindingError`
-- `UnresolvedTokenError`
-- `CircularDependencyError`
-- `ContainerCoreServiceProvider`
+- `defineFeature`
 
 ### `server/http/_testable/index.js`
 Exports
-- `createHttpRuntime`
 - `compileRouteValidator`
 
-### `server/http/HttpFastifyServiceProvider.js`
+### `server/http/capabilityHttpRuntime.js`
 Exports
-- `HttpFastifyServiceProvider`
+- `createCapabilityHttpRuntime({ fastify, actions })`
+Local functions
+- `normalizeResolver({ id, resolve } = {})`
+
+### `server/http/directRequestActionExecutor.js`
+Exports
+- `attachDirectRequestActionExecutor({ actions, request, property = "executeAction", defaultChannel = "api", defaultSurfaceId = "" } = {})`
+Local functions
+- `resolveSurface(request, explicitSurface = "", defaultSurfaceId = "")`
+- `routeVisibility(request, payload = {})`
+
+### `server/http/HttpProvider.js`
+Exports
+- `HttpProvider`
 
 ### `server/http/index.js`
 Exports
-- `registerRouteVisibilityResolver`
+- `createCapabilityHttpRuntime`
+- `HttpProvider`
 
 ### `server/http/lib/controller.js`
 Exports
@@ -795,11 +729,6 @@ Exports
 - `RouteDefinitionError`
 - `RouteRegistrationError`
 
-### `server/http/lib/httpRuntime.js`
-Exports
-- `registerHttpRuntime(app, options = {})`
-- `createHttpRuntime({ app = null, fastify = null, router = null, autoRegisterApiErrorHandling = true, apiErrorHandling = {} } = {})`
-
 ### `server/http/lib/index.js`
 Exports
 - `HttpKernelError`
@@ -815,25 +744,7 @@ Exports
 - `DEFAULT_DOMAIN_ERROR_STATUS_BY_CODE`
 - `resolveDomainErrorStatus`
 - `defaultMissingHandler`
-- `defaultApplyRoutePolicy`
-- `normalizeRoutePolicyConfig`
 - `registerRoutes`
-- `registerHttpRuntime`
-- `createHttpRuntime`
-- `resolveRouteVisibilityResolvers`
-- `registerRouteVisibilityResolver`
-- `resolveRouteVisibilityContext`
-
-### `server/http/lib/kernel.js`
-Exports
-- `defaultMissingHandler`
-- `defaultApplyRoutePolicy`
-- `normalizeRoutePolicyConfig`
-- `buildActionExecutionContext`
-- `attachRequestActionExecutor`
-- `registerRoutes`
-- `registerHttpRuntime`
-- `createHttpRuntime`
 
 ### `server/http/lib/middlewareRuntime.js`
 Exports
@@ -845,25 +756,6 @@ Local functions
 - `normalizeMiddlewareAliases(sourceAliases)`
 - `normalizeMiddlewareGroups(sourceGroups)`
 - `expandMiddlewareEntry({ entry, runtimeMiddlewareConfig, resolvedHandlers, groupStack, routeLabel })`
-
-### `server/http/lib/requestActionExecutor.js`
-Exports
-- `buildActionExecutionContext({ request = null, context = {}, channel = "api", defaultSurfaceId = "" } = {})`
-- `attachRequestActionExecutor({ app = null, request = null, requestScopeProperty = "scope", requestActionExecutorProperty = "executeAction", actionExecutorToken = "actionExecutor", defaultChannel = "api", defaultSurfaceId = "" } = {})`
-Local functions
-- `normalizeRequestActionExecutorProperty(value)`
-- `resolveSurfaceFromRequest(request, explicitSurface = "", defaultSurfaceId = "")`
-- `applyActionContextContributionDefaults(targetContext, contribution)`
-- `enrichActionExecutionContext({ resolutionScope = null, request = null, actionId = "", version = null, definition = null, input = {}, deps = {}, channel = "api", baseContext = {} } = {})`
-- `resolveActionExecutorScope({ app = null, request = null, requestScopeProperty = "scope" } = {})`
-- `resolveRouteVisibilityFromRequestAndPayload(request, payload = {})`
-
-### `server/http/lib/requestScope.js`
-Exports
-- `normalizeRequestScopeProperty(value)`
-- `attachRequestScope({ app = null, request = null, reply = null, requestScopeProperty = "scope", requestScopeIdPrefix = "http", requestIdResolver = null } = {})`
-Local functions
-- `resolveRequestRuntimeId({ request = null, requestIdResolver = null } = {})`
 
 ### `server/http/lib/router.js`
 Exports
@@ -880,7 +772,7 @@ Local functions
 ### `server/http/lib/routeRegistration.js`
 Exports
 - `defaultMissingHandler`
-- `registerRoutes(fastify, { routes = [], app = null, applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, enableRequestScope = true, requestScopeProperty = "scope", requestActionExecutorProperty = "executeAction", actionExecutorToken = "actionExecutor", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", requestScopeIdPrefix = "http", requestIdResolver = null, middleware = {} } = {})`
+- `registerRoutes(fastify, { routes = [], applyRoutePolicy = defaultApplyRoutePolicy, missingHandler = defaultMissingHandler, requestActionExecutorProperty = "executeAction", requestActionDefaultChannel = "api", requestActionDefaultSurface = "", middleware = {}, actions = null } = {})`
 Local functions
 - `toFastifyRouteOptions(route)`
 - `shouldStripFastifyBodySchema(route = null, schema = null)`
@@ -923,37 +815,26 @@ Local functions
 - `compileNormalizedRouteValidator(normalizedValidator)`
 - `normalizeRouteValidatorSource(validator, { context = "route validator" } = {})`
 
-### `server/kernel/index.js`
-Exports
-- `Application`
-- `createApplication`
-- `createProviderClass`
-- `ServiceProvider`
-- `KernelError`
-- `ProviderNormalizationError`
-- `DuplicateProviderError`
-- `ProviderStartOrderError`
-- `ProviderLifecycleError`
-- `KernelCoreServiceProvider`
-
-### `server/kernel/KernelCoreServiceProvider.js`
-Exports
-- `KernelCoreServiceProvider`
-
 ### `server/platform/index.js`
 Exports
 - `registerSurfaceRequestConstraint`
 - `resolveRuntimeProfileFromSurface`
-- `tryCreateProviderRuntimeFromApp`
+- `createInstalledRuntime`
 
-### `server/platform/PlatformServerRuntimeServiceProvider.js`
+### `server/platform/installedRuntime.js`
 Exports
-- `PlatformServerRuntimeServiceProvider`
+- `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger = console, fastify = null } = {})`
+Local functions
+- `normalizeInputCapabilities({ inputs, config, env, logger, fastify, appRoot })`
+- `builtinCapabilityProviders(inputCapabilities)`
 
-### `server/platform/providerRuntime.js`
+### `server/platform/providerRuntime/capabilityProviderLoader.js`
 Exports
-- `createProviderRuntimeApp({ profile = "", providers = [], env = {}, logger = console, fastify = null } = {})`
-- `createProviderRuntimeFromApp({ appRoot, profile = "", env = {}, logger = console, fastify = null } = {})`
+- `appendCapabilityProviders({ providers, sourceId, seenProviderIds, orderedProviders })`
+- `loadCapabilityProviders({ packageEntry } = {})`
+Local functions
+- `declaredProviderEntrypoints(packageEntry)`
+- `normalizeProviderExports(value, packageId, exportName)`
 
 ### `server/platform/providerRuntime/helpers.js`
 Exports
@@ -974,136 +855,19 @@ Local functions
 - `normalizeUiRoutePath(pathValue)`
 - `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
 
-### `server/platform/providerRuntime/providerLoader.js`
-Exports
-- `loadPackageProviders({ packageEntry })`
-- `registerProviderClass({ providerClass, sourceId, seenProviderIds, orderedProviderClasses })`
-Local functions
-- `normalizeServerProviderDefinitions(packageMetadata, packageId)`
-- `isProviderDefinition(value)`
-- `normalizeProviderExportValue(value, { packageId, label })`
-- `resolveProviderClassesFromModule(moduleNamespace, { packageId, providerExport })`
-- `collectDiscoveredProviderModulePaths({ packageEntry, providerDefinition })`
-
-### `server/platform/runtime.js`
-Exports
-- `createPlatformRuntimeBundle({ repositoryDefinitions = [], serviceDefinitions = [], controllerDefinitions = [], runtimeServiceIds = [] } = {})`
-- `createServerRuntime({ bundles = [], dependencies = {} } = {})`
-- `createServerRuntimeWithPlatformBundle({ platformBundle, appFeatureBundle, dependencies = {} } = {})`
-
 ### `server/platform/surfaceRuntime.js`
 Exports
 - `toRequestPathname(urlValue)`
 - `shouldServePathForSurface({ surfaceRuntime, pathname, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] } = {})`
 - `registerSurfaceRequestConstraint({ fastify, surfaceRuntime, serverSurface, apiPathPrefix = "/api/", globalUiPaths = [] } = {})`
 - `resolveRuntimeProfileFromSurface({ surfaceRuntime, serverSurface, defaultProfile = "" } = {})`
-- `tryCreateProviderRuntimeFromApp(options = {})`
 Local functions
 - `matchesGlobalUiPath(pathname, globalUiPaths = [])`
 
-### `server/registries/actionSurfaceSourceRegistry.js`
+### `server/runtime/BootstrapProvider.js`
 Exports
-- `ensureActionSurfaceSourceRegistry(app)`
-- `resolveActionSurfaceSourceIds(scope, sourceName, { context = "action.surfacesFrom" } = {})`
-Local functions
-- `normalizeSurfaceIdValue(value)`
-- `normalizeSurfaceSourceName(sourceName, { context = "action surface source" } = {})`
-- `resolveSurfaceRuntime(scope)`
-- `resolveEnabledSurfaceIds(surfaceRuntime)`
-- `normalizeSurfaceIdList(surfaceIds, { context = "action.surfacesFrom", surfaceRuntime = null } = {})`
-- `createActionSurfaceSourceRegistry()`
-- `resolveActionSurfaceSourceRegistry(scope)`
-- `installActionSurfaceSourceRegistrationApi(app)`
-
-### `server/registries/bootstrapPayloadContributorRegistry.js`
-Exports
-- `registerBootstrapPayloadContributor(app, token, factory)`
-- `resolveBootstrapPayloadContributors(scope)`
-- `resolveBootstrapPayload(scope, context = {})`
-
-### `server/registries/domainEventListenerRegistry.js`
-Exports
-- `registerDomainEventListener(app, token, factory)`
-- `resolveDomainEventListeners(scope)`
-- `createDomainEvents(scope)`
-Local functions
-- `normalizeDomainEventListener(entry)`
-
-### `server/registries/index.js`
-Exports
-- `registerBootstrapPayloadContributor`
-- `resolveBootstrapPayloadContributors`
-- `resolveBootstrapPayload`
-- `registerDomainEventListener`
-- `resolveDomainEventListeners`
-- `createDomainEvents`
-- `normalizeServiceRegistration`
-- `materializeServiceRegistration`
-- `registerServiceRegistration`
-- `resolveServiceRegistrations`
-- `installServiceRegistrationApi`
-- `resolveRouteVisibilityResolvers`
-- `registerRouteVisibilityResolver`
-- `resolveRouteVisibilityContext`
-- `ensureActionSurfaceSourceRegistry`
-- `resolveActionSurfaceSourceIds`
-- `normalizeNestedEntries`
-- `assertTaggableApp`
-- `registerTaggedSingleton`
-- `resolveTaggedEntries`
-
-### `server/registries/primitives.js`
-Exports
-- `normalizeNestedEntries(value)`
-- `assertTaggableApp(app, { context = "registry", ErrorType = Error } = {})`
-- `registerTaggedSingleton(app, token, factory, tag, { context = "registry", ErrorType = Error } = {})`
-- `resolveTaggedEntries(scope, tag)`
-- `normalizeContributorEntry(entry)`
-
-### `server/registries/routeVisibilityResolverRegistry.js`
-Exports
-- `resolveRouteVisibilityResolvers(scope)`
-- `registerRouteVisibilityResolver(app, token, factory)`
-- `resolveRouteVisibilityContext({ resolutionScope = null, request = null, routeVisibility = ROUTE_VISIBILITY_PUBLIC, context = {}, input = {}, deps = {}, actionId = "", version = null, channel = "api" } = {})`
-Local functions
-- `normalizeRouteVisibilityResolver(entry)`
-
-### `server/registries/serviceRegistrationRegistry.js`
-Exports
-- `normalizeServiceRegistration(value = {})`
-- `materializeServiceRegistration(scope, registrationSpec)`
-- `registerServiceRegistration(app, token, factory)`
-- `resolveServiceRegistrations(scope)`
-- `installServiceRegistrationApi(app)`
-Local functions
-- `normalizeMethodName(value, { context = "service method" } = {})`
-- `createServiceRegistrationToken()`
-- `normalizeServiceEventType(value, { context = "service event" } = {})`
-- `normalizeServiceEventOperation(value, { context = "service event" } = {})`
-- `normalizeServiceEventEntityId(value)`
-- `normalizeServiceEventMetaField(value, { context = "service event meta field" } = {})`
-- `normalizeRealtimeDispatch(value, { context = "service event.realtime" } = {})`
-- `normalizeRealtimeAudience(value, { context = "service event.realtime.audience" } = {})`
-- `normalizeServiceEventSpec(entry, { context = "service event" } = {})`
-- `normalizeServiceMetadata(value = {})`
-- `normalizeServiceEventsForDefinition(serviceDefinition, serviceMetadata)`
-- `resolveMethodOptions(args = [])`
-- `resolveEventOperation(spec, state)`
-- `resolveEventEntityId(spec, state)`
-- `resolveEventMetaField(value, state)`
-- `resolveEventMeta(spec, state)`
-- `createServiceMethodEventPublisher(scope, serviceToken, methodName, specs = [])`
-
-### `server/runtime/apiRouteRegistration.js`
-Exports
-- `registerApiRouteDefinitions(fastify, { routes = [], applyRoutePolicy = defaultApplyRoutePolicy, resolveRequestUrl = null, missingHandler } = {})`
-- `__testables`
-Local functions
-- `buildBaseRouteOptions(route)`
-
-### `server/runtime/bootBootstrapRoutes.js`
-Exports
-- `bootBootstrapRoutes(app)`
+- `BootstrapProvider`
+- `createBootstrapRuntime()`
 
 ### `server/runtime/canonicalJson.js`
 Exports
@@ -1116,28 +880,11 @@ Local functions
 - `isPlainObject(value)`
 - `sortValue(value)`
 
-### `server/runtime/composition.js`
-Exports
-- `createRepositoryRegistry(definitions)`
-- `createServiceRegistry({ definitions, dependencies = {} } = {})`
-- `createControllerRegistry({ definitions, services = {}, dependencies = {} } = {})`
-- `selectRuntimeServices(services, selectedIds = [])`
-- `createRuntimeComposition({ repositoryDefinitions = [], serviceDefinitions = [], controllerDefinitions = [], runtimeServiceIds = [], repositoryDependencies = {}, serviceDependencies = {}, controllerDependencies = {} } = {})`
-- `__testables`
-Local functions
-- `normalizeRegistryDefinitions(definitions, { registryKind = "registry" } = {})`
-- `createRegistryFromDefinitions(definitions, createArgsFactory, options = {})`
-
-### `server/runtime/domainRules.js`
-Exports
-- `collectDomainFieldErrors(rules)`
-- `assertNoDomainRuleFailures(rules, { message = "Domain validation failed.", code = "domain_validation_failed" } = {})`
-
 ### `server/runtime/entityChangeEvents.js`
 Exports
 - `resolveDefaultScope(visibilityContext = {}, runtime = {})`
 - `createEntityChangePublisher({ domainEvents, source, entity, scopeResolver = resolveDefaultScope } = {})`
-- `createRealtimeEntityChangePublisher({ domainEvents, source, entity, event, serviceToken, methodName, scopeResolver = resolveDefaultScope } = {})`
+- `createRealtimeEntityChangePublisher({ domainEvents, source, entity, event, serviceId, methodName, scopeResolver = resolveDefaultScope } = {})`
 - `createNoopEntityChangePublisher()`
 Local functions
 - `resolveContextScope(context = {})`
@@ -1146,7 +893,7 @@ Local functions
 - `resolveSourceClientId(requestMeta = {})`
 - `normalizeMetaTextField(source = {}, fieldName = "", { context = "realtime entity change" } = {})`
 - `normalizeRealtimePayload(value, { context = "realtime entity change.payload" } = {})`
-- `createRealtimeEntityChangeMeta({ serviceToken, methodName, event, change = {} } = {})`
+- `createRealtimeEntityChangeMeta({ serviceId, methodName, event, change = {} } = {})`
 - `resolveRealtimeEntityChangeOptions(change = {}, options = {})`
 
 ### `server/runtime/errors.js`
@@ -1160,6 +907,14 @@ Exports
 - `ConflictError`
 - `NotFoundError`
 
+### `server/runtime/EventProvider.js`
+Exports
+- `EventProvider`
+- `createEventRuntime()`
+Local functions
+- `normalizeListener(value)`
+- `normalizeEvent(value)`
+
 ### `server/runtime/fastifyBootstrap.js`
 Exports
 - `resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {})`
@@ -1169,7 +924,6 @@ Exports
 - `registerBodylessContentTypeNormalizer(fastify)`
 - `registerRequestLoggingHooks(app, { requestStartedAtSymbol, getPathname, getSurface, observeRequest, enableRequestLogs = true, defaultSurfaceId = "" } = {})`
 - `registerApiErrorHandler(app, { isAppError, onRecordDbError, onCaptureServerError, appErrorLogMessage = "AppError 5xx", unhandledErrorLogMessage = "Unhandled error" } = {})`
-- `ensureApiErrorHandling(app, { fastifyToken = "jskit.fastify", markerToken = "kernel.runtime.apiErrorHandlerRegistered", isAppError: isAppErrorOverride, autoRegister = true, ...handlerOptions } = {})`
 - `resolveDatabaseErrorCode(error)`
 - `recordDbErrorBestEffort(observabilityService, error)`
 - `runGracefulShutdown({ signal = "", exitProcess = false, exitCode = 0, timeoutMs = 10_000, appInstance = null, stopBackgroundRuntimes = () => {}, closeDatabase = async () => {}, logger = console } = {})`
@@ -1187,10 +941,10 @@ Exports
 - `createValidationError`
 - `parsePositiveInteger`
 - `requireAuth`
-- `installServiceRegistrationApi`
-- `resolveServiceRegistrations`
-- `registerDomainEventListener`
-- `registerBootstrapPayloadContributor`
+- `BootstrapProvider`
+- `createBootstrapRuntime`
+- `EventProvider`
+- `createEventRuntime`
 
 ### `server/runtime/integers.js`
 Exports
@@ -1230,25 +984,6 @@ Exports
 - `normalizeIdempotencyKey(value)`
 - `requireIdempotencyKey(request)`
 
-### `server/runtime/runtimeAssembly.js`
-Exports
-- `mergeRuntimeBundles(bundles = [])`
-- `createRuntimeAssembly({ bundles = [], dependencies = {}, repositoryDependencies = {}, serviceDependencies = {}, controllerDependencies = {} } = {})`
-- `buildRoutesFromManifest({ definitions = [], controllers = {}, routeConfig = {}, missingHandler } = {})`
-- `__testables`
-Local functions
-- `normalizeRuntimeBundles(bundles)`
-- `normalizeRouteModuleDefinitions(definitions)`
-
-### `server/runtime/runtimeKernel.js`
-Exports
-- `normalizeRuntimeBundle(bundle = {})`
-- `createRuntimeKernel({ runtimeBundle, dependencies = {}, repositoryDependencies = {}, serviceDependencies = {}, controllerDependencies = {} } = {})`
-- `__testables`
-Local functions
-- `normalizeDefinitions(value)`
-- `normalizeRuntimeServiceIds(value)`
-
 ### `server/runtime/securityAudit.js`
 Exports
 - `buildAuditEventBase(request, { resolveSurfaceFromPathname = null, defaultSurfaceId = "" } = {})`
@@ -1266,10 +1001,6 @@ Local functions
 - `logAuditFailure(request, payload, message)`
 - `safeBuildEventPayload({ request, action, outcome, shared, event, metadata, context, stage })`
 - `safeRecordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null, defaultSurfaceId = "" })`
-
-### `server/runtime/ServerRuntimeCoreServiceProvider.js`
-Exports
-- `ServerRuntimeCoreServiceProvider`
 
 ### `server/runtime/serviceAuthorization.js`
 Exports
@@ -1420,10 +1151,6 @@ Local functions
 - `findSemanticPlacementById(placements = [], { id = "", owner = "", surface = "" } = {})`
 - `collectAppSourceShellOutletTargets({ appRoot, sourceRoot = "src", enforceSingleDefault = true, context = "discoverShellOutletTargetsFromApp" } = {})`
 
-### `server/support/SupportCoreServiceProvider.js`
-Exports
-- `SupportCoreServiceProvider`
-
 ### `server/support/symlinkSafeRequire.js`
 Exports
 - `symlinkSafeRequire(moduleId = "")`
@@ -1453,19 +1180,11 @@ Exports
 - `toVersionedApiPrefix`
 - `buildVersionedApiPath`
 - `isVersionedApiPrefixMatch`
-- `SurfaceRoutingServiceProvider`
-
-### `server/surface/SurfaceRoutingServiceProvider.js`
-Exports
-- `SurfaceRoutingServiceProvider`
 
 ### _testable
 
 ### `_testable/index.js`
 Exports
-- `createContainer`
-- `createApplication`
-- `createHttpRuntime`
 - `compileRouteValidator`
 - `deriveResourceRequiredMetadata`
 

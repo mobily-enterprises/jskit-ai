@@ -14,6 +14,7 @@
     "./server/serviceMethods": "./src/server/serviceMethods.js",
     "./server/fieldAccess": "./src/server/fieldAccess.js",
     "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
+    "./server/defineCrudJsonApiFeature": "./src/server/defineCrudJsonApiFeature.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
@@ -22,6 +23,7 @@
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.159",
     "@jskit-ai/http-runtime": "0.1.157",
+    "@jskit-ai/json-rest-api-core": "0.1.103",
     "@jskit-ai/kernel": "0.1.159",
     "@jskit-ai/resource-crud-core": "0.1.101",
     "json-rest-schema": "^1.0.17"
@@ -30,9 +32,7 @@
   "jskit": {
     "kind": "runtime",
     "capabilities": {
-      "provides": [
-        "crud.core"
-      ],
+      "provides": [],
       "requires": []
     },
     "runtime": {
@@ -42,19 +42,6 @@
       "client": {
         "providers": []
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/crud-core": "0.1.170"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": []
     }
   }
 }

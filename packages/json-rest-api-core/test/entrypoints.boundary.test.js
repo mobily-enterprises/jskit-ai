@@ -6,7 +6,6 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { RestApiFieldsetError } from "json-rest-api";
 
 import {
-  INTERNAL_JSON_REST_API,
   addResourceIfMissing,
   buildJsonRestQueryParams,
   createJsonApiInputRecord,
@@ -16,13 +15,12 @@ import {
   createJsonRestApiHost,
   extractJsonRestCollectionRows,
   isJsonRestResourceMissingError,
-  registerJsonRestApiHost,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue
 } from "../src/server/jsonRestApiHost.js";
-import { JsonRestApiCoreServiceProvider } from "../src/server/JsonRestApiCoreServiceProvider.js";
+import { JsonRestApiProvider } from "../src/server/JsonRestApiProvider.js";
 
 test("package exports include explicit server jsonRestApiHost entrypoint only", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -38,7 +36,6 @@ test("server jsonRestApiHost entrypoint exposes only the focused host API", asyn
 });
 
 test("server entrypoint exports shared host helpers", () => {
-  assert.equal(INTERNAL_JSON_REST_API, "internal.json-rest-api");
   assert.equal(typeof addResourceIfMissing, "function");
   assert.equal(typeof buildJsonRestQueryParams, "function");
   assert.equal(typeof createJsonApiInputRecord, "function");
@@ -48,12 +45,13 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof createJsonRestApiHost, "function");
   assert.equal(typeof extractJsonRestCollectionRows, "function");
   assert.equal(typeof isJsonRestResourceMissingError, "function");
-  assert.equal(typeof registerJsonRestApiHost, "function");
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
   assert.equal(typeof returnBadRequestWhenJsonRestFieldsetInvalid, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
-  assert.equal(typeof JsonRestApiCoreServiceProvider, "function");
+  assert.equal(JsonRestApiProvider.id, "runtime.json-rest-api");
+  assert.deepEqual(JsonRestApiProvider.requires, { database: "runtime.database" });
+  assert.deepEqual(JsonRestApiProvider.provides, { jsonRestApi: "runtime.json-rest-api" });
 });
 
 test("createJsonRestContext returns a mutable clone for frozen JSKIT execution context", () => {

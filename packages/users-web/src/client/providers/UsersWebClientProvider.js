@@ -1,18 +1,19 @@
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import UsersHomeToolsWidget from "../components/UsersHomeToolsWidget.vue";
 import ProfileClientElement from "../components/ProfileClientElement.vue";
-import { registerUsersBootstrapPayloadHandlers } from "../bootstrap/user-bootstrap-handler.js";
+import { createUsersBootstrapUserHandler } from "../bootstrap/user-bootstrap-handler.js";
 
-class UsersWebClientProvider {
-  static id = "users.web.client";
-  register(app) {
-    if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-      throw new Error("UsersWebClientProvider requires application singleton()/tag().");
-    }
-
-    app.singleton("users.web.home.tools.widget", () => UsersHomeToolsWidget);
-    app.singleton("users.web.profile.element", () => ProfileClientElement);
-    registerUsersBootstrapPayloadHandlers(app);
+const UsersWebClientProvider = defineProvider({
+  id: "users.web.client",
+  requires: {
+    components: "client.components",
+    shell: "client.shell"
+  },
+  setup({ components, shell }) {
+    components.register("users.web.home.tools.widget", UsersHomeToolsWidget);
+    components.register("users.web.profile.element", ProfileClientElement);
+    shell.bootstrapHandlers.register(createUsersBootstrapUserHandler());
   }
-}
+});
 
 export { UsersWebClientProvider };

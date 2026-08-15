@@ -1,5 +1,5 @@
 export {
   registerSurfaceRequestConstraint,
-  resolveRuntimeProfileFromSurface,
-  tryCreateProviderRuntimeFromApp
+  resolveRuntimeProfileFromSurface
 } from "./surfaceRuntime.js";
+export { createInstalledRuntime } from "./installedRuntime.js";

@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveBootstrapPayloadHandlers } from "@jskit-ai/shell-web/client/bootstrap";
+import { createBootstrapPayloadHandlerRegistry } from "@jskit-ai/shell-web/client/bootstrap";
 import { resolvePlacementUserFromBootstrapPayload } from "../src/client/lib/bootstrap.js";
-import {
-  createUsersBootstrapUserHandler,
-  registerUsersBootstrapPayloadHandlers
-} from "../src/client/bootstrap/user-bootstrap-handler.js";
+import { createUsersBootstrapUserHandler } from "../src/client/bootstrap/user-bootstrap-handler.js";
 
 test("resolvePlacementUserFromBootstrapPayload returns null for anonymous sessions", () => {
   assert.equal(
@@ -58,38 +55,6 @@ function createPlacementRuntimeDouble() {
             }
       );
       return this.context;
-    }
-  };
-}
-
-function createBootstrapRegistryAppDouble() {
-  const singletons = new Map();
-  const instances = new Map();
-  const tags = new Map();
-
-  return {
-    singleton(token, factory) {
-      singletons.set(token, factory);
-    },
-    tag(token, tagName) {
-      const current = tags.get(tagName) || [];
-      current.push(token);
-      tags.set(tagName, current);
-    },
-    resolveTag(tagName) {
-      return (tags.get(tagName) || []).map((token) => this.make(token));
-    },
-    make(token) {
-      if (instances.has(token)) {
-        return instances.get(token);
-      }
-      const factory = singletons.get(token);
-      if (typeof factory !== "function") {
-        throw new Error(`Unknown token ${String(token)}`);
-      }
-      const instance = factory(this);
-      instances.set(token, instance);
-      return instance;
     }
   };
 }
@@ -156,11 +121,11 @@ test("users web bootstrap user handler clears placement user on bootstrap 401 on
   assert.equal(placementRuntime.getContext().user, null);
 });
 
-test("registerUsersBootstrapPayloadHandlers registers the users bootstrap user handler", () => {
-  const app = createBootstrapRegistryAppDouble();
-  registerUsersBootstrapPayloadHandlers(app);
+test("users bootstrap user handler registers with the explicit shell registry", () => {
+  const registry = createBootstrapPayloadHandlerRegistry();
+  registry.register(createUsersBootstrapUserHandler());
 
-  const handlers = resolveBootstrapPayloadHandlers(app);
+  const handlers = registry.list();
   assert.equal(handlers.length, 1);
   assert.equal(handlers[0]?.handlerId, "users.web.bootstrap.user");
   assert.equal(typeof handlers[0]?.applyBootstrapPayload, "function");

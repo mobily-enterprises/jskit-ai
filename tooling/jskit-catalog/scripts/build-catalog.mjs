@@ -2,6 +2,10 @@ import path from "node:path";
 import process from "node:process";
 import { access, readdir, readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import {
+  assertUniquePatternIds,
+  discoverPackagePatterns
+} from "./pattern-assets.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -85,6 +89,7 @@ async function readJson(absolutePath) {
 async function buildCatalog({ repoRoot, packagesRoot, outputPath }) {
   const packageRoots = await collectPackageRoots(packagesRoot);
   const entries = [];
+  const patterns = [];
 
   for (const packageRoot of packageRoots) {
     const packageJsonPath = path.join(packageRoot, "package.json");
@@ -118,14 +123,22 @@ async function buildCatalog({ repoRoot, packagesRoot, outputPath }) {
           .map((sectionName) => [sectionName, packageJson[sectionName]])
       )
     });
+
+    patterns.push(...await discoverPackagePatterns({
+      packageRoot,
+      packageJson
+    }));
   }
 
+  assertUniquePatternIds(patterns);
+
   const catalog = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     source: {
       kind: "packages-directory"
     },
-    packages: entries.sort((left, right) => left.packageId.localeCompare(right.packageId))
+    packages: entries.sort((left, right) => left.packageId.localeCompare(right.packageId)),
+    patterns: patterns.sort((left, right) => left.id.localeCompare(right.id))
   };
 
   await mkdir(path.dirname(outputPath), { recursive: true });

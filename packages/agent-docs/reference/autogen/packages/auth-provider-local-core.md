@@ -114,20 +114,12 @@ Local functions
 - `base64urlJson(value)`
 - `parseBase64urlJson(value)`
 
-### `src/server/providers/AuthLocalServiceProvider.js`
+### `src/server/providers/AuthLocalProvider.js`
 Exports
-- `AuthLocalServiceProvider`
-- `resolveLocalBackendMode(scope)`
+- `AuthLocalProvider`
+- `resolveConfig({ appRoot, backend, env, logger })`
 Local functions
-- `resolveRuntimeEnv(scope)`
-- `assertSelectedAuthProvider(env)`
-- `resolveStoreDir(env)`
+- `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isProduction })`
 - `resolveSmtpConfig(env)`
 - `resolveAppPublicUrl(env, { smtpConfigured })`
-- `resolveConfig(scope)`
-- `createLazyProfileProjector(scope)`
-
-### `src/server/providers/AuthProviderServiceProvider.js`
-Exports
-- `AuthProviderServiceProvider`

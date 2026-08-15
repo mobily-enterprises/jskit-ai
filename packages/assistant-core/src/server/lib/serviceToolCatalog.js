@@ -1,6 +1,4 @@
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
-import { resolveActionContributors } from "@jskit-ai/kernel/server/actions";
-import { normalizeActionDefinition } from "@jskit-ai/kernel/shared/actions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
@@ -239,20 +237,12 @@ function canUseToolOnSurface(entry = {}, context = {}) {
   return toolSurfaces.includes(contextSurfaceId);
 }
 
-function resolveActionBackedToolEntries(scope) {
-  if (!scope || typeof scope.has !== "function" || typeof scope.make !== "function") {
-    return new Map();
+function resolveActionBackedToolEntries(actions) {
+  if (!actions || typeof actions.listDefinitions !== "function") {
+    throw new TypeError("Assistant tool catalog requires runtime.actions.");
   }
-  if (typeof scope.resolveTag !== "function") {
-    return new Map();
-  }
-
   const entriesByActionId = new Map();
-  const contributors = resolveActionContributors(scope);
-
-  for (const contributor of contributors) {
-    const actions = Array.isArray(contributor?.actions) ? contributor.actions : [];
-    for (const action of actions) {
+  for (const action of actions.listDefinitions()) {
       if (!action || typeof action !== "object") {
         continue;
       }
@@ -265,22 +255,18 @@ function resolveActionBackedToolEntries(scope) {
         continue;
       }
 
-      let normalizedAction = null;
       let assistantExtension = null;
       try {
         assistantExtension = normalizeAssistantActionExtension(action);
-        normalizedAction = normalizeActionDefinition(action, {
-          contributorDomain: action.domain
-        });
       } catch {
         continue;
       }
 
-      const inputSchema = resolveStructuredSchemaTransportSchema(normalizedAction.input, {
+      const inputSchema = resolveStructuredSchemaTransportSchema(action.input, {
         context: `Action definition "${actionId}" input`,
         defaultMode: "patch"
       }) || null;
-      const outputSchema = resolveStructuredSchemaTransportSchema(normalizedAction.output, {
+      const outputSchema = resolveStructuredSchemaTransportSchema(action.output, {
         context: `Action definition "${actionId}" output`,
         defaultMode: "replace"
       }) || null;
@@ -288,7 +274,7 @@ function resolveActionBackedToolEntries(scope) {
         continue;
       }
 
-      const actionVersion = Number(normalizedAction.version) || 1;
+      const actionVersion = Number(action.version) || 1;
       const actionKey = actionId.toLowerCase();
       const nextEntry = Object.freeze({
         actionId,
@@ -297,24 +283,23 @@ function resolveActionBackedToolEntries(scope) {
         description: assistantExtension.description || `Run ${actionId}.`,
         inputSchema,
         outputSchema,
-        permission: normalizePermissionSpec(normalizedAction.permission),
-        surfaces: normalizeSurfaceList(normalizedAction.surfaces)
+        permission: normalizePermissionSpec(action.permission),
+        surfaces: normalizeSurfaceList(action.surfaces)
       });
       const existing = entriesByActionId.get(actionKey);
       if (!existing || actionVersion >= Number(existing.actionVersion || 0)) {
         entriesByActionId.set(actionKey, nextEntry);
       }
-    }
   }
 
   return entriesByActionId;
 }
 
 function resolveActionToolEntries(
-  scope,
+  actions,
   { barredActionIds = [], skipActionPrefixes = [] } = {}
 ) {
-  const actionBackedEntries = resolveActionBackedToolEntries(scope);
+  const actionBackedEntries = resolveActionBackedToolEntries(actions);
   const barredRules = normalizeBarredActionSet(barredActionIds);
   const usedToolNames = new Set();
   const entries = [];
@@ -356,11 +341,11 @@ function resolveActionToolEntries(
 }
 
 function createServiceToolCatalog(
-  scope,
+  actions,
   { barredActionIds = [], skipActionPrefixes = [] } = {}
 ) {
-  if (!scope || typeof scope.make !== "function") {
-    throw new Error("createServiceToolCatalog requires container scope.make().");
+  if (!actions || typeof actions.listDefinitions !== "function" || typeof actions.execute !== "function") {
+    throw new TypeError("createServiceToolCatalog requires runtime.actions.");
   }
 
   const normalizedSkipPrefixes = (Array.isArray(skipActionPrefixes) ? skipActionPrefixes : [skipActionPrefixes])
@@ -373,7 +358,7 @@ function createServiceToolCatalog(
       return methodEntries;
     }
 
-    methodEntries = resolveActionToolEntries(scope, {
+    methodEntries = resolveActionToolEntries(actions, {
       barredActionIds,
       skipActionPrefixes: normalizedSkipPrefixes
     });
@@ -432,28 +417,6 @@ function createServiceToolCatalog(
       };
     }
 
-    if (!scope.has("actionExecutor")) {
-      return {
-        ok: false,
-        error: {
-          code: "assistant_tool_unavailable",
-          message: "Tool executor is unavailable.",
-          status: 500
-        }
-      };
-    }
-    const actionExecutor = scope.make("actionExecutor");
-    if (!actionExecutor || typeof actionExecutor.execute !== "function") {
-      return {
-        ok: false,
-        error: {
-          code: "assistant_tool_unavailable",
-          message: "Tool executor is unavailable.",
-          status: 500
-        }
-      };
-    }
-
     try {
       const actionInput = parseToolPayload(argumentsText);
       if (actionInput && typeof actionInput === "object" && !Array.isArray(actionInput)) {
@@ -467,7 +430,7 @@ function createServiceToolCatalog(
         channel: AUTOMATION_CHANNEL
       };
 
-      const result = await actionExecutor.execute({
+      const result = await actions.execute({
         actionId: descriptor.actionId,
         version: descriptor.actionVersion || null,
         input: actionInput,

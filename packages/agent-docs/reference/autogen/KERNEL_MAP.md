@@ -21,10 +21,6 @@ For the full repo inventory, read `reference/autogen/README.md` and the package 
 
 ### support
 
-### `support/containerToken.js`
-Exports
-- `isContainerToken(value)`
-
 ### `support/deepFreeze.js`
 Exports
 - `deepFreeze(value, seen = new WeakSet())`
@@ -32,35 +28,6 @@ Exports
 ### `support/formatDateTime.js`
 Exports
 - `formatDateTime(value, { fallback = "unknown" } = {})`
-
-### `support/generatedUiContract.js`
-Exports
-- `GENERATED_UI_FORBIDDEN_CARD_SHELL_PATTERNS`
-- `GENERATED_UI_FORBIDDEN_LIVE_COPY_PATTERNS`
-- `GENERATED_UI_NAVIGATION_ROLE_DEFAULT`
-- `GENERATED_UI_NAVIGATION_ROLE_LINK_PLACEMENTS`
-- `GENERATED_UI_NAVIGATION_ROLE_OPTION`
-- `GENERATED_UI_NAVIGATION_ROLE_VALUES`
-- `GENERATED_UI_NO_LINK_NAVIGATION_ROLES`
-- `GENERATED_UI_SOURCE_CONTRACT_PROFILES`
-- `GENERATED_UI_SURFACE_PROFILES`
-- `assertGeneratedUiSourceContract(source = "", options = {})`
-- `buildGeneratedUiScreenClassName(baseClassName = "", { surfaceProfile = "" } = {})`
-- `collectGeneratedUiSourceContractIssues(source = "", { profile = "", forbidLiveCopy = undefined, forbidCardShell = undefined, forbiddenPatterns = [], requiredPatterns = [] } = {})`
-- `inferGeneratedUiNavigationRole(options = {}, { dynamicRoutePolicy = "leaf", routePath = "" } = {})`
-- `isGeneratedUiNoLinkNavigationRole(value = "")`
-- `normalizeGeneratedUiNavigationRole(value = "")`
-- `resolveGeneratedUiSurfaceProfile(surfaceProfile = "")`
-- `resolveGeneratedUiNavigationRoleLinkPlacement(options = {}, inferenceContext = {})`
-- `shouldCreateGeneratedUiNavigationLink(options = {}, { allowLinkTo = false, dynamicRoutePolicy = "leaf", routePath = "" } = {})`
-Local functions
-- `matchesGeneratedUiContractPattern(source = "", pattern)`
-- `normalizeGeneratedUiContractPattern(patternEntry = {}, fallbackMessage = "")`
-- `normalizeGeneratedUiContractPatternList(patternEntries = [], fallbackMessage = "")`
-- `resolveGeneratedUiSourceContractProfile(profile = "")`
-- `hasExplicitGeneratedUiNavigationRole(options = {})`
-- `normalizeGeneratedUiRouteSegments(routePath = "")`
-- `isGeneratedUiDynamicRouteSegment(routeSegment = "")`
 
 ### `support/index.js`
 Exports
@@ -208,10 +175,6 @@ Exports
 Exports
 - `toCamelCase(value = "")`
 - `toSnakeCase(value = "")`
-
-### `support/tokens.js`
-Exports
-- `isContainerToken`
 
 ### `support/visibility.js`
 Exports
@@ -429,6 +392,7 @@ Local functions
 - `normalizeAuditConfig(audit, { actionId })`
 - `normalizeObservabilityConfig(observability)`
 - `normalizeActionExtensions(value)`
+- `normalizeActionEvents(value, actionId)`
 
 ### `actions/audit.js`
 Exports
@@ -453,19 +417,15 @@ Exports
 Local functions
 - `resolveRequestIdempotencyKey(context)`
 
-### `actions/index.js`
-Exports
-- `normalizeActionDefinition`
-- `withActionDefaults`
-
 ### `actions/observability.js`
 Exports
 - `createNoopObservabilityAdapter()`
 
 ### `actions/pipeline.js`
 Exports
-- `executeActionPipeline({ definition, input, context, deps = {}, idempotencyAdapter, auditAdapter, observabilityAdapter, logger = console } = {})`
+- `executeActionPipeline({ definition, input, context, deps = {}, idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
 Local functions
+- `publishActionEvents(events, builders, execution)`
 - `normalizeOutcomeErrorCode(error)`
 - `buildActionLogPayload({ definition, context, outcome, durationMs, errorCode, idempotencyReplay })`
 - `emitAuditEvent(adapter, payload)`
@@ -484,7 +444,7 @@ Local functions
 
 ### `actions/registry.js`
 Exports
-- `createActionRegistry({ contributors = [], idempotencyAdapter, auditAdapter, observabilityAdapter, logger = console } = {})`
+- `createActionRegistry({ contributors = [], idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
 - `__testables`
 Local functions
 - `normalizeContributors(contributors)`
@@ -505,74 +465,36 @@ Exports
 Exports
 - `withActionDefaults(actions = [], defaults = {})`
 
-### runtime
-
-### `runtime/application.js`
-Exports
-- `Application`
-- `createApplication(options = {})`
-- `createProviderClass({ id, startsAfter = [], register = null, boot = null, shutdown = null } = {})`
-Local functions
-- `normalizeStringArray(value)`
-- `nowMilliseconds()`
-- `createProviderLifecycleError(providerId, phase, cause)`
-
-### `runtime/container.js`
-Exports
-- `Container`
-- `createContainer(options = {})`
-- `tokenLabel(token)`
-Local functions
-- `normalizeToken(token)`
-- `ensureFactory(factory, token)`
-- `normalizeTagName(tagName)`
-- `normalizeScopeId(scopeId)`
-
-### `runtime/containerErrors.js`
-Exports
-- `ContainerError`
-- `InvalidTokenError`
-- `InvalidFactoryError`
-- `DuplicateBindingError`
-- `UnresolvedTokenError`
-- `CircularDependencyError`
-
-### `runtime/index.js`
-Exports
-- `Container`
-- `createContainer`
-- `tokenLabel`
-- `ContainerError`
-- `InvalidTokenError`
-- `InvalidFactoryError`
-- `DuplicateBindingError`
-- `UnresolvedTokenError`
-- `CircularDependencyError`
-- `Application`
-- `createApplication`
-- `createProviderClass`
-- `ServiceProvider`
-- `KernelError`
-- `ProviderNormalizationError`
-- `DuplicateProviderError`
-- `ProviderStartOrderError`
-- `ProviderLifecycleError`
-
-### `runtime/kernelErrors.js`
-Exports
-- `KernelError`
-- `ProviderNormalizationError`
-- `DuplicateProviderError`
-- `ProviderStartOrderError`
-- `ProviderLifecycleError`
-
-### `runtime/serviceProvider.js`
-Exports
-- `ServiceProvider`
-
 ### root
 
 ### `index.js`
 Exports
 - `resolveLinkPath`
 - `normalizePathname`
+
+### capabilities
+
+### `capabilities/defineProvider.js`
+Exports
+- `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
+- `normalizeArchitectureId(value, label)`
+Local functions
+- `normalizeCapabilityMap(value, label)`
+- `assertDistinctLocalNames(maps)`
+- `normalizeLifecycleMethod(value, label)`
+
+### `capabilities/index.js`
+Exports
+- `defineProvider`
+- `createCapabilityRuntime`
+
+### `capabilities/runtime.js`
+Exports
+- `createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } = {})`
+Local functions
+- `normalizeProviderDefinition(value)`
+- `normalizeInputCapabilities(value)`
+- `providerCapabilityIds(provider, field)`
+- `buildProviderOrder(providers, inputCapabilities)`
+- `resolveProviderDependencies(provider, capabilities)`
+- `normalizeProviderOutputs(provider, value)`

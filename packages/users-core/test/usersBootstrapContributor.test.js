@@ -93,7 +93,7 @@ test("users bootstrap contributor exposes the generic authenticated bootstrap pa
   assert.deepEqual(payload.surfaceAccess, {
     consoleowner: true
   });
-  assert.equal(payload.app.features.assistantEnabled, false);
+  assert.deepEqual(payload.app, {});
   assert.deepEqual(payload.session.oauthProviders, [
     {
       id: "google",
@@ -116,9 +116,6 @@ test("users bootstrap contributor emits anonymous bootstrap payload without work
       async ensureForUserId() {
         return createUserSettings();
       }
-    },
-    appConfig: {
-      tenancyMode: "none"
     },
     authService: {
       getOAuthProviderCatalog() {
@@ -155,43 +152,4 @@ test("users bootstrap contributor emits anonymous bootstrap payload without work
     consoleowner: false
   });
   assert.equal(payload.userSettings, null);
-});
-
-test("users bootstrap contributor uses shared boolean normalization for app feature flags", async () => {
-  const contributor = createUsersBootstrapContributor({
-    userProfilesRepository: {
-      async findById() {
-        return null;
-      }
-    },
-    userSettingsRepository: {
-      async ensureForUserId() {
-        return createUserSettings();
-      }
-    },
-    appConfig: {
-      assistantEnabled: "yes",
-      socialEnabled: 0,
-      socialFederationEnabled: "no"
-    }
-  });
-
-  const payload = await contributor.contribute({
-    request: {
-      async executeAction() {
-        return {
-          authenticated: false
-        };
-      }
-    },
-    payload: {},
-    reply: {}
-  });
-
-  assert.deepEqual(payload.app.features, {
-    assistantEnabled: true,
-    assistantRequiredPermission: "",
-    socialEnabled: false,
-    socialFederationEnabled: false
-  });
 });

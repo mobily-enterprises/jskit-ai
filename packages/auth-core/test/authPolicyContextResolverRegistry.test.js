@@ -1,28 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel/_testable";
+import { createAuthExtensions } from "../src/server/authExtensions.js";
 import {
-  AUTH_POLICY_CONTEXT_RESOLVER_TAG,
-  composeAuthPolicyContextResolvers,
   registerAuthPolicyContextResolver,
-  resolveAuthPolicyContextResolvers,
   resolveComposedAuthPolicyContextResolver
 } from "../src/server/authPolicyContextResolverRegistry.js";
 
-test("auth policy context resolver registry resolves resolvers in order", async () => {
-  const app = createApplication();
-
-  registerAuthPolicyContextResolver(app, "test.auth.policy.context.permissions", () => ({
+test("auth.extensions composes policy context resolvers in order", async () => {
+  const extensions = createAuthExtensions();
+  registerAuthPolicyContextResolver(extensions, {
     resolverId: "permissions",
     order: 20,
     async resolveAuthPolicyContext() {
-      return {
-        permissions: ["alpha.read"]
-      };
+      return { permissions: ["alpha.read"] };
     }
-  }));
-
-  registerAuthPolicyContextResolver(app, "test.auth.policy.context.workspace", () => ({
+  });
+  registerAuthPolicyContextResolver(extensions, {
     resolverId: "workspace",
     order: 10,
     async resolveAuthPolicyContext() {
@@ -32,63 +25,12 @@ test("auth policy context resolver registry resolves resolvers in order", async 
         permissions: ["workspace.read"]
       };
     }
-  }));
-
-  const resolvers = resolveAuthPolicyContextResolvers(app);
-  assert.deepEqual(
-    resolvers.map((entry) => entry.resolverId),
-    ["workspace", "permissions"]
-  );
-
-  const resolveContext = composeAuthPolicyContextResolvers(resolvers);
-  const context = await resolveContext({
-    actor: { id: "7" }
   });
-
-  assert.deepEqual(context, {
+  const resolveContext = resolveComposedAuthPolicyContextResolver(extensions);
+  assert.deepEqual(await resolveContext({ actor: { id: "7" } }), {
     workspace: { id: "11" },
     membership: { roleSid: "member" },
     permissions: ["workspace.read", "alpha.read"]
   });
-});
-
-test("auth policy context resolver registry exports canonical tag", () => {
-  assert.equal(AUTH_POLICY_CONTEXT_RESOLVER_TAG, "jskit.auth.policy.context.resolvers");
-});
-
-test("auth policy context resolver registry resolves composed resolver directly from scope", async () => {
-  const app = createApplication();
-
-  registerAuthPolicyContextResolver(app, "test.auth.policy.context.permissions", () => ({
-    resolverId: "permissions",
-    order: 20,
-    async resolveAuthPolicyContext() {
-      return {
-        permissions: ["alpha.read"]
-      };
-    }
-  }));
-
-  registerAuthPolicyContextResolver(app, "test.auth.policy.context.workspace", () => ({
-    resolverId: "workspace",
-    order: 10,
-    async resolveAuthPolicyContext() {
-      return {
-        workspace: { id: "11" },
-        membership: { roleSid: "member" },
-        permissions: ["workspace.read"]
-      };
-    }
-  }));
-
-  const resolveContext = resolveComposedAuthPolicyContextResolver(app);
-  const context = await resolveContext({
-    actor: { id: "7" }
-  });
-
-  assert.deepEqual(context, {
-    workspace: { id: "11" },
-    membership: { roleSid: "member" },
-    permissions: ["workspace.read", "alpha.read"]
-  });
+  assert.deepEqual(extensions.diagnostics().policyContextResolverIds, ["workspace", "permissions"]);
 });

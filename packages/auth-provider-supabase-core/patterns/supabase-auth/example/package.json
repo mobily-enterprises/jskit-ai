@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@jskit-ai/auth-provider-supabase-core": "0.1.156"
+  }
+}

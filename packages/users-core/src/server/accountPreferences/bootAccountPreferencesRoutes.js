@@ -2,12 +2,10 @@ import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/share
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
 
-function bootAccountPreferencesRoutes(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootAccountPreferencesRoutes requires application make().");
+function registerAccountPreferencesRoutes(router) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerAccountPreferencesRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
 
   router.register(
     "PATCH",
@@ -38,4 +36,4 @@ function bootAccountPreferencesRoutes(app) {
   );
 }
 
-export { bootAccountPreferencesRoutes };
+export { registerAccountPreferencesRoutes };

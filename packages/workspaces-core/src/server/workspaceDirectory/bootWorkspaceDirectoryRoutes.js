@@ -25,17 +25,11 @@ function resolveWorkspaceRecordId(record = {}, context = {}) {
   throw new Error("Workspace JSON:API response requires workspace id.");
 }
 
-function bootWorkspaceDirectoryRoutes(app) {
-  if (!app || typeof app.make !== "function" || typeof app.has !== "function") {
-    throw new Error("bootWorkspaceDirectoryRoutes requires application make()/has().");
+function registerWorkspaceDirectoryRoutes(router, { config = {}, workspaceSelfCreateEnabled = false } = {}) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerWorkspaceDirectoryRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
-  const appConfig = app.has("appConfig") ? app.make("appConfig") : {};
-  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
-  const workspaceSelfCreateEnabled = app.has("workspaces.self-create.enabled")
-    ? app.make("workspaces.self-create.enabled") === true
-    : false;
+  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   if (workspaceSelfCreateEnabled) {
     router.register(
@@ -157,4 +151,4 @@ function bootWorkspaceDirectoryRoutes(app) {
   );
 }
 
-export { bootWorkspaceDirectoryRoutes };
+export { registerWorkspaceDirectoryRoutes };
