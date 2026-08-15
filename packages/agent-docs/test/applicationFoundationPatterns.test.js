@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -68,8 +68,7 @@ test("application foundations are concrete source patterns rather than generator
     assert.doesNotMatch(combinedSource, /\.generated-ui-screen/u);
     assert.doesNotMatch(combinedSource, /run `?create-app|npx @jskit-ai\/create-app/u);
 
-    const previewIdentity = path.join(exampleRoot, ".vibe64", "bin", "preview-identity");
-    assert.notEqual((await stat(previewIdentity)).mode & 0o111, 0);
+    assert.equal(files.some((filePath) => filePath.includes(`${path.sep}.vibe64${path.sep}`)), false);
   }
 });
 

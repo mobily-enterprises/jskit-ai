@@ -59,9 +59,8 @@ source files.
 ## Example files
 
 `example/` contains the complete reference tree. Rename `example/gitignore` to
-`.gitignore` when copying it to an app. Retain executable mode for
-`.vibe64/bin/preview-identity` only when managed preview identity support is
-used.
+`.gitignore` when copying it to an app. Managed preview identity belongs to the
+authentication surface pattern, not the shell foundation.
 
 Read these together before adapting the shell:
 

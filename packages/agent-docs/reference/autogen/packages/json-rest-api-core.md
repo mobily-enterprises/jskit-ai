@@ -33,7 +33,6 @@ Exports
 Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
-- `applyJsonRestStorageColumns(scopeOptions = {})`
 - `resolveCanonicalCalendarDate(value)`
 - `serializeJsonRestCalendarDate(value)`
 - `resolveCanonicalDateTime(value)`

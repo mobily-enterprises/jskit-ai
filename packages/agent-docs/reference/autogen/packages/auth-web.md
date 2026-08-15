@@ -256,6 +256,30 @@ Exports
 - `AUTH_ACTION_IDS`
 - `createController({ service, authService } = {})`
 
+### `src/server/managedPreviewIdentity.js`
+Exports
+- `MANAGED_PREVIEW_IDENTITY_PROTOCOL`
+- `executeManagedPreviewIdentityRequest(value, { env = process.env, fetchImpl = globalThis.fetch } = {})`
+- `runManagedPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout } = {})`
+Local functions
+- `commandError(message, code = "jskit_managed_preview_identity_failed", details = {})`
+- `response(requestId, values)`
+- `failure(requestId, error)`
+- `readBoundedStream(stream, label)`
+- `readCommandInput(stream)`
+- `localTargetOrigin(value)`
+- `normalizeRequest(value)`
+- `identityFromSubject(subject)`
+- `responseCookies(fetchResponse)`
+- `cookieHeader(setCookie)`
+- `responsePayload(fetchResponse)`
+- `rejected(payload, fetchResponse, details = {})`
+- `fetchRequest(fetchImpl, href, options)`
+- `postJson(fetchImpl, href, body, headers = {})`
+- `bootstrapSession(fetchImpl, targetOrigin)`
+- `logout(fetchImpl, targetOrigin, session)`
+- `login(fetchImpl, targetOrigin, identity, secret, session)`
+
 ### `src/server/routes/authRoutes.js`
 Exports
 - `buildRoutes(controller, { includeDevLoginAs = false } = {})`

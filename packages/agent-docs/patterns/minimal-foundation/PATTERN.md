@@ -58,9 +58,9 @@ Query remain normal application dependencies.
 
 `example/` is a complete concrete application tree. Copy only after inspecting
 collisions. Rename `example/gitignore` to `.gitignore` in the application;
-the neutral filename ensures npm publishes the reference asset. Keep the
-executable mode on `.vibe64/bin/preview-identity` when Vibe64 preview identity
-support is wanted.
+the neutral filename ensures npm publishes the reference asset. Managed preview
+identity belongs to the authentication surface pattern, not the neutral
+foundation.
 
 Important starting points are:
 

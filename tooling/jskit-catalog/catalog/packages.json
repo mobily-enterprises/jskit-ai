@@ -474,6 +474,10 @@
               {
                 "subpath": "./test/playwright",
                 "summary": "Exports the localhost-only Playwright helper for creating a dev-auth session in the tested browser context."
+              },
+              {
+                "subpath": "./server/managedPreviewIdentity",
+                "summary": "Runs the app-owned managed-preview identity command against JSKIT's development auth routes."
               }
             ],
             "clientCapabilities": [
@@ -3061,6 +3065,7 @@
       "documentPath": "patterns/auth-surface/PATTERN.md",
       "examplePath": "patterns/auth-surface/example",
       "files": [
+        ".vibe64/bin/preview-identity",
         "src/pages/auth/login.vue",
         "src/pages/auth/reset-password.vue",
         "src/pages/auth/signout.vue",

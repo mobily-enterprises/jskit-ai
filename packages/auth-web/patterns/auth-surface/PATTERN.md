@@ -30,9 +30,26 @@ Use the views, auth guard, HTTP client integration, sign-out runtime, providers,
 and Playwright auth helper exported by `@jskit-ai/auth-web`. Use auth policies
 from `@jskit-ai/auth-core` for server authorization.
 
+For a Vibe64-managed preview, copy the app-owned
+`.vibe64/bin/preview-identity` executable and declare it in the project's
+Genesis Launch target. The executable calls the exported managed-preview
+identity library directly; it does not require a JSKIT CLI.
+
+Choose local-auth storage explicitly. A database-backed application installs
+`@jskit-ai/auth-provider-local-db-core` and sets
+`AUTH_LOCAL_BACKEND=db`; the file backend is only for an application that
+deliberately owns filesystem auth state. Do not leave a database-backed app on
+the file default while expecting users imported into `auth_local_users` to be
+available. Managed preview selectors name an existing auth-backend user whose
+application profile already exists; preview identity never creates or projects
+a user as a side effect.
+
 ## Invariants
 
 - Credentials and provider secrets come from environment values.
+- The selected auth backend and the storage containing the application's users
+  agree before registration, login, session bootstrap, or preview identity is
+  exercised.
 - Public auth routes do not require an existing session.
 - Protected routes use the framework auth policy rather than page-local checks.
 - Login, sign-out, and reset views use the public auth components/composables.
@@ -43,7 +60,8 @@ from `@jskit-ai/auth-core` for server authorization.
 ## Example files
 
 `example/` contains concrete route wrappers, editable view wrappers, and the
-client runtime helpers needed by an authentication surface. Compose their
+client runtime helpers needed by an authentication surface. It also contains
+the optional app-owned managed-preview identity executable. Compose their
 surface and placement declarations into the application's ordinary config and
 placement files.
 

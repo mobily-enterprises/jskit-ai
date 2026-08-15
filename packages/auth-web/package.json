@@ -10,6 +10,7 @@
     "./server/services/AuthWebService": "./src/server/services/AuthWebService.js",
     "./server/routes/authRoutes": "./src/server/routes/authRoutes.js",
     "./server/AuthWebFeature": "./src/server/AuthWebFeature.js",
+    "./server/managedPreviewIdentity": "./src/server/managedPreviewIdentity.js",
     "./client": "./src/client/index.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultResetPasswordView": "./src/client/views/DefaultResetPasswordView.vue",
@@ -83,6 +84,10 @@
           {
             "subpath": "./test/playwright",
             "summary": "Exports the localhost-only Playwright helper for creating a dev-auth session in the tested browser context."
+          },
+          {
+            "subpath": "./server/managedPreviewIdentity",
+            "summary": "Runs the app-owned managed-preview identity command against JSKIT's development auth routes."
           }
         ],
         "clientCapabilities": [
