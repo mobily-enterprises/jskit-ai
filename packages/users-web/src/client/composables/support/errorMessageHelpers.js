@@ -48,11 +48,13 @@ function toQueryErrorMessage(error, fallbackMessage = "", defaultMessage = "Requ
 
 function toUiErrorMessage(error, fallbackMessage = "", defaultMessage = "Request failed.") {
   const normalizedFallback = String(fallbackMessage || "").trim();
+  const normalizedMessage = String(error?.message || "").trim();
+  if (normalizedMessage && !isGenericTransportMessage(error)) {
+    return normalizedMessage;
+  }
   if (normalizedFallback) {
     return normalizedFallback;
   }
-
-  const normalizedMessage = String(error?.message || "").trim();
   if (normalizedMessage) {
     return normalizedMessage;
   }
