@@ -13,6 +13,7 @@ import { TENANCY_MODE_WORKSPACES, resolveTenancyProfile } from "../shared/tenanc
 import { resolveWorkspaceInvitationsPolicy } from "./support/workspaceInvitationsPolicy.js";
 import {
   registerWorkspaceActionSurfaceSources,
+  resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig,
   resolveWorkspaceSurfaceIdsFromAppConfig
 } from "./support/workspaceActionSurfaces.js";
 import { createWorkspaceServerScopeSupport } from "./support/workspaceServerScopeSupport.js";
@@ -81,6 +82,7 @@ function registerWorkspaceCore(app) {
     const appConfig = resolveAppConfig(scope);
     return createWorkspaceActionContextContributor({
       workspaceService: scope.make("workspaces.service"),
+      workspaceMembershipOptionalSurfaceIds: resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(appConfig),
       workspaceSurfaceIds: resolveWorkspaceSurfaceIdsFromAppConfig(appConfig)
     });
   });

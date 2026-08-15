@@ -342,3 +342,49 @@ test("workspace action context contributor resolves context for workspace surfac
     permissions: ["crud.breeds.list"]
   });
 });
+
+test("workspace action context contributor permits missing membership only for an explicitly optional active surface", async () => {
+  const calls = [];
+  const contributor = createWorkspaceActionContextContributor({
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options) {
+        calls.push({ user, workspaceSlug, options });
+        return {
+          workspace: { id: 77, slug: "acme" },
+          membership: null,
+          permissions: []
+        };
+      }
+    },
+    workspaceMembershipOptionalSurfaceIds: ["app"],
+    workspaceSurfaceIds: ["admin", "app"]
+  });
+  const request = {
+    user: { id: 42 },
+    routeOptions: {
+      config: {
+        surface: "app",
+        visibility: "public"
+      }
+    }
+  };
+
+  const contribution = await contributor.contribute({
+    definition: {
+      id: "customer.pets.list",
+      surfaces: ["app"]
+    },
+    input: { workspaceSlug: "acme" },
+    context: {
+      requestMeta: { request }
+    },
+    request,
+    surface: "app"
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.requireMembership, false);
+  assert.deepEqual(contribution.workspace, { id: 77, slug: "acme" });
+  assert.equal(contribution.membership, null);
+  assert.deepEqual(contribution.permissions, []);
+});

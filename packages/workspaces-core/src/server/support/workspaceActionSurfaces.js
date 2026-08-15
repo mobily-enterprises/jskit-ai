@@ -23,6 +23,22 @@ function resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {}) {
   return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => definition.requiresWorkspace === true);
 }
 
+function resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(appConfig = {}) {
+  const policies = isRecord(appConfig?.surfaceAccessPolicies) ? appConfig.surfaceAccessPolicies : {};
+
+  return resolveSurfaceIdsFromAppConfig(appConfig, (definition) => {
+    if (definition.requiresWorkspace !== true) {
+      return false;
+    }
+
+    const policyId = String(definition.accessPolicyId || "")
+      .trim()
+      .toLowerCase();
+    const policy = policyId && isRecord(policies[policyId]) ? policies[policyId] : {};
+    return Object.hasOwn(policy, "requireWorkspaceMembership") && policy.requireWorkspaceMembership === false;
+  });
+}
+
 function resolveSurfaceIdsFromAppConfig(appConfig = {}, predicate) {
   const source = isRecord(appConfig?.surfaceDefinitions) ? appConfig.surfaceDefinitions : {};
   const resolved = [];
@@ -111,6 +127,7 @@ function resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig = {}) {
 
 export {
   resolveWorkspaceSurfaceIdsFromAppConfig,
+  resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig,
   resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig,
   materializeWorkspaceActionSurfaces,
   materializeWorkspaceActionSurfacesFromAppConfig,

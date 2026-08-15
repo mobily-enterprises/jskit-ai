@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.1.126",
+  "version": "0.1.138-oldline.1",
   "type": "module",
   "scripts": {
     "test": "node --test"

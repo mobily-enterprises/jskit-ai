@@ -19,9 +19,16 @@ function createWorkspaceAuthPolicyContextResolver({ workspaceService } = {}) {
       return {};
     }
 
-    const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(actor, workspaceSlug, {
-      request
-    });
+    const resolveOptions = { request };
+    if (contextPolicy === "optional" && !permission) {
+      resolveOptions.requireMembership = false;
+    }
+
+    const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
+      actor,
+      workspaceSlug,
+      resolveOptions
+    );
 
     return {
       workspace: resolvedWorkspaceContext?.workspace || null,
