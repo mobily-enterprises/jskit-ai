@@ -39,6 +39,9 @@ not convert those choices into a generator questionnaire.
   any existing project/agent context.
 - Inspect and resolve file collisions; never force-overwrite product source.
 - Keep placements and topology explicit and use shell public components.
+- Keep one app-owned `npm run develop` entry that runs the API on loopback and
+  Vite on the host-supplied preview port; do not require a host to infer or
+  supervise framework-specific processes.
 - Keep `packages/main` as composition and light glue, not a feature dumping
   ground.
 - Preserve accessible navigation, 48px compact interaction targets, warm-cache
@@ -82,10 +85,11 @@ Do not preinstall capabilities solely because they appear in another app.
 
 ## Verification
 
-Install the declared packages once, then run lint, server tests, client tests,
-the production build, and the adaptive browser smoke at compact, medium, and
-expanded viewports. Verify navigation through accessible controls and confirm
-there is no horizontal overflow.
+Install the declared packages once, run `npm run develop` for the live
+application, then run lint, server tests, client tests, the production build,
+and the adaptive browser smoke at compact, medium, and expanded viewports.
+Verify navigation through accessible controls and confirm there is no
+horizontal overflow.
 
 ## Avoid
 

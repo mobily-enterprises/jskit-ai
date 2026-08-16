@@ -83,7 +83,7 @@ function canServeStaticFile(distRoot, relativePath) {
   return existsSync(resolvedPath);
 }
 
-async function createServer() {
+async function createServer({ runtimeEnv = resolveRuntimeEnv() } = {}) {
   const app = Fastify({
     logger: true,
     ajv: {
@@ -99,7 +99,6 @@ async function createServer() {
       app: "reading-room"
     };
   });
-  const runtimeEnv = resolveRuntimeEnv();
   const appRoot = path.resolve(process.cwd());
   const distRoot = path.resolve(appRoot, "dist");
   const hasWebBuild = existsSync(path.resolve(distRoot, SPA_INDEX_FILE));
@@ -179,9 +178,16 @@ async function createServer() {
 
 async function startServer(options = {}) {
   const runtimeEnv = resolveRuntimeEnv();
-  const port = Number(options?.port) || runtimeEnv.PORT;
+  const configuredPort = options?.port === undefined ? runtimeEnv.PORT : Number(options.port);
+  const port = Number.isInteger(configuredPort) && configuredPort >= 0 ? configuredPort : runtimeEnv.PORT;
   const host = String(options?.host || "").trim() || runtimeEnv.HOST;
-  const app = await createServer();
+  const app = await createServer({
+    runtimeEnv: {
+      ...runtimeEnv,
+      HOST: host,
+      PORT: port
+    }
+  });
   await app.listen({ port, host });
   return app;
 }

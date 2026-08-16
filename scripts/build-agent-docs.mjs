@@ -116,10 +116,19 @@ async function collectWorkspaceDirectories() {
       if (!entry.isDirectory()) {
         continue;
       }
+      const workspaceDir = path.join(rootDir, entry.name);
+      try {
+        await readFile(path.join(workspaceDir, "package.json"), "utf8");
+      } catch (error) {
+        if (error?.code === "ENOENT") {
+          continue;
+        }
+        throw error;
+      }
       results.push({
         groupName,
         workspaceName: entry.name,
-        workspaceDir: path.join(rootDir, entry.name)
+        workspaceDir
       });
     }
   }

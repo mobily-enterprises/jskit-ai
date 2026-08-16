@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.159",
+  "version": "0.1.161",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -22,10 +22,10 @@
     "./test/playwright": "./src/test/playwright.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.157",
-    "@jskit-ai/http-runtime": "0.1.157",
-    "@jskit-ai/kernel": "0.1.159",
-    "@jskit-ai/shell-web": "0.1.163",
+    "@jskit-ai/auth-core": "0.1.159",
+    "@jskit-ai/http-runtime": "0.1.159",
+    "@jskit-ai/kernel": "0.1.161",
+    "@jskit-ai/shell-web": "0.1.165",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
@@ -90,11 +90,11 @@
           }
         ],
         "clientCapabilities": [
-            "runtime.auth-guard.client",
-            "auth.login.component",
-            "auth.login.useLoginView",
-            "auth.web.profile.widget",
-            "auth.web.profile.menu.link-item"
+          "runtime.auth-guard.client",
+          "auth.login.component",
+          "auth.login.useLoginView",
+          "auth.web.profile.widget",
+          "auth.web.profile.menu.link-item"
         ]
       },
       "server": {

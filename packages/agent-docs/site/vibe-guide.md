@@ -65,5 +65,6 @@ Useful next reading:
 
 - [Quickstart](/guide/app-setup/quickstart)
 - [Application foundations](/guide/app-setup/initial-scaffolding)
+- [Migrate an existing application](/guide/app-setup/existing-application-migration)
 - [Authentication](/guide/app-setup/authentication)
 - [Database layer](/guide/app-setup/database-layer)

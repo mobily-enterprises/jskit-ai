@@ -20,10 +20,12 @@ Read these package-owned source patterns:
 1. Author a source-controlled migration in the package that owns the entity.
 2. Define the resource with `defineCrudResource()`.
 3. Bind standard server behavior with `defineCrudJsonApiFeature()`.
-4. Declare the package provider and framework capabilities in `package.json`.
-5. Build thin route pages over JSKIT's shared CRUD screen APIs.
-6. Install the coherent package graph once.
-7. Rebuild a disposable database and run focused server, client, and browser
+4. Add only product-specific service methods, lifecycle, actions, validation,
+   policy, queries, messages, and orchestration.
+5. Declare the package provider and framework capabilities in `package.json`.
+6. Build thin route pages over JSKIT's shared CRUD screen APIs.
+7. Install the coherent package graph once.
+8. Rebuild a disposable database and run focused server, client, and browser
    verification.
 
 The migration and resource are both authored contracts. A live schema is useful
@@ -50,12 +52,31 @@ new immutable migration for the next change. Keep resource fields and storage
 metadata aligned with the resulting schema. Do not use a field-patching command
 or rewrite a historical baseline.
 
-## When standard CRUD does not fit
+## Customize without copying CRUD
 
-Use explicit application services for command-oriented workflows, aggregates,
-multi-resource transactions, imports, or unusual persistence. Reuse low-level
-resource and database APIs where they help, but do not contort the CRUD module
-into a generic orchestration system.
+`defineCrudJsonApiFeature()` deliberately keeps application extension points:
+
+- `decorateRepository` adds the few persistence operations unique to the
+  resource.
+- `decorateService` overrides standard methods or adds domain methods such as
+  `confirm`, `publish`, `cancel`, or `sendReminder`.
+- `operationLifecycle` wraps a standard operation with `before`, `execute`,
+  `after`, and mutation-only `afterCommit` phases. Mutation phases before commit
+  receive the same transaction and `execute` receives `standard(nextInput)`.
+- `actions` exposes non-CRUD service methods through normal validated,
+  permissioned, audited JSKIT actions and optional explicit HTTP routes.
+
+Keep database reads and writes in repositories. Services and lifecycle hooks
+orchestrate repositories; they do not issue raw database queries. Put external
+side effects after commit, or write a durable outbox record inside the
+transaction when delivery must be reliable.
+
+## When the resource abstraction does not fit
+
+Use a separate explicit Feature for a different domain, aggregate, import job,
+or command-oriented workflow that merely happens to mention the resource. A
+CRUD resource may have many custom operations; it stops fitting only when CRUD
+is no longer its principal public contract.
 
 ## Verification
 

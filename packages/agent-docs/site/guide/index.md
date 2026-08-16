@@ -8,6 +8,7 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 
 - [Quickstart](/guide/app-setup/quickstart)
 - [Application foundations](/guide/app-setup/initial-scaffolding)
+- [Migrate an existing application](/guide/app-setup/existing-application-migration)
 - [A more interesting shell](/guide/app-setup/a-more-interesting-shell)
 - [Authentication](/guide/app-setup/authentication)
 - [Database layer](/guide/app-setup/database-layer)

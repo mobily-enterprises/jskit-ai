@@ -29,6 +29,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
 3. Read the project's product documentation and current source. JSKIT does not
    own a second project brain or prescribe a particular agent orchestrator.
 4. Load only the task-relevant direct reference:
+   - Existing-app migration: read
+     [port guide](../../guide/agent/app-setup/existing-application-migration.md).
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
    - Before database, schema, CRUD, repository, or persistence work, read
@@ -38,8 +40,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    - For every Vue/Vuetify UI creation, modification, review, or deslop task,
      also read [Material 3](references/material-3.md) completely before acting.
 
-Those files are the complete operational references required by this skill.
-Do not depend on sibling docs. Do not load irrelevant references.
+These are complete operational references required by this skill. Do not load
+irrelevant references or other docs.
 
 Do not invent missing tenancy, authentication, database, surface, ownership,
 or permission decisions when they would materially change the application.
@@ -77,7 +79,7 @@ Material 3 audit for affected UI. Put findings first by severity and file.
 
 ## Verify
 
-Run focused tests for a slice and broad checks for a whole changeset. Run
-current-state health checks and `npm run verify` before sign-off, rebuild
-changed persistence from zero in a disposable database, and use Playwright for
-UI. Never create a receipt or operation-history file to prove a command ran.
+Run focused tests for a slice and the application's `npm run verify` for a
+whole changeset. Use the current-state owners in application operations and
+Playwright for affected UI. There is no current JSKIT Doctor command; ignore
+old CLI authoring-history diagnoses. Never expose environment values.

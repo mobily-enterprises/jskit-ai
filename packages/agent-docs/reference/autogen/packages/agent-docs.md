@@ -43,6 +43,14 @@ Exports
 Exports
 - `createService()`
 
+### `patterns/minimal-foundation/example/bin/develop.js`
+Exports
+- None
+Local functions
+- `requiredPort(value, fallback = 3000)`
+- `waitForChild(child)`
+- `requestShutdown(signal)`
+
 ### `patterns/minimal-foundation/example/bin/server.js`
 Exports
 - None
@@ -77,7 +85,7 @@ Exports
 
 ### `patterns/minimal-foundation/example/server.js`
 Exports
-- `createServer()`
+- `createServer({ runtimeEnv = resolveRuntimeEnv() } = {})`
 - `startServer(options = {})`
 Local functions
 - `toRequestPathname(urlValue)`
@@ -124,6 +132,14 @@ Exports
 Local functions
 - `clientEntry(()`
 
+### `patterns/shell-foundation/example/bin/develop.js`
+Exports
+- None
+Local functions
+- `requiredPort(value, fallback = 3000)`
+- `waitForChild(child)`
+- `requestShutdown(signal)`
+
 ### `patterns/shell-foundation/example/bin/server.js`
 Exports
 - None
@@ -166,7 +182,7 @@ Exports
 
 ### `patterns/shell-foundation/example/server.js`
 Exports
-- `createServer()`
+- `createServer({ runtimeEnv = resolveRuntimeEnv() } = {})`
 - `startServer(options = {})`
 Local functions
 - `toRequestPathname(urlValue)`

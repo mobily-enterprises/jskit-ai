@@ -124,6 +124,29 @@ session, apply the full migration graph, then invoke that explicit seed
 operation. JSKIT supplies portable migration and seed seams; the editor owns
 database allocation, credentials, lifetime, and environment injection.
 
+## Resource services and custom operations
+
+Conventional persisted resources use `defineCrudResource()` and
+`defineCrudJsonApiFeature()` so the framework owns repeated repository,
+service, action, permission, JSON API, and route mechanics. This does not make
+product CRUD behavior fixed.
+
+- `decorateRepository` adds resource-specific queries, locks, or writes.
+- `decorateService` overrides a standard method or adds domain methods such as
+  `confirm`, `publish`, `cancel`, or `sendReminder`.
+- `operationLifecycle` surrounds a standard operation with `before`, `execute`,
+  `after`, and mutation-only `afterCommit` phases. Create, update, and delete
+  phases before commit share one repository transaction, and `execute` receives
+  `standard(nextInput)` for retaining the normal framework write.
+- Named `actions` expose non-CRUD service methods through normal input,
+  permission, audit, event, and optional HTTP route contracts.
+
+Repositories own database access. Services and lifecycle hooks orchestrate
+repositories. External delivery belongs after commit; when it must be durable,
+write an outbox record inside the transaction and deliver it separately.
+A separate Feature is warranted when an operation belongs to another domain,
+not merely because a useful resource has behavior beyond list and save.
+
 ## Verification
 
 - Rebuild a disposable database from the complete migration graph.

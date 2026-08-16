@@ -42,6 +42,9 @@ questionnaire or infer tenancy, authentication, or database requirements.
 - Keep `packages/main` limited to app composition and lightweight glue.
 - Use package public APIs; do not deep-import package internals.
 - Keep one server entry, one client bootstrap, and explicit surface access.
+- Keep one app-owned `npm run develop` entry that runs the API on loopback and
+  Vite on the host-supplied preview port; do not require a host to infer or
+  supervise framework-specific processes.
 - Treat copied files as app-owned source. Do not add provenance, ownership
   markers, receipts, ledgers, or operation-history state.
 - Keep browser dependencies aligned with the execution environment that will
@@ -65,7 +68,7 @@ foundation.
 Important starting points are:
 
 - `example/package.json`
-- `example/server.js` and `example/bin/server.js`
+- `example/server.js`, `example/bin/server.js`, and `example/bin/develop.js`
 - `example/src/main.js` and `example/src/App.vue`
 - `example/config/public.js`
 - `example/packages/main/`
@@ -80,9 +83,10 @@ mobile patterns only when chosen. Do not pre-emptively include them.
 
 ## Verification
 
-After adapting the example, install the declared packages once and run the
-application's lint, server tests, client tests, production build, and focused
-browser smoke. Confirm `/api/health` and the first product route.
+After adapting the example, install the declared packages once and run
+`npm run develop` for the live application. Then run the application's lint,
+server tests, client tests, production build, and focused browser smoke.
+Confirm `/api/health` and the first product route.
 
 ## Avoid
 

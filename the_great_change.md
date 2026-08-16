@@ -670,6 +670,16 @@ complex feature may grow services, repositories, domain objects, events, and
 custom transports without switching architectural models. JSKIT provides a
 progressive architecture rather than enforcing a folder diagram.
 
+Conventional resource CRUD follows the same rule. The framework may own the
+repeated repository, service, standard actions, JSON API contracts, and routes,
+but the application can still add repository operations, override or extend
+the resource service, wrap standard writes in explicit transactional lifecycle
+phases, and declare named non-CRUD actions such as confirm, publish, cancel, or
+send-reminder. A useful resource should not fall off the standard CRUD path
+merely because it has domain behavior. It becomes a separate Feature only when
+the operation belongs to another domain or CRUD is no longer the resource's
+principal public contract.
+
 This preserves the most successful part of the original architecture: the
 assistant can enumerate and execute real product operations. It removes the
 least successful part: synchronized boilerplate whose only purpose is to prove

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-supabase-core",
-  "version": "0.1.156",
+  "version": "0.1.158",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,8 +11,8 @@
     "./client": "./src/client/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.157",
-    "@jskit-ai/kernel": "0.1.159",
+    "@jskit-ai/auth-core": "0.1.159",
+    "@jskit-ai/kernel": "0.1.161",
     "@supabase/supabase-js": "^2.57.4",
     "jose": "^6.1.0",
     "json-rest-schema": "^1.0.17",

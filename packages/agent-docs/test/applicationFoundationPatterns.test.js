@@ -8,6 +8,7 @@ import test from "node:test";
 
 const execFileAsync = promisify(execFile);
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const REPOSITORY_ROOT = path.resolve(PACKAGE_ROOT, "../..");
 const PATTERNS_ROOT = path.join(PACKAGE_ROOT, "patterns");
 const FOUNDATION_NAMES = Object.freeze(["minimal-foundation", "shell-foundation"]);
 
@@ -39,7 +40,18 @@ async function readExamplePackageJson(patternName) {
   return JSON.parse(source);
 }
 
+async function readWorkspacePackageVersion(packageDirectory) {
+  const source = await readFile(
+    path.join(REPOSITORY_ROOT, "packages", packageDirectory, "package.json"),
+    "utf8"
+  );
+  return JSON.parse(source).version;
+}
+
 test("application foundations are concrete source patterns rather than generator templates", async () => {
+  const kernelVersion = await readWorkspacePackageVersion("kernel");
+  const httpRuntimeVersion = await readWorkspacePackageVersion("http-runtime");
+
   for (const patternName of FOUNDATION_NAMES) {
     const patternRoot = path.join(PATTERNS_ROOT, patternName);
     const exampleRoot = path.join(patternRoot, "example");
@@ -48,8 +60,8 @@ test("application foundations are concrete source patterns rather than generator
 
     assert.equal(packageJson.name, "reading-room");
     assert.equal(packageJson.private, true);
-    assert.equal(packageJson.dependencies?.["@jskit-ai/kernel"], "0.1.159");
-    assert.equal(packageJson.dependencies?.["@jskit-ai/http-runtime"], "0.1.157");
+    assert.equal(packageJson.dependencies?.["@jskit-ai/kernel"], kernelVersion);
+    assert.equal(packageJson.dependencies?.["@jskit-ai/http-runtime"], httpRuntimeVersion);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-cli"], undefined);
     assert.doesNotMatch(JSON.stringify(packageJson.scripts || {}), /\bjskit\b/u);
     assert.ok(files.length > 25, `${patternName} must remain a coherent application tree.`);
@@ -75,9 +87,22 @@ test("application foundations are concrete source patterns rather than generator
 test("foundation JavaScript entrypoints parse as executable source", async () => {
   for (const patternName of FOUNDATION_NAMES) {
     const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
-    for (const relativePath of ["bin/server.js", "server.js", "src/main.js"]) {
+    for (const relativePath of ["bin/develop.js", "bin/server.js", "server.js", "src/main.js"]) {
       await execFileAsync(process.execPath, ["--check", path.join(exampleRoot, relativePath)]);
     }
+  }
+});
+
+test("application foundations own one exact development command", async () => {
+  for (const patternName of FOUNDATION_NAMES) {
+    const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
+    const packageJson = await readExamplePackageJson(patternName);
+    const developSource = await readFile(path.join(exampleRoot, "bin", "develop.js"), "utf8");
+
+    assert.equal(packageJson.scripts?.develop, "node ./bin/develop.js");
+    assert.match(developSource, /VITE_API_PROXY_TARGET/u);
+    assert.match(developSource, /--strictPort/u);
+    assert.match(developSource, /startServer/u);
   }
 });
 

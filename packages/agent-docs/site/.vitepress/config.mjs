@@ -28,6 +28,7 @@ export default defineConfig({
           items: [
             { text: "Quickstart", link: "/guide/app-setup/quickstart" },
             { text: "Application Foundations", link: "/guide/app-setup/initial-scaffolding" },
+            { text: "Migrate an Existing Application", link: "/guide/app-setup/existing-application-migration" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
             { text: "Authentication", link: "/guide/app-setup/authentication" },
             { text: "Database Layer", link: "/guide/app-setup/database-layer" },

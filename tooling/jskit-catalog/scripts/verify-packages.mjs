@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   assertUniquePatternIds,
   discoverPackagePatterns
@@ -10,6 +10,19 @@ import {
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "../../..");
 const PACKAGES_ROOT = path.join(REPO_ROOT, "packages");
+const ARCHITECTURE_ID_PATTERN = /^[a-z][a-z0-9_.-]*$/u;
+const LOCAL_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
+const BUILTIN_CAPABILITIES = new Set([
+  "runtime.actions",
+  "runtime.app-root",
+  "runtime.bootstrap",
+  "runtime.config",
+  "runtime.env",
+  "runtime.events",
+  "runtime.fastify",
+  "runtime.http",
+  "runtime.logger"
+]);
 const ALLOWED_JSKIT_FIELDS = new Set([
   "capabilities",
   "kind",
@@ -66,14 +79,69 @@ function requireStringArray(value, label) {
   return normalized;
 }
 
-function validateProviderList(packageRecord, side) {
+function requireArchitectureId(value, label) {
+  const normalized = String(value || "").trim();
+  if (!ARCHITECTURE_ID_PATTERN.test(normalized)) {
+    throw new Error(`${label} must match ${ARCHITECTURE_ID_PATTERN.toString()}.`);
+  }
+  return normalized;
+}
+
+function validateCapabilityMap(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be an object mapping local names to capability ids.`);
+  }
+  const capabilityIds = new Set();
+  for (const [localName, capabilityId] of Object.entries(value)) {
+    if (!LOCAL_NAME_PATTERN.test(localName)) {
+      throw new Error(`${label} local name "${localName}" must be a JavaScript identifier.`);
+    }
+    const normalizedCapabilityId = requireArchitectureId(capabilityId, `${label}.${localName}`);
+    if (capabilityIds.has(normalizedCapabilityId)) {
+      throw new Error(`${label} declares capability "${normalizedCapabilityId}" more than once.`);
+    }
+    capabilityIds.add(normalizedCapabilityId);
+  }
+}
+
+function validateProviderDefinition(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must export a capability provider definition.`);
+  }
+  requireArchitectureId(value.id, `${label}.id`);
+  validateCapabilityMap(value.requires, `${label}.requires`);
+  validateCapabilityMap(value.optional, `${label}.optional`);
+  validateCapabilityMap(value.provides, `${label}.provides`);
+  if (typeof value.setup !== "function") {
+    throw new Error(`${label}.setup must be a function.`);
+  }
+  for (const lifecycleMethod of ["boot", "shutdown"]) {
+    if (value[lifecycleMethod] != null && typeof value[lifecycleMethod] !== "function") {
+      throw new Error(`${label}.${lifecycleMethod} must be a function or null.`);
+    }
+  }
+}
+
+function validateProviderExport(value, label) {
+  const providers = Array.isArray(value) ? value : [value];
+  if (providers.length < 1) {
+    throw new Error(`${label} must contain at least one capability provider definition.`);
+  }
+  providers.forEach((provider, index) => {
+    validateProviderDefinition(provider, providers.length === 1 ? label : `${label}[${index}]`);
+  });
+  return providers.length;
+}
+
+async function validateProviderList(packageRecord, side) {
   const { packageJson, packageRoot } = packageRecord;
   const label = `${packageJson.name}#jskit.runtime.${side}.providers`;
   const providers = packageJson.jskit?.runtime?.[side]?.providers || [];
   if (!Array.isArray(providers)) {
     throw new Error(`${label} must be an array.`);
   }
-  return Promise.all(providers.map(async (provider, index) => {
+  let providerCount = 0;
+  await Promise.all(providers.map(async (provider, index) => {
     const entrypoint = String(provider?.entrypoint || "").trim();
     const exportName = String(provider?.export || "").trim();
     if (!entrypoint || !exportName) {
@@ -82,10 +150,30 @@ function validateProviderList(packageRecord, side) {
     if (path.isAbsolute(entrypoint) || entrypoint.startsWith("../")) {
       throw new Error(`${label}[${index}].entrypoint must stay inside its package.`);
     }
-    if (!(await fileExists(path.resolve(packageRoot, entrypoint)))) {
+    const absoluteEntrypoint = path.resolve(packageRoot, entrypoint);
+    if (!(await fileExists(absoluteEntrypoint))) {
       throw new Error(`${label}[${index}] points at missing ${entrypoint}.`);
     }
+
+    if (side !== "server") {
+      return;
+    }
+
+    let namespace;
+    try {
+      namespace = await import(pathToFileURL(absoluteEntrypoint).href);
+    } catch (error) {
+      throw new Error(
+        `${label}[${index}] could not load ${entrypoint}: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
+      );
+    }
+    if (!Object.hasOwn(namespace, exportName)) {
+      throw new Error(`${label}[${index}] export "${exportName}" was not found in ${entrypoint}.`);
+    }
+    providerCount += validateProviderExport(namespace[exportName], `${label}[${index}] export "${exportName}"`);
   }));
+  return providerCount;
 }
 
 async function validateMigrations(packageRecord, migrationOwners) {
@@ -110,12 +198,29 @@ async function validateMigrations(packageRecord, migrationOwners) {
     if (migrations.length < 1) {
       throw new Error(`${packageJson.name} migration directory contains no .cjs migrations.`);
     }
-    for (const migration of migrations) {
+    for (const migration of migrations.sort((left, right) => left.name.localeCompare(right.name))) {
       const previous = migrationOwners.get(migration.name);
       if (previous) {
         throw new Error(`Migration filename ${migration.name} is owned by both ${previous} and ${packageJson.name}.`);
       }
       migrationOwners.set(migration.name, packageJson.name);
+
+      const migrationPath = path.join(absoluteDirectory, migration.name);
+      let namespace;
+      try {
+        namespace = await import(pathToFileURL(migrationPath).href);
+      } catch (error) {
+        throw new Error(
+          `${packageJson.name} migration ${migration.name} could not load: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error }
+        );
+      }
+      const migrationModule = namespace.default && typeof namespace.default === "object"
+        ? namespace.default
+        : namespace;
+      if (typeof migrationModule.up !== "function" || typeof migrationModule.down !== "function") {
+        throw new Error(`${packageJson.name} migration ${migration.name} must export up() and down().`);
+      }
     }
   }
 }
@@ -153,7 +258,7 @@ async function validatePackage(packageRecord, localVersions, migrationOwners) {
     throw new Error(`${packageId} cannot both provide and require the same capability.`);
   }
 
-  await validateProviderList(packageRecord, "server");
+  const serverProviderCount = await validateProviderList(packageRecord, "server");
   await validateProviderList(packageRecord, "client");
   await validateMigrations(packageRecord, migrationOwners);
 
@@ -168,7 +273,33 @@ async function validatePackage(packageRecord, localVersions, migrationOwners) {
   }
 
   const patterns = await discoverPackagePatterns({ packageRoot, packageJson });
-  return patterns;
+  return { patterns, serverProviderCount };
+}
+
+function validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAPABILITIES } = {}) {
+  const providedCapabilities = new Set(builtinCapabilities);
+  for (const { packageJson } of packages) {
+    for (const capabilityId of packageJson.jskit?.capabilities?.provides || []) {
+      providedCapabilities.add(requireArchitectureId(
+        capabilityId,
+        `${packageJson.name}#jskit.capabilities.provides[]`
+      ));
+    }
+  }
+
+  for (const { packageJson } of packages) {
+    for (const capabilityId of packageJson.jskit?.capabilities?.requires || []) {
+      const normalizedCapabilityId = requireArchitectureId(
+        capabilityId,
+        `${packageJson.name}#jskit.capabilities.requires[]`
+      );
+      if (!providedCapabilities.has(normalizedCapabilityId)) {
+        throw new Error(
+          `${packageJson.name} requires capability ${normalizedCapabilityId}, but neither the kernel nor a framework package provides it.`
+        );
+      }
+    }
+  }
 }
 
 async function main() {
@@ -176,13 +307,28 @@ async function main() {
   const localVersions = new Map(packages.map(({ packageJson }) => [packageJson.name, packageJson.version]));
   const migrationOwners = new Map();
   const patterns = [];
+  let serverProviderCount = 0;
+  validateCapabilityClosure(packages);
   for (const packageRecord of packages) {
-    patterns.push(...await validatePackage(packageRecord, localVersions, migrationOwners));
+    const packageResult = await validatePackage(packageRecord, localVersions, migrationOwners);
+    patterns.push(...packageResult.patterns);
+    serverProviderCount += packageResult.serverProviderCount;
   }
   assertUniquePatternIds(patterns);
   process.stdout.write(
-    `Verified ${packages.length} JSKIT runtime packages, ${patterns.length} patterns, and ${migrationOwners.size} package migrations.\n`
+    `Verified ${packages.length} JSKIT runtime packages, ${serverProviderCount} loadable server providers, ` +
+    `${patterns.length} patterns, and ${migrationOwners.size} loadable package migrations.\n`
   );
 }
 
-await main();
+if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
+  await main();
+}
+
+export {
+  main,
+  validateCapabilityClosure,
+  validateMigrations,
+  validateProviderExport,
+  validateProviderList
+};

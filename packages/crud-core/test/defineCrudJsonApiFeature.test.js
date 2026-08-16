@@ -398,38 +398,205 @@ test("defineCrudJsonApiFeature can expose actions and capability without HTTP ro
   await runtime.shutdown();
 });
 
-test("CRUD actions run a concise product guard before the standard operation", async () => {
+test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit last", async () => {
   const calls = [];
   const service = {
-    queryDocuments() {
-      calls.push("service");
-      return { data: [] };
+    patchDocumentById(recordId, patch, options) {
+      calls.push(["service", recordId, patch, options.trx]);
+      return { data: { id: recordId, attributes: patch } };
+    }
+  };
+  const trx = { id: "transaction" };
+  const repository = {
+    async withTransaction(work) {
+      calls.push("transaction:begin");
+      const result = await work(trx);
+      calls.push("transaction:commit");
+      return result;
     }
   };
   const resource = createBookResource();
   const actions = createCrudJsonApiActions({
     namespace: "books",
     resource,
+    repository,
     service,
     surface: "app",
-    operations: ["list"],
+    operations: ["update"],
     permissionForOperation: () => ({ require: "authenticated" }),
-    beforeOperation({ operation, input, context, resource, service: guardedService }) {
-      calls.push({ operation, input, context, resource, guardedService });
+    operationLifecycle: {
+      update: {
+        before({ operation, input, context, trx: currentTrx }) {
+          calls.push(["before", operation, input.recordId, context.actor, currentTrx]);
+        },
+        execute({ input, standard }) {
+          calls.push("execute");
+          return standard({ ...input, title: input.title.trim() });
+        },
+        after({ result, trx: currentTrx }) {
+          calls.push(["after", result.data.id, currentTrx]);
+        },
+        afterCommit({ result, trx: currentTrx }) {
+          calls.push(["afterCommit", result.data.id, currentTrx]);
+        }
+      }
     }
   });
   const context = { actor: "tester" };
-  const input = { q: "dog" };
+  const input = { recordId: "42", title: "  Kindred  " };
 
   await actions[0].execute(input, context);
 
-  assert.deepEqual(calls, [{
-    operation: "list",
-    input,
-    context,
-    resource,
-    guardedService: service
-  }, "service"]);
+  assert.deepEqual(calls, [
+    "transaction:begin",
+    ["before", "update", "42", "tester", trx],
+    "execute",
+    ["service", "42", { title: "Kindred" }, trx],
+    ["after", "42", trx],
+    "transaction:commit",
+    ["afterCommit", "42", null]
+  ]);
+});
+
+test("CRUD operation lifecycle does not run after or afterCommit when the transaction fails", async () => {
+  const calls = [];
+  const error = new Error("write failed");
+  const actions = createCrudJsonApiActions({
+    namespace: "books",
+    resource: createBookResource(),
+    repository: {
+      async withTransaction(work) {
+        calls.push("transaction:begin");
+        return work({ id: "transaction" });
+      }
+    },
+    service: {
+      async patchDocumentById() {
+        calls.push("service");
+        throw error;
+      }
+    },
+    surface: "app",
+    operations: ["update"],
+    permissionForOperation: () => ({ require: "authenticated" }),
+    operationLifecycle: {
+      update: {
+        before() { calls.push("before"); },
+        after() { calls.push("after"); },
+        afterCommit() { calls.push("afterCommit"); }
+      }
+    }
+  });
+
+  await assert.rejects(
+    actions[0].execute({ recordId: "42", title: "Kindred" }, {}),
+    (value) => value === error
+  );
+  assert.deepEqual(calls, ["transaction:begin", "before", "service"]);
+});
+
+test("defineCrudJsonApiFeature exposes custom service methods as actions and optional routes", async () => {
+  const routes = [];
+  const calls = [];
+  const confirmInput = schemaDefinition({
+    recordId: { type: "string", required: true },
+    note: { type: "string", required: false }
+  });
+  const feature = defineCrudJsonApiFeature({
+    resource: createBookResource(),
+    surface: "app",
+    relativePath: "/books",
+    decorateService({ service }) {
+      return Object.freeze({
+        ...service,
+        async confirmBook(recordId, { note, context } = {}) {
+          calls.push({ recordId, note, context });
+          return { confirmed: recordId };
+        }
+      });
+    },
+    actions: {
+      confirm: {
+        input: confirmInput,
+        permission: { require: "all", permissions: ["books.confirm"] },
+        execute({ service, input, context }) {
+          return service.confirmBook(input.recordId, { note: input.note, context });
+        },
+        route: {
+          method: "POST",
+          path: "/:recordId/confirm",
+          contract: {
+            params: schemaDefinition({ recordId: { type: "string", required: true } }),
+            body: schemaDefinition({ note: { type: "string", required: false } })
+          },
+          statusCode: 202,
+          summary: "Confirm a book."
+        }
+      }
+    }
+  });
+  let actions;
+  let books;
+  const observer = defineProvider({
+    id: "test.custom-action-observer",
+    requires: { actions: "runtime.actions", books: "crud.books" },
+    setup(dependencies) {
+      actions = dependencies.actions;
+      books = dependencies.books;
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    providers: [createActionProvider(), ...createFeatureDependencies(routes), feature, observer]
+  });
+
+  await runtime.start();
+  assert.equal(typeof books.service.confirmBook, "function");
+  const definition = actions.getDefinition("books.confirm");
+  assert.deepEqual(definition.permission.permissions, ["books.confirm"]);
+  assert.equal(routes.at(-1).method, "POST");
+  assert.equal(routes.at(-1).path, "/api/books/:recordId/confirm");
+  assert.equal(routes.at(-1).contract.meta.summary, "Confirm a book.");
+
+  const reply = {
+    code(statusCode) { this.statusCode = statusCode; return this; },
+    send(payload) { this.payload = payload; return this; }
+  };
+  const routeCalls = [];
+  await routes.at(-1).handler({
+    input: { params: { recordId: "42" }, body: { note: "Ready" } },
+    executeAction(payload) {
+      routeCalls.push(payload);
+      return { confirmed: "42" };
+    }
+  }, reply);
+  assert.deepEqual(routeCalls, [{
+    actionId: "books.confirm",
+    input: { recordId: "42", note: "Ready" }
+  }]);
+  assert.equal(reply.statusCode, 202);
+  assert.deepEqual(reply.payload, { confirmed: "42" });
+
+  const context = {
+    actor: { id: "tester" },
+    permissions: ["books.confirm"],
+    surface: "app",
+    channel: "internal"
+  };
+  assert.deepEqual(
+    await actions.execute({
+      actionId: "books.confirm",
+      input: { recordId: "42", note: "Ready" },
+      context
+    }),
+    { confirmed: "42" }
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].recordId, "42");
+  assert.equal(calls[0].note, "Ready");
+  assert.equal(calls[0].context.actor.id, "tester");
+  assert.deepEqual(calls[0].context.permissions, ["books.confirm"]);
+  await runtime.shutdown();
 });
 
 test("defineCrudJsonApiFeature rejects implicit workspace scope and public private ownership", () => {
@@ -454,6 +621,22 @@ test("defineCrudJsonApiFeature rejects implicit workspace scope and public priva
       surface: "public"
     }),
     /public CRUD feature requires ownershipFilter "public"/u
+  );
+  assert.throws(
+    () => defineCrudJsonApiFeature({
+      resource: createBookResource(),
+      surface: "app",
+      operationLifecycle: { list: { afterCommit() {} } }
+    }),
+    /afterCommit is only valid for mutations/u
+  );
+  assert.throws(
+    () => defineCrudJsonApiFeature({
+      resource: createBookResource(),
+      surface: "app",
+      operationLifecycle: { update: { eventually() {} } }
+    }),
+    /unknown phase "eventually"/u
   );
 });
 

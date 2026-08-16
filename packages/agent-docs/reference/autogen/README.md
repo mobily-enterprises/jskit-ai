@@ -12,7 +12,6 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 
 ## Package Maps
 - [agent-docs](/packages/agent-docs/reference/autogen/packages/agent-docs.md)
-- [assistant](/packages/agent-docs/reference/autogen/packages/assistant.md)
 - [assistant-core](/packages/agent-docs/reference/autogen/packages/assistant-core.md)
 - [assistant-runtime](/packages/agent-docs/reference/autogen/packages/assistant-runtime.md)
 - [auth-core](/packages/agent-docs/reference/autogen/packages/auth-core.md)
@@ -23,12 +22,9 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 - [console-core](/packages/agent-docs/reference/autogen/packages/console-core.md)
 - [console-web](/packages/agent-docs/reference/autogen/packages/console-web.md)
 - [crud-core](/packages/agent-docs/reference/autogen/packages/crud-core.md)
-- [crud-server-generator](/packages/agent-docs/reference/autogen/packages/crud-server-generator.md)
-- [crud-ui-generator](/packages/agent-docs/reference/autogen/packages/crud-ui-generator.md)
 - [database-runtime](/packages/agent-docs/reference/autogen/packages/database-runtime.md)
 - [database-runtime-mysql](/packages/agent-docs/reference/autogen/packages/database-runtime-mysql.md)
 - [database-runtime-postgres](/packages/agent-docs/reference/autogen/packages/database-runtime-postgres.md)
-- [feature-server-generator](/packages/agent-docs/reference/autogen/packages/feature-server-generator.md)
 - [google-rewarded-core](/packages/agent-docs/reference/autogen/packages/google-rewarded-core.md)
 - [google-rewarded-web](/packages/agent-docs/reference/autogen/packages/google-rewarded-web.md)
 - [http-runtime](/packages/agent-docs/reference/autogen/packages/http-runtime.md)
@@ -41,7 +37,6 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 - [resource-crud-core](/packages/agent-docs/reference/autogen/packages/resource-crud-core.md)
 - [shell-web](/packages/agent-docs/reference/autogen/packages/shell-web.md)
 - [storage-runtime](/packages/agent-docs/reference/autogen/packages/storage-runtime.md)
-- [ui-generator](/packages/agent-docs/reference/autogen/packages/ui-generator.md)
 - [uploads-image-web](/packages/agent-docs/reference/autogen/packages/uploads-image-web.md)
 - [uploads-runtime](/packages/agent-docs/reference/autogen/packages/uploads-runtime.md)
 - [users-core](/packages/agent-docs/reference/autogen/packages/users-core.md)
@@ -51,8 +46,5 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 
 ## Tooling Maps
 - [config-eslint](/packages/agent-docs/reference/autogen/tooling/config-eslint.md)
-- [create-app](/packages/agent-docs/reference/autogen/tooling/create-app.md)
 - [jskit-catalog](/packages/agent-docs/reference/autogen/tooling/jskit-catalog.md)
-- [jskit-cli](/packages/agent-docs/reference/autogen/tooling/jskit-cli.md)
-- [test-support](/packages/agent-docs/reference/autogen/tooling/test-support.md)
 - [testUtils](/packages/agent-docs/reference/autogen/tooling/testUtils.md)

@@ -46,12 +46,16 @@ Local functions
 
 ### `scripts/verify-packages.mjs`
 Exports
-- None
+- `main()`
+- `validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAPABILITIES } = {})`
+- `validateMigrations(packageRecord, migrationOwners)`
+- `validateProviderExport(value, label)`
+- `validateProviderList(packageRecord, side)`
 Local functions
 - `fileExists(filePath)`
 - `discoverFrameworkPackages()`
 - `requireStringArray(value, label)`
-- `validateProviderList(packageRecord, side)`
-- `validateMigrations(packageRecord, migrationOwners)`
+- `requireArchitectureId(value, label)`
+- `validateCapabilityMap(value, label)`
+- `validateProviderDefinition(value, label)`
 - `validatePackage(packageRecord, localVersions, migrationOwners)`
-- `main()`

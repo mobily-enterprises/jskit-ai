@@ -71,6 +71,12 @@ mark a resource valid because a generator once wrote it.
 
 ## Verify current state
 
-Run verification against the current source, package graph, migrations, and
-runtime behavior. A valid app does not need proof that a tool ran. Diagnose the
-specific contract that is wrong; do not prescribe rerunning a generator.
+Run verification against source, package graph, migrations, and
+runtime behavior. Runtime startup owns the capability/provider graph,
+loadability, ids, environment, and configuration. Builds own client imports;
+migration status and disposable rebuilds own schema state. App lint, tests,
+audit, browser checks, and CI own security, runtimes, and behavior.
+
+There is no supported `jskit doctor` command. Old CLI authoring-history
+warnings do not describe AI-first apps. Diagnose current contracts; never add
+metadata to satisfy an old tool.

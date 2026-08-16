@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-crud-core",
-  "version": "0.1.101",
+  "version": "0.1.103",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,8 +13,8 @@
     "./shared/crudResource": "./src/shared/crudResource.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.159",
-    "@jskit-ai/resource-core": "0.1.101"
+    "@jskit-ai/kernel": "0.1.161",
+    "@jskit-ai/resource-core": "0.1.103"
   },
   "description": "Shared CRUD resource, field, lookup, filter, and namespace contracts.",
   "jskit": {

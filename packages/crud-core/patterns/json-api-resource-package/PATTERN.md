@@ -61,21 +61,36 @@ action validators through the module's `scope` option. The feature exposes the
 operations declared by the resource. Use `operations` only to narrow that
 surface further; do not register unused mutation actions and routes. Use
 `routes: false` only for an internal
-capability/action surface that deliberately has no HTTP API. When otherwise-standard
-CRUD needs product validation, auditing, or an access guard, name the exact
-capabilities in `requires` and provide `decorateService({ service, repository,
-resource, ...dependencies })`; override only the domain methods that earn extra
-behavior while retaining the framework repository, standard service methods,
-actions, and routes. When the product needs only a few additional queries or
-locking operations, provide `decorateRepository({ repository, database, http,
-jsonRestApi, resource, ...dependencies })`; return the standard methods plus
-only those unique persistence operations instead of copying the CRUD
-repository. Move to an explicit feature when the public operations
-themselves stop being conventional CRUD.
+capability/action surface that deliberately has no HTTP API.
 
-Use `beforeOperation({ operation, input, context, service, resource })` for a
-small product authorization or validation guard that must run before a
-standard action. It is not a second service layer.
+When otherwise-standard CRUD earns product behavior, name the exact
+capabilities in `requires` and provide `decorateService({ service, repository,
+resource, ...dependencies })`. Retain the standard methods, override only the
+methods whose CRUD behavior changes, and add resource-related domain methods
+such as `confirmBooking()` or `sendReminder()` directly to that service. Those
+additional methods remain available through the resource capability. When the
+product needs only a few additional queries or locking operations, provide
+`decorateRepository({ repository, database, http, jsonRestApi, resource,
+...dependencies })`; return the standard methods plus only those unique
+persistence operations instead of copying the CRUD repository.
+
+Use `operationLifecycle` for behavior surrounding a standard operation. Its
+per-operation `before`, `execute`, and `after` phases share one repository
+transaction for create, update, and delete. An `execute` hook receives
+`standard(nextInput)` so it can retain the framework write while adjusting its
+input or coordinating other repository work. `afterCommit` runs only after the
+mutation transaction succeeds. Put durable external delivery behind an outbox
+written inside the transaction; do not make an email or webhook the arbiter of
+whether an already-committed request appears successful.
+
+Declare resource-related non-CRUD commands in `actions`. Each named action has
+a normal JSKIT input, permission, audit, events, and `execute({ input, context,
+service, repository, ...dependencies })` contract. Its optional `route`
+declares an HTTP method, path below the resource base, explicit route contract,
+status code, and optional request-to-action input mapper. This is the normal
+home for `confirm`, `publish`, `cancel`, `reorder`, or `sendReminder`. Move to a
+separate explicit feature only when the operation belongs to another domain or
+the resource is no longer principally CRUD.
 
 If a product-specific list filter needs additional transport validation and
 JSON API search mapping, pass its validator as `listFilterQueryValidator` and
@@ -83,6 +98,46 @@ its storage mapping as `searchSchema`; keep that contract next to the feature.
 Use `operationInputs.create` or `operationInputs.update` when a standard CRUD
 operation intentionally accepts a small virtual product field that is handled
 by the service decorator rather than stored on the resource row.
+
+```js
+const BookingsFeature = defineCrudJsonApiFeature({
+  resource: bookingResource,
+  surface: "app",
+  decorateService({ service, repository }) {
+    return {
+      ...service,
+      async confirmBooking(recordId, options) {
+        return repository.confirmBooking(recordId, options);
+      }
+    };
+  },
+  operationLifecycle: {
+    update: {
+      async before({ input, service, trx, context }) {
+        await service.assertUpdateAllowed(input.recordId, { trx, context });
+      },
+      async afterCommit({ result, service, context }) {
+        await service.recordUpdateCompleted(result.data.id, { context });
+      }
+    }
+  },
+  actions: {
+    confirm: {
+      input: confirmBookingInput,
+      permission: { require: "all", permissions: ["bookings.confirm"] },
+      execute({ input, context, service }) {
+        return service.confirmBooking(input.recordId, { context });
+      },
+      route: {
+        method: "POST",
+        path: "/:recordId/confirm",
+        contract: confirmBookingRouteContract,
+        statusCode: 200
+      }
+    }
+  }
+});
+```
 
 ## Verification
 

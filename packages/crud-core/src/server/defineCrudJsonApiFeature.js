@@ -7,12 +7,28 @@ import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isWorkspaceRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
-import { assertCrudOperationName, createCrudJsonApiActions } from "./jsonApiModule/actions.js";
+import {
+  assertCrudOperationName,
+  createCrudJsonApiActions,
+  normalizeCrudOperationLifecycle
+} from "./jsonApiModule/actions.js";
 import { createCrudJsonApiRepository } from "./jsonApiModule/repository.js";
 import { registerCrudJsonApiRoutes } from "./jsonApiModule/routes.js";
 import { createCrudJsonApiService as createDefaultService } from "./jsonApiModule/service.js";
 
-const RESERVED_REQUIREMENT_NAMES = Object.freeze(["database", "http", "jsonRestApi"]);
+const RESERVED_REQUIREMENT_NAMES = Object.freeze([
+  "context",
+  "database",
+  "http",
+  "input",
+  "jsonRestApi",
+  "repository",
+  "resource",
+  "result",
+  "service",
+  "standard",
+  "trx"
+]);
 const CRUD_SERVICE_METHOD_BY_OPERATION = Object.freeze({
   list: "queryDocuments",
   view: "getDocumentById",
@@ -97,9 +113,12 @@ function normalizeOperations(operations, resource) {
   return Object.freeze([...new Set(source.map((operation) => assertCrudOperationName(operation)))]);
 }
 
-function resolveActionPermission(operation, { access, workspaceScoped, permissions } = {}) {
-  const operationName = assertCrudOperationName(operation);
-  const explicitPermission = permissions?.[operationName];
+function resolveActionPermission(actionName, { access, workspaceScoped, permissions } = {}) {
+  const normalizedActionName = normalizeText(actionName).toLowerCase();
+  if (!normalizedActionName) {
+    throw new TypeError("CRUD action name is required.");
+  }
+  const explicitPermission = permissions?.[normalizedActionName];
   if (explicitPermission && typeof explicitPermission === "object") {
     return explicitPermission;
   }
@@ -112,7 +131,7 @@ function resolveActionPermission(operation, { access, workspaceScoped, permissio
   if (workspaceScoped) {
     return Object.freeze({
       require: "all",
-      permissions: [`crud.${permissions?.namespace || "resource"}.${operationName}`]
+      permissions: [`crud.${permissions?.namespace || "resource"}.${normalizedActionName}`]
     });
   }
   return Object.freeze({ require: "authenticated" });
@@ -141,8 +160,9 @@ function defineCrudJsonApiFeature({
   requires = {},
   decorateRepository = null,
   decorateService = null,
-  beforeOperation = null,
+  operationLifecycle = {},
   operationInputs = {},
+  actions = {},
   operations = undefined
 } = {}) {
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
@@ -176,11 +196,12 @@ function defineCrudJsonApiFeature({
   if (decorateService != null && typeof decorateService !== "function") {
     throw new TypeError("defineCrudJsonApiFeature decorateService must be a function.");
   }
-  if (beforeOperation != null && typeof beforeOperation !== "function") {
-    throw new TypeError("defineCrudJsonApiFeature beforeOperation must be a function.");
-  }
+  const normalizedOperationLifecycle = normalizeCrudOperationLifecycle(operationLifecycle);
   if (!operationInputs || typeof operationInputs !== "object" || Array.isArray(operationInputs)) {
     throw new TypeError("defineCrudJsonApiFeature operationInputs must be an object.");
+  }
+  if (!actions || typeof actions !== "object" || Array.isArray(actions)) {
+    throw new TypeError("defineCrudJsonApiFeature actions must be an object.");
   }
   assertWorkspaceScope(normalizedScope, normalizedOwnershipFilter);
   const workspaceScoped = isWorkspaceRouteVisibility(normalizedOwnershipFilter);
@@ -247,6 +268,7 @@ function defineCrudJsonApiFeature({
           access,
           internal,
           operations: enabledOperations,
+          actions,
           listFilterQueryValidator,
           operationInputs,
           routeParamsValidator: normalizedScope.routeParamsValidator,
@@ -257,16 +279,23 @@ function defineCrudJsonApiFeature({
         resourceApi: Object.freeze({ repository, resource, service })
       };
     },
-    actions({ resourceApi }) {
+    actions(dependencies) {
+      const { resourceApi } = dependencies;
+      const actionDependencies = Object.freeze(Object.fromEntries(
+        Object.keys(featureRequirements).map((name) => [name, dependencies[name]])
+      ));
       return createCrudJsonApiActions({
         namespace,
         resource,
+        repository: resourceApi.repository,
         service: resourceApi.service,
         surface: normalizedSurface,
         operations: enabledOperations,
         listFilterQueryValidator,
-        beforeOperation,
+        operationLifecycle: normalizedOperationLifecycle,
         operationInputs,
+        actions,
+        dependencies: actionDependencies,
         permissionForOperation: (operation) => resolveActionPermission(operation, {
           access,
           workspaceScoped,

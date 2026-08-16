@@ -1,26 +1,21 @@
 # CRUD operations
 
-Read this completely before database, schema, CRUD, repository, or persistence
-work.
+Read this before database, schema, CRUD, repository, or persistence work.
 
 ## Establish the product contract
 
-Take the database, surface, access, ownership, operations, and fields from the
-request, current application, and product documentation. Ask when a material
-choice is missing. Do not translate the work into generator options.
+Take database, surface, access, ownership, operations, and fields from product
+intent and current source. Ask when a material choice is missing. Do not translate the work into generator options.
 
-Inspect the generated source pattern index and read the narrow matching
-package-owned pattern. `crud/resource-contract` is the baseline shared resource
-example, `crud/json-api-resource-package` owns standard server composition, and
-`crud/crud-screen-set` owns the routed list, view, create, edit, and delete UI.
-Child-resource and row-policy patterns own their respective variations.
+Read the narrow package-owned pattern from the generated index:
+`crud/resource-contract` for the resource, `crud/json-api-resource-package` for
+the server, and `crud/crud-screen-set` for routed UI. Child-resource and
+row-policy patterns own those variations.
 
-Normal app-owned CRUD tables use one non-null integer primary key. Every
-foreign key is single-column and targets that key; multi-column unique indexes
-are business constraints, never relationship targets. Only direct
-`workspace_id` and `user_id` columns are reserved ownership. Names such as
-`recipient_user_id` are domain relationships. Match mandatory visibility to
-the actual ownership columns and test allowed plus cross-owner cases.
+Normal CRUD tables use one non-null integer primary key. Foreign keys are
+single-column; composite unique indexes are business constraints, not
+identities. Only direct `workspace_id` and `user_id` columns imply ownership.
+Match visibility to real ownership and test allowed plus cross-owner cases.
 
 ## Author the resource normally
 
@@ -30,25 +25,31 @@ For a conventional resource:
 2. Define the shared resource contract through `defineCrudResource()`.
 3. Use `defineCrudJsonApiFeature()` for standard repository, service, action,
    permission, resource-host, and route mechanics.
-4. Write only product-specific validation, policy, queries, messages, and
-   orchestration in application code.
+4. Customize through `decorateRepository`, `decorateService`,
+   `operationLifecycle`, and named `actions`; do not copy the standard CRUD
+   repository/action/route stack.
 5. Build routed screens from the matching `http-web`/CRUD UI pattern.
 
-The shared resource is canonical for names, fields, operations, validation,
-transport, messages, and route parameters. Do not hand-build a second request
-schema, raw-fetch client, or UI-only serializer. Prefer the high-level
-`useCrudListScreen()`, `useCrudViewScreen()`, and `useCrudAddEditScreen()`
-contracts for standard screens; use `useCommand()` and
-`useEndpointResource()` for genuinely non-standard operations.
+The resource is canonical for fields, operations, validation, transport,
+messages, and route parameters. Do not duplicate its schema or serializers.
+Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
+`useCrudAddEditScreen()`; use `useCommand()` or `useEndpointResource()` for
+non-standard operations.
+
+Additional resource service methods are normal. Add them with
+`decorateService`; expose commands such as `confirm`, `publish`, or `cancel`
+through named `actions`. With `operationLifecycle`, mutation `before`,
+`execute`, and `after` share one repository transaction, `execute` receives
+`standard(nextInput)`, and `afterCommit` follows commit. Repositories persist;
+services and hooks orchestrate them. Durable external work uses a transactional
+outbox.
 
 ## Record deletion
 
-Deletion requires an explicit shared `DELETE` operation and a product decision
-about confirmation. Standard routed deletion uses `CrudDeleteAction` and
-`useCrudDeleteAction()` through the view actions slot. The shared component
-owns confirmation UI; `useCommand()` owns pending/error feedback and request
-execution; success invalidates the list and returns to it. Do not rebuild this
-with raw `fetch()` or an app-specific transport helper.
+Deletion requires an explicit shared `DELETE` operation and confirmation
+decision. Use `CrudDeleteAction` and `useCrudDeleteAction()` through the view
+actions slot; do not rebuild their confirmation, request, invalidation, and
+navigation flow.
 
 ## Strict temporal values
 
@@ -58,18 +59,13 @@ With `json-rest-schema` 1.0.17, temporal resource values are strings:
 - `time`: offset-free `HH:MM[:SS[.fraction]]`
 - `dateTime`: RFC 3339 with seconds and `Z` or a numeric offset
 
-Do not pass JavaScript `Date` objects through resource validation; convert at
-the boundary (normally `toISOString()` for `dateTime`). Numeric epochs use
-`epochMilliseconds` or `epochSeconds`. Honor `temporalPrecision` without
-silently truncating fractions. Database repositories return strict strings.
+Convert JavaScript `Date` objects at the boundary, normally with
+`toISOString()`. Numeric epochs use `epochMilliseconds` or `epochSeconds`.
+Honor `temporalPrecision`; repositories return strict strings.
 
 ## Migration ownership
 
-Migrations are immutable application source. Author them in the package that
-owns the resource and use the database runtime's public migration contract.
-Never make a live table or a generator the sole source of truth. Read-only
-schema inspection is useful when adopting or diagnosing an existing database,
-not as compulsory authoring.
+Migrations are immutable application source owned with their resource. Never make a live table or a generator the sole source of truth. Schema inspection is for adoption and diagnosis, not compulsory authoring.
 
 Before sign-off, rebuild from zero in a fresh disposable database, compare the
 schema, test ownership boundaries and failure cases, and run current-state

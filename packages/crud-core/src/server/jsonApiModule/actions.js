@@ -10,6 +10,8 @@ import {
 } from "../listQueryValidators.js";
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
+const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
+const CRUD_LIFECYCLE_PHASES = Object.freeze(["before", "execute", "after", "afterCommit"]);
 
 function createActionInput(
   resource,
@@ -42,18 +44,123 @@ function omitInputKeys(input = {}, keys = []) {
   return result;
 }
 
+function normalizeCrudOperationLifecycle(value = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("CRUD operationLifecycle must be an object.");
+  }
+
+  const lifecycle = {};
+  for (const [operation, hooks] of Object.entries(value)) {
+    assertCrudOperationName(operation);
+    if (!hooks || typeof hooks !== "object" || Array.isArray(hooks)) {
+      throw new TypeError(`CRUD operationLifecycle.${operation} must be an object.`);
+    }
+    for (const name of Object.keys(hooks)) {
+      if (!CRUD_LIFECYCLE_PHASES.includes(name)) {
+        throw new TypeError(`CRUD operationLifecycle.${operation} has unknown phase "${name}".`);
+      }
+      if (typeof hooks[name] !== "function") {
+        throw new TypeError(`CRUD operationLifecycle.${operation}.${name} must be a function.`);
+      }
+    }
+    if (!CRUD_MUTATION_NAMES.has(operation) && Object.hasOwn(hooks, "afterCommit")) {
+      throw new TypeError(`CRUD operationLifecycle.${operation}.afterCommit is only valid for mutations.`);
+    }
+    lifecycle[operation] = Object.freeze({ ...hooks });
+  }
+  return Object.freeze(lifecycle);
+}
+
+function createLifecycleContext(value = {}) {
+  const {
+    operation,
+    input,
+    context,
+    resource,
+    repository,
+    service,
+    trx = null,
+    result,
+    standard
+  } = value;
+  return Object.freeze({
+    operation,
+    input,
+    context,
+    resource,
+    repository,
+    service,
+    trx,
+    ...(Object.hasOwn(value, "result") ? { result } : {}),
+    ...(typeof standard === "function" ? { standard } : {})
+  });
+}
+
+function normalizeAdditionalActions(value = {}, {
+  namespace,
+  surface,
+  permissionForAction,
+  scopeInputValidator = null
+} = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("CRUD actions must be an object.");
+  }
+
+  return Object.freeze(Object.entries(value).map(([name, definition]) => {
+    const actionName = String(name || "").trim();
+    if (!/^[a-z][a-z0-9_.-]*$/u.test(actionName)) {
+      throw new TypeError(`CRUD custom action name "${actionName}" is invalid.`);
+    }
+    if (CRUD_OPERATION_NAMES.includes(actionName)) {
+      throw new TypeError(`CRUD custom action name "${actionName}" is reserved.`);
+    }
+    if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
+      throw new TypeError(`CRUD custom action "${actionName}" must be an object.`);
+    }
+    if (typeof definition.execute !== "function") {
+      throw new TypeError(`CRUD custom action "${actionName}" requires execute().`);
+    }
+    if (!definition.input || typeof definition.input !== "object" || Array.isArray(definition.input)) {
+      throw new TypeError(`CRUD custom action "${actionName}" requires an input schema.`);
+    }
+
+    const kind = definition.kind || "command";
+    return Object.freeze({
+      ...definition,
+      name: actionName,
+      id: String(definition.id || `${namespace}.${actionName}`).trim(),
+      version: definition.version || 1,
+      kind,
+      channels: definition.channels || ["api", "automation", "internal"],
+      surfaces: definition.surfaces || [surface],
+      permission: definition.permission || permissionForAction(actionName),
+      input: scopeInputValidator
+        ? composeSchemaDefinitions([scopeInputValidator, definition.input])
+        : definition.input,
+      idempotency: definition.idempotency || (kind === "query" ? "none" : "optional"),
+      audit: definition.audit || { actionName: String(definition.id || `${namespace}.${actionName}`).trim() },
+      observability: definition.observability || {},
+      events: definition.events || []
+    });
+  }));
+}
+
 function createCrudJsonApiActions({
   namespace,
   resource,
+  repository = null,
   service,
   surface,
   permissionForOperation,
+  permissionForAction = permissionForOperation,
   operations = CRUD_OPERATION_NAMES,
   scopeInputValidator = null,
   scopeInputKeys = [],
   listFilterQueryValidator = null,
-  beforeOperation = null,
-  operationInputs = {}
+  operationLifecycle = {},
+  operationInputs = {},
+  actions: additionalActionDefinitions = {},
+  dependencies = {}
 } = {}) {
   const actionId = (operation) => `crud.${namespace}.${operation}`;
   if (!service || typeof service !== "object") {
@@ -78,26 +185,63 @@ function createCrudJsonApiActions({
       audience: "event_scope"
     }
   });
-  async function prepare(operation, value, context) {
-    if (beforeOperation) {
-      await beforeOperation(Object.freeze({
+  const lifecycle = normalizeCrudOperationLifecycle(operationLifecycle);
+  const additionalActions = normalizeAdditionalActions(additionalActionDefinitions, {
+    namespace,
+    surface,
+    permissionForAction,
+    scopeInputValidator
+  });
+
+  async function executeOperation(operation, value, context, defaultExecute) {
+    const hooks = lifecycle[operation];
+    if (!hooks) {
+      return defaultExecute(value, null);
+    }
+
+    async function run(trx = null) {
+      const base = { operation, input: value, context, resource, repository, service, trx };
+      if (hooks.before) {
+        await hooks.before(createLifecycleContext(base));
+      }
+      const standard = (nextInput = value) => defaultExecute(nextInput, trx);
+      const result = hooks.execute
+        ? await hooks.execute(createLifecycleContext({ ...base, standard }))
+        : await standard();
+      if (hooks.after) {
+        await hooks.after(createLifecycleContext({ ...base, result }));
+      }
+      return result;
+    }
+
+    const mutation = CRUD_MUTATION_NAMES.has(operation);
+    if (mutation && (!repository || typeof repository.withTransaction !== "function")) {
+      throw new TypeError(`CRUD operationLifecycle.${operation} requires repository.withTransaction().`);
+    }
+    const result = mutation ? await repository.withTransaction(run) : await run();
+    if (hooks.afterCommit) {
+      await hooks.afterCommit(createLifecycleContext({
         operation,
         input: value,
         context,
         resource,
-        service
+        repository,
+        service,
+        result
       }));
     }
+    return result;
   }
 
-  const actions = [
+  const standardDefinitions = [
     {
       operation: "list",
       kind: "query",
       idempotency: "none",
       async execute(value, context) {
-        await prepare("list", value, context);
-        return service.queryDocuments(omitInputKeys(value, scopeInputKeys), { context });
+        return executeOperation("list", value, context, (nextInput) =>
+          service.queryDocuments(omitInputKeys(nextInput, scopeInputKeys), { context })
+        );
       }
     },
     {
@@ -105,9 +249,10 @@ function createCrudJsonApiActions({
       kind: "query",
       idempotency: "none",
       async execute(value, context) {
-        await prepare("view", value, context);
-        const query = omitInputKeys(value, [...scopeInputKeys, "recordId"]);
-        return service.getDocumentById(value.recordId, query, { context });
+        return executeOperation("view", value, context, (nextInput) => {
+          const query = omitInputKeys(nextInput, [...scopeInputKeys, "recordId"]);
+          return service.getDocumentById(nextInput.recordId, query, { context });
+        });
       }
     },
     {
@@ -116,8 +261,9 @@ function createCrudJsonApiActions({
       idempotency: "optional",
       events: [mutationEvent("created", ({ result }) => result?.data?.id ?? result?.value?.data?.id)],
       async execute(value, context) {
-        await prepare("create", value, context);
-        return service.createDocument(omitInputKeys(value, scopeInputKeys), { context });
+        return executeOperation("create", value, context, (nextInput, trx) =>
+          service.createDocument(omitInputKeys(nextInput, scopeInputKeys), { context, trx })
+        );
       }
     },
     {
@@ -126,9 +272,10 @@ function createCrudJsonApiActions({
       idempotency: "optional",
       events: [mutationEvent("updated", ({ input: value }) => value?.recordId)],
       async execute(value, context) {
-        await prepare("update", value, context);
-        const patch = omitInputKeys(value, [...scopeInputKeys, "recordId"]);
-        return service.patchDocumentById(value.recordId, patch, { context });
+        return executeOperation("update", value, context, (nextInput, trx) => {
+          const patch = omitInputKeys(nextInput, [...scopeInputKeys, "recordId"]);
+          return service.patchDocumentById(nextInput.recordId, patch, { context, trx });
+        });
       }
     },
     {
@@ -137,14 +284,15 @@ function createCrudJsonApiActions({
       idempotency: "optional",
       events: [mutationEvent("deleted", ({ input: value }) => value?.recordId)],
       async execute(value, context) {
-        await prepare("delete", value, context);
-        return service.deleteDocumentById(value.recordId, { context });
+        return executeOperation("delete", value, context, (nextInput, trx) =>
+          service.deleteDocumentById(nextInput.recordId, { context, trx })
+        );
       }
     }
   ];
 
   const enabledOperations = new Set(operations);
-  return Object.freeze(actions.filter((definition) => enabledOperations.has(definition.operation)).map((definition) => {
+  const standardActions = standardDefinitions.filter((definition) => enabledOperations.has(definition.operation)).map((definition) => {
     const id = actionId(definition.operation);
     return Object.freeze({
       id,
@@ -161,7 +309,33 @@ function createCrudJsonApiActions({
       events: definition.events || [],
       execute: definition.execute
     });
+  });
+  const productActions = additionalActions.map((definition) => Object.freeze({
+    id: definition.id,
+    version: definition.version,
+    kind: definition.kind,
+    channels: definition.channels,
+    surfaces: definition.surfaces,
+    input: definition.input,
+    output: definition.output || null,
+    idempotency: definition.idempotency,
+    permission: definition.permission,
+    audit: definition.audit,
+    observability: definition.observability,
+    extensions: definition.extensions || {},
+    events: definition.events,
+    async execute(value, context) {
+      return definition.execute(Object.freeze({
+        ...dependencies,
+        input: value,
+        context,
+        resource,
+        repository,
+        service
+      }));
+    }
   }));
+  return Object.freeze([...standardActions, ...productActions]);
 }
 
 function assertCrudOperationName(operation = "") {
@@ -171,4 +345,8 @@ function assertCrudOperationName(operation = "") {
   return operation;
 }
 
-export { assertCrudOperationName, createCrudJsonApiActions };
+export {
+  assertCrudOperationName,
+  createCrudJsonApiActions,
+  normalizeCrudOperationLifecycle
+};

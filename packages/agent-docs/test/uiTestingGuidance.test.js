@@ -28,6 +28,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   }
   const localLinks = [...skill.matchAll(/\[[^\]\n]*\]\(([^)]+)\)/gu)].map((match) => match[1]);
   assert.deepEqual(localLinks.sort(), [
+    "../../guide/agent/app-setup/existing-application-migration.md",
     "../../reference/autogen/PATTERN_INDEX.md",
     ...referenceFiles.map((file) => `references/${file}`)
   ].sort());
@@ -46,7 +47,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(skill, /Caller-owned verification/u);
   assert.match(skill, /Do not start a dev server/u);
   assert.match(skill, /Review or deslop/u);
-  assert.match(skill, /complete operational references required by this skill/u);
+  assert.match(skill, /complete operational references\s+required by this skill/u);
   assert.match(skill, /Do not load\s+irrelevant references/u);
   const crudReference = references.find(({ file }) => file === "crud-operations.md").source;
   const materialReference = references.find(({ file }) => file === "material-3.md").source;
@@ -106,7 +107,7 @@ test("app-owned baseline tests are customizable but remain verified", async () =
     assert.match(source, /App-owned.*customizable|application-owned.*customizable|ordinary customizable application source/is);
     assert.match(source, /adapt.*(?:in place|smoke test)/is);
     assert.match(source, /canonical route/is);
-    assert.match(source, /browser\s+coverage|Doctor.*missing/is);
+    assert.match(source, /browser\s+coverage/is);
   }
 
   assert.match(sources[0], /tests\/e2e\/base-shell\.spec\.ts/);

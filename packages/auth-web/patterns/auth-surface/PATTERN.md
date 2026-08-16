@@ -35,18 +35,19 @@ For a Vibe64-managed preview, copy the app-owned
 Genesis Launch target. The executable calls the exported managed-preview
 identity library directly; it does not require a JSKIT CLI.
 
-Choose local-auth storage explicitly. A database-backed application installs
-`@jskit-ai/auth-provider-local-db-core` and sets
-`AUTH_LOCAL_BACKEND=db`; the file backend is only for an application that
-deliberately owns filesystem auth state. Do not leave a database-backed app on
-the file default while expecting users imported into `auth_local_users` to be
-available. Managed preview selectors name an existing auth-backend user whose
+Choose local-auth storage through the installed capability provider. A
+database-backed application installs `@jskit-ai/auth-provider-local-db-core`,
+which provides `auth.local.backend`; no environment switch selects it. When no
+backend package provides that capability, local auth deliberately uses its file
+store. Managed preview selectors name an existing auth-backend user whose
 application profile already exists; preview identity never creates or projects
 a user as a side effect.
 
 ## Invariants
 
 - Credentials and provider secrets come from environment values.
+- Auth backend selection comes from the installed provider graph, not an
+  `AUTH_LOCAL_BACKEND` environment value.
 - The selected auth backend and the storage containing the application's users
   agree before registration, login, session bootstrap, or preview identity is
   exercised.

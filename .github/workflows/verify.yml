@@ -42,34 +42,7 @@ jobs:
       - name: Run verify
         run: npm run verify
 
-  database-ci:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        database:
-          - mariadb
-          - postgres
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify a clean database-backed app
-        env:
-          JSKIT_DATABASE_INTEGRATION_DRIVER: ${{ matrix.database }}
-        run: node --test tooling/create-app/test/databaseCi.integration.test.js
-
-  vite-cold-start:
+  browser-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -88,23 +61,21 @@ jobs:
       - name: Install Chromium
         run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
-      - name: Verify Vite startup and local-package caching
-        env:
-          JSKIT_VITE_COLD_START_INTEGRATION: "1"
-          JSKIT_VITE_LOCAL_PACKAGE_CACHE_INTEGRATION: "1"
-        run: node --test tooling/create-app/test/viteColdStart.integration.test.js
-
       - name: Verify responsive CRUD date filters
         env:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
         run: node --test packages/http-web/test/crudListDateFilterSurface.browser.test.js
 
+      - name: Verify adaptive shell behavior
+        env:
+          JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
+        run: node --test packages/shell-web/test/adaptiveShell.browser.test.js
+
   deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - verify
-      - database-ci
-      - vite-cold-start
+      - browser-contracts
     runs-on: ubuntu-latest
     permissions:
       contents: read
