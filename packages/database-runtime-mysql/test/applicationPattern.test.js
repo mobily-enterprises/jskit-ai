@@ -12,7 +12,7 @@ test("MySQL application pattern is driver-fixed and questionnaire-free", async (
   ]);
   const manifest = JSON.parse(manifestSource);
 
-  assert.equal(manifest.dependencies["@jskit-ai/database-runtime-mysql"], "0.1.158");
+  assert.equal(manifest.dependencies["@jskit-ai/database-runtime-mysql"], "0.1.159");
   assert.match(knexfile, /client: "mysql2"/u);
   assert.doesNotMatch(`${document}\n${knexfile}`, /promptLabel|promptHint|\$\{option:/u);
 });

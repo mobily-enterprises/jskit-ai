@@ -1,9 +1,9 @@
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
-const MANAGED_PREVIEW_IDENTITY_PROTOCOL = "vibe64.preview-identity.command.v1";
-const MANAGED_PREVIEW_IDENTITY_ENABLED_ENV = "VIBE64_PREVIEW_IDENTITY_ENABLED";
-const MANAGED_PREVIEW_IDENTITY_SECRET_ENV = "VIBE64_PREVIEW_IDENTITY_SECRET";
+const MANAGED_PREVIEW_IDENTITY_PROTOCOL = "genesis.preview-identity.command.v1";
+const MANAGED_PREVIEW_IDENTITY_ENABLED_ENV = "AUTH_DEV_BYPASS_ENABLED";
+const MANAGED_PREVIEW_IDENTITY_SECRET_ENV = "AUTH_DEV_BYPASS_SECRET";
 const MAX_MESSAGE_BYTES = 64 * 1024;
 
 function commandError(message, code = "jskit_managed_preview_identity_failed", details = {}) {

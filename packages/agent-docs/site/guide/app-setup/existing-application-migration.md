@@ -168,7 +168,7 @@ Do not conflate these identities:
   application profile and required workspace membership already exist. It does
   not synthesize any of them as a side effect.
 
-For a Vibe64 preview, retain the app-owned `.vibe64/bin/preview-identity`
+For a managed preview, retain the app-owned `tools/preview-identity`
 executable and declare it in the managed Launch target. It calls the
 `@jskit-ai/auth-web` server-side managed-preview library; it does not need a
 framework CLI. Never expose the exchange secret in browser code, a URL, client

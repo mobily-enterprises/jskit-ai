@@ -30,10 +30,13 @@ Use the views, auth guard, HTTP client integration, sign-out runtime, providers,
 and Playwright auth helper exported by `@jskit-ai/auth-web`. Use auth policies
 from `@jskit-ai/auth-core` for server authorization.
 
-For a Vibe64-managed preview, copy the app-owned
-`.vibe64/bin/preview-identity` executable and declare it in the project's
-Genesis Launch target. The executable calls the exported managed-preview
-identity library directly; it does not require a JSKIT CLI.
+For a managed preview, copy the app-owned `tools/preview-identity` executable
+and declare it in the project's Genesis Launch target with protocol
+`genesis.preview-identity.command.v1`. Declare `AUTH_DEV_BYPASS_ENABLED` as its
+Enabled environment and `AUTH_DEV_BYPASS_SECRET` as its Secret environment so
+the preview host supplies fresh launch-scoped values; users do not set those
+values by hand. The executable calls the exported managed-preview identity
+library directly; it does not require a JSKIT CLI.
 
 Choose local-auth storage through the installed capability provider. A
 database-backed application installs `@jskit-ai/auth-provider-local-db-core`,

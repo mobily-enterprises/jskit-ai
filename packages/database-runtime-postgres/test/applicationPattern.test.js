@@ -12,7 +12,7 @@ test("PostgreSQL application pattern is driver-fixed and questionnaire-free", as
   ]);
   const manifest = JSON.parse(manifestSource);
 
-  assert.equal(manifest.dependencies["@jskit-ai/database-runtime-postgres"], "0.1.157");
+  assert.equal(manifest.dependencies["@jskit-ai/database-runtime-postgres"], "0.1.158");
   assert.match(knexfile, /client: "pg"/u);
   assert.doesNotMatch(`${document}\n${knexfile}`, /promptLabel|promptHint|\$\{option:/u);
 });

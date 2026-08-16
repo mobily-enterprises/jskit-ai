@@ -41,8 +41,8 @@ test("managed preview identity signs out before selecting an existing applicatio
     target: { origin: "http://vibe64-launch-deadbeefcafe" }
   }, {
     env: {
-      VIBE64_PREVIEW_IDENTITY_ENABLED: "true",
-      VIBE64_PREVIEW_IDENTITY_SECRET: SECRET
+      AUTH_DEV_BYPASS_ENABLED: "true",
+      AUTH_DEV_BYPASS_SECRET: SECRET
     },
     fetchImpl: async (href, options) => {
       calls.push({ href, options });
@@ -79,8 +79,8 @@ test("managed preview identity rejects a disabled or non-local exchange", async 
     target: { origin: "https://example.com" }
   }, {
     env: {
-      VIBE64_PREVIEW_IDENTITY_ENABLED: "true",
-      VIBE64_PREVIEW_IDENTITY_SECRET: SECRET
+      AUTH_DEV_BYPASS_ENABLED: "true",
+      AUTH_DEV_BYPASS_SECRET: SECRET
     },
     fetchImpl: async () => assert.fail("fetch must not run")
   });
