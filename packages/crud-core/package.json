@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.172",
+  "version": "0.1.173",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -23,11 +23,11 @@
     "./server/routeContracts": "./src/server/routeContracts.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.161",
-    "@jskit-ai/http-runtime": "0.1.159",
-    "@jskit-ai/json-rest-api-core": "0.1.105",
-    "@jskit-ai/kernel": "0.1.161",
-    "@jskit-ai/resource-crud-core": "0.1.103",
+    "@jskit-ai/database-runtime": "0.1.162",
+    "@jskit-ai/http-runtime": "0.1.160",
+    "@jskit-ai/json-rest-api-core": "0.1.106",
+    "@jskit-ai/kernel": "0.1.162",
+    "@jskit-ai/resource-crud-core": "0.1.104",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Shared server-side CRUD service, repository, route, and query helpers.",

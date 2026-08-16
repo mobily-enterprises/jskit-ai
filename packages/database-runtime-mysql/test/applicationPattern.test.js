@@ -5,14 +5,19 @@ import test from "node:test";
 const patternUrl = new URL("../patterns/mysql-application/", import.meta.url);
 
 test("MySQL application pattern is driver-fixed and questionnaire-free", async () => {
-  const [document, manifestSource, knexfile] = await Promise.all([
+  const [document, manifestSource, packageSource, knexfile] = await Promise.all([
     readFile(new URL("PATTERN.md", patternUrl), "utf8"),
     readFile(new URL("example/package.json", patternUrl), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("example/knexfile.js", patternUrl), "utf8")
   ]);
   const manifest = JSON.parse(manifestSource);
+  const packageManifest = JSON.parse(packageSource);
 
-  assert.equal(manifest.dependencies["@jskit-ai/database-runtime-mysql"], "0.1.159");
+  assert.equal(
+    manifest.dependencies["@jskit-ai/database-runtime-mysql"],
+    packageManifest.version
+  );
   assert.match(knexfile, /client: "mysql2"/u);
   assert.doesNotMatch(`${document}\n${knexfile}`, /promptLabel|promptHint|\$\{option:/u);
 });

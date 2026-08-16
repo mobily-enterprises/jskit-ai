@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/uploads-runtime",
-  "version": "0.1.136",
+  "version": "0.1.137",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@fastify/multipart": "^9.4.0",
-    "@jskit-ai/kernel": "0.1.161"
+    "@jskit-ai/kernel": "0.1.162"
   },
   "description": "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
   "jskit": {
