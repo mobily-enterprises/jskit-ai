@@ -219,9 +219,7 @@ function registerSettingsRoutes(
 
       const response = await request.executeAction({
         actionId: actionIds.settingsRead,
-        context: {
-          surface: routeState.hostSurfaceId
-        },
+        surface: routeState.hostSurfaceId,
         input: routeState.actionInput
       });
 
@@ -259,9 +257,7 @@ function registerSettingsRoutes(
 
       const response = await request.executeAction({
         actionId: actionIds.settingsUpdate,
-        context: {
-          surface: routeState.hostSurfaceId
-        },
+        surface: routeState.hostSurfaceId,
         input: {
           ...routeState.actionInput,
           patch: request.input.body
@@ -374,9 +370,7 @@ function registerRuntimeRoutes(
 
         await request.executeAction({
           actionId: actionIds.chatStream,
-          context: {
-            surface: routeState.hostSurfaceId
-          },
+          surface: routeState.hostSurfaceId,
           input: buildChatStreamActionInput(routeState.actionInput, requestBody),
           deps: {
             streamWriter,
@@ -440,9 +434,7 @@ function registerRuntimeRoutes(
 
       const response = await request.executeAction({
         actionId: actionIds.conversationsList,
-        context: {
-          surface: routeState.hostSurfaceId
-        },
+        surface: routeState.hostSurfaceId,
         input: {
           ...routeState.actionInput,
           query: request.input.query
@@ -482,9 +474,7 @@ function registerRuntimeRoutes(
 
       const response = await request.executeAction({
         actionId: actionIds.conversationMessagesList,
-        context: {
-          surface: routeState.hostSurfaceId
-        },
+        surface: routeState.hostSurfaceId,
         input: {
           ...routeState.actionInput,
           conversationId: request.input.params.conversationId,

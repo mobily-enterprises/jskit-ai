@@ -3,6 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
+import { actionIds } from "../src/server/actionIds.js";
 import { registerRoutes } from "../src/server/registerRoutes.js";
 import { createChatService } from "../src/server/services/chatService.js";
 
@@ -104,6 +105,96 @@ test("registerRoutes exposes JSON:API contracts for assistant settings and trans
   assert.equal(publicConversationMessagesRoute?.schema?.response?.[200]?.required?.[0], "data");
 });
 
+test("registerRoutes forwards the resolved host surface through every direct action", async () => {
+  const workspaceScopeSupport = createWorkspaceServerScopeSupport();
+  const testApp = createAssistantTestApp({ workspaceScopeSupport });
+  registerRoutes(testApp.router, { config: createAssistantAppConfig(), workspaceScopeSupport });
+  const routes = testApp.router.list();
+  const routeCases = [
+    {
+      actionId: actionIds.settingsRead,
+      method: "GET",
+      path: "/api/w/:workspaceSlug/assistant/:surfaceId/settings"
+    },
+    {
+      actionId: actionIds.settingsUpdate,
+      body: { data: { attributes: {} } },
+      method: "PATCH",
+      path: "/api/w/:workspaceSlug/assistant/:surfaceId/settings"
+    },
+    {
+      actionId: actionIds.chatStream,
+      body: { input: "hello", messageId: "msg_1" },
+      method: "POST",
+      path: "/api/w/:workspaceSlug/assistant/:surfaceId/chat/stream"
+    },
+    {
+      actionId: actionIds.conversationsList,
+      method: "GET",
+      path: "/api/w/:workspaceSlug/assistant/:surfaceId/conversations"
+    },
+    {
+      actionId: actionIds.conversationMessagesList,
+      method: "GET",
+      path: "/api/w/:workspaceSlug/assistant/:surfaceId/conversations/:conversationId/messages"
+    }
+  ];
+
+  for (const routeCase of routeCases) {
+    const route = findRoute(routes, routeCase);
+    assert.ok(route, `Expected ${routeCase.method} ${routeCase.path} to be registered.`);
+    let capturedAction = null;
+    const reply = {
+      raw: {
+        end() {},
+        flushHeaders() {},
+        write() {}
+      },
+      code() {
+        return this;
+      },
+      header() {
+        return this;
+      },
+      hijack() {
+        return this;
+      },
+      send() {
+        return this;
+      }
+    };
+    await route.handler(
+      {
+        raw: {
+          off() {},
+          on() {}
+        },
+        headers: {
+          "x-jskit-surface": "admin"
+        },
+        input: {
+          body: routeCase.body || {},
+          params: {
+            conversationId: "conversation_1",
+            surfaceId: "admin",
+            workspaceSlug: "dogandgroom"
+          },
+          query: {
+            limit: 20
+          }
+        },
+        async executeAction(action) {
+          capturedAction = action;
+          return {};
+        }
+      },
+      reply
+    );
+    assert.equal(capturedAction?.actionId, routeCase.actionId);
+    assert.equal(capturedAction?.surface, "admin");
+  }
+});
+
 test("registerRoutes builds workspace action input from explicit config and scope support", async () => {
   const workspaceScopeSupport = createWorkspaceServerScopeSupport();
   const testApp = createAssistantTestApp({
@@ -120,7 +211,7 @@ test("registerRoutes builds workspace action input from explicit config and scop
 
   assert.ok(route, "Expected workspace assistant conversations route to be registered.");
 
-  let capturedInput = null;
+  let capturedAction = null;
   const reply = {
     statusCode: 0,
     payload: null,
@@ -148,8 +239,8 @@ test("registerRoutes builds workspace action input from explicit config and scop
           limit: 20
         }
       },
-      executeAction: async ({ input }) => {
-        capturedInput = input;
+      executeAction: async (action) => {
+        capturedAction = action;
         return {
           entries: [],
           pagination: {
@@ -165,8 +256,9 @@ test("registerRoutes builds workspace action input from explicit config and scop
   );
 
   assert.equal(reply.statusCode, 200);
-  assert.equal(capturedInput?.targetSurfaceId, "admin");
-  assert.equal(capturedInput?.workspaceSlug, "dogandgroom");
+  assert.equal(capturedAction?.surface, "admin");
+  assert.equal(capturedAction?.input?.targetSurfaceId, "admin");
+  assert.equal(capturedAction?.input?.workspaceSlug, "dogandgroom");
 });
 
 test("registerRoutes returns clear AppError payload for pre-stream assistant failures", async () => {

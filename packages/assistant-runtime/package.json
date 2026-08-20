@@ -2,6 +2,9 @@
   "name": "@jskit-ai/assistant-runtime",
   "version": "0.1.133",
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
