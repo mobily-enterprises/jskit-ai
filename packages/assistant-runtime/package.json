@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.133",
+  "version": "0.1.134",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,12 +11,12 @@
     "./server/actionIds": "./src/server/actionIds.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.138",
-    "@jskit-ai/database-runtime": "0.1.162",
-    "@jskit-ai/http-web": "0.1.7",
-    "@jskit-ai/http-runtime": "0.1.160",
-    "@jskit-ai/kernel": "0.1.162",
-    "@jskit-ai/shell-web": "0.1.166",
+    "@jskit-ai/assistant-core": "0.1.139",
+    "@jskit-ai/database-runtime": "0.1.163",
+    "@jskit-ai/http-web": "0.1.8",
+    "@jskit-ai/http-runtime": "0.1.161",
+    "@jskit-ai/kernel": "0.1.163",
+    "@jskit-ai/shell-web": "0.1.167",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
