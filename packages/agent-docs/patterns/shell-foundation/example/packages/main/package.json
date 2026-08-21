@@ -9,7 +9,7 @@
   },
   "description": "App-local runtime composition and lightweight glue.",
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.163"
+    "@jskit-ai/kernel": "0.1.164"
   },
   "jskit": {
     "kind": "runtime",

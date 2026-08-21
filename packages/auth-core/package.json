@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.1.161",
+  "version": "0.1.162",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -61,7 +61,7 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@jskit-ai/kernel": "0.1.163",
+    "@jskit-ai/kernel": "0.1.164",
     "json-rest-schema": "^1.0.17"
   },
   "jskit": {
