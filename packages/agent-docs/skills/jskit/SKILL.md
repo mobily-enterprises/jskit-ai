@@ -11,7 +11,7 @@ belongs to the application immediately.
 
 ## Pattern-first implementation
 
-Search [the generated source pattern index](../../reference/autogen/PATTERN_INDEX.md)
+Search [the generated source pattern index](references/pattern-index.md)
 for the requested outcome before reading broad operational guidance or
 inventing a local structure. Read a selected package's `PATTERN.md` completely,
 then use its example directly, adapt it, compose compatible patterns, or treat
@@ -30,7 +30,7 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    own a second project brain or prescribe a particular agent orchestrator.
 4. Load only the task-relevant direct reference:
    - Existing-app migration: read
-     [port guide](../../guide/agent/app-setup/existing-application-migration.md).
+     [port guide](references/existing-application-migration.md).
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
    - Before database, schema, CRUD, repository, or persistence work, read

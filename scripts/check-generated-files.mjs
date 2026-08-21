@@ -8,6 +8,8 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const GENERATED_PATHS = Object.freeze([
   "packages/agent-docs/reference/autogen",
   "packages/agent-docs/guide/agent",
+  "packages/agent-docs/skills/jskit/references/pattern-index.md",
+  "packages/agent-docs/skills/jskit/references/existing-application-migration.md",
   "tooling/jskit-catalog/catalog/packages.json"
 ]);
 const GENERATORS = Object.freeze([

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -44,11 +44,11 @@
     "./client/support/contractGuards": "./src/client/support/contractGuards.js"
   },
   "dependencies": {
-    "@jskit-ai/http-runtime": "0.1.162",
-    "@jskit-ai/kernel": "0.1.164",
-    "@jskit-ai/realtime": "0.1.161",
-    "@jskit-ai/resource-crud-core": "0.1.106",
-    "@jskit-ai/shell-web": "0.1.168",
+    "@jskit-ai/http-runtime": "0.1.163",
+    "@jskit-ai/kernel": "0.1.165",
+    "@jskit-ai/realtime": "0.1.162",
+    "@jskit-ai/resource-crud-core": "0.1.107",
+    "@jskit-ai/shell-web": "0.1.169",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {

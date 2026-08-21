@@ -22,6 +22,13 @@ const REFERENCE_README_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "README.md");
 const GUIDE_SITE_ROOT = path.join(AGENT_DOCS_ROOT, "site");
 const GUIDE_SOURCE_ROOT = path.join(GUIDE_SITE_ROOT, "guide");
 const GUIDE_AGENT_ROOT = path.join(AGENT_DOCS_ROOT, "guide", "agent");
+const JSKIT_SKILL_REFERENCES_ROOT = path.join(AGENT_DOCS_ROOT, "skills", "jskit", "references");
+const JSKIT_SKILL_PATTERN_INDEX_PATH = path.join(JSKIT_SKILL_REFERENCES_ROOT, "pattern-index.md");
+const EXISTING_APPLICATION_MIGRATION_PATH = "app-setup/existing-application-migration.md";
+const JSKIT_SKILL_MIGRATION_GUIDE_PATH = path.join(
+  JSKIT_SKILL_REFERENCES_ROOT,
+  "existing-application-migration.md"
+);
 const KERNEL_SHARED_ROOT = path.join(REPO_ROOT, "packages", "kernel", "shared");
 const PACKAGE_ROOTS = Object.freeze([
   { groupName: "packages", rootDir: path.join(REPO_ROOT, "packages") },
@@ -579,6 +586,8 @@ function compressGuideMarkdown(sourceText = "") {
 async function clearAgentDocsOutputs() {
   await rm(REFERENCE_AUTOGEN_ROOT, { recursive: true, force: true });
   await rm(GUIDE_AGENT_ROOT, { recursive: true, force: true });
+  await rm(JSKIT_SKILL_PATTERN_INDEX_PATH, { force: true });
+  await rm(JSKIT_SKILL_MIGRATION_GUIDE_PATH, { force: true });
 }
 
 async function buildStartupKernelMap(commandName) {
@@ -700,7 +709,9 @@ async function buildPatternIndex(commandName) {
   }
   assertUniquePatternIds(patterns);
   patterns.sort((left, right) => left.id.localeCompare(right.id));
-  await writeTextFile(PATTERN_INDEX_PATH, renderPatternIndex(patterns, commandName));
+  const outputText = renderPatternIndex(patterns, commandName);
+  await writeTextFile(PATTERN_INDEX_PATH, outputText);
+  await writeTextFile(JSKIT_SKILL_PATTERN_INDEX_PATH, outputText);
 }
 
 async function buildReferenceMaps(commandName) {
@@ -756,13 +767,14 @@ async function buildGuideOutputs(commandName) {
     const sourceMarkdownPath = normalizeMarkdownPath(path.relative(REPO_ROOT, sourceFilePath));
     const sourceText = await readFile(sourceFilePath, "utf8");
 
-    await writeTextFile(
-      path.join(GUIDE_AGENT_ROOT, relativePath),
-      toGeneratedGuideText(compressGuideMarkdown(sourceText), {
-        commandName,
-        sourcePath: sourceMarkdownPath
-      })
-    );
+    const outputText = toGeneratedGuideText(compressGuideMarkdown(sourceText), {
+      commandName,
+      sourcePath: sourceMarkdownPath
+    });
+    await writeTextFile(path.join(GUIDE_AGENT_ROOT, relativePath), outputText);
+    if (relativePath === EXISTING_APPLICATION_MIGRATION_PATH) {
+      await writeTextFile(JSKIT_SKILL_MIGRATION_GUIDE_PATH, outputText);
+    }
   }
 }
 
@@ -781,6 +793,8 @@ async function main() {
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, PATTERN_INDEX_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, REFERENCE_README_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, GUIDE_AGENT_ROOT))}\n`);
+  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, JSKIT_SKILL_PATTERN_INDEX_PATH))}\n`);
+  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, JSKIT_SKILL_MIGRATION_GUIDE_PATH))}\n`);
 }
 
 await main();

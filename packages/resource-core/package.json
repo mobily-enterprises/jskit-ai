@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-core",
-  "version": "0.1.106",
+  "version": "0.1.107",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,7 +9,7 @@
     "./shared/resource": "./src/shared/resource.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.164"
+    "@jskit-ai/kernel": "0.1.165"
   },
   "description": "Generic resource-definition helpers and schema-definition normalization.",
   "jskit": {

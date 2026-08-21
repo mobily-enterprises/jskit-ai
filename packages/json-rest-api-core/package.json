@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.1.108",
+  "version": "0.1.109",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -9,9 +9,9 @@
     "./server/jsonRestApiHost": "./src/server/jsonRestApiHost.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.164",
-    "@jskit-ai/kernel": "0.1.164",
-    "@jskit-ai/resource-crud-core": "0.1.106",
+    "@jskit-ai/database-runtime": "0.1.165",
+    "@jskit-ai/kernel": "0.1.165",
+    "@jskit-ai/resource-crud-core": "0.1.107",
     "hooked-api": "1.x.x",
     "json-rest-api": "^1.0.27"
   },

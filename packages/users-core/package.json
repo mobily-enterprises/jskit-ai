@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.1.177",
+  "version": "0.1.178",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,15 +13,15 @@
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.162",
-    "@jskit-ai/database-runtime": "0.1.164",
-    "@jskit-ai/http-runtime": "0.1.162",
-    "@jskit-ai/json-rest-api-core": "0.1.108",
-    "@jskit-ai/kernel": "0.1.164",
-    "@jskit-ai/resource-core": "0.1.106",
-    "@jskit-ai/resource-crud-core": "0.1.106",
-    "@jskit-ai/storage-runtime": "0.1.161",
-    "@jskit-ai/uploads-runtime": "0.1.139",
+    "@jskit-ai/auth-core": "0.1.163",
+    "@jskit-ai/database-runtime": "0.1.165",
+    "@jskit-ai/http-runtime": "0.1.163",
+    "@jskit-ai/json-rest-api-core": "0.1.109",
+    "@jskit-ai/kernel": "0.1.165",
+    "@jskit-ai/resource-core": "0.1.107",
+    "@jskit-ai/resource-crud-core": "0.1.107",
+    "@jskit-ai/storage-runtime": "0.1.162",
+    "@jskit-ai/uploads-runtime": "0.1.140",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Users/account runtime plus HTTP routes for account features.",

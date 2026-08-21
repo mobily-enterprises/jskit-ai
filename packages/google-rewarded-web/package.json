@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/google-rewarded-web",
-  "version": "0.1.100",
+  "version": "0.1.101",
   "type": "module",
   "exports": {
     ".": "./src/index.js",
@@ -42,9 +42,9 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/google-rewarded-core": "0.1.100",
-    "@jskit-ai/http-runtime": "0.1.162",
-    "@jskit-ai/kernel": "0.1.164",
-    "@jskit-ai/shell-web": "0.1.168"
+    "@jskit-ai/google-rewarded-core": "0.1.101",
+    "@jskit-ai/http-runtime": "0.1.163",
+    "@jskit-ai/kernel": "0.1.165",
+    "@jskit-ai/shell-web": "0.1.169"
   }
 }

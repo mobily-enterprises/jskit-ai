@@ -1,10 +1,47 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { access, cp, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const OPERATIONAL_REFERENCE_FILES = Object.freeze([
+  "app-operations.md",
+  "crud-operations.md",
+  "material-3.md",
+  "ui-operations.md",
+]);
+
+async function collectMarkdownFiles(root) {
+  const files = [];
+  async function visit(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(location);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        files.push(location);
+      }
+    }
+  }
+  await visit(root);
+  return files.sort();
+}
+
+function relativeMarkdownLinks(source) {
+  const destinations = [
+    ...source.matchAll(/!?\[[^\]\n]*\]\((?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/gu),
+    ...source.matchAll(/^\s*\[[^\]\n]+\]:\s*(?:<([^>]+)>|(\S+))/gmu),
+  ].map((match) => match[1] || match[2]);
+  return destinations.filter((destination) => (
+    destination
+    && !destination.startsWith("#")
+    && !destination.startsWith("?")
+    && !destination.startsWith("/")
+    && !/^[a-z][a-z\d+.-]*:/iu.test(destination)
+  ));
+}
 
 test("the single JSKIT skill is pattern-first and contains no generator or receipt lane", async () => {
   const skillRoot = path.join(packageRoot, "skills/jskit");
@@ -15,23 +52,22 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     file,
     source: await readFile(path.join(referencesRoot, file), "utf8"),
   })));
-  const operationalSource = [skill, ...references.map(({ source }) => source)].join("\n");
+  const operationalReferences = references.filter(({ file }) => OPERATIONAL_REFERENCE_FILES.includes(file));
+  const operationalSource = [skill, ...operationalReferences.map(({ source }) => source)].join("\n");
 
   assert.deepEqual(referenceFiles, [
     "app-operations.md",
     "crud-operations.md",
+    "existing-application-migration.md",
     "material-3.md",
+    "pattern-index.md",
     "ui-operations.md",
   ]);
   for (const file of referenceFiles) {
     assert.match(skill, new RegExp(`\\(references/${file.replace(".", "\\.")}\\)`, "u"));
   }
   const localLinks = [...skill.matchAll(/\[[^\]\n]*\]\(([^)]+)\)/gu)].map((match) => match[1]);
-  assert.deepEqual(localLinks.sort(), [
-    "../../guide/agent/app-setup/existing-application-migration.md",
-    "../../reference/autogen/PATTERN_INDEX.md",
-    ...referenceFiles.map((file) => `references/${file}`)
-  ].sort());
+  assert.deepEqual(localLinks.sort(), referenceFiles.map((file) => `references/${file}`).sort());
   assert.equal(references.every(({ source }) => !/\[[^\]\n]*\]\((?!https?:|mailto:|#)[^)]+\)/u.test(source)), true);
 
   assert.match(operationalSource, /current diff/);
@@ -78,6 +114,28 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])(?:patterns|guide\/agent|site\/guide)\//mu);
   assert.ok(Buffer.byteLength(operationalSource) <= 20 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 13 * 1024);
+});
+
+test("the published JSKIT skill remains self-contained after relocation", async (t) => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-skill-relocation-"));
+  const relocatedSkillRoot = path.join(temporaryRoot, "jskit");
+  t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  await cp(path.join(packageRoot, "skills/jskit"), relocatedSkillRoot, { recursive: true });
+
+  for (const markdownFile of await collectMarkdownFiles(relocatedSkillRoot)) {
+    const source = await readFile(markdownFile, "utf8");
+    for (const destination of relativeMarkdownLinks(source)) {
+      const encodedPath = destination.split(/[?#]/u, 1)[0];
+      const target = path.resolve(path.dirname(markdownFile), decodeURIComponent(encodedPath));
+      const relativeTarget = path.relative(relocatedSkillRoot, target);
+      assert.equal(
+        relativeTarget === ".." || relativeTarget.startsWith(`..${path.sep}`) || path.isAbsolute(relativeTarget),
+        false,
+        `${path.relative(relocatedSkillRoot, markdownFile)} links outside the skill: ${destination}`
+      );
+      await access(target);
+    }
+  }
 });
 
 test("UI testing guidance uses private local exchange support and managed storage state", async () => {

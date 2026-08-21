@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/realtime",
-  "version": "0.1.161",
+  "version": "0.1.162",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,8 +14,8 @@
     "./client/runtime": "./src/client/runtime.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.164",
-    "@jskit-ai/shell-web": "0.1.168",
+    "@jskit-ai/kernel": "0.1.165",
+    "@jskit-ai/shell-web": "0.1.169",
     "@socket.io/redis-adapter": "^8.3.0",
     "redis": "^5.8.2",
     "socket.io": "^4.8.3",
