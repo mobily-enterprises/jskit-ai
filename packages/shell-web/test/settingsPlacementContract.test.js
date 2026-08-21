@@ -76,6 +76,7 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);
   assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
   assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
+  assert.match(source, /\.shell-layout__bottom-nav\s+:deep\(\.v-btn\)\s*\{[\s\S]*min-height:\s*48px;/);
   assert.match(source, /<v-bottom-sheet[\s\S]*target="shell-layout:supporting-bottom-sheet"/);
   assert.match(source, /target="shell-layout:supporting-side-panel"/);
   assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);

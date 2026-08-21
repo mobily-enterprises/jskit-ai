@@ -828,6 +828,10 @@ function touchListIncludesActiveTouch(touchList) {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.shell-layout__bottom-nav :deep(.v-btn) {
+  min-height: 48px;
+}
+
 .shell-layout__supporting-sheet {
   max-height: min(72vh, 40rem);
   overflow: auto;
