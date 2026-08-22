@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-web",
-  "version": "0.1.144",
+  "version": "0.1.145",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,13 +14,13 @@
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-web": "0.1.165",
-    "@jskit-ai/http-web": "0.1.10",
-    "@jskit-ai/kernel": "0.1.165",
-    "@jskit-ai/shell-web": "0.1.169",
-    "@jskit-ai/users-core": "0.1.178",
-    "@jskit-ai/users-web": "0.1.183",
-    "@jskit-ai/workspaces-core": "0.1.143",
+    "@jskit-ai/auth-web": "0.1.166",
+    "@jskit-ai/http-web": "0.1.11",
+    "@jskit-ai/kernel": "0.1.166",
+    "@jskit-ai/shell-web": "0.1.170",
+    "@jskit-ai/users-core": "0.1.179",
+    "@jskit-ai/users-web": "0.1.184",
+    "@jskit-ai/workspaces-core": "0.1.144",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
