@@ -31,8 +31,8 @@ and Playwright auth helper exported by `@jskit-ai/auth-web`. Use auth policies
 from `@jskit-ai/auth-core` for server authorization.
 
 For a managed preview, copy the app-owned `tools/preview-identity` executable
-and declare it in the project's Genesis Launch target with protocol
-`genesis.preview-identity.command.v1`. Declare `AUTH_DEV_BYPASS_ENABLED` as its
+and declare it in the project's Vibe64 Launch target with protocol
+`vibe64.preview-identity.command.v1`. Declare `AUTH_DEV_BYPASS_ENABLED` as its
 Enabled environment and `AUTH_DEV_BYPASS_SECRET` as its Secret environment so
 the preview host supplies fresh launch-scoped values; users do not set those
 values by hand. The executable calls the exported managed-preview identity

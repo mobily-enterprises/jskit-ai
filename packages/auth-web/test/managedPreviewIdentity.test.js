@@ -18,6 +18,24 @@ function jsonResponse(payload, { cookie = "", status = 200 } = {}) {
   });
 }
 
+test("managed preview identity uses only the Vibe64-owned command protocol", async () => {
+  assert.equal(MANAGED_PREVIEW_IDENTITY_PROTOCOL, "vibe64.preview-identity.command.v1");
+
+  const result = await executeManagedPreviewIdentityRequest({
+    operation: "logout",
+    protocol: "genesis.preview-identity.command.v1",
+    requestId: "retired-protocol",
+    target: { origin: "http://localhost:3000" }
+  }, {
+    env: {},
+    fetchImpl: async () => assert.fail("fetch must not run")
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.protocol, MANAGED_PREVIEW_IDENTITY_PROTOCOL);
+  assert.equal(result.code, "jskit_managed_preview_identity_protocol_invalid");
+});
+
 test("managed preview identity signs out before selecting an existing application user", async () => {
   const calls = [];
   const responses = [
