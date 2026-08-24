@@ -12,6 +12,10 @@ import {
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
 import { assistantTargetSurfaceInputValidator } from "./inputSchemas.js";
+import {
+  resolveAssistantSurfaceConfig,
+  resolveAssistantSurfacesConfig
+} from "../shared/assistantSurfaces.js";
 
 const runtimeConversationsListQueryInputValidator = deepFreeze({
   schema: createSchema({
@@ -87,13 +91,28 @@ const settingsUpdateInputValidator = composeSchemaDefinitions(
   }
 );
 
-const assistantActions = Object.freeze([
+function configuredAssistantSurfaces(config = {}) {
+  return Object.keys(resolveAssistantSurfacesConfig(config))
+    .map((surfaceId) => resolveAssistantSurfaceConfig(config, surfaceId))
+    .filter(Boolean);
+}
+
+function createAssistantActions({ assistantConfigService, chatService, config = {} } = {}) {
+  if (!assistantConfigService || !chatService) {
+    throw new TypeError("createAssistantActions requires assistantConfigService and chatService.");
+  }
+  const configuredSurfaces = configuredAssistantSurfaces(config);
+  const runtimeSurfaces = [...new Set(configuredSurfaces.map((entry) => entry.targetSurfaceId))];
+  const settingsSurfaces = [...new Set(configuredSurfaces.map((entry) => entry.settingsSurfaceId))];
+  if (runtimeSurfaces.length === 0 || settingsSurfaces.length === 0) return [];
+
+  return Object.freeze([
   {
     id: actionIds.chatStream,
     version: 1,
     kind: "stream",
     channels: ["api", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: runtimeSurfaces,
     permission: {
       require: "authenticated"
     },
@@ -104,7 +123,7 @@ const assistantActions = Object.freeze([
     },
     observability: {},
     async execute(input, context, deps) {
-      return deps.chatService.streamChat(input, {
+      return chatService.streamChat(input, {
         context,
         streamWriter: deps.streamWriter,
         abortSignal: deps.abortSignal
@@ -116,7 +135,7 @@ const assistantActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: runtimeSurfaces,
     permission: {
       require: "authenticated"
     },
@@ -127,8 +146,8 @@ const assistantActions = Object.freeze([
       actionName: actionIds.conversationsList
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.chatService.listConversations(input.query, {
+    async execute(input, context) {
+      return returnJsonApiData(await chatService.listConversations(input.query, {
         context,
         input
       }));
@@ -139,7 +158,7 @@ const assistantActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: runtimeSurfaces,
     permission: {
       require: "authenticated"
     },
@@ -150,8 +169,8 @@ const assistantActions = Object.freeze([
       actionName: actionIds.conversationMessagesList
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.chatService.getConversationMessages(input.conversationId, input.query, {
+    async execute(input, context) {
+      return returnJsonApiData(await chatService.getConversationMessages(input.conversationId, input.query, {
         context,
         input
       }));
@@ -162,7 +181,7 @@ const assistantActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: settingsSurfaces,
     permission: {
       require: "authenticated"
     },
@@ -173,8 +192,8 @@ const assistantActions = Object.freeze([
       actionName: actionIds.settingsRead
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.assistantConfigService.getSettings(input, {
+    async execute(input, context) {
+      return returnJsonApiData(await assistantConfigService.getSettings(input, {
         context
       }));
     }
@@ -184,7 +203,7 @@ const assistantActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: settingsSurfaces,
     permission: {
       require: "authenticated"
     },
@@ -195,12 +214,13 @@ const assistantActions = Object.freeze([
       actionName: actionIds.settingsUpdate
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.assistantConfigService.updateSettings(input, input.patch, {
+    async execute(input, context) {
+      return returnJsonApiData(await assistantConfigService.updateSettings(input, input.patch, {
         context
       }));
     }
   }
-]);
+  ]);
+}
 
-export { assistantActions };
+export { createAssistantActions };

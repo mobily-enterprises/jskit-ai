@@ -1,24 +1,24 @@
 {
   "name": "@jskit-ai/auth-provider-local-db-core",
-  "version": "0.1.51",
+  "version": "0.1.58",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "exports": {
-    "./server/providers/AuthLocalDbBackendServiceProvider": "./src/server/providers/AuthLocalDbBackendServiceProvider.js",
+    "./server/providers/AuthLocalDatabaseBackendProvider": "./src/server/providers/AuthLocalDatabaseBackendProvider.js",
     "./server/lib/index": "./src/server/lib/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.1.60",
-    "@jskit-ai/database-runtime": "0.1.159"
+    "@jskit-ai/auth-provider-local-core": "0.1.67",
+    "@jskit-ai/database-runtime": "0.1.166"
   },
   "description": "Database-backed local auth storage backend for JSKIT local auth.",
   "jskit": {
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "auth.local.backend.db"
+        "auth.local.backend"
       ],
       "requires": [
         "runtime.database"
@@ -28,8 +28,8 @@
       "server": {
         "providers": [
           {
-            "entrypoint": "src/server/providers/AuthLocalDbBackendServiceProvider.js",
-            "export": "AuthLocalDbBackendServiceProvider"
+            "entrypoint": "src/server/providers/AuthLocalDatabaseBackendProvider.js",
+            "export": "AuthLocalDatabaseBackendProvider"
           }
         ]
       },
@@ -42,19 +42,13 @@
         "tableOwnership": {
           "tables": [
             {
-              "tableName": "auth_local_users",
-              "provenance": "auth-provider-local-db-core",
-              "ownerKind": "package"
+              "tableName": "auth_local_users"
             },
             {
-              "tableName": "auth_local_sessions",
-              "provenance": "auth-provider-local-db-core",
-              "ownerKind": "package"
+              "tableName": "auth_local_sessions"
             },
             {
-              "tableName": "auth_local_recovery",
-              "provenance": "auth-provider-local-db-core",
-              "ownerKind": "package"
+              "tableName": "auth_local_recovery"
             }
           ]
         }
@@ -62,62 +56,20 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server/providers/AuthLocalDbBackendServiceProvider",
-            "summary": "Exports the service provider that registers auth.local.backend for AUTH_LOCAL_BACKEND=db."
+            "subpath": "./server/providers/AuthLocalDatabaseBackendProvider",
+            "summary": "Provides the database-backed local authentication repository contract."
           },
           {
             "subpath": "./server/lib/index",
             "summary": "Exports the DB local auth backend factory."
           }
         ],
-        "containerTokens": {
-          "server": [
-            "auth.local.backend"
-          ],
-          "client": []
-        }
+        "capability": "auth.local.backend"
       }
     },
-    "ci": {
-      "environment": {
-        "AUTH_LOCAL_BACKEND": "db"
-      },
-      "services": [],
-      "steps": []
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/auth-provider-local-core": "0.1.60",
-          "@jskit-ai/database-runtime": "0.1.159"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/auth_local_db_initial.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install DB-backed local auth credential, session, and recovery tables.",
-          "category": "auth-local-db",
-          "id": "auth-local-db-initial-schema"
-        }
-      ],
-      "text": [
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "AUTH_LOCAL_BACKEND",
-          "value": "db",
-          "reason": "Use the database-backed local auth backend.",
-          "category": "runtime-config",
-          "id": "auth-local-backend-db"
-        }
+    "migrations": {
+      "directories": [
+        "migrations"
       ]
     }
   }

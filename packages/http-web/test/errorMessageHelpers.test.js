@@ -22,7 +22,18 @@ test("toQueryErrorMessage prefers fallback for generic transport messages", () =
   );
 });
 
-test("toUiErrorMessage prefers fallback copy before runtime error text", () => {
-  assert.equal(toUiErrorMessage({ message: "Server exploded" }, "Unable to save."), "Unable to save.");
+test("toUiErrorMessage resolves specific runtime errors before fallback copy", () => {
+  assert.equal(
+    toUiErrorMessage({ message: "Current password is invalid." }, "Unable to update your password."),
+    "Current password is invalid."
+  );
   assert.equal(toUiErrorMessage({ message: "Server exploded" }, ""), "Server exploded");
+});
+
+test("toUiErrorMessage uses fallback copy for generic transport errors", () => {
+  assert.equal(
+    toUiErrorMessage({ status: 500, message: "Request failed with status 500." }, "Unable to save."),
+    "Unable to save."
+  );
+  assert.equal(toUiErrorMessage({}, "Unable to save."), "Unable to save.");
 });

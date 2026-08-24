@@ -1,8 +1,5 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  resolveCrudLookupToken,
-  resolveCrudLookupNamespaceFromRelation
-} from "./lookupPathSupport.js";
+import { resolveCrudLookupToken } from "./lookupPathSupport.js";
 
 const LOOKUP_OWNERSHIP_FILTER_VALUES = Object.freeze([
   "public",
@@ -25,23 +22,6 @@ function normalizeLookupOwnershipFilter(value, { context = "crudLookup ownership
   throw new TypeError(
     `${context} must be one of: ${LOOKUP_OWNERSHIP_FILTER_VALUES.join(", ")}.`
   );
-}
-
-function createCrudLookupResolver(scope, { context = "crudLookup" } = {}) {
-  if (!scope || typeof scope.make !== "function") {
-    throw new Error(`${context} requires scope.make().`);
-  }
-
-  return function resolveLookup(relation = {}) {
-    const namespace = resolveCrudLookupNamespaceFromRelation(relation, {
-      context
-    });
-    return scope.make(
-      resolveCrudLookupToken(namespace, {
-        context
-      })
-    );
-  };
 }
 
 function createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {}) {
@@ -70,6 +50,5 @@ function createCrudLookup(repository, { context = "crudLookup", ownershipFilter 
 
 export {
   resolveCrudLookupToken,
-  createCrudLookupResolver,
   createCrudLookup
 };

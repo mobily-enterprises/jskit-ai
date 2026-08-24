@@ -14,7 +14,9 @@ const KERNEL_PACKAGE_JSON_PATH = path.join(
 );
 const SCAN_ROOTS = [
   path.join(REPO_ROOT, "packages"),
-  path.join(REPO_ROOT, "tooling", "create-app", "templates")
+  path.join(REPO_ROOT, "packages", "agent-docs", "patterns", "minimal-foundation", "example"),
+  path.join(REPO_ROOT, "packages", "agent-docs", "patterns", "shell-foundation", "example"),
+  path.join(REPO_ROOT, "packages", "agent-docs", "patterns", "feature-package", "example")
 ];
 const SCANNED_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".vue"]);
 const IGNORED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "coverage"]);
@@ -24,8 +26,11 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   "./_testable",
   // Used by generated app bootstrap code emitted from kernel client vite plugin.
   "./client/moduleBootstrap",
-  // Intentionally retained as an explicit low-level kernel API subpath.
-  "./shared/support/tokens",
+  // Public composition-root API. Feature packages normally consume it through
+  // defineFeature(), while infrastructure providers use it directly.
+  "./shared/capabilities",
+  // Public HTTP composition provider used when assembling a server runtime.
+  "./server/http",
   // Public helper API for packages that publish entity-change realtime events.
   "./server/runtime/entityChangeEvents"
 ]);

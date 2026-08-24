@@ -1,17 +1,3 @@
-const BOOTSTRAP_PAYLOAD_HANDLER_TAG = "runtime.web-bootstrap.handlers.client";
-
-function assertTaggableApp(app, context = "bootstrap payload handler registry") {
-  if (!app || typeof app.singleton !== "function" || typeof app.tag !== "function") {
-    throw new Error(`${context} requires application singleton()/tag().`);
-  }
-}
-
-function registerBootstrapPayloadHandler(app, token, factory) {
-  assertTaggableApp(app, "registerBootstrapPayloadHandler");
-  app.singleton(token, factory);
-  app.tag(token, BOOTSTRAP_PAYLOAD_HANDLER_TAG);
-}
-
 function normalizeBootstrapPayloadHandler(entry) {
   if (typeof entry === "function") {
     return Object.freeze({
@@ -22,47 +8,49 @@ function normalizeBootstrapPayloadHandler(entry) {
   }
 
   if (!entry || typeof entry !== "object" || typeof entry.applyBootstrapPayload !== "function") {
-    return null;
+    throw new TypeError("Bootstrap payload handlers require applyBootstrapPayload().");
+  }
+
+  const handlerId = String(entry.handlerId || "").trim();
+  if (!handlerId) {
+    throw new TypeError("Bootstrap payload handlers require handlerId.");
   }
 
   return Object.freeze({
     ...entry,
-    handlerId: String(entry.handlerId || "anonymous"),
+    handlerId,
     order: Number.isFinite(entry.order) ? Number(entry.order) : 0
   });
 }
 
-function resolveBootstrapPayloadHandlers(scope) {
-  if (!scope || typeof scope.resolveTag !== "function") {
-    return [];
+function createBootstrapPayloadHandlerRegistry() {
+  const handlers = new Map();
+
+  function register(entry) {
+    const handler = normalizeBootstrapPayloadHandler(entry);
+    if (handlers.has(handler.handlerId)) {
+      throw new Error(`Bootstrap payload handler "${handler.handlerId}" is duplicated.`);
+    }
+    handlers.set(handler.handlerId, handler);
+    return api;
   }
 
-  const rawEntries = scope.resolveTag(BOOTSTRAP_PAYLOAD_HANDLER_TAG);
-  const queue = Array.isArray(rawEntries) ? [...rawEntries] : [rawEntries];
-  const entries = [];
-
-  while (queue.length > 0) {
-    const entry = queue.shift();
-    if (Array.isArray(entry)) {
-      queue.push(...entry);
-      continue;
-    }
-    const normalized = normalizeBootstrapPayloadHandler(entry);
-    if (normalized) {
-      entries.push(normalized);
-    }
+  function list() {
+    return Object.freeze(
+      [...handlers.values()].sort((left, right) => {
+        if (left.order !== right.order) {
+          return left.order - right.order;
+        }
+        return left.handlerId.localeCompare(right.handlerId);
+      })
+    );
   }
 
-  return entries.sort((left, right) => {
-    if (left.order !== right.order) {
-      return left.order - right.order;
-    }
-    return left.handlerId.localeCompare(right.handlerId);
-  });
+  const api = Object.freeze({ register, list });
+  return api;
 }
 
 export {
-  BOOTSTRAP_PAYLOAD_HANDLER_TAG,
-  registerBootstrapPayloadHandler,
-  resolveBootstrapPayloadHandlers
+  createBootstrapPayloadHandlerRegistry,
+  normalizeBootstrapPayloadHandler
 };

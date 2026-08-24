@@ -206,24 +206,20 @@ Exports
 - `findLinkedIdentityByProvider`
 - `buildSecurityStatusFromAuthMethodsStatus`
 
-### `src/server/providers/AuthProviderServiceProvider.js`
+### `src/server/providers/AuthSupabaseProvider.js`
 Exports
-- `AuthProviderServiceProvider`
-
-### `src/server/providers/AuthSupabaseServiceProvider.js`
-Exports
-- `AuthSupabaseServiceProvider`
+- `AuthSupabaseProvider`
 Local functions
-- `splitCsv(value)`
 - `normalizeRecord(value)`
-- `normalizeOAuthProviderConfigList(value)`
-- `resolveOAuthConfigFromAppConfig(appConfig)`
-- `resolveAllowedReturnToOrigins({ appConfig = {}, appPublicUrl = "" } = {})`
-- `resolveAuthProviderConfig(env, appConfig = {})`
-- `resolveAuthProfileMode(appConfig = {})`
-- `createProviderIdentityProfileSyncService({ authProviderId = "supabase" } = {})`
-- `resolveCommonDependencies(scope)`
-- `resolveRuntimeEnv(scope)`
-- `assertSelectedAuthProvider(env)`
-- `resolveOptionalRepositories(scope)`
-- `isDeferredJsonRestBootGap(app, error)`
+- `splitCsv(value)`
+- `oauthConfig(config)`
+- `providerConfig(env, config)`
+- `profileMode(config)`
+- `createProviderProfileProjector()`
+- `assertSelectedProvider(env)`
+
+### patterns
+
+### `patterns/supabase-auth/example/config/server.js`
+Exports
+- None

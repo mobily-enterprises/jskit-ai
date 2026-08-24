@@ -39,7 +39,7 @@ function ensureActionSurfaceAllowed(definition, context) {
   const surface = normalizeLowerText(context?.surface);
   const allowedSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
 
-  if (!surface || !allowedSurfaces.includes(surface)) {
+  if (!allowedSurfaces.includes("*") && (!surface || !allowedSurfaces.includes(surface))) {
     throw createActionRuntimeError(403, "Forbidden.", {
       code: "ACTION_SURFACE_FORBIDDEN",
       details: {

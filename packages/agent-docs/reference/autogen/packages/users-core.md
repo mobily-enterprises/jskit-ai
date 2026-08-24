@@ -16,7 +16,8 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/accountNotifications/accountNotificationsActions.js`
 Exports
-- `accountNotificationsActions`
+- `accountNotificationsActionSpecifications`
+- `buildAccountNotificationsActions({ accountNotificationsService } = {})`
 
 ### `src/server/accountNotifications/accountNotificationsService.js`
 Exports
@@ -24,15 +25,12 @@ Exports
 
 ### `src/server/accountNotifications/bootAccountNotificationsRoutes.js`
 Exports
-- `bootAccountNotificationsRoutes(app)`
-
-### `src/server/accountNotifications/registerAccountNotifications.js`
-Exports
-- `registerAccountNotifications(app)`
+- `registerAccountNotificationsRoutes(router)`
 
 ### `src/server/accountPreferences/accountPreferencesActions.js`
 Exports
-- `accountPreferencesActions`
+- `accountPreferencesActionSpecifications`
+- `buildAccountPreferencesActions({ accountPreferencesService } = {})`
 
 ### `src/server/accountPreferences/accountPreferencesService.js`
 Exports
@@ -40,15 +38,12 @@ Exports
 
 ### `src/server/accountPreferences/bootAccountPreferencesRoutes.js`
 Exports
-- `bootAccountPreferencesRoutes(app)`
-
-### `src/server/accountPreferences/registerAccountPreferences.js`
-Exports
-- `registerAccountPreferences(app)`
+- `registerAccountPreferencesRoutes(router)`
 
 ### `src/server/accountProfile/accountProfileActions.js`
 Exports
-- `accountProfileActions`
+- `accountProfileActionSpecifications`
+- `buildAccountProfileActions({ accountProfileService } = {})`
 
 ### `src/server/accountProfile/accountProfileService.js`
 Exports
@@ -71,15 +66,12 @@ Local functions
 
 ### `src/server/accountProfile/bootAccountProfileRoutes.js`
 Exports
-- `bootAccountProfileRoutes(app)`
-
-### `src/server/accountProfile/registerAccountProfile.js`
-Exports
-- `registerAccountProfile(app)`
+- `registerAccountProfileRoutes(router, { accountProfileService, authService, uploads } = {})`
 
 ### `src/server/accountSecurity/accountSecurityActions.js`
 Exports
-- `accountSecurityActions`
+- `accountSecurityActionSpecifications`
+- `buildAccountSecurityActions({ accountSecurityService } = {})`
 
 ### `src/server/accountSecurity/accountSecurityService.js`
 Exports
@@ -87,11 +79,7 @@ Exports
 
 ### `src/server/accountSecurity/bootAccountSecurityRoutes.js`
 Exports
-- `bootAccountSecurityRoutes(app)`
-
-### `src/server/accountSecurity/registerAccountSecurity.js`
-Exports
-- `registerAccountSecurity(app)`
+- `registerAccountSecurityRoutes(router, { authService } = {})`
 
 ### `src/server/common/formatters/accountAvatarFormatter.js`
 Exports
@@ -113,14 +101,6 @@ Exports
 Local functions
 - `resolveAuthProfileSettings(authService)`
 - `formatUserSettingsSection(fieldKeys, settings = {})`
-
-### `src/server/common/registerCommonRepositories.js`
-Exports
-- `registerCommonRepositories(app)`
-
-### `src/server/common/registerSharedApi.js`
-Exports
-- `registerSharedApi(app, usersCoreApi)`
 
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
@@ -165,7 +145,7 @@ Exports
 
 ### `src/server/common/services/authProfileSyncService.js`
 Exports
-- `createService({ userProfilesRepository, lifecycleContributors = [], userSettingsRepository = null } = {})`
+- `createService({ userProfilesRepository, resolveLifecycleContributors = () => [], userSettingsRepository = null } = {})`
 Local functions
 - `buildNormalizedIdentityKey(identityLike)`
 - `buildNormalizedIdentityProfile(profileLike)`
@@ -189,41 +169,38 @@ Exports
 Exports
 - `ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS`
 Local functions
-- `resolveActorScopedEntityId({ options } = {})`
+- `resolveActorScopedEntityId({ context } = {})`
 
 ### `src/server/common/support/resolveActionUser.js`
 Exports
 - `resolveActionUser(context, input)`
 
-### `src/server/profileSyncLifecycleContributorRegistry.js`
-Exports
-- `PROFILE_SYNC_LIFECYCLE_CONTRIBUTOR_TAG`
-- `registerProfileSyncLifecycleContributor(app, token, factory)`
-- `resolveProfileSyncLifecycleContributors(scope)`
-Local functions
-- `normalizeProfileSyncLifecycleContributor(entry)`
-
-### `src/server/registerUsersBootstrap.js`
-Exports
-- `registerUsersBootstrap(app)`
-
-### `src/server/registerUsersCore.js`
-Exports
-- `registerUsersCore(app)`
-
 ### `src/server/usersBootstrapContributor.js`
 Exports
-- `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, appConfig = {}, authService } = {})`
+- `createUsersBootstrapContributor({ userProfilesRepository, userSettingsRepository, authService } = {})`
 Local functions
 - `getOAuthProviderCatalogPayload(authService)`
-- `resolveBooleanConfigValue(value, fallback)`
-- `resolveAppState(appConfig = {})`
-- `createAnonymousBootstrapPayload({ appState, surfaceAccess = {} })`
+- `createAnonymousBootstrapPayload({ surfaceAccess = {} })`
 - `mapUserSettingsBootstrap(settings = {})`
 
-### `src/server/UsersCoreServiceProvider.js`
+### `src/server/usersExtensions.js`
 Exports
-- `UsersCoreServiceProvider`
+- `createUsersExtensions()`
+Local functions
+- `normalizeContributor(value)`
+
+### `src/server/UsersExtensionsProvider.js`
+Exports
+- `UsersExtensionsProvider`
+
+### `src/server/UsersFeature.js`
+Exports
+- `UsersFeature`
+- `createUsersRuntime({ authService, identity, storage } = {})`
+
+### `src/server/UsersIdentityProvider.js`
+Exports
+- `UsersIdentityProvider`
 
 ### `src/shared/index.js`
 Exports
@@ -264,17 +241,17 @@ Local functions
 Exports
 - `DEFAULT_USER_SETTINGS`
 
-### templates
+### migrations
 
-### `templates/migrations/users_core_generic_initial.cjs`
+### `migrations/users_core_generic_initial.cjs`
 Exports
 - None
 
-### `templates/migrations/users_core_profile_updated_at.cjs`
+### `migrations/users_core_profile_updated_at.cjs`
 Exports
 - None
 
-### `templates/migrations/users_core_profile_username.cjs`
+### `migrations/users_core_profile_username.cjs`
 Exports
 - None
 Local functions
@@ -283,50 +260,28 @@ Local functions
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `resolveUniqueUsername(baseUsername, usedUsernames)`
 
-### `templates/packages/users-workspace/src/server/actions.js`
-Exports
-- `createActions({ surface } = {})`
-Local functions
-- `buildListQuery(input = {})`
+### patterns
 
-### `templates/packages/users-workspace/src/server/registerRoutes.js`
+### `patterns/user-administration-server/example/packages/users-workspace/src/server/UsersWorkspaceFeature.js`
 Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeSurfaceRequiresWorkspace = false, routeRelativePath = "" } = {})`
+- `UsersWorkspaceFeature`
 
-### `templates/packages/users-workspace/src/server/UsersProvider.js`
-Exports
-- `UsersProvider`
-Local functions
-- `resolveCrudPolicyFromApp(app)`
-
-### `templates/packages/users/src/server/actions.js`
-Exports
-- `createActions({ surface } = {})`
-
-### `templates/packages/users/src/server/registerRoutes.js`
-Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
-
-### `templates/packages/users/src/server/repository.js`
-Exports
-- `createRepository({ api, knex } = {})`
-
-### `templates/packages/users/src/server/service.js`
-Exports
-- `createService({ usersRepository } = {})`
-Local functions
-- `return404IfNotFound(document = null)`
-
-### `templates/packages/users/src/server/UsersProvider.js`
-Exports
-- `UsersProvider`
-Local functions
-- `resolveCrudPolicyFromApp(app)`
-
-### `templates/packages/users/src/shared/index.js`
+### `patterns/user-administration-server/example/packages/users-workspace/src/shared/index.js`
 Exports
 - `resource`
 
-### `templates/packages/users/src/shared/userResource.js`
+### `patterns/user-administration-server/example/packages/users-workspace/src/shared/userResource.js`
+Exports
+- `resource`
+
+### `patterns/user-administration-server/example/packages/users/src/server/UsersFeature.js`
+Exports
+- `UsersFeature`
+
+### `patterns/user-administration-server/example/packages/users/src/shared/index.js`
+Exports
+- `resource`
+
+### `patterns/user-administration-server/example/packages/users/src/shared/userResource.js`
 Exports
 - `resource`

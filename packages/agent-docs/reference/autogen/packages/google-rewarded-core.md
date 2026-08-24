@@ -20,11 +20,22 @@ Exports
 - `ACTION_START`
 - `ACTION_GRANT`
 - `ACTION_CLOSE`
-- `googleRewardedActions`
+- `createGoogleRewardedActions({ googleRewarded } = {})`
+Local functions
+- `changedEvent({ entity, operation, entityId, event })`
 
 ### `src/server/GoogleRewardedCoreProvider.js`
 Exports
-- `GoogleRewardedCoreProvider`
+- `GoogleRewardedCoreFeature`
+
+### `src/server/GoogleRewardedResources.js`
+Exports
+- `GoogleRewardedProviderConfigsFeature`
+- `GoogleRewardedRulesFeature`
+- `GoogleRewardedUnlockReceiptsFeature`
+- `GoogleRewardedWatchSessionsFeature`
+Local functions
+- `workspaceScope()`
 
 ### `src/server/inputSchemas.js`
 Exports
@@ -39,59 +50,11 @@ Exports
 Local functions
 - `createGateStateOutputValidator({ includeSession = false } = {})`
 
-### `src/server/providerConfigs/actions.js`
-Exports
-- `createActions({ surface } = {})`
-
-### `src/server/providerConfigs/GoogleRewardedProviderConfigsProvider.js`
-Exports
-- `GoogleRewardedProviderConfigsProvider`
-Local functions
-- `resolveCrudPolicyFromApp(app)`
-
-### `src/server/providerConfigs/registerRoutes.js`
-Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
-
-### `src/server/providerConfigs/repository.js`
-Exports
-- `createRepository({ api, knex } = {})`
-
-### `src/server/providerConfigs/service.js`
-Exports
-- `createService({ googleRewardedProviderConfigsRepository } = {})`
-Local functions
-- `return404IfNotFound(document = null)`
-
 ### `src/server/registerRoutes.js`
 Exports
-- `registerRoutes(app, { routeOwnershipFilter = "workspace_user", routeSurface = "app", routeRelativePath = "google-rewarded" } = {})`
+- `registerRoutes(router, { routeOwnershipFilter = "workspace_user", routeSurface = "app", routeRelativePath = "google-rewarded" } = {})`
 Local functions
 - `createWorkflowResponses(outputValidator)`
-
-### `src/server/rules/actions.js`
-Exports
-- `createActions({ surface } = {})`
-
-### `src/server/rules/GoogleRewardedRulesProvider.js`
-Exports
-- `GoogleRewardedRulesProvider`
-Local functions
-- `resolveCrudPolicyFromApp(app)`
-
-### `src/server/rules/registerRoutes.js`
-Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
-
-### `src/server/rules/repository.js`
-Exports
-- `createRepository({ api, knex } = {})`
-
-### `src/server/rules/service.js`
-Exports
-- `createService({ googleRewardedRulesRepository } = {})`
-Local functions
-- `return404IfNotFound(document = null)`
 
 ### `src/server/service.js`
 Exports
@@ -126,54 +89,6 @@ Local functions
 - `isConfigurationBypassAllowed(gateState = null, requireConfigured = false)`
 - `createRewardedGateError(gateState = null, { errorCode = "", errorMessage = "" } = {})`
 
-### `src/server/unlockReceipts/actions.js`
-Exports
-- `createActions({ surface } = {})`
-
-### `src/server/unlockReceipts/GoogleRewardedUnlockReceiptsProvider.js`
-Exports
-- `GoogleRewardedUnlockReceiptsProvider`
-Local functions
-- `resolveCrudPolicyFromApp(app)`
-
-### `src/server/unlockReceipts/registerRoutes.js`
-Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
-
-### `src/server/unlockReceipts/repository.js`
-Exports
-- `createRepository({ api, knex } = {})`
-
-### `src/server/unlockReceipts/service.js`
-Exports
-- `createService({ googleRewardedUnlockReceiptsRepository } = {})`
-Local functions
-- `return404IfNotFound(document = null)`
-
-### `src/server/watchSessions/actions.js`
-Exports
-- `createActions({ surface } = {})`
-
-### `src/server/watchSessions/GoogleRewardedWatchSessionsProvider.js`
-Exports
-- `GoogleRewardedWatchSessionsProvider`
-Local functions
-- `resolveCrudPolicyFromApp(app)`
-
-### `src/server/watchSessions/registerRoutes.js`
-Exports
-- `registerRoutes(app, { routeOwnershipFilter = "public", routeSurface = "", routeRelativePath = "" } = {})`
-
-### `src/server/watchSessions/repository.js`
-Exports
-- `createRepository({ api, knex } = {})`
-
-### `src/server/watchSessions/service.js`
-Exports
-- `createService({ googleRewardedWatchSessionsRepository } = {})`
-Local functions
-- `return404IfNotFound(document = null)`
-
 ### `src/shared/googleRewardedProviderConfigResource.js`
 Exports
 - `resource`
@@ -197,20 +112,20 @@ Exports
 - `googleRewardedWatchSessionResource`
 - `googleRewardedUnlockReceiptResource`
 
-### templates
+### migrations
 
-### `templates/migrations/google_rewarded_provider_configs_initial.cjs`
+### `migrations/google_rewarded_provider_configs_initial.cjs`
 Exports
 - None
 
-### `templates/migrations/google_rewarded_rules_initial.cjs`
+### `migrations/google_rewarded_rules_initial.cjs`
 Exports
 - None
 
-### `templates/migrations/google_rewarded_unlock_receipts_initial.cjs`
+### `migrations/google_rewarded_unlock_receipts_initial.cjs`
 Exports
 - None
 
-### `templates/migrations/google_rewarded_watch_sessions_initial.cjs`
+### `migrations/google_rewarded_watch_sessions_initial.cjs`
 Exports
 - None

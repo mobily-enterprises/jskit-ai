@@ -1,681 +1,33 @@
 # Database layer
 
-At the end of the previous chapter, the app could already authenticate real users through the local auth provider, without requiring Supabase or a database. In this chapter, we install the MySQL database runtime, add the migration tooling, and explain what that changes immediately and what it still does **not** change yet.
+JSKIT applications use Knex through one deliberately selected database driver.
+Install either `@jskit-ai/database-runtime-mysql` or
+`@jskit-ai/database-runtime-postgres`; do not install both unless the product
+genuinely chooses a driver at runtime.
 
-This chapter is more infrastructural than the previous ones. That is intentional. There is no dramatic new screen in the browser. The important change is that the app gains a real database layer that later packages can depend on.
+## Install the selected driver
 
-## Recap from previous chapters
-
-To get back to the same starting point as the end of the previous chapter, run:
-
-```bash
-npx @jskit-ai/create-app exampleapp --tenancy-mode none
-cd exampleapp
-npm install
-
-npx jskit add package auth-provider-local-core
-npx jskit add package auth-web
-```
-
-If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
-
-<DocsTerminalTip label="MySQL" title="Create The Database First">
-Before installing the database runtime, make sure a real MySQL database already exists and that you know its connection details.
-
-If you are using the `ai-seed` flow, this should already have been resolved during the seed-stage conversation. Do not promote the app scaffold or move into the runtime install step while the database is still hypothetical.
-
-At minimum, keep these ready:
-
-- host
-- port
-- database name
-- database user
-- database password
-
-JSKIT installs the database runtime and writes those values into `.env`, but it does **not** create the MySQL server for you and it does **not** create the database itself.
-
-If you are working locally, a very typical starting point is:
-
-- host: `127.0.0.1`
-- port: `3306`
-- database name: `exampleapp`
-- user: `exampleapp`
-
-Using a normal app database user is usually a better guide setup than using the MySQL root account directly. It matches how production apps are normally configured, and it avoids local root-auth setups that work in the terminal but not through the Node driver.
-
-If you are guiding someone interactively, ask plainly for these exact values:
-
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_HOST` only if it is not the usual local default `127.0.0.1`
-- `DB_PORT` only if it is not the usual local default `3306`
-
-Do not hide behind vague language like "send the DB credentials later." In this local guide flow, these are routine setup values for the MySQL runtime install step.
-</DocsTerminalTip>
-
-## Installing the database runtime
-
-From inside `exampleapp`, run:
+For MySQL or MariaDB:
 
 ```bash
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=exampleapp
-DB_USER=exampleapp
-DB_PASSWORD=secret
-
-npx jskit add package database-runtime-mysql \
-  --db-host "$DB_HOST" \
-  --db-port "$DB_PORT" \
-  --db-name "$DB_NAME" \
-  --db-user "$DB_USER" \
-  --db-password "$DB_PASSWORD"
+npm install @jskit-ai/database-runtime-mysql
 ```
 
-The first command adds the MySQL driver package and its generic JSKIT database runtime dependency, using the explicit connection values from those `DB_*` variables:
-
-- database host
-- database port
-- database name
-- database user
-- database password
-
-The second command downloads the newly referenced runtime packages and the underlying Node dependencies, especially `knex` and `mysql2`.
-
-If you open the app in the browser after this install, it still looks the same. That is expected.
-
-- `/home` still renders the same shell
-- `/auth/login` still renders the same login screen
-
-This chapter changes the server-side infrastructure of the app, not the visible shell.
-
-## What changes immediately
-
-Installing `database-runtime-mysql` gives the app three important things right away.
-
-### A real database runtime
-
-The server can build a real Knex client from environment variables. That gives later packages a standard way to ask for a database connection instead of each package inventing its own wiring.
-
-### A migration workflow
-
-The app gets three database scripts in `package.json`:
-
-```json
-{
-  "scripts": {
-    "db:migrations:sync": "jskit migrations sync",
-    "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
-    "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-    "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
-  }
-}
-```
-
-That is the first time the scaffold can talk about schema migrations in a standard way.
-
-If you run the status command immediately after this chapter:
+For PostgreSQL:
 
 ```bash
-npm run db:migrate:status
+npm install @jskit-ai/database-runtime-postgres
 ```
 
-you should still see that there are no completed migrations and no pending migration files yet. The runtime and the Knex wiring exist at this point, but no package has added real schema files until the next chapter.
+Each driver brings `@jskit-ai/database-runtime` and the appropriate Knex
+driver through ordinary npm dependencies. There is no JSKIT install wizard.
 
-### A place for future schema files
+## Connection environment
 
-The app also gets a top-level `migrations/` directory. Right now it only contains `.gitkeep`, which can look underwhelming at first, but that empty directory is actually useful. It means the migration toolchain is ready even before any package installs real schema files.
-
-That is the key idea of this chapter:
-
-- the database runtime provides the **infrastructure**
-- later packages provide the **actual schema**
-
-## Two migration steps, two different tools
-
-This chapter is the right place to make one distinction very explicit.
-
-The app has two different migration-related layers:
-
-- JSKIT-managed migration files on disk
-- Knex actually applying those files to the database
-
-Those are **not** the same step.
-
-There is also an important ownership distinction:
-
-- a CRUD generator owns the installed baseline migration for the table it
-  scaffolds
-- the table's app-local package owns later additive schema evolution
-
-Never modify or replace a generator-owned baseline migration. Later schema
-evolution must use a new immutable, package-owned additive migration in the
-table's app-local package, declared through `install-migration`.
-
-The npm scripts run `npm run db:migrations:sync` first, then run Knex. That means newly installed package migrations are present before Knex checks what is pending.
-
-### `jskit migrations sync` writes package migration files
-
-If you run the sync script directly:
-
-```bash
-npm run db:migrations:sync
-```
-
-JSKIT reads `install-migration` entries from `package.json.jskit` across the installed npm graph and writes any missing immutable migration files into `migrations/`.
-
-That command is about the app scaffold on disk.
-
-It does **not** run Knex against MySQL or Postgres.
-
-At this point in the guide, that command will usually touch nothing yet, because `database-runtime-mysql` gives you the migration **tooling** and `migrations/.gitkeep`, but it does not add real schema files of its own.
-
-### `npm run db:migrate` runs Knex against the database
-
-When you run:
-
-```bash
-npm run db:migrate
-```
-
-the Knex CLI reads `knexfile.js`, connects to the real database, and applies any pending migration files it finds.
-
-That command is about the actual database.
-
-So the clean mental model is:
-
-1. JSKIT writes or refreshes managed migration files into `migrations/`
-2. Knex applies those files to MySQL or Postgres
-
-### When you need each step
-
-In normal `jskit add package ...` flows, JSKIT synchronizes package migration files after installation.
-
-That means the most common flow is still:
-
-```bash
-npx jskit add package users-web
-npm run db:migrate
-```
-
-You can also synchronize explicitly:
-
-```bash
-npx jskit migrations sync
-npm run db:migrate
-```
-
-So:
-
-- use `jskit migrations sync` when you need JSKIT to write package migration files
-- use `npm run db:migrate` when you need Knex to apply pending migration files to the real database
-- sometimes you need only `npm run db:migrate`
-- sometimes, after repair or re-materialization work, you need **both**
-
-### Authoring a later app-owned schema change
-
-When an existing CRUD-owned table needs a new column, constraint, index, or
-other compatible evolution, keep the generated baseline unchanged. Ask JSKIT
-to create a new migration source in the app-local package that owns the table:
-
-```bash
-npx jskit create migration \
-  --package @local/workflow-record-report-values \
-  --id extend-report-value-field-types
-```
-
-This command:
-
-1. verifies that the owner is an installed app-local package
-2. rejects duplicate or unsafe migration ids
-3. creates an editable template under the package's
-   `templates/migrations/` directory
-4. adds the matching `install-migration` mutation to `package.json.jskit`
-5. leaves the migration unmaterialized so its implementation can still be
-   completed
-
-Implement and test the template first. It intentionally fails if someone tries
-to apply the untouched scaffold. Then materialize and apply it:
-
-```bash
-npx jskit migrations sync
-npm run db:migrate
-```
-
-Once synchronized, the migration id and content are immutable. Any later correction
-must use another additive migration with a new id.
-
-SQL inside the source-controlled migration is supported when Knex does not
-express the required schema operation directly. Ad-hoc SQL applied only to a
-development or live database is not a migration and must not be used: it
-creates schema drift, breaks fresh reconstruction, and leaves deployment
-history incomplete.
-
-Before completion, exercise the complete migration chain against a fresh
-disposable database as well as the intended upgrade path. A down migration
-must refuse safely when narrowing the schema would invalidate existing data;
-it must never delete or silently transform valuable rows merely to make a
-rollback pass.
-
-### Shared database helpers
-
-The database layer also gives later server code a shared helper surface:
-
-```js
-import {
-  applyVisibility,
-  applyVisibilityOwners,
-  toIsoString,
-  toInsertDateTime,
-  toNullableDateTime,
-  isDuplicateEntryError,
-  whereJsonTextEquals,
-  createWithTransaction
-} from "@jskit-ai/database-runtime/shared";
-```
-
-This is worth calling out here because the database layer is not only "Knex plus migrations".
-
-It also gives your later repositories and services a standard persistence toolbox so every package does not have to solve the same problems differently. The main point is consistency:
-
-- one way to format timestamps for database writes
-- one way to format timestamps for API output
-- one way to recognize duplicate-entry errors across databases
-- one way to apply ownership-aware visibility filters to queries
-- one way to stamp owner columns onto new rows from the current visibility context
-- one way to build some dialect-aware JSON filters
-- one small transaction helper pattern that packages can reuse
-
-That helper layer comes from `@jskit-ai/database-runtime/shared`. The MySQL package mainly contributes the actual driver and dialect registration. The shared helper surface comes from the generic runtime package.
-
-#### Visibility and ownership helpers
-
-This is the main helper pair that matters once repositories start dealing with owned records.
-
-In JSKIT persistence code, **visibility** means "which rows should this request be allowed to see or create?" It is the data-layer version of the same ownership model used by routes and CRUD resources:
-
-- `public`
-  - the record is not scoped by owner columns
-- `workspace`
-  - the record belongs to one workspace through the exact reserved column `workspace_id`
-- `user`
-  - the record belongs to one user through the exact reserved column `user_id`
-- `workspace_user`
-  - the record belongs to one workspace and one user through both reserved columns
-
-Only `workspace_id` and `user_id` carry this standard ownership contract. Specifically named foreign keys such as `recipient_user_id`, `created_by_user_id`, and `assignee_user_id` describe domain relationships; they are not alternate owner columns. Keep both fields when a row has an owner and a separate related actor, and never rename the relationship to an owner column merely to make a tool accept the schema.
-
-The selected ownership filter must match the direct reserved columns exactly. A table with only `workspace_id` is `workspace`; a table with only `user_id` is `user`; and a table with both is `workspace_user`. A declaration cannot override or ignore either column.
-
-That is why the shared helpers exist. Repositories should not have to re-implement the same ownership rules by hand every time they filter a query or build an insert payload.
-
-The expected input is a **visibility context**. In practice this usually arrives from route/action execution context and gets passed down as `queryOptions.visibilityContext` or `callOptions.visibilityContext`.
-
-The important shape looks like this:
-
-```js
-const visibilityContext = {
-  visibility: "workspace_user",
-  scopeOwnerId: "42",
-  userId: "7"
-};
-```
-
-Those are the fields these helpers care about:
-
-- `visibility`
-  - one of `public`, `workspace`, `user`, `workspace_user`
-- `scopeOwnerId`
-  - the current workspace owner id
-- `userId`
-  - the current user id
-
-There are a couple of extra normalized visibility fields elsewhere in JSKIT, but for `applyVisibility(...)` and `applyVisibilityOwners(...)`, those three values are the main contract.
-
-Use `applyVisibility(...)` when you are building a **read/update/delete query** that should only operate on rows visible to the current request.
-
-```js
-import { applyVisibility } from "@jskit-ai/database-runtime/shared";
-
-function listWorkspaceContacts(knex, queryOptions = {}) {
-  const query = knex("contacts").select("*").orderBy("created_at", "desc");
-  return applyVisibility(query, queryOptions.visibilityContext);
-}
-```
-
-If the current request is workspace-scoped:
-
-```js
-const visibilityContext = {
-  visibility: "workspace",
-  scopeOwnerId: "12"
-};
-```
-
-the helper turns that into the equivalent of:
-
-```js
-query.where("workspace_id", "12");
-```
-
-That is the normal helper for workspace-owned rows.
-
-The same pattern works for user-owned rows:
-
-```js
-const query = knex("saved_views").select("*");
-applyVisibility(query, {
-  visibility: "user",
-  userId: "7"
-});
-```
-
-which applies:
-
-```js
-query.where("user_id", "7");
-```
-
-And if a `workspace_user` context is required but only one owner id is available, the helper intentionally makes the query match nothing rather than accidentally leaking records. That is why these helpers are safer than scattering raw `where(...)` calls by hand.
-
-Use `applyVisibilityOwners(...)` when you are building a **write payload** for a new owned row and you want JSKIT to stamp the owner columns from the current visibility context.
-
-```js
-import { applyVisibilityOwners, toInsertDateTime } from "@jskit-ai/database-runtime/shared";
-
-async function createWorkspaceNote(knex, payload, queryOptions = {}) {
-  const insertPayload = applyVisibilityOwners(
-    {
-      title: payload.title,
-      body: payload.body,
-      created_at: toInsertDateTime(),
-      updated_at: toInsertDateTime()
-    },
-    queryOptions.visibilityContext
-  );
-
-  await knex("notes").insert(insertPayload);
-}
-```
-
-If the request is workspace-scoped, the helper adds `workspace_id` automatically. If it is user-scoped, it adds `user_id`. If it is `workspace_user`, it adds both. That means repository code does **not** need to manually copy `workspace_id` and `user_id` out of the execution context for every insert.
-
-That is especially useful for owned records such as:
-
-- workspace-owned rows like `contacts`, `workspace_invites`, or `assistant_config`
-- user-owned rows like personal settings or saved views
-- combined workspace-and-user rows where both ids define ownership
-
-So a `workspace_user` create can stay small:
-
-```js
-const insertPayload = applyVisibilityOwners(
-  {
-    name: payload.name
-  },
-  {
-    visibility: "workspace_user",
-    scopeOwnerId: "4",
-    userId: "9"
-  }
-);
-
-// Result:
-// {
-//   name: "...",
-//   workspace_id: "4",
-//   user_id: "9"
-// }
-```
-
-The important behavioral difference between the two helpers is:
-
-- `applyVisibility(...)`
-  - scopes a query, and falls back to "no rows" when required owner ids are missing
-- `applyVisibilityOwners(...)`
-  - stamps write payloads, and throws when required owner ids are missing
-
-That split is deliberate. For reads, "match nothing" is the safe default. For writes, silently inserting an incorrectly owned row would be worse, so the helper fails fast instead.
-
-If you want a slightly more structured repository shape, `createRepositoryScope(...)` from the same shared surface wraps these helpers into one small repository-scoping toolkit. But even when you write your own repositories manually, `applyVisibility(...)` and `applyVisibilityOwners(...)` are the key ownership helpers to reuse.
-
-#### Date helpers
-
-The date helpers are probably the first ones you are likely to reach for.
-
-They exist because application code usually deals with dates in two different shapes:
-
-- **database write shape**, such as a `DATETIME(3)`-style value
-- **API/read shape**, usually an ISO timestamp string
-
-Those are not the same thing, and it is easy for packages to become inconsistent if every repository hand-rolls the conversion.
-
-Typical usage looks like this:
-
-```js
-import {
-  toIsoString,
-  toInsertDateTime,
-  toNullableDateTime
-} from "@jskit-ai/database-runtime/shared";
-
-function mapRow(row) {
-  return {
-    id: String(row.id),
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at),
-    expiresAt: row.expires_at ? toIsoString(row.expires_at) : null
-  };
-}
-
-async function insertInvite(knex, payload) {
-  await knex("workspace_invites").insert({
-    email: payload.email,
-    expires_at: toNullableDateTime(payload.expiresAt),
-    created_at: toInsertDateTime(),
-    updated_at: toInsertDateTime()
-  });
-}
-```
-
-The reasoning behind each helper is:
-
-- `toIsoString(...)`
-  - use this when data is coming **out** of the database and you want a stable ISO timestamp for application code or API responses
-- `toInsertDateTime(...)`
-  - use this when you need "now" in the database's datetime text format for insert/update timestamps
-- `toNullableDateTime(...)`
-  - use this when a field is optional and should become either a normalized database datetime or `null`
-
-There is also a lower-level helper:
-
-```js
-toDatabaseDateTimeUtc(value)
-```
-
-That one is useful when you already know you are converting one specific date value into the database write format and you want to be explicit about it.
-
-The main benefit is not convenience by itself. The real benefit is that packages stop inventing slightly different timestamp formats and timezone assumptions.
-
-#### Duplicate-entry helpers
-
-Another practical problem is unique-constraint handling.
-
-MySQL and Postgres do not report duplicate-entry errors in exactly the same way. If every package checks raw driver error codes by hand, the code becomes repetitive and easy to get wrong.
-
-The shared helper gives you one check:
-
-```js
-import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
-
-try {
-  await knex("users").insert({
-    email: payload.email
-  });
-} catch (error) {
-  if (!isDuplicateEntryError(error)) {
-    throw error;
-  }
-
-  // Handle the "already exists" case here.
-}
-```
-
-Why this is useful:
-
-- it keeps repository code cleaner
-- it avoids scattering vendor-specific numeric/string error codes everywhere
-- it makes later database portability less painful
-
-#### JSON query helpers
-
-Some databases expose different SQL syntax for reading JSON fields.
-
-The shared helpers smooth over a small but useful part of that difference. For example:
-
-```js
-import { whereJsonTextEquals } from "@jskit-ai/database-runtime/shared";
-
-const query = knex("contacts");
-whereJsonTextEquals(query, {
-  column: "metadata",
-  path: "status",
-  value: "active"
-});
-```
-
-That helper uses the right JSON text expression for the active client instead of forcing every package to write separate MySQL and Postgres raw SQL.
-
-This is not a full ORM abstraction layer, and it should not be described that way. It is just a small set of helpers for the database differences JSKIT packages actually care about.
-
-#### Transaction and repository helpers
-
-The shared surface also includes a few small helpers for transaction-friendly repository code:
-
-```js
-import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
-
-function createRepository(knex) {
-  const withTransaction = createWithTransaction(knex);
-
-  return {
-    withTransaction
-  };
-}
-```
-
-That pattern shows up in JSKIT packages because it gives repositories a simple standard way to say, "run this unit of work inside a transaction".
-
-You do not need to memorize all of these helpers yet. The important thing to understand in this chapter is just that the database layer gives you:
-
-- runtime wiring
-- migration tooling
-- a shared persistence utility surface for later packages and app code
-
-## What this still does not change yet
-
-Installing the database runtime is important, but it is not the same thing as installing the full users/account data model.
-
-Right now, after this chapter:
-
-- the app can resolve database settings from `.env`
-- the server can create a Knex client
-- the app can run migration commands
-- later packages are allowed to depend on `runtime.database`
-
-But the app still does **not** have:
-
-- JSKIT user tables
-- JSKIT user settings tables
-- persistent account/profile rows on the JSKIT side
-- workspace tables
-- CRUD tables of its own
-
-That means the app's account model still is not database-backed.
-
-- local auth is still the real source of truth for auth users and sessions.
-- JSKIT still has a database runtime available.
-- But JSKIT still has **no installed package yet** that projects auth identities into persistent users/account tables.
-
-So this chapter is an infrastructure step. It makes the database layer available, but it does not yet install the package that uses that layer for persistent JSKIT-side user data.
-
-<DocsTerminalTip label="Important" title="Auth Is Not Users-Backed Yet">
-This is the most important thing to keep straight:
-
-- adding `database-runtime-mysql` does **not** automatically change where auth stores credentials or sessions
-- it also does **not** create JSKIT user rows yet
-
-That only changes later, when a package such as `users-core` is installed and registers the persistent users-backed `auth.profile.projector`.
-
-So after this chapter the app has a database layer, but authentication still behaves like:
-
-- real local auth
-- provider identity in the auth session
-
-not yet:
-
-- real local auth plus a persistent JSKIT-side users layer
-</DocsTerminalTip>
-
-## Under the hood
-
-The interesting files for this chapter are mostly at the top level:
-
-```text
-exampleapp/
-  .env
-  knexfile.js
-  migrations/
-    .gitkeep
-  package.json
-```
-
-This is the first chapter where the new behavior is mostly about server infrastructure rather than pages or client layouts.
-
-### `package.json` gains database dependencies and scripts
-
-After installing the MySQL runtime, the important new pieces in `package.json` look like this:
-
-```json
-{
-  "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.148",
-    "@jskit-ai/database-runtime-mysql": "0.1.146",
-    "knex": "^3.1.0",
-    "mysql2": "^3.11.2"
-  },
-  "scripts": {
-    "db:migrations:sync": "jskit migrations sync",
-    "db:migrate": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:latest",
-    "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
-    "db:migrate:status": "npm run db:migrations:sync && knex --knexfile ./knexfile.js migrate:list"
-  }
-}
-```
-
-Those new dependencies divide into two roles:
-
-- `@jskit-ai/database-runtime` is the generic JSKIT database runtime
-- `@jskit-ai/database-runtime-mysql` is the MySQL-specific driver package
-- `knex` is the database toolkit used by both runtime code and migration commands
-- `mysql2` is the actual Node driver that speaks to MySQL
-
-The migration scripts are also worth reading carefully:
-
-- `db:migrations:sync` writes missing immutable package migration files in `migrations/`
-- `db:migrate` syncs JSKIT-managed migration files, then applies all pending Knex migrations
-- `db:migrate:rollback` rolls back the last migration batch
-- `db:migrate:status` syncs JSKIT-managed migration files, then lists applied and pending migrations
-
-They are not special JSKIT commands. They are ordinary project scripts, which makes them easy to run in any environment.
-
-### `.env` owns the database connection settings
-
-The package install also writes the database settings into `.env`:
+Keep credentials outside Git. Supply either `DATABASE_URL` or the individual
+values:
 
 ```dotenv
-DB_CLIENT=mysql2
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_NAME=exampleapp
@@ -683,209 +35,127 @@ DB_USER=exampleapp
 DB_PASSWORD=secret
 ```
 
-That small block is doing two jobs.
+Use port `5432` for PostgreSQL. A single-driver app fixes its dialect in
+`knexfile.js`, so it does not need `DB_CLIENT`. The running database provider
+also derives its dialect from the installed driver and rejects a conflicting
+`DB_CLIENT` value when one is supplied.
 
-- `DB_CLIENT` tells the generic database runtime which dialect was installed.
-- the rest of the variables describe the real connection to MySQL.
+The application or hosting environment creates the database and provides its
+credentials. JSKIT never guesses or commits them.
 
-This matters because the generic runtime is written to support more than one driver package. The runtime does not hard-code MySQL. It reads the configured client and the installed driver and checks that they agree.
+## Migration configuration
 
-### `knexfile.js` is for migration commands, not normal page code
-
-The migration scripts in `package.json` work because the app has a top-level `knexfile.js`:
-
-```js
-import path from "node:path";
-import dotenv from "dotenv";
-import {
-  normalizeText,
-  toKnexClientId,
-  resolveDatabaseClientFromEnvironment,
-  resolveKnexConnectionFromEnvironment
-} from "@jskit-ai/database-runtime/shared";
-
-const appRoot = process.cwd();
-dotenv.config({
-  path: path.join(appRoot, ".env"),
-  quiet: true
-});
-
-const dialectId = resolveDatabaseClientFromEnvironment(process.env);
-const client = toKnexClientId(dialectId);
-const defaultPort = dialectId === "pg" ? 5432 : 3306;
-const migrationsDirectory = path.resolve(appRoot, normalizeText(process.env.DB_MIGRATIONS_DIR) || "migrations");
-const deferredConstraintsDirectory = path.join(migrationsDirectory, "constraints");
-
-export default {
-  client,
-  connection: resolveKnexConnectionFromEnvironment(process.env, {
-    client: dialectId,
-    defaultPort,
-    context: "knex migrations"
-  }),
-  migrations: {
-    directory: [migrationsDirectory, deferredConstraintsDirectory],
-    extension: "cjs",
-    sortDirsSeparately: true
-  }
-};
-```
-
-The important thing to understand is what this file is **for**.
-
-It is not the main runtime API that your app code imports during a request. It is the configuration file the Knex CLI reads when you run commands such as:
-
-```bash
-npm run db:migrate
-```
-
-So there are really two separate database entry points:
-
-- `knexfile.js` for migration commands
-- the JSKIT server provider runtime for application code
-
-That separation is good. It keeps the operational CLI workflow and the app runtime wiring clear.
-
-The two migration directories are one ordered migration plan. Knex completes
-the ordinary `migrations/` files before it reads
-`migrations/constraints/`. CRUD scaffolding uses that second phase for foreign
-keys, so two tables may validly reference one another without either
-table-creation migration depending on a table that has not been created yet.
-Rollback reverses the order and removes those constraints before dropping
-tables.
-
-### The MySQL package registers the driver, and the generic runtime builds the Knex client
-
-On the server side, the two installed packages split responsibilities very deliberately.
-
-The MySQL-specific package registers a driver token:
+Use the fixed-dialect pattern owned by the selected driver. The important
+application file is small:
 
 ```js
-class DatabaseRuntimeMysqlServiceProvider {
-  static id = "runtime.database.driver.mysql";
+import { createKnexMigrationConfigFromApp } from
+  "@jskit-ai/database-runtime/server/knexMigrationConfig";
 
-  register(app) {
-    app.singleton("runtime.database.driver.mysql", () => MYSQL_DATABASE_DRIVER_API);
+export default await createKnexMigrationConfigFromApp({ client: "mysql2" });
+```
+
+Use `client: "pg"` for PostgreSQL. The complete examples are in:
+
+- `database/mysql-application`
+- `database/postgres-application`
+
+The config discovers migrations directly from the current installed package
+graph. Application migrations live in the app's `migrations/` directory;
+package-owned migrations live in directories declared by the installed
+package's `package.json#jskit.migrations.directories`.
+
+There is no migration sync command and no copied migration projection. Knex
+runs the authoritative files where their owners ship them.
+
+## What runs migrations
+
+The application owns normal npm scripts:
+
+```json
+{
+  "scripts": {
+    "db:migrate": "knex --knexfile ./knexfile.js migrate:latest",
+    "db:migrate:rollback": "knex --knexfile ./knexfile.js migrate:rollback",
+    "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
   }
 }
 ```
 
-That does **not** create the database client yet. It only tells the app, "a MySQL driver is available, and here is its dialect metadata."
+`npm run db:migrate` runs the Knex CLI. Knex loads `knexfile.js`, discovers the
+application and installed-package migration directories, connects using the
+environment, and applies pending migrations.
 
-The generic runtime then uses that driver to create the real Knex wiring:
+Deployment or a managed development environment may invoke this app-owned
+script as a release step. JSKIT itself does not maintain a background migration
+service.
 
-```js
-class DatabaseRuntimeServiceProvider {
-  static id = "runtime.database";
+## Authoring schema changes
 
-  register(app) {
-    app.singleton("runtime.database", () => DATABASE_RUNTIME_SERVER_API);
+Write a new immutable migration in the package that owns the schema. Never edit
+an already-applied migration and never change a live database without recording
+the equivalent source-controlled migration.
 
-    if (!app.has("runtime.database.driver")) {
-      app.singleton("runtime.database.driver", (scope) => resolveSingleRegisteredDriver(scope));
-    }
+Package migrations are normal `.cjs` Knex migrations and are declared in that
+package's metadata:
 
-    if (!app.has("jskit.database.knex")) {
-      app.singleton("jskit.database.knex", (scope) => createKnexInstance(scope));
-    }
-
-    if (!app.has("jskit.database.transactionManager")) {
-      app.singleton("jskit.database.transactionManager", (scope) => {
-        const knex = scope.make("jskit.database.knex");
-        return createTransactionManager({ knex });
-      });
+```json
+{
+  "jskit": {
+    "migrations": {
+      "directories": ["migrations"]
     }
   }
 }
 ```
 
-That one provider is the real center of this chapter. It gives later server code a standard set of container tokens:
+Names must remain unique across the effective migration directories. Keep
+constraints in a later migration when ordering matters.
 
-- `runtime.database`
-- `runtime.database.driver`
-- `jskit.database.knex`
-- `jskit.database.transactionManager`
+## Seed data is not a migration
 
-This is why later packages can simply say "I require `runtime.database`" instead of building their own database bootstrap.
+Migrations establish schema and invariant framework data. Product fixtures,
+sample accounts, catalog content, and other environment-specific starting data
+belong in an explicit, idempotent application seed operation that runs after
+migrations. Do not hide product seeding in schema migrations.
 
-### Why the browser still feels unchanged
+Managed editors must be able to create one isolated database per development
+session, apply the full migration graph, then invoke that explicit seed
+operation. JSKIT supplies portable migration and seed seams; the editor owns
+database allocation, credentials, lifetime, and environment injection.
 
-At first glance it can feel strange that the database layer is installed but the app still behaves almost exactly like the previous chapter.
+## Resource services and custom operations
 
-The reason is simple:
+Conventional persisted resources use `defineCrudResource()` and
+`defineCrudJsonApiFeature()` so the framework owns repeated repository,
+service, action, permission, JSON API, and route mechanics. This does not make
+product CRUD behavior fixed.
 
-- the runtime is available
-- but almost no installed package is using it yet
+- `decorateRepository` adds resource-specific queries, locks, or writes.
+- `decorateService` overrides a standard method or adds domain methods such as
+  `confirm`, `publish`, `cancel`, or `sendReminder`.
+- `operationLifecycle` surrounds a standard operation with `before`, `execute`,
+  `after`, and mutation-only `afterCommit` phases. Create, update, and delete
+  phases before commit share one repository transaction, and `execute` receives
+  `standard(nextInput)` for retaining the normal framework write.
+- Named `actions` expose non-CRUD service methods through normal input,
+  permission, audit, event, and optional HTTP route contracts.
 
-Right now:
+Repositories own database access. Services and lifecycle hooks orchestrate
+repositories. External delivery belongs after commit; when it must be durable,
+write an outbox record inside the transaction and deliver it separately.
+A separate Feature is warranted when an operation belongs to another domain,
+not merely because a useful resource has behavior beyond list and save.
 
-- `shell-web` is still a shell/layout package
-- `auth-web` is still a web auth package
-- `auth-provider-local-core` is still handling credentials and sessions through `auth.local.backend`
+## Verification
 
-So the app has gained a new capability, but no visible part of the UI depends on that capability yet.
+- Rebuild a disposable database from the complete migration graph.
+- Run `npm run db:migrate:status` after migration.
+- Exercise a real transaction and one invalid-connection case.
+- When a seed operation exists, run it twice and require the second run to be
+  safe.
+- Test MySQL and PostgreSQL patterns independently.
 
-### Why auth is not users-backed yet
-
-This is the most important code path to read in this chapter.
-
-Inside the local provider, auth only projects provider identities into the app users layer when something registers the provider-neutral `auth.profile.projector` token:
-
-```js
-const profileProjector = scope.has("auth.profile.projector")
-  ? {
-      async syncIdentityProfile(profile, options = {}) {
-        const projector = scope.make("auth.profile.projector");
-        return projector.syncIdentityProfile(profile, options);
-      }
-    }
-  : null;
-```
-
-That snippet explains the whole consequence of this chapter. The provider checks whether the token exists, but it does not resolve the real projector until an auth payload actually needs profile projection.
-
-- The auth provider can authenticate users without an app database.
-- Nothing in `database-runtime-mysql` registers `auth.profile.projector`.
-- Nothing in `database-runtime-mysql` provides `users.profile.sync.service`.
-- The database runtime only provides the database foundation that later packages can use.
-
-So the auth layer keeps behaving the same way it did before:
-
-- local auth still owns the auth user and session
-- JSKIT can still display the provider identity from the auth session
-- there is still no persistent JSKIT users/account model yet
-
-The database runtime is ready, but the users layer that will actually use it has not been installed yet.
-
-### Why the empty `migrations/` directory is important
-
-The new `migrations/` directory can look almost silly at first because it only contains `.gitkeep`. But that empty directory is the cleanest signal of what this chapter really does.
-
-It means:
-
-- the app has a migration system
-- the app does **not** yet have a schema of its own
-
-That is exactly the right state at this stage of the guide.
-
-The database runtime chapter should give the app a database foundation first. The next data-heavy chapters can then install actual schema migrations on top of that foundation.
-
-## Summary
-
-This chapter did not make the app feel dramatically different in the browser, but it changed the server foundation in an important way.
-
-- the app has a real JSKIT database runtime
-- the app has a standard Knex migration workflow
-- the app has a place for future schema files
-
-But just as importantly, this chapter also defined what has **not** changed yet:
-
-- auth still uses the local provider's own backend
-- JSKIT still has no persistent users layer of its own
-- no feature package has started storing real app data yet
-
-So the right mental model at the end of this chapter is:
-
-- local auth already handles real authentication
-- MySQL is wired up and ready
-- the persistent JSKIT-side user model arrives in the next chapter
+Do not add migration receipts, sync ledgers, generator provenance, or dialect
+questionnaires. The installed graph, migration source, environment, and
+database migration table are sufficient.

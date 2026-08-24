@@ -1,782 +1,239 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import { createServer } from "node:http";
-import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
+import test from "node:test";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { CLIENT_APP_CONFIG_GLOBAL_KEY, setClientAppConfig } from "../../kernel/client/appConfig.js";
-
-import { RealtimeServiceProvider } from "../src/server/RealtimeServiceProvider.js";
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
-import { registerRealtimeClientListener } from "../src/client/listeners.js";
+import { RealtimeProvider } from "../src/server/RealtimeProvider.js";
+import { registerSocketAudienceBootstrap } from "../src/server/realtimeAudience.js";
+import { createRealtimeDelivery } from "../src/server/realtimeDelivery.js";
 
-function normalizeDomainEventListener(entry) {
-  if (typeof entry === "function") {
-    return {
-      listenerId: String(entry.name || "anonymous"),
-      matches: null,
-      handle: entry
-    };
-  }
-  if (entry && typeof entry === "object" && typeof entry.handle === "function") {
-    return {
-      ...entry,
-      listenerId: String(entry.listenerId || "anonymous"),
-      matches: typeof entry.matches === "function" ? entry.matches : null
-    };
-  }
-  return null;
-}
+const logger = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
 
-function createDomainEvents(scope) {
-  return Object.freeze({
-    async publish(event = {}) {
-      const payload = event && typeof event === "object" && !Array.isArray(event) ? event : {};
-      const listeners =
-        typeof scope?.resolveTag === "function" ? scope.resolveTag("jskit.runtime.domainEvent.listeners") : [];
-      for (const listenerEntry of listeners) {
-        const listener = normalizeDomainEventListener(listenerEntry);
-        if (!listener) {
-          continue;
-        }
-        if (listener.matches && listener.matches(payload) !== true) {
-          continue;
-        }
-        await listener.handle(payload);
-      }
-      return null;
-    }
-  });
-}
-
-function createSingletonApp() {
-  const instances = new Map();
-  const singletons = new Map();
-  const tags = new Map();
+function createIoDouble() {
+  const emitted = [];
   return {
-    instances,
-    singletons,
-    tags,
-    singleton(token, factory) {
-      singletons.set(token, factory);
-    },
-    instance(token, value) {
-      instances.set(token, value);
-    },
-    has(token) {
-      return instances.has(token) || singletons.has(token);
-    },
-    tag(token, tagName) {
-      const normalizedTagName = String(tagName || "").trim();
-      if (!tags.has(normalizedTagName)) {
-        tags.set(normalizedTagName, new Set());
-      }
-      tags.get(normalizedTagName).add(token);
-    },
-    resolveTag(tagName) {
-      const normalizedTagName = String(tagName || "").trim();
-      const tagged = tags.get(normalizedTagName);
-      if (!tagged || tagged.size < 1) {
-        return [];
-      }
-      return [...tagged].map((token) => this.make(token));
-    },
-    make(token) {
-      if (instances.has(token)) {
-        return instances.get(token);
-      }
-      if (!singletons.has(token)) {
-        throw new Error(`Missing token: ${String(token)}`);
-      }
-      const resolved = singletons.get(token)(this);
-      instances.set(token, resolved);
-      return resolved;
+    emitted,
+    emit(eventName, payload) { emitted.push({ room: null, eventName, payload }); },
+    to(room) {
+      return {
+        emit(eventName, payload) { emitted.push({ room, eventName, payload }); }
+      };
     }
   };
 }
 
-test("RealtimeServiceProvider registers runtime realtime server api", () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
+test("RealtimeProvider assembles an event-driven runtime capability", async () => {
+  let events = null;
+  let realtime = null;
+  const probe = defineProvider({
+    id: "test.realtime.probe",
+    requires: { eventsCapability: "runtime.events", realtimeCapability: "runtime.realtime" },
+    setup({ eventsCapability, realtimeCapability }) {
+      events = eventsCapability;
+      realtime = realtimeCapability;
+      return {};
+    }
   });
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
+  const fastify = { server: createServer() };
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "runtime.config": {},
+      "runtime.env": {},
+      "runtime.fastify": fastify,
+      "runtime.logger": logger
+    },
+    providers: [EventProvider, RealtimeProvider, probe]
+  });
 
-  assert.equal(app.singletons.has("runtime.realtime"), true);
-  assert.equal(app.singletons.has("runtime.realtime.io"), true);
-
-  const api = app.make("runtime.realtime");
-  assert.equal(typeof api.createSocketIoServer, "function");
-  assert.equal(typeof api.closeSocketIoServer, "function");
+  await runtime.start();
+  assert.deepEqual(events.diagnostics().listenerIds, ["runtime.realtime.delivery"]);
+  assert.equal(typeof realtime.diagnostics, "function");
+  assert.equal(realtime.diagnostics().redisConfigured, false);
+  await runtime.shutdown();
 });
 
-test("RealtimeServiceProvider boot starts socket io and shutdown closes it", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
+test("realtime delivery sends explicit action events to their selected rooms", async () => {
+  const io = createIoDouble();
+  const delivery = createRealtimeDelivery({ io, logger });
+  await delivery.handle({
+    type: "entity.changed",
+    source: "workspace",
+    entity: "settings",
+    operation: "updated",
+    entityId: "11",
+    scope: { kind: "workspace", id: "11" },
+    realtime: {
+      event: "workspace.settings.changed",
+      audience: "event_scope",
+      payload: { workspaceSlug: "acme" }
+    }
   });
 
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-  provider.boot(app);
-
-  const io = app.make("runtime.realtime.io");
-  assert.equal(Boolean(io), true);
-  assert.equal(typeof io.on, "function");
-
-  await provider.shutdown(app);
+  assert.deepEqual(io.emitted, [{
+    room: "workspace:11",
+    eventName: "workspace.settings.changed",
+    payload: {
+      workspaceSlug: "acme",
+      type: "entity.changed",
+      source: "workspace",
+      entity: "settings",
+      operation: "updated",
+      entityId: "11",
+      scope: { kind: "workspace", id: "11" }
+    }
+  }]);
+  assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
 });
 
-test("RealtimeServiceProvider boot does not eagerly resolve optional auth/workspace bindings", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
+test("realtime delivery resolves an explicit database-backed audience without exposing query controls", async () => {
+  const io = createIoDouble();
+  const delivery = createRealtimeDelivery({
+    io,
+    logger,
+    database: {
+      knex() {}
+    }
   });
-  app.singleton("authService", () => {
-    throw new Error("authService should not resolve during realtime boot");
-  });
-  app.singleton("internal.repository.workspace-memberships", () => {
-    throw new Error("workspace memberships repository should not resolve during realtime boot");
-  });
-
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-
-  await assert.doesNotReject(() => provider.boot(app));
-  await provider.shutdown(app);
-});
-
-test("RealtimeServiceProvider boot authenticates sockets from handshake cookies and joins actor workspace rooms", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
-  });
-
-  const authenticateCalls = [];
-  app.singleton("authService", () => ({
-    async authenticateRequest(input = {}) {
-      authenticateCalls.push(input);
-      return {
-        authenticated: true,
-        actor: {
-          id: 9
+  await delivery.handle({
+    type: "entity.changed",
+    source: "workspace",
+    entity: "invite",
+    operation: "created",
+    entityId: "91",
+    realtime: {
+      event: "users.bootstrap.changed",
+      audience: {
+        preset: "none",
+        async userQuery({ knex, event }) {
+          assert.equal(typeof knex, "function");
+          assert.equal(event.entityId, "91");
+          return [{ user_id: 55 }];
         }
-      };
+      }
     }
-  }));
-  app.singleton("internal.repository.workspace-memberships", () => ({
-    async listActiveWorkspaceIdsByUserId(userId) {
-      assert.equal(userId, "9");
-      return [11, 12];
-    }
-  }));
+  });
+  assert.equal(io.emitted.length, 1);
+  assert.equal(io.emitted[0].room, "user:55");
+  assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
+});
 
+test("socket audience bootstrap authenticates explicitly and joins actor workspace rooms", async () => {
   let connectionHandler = null;
   const io = {
     on(eventName, handler) {
-      if (eventName === "connection") {
-        connectionHandler = handler;
-      }
+      if (eventName === "connection") connectionHandler = handler;
     }
   };
-
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-  app.instance("runtime.realtime.io", io);
-
-  await provider.boot(app);
-
+  const authenticateCalls = [];
+  registerSocketAudienceBootstrap({
+    io,
+    logger,
+    authService: {
+      async authenticateRequest(input) {
+        authenticateCalls.push(input);
+        return { authenticated: true, actor: { id: 9 } };
+      }
+    },
+    workspaces: {
+      repositories: {
+        workspaceMemberships: {
+          async listActiveWorkspaceIdsByUserId(userId) {
+            assert.equal(userId, "9");
+            return [11, 12];
+          }
+        }
+      }
+    }
+  });
   const joinedRooms = [];
   const socket = {
-    handshake: {
-      headers: {
-        cookie: "session=abc123; theme=dark",
-        host: "127.0.0.1:3100"
-      },
-      address: "127.0.0.1"
-    },
-    request: {
-      headers: {},
-      socket: {
-        remoteAddress: "127.0.0.1"
-      }
-    },
+    handshake: { headers: { cookie: "session=abc123; theme=dark", host: "127.0.0.1:3100" } },
+    request: { headers: {}, socket: { remoteAddress: "127.0.0.1" } },
     data: {},
-    join(room) {
-      joinedRooms.push(room);
-    }
+    join(room) { joinedRooms.push(room); }
   };
-
   await connectionHandler(socket);
-  await provider.shutdown(app);
-
-  assert.deepEqual(authenticateCalls, [
-    {
-      cookies: {
-        session: "abc123",
-        theme: "dark"
-      },
-      headers: {
-        host: "127.0.0.1:3100"
-      },
-      socket: {
-        remoteAddress: "127.0.0.1"
-      }
-    }
-  ]);
+  assert.deepEqual(authenticateCalls, [{
+    cookies: { session: "abc123", theme: "dark" },
+    headers: { host: "127.0.0.1:3100" },
+    socket: { remoteAddress: "127.0.0.1" }
+  }]);
   assert.equal(socket.data.actorId, "9");
   assert.deepEqual(joinedRooms, [
-    "clients",
-    "users",
-    "user:9",
-    "workspace:11",
-    "workspace:11:user:9",
-    "workspace:12",
-    "workspace:12:user:9"
+    "clients", "users", "user:9",
+    "workspace:11", "workspace:11:user:9",
+    "workspace:12", "workspace:12:user:9"
   ]);
 });
 
-test("RealtimeClientProvider registers runtime realtime client api", () => {
-  const app = createSingletonApp();
-  const provider = new RealtimeClientProvider();
-  provider.register(app);
-
-  assert.equal(app.singletons.has("runtime.realtime.client"), true);
-  assert.equal(app.singletons.has("runtime.realtime.client.socket"), true);
-  assert.equal(app.singletons.has("realtime.web.connection.indicator"), true);
-  const api = app.make("runtime.realtime.client");
-  assert.equal(typeof api.createSocketIoClient, "function");
-  assert.equal(typeof api.disconnectSocketIoClient, "function");
-});
-
-test("RealtimeClientProvider uses mobile.apiBaseUrl only inside the Capacitor runtime", () => {
-  const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-  const calls = [];
-  const socket = {
-    on() {},
-    off() {},
-    disconnect() {}
-  };
-  try {
-    setClientAppConfig({
-      mobile: {
-        enabled: true,
-        apiBaseUrl: "http://127.0.0.1:3000"
-      }
-    });
-
-    const app = createSingletonApp();
-    app.instance("mobile.capacitor.adapter.client", {
-      available: true
-    });
-    app.instance("runtime.realtime.client", {
-      createSocketIoClient(input = {}) {
-        calls.push(input);
-        return socket;
-      },
-      disconnectSocketIoClient() {}
-    });
-
-    const provider = new RealtimeClientProvider();
-    provider.register(app);
-
-    assert.equal(app.make("runtime.realtime.client.socket"), socket);
-    assert.deepEqual(calls, [
-      {
-        url: "http://127.0.0.1:3000",
-        options: {}
-      }
-    ]);
-  } finally {
-    if (previousAppConfig === undefined) {
-      delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-    } else {
-      globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
-    }
-  }
-});
-
-test("RealtimeClientProvider keeps web socket connections URL-less when mobile is installed outside Capacitor", () => {
-  const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-  const calls = [];
-  const socket = {
-    on() {},
-    off() {},
-    disconnect() {}
-  };
-  try {
-    setClientAppConfig({
-      mobile: {
-        enabled: true,
-        apiBaseUrl: "http://127.0.0.1:3000"
-      }
-    });
-
-    const app = createSingletonApp();
-    app.instance("mobile.capacitor.adapter.client", {
-      available: false
-    });
-    app.instance("runtime.realtime.client", {
-      createSocketIoClient(input = {}) {
-        calls.push(input);
-        return socket;
-      },
-      disconnectSocketIoClient() {}
-    });
-
-    const provider = new RealtimeClientProvider();
-    provider.register(app);
-
-    assert.equal(app.make("runtime.realtime.client.socket"), socket);
-    assert.deepEqual(calls, [
-      {
-        url: "",
-        options: {}
-      }
-    ]);
-  } finally {
-    if (previousAppConfig === undefined) {
-      delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
-    } else {
-      globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
-    }
-  }
-});
-
-test("RealtimeClientProvider boots socket listeners and disconnects on shutdown", async () => {
-  const app = createSingletonApp();
-  const provider = new RealtimeClientProvider();
-  provider.register(app);
-
-  const handlers = new Map();
-  const anyHandlers = new Set();
-  const socket = {
-    on(event, handler) {
-      handlers.set(event, handler);
-    },
-    off(event, handler) {
-      if (handlers.get(event) === handler) {
-        handlers.delete(event);
-      }
-    },
-    onAny(handler) {
-      anyHandlers.add(handler);
-    },
-    offAny(handler) {
-      anyHandlers.delete(handler);
-    },
-    emitEvent(event, payload) {
-      const handler = handlers.get(event);
-      if (typeof handler === "function") {
-        handler(payload);
-      }
-      for (const next of anyHandlers) {
-        next(event, payload);
-      }
-    }
-  };
-
-  let disconnectCalls = 0;
-  app.instance("runtime.realtime.client", {
-    createSocketIoClient() {
-      return socket;
-    },
-    disconnectSocketIoClient() {
-      disconnectCalls += 1;
+async function startRealtimeClient({ mobile = null } = {}) {
+  const registrations = new Map();
+  const provided = new Map();
+  let realtime = null;
+  const probe = defineProvider({
+    id: "test.realtime.client.probe",
+    requires: { value: "client.realtime" },
+    setup({ value }) {
+      realtime = value;
+      return {};
     }
   });
+  const inputs = {
+    "client.components": {
+      register(id, component) {
+        registrations.set(id, component);
+      }
+    },
+    "client.env": {},
+    "client.logger": logger,
+    "client.vue": {
+      provide(id, value) {
+        provided.set(id, value);
+      }
+    }
+  };
+  if (mobile) {
+    inputs["client.mobile"] = mobile;
+  }
+  const runtime = createCapabilityRuntime({
+    inputs,
+    providers: [RealtimeClientProvider, probe]
+  });
+  await runtime.start();
+  return { provided, realtime, registrations, runtime };
+}
 
-  const received = [];
-  registerRealtimeClientListener(app, "test.realtime.listener", () => ({
-    listenerId: "test.realtime.listener",
-    event: "customers.record.changed",
-    handle({ event, payload }) {
-      received.push({
-        event,
-        payload
+test("RealtimeClientProvider publishes one explicit client capability", async () => {
+  const fixture = await startRealtimeClient();
+  assert.equal(typeof fixture.realtime.createSocketIoClient, "function");
+  assert.equal(typeof fixture.realtime.disconnectSocketIoClient, "function");
+  assert.equal(fixture.realtime.config.url, "");
+  assert.equal(fixture.registrations.has("realtime.web.connection.indicator"), true);
+  assert.equal(
+    fixture.provided.get("jskit.realtime.runtime.client.socket"),
+    fixture.realtime.socket
+  );
+  await fixture.runtime.shutdown();
+});
+
+for (const [name, available, expectedUrl] of [
+  ["uses the configured API URL inside Capacitor", true, "http://127.0.0.1:3000"],
+  ["keeps web socket connections URL-less outside Capacitor", false, ""]
+]) {
+  test(`RealtimeClientProvider ${name}`, async () => {
+    const previousAppConfig = globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+    try {
+      setClientAppConfig({ mobile: { enabled: true, apiBaseUrl: "http://127.0.0.1:3000" } });
+      const fixture = await startRealtimeClient({
+        mobile: { adapter: { available } }
       });
-    }
-  }));
-
-  await provider.boot(app);
-  socket.emitEvent("customers.record.changed", {
-    id: 10
-  });
-  await Promise.resolve();
-  await provider.shutdown(app);
-
-  assert.deepEqual(received, [
-    {
-      event: "customers.record.changed",
-      payload: {
-        id: 10
-      }
-    }
-  ]);
-  assert.equal(disconnectCalls, 1);
-});
-
-test("RealtimeServiceProvider bridges service event metadata to socket emissions", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
-  });
-  app.singleton("authService", () => ({
-    async authenticateRequest() {
-      return {
-        authenticated: false
-      };
-    }
-  }));
-  app.singleton("internal.repository.workspace-memberships", () => ({
-    async listActiveWorkspaceIdsByUserId() {
-      return [];
-    }
-  }));
-  installServiceRegistrationApi(app);
-  app.singleton("domainEvents", (scope) => createDomainEvents(scope));
-  app.service(
-    "test.customers.service",
-    () => ({
-      async createRecord() {
-        return { id: 17, name: "Ada" };
-      }
-    }),
-    {
-      events: {
-        createRecord: [
-          {
-            type: "entity.changed",
-            source: "crud",
-            entity: "record",
-            operation: "created",
-            realtime: {
-              event: "customers.record.changed"
-            }
-          }
-        ]
-      }
-    }
-  );
-
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-
-  const io = app.make("runtime.realtime.io");
-  const emitted = [];
-  io.to = (room) => {
-    return {
-      emit(eventName, payload) {
-        emitted.push({
-          room,
-          eventName,
-          payload
-        });
-        return null;
-      }
-    };
-  };
-
-  const service = app.make("test.customers.service");
-  await service.createRecord({
-    context: {
-      visibilityContext: {
-        visibility: "workspace",
-        scopeOwnerId: 24
-      }
+      assert.equal(fixture.realtime.config.url, expectedUrl);
+      await fixture.runtime.shutdown();
+    } finally {
+      if (previousAppConfig === undefined) delete globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY];
+      else globalThis[CLIENT_APP_CONFIG_GLOBAL_KEY] = previousAppConfig;
     }
   });
-  await provider.shutdown(app);
-
-  assert.equal(emitted.length, 1);
-  assert.equal(emitted[0].room, "workspace:24");
-  assert.equal(emitted[0].eventName, "customers.record.changed");
-  assert.equal(emitted[0].payload?.source, "crud");
-  assert.equal(emitted[0].payload?.operation, "created");
-});
-
-test("RealtimeServiceProvider resolves custom audience callback", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
-  });
-  app.singleton("authService", () => ({
-    async authenticateRequest() {
-      return {
-        authenticated: false
-      };
-    }
-  }));
-  app.singleton("internal.repository.workspace-memberships", () => ({
-    async listActiveWorkspaceIdsByUserId() {
-      return [];
-    }
-  }));
-  installServiceRegistrationApi(app);
-  app.singleton("domainEvents", (scope) => createDomainEvents(scope));
-  app.service(
-    "test.customers.service",
-    () => ({
-      async updateRecord() {
-        return { id: 88 };
-      }
-    }),
-    {
-      events: {
-        updateRecord: [
-          {
-            type: "entity.changed",
-            source: "crud",
-            entity: "record",
-            operation: "updated",
-            realtime: {
-              event: "customers.record.changed",
-              audience: ({ event }) => ({
-                userId: event?.actorId
-              })
-            }
-          }
-        ]
-      }
-    }
-  );
-
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-
-  const io = app.make("runtime.realtime.io");
-  const emitted = [];
-  io.to = (room) => {
-    return {
-      emit(eventName, payload) {
-        emitted.push({
-          room,
-          eventName,
-          payload
-        });
-        return null;
-      }
-    };
-  };
-
-  const service = app.make("test.customers.service");
-  await service.updateRecord(
-    {
-      id: 88
-    },
-    {
-      context: {
-        actor: {
-          id: 9
-        }
-      }
-    }
-  );
-  await provider.shutdown(app);
-
-  assert.equal(emitted.length, 1);
-  assert.equal(emitted[0].room, "user:9");
-  assert.equal(emitted[0].eventName, "customers.record.changed");
-  assert.equal(emitted[0].payload?.operation, "updated");
-});
-
-test("RealtimeServiceProvider merges custom realtime payload with canonical domain event fields", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
-  });
-  app.singleton("authService", () => ({
-    async authenticateRequest() {
-      return {
-        authenticated: false
-      };
-    }
-  }));
-  app.singleton("internal.repository.workspace-memberships", () => ({
-    async listActiveWorkspaceIdsByUserId() {
-      return [];
-    }
-  }));
-  installServiceRegistrationApi(app);
-  app.singleton("domainEvents", (scope) => createDomainEvents(scope));
-  app.service(
-    "test.workspace.service",
-    () => ({
-      async updateWorkspace() {
-        return { id: 11, slug: "acme" };
-      }
-    }),
-    {
-      events: {
-        updateWorkspace: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "settings",
-            operation: "updated",
-            action: "settings-saved",
-            reason: "profile-update",
-            realtime: {
-              event: "workspace.settings.changed",
-              payload: ({ result }) => ({
-                workspaceSlug: result?.slug || ""
-              }),
-              audience: "event_scope"
-            }
-          }
-        ]
-      }
-    }
-  );
-
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-
-  const io = app.make("runtime.realtime.io");
-  const emitted = [];
-  io.to = (room) => {
-    return {
-      emit(eventName, payload) {
-        emitted.push({
-          room,
-          eventName,
-          payload
-        });
-        return null;
-      }
-    };
-  };
-
-  const service = app.make("test.workspace.service");
-  await service.updateWorkspace(
-    {
-      id: 11,
-      slug: "acme"
-    },
-    {
-      context: {
-        visibilityContext: {
-          visibility: "workspace",
-          scopeOwnerId: 11
-        },
-        actor: {
-          id: 4
-        }
-      }
-    }
-  );
-  await provider.shutdown(app);
-
-  assert.equal(emitted.length, 1);
-  assert.equal(emitted[0].room, "workspace:11");
-  assert.equal(emitted[0].eventName, "workspace.settings.changed");
-  assert.equal(emitted[0].payload?.action, "settings-saved");
-  assert.equal(emitted[0].payload?.reason, "profile-update");
-  assert.equal(emitted[0].payload?.workspaceSlug, "acme");
-  assert.equal(emitted[0].payload?.source, "workspace");
-  assert.equal(emitted[0].payload?.entity, "settings");
-  assert.equal(emitted[0].payload?.operation, "updated");
-  assert.equal(emitted[0].payload?.meta?.action, "settings-saved");
-  assert.equal(emitted[0].payload?.meta?.reason, "profile-update");
-  assert.equal(emitted[0].payload?.scope?.kind, "workspace");
-  assert.equal(emitted[0].payload?.scope?.id, "11");
-});
-
-test("RealtimeServiceProvider emits only the matching dispatcher event for each service method event", async () => {
-  const app = createSingletonApp();
-  app.instance("jskit.fastify", {
-    server: createServer()
-  });
-  app.singleton("authService", () => ({
-    async authenticateRequest() {
-      return {
-        authenticated: false
-      };
-    }
-  }));
-  app.singleton("internal.repository.workspace-memberships", () => ({
-    async listActiveWorkspaceIdsByUserId() {
-      return [];
-    }
-  }));
-  installServiceRegistrationApi(app);
-  app.singleton("domainEvents", (scope) => createDomainEvents(scope));
-  app.service(
-    "test.workspace.settings.service",
-    () => ({
-      async updateSettings() {
-        return { id: 11 };
-      }
-    }),
-    {
-      events: {
-        updateSettings: [
-          {
-            type: "entity.changed",
-            source: "workspace",
-            entity: "settings",
-            operation: "updated",
-            realtime: {
-              event: "workspace.settings.changed",
-              audience: "event_scope"
-            }
-          },
-          {
-            type: "entity.changed",
-            source: "users",
-            entity: "bootstrap",
-            operation: "updated",
-            realtime: {
-              event: "users.bootstrap.changed",
-              audience: "event_scope"
-            }
-          }
-        ]
-      }
-    }
-  );
-
-  const provider = new RealtimeServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-
-  const io = app.make("runtime.realtime.io");
-  const emitted = [];
-  io.to = (room) => {
-    return {
-      emit(eventName, payload) {
-        emitted.push({
-          room,
-          eventName,
-          payload
-        });
-        return null;
-      }
-    };
-  };
-
-  const service = app.make("test.workspace.settings.service");
-  await service.updateSettings(
-    { id: 11 },
-    {
-      context: {
-        actor: {
-          id: 4
-        },
-        visibilityContext: {
-          visibility: "workspace",
-          scopeOwnerId: 11
-        }
-      }
-    }
-  );
-  await provider.shutdown(app);
-
-  assert.equal(emitted.length, 2);
-  assert.deepEqual(
-    emitted.map((entry) => entry.eventName).sort(),
-    ["users.bootstrap.changed", "workspace.settings.changed"]
-  );
-});
+}

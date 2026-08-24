@@ -1,334 +1,46 @@
 # Realtime
 
-At the end of the previous chapter, the app already had a real shell, authenticated users, operator tooling, and workspace-aware routing. What it still did not have was a live transport for pushing updates into that shell.
-
-This chapter installs `realtime`, which adds JSKIT's socket.io runtime, Vite websocket proxy wiring, and a small connection indicator in the shell.
-
-This package is a good example of an "extra" rather than a new structural layer. It does not create new surfaces and it does not generate new pages. Instead, it plugs live behavior into things the guide has already scaffolded.
-
-## Recap from previous chapters
-
-To get back to the same starting point as the end of the previous chapter, run:
+Install realtime only when the product needs server-to-client events or live
+query refresh.
 
 ```bash
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=exampleapp
-DB_USER=exampleapp
-DB_PASSWORD=secret
-
-npx @jskit-ai/create-app exampleapp --tenancy-mode personal
-cd exampleapp
-npm install
-
-npx jskit add package auth-provider-local-core
-npx jskit add package auth-web
-npx jskit add package database-runtime-mysql \
-  --db-host "$DB_HOST" \
-  --db-port "$DB_PORT" \
-  --db-name "$DB_NAME" \
-  --db-user "$DB_USER" \
-  --db-password "$DB_PASSWORD"
-npx jskit add package users-web
-npx jskit add package console-web
-npx jskit add package workspaces-core
-npx jskit add package workspaces-web
-npm run db:migrate
+npm install @jskit-ai/realtime
 ```
 
-If you are already continuing from the previous chapter, you are already in the right place and can skip that setup.
+The package provides the server delivery capability and client listener
+runtime. It adds no schema and needs no migration.
 
-<DocsTerminalTip label="Redis" title="Empty Is Fine Locally">
-`realtime` writes `REALTIME_REDIS_URL` into `.env`, but leaving it empty is a perfectly normal local setup.
+Use the `realtime/realtime-application` pattern for event delivery, optional
+Redis configuration, client invalidation, and an explicit shell status
+placement.
 
-With no Redis URL, the package uses the in-memory socket adapter inside your single local Node process. That is enough for local development and for small single-instance deployments.
+## Event contract
 
-You only need to set `REALTIME_REDIS_URL` when you want several server instances to share socket events through Redis.
-</DocsTerminalTip>
+Successful actions may declare domain events. Realtime delivery occurs only
+when an event has an explicit realtime name and audience. The event name,
+scope, payload, and reconnect behavior are public product contracts—not a
+generic “something changed” escape hatch.
 
-## Installing `realtime`
+Client features register listeners through `@jskit-ai/realtime`. Keep query
+invalidation close to the resource that owns the query keys.
 
-From inside `exampleapp`, run:
+## Single process and Redis
 
-```bash
-npx jskit add package realtime
-```
+The in-process adapter is correct for one server process. Set
+`REALTIME_REDIS_URL` only when multiple processes need a shared backplane.
+Credentials stay outside Git and never enter public client config.
 
-The command records the exact runtime package in the app, installs its npm graph, and updates the existing scaffold, including `socket.io`, `socket.io-client`, and the optional Redis adapter pieces.
+## Visible connection state
 
-Unlike the database, users, console, and workspace chapters, this one does **not** need `npm run db:migrate`. `realtime` does not add schema files. It is transport infrastructure, not persistence.
+A status indicator is optional product UI. When wanted, register it through the
+normal component and placement APIs. Installing realtime does not append it to
+the shell.
 
-## What the package adds
+## Verification
 
-Installing `realtime` adds three app capabilities.
+Test in-process delivery, audience isolation, disconnect/reconnect recovery,
+duplicate listener cleanup, and live query refresh. When Redis is selected,
+exercise delivery between two server processes.
 
-### The app gets a realtime transport
-
-The server mounts a socket.io runtime on the same Fastify server that already serves your JSKIT surfaces. The browser gets a matching socket.io client runtime through the normal client boot process.
-
-That means later modules, or your own app code, can stop thinking only in terms of request/response HTTP flows. They can start publishing live events and listening for them in Vue.
-
-### The shell gets a connection indicator
-
-The package also uses the shell scaffolding that already exists.
-
-`realtime` appends a placement entry into `src/placement.js` that targets the semantic `shell.status` placement, so the shell shows a small status dot without you having to create a new page for it. In the default shell topology, `shell.status` renders through the concrete `shell-layout:top-right` outlet.
-
-That dot is:
-
-- green when the realtime socket is connected
-- red when the socket is disconnected or still reconnecting
-
-So the first visible value of the package is not a whole new screen. It is a tiny live status element plugged straight into the existing shell.
-
-### Vite starts proxying websocket traffic too
-
-The app already had a browser dev server on `5173` and a backend runtime on `3000`.
-
-`realtime` declares a websocket proxy for `/socket.io` in its published `package.json.jskit` metadata. The JSKIT Vite plugin reads that declaration from the installed npm graph and forwards websocket traffic from the frontend dev server on `5173` to the backend runtime on `3000`.
-
-So one of the main values of this package is that you do **not** have to hand-edit Vite config just to make socket.io work in local development.
-
-### There are no realtime pages
-
-This is worth saying clearly because it can otherwise feel surprising.
-
-After installing `realtime`:
-
-- there is still no `/realtime` page
-- there is still no new surface
-- there is still no app-owned `src/pages/...` scaffold
-
-That is intentional. `realtime` is infrastructure. It makes the existing shell and later runtime packages live-capable instead of giving the app a new section of its own.
-
-## What to look at in the browser
-
-Start both processes again:
-
-```bash
-npm run dev
-npm run server
-```
-
-Then open `http://localhost:5173/home`.
-
-The visible check is the shell status area. You should see the realtime status dot alongside the other shell controls.
-
-If the websocket connects successfully, the dot is green. If the backend is unavailable or the socket is reconnecting, the dot is red. Hovering it shows the current status text.
-
-That small change is the whole point of this chapter's browser check: the package is already active even though it did not create a page of its own.
-
-## Using the client runtime
-
-The connection indicator is useful, but the real reason to install `realtime` is to let client code subscribe to live events.
-
-The smallest client-side example looks like this:
-
-```vue
-<script setup>
-import { ref } from "vue";
-import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
-
-const lastEvent = ref("Nothing received yet.");
-
-useRealtimeEvent({
-  event: "demo.ping",
-  onEvent({ payload }) {
-    lastEvent.value = JSON.stringify(payload);
-  }
-});
-</script>
-
-<template>
-  <p>{{ lastEvent }}</p>
-</template>
-```
-
-That composable does not create any server-side events by itself. It only subscribes the component to the client socket.
-
-The important pieces are:
-
-- `event`
-  - the event name to listen for
-  - if you omit it, the composable listens to `*`
-- `onEvent`
-  - the handler that receives `{ event, payload, socket }`
-- `matches`
-  - an optional predicate if you want to filter events before the handler runs
-
-So the mental model is:
-
-- `realtime` gives the app a live transport
-- your own app code, or later packages, decide which events should travel across it
-
-## Publishing server events
-
-Server code should publish realtime lifecycle events through JSKIT's entity-change helpers instead of hand-rolling `domainEvents.publish()` payloads.
-
-Keep `operation` limited to resource invalidation semantics:
-
-- `created`
-- `updated`
-- `deleted`
-
-Use `action` for the domain lifecycle transition, and `reason` only when you need to explain why that transition happened.
-
-For direct publishers, use `createRealtimeEntityChangePublisher()` from `@jskit-ai/kernel/server/runtime/entityChangeEvents`:
-
-```js
-import { createRealtimeEntityChangePublisher } from "@jskit-ai/kernel/server/runtime/entityChangeEvents";
-
-const publishProjectRuntimeChanged = createRealtimeEntityChangePublisher({
-  domainEvents,
-  source: "vibe64",
-  entity: "project",
-  event: "vibe64.project.changed",
-  serviceToken: "vibe64.terminals.service",
-  methodName: "projectRuntime"
-});
-
-await publishProjectRuntimeChanged("updated", projectSlug, {
-  action: "runtime-closed",
-  payload: {
-    message: "Project is closed.",
-    runtime: {
-      open: false
-    }
-  }
-});
-```
-
-The helper emits a normal `entity.changed` domain event with service metadata and `meta.realtime.event`. The realtime bridge uses that service metadata to find the registered socket dispatcher, then emits the socket event with canonical fields such as `source`, `entity`, `operation`, `entityId`, `scope`, and the lifecycle `action`.
-
-For services registered through `app.service()`, declare the same semantics in service metadata:
-
-```js
-app.service(
-  "vibe64.terminals.service",
-  (scope) => createTerminalsService({
-    repository: scope.make("vibe64.repository.terminals")
-  }),
-  {
-    events: {
-      projectRuntime: [
-        {
-          type: "entity.changed",
-          source: "vibe64",
-          entity: "project",
-          operation: "updated",
-          entityId: ({ args }) => args?.[0]?.projectSlug,
-          action: "runtime-closed",
-          realtime: {
-            event: "vibe64.project.changed",
-            payload: ({ result }) => ({
-              message: result?.message || "",
-              runtime: result?.runtime || null
-            })
-          }
-        }
-      ]
-    }
-  }
-);
-```
-
-`action`, `reason`, and `realtime.payload` may be functions when the value depends on the service result or arguments. Do not encode lifecycle names by widening `operation`; keep `operation` truthful for CRUD/resource contracts and put domain-specific lifecycle meaning in metadata.
-
-## What `realtime` adds to the app
-
-This chapter is small enough that it is worth looking directly at the app-owned files it changes.
-
-### `.env` gains the Redis adapter setting
-
-The install writes:
-
-```dotenv
-REALTIME_REDIS_URL=
-```
-
-That empty value is deliberate. It means the app can start with the in-memory adapter locally, and you can fill in a real Redis URL later if you need cross-instance fan-out.
-
-### Package metadata declares the websocket proxy
-
-The installed `@jskit-ai/realtime` package declares:
-
-```json
-{
-  "jskit": {
-    "vite": {
-      "proxy": {
-        "/socket.io": {
-          "changeOrigin": true,
-          "ws": true
-        }
-      }
-    }
-  }
-}
-```
-
-`createJskitClientBootstrapPlugin({ proxyTarget })` reads that metadata directly. The application owns only its normal Vite config and proxy target; installing or removing the npm package changes the active proxy on the next Vite start without generated project state.
-
-### `src/placement.js` includes the shell status placement
-
-The package appends this placement:
-
-```js
-addPlacement({
-  id: "realtime.connection.indicator",
-  target: "shell.status",
-  kind: "component",
-  surfaces: ["*"],
-  order: 950,
-  componentToken: "realtime.web.connection.indicator"
-});
-```
-
-That is a good example of JSKIT's placement model working as intended.
-
-`realtime` does not need to own your shell component. It just contributes one widget into an outlet that `shell-web` already exposed.
-
-### `package.json` gets the runtime dependencies
-
-The install also adds the runtime packages needed for transport:
-
-- `@jskit-ai/realtime`
-- `socket.io`
-- `socket.io-client`
-- Redis adapter dependencies for scaled deployments
-
-That is why `npm install` is still required even though this chapter only touches a small number of app-owned files.
-
-## Under the hood
-
-The internal model is simple.
-
-- the server provider mounts socket.io at `/socket.io`
-- the client provider creates one shared socket client for the Vue app
-- the shell status dot is registered as `realtime.web.connection.indicator`
-
-On the server side, the package also publishes container tokens such as:
-
-- `runtime.realtime`
-- `runtime.realtime.io`
-
-And on the client side it publishes:
-
-- `runtime.realtime.client.socket`
-
-If `REALTIME_REDIS_URL` is empty, the server uses a normal single-process socket.io server. If the URL is set, the package enables the Redis adapter so several Node processes can share realtime events.
-
-That is the right level of abstraction for this package:
-
-- generic transport in the runtime
-- visible status in the shell
-- actual event meaning left to the app or to later packages
-
-## Summary
-
-This chapter does not make the app look radically different, but it adds an important capability.
-
-- the backend hosts a realtime socket server
-- the frontend keeps one shared websocket connection alive
-- the shell exposes a live connection indicator
-- later modules can build live behavior on top of that transport without inventing their own websocket setup
+Do not add realtime before event ownership is clear, invent undocumented
+payloads, mutate placement source, or retain delivery receipts.

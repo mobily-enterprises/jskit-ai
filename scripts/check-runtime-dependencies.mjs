@@ -6,6 +6,7 @@ const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
 const SOURCE_ROOT_NAMES = Object.freeze(["src", "client", "server", "shared"]);
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?js|vue)$/;
 const TEST_FILE_PATTERN = /\.(?:test|spec)\.(?:[cm]?js|vue)$/;
+const FORBIDDEN_RUNTIME_DEPENDENCIES = new Set(["genesis-compiler"]);
 const BUILTIN_DEPENDENCIES = new Set([
   "assert",
   "buffer",
@@ -49,10 +50,17 @@ const DYNAMIC_IMPORT_PATTERN = /^\s*import\s*\(\s*["']([^"']+)["']\s*\)/gm;
 
 async function listWorkspacePackageDirs() {
   const entries = await readdir(PACKAGES_DIR, { withFileTypes: true });
-  return entries
+  const directories = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(PACKAGES_DIR, entry.name))
     .sort();
+  const packages = [];
+  for (const directory of directories) {
+    if (await fileExists(path.join(directory, "package.json"))) {
+      packages.push(directory);
+    }
+  }
+  return packages;
 }
 
 async function fileExists(targetPath) {
@@ -206,19 +214,14 @@ function toRelativePackagePath(packageDir, filePath) {
   return path.relative(packageDir, filePath).split(path.sep).join("/");
 }
 
-async function collectDependencyProblems(packageDir) {
-  const packageJsonPath = path.join(packageDir, "package.json");
-  if (!(await fileExists(packageJsonPath))) {
-    return [];
-  }
-
-  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-  const declaredDependencies = new Set([
-    packageJson.name,
+async function collectRuntimeDependencyProblems(packageDir) {
+  const packageJson = JSON.parse(await readFile(path.join(packageDir, "package.json"), "utf8"));
+  const declaredRuntimeDependencies = new Set([
     ...Object.keys(packageJson.dependencies || {}),
     ...Object.keys(packageJson.peerDependencies || {}),
     ...Object.keys(packageJson.optionalDependencies || {})
   ]);
+  const declaredImports = new Set([packageJson.name, ...declaredRuntimeDependencies]);
 
   const sourceFiles = [];
   for (const rootName of SOURCE_ROOT_NAMES) {
@@ -226,11 +229,13 @@ async function collectDependencyProblems(packageDir) {
   }
 
   const missingByPackage = new Map();
+  const importedDependencies = new Set();
   for (const sourceFile of sourceFiles) {
     const source = await readFile(sourceFile, "utf8");
     const importedPackages = collectImportedPackages(source);
     for (const importedPackage of importedPackages) {
-      if (declaredDependencies.has(importedPackage)) {
+      importedDependencies.add(importedPackage);
+      if (declaredImports.has(importedPackage)) {
         continue;
       }
 
@@ -240,12 +245,17 @@ async function collectDependencyProblems(packageDir) {
     }
   }
 
-  return Array.from(missingByPackage.entries())
+  const missingDependencies = Array.from(missingByPackage.entries())
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([packageName, files]) => ({
       packageName,
       files: Array.from(new Set(files)).sort()
     }));
+  const forbiddenDependencies = Array.from(FORBIDDEN_RUNTIME_DEPENDENCIES)
+    .filter((dependency) => declaredRuntimeDependencies.has(dependency) || importedDependencies.has(dependency))
+    .sort();
+
+  return { packageName: packageJson.name, missingDependencies, forbiddenDependencies };
 }
 
 async function main() {
@@ -253,16 +263,10 @@ async function main() {
   const problems = [];
 
   for (const packageDir of packageDirs) {
-    const packageJson = JSON.parse(await readFile(path.join(packageDir, "package.json"), "utf8"));
-    const missingDependencies = await collectDependencyProblems(packageDir);
-    if (missingDependencies.length === 0) {
-      continue;
+    const problem = await collectRuntimeDependencyProblems(packageDir);
+    if (problem.missingDependencies.length > 0 || problem.forbiddenDependencies.length > 0) {
+      problems.push(problem);
     }
-
-    problems.push({
-      packageName: packageJson.name,
-      missingDependencies
-    });
   }
 
   if (problems.length === 0) {
@@ -271,11 +275,20 @@ async function main() {
   }
 
   for (const problem of problems) {
-    process.stderr.write(`${problem.packageName} is missing declared imports:\n`);
-    for (const missingDependency of problem.missingDependencies) {
-      process.stderr.write(`  - ${missingDependency.packageName}\n`);
-      for (const filePath of missingDependency.files) {
-        process.stderr.write(`      ${filePath}\n`);
+    if (problem.missingDependencies.length > 0) {
+      process.stderr.write(`${problem.packageName} is missing declared imports:\n`);
+      for (const missingDependency of problem.missingDependencies) {
+        process.stderr.write(`  - ${missingDependency.packageName}\n`);
+        for (const filePath of missingDependency.files) {
+          process.stderr.write(`      ${filePath}\n`);
+        }
+      }
+    }
+
+    if (problem.forbiddenDependencies.length > 0) {
+      process.stderr.write(`${problem.packageName} has forbidden runtime dependencies:\n`);
+      for (const dependency of problem.forbiddenDependencies) {
+        process.stderr.write(`  - ${dependency}\n`);
       }
     }
   }

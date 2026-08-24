@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UsersCoreServiceProvider } from "../../users-core/src/server/UsersCoreServiceProvider.js";
-import { INTERNAL_JSON_REST_API } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
-import { WorkspacesCoreServiceProvider } from "../src/server/WorkspacesCoreServiceProvider.js";
+import { registerWorkspaceDirectoryRoutes } from "../src/server/workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
+import { registerWorkspaceMembersRoutes } from "../src/server/workspaceMembers/bootWorkspaceMembers.js";
+import { registerWorkspacePendingInvitationsRoutes } from "../src/server/workspacePendingInvitations/bootWorkspacePendingInvitations.js";
+import { registerWorkspaceSettingsRoutes } from "../src/server/workspaceSettings/bootWorkspaceSettings.js";
 
 function createReplyDouble() {
   return {
@@ -30,20 +31,11 @@ function findRoute(routes, { method, path }) {
 }
 
 async function registerRoutes({
-  authService = {},
-  consoleService = null,
   workspaceEnabled = true,
-  workspaceTenancyEnabled = true,
   workspaceInvitationsEnabled = true,
-  workspaceSelfCreateEnabled = true
+  workspaceSelfCreateEnabled = true,
+  config = {}
 } = {}) {
-  const internalApi = {
-    resources: {},
-    async addResource(scopeName) {
-      this.resources[scopeName] = {};
-      return this.resources[scopeName];
-    }
-  };
   const registeredRoutes = [];
   const router = {
     register(method, path, route, handler) {
@@ -55,53 +47,14 @@ async function registerRoutes({
       });
     }
   };
-
-  const bindings = new Map([
-    ["jskit.http.router", router],
-    ["authService", authService],
-    [INTERNAL_JSON_REST_API, internalApi],
-    [
-      "users.accountProfile.service",
-      {
-        async readAvatar() {
-          return {
-            mimeType: "image/png",
-            buffer: Buffer.from([])
-          };
-        }
-      }
-    ],
-    ["actionExecutor", {}],
-    ["workspaces.enabled", workspaceEnabled],
-    ["workspaces.tenancy.enabled", workspaceTenancyEnabled],
-    ["workspaces.invitations.enabled", workspaceInvitationsEnabled],
-    ["workspaces.self-create.enabled", workspaceSelfCreateEnabled]
-  ]);
-
-  if (consoleService) {
-    bindings.set("consoleService", consoleService);
-  }
-
-  const app = {
-    has(token) {
-      return bindings.has(token);
-    },
-    instance(token, value) {
-      bindings.set(token, value);
-      return this;
-    },
-    make(token) {
-      if (!bindings.has(token)) {
-        throw new Error(`Missing test binding for token: ${String(token)}`);
-      }
-      return bindings.get(token);
+  if (workspaceEnabled) {
+    registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateEnabled });
+    registerWorkspaceSettingsRoutes(router, { config });
+    registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEnabled });
+    if (workspaceInvitationsEnabled) {
+      registerWorkspacePendingInvitationsRoutes(router);
     }
-  };
-
-  const usersCoreProvider = new UsersCoreServiceProvider();
-  const workspacesCoreProvider = new WorkspacesCoreServiceProvider();
-  await usersCoreProvider.boot(app);
-  await workspacesCoreProvider.boot(app);
+  }
 
   return registeredRoutes;
 }
@@ -115,8 +68,8 @@ async function registerRoutesForMode({
     tenancyPolicy
   });
   return registerRoutes({
+    config: { tenancyMode, tenancyPolicy },
     workspaceEnabled: tenancyProfile.workspace.enabled === true,
-    workspaceTenancyEnabled: tenancyProfile.mode === "workspaces",
     workspaceInvitationsEnabled:
       tenancyProfile.workspace.enabled === true && tenancyProfile.mode !== "none",
     workspaceSelfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true
@@ -220,7 +173,6 @@ test("workspace core/settings routes mount one canonical workspace endpoint", as
 test("workspaces-core boot skips workspace routes when workspace policy is disabled", async () => {
   const routes = await registerRoutes({
     workspaceEnabled: false,
-    workspaceTenancyEnabled: false,
     workspaceInvitationsEnabled: false,
     workspaceSelfCreateEnabled: false
   });
@@ -230,13 +182,11 @@ test("workspaces-core boot skips workspace routes when workspace policy is disab
   assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug" }), null);
   assert.equal(findRoute(routes, { method: "PATCH", path: "/api/w/:workspaceSlug" }), null);
   assert.equal(findRoute(routes, { method: "GET", path: "/api/w/:workspaceSlug/settings" }), null);
-  assert.equal(findRoute(routes, { method: "GET", path: "/api/settings" })?.path, "/api/settings");
 });
 
 test("workspaces-core boot skips workspace create route when self-create policy is disabled", async () => {
   const routes = await registerRoutes({
     workspaceEnabled: true,
-    workspaceTenancyEnabled: true,
     workspaceInvitationsEnabled: true,
     workspaceSelfCreateEnabled: false
   });
@@ -327,7 +277,6 @@ test("workspaces-core route registration follows tenancy mode matrix", async () 
 test("workspaces-core boot skips invitation redeem/list routes when workspace invitations are disabled", async () => {
   const routes = await registerRoutes({
     workspaceEnabled: true,
-    workspaceTenancyEnabled: true,
     workspaceInvitationsEnabled: false,
     workspaceSelfCreateEnabled: false
   });

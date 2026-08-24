@@ -21,15 +21,10 @@ Exports
 ### `src/client/index.js`
 Exports
 - `AccessCoreClientProvider`
-- `FastifyAuthPolicyClientProvider`
 
 ### `src/client/providers/AccessCoreClientProvider.js`
 Exports
 - `AccessCoreClientProvider`
-
-### `src/client/providers/FastifyAuthPolicyClientProvider.js`
-Exports
-- `FastifyAuthPolicyClientProvider`
 
 ### `src/client/signOutFlow.js`
 Exports
@@ -37,8 +32,8 @@ Exports
 
 ### `src/server/actions/auth.contributor.js`
 Exports
-- `baseAuthActions`
-- `buildAuthActions()`
+- `authActionSpecifications`
+- `buildAuthActions({ authService } = {})`
 - `requireRequestContext(context, actionId)`
 
 ### `src/server/authActor.js`
@@ -50,29 +45,33 @@ Local functions
 - `normalizeDisplayName(value, email = "")`
 - `normalizeProviderUserId(value)`
 
+### `src/server/authExtensions.js`
+Exports
+- `createAuthExtensions()`
+- `mergePolicyContexts(contexts = [])`
+Local functions
+- `normalizeOrderedExtension(value, { idField, method, label } = {})`
+- `ordered(values)`
+
 ### `src/server/authPolicyContextResolverRegistry.js`
 Exports
-- `AUTH_POLICY_CONTEXT_RESOLVER_TAG`
-- `registerAuthPolicyContextResolver(app, token, factory)`
-- `resolveAuthPolicyContextResolvers(scope)`
-- `resolveComposedAuthPolicyContextResolver(scope)`
-- `mergeAuthPolicyContexts(contexts = [])`
-- `composeAuthPolicyContextResolvers(resolvers = [])`
-Local functions
-- `normalizeAuthPolicyContextResolver(entry)`
+- `registerAuthPolicyContextResolver(extensions, resolver)`
+- `resolveComposedAuthPolicyContextResolver(extensions)`
+- `mergePolicyContexts`
 
 ### `src/server/authServiceDecoratorRegistry.js`
 Exports
-- `AUTH_SERVICE_DECORATOR_TAG`
-- `applyAuthServiceDecorators(scope, authService)`
-- `registerAuthServiceDecorator(app, token, factory)`
-- `resolveAuthServiceDecorators(scope)`
-Local functions
-- `normalizeAuthServiceDecorator(entry)`
+- `applyAuthServiceDecorators(extensions, authService)`
+- `registerAuthServiceDecorator(extensions, decorator)`
 
 ### `src/server/booleanFlag.js`
 Exports
 - `parseBooleanFlag(value, fallback = false)`
+
+### `src/server/deferredAuthService.js`
+Exports
+- `attachDeferredAuthService(handle, service)`
+- `createDeferredAuthService()`
 
 ### `src/server/devAuth.js`
 Exports
@@ -169,26 +168,25 @@ Exports
 - `normalizePermissions(value)`
 - `createMembershipIndexes(memberships)`
 
-### `src/server/providers/AccessCoreServiceProvider.js`
+### `src/server/providers/AuthAccessProvider.js`
 Exports
-- `AccessCoreServiceProvider`
+- `AuthAccessProvider`
 
-### `src/server/providers/AuthActionsServiceProvider.js`
+### `src/server/providers/AuthExtensionsProvider.js`
 Exports
-- `AuthActionsServiceProvider`
+- `AuthExtensionsProvider`
 
-### `src/server/providers/FastifyAuthPolicyServiceProvider.js`
+### `src/server/providers/AuthFeature.js`
 Exports
-- `FastifyAuthPolicyServiceProvider`
+- `AuthFeature`
+
+### `src/server/providers/AuthPolicyProvider.js`
+Exports
+- `AuthPolicyProvider`
 Local functions
 - `parseList(value)`
 - `defaultHasPermission({ permission, permissions = [] } = {})`
-
-### `src/server/services/authSessionEventsService.js`
-Exports
-- `createAuthSessionEventsService()`
-Local functions
-- `resolveActorId(context = {})`
+- `createPolicy({ authService, extensions, env })`
 
 ### `src/server/unsupportedOperation.js`
 Exports

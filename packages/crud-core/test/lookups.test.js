@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveCrudLookupToken,
-  createCrudLookupResolver,
   createCrudLookup
 } from "../src/server/lookups.js";
 
@@ -18,29 +17,6 @@ test("resolveCrudLookupToken throws for empty namespace", () => {
     () => resolveCrudLookupToken(""),
     /requires relation\.namespace/
   );
-});
-
-test("createCrudLookupResolver resolves lookups through scope.make()", () => {
-  const calls = [];
-  const scope = {
-    make(token) {
-      calls.push(token);
-      return { token };
-    }
-  };
-
-  const resolveLookup = createCrudLookupResolver(scope, {
-    context: "customersProvider"
-  });
-
-  const resolved = resolveLookup({
-    namespace: "vets"
-  });
-
-  assert.equal(calls[0], "lookup.vets");
-  assert.deepEqual(resolved, {
-    token: "lookup.vets"
-  });
 });
 
 test("createCrudLookup wraps repository.listByIds and preserves include when provided", async () => {

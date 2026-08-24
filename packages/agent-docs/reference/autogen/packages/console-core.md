@@ -24,13 +24,14 @@ Local functions
 Exports
 - `createConsoleBootstrapContributor({ consoleService } = {})`
 
-### `src/server/ConsoleCoreServiceProvider.js`
+### `src/server/ConsoleFeature.js`
 Exports
-- `ConsoleCoreServiceProvider`
+- `ConsoleFeature`
+- `createConsoleRuntime({ database } = {})`
 
 ### `src/server/consoleSettings/bootConsoleSettingsRoutes.js`
 Exports
-- `bootConsoleSettingsRoutes(app)`
+- `registerConsoleSettingsRoutes(router)`
 Local functions
 - `resolveConsoleSettingsRecordId()`
 
@@ -40,7 +41,8 @@ Exports
 
 ### `src/server/consoleSettings/consoleSettingsActions.js`
 Exports
-- `consoleSettingsActions`
+- `consoleSettingsActionSpecifications`
+- `buildConsoleSettingsActions({ consoleSettingsService } = {})`
 
 ### `src/server/consoleSettings/consoleSettingsRepository.js`
 Exports
@@ -55,25 +57,6 @@ Exports
 Local functions
 - `buildSettingsResponse(record = {})`
 
-### `src/server/consoleSettings/registerConsoleSettings.js`
-Exports
-- `registerConsoleSettings(app)`
-
-### `src/server/registerConsoleBootstrap.js`
-Exports
-- `registerConsoleBootstrap(app)`
-
-### `src/server/registerConsoleCore.js`
-Exports
-- `registerConsoleCore(app)`
-
-### `src/server/support/consoleActionSurfaces.js`
-Exports
-- `resolveConsoleSurfaceIdsFromAppConfig(appConfig = {})`
-- `registerConsoleCoreActionSurfaceSources(app)`
-Local functions
-- `normalizeSurfaceIds(surfaceIds = [])`
-
 ### `src/shared/operationMessages.js`
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
@@ -82,8 +65,8 @@ Exports
 Exports
 - `consoleSettingsResource`
 
-### templates
+### migrations
 
-### `templates/migrations/console_core_generic_initial.cjs`
+### `migrations/console_core_generic_initial.cjs`
 Exports
 - None

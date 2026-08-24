@@ -1,7 +1,3 @@
-import {
-  ShellWebClientProvider
-} from "./providers/ShellWebClientProvider.js";
-
 export {
   ShellWebClientProvider
 } from "./providers/ShellWebClientProvider.js";
@@ -28,11 +24,6 @@ export {
   useShellRequestRecoveryRuntime
 } from "./requestRecovery/index.js";
 export {
-  BOOTSTRAP_PAYLOAD_HANDLER_TAG,
-  registerBootstrapPayloadHandler,
-  resolveBootstrapPayloadHandlers
+  createBootstrapPayloadHandlerRegistry,
+  normalizeBootstrapPayloadHandler
 } from "./bootstrap/index.js";
-
-const clientProviders = Object.freeze([ShellWebClientProvider]);
-
-export { clientProviders };

@@ -1,33 +1,23 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { DatabaseRuntimeMysqlServiceProvider } from "../src/server/providers/DatabaseRuntimeMysqlServiceProvider.js";
+import test from "node:test";
 
-function createSingletonApp() {
-  const singletons = new Map();
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { MysqlDatabaseDriverProvider } from "../src/server/providers/MysqlDatabaseDriverProvider.js";
 
-  return {
-    has(token) {
-      return singletons.has(token);
-    },
-    singleton(token, factory) {
-      singletons.set(token, factory(this));
-    },
-    make(token) {
-      if (!singletons.has(token)) {
-        throw new Error(`Token ${String(token)} is not registered.`);
-      }
-      return singletons.get(token);
+test("MysqlDatabaseDriverProvider provides the exclusive database driver capability", async () => {
+  let driver;
+  const consumer = defineProvider({
+    id: "test.mysql.consumer",
+    requires: { databaseDriver: "runtime.database.driver" },
+    setup({ databaseDriver }) {
+      driver = databaseDriver;
+      return {};
     }
-  };
-}
+  });
+  const runtime = createCapabilityRuntime({ providers: [MysqlDatabaseDriverProvider, consumer] });
 
-test("DatabaseRuntimeMysqlServiceProvider registers mysql driver api", () => {
-  const app = createSingletonApp();
-  const provider = new DatabaseRuntimeMysqlServiceProvider();
-  provider.register(app);
-
-  assert.equal(app.has("runtime.database.driver.mysql"), true);
-  const api = app.make("runtime.database.driver.mysql");
-  assert.equal(api.DIALECT_ID, "mysql2");
-  assert.equal(api.getDialectId(), "mysql2");
+  await runtime.start();
+  assert.equal(driver.DIALECT_ID, "mysql2");
+  assert.equal(driver.getDialectId(), "mysql2");
+  await runtime.shutdown();
 });

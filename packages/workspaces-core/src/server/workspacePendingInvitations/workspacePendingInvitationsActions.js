@@ -4,15 +4,21 @@ import {
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
+import { createInviteDecisionEvents } from "../common/support/realtimeServiceEvents.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
-const workspacePendingInvitationsActions = Object.freeze([
+const WORKSPACE_INVITE_DECISION_EVENTS = createInviteDecisionEvents();
+
+const workspacePendingInvitationsActionSpecifications = Object.freeze([
   {
     id: "workspace.invitation.resolve",
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
+    permission: {
+      require: "none"
+    },
     input: workspacePendingInvitationsResource.operations.resolve.query,
     output: null,
     idempotency: "none",
@@ -20,9 +26,9 @@ const workspacePendingInvitationsActions = Object.freeze([
       actionName: "workspace.invitation.resolve"
     },
     observability: {},
-    async execute(input, context, deps) {
+    async run(workspacePendingInvitationsService, input, context) {
       return returnJsonApiData(
-        await deps.workspacePendingInvitationsService.resolveInviteByToken(input?.token, {
+        await workspacePendingInvitationsService.resolveInviteByToken(input?.token, {
           context
         })
       );
@@ -33,7 +39,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -44,9 +50,9 @@ const workspacePendingInvitationsActions = Object.freeze([
       actionName: "workspace.invitations.pending.list"
     },
     observability: {},
-    async execute(input, context, deps) {
+    async run(workspacePendingInvitationsService, input, context) {
       return returnJsonApiData({
-        pendingInvites: await deps.workspacePendingInvitationsService.listPendingInvitesForUser(resolveActionUser(context, input), {
+        pendingInvites: await workspacePendingInvitationsService.listPendingInvitesForUser(resolveActionUser(context, input), {
           context
         })
       });
@@ -57,7 +63,7 @@ const workspacePendingInvitationsActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -68,12 +74,13 @@ const workspacePendingInvitationsActions = Object.freeze([
       actionName: "workspace.invite.redeem"
     },
     observability: {},
-    async execute(input, context, deps) {
+    events: WORKSPACE_INVITE_DECISION_EVENTS,
+    async run(workspacePendingInvitationsService, input, context) {
       const payload = input || {};
       const user = resolveActionUser(context, input);
 
       if (payload.decision === "accept") {
-        return returnJsonApiData(await deps.workspacePendingInvitationsService.acceptInviteByToken({
+        return returnJsonApiData(await workspacePendingInvitationsService.acceptInviteByToken({
           user,
           token: payload.token
         }, {
@@ -81,7 +88,7 @@ const workspacePendingInvitationsActions = Object.freeze([
         }));
       }
 
-      return returnJsonApiData(await deps.workspacePendingInvitationsService.refuseInviteByToken({
+      return returnJsonApiData(await workspacePendingInvitationsService.refuseInviteByToken({
         user,
         token: payload.token
       }, {
@@ -91,4 +98,16 @@ const workspacePendingInvitationsActions = Object.freeze([
   }
 ]);
 
-export { workspacePendingInvitationsActions };
+function buildWorkspacePendingInvitationsActions({ workspacePendingInvitationsService } = {}) {
+  if (!workspacePendingInvitationsService) {
+    throw new TypeError("buildWorkspacePendingInvitationsActions requires workspacePendingInvitationsService.");
+  }
+  return workspacePendingInvitationsActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(workspacePendingInvitationsService, input, context);
+    }
+  }));
+}
+
+export { workspacePendingInvitationsActionSpecifications, buildWorkspacePendingInvitationsActions };

@@ -207,8 +207,7 @@ function resolveRenderablePlacement({
   });
 }
 
-function resolveContextContributors(app, baseContext = {}, logger) {
-  const contributors = app.resolveTag("web-placement.context.client");
+function resolveContextContributors(contributors, baseContext = {}, logger) {
   let merged = {};
 
   for (const contributor of ensureArray(contributors)) {
@@ -235,7 +234,7 @@ function resolveContextContributors(app, baseContext = {}, logger) {
 }
 
 function resolvePlacementComponent(
-  app,
+  components,
   placement,
   logger,
   missingTokens,
@@ -251,7 +250,7 @@ function resolvePlacementComponent(
     return null;
   }
 
-  if (!app.has(componentToken)) {
+  if (!components.has(componentToken)) {
     if (!missingTokens.has(componentToken)) {
       missingTokens.add(componentToken);
       logger.warn(
@@ -267,7 +266,7 @@ function resolvePlacementComponent(
 
   let component = null;
   try {
-    component = app.make(componentToken);
+    component = components.get(componentToken);
   } catch (error) {
     if (!failedTokens.has(componentToken)) {
       failedTokens.add(componentToken);
@@ -319,9 +318,9 @@ function shouldIncludePlacement(placement, placementContext, logger) {
   }
 }
 
-function createWebPlacementRuntime({ app, logger = null } = {}) {
-  if (!app || typeof app.resolveTag !== "function" || typeof app.make !== "function" || typeof app.has !== "function") {
-    throw new Error("createWebPlacementRuntime requires app.resolveTag(), app.has(), and app.make().");
+function createWebPlacementRuntime({ components, contextContributors = [], logger = null } = {}) {
+  if (!components || typeof components.has !== "function" || typeof components.get !== "function") {
+    throw new Error("createWebPlacementRuntime requires a client component registry.");
   }
 
   const runtimeLogger = createRuntimeLogger(logger);
@@ -438,9 +437,8 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
     const baseContext = isRecord(context) ? { ...context } : {};
     const contextFromRuntime = isRecord(sharedContext) ? sharedContext : {};
     const contextFromContributors = resolveContextContributors(
-      app,
+      contextContributors,
       {
-        app,
         surface: normalizedSurface,
         target: normalizedTarget,
         layoutClass: normalizedLayoutClass,
@@ -455,7 +453,6 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       ...contextFromContributors,
       ...contextFromRuntime,
       ...baseContext,
-      app,
       surface: normalizedSurface,
       target: normalizedTarget,
       layoutClass: normalizedLayoutClass
@@ -503,7 +500,7 @@ function createWebPlacementRuntime({ app, logger = null } = {}) {
       }
 
       const component = resolvePlacementComponent(
-        app,
+        components,
         renderablePlacement,
         runtimeLogger,
         missingTokens,

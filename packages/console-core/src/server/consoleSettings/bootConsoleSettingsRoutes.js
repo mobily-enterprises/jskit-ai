@@ -5,12 +5,10 @@ function resolveConsoleSettingsRecordId() {
   return "console-settings";
 }
 
-function bootConsoleSettingsRoutes(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootConsoleSettingsRoutes requires application make().");
+function registerConsoleSettingsRoutes(router) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerConsoleSettingsRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
 
   router.register(
     "GET",
@@ -68,4 +66,4 @@ function bootConsoleSettingsRoutes(app) {
   );
 }
 
-export { bootConsoleSettingsRoutes };
+export { registerConsoleSettingsRoutes };

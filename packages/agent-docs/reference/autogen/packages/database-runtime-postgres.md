@@ -18,9 +18,9 @@ Use this on demand; do not load the full index at startup.
 Exports
 - None
 
-### `src/server/providers/DatabaseRuntimePostgresServiceProvider.js`
+### `src/server/providers/PostgresDatabaseDriverProvider.js`
 Exports
-- `DatabaseRuntimePostgresServiceProvider`
+- `PostgresDatabaseDriverProvider`
 
 ### `src/shared/dialect.js`
 Exports
@@ -31,3 +31,13 @@ Exports
 Exports
 - `DIALECT_ID`
 - `getDialectId`
+
+### patterns
+
+### `patterns/postgres-application/example/knexfile.js`
+Exports
+- None
+
+### `patterns/postgres-application/example/scripts/prepare-database.js`
+Exports
+- None

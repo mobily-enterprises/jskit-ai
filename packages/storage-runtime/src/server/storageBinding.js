@@ -23,8 +23,7 @@ function resolveFsBasePath(fsBasePath, { rootDir } = {}) {
   return path.resolve(resolvedRootDir, "data", "storage");
 }
 
-function createStorageBinding(scope, { rootDir = process.cwd() } = {}) {
-  const env = scope && typeof scope.has === "function" && scope.has("jskit.env") ? scope.make("jskit.env") : {};
+function createStorageBinding({ env = {}, rootDir = process.cwd() } = {}) {
   const driver = normalizeStorageDriver(env?.[STORAGE_DRIVER_ENV_KEY]);
 
   if (driver === "memory") {

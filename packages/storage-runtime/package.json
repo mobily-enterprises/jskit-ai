@@ -1,16 +1,16 @@
 {
   "name": "@jskit-ai/storage-runtime",
-  "version": "0.1.156",
+  "version": "0.1.163",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./server/providers/StorageRuntimeServiceProvider": "./src/server/providers/StorageRuntimeServiceProvider.js"
+    "./server/providers/StorageProvider": "./src/server/providers/StorageProvider.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.159",
+    "@jskit-ai/kernel": "0.1.166",
     "unstorage": "^1.17.5"
   },
   "jskit": {
@@ -19,15 +19,16 @@
       "provides": [
         "runtime.storage"
       ],
-      "requires": []
+      "requires": [
+        "runtime.app-root"
+      ]
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/StorageRuntimeServiceProvider.js",
-            "export": "StorageRuntimeServiceProvider"
+            "entrypoint": "src/server/providers/StorageProvider.js",
+            "export": "StorageProvider"
           }
         ]
       },
@@ -39,37 +40,15 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server/providers/StorageRuntimeServiceProvider",
-            "summary": "Exports storage runtime server provider."
+            "subpath": "./server/providers/StorageProvider",
+            "summary": "Provides the configured runtime.storage instance."
           },
           {
             "subpath": "./client",
             "summary": "Exports no client runtime API today (reserved client entrypoint)."
           }
-        ],
-        "containerTokens": {
-          "server": [
-            "runtime.storage",
-            "jskit.storage"
-          ],
-          "client": []
-        }
+        ]
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/kernel": "0.1.159",
-          "unstorage": "^1.17.3"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": []
     }
   }
 }

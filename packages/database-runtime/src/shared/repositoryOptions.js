@@ -242,6 +242,42 @@ function createWithTransaction(knex) {
   };
 }
 
+function requireSqlIdentifier(value, label) {
+  const identifier = String(value || "").trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(identifier)) {
+    throw new TypeError(`${label} must be a safe SQL identifier.`);
+  }
+  return identifier;
+}
+
+async function lockScopedRecordId({
+  trx,
+  tableName,
+  recordId,
+  scopeId,
+  idColumn = "id",
+  scopeColumn = "workspace_id"
+} = {}) {
+  if (typeof trx !== "function") {
+    throw new TypeError("lockScopedRecordId requires a transaction.");
+  }
+  const table = requireSqlIdentifier(tableName, "lockScopedRecordId tableName");
+  const recordKey = requireSqlIdentifier(idColumn, "lockScopedRecordId idColumn");
+  const scopeKey = requireSqlIdentifier(scopeColumn, "lockScopedRecordId scopeColumn");
+  const normalizedRecordId = normalizeDbRecordId(recordId);
+  const normalizedScopeId = normalizeDbRecordId(scopeId);
+  if (!normalizedRecordId || !normalizedScopeId) {
+    return null;
+  }
+  const row = await trx(table)
+    .select(recordKey)
+    .where(recordKey, normalizedRecordId)
+    .andWhere(scopeKey, normalizedScopeId)
+    .forUpdate()
+    .first();
+  return normalizeDbRecordId(row?.[recordKey]);
+}
+
 export {
   resolveQueryOptions,
   resolveRepoClient,
@@ -260,5 +296,6 @@ export {
   parseJsonValue,
   toDbJson,
   runInTransaction,
-  createWithTransaction
+  createWithTransaction,
+  lockScopedRecordId
 };

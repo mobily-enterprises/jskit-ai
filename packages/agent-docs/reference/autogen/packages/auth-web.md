@@ -92,7 +92,6 @@ Exports
 - `completeOAuthCallbackFromUrl`
 - `readOAuthCallbackParamsFromUrl`
 - `routeComponents`
-- `clientProviders`
 
 ### `src/client/lib/profileMenuLinkTarget.js`
 Exports
@@ -115,15 +114,16 @@ Exports
 Exports
 - `AuthWebClientProvider`
 
-### `src/client/providers/bootAuthClientProvider.js`
-Exports
-- `bootAuthClientProvider(app)`
-
 ### `src/client/runtime/authCallbackUrlParams.js`
 Exports
 - `readAuthCallbackParam(callbackUrlParams, key)`
 - `readAuthCallbackUrlParams(url = "")`
 - `stripAuthCallbackParamsFromUrl(url = "", keys = [])`
+
+### `src/client/runtime/authClient.js`
+Exports
+- `createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp } = {})`
+- `createMobileCallbackCompleter()`
 
 ### `src/client/runtime/authGuardRuntime.js`
 Exports
@@ -240,6 +240,12 @@ Local functions
 Exports
 - None
 
+### `src/server/AuthWebFeature.js`
+Exports
+- `AuthWebFeature`
+Local functions
+- `devAuthBootstrapEnabled(env)`
+
 ### `src/server/constants/authActionIds.js`
 Exports
 - `AUTH_ACTION_IDS`
@@ -250,15 +256,29 @@ Exports
 - `AUTH_ACTION_IDS`
 - `createController({ service, authService } = {})`
 
-### `src/server/providers/AuthRouteServiceProvider.js`
+### `src/server/managedPreviewIdentity.js`
 Exports
-- `AuthRouteServiceProvider`
-
-### `src/server/providers/AuthWebServiceProvider.js`
-Exports
-- `AuthWebServiceProvider`
+- `MANAGED_PREVIEW_IDENTITY_PROTOCOL`
+- `executeManagedPreviewIdentityRequest(value, { env = process.env, fetchImpl = globalThis.fetch } = {})`
+- `runManagedPreviewIdentityCommand({ env = process.env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout } = {})`
 Local functions
-- `resolveDevAuthBootstrapEnabled(scope)`
+- `commandError(message, code = "jskit_managed_preview_identity_failed", details = {})`
+- `response(requestId, values)`
+- `failure(requestId, error)`
+- `readBoundedStream(stream, label)`
+- `readCommandInput(stream)`
+- `localTargetOrigin(value)`
+- `normalizeRequest(value)`
+- `identityFromSubject(subject)`
+- `responseCookies(fetchResponse)`
+- `cookieHeader(setCookie)`
+- `responsePayload(fetchResponse)`
+- `rejected(payload, fetchResponse, details = {})`
+- `fetchRequest(fetchImpl, href, options)`
+- `postJson(fetchImpl, href, body, headers = {})`
+- `bootstrapSession(fetchImpl, targetOrigin)`
+- `logout(fetchImpl, targetOrigin, session)`
+- `login(fetchImpl, targetOrigin, identity, secret, session)`
 
 ### `src/server/routes/authRoutes.js`
 Exports
@@ -268,21 +288,21 @@ Exports
 Exports
 - `AuthWebService`
 
-### templates
+### patterns
 
-### `templates/src/pages/auth/login.vue`
+### `patterns/auth-surface/example/src/pages/auth/login.vue`
 Exports
 - None
 
-### `templates/src/pages/auth/reset-password.vue`
+### `patterns/auth-surface/example/src/pages/auth/reset-password.vue`
 Exports
 - None
 
-### `templates/src/pages/auth/signout.vue`
+### `patterns/auth-surface/example/src/pages/auth/signout.vue`
 Exports
 - None
 
-### `templates/src/runtime/authGuardRuntime.js`
+### `patterns/auth-surface/example/src/runtime/authGuardRuntime.js`
 Exports
 - `createAuthGuardRuntime`
 - `isAuthGuardRuntime`
@@ -290,25 +310,25 @@ Exports
 - `refreshAuthGuardState`
 - `getAuthGuardState`
 
-### `templates/src/runtime/authHttpClient.js`
+### `patterns/auth-surface/example/src/runtime/authHttpClient.js`
 Exports
 - `authHttpRequest`
 - `clearAuthCsrfTokenCache`
 
-### `templates/src/runtime/useSignOut.js`
+### `patterns/auth-surface/example/src/runtime/useSignOut.js`
 Exports
 - `useSignOut`
 - `createSignOutAction`
 - `performSignOutRequest`
 
-### `templates/src/views/auth/LoginView.vue`
+### `patterns/auth-surface/example/src/views/auth/LoginView.vue`
 Exports
 - None
 
-### `templates/src/views/auth/ResetPasswordView.vue`
+### `patterns/auth-surface/example/src/views/auth/ResetPasswordView.vue`
 Exports
 - None
 
-### `templates/src/views/auth/SignOutView.vue`
+### `patterns/auth-surface/example/src/views/auth/SignOutView.vue`
 Exports
 - None

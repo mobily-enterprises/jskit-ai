@@ -9,16 +9,45 @@ const REPO_ROOT = path.resolve(TEST_DIRECTORY, "..", "..", "..");
 
 const BARREL_EXPECTATIONS = Object.freeze([
   Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "platform", "index.js"),
+    expectedExports: Object.freeze([
+      "createInstalledRuntime",
+      "registerSurfaceRequestConstraint",
+      "resolveRuntimeProfileFromSurface"
+    ])
+  }),
+  Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "actions", "index.js"),
+    expectedExports: Object.freeze([
+      "createActionCatalogue",
+      "createActionProvider",
+      "createEntityChangedActionEvent"
+    ])
+  }),
+  Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "shared", "capabilities", "index.js"),
+    expectedExports: Object.freeze([
+      "createCapabilityRuntime",
+      "defineProvider"
+    ])
+  }),
+  Object.freeze({
+    filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "features", "index.js"),
+    expectedExports: Object.freeze([
+      "defineFeature"
+    ])
+  }),
+  Object.freeze({
     filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "runtime", "index.js"),
     expectedExports: Object.freeze([
       "AppError",
+      "BootstrapProvider",
+      "EventProvider",
+      "createBootstrapRuntime",
+      "createEventRuntime",
       "createValidationError",
-      "installServiceRegistrationApi",
       "parsePositiveInteger",
-      "requireAuth",
-      "resolveServiceRegistrations",
-      "registerDomainEventListener",
-      "registerBootstrapPayloadContributor"
+      "requireAuth"
     ])
   }),
   Object.freeze({
@@ -38,13 +67,6 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "toSnakeCase",
       "shouldRetryTransientQueryFailure",
       "transientQueryRetryDelay"
-    ])
-  }),
-  Object.freeze({
-    filePath: path.join(REPO_ROOT, "packages", "kernel", "shared", "actions", "index.js"),
-    expectedExports: Object.freeze([
-      "normalizeActionDefinition",
-      "withActionDefaults"
     ])
   }),
   Object.freeze({
@@ -108,7 +130,8 @@ const BARREL_EXPECTATIONS = Object.freeze([
   Object.freeze({
     filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "http", "index.js"),
     expectedExports: Object.freeze([
-      "registerRouteVisibilityResolver"
+      "HttpProvider",
+      "createCapabilityHttpRuntime"
     ])
   })
 ]);

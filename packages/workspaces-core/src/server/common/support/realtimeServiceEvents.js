@@ -1,91 +1,132 @@
+import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
+import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { deepFreeze } from "./deepFreeze.js";
+import { resolveWorkspace } from "../../support/resolveWorkspace.js";
 
-function resolveActorScopedEntityId({ options } = {}) {
-  return normalizeRecordId(options?.context?.actor?.id, { fallback: "" });
+function resultValue({ result } = {}) {
+  return result?.value ?? result ?? {};
 }
 
-function resolveWorkspaceSlugPayload({ args } = {}) {
+function actorId({ context } = {}) {
+  return context?.actor?.id;
+}
+
+function workspaceId(execution = {}) {
+  return resolveWorkspace(execution.context, execution.input)?.id || resultValue(execution)?.workspaceId;
+}
+
+function workspaceSlugPayload(execution = {}) {
   return {
-    workspaceSlug: String(args?.[0]?.slug || "").trim()
+    workspaceSlug: String(
+      resolveWorkspace(execution.context, execution.input)?.slug || execution.input?.workspaceSlug || ""
+    ).trim()
   };
 }
 
-const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
-  {
-    type: "entity.changed",
-    source: "account",
-    entity: "settings",
-    operation: "updated",
-    entityId: resolveActorScopedEntityId,
-    realtime: {
-      event: "account.settings.changed",
-      audience: "actor_user"
-    }
-  },
-  {
-    type: "entity.changed",
-    source: "users",
-    entity: "bootstrap",
-    operation: "updated",
-    entityId: resolveActorScopedEntityId,
-    realtime: {
-      event: "users.bootstrap.changed",
-      audience: "actor_user"
-    }
+const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
+  preset: "event_scope",
+  async userQuery({ knex, event } = {}) {
+    if (typeof knex !== "function") return [];
+    const inviteId = normalizeRecordId(event?.entityId, { fallback: null });
+    if (!inviteId) return [];
+    const row = await knex("workspace_invites as wi")
+      .join("users as up", "up.email", "wi.email")
+      .where("wi.id", inviteId)
+      .first("up.id as user_id");
+    const userId = normalizeDbRecordId(row?.user_id, { fallback: null });
+    return userId ? [{ userId }] : [];
   }
-]);
+});
 
 function createWorkspaceEntityAndBootstrapEvents({
   workspaceEntity,
   workspaceOperation,
   workspaceRealtimeEvent,
-  workspaceEntityId = ({ args }) => args?.[0]?.id,
-  bootstrapEntityId = ({ args }) => args?.[0]?.id,
+  bootstrapEntityId = workspaceId,
   bootstrapAudience = "event_scope"
 } = {}) {
-  const normalizedWorkspaceEntity = String(workspaceEntity || "").trim();
-  const normalizedWorkspaceOperation = String(workspaceOperation || "")
-    .trim()
-    .toLowerCase();
-  const normalizedWorkspaceRealtimeEvent = String(workspaceRealtimeEvent || "").trim();
-  if (!normalizedWorkspaceEntity || !normalizedWorkspaceOperation || !normalizedWorkspaceRealtimeEvent) {
-    throw new Error(
-      "createWorkspaceEntityAndBootstrapEvents requires workspaceEntity, workspaceOperation, and workspaceRealtimeEvent."
-    );
-  }
-  if (typeof workspaceEntityId !== "function") {
-    throw new Error("createWorkspaceEntityAndBootstrapEvents requires workspaceEntityId to be a function.");
-  }
-  if (typeof bootstrapEntityId !== "function") {
-    throw new Error("createWorkspaceEntityAndBootstrapEvents requires bootstrapEntityId to be a function.");
-  }
-
-  return deepFreeze([
-    {
-      type: "entity.changed",
+  return Object.freeze([
+    createEntityChangedActionEvent({
       source: "workspace",
-      entity: normalizedWorkspaceEntity,
-      operation: normalizedWorkspaceOperation,
-      entityId: (payload = {}) => normalizeRecordId(workspaceEntityId(payload), { fallback: "" }),
+      entity: workspaceEntity,
+      operation: workspaceOperation,
+      entityId: workspaceId,
       realtime: {
-        event: normalizedWorkspaceRealtimeEvent,
-        payload: resolveWorkspaceSlugPayload,
-        audience: "event_scope"
+        event: workspaceRealtimeEvent,
+        audience: "event_scope",
+        payload: workspaceSlugPayload
       }
-    },
-    {
-      type: "entity.changed",
+    }),
+    createEntityChangedActionEvent({
       source: "users",
       entity: "bootstrap",
       operation: "updated",
-      entityId: (payload = {}) => normalizeRecordId(bootstrapEntityId(payload), { fallback: "" }),
+      entityId: bootstrapEntityId,
       realtime: {
         event: "users.bootstrap.changed",
         audience: bootstrapAudience
       }
-    }
+    })
   ]);
 }
 
-export { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS, createWorkspaceEntityAndBootstrapEvents };
+function createActorEvent({ source, entity, realtimeEvent }) {
+  return createEntityChangedActionEvent({
+    source,
+    entity,
+    operation: "updated",
+    entityId: actorId,
+    realtime: { event: realtimeEvent, audience: "actor_user" }
+  });
+}
+
+function createWorkspaceAudienceEvent({ entity, realtimeEvent }) {
+  return createEntityChangedActionEvent({
+    source: "workspace",
+    entity,
+    operation: "updated",
+    entityId: ({ result }) => result?.value?.workspaceId ?? result?.workspaceId,
+    realtime: {
+      event: realtimeEvent,
+      audience: ({ result }) => ({ workspaceId: result?.value?.workspaceId ?? result?.workspaceId })
+    }
+  });
+}
+
+function onlyAccepted(builder) {
+  return (execution) => execution.input?.decision === "accept" ? builder(execution) : null;
+}
+
+function createInviteDecisionEvents() {
+  return Object.freeze([
+    createActorEvent({
+      source: "workspace",
+      entity: "invitation",
+      realtimeEvent: "workspace.invitations.pending.changed"
+    }),
+    createActorEvent({
+      source: "users",
+      entity: "bootstrap",
+      realtimeEvent: "users.bootstrap.changed"
+    }),
+    onlyAccepted(createActorEvent({
+      source: "workspace",
+      entity: "directory",
+      realtimeEvent: "workspaces.changed"
+    })),
+    onlyAccepted(createWorkspaceAudienceEvent({
+      entity: "member",
+      realtimeEvent: "workspace.members.changed"
+    })),
+    createWorkspaceAudienceEvent({
+      entity: "invite",
+      realtimeEvent: "workspace.invites.changed"
+    })
+  ]);
+}
+
+export {
+  INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE,
+  createInviteDecisionEvents,
+  createWorkspaceEntityAndBootstrapEvents
+};

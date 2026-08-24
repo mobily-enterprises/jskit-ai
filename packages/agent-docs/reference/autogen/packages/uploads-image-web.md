@@ -39,7 +39,6 @@ Local functions
 Exports
 - `createImageUploadRuntime`
 - `createManagedImageAssetRuntime`
-- `clientProviders`
 
 ### `src/client/styles/index.js`
 Exports

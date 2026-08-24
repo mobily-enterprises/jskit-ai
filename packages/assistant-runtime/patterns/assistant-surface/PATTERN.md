@@ -1,0 +1,77 @@
+---
+id: assistant/assistant-surface
+title: Assistant surface and settings
+summary: Configure an assistant runtime for one application surface and expose its chat and settings elements through ordinary pages and placements.
+keywords: ai, assistant, chat, config, environment, page, placement, settings, surface
+requires: @jskit-ai/assistant-runtime, @jskit-ai/shell-web
+---
+
+# Assistant surface and settings
+
+## Use when
+
+Use this pattern when an application should expose JSKIT's assistant runtime on
+an enabled surface and provide a settings page for that assistant.
+
+## Do not use when
+
+Do not use this pattern for an application that only needs a single
+server-to-model call, or when the product has no conversational surface. Do not
+copy the assistant runtime's repositories or transport into application code.
+
+## Product decisions
+
+Choose the runtime surface, settings surface, global or workspace configuration
+scope, page routes, placement roles, AI provider, model policy, and whether the
+assistant begins disabled until credentials are supplied. Never put an API key
+in source or a questionnaire transcript.
+
+## Invariants
+
+- Both configured surfaces exist and are enabled.
+- Workspace configuration is used only when both surfaces require a workspace.
+- Each runtime surface appears once in `assistantSurfaces` and
+  `assistantServer`.
+- The server config contains an environment prefix, never a credential value.
+- Runtime and settings pages use the public assistant elements.
+- Environment values are supplied through the application's normal secret
+  environment boundary.
+- No generator markers, setup receipts, or overwrite state remain.
+
+## Framework APIs
+
+Use `AssistantSurfaceClientElement` and `AssistantSettingsClientElement` from
+`@jskit-ai/assistant-runtime/client`. Install the runtime package through the
+normal package-capability path. Configure `assistantSurfaces` in public config
+and `assistantServer` in server config.
+
+## Example files
+
+`example/` contains concrete public/server config, assistant and settings pages,
+and semantic placements for an `admin` surface. Adapt the complete files to the
+application's existing config and placement registries.
+
+## Variation points
+
+Change surface ids, settings location, config scope, environment prefix, routes,
+labels, icons, and placement targets. A workspace-scoped application must retain
+the current workspace in both routes and assistant requests through the runtime's
+public workspace support.
+
+## Verification
+
+- load both pages through their normal navigation
+- verify the configured surface and settings target agree
+- verify missing credentials disable assistant calls without exposing secrets
+- exercise one successful and one provider-error conversation
+- verify global or cross-workspace isolation, whichever applies
+- run migrations, server/client tests, and focused browser coverage
+
+## Avoid
+
+- API keys or provider secrets in source
+- a second model client beside the assistant runtime
+- implicit surface selection
+- workspace scope on a non-workspace surface
+- copied runtime repositories, actions, or routes
+- generator commands, question metadata, receipts, or provenance

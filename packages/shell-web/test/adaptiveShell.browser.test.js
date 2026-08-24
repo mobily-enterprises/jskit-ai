@@ -232,6 +232,15 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     }).toBeLessThanOrEqual(1);
     await configuredPage.close();
     await context.close();
+  } catch (error) {
+    const fixtureOutput = vite.readOutput().trim();
+    if (!fixtureOutput) {
+      throw error;
+    }
+    throw new Error(
+      `${error.message}\n\nAdaptive shell fixture output:\n${fixtureOutput}`,
+      { cause: error }
+    );
   } finally {
     await browser?.close();
     await stopProcess(vite);

@@ -1,20 +1,19 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
 
-const packageMetadata = packageJson.jskit;
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("users-web leaves account surface scaffolds app-owned", () => {
-  const expectedIds = [
-    "users-web-page-account-root",
-    "users-web-component-account-settings-profile",
-    "users-web-component-account-settings-preferences",
-    "users-web-component-account-settings-notifications"
-  ];
+test("users-web publishes account examples as agent-readable patterns", async () => {
+  assert.equal(packageJson.jskit?.mutations, undefined);
 
-  for (const id of expectedIds) {
-    const mutation = packageMetadata.mutations.files.find((entry) => entry.id === id);
-    assert.ok(mutation, `Missing users-web scaffold mutation ${id}.`);
-    assert.equal(mutation.ownership, "app", `${id} must remain app-owned across package updates.`);
-  }
+  const pattern = await readFile(path.join(packageRoot, "patterns", "account-settings", "PATTERN.md"), "utf8");
+  assert.match(pattern, /## Product decisions/);
+  assert.match(pattern, /## Invariants/);
+  assert.match(pattern, /Mutation errors use the standard toast/);
+  assert.match(pattern, /Loading uses layout-stable skeletons/);
+  assert.match(pattern, /## Example files/);
 });

@@ -1,101 +1,70 @@
 ---
 title: Vibe Guide
-description: "The shortest non-technical path into a real JSKIT app."
+description: "The shortest non-technical path into a real AI-first JSKIT app."
 ---
 
 # Vibe Guide
 
-This page is for people who want to build with an AI agent without learning JSKIT first.
+JSKIT is a framework and a library of strong application patterns. You do not
+fill out a framework questionnaire and you do not have to learn its internal
+vocabulary before describing a product.
 
-You do not need to know the framework words. You only need to:
+## 1. Start with a product conversation
 
-1. start the seed workspace
-2. describe the app in normal language
-3. answer a few setup questions when the agent asks
+Create an ordinary Git repository and ask your agent to read the installed
+JSKIT skill before starting implementation. Explain what the product is for,
+who uses it, and what its first useful version must accomplish.
 
-## 1. Start the seed workspace
+JSKIT does not create a second blueprint, product-memory system, or seed
+questionnaire. Use the request and ordinary project documentation supplied by
+the developer's chosen workflow.
 
-Open a terminal and run:
+## 2. Choose JSKIT explicitly
 
-```bash
-npx @jskit-ai/create-app testapp --template ai-seed
-cd testapp
-```
+Choose JSKIT only if it fits the product. Choose MySQL or PostgreSQL explicitly
+when the product needs a database. These remain explicit project and dependency
+decisions; the agent never selects them silently.
 
-That creates a tiny starter folder with one file for the AI to read. It is not the real app yet. That is intentional.
+## 3. Realize the application from patterns
 
-## 2. Tell the AI what you want in normal language
+The JSKIT skill routes the agent to the generated pattern index. For a normal
+browser product it will inspect one of:
 
-You do not need to know JSKIT terms like tenancy, surfaces, placements, providers, or generators.
+- `app/shell-foundation` — responsive application shell, navigation, settings,
+  placements, and browser coverage
+- `app/minimal-foundation` — smaller Fastify/Vue foundation without the full
+  shell
 
-Just explain things in human terms, for example:
+The agent reads the complete pattern, copies or adapts the useful files inside
+the existing repository, resolves real collisions, renames the concrete
+example, and installs one planned dependency closure. It never creates a
+temporary scaffold app or overwrites unrelated project files.
 
-- what the app should help people do
-- who will use it
-- whether people should sign in
-- whether each customer, business, or team should have its own private area
-- whether you want a staff or admin back office
-- whether you want AI features now, later, or not at all
+## 4. Add product capabilities deliberately
 
-Example:
+Authentication, accounts, workspaces, databases, CRUD, console, realtime,
+mobile, and assistants are separate capabilities. Add only those selected by
+the product. Their package-owned patterns show the public framework APIs and
+the app-owned source that belongs around them.
 
-> I want a dog grooming booking app. Customers should be able to book appointments. Staff should manage bookings and customer notes. Each business should have its own private area. People should sign in. I want a simple admin area. AI features can wait until later.
+Patterns are examples, not permanent owners. An agent may use one directly,
+adapt it, compose it with compatible patterns, or use it as architectural
+evidence. No receipt, provenance marker, completion ledger, or hidden
+operation history is created.
 
-If you do not know the technical words, say that plainly. The agent should translate your goals into the setup it needs.
+## 5. Verify the result
 
-## 3. What the AI will probably ask you
+Current source is the authority. The agent runs focused tests while working,
+then the application verifier, production build, database rebuild in a fresh
+disposable database when persistence changed, and Playwright for user-facing
+flows. Managed development environments may provide editor, environment,
+preview, browser, Git, and credentials; JSKIT also works when the developer
+provides those facilities directly.
 
-The AI should turn your description into a few practical choices, such as:
+Useful next reading:
 
-- is this a simple app, a normal account-based app, or a team/workspace app?
-- should people sign in?
-- should the app save data in a database?
-- do you want AI features?
-
-If you do not know which database or sign-in system to use, ask for the standard recommendation.
-
-If you do not have a strong reason to choose differently, asking for the standard JSKIT path and MySQL is the safest starting point today.
-
-## 4. What information you may need to provide
-
-Once the AI starts setting up the app, it may need some local development values from you.
-
-Common examples:
-
-- local database details
-- sign-in provider project details
-- an AI API key if you want AI features now
-
-In this flow, those are local setup values for your development environment. They are not the same thing as production launch secrets.
-
-One important point: if the app needs a database, the AI should make sure the database really exists before moving on. If it does not exist yet, the AI should help you stop and sort that out first instead of pretending the setup is done.
-
-## 5. What happens next
-
-Once the AI has enough answers, it upgrades the seed folder into a real JSKIT app, installs what it needs, and then continues from the normal app instructions.
-
-You do not need to manage that handoff manually.
-
-## 6. How to keep the process sane
-
-Ask the AI to work in small steps.
-
-Good habits:
-
-- ask it to do one feature or one chunk at a time
-- ask it to show you the result in the browser after each chunk
-- ask it to explain technical choices in plain English if you do not understand them
-- do not accept "done" until it has run the project checks
-- if it changed screens or user flows, ask it to run the browser test for that too
-
-You do not need to memorize the JSKIT command names for those checks. The agent should know them.
-
-## 7. When you want the technical version
-
-This page is intentionally simple.
-
-If you want the exact technical command sequences or the deeper framework explanation, use:
-
-- [Quickstart](/guide/app-setup/quickstart) for the larger standard stack
-- [Initial Scaffolding](/guide/app-setup/initial-scaffolding) for the base scaffold and the smaller starting stack
-- [Working With The JSKIT CLI](/guide/app-setup/working-with-the-jskit-cli) for maintenance, health checks, and review commands
+- [Quickstart](/guide/app-setup/quickstart)
+- [Application foundations](/guide/app-setup/initial-scaffolding)
+- [Migrate an existing application](/guide/app-setup/existing-application-migration)
+- [Authentication](/guide/app-setup/authentication)
+- [Database layer](/guide/app-setup/database-layer)

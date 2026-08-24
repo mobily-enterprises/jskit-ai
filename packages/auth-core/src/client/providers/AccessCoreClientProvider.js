@@ -1,3 +1,4 @@
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createApi as createAuthApi } from "../authApi.js";
 import { runAuthSignOutFlow } from "../signOutFlow.js";
 
@@ -6,18 +7,16 @@ const CLIENT_API = Object.freeze({
   runAuthSignOutFlow
 });
 
-class AccessCoreClientProvider {
-  static id = "auth.access.client";
-
-  register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("AccessCoreClientProvider requires application singleton().");
-    }
-
-    app.singleton("auth.access.client", () => CLIENT_API);
+const AccessCoreClientProvider = defineProvider({
+  id: "auth.access.client",
+  provides: {
+    auth: "auth.access.client"
+  },
+  setup() {
+    return {
+      auth: CLIENT_API
+    };
   }
-
-  boot() {}
-}
+});
 
 export { AccessCoreClientProvider };

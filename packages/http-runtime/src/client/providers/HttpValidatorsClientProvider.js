@@ -1,14 +1,16 @@
-import { SingletonApiProvider } from "../../shared/providers/singletonApiProvider.js";
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { HTTP_VALIDATORS_API } from "../../shared/validators/httpValidatorsApi.js";
 
-class HttpValidatorsClientProvider extends SingletonApiProvider {
-  static id = "validators.http.client";
-
-  static bindingToken = "validators.http.client";
-
-  static api = HTTP_VALIDATORS_API;
-
-  static providerName = "HttpValidatorsClientProvider";
-}
+const HttpValidatorsClientProvider = defineProvider({
+  id: "validators.http.client",
+  provides: {
+    validators: "validators.http.client"
+  },
+  setup() {
+    return {
+      validators: HTTP_VALIDATORS_API
+    };
+  }
+});
 
 export { HttpValidatorsClientProvider };

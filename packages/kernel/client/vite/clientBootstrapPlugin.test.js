@@ -504,7 +504,7 @@ test("resolveInstalledViteProxyEntries rejects malformed package proxy metadata"
   );
 });
 
-test("resolveLocalScopePackageIds reads @local packages from package.json", async () => {
+test("resolveLocalScopePackageIds excludes development-only local packages from runtime composition", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-"));
   await writeJson(path.join(tempRoot, "package.json"), {
     name: "fixture-app",
@@ -519,7 +519,7 @@ test("resolveLocalScopePackageIds reads @local packages from package.json", asyn
 
   const packageIds = await resolveLocalScopePackageIds({ appRoot: tempRoot });
 
-  assert.deepEqual(packageIds, ["@local/dev-only", "@local/feature"]);
+  assert.deepEqual(packageIds, ["@local/feature"]);
 });
 
 test("createJskitClientBootstrapPlugin resolves and loads virtual module", async () => {

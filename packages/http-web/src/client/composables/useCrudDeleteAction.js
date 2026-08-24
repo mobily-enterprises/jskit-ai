@@ -62,7 +62,7 @@ function useCrudDeleteAction({
 
   async function handleDeleteSuccess(_response, context = {}) {
     await context?.queryClient?.invalidateQueries?.({
-      queryKey: ["ui-generator", namespace]
+      queryKey: ["crud", namespace]
     });
 
     const listLocation = resolveListLocation(resolvedScreen);
@@ -90,7 +90,7 @@ function useCrudDeleteAction({
     transport: resolveCrudJsonApiTransport(undefined, resource, {
       mode: "delete"
     }),
-    placementSource: `ui-generator.${namespace}.view.delete`,
+    placementSource: `crud.${namespace}.view.delete`,
     fallbackRunError: fallbackDeleteError,
     onRunSuccess: handleDeleteSuccess,
     onRunError: handleDeleteError,

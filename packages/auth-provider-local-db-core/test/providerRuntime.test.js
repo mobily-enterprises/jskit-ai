@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createApplication } from "@jskit-ai/kernel/_testable";
-import { DatabaseRuntimeServiceProvider } from "@jskit-ai/database-runtime/server/providers/DatabaseRuntimeServiceProvider";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { AuthExtensionsProvider } from "@jskit-ai/auth-core/server/providers/AuthExtensionsProvider";
 import { createLocalAuthService, hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
-import { AuthLocalServiceProvider } from "@jskit-ai/auth-provider-local-core/server/providers/AuthLocalServiceProvider";
+import { AuthLocalProvider } from "@jskit-ai/auth-provider-local-core/server/providers/AuthLocalProvider";
 import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
-import { AuthLocalDbBackendServiceProvider } from "../src/server/providers/AuthLocalDbBackendServiceProvider.js";
+import { AuthLocalDatabaseBackendProvider } from "../src/server/providers/AuthLocalDatabaseBackendProvider.js";
 import packageJson from "../package.json" with { type: "json" };
 
 const packageMetadata = packageJson.jskit;
@@ -469,11 +469,10 @@ test("local auth DB backend still supports lazy profile projection", async () =>
   assert.equal(registered.actor.profileSource, "users");
 });
 
-test("package metadata installs portable local auth DB migrations", () => {
-  const files = packageMetadata.mutations.files.map((file) => file.from);
-  assert.deepEqual(files, ["templates/migrations/auth_local_db_initial.cjs"]);
-  assert.equal(packageMetadata.ci.environment.AUTH_LOCAL_BACKEND, "db");
-  assert.deepEqual(packageMetadata.ci.services, []);
+test("package metadata declares portable local auth DB migrations without install mutations", () => {
+  assert.deepEqual(packageMetadata.migrations, { directories: ["migrations"] });
+  assert.equal(Object.hasOwn(packageMetadata, "mutations"), false);
+  assert.equal(Object.hasOwn(packageMetadata, "ci"), false);
   assert.deepEqual(
     packageMetadata.metadata.jskit.tableOwnership.tables.map((table) => table.tableName),
     [
@@ -484,32 +483,50 @@ test("package metadata installs portable local auth DB migrations", () => {
   );
 });
 
-test("provider registration wires DB backend for AUTH_LOCAL_BACKEND=db", async () => {
+test("installing the DB backend capability makes local auth database-backed", async () => {
   const knex = createMemoryKnex();
-  const app = createApplication();
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "local",
-    AUTH_LOCAL_BACKEND: "db",
-    AUTH_LOCAL_SESSION_SECRET: "test-secret",
-    AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
+  let authService = null;
+  const probe = defineProvider({
+    id: "test.auth.local-db.probe",
+    requires: { authService: "auth.service" },
+    setup({ authService: service }) {
+      authService = service;
+      return {};
+    }
   });
-  app.instance("jskit.database.knex", knex);
-
-  await app.start({
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "runtime.app-root": process.cwd(),
+      "runtime.env": {
+        AUTH_LOCAL_SESSION_SECRET: "test-secret",
+        AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
+        APP_PUBLIC_URL: "http://localhost:5173",
+        NODE_ENV: "test"
+      },
+      "runtime.logger": console,
+      "runtime.database": {
+        knex,
+        transactionManager: {
+          inTransaction(work) {
+            return knex.transaction(work);
+          }
+        }
+      }
+    },
     providers: [
-      AuthLocalServiceProvider,
-      AuthLocalDbBackendServiceProvider,
-      DatabaseRuntimeServiceProvider
+      AuthExtensionsProvider,
+      AuthLocalDatabaseBackendProvider,
+      AuthLocalProvider,
+      probe
     ]
   });
-
-  assert.equal(app.has("auth.local.backend"), true);
-  const diagnostics = app.getDiagnostics();
-  assert.ok(diagnostics.registeredOrder.indexOf("auth.provider.local.db") > -1);
-
-  const authService = app.make("authService");
+  await runtime.start();
+  assert.deepEqual(runtime.diagnostics().providerOrder, [
+    "auth.extensions",
+    "auth.local.database-backend",
+    "auth.local",
+    "test.auth.local-db.probe"
+  ]);
   const registered = await authService.register({
     email: "provider-db@example.com",
     password: "provider password value",
@@ -518,50 +535,15 @@ test("provider registration wires DB backend for AUTH_LOCAL_BACKEND=db", async (
   assert.equal(registered.actor.email, "provider-db@example.com");
 });
 
-test("local auth DB mode fails clearly when no DB backend provider is installed", async () => {
-  const app = createApplication();
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "local",
-    AUTH_LOCAL_BACKEND: "db",
-    AUTH_LOCAL_SESSION_SECRET: "test-secret",
-    NODE_ENV: "test"
-  });
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [AuthLocalServiceProvider]
-      }),
-    (error) =>
-      /AUTH_LOCAL_BACKEND="db" requires a package or app provider that registers auth\.local\.backend/.test(
-        String(error.details?.cause?.message || error.message || "")
-      )
-  );
-});
-
-test("local auth DB provider rejects ambiguous backend ownership in DB mode", async () => {
-  const app = createApplication();
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "local",
-    AUTH_LOCAL_BACKEND: "db",
-    NODE_ENV: "test"
-  });
-  app.instance("auth.local.backend", {
-    async withTransaction() {}
-  });
-  app.instance("jskit.database.knex", createMemoryKnex());
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [
-          DatabaseRuntimeServiceProvider,
-          AuthLocalDbBackendServiceProvider
-        ]
-      }),
-    (error) =>
-      /auth-provider-local-db-core to own auth\.local\.backend/.test(
-        String(error.details?.cause?.message || error.message || "")
-      )
-  );
+test("local auth DB backend rejects competing capability ownership", () => {
+  assert.throws(() => createCapabilityRuntime({
+    inputs: {
+      "auth.local.backend": { async withTransaction() {} },
+      "runtime.database": {
+        knex: createMemoryKnex(),
+        transactionManager: { async inTransaction(work) { return work(); } }
+      }
+    },
+    providers: [AuthLocalDatabaseBackendProvider]
+  }), /auth\.local\.backend.*supplied both/);
 });

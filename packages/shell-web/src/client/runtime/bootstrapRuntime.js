@@ -1,5 +1,4 @@
-import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
-import { resolveBootstrapPayloadHandlers } from "../bootstrap/bootstrapPayloadHandlerRegistry.js";
+import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 
 const DEFAULT_BOOTSTRAP_PATH = "/api/bootstrap";
 
@@ -32,48 +31,40 @@ function normalizeBootstrapResponseError(response, url) {
 }
 
 function createShellBootstrapRuntime({
-  app,
-  logger = null,
+  handlers,
+  placementRuntime,
+  requestRecoveryRuntime = null,
+  router = null,
+  logger,
   fetchImplementation = globalThis.fetch,
   bootstrapPath = DEFAULT_BOOTSTRAP_PATH
 } = {}) {
-  if (!app || typeof app.has !== "function" || typeof app.make !== "function" || typeof app.resolveTag !== "function") {
-    throw new Error("createShellBootstrapRuntime requires application has()/make()/resolveTag().");
+  if (!handlers || typeof handlers.list !== "function") {
+    throw new Error("createShellBootstrapRuntime requires a bootstrap handler registry.");
   }
-  if (!app.has("runtime.web-placement.client")) {
-    throw new Error("createShellBootstrapRuntime requires shell-web placement runtime.");
+  if (!placementRuntime || typeof placementRuntime.setContext !== "function") {
+    throw new Error("createShellBootstrapRuntime requires a placement runtime.");
   }
 
-  const runtimeLogger = logger || createSharedProviderLogger(app);
-  const placementRuntime = app.make("runtime.web-placement.client");
-  const router = app.has("jskit.client.router") ? app.make("jskit.client.router") : null;
+  const runtimeLogger = createProviderLogger(logger);
   let initialized = false;
   let refreshQueue = Promise.resolve();
 
-  function requestRecoveryRuntime() {
-    if (!app.has("runtime.web-request-recovery.client")) {
-      return null;
-    }
-    const runtime = app.make("runtime.web-request-recovery.client");
-    return runtime && typeof runtime.report === "function" ? runtime : null;
-  }
-
   async function resolveBootstrapRequest(reason = "manual") {
-    const handlers = resolveBootstrapPayloadHandlers(app);
+    const payloadHandlers = handlers.list();
     let request = {
       path: bootstrapPath,
       query: {},
       meta: {}
     };
 
-    for (const handler of handlers) {
+    for (const handler of payloadHandlers) {
       if (typeof handler.resolveBootstrapRequest !== "function") {
         continue;
       }
 
       const contribution = normalizeObject(
         await handler.resolveBootstrapRequest({
-          app,
           router,
           placementRuntime,
           reason,
@@ -106,12 +97,11 @@ function createShellBootstrapRuntime({
   }
 
   async function applyBootstrapPayload(payload, reason = "manual", request = Object.freeze({})) {
-    const handlers = resolveBootstrapPayloadHandlers(app);
+    const payloadHandlers = handlers.list();
     const source = `shell-web.bootstrap.${String(reason || "manual").trim() || "manual"}`;
 
-    for (const handler of handlers) {
+    for (const handler of payloadHandlers) {
       await handler.applyBootstrapPayload({
-        app,
         router,
         placementRuntime,
         payload,
@@ -125,16 +115,15 @@ function createShellBootstrapRuntime({
   }
 
   async function applyBootstrapError(error, reason = "manual", request = Object.freeze({})) {
-    const handlers = resolveBootstrapPayloadHandlers(app);
+    const payloadHandlers = handlers.list();
     const source = `shell-web.bootstrap.${String(reason || "manual").trim() || "manual"}`;
 
-    for (const handler of handlers) {
+    for (const handler of payloadHandlers) {
       if (typeof handler.handleBootstrapError !== "function") {
         continue;
       }
 
       await handler.handleBootstrapError({
-        app,
         router,
         placementRuntime,
         error,
@@ -170,7 +159,7 @@ function createShellBootstrapRuntime({
       return applyBootstrapPayload(payload, reason, request);
     } catch (error) {
       await applyBootstrapError(error, reason, request);
-      requestRecoveryRuntime()?.report?.(error, {
+      requestRecoveryRuntime?.report?.(error, {
         label: "App data",
         retry: () => refresh(reason),
         source: "shell-web.bootstrap",

@@ -16,12 +16,10 @@ const passwordChangeMetaOutputValidator = deepFreeze({
   mode: "replace"
 });
 
-function bootAccountSecurityRoutes(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootAccountSecurityRoutes requires application make().");
+function registerAccountSecurityRoutes(router, { authService } = {}) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerAccountSecurityRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
 
   router.register(
     "POST",
@@ -50,7 +48,6 @@ function bootAccountSecurityRoutes(app) {
         input: request.input.body
       });
 
-      const authService = app.make("authService");
       if (result?.session && typeof authService.writeSessionCookies === "function") {
         authService.writeSessionCookies(reply, result.session);
       }
@@ -192,4 +189,4 @@ function bootAccountSecurityRoutes(app) {
   );
 }
 
-export { bootAccountSecurityRoutes };
+export { registerAccountSecurityRoutes };

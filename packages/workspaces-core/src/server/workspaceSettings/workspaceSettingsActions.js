@@ -2,7 +2,14 @@ import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
+import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
+
+const WORKSPACE_SETTINGS_CHANGED_EVENTS = createWorkspaceEntityAndBootstrapEvents({
+  workspaceEntity: "settings",
+  workspaceOperation: "updated",
+  workspaceRealtimeEvent: "workspace.settings.changed"
+});
 
 const workspaceSettingsUpdateInputValidator = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
@@ -12,13 +19,13 @@ const workspaceSettingsUpdateInputValidator = composeSchemaDefinitions([
   context: "workspaceSettingsActions.workspaceSettingsUpdateInputValidator"
 });
 
-const workspaceSettingsActions = Object.freeze([
+const workspaceSettingsActionSpecifications = Object.freeze([
   {
     id: "workspace.settings.read",
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "any",
       permissions: ["workspace.settings.view", "workspace.settings.update"]
@@ -30,8 +37,8 @@ const workspaceSettingsActions = Object.freeze([
       actionName: "workspace.settings.read"
     },
     observability: {},
-    async execute(input, context, deps) {
-      const response = await deps.workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
+    async run(workspaceSettingsService, input, context) {
+      const response = await workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
         context
       });
 
@@ -43,7 +50,7 @@ const workspaceSettingsActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.settings.update"]
@@ -55,14 +62,15 @@ const workspaceSettingsActions = Object.freeze([
       actionName: "workspace.settings.update"
     },
     observability: {},
+    events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
     extensions: {
       assistant: {
         description: "Update workspace settings."
       }
     },
-    async execute(input, context, deps) {
+    async run(workspaceSettingsService, input, context) {
       const { workspaceSlug, ...patch } = input;
-      const response = await deps.workspaceSettingsService.updateWorkspaceSettings(
+      const response = await workspaceSettingsService.updateWorkspaceSettings(
         resolveWorkspace(context, input),
         patch,
         {
@@ -75,4 +83,14 @@ const workspaceSettingsActions = Object.freeze([
   }
 ]);
 
-export { workspaceSettingsActions };
+function buildWorkspaceSettingsActions({ workspaceSettingsService } = {}) {
+  if (!workspaceSettingsService) throw new TypeError("buildWorkspaceSettingsActions requires workspaceSettingsService.");
+  return workspaceSettingsActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(workspaceSettingsService, input, context);
+    }
+  }));
+}
+
+export { workspaceSettingsActionSpecifications, buildWorkspaceSettingsActions };

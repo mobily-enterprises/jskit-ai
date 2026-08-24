@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.135",
+  "version": "0.1.142",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,10 +11,10 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/http-runtime": "0.1.157",
-    "@jskit-ai/kernel": "0.1.159",
-    "@jskit-ai/resource-core": "0.1.101",
-    "@jskit-ai/resource-crud-core": "0.1.101",
+    "@jskit-ai/http-runtime": "0.1.164",
+    "@jskit-ai/kernel": "0.1.166",
+    "@jskit-ai/resource-core": "0.1.108",
+    "@jskit-ai/resource-crud-core": "0.1.108",
     "dompurify": "^3.4.13",
     "json-rest-schema": "^1.0.17",
     "marked": "^17.0.4",
@@ -57,32 +57,8 @@
             "summary": "Exports reusable assistant validators, path helpers, query keys, and stream/settings events."
           }
         ],
-        "containerTokens": {
-          "server": [],
-          "client": []
-        }
+        "capabilities": []
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/resource-core": "0.1.101",
-          "@jskit-ai/resource-crud-core": "0.1.101",
-          "dompurify": "^3.4.13",
-          "json-rest-schema": "^1.0.17",
-          "marked": "^17.0.4",
-          "openai": "^6.22.0"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": []
     }
   }
 }

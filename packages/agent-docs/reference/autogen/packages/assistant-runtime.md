@@ -74,14 +74,15 @@ Exports
 
 ### `src/server/actions.js`
 Exports
-- `assistantActions`
+- `createAssistantActions({ assistantConfigService, chatService, config = {} } = {})`
+Local functions
+- `configuredAssistantSurfaces(config = {})`
 
 ### `src/server/AssistantProvider.js`
 Exports
-- `AssistantProvider`
-Local functions
-- `resolveGlobalAssistantConfig(scope)`
+- `AssistantFeature`
 - `createAssistantAiClientFactory(config = {})`
+- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, database, env, workspaces } = {})`
 
 ### `src/server/inputSchemas.js`
 Exports
@@ -90,7 +91,7 @@ Exports
 
 ### `src/server/registerRoutes.js`
 Exports
-- `registerRoutes(app)`
+- `registerRoutes(router, { config = {}, workspaceScopeSupport = null } = {})`
 Local functions
 - `requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null)`
 - `readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null)`
@@ -200,18 +201,10 @@ Local functions
 
 ### `src/server/support/createSurfaceAwareToolCatalog.js`
 Exports
-- `createSurfaceAwareToolCatalog(scope, { appConfig = {}, resolveAppConfig = null, createCatalog = createServiceToolCatalog } = {})`
+- `createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConfig = null, createCatalog = createServiceToolCatalog } = {})`
 Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context = {})`
-
-### `src/server/support/workspaceScopeSupport.js`
-Exports
-- `WORKSPACES_SERVER_SCOPE_SUPPORT_TOKEN`
-- `isWorkspaceServerScopeSupport(value)`
-- `resolveWorkspaceServerScopeSupport(scope = null, { required = false, caller = "assistant-runtime" } = {})`
-Local functions
-- `hasWorkspaceRouteParamsDefinition(value)`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports
@@ -232,12 +225,34 @@ Exports
 - `resolveAssistantSurfacesConfig`
 - `resolveSurfaceDefinitions`
 
-### templates
+### migrations
 
-### `templates/migrations/assistant_config_initial.cjs`
+### `migrations/assistant_config_initial.cjs`
 Exports
 - None
 
-### `templates/migrations/assistant_transcripts_initial.cjs`
+### `migrations/assistant_transcripts_initial.cjs`
 Exports
 - None
+
+### patterns
+
+### `patterns/assistant-surface/example/config/public.js`
+Exports
+- None
+
+### `patterns/assistant-surface/example/config/server.js`
+Exports
+- None
+
+### `patterns/assistant-surface/example/src/pages/admin/assistant/index.vue`
+Exports
+- None
+
+### `patterns/assistant-surface/example/src/pages/admin/settings/assistant/index.vue`
+Exports
+- None
+
+### `patterns/assistant-surface/example/src/placement.js`
+Exports
+- `getPlacements()`

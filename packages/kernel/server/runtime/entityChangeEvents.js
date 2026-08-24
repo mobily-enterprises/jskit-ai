@@ -1,4 +1,3 @@
-import { isContainerToken } from "../../shared/support/containerToken.js";
 import { normalizeObject, normalizeOpaqueId, normalizeText } from "../../shared/support/normalize.js";
 import { resolveServiceContext } from "./serviceAuthorization.js";
 
@@ -203,7 +202,7 @@ function normalizeRealtimePayload(value, { context = "realtime entity change.pay
 }
 
 function createRealtimeEntityChangeMeta({
-  serviceToken,
+  serviceId,
   methodName,
   event,
   change = {}
@@ -213,7 +212,7 @@ function createRealtimeEntityChangeMeta({
   const meta = {
     ...baseMeta,
     service: Object.freeze({
-      token: serviceToken,
+      id: serviceId,
       method: methodName
     })
   };
@@ -256,7 +255,7 @@ function createRealtimeEntityChangePublisher({
   source,
   entity,
   event,
-  serviceToken,
+  serviceId,
   methodName,
   scopeResolver = resolveDefaultScope
 } = {}) {
@@ -265,8 +264,9 @@ function createRealtimeEntityChangePublisher({
     throw new TypeError("createRealtimeEntityChangePublisher requires event.");
   }
 
-  if (!isContainerToken(serviceToken)) {
-    throw new TypeError("createRealtimeEntityChangePublisher requires a valid serviceToken.");
+  const normalizedServiceId = normalizeText(serviceId);
+  if (!normalizedServiceId) {
+    throw new TypeError("createRealtimeEntityChangePublisher requires serviceId.");
   }
 
   const normalizedMethodName = normalizeText(methodName);
@@ -284,7 +284,7 @@ function createRealtimeEntityChangePublisher({
   return async function publishRealtimeEntityChange(operation, entityId, change = {}, options = {}) {
     const runtimeOptions = resolveRealtimeEntityChangeOptions(change, options);
     const meta = createRealtimeEntityChangeMeta({
-      serviceToken,
+      serviceId: normalizedServiceId,
       methodName: normalizedMethodName,
       event: normalizedEvent,
       change

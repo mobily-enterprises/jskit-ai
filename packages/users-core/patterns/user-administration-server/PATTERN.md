@@ -1,0 +1,64 @@
+---
+id: users/user-administration-server
+title: User administration server package
+summary: Expose user administration and workspace-scoped member operations through app-owned packages backed by JSKIT users runtime APIs.
+keywords: account, admin, member, repository, resource, routes, service, user, workspace
+requires: @jskit-ai/users-core, @jskit-ai/crud-core
+---
+
+# User administration server package
+
+## Use when
+
+Use this pattern when an application needs app-specific administration of user
+profiles or workspace members beyond the built-in account runtime.
+
+## Do not use when
+
+Do not use this pattern for self-service account settings, authentication
+credentials, or an application that needs no administrative user listing.
+
+## Product decisions
+
+Choose global versus workspace scope, visible and editable fields, permission
+policy, route surface, filters, and whether account deletion is part of the
+product. Do not expose password/session data through the resource.
+
+## Framework APIs
+
+Use `@jskit-ai/users-core` for profile persistence and policies,
+`defineCrudJsonApiFeature()` from `@jskit-ai/crud-core` for standard mechanics,
+and the resource contracts from `@jskit-ai/resource-crud-core`.
+
+## Invariants
+
+- The public user id is the resource identity.
+- Workspace operations are scoped before repository access.
+- Permission checks happen before records or record existence are disclosed.
+- Shared profile persistence remains owned by `@jskit-ai/users-core`.
+- The resource is the field contract; the feature projects its repository,
+  service, actions, and routes without app-local ceremony.
+
+## Example files
+
+`example/packages/users/` is a global administration package.
+`example/packages/users-workspace/` demonstrates the workspace route/action
+boundary while reusing the same service contract. Copy only the composition
+that matches the product and adapt it as ordinary application source.
+
+## Variation points
+
+Change scope, route surface, visible fields, filters, sorting, permission
+policy, and user-facing language. Retain the core user identity contract.
+
+## Verification
+
+Test authorized and forbidden list/view/update operations, cross-workspace
+isolation, missing records, null/cleared fields, filtering, and pagination.
+
+## Avoid
+
+- copying authentication credential tables into the user resource
+- trusting route scope without repository scope
+- adding app-local mechanics already provided by `defineCrudJsonApiFeature()`
+- generator metadata or field questionnaires

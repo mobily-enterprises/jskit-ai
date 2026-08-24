@@ -522,6 +522,68 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
   assert.deepEqual(context.permissions, ["*"]);
 });
 
+test("workspaceService.resolveWorkspaceContextForUserBySlug can resolve an existing workspace without membership", async () => {
+  const service = createService({
+    appConfig: {
+      tenancyMode: "personal",
+      roleCatalog: createRoleCatalog()
+    },
+    workspacesRepository: {
+      async findBySlug() {
+        return {
+          id: "42",
+          slug: "dog-and-groom",
+          name: "Dog And Groom",
+          ownerUserId: "99",
+          isPersonal: false,
+          avatarUrl: ""
+        };
+      },
+      async findPersonalByOwnerUserId() {
+        return null;
+      },
+      async listForUserId() {
+        return [];
+      },
+      async insert() {
+        throw new Error("not implemented");
+      }
+    },
+    workspaceMembershipsRepository: {
+      async findByWorkspaceIdAndUserId() {
+        return null;
+      },
+      async ensureOwnerMembership() {
+        throw new Error("must not create membership for a non-owner");
+      }
+    },
+    workspaceSettingsRepository: {
+      async ensureForWorkspaceId() {
+        return { invitesEnabled: true };
+      }
+    }
+  });
+
+  await assert.rejects(
+    () =>
+      service.resolveWorkspaceContextForUserBySlug(
+        { id: "7", email: "customer@example.com" },
+        "dog-and-groom"
+      ),
+    /You do not have access to this workspace/
+  );
+
+  const context = await service.resolveWorkspaceContextForUserBySlug(
+    { id: "7", email: "customer@example.com" },
+    "dog-and-groom",
+    { requireMembership: false }
+  );
+
+  assert.equal(context.workspace.slug, "dog-and-groom");
+  assert.equal(context.membership, null);
+  assert.deepEqual(context.permissions, []);
+});
+
 test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions from appConfig.roleCatalog", async () => {
   const { service } = createWorkspaceServiceFixture({
     roleCatalog: {

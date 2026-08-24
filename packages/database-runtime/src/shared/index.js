@@ -5,7 +5,6 @@ export {
 } from "./runtimeErrors.js";
 export { TransactionManager, createTransactionManager } from "./transactionManager.js";
 export { BaseRepository, buildPaginationMeta } from "./repository.js";
-export { registerDatabaseRuntime } from "./runtime.js";
 export {
   normalizeDateInput,
   toIsoString,
@@ -46,7 +45,8 @@ export {
   parseJsonValue,
   toDbJson,
   runInTransaction,
-  createWithTransaction
+  createWithTransaction,
+  lockScopedRecordId
 } from "./repositoryOptions.js";
 export {
   normalizeBatchSize,

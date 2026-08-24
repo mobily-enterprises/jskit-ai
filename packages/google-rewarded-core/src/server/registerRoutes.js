@@ -37,18 +37,16 @@ function createWorkflowResponses(outputValidator) {
 }
 
 function registerRoutes(
-  app,
+  router,
   {
     routeOwnershipFilter = "workspace_user",
     routeSurface = "app",
     routeRelativePath = "google-rewarded"
   } = {}
 ) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("registerRoutes requires application make().");
+  if (!router || typeof router.register !== "function") {
+    throw new Error("registerRoutes requires an HTTP router.");
   }
-
-  const router = app.make("jskit.http.router");
   const normalizedRouteSurface = normalizeSurfaceId(routeSurface);
   const routeBase = resolveScopedApiBasePath({
     routeBase: "/w/:workspaceSlug",

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.170",
+  "version": "0.1.177",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -14,25 +14,27 @@
     "./server/serviceMethods": "./src/server/serviceMethods.js",
     "./server/fieldAccess": "./src/server/fieldAccess.js",
     "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
+    "./server/defineCrudJsonApiFeature": "./src/server/defineCrudJsonApiFeature.js",
+    "./server/jsonApiRepository": "./src/server/jsonApiModule/repository.js",
+    "./server/jsonApiService": "./src/server/jsonApiModule/service.js",
     "./server/crudModuleConfig": "./src/server/crudModuleConfig.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
     "./server/routeContracts": "./src/server/routeContracts.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.159",
-    "@jskit-ai/http-runtime": "0.1.157",
-    "@jskit-ai/kernel": "0.1.159",
-    "@jskit-ai/resource-crud-core": "0.1.101",
+    "@jskit-ai/database-runtime": "0.1.166",
+    "@jskit-ai/http-runtime": "0.1.164",
+    "@jskit-ai/json-rest-api-core": "0.1.110",
+    "@jskit-ai/kernel": "0.1.166",
+    "@jskit-ai/resource-crud-core": "0.1.108",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Shared server-side CRUD service, repository, route, and query helpers.",
   "jskit": {
     "kind": "runtime",
     "capabilities": {
-      "provides": [
-        "crud.core"
-      ],
+      "provides": [],
       "requires": []
     },
     "runtime": {
@@ -42,19 +44,6 @@
       "client": {
         "providers": []
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/crud-core": "0.1.170"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": []
     }
   }
 }

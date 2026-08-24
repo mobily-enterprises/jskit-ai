@@ -1,68 +1,40 @@
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import DefaultLoginView from "../views/DefaultLoginView.vue";
 import AuthProfileWidget from "../views/AuthProfileWidget.vue";
 import AuthProfileMenuLinkItem from "../views/AuthProfileMenuLinkItem.vue";
-import { createAuthGuardRuntime } from "../runtime/authGuardRuntime.js";
-import { completeOAuthCallbackFromUrl } from "../runtime/oauthCallbackRuntime.js";
 import { useLoginView } from "../runtime/useLoginView.js";
-import { bootAuthClientProvider } from "./bootAuthClientProvider.js";
-import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { resolveAllowedReturnToOriginsFromPlacementContext } from "../lib/returnToPath.js";
+import { createAuthClient } from "../runtime/authClient.js";
 
-class AuthWebClientProvider {
-  static id = "auth.web.client";
-
-  register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("AuthWebClientProvider requires application singleton().");
-    }
-
-    app.singleton("auth.login.component", () => DefaultLoginView);
-    app.singleton("auth.login.useLoginView", () => useLoginView);
-    app.singleton("auth.web.profile.widget", () => AuthProfileWidget);
-    app.singleton("auth.web.profile.menu.link-item", () => AuthProfileMenuLinkItem);
-    app.singleton("auth.mobile-callback.client", () =>
-      Object.freeze({
-        async completeFromUrl({
-          url = "",
-          fallbackReturnTo = "/",
-          placementContext = null,
-          defaultProvider = "",
-          request = undefined,
-          refreshSession = async () => null
-        } = {}) {
-          return completeOAuthCallbackFromUrl({
-            url,
-            fallbackReturnTo,
-            allowedReturnToOrigins: resolveAllowedReturnToOriginsFromPlacementContext(placementContext),
-            defaultProvider,
-            ...(typeof request === "function" ? { request } : {}),
-            refreshSession
-          });
-        }
-      })
-    );
-    app.singleton("runtime.auth-guard.client", () => {
-      if (!app.has("runtime.web-placement.client")) {
-        throw new Error("AuthWebClientProvider requires shell-web placement runtime.");
-      }
-
-      const placementRuntime = app.make("runtime.web-placement.client");
-      const realtimeSocket = app.has("runtime.realtime.client.socket") ? app.make("runtime.realtime.client.socket") : null;
-      const loginRouteTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementRuntime.getContext(), {
-        path: "/auth/login",
-        surfaceId: "auth"
-      });
-      return createAuthGuardRuntime({
-        loginRoute: loginRouteTarget.href,
-        placementRuntime,
-        realtimeSocket
-      });
-    });
+const AuthWebClientProvider = defineProvider({
+  id: "auth.web.client",
+  requires: {
+    components: "client.components",
+    pinia: "client.pinia",
+    shell: "client.shell",
+    vueApp: "client.vue"
+  },
+  optional: {
+    mobile: "client.mobile",
+    realtime: "client.realtime"
+  },
+  provides: {
+    auth: "client.auth"
+  },
+  setup({ components, mobile, pinia, realtime, shell, vueApp }) {
+    components.register("auth.login.component", DefaultLoginView);
+    components.register("auth.login.useLoginView", useLoginView);
+    components.register("auth.web.profile.widget", AuthProfileWidget);
+    components.register("auth.web.profile.menu.link-item", AuthProfileMenuLinkItem);
+    return {
+      auth: createAuthClient({ mobile, pinia, realtime, shell, vueApp })
+    };
+  },
+  async boot(_dependencies, { outputs }) {
+    await outputs.auth.initialize();
+  },
+  shutdown(_dependencies, { outputs }) {
+    outputs.auth.dispose();
   }
-
-  async boot(app) {
-    await bootAuthClientProvider(app);
-  }
-}
+});
 
 export { AuthWebClientProvider };

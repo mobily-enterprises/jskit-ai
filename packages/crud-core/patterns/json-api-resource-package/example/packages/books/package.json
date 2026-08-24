@@ -1,0 +1,41 @@
+{
+  "name": "@app/books",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./server/BooksFeature": "./src/server/BooksFeature.js",
+    "./shared": "./src/shared/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/crud-core": "0.1.177",
+    "@jskit-ai/resource-crud-core": "0.1.108"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "app.books"
+      ],
+      "requires": [
+        "runtime.http",
+        "runtime.json-rest-api",
+        "runtime.actions",
+        "runtime.database"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/BooksFeature.js",
+            "export": "BooksFeature"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    }
+  }
+}

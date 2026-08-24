@@ -1,13 +1,11 @@
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { deepFreeze } from "./deepFreeze.js";
+import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 
-function resolveActorScopedEntityId({ options } = {}) {
-  return normalizeRecordId(options?.context?.actor?.id, { fallback: "" });
+function resolveActorScopedEntityId({ context } = {}) {
+  return context?.actor?.id;
 }
 
-const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
-  {
-    type: "entity.changed",
+const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = Object.freeze([
+  createEntityChangedActionEvent({
     source: "account",
     entity: "settings",
     operation: "updated",
@@ -16,9 +14,8 @@ const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
       event: "account.settings.changed",
       audience: "actor_user"
     }
-  },
-  {
-    type: "entity.changed",
+  }),
+  createEntityChangedActionEvent({
     source: "users",
     entity: "bootstrap",
     operation: "updated",
@@ -27,7 +24,7 @@ const ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS = deepFreeze([
       event: "users.bootstrap.changed",
       audience: "actor_user"
     }
-  }
+  })
 ]);
 
 export { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS };

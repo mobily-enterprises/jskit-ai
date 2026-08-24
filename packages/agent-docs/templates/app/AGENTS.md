@@ -1,6 +1,7 @@
 # App Agent Instructions
 
-Use the JSKIT agent docs and the local app scaffold as the source of truth for app work.
+Use current project context, JSKIT public APIs, and the installed JSKIT pattern
+index as the source of truth for application work.
 
 Recommended references:
 
@@ -8,6 +9,9 @@ Recommended references:
 - `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md`
 
 Before database, schema, CRUD, repository, or persistence work, read and follow
-`node_modules/@jskit-ai/agent-docs/patterns/crud-scaffolding.md`.
+the relevant package-owned pattern listed in
+`node_modules/@jskit-ai/agent-docs/reference/autogen/PATTERN_INDEX.md`.
 
-Keep changes scoped to the user request and verify runtime behavior with tests or explicit checks.
+Copied pattern source is ordinary application source. Do not add generator
+provenance, receipts, completion ledgers, or tooling-operation history. Keep
+changes scoped to the user request and verify runtime behavior directly.

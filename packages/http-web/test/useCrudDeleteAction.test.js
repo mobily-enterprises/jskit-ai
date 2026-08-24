@@ -106,7 +106,7 @@ test("useCrudDeleteAction confirms one DELETE, invalidates CRUD state, and retur
   assert.equal(deleteAction.isOpen, false);
   assert.equal(router.currentRoute.value.path, "/notes");
   assert.deepEqual(invalidations, [
-    { queryKey: ["ui-generator", "notes"] }
+    { queryKey: ["crud", "notes"] }
   ]);
 });
 

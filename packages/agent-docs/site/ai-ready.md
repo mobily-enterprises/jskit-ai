@@ -1,131 +1,74 @@
 ---
 title: AI Ready
-description: Why JSKIT-AI works unusually well with AI agents.
+description: How JSKIT gives coding agents strong, inspectable implementation material.
 ---
 
-<div class="why-jskit-page">
+# AI ready by design
 
-<section class="why-jskit-hero">
-  <p class="why-jskit-kicker">AI Ready</p>
-  <div class="why-jskit-ai-ready-title">
-    <span>AI</span>
-    <span>READY</span>
-  </div>
-  <p class="why-jskit-lead">
-    JSKIT-AI is not “AI ready” because it says the word AI a lot.
-    It is AI ready because the framework gives the agent
-    <strong>structure</strong>,
-    <strong>memory</strong>,
-    <strong>reference material</strong>,
-    and <strong>review gates</strong>.
-  </p>
-  <div class="why-jskit-signal-row">
-    <span>predictable structure</span>
-    <span>function indexes</span>
-    <span>agents instructions</span>
-    <span>app blueprints</span>
-    <span>deslop</span>
-    <span>review gates</span>
-  </div>
-</section>
+JSKIT is useful to an agent because its architecture is explicit in installed
+packages and ordinary source—not because a framework-specific agent workflow
+stands between the agent and the code.
 
-<section class="why-jskit-quote-band">
-  <p>
-    AI is only as good as the shape around it.
-    <span>JSKIT-AI gives that shape to the agent before it writes code.</span>
-  </p>
-</section>
+## Packages declare the runtime
 
-<section class="why-jskit-ai-ready">
-  <div class="why-jskit-ai-ready-head">
-    <p class="why-jskit-kicker">What makes it work</p>
-    <div class="why-jskit-ai-ready-title">
-      <span>LESS</span>
-      <span>CHAOS</span>
-    </div>
-    <p class="why-jskit-ai-ready-lead">
-      Most repos ask an AI to invent the working model of the app while it is coding.
-      JSKIT-AI gives that model to the agent up front.
-    </p>
-  </div>
+Each JSKIT package declares the capabilities it provides and requires, its
+server and client providers, its public exports, and its pattern assets. The
+kernel resolves that graph directly from installed packages.
 
-  <div class="why-jskit-ai-ready-grid">
-    <article class="why-jskit-ai-ready-card why-jskit-ai-ready-card--hero">
-      <p class="why-jskit-card-label">A</p>
-      <h2>The app itself is structured for AI</h2>
-      <p>
-        Surfaces, packages, routes, placements, and package-owned workflows give the agent a
-        predictable map of the application instead of a blank custom codebase with no boundaries.
-      </p>
-    </article>
-    <article class="why-jskit-ai-ready-card">
-      <p class="why-jskit-card-label">B</p>
-      <h2>Pre-built docs and function indexes</h2>
-      <p>
-        The agent gets AI-friendly guides, distributed workflow docs, and generated reference maps
-        so it can find what already exists before inventing another helper.
-      </p>
-    </article>
-    <article class="why-jskit-ai-ready-card">
-      <p class="why-jskit-card-label">C</p>
-      <h2>Detailed AGENTS instructions</h2>
-      <p>
-        The workflow is not left to chance. The instructions force visible checkpoints, scoping,
-        chunked delivery, review passes, and alignment with documented JSKIT best practices.
-      </p>
-    </article>
-    <article class="why-jskit-ai-ready-card">
-      <p class="why-jskit-card-label">D</p>
-      <h2>App blueprint memory</h2>
-      <p>
-        The app blueprint command turns the app brief into durable product context, so major
-        product decisions do not disappear into chat history.
-      </p>
-    </article>
-    <article class="why-jskit-ai-ready-card">
-      <p class="why-jskit-card-label">E</p>
-      <h2>Package-owned defaults reduce guessing</h2>
-      <p>
-        JSKIT teaches the agent to assume standard package-owned workflows first and ask only about
-        overrides, instead of redesigning baseline behavior from scratch every time.
-      </p>
-    </article>
-    <article class="why-jskit-ai-ready-card">
-      <p class="why-jskit-card-label">F</p>
-      <h2>Generators reduce random hand-wiring</h2>
-      <p>
-        Server scaffolds, CRUD scaffolds, and UI generators keep the agent inside repeatable
-        patterns instead of encouraging improvised local architecture.
-      </p>
-    </article>
-  </div>
-  <div class="why-jskit-ai-ready-strip">
-    <div>less guessing</div>
-    <div>less repetition</div>
-    <div>less slop</div>
-    <div>more reuse</div>
-    <div>more review</div>
-    <div>more correct structure</div>
-  </div>
-  <div class="why-jskit-ai-ready-note">
-    <p>
-      The result is simple:
-      <strong>the AI is not improvising against chaos.</strong>
-      It is building inside a framework that already expects discipline.
-    </p>
-  </div>
-</section>
+An agent can therefore answer concrete questions:
 
-<section class="why-jskit-close">
-  <p class="why-jskit-close-top">Structure for the app. Structure for the agent. Structure for the work.</p>
-  <h2>That is what makes AI usable.</h2>
-  <p class="why-jskit-close-bottom">
-    JSKIT-AI does not just make code generation possible. It makes it governable.
-  </p>
-  <div class="why-jskit-close-actions">
-    <a class="why-jskit-button why-jskit-button--primary" href="/">Back to home</a>
-    <a class="why-jskit-button why-jskit-button--ghost" href="/guide/">Read the guide</a>
-  </div>
-</section>
+- Which package owns this capability?
+- Which provider creates it?
+- Which public action performs the operation?
+- Which pattern shows the intended application shape?
+- Which package owns the migration or UI contribution?
 
-</div>
+## Patterns replace generators
+
+The valuable part of old scaffolding was the accumulated design knowledge in
+its templates. JSKIT preserves that knowledge as readable `PATTERN.md` assets
+with complete example files.
+
+Patterns are not immutable generated output. An agent may:
+
+- use an example unchanged when it fits;
+- adapt it to product terminology and boundaries;
+- take only the relevant fragment;
+- compare existing code with it during review or cleanup.
+
+There is no questionnaire, mutation engine, ownership receipt, or replay
+ledger. Git shows what changed; tests show whether it works.
+
+## Actions are the public operation boundary
+
+A JSKIT action is a named product or platform operation with explicit input,
+dependencies, authorization, and output. HTTP routes, assistants, jobs, and
+tests should call the same action instead of duplicating business logic.
+
+This gives agents a small, stable map of what the application can do while
+keeping implementation in normal functions and feature modules.
+
+## Stable identifiers are not a service locator
+
+JSKIT keeps identifiers where identity matters: capability ids, action ids,
+event ids, routes, placements, resources, and component registrations.
+Application code does not fetch arbitrary services from a container by string,
+symbol, class, or object token. Dependencies are explicit values captured when
+features and providers are assembled.
+
+## The agent host remains independent
+
+JSKIT supplies documentation, skills, patterns, and runtime APIs. It does not
+own the product blueprint, editor, chat session, preview process, environment
+store, or deployment system. Those may come from Genesis, Vibe64, another
+agent host, or a developer working directly in a terminal.
+
+## Verification is ordinary engineering
+
+Agents should use focused unit and integration tests, rebuild disposable
+databases from migrations, exercise relevant browser behavior, and run the
+application's normal verification script. JSKIT does not create a parallel
+receipt or evidence system.
+
+The result is deliberately boring: installed packages, inspectable source,
+documented patterns, explicit capabilities, ordinary Git, and tests.

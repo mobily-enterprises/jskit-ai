@@ -12,7 +12,7 @@ Core rule:
 - repositories may add internal-only filter keys before forwarding the query to JSON REST
 - structured list filters should use `createCrudListFilterContract(...)` so route/action validators, JSON REST search schema, and repository query normalization are derived from one definition
 
-Fresh generated CRUD repositories already follow this path:
+The standard CRUD repository pattern follows this path:
 
 ```js
 return api.resources.contacts.query({
@@ -31,7 +31,7 @@ The normal layer split is:
 Use `search: true` on a schema field when:
 - the public filter key should be the same as the field name
 - direct field filtering is enough
-- you are happy with the generated/effective search entry for that one field
+- you are happy with the effective search entry for that one field
 
 Example:
 
@@ -162,7 +162,7 @@ Append validators separately only for genuinely additional, non-filter query
 input. Standard view actions use
 `createStandardCrudViewQueryValidators()`.
 
-For structured list filters, prefer the generated contract shape:
+For structured list filters, prefer the standard contract shape:
 
 ```js
 const receivalListFilterContract = createCrudListFilterContract(

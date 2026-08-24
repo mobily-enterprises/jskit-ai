@@ -1,714 +1,111 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createApplication } from "@jskit-ai/kernel/_testable";
-import { AuthActionsServiceProvider } from "@jskit-ai/auth-core/server/providers/AuthActionsServiceProvider";
-import { registerAuthServiceDecorator } from "@jskit-ai/auth-core/server/authServiceDecoratorRegistry";
-import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
-import { createProviderClass } from "../../kernel/shared/runtime/application.js";
-import { AuthProviderServiceProvider } from "../src/server/providers/AuthProviderServiceProvider.js";
-import { AuthSupabaseServiceProvider } from "../src/server/providers/AuthSupabaseServiceProvider.js";
+import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { AuthSupabaseProvider } from "../src/server/providers/AuthSupabaseProvider.js";
 
-function createAppConfigFixture({ auth = null } = {}) {
-  const config = {
-    surfaceModeAll: "all",
-    surfaceDefaultId: "home",
+function config(profileMode = "provider") {
+  return {
+    auth: { profileMode },
     surfaceDefinitions: {
-      home: { id: "home", pagesRoot: "", enabled: true, requiresAuth: false, requiresWorkspace: false },
-      console: {
-        id: "console",
-        pagesRoot: "console",
-        enabled: true,
-        requiresAuth: true,
-        requiresWorkspace: false
+      home: { id: "home", routeBase: "/" },
+      console: { id: "console", routeBase: "/console" }
+    }
+  };
+}
+
+function env(overrides = {}) {
+  return {
+    AUTH_SUPABASE_URL: "https://example.supabase.co",
+    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
+    APP_PUBLIC_URL: "http://localhost:5173",
+    NODE_ENV: "test",
+    ...overrides
+  };
+}
+
+async function startRuntime({ profileMode = "provider", envOverrides = {}, identity = null, decorate = null } = {}) {
+  const extensions = createAuthExtensions();
+  if (decorate) {
+    extensions.registerServiceDecorator({
+      decoratorId: "test.decorator",
+      decorateAuthService: decorate
+    });
+  }
+  let authService = null;
+  const probe = defineProvider({
+    id: "test.auth.probe",
+    requires: { service: "auth.service" },
+    setup({ service }) {
+      authService = service;
+      return {};
+    }
+  });
+  const inputs = {
+    "auth.extensions": extensions,
+    "runtime.config": config(profileMode),
+    "runtime.env": env(envOverrides),
+    ...(identity ? { "users.identity": identity } : {})
+  };
+  const runtime = createCapabilityRuntime({ inputs, providers: [AuthSupabaseProvider, probe] });
+  await runtime.start();
+  return { authService, runtime };
+}
+
+test("AuthSupabaseProvider exposes a configured provider-owned auth service", async () => {
+  const { authService, runtime } = await startRuntime();
+  assert.equal(typeof authService.login, "function");
+  assert.equal(authService.getCapabilities().provider.id, "supabase");
+  assert.equal(authService.getCapabilities().features.appProfileProjection, false);
+  assert.equal(authService.getCapabilities().features.password.methodToggle, false);
+  await runtime.shutdown();
+});
+
+test("AuthSupabaseProvider composes user identity persistence explicitly", async () => {
+  const identity = {
+    profileProjector: {
+      async findByIdentity() { return null; },
+      async syncIdentityProfile(profile) { return { id: 1, ...profile }; }
+    },
+    repositories: {
+      userProfiles: { async findById() { return null; }, async findByEmail() { return null; } },
+      userSettings: {
+        async ensureForUserId() { return {}; },
+        async updatePasswordSignInEnabled() { return {}; },
+        async updatePasswordSetupRequired() {}
       }
     }
   };
-  if (auth && typeof auth === "object") {
-    config.auth = auth;
-  }
-  return config;
-}
-
-function isBootFailureWithCause(error, pattern) {
-  return (
-    error instanceof Error &&
-    /failed during boot\(\)/.test(String(error.message || "")) &&
-    pattern.test(String(error.details?.cause?.message || ""))
-  );
-}
-
-test("auth supabase provider defaults to provider profile mode and composes with shared auth actions", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("users.profile.sync.service", {
-    async findByIdentity() {
-      return null;
-    },
-    async syncIdentityProfile(profile) {
-      return {
-        id: 1,
-        authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
-        email: String(profile?.email || "test@example.com"),
-        displayName: String(profile?.displayName || "Test User")
-      };
-    }
-  });
-
-  await app.start({
-    providers: [
-      ActionRuntimeServiceProvider,
-      AuthSupabaseServiceProvider,
-      AuthProviderServiceProvider,
-      AuthActionsServiceProvider
-    ]
-  });
-
-  const authService = app.make("authService");
-  assert.equal(typeof authService?.login, "function");
-  assert.deepEqual(authService.getCapabilities(), {
-    provider: {
-      id: "supabase",
-      label: "Supabase"
-    },
-    features: {
-      password: {
-        login: true,
-        register: true,
-        change: true,
-        methodToggle: false
-      },
-      passwordRecovery: {
-        request: true,
-        complete: true,
-        delivery: "smtp"
-      },
-      otp: {
-        login: true
-      },
-      oauthLogin: {
-        enabled: false,
-        providers: [],
-        defaultProvider: null
-      },
-      emailConfirmation: true,
-      profileUpdate: true,
-      providerLinking: {
-        start: false,
-        unlink: false
-      },
-      securityStatus: true,
-      signOutOtherSessions: true,
-      appProfileProjection: false,
-      devLoginAs: false
-    }
-  });
-
-  const actionExecutor = app.make("actionExecutor");
-  assert.equal(typeof actionExecutor?.execute, "function");
-
-  const definitions = actionExecutor.listDefinitions();
-  assert.equal(Array.isArray(definitions), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.login.password"), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.register.confirmation.resend"), true);
-  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
-  const sessionRead = definitions.find((definition) => definition.id === "auth.session.read");
-  assert.deepEqual(sessionRead?.surfaces, ["home", "console"]);
-});
-
-test("auth supabase provider registers authService in standalone mode without users.profile.sync.service", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture({
-    auth: {
-      profileMode: "standalone"
-    }
-  }));
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-
-  await app.start({
-    providers: [
-      ActionRuntimeServiceProvider,
-      AuthSupabaseServiceProvider,
-      AuthProviderServiceProvider,
-      AuthActionsServiceProvider
-    ]
-  });
-
-  const authService = app.make("authService");
-  assert.equal(typeof authService?.login, "function");
-  const status = await authService.getSecurityStatus();
-  assert.equal(status.actions.changePassword, true);
-  assert.equal(status.actions.setPasswordEnabled, false);
-});
-
-test("auth supabase provider reports password method toggle only with persistent settings repository", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("internal.repository.user-settings", {
-    async ensureForUserId() {
-      return {
-        passwordSignInEnabled: true,
-        passwordSetupRequired: false
-      };
-    },
-    async updatePasswordSignInEnabled() {
-      return {
-        passwordSignInEnabled: true,
-        passwordSetupRequired: false
-      };
-    }
-  });
-
-  await app.start({
-    providers: [
-      ActionRuntimeServiceProvider,
-      AuthSupabaseServiceProvider,
-      AuthProviderServiceProvider,
-      AuthActionsServiceProvider
-    ]
-  });
-
-  const authService = app.make("authService");
+  const { authService, runtime } = await startRuntime({ profileMode: "users", identity });
+  assert.equal(authService.getCapabilities().features.appProfileProjection, true);
   assert.equal(authService.getCapabilities().features.password.methodToggle, true);
-  const status = await authService.getSecurityStatus();
-  assert.equal(status.actions.setPasswordEnabled, true);
+  await runtime.shutdown();
 });
 
-test("auth supabase provider requires users.profile.sync.service in explicit users mode", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture({
-    auth: {
-      profileMode: "users"
+test("AuthSupabaseProvider applies explicit auth service decorators", async () => {
+  const { authService, runtime } = await startRuntime({
+    decorate(service) {
+      return Object.freeze({ ...service, decorated: true });
     }
-  }));
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
   });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
+  assert.equal(authService.decorated, true);
+  await runtime.shutdown();
+});
 
+test("AuthSupabaseProvider rejects removed profile aliases and mismatched providers", async () => {
   await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-      }),
-    (error) => isBootFailureWithCause(error, /config\.auth\.profileMode is "users"/)
+    () => startRuntime({ profileMode: "standalone" }),
+    /Unsupported config\.auth\.profileMode/
+  );
+  await assert.rejects(
+    () => startRuntime({ envOverrides: { AUTH_PROVIDER: "local" } }),
+    /installed auth provider is Supabase/
   );
 });
 
-test("auth supabase provider rejects unsupported config.auth.profileMode values", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture({
-    auth: {
-      profileMode: "invalid"
-    }
-  }));
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-
+test("AuthSupabaseProvider requires users.identity only when users profile projection is selected", async () => {
   await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-      }),
-    (error) => isBootFailureWithCause(error, /Unsupported config\.auth\.profileMode/)
+    () => startRuntime({ profileMode: "users" }),
+    /requires the users\.identity capability/
   );
-});
-
-test("auth supabase provider rejects AUTH_PROVIDER mismatches", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_PROVIDER: "local",
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-      }),
-    (error) => /AUTH_PROVIDER is "local"/.test(String(error.details?.cause?.message || error.message || ""))
-  );
-});
-
-test("auth supabase provider can boot dev auth without Supabase credentials", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_DEV_BYPASS_ENABLED: "true",
-    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "development"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("users.profile.sync.service", {
-    async findByIdentity() {
-      return null;
-    },
-    async syncIdentityProfile(profile) {
-      return {
-        id: 1,
-        authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
-        email: String(profile?.email || "test@example.com"),
-        displayName: String(profile?.displayName || "Test User")
-      };
-    }
-  });
-  app.instance("internal.repository.user-profiles", {
-    async findById() {
-      return null;
-    },
-    async findByEmail() {
-      return null;
-    }
-  });
-
-  await app.start({
-    providers: [
-      ActionRuntimeServiceProvider,
-      AuthSupabaseServiceProvider,
-      AuthProviderServiceProvider,
-      AuthActionsServiceProvider
-    ]
-  });
-
-  const authService = app.make("authService");
-  assert.equal(typeof authService?.devLoginAs, "function");
-  assert.equal(typeof authService?.isDevAuthBootstrapEnabled, "function");
-  assert.equal(authService.isDevAuthBootstrapEnabled(), true);
-  const capabilities = authService.getCapabilities();
-  assert.equal(capabilities.features.password.login, false);
-  assert.equal(capabilities.features.passwordRecovery.request, false);
-  assert.equal(capabilities.features.otp.login, false);
-  assert.equal(capabilities.features.signOutOtherSessions, false);
-  assert.equal(capabilities.features.devLoginAs, true);
-
-  const actionExecutor = app.make("actionExecutor");
-  const definitions = actionExecutor.listDefinitions();
-  assert.equal(definitions.some((definition) => definition.id === "auth.dev.loginAs"), true);
-});
-
-test("auth supabase provider applies registered auth service decorators", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture({
-    auth: {
-      profileMode: "standalone"
-    }
-  }));
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-
-  registerAuthServiceDecorator(app, "test.auth.decorator.marker", () => ({
-    decoratorId: "marker",
-    order: 10,
-    decorateAuthService(authService) {
-      return {
-        ...authService,
-        marker: "decorated"
-      };
-    }
-  }));
-
-  await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-  });
-
-  const authService = app.make("authService");
-  assert.equal(authService.marker, "decorated");
-  assert.equal(typeof authService.login, "function");
-});
-
-test("auth supabase provider rejects dev auth bypass in production", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_DEV_BYPASS_ENABLED: "true",
-    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    APP_PUBLIC_URL: "https://example.com",
-    NODE_ENV: "production"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("users.profile.sync.service", {
-    async findByIdentity() {
-      return null;
-    },
-    async syncIdentityProfile(profile) {
-      return {
-        id: 1,
-        authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
-        email: String(profile?.email || "test@example.com"),
-        displayName: String(profile?.displayName || "Test User")
-      };
-    }
-  });
-  app.instance("internal.repository.user-profiles", {
-    async findById() {
-      return null;
-    },
-    async findByEmail() {
-      return null;
-    }
-  });
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-      }),
-    (error) => isBootFailureWithCause(error, /must not be enabled in production/)
-  );
-});
-
-test("auth supabase provider rejects dev auth bypass without a secret during boot", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_DEV_BYPASS_ENABLED: "true",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "development"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("users.profile.sync.service", {
-    async findByIdentity() {
-      return null;
-    },
-    async syncIdentityProfile(profile) {
-      return {
-        id: 1,
-        authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
-        email: String(profile?.email || "test@example.com"),
-        displayName: String(profile?.displayName || "Test User")
-      };
-    }
-  });
-  app.instance("internal.repository.user-profiles", {
-    async findById() {
-      return null;
-    },
-    async findByEmail() {
-      return null;
-    }
-  });
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-      }),
-    (error) => isBootFailureWithCause(error, /AUTH_DEV_BYPASS_SECRET is required/)
-  );
-});
-
-test("auth supabase provider rejects dev auth bypass without internal.repository.user-profiles during boot", async () => {
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_DEV_BYPASS_ENABLED: "true",
-    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "development"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("users.profile.sync.service", {
-    async findByIdentity() {
-      return null;
-    },
-    async syncIdentityProfile(profile) {
-      return {
-        id: 1,
-        authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
-        email: String(profile?.email || "test@example.com"),
-        displayName: String(profile?.displayName || "Test User")
-      };
-    }
-  });
-
-  await assert.rejects(
-    () =>
-      app.start({
-        providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-      }),
-    (error) => isBootFailureWithCause(error, /requires internal\.repository\.user-profiles with findById\(\) and findByEmail\(\)/)
-  );
-});
-
-test("auth supabase provider defers eager dev auth materialization until json-rest host is available", async () => {
-  const DeferredUserProfilesRepositoryProvider = createProviderClass({
-    id: "aaa.deferred-user-profiles-repository",
-    register(app) {
-      app.singleton("internal.repository.user-profiles", (scope) => {
-        const api = scope.make("internal.json-rest-api");
-
-        return {
-          api,
-          async findById() {
-            return null;
-          },
-          async findByEmail() {
-            return null;
-          }
-        };
-      });
-    }
-  });
-
-  const DeferredJsonRestApiProvider = createProviderClass({
-    id: "json-rest-api.core",
-    boot(app) {
-      app.instance("internal.json-rest-api", {
-        scopes: new Map()
-      });
-    }
-  });
-
-  const app = createApplication();
-  app.instance("appConfig", createAppConfigFixture());
-  app.instance("jskit.env", {
-    AUTH_DEV_BYPASS_ENABLED: "true",
-    AUTH_DEV_BYPASS_SECRET: "dev-bootstrap-secret",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "development"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-  app.instance("users.profile.sync.service", {
-    async findByIdentity() {
-      return null;
-    },
-    async syncIdentityProfile(profile) {
-      return {
-        id: 1,
-        authProvider: String(profile?.authProvider || "supabase"),
-        authProviderUserSid: String(profile?.authProviderUserSid || "user-1"),
-        email: String(profile?.email || "test@example.com"),
-        displayName: String(profile?.displayName || "Test User")
-      };
-    }
-  });
-
-  await app.start({
-    providers: [
-      ActionRuntimeServiceProvider,
-      DeferredUserProfilesRepositoryProvider,
-      AuthSupabaseServiceProvider,
-      DeferredJsonRestApiProvider
-    ]
-  });
-
-  const authService = app.make("authService");
-  assert.equal(typeof authService?.devLoginAs, "function");
-});
-
-test("auth supabase provider reads oauth providers from appConfig.auth.oauth", async () => {
-  const app = createApplication();
-  app.instance("appConfig", {
-    ...createAppConfigFixture(),
-    auth: {
-      profileMode: "standalone",
-      oauth: {
-        providers: ["github"],
-        defaultProvider: "github"
-      }
-    }
-  });
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-
-  await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-  });
-
-  const authService = app.make("authService");
-  const catalog = authService.getOAuthProviderCatalog();
-  assert.deepEqual(catalog.providers.map((provider) => provider.id), ["github"]);
-  assert.equal(catalog.defaultProvider, "github");
-});
-
-test("auth supabase provider lets env oauth settings override appConfig.auth.oauth", async () => {
-  const app = createApplication();
-  app.instance("appConfig", {
-    ...createAppConfigFixture(),
-    auth: {
-      profileMode: "standalone",
-      oauth: {
-        providers: ["github"],
-        defaultProvider: "github"
-      }
-    }
-  });
-  app.instance("jskit.env", {
-    AUTH_SUPABASE_URL: "https://example.supabase.co",
-    AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
-    AUTH_OAUTH_PROVIDERS: "google",
-    AUTH_OAUTH_DEFAULT_PROVIDER: "google",
-    APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test"
-  });
-  app.instance("jskit.logger", {
-    info() {},
-    warn() {},
-    error() {},
-    debug() {}
-  });
-  app.instance("domainEvents", {
-    async publish() {}
-  });
-
-  await app.start({
-    providers: [ActionRuntimeServiceProvider, AuthSupabaseServiceProvider]
-  });
-
-  const authService = app.make("authService");
-  const catalog = authService.getOAuthProviderCatalog();
-  assert.deepEqual(catalog.providers.map((provider) => provider.id), ["google"]);
-  assert.equal(catalog.defaultProvider, "google");
 });

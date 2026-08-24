@@ -1,7 +1,10 @@
 import { sortStrings } from "../../../shared/support/sorting.js";
 import { discoverInstalledPackages } from "../../../internal/node/installedPackages.js";
 
-const EXCLUSIVE_CAPABILITIES = Object.freeze(["auth.provider"]);
+const EXCLUSIVE_CAPABILITIES = Object.freeze([
+  "auth.service",
+  "runtime.database.driver"
+]);
 
 function normalizeUiRoutePath(pathValue) {
   const rawPath = String(pathValue || "").trim();

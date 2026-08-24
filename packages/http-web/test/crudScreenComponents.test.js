@@ -15,39 +15,41 @@ async function readClientFile(...parts) {
   return readFile(path.join(PACKAGE_DIR, "src", "client", ...parts), "utf8");
 }
 
-test("CRUD screen components own generated list/view/form chrome centrally", async () => {
+test("CRUD screen components own list/view/form chrome centrally", async () => {
   const listSource = await readComponent("CrudListScreen.vue");
   const viewSource = await readComponent("CrudViewScreen.vue");
   const addEditSource = await readComponent("CrudAddEditScreen.vue");
   const deleteActionSource = await readComponent("CrudDeleteAction.vue");
+  const bulkActionSource = await readComponent("CrudListBulkActionSurface.vue");
+  const rowActionSource = await readComponent("CrudListRecordActionMenu.vue");
 
   assert.match(listSource, /CrudListBulkActionSurface/);
   assert.match(listSource, /CrudListFilterSurface/);
   assert.match(listSource, /CrudListRecordActionMenu/);
-  assert.match(listSource, /class="ui-generator-list-cards"/);
-  assert.match(listSource, /class="ui-generator-list-table"/);
-  assert.match(listSource, /class="ui-generator-list-fab"/);
-  assert.doesNotMatch(listSource, /ui-generator-list-cards d-md-none/);
-  assert.doesNotMatch(listSource, /ui-generator-list-table d-none d-md-block/);
-  assert.doesNotMatch(listSource, /class="ui-generator-list-fab d-md-none"/);
-  assert.match(listSource, /\.ui-generator-list-table\s*\{\s*display:\s*none;/);
+  assert.match(listSource, /class="crud-list-cards"/);
+  assert.match(listSource, /class="crud-list-table"/);
+  assert.match(listSource, /class="crud-list-fab"/);
+  assert.doesNotMatch(listSource, /crud-list-cards d-md-none/);
+  assert.doesNotMatch(listSource, /crud-list-table d-none d-md-block/);
+  assert.doesNotMatch(listSource, /class="crud-list-fab d-md-none"/);
+  assert.match(listSource, /\.crud-list-table\s*\{\s*display:\s*none;/);
   assert.match(
     listSource,
-    /@media \(min-width: 960px\)[\s\S]*\.ui-generator-list-cards\s*\{\s*display:\s*none;[\s\S]*\.ui-generator-list-table\s*\{\s*display:\s*block;[\s\S]*\.ui-generator-list-fab\s*\{\s*display:\s*none;/
+    /@media \(min-width: 960px\)[\s\S]*\.crud-list-cards\s*\{\s*display:\s*none;[\s\S]*\.crud-list-table\s*\{\s*display:\s*block;[\s\S]*\.crud-list-fab\s*\{\s*display:\s*none;/
   );
   assert.match(listSource, /button-label="More"/);
   assert.match(listSource, /selectableRows/);
   assert.match(
     listSource,
-    /\.ui-generator-list-element :deep\(\.v-btn\)\s*\{\s*min-height:\s*48px;/
+    /\.crud-list-element :deep\(\.v-btn\)\s*\{\s*min-height:\s*48px;/
   );
   assert.match(listSource, /<slot[\s\S]*name="card-fields"/);
   assert.match(listSource, /<slot name="table-header"/);
   assert.match(listSource, /<slot[\s\S]*name="table-row"/);
   assert.match(listSource, /:row="row"/);
 
-  assert.match(viewSource, /generated-ui-screen generated-ui-screen--operator ui-generator-view-element/);
-  assert.match(viewSource, /ui-generator-view-panel/);
+  assert.match(viewSource, /crud-screen crud-screen--operator crud-view-element/);
+  assert.match(viewSource, /crud-view-panel/);
   assert.match(viewSource, /@click="view\.refresh"/);
   assert.match(viewSource, /<slot name="actions" :screen="screen" :view="view" \/>/);
   assert.match(viewSource, /<slot name="before-fields"/);
@@ -55,7 +57,7 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   assert.match(viewSource, /<slot name="after-fields"/);
   assert.match(viewSource, /supporting-content/);
 
-  assert.match(addEditSource, /generated-ui-screen generated-ui-screen--operator ui-generator-add-edit-form/);
+  assert.match(addEditSource, /crud-screen crud-screen--operator crud-add-edit-form/);
   assert.match(addEditSource, /addEdit\.canRetryLoad/);
   assert.match(addEditSource, /@click="addEdit\.refresh"/);
   assert.match(addEditSource, /<slot[\s\S]*name="fields"/);
@@ -64,9 +66,23 @@ test("CRUD screen components own generated list/view/form chrome centrally", asy
   assert.match(deleteActionSource, /@click="action\.confirm"/);
   assert.match(deleteActionSource, /@click="closeDialog"/);
   assert.doesNotMatch(deleteActionSource, /\bactivator=/);
+
+  const sharedSources = [
+    listSource,
+    viewSource,
+    addEditSource,
+    deleteActionSource,
+    bulkActionSource,
+    rowActionSource
+  ].join("\n");
+  assert.doesNotMatch(sharedSources, /:loading=|v-progress-(?:circular|linear)/u);
+  assert.doesNotMatch(sharedSources, /ui-generator|generated-ui/u);
+  assert.match(listSource, /v-skeleton-loader/u);
+  assert.match(viewSource, /v-skeleton-loader/u);
+  assert.match(addEditSource, /v-skeleton-loader/u);
 });
 
-test("CRUD screen composables expose generated page extension inputs", async () => {
+test("CRUD screen composables expose page extension inputs", async () => {
   const listSource = await readClientFile("composables", "useCrudListScreen.js");
   const viewSource = await readClientFile("composables", "useCrudViewScreen.js");
 
@@ -82,6 +98,7 @@ test("CRUD screen composables expose generated page extension inputs", async () 
   assert.match(viewSource, /queryKeyFactory = null/);
   assert.match(viewSource, /requestQueryParams/);
   assert.match(viewSource, /readEnabled/);
+  assert.doesNotMatch(`${listSource}\n${viewSource}`, /ui-generator/u);
 });
 
 test("CRUD screen composables are importable package APIs", async () => {

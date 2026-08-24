@@ -1,7 +1,4 @@
-import {
-  registerBootstrapPayloadHandler,
-  resolveBootstrapErrorStatusCode
-} from "@jskit-ai/shell-web/client/bootstrap";
+import { resolveBootstrapErrorStatusCode } from "@jskit-ai/shell-web/client/bootstrap";
 import { resolvePlacementUserFromBootstrapPayload } from "../lib/bootstrap.js";
 
 function createUsersBootstrapUserHandler() {
@@ -43,11 +40,4 @@ function createUsersBootstrapUserHandler() {
   });
 }
 
-function registerUsersBootstrapPayloadHandlers(app) {
-  registerBootstrapPayloadHandler(app, "users.web.bootstrap.user-handler", () => createUsersBootstrapUserHandler());
-}
-
-export {
-  createUsersBootstrapUserHandler,
-  registerUsersBootstrapPayloadHandlers
-};
+export { createUsersBootstrapUserHandler };

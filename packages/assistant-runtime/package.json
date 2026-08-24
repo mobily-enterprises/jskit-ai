@@ -1,21 +1,22 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.130",
+  "version": "0.1.137",
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
     "./server/actionIds": "./src/server/actionIds.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.135",
-    "@jskit-ai/database-runtime": "0.1.159",
-    "@jskit-ai/http-web": "0.1.4",
-    "@jskit-ai/http-runtime": "0.1.157",
-    "@jskit-ai/kernel": "0.1.159",
-    "@jskit-ai/shell-web": "0.1.163",
-    "@jskit-ai/users-core": "0.1.172",
-    "@jskit-ai/users-web": "0.1.177",
+    "@jskit-ai/assistant-core": "0.1.142",
+    "@jskit-ai/database-runtime": "0.1.166",
+    "@jskit-ai/http-web": "0.1.11",
+    "@jskit-ai/http-runtime": "0.1.164",
+    "@jskit-ai/kernel": "0.1.166",
+    "@jskit-ai/shell-web": "0.1.170",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
@@ -23,7 +24,7 @@
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
-  "description": "Shared assistant runtime with per-surface assistant registration.",
+  "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
   "jskit": {
     "kind": "runtime",
     "capabilities": {
@@ -32,12 +33,12 @@
       ],
       "requires": [
         "runtime.actions",
+        "runtime.config",
         "runtime.database",
-        "auth.policy",
+        "runtime.env",
+        "runtime.http",
         "runtime.http-web",
-        "runtime.http-client",
-        "users.core",
-        "users.web"
+        "runtime.http-client"
       ]
     },
     "runtime": {
@@ -45,7 +46,7 @@
         "providers": [
           {
             "entrypoint": "src/server/AssistantProvider.js",
-            "export": "AssistantProvider"
+            "export": "AssistantFeature"
           }
         ]
       },
@@ -63,19 +64,13 @@
         "tableOwnership": {
           "tables": [
             {
-              "tableName": "assistant_config",
-              "provenance": "runtime-package",
-              "ownerKind": "package-runtime"
+              "tableName": "assistant_config"
             },
             {
-              "tableName": "assistant_conversations",
-              "provenance": "runtime-package",
-              "ownerKind": "package-runtime"
+              "tableName": "assistant_conversations"
             },
             {
-              "tableName": "assistant_messages",
-              "provenance": "runtime-package",
-              "ownerKind": "package-runtime"
+              "tableName": "assistant_messages"
             }
           ]
         }
@@ -95,79 +90,14 @@
             "summary": "Exports assistant runtime action identifiers."
           }
         ],
-        "containerTokens": {
-          "server": [
-            "assistant.config.repository",
-            "assistant.conversation.repository",
-            "assistant.message.repository",
-            "assistant.ai.client.factory",
-            "assistant.service.tool-catalog"
-          ],
-          "client": [
-            "assistant.web.settings.element"
-          ]
-        }
+        "capabilities": [
+          "assistant.runtime"
+        ]
       }
     },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/assistant-core": "0.1.135",
-          "@jskit-ai/database-runtime": "0.1.159",
-          "@jskit-ai/http-web": "0.1.4",
-          "@jskit-ai/http-runtime": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/shell-web": "0.1.163",
-          "@jskit-ai/users-core": "0.1.172",
-          "@jskit-ai/users-web": "0.1.177"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/assistant_config_initial.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install assistant configuration schema migration.",
-          "category": "assistant-runtime",
-          "id": "assistant-runtime-config-initial-schema"
-        },
-        {
-          "op": "install-migration",
-          "from": "templates/migrations/assistant_transcripts_initial.cjs",
-          "toDir": "migrations",
-          "extension": ".cjs",
-          "reason": "Install assistant transcript schema migration.",
-          "category": "assistant-runtime",
-          "id": "assistant-runtime-transcripts-initial-schema"
-        }
-      ],
-      "text": [
-        {
-          "op": "append-text",
-          "file": "config/public.js",
-          "position": "bottom",
-          "skipIfContains": "config.assistantSurfaces ||= {};",
-          "value": "\nconfig.assistantSurfaces ||= {};\n",
-          "reason": "Initialize the shared assistant surface registry in public app config.",
-          "category": "assistant-runtime",
-          "id": "assistant-runtime-public-surface-registry-init"
-        },
-        {
-          "op": "append-text",
-          "file": "config/server.js",
-          "position": "bottom",
-          "skipIfContains": "config.assistantServer ||= {};",
-          "value": "\nconfig.assistantServer ||= {};\n",
-          "reason": "Initialize the shared assistant server config registry.",
-          "category": "assistant-runtime",
-          "id": "assistant-runtime-server-surface-registry-init"
-        }
+    "migrations": {
+      "directories": [
+        "migrations"
       ]
     }
   }

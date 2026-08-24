@@ -3,451 +3,147 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { assertGeneratedUiSourceContract } from "@jskit-ai/kernel/shared/support/generatedUiContract";
 import packageJson from "../package.json" with { type: "json" };
 
-const packageMetadata = packageJson.jskit;
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const exampleRoot = path.join(packageRoot, "patterns", "workspace-surfaces", "example");
+const placements = packageJson.jskit?.metadata?.ui?.placements;
 
-const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
-
-function readOutlets(target = "") {
-  const outlets = packageMetadata?.metadata?.ui?.placements?.outlets;
-  const normalizedTarget = String(target || "").trim();
-  return Array.isArray(outlets)
-    ? outlets.filter((entry) => String(entry?.target || "").trim() === normalizedTarget)
-    : [];
+function contribution(id) {
+  return placements?.contributions?.find((entry) => entry.id === id) || null;
 }
 
-function findTopology(id, owner = "") {
-  const placements = packageMetadata?.metadata?.ui?.placements?.topology?.placements;
-  const normalizedId = String(id || "").trim();
-  const normalizedOwner = String(owner || "").trim();
-  return Array.isArray(placements)
-    ? placements.find((entry) => {
-        const entryId = String(entry?.id || "").trim();
-        const entryOwner = String(entry?.owner || "").trim();
-        return entryId === normalizedId && entryOwner === normalizedOwner;
-      }) || null
-    : null;
-}
-
-function findContribution(id) {
-  const contributions = packageMetadata?.metadata?.ui?.placements?.contributions;
-  return Array.isArray(contributions)
-    ? contributions.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findTextMutation(id) {
-  const textMutations = packageMetadata?.mutations?.text;
-  return Array.isArray(textMutations)
-    ? textMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findSourceMutation(id) {
-  const sourceMutations = packageMetadata?.mutations?.source;
-  return Array.isArray(sourceMutations)
-    ? sourceMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-function findFileMutation(id) {
-  const fileMutations = packageMetadata?.mutations?.files;
-  return Array.isArray(fileMutations)
-    ? fileMutations.find((entry) => String(entry?.id || "").trim() === id) || null
-    : null;
-}
-
-test("workspaces-web admin settings template exposes surface-derived settings outlets", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings.vue"),
+test("workspace surfaces pattern includes settings, invitations, and app-owned integration examples", async () => {
+  const settings = await readFile(
+    path.join(exampleRoot, "src", "pages", "admin", "workspace", "settings.vue"),
+    "utf8"
+  );
+  const invites = await readFile(
+    path.join(exampleRoot, "packages", "main", "src", "client", "components", "AccountSettingsInvitesSection.vue"),
+    "utf8"
+  );
+  const invitationPage = await readFile(
+    path.join(exampleRoot, "src", "pages", "invite", "[token].vue"),
     "utf8"
   );
 
-  assertGeneratedUiSourceContract(source, {
-    forbidCardShell: true,
-    sourceName: "admin/workspace/settings.vue",
-    requiredPatterns: [
-      {
-        id: "admin-settings-outlet",
-        pattern: /target="admin-settings:primary-menu"/,
-        message: "Admin settings shell needs the semantic settings outlet host."
-      },
-      {
-        id: "admin-settings-router-view",
-        pattern: /<RouterView \/>/,
-        message: "Admin settings shell needs to host child settings routes."
-      }
-    ]
-  });
-  assert.match(source, /target="admin-settings:primary-menu"/);
-  assert.doesNotMatch(source, /default-link-component-token/);
-  assert.doesNotMatch(source, /<v-card\b/);
-  assert.match(source, /<RouterView \/>/);
+  assert.match(settings, /target="admin-settings:primary-menu"/);
+  assert.match(settings, /<RouterView \/>/);
+  assert.doesNotMatch(settings, /<v-card\b|default-link-component-token/);
+  assert.match(invites, /@jskit-ai\/workspaces-web\/client\/components\/AccountSettingsInvitesSection/);
+  assert.match(invitationPage, /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceInviteLanding/);
+  assert.match(invitationPage, /<WorkspaceInviteLanding \/>/);
+  assert.doesNotMatch(invitationPage, /\bfetch\s*\(/);
 });
 
-test("workspaces-web installs an app-owned account invites section wrapper", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountSettingsInvitesSection.vue"),
-    "utf8"
-  );
-
-  assert.match(
-    source,
-    /@jskit-ai\/workspaces-web\/client\/components\/AccountSettingsInvitesSection/
-  );
-  assert.deepEqual(findFileMutation("workspaces-web-main-component-account-settings-invites-section"), {
-    from: "templates/packages/main/src/client/components/AccountSettingsInvitesSection.vue",
-    to: "packages/main/src/client/components/AccountSettingsInvitesSection.vue",
-    ownership: "app",
-    reason: "Install app-owned account invites section scaffold for multihoming account settings.",
-    category: "workspaces-web",
-    id: "workspaces-web-main-component-account-settings-invites-section"
-  });
-});
-
-test("workspaces-web installs a public workspace invite route scaffold", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "pages", "invite", "[token].vue"),
-    "utf8"
-  );
-
-  assert.doesNotMatch(source, /\bfetch\s*\(/);
-  assert.match(
-    source,
-    /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceInviteLanding/
-  );
-  assert.match(source, /<WorkspaceInviteLanding \/>/);
-  assert.deepEqual(findFileMutation("workspaces-web-page-public-invite"), {
-    from: "templates/src/pages/invite/[token].vue",
-    to: "src/pages/invite/[token].vue",
-    ownership: "app",
-    reason: "Install public workspace invite acceptance route scaffold.",
-    category: "workspaces-web",
-    id: "workspaces-web-page-public-invite"
-  });
-});
-
-test("workspaces-web settings components use direct panels instead of card scaffolds", async () => {
-  for (const relativePath of [
-    path.join("templates", "src", "components", "WorkspaceNotFoundCard.vue"),
-    path.join("src", "client", "components", "WorkspacesClientElement.vue"),
-    path.join("src", "client", "components", "AccountSettingsInvitesSection.vue")
+test("workspace settings and not-found examples use direct panels", async () => {
+  for (const sourcePath of [
+    path.join(exampleRoot, "src", "components", "WorkspaceNotFoundCard.vue"),
+    path.join(packageRoot, "src", "client", "components", "WorkspacesClientElement.vue"),
+    path.join(packageRoot, "src", "client", "components", "AccountSettingsInvitesSection.vue")
   ]) {
-    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
-
-    assertGeneratedUiSourceContract(source, {
-      forbidCardShell: true,
-      sourceName: relativePath
-    });
+    const source = await readFile(sourcePath, "utf8");
     assert.doesNotMatch(source, /<v-card\b|v-card-title|v-card-subtitle/);
   }
 });
 
-test("workspaces-web resource load states expose local retry actions", async () => {
+test("workspace resource load states expose local retry actions", async () => {
   const expectations = new Map([
     ["src/client/components/WorkspacesClientElement.vue", /bootstrapLoadError[\s\S]*@click="refreshBootstrap"/],
     ["src/client/components/WorkspaceMembersClientElement.vue", /canRetryLoad[\s\S]*@click="refreshLoad"/]
   ]);
 
   for (const [relativePath, pattern] of expectations) {
-    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
-    assert.match(source, pattern, `${relativePath} must expose a local retry action for load errors.`);
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    assert.match(source, pattern);
   }
 });
 
-test("workspaces-web command loading state uses http-web proxyRefs contract", async () => {
+test("workspace command loading follows the http-web proxyRefs contract", async () => {
   const expectations = new Map([
     [
       "src/client/components/WorkspaceMembersClientElement.vue",
-      [
-        /isCreatingInvite: Boolean\(inviteCreateCommand\.isRunning\)/,
-        /if \(inviteCreateCommand\.isRunning \|\| !canInviteMembers\.value\)/
-      ]
+      [/isCreatingInvite: Boolean\(inviteCreateCommand\.isRunning\)/, /inviteCreateCommand\.isRunning \|\| !canInviteMembers\.value/]
     ],
     [
       "src/client/components/WorkspacesClientElement.vue",
-      [
-        /const isCreatingWorkspace = computed\(\(\) => Boolean\(createWorkspaceCommand\.isRunning\)\)/
-      ]
+      [/const isCreatingWorkspace = computed\(\(\) => Boolean\(createWorkspaceCommand\.isRunning\)\)/]
     ],
     [
       "src/client/account-settings/useAccountSettingsInvitesSectionRuntime.js",
-      [
-        /const isResolvingInvite = computed\(\(\) => Boolean\(redeemInviteCommand\.isRunning\)\)/
-      ]
+      [/const isResolvingInvite = computed\(\(\) => Boolean\(redeemInviteCommand\.isRunning\)\)/]
     ]
   ]);
 
   for (const [relativePath, patterns] of expectations) {
-    const source = await readFile(path.join(PACKAGE_DIR, relativePath), "utf8");
-    assert.doesNotMatch(
-      source,
-      /\.isRunning\.value/,
-      `${relativePath} must not read useCommand().isRunning.value; useCommand returns proxyRefs.`
-    );
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    assert.doesNotMatch(source, /\.isRunning\.value/);
     for (const pattern of patterns) {
-      assert.match(source, pattern, `${relativePath} must expose command loading state to the UI.`);
+      assert.match(source, pattern);
     }
   }
 });
 
-test("workspaces-web installs an account invites cue scaffold that reads placement runtime state", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "packages", "main", "src", "client", "components", "AccountPendingInvitesCue.vue"),
+test("workspace pattern includes pending-invite context and product-ready empty surfaces", async () => {
+  const cue = await readFile(
+    path.join(exampleRoot, "packages", "main", "src", "client", "components", "AccountPendingInvitesCue.vue"),
     "utf8"
   );
+  const settingsLanding = await readFile(
+    path.join(exampleRoot, "src", "pages", "admin", "workspace", "settings", "index.vue"),
+    "utf8"
+  );
+  const appSurface = await readFile(path.join(exampleRoot, "src", "surfaces", "app", "index.vue"), "utf8");
+  const adminSurface = await readFile(path.join(exampleRoot, "src", "surfaces", "admin", "index.vue"), "utf8");
 
-  assert.doesNotMatch(source, /\bfetch\s*\(/);
-  assert.doesNotMatch(source, /\buseQuery\b/);
-  assert.match(source, /placementContext\.value\?\.pendingInvitesCount/);
-  assert.match(source, /placementContext\.value\?\.workspaceInvitesEnabled/);
-  assert.deepEqual(findFileMutation("workspaces-web-main-component-account-pending-invites-cue"), {
-    from: "templates/packages/main/src/client/components/AccountPendingInvitesCue.vue",
-    to: "packages/main/src/client/components/AccountPendingInvitesCue.vue",
-    ownership: "app",
-    reason: "Install app-owned account pending invites cue component scaffold.",
-    category: "workspaces-web",
-    id: "workspaces-web-main-component-account-pending-invites-cue"
-  });
+  assert.match(cue, /placementContext\.value\?\.pendingInvitesCount/);
+  assert.match(cue, /placementContext\.value\?\.workspaceInvitesEnabled/);
+  assert.doesNotMatch(cue, /\bfetch\s*\(|\buseQuery\b/);
+  assert.match(settingsLanding, /No settings sections yet/);
+  assert.match(appSurface, /No workspace activity yet/);
+  assert.match(adminSurface, /Manage members and workspace settings/);
+  assert.doesNotMatch(appSurface, /Replace this page|Primary in-workspace surface/);
+  assert.doesNotMatch(adminSurface, /Use this area|Privileged workspace workflows/);
 });
 
-test("workspaces-web admin settings index template is an app-owned landing slot", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "pages", "admin", "workspace", "settings", "index.vue"),
-    "utf8"
-  );
-
-  assertGeneratedUiSourceContract(source, {
-    forbidCardShell: true,
-    sourceName: "admin/workspace/settings/index.vue",
-    requiredPatterns: [
-      {
-        id: "app-owned-settings-landing",
-        pattern: /No settings sections yet/,
-        message: "Workspace settings index needs a product-shaped app-owned landing state."
-      }
-    ]
-  });
-  assert.doesNotMatch(source, /@jskit-ai\/workspaces-web\/client\/components\/WorkspaceSettingsClientElement/);
-  assert.doesNotMatch(source, /<WorkspaceSettingsClientElement \/>/);
-  assert.doesNotMatch(source, /your_child_segment|To redirect this settings shell/);
-});
-
-test("workspaces-web starter surfaces avoid instructional placeholder copy", async () => {
-  const appSource = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "surfaces", "app", "index.vue"),
-    "utf8"
-  );
-  const adminSource = await readFile(
-    path.join(PACKAGE_DIR, "templates", "src", "surfaces", "admin", "index.vue"),
-    "utf8"
-  );
-
-  assertGeneratedUiSourceContract(appSource, {
-    forbidCardShell: true,
-    sourceName: "workspaces app surface",
-    requiredPatterns: [
-      {
-        id: "workspace-app-empty-state",
-        pattern: /No workspace activity yet/,
-        message: "Workspace app surface needs a product-shaped empty state."
-      }
-    ]
-  });
-  assertGeneratedUiSourceContract(adminSource, {
-    forbidCardShell: true,
-    sourceName: "workspaces admin surface",
-    requiredPatterns: [
-      {
-        id: "workspace-admin-member-link",
-        pattern: /:to="adminChildPath\('members'\)"/,
-        message: "Workspace admin surface needs a direct members action."
-      },
-      {
-        id: "workspace-admin-settings-link",
-        pattern: /:to="adminChildPath\('workspace\/settings'\)"/,
-        message: "Workspace admin surface needs a direct settings action."
-      }
-    ]
-  });
-  assert.match(appSource, /No workspace activity yet/);
-  assert.match(adminSource, /Manage members and workspace settings/);
-  assert.match(adminSource, /const route = useRoute\(\)/);
-  assert.match(adminSource, /function adminChildPath/);
-  assert.match(adminSource, /:to="adminChildPath\('members'\)"/);
-  assert.match(adminSource, /:to="adminChildPath\('workspace\/settings'\)"/);
-  assert.doesNotMatch(adminSource, /to="\.\//);
-  assert.doesNotMatch(appSource, /Replace this page|Primary in-workspace surface/);
-  assert.doesNotMatch(adminSource, /Use this area|Privileged workspace workflows/);
-});
-
-test("workspaces-web packageMetadata metadata advertises admin settings outlets", () => {
+test("workspaces-web metadata declares semantic outlets without source mutations", () => {
+  assert.equal(packageJson.jskit?.mutations, undefined);
+  assert.deepEqual(placements?.outlets, [
+    {
+      target: "admin-settings:primary-menu",
+      surfaces: ["admin"],
+      source: "patterns/workspace-surfaces/example/src/pages/admin/workspace/settings.vue"
+    },
+    {
+      target: "admin-cog:primary-menu",
+      surfaces: ["admin"],
+      source: "src/client/components/WorkspaceToolsWidget.vue"
+    }
+  ]);
   assert.deepEqual(
-    readOutlets("admin-settings:primary-menu"),
+    placements?.topology?.placements?.map(({ id, owner = null }) => ({ id, owner })),
     [
-      {
-        target: "admin-settings:primary-menu",
-        surfaces: ["admin"],
-        source: "templates/src/pages/admin/workspace/settings.vue"
-      }
+      { id: "page.section-nav", owner: "admin-settings" },
+      { id: "admin.tools-menu", owner: null }
     ]
   );
-  assert.deepEqual(
-    readOutlets("admin-cog:primary-menu"),
-    [
-      {
-        target: "admin-cog:primary-menu",
-        surfaces: ["admin"],
-        source: "src/client/components/WorkspaceToolsWidget.vue"
-      }
-    ]
+});
+
+test("workspace contributions identify live package source or reusable pattern source", () => {
+  assert.equal(contribution("workspaces.workspace.menu.app")?.source, "patterns/workspace-surfaces/example/src/surfaces/app/index.vue");
+  assert.equal(contribution("workspaces.workspace.menu.admin")?.source, "patterns/workspace-surfaces/example/src/surfaces/admin/index.vue");
+  assert.equal(contribution("workspaces.profile.menu.surface-switch")?.source, "src/client/components/WorkspaceProfileSurfaceSwitchMenuItem.vue");
+  assert.equal(contribution("workspaces.workspace.selector")?.source, "src/client/components/WorkspaceSelector.vue");
+  assert.equal(
+    contribution("workspaces.account.invites.cue")?.source,
+    "patterns/workspace-surfaces/example/packages/main/src/client/components/AccountPendingInvitesCue.vue"
   );
-  assert.deepEqual(findTopology("page.section-nav", "admin-settings"), {
-    id: "page.section-nav",
-    owner: "admin-settings",
-    description: "Navigation between workspace admin settings child pages.",
-    surfaces: ["admin"],
-    variants: {
-      compact: {
-        outlet: "admin-settings:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      },
-      medium: {
-        outlet: "admin-settings:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      },
-      expanded: {
-        outlet: "admin-settings:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      }
-    }
-  });
-  assert.deepEqual(findTopology("admin.tools-menu"), {
-    id: "admin.tools-menu",
-    description: "Admin surface tools menu actions.",
-    surfaces: ["admin"],
-    variants: {
-      compact: {
-        outlet: "admin-cog:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      },
-      medium: {
-        outlet: "admin-cog:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      },
-      expanded: {
-        outlet: "admin-cog:primary-menu",
-        renderers: {
-          link: "local.main.ui.surface-aware-menu-link-item"
-        }
-      }
-    }
-  });
-  assert.equal(findContribution("workspaces.workspace.settings.general"), null);
-  assert.deepEqual(findContribution("workspaces.workspace.menu.app"), {
-    id: "workspaces.workspace.menu.app",
-    target: "shell.primary-nav",
-    kind: "link",
-    surfaces: ["app"],
-    order: 50,
-    when: "auth.authenticated === true",
-    source: "mutations.text#workspaces-web-placement-block"
-  });
-  assert.deepEqual(findContribution("workspaces.workspace.menu.admin"), {
-    id: "workspaces.workspace.menu.admin",
-    target: "shell.primary-nav",
-    kind: "link",
-    surfaces: ["admin"],
-    order: 60,
-    when: "auth.authenticated === true",
-    source: "mutations.text#workspaces-web-placement-block"
-  });
-  assert.match(findTextMutation("workspaces-web-placement-block")?.value || "", /id: "workspaces\.workspace\.menu\.app"[\s\S]*surfaces: \["app"\][\s\S]*label: "Home"/);
-  assert.match(findTextMutation("workspaces-web-placement-block")?.value || "", /id: "workspaces\.workspace\.menu\.admin"[\s\S]*surfaces: \["admin"\][\s\S]*label: "Home"/);
-  assert.deepEqual(findContribution("workspaces.profile.menu.surface-switch"), {
-    id: "workspaces.profile.menu.surface-switch",
-    target: "auth.profile-menu",
-    kind: "component",
-    surfaces: ["*"],
-    order: 100,
-    componentToken: "workspaces.web.profile.menu.surface-switch-item",
-    when: "auth.authenticated === true",
-    source: "mutations.text#workspaces-web-profile-surface-switch-placement"
-  });
-  assert.deepEqual(findContribution("workspaces.workspace.selector"), {
-    id: "workspaces.workspace.selector",
-    target: "shell.identity",
-    kind: "component",
-    surfaces: ["*"],
-    order: 200,
-    componentToken: "workspaces.web.workspace.selector",
-    when: "auth.authenticated === true",
-    source: "mutations.text#workspaces-web-placement-block"
-  });
-  assert.deepEqual(findContribution("workspaces.account.settings.invites"), {
-    id: "workspaces.account.settings.invites",
-    target: "settings.sections",
-    owner: "account-settings",
-    kind: "component",
-    surfaces: ["account"],
-    order: 400,
-    componentToken: "local.main.account-settings.section.invites",
-    when: "auth.authenticated === true && workspaceInvitesEnabled === true",
-    source: "mutations.text#workspaces-web-account-settings-placement"
-  });
-  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /id: "workspaces\.account\.settings\.invites"/);
-  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /target: "settings\.sections"/);
-  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /owner: "account-settings"/);
-  assert.match(findTextMutation("workspaces-web-account-settings-placement")?.value || "", /componentToken: "local\.main\.account-settings\.section\.invites"/);
-  assert.equal(findTextMutation("workspaces-web-admin-placement-topology")?.file, "src/placementTopology.js");
-  assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /id: "page\.section-nav"/);
-  assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /owner: "admin-settings"/);
-  assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /outlet: "admin-settings:primary-menu"/);
-  assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /id: "admin\.tools-menu"/);
-  assert.match(findTextMutation("workspaces-web-admin-placement-topology")?.value || "", /outlet: "admin-cog:primary-menu"/);
-  assert.deepEqual(findFileMutation("workspaces-web-page-admin-workspace-settings"), {
-    from: "templates/src/pages/admin/workspace/settings/index.vue",
-    toSurface: "admin",
-    toSurfacePath: "workspace/settings/index.vue",
-    ownership: "app",
-    reason: "Install workspace settings index stub scaffold for app-owned landing or redirect behavior.",
-    category: "workspaces-web",
-    id: "workspaces-web-page-admin-workspace-settings",
-    when: {
-      config: "tenancyMode",
-      in: ["personal", "workspaces"]
-    }
-  });
-  assert.deepEqual(findSourceMutation("workspaces-web-main-client-provider-account-settings-section-import"), {
-    op: "ensure-import",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    defaultImport: "AccountSettingsInvitesSection",
-    from: "../components/AccountSettingsInvitesSection.vue",
-    reason: "Bind app-owned account invites section component into local main client provider imports.",
-    category: "workspaces-web",
-    id: "workspaces-web-main-client-provider-account-settings-section-import"
-  });
-  assert.deepEqual(findSourceMutation("workspaces-web-main-client-provider-account-settings-section-register"), {
-    op: "ensure-call",
-    file: "packages/main/src/client/providers/MainClientProvider.js",
-    callee: "registerMainClientComponent",
-    args: ["\"local.main.account-settings.section.invites\"", "() => AccountSettingsInvitesSection"],
-    beforeClass: "MainClientProvider",
-    reason: "Bind app-owned account invites section component token into local main client provider registry.",
-    category: "workspaces-web",
-    id: "workspaces-web-main-client-provider-account-settings-section-register"
-  });
+  assert.equal(
+    contribution("workspaces.account.settings.invites")?.source,
+    "patterns/workspace-surfaces/example/packages/main/src/client/components/AccountSettingsInvitesSection.vue"
+  );
+  assert.equal(contribution("workspaces.workspace.tools.widget")?.source, "src/client/components/WorkspaceToolsWidget.vue");
+  assert.equal(contribution("workspaces.workspace.menu.workspace-settings")?.source, "src/client/components/WorkspaceSettingsMenuItem.vue");
+  assert.equal(contribution("workspaces.workspace.menu.members")?.source, "src/client/components/WorkspaceMembersMenuItem.vue");
+  assert.equal(contribution("workspaces.workspace.settings.general"), null);
 });

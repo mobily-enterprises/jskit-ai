@@ -215,6 +215,7 @@ function createService({
   }
 
   async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
+    const requireMembership = options?.requireMembership !== false;
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(401, "Authentication required.");
@@ -249,12 +250,16 @@ function createService({
       membership = await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, normalizedUserId, options);
     }
 
-    if (!membership || normalizeLowerText(membership.status) !== "active") {
+    if ((!membership || normalizeLowerText(membership.status) !== "active") && requireMembership) {
       throw new AppError(403, "You do not have access to this workspace.");
     }
 
+    if (!membership || normalizeLowerText(membership.status) !== "active") {
+      membership = null;
+    }
+
     const workspaceSettings = await ensureWorkspaceSettingsForWorkspace(workspace, options);
-    const permissions = buildPermissionsFromMembership(membership, appConfig);
+    const permissions = membership ? buildPermissionsFromMembership(membership, appConfig) : [];
 
     return {
       workspace,

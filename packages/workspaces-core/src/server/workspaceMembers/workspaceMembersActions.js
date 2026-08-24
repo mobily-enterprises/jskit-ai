@@ -3,7 +3,33 @@ import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
+import {
+  INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE,
+  createWorkspaceEntityAndBootstrapEvents
+} from "../common/support/realtimeServiceEvents.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
+
+const WORKSPACE_MEMBER_CHANGED_EVENTS = createWorkspaceEntityAndBootstrapEvents({
+  workspaceEntity: "member",
+  workspaceOperation: "updated",
+  workspaceRealtimeEvent: "workspace.members.changed"
+});
+
+const WORKSPACE_INVITE_CREATED_EVENTS = createWorkspaceEntityAndBootstrapEvents({
+  workspaceEntity: "invite",
+  workspaceOperation: "created",
+  workspaceRealtimeEvent: "workspace.invites.changed",
+  bootstrapEntityId: ({ result } = {}) => result?.value?.createdInviteId,
+  bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
+});
+
+const WORKSPACE_INVITE_REVOKED_EVENTS = createWorkspaceEntityAndBootstrapEvents({
+  workspaceEntity: "invite",
+  workspaceOperation: "updated",
+  workspaceRealtimeEvent: "workspace.invites.changed",
+  bootstrapEntityId: ({ result } = {}) => result?.value?.revokedInviteId,
+  bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
+});
 
 const updateMemberRoleActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
@@ -37,13 +63,13 @@ const revokeInviteActionInput = composeSchemaDefinitions([
   context: "workspaceMembersActions.revokeInviteActionInput"
 });
 
-const workspaceMembersActions = Object.freeze([
+const workspaceMembersActionSpecifications = Object.freeze([
   {
     id: "workspace.roles.list",
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.roles.view"]
@@ -55,8 +81,8 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.roles.list"
     },
     observability: {},
-    async execute(_input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.listRoles({ context }));
+    async run(workspaceMembersService, _input, context) {
+      return returnJsonApiData(await workspaceMembersService.listRoles({ context }));
     }
   },
   {
@@ -64,7 +90,7 @@ const workspaceMembersActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.members.view"]
@@ -76,8 +102,8 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.members.list"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.listMembers(resolveWorkspace(context, input), {
+    async run(workspaceMembersService, input, context) {
+      return returnJsonApiData(await workspaceMembersService.listMembers(resolveWorkspace(context, input), {
         context
       }));
     }
@@ -87,7 +113,7 @@ const workspaceMembersActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.members.manage"]
@@ -99,8 +125,9 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.member.role.update"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
+    events: WORKSPACE_MEMBER_CHANGED_EVENTS,
+    async run(workspaceMembersService, input, context) {
+      return returnJsonApiData(await workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
         memberUserId: input.memberUserId,
         roleSid: input.roleSid
       }, {
@@ -113,7 +140,7 @@ const workspaceMembersActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.members.manage"]
@@ -125,8 +152,9 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.member.remove"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.removeMember(resolveWorkspace(context, input), {
+    events: WORKSPACE_MEMBER_CHANGED_EVENTS,
+    async run(workspaceMembersService, input, context) {
+      return returnJsonApiData(await workspaceMembersService.removeMember(resolveWorkspace(context, input), {
         memberUserId: input.memberUserId
       }, {
         context
@@ -138,7 +166,7 @@ const workspaceMembersActions = Object.freeze([
     version: 1,
     kind: "query",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.members.view"]
@@ -150,8 +178,8 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.invites.list"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.listInvites(resolveWorkspace(context, input), {
+    async run(workspaceMembersService, input, context) {
+      return returnJsonApiData(await workspaceMembersService.listInvites(resolveWorkspace(context, input), {
         context
       }));
     }
@@ -161,7 +189,7 @@ const workspaceMembersActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "assistant_tool", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.members.invite"]
@@ -173,13 +201,14 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.invite.create"
     },
     observability: {},
+    events: WORKSPACE_INVITE_CREATED_EVENTS,
     extensions: {
       assistant: {
         description: "Invite a person to the workspace."
       }
     },
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.createInvite(
+    async run(workspaceMembersService, input, context) {
+      return returnJsonApiData(await workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveActionUser(context, input),
         {
@@ -197,7 +226,7 @@ const workspaceMembersActions = Object.freeze([
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "workspace",
+    surfaces: ["*"],
     permission: {
       require: "all",
       permissions: ["workspace.invites.revoke"]
@@ -209,12 +238,23 @@ const workspaceMembersActions = Object.freeze([
       actionName: "workspace.invite.revoke"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return returnJsonApiData(await deps.workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {
+    events: WORKSPACE_INVITE_REVOKED_EVENTS,
+    async run(workspaceMembersService, input, context) {
+      return returnJsonApiData(await workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {
         context
       }));
     }
   }
 ]);
 
-export { workspaceMembersActions };
+function buildWorkspaceMembersActions({ workspaceMembersService } = {}) {
+  if (!workspaceMembersService) throw new TypeError("buildWorkspaceMembersActions requires workspaceMembersService.");
+  return workspaceMembersActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(workspaceMembersService, input, context);
+    }
+  }));
+}
+
+export { workspaceMembersActionSpecifications, buildWorkspaceMembersActions };

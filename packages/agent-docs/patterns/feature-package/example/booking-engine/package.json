@@ -1,0 +1,48 @@
+{
+  "name": "@local/booking-engine",
+  "version": "0.1.0",
+  "description": "App-local booking orchestration package.",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@jskit-ai/kernel": "0.1.166",
+    "json-rest-schema": "^1.0.17"
+  },
+  "exports": {
+    "./server/actions": "./src/server/actions.js"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "feature.booking-engine"
+      ],
+      "requires": [
+        "runtime.actions"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/BookingEngineProvider.js",
+            "export": "BookingEngineProvider"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server/actions",
+            "summary": "Exports booking-engine action definitions."
+          }
+        ]
+      }
+    }
+  }
+}

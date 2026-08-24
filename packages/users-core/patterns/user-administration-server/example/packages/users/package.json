@@ -1,0 +1,42 @@
+{
+  "name": "@app/users",
+  "version": "0.0.0",
+  "description": "App-local read-only user administration feature.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server/UsersFeature": "./src/server/UsersFeature.js",
+    "./shared": "./src/shared/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/crud-core": "0.1.177",
+    "@jskit-ai/resource-crud-core": "0.1.108"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "app.users"
+      ],
+      "requires": [
+        "runtime.http",
+        "runtime.json-rest-api",
+        "runtime.actions",
+        "runtime.database"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/UsersFeature.js",
+            "export": "UsersFeature"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    }
+  }
+}

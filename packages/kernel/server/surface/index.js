@@ -16,4 +16,3 @@ export {
   buildVersionedApiPath,
   isVersionedApiPrefixMatch
 } from "../../shared/surface/apiPaths.js";
-export { SurfaceRoutingServiceProvider } from "./SurfaceRoutingServiceProvider.js";

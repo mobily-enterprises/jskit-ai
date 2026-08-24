@@ -2,12 +2,11 @@ import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabi
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
 class AuthWebService {
-  constructor({ authService, getAuthService, devAuthBootstrapEnabled } = {}) {
-    if (!authService && typeof getAuthService !== "function") {
-      throw new Error("authService or getAuthService is required.");
+  constructor({ authService, devAuthBootstrapEnabled } = {}) {
+    if (!authService || typeof authService !== "object") {
+      throw new Error("authService is required.");
     }
-    this.authService = authService || null;
-    this.getAuthService = typeof getAuthService === "function" ? getAuthService : null;
+    this.authService = authService;
     this.devAuthBootstrapEnabled =
       typeof devAuthBootstrapEnabled === "boolean" ? devAuthBootstrapEnabled : null;
   }
@@ -73,17 +72,6 @@ class AuthWebService {
   }
 
   resolveAuthService() {
-    if (this.authService) {
-      return this.authService;
-    }
-    if (typeof this.getAuthService !== "function") {
-      throw new Error("authService is required.");
-    }
-
-    this.authService = this.getAuthService();
-    if (!this.authService) {
-      throw new Error("authService is required.");
-    }
     return this.authService;
   }
 

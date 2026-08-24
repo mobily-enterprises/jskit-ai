@@ -19,9 +19,9 @@ Ask first:
 - whether there are presets such as "Today", "Last 7 Days", or "Only Archived"
 
 Default JSKIT client pattern:
-1. Generated CRUD list pages include a page-local `listFilters.js` file next to `index.vue`.
+1. CRUD list pages use a page-local `listFilters.js` file next to `index.vue`.
 2. Put client filter definitions in that file with `defineCrudListFilters(...)`.
-3. The generated `index.vue` passes `listFilters` into `useCrudListScreen(...)`; the shared list screen builds `useCrudListFilters(listFilters)`, passes `filterRuntime.queryParams` into the list request, and renders `CrudListFilterSurface`.
+3. The app-owned `index.vue` passes `listFilters` into `useCrudListScreen(...)`; the shared list screen builds `useCrudListFilters(listFilters)`, passes `filterRuntime.queryParams` into the list request, and renders `CrudListFilterSurface`.
 4. If `listFilters` is empty, the filter surface renders nothing and the page behaves like a normal searchable list.
 5. The AI/app author is responsible for ensuring the server accepts and applies the query params declared in `listFilters.js`.
 6. For lookup-backed filters, use `useCrudListFilterLookups(...)` when the page needs remote options or readable chip labels.
@@ -47,7 +47,7 @@ const listFilters = defineCrudListFilters({
 });
 ```
 
-Generated client shape:
+Client shape:
 - `src/pages/<surface>/<resource>/listFilters.js`
 - `const listFilters = defineCrudListFilters({ ... })`
 - `useCrudListScreen({ ..., listFilters })`
@@ -77,8 +77,8 @@ Exact file checklist:
   `listFilterQueryValidator`
 - update the provider's `createJsonRestResourceScopeOptions(...)` call so `searchSchema: listFilterContract.jsonRestSearchSchema` is merged into the internal JSON REST resource
 - update `packages/<crud>/src/server/repository.js` so list queries pass `listFilterContract.toJsonRestQuery(query)` into `buildJsonRestQueryParams(...)`
-- update the generated page-local `listFilters.js` first; only edit `index.vue` if a specialist lookup label/runtime integration is needed
-- for lookup-backed filters, wire `useCrudListFilterLookups(...)` beside the existing generated filter runtime instead of replacing `CrudListFilterSurface`
+- update the page-local `listFilters.js` first; only edit `index.vue` if a specialist lookup label/runtime integration is needed
+- for lookup-backed filters, wire `useCrudListFilterLookups(...)` beside the existing filter runtime instead of replacing `CrudListFilterSurface`
 
 Standard route and action query composition:
 
@@ -154,7 +154,7 @@ Avoid:
 - appending a list-filter validator after `createStandardCrudListQueryValidators(...)` when it belongs in the dedicated `listFilterQueryValidator` option
 - hand-rolled preset apply/reset/active-state helpers when `useCrudListFilters(..., { presets })`, `applyPreset(...)`, and `matchesPreset(...)` fit
 - per-screen `useList()` wrappers for lookup-backed filters when `useCrudListFilterLookups(...)` fits
-- editing generated `.vue` files just to add basic filter controls; use the page-local `listFilters.js` seam first
+- editing `.vue` files just to add basic filter controls; use the page-local `listFilters.js` seam first
 - overloading `q` with structured filter meaning
 - inline filter-definition objects passed into `useCrudListFilters(...)`, `createCrudListFilters(...)`, or `createCrudListFilterContract(...)`; keep definitions in a named module
 - assigning a default to `filterRuntime.values` after `useCrudListScreen(...)` has started; that changes the query after construction and can issue a second initial request
@@ -162,7 +162,7 @@ Avoid:
 Good shape:
 - `src/pages/home/customers/listFilters.js`
 - `const listFilters = defineCrudListFilters({ status: { type: "enum", ... } })`
-- generated page passes `listFilters` into `useCrudListScreen(...)`
+- page passes `listFilters` into `useCrudListScreen(...)`
 - shared screen runtime passes `filterRuntime.queryParams` into the list request
 - `packages/receivals/src/shared/receivalListFilters.js`
 - `createCrudListFilterContract(RECEIVAL_LIST_FILTER_DEFINITIONS, { columns, invalidValues: "reject" })`
@@ -178,7 +178,7 @@ Preset contract notes:
 - if the URL contains `status=archived&status=bogus`, a preset for only `archived` should not render as active while the `bogus` chip is still visible
 
 Review checks:
-- one filter definition source of truth: generated page-local `listFilters.js` for client-only filters, or a shared CRUD-package module when server code imports the same definitions
+- one filter definition source of truth: page-local `listFilters.js` for client-only filters, or a shared CRUD-package module when server code imports the same definitions
 - server validator, JSON REST search schema, and repository query projection derived from that source through `createCrudListFilterContract(...)`
 - route and action boundaries independently compose
   `createStandardCrudListQueryValidators(...)`, using the dedicated

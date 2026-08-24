@@ -1,33 +1,23 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { DatabaseRuntimePostgresServiceProvider } from "../src/server/providers/DatabaseRuntimePostgresServiceProvider.js";
+import test from "node:test";
 
-function createSingletonApp() {
-  const singletons = new Map();
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { PostgresDatabaseDriverProvider } from "../src/server/providers/PostgresDatabaseDriverProvider.js";
 
-  return {
-    has(token) {
-      return singletons.has(token);
-    },
-    singleton(token, factory) {
-      singletons.set(token, factory(this));
-    },
-    make(token) {
-      if (!singletons.has(token)) {
-        throw new Error(`Token ${String(token)} is not registered.`);
-      }
-      return singletons.get(token);
+test("PostgresDatabaseDriverProvider provides the exclusive database driver capability", async () => {
+  let driver;
+  const consumer = defineProvider({
+    id: "test.postgres.consumer",
+    requires: { databaseDriver: "runtime.database.driver" },
+    setup({ databaseDriver }) {
+      driver = databaseDriver;
+      return {};
     }
-  };
-}
+  });
+  const runtime = createCapabilityRuntime({ providers: [PostgresDatabaseDriverProvider, consumer] });
 
-test("DatabaseRuntimePostgresServiceProvider registers postgres driver api", () => {
-  const app = createSingletonApp();
-  const provider = new DatabaseRuntimePostgresServiceProvider();
-  provider.register(app);
-
-  assert.equal(app.has("runtime.database.driver.postgres"), true);
-  const api = app.make("runtime.database.driver.postgres");
-  assert.equal(api.DIALECT_ID, "pg");
-  assert.equal(api.getDialectId(), "pg");
+  await runtime.start();
+  assert.equal(driver.DIALECT_ID, "pg");
+  assert.equal(driver.getDialectId(), "pg");
+  await runtime.shutdown();
 });

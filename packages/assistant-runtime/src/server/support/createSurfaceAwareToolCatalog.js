@@ -21,9 +21,9 @@ function requireContextSurfaceId(context = {}) {
   throw new Error("assistant surface-aware tool catalog requires context.surface.");
 }
 
-function createSurfaceAwareToolCatalog(scope, { appConfig = {}, resolveAppConfig = null, createCatalog = createServiceToolCatalog } = {}) {
-  if (!scope) {
-    throw new Error("createSurfaceAwareToolCatalog requires scope.");
+function createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConfig = null, createCatalog = createServiceToolCatalog } = {}) {
+  if (!actions || typeof actions.listDefinitions !== "function") {
+    throw new Error("createSurfaceAwareToolCatalog requires runtime.actions.");
   }
 
   const resolveCurrentAppConfig =
@@ -36,7 +36,7 @@ function createSurfaceAwareToolCatalog(scope, { appConfig = {}, resolveAppConfig
       return cache.get(surfaceId);
     }
 
-    const nextCatalog = createCatalog(scope, buildCatalogOptions(resolveCurrentAppConfig(), surfaceId));
+    const nextCatalog = createCatalog(actions, buildCatalogOptions(resolveCurrentAppConfig(), surfaceId));
     cache.set(surfaceId, nextCatalog);
     return nextCatalog;
   }
@@ -48,7 +48,7 @@ function createSurfaceAwareToolCatalog(scope, { appConfig = {}, resolveAppConfig
     },
     toOpenAiToolSchema(tool) {
       if (!schemaCatalog) {
-        schemaCatalog = createCatalog(scope, buildCatalogOptions(resolveCurrentAppConfig(), ""));
+        schemaCatalog = createCatalog(actions, buildCatalogOptions(resolveCurrentAppConfig(), ""));
       }
 
       return schemaCatalog.toOpenAiToolSchema(tool);

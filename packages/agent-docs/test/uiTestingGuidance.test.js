@@ -1,12 +1,49 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { access, cp, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const OPERATIONAL_REFERENCE_FILES = Object.freeze([
+  "app-operations.md",
+  "crud-operations.md",
+  "material-3.md",
+  "ui-operations.md",
+]);
 
-test("the single JSKIT skill covers implementation and review without removed workflow docs", async () => {
+async function collectMarkdownFiles(root) {
+  const files = [];
+  async function visit(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const location = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(location);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        files.push(location);
+      }
+    }
+  }
+  await visit(root);
+  return files.sort();
+}
+
+function relativeMarkdownLinks(source) {
+  const destinations = [
+    ...source.matchAll(/!?\[[^\]\n]*\]\((?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)/gu),
+    ...source.matchAll(/^\s*\[[^\]\n]+\]:\s*(?:<([^>]+)>|(\S+))/gmu),
+  ].map((match) => match[1] || match[2]);
+  return destinations.filter((destination) => (
+    destination
+    && !destination.startsWith("#")
+    && !destination.startsWith("?")
+    && !destination.startsWith("/")
+    && !/^[a-z][a-z\d+.-]*:/iu.test(destination)
+  ));
+}
+
+test("the single JSKIT skill is pattern-first and contains no generator or receipt lane", async () => {
   const skillRoot = path.join(packageRoot, "skills/jskit");
   const referencesRoot = path.join(skillRoot, "references");
   const skill = await readFile(path.join(skillRoot, "SKILL.md"), "utf8");
@@ -15,53 +52,90 @@ test("the single JSKIT skill covers implementation and review without removed wo
     file,
     source: await readFile(path.join(referencesRoot, file), "utf8"),
   })));
-  const operationalSource = [skill, ...references.map(({ source }) => source)].join("\n");
+  const operationalReferences = references.filter(({ file }) => OPERATIONAL_REFERENCE_FILES.includes(file));
+  const operationalSource = [skill, ...operationalReferences.map(({ source }) => source)].join("\n");
 
   assert.deepEqual(referenceFiles, [
     "app-operations.md",
     "crud-operations.md",
+    "existing-application-migration.md",
+    "material-3.md",
+    "pattern-index.md",
     "ui-operations.md",
   ]);
   for (const file of referenceFiles) {
     assert.match(skill, new RegExp(`\\(references/${file.replace(".", "\\.")}\\)`, "u"));
   }
-  const localLinks = [...skill.matchAll(/\[[^\]\n]*\]\(([^)]+)\)/gu)]
-    .map((match) => match[1]);
+  const localLinks = [...skill.matchAll(/\[[^\]\n]*\]\(([^)]+)\)/gu)].map((match) => match[1]);
   assert.deepEqual(localLinks.sort(), referenceFiles.map((file) => `references/${file}`).sort());
   assert.equal(references.every(({ source }) => !/\[[^\]\n]*\]\((?!https?:|mailto:|#)[^)]+\)/u.test(source)), true);
 
   assert.match(operationalSource, /current diff/);
-  assert.match(operationalSource, /@jskit-ai\/create-app/u);
-  assert.match(operationalSource, /npx --no-install jskit add package/u);
-  assert.match(operationalSource, /Conventional one-table CRUD/u);
-  assert.match(operationalSource, /crud-server-generator scaffold/u);
-  assert.match(operationalSource, /crud-ui-generator crud/u);
-  assert.match(operationalSource, /target is relative to `src\/pages\/`, starts with the selected surface's\s+nonempty configured `pagesRoot`/u);
-  assert.match(operationalSource, /for example\s+`home\/books`/u);
-  assert.match(operationalSource, /surface deliberately configured with an empty root, use\s+only the plural route/u);
-  assert.match(operationalSource, /exact singular\s+resource\s+filename emitted by the server generator/u);
+  assert.match(operationalSource, /app\/shell-foundation/u);
+  assert.match(operationalSource, /app\/minimal-foundation/u);
+  assert.match(operationalSource, /crud\/resource-contract/u);
+  assert.match(operationalSource, /JSKIT has no general authoring CLI/u);
+  assert.match(operationalSource, /Install one planned dependency closure/u);
+  assert.match(operationalSource, /(?:author|write) an immutable.*migration/iu);
+  assert.match(operationalSource, /defineCrudResource\(\)/u);
+  assert.match(operationalSource, /Use semantic placement ids/u);
+  assert.match(operationalSource, /route\s+template or relative string raw to Vue Router `to`/u);
   assert.match(skill, /Caller-owned verification/u);
   assert.match(skill, /Do not start a dev server/u);
   assert.match(skill, /Review or deslop/u);
-  assert.match(skill, /complete operational references required by this skill/u);
+  assert.match(skill, /complete operational references\s+required by this skill/u);
   assert.match(skill, /Do not load\s+irrelevant references/u);
-  assert.match(skill, /complete exact JSKIT command lane with all option\s+values directly/u);
-  assert.match(skill, /skip `help`, `list`, `show --details`, `list-placements`, sibling docs,\s+`node_modules` or generator-source inspection, plus any verification the\s+caller owns/u);
-  assert.match(skill, /Discover only a missing fact or exact-command failure/u);
   const crudReference = references.find(({ file }) => file === "crud-operations.md").source;
+  const materialReference = references.find(({ file }) => file === "material-3.md").source;
   const uiReference = references.find(({ file }) => file === "ui-operations.md").source;
-  assert.match(
-    crudReference,
-    /Inspect only a generator whose exact\s+lane or option values are\s+missing, or whose supplied command failed/u
+  assert.match(crudReference, /Do not translate the work into generator options/u);
+  assert.match(crudReference, /Never make a live table or a generator the sole source of truth/u);
+  assert.match(uiReference, /Resolve current dynamic parameters\s+to an absolute URL or route object/u);
+  assert.match(skill, /every Vue\/Vuetify UI creation, modification, review, or deslop task/u);
+  assert.match(skill, /Material 3 audit/u);
+  assert.match(materialReference, /Use the installed public APIs rather than adding `@material\/web`/u);
+  assert.match(materialReference, /central `createVuetify\(\.\.\.\)` configuration/u);
+  assert.match(materialReference, /Use elevation `0` through `5`/u);
+  assert.match(materialReference, /at least\s+48 CSS-pixel interactive targets/u);
+  assert.match(materialReference, /resource that cannot render uses a\s+stable in-page error and retry state/u);
+  assert.match(materialReference, /user-triggered command uses JSKIT's shared action\s+feedback\/snackbar path/u);
+  assert.match(materialReference, /Never insert a transient command-error alert above\s+page content where it shifts the working layout/u);
+  assert.match(materialReference, /All user-visible\s+loading uses Material skeletons that reserve the final content geometry/u);
+  assert.match(materialReference, /never use a generic spinner or circular progress indicator/u);
+  assert.match(materialReference, /stable disabled\/pending label and shared feedback, not a spinner/u);
+  assert.match(materialReference, /Playwright at compact, medium, and expanded widths/u);
+  assert.match(materialReference, /Do not declare Material 3 compliance from visual resemblance alone/u);
+  assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
+  assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
+  assert.doesNotMatch(
+    references.map(({ source }) => source).join("\n"),
+    /(?:^|[\s`(])\.\.\//mu
   );
-  assert.match(crudReference, /Never run these merely to reconfirm caller-supplied facts/u);
-  assert.match(uiReference, /custom sibling\/child links,\s+resolve current dynamic params with their runtime to an absolute URL\/route\s+object/u);
-  assert.match(uiReference, /never bind its route-template\/relative string raw to Vue Router `to`/u);
-  assert.doesNotMatch(operationalSource, /<agent-docs>|node_modules\/@jskit-ai\/agent-docs/u);
-  assert.doesNotMatch(operationalSource, /(?:^|[\s`(])\.\.\//mu);
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])(?:patterns|guide\/agent|site\/guide)\//mu);
-  assert.doesNotMatch(operationalSource, /Genesis|Program module|module bound/u);
-  assert.ok(Buffer.byteLength(operationalSource) <= 14 * 1024);
+  assert.ok(Buffer.byteLength(operationalSource) <= 20 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 13 * 1024);
+});
+
+test("the published JSKIT skill remains self-contained after relocation", async (t) => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-skill-relocation-"));
+  const relocatedSkillRoot = path.join(temporaryRoot, "jskit");
+  t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  await cp(path.join(packageRoot, "skills/jskit"), relocatedSkillRoot, { recursive: true });
+
+  for (const markdownFile of await collectMarkdownFiles(relocatedSkillRoot)) {
+    const source = await readFile(markdownFile, "utf8");
+    for (const destination of relativeMarkdownLinks(source)) {
+      const encodedPath = destination.split(/[?#]/u, 1)[0];
+      const target = path.resolve(path.dirname(markdownFile), decodeURIComponent(encodedPath));
+      const relativeTarget = path.relative(relocatedSkillRoot, target);
+      assert.equal(
+        relativeTarget === ".." || relativeTarget.startsWith(`..${path.sep}`) || path.isAbsolute(relativeTarget),
+        false,
+        `${path.relative(relocatedSkillRoot, markdownFile)} links outside the skill: ${destination}`
+      );
+      await access(target);
+    }
+  }
 });
 
 test("UI testing guidance uses private local exchange support and managed storage state", async () => {
@@ -88,10 +162,10 @@ test("app-owned baseline tests are customizable but remain verified", async () =
   );
 
   for (const source of sources) {
-    assert.match(source, /App-owned.*customizable|“App-owned”.*customizable/is);
-    assert.match(source, /adapt.*in place/is);
+    assert.match(source, /App-owned.*customizable|application-owned.*customizable|ordinary customizable application source/is);
+    assert.match(source, /adapt.*(?:in place|smoke test)/is);
     assert.match(source, /canonical route/is);
-    assert.match(source, /Doctor.*missing/is);
+    assert.match(source, /browser\s+coverage/is);
   }
 
   assert.match(sources[0], /tests\/e2e\/base-shell\.spec\.ts/);

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-runtime",
-  "version": "0.1.157",
+  "version": "0.1.164",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -18,7 +18,7 @@
     "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.159",
+    "@jskit-ai/kernel": "0.1.166",
     "json-rest-schema": "^1.0.17"
   },
   "jskit": {
@@ -32,15 +32,14 @@
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/HttpValidatorsServiceProvider.js",
-            "export": "HttpValidatorsServiceProvider"
+            "entrypoint": "src/server/providers/HttpValidatorsProvider.js",
+            "export": "HttpValidatorsProvider"
           },
           {
-            "entrypoint": "src/server/providers/HttpClientRuntimeServiceProvider.js",
-            "export": "HttpClientRuntimeServiceProvider"
+            "entrypoint": "src/server/providers/HttpClientProvider.js",
+            "export": "HttpClientProvider"
           }
         ]
       },
@@ -66,35 +65,14 @@
           },
           {
             "subpath": "./server",
-            "summary": "Exports service providers only (HttpValidatorsServiceProvider, HttpClientRuntimeServiceProvider)."
+            "summary": "Provides named HTTP validation and server-side HTTP client capabilities."
           },
           {
             "subpath": "./shared",
             "summary": "Exports HTTP validator/schema utilities, with structured validator subpaths under ./shared/validators/*."
           }
-        ],
-        "containerTokens": {
-          "server": [
-            "runtime.http-client"
-          ],
-          "client": [
-            "runtime.http-client.client"
-          ]
-        }
+        ]
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/kernel": "0.1.159"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": []
     }
   }
 }

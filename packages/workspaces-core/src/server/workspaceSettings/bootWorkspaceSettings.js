@@ -19,14 +19,11 @@ function resolveWorkspaceSettingsRecordId(record = {}, context = {}) {
   throw new Error("Workspace settings JSON:API response requires workspace id.");
 }
 
-function bootWorkspaceSettings(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootWorkspaceSettings requires application make().");
+function registerWorkspaceSettingsRoutes(router, { config = {} } = {}) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerWorkspaceSettingsRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
-  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
-  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
+  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   router.register(
     "GET",
@@ -92,4 +89,4 @@ function bootWorkspaceSettings(app) {
   );
 }
 
-export { bootWorkspaceSettings };
+export { registerWorkspaceSettingsRoutes };

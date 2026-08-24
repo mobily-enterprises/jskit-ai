@@ -3,14 +3,15 @@ import {
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
+import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
-const accountNotificationsActions = Object.freeze([
+const accountNotificationsActionSpecifications = Object.freeze([
   {
     id: "settings.notifications.update",
     version: 1,
     kind: "command",
     channels: ["api", "automation", "internal"],
-    surfacesFrom: "enabled",
+    surfaces: ["*"],
     permission: {
       require: "authenticated"
     },
@@ -21,8 +22,9 @@ const accountNotificationsActions = Object.freeze([
       actionName: "settings.notifications.update"
     },
     observability: {},
-    async execute(input, context, deps) {
-      return deps.accountNotificationsService.updateNotifications(
+    events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
+    async run(accountNotificationsService, input, context) {
+      return accountNotificationsService.updateNotifications(
         resolveRequest(context),
         resolveActionUser(context, input),
         input,
@@ -34,4 +36,14 @@ const accountNotificationsActions = Object.freeze([
   }
 ]);
 
-export { accountNotificationsActions };
+function buildAccountNotificationsActions({ accountNotificationsService } = {}) {
+  if (!accountNotificationsService) throw new TypeError("buildAccountNotificationsActions requires accountNotificationsService.");
+  return accountNotificationsActionSpecifications.map(({ run, ...definition }) => Object.freeze({
+    ...definition,
+    execute(input, context) {
+      return run(accountNotificationsService, input, context);
+    }
+  }));
+}
+
+export { accountNotificationsActionSpecifications, buildAccountNotificationsActions };

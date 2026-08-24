@@ -14,12 +14,12 @@ How to use it:
   - `placements.md`
 - surfaces, app/admin/home/console, "which surface", route ownership, placement visibility
   - `surfaces.md`
-- page, route page, placeholder page, screen stub, menu-linked page, `ui-generator page`, `list-placements`
+- page, route page, placeholder page, screen stub, menu-linked page, placements
   - `page-scaffolding.md`
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - `child-cruds.md`
-- crud scaffold, crud server, crud ui, table creation, migrations, direct knex, weird-custom persistence, fresh minimal app order, `crud-server-generator`, `crud-ui-generator`, `--delete-confirmation`
-  - `crud-scaffolding.md`
+- crud, crud server, crud ui, resource contract, table creation, migrations, ownership, JSON API, standard screens
+  - `crud-authoring.md`
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - `crud-links.md`
 - `definePage`, redirect, child redirect, settings landing, `redirectToChild`
@@ -30,8 +30,8 @@ How to use it:
   - `client-requests.md`
 - playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`
-- generated UI contract, design contract, navigation roles, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
-  - `generated-ui-contract-tracking.md`
+- UI contract, design contract, navigation roles, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
+  - `ui-contract.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
 - `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters
@@ -47,13 +47,13 @@ How to use it:
 - [surfaces.md](./surfaces.md)
 - [page-scaffolding.md](./page-scaffolding.md)
 - [child-cruds.md](./child-cruds.md)
-- [crud-scaffolding.md](./crud-scaffolding.md)
+- [crud-authoring.md](./crud-authoring.md)
 - [crud-links.md](./crud-links.md)
 - [page-redirects.md](./page-redirects.md)
 - [live-actions.md](./live-actions.md)
 - [client-requests.md](./client-requests.md)
 - [ui-testing.md](./ui-testing.md)
-- [generated-ui-contract-tracking.md](./generated-ui-contract-tracking.md)
+- [ui-contract.md](./ui-contract.md)
 - [filters.md](./filters.md)
 - [server-search.md](./server-search.md)
 - [crud-repository-mapping.md](./crud-repository-mapping.md)

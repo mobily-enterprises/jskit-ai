@@ -118,7 +118,12 @@ function resolveVuetifyThemeController(vueApp) {
   }
 
   const themeController = provides[ThemeSymbol];
-  if (!themeController || typeof themeController !== "object" || !themeController.global || !themeController.global.name) {
+  if (
+    !themeController ||
+    typeof themeController !== "object" ||
+    typeof themeController.change !== "function" ||
+    !themeController.name
+  ) {
     return null;
   }
 
@@ -126,16 +131,21 @@ function resolveVuetifyThemeController(vueApp) {
 }
 
 function setVuetifyThemeName(themeController, themeName) {
-  if (!themeController || typeof themeController !== "object" || !themeController.global || !themeController.global.name) {
+  if (
+    !themeController ||
+    typeof themeController !== "object" ||
+    typeof themeController.change !== "function" ||
+    !themeController.name
+  ) {
     return false;
   }
 
   const normalizedThemeName = themeName === THEME_PREFERENCE_DARK ? THEME_PREFERENCE_DARK : THEME_PREFERENCE_LIGHT;
-  if (themeController.global.name.value === normalizedThemeName) {
+  if (themeController.name.value === normalizedThemeName) {
     return false;
   }
 
-  themeController.global.name.value = normalizedThemeName;
+  void themeController.change(normalizedThemeName);
   return true;
 }
 

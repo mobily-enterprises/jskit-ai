@@ -14,12 +14,6 @@ async function expectNoHorizontalOverflow(page, expect) {
   expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
 }
 
-async function expectGeneratedScreenContract(page, expect) {
-  const screen = page.locator(".generated-ui-screen").first();
-
-  await expect(screen).toBeVisible();
-}
-
 async function pullToRefresh(page, expect) {
   await page.evaluate(() => {
     window.scrollTo(0, 0);
@@ -280,7 +274,7 @@ async function runAdaptiveShellSmokeCase({
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
   await page.goto(smokePath);
   await expect(page.locator("body")).toBeVisible();
-  await expectGeneratedScreenContract(page, expect);
+  await expect(page.getByRole("main").first()).toBeVisible();
   await expectNoHorizontalOverflow(page, expect);
   const drawer = page.getByTestId("jskit-shell-drawer");
   const toggle = page.getByTestId("jskit-shell-nav-toggle");
@@ -302,7 +296,7 @@ async function runAdaptiveShellSmokeCase({
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
 
     await openCompactDrawer(page, expect);
-    await page.locator(".v-navigation-drawer__scrim").click();
+    await page.getByRole("button", { name: "Close navigation menu" }).click();
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
 
     await openCompactDrawer(page, expect);
@@ -350,7 +344,7 @@ function runAdaptiveShellSmoke({
     throw new Error("runAdaptiveShellSmoke requires Playwright test and expect.");
   }
 
-  test.describe("generated adaptive shell smoke", () => {
+  test.describe("adaptive shell smoke", () => {
     for (const viewport of viewports) {
       test(`${viewport.name} layout has reachable navigation and no horizontal overflow`, async ({ page }) => {
         await runAdaptiveShellSmokeCase({ page, expect, smokePath, viewport });

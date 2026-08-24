@@ -3,7 +3,8 @@ import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permiss
 function createAuthActionContextContributor() {
   return Object.freeze({
     contributorId: "auth.policy.request-context",
-    contribute({ request } = {}) {
+    contribute({ context } = {}) {
+      const request = context?.requestMeta?.request || null;
       const contribution = {};
       const permissions = normalizePermissionList(request?.permissions);
 

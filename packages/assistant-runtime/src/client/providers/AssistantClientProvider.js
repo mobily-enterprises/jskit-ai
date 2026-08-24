@@ -1,14 +1,14 @@
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import AssistantSettingsClientElement from "../components/AssistantSettingsClientElement.vue";
 
-class AssistantClientProvider {
-  static id = "assistant.web.client";
-  register(app) {
-    if (!app || typeof app.singleton !== "function") {
-      throw new Error("AssistantClientProvider requires application singleton().");
-    }
-
-    app.singleton("assistant.web.settings.element", () => AssistantSettingsClientElement);
+const AssistantClientProvider = defineProvider({
+  id: "assistant.web.client",
+  requires: {
+    components: "client.components"
+  },
+  setup({ components }) {
+    components.register("assistant.web.settings.element", AssistantSettingsClientElement);
   }
-}
+});
 
 export { AssistantClientProvider };

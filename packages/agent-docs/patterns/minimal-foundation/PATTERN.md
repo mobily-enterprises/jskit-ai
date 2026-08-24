@@ -1,0 +1,98 @@
+---
+id: app/minimal-foundation
+title: Minimal JSKIT application foundation
+summary: A concrete Fastify, Vue, and JSKIT application foundation for products that do not yet need the full adaptive shell.
+keywords: app, fastify, foundation, minimal, server, vite, vue
+requires: @jskit-ai/http-runtime, @jskit-ai/kernel
+---
+
+# Minimal JSKIT application foundation
+
+## Use when
+
+Use this pattern when establishing a new JSKIT web application in an existing
+project repository and the product does not yet need the full adaptive shell,
+settings navigation, or placement topology. It provides a working server,
+client bootstrap, app-local provider package, one public surface, linting, unit
+tests, browser tests, and the normal build entrypoints.
+
+The example is a concrete application named `reading-room`. Copy the useful
+files into the project root, rename the application in normal source and
+package metadata, and then edit the product-facing page. The files become
+ordinary application source immediately.
+
+## Do not use when
+
+Do not use this pattern when the application already has an established
+server/client foundation. Do not replace a working app merely to make it
+resemble the example. Prefer the shell foundation when responsive navigation,
+settings, or placement contributions are already clear requirements.
+
+## Product decisions
+
+Decide the application name, first useful route, public versus authenticated
+surface access, and whether the product needs the adaptive shell. These are
+product decisions for the user and agent; this pattern does not ask a
+questionnaire or infer tenancy, authentication, or database requirements.
+
+## Invariants
+
+- Preserve `.git` and all unrelated project and agent context.
+- Refuse or resolve real destination-file collisions before copying.
+- Keep `packages/main` limited to app composition and lightweight glue.
+- Use package public APIs; do not deep-import package internals.
+- Keep one server entry, one client bootstrap, and explicit surface access.
+- Keep one app-owned `npm run develop` entry that runs the API on loopback and
+  Vite on the host-supplied preview port; do not require a host to infer or
+  supervise framework-specific processes.
+- Treat copied files as app-owned source. Do not add provenance, ownership
+  markers, receipts, ledgers, or operation-history state.
+- Keep browser dependencies aligned with the execution environment that will
+  run the tests. Vibe64 supplies its exact managed Playwright version.
+
+## Framework APIs
+
+The example composes `@jskit-ai/kernel` for provider/runtime composition and
+`@jskit-ai/http-runtime` for the web runtime. `packages/main` demonstrates the
+app-local provider boundary. Vite, Vue Router, Pinia, Vuetify, Fastify, and Vue
+Query remain normal application dependencies.
+
+## Example files
+
+`example/` is a complete concrete application tree. Copy only after inspecting
+collisions. Rename `example/gitignore` to `.gitignore` in the application;
+the neutral filename ensures npm publishes the reference asset. Managed preview
+identity belongs to the authentication surface pattern, not the neutral
+foundation.
+
+Important starting points are:
+
+- `example/package.json`
+- `example/server.js`, `example/bin/server.js`, and `example/bin/develop.js`
+- `example/src/main.js` and `example/src/App.vue`
+- `example/config/public.js`
+- `example/packages/main/`
+- `example/tests/`
+
+## Variation points
+
+Rename the package and title, replace the home page with the first real
+product surface, add capabilities through their owning packages, and change
+surface access deliberately. Add authentication, database, CRUD, shell, or
+mobile patterns only when chosen. Do not pre-emptively include them.
+
+## Verification
+
+After adapting the example, install the declared packages once and run
+`npm run develop` for the live application. Then run the application's lint,
+server tests, client tests, production build, and focused browser smoke.
+Confirm `/api/health` and the first product route.
+
+## Avoid
+
+- Do not run a scaffold questionnaire.
+- Do not create a temporary app and copy its result over the project.
+- Do not force-overwrite an existing repository.
+- Do not keep `reading-room` names that no longer describe the product.
+- Do not add a hidden file recording that this pattern was copied.
+- Do not turn the example into a field interpolation language.

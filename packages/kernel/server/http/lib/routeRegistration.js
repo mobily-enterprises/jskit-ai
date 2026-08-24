@@ -6,8 +6,7 @@ import { defaultMissingHandler } from "../../support/defaultMissingHandler.js";
 import { registerJsonApiContentTypeParser } from "../../runtime/fastifyBootstrap.js";
 import { RouteRegistrationError } from "./errors.js";
 import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
-import { attachRequestScope } from "./requestScope.js";
-import { attachRequestActionExecutor } from "./requestActionExecutor.js";
+import { attachDirectRequestActionExecutor } from "../directRequestActionExecutor.js";
 import { normalizeRouteOutputTransform, normalizeRouteTransport } from "./routeTransport.js";
 
 const { structuredClone: cloneRouteSchema } = globalThis;
@@ -291,22 +290,20 @@ function registerRoutes(
   fastify,
   {
     routes = [],
-    app = null,
     applyRoutePolicy = defaultApplyRoutePolicy,
     missingHandler = defaultMissingHandler,
-    enableRequestScope = true,
-    requestScopeProperty = "scope",
     requestActionExecutorProperty = "executeAction",
-    actionExecutorToken = "actionExecutor",
     requestActionDefaultChannel = "api",
     requestActionDefaultSurface = "",
-    requestScopeIdPrefix = "http",
-    requestIdResolver = null,
-    middleware = {}
+    middleware = {},
+    actions = null
   } = {}
 ) {
   if (!fastify || typeof fastify.route !== "function") {
     throw new RouteRegistrationError("registerRoutes requires a Fastify instance.");
+  }
+  if (!actions || typeof actions.execute !== "function") {
+    throw new RouteRegistrationError("registerRoutes requires the runtime.actions capability.");
   }
 
   const normalizedRoutes = normalizeArray(routes);
@@ -353,23 +350,10 @@ function registerRoutes(
           request.routeOptions.config = normalizeObject(routeOptions?.config);
         }
 
-        if (enableRequestScope) {
-          attachRequestScope({
-            app,
-            request,
-            reply,
-            requestScopeProperty,
-            requestScopeIdPrefix,
-            requestIdResolver
-          });
-        }
-
-        attachRequestActionExecutor({
-          app,
+        attachDirectRequestActionExecutor({
+          actions,
           request,
-          requestScopeProperty,
-          requestActionExecutorProperty,
-          actionExecutorToken,
+          property: requestActionExecutorProperty,
           defaultChannel: requestActionDefaultChannel,
           defaultSurfaceId: routeActionDefaultSurface
         });

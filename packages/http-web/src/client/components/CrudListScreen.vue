@@ -126,18 +126,25 @@ function setSelectableRowsSelected(selected = true) {
 </script>
 
 <template>
-  <section class="generated-ui-screen generated-ui-screen--operator ui-generator-list-element d-flex flex-column ga-4">
-    <header class="ui-generator-list-header">
-      <div class="ui-generator-list-header__copy">
+  <section class="crud-screen crud-screen--operator crud-list-element d-flex flex-column ga-4">
+    <header class="crud-list-header">
+      <div class="crud-list-header__copy">
         <p class="text-overline text-medium-emphasis mb-1">{{ titleLabel }}</p>
-        <h1 class="ui-generator-list-header__title">{{ resolvedHeadingTitle }}</h1>
+        <h1 class="crud-list-header__title">{{ resolvedHeadingTitle }}</h1>
         <p class="text-body-2 text-medium-emphasis mb-0">{{ resolvedSubtitle }}</p>
       </div>
-      <div class="ui-generator-list-header__actions">
-        <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Refresh</v-btn>
+      <div class="crud-list-header__actions">
+        <v-btn
+          color="primary"
+          variant="tonal"
+          :disabled="records.isFetching"
+          @click="records.reload"
+        >
+          {{ records.isFetching ? "Refreshing…" : "Refresh" }}
+        </v-btn>
         <v-btn
           v-if="listPrimaryAction"
-          class="ui-generator-list-header__primary-action"
+          class="crud-list-header__primary-action"
           color="primary"
           variant="flat"
           :to="listPrimaryAction"
@@ -147,8 +154,8 @@ function setSelectableRowsSelected(selected = true) {
       </div>
     </header>
 
-    <v-sheet rounded="lg" border class="ui-generator-list-panel">
-      <div class="ui-generator-list-toolbar">
+    <v-sheet rounded="lg" border class="crud-list-panel">
+      <div class="crud-list-toolbar">
         <v-text-field
           v-if="records.searchEnabled"
           v-model="records.searchQuery"
@@ -158,8 +165,8 @@ function setSelectableRowsSelected(selected = true) {
           density="comfortable"
           hide-details="auto"
           clearable
-          class="ui-generator-list-search"
-          :loading="records.isSearchDebouncing"
+          class="crud-list-search"
+          :aria-busy="records.isSearchDebouncing ? 'true' : undefined"
         />
         <CrudListFilterSurface
           :filters="listFilters"
@@ -174,15 +181,20 @@ function setSelectableRowsSelected(selected = true) {
         </div>
       </template>
       <template v-else>
-        <v-progress-linear v-if="records.isRefetching" indeterminate />
-
-        <div v-if="records.loadError" class="ui-generator-list-state">
+        <div v-if="records.loadError" class="crud-list-state">
           <h2 class="text-h6 mb-2">{{ loadErrorTitle }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ loadErrorBody }}</p>
-          <v-btn color="primary" variant="tonal" :loading="records.isFetching" @click="records.reload">Retry</v-btn>
+          <v-btn
+            color="primary"
+            variant="tonal"
+            :disabled="records.isFetching"
+            @click="records.reload"
+          >
+            {{ records.isFetching ? "Retrying…" : "Retry" }}
+          </v-btn>
         </div>
 
-        <div v-else-if="displayRows.length < 1" class="ui-generator-list-state">
+        <div v-else-if="displayRows.length < 1" class="crud-list-state">
           <h2 class="text-h6 mb-2">{{ emptyTitle }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ emptyBody }}</p>
           <v-btn v-if="listPrimaryAction" color="primary" variant="flat" :to="listPrimaryAction">
@@ -191,24 +203,24 @@ function setSelectableRowsSelected(selected = true) {
         </div>
 
         <template v-else>
-          <div class="ui-generator-list-cards">
+          <div class="crud-list-cards">
             <v-sheet
               v-for="row in displayRows"
               :key="row.key"
               rounded="lg"
               border
-              class="ui-generator-list-card"
+              class="crud-list-card"
             >
-              <div class="ui-generator-list-card__header">
+              <div class="crud-list-card__header">
                 <v-checkbox-btn
                   v-if="hasBulkActions && row.selectable !== false"
                   :model-value="isBulkRowSelected(row)"
                   :aria-label="`Select ${resolveListRecordTitle(row.record)}`"
-                  class="ui-generator-list-card__select"
+                  class="crud-list-card__select"
                   @update:model-value="setBulkRowSelected(row, $event)"
                 />
                 <div class="min-w-0">
-                  <div class="ui-generator-list-card__title">{{ resolveListRecordTitle(row.record) }}</div>
+                  <div class="crud-list-card__title">{{ resolveListRecordTitle(row.record) }}</div>
                   <div class="text-caption text-medium-emphasis">
                     {{ row.recordKey }}
                   </div>
@@ -224,7 +236,7 @@ function setSelectableRowsSelected(selected = true) {
                   :edit-location="resolveEditLocation(row.record)"
                 />
               </div>
-              <div class="ui-generator-list-card__fields">
+              <div class="crud-list-card__fields">
                 <slot
                   name="card-fields"
                   :record="row.record"
@@ -237,11 +249,11 @@ function setSelectableRowsSelected(selected = true) {
             </v-sheet>
           </div>
 
-          <div class="ui-generator-list-table">
+          <div class="crud-list-table">
             <v-table density="comfortable">
               <thead>
                 <tr>
-                  <th v-if="hasBulkActions" class="ui-generator-list-table__select">
+                  <th v-if="hasBulkActions" class="crud-list-table__select">
                     <v-checkbox-btn
                       :model-value="allSelectableRowsSelected()"
                       :indeterminate="
@@ -260,7 +272,7 @@ function setSelectableRowsSelected(selected = true) {
               </thead>
               <tbody>
                 <tr v-for="row in displayRows" :key="row.key">
-                  <td v-if="hasBulkActions" class="ui-generator-list-table__select">
+                  <td v-if="hasBulkActions" class="crud-list-table__select">
                     <v-checkbox-btn
                       v-if="row.selectable !== false"
                       :model-value="isBulkRowSelected(row)"
@@ -316,8 +328,13 @@ function setSelectableRowsSelected(selected = true) {
         </template>
 
         <div v-if="records.hasMore" class="d-flex justify-center pa-4">
-          <v-btn color="primary" variant="outlined" :loading="records.isLoadingMore" @click="records.loadMore">
-            Load more
+          <v-btn
+            color="primary"
+            variant="outlined"
+            :disabled="records.isLoadingMore"
+            @click="records.loadMore"
+          >
+            {{ records.isLoadingMore ? "Loading more…" : "Load more" }}
           </v-btn>
         </div>
       </template>
@@ -325,7 +342,7 @@ function setSelectableRowsSelected(selected = true) {
 
     <v-btn
       v-if="listPrimaryAction"
-      class="ui-generator-list-fab"
+      class="crud-list-fab"
       color="primary"
       variant="flat"
       :to="listPrimaryAction"
@@ -336,103 +353,103 @@ function setSelectableRowsSelected(selected = true) {
 </template>
 
 <style scoped>
-.generated-ui-screen {
-  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
-  --generated-ui-screen-state-padding: 2.5rem 1.25rem;
+.crud-screen {
+  --crud-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+  --crud-screen-state-padding: 2.5rem 1.25rem;
 }
 
-.generated-ui-screen--operator {
-  --generated-ui-screen-state-padding: 2rem 1rem;
+.crud-screen--operator {
+  --crud-screen-state-padding: 2rem 1rem;
 }
 
-.ui-generator-list-header {
+.crud-list-header {
   align-items: flex-start;
   display: flex;
   gap: 1rem;
   justify-content: space-between;
 }
 
-.ui-generator-list-header__copy {
+.crud-list-header__copy {
   min-width: 0;
 }
 
-.ui-generator-list-header__title {
-  font-size: var(--generated-ui-screen-title-size);
+.crud-list-header__title {
+  font-size: var(--crud-screen-title-size);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.15;
   margin: 0 0 0.35rem;
 }
 
-.ui-generator-list-header__actions {
+.crud-list-header__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: flex-end;
 }
 
-.ui-generator-list-panel {
+.crud-list-panel {
   overflow: hidden;
 }
 
-.ui-generator-list-toolbar {
+.crud-list-toolbar {
   padding: 1rem;
 }
 
-.ui-generator-list-search {
+.crud-list-search {
   max-width: 26rem;
 }
 
-.ui-generator-list-state {
+.crud-list-state {
   margin-inline: auto;
   max-width: 30rem;
-  padding: var(--generated-ui-screen-state-padding);
+  padding: var(--crud-screen-state-padding);
   text-align: center;
 }
 
-.ui-generator-list-cards {
+.crud-list-cards {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   padding: 0 1rem 1rem;
 }
 
-.ui-generator-list-card {
+.crud-list-card {
   padding: 0.875rem;
 }
 
-.ui-generator-list-card__header {
+.crud-list-card__header {
   align-items: flex-start;
   display: flex;
   gap: 0.75rem;
   justify-content: space-between;
 }
 
-.ui-generator-list-card__select {
+.crud-list-card__select {
   flex: 0 0 auto;
   margin-inline-start: -0.35rem;
   margin-top: -0.35rem;
 }
 
-.ui-generator-list-card__title {
+.crud-list-card__title {
   font-size: 1rem;
   font-weight: 650;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
-.ui-generator-list-card__fields {
+.crud-list-card__fields {
   display: grid;
   gap: 0.65rem;
   margin-top: 0.85rem;
 }
 
-.ui-generator-list-card__field {
+.crud-list-card__field {
   display: grid;
   gap: 0.15rem;
 }
 
-.ui-generator-list-card__field-label {
+.crud-list-card__field-label {
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
   font-size: 0.72rem;
   letter-spacing: 0.04em;
@@ -440,22 +457,22 @@ function setSelectableRowsSelected(selected = true) {
   text-transform: uppercase;
 }
 
-.ui-generator-list-card__field-value {
+.crud-list-card__field-value {
   font-size: 0.95rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.ui-generator-list-table {
+.crud-list-table {
   display: none;
   overflow-x: auto;
 }
 
-.ui-generator-list-table__select {
+.crud-list-table__select {
   width: 3rem;
 }
 
-.ui-generator-list-fab {
+.crud-list-fab {
   bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   display: flex;
   position: fixed;
@@ -464,37 +481,37 @@ function setSelectableRowsSelected(selected = true) {
 }
 
 @media (min-width: 960px) {
-  .ui-generator-list-cards {
+  .crud-list-cards {
     display: none;
   }
 
-  .ui-generator-list-table {
+  .crud-list-table {
     display: block;
   }
 
-  .ui-generator-list-fab {
+  .crud-list-fab {
     display: none;
   }
 }
 
 @media (max-width: 960px) {
-  .ui-generator-list-header {
+  .crud-list-header {
     flex-direction: column;
   }
 
-  .ui-generator-list-header__actions {
+  .crud-list-header__actions {
     width: 100%;
   }
 
-  .ui-generator-list-element :deep(.v-btn) {
+  .crud-list-element :deep(.v-btn) {
     min-height: 48px;
   }
 
-  .ui-generator-list-header__primary-action {
+  .crud-list-header__primary-action {
     display: none;
   }
 
-  .ui-generator-list-search {
+  .crud-list-search {
     max-width: none;
   }
 }

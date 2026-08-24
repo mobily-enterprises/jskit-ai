@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UsersCoreServiceProvider } from "../src/server/UsersCoreServiceProvider.js";
-import { INTERNAL_JSON_REST_API } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { readSingleMultipartFile } from "@jskit-ai/uploads-runtime/server/multipart/readSingleMultipartFile";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
 import { validateOperationSection } from "../../http-runtime/src/shared/validators/operationValidation.js";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
+import { registerAccountProfileRoutes } from "../src/server/accountProfile/bootAccountProfileRoutes.js";
+import { registerAccountPreferencesRoutes } from "../src/server/accountPreferences/bootAccountPreferencesRoutes.js";
+import { registerAccountNotificationsRoutes } from "../src/server/accountNotifications/bootAccountNotificationsRoutes.js";
+import { registerAccountSecurityRoutes } from "../src/server/accountSecurity/bootAccountSecurityRoutes.js";
 
 function createReplyDouble() {
   return {
@@ -34,49 +37,22 @@ async function registerRoutes({
   authService = {}
 } = {}) {
   const router = createRouter();
-  const internalApi = {
-    resources: {},
-    async addResource(scopeName) {
-      this.resources[scopeName] = {};
+  const accountProfileService = {
+    async readAvatar() {
+      return {
+        mimeType: "image/png",
+        buffer: Buffer.from([])
+      };
     }
   };
-
-  const bindings = new Map([
-    ["jskit.http.router", router],
-    ["authService", authService],
-    [INTERNAL_JSON_REST_API, internalApi],
-    [
-      "users.accountProfile.service",
-      {
-        async readAvatar() {
-          return {
-            mimeType: "image/png",
-            buffer: Buffer.from([])
-          };
-        }
-      }
-    ],
-    ["actionExecutor", {}]
-  ]);
-
-  const app = {
-    has(token) {
-      return bindings.has(token);
-    },
-    instance(token, value) {
-      bindings.set(token, value);
-      return this;
-    },
-    make(token) {
-      if (!bindings.has(token)) {
-        throw new Error(`Missing test binding for token: ${String(token)}`);
-      }
-      return bindings.get(token);
-    }
-  };
-
-  const provider = new UsersCoreServiceProvider();
-  await provider.boot(app);
+  registerAccountProfileRoutes(router, {
+    accountProfileService,
+    authService,
+    uploads: { readSingleMultipartFile }
+  });
+  registerAccountPreferencesRoutes(router);
+  registerAccountNotificationsRoutes(router);
+  registerAccountSecurityRoutes(router, { authService });
 
   return router.list();
 }

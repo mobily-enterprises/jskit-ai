@@ -1,204 +1,68 @@
 ---
 title: Quickstart
-description: The fastest path to a real JSKIT app, plus the first page-extension patterns you will usually need.
+description: Create a real JSKIT app through an agent conversation, source patterns, and framework APIs.
 ---
 
 # Quickstart
 
-This chapter is the fastest reproducible path to a real JSKIT app.
+This is the normal AI-first path to a JSKIT application.
 
-The base flow below gives you:
-
-- personal workspaces
-- users
-- console
-- MySQL
-- local auth with no external auth service
-- one `admin` assistant configured from `console`
-
-It also shows the first page-extension moves most apps need:
-
-- add two workspace settings pages
-- make one of them the default landing page
-- add a page to the admin cog
-- add a normal left-menu page
-- inspect placement destinations and understand why some links are inferred automatically
-
-## Step 1: Create the app
-
-Set these values first:
+## Initialize the project conversation
 
 ```bash
-OPENAI_API_KEY=...
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=testapp
-DB_USER=...
-DB_PASSWORD=...
+mkdir exampleapp
+cd exampleapp
+git init -b main
 ```
 
-Before continuing, make sure the MySQL database already exists and that the chosen `DB_USER` / `DB_PASSWORD` can connect to it. If the database does not exist yet, create it first or use a local MySQL account with enough privileges to create it before the runtime install step.
+Ask your agent to read the installed JSKIT skill, then describe the product in
+normal language. The opening conversation should make the product direction
+and any material technology choice clear. Explicitly choose JSKIT and any
+database integration you actually need. JSKIT does not ask the same questions
+again through a framework questionnaire.
 
-Then run the exact sequence below:
+## Select an application foundation
 
-```bash
-npx @jskit-ai/create-app testapp --tenancy-mode personal
-cd testapp
-npm install
+The installed JSKIT skill and generated pattern index expose two initial
+foundations:
 
-npx jskit add package auth-provider-local-core
-npx jskit add package auth-web
+- `app/shell-foundation` for the normal responsive application shell
+- `app/minimal-foundation` for an intentionally smaller foundation
 
-npx jskit add package database-runtime-mysql \
-  --db-host "$DB_HOST" \
-  --db-port "$DB_PORT" \
-  --db-name "$DB_NAME" \
-  --db-user "$DB_USER" \
-  --db-password "$DB_PASSWORD"
+The agent reads `PATTERN.md` and its complete `example/` tree. It copies or
+adapts the pattern into this existing repository, preserving `.git` and any
+existing project/agent context. It resolves real file collisions and renames
+the concrete `reading-room` example to match the product.
 
-npx jskit add package users-web
-npx jskit add package console-web
-npx jskit add package workspaces-core
-npx jskit add package workspaces-web
+No `create-app` command, seed wrapper, force-overwrite flow, template
+interpolation, or operation receipt is involved.
 
-npx jskit generate assistant setup \
-  --surface admin \
-  --settings-surface console \
-  --config-scope global \
-  --ai-provider openai \
-  --ai-api-key "$OPENAI_API_KEY"
+## Plan the first capability closure
 
-npx jskit generate assistant page \
-  w/[workspaceSlug]/admin/assistant/index.vue \
-  --name "Assistant"
+Choose only what the first useful version needs. For example, an account-based
+database product may need a local auth provider, auth UI, users, and one
+database runtime. A public single-user tool may need none of those.
 
-npx jskit generate assistant settings-page \
-  console/settings/admin-assistant/index.vue \
-  --surface admin \
-  --name "Admin Assistant"
+Inspect package details and patterns before modifying the package graph. Apply
+one coherent dependency plan, then run `npm install` once. Environment values
+come from the selected technology contract. They are not product questions and
+must not be copied into committed source.
 
-npm run db:migrate
-```
+## Build the first product operation
 
-Keep authentication deliberately basic while the product is still taking shape. Start with the local provider and `auth-web`, build the app's core workflows, then add Supabase, OAuth, OTP, provider linking, app-user projection, or workspace/account complexity when the product actually needs those features.
+Use the narrow relevant pattern and public APIs. For database CRUD, author an
+immutable migration and a normal shared resource contract; use framework APIs
+for standard mechanics and app code for product-specific behavior. Do not
+invoke a source generator or reconstruct one as prompt options.
 
-At this point you have:
+## Verify
 
-- a workspace-enabled app with `tenancyMode = "personal"`
-- an `admin` assistant at `/w/[workspaceSlug]/admin/assistant`
-- an assistant settings page at `/console/settings/admin-assistant`
+Run focused tests throughout. Before handoff, run:
 
-## Step 2: Add two workspace settings pages
+- lint and server/client tests
+- the production build
+- a fresh disposable database rebuild when persistence changed
+- focused Playwright at compact, medium, and expanded sizes for UI work
 
-Generate two child pages under the workspace settings host:
-
-```bash
-npx jskit generate ui-generator page \
-  w/[workspaceSlug]/admin/workspace/settings/billing/index.vue \
-  --name "Billing"
-
-npx jskit generate ui-generator page \
-  w/[workspaceSlug]/admin/workspace/settings/branding/index.vue \
-  --name "Branding"
-```
-
-These commands create:
-
-- `src/pages/w/[workspaceSlug]/admin/workspace/settings/billing/index.vue`
-- `src/pages/w/[workspaceSlug]/admin/workspace/settings/branding/index.vue`
-
-They also append matching menu entries into `src/placement.js`.
-
-## Step 3: Make one settings page the default
-
-Best practice is to make the default child explicit.
-
-Edit:
-
-```text
-src/pages/w/[workspaceSlug]/admin/workspace/settings/index.vue
-```
-
-and replace its contents with:
-
-```vue
-<script setup>
-import { redirectToChild } from "@jskit-ai/kernel/client/pageRedirects";
-
-definePage({
-  redirect: redirectToChild("billing")
-});
-</script>
-```
-
-That makes `/w/[workspaceSlug]/admin/workspace/settings` land on `/w/[workspaceSlug]/admin/workspace/settings/billing`.
-
-Use this explicit redirect pattern instead of trying to infer the default child from placement order or “the first generated page”.
-
-## Step 4: Add a page to the admin cog
-
-First list the available placement destinations:
-
-```bash
-npx jskit list-placements
-```
-
-In a workspace-enabled app, that output includes the semantic `admin.tools-menu` placement.
-
-Then generate the page:
-
-```bash
-npx jskit generate ui-generator page \
-  w/[workspaceSlug]/admin/catalogue/index.vue \
-  --name "Catalogue" \
-  --link-placement admin.tools-menu
-```
-
-`--link-placement` is necessary here because this is just a normal `admin` page. It is not a child page under a local route host that already owns a nested outlet.
-
-## Step 5: Add a normal left-menu page
-
-Generate a normal `admin` page without an explicit placement:
-
-```bash
-npx jskit generate ui-generator page \
-  w/[workspaceSlug]/admin/reports/index.vue \
-  --name "Reports"
-```
-
-Because this page is not under a more specific local host, JSKIT falls back to the app's default shell menu outlet. In practice, that means a normal left-menu entry.
-
-## Step 6: Understand the placement "magic"
-
-The workspace settings pages in Step 2 auto-linked into the settings menu for two reasons:
-
-1. The parent host already exposes a concrete outlet:
-
-```vue
-<ShellOutlet target="admin-settings:primary-menu" />
-```
-
-2. Your generated pages live under that host route:
-
-```text
-w/[workspaceSlug]/admin/workspace/settings/...
-```
-
-So JSKIT can infer both:
-
-- the semantic placement target: `page.section-nav`
-- the placement owner: `admin-settings`
-
-The renderer comes from `src/placementTopology.js`, where `page.section-nav` maps to the concrete `admin-settings:primary-menu` outlet for each layout class.
-
-That is why the simple settings-page commands do not need `--link-placement`.
-
-The admin cog example is different. `w/[workspaceSlug]/admin/catalogue/index.vue` is just a normal admin page, so there is no local nested host to infer. That is why you must pass `--link-placement admin.tools-menu` there.
-
-If you want a little more context than the raw destination list, this is also useful:
-
-```bash
-npx jskit show @jskit-ai/workspaces-web --details
-```
-
-That output shows both the workspace-owned placement outlets and the default entries already targeting them.
+The current source, dependency graph, migrations, tests, and behavior are the
+evidence. A receipt saying that a tool ran is not evidence.

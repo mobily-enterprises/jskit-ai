@@ -23,7 +23,7 @@ function useCrudViewScreen({
   const route = useRoute();
   const normalizedResourceNamespace = String(resourceNamespace || "resource").trim() || "resource";
   const defaultQueryKeyFactory = (surfaceId = "", workspaceSlug = "") => [
-    "ui-generator",
+    "crud",
     normalizedResourceNamespace,
     "view",
     String(surfaceId || ""),
@@ -39,7 +39,7 @@ function useCrudViewScreen({
     requestQueryParams,
     requestFieldsets,
     readEnabled,
-    placementSource: `ui-generator.${normalizedResourceNamespace}.view`,
+    placementSource: `crud.${normalizedResourceNamespace}.view`,
     requestRecoveryLabel,
     fallbackLoadError,
     notFoundMessage,

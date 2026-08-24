@@ -145,7 +145,7 @@ function useCrudListScreen({
     resource,
     apiSuffix,
     queryKeyFactory: (surfaceId = "", workspaceSlug = "") => [
-      "ui-generator",
+      "crud",
       normalizedResourceNamespace,
       "list",
       String(surfaceId || ""),
@@ -164,7 +164,7 @@ function useCrudListScreen({
       queryParams: true,
       queryParamBlacklist: routeQueryBlacklist
     },
-    placementSource: `ui-generator.${normalizedResourceNamespace}.list`,
+    placementSource: `crud.${normalizedResourceNamespace}.list`,
     requestQueryParams,
     requestFieldsets,
     readEnabled,

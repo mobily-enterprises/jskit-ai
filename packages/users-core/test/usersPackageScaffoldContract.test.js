@@ -5,223 +5,77 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
 
-const packageMetadata = packageJson.jskit;
-import crudCorePackage from "../../crud-core/package.json" with { type: "json" };
-import resourceCrudCorePackage from "../../resource-crud-core/package.json" with { type: "json" };
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const patternRoot = path.join(packageRoot, "patterns", "user-administration-server");
 
-const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const PACKAGE_ROOT = path.resolve(TEST_DIRECTORY, "..");
+test("users-core publishes agent-readable administration patterns and package-owned migrations", async () => {
+  assert.equal(packageJson.jskit?.mutations, undefined);
+  assert.deepEqual(packageJson.jskit?.migrations, { directories: ["migrations"] });
 
-function readFileMutationById(id) {
-  return packageMetadata.mutations.files.find((entry) => entry.id === id) || null;
-}
+  const pattern = await readFile(path.join(patternRoot, "PATTERN.md"), "utf8");
+  assert.match(pattern, /defineCrudJsonApiFeature\(\)/);
+  assert.match(pattern, /Workspace operations are scoped before repository access/);
+  assert.match(pattern, /null\/cleared fields/);
+  assert.doesNotMatch(pattern, /createCrudJsonApiModule/);
+});
 
-test("users-core installs the app-local users package scaffold", () => {
-  assert.equal(packageMetadata.mutations.dependencies.runtime["@local/users"], "file:packages/users");
-  assert.equal(packageMetadata.mutations.dependencies.runtime["@jskit-ai/crud-core"], crudCorePackage.version);
-  assert.equal(
-    packageMetadata.mutations.dependencies.runtime["@jskit-ai/resource-crud-core"],
-    resourceCrudCorePackage.version
+test("global user administration example is one declarative CRUD feature", async () => {
+  const packageManifest = JSON.parse(await readFile(
+    path.join(patternRoot, "example", "packages", "users", "package.json"),
+    "utf8"
+  ));
+  const feature = await readFile(
+    path.join(patternRoot, "example", "packages", "users", "src", "server", "UsersFeature.js"),
+    "utf8"
   );
 
-  const expectedFileIds = [
-    "users-core-users-package-json-base",
-    "users-core-users-package-json-workspace",
-    "users-core-users-provider-base",
-    "users-core-users-provider-workspace",
-    "users-core-users-actions-base",
-    "users-core-users-actions-workspace",
-    "users-core-users-routes-base",
-    "users-core-users-routes-workspace",
-    "users-core-users-repository",
-    "users-core-users-service",
-    "users-core-users-shared-index",
-    "users-core-users-resource"
-  ];
+  assert.equal(packageManifest.name, "@app/users");
+  assert.equal(packageManifest.jskit?.mutations, undefined);
+  assert.deepEqual(packageManifest.jskit?.capabilities?.provides, ["app.users"]);
+  assert.match(feature, /defineCrudJsonApiFeature/);
+  assert.match(feature, /surface: "home"/);
+  assert.match(feature, /ownershipFilter: "public"/);
+  assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);
+});
 
-  for (const fileId of expectedFileIds) {
-    const mutation = readFileMutationById(fileId);
-    assert.ok(mutation, `Missing users-core scaffold file mutation ${fileId}.`);
-    assert.equal(mutation.ownership, "app", `${fileId} must remain app-owned.`);
-    assert.equal(mutation.preserveOnRemove, true, `${fileId} must remain preserved on remove.`);
-    assert.ok(mutation.to.startsWith("packages/users/"), `${fileId} must target packages/users.`);
-    assert.ok(mutation.from, `${fileId} must define a template source.`);
-    assert.ok(mutation.reason, `${fileId} must document why it exists.`);
+test("workspace user administration example makes route and action scope explicit", async () => {
+  const packageManifest = JSON.parse(await readFile(
+    path.join(patternRoot, "example", "packages", "users-workspace", "package.json"),
+    "utf8"
+  ));
+  const feature = await readFile(
+    path.join(
+      patternRoot,
+      "example",
+      "packages",
+      "users-workspace",
+      "src",
+      "server",
+      "UsersWorkspaceFeature.js"
+    ),
+    "utf8"
+  );
+
+  assert.equal(packageManifest.name, "@app/users-workspace");
+  assert.equal(packageManifest.jskit?.mutations, undefined);
+  assert.deepEqual(packageManifest.jskit?.capabilities?.provides, ["app.users-workspace"]);
+  assert.match(feature, /ownershipFilter: "workspace"/);
+  assert.match(feature, /routeBase: "\/w\/:workspaceSlug"/);
+  assert.match(feature, /actionInputValidator: workspaceSlugParamsValidator/);
+  assert.match(feature, /inputKeys: \["workspaceSlug"\]/);
+  assert.match(feature, /buildWorkspaceInputFromRouteParams/);
+  assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);
+});
+
+test("both user administration variants stay read-only and canonical", async () => {
+  for (const packageName of ["users", "users-workspace"]) {
+    const resourceModule = await import(pathToFileURL(
+      path.join(patternRoot, "example", "packages", packageName, "src", "shared", "userResource.js")
+    ).href);
+    const resource = resourceModule.resource;
+
+    assert.deepEqual(Object.keys(resource.operations), ["list", "view"]);
+    assert.equal(Object.hasOwn(resource.operations, "create"), false);
+    assert.equal(resource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
   }
-});
-
-test("users-core installs all users profile schema migrations", async () => {
-  const expectedMigrationIds = [
-    "users-core-generic-initial-schema",
-    "users-core-profile-username-schema",
-    "users-core-profile-updated-at-schema"
-  ];
-
-  for (const migrationId of expectedMigrationIds) {
-    const mutation = readFileMutationById(migrationId);
-    assert.ok(mutation, `Missing users-core migration mutation ${migrationId}.`);
-    assert.equal(mutation.op, "install-migration", `${migrationId} must install a migration.`);
-    assert.equal(mutation.toDir, "migrations", `${migrationId} must target app migrations.`);
-    assert.equal(mutation.category, "migration", `${migrationId} must be categorized as a migration.`);
-    assert.ok(mutation.from, `${migrationId} must define a migration template source.`);
-    assert.ok(mutation.reason, `${migrationId} must document why it exists.`);
-  }
-
-  const updatedAtMigrationSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/migrations/users_core_profile_updated_at.cjs"),
-    "utf8"
-  );
-  const initialMigrationSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/migrations/users_core_generic_initial.cjs"),
-    "utf8"
-  );
-  const usersTableSection = initialMigrationSource.split("const hasUserSettingsTable")[0] || "";
-
-  assert.doesNotMatch(usersTableSection, /table\.timestamp\("updated_at"/);
-  assert.match(updatedAtMigrationSource, /hasColumn\("users", "updated_at"\)/);
-  assert.match(updatedAtMigrationSource, /COALESCE\(\?\?, CURRENT_TIMESTAMP\)/);
-});
-
-test("users-core base users package templates stay aligned with non-workspace apps", async () => {
-  const packageManifestSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/package.json"),
-    "utf8"
-  );
-  const providerSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/UsersProvider.js"),
-    "utf8"
-  );
-  const actionsSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/actions.js"),
-    "utf8"
-  );
-  const repositorySource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/repository.js"),
-    "utf8"
-  );
-  const serviceSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/service.js"),
-    "utf8"
-  );
-  const routesSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/registerRoutes.js"),
-    "utf8"
-  );
-
-  assert.doesNotMatch(packageManifestSource, /@jskit-ai\/workspaces-core/);
-  assert.match(packageManifestSource, /@jskit-ai\/json-rest-api-core/);
-  assert.match(packageManifestSource, /json-rest-api\.core/);
-  assert.match(packageManifestSource, /"scaffoldShape": "users-core-crud-v1"/);
-  assert.match(packageManifestSource, /"tableName": "users"/);
-  assert.match(packageManifestSource, /"provenance": "users-core-template"/);
-  assert.doesNotMatch(packageManifestSource, /server\/actionIds/);
-  assert.match(providerSource, /surface: "home"/);
-  assert.doesNotMatch(providerSource, /routeSurfaceRequiresWorkspace/);
-  assert.doesNotMatch(providerSource, /createCrudLookup/);
-  assert.doesNotMatch(providerSource, /lookup\.users/);
-  assert.doesNotMatch(providerSource, /normalizeRecordId/);
-  assert.doesNotMatch(providerSource, /requires application singleton\(\)\/service\(\)\/actions\(\)\./);
-  assert.match(providerSource, /createJsonRestResourceScopeOptions/);
-  assert.match(providerSource, /addResourceIfMissing\(\s*api,\s*"users",\s*createJsonRestResourceScopeOptions\(resource,/s);
-  assert.match(repositorySource, /api\.resources\.users\.query\(/);
-  assert.match(repositorySource, /api\.resources\.users\.get\(/);
-  assert.match(repositorySource, /async function queryDocuments\(query = \{\}, options = \{\}\)/);
-  assert.match(repositorySource, /async function getDocumentById\(recordId, query = \{\}, options = \{\}\)/);
-  assert.match(repositorySource, /buildJsonRestQueryParams\(RESOURCE_TYPE, query\)/);
-  assert.match(repositorySource, /returnBadRequestWhenJsonRestFieldsetInvalid/);
-  assert.match(repositorySource, /returnNullWhenJsonRestResourceMissing/);
-  assert.doesNotMatch(actionsSource, /workspaceSlugParamsValidator/);
-  assert.doesNotMatch(actionsSource, /delete query\.workspaceSlug/);
-  assert.doesNotMatch(actionsSource, /requireActionSurface/);
-  assert.match(actionsSource, /createStandardCrudListQueryValidators\(\{ resource \}\)/);
-  assert.match(actionsSource, /createStandardCrudViewQueryValidators\(\)/);
-  assert.match(actionsSource, /const \{ recordId, \.\.\.query \} = input \|\| \{\};/);
-  assert.match(actionsSource, /usersService\.getDocumentById\(recordId, query,/);
-  assert.match(actionsSource, /output: null/);
-  assert.match(actionsSource, /usersService\.queryDocuments/);
-  assert.match(actionsSource, /usersService\.getDocumentById/);
-  assert.doesNotMatch(actionsSource, /from "\.\/actionIds\.js"/);
-  assert.match(actionsSource, /id: "crud\.users\.list"/);
-  assert.match(actionsSource, /id: "crud\.users\.view"/);
-  assert.doesNotMatch(serviceSource, /serviceEvents/);
-  assert.match(serviceSource, /throw new TypeError\("createService requires usersRepository\."\);/);
-  assert.match(serviceSource, /return404IfNotFound/);
-  assert.match(serviceSource, /throw new AppError\(404, "Document not found\."\);/);
-  assert.match(serviceSource, /returnJsonApiDocument/);
-  assert.doesNotMatch(routesSource, /workspaceRouteInput/);
-  assert.match(routesSource, /createJsonApiResourceRouteContract/);
-  assert.doesNotMatch(routesSource, /wrapResponse/);
-  assert.match(routesSource, /routeBase: "\/"/);
-  assert.match(routesSource, /orderBy: resource\.defaultSort/);
-});
-
-test("users-core workspace users package templates stay aligned with workspace apps", async () => {
-  const packageManifestSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users-workspace/package.json"),
-    "utf8"
-  );
-  const providerSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users-workspace/src/server/UsersProvider.js"),
-    "utf8"
-  );
-  const actionsSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users-workspace/src/server/actions.js"),
-    "utf8"
-  );
-  const routesSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users-workspace/src/server/registerRoutes.js"),
-    "utf8"
-  );
-  const serviceSource = await readFile(
-    path.join(PACKAGE_ROOT, "templates/packages/users/src/server/service.js"),
-    "utf8"
-  );
-
-  assert.match(packageManifestSource, /@jskit-ai\/workspaces-core/);
-  assert.match(packageManifestSource, /@jskit-ai\/json-rest-api-core/);
-  assert.match(packageManifestSource, /json-rest-api\.core/);
-  assert.match(packageManifestSource, /"scaffoldShape": "users-core-crud-v1"/);
-  assert.match(packageManifestSource, /"tableName": "users"/);
-  assert.match(packageManifestSource, /"provenance": "users-core-template"/);
-  assert.doesNotMatch(packageManifestSource, /server\/actionIds/);
-  assert.match(providerSource, /surface: "admin"/);
-  assert.match(providerSource, /routeSurfaceRequiresWorkspace/);
-  assert.doesNotMatch(providerSource, /createCrudLookup/);
-  assert.doesNotMatch(providerSource, /lookup\.users/);
-  assert.doesNotMatch(providerSource, /normalizeRecordId/);
-  assert.doesNotMatch(providerSource, /requires application singleton\(\)\/service\(\)\/actions\(\)\./);
-  assert.match(providerSource, /createJsonRestResourceScopeOptions/);
-  assert.match(providerSource, /addResourceIfMissing\(\s*api,\s*"users",\s*createJsonRestResourceScopeOptions\(resource,/s);
-  assert.match(actionsSource, /workspaceSlugParamsValidator/);
-  assert.match(actionsSource, /delete query\.workspaceSlug/);
-  assert.doesNotMatch(actionsSource, /requireActionSurface/);
-  assert.match(actionsSource, /createStandardCrudListQueryValidators\(\{ resource \}\)/);
-  assert.match(actionsSource, /createStandardCrudViewQueryValidators\(\)/);
-  assert.match(actionsSource, /const \{ workspaceSlug, recordId, \.\.\.query \} = input \|\| \{\};/);
-  assert.match(actionsSource, /usersService\.getDocumentById\(recordId, query,/);
-  assert.match(actionsSource, /usersService\.queryDocuments/);
-  assert.match(actionsSource, /usersService\.getDocumentById/);
-  assert.doesNotMatch(actionsSource, /from "\.\/actionIds\.js"/);
-  assert.match(actionsSource, /id: "crud\.users\.list"/);
-  assert.match(actionsSource, /id: "crud\.users\.view"/);
-  assert.match(routesSource, /buildWorkspaceInputFromRouteParams/);
-  assert.match(routesSource, /createJsonApiResourceRouteContract/);
-  assert.doesNotMatch(routesSource, /wrapResponse/);
-  assert.match(routesSource, /routeBase: routeSurfaceRequiresWorkspace === true \? "\/w\/:workspaceSlug" : "\/"/);
-  assert.doesNotMatch(serviceSource, /serviceEvents/);
-  assert.match(serviceSource, /throw new TypeError\("createService requires usersRepository\."\);/);
-  assert.match(serviceSource, /returnJsonApiDocument/);
-});
-
-test("users-core local users resource scaffold stays read-only and canonical", async () => {
-  const resourceModule = await import(
-    pathToFileURL(path.join(PACKAGE_ROOT, "templates/packages/users/src/shared/userResource.js")).href
-  );
-  const resource = resourceModule?.resource;
-
-  assert.equal(typeof resource, "object");
-  assert.deepEqual(Object.keys(resource.operations), ["list", "view"]);
-  assert.equal(Object.hasOwn(resource.operations, "create"), false);
-  assert.equal(resource.schema.updatedAt?.type, "dateTime");
-  assert.equal(resource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
 });

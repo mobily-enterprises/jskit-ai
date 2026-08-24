@@ -5,69 +5,66 @@ verification.
 
 ## Pages, surfaces, and placements
 
-Take the surface from the request/app authority; it controls routes, access,
-placement visibility, and often ownership. For a normal non-CRUD page:
+Take the surface and navigation role from the request, product context, and
+current app. They control routes, access, placement visibility, and often
+ownership. Inspect `app/shell-foundation` plus the narrow UI pattern that
+matches the requested outcome before authoring source.
 
-```bash
-npx --no-install jskit show ui-generator --details
-npx --no-install jskit list-placements
-npx --no-install jskit generate ui-generator page <route-file> --name <name>
-```
+Create route files and placement declarations as normal application code.
+Use semantic placement ids and shell public helpers; use concrete outlet ids
+only when defining or diagnosing topology. Resolve current dynamic parameters
+to an absolute URL or route object for sibling/child links—never bind a route
+template or relative string raw to Vue Router `to`.
 
-Choose the truthful `--navigation-role`. Override with semantic
-`--link-placement <area.slot>` when needed; use concrete placements only for
-diagnosis. Let the generator create the route and placement before adapting
-app-owned output. State why before hand-writing a normal page.
+## Application-owned files
 
-## App-owned files
-
-App-owned generated files are customizable. Adapt infrastructure tests in place.
-When replacing a starter route, update its smoke
-test to the new canonical route instead of deleting baseline browser coverage.
-Doctor must continue to report a missing managed test.
+Pattern source is ordinary customizable application source. When replacing a
+starter route, adapt its smoke test to the new canonical route instead of
+discarding browser coverage. Do not retain a generated-file marker, template
+hash, pattern receipt, or tool-owned source declaration.
 
 ## Screen behavior
 
 - Keep screens phone/task-first with drawer-independent primary actions and
-  48 px targets. Use a page header and direct `v-sheet`, not nested cards.
-- Provide named loading, empty, error, permission, and retry states. Generated
-  lists use searchable compact cards and medium/expanded tables where suitable.
-- Extend shared CRUD screens through slots. For custom sibling/child links,
-  resolve current dynamic params with their runtime to an absolute URL/route
-  object; never bind its route-template/relative string raw to Vue Router `to`.
-- Use page-local row-action/filter definitions. Keep read failures local; use
-  `useCommand()` or `useUiFeedback()` for user-triggered action feedback.
-- Import neutral request, operation, permission, and generated CRUD UI APIs from
-  `@jskit-ai/http-web`. Do not install `users-web` unless the application uses
-  account, profile, or user-specific shell UI.
+  at least 48 CSS-pixel targets.
+- Use a page header and direct surfaces instead of needless nested cards.
+- Render all meaningful loading, empty, error, permission, and retry states.
+- Use structure-matching Material skeletons for visible loading; never use a
+  generic spinner or circular progress indicator.
+- Keep read failures local when the screen cannot render. Present transient
+  command success/failure through shared toast/snackbar feedback so the page
+  does not jump.
+- Extend shared CRUD screens through public slots and composables.
+- Keep row actions and filters near the screen unless the framework owns them.
+- Import neutral request and CRUD UI APIs from `@jskit-ai/http-web`. Install
+  `users-web` only for actual account/profile/user UI.
 
 ## Adaptive shell drawer
 
 Use Vuetify Material navigation. Compact close dismisses the temporary drawer;
 wide layouts default to `desktopDrawerClosedMode="rail"`. Use `hidden` only
-with another navigation affordance.
+when another navigation affordance remains.
 
 The drawer omits the app bar's surface label. Open and rail icons share a
-centreline. It uses a 12px outer item inset; `navigationItemSpacing` (12px)
-controls icon/label and label/end gaps. The 80px rail centres 48px targets; set
-`railWidth` (for example, `64`) for a denser rail or `drawerWidth` for a fixed
-drawer. The wrapper forwards these props; never override its CSS.
-
-Existing apps: commit work and run `npm run jskit:update`. Keep and adapt
-the app-owned shell wrapper and smoke test; do not copy or delete them.
+centreline. It uses a 12px outer item inset; `navigationItemSpacing` controls
+icon/label and label/end gaps. The normal 80px rail centres 48px targets;
+`railWidth` and `drawerWidth` are public density/width controls. Do not override
+the shell's private implementation CSS.
 
 ## Browser verification
 
 Exercise user-facing changes with Playwright at compact, medium, and expanded
 widths. Check overflow, clipped text, duplicate navigation, route placement,
-actions, and target sizes. Use relative URLs; shared JSKIT config owns base URL,
-server, and storage state. With `PLAYWRIGHT_BASE_URL`, start no server. Never
-print/commit `VIBE64_PLAYWRIGHT_STORAGE_STATE`, use a local bypass with it, or
-install a browser when a managed runner supplies one.
+actions, skeleton replacement, error feedback, and target sizes. Use relative
+URLs. When `PLAYWRIGHT_BASE_URL` is provided, start no duplicate server.
 
-For explicitly enabled direct-local auth, use `loginAsExistingUser()` from
-`@jskit-ai/auth-web/test/playwright`; never expose its secret to browser code,
-URLs, or client env. Run the focused test directly:
+Vibe64 owns its managed browser and may provide
+`VIBE64_PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,
+or install another browser. For explicitly enabled direct-local auth, use
+`loginAsExistingUser()` from `@jskit-ai/auth-web/test/playwright`; never expose
+the exchange secret to browser code, URLs, or client environment.
+
+Run the narrow test directly:
 
 ```bash
 npx playwright test <test-file> -g "<changed behavior>"

@@ -1,6 +1,7 @@
-import { createApplication } from "../shared/runtime/application.js";
+import { createCapabilityRuntime, defineProvider } from "../shared/capabilities/index.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isRecord } from "../shared/support/normalize.js";
+import { createClientComponentRegistry } from "./componentRegistry.js";
 import { normalizePackageMetadataClientProviders, normalizePackageMetadataUiRoutes } from "./packageMetadataSections.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
@@ -187,44 +188,7 @@ function registerClientModuleRoutes({
   });
 }
 
-function isProviderClass(candidate) {
-  if (typeof candidate !== "function") {
-    return false;
-  }
-
-  const providerId = String(candidate.id || "").trim();
-  if (!providerId) {
-    return false;
-  }
-
-  const prototype = candidate.prototype;
-  if (!prototype || typeof prototype !== "object") {
-    return false;
-  }
-
-  return (
-    typeof prototype.register === "function" ||
-    typeof prototype.boot === "function" ||
-    typeof prototype.shutdown === "function"
-  );
-}
-
-function normalizeExplicitProviderClasses(value, packageId) {
-  if (!Array.isArray(value)) {
-    return null;
-  }
-
-  const providers = [];
-  for (const candidate of value) {
-    if (!isProviderClass(candidate)) {
-      throw new TypeError(`Client module ${packageId} exports invalid clientProviders entry.`);
-    }
-    providers.push(candidate);
-  }
-  return providers;
-}
-
-function resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = []) {
+function resolvePackageMetadataProviders(moduleNamespace, packageId, packageMetadataClientProviders = []) {
   const providers = [];
   const seenProviderIds = new Set();
 
@@ -234,42 +198,34 @@ function resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packa
       continue;
     }
 
-    const providerClass = moduleNamespace?.[exportName];
-    if (!isProviderClass(providerClass)) {
+    const providerValue = moduleNamespace?.[exportName];
+    let provider = null;
+    try {
+      provider = defineProvider(providerValue);
+    } catch (error) {
       throw new TypeError(
-        `Client module ${packageId} packageMetadata provider export "${exportName}" is missing or invalid in "${packageId}/client".`
+        `Client module ${packageId} packageMetadata provider export "${exportName}" must be a capability provider: ${error.message}`,
+        { cause: error }
       );
     }
 
-    const providerId = String(providerClass.id || "").trim();
-    if (!providerId) {
-      throw new TypeError(`Client module ${packageId} packageMetadata provider "${exportName}" requires static id.`);
-    }
+    const providerId = provider.id;
 
     if (seenProviderIds.has(providerId)) {
       continue;
     }
     seenProviderIds.add(providerId);
-    providers.push(providerClass);
+    providers.push(provider);
   }
 
   return providers;
 }
 
-function resolveModuleProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders = []) {
+function resolveModuleProviders(moduleNamespace, packageId, packageMetadataClientProviders = []) {
   if (!isRecord(moduleNamespace)) {
     return [];
   }
-
-  const explicitProviders = normalizeExplicitProviderClasses(moduleNamespace.clientProviders, packageId);
-  if (explicitProviders) {
-    return explicitProviders;
-  }
-
-  if (Array.isArray(packageMetadataClientProviders) && packageMetadataClientProviders.length > 0) {
-    return resolvePackageMetadataProviderClasses(moduleNamespace, packageId, packageMetadataClientProviders);
-  }
-  return [];
+  return resolvePackageMetadataProviders(moduleNamespace, packageId, packageMetadataClientProviders);
 }
 
 function buildPackageMetadataRouteDeclarationIndex({ packageId, packageMetadataUiRoutes = [] } = {}) {
@@ -479,8 +435,9 @@ function normalizeClientModuleEntries(clientModules) {
     .sort((left, right) => left.packageId.localeCompare(right.packageId));
 }
 
-function createClientRuntimeApp({
+function createClientRuntime({
   profile = "client",
+  providers = [],
   app,
   pinia = null,
   queryClient = null,
@@ -490,22 +447,23 @@ function createClientRuntimeApp({
   surfaceRuntime,
   surfaceMode
 } = {}) {
-  const runtimeApp = createApplication({
+  const components = createClientComponentRegistry();
+  const runtime = createCapabilityRuntime({
     profile,
-    strict: true
+    providers,
+    inputs: {
+      "client.vue": app || null,
+      "client.router": router || null,
+      "client.pinia": pinia,
+      "client.query": queryClient,
+      "client.env": Object.freeze({ ...(isRecord(env) ? env : {}) }),
+      "client.surface": surfaceRuntime || null,
+      "client.surface-mode": String(surfaceMode || "").trim(),
+      "client.logger": logger,
+      "client.components": components
+    }
   });
-
-  runtimeApp.instance("jskit.client.runtime.app", runtimeApp);
-  runtimeApp.instance("jskit.client.router", router || null);
-  runtimeApp.instance("jskit.client.vue.app", app || null);
-  runtimeApp.instance("jskit.client.pinia", pinia);
-  runtimeApp.instance("jskit.client.query-client", queryClient);
-  runtimeApp.instance("jskit.client.env", isRecord(env) ? { ...env } : {});
-  runtimeApp.instance("jskit.client.surface.runtime", surfaceRuntime || null);
-  runtimeApp.instance("jskit.client.surface.mode", String(surfaceMode || "").trim());
-  runtimeApp.instance("jskit.client.logger", logger);
-
-  return runtimeApp;
+  return Object.freeze({ runtime, components });
 }
 
 async function bootClientModules({
@@ -528,19 +486,7 @@ async function bootClientModules({
 
   const log = createStructuredLogger(logger);
   const moduleEntries = normalizeClientModuleEntries(clientModules);
-  const runtimeApp = createClientRuntimeApp({
-    profile: String(surfaceRuntime.normalizeSurfaceMode(surfaceMode) || "client"),
-    app,
-    pinia,
-    queryClient,
-    router,
-    env,
-    logger: log,
-    surfaceRuntime,
-    surfaceMode
-  });
-
-  const providerClasses = [];
+  const providers = [];
   const seenProviderIds = new Set();
   log.debug(
     {
@@ -552,28 +498,38 @@ async function bootClientModules({
     "Starting JSKIT client module bootstrap."
   );
   for (const entry of moduleEntries) {
-    const providers = resolveModuleProviderClasses(entry.module, entry.packageId, entry.packageMetadataClientProviders);
+    const moduleProviders = resolveModuleProviders(entry.module, entry.packageId, entry.packageMetadataClientProviders);
     log.debug(
       {
         packageId: entry.packageId,
-        providerExports: providers.map((providerClass) => String(providerClass.id || providerClass.name || "").trim()),
+        providerExports: moduleProviders.map((provider) => provider.id),
         hasClientRoutes: Array.isArray(entry.module.clientRoutes) && entry.module.clientRoutes.length > 0
       },
       "Discovered client module capabilities."
     );
-    for (const providerClass of providers) {
-      const providerId = String(providerClass.id || "").trim();
+    for (const provider of moduleProviders) {
+      const providerId = provider.id;
       if (seenProviderIds.has(providerId)) {
         throw new Error(`Client provider id "${providerId}" is duplicated.`);
       }
       seenProviderIds.add(providerId);
-      providerClasses.push(providerClass);
+      providers.push(provider);
     }
   }
 
-  if (providerClasses.length > 0) {
-    await runtimeApp.start({ providers: providerClasses });
-  }
+  const clientRuntime = createClientRuntime({
+    profile: String(surfaceRuntime.normalizeSurfaceMode(surfaceMode) || "client"),
+    providers,
+    app,
+    pinia,
+    queryClient,
+    router,
+    env,
+    logger: log,
+    surfaceRuntime,
+    surfaceMode
+  });
+  await clientRuntime.runtime.start();
 
   const seenRoutePaths = new Set();
   const seenRouteNames = new Set();
@@ -638,7 +594,7 @@ async function bootClientModules({
     log.debug(
       {
         modules: moduleEntries.map((entry) => entry.packageId),
-        providerCount: providerClasses.length,
+        providerCount: providers.length,
         routeCount: registeredRouteCount
       },
       "Booted JSKIT client modules."
@@ -653,9 +609,10 @@ async function bootClientModules({
   }
 
   return Object.freeze({
-    runtimeApp,
+    runtime: clientRuntime.runtime,
+    components: clientRuntime.components,
     modules: Object.freeze(moduleEntries.map((entry) => entry.packageId)),
-    providerCount: providerClasses.length,
+    providerCount: providers.length,
     routeResults: Object.freeze(routeResults),
     routeCount: registeredRouteCount
   });

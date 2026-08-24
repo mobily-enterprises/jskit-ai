@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-catalog",
-  "version": "0.1.184",
+  "version": "0.1.191",
   "description": "Published metadata catalog for JSKIT package metadata.",
   "type": "module",
   "files": [
@@ -14,6 +14,7 @@
   },
   "scripts": {
     "catalog:build": "node ./scripts/build-catalog.mjs",
+    "verify:packages": "node ./scripts/verify-packages.mjs",
     "test": "node --test"
   },
   "engines": {

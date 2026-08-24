@@ -30,7 +30,7 @@ Local functions
 
 ### `src/server/multipart/registerMultipartSupport.js`
 Exports
-- `registerMultipartSupport(app)`
+- `registerMultipartSupport(fastify)`
 
 ### `src/server/policy/uploadPolicy.js`
 Exports
@@ -39,9 +39,9 @@ Exports
 - `readUploadBuffer(stream, { maxBytes = DEFAULT_IMAGE_UPLOAD_POLICY.maxUploadBytes, fieldName = "file", label = "File" } = {})`
 - `validateUploadMimeType(mimeType, policy = DEFAULT_IMAGE_UPLOAD_POLICY, { fieldName = "file", label = "File" } = {})`
 
-### `src/server/providers/UploadsRuntimeServiceProvider.js`
+### `src/server/providers/UploadsProvider.js`
 Exports
-- `UploadsRuntimeServiceProvider`
+- `UploadsProvider`
 
 ### `src/server/storage/createUploadStorageService.js`
 Exports

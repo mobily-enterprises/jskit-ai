@@ -1,18 +1,17 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.1.60",
+  "version": "0.1.67",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "exports": {
-    "./server/providers/AuthLocalServiceProvider": "./src/server/providers/AuthLocalServiceProvider.js",
-    "./server/providers/AuthProviderServiceProvider": "./src/server/providers/AuthProviderServiceProvider.js",
+    "./server/providers/AuthLocalProvider": "./src/server/providers/AuthLocalProvider.js",
     "./server/lib/index": "./src/server/lib/index.js"
   },
   "dependencies": {
-    "@jskit-ai/auth-core": "0.1.157",
-    "@jskit-ai/kernel": "0.1.159",
+    "@jskit-ai/auth-core": "0.1.164",
+    "@jskit-ai/kernel": "0.1.166",
     "nodemailer": "^9.0.3"
   },
   "description": "Local auth provider with a file backend default and no database requirement.",
@@ -20,24 +19,22 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "auth.provider.local",
-        "auth.provider"
+        "auth.service"
       ],
       "requires": [
-        "auth.access"
+        "auth.extensions",
+        "runtime.app-root",
+        "runtime.env",
+        "runtime.logger"
       ]
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/AuthLocalServiceProvider.js",
+        "providerEntrypoint": "src/server/providers/AuthLocalProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/AuthLocalServiceProvider.js",
-            "export": "AuthLocalServiceProvider"
-          },
-          {
-            "entrypoint": "src/server/providers/AuthProviderServiceProvider.js",
-            "export": "AuthProviderServiceProvider"
+            "entrypoint": "src/server/providers/AuthLocalProvider.js",
+            "export": "AuthLocalProvider"
           }
         ]
       }
@@ -46,76 +43,21 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server/providers/AuthLocalServiceProvider",
-            "summary": "Exports the local auth provider service provider."
+            "subpath": "./server/providers/AuthLocalProvider",
+            "summary": "Provides the selected local authentication service through explicit runtime capabilities."
           },
           {
             "subpath": "./server/lib/index",
             "summary": "Exports local auth service, file backend helpers, password strategy helpers, and local auth register hook decorators."
           }
         ],
-        "containerTokens": {
-          "server": [
-            "authService",
-            "auth.local.backend",
-            "auth.local.passwordStrategy"
-          ],
-          "client": []
-        }
+        "extensionCapabilities": [
+          "auth.invitation-context",
+          "auth.local.backend",
+          "auth.local.password-strategy",
+          "auth.profile.projector"
+        ]
       }
-    },
-    "ci": {
-      "environment": {
-        "AUTH_PROVIDER": "local"
-      },
-      "services": [],
-      "steps": []
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/auth-core": "0.1.157",
-          "@jskit-ai/kernel": "0.1.159",
-          "nodemailer": "^9.0.3",
-          "dotenv": "^16.4.5"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": [
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "AUTH_PROVIDER",
-          "value": "local",
-          "reason": "Select local auth as the auth provider.",
-          "category": "runtime-config",
-          "id": "auth-provider"
-        },
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "AUTH_LOCAL_BACKEND",
-          "value": "file",
-          "reason": "Use the built-in local file auth backend.",
-          "category": "runtime-config",
-          "id": "auth-local-backend"
-        },
-        {
-          "file": ".gitignore",
-          "op": "append-text",
-          "position": "bottom",
-          "skipIfContains": ".jskit/auth/",
-          "value": "\n.jskit/auth/\n",
-          "reason": "Ignore local auth runtime state.",
-          "category": "runtime-state",
-          "id": "auth-local-store-gitignore"
-        }
-      ]
     }
   }
 }

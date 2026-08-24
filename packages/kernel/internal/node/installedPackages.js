@@ -7,18 +7,13 @@ import { fileExists } from "./fileSystem.js";
 const ROOT_DEPENDENCY_SECTIONS = Object.freeze([
   "dependencies",
   "optionalDependencies",
-  "peerDependencies",
-  "devDependencies"
+  "peerDependencies"
 ]);
 const JSKIT_PACKAGE_CONFIG_KEYS = Object.freeze([
   "capabilities",
-  "ci",
   "kind",
-  "lifecycle",
   "metadata",
-  "mutations",
-  "optionPolicies",
-  "options",
+  "migrations",
   "runtime",
   "vite"
 ]);

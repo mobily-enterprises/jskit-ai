@@ -1,22 +1,21 @@
 {
   "name": "@jskit-ai/realtime",
-  "version": "0.1.156",
+  "version": "0.1.163",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "exports": {
-    "./server/RealtimeServiceProvider": "./src/server/RealtimeServiceProvider.js",
+    "./server/RealtimeProvider": "./src/server/RealtimeProvider.js",
     "./server/runtime": "./src/server/runtime.js",
     "./client": "./src/client/RealtimeClientProvider.js",
     "./client/RealtimeClientProvider": "./src/client/RealtimeClientProvider.js",
-    "./client/listeners": "./src/client/listeners.js",
     "./client/composables/useRealtimeEvent": "./src/client/composables/useRealtimeEvent.js",
     "./client/runtime": "./src/client/runtime.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.159",
-    "@jskit-ai/shell-web": "0.1.163",
+    "@jskit-ai/kernel": "0.1.166",
+    "@jskit-ai/shell-web": "0.1.170",
     "@socket.io/redis-adapter": "^8.3.0",
     "redis": "^5.8.2",
     "socket.io": "^4.8.3",
@@ -28,30 +27,25 @@
   "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
   "jskit": {
     "kind": "runtime",
-    "options": {
-      "realtime-redis-url": {
-        "required": true,
-        "allowEmpty": true,
-        "values": [],
-        "defaultValue": "",
-        "promptLabel": "Realtime Redis URL",
-        "promptHint": "Leave empty to use in-memory socket adapter."
-      }
-    },
     "capabilities": {
       "provides": [
         "runtime.realtime",
         "runtime.realtime.client"
       ],
-      "requires": []
+      "requires": [
+        "runtime.config",
+        "runtime.env",
+        "runtime.events",
+        "runtime.fastify",
+        "runtime.logger"
+      ]
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/RealtimeServiceProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/RealtimeServiceProvider.js",
-            "export": "RealtimeServiceProvider"
+            "entrypoint": "src/server/RealtimeProvider.js",
+            "export": "RealtimeProvider"
           }
         ]
       },
@@ -65,33 +59,34 @@
       }
     },
     "metadata": {
+      "client": {
+        "optimizeDeps": {
+          "include": [
+            "socket.io-client"
+          ]
+        }
+      },
       "apiSummary": {
         "surfaces": [
           {
             "subpath": "./server",
-            "summary": "Exports RealtimeServiceProvider only."
+            "summary": "Exports the explicit RealtimeProvider capability provider."
           },
           {
             "subpath": "./client",
             "summary": "Exports RealtimeClientProvider only."
           },
           {
-            "subpath": "./client/listeners",
-            "summary": "Exports client listener registration helpers for provider-level realtime subscriptions."
-          },
-          {
             "subpath": "./client/composables/*",
             "summary": "Exports component-level realtime socket composables."
           }
         ],
-        "containerTokens": {
+        "capabilities": {
           "server": [
-            "runtime.realtime",
-            "runtime.realtime.io"
+            "runtime.realtime"
           ],
           "client": [
-            "runtime.realtime.client",
-            "runtime.realtime.client.socket",
+            "client.realtime",
             "realtime.web.connection.indicator"
           ]
         }
@@ -109,7 +104,7 @@
               ],
               "order": 950,
               "componentToken": "realtime.web.connection.indicator",
-              "source": "mutations.text#realtime-placement-indicator"
+              "source": "patterns/realtime-application/example/src/placement.js"
             }
           ]
         }
@@ -122,45 +117,6 @@
           "ws": true
         }
       }
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/kernel": "0.1.159",
-          "@jskit-ai/shell-web": "0.1.163",
-          "@socket.io/redis-adapter": "^8.3.0",
-          "redis": "^5.8.2",
-          "socket.io": "^4.8.3",
-          "socket.io-client": "^4.8.3"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": [
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "REALTIME_REDIS_URL",
-          "value": "${option:realtime-redis-url}",
-          "reason": "Configure optional Redis backplane URL for realtime socket adapter.",
-          "category": "runtime-config",
-          "id": "realtime-redis-url"
-        },
-        {
-          "op": "append-text",
-          "file": "src/placement.js",
-          "position": "bottom",
-          "skipIfContains": "id: \"realtime.connection.indicator\"",
-          "value": "\naddPlacement({\n  id: \"realtime.connection.indicator\",\n  target: \"shell.status\",\n  kind: \"component\",\n  surfaces: [\"*\"],\n  order: 950,\n  componentToken: \"realtime.web.connection.indicator\"\n});\n",
-          "reason": "Append realtime connection indicator placement into app-owned placement registry.",
-          "category": "realtime-web",
-          "id": "realtime-placement-indicator"
-        }
-      ]
     }
   }
 }

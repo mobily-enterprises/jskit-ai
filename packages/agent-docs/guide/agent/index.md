@@ -2,41 +2,35 @@
 
 # Guide
 
-This guide is the main hands-on path through JSKIT.
+JSKIT is an AI-first framework and tested source-pattern library. It owns
+strong runtime APIs, package composition contracts, and examples an agent can
+apply or adapt. It does not prescribe an agent host or project orchestrator.
 
-It starts with a fast reproducible Quickstart, then steps back to the scaffold-first chapters that explain the default shell and runtime shape. After that, it introduces the database-backed users layer, expands into console and workspace-aware app structure, and adds a small `App extras` section for optional runtime packages such as the Android Capacitor shell, realtime, and assistant. Finally, the guide breaks out generator-specific workflows into their own section.
-
-## Table of Contents
-
-### App Setup
+## Start here
 
 - [Quickstart](/guide/app-setup/quickstart)
-- [Initial Scaffolding](/guide/app-setup/initial-scaffolding)
-- [Working With The JSKIT CLI](/guide/app-setup/working-with-the-jskit-cli)
-- [A More Interesting Shell](/guide/app-setup/a-more-interesting-shell)
+- [Application foundations](/guide/app-setup/initial-scaffolding)
+- [Migrate an existing application](/guide/app-setup/existing-application-migration)
+- [A more interesting shell](/guide/app-setup/a-more-interesting-shell)
 - [Authentication](/guide/app-setup/authentication)
-- [Database Layer](/guide/app-setup/database-layer)
+- [Database layer](/guide/app-setup/database-layer)
 - [Users](/guide/app-setup/users)
 - [Multi-homing](/guide/app-setup/multi-homing)
 - [Console](/guide/app-setup/console)
 
-### App Extras
+## Optional capabilities
 
 - [Mobile Capacitor](/guide/app-extras/mobile-capacitor)
 - [Realtime](/guide/app-extras/realtime)
 - [Assistant](/guide/app-extras/assistant)
 
-### Generators
+## How to use the guide
 
-- [Intro](/guide/generators/intro)
-- [UI Generators](/guide/generators/ui-generators)
-- [CRUD Generators](/guide/generators/crud-generators)
-- [Advanced CRUDs](/guide/generators/advanced-cruds)
+Begin with the Quickstart and one application-foundation pattern. Add only the
+capabilities selected by the product. For implementation, the installed JSKIT
+skill routes the agent to package-owned `PATTERN.md` files and the smallest
+relevant public API reference.
 
-## How to use this guide
-
-- Start with `Quickstart` if you want the fastest route to a real workspace-enabled app and the first page-extension patterns.
-- Start with the rest of `App Setup` if you want to understand the base scaffold layer by layer.
-- Use `App Extras` once the base app structure is in place and you want optional runtime packages such as the Android shell, realtime, or assistant.
-- Jump into `Generators` if you already understand the runtime packages and want app-owned scaffolding workflows.
-- Inside `Generators`, read `CRUD Generators` before `Advanced CRUDs`: the first chapter teaches the workflow, and the second explains the generated anatomy and customization points.
+There are no generator or CLI chapters. Their useful source examples are
+package-owned patterns; their questionnaire, mutation, and provenance machinery
+is not part of JSKIT.

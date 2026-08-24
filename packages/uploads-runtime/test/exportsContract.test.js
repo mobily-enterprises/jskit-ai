@@ -16,7 +16,7 @@ test("uploads-runtime exports are explicit and aligned with usage", () => {
     requiredExports: [
       "./client",
       "./shared",
-      "./server/providers/UploadsRuntimeServiceProvider",
+      "./server/providers/UploadsProvider",
       "./server/multipart/registerMultipartSupport",
       "./server/multipart/readSingleMultipartFile",
       "./server/policy/uploadPolicy",

@@ -28,18 +28,11 @@ function resolveWorkspaceAggregateRecordId(record = {}, context = {}) {
   throw new Error("Workspace JSON:API response requires workspace id.");
 }
 
-function bootWorkspaceMembers(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootWorkspaceMembers requires application make().");
+function registerWorkspaceMembersRoutes(router, { config = {}, workspaceInvitationsEnabled = false } = {}) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerWorkspaceMembersRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
-  const appConfig = typeof app.has === "function" && app.has("appConfig") ? app.make("appConfig") : {};
-  const workspaceInvitationsEnabled =
-    typeof app.has === "function" && app.has("workspaces.invitations.enabled")
-      ? app.make("workspaces.invitations.enabled") === true
-      : false;
-  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(appConfig);
+  const workspaceRouteSurfaceId = resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig(config);
 
   router.register(
     "GET",
@@ -271,4 +264,4 @@ function bootWorkspaceMembers(app) {
   }
 }
 
-export { bootWorkspaceMembers };
+export { registerWorkspaceMembersRoutes };

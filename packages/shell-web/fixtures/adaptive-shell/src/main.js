@@ -20,18 +20,6 @@ const COMPONENTS = new Map([
   ["fixture.tab-link", ShellTabLinkItem]
 ]);
 
-const placementContainer = Object.freeze({
-  has(token) {
-    return COMPONENTS.has(token);
-  },
-  make(token) {
-    return COMPONENTS.get(token);
-  },
-  resolveTag() {
-    return [];
-  }
-});
-
 function createSurfacePlacement(surface, order, label, suffix) {
   return {
     id: `fixture.${surface}.${label.toLowerCase()}`,
@@ -102,7 +90,7 @@ const placementTopology = [
   }
 ];
 
-const placementRuntime = createWebPlacementRuntime({ app: placementContainer });
+const placementRuntime = createWebPlacementRuntime({ components: COMPONENTS });
 placementRuntime.replacePlacements(placements);
 placementRuntime.replacePlacementTopology(placementTopology);
 placementRuntime.setContext({

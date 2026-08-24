@@ -1,72 +1,34 @@
 {
   "name": "@jskit-ai/database-runtime-postgres",
-  "version": "0.1.156",
+  "version": "0.1.163",
   "type": "module",
   "scripts": {
     "test": "node --test"
   },
   "exports": {
     "./client": "./src/client/index.js",
-    "./server/providers/DatabaseRuntimePostgresServiceProvider": "./src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
+    "./server/providers/PostgresDatabaseDriverProvider": "./src/server/providers/PostgresDatabaseDriverProvider.js",
     "./shared": "./src/shared/index.js",
     "./shared/dialect": "./src/shared/dialect.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.159"
+    "@jskit-ai/database-runtime": "0.1.166",
+    "pg": "^8.13.1"
   },
   "jskit": {
     "kind": "runtime",
-    "options": {
-      "db-host": {
-        "required": false,
-        "values": [],
-        "defaultValue": "localhost",
-        "promptLabel": "Database host",
-        "promptHint": "Postgres host (for example 127.0.0.1)"
-      },
-      "db-port": {
-        "required": false,
-        "values": [],
-        "defaultValue": "5432",
-        "promptLabel": "Database port",
-        "promptHint": "Postgres port (usually 5432)"
-      },
-      "db-name": {
-        "required": true,
-        "values": [],
-        "promptLabel": "Database name",
-        "promptHint": "Database name to connect to"
-      },
-      "db-user": {
-        "required": true,
-        "values": [],
-        "promptLabel": "Database user",
-        "promptHint": "Database username"
-      },
-      "db-password": {
-        "required": true,
-        "values": [],
-        "inputType": "password",
-        "promptLabel": "Database password",
-        "promptHint": "Database password"
-      }
-    },
     "capabilities": {
       "provides": [
-        "runtime.database.driver",
-        "runtime.database.driver.postgres"
+        "runtime.database.driver"
       ],
-      "requires": [
-        "runtime.database"
-      ]
+      "requires": []
     },
     "runtime": {
       "server": {
-        "providerEntrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
         "providers": [
           {
-            "entrypoint": "src/server/providers/DatabaseRuntimePostgresServiceProvider.js",
-            "export": "DatabaseRuntimePostgresServiceProvider"
+            "entrypoint": "src/server/providers/PostgresDatabaseDriverProvider.js",
+            "export": "PostgresDatabaseDriverProvider"
           }
         ]
       },
@@ -79,7 +41,7 @@
         "surfaces": [
           {
             "subpath": "./server",
-            "summary": "Exports Postgres database runtime provider."
+            "summary": "Provides the exclusive runtime.database.driver capability for PostgreSQL."
           },
           {
             "subpath": "./shared",
@@ -89,115 +51,8 @@
             "subpath": "./client",
             "summary": "Exports no runtime API today (reserved client entrypoint)."
           }
-        ],
-        "containerTokens": {
-          "server": [
-            "runtime.database.driver.postgres"
-          ],
-          "client": []
-        }
+        ]
       }
-    },
-    "ci": {
-      "environment": {
-        "DB_CLIENT": "pg",
-        "DB_HOST": "127.0.0.1",
-        "DB_PORT": "54320",
-        "DB_NAME": "jskit_ci",
-        "DB_USER": "jskit_ci",
-        "DB_PASSWORD": "jskit_ci_only_password"
-      },
-      "services": [
-        {
-          "id": "postgres",
-          "image": "postgres:16",
-          "environment": {
-            "POSTGRES_DB": "jskit_ci",
-            "POSTGRES_USER": "jskit_ci",
-            "POSTGRES_PASSWORD": "jskit_ci_only_password"
-          },
-          "ports": [
-            "54320:5432"
-          ],
-          "healthCheck": {
-            "command": "pg_isready --username=jskit_ci --dbname=jskit_ci",
-            "interval": "10s",
-            "timeout": "5s",
-            "retries": 10
-          }
-        }
-      ],
-      "steps": []
-    },
-    "mutations": {
-      "dependencies": {
-        "runtime": {
-          "@jskit-ai/database-runtime": "0.1.159",
-          "pg": "^8.13.1"
-        },
-        "dev": {}
-      },
-      "packageJson": {
-        "scripts": {}
-      },
-      "procfile": {},
-      "files": [],
-      "text": [
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "DB_CLIENT",
-          "value": "pg",
-          "reason": "Configure database client driver for runtime wiring.",
-          "category": "runtime-config",
-          "id": "database-client-postgres"
-        },
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "DB_HOST",
-          "value": "${option:db-host}",
-          "reason": "Configure database host.",
-          "category": "runtime-config",
-          "id": "database-host"
-        },
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "DB_PORT",
-          "value": "${option:db-port}",
-          "reason": "Configure database port.",
-          "category": "runtime-config",
-          "id": "database-port"
-        },
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "DB_NAME",
-          "value": "${option:db-name}",
-          "reason": "Configure database name.",
-          "category": "runtime-config",
-          "id": "database-name"
-        },
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "DB_USER",
-          "value": "${option:db-user}",
-          "reason": "Configure database user.",
-          "category": "runtime-config",
-          "id": "database-user"
-        },
-        {
-          "file": ".env",
-          "op": "upsert-env",
-          "key": "DB_PASSWORD",
-          "value": "${option:db-password}",
-          "reason": "Configure database password.",
-          "category": "runtime-config",
-          "id": "database-password"
-        }
-      ]
     }
   }
 }

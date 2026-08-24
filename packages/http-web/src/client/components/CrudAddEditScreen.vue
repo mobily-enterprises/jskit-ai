@@ -52,28 +52,27 @@ function resolveCancelTo(target = cancelTo.value) {
 </script>
 
 <template>
-  <section class="generated-ui-screen generated-ui-screen--operator ui-generator-add-edit-form d-flex flex-column ga-4">
-    <header class="ui-generator-add-edit-form__header">
-      <div class="ui-generator-add-edit-form__copy">
-        <h1 class="ui-generator-add-edit-form__title">{{ title }}</h1>
+  <section class="crud-screen crud-screen--operator crud-add-edit-form d-flex flex-column ga-4">
+    <header class="crud-add-edit-form__header">
+      <div class="crud-add-edit-form__copy">
+        <h1 class="crud-add-edit-form__title">{{ title }}</h1>
         <p v-if="subtitle" class="text-body-2 text-medium-emphasis mb-0">{{ subtitle }}</p>
       </div>
-      <div class="ui-generator-add-edit-form__actions">
+      <div class="crud-add-edit-form__actions">
         <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
         <v-btn
           color="primary"
           variant="flat"
-          :loading="addEdit.isSaving"
           :disabled="addEdit.isSubmitDisabled"
           @click="addEdit.submit"
         >
-          {{ saveLabel }}
+          {{ addEdit.isSaving ? "Saving…" : saveLabel }}
         </v-btn>
       </div>
     </header>
 
-    <v-sheet rounded="lg" border class="ui-generator-add-edit-form__panel">
-      <div v-if="addEdit.loadError" class="ui-generator-add-edit-form__state">
+    <v-sheet rounded="lg" border class="crud-add-edit-form__panel">
+      <div v-if="addEdit.loadError" class="crud-add-edit-form__state">
         <h2 class="text-h6 mb-2">Unable to load form</h2>
         <p class="text-body-2 text-medium-emphasis mb-4">
           {{ addEdit.loadError }}
@@ -82,10 +81,10 @@ function resolveCancelTo(target = cancelTo.value) {
           v-if="addEdit.canRetryLoad"
           color="primary"
           variant="tonal"
-          :loading="addEdit.isFetching"
+          :disabled="addEdit.isFetching"
           @click="addEdit.refresh"
         >
-          Retry
+          {{ addEdit.isFetching ? "Retrying…" : "Retry" }}
         </v-btn>
       </div>
       <template v-else-if="formRuntime.showFormSkeleton">
@@ -94,8 +93,7 @@ function resolveCancelTo(target = cancelTo.value) {
         </div>
       </template>
       <v-form v-else class="pa-4" @submit.prevent="addEdit.submit" novalidate>
-        <v-progress-linear v-if="addEdit.isRefetching" indeterminate class="mb-4" />
-        <v-row class="ui-generator-add-edit-form__fields">
+        <v-row class="crud-add-edit-form__fields">
           <slot
             name="fields"
             :mode="mode"
@@ -115,71 +113,71 @@ function resolveCancelTo(target = cancelTo.value) {
 </template>
 
 <style scoped>
-.generated-ui-screen {
-  --generated-ui-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
-  --generated-ui-screen-state-padding: 2.5rem 1.25rem;
+.crud-screen {
+  --crud-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
+  --crud-screen-state-padding: 2.5rem 1.25rem;
 }
 
-.generated-ui-screen--operator {
-  --generated-ui-screen-state-padding: 2rem 1rem;
+.crud-screen--operator {
+  --crud-screen-state-padding: 2rem 1rem;
 }
 
-.ui-generator-add-edit-form__header {
+.crud-add-edit-form__header {
   align-items: flex-start;
   display: flex;
   gap: 1rem;
   justify-content: space-between;
 }
 
-.ui-generator-add-edit-form__copy {
+.crud-add-edit-form__copy {
   min-width: 0;
 }
 
-.ui-generator-add-edit-form__title {
-  font-size: var(--generated-ui-screen-title-size);
+.crud-add-edit-form__title {
+  font-size: var(--crud-screen-title-size);
   font-weight: 650;
   letter-spacing: -0.02em;
   line-height: 1.15;
   margin: 0 0 0.35rem;
 }
 
-.ui-generator-add-edit-form__actions {
+.crud-add-edit-form__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: flex-end;
 }
 
-.ui-generator-add-edit-form__panel {
+.crud-add-edit-form__panel {
   overflow: hidden;
 }
 
-.ui-generator-add-edit-form__state {
+.crud-add-edit-form__state {
   margin-inline: auto;
   max-width: 30rem;
-  padding: var(--generated-ui-screen-state-padding);
+  padding: var(--crud-screen-state-padding);
   text-align: center;
 }
 
-.ui-generator-add-edit-form__fields :deep(.v-col) {
+.crud-add-edit-form__fields :deep(.v-col) {
   min-width: 0;
 }
 
 @media (max-width: 960px) {
-  .ui-generator-add-edit-form__header {
+  .crud-add-edit-form__header {
     flex-direction: column;
   }
 
-  .ui-generator-add-edit-form__actions {
+  .crud-add-edit-form__actions {
     width: 100%;
   }
 
-  .ui-generator-add-edit-form__actions :deep(.v-btn) {
+  .crud-add-edit-form__actions :deep(.v-btn) {
     min-height: 48px;
     flex: 1 1 10rem;
   }
 
-  .ui-generator-add-edit-form__state :deep(.v-btn) {
+  .crud-add-edit-form__state :deep(.v-btn) {
     min-height: 48px;
   }
 }

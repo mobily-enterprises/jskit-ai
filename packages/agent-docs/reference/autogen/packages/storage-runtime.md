@@ -18,9 +18,9 @@ Use this on demand; do not load the full index at startup.
 Exports
 - None
 
-### `src/server/providers/StorageRuntimeServiceProvider.js`
+### `src/server/providers/StorageProvider.js`
 Exports
-- `StorageRuntimeServiceProvider`
+- `StorageProvider`
 
 ### `src/server/storageBinding.js`
 Exports
@@ -28,6 +28,6 @@ Exports
 - `STORAGE_FS_BASE_PATH_ENV_KEY`
 - `DEFAULT_STORAGE_DRIVER`
 - `normalizeStorageDriver(value)`
-- `createStorageBinding(scope, { rootDir = process.cwd() } = {})`
+- `createStorageBinding({ env = {}, rootDir = process.cwd() } = {})`
 Local functions
 - `resolveFsBasePath(fsBasePath, { rootDir } = {})`

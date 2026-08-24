@@ -1,67 +1,82 @@
 # Application operations
 
-Read this for app creation, CLI discovery, packages, and generators.
+Read this for establishing an application foundation, selecting package
+capabilities, and realizing product features from JSKIT patterns.
 
-## Create an application
+## Establish a new application
 
-Confirm the name and tenancy mode:
+Start with an initialized Git repository and a clear product request. Use the
+request, current source, and ordinary project documentation. Ask the user for
+any material missing product decision before writing application source. Do
+not run a JSKIT questionnaire and do not create a temporary scaffold app.
 
-```bash
-npx @jskit-ai/create-app <app-name> --tenancy-mode <tenancy-mode>
-cd <app-name>
-npm install
+Read the generated pattern index:
+
+```text
+node_modules/@jskit-ai/agent-docs/reference/autogen/PATTERN_INDEX.md
 ```
 
-Generated apps require Node.js 26. Use `--target . --force` only to promote a
-known JSKIT `ai-seed`, never to overwrite an arbitrary app. `--minimal` is for
-deliberately bare package-development or unusual integrations. Follow the
-generated `AGENTS.md`.
+For a browser product, inspect one foundation:
 
-After the first install, use `npx --no-install jskit ...`; a missing local CLI
-must fail instead of silently fetching another version. Do not add auth, users,
-workspaces, console, sample data, or another database adapter unless requested.
+- `app/shell-foundation` for the normal adaptive application shell
+- `app/minimal-foundation` when the product deliberately does not need that
+  shell yet
 
-## Fresh minimal database CRUD order
+Inspect the complete pattern before copying. Copy or author the useful files
+directly into the existing project. Preserve `.git` plus all unrelated project
+and agent context. Resolve every real destination collision explicitly.
+Rename the concrete example application in ordinary source and metadata.
 
-Use this order exactly: create-app, install, add the database runtime, install,
-create the live table in a fresh disposable development database, generate the
-server CRUD, install, then generate the UI.
+The copied files immediately belong to the application. Do not add pattern
+receipts, generator provenance, completion ledgers, or hidden operation state.
+
+## Install and compose capabilities
+
+Plan the complete capability set before changing dependencies. Use the package
+catalogue and package-owned patterns to identify the required runtime packages,
+configuration, resources, and public APIs. Add one coherent package closure,
+then run `npm install` once for that planned change.
+
+Install the explicitly selected top-level packages through npm. Use one
+installation for the planned closure so npm can resolve their ordinary package
+dependencies together:
 
 ```bash
-npx @jskit-ai/create-app notes \
-  --target . --force --tenancy-mode none --minimal
-npm install
-npx --no-install jskit add package database-runtime-mysql
-npm install
-# Create/select a fresh disposable database and create its live `notes` table.
-npx --no-install jskit generate crud-server-generator scaffold \
-  --namespace notes \
-  --surface home \
-  --ownership-filter public \
-  --access public \
-  --table-name notes
-npm install
-npx --no-install jskit generate crud-ui-generator crud notes \
-  --resource-file packages/notes/src/shared/noteResource.js \
-  --id-param noteId \
-  --display-fields title,body \
-  --parent-title contextual \
-  --navigation-role primary \
-  --delete-confirmation
+npm install --save-exact @jskit-ai/<selected-package>@latest [...]
 ```
 
-The server generator owns its dependency closure. Do not pre-install
-`shell-web` as a placement workaround.
+Review the resulting `package.json` and lockfile as ordinary source changes.
+The installed package graph supplies runtime providers, migrations, patterns,
+and public APIs directly; no JSKIT synchronization or mutation command follows
+the npm installation.
 
-## Select and apply technology
+Do not add auth, users, workspaces, console, sample data, databases, or AI
+capabilities unless the product choice requires them.
 
-- Discover with `npx --no-install jskit list` and
-  `npx --no-install jskit show <id> --details`.
-- Install runtime capability with `npx --no-install jskit add package <id>`;
-  inspect a bundle before adding it.
-- Run tooling with `npx --no-install jskit generate <generator> <action> ...`;
-  do not install generators as runtime packages.
-- JSKIT owns app mutations, npm owns dependency installation, and
-  `npm run db:migrate` owns database migration execution.
-- Continue only at documented app-owned seams. Prefer the narrowest existing
-  package or generator over a parallel local framework.
+## Author database-backed CRUD
+
+Use a chosen database pattern plus a package-owned CRUD resource pattern. The
+normal order is:
+
+1. confirm the product resource, ownership, operations, and fields
+2. author a migration as normal application source
+3. author the shared resource contract through `resource-crud-core`
+4. use framework APIs for standard repository/service/action/route mechanics
+5. author product-specific screens from the relevant UI pattern
+6. run migrations and direct verification
+
+The database connection and schema are runtime evidence, not a questionnaire
+that owns source generation. Never patch fields into generated ASTs and never
+mark a resource valid because a generator once wrote it.
+
+## Verify current state
+
+Run verification against source, package graph, migrations, and
+runtime behavior. Runtime startup owns the capability/provider graph,
+loadability, ids, environment, and configuration. Builds own client imports;
+migration status and disposable rebuilds own schema state. App lint, tests,
+audit, browser checks, and CI own security, runtimes, and behavior.
+
+There is no supported `jskit doctor` command. Old CLI authoring-history
+warnings do not describe AI-first apps. Diagnose current contracts; never add
+metadata to satisfy an old tool.

@@ -1,1295 +1,445 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { createSchema } from "json-rest-schema";
-import { createContainer } from "@jskit-ai/kernel/_testable";
-import { ActionRuntimeServiceProvider } from "@jskit-ai/kernel/server/actions";
-import { installServiceRegistrationApi } from "@jskit-ai/kernel/server/runtime";
+
+import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
-function createApp() {
-  const app = createContainer();
-  app.singleton("domainEvents", () => ({
-    async publish() {
-      return null;
-    }
-  }));
-  installServiceRegistrationApi(app);
-  return app;
+function schema(fields = {}, mode = "patch") {
+  return { schema: createSchema(fields), mode };
 }
 
-function createEmptyInputSchema() {
-  return createSchema({});
+function createActions(definitions = []) {
+  const actions = createActionCatalogue();
+  actions.register({
+    contributorId: "test.tools",
+    domain: "demo",
+    actions: definitions
+  });
+  return actions;
 }
 
-function createListOutputSchema() {
-  return createSchema({
-    items: {
-      type: "array",
-      required: true,
-      items: {
-        type: "object",
-        additionalProperties: true
+function action({
+  id = "demo.books.list",
+  version = 1,
+  kind = "query",
+  channels = ["automation"],
+  surfaces = ["admin"],
+  permission = { require: "authenticated" },
+  input = schema({}),
+  output = schema({ ok: { type: "boolean", required: true } }),
+  extensions = {},
+  execute = async () => ({ ok: true })
+} = {}) {
+  return {
+    id,
+    version,
+    kind,
+    channels,
+    surfaces,
+    permission,
+    input,
+    output,
+    idempotency: "none",
+    extensions,
+    execute
+  };
+}
+
+test("assistant tools expose only automation actions allowed for the actor and surface", () => {
+  const actions = createActions([
+    action(),
+    action({
+      id: "demo.books.delete",
+      permission: { require: "all", permissions: ["books.delete"] }
+    }),
+    action({ id: "demo.books.internal", channels: ["internal"] }),
+    action({ id: "demo.books.other", surfaces: ["app"] })
+  ]);
+  const catalog = createServiceToolCatalog(actions);
+
+  assert.equal(catalog.resolveToolSet({ surface: "admin" }).tools.length, 0);
+  assert.deepEqual(
+    catalog.resolveToolSet({ actor: { id: "7" }, surface: "admin" }).tools.map((entry) => entry.actionId),
+    ["demo.books.list"]
+  );
+  assert.deepEqual(
+    catalog.resolveToolSet({
+      actor: { id: "7" },
+      permissions: ["books.delete"],
+      surface: "admin"
+    }).tools.map((entry) => entry.actionId),
+    ["demo.books.delete", "demo.books.list"]
+  );
+});
+
+test("assistant tools honor barred ids, prefixes, schemas, and explicit descriptions", () => {
+  const actions = createActions([
+    action({
+      id: "demo.books.list",
+      input: schema({ search: { type: "string", required: false } }),
+      extensions: { assistant: { description: "Search the catalogue." } }
+    }),
+    action({ id: "demo.books.delete" }),
+    action({ id: "system.health.read" })
+  ]);
+  const catalog = createServiceToolCatalog(actions, {
+    barredActionIds: ["demo.books.delete"],
+    skipActionPrefixes: ["system."]
+  });
+  const [tool] = catalog.resolveToolSet({ actor: { id: "7" }, surface: "admin" }).tools;
+
+  assert.equal(tool.actionId, "demo.books.list");
+  assert.equal(tool.description, "Search the catalogue.");
+  assert.equal(tool.parameters.properties.search.type, "string");
+  assert.equal(tool.outputSchema.properties.ok["x-json-rest-schema"].castType, "boolean");
+  assert.equal(catalog.toOpenAiToolSchema(tool).function.name, tool.name);
+});
+
+test("assistant tools require complete action or explicit assistant contracts", () => {
+  const actions = createActions([
+    action({ id: "demo.complete" }),
+    action({ id: "demo.no-output", output: null }),
+    action({
+      id: "demo.assistant-output",
+      output: null,
+      extensions: {
+        assistant: {
+          output: schema({ ok: { type: "boolean", required: true } }, "replace")
+        }
+      }
+    })
+  ]);
+  const tools = createServiceToolCatalog(actions)
+    .resolveToolSet({ actor: { id: "7" }, surface: "admin" })
+    .tools;
+
+  assert.deepEqual(tools.map((entry) => entry.actionId), ["demo.assistant-output", "demo.complete"]);
+});
+
+test("assistant-specific result transforms are validated against their explicit contract", async () => {
+  const actions = createActions([action({
+    id: "demo.books.transformed",
+    output: null,
+    extensions: {
+      assistant: {
+        output: schema({
+          id: { type: "string", required: true },
+          title: { type: "string", required: true }
+        }, "replace"),
+        transformResult(result) {
+          return {
+            id: result.data.id,
+            title: result.data.attributes.title
+          };
+        }
+      }
+    },
+    execute: async () => ({
+      data: {
+        id: "42",
+        attributes: { title: "Kindred" }
+      }
+    })
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+
+  assert.equal(toolSet.tools[0].outputSchema.properties.title.type, "string");
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: toolSet.tools[0].name,
+    context,
+    toolSet
+  }), {
+    ok: true,
+    result: { id: "42", title: "Kindred" }
+  });
+
+  const invalidCatalog = createServiceToolCatalog(createActions([action({
+    id: "demo.books.invalid-transform",
+    output: null,
+    extensions: {
+      assistant: {
+        output: schema({ title: { type: "string", required: true } }, "replace"),
+        transformResult() {
+          return {};
+        }
       }
     }
-  });
-}
-
-function createOkOutputSchema() {
-  return createSchema({
-    ok: {
-      type: "boolean",
-      required: true
+  })]));
+  const invalidToolSet = invalidCatalog.resolveToolSet(context);
+  assert.deepEqual(await invalidCatalog.executeToolCall({
+    toolName: invalidToolSet.tools[0].name,
+    context,
+    toolSet: invalidToolSet
+  }), {
+    ok: false,
+    error: {
+      code: "assistant_tool_output_invalid",
+      message: "Tool call failed.",
+      status: 500
     }
   });
-}
+});
 
-test("service tool catalog hides methods user cannot execute", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
+test("assistant tools hide workspaceSlug and overwrite model values with trusted workspace context", async () => {
+  let executed = null;
+  const actions = createActions([action({
+    input: schema({
+      workspaceSlug: { type: "string", required: true },
+      title: { type: "string", required: true }
+    }),
+    execute: async (input, context) => {
+      executed = { input, context };
+      return { ok: true };
+    }
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = {
+    actor: { id: "7" },
+    surface: "admin",
+    workspace: { slug: "library" }
+  };
+  const toolSet = catalog.resolveToolSet(context);
 
-  app.service(
-    "demo.customers.service",
-    () => ({
-      listRecords() {
-        return [];
-      },
-      deleteRecord() {
+  assert.equal(Object.hasOwn(toolSet.tools[0].parameters.properties, "workspaceSlug"), false);
+  const response = await catalog.executeToolCall({
+    toolName: toolSet.tools[0].name,
+    argumentsText: JSON.stringify({ workspaceSlug: "other", title: "Kindred" }),
+    context,
+    toolSet
+  });
+
+  assert.deepEqual(response, { ok: true, result: { ok: true } });
+  assert.deepEqual(executed.input, { workspaceSlug: "library", title: "Kindred" });
+  assert.equal(executed.context.channel, "automation");
+});
+
+test("large authorized catalogs use compact paged discovery, exact contracts, and gated execution", async () => {
+  const executions = [];
+  const workspaceInput = schema({
+    workspaceSlug: { type: "string", required: true },
+    q: { type: "string", required: false }
+  });
+  const definitions = [
+    action({
+      id: "demo.books.list",
+      input: workspaceInput,
+      execute: async (input, context) => {
+        executions.push({ input, context });
         return { ok: true };
       }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.customers.list",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        customersService: "demo.customers.service"
-      },
-      input: {
-        schema: createEmptyInputSchema()
-      },
-      output: {
-        schema: createListOutputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.customers.list"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.customersService.listRecords(input);
-      }
-    },
-    {
-      id: "demo.customers.delete",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "all",
-        permissions: ["customers.delete"]
-      },
-      dependencies: {
-        customersService: "demo.customers.service"
-      },
-      input: {
-        schema: createEmptyInputSchema()
-      },
-      output: {
-        schema: createOkOutputSchema()
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.customers.delete"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.customersService.deleteRecord(input);
-      }
-    }
-  ]);
-
-  const internalContext = {
-    channel: "internal",
-    surface: "admin"
-  };
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
+    }),
+    action({ id: "demo.books.view", input: workspaceInput }),
+    action({
+      id: "demo.books.delete",
+      permission: { require: "all", permissions: ["books.delete"] }
+    }),
+    action({ id: "demo.books.other-surface", surfaces: ["app"] }),
+    action({ id: "demo.books.internal", channels: ["internal"] })
+  ];
+  const catalog = createServiceToolCatalog(createActions(definitions), {
+    maxDirectTools: 1,
+    discoveryPageSize: 1
   });
-
-  const unauthenticatedTools = catalog.resolveToolSet({
-    ...internalContext,
-    permissions: []
-  }).tools;
-  assert.equal(unauthenticatedTools.length, 0);
-
-  const authenticatedTools = catalog.resolveToolSet({
-    ...internalContext,
-    actor: { id: 9 },
-    permissions: []
-  }).tools;
-  assert.equal(authenticatedTools.length, 1);
-  assert.equal(authenticatedTools[0].actionId, "demo.customers.list");
-
-  const privilegedTools = catalog.resolveToolSet({
-    ...internalContext,
-    actor: { id: 9 },
-    permissions: ["customers.delete"]
-  }).tools;
-  assert.equal(privilegedTools.length, 2);
-});
-
-test("service tool catalog does not expose non-action-backed service methods", async () => {
-  const app = createApp();
-
-  app.service(
-    "demo.profile.service",
-    () => ({
-      updateProfile(patch = {}, options = {}) {
-        return {
-          patch,
-          actorId: Number(options?.context?.actor?.id || 0),
-          source: String(options?.source || "")
-        };
-      }
-    })
-  );
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-
   const context = {
-    actor: {
-      id: 22
-    },
-    permissions: []
+    actor: { id: "7" },
+    surface: "admin",
+    workspace: { slug: "library" }
   };
   const toolSet = catalog.resolveToolSet(context);
-  assert.equal(toolSet.tools.length, 0);
 
-  const execution = await catalog.executeToolCall({
-    toolName: "demo_profile_service_updateprofile",
+  assert.deepEqual(toolSet.tools.map((entry) => entry.name), [
+    "assistant_action_search",
+    "assistant_action_contract",
+    "assistant_action_execute"
+  ]);
+
+  const firstPage = await catalog.executeToolCall({
+    toolName: "assistant_action_search",
+    argumentsText: JSON.stringify({ query: "books", limit: 1 }),
+    context,
+    toolSet
+  });
+  assert.equal(firstPage.ok, true);
+  assert.equal(firstPage.result.total, 2);
+  assert.equal(firstPage.result.items.length, 1);
+  assert.equal(Object.hasOwn(firstPage.result.items[0], "inputSchema"), false);
+  assert.equal(typeof firstPage.result.nextCursor, "string");
+
+  const secondPage = await catalog.executeToolCall({
+    toolName: "assistant_action_search",
     argumentsText: JSON.stringify({
-      args: [{ displayName: "Merc" }],
-      options: {
-        source: "assistant"
-      }
+      query: "books",
+      cursor: firstPage.result.nextCursor,
+      limit: 1
     }),
     context,
     toolSet
   });
+  assert.equal(secondPage.result.items.length, 1);
+  assert.equal(secondPage.result.nextCursor, null);
 
-  assert.equal(execution.ok, false);
-  assert.deepEqual(execution.error, {
-    code: "assistant_tool_unknown",
-    message: "Unknown tool."
-  });
-});
-
-test("service tool catalog hides actions that are not automation-enabled", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.non_automation.service",
-    () => ({
-      listRecords() {
-        return [];
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.non_automation.list",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["internal"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        nonAutomationService: "demo.non_automation.service"
-      },
-      input: {
-        schema: createSchema({})
-      },
-      output: {
-        schema: createListOutputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.non_automation.list"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.nonAutomationService.listRecords(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: [],
-    channel: "internal",
-    surface: "admin"
-  });
-
-  assert.equal(toolSet.tools.length, 0);
-});
-
-test("service tool catalog honors barred action ids", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.audit.service",
-    () => ({
-      listEntries() {
-        return [];
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.audit.list",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        auditService: "demo.audit.service"
-      },
-      input: {
-        schema: createEmptyInputSchema()
-      },
-      output: {
-        schema: createListOutputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.audit.list"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.auditService.listEntries(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: [],
-    barredActionIds: ["demo.audit.list"]
-  });
-
-  const toolSet = catalog.resolveToolSet({ actor: { id: 1 }, permissions: [], channel: "internal", surface: "admin" });
-  assert.equal(toolSet.tools.length, 0);
-});
-
-test("service tool catalog materializes action tools once and filters per request", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-  let factoryCalls = 0;
-
-  app.service(
-    "demo.cached.service",
-    () => {
-      factoryCalls += 1;
-      return {
-        listRecords() {
-          return [];
-        }
-      };
-    }
-  );
-
-  app.actions([
-    {
-      id: "demo.cached.list",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        cachedService: "demo.cached.service"
-      },
-      input: {
-        schema: createEmptyInputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.cached.list"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.cachedService.listRecords(input);
-      }
-    }
-  ]);
-
-  const internalContext = {
-    channel: "internal",
-    surface: "admin"
-  };
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-
-  assert.equal(factoryCalls, 0);
-
-  catalog.resolveToolSet({
-    ...internalContext,
-    permissions: []
-  });
-  catalog.resolveToolSet({
-    ...internalContext,
-    actor: { id: 1 },
-    permissions: []
-  });
-  catalog.resolveToolSet({
-    ...internalContext,
-    actor: { id: 2 },
-    permissions: ["demo.read"]
-  });
-
-  assert.equal(factoryCalls, 1);
-});
-
-test("service tool catalog uses action-backed schemas for tool contracts", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  const inputSchema = createSchema({
-    args: {
-      type: "array",
-      required: true,
-      minItems: 1,
-      maxItems: 1,
-      items: createSchema({
-        displayName: {
-          type: "string",
-          required: true
-        }
-      })
-    },
-    options: {
-      type: "object",
-      required: false,
-      additionalProperties: true
-    }
-  });
-  const outputSchema = createOkOutputSchema();
-
-  app.service(
-    "demo.schemas.service",
-    () => ({
-      updateRecord(payload = {}) {
-        return {
-          ok: Boolean(payload?.displayName)
-        };
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.schemas.update",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        schemasService: "demo.schemas.service"
-      },
-      input: {
-        schema: inputSchema
-      },
-      output: {
-        schema: outputSchema
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.schemas.update"
-      },
-      observability: {},
-      extensions: {
-        assistant: {
-          description: "Update profile display name."
-        }
-      },
-      async execute(input, _context, deps) {
-        return deps.schemasService.updateRecord(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: []
-  });
-
-  assert.equal(toolSet.tools.length, 1);
-  assert.equal(toolSet.tools[0].description, "Update profile display name.");
-  assert.deepEqual(toolSet.tools[0].parameters, inputSchema.toJsonSchema({ mode: "patch" }));
-  assert.deepEqual(toolSet.tools[0].outputSchema, outputSchema.toJsonSchema({ mode: "replace" }));
-});
-
-test("service tool catalog rejects unsupported assistantTool field at assistant layer", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.assistant_tool_shape.service",
-    () => ({
-      createWithAssistantToolField(input = {}) {
-        return {
-          ok: Boolean(input)
-        };
-      },
-      createWithAssistantExtension(input = {}) {
-        return {
-          ok: Boolean(input)
-        };
-      }
-    })
-  );
-
-  const schema = createEmptyInputSchema();
-  const outputSchema = createOkOutputSchema();
-
-  app.actions([
-    {
-      id: "demo.assistant_tool_shape.create",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        assistantToolShapeService: "demo.assistant_tool_shape.service"
-      },
-      input: {
-        schema
-      },
-      output: {
-        schema: outputSchema
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.assistant_tool_shape.create"
-      },
-      observability: {},
-      assistantTool: {
-        description: "Unsupported assistant tool metadata."
-      },
-      async execute(input, _context, deps) {
-        return deps.assistantToolShapeService.createWithAssistantToolField(input);
-      }
-    },
-    {
-      id: "demo.assistant_extension_shape.create",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        assistantToolShapeService: "demo.assistant_tool_shape.service"
-      },
-      input: {
-        schema
-      },
-      output: {
-        schema: outputSchema
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.assistant_extension_shape.create"
-      },
-      observability: {},
-      extensions: {
-        assistant: {
-          description: "Assistant extension metadata."
-        }
-      },
-      async execute(input, _context, deps) {
-        return deps.assistantToolShapeService.createWithAssistantExtension(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: []
-  });
-  const actionIds = toolSet.tools.map((tool) => tool.actionId).sort();
-
-  assert.deepEqual(actionIds, ["demo.assistant_extension_shape.create"]);
-});
-
-test("service tool catalog can require input/output schemas for tool exposure", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.strict.service",
-    () => ({
-      noSchema() {
-        return {
-          ok: true
-        };
-      },
-      withSchema() {
-        return {
-          ok: true
-        };
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.strict.with_schema",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        strictService: "demo.strict.service"
-      },
-      input: {
-        schema: createEmptyInputSchema()
-      },
-      output: {
-        schema: createOkOutputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.strict.with_schema"
-      },
-      observability: {},
-      async execute(_input, _context, deps) {
-        return deps.strictService.withSchema();
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: []
-  });
-
-  assert.equal(toolSet.tools.length, 1);
-  assert.equal(toolSet.tools[0].actionId, "demo.strict.with_schema");
-});
-
-test("service tool catalog derives tool schemas from action contributors", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  const inputSchema = createSchema({
-    workspaceSlug: {
-      type: "string",
-      required: false
-    },
-    name: {
-      type: "string",
-      required: false
-    },
-    surname: {
-      type: "string",
-      required: false
-    }
-  });
-  const outputSchema = createSchema({
-    id: {
-      type: "integer",
-      required: true
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: "assistant_action_contract",
+    argumentsText: JSON.stringify({ actionId: "demo.books.delete" }),
+    context,
+    toolSet
+  }), {
+    ok: false,
+    error: {
+      code: "assistant_action_unknown",
+      message: "Action is not available.",
+      status: 404
     }
   });
 
-  app.service(
-    "demo.customers.service",
-    () => ({
-      createRecord(payload = {}) {
-        return {
-          id: 1,
-          ...payload
-        };
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.customers.create",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        customersService: "demo.customers.service"
-      },
-      input: {
-        schema: inputSchema
-      },
-      output: {
-        schema: outputSchema
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.customers.create"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.customersService.createRecord(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: {
-      id: 1
-    },
-    permissions: []
-  });
-  const createTool = toolSet.tools.find((tool) => tool.actionId === "demo.customers.create");
-
-  assert.ok(createTool);
-  assert.deepEqual(createTool.parameters, inputSchema.toJsonSchema({ mode: "patch" }));
-  assert.deepEqual(createTool.outputSchema, outputSchema.toJsonSchema({ mode: "replace" }));
-});
-
-test("service tool catalog derives input schema from a composed action schema", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.array_schema.service",
-    () => ({
-      createRecord(payload = {}) {
-        return {
-          id: 1,
-          ...payload
-        };
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.array_schema.create",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        arraySchemaService: "demo.array_schema.service"
-      },
-      input: {
-        schema: createSchema({
-          workspaceSlug: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          surname: {
-            type: "string",
-            required: true,
-            minLength: 1
-          }
-        })
-      },
-      output: {
-        schema: createSchema({
-          id: {
-            type: "integer",
-            required: true
-          },
-          payload: {
-            type: "object",
-            required: true
-          }
-        })
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.array_schema.create"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.arraySchemaService.createRecord(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: {
-      id: 1
-    },
-    permissions: [],
-    channel: "internal",
-    surface: "admin"
-  });
-  const createTool = toolSet.tools.find((tool) => tool.actionId === "demo.array_schema.create");
-
-  assert.ok(createTool);
-  assert.equal(createTool.parameters?.type, "object");
-  assert.equal(typeof createTool.parameters?.properties?.workspaceSlug, "object");
-  assert.equal(typeof createTool.parameters?.properties?.name, "object");
-  assert.equal(typeof createTool.parameters?.properties?.surname, "object");
-});
-
-test("service tool catalog derives direct tool schemas from composed action inputs", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.workspace_settings.service",
-    () => ({
-      updateSettings(input = {}) {
-        return input;
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.workspace.settings.update",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        workspaceSettingsService: "demo.workspace_settings.service"
-      },
-      input: {
-        schema: createSchema({
-          workspaceSlug: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1
-          }
-        })
-      },
-      output: {
-        schema: createSchema({
-          ok: {
-            type: "boolean",
-            required: true
-          }
-        })
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.workspace.settings.update"
-      },
-      observability: {},
-      extensions: {
-        assistant: {}
-      },
-      async execute(input, _context, deps) {
-        const result = deps.workspaceSettingsService.updateSettings(input);
-        return {
-          ok: Boolean(result)
-        };
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: [],
-    channel: "internal",
-    surface: "admin",
-    requestMeta: {
-      resolvedWorkspaceContext: {
-        workspace: {
-          slug: "tonymobily3"
-        }
-      }
-    }
-  });
-  const updateTool = toolSet.tools.find((tool) => tool.actionId === "demo.workspace.settings.update");
-
-  assert.ok(updateTool);
-  assert.equal(updateTool.parameters?.type, "object");
-  assert.equal(Object.hasOwn(updateTool.parameters?.properties || {}, "workspaceSlug"), false);
-  assert.equal(typeof updateTool.parameters?.properties?.name, "object");
-});
-
-test("service tool catalog hides workspaceSlug parameter when workspace context is already resolved", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.workspace_scope.service",
-    () => ({
-      createRecord(payload = {}) {
-        return payload;
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.workspace_scope.create",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        workspaceScopeService: "demo.workspace_scope.service"
-      },
-      input: {
-        schema: createSchema({
-          workspaceSlug: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1
-          }
-        })
-      },
-      output: {
-        schema: createSchema({
-          workspaceSlug: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1
-          }
-        })
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.workspace_scope.create"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.workspaceScopeService.createRecord(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const toolSet = catalog.resolveToolSet({
-    actor: {
-      id: 1
-    },
-    permissions: [],
-    channel: "internal",
-    surface: "admin",
-    requestMeta: {
-      resolvedWorkspaceContext: {
-        workspace: {
-          slug: "tonymobily3"
-        }
-      }
-    }
-  });
-  const createTool = toolSet.tools.find(
-    (tool) => tool.actionId === "demo.workspace_scope.create"
-  );
-
-  assert.ok(createTool);
-  assert.equal(Object.hasOwn(createTool.parameters.properties, "workspaceSlug"), false);
-  assert.equal(typeof createTool.parameters.properties.name, "object");
-});
-
-test("service tool catalog injects workspaceSlug from requestMeta request params", async () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.workspace_injection.service",
-    () => ({
-      createRecord(payload = {}) {
-        return payload;
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.workspace_injection.create",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        workspaceInjectionService: "demo.workspace_injection.service"
-      },
-      input: {
-        schema: createSchema({
-          workspaceSlug: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1
-          }
-        })
-      },
-      output: {
-        schema: createSchema({
-          workspaceSlug: {
-            type: "string",
-            required: true,
-            minLength: 1
-          },
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1
-          }
-        })
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.workspace_injection.create"
-      },
-      observability: {},
-      async execute(input, _context, deps) {
-        return deps.workspaceInjectionService.createRecord(input);
-      }
-    }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
-  });
-  const context = {
-    actor: {
-      id: 1
-    },
-    permissions: [],
-    channel: "internal",
-    surface: "admin",
-    requestMeta: {
-      request: {
-        input: {
-          params: {
-            workspaceSlug: "tonymobily3"
-          }
-        }
-      }
-    }
-  };
-  const toolSet = catalog.resolveToolSet(context);
-  const createTool = toolSet.tools.find(
-    (tool) => tool.actionId === "demo.workspace_injection.create"
-  );
-  assert.ok(createTool);
-
-  const execution = await catalog.executeToolCall({
-    toolName: createTool.name,
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: "assistant_action_execute",
     argumentsText: JSON.stringify({
-      name: "Merc"
+      actionId: "demo.books.list",
+      version: 1,
+      input: { workspaceSlug: "other", q: "octavia" }
     }),
     context,
     toolSet
-  });
-
-  assert.equal(execution.ok, true);
-  assert.deepEqual(execution.result, {
-    workspaceSlug: "tonymobily3",
-    name: "Merc"
-  });
-});
-
-test("service tool catalog executes action-backed tools with object payloads", async () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.service(
-    "demo.customers.service",
-    () => ({
-      updateRecord(recordId, payload = {}) {
-        return {
-          id: Number(recordId),
-          payload
-        };
-      }
-    })
-  );
-
-  app.actions([
-    {
-      id: "demo.customers.update",
-      domain: "demo",
-      version: 1,
-      kind: "command",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      dependencies: {
-        customersService: "demo.customers.service"
-      },
-      input: {
-        schema: createSchema({
-          recordId: {
-            type: "integer",
-            required: true,
-            min: 1
-          },
-          name: {
-            type: "string"
-          }
-        })
-      },
-      output: {
-        schema: createSchema({
-          id: {
-            type: "integer",
-            required: true
-          },
-          payload: {
-            type: "object",
-            required: true
-          }
-        })
-      },
-      idempotency: "optional",
-      audit: {
-        actionName: "demo.customers.update"
-      },
-      observability: {},
-      async execute(input, context, deps) {
-        const { recordId, ...patch } = input;
-        return deps.customersService.updateRecord(recordId, patch, {
-          context
-        });
-      }
+  }), {
+    ok: false,
+    error: {
+      code: "assistant_action_contract_required",
+      message: "Load this action's exact contract before executing it.",
+      status: 409
     }
-  ]);
-
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
   });
-  const context = {
-    actor: {
-      id: 1
-    },
-    permissions: [],
-    channel: "internal",
-    surface: "admin"
-  };
-  const toolSet = catalog.resolveToolSet(context);
-  const updateTool = toolSet.tools.find((tool) => tool.actionId === "demo.customers.update");
-  assert.ok(updateTool);
 
-  const execution = await catalog.executeToolCall({
-    toolName: updateTool.name,
-    argumentsText: JSON.stringify({
-      recordId: 7,
-      name: "Merc"
-    }),
+  const contract = await catalog.executeToolCall({
+    toolName: "assistant_action_contract",
+    argumentsText: JSON.stringify({ actionId: "demo.books.list", version: 1 }),
     context,
     toolSet
   });
+  assert.equal(contract.ok, true);
+  assert.equal(contract.result.actionId, "demo.books.list");
+  assert.equal(Object.hasOwn(contract.result.inputSchema.properties, "workspaceSlug"), false);
+  assert.equal(contract.result.outputSchema.properties.ok["x-json-rest-schema"].castType, "boolean");
 
-  assert.equal(execution.ok, true);
-  assert.deepEqual(execution.result, {
-    id: 7,
-    payload: {
-      name: "Merc"
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: "assistant_action_execute",
+    argumentsText: JSON.stringify({
+      actionId: "demo.books.list",
+      version: 1,
+      input: { workspaceSlug: "other", q: "octavia" }
+    }),
+    context,
+    toolSet
+  }), {
+    ok: true,
+    result: {
+      actionId: "demo.books.list",
+      version: 1,
+      result: { ok: true }
+    }
+  });
+  assert.deepEqual(executions[0].input, {
+    workspaceSlug: "library",
+    q: "octavia"
+  });
+  assert.equal(executions[0].context.channel, "automation");
+});
+
+test("discovery pages and persisted tool results stay within configured bounds", async () => {
+  const definitions = Array.from({ length: 25 }, (_, index) => action({
+    id: `demo.items.action-${String(index + 1).padStart(2, "0")}`
+  }));
+  const discoveryCatalog = createServiceToolCatalog(createActions(definitions), {
+    maxDirectTools: 1
+  });
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const discoveryToolSet = discoveryCatalog.resolveToolSet(context);
+  const page = await discoveryCatalog.executeToolCall({
+    toolName: "assistant_action_search",
+    argumentsText: JSON.stringify({ limit: 100 }),
+    context,
+    toolSet: discoveryToolSet
+  });
+  assert.equal(page.ok, true);
+  assert.equal(page.result.items.length, 20);
+  assert.equal(typeof page.result.nextCursor, "string");
+
+  const largeContractFields = Object.fromEntries(
+    Array.from({ length: 30 }, (_, index) => [
+      `field${index}`,
+      { type: "string", required: false, description: "x".repeat(40) }
+    ])
+  );
+  const contractCatalog = createServiceToolCatalog(createActions([action({
+    id: "demo.large.contract",
+    input: schema(largeContractFields)
+  })]), {
+    maxDirectTools: 0,
+    maxToolResultBytes: 500
+  });
+  const contractToolSet = contractCatalog.resolveToolSet(context);
+  assert.deepEqual(await contractCatalog.executeToolCall({
+    toolName: "assistant_action_contract",
+    argumentsText: JSON.stringify({ actionId: "demo.large.contract" }),
+    context,
+    toolSet: contractToolSet
+  }), {
+    ok: false,
+    error: {
+      code: "assistant_tool_contract_too_large",
+      message: "Action contract exceeds the assistant size limit. Narrow the request and try again.",
+      status: 413
+    }
+  });
+
+  const resultCatalog = createServiceToolCatalog(createActions([action({
+    id: "demo.large.read",
+    output: schema({ value: { type: "string", required: true } }, "replace"),
+    execute: async () => ({ value: "x".repeat(1000) })
+  })]), {
+    maxToolResultBytes: 200
+  });
+  const resultToolSet = resultCatalog.resolveToolSet(context);
+  assert.deepEqual(await resultCatalog.executeToolCall({
+    toolName: resultToolSet.tools[0].name,
+    context,
+    toolSet: resultToolSet
+  }), {
+    ok: false,
+    error: {
+      code: "assistant_tool_result_too_large",
+      message: "Tool result exceeds the assistant size limit. Narrow the request and try again.",
+      status: 413
     }
   });
 });
 
-test("service tool catalog hides automation actions from other surfaces", () => {
-  const app = createApp();
-  const actionRuntimeProvider = new ActionRuntimeServiceProvider();
-  actionRuntimeProvider.register(app);
-
-  app.actions([
-    {
-      id: "demo.admin.list",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["automation"],
-      surfaces: ["admin"],
-      permission: {
-        require: "authenticated"
-      },
-      input: {
-        schema: createSchema({})
-      },
-      output: {
-        schema: createListOutputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.admin.list"
-      },
-      observability: {},
-      async execute() {
-        return [];
-      }
-    },
-    {
-      id: "demo.console.list",
-      domain: "demo",
-      version: 1,
-      kind: "query",
-      channels: ["automation"],
-      surfaces: ["console"],
-      permission: {
-        require: "authenticated"
-      },
-      input: {
-        schema: createSchema({})
-      },
-      output: {
-        schema: createListOutputSchema()
-      },
-      idempotency: "none",
-      audit: {
-        actionName: "demo.console.list"
-      },
-      observability: {},
-      async execute() {
-        return [];
-      }
+test("assistant tools reject unknown tools and return safe action failures", async () => {
+  const actions = createActions([action({
+    execute: async () => {
+      const error = new Error("Database exploded with secret detail.");
+      error.statusCode = 500;
+      error.code = "DATABASE_FAILED";
+      throw error;
     }
-  ]);
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
 
-  const catalog = createServiceToolCatalog(app, {
-    skipActionPrefixes: []
+  assert.deepEqual(await catalog.executeToolCall({ toolName: "missing", context, toolSet }), {
+    ok: false,
+    error: { code: "assistant_tool_unknown", message: "Unknown tool." }
   });
-
-  const adminToolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: [],
-    channel: "internal",
-    surface: "admin"
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: toolSet.tools[0].name,
+    context,
+    toolSet
+  }), {
+    ok: false,
+    error: { code: "DATABASE_FAILED", message: "Tool call failed.", status: 500 }
   });
-  const consoleToolSet = catalog.resolveToolSet({
-    actor: { id: 1 },
-    permissions: [],
-    channel: "internal",
-    surface: "console"
-  });
-
-  assert.deepEqual(adminToolSet.tools.map((entry) => entry.actionId), ["demo.admin.list"]);
-  assert.deepEqual(consoleToolSet.tools.map((entry) => entry.actionId), ["demo.console.list"]);
 });

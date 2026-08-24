@@ -1,73 +1,37 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { UploadsRuntimeServiceProvider } from "../src/server/providers/UploadsRuntimeServiceProvider.js";
+import test from "node:test";
 
-function createAppStub({ hasFastify = true, fastify = null } = {}) {
-  const singletons = new Map();
-  const singletonInstances = new Map();
-  const resolvedFastify =
-    fastify ||
-    {
-      register: async () => {},
-      hasContentTypeParser: () => false
-    };
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { UploadsProvider } from "../src/server/providers/UploadsProvider.js";
 
-  return {
-    has(token) {
-      if (token === "jskit.fastify") {
-        return hasFastify;
-      }
-      return singletons.has(token) || singletonInstances.has(token);
+test("UploadsProvider provides upload operations and boots multipart support", async () => {
+  let registerCount = 0;
+  let uploads;
+  const fastify = {
+    async register() {
+      registerCount += 1;
     },
-    singleton(token, factory) {
-      singletons.set(token, factory);
-    },
-    make(token) {
-      if (token === "jskit.fastify") {
-        return resolvedFastify;
-      }
-      if (singletonInstances.has(token)) {
-        return singletonInstances.get(token);
-      }
-      const factory = singletons.get(token);
-      if (!factory) {
-        throw new Error(`Unknown token ${String(token)}`);
-      }
-      const instance = factory(this);
-      singletonInstances.set(token, instance);
-      return instance;
+    hasContentTypeParser() {
+      return false;
     }
   };
-}
-
-test("UploadsRuntimeServiceProvider registers runtime uploads api", async () => {
-  const app = createAppStub();
-  const provider = new UploadsRuntimeServiceProvider();
-
-  provider.register(app);
-
-  assert.equal(app.has("runtime.uploads"), true);
-  const runtimeUploads = app.make("runtime.uploads");
-  assert.equal(typeof runtimeUploads.registerMultipartSupport, "function");
-  assert.equal(typeof runtimeUploads.readSingleMultipartFile, "function");
-  assert.equal(typeof runtimeUploads.createUploadStorageService, "function");
-});
-
-test("UploadsRuntimeServiceProvider boots multipart support once", async () => {
-  let registerCount = 0;
-  const app = createAppStub({
-    fastify: {
-      register: async () => {
-        registerCount += 1;
-      },
-      hasContentTypeParser: () => false
+  const consumer = defineProvider({
+    id: "test.uploads.consumer",
+    requires: { value: "runtime.uploads" },
+    setup({ value }) {
+      uploads = value;
+      return {};
     }
   });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.fastify": fastify },
+    providers: [UploadsProvider, consumer]
+  });
 
-  const provider = new UploadsRuntimeServiceProvider();
-  provider.register(app);
-  await provider.boot(app);
-  await provider.boot(app);
-
+  await runtime.start();
   assert.equal(registerCount, 1);
+  assert.equal(typeof uploads.readSingleMultipartFile, "function");
+  assert.equal(typeof uploads.createUploadStorageService, "function");
+  assert.equal(Object.hasOwn(uploads, "make"), false);
+  await runtime.shutdown();
 });

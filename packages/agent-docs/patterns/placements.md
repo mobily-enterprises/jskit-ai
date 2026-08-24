@@ -45,8 +45,8 @@ Placement topology:
 - Every variant needs an `outlet: "host:position"`.
 - Variant `renderers` maps semantic `kind` values to component tokens, for example `renderers: { link: "local.main.ui.surface-aware-menu-link-item" }`.
 - Renderer choice for semantic `kind: "link"` placements belongs in topology, not in each placement entry.
-- `default: true` marks the fallback semantic placement that page generators use when no nearer host applies.
-- Package topology is discovered too, but app topology with the same `id` and `owner` overrides package topology in CLI discovery.
+- `default: true` marks the fallback semantic placement that app-owned pages use when no nearer host applies.
+- Package topology is discovered too, but app topology with the same `id` and `owner` overrides package topology.
 
 Runtime behavior:
 
@@ -62,21 +62,23 @@ Runtime behavior:
 - On medium and expanded layouts, closing the standard drawer produces an 80px Material navigation rail by default. Expanded and collapsed icons share one centreline. Use `railWidth` to configure an intentionally denser rail, or `desktopDrawerClosedMode="hidden"` only when another discoverable navigation surface exists.
 - The shell link renderers own rail centring, selected-state treatment, and opaque theme-aware tooltips. Applications should keep supplying the same semantic placement records rather than creating rail-only links or tooltip CSS.
 
-CLI and generators:
+Authoring and inspection:
 
-- `jskit list-placements` shows semantic placements by default.
-- `jskit list-placements --concrete` shows concrete `ShellOutlet` recipients.
-- `jskit list-placements --all` shows both.
-- `jskit list-placements --json` returns structured semantic and concrete placement data.
-- `ui-generator page`, CRUD UI list generation, and assistant page generation target semantic placements.
-- `--link-placement` for generated pages is a semantic placement id, not a concrete outlet id.
-- If a generated page is under a parent host with a mapped `ShellOutlet`, the generator infers the semantic placement and owner from topology.
-- `ui-generator add-subpages` upgrades a page into a routed child-page host and appends a `page.section-nav` topology entry for the generated concrete outlet.
-- `ui-generator outlet` injects a plain concrete `ShellOutlet` and appends the semantic topology mapping in the same command.
-- `ui-generator page` and `crud-ui-generator crud` accept `--navigation-role` so detail, workflow, and utility routes do not accidentally become primary navigation.
+- Read package placement contributions and the app's `src/placement.js` and
+  `src/placementTopology.js` directly; they are the complete current state.
+- Source patterns for pages, CRUD UI, and assistant UI target semantic
+  placements rather than concrete outlets.
+- A page under a parent host with a mapped `ShellOutlet` should use the
+  topology's semantic placement and owner.
+- Upgrading a page into a routed child-page host includes a
+  `page.section-nav` topology entry for its concrete outlet in the same change.
+- Adding a concrete `ShellOutlet` includes its semantic topology mapping in the
+  same change.
+- Detail, workflow, and utility routes should not accidentally become primary
+  navigation entries.
 - `page.supporting-content` is the default semantic place for supporting detail/content overlays. The default shell maps it to a closed compact bottom sheet and a closed medium/expanded side panel.
 - When adding a public concrete outlet by hand, add its semantic topology mapping in the same change.
-- If `jskit list-placements` reports unmapped concrete outlets, either add semantic topology for them or keep those outlets private/internal.
+- Keep every public concrete outlet mapped by semantic topology; otherwise keep it private/internal.
 
 Rules:
 

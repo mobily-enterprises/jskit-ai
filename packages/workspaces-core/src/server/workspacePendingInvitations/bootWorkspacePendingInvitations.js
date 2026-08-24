@@ -24,12 +24,10 @@ function resolveInviteResolutionRecordId(record = {}) {
   return "workspace-invitation";
 }
 
-function bootWorkspacePendingInvitations(app) {
-  if (!app || typeof app.make !== "function") {
-    throw new Error("bootWorkspacePendingInvitations requires application make().");
+function registerWorkspacePendingInvitationsRoutes(router) {
+  if (!router || typeof router.register !== "function") {
+    throw new TypeError("registerWorkspacePendingInvitationsRoutes requires router.register().");
   }
-
-  const router = app.make("jskit.http.router");
 
   router.register(
     "GET",
@@ -110,4 +108,4 @@ function bootWorkspacePendingInvitations(app) {
   );
 }
 
-export { bootWorkspacePendingInvitations };
+export { registerWorkspacePendingInvitationsRoutes };

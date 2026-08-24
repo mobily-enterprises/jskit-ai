@@ -8,7 +8,7 @@ Use when:
 
 Rules:
 
-- Before generating a child CRUD, ask how the user wants the child records laid out.
+- Before authoring a child CRUD, ask how the user wants the child records laid out.
 - Do not assume one layout pattern by default.
 
 Clarify these options:
@@ -22,9 +22,9 @@ Clarify these options:
 
 Why this matters:
 
-- the answer changes route structure, placements, host containers, and which generator flow fits best
+- the answer changes route structure, placements, host containers, and which source pattern fits best
 - child CRUD layout mistakes are expensive to unwind later
 
 Avoid:
 
-- generating nested CRUD routes before the parent/child layout is agreed
+- authoring nested CRUD routes before the parent/child layout is agreed

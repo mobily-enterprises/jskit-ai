@@ -1,4 +1,3 @@
-import { createProviderRuntimeFromApp } from "./providerRuntime.js";
 import { matchesPathPrefix, normalizePathname } from "../../shared/surface/paths.js";
 
 function toRequestPathname(urlValue) {
@@ -129,22 +128,9 @@ function resolveRuntimeProfileFromSurface({
   return "";
 }
 
-async function tryCreateProviderRuntimeFromApp(options = {}) {
-  try {
-    return await createProviderRuntimeFromApp(options);
-  } catch (error) {
-    const message = String(error?.message || "");
-    if (message.includes("Lock file not found:")) {
-      return null;
-    }
-    throw error;
-  }
-}
-
 export {
   toRequestPathname,
   shouldServePathForSurface,
   registerSurfaceRequestConstraint,
-  resolveRuntimeProfileFromSurface,
-  tryCreateProviderRuntimeFromApp
+  resolveRuntimeProfileFromSurface
 };

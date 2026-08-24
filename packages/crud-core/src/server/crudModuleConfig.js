@@ -1,25 +1,19 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
-  normalizeCrudNamespace,
   requireCrudNamespace
 } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
-import {
-  resolveScopedApiBasePath
-} from "@jskit-ai/kernel/shared/surface";
 import {
   ROUTE_VISIBILITY_TOKENS,
   checkRouteVisibility,
   isWorkspaceRouteVisibility
 } from "@jskit-ai/kernel/shared/support/visibility";
 
-const DEFAULT_OWNERSHIP_FILTER = "workspace";
 const CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO = "auto";
 const CRUD_REQUESTED_OWNERSHIP_FILTER_SET = new Set([
   ...ROUTE_VISIBILITY_TOKENS,
   CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO
 ]);
-const CRUD_MODULE_ID = "crud";
 const WORKSPACE_CAPABLE_TENANCY_MODES = new Set(["personal", "workspaces"]);
 
 function asRecord(value) {
@@ -28,15 +22,6 @@ function asRecord(value) {
   }
 
   return value;
-}
-
-function normalizeCrudOwnershipFilter(value, { fallback = DEFAULT_OWNERSHIP_FILTER } = {}) {
-  const normalizedValue = normalizeText(value).toLowerCase();
-  const normalizedFallback = normalizeText(fallback).toLowerCase();
-  const resolved = normalizedValue || normalizedFallback;
-  return checkRouteVisibility(resolved, {
-    context: "normalizeCrudOwnershipFilter ownershipFilter"
-  });
 }
 
 function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO } = {}) {
@@ -53,15 +38,10 @@ function normalizeCrudRequestedOwnershipFilter(value, { fallback = CRUD_REQUESTE
   return CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO;
 }
 
-function resolveCrudNamespacePath(namespace = "") {
-  const normalizedNamespace = requireCrudNamespace(namespace, {
-    context: "resolveCrudNamespacePath"
-  });
-  return `/${normalizedNamespace}`;
-}
-
 function resolveCrudRelativePath(namespace = "") {
-  return resolveCrudNamespacePath(namespace);
+  return `/${requireCrudNamespace(namespace, {
+    context: "resolveCrudRelativePath"
+  })}`;
 }
 
 function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSurfacePolicy" } = {}) {
@@ -73,71 +53,6 @@ function normalizeCrudRelativePath(relativePath = "", { context = "resolveCrudSu
   const withLeadingSlash = normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
   const compacted = withLeadingSlash.replace(/\/{2,}/g, "/");
   return compacted === "/" ? "/" : compacted.replace(/\/+$/, "") || "/";
-}
-
-function resolveCrudApiBasePath({ namespace = "", surfaceRequiresWorkspace = false } = {}) {
-  const relativePath = resolveCrudRelativePath(namespace);
-  return resolveScopedApiBasePath({
-    routeBase: surfaceRequiresWorkspace === true ? "/w/:workspaceSlug" : "/",
-    relativePath,
-    strictParams: false
-  });
-}
-
-function resolveCrudTableName(namespace = "") {
-  const normalizedNamespace = requireCrudNamespace(namespace, {
-    context: "resolveCrudTableName"
-  });
-  return `crud_${normalizedNamespace.replace(/-/g, "_")}`;
-}
-
-function resolveCrudTokenPart(namespace = "") {
-  const normalizedNamespace = requireCrudNamespace(namespace, {
-    context: "resolveCrudTokenPart"
-  });
-  return normalizedNamespace.replace(/-/g, "_");
-}
-
-function resolveCrudActionIdPrefix(namespace = "") {
-  const tokenPart = resolveCrudTokenPart(namespace);
-  return `crud.${tokenPart}`;
-}
-
-function resolveCrudContributorId(namespace = "") {
-  const tokenPart = resolveCrudTokenPart(namespace);
-  return `crud.${tokenPart}`;
-}
-
-function resolveCrudDomain(namespace = "") {
-  return "crud";
-}
-
-function resolveCrudToken(namespace = "", suffix = "") {
-  const contributorId = resolveCrudContributorId(namespace);
-  return suffix ? `${contributorId}.${suffix}` : contributorId;
-}
-
-function resolveCrudConfig(source = {}) {
-  const settings = source && typeof source === "object" && !Array.isArray(source) ? source : {};
-  const namespace = requireCrudNamespace(settings.namespace, {
-    context: "resolveCrudConfig"
-  });
-  const ownershipFilter = normalizeCrudOwnershipFilter(settings.ownershipFilter);
-
-  return Object.freeze({
-    namespace,
-    ownershipFilter,
-    workspaceScoped: isWorkspaceRouteVisibility(ownershipFilter),
-    namespacePath: resolveCrudNamespacePath(namespace),
-    relativePath: resolveCrudRelativePath(namespace),
-    apiBasePath: resolveCrudApiBasePath({ namespace }),
-    tableName: resolveCrudTableName(namespace),
-    actionIdPrefix: resolveCrudActionIdPrefix(namespace),
-    contributorId: resolveCrudContributorId(namespace),
-    domain: resolveCrudDomain(namespace),
-    repositoryToken: resolveCrudToken(namespace, "repository"),
-    serviceToken: resolveCrudToken(namespace, "service")
-  });
 }
 
 function normalizeSurfaceDefinitions(sourceDefinitions = {}) {
@@ -254,70 +169,13 @@ function resolveCrudSurfacePolicyFromAppConfig(sourceConfig = {}, appConfig = {}
   }
 }
 
-function resolveCrudConfigsFromModules(modulesSource = {}) {
-  const modules = modulesSource && typeof modulesSource === "object" && !Array.isArray(modulesSource)
-    ? modulesSource
-    : {};
-  const configs = [];
-  const seenContributorIds = new Set();
-
-  for (const moduleConfig of Object.values(modules)) {
-    const source = moduleConfig && typeof moduleConfig === "object" && !Array.isArray(moduleConfig)
-      ? moduleConfig
-      : {};
-
-    if (normalizeText(source.module).toLowerCase() !== CRUD_MODULE_ID) {
-      continue;
-    }
-
-    const resolved = resolveCrudConfig(source);
-    if (seenContributorIds.has(resolved.contributorId)) {
-      throw new Error(`Duplicate CRUD namespace in config.modules: "${resolved.namespace}".`);
-    }
-    seenContributorIds.add(resolved.contributorId);
-    configs.push(resolved);
-  }
-
-  return configs;
-}
-
-function resolveCrudConfigFromModules(modulesSource = {}, options = {}) {
-  const configs = resolveCrudConfigsFromModules(modulesSource);
-  const hasNamespace = Object.hasOwn(options, "namespace");
-  if (hasNamespace) {
-    const normalizedNamespace = requireCrudNamespace(options.namespace, {
-      context: "resolveCrudConfigFromModules"
-    });
-    return configs.find((entry) => entry.namespace === normalizedNamespace) || null;
-  }
-
-  if (configs.length === 1) {
-    return configs[0];
-  }
-
-  return null;
-}
-
 export {
-  CRUD_MODULE_ID,
-  DEFAULT_OWNERSHIP_FILTER,
   CRUD_REQUESTED_OWNERSHIP_FILTER_AUTO,
-  normalizeCrudNamespace,
-  normalizeCrudOwnershipFilter,
   normalizeCrudRequestedOwnershipFilter,
   isWorkspaceRouteVisibility,
   requireCrudNamespace,
-  resolveCrudNamespacePath,
   resolveCrudRelativePath,
   normalizeCrudRelativePath,
-  resolveCrudApiBasePath,
-  resolveCrudTableName,
-  resolveCrudActionIdPrefix,
-  resolveCrudContributorId,
-  resolveCrudDomain,
-  resolveCrudConfig,
   resolveCrudSurfacePolicy,
-  resolveCrudSurfacePolicyFromAppConfig,
-  resolveCrudConfigsFromModules,
-  resolveCrudConfigFromModules
+  resolveCrudSurfacePolicyFromAppConfig
 };

@@ -14,11 +14,26 @@ import {
 } from "../src/client/lib/theme.js";
 
 function createVuetifyThemeController(initialTheme = "light") {
+  const name = {
+    value: initialTheme
+  };
+  const changeCalls = [];
   return {
+    changeCalls,
+    name,
     global: {
       name: {
-        value: initialTheme
+        get value() {
+          return name.value;
+        },
+        set value(_nextTheme) {
+          throw new Error("Deprecated theme.global.name mutation was used.");
+        }
       }
+    },
+    change(nextTheme) {
+      changeCalls.push(nextTheme);
+      name.value = nextTheme;
     },
     themes: {
       value: {
@@ -162,5 +177,6 @@ test("setVuetifyThemeName updates only when the value changes", () => {
 
   assert.equal(setVuetifyThemeName(themeController, "light"), false);
   assert.equal(setVuetifyThemeName(themeController, "dark"), true);
-  assert.equal(themeController.global.name.value, "dark");
+  assert.deepEqual(themeController.changeCalls, ["dark"]);
+  assert.equal(themeController.name.value, "dark");
 });

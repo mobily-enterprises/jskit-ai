@@ -35,7 +35,7 @@ function pickPatchFields(source = {}) {
   return patch;
 }
 
-function createDefaultWorkspaceSettingsCreatePayload(workspaceId) {
+function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled) {
   const palettes = resolveWorkspaceThemePalettes({});
 
   return {
@@ -48,11 +48,11 @@ function createDefaultWorkspaceSettingsCreatePayload(workspaceId) {
     darkSecondaryColor: palettes.dark.secondaryColor,
     darkSurfaceColor: palettes.dark.surfaceColor,
     darkSurfaceVariantColor: palettes.dark.surfaceVariantColor,
-    invitesEnabled: true
+    invitesEnabled: defaultInvitesEnabled
   };
 }
 
-function createRepository({ api, knex } = {}) {
+function createRepository({ api, knex, defaultInvitesEnabled = true } = {}) {
   if (!api?.resources?.workspaceSettings) {
     throw new TypeError("workspaceSettingsRepository requires json-rest-api workspaceSettings resource.");
   }
@@ -103,7 +103,7 @@ function createRepository({ api, knex } = {}) {
         {
           inputRecord: createJsonApiInputRecord(
             RESOURCE_TYPE,
-            createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId),
+            createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaultInvitesEnabled === true),
             {
               id: normalizedWorkspaceId
             }

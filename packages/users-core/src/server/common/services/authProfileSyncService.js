@@ -64,7 +64,11 @@ function normalizeLifecycleContributors(entries = []) {
   );
 }
 
-function createService({ userProfilesRepository, lifecycleContributors = [], userSettingsRepository = null } = {}) {
+function createService({
+  userProfilesRepository,
+  resolveLifecycleContributors = () => [],
+  userSettingsRepository = null
+} = {}) {
   if (!userProfilesRepository || typeof userProfilesRepository.findByIdentity !== "function") {
     throw new Error("authProfileSyncService requires userProfilesRepository.findByIdentity().");
   }
@@ -78,7 +82,9 @@ function createService({ userProfilesRepository, lifecycleContributors = [], use
     throw new Error("authProfileSyncService requires userSettingsRepository.ensureForUserId().");
   }
 
-  const normalizedLifecycleContributors = normalizeLifecycleContributors(lifecycleContributors);
+  if (typeof resolveLifecycleContributors !== "function") {
+    throw new Error("authProfileSyncService requires resolveLifecycleContributors().");
+  }
 
   async function findByIdentity(identityLike, options = {}) {
     const normalized = buildNormalizedIdentityKey(identityLike);
@@ -107,6 +113,7 @@ function createService({ userProfilesRepository, lifecycleContributors = [], use
 
   async function syncIdentityProfile(profileLike, options = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
+    const lifecycleContributors = normalizeLifecycleContributors(resolveLifecycleContributors());
 
     const runSync = async (trx = null) => {
       const operationOptions = trx ? { ...options, trx } : options;
@@ -115,7 +122,7 @@ function createService({ userProfilesRepository, lifecycleContributors = [], use
       if (!profileNeedsUpdate(existing, normalized)) {
         const synchronizedProfile = requireSynchronizedProfile(existing);
         await userSettingsRepository.ensureForUserId(synchronizedProfile.id, operationOptions);
-        for (const contributor of normalizedLifecycleContributors) {
+        for (const contributor of lifecycleContributors) {
           await contributor.afterIdentityProfileSynced({
             profile: synchronizedProfile,
             created,
@@ -129,7 +136,7 @@ function createService({ userProfilesRepository, lifecycleContributors = [], use
       const synchronizedProfile = requireSynchronizedProfile(upserted);
       await userSettingsRepository.ensureForUserId(synchronizedProfile.id, operationOptions);
       created = !existing;
-      for (const contributor of normalizedLifecycleContributors) {
+      for (const contributor of lifecycleContributors) {
         await contributor.afterIdentityProfileSynced({
           profile: synchronizedProfile,
           created,

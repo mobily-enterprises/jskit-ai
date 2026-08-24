@@ -12,7 +12,11 @@ test("console-core exports are explicit and aligned with production/template usa
   const result = evaluatePackageExportsContract({
     repoRoot: REPO_ROOT,
     packageDir: PACKAGE_DIR,
-    packageId: "@jskit-ai/console-core"
+    packageId: "@jskit-ai/console-core",
+    requiredExports: [
+      "./server/ConsoleFeature",
+      "./shared/resources/consoleSettingsResource"
+    ]
   });
 
   assert.deepEqual(result.wildcardExports, [], `console-core exports must be explicit. Remove wildcard keys: ${result.wildcardExports.join(", ")}`);

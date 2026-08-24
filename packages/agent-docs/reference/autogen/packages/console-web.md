@@ -12,20 +12,20 @@ Use this on demand; do not load the full index at startup.
 
 ## Sections
 
-### templates
+### patterns
 
-### `templates/src/pages/console.vue`
+### `patterns/console-surface/example/src/pages/console.vue`
 Exports
 - None
 
-### `templates/src/pages/console/index.vue`
+### `patterns/console-surface/example/src/pages/console/index.vue`
 Exports
 - None
 
-### `templates/src/pages/console/settings.vue`
+### `patterns/console-surface/example/src/pages/console/settings.vue`
 Exports
 - None
 
-### `templates/src/pages/console/settings/index.vue`
+### `patterns/console-surface/example/src/pages/console/settings/index.vue`
 Exports
 - None

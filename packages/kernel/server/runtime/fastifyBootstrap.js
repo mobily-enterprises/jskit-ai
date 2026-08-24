@@ -1,6 +1,5 @@
 import { ActionRuntimeError } from "../../shared/actions/actionDefinitions.js";
 import { normalizeOpaqueId } from "../../shared/support/normalize.js";
-import { isAppError } from "./errors.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
@@ -403,44 +402,6 @@ function registerApiErrorHandler(
   });
 }
 
-function ensureApiErrorHandling(
-  app,
-  {
-    fastifyToken = "jskit.fastify",
-    markerToken = "kernel.runtime.apiErrorHandlerRegistered",
-    isAppError: isAppErrorOverride,
-    autoRegister = true,
-    ...handlerOptions
-  } = {}
-) {
-  if (!app || typeof app.make !== "function" || typeof app.has !== "function" || typeof app.instance !== "function") {
-    throw new TypeError("ensureApiErrorHandling requires an application instance.");
-  }
-
-  if (autoRegister === false) {
-    return false;
-  }
-
-  const normalizedMarkerToken = String(markerToken || "").trim() || "kernel.runtime.apiErrorHandlerRegistered";
-  if (app.has(normalizedMarkerToken)) {
-    return false;
-  }
-
-  const fastify = app.make(fastifyToken);
-  if (!fastify || typeof fastify.setErrorHandler !== "function") {
-    throw new TypeError("ensureApiErrorHandling requires a Fastify instance.");
-  }
-
-  const appErrorPredicate = typeof isAppErrorOverride === "function" ? isAppErrorOverride : isAppError;
-  registerApiErrorHandler(fastify, {
-    ...handlerOptions,
-    isAppError: appErrorPredicate
-  });
-  app.instance(normalizedMarkerToken, true);
-
-  return true;
-}
-
 function resolveDatabaseErrorCode(error) {
   const errorCode = String(error?.code || "")
     .trim()
@@ -546,7 +507,6 @@ export {
   registerBodylessContentTypeNormalizer,
   registerRequestLoggingHooks,
   registerApiErrorHandler,
-  ensureApiErrorHandling,
   resolveDatabaseErrorCode,
   recordDbErrorBestEffort,
   runGracefulShutdown

@@ -14,6 +14,8 @@
 - Generated package outputs under these paths are build artifacts:
   - `packages/agent-docs/reference/autogen/`
   - `packages/agent-docs/guide/agent/`
+  - `packages/agent-docs/skills/jskit/references/pattern-index.md`
+  - `packages/agent-docs/skills/jskit/references/existing-application-migration.md`
 - Authored agent documentation under these paths is edited directly:
   - `packages/agent-docs/patterns/`
   - `packages/agent-docs/templates/`
