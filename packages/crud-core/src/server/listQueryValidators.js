@@ -4,6 +4,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudParentFilterKeys as resolveSharedCrudParentFilterKeys } from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { resolveJsonApiFieldsetContract } from "./jsonApiResourceContract.js";
 
 const listSearchQueryValidator = Object.freeze({
   schema: createSchema({
@@ -28,6 +29,28 @@ const lookupIncludeQueryValidator = Object.freeze({
   mode: "patch"
 });
 
+function createJsonApiFieldsetValueDefinition({ allowedFields = [] } = {}) {
+  const normalizedAllowedFields = [...new Set(
+    (Array.isArray(allowedFields) ? allowedFields : [])
+      .map((entry) => normalizeText(entry))
+      .filter(Boolean)
+  )];
+
+  return Object.freeze({
+    type: "array",
+    required: false,
+    items: {
+      type: "string",
+      minLength: 1,
+      ...(normalizedAllowedFields.length > 0
+        ? { enum: Object.freeze(normalizedAllowedFields) }
+        : {})
+    }
+  });
+}
+
+const jsonApiFieldsetValueDefinition = createJsonApiFieldsetValueDefinition();
+
 const jsonApiFieldsetsQueryValidator = Object.freeze({
   schema: createSchema({
     fields: {
@@ -36,17 +59,56 @@ const jsonApiFieldsetsQueryValidator = Object.freeze({
       messages: {
         default: "fields expects an object such as {\"bookings\":[\"petId\"],\"pets\":[\"name\"]}."
       },
-      values: {
-        type: "array",
-        items: {
-          type: "string",
-          minLength: 1
-        }
-      }
+      values: jsonApiFieldsetValueDefinition
     }
   }),
   mode: "patch"
 });
+
+function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
+  const contract = resolveJsonApiFieldsetContract(resource);
+  if (!contract.primaryType || contract.resourceTypes.length < 1) {
+    return jsonApiFieldsetsQueryValidator;
+  }
+
+  const firstRelationship = contract.relationshipEntries[0] || null;
+  const example = firstRelationship
+    ? `{"${contract.primaryType}":["${firstRelationship.attributeKey}"],` +
+      `"${firstRelationship.relationshipType}":["${firstRelationship.labelKey || "id"}"]}`
+    : `{"${contract.primaryType}":["id"]}`;
+  const allowedTypes = contract.resourceTypes.map((entry) => `"${entry}"`).join(", ");
+  const aliasGuidance = contract.aliasMappings
+    .map((entry) => `use "${entry.resourceType}" instead of "${entry.alias}"`)
+    .join("; ");
+  const additionalPropertiesMessage =
+    `fields keys must be JSON:API resource types. Allowed keys: ${allowedTypes}.` +
+    (aliasGuidance ? ` Relationship aliases are invalid keys; ${aliasGuidance}.` : "");
+  const fieldsetSchema = createSchema(
+    Object.fromEntries(
+      contract.resourceTypes.map((resourceType) => [
+        resourceType,
+        createJsonApiFieldsetValueDefinition({
+          allowedFields: resourceType === contract.primaryType ? contract.primaryFields : []
+        })
+      ])
+    )
+  );
+
+  return Object.freeze({
+    schema: createSchema({
+      fields: {
+        type: "object",
+        required: false,
+        schema: fieldsetSchema,
+        messages: {
+          default: `fields expects an object keyed by JSON:API resource type, such as ${example}.`,
+          additionalProperties: additionalPropertiesMessage
+        }
+      }
+    }),
+    mode: "patch"
+  });
+}
 
 function resolveCrudListUsesOrderedCursor(list = {}) {
   const entries = Array.isArray(list?.orderBy)
@@ -115,7 +177,8 @@ function createStandardCrudListQueryValidators({
   resource = {},
   listFilterQueryValidator = null,
   searchQueryValidator = listSearchQueryValidator,
-  includeQueryValidator = lookupIncludeQueryValidator
+  includeQueryValidator = lookupIncludeQueryValidator,
+  fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator
 } = {}) {
   const resolvedListFilterQueryValidator =
     listFilterQueryValidator
@@ -132,21 +195,23 @@ function createStandardCrudListQueryValidators({
       ? [resolvedListFilterQueryValidator]
       : []),
     includeQueryValidator,
-    jsonApiFieldsetsQueryValidator
+    fieldsetsQueryValidator
   ];
 }
 
 function createStandardCrudViewQueryValidators({
-  includeQueryValidator = lookupIncludeQueryValidator
+  includeQueryValidator = lookupIncludeQueryValidator,
+  fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator
 } = {}) {
   return [
     includeQueryValidator,
-    jsonApiFieldsetsQueryValidator
+    fieldsetsQueryValidator
   ];
 }
 
 export {
   createCrudCursorPaginationQueryValidator,
+  createJsonApiFieldsetsQueryValidator,
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
   jsonApiFieldsetsQueryValidator,

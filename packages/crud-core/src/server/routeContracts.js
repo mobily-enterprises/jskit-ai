@@ -6,84 +6,16 @@ import {
   composeSchemaDefinitions,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import {
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators,
   listSearchQueryValidator as defaultListSearchQueryValidator,
   lookupIncludeQueryValidator as defaultLookupIncludeQueryValidator
 } from "./listQueryValidators.js";
+import { resolveJsonApiRelationshipEntries } from "./jsonApiResourceContract.js";
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function resolveSchemaFieldDefinitions(definition = null) {
-  const schema = definition?.schema;
-  if (!schema || typeof schema.getFieldDefinitions !== "function") {
-    return {};
-  }
-
-  const definitions = schema.getFieldDefinitions();
-  return isRecord(definitions) ? definitions : {};
-}
-
-function resolveJsonApiRelationshipEntries(definition = null) {
-  const entries = [];
-
-  for (const [fieldKey, fieldDefinition] of Object.entries(resolveSchemaFieldDefinitions(definition))) {
-    const normalizedFieldDefinition = isRecord(fieldDefinition) ? fieldDefinition : {};
-    const relationshipType = String(normalizedFieldDefinition.belongsTo || "").trim();
-    if (relationshipType) {
-      const relationshipName = String(normalizedFieldDefinition.as || fieldKey || "").trim();
-      if (!relationshipName) {
-        continue;
-      }
-
-      entries.push(Object.freeze({
-        attributeKey: fieldKey,
-        relationshipName,
-        relationshipType,
-        labelKey: String(normalizedFieldDefinition?.relation?.labelKey || "").trim(),
-        required: normalizedFieldDefinition.required === true,
-        nullable: normalizedFieldDefinition.nullable === true
-      }));
-      continue;
-    }
-
-    const relation = isRecord(normalizedFieldDefinition.relation)
-      ? normalizedFieldDefinition.relation
-      : {};
-    if (String(relation.kind || "").trim().toLowerCase() !== "collection") {
-      continue;
-    }
-
-    const collectionRelationshipType = resolveCrudResourceScopeName(
-      relation.target || relation.targetResource || relation.namespace || relation.apiPath
-    );
-    if (!collectionRelationshipType) {
-      continue;
-    }
-
-    const collectionRelationshipName = String(
-      relation.as || normalizedFieldDefinition.as || fieldKey || ""
-    ).trim();
-    if (!collectionRelationshipName) {
-      continue;
-    }
-
-    entries.push(Object.freeze({
-      attributeKey: fieldKey,
-      relationshipName: collectionRelationshipName,
-      relationshipType: collectionRelationshipType,
-      labelKey: String(relation.labelKey || "").trim(),
-      many: true,
-      required: normalizedFieldDefinition.required === true,
-      nullable: normalizedFieldDefinition.nullable === true
-    }));
-  }
-
-  return Object.freeze(entries);
 }
 
 function readOwnValue(source = {}, key = "") {

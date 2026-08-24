@@ -206,11 +206,23 @@ test("generated CRUD list contracts conform through native assistant discovery a
   assert.deepEqual(search.result.items.map((entry) => entry.actionId), ["crud.bookings.list"]);
   assert.equal(contract.ok, true);
   assert.equal(contract.result.inputSchema.properties.include.type, "string");
-  assert.equal(contract.result.inputSchema.properties.fields.type, "object");
+  const fieldsetInputSchema = resolveLocalSchemaReference(
+    contract.result.inputSchema,
+    contract.result.inputSchema.properties.fields
+  );
+  assert.deepEqual(Object.keys(fieldsetInputSchema.properties), ["bookings", "pets"]);
+  assert.equal(fieldsetInputSchema.additionalProperties, false);
+  assert.deepEqual(fieldsetInputSchema.properties.bookings.items.enum, ["id", "petId", "summary"]);
+  assert.equal(Object.hasOwn(fieldsetInputSchema.properties.pets.items, "enum"), false);
   assert.equal(Object.hasOwn(contract.result.inputSchema.properties, "workspaceSlug"), false);
   assert.match(contract.result.description, /include must be a comma-separated string/u);
   assert.match(contract.result.description, /\{"bookings":\["petId"\],"pets":\["name"\]\}/u);
-  assert.match(contract.result.description, /items\[\]\.lookups\.pet\.name/u);
+  assert.match(contract.result.description, /fields keys must be JSON:API resource types: "bookings", "pets"/u);
+  assert.match(contract.result.description, /use "pets" instead of "pet"/u);
+  assert.match(
+    contract.result.description,
+    /"pet" -> resource type "pets" -> items\[\]\.lookups\.pet/u
+  );
   const primaryOutputSchema = resolveLocalSchemaReference(
     contract.result.outputSchema,
     contract.result.outputSchema.properties.items.items
@@ -317,8 +329,24 @@ test("generated CRUD list contracts conform through native assistant discovery a
     assert.equal(response.error.status, 400);
     assert.match(
       response.error.message,
-      /fields expects an object such as \{"bookings":\["petId"\],"pets":\["name"\]\}/u
+      /fields expects an object keyed by JSON:API resource type, such as \{"bookings":\["petId"\],"pets":\["name"\]\}/u
     );
+  });
+
+  await t.test("relationship aliases are rejected as sparse-fieldset resource keys", async () => {
+    const callCount = fixture.calls.length;
+    const response = await executeList(fixture, toolSet, {
+      include: "pet",
+      fields: { pet: ["name"] },
+      limit: 3
+    });
+    assert.equal(response.ok, false);
+    assert.equal(response.error.code, "ACTION_VALIDATION_FAILED");
+    assert.equal(response.error.status, 400);
+    assert.match(response.error.message, /fields\.pet: fields keys must be JSON:API resource types/u);
+    assert.match(response.error.message, /Allowed keys: "bookings", "pets"/u);
+    assert.match(response.error.message, /use "pets" instead of "pet"/u);
+    assert.equal(fixture.calls.length, callCount);
   });
 
   await t.test("permission denial removes the generated action from native discovery", async () => {

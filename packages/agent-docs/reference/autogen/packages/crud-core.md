@@ -80,11 +80,11 @@ Local functions
 - `isRecord(value)`
 - `normalizeOptionalCursor(value)`
 - `resolveAssistantResultValue(result)`
-- `resolveSchemaFieldDefinitions(definition = null)`
 - `createProjectionRecordSchema(recordSchema, { lookupContainerKey = "", relationshipEntries = [] } = {})`
 - `createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey)`
 - `createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)`
 - `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
+- `createCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
 - `createCrudAssistantExtension(resource, namespace, operation)`
 - `createActionInput(resource, operation, scopeInputValidator = null, listFilterQueryValidator = null, operationInputs = {})`
 - `omitInputKeys(input = {}, keys = [])`
@@ -108,6 +108,14 @@ Exports
 - `createCrudJsonApiService({ repository } = {})`
 Local functions
 - `requireDocument(document = null)`
+
+### `src/server/jsonApiResourceContract.js`
+Exports
+- `resolveJsonApiFieldsetContract(resource = {})`
+- `resolveJsonApiRelationshipEntries(definition = null)`
+- `resolveSchemaFieldDefinitions(definition = null)`
+Local functions
+- `isRecord(value)`
 
 ### `src/server/listFilters.js`
 Exports
@@ -145,14 +153,16 @@ Local functions
 ### `src/server/listQueryValidators.js`
 Exports
 - `createCrudCursorPaginationQueryValidator(list = {})`
+- `createJsonApiFieldsetsQueryValidator({ resource = {} } = {})`
 - `listSearchQueryValidator`
 - `lookupIncludeQueryValidator`
 - `jsonApiFieldsetsQueryValidator`
 - `resolveCrudParentFilterKeys(resource = {})`
 - `createCrudParentFilterQueryValidator(resource = {})`
-- `createStandardCrudListQueryValidators({ resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator } = {})`
-- `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator } = {})`
+- `createStandardCrudListQueryValidators({ resource = {}, listFilterQueryValidator = null, searchQueryValidator = listSearchQueryValidator, includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
+- `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 Local functions
+- `createJsonApiFieldsetValueDefinition({ allowedFields = [] } = {})`
 - `resolveCrudListUsesOrderedCursor(list = {})`
 
 ### `src/server/lookupHydration.js`
@@ -294,10 +304,9 @@ Local functions
 ### `src/server/routeContracts.js`
 Exports
 - `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, operations = ["list", "view", "create", "update", "delete"], operationInputs = {}, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, listFilterQueryValidator = null } = {})`
-- `resolveJsonApiRelationshipEntries(definition = null)`
+- `resolveJsonApiRelationshipEntries`
 Local functions
 - `isRecord(value)`
-- `resolveSchemaFieldDefinitions(definition = null)`
 - `readOwnValue(source = {}, key = "")`
 - `resolveLookupContainer(record = {}, lookupContainerKey = "")`
 - `resolveRelationshipValueSource(record = {}, entry = {}, { lookupContainerKey = "", preferLookup = false } = {})`

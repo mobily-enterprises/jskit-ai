@@ -86,9 +86,22 @@ function resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName =
   return normalizeObject(source.schema.getFieldMessages(normalizedFieldName));
 }
 
+function resolveJsonRestSchemaParentFieldMessages(schemaDefinition = null, fieldName = "") {
+  const segments = normalizeText(fieldName).split(".").filter(Boolean);
+  if (segments.length < 2) {
+    return {};
+  }
+
+  segments.pop();
+  return resolveJsonRestSchemaFieldMessages(schemaDefinition, segments.join("."));
+}
+
 function resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, schemaDefinition = null) {
-  const messages = resolveJsonRestSchemaFieldMessages(schemaDefinition, fieldName);
   const errorCode = normalizeText(entry?.code).toUpperCase();
+  const directMessages = resolveJsonRestSchemaFieldMessages(schemaDefinition, fieldName);
+  const messages = errorCode === "FIELD_NOT_ALLOWED" && Object.keys(directMessages).length < 1
+    ? resolveJsonRestSchemaParentFieldMessages(schemaDefinition, fieldName)
+    : directMessages;
   const messageKey = JSON_REST_SCHEMA_ERROR_MESSAGE_KEYS[errorCode];
 
   if (messageKey && typeof messages[messageKey] === "string") {
