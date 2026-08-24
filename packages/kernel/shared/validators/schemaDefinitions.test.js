@@ -88,3 +88,41 @@ test("removed timestamp schemas fail instead of silently changing meaning", () =
     /No casting function for type: timestamp/
   );
 });
+
+test("unknown nested fields use the owning object additional-properties message", () => {
+  const definition = {
+    schema: createSchema({
+      fields: {
+        type: "object",
+        schema: createSchema({
+          bookings: {
+            type: "array",
+            items: { type: "string" }
+          },
+          pets: {
+            type: "array",
+            items: { type: "string" }
+          }
+        }),
+        messages: {
+          additionalProperties: "fields keys must be JSON:API resource types: bookings, pets."
+        }
+      }
+    }),
+    mode: "patch"
+  };
+
+  assert.throws(
+    () => validateSchemaPayload(definition, {
+      fields: {
+        pet: ["name"]
+      }
+    }),
+    (error) => {
+      assert.deepEqual(error.fieldErrors, {
+        "fields.pet": "fields keys must be JSON:API resource types: bookings, pets."
+      });
+      return true;
+    }
+  );
+});

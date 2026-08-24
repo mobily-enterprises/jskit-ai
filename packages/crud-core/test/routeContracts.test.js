@@ -180,7 +180,8 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
     limit: "25",
     fields: {
       contacts: ["id", "name"],
-      userProfiles: ["id", "name"]
+      userProfiles: ["id", "name"],
+      organizations: ["name"]
     }
   }, { phase: "input" });
 
@@ -192,7 +193,8 @@ test("createCrudJsonApiRouteContracts builds default CRUD JSON:API contracts", a
     limit: 25,
     fields: {
       contacts: ["id", "name"],
-      userProfiles: ["id", "name"]
+      userProfiles: ["id", "name"],
+      organizations: ["name"]
     }
   });
 

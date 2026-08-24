@@ -10,8 +10,13 @@ import {
   unwrapJsonApiResult
 } from "@jskit-ai/http-runtime/shared";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
-import { resolveJsonApiRelationshipEntries } from "../routeContracts.js";
 import {
+  resolveJsonApiFieldsetContract,
+  resolveJsonApiRelationshipEntries,
+  resolveSchemaFieldDefinitions
+} from "../jsonApiResourceContract.js";
+import {
+  createJsonApiFieldsetsQueryValidator,
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
 } from "../listQueryValidators.js";
@@ -47,11 +52,6 @@ function resolveAssistantResultValue(result) {
     value,
     document
   };
-}
-
-function resolveSchemaFieldDefinitions(definition = null) {
-  const definitions = definition?.schema?.getFieldDefinitions?.();
-  return isRecord(definitions) ? definitions : {};
 }
 
 function createProjectionRecordSchema(recordSchema, {
@@ -219,6 +219,45 @@ function transformCrudAssistantResult(operation, result, {
   return resolved.value;
 }
 
+function createCrudAssistantReadDescription({
+  fieldsetContract,
+  lookupContainerKey = "",
+  namespace = "",
+  operation = "list"
+} = {}) {
+  const relationshipEntries = fieldsetContract.relationshipEntries;
+  const firstRelationship = relationshipEntries[0] || null;
+  const includeExample = relationshipEntries.length > 0
+    ? relationshipEntries.slice(0, 2).map((entry) => entry.relationshipName).join(",")
+    : "pet,service";
+  const fieldsExample = firstRelationship
+    ? ` fields can be {\"${namespace}\":[\"${firstRelationship.attributeKey}\"],` +
+      `\"${firstRelationship.relationshipType}\":[\"${firstRelationship.labelKey || "id"}\"]}.`
+    : ` fields can be {\"${namespace}\":[\"id\"]}.`;
+  const aliasGuidance = fieldsetContract.aliasMappings
+    .map((entry) => `use \"${entry.resourceType}\" instead of \"${entry.alias}\"`)
+    .join("; ");
+  const fieldsetKeyGuidance = fieldsetContract.resourceTypes.length > 0
+    ? ` fields keys must be JSON:API resource types: ${fieldsetContract.resourceTypes.map((entry) => `\"${entry}\"`).join(", ")}.` +
+      (aliasGuidance ? ` Relationship aliases are invalid fieldset keys; ${aliasGuidance}.` : "")
+    : "";
+  const primaryFieldGuidance = fieldsetContract.primaryFields.length > 0
+    ? ` Valid \"${namespace}\" fields: ${fieldsetContract.primaryFields.map((entry) => `\"${entry}\"`).join(", ")}.`
+    : "";
+  const relationshipGuidance = relationshipEntries.length > 0
+    ? ` Include relationships: ${relationshipEntries.map((entry) => {
+        const lookupPath = lookupContainerKey
+          ? ` -> ${operation === "list" ? "items[]." : ""}${lookupContainerKey}.${entry.relationshipName}`
+          : "";
+        return `\"${entry.relationshipName}\" -> resource type \"${entry.relationshipType}\"${lookupPath}`;
+      }).join("; ")}.`
+    : "";
+
+  const subject = operation === "list" ? `List ${namespace} records.` : `View a ${namespace} record.`;
+  return `${subject} include must be a comma-separated string such as \"${includeExample}\";` +
+    `${fieldsExample}${fieldsetKeyGuidance}${primaryFieldGuidance}${relationshipGuidance}`;
+}
+
 function createCrudAssistantExtension(resource, namespace, operation) {
   const resourceOperation = CRUD_ASSISTANT_RESOURCE_OPERATION[operation];
   const nativeOutput = resource?.operations?.[resourceOperation]?.output || null;
@@ -236,24 +275,18 @@ function createCrudAssistantExtension(resource, namespace, operation) {
     relationshipEntries,
     lookupContainerKey
   );
-  const firstRelationship = relationshipEntries[0] || null;
-  const fieldsExample = firstRelationship
-    ? ` fields can be {\"${namespace}\":[\"${firstRelationship.attributeKey}\"],` +
-      `\"${firstRelationship.relationshipType}\":[\"${firstRelationship.labelKey || "id"}\"]}.`
-    : ` fields can be {\"${namespace}\":[\"id\"]}.`;
-  const lookupExample = firstRelationship && lookupContainerKey
-    ? ` Included fields are returned under ${operation === "list" ? "items[]." : ""}${lookupContainerKey}.` +
-      `${firstRelationship.relationshipName}.${firstRelationship.labelKey || "<selectedField>"}.`
-    : "";
-  const actionLabel = operation === "list"
-    ? `List ${namespace} records. include must be a comma-separated string such as \"pet,service\";${fieldsExample}${lookupExample}`
-    : operation === "view"
-      ? `View a ${namespace} record. include must be a comma-separated string such as \"pet,service\";${fieldsExample}${lookupExample}`
-      : operation === "create"
-        ? `Create a ${namespace} record.`
-        : operation === "update"
-          ? `Update a ${namespace} record.`
-          : `Delete a ${namespace} record.`;
+  const actionLabel = operation === "list" || operation === "view"
+    ? createCrudAssistantReadDescription({
+        fieldsetContract: resolveJsonApiFieldsetContract(resource),
+        lookupContainerKey,
+        namespace,
+        operation
+      })
+    : operation === "create"
+      ? `Create a ${namespace} record.`
+      : operation === "update"
+        ? `Update a ${namespace} record.`
+        : `Delete a ${namespace} record.`;
 
   return Object.freeze({
     description: actionLabel,
@@ -278,9 +311,15 @@ function createActionInput(
 ) {
   const definitions = scopeInputValidator ? [scopeInputValidator] : [];
   if (operation === "list") {
-    definitions.push(...createStandardCrudListQueryValidators({ resource, listFilterQueryValidator }));
+    definitions.push(...createStandardCrudListQueryValidators({
+      resource,
+      listFilterQueryValidator,
+      fieldsetsQueryValidator: createJsonApiFieldsetsQueryValidator({ resource })
+    }));
   } else if (operation === "view") {
-    definitions.push(recordIdParamsValidator, ...createStandardCrudViewQueryValidators());
+    definitions.push(recordIdParamsValidator, ...createStandardCrudViewQueryValidators({
+      fieldsetsQueryValidator: createJsonApiFieldsetsQueryValidator({ resource })
+    }));
   } else if (operation === "create") {
     definitions.push(operationInputs.create || resource.operations.create.body);
   } else if (operation === "update") {

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.168",
+  "version": "0.1.169",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -80,6 +80,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.168"
+    "@jskit-ai/kernel": "0.1.169"
   }
 }

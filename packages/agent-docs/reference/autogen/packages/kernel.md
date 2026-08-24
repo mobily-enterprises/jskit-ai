@@ -441,6 +441,7 @@ Exports
 Local functions
 - `requireJsonRestSchemaInstance(schemaDefinition = null, { context = "schema definition.schema" } = {})`
 - `resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName = "")`
+- `resolveJsonRestSchemaParentFieldMessages(schemaDefinition = null, fieldName = "")`
 - `resolveJsonRestSchemaFieldErrorMessage(fieldName, entry, schemaDefinition = null)`
 
 ### `shared/validators/mergeObjectSchemas.js`

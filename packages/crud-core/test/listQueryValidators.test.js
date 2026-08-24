@@ -10,6 +10,7 @@ import {
   listSearchQueryValidator,
   lookupIncludeQueryValidator,
   createCrudCursorPaginationQueryValidator,
+  createJsonApiFieldsetsQueryValidator,
   createCrudParentFilterQueryValidator,
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators,
@@ -26,11 +27,13 @@ function composeSchemaDefinition(...definitions) {
 }
 
 function createCrudResource({
+  namespace = "",
   viewFields = {},
   createFields = {},
   patchFields = {}
 } = {}) {
   return {
+    ...(namespace ? { namespace } : {}),
     operations: {
       view: {
         output: {
@@ -88,6 +91,62 @@ test("lookupIncludeQueryValidator keeps include optional when merged with pagina
   });
 
   assert.deepEqual(compiled.schema.querystring.required || [], []);
+});
+
+test("resource-aware sparse fieldsets enumerate JSON:API types and reject relationship aliases", () => {
+  const resource = createCrudResource({
+    namespace: "bookings",
+    viewFields: {
+      petId: {
+        type: "integer",
+        belongsTo: "pets",
+        as: "pet",
+        relation: {
+          labelKey: "name"
+        }
+      },
+      serviceId: {
+        type: "integer",
+        belongsTo: "services",
+        as: "service",
+        relation: {
+          labelKey: "name"
+        }
+      }
+    }
+  });
+  const validator = createJsonApiFieldsetsQueryValidator({ resource });
+  const transportSchema = validator.schema.toJsonSchema({ mode: "patch" });
+  const fieldsetReference = transportSchema.properties.fields.allOf[0].$ref;
+  const fieldsetSchema = transportSchema.definitions[fieldsetReference.slice("#/definitions/".length)];
+
+  assert.deepEqual(Object.keys(fieldsetSchema.properties), ["bookings", "pets", "services"]);
+  assert.equal(fieldsetSchema.additionalProperties, false);
+  assert.deepEqual(fieldsetSchema.properties.bookings.items.enum, ["petId", "serviceId"]);
+  assert.equal(Object.hasOwn(fieldsetSchema.properties.pets.items, "enum"), false);
+  assert.deepEqual(validateSchemaPayload(validator, {
+    fields: {
+      bookings: ["petId"],
+      pets: ["name"]
+    }
+  }, { phase: "input" }), {
+    fields: {
+      bookings: ["petId"],
+      pets: ["name"]
+    }
+  });
+  assert.throws(
+    () => validateSchemaPayload(validator, {
+      fields: {
+        pet: ["name"]
+      }
+    }, { phase: "input" }),
+    (error) => {
+      assert.match(error.fieldErrors?.["fields.pet"] || "", /Allowed keys: "bookings", "pets", "services"/u);
+      assert.match(error.fieldErrors?.["fields.pet"] || "", /use "pets" instead of "pet"/u);
+      return true;
+    }
+  );
 });
 
 test("createCrudCursorPaginationQueryValidator keeps numeric cursor validation for unordered lists", () => {
