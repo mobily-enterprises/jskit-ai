@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -42,6 +42,64 @@ async function writeJson(filePath, value) {
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
+}
+
+async function writeStaleInstalledProject(projectRoot) {
+  await writeJson(path.join(projectRoot, "package.json"), {
+    name: "example-app",
+    private: true,
+    workspaces: ["apps/*"],
+    dependencies: {
+      "@jskit-ai/shell-web": "0.1.2",
+      vue: "^3.5.0"
+    }
+  });
+  await writeJson(path.join(projectRoot, "apps/admin/package.json"), {
+    name: "admin",
+    private: true,
+    devDependencies: {
+      "@jskit-ai/assistant-runtime": "0.1.3"
+    }
+  });
+  await writeJson(path.join(projectRoot, "package-lock.json"), {
+    name: "example-app",
+    lockfileVersion: 3,
+    packages: {
+      "": {
+        name: "example-app",
+        dependencies: {
+          "@jskit-ai/shell-web": "0.1.2",
+          vue: "^3.5.0"
+        }
+      },
+      "apps/admin": {
+        name: "admin",
+        devDependencies: {
+          "@jskit-ai/assistant-runtime": "0.1.3"
+        }
+      },
+      "node_modules/@jskit-ai/assistant-runtime": { version: "0.1.3" },
+      "node_modules/@jskit-ai/shell-web": { version: "0.1.2" },
+      "node_modules/vue": { version: "3.5.0" }
+    }
+  });
+  await mkdir(path.join(projectRoot, "node_modules/stale-peer"), { recursive: true });
+  await writeFile(path.join(projectRoot, "node_modules/stale-peer/marker"), "old\n", "utf8");
+}
+
+async function withFakeNpm(projectRoot, source, run) {
+  const binRoot = path.join(projectRoot, ".fake-bin");
+  const executablePath = path.join(binRoot, "npm");
+  await mkdir(binRoot, { recursive: true });
+  await writeFile(executablePath, source, "utf8");
+  await chmod(executablePath, 0o755);
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${binRoot}${path.delimiter}${previousPath}`;
+  try {
+    await run();
+  } finally {
+    process.env.PATH = previousPath;
+  }
 }
 
 test("bundled catalog publishes the coordinated release and singleton contract", async () => {
@@ -156,6 +214,116 @@ test("project updates align root and workspace declarations without changing non
     assert.equal(workspaceManifest.devDependencies["@jskit-ai/assistant-runtime"], "0.1.7");
     assert.equal(workspaceManifest.devDependencies.vite, "^7.0.0");
     assert.equal((await checkProject({ projectRoot, catalog: CATALOG })).ok, true);
+  });
+});
+
+test("default project update isolates a stale installed cohort before npm resolves the new graph", async () => {
+  await withProject(async (projectRoot) => {
+    await writeStaleInstalledProject(projectRoot);
+    const fakeNpm = `#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const root = process.cwd();
+fs.appendFileSync(path.join(root, "npm-invocations.jsonl"), JSON.stringify(process.argv.slice(2)) + "\\n");
+if (process.argv[2] !== "install") process.exit(90);
+if (fs.existsSync(path.join(root, "node_modules/stale-peer"))) process.exit(91);
+const preparedLock = JSON.parse(fs.readFileSync(path.join(root, "package-lock.json"), "utf8"));
+if (Object.keys(preparedLock.packages).some((entry) => entry.includes("node_modules/@jskit-ai/"))) process.exit(92);
+if (preparedLock.packages["node_modules/vue"]?.version !== "3.5.0") process.exit(93);
+if (preparedLock.packages[""]?.dependencies?.["@jskit-ai/shell-web"] !== "0.1.4") process.exit(94);
+if (preparedLock.packages["apps/admin"]?.devDependencies?.["@jskit-ai/assistant-runtime"] !== "0.1.7") process.exit(95);
+const rootPackage = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const workspacePackage = JSON.parse(fs.readFileSync(path.join(root, "apps/admin/package.json"), "utf8"));
+fs.writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({
+  name: "example-app",
+  lockfileVersion: 3,
+  packages: {
+    "": {
+      name: "example-app",
+      dependencies: rootPackage.dependencies,
+      devDependencies: rootPackage.devDependencies
+    },
+    "apps/admin": {
+      name: "admin",
+      devDependencies: workspacePackage.devDependencies
+    },
+    "node_modules/@jskit-ai/assistant-runtime": { version: "0.1.7" },
+    "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.9" },
+    "node_modules/@jskit-ai/shell-web": { version: "0.1.4" },
+    "node_modules/vue": { version: "3.5.0" }
+  }
+}, null, 2) + "\\n");
+fs.mkdirSync(path.join(root, "node_modules/current-cohort"), { recursive: true });
+fs.writeFileSync(path.join(root, "node_modules/current-cohort/marker"), "new\\n");
+`;
+
+    await withFakeNpm(projectRoot, fakeNpm, async () => {
+      await updateProject({ projectRoot, catalog: CATALOG });
+    });
+
+    assert.deepEqual(
+      (await readFile(path.join(projectRoot, "npm-invocations.jsonl"), "utf8"))
+        .trim()
+        .split("\n")
+        .map((entry) => JSON.parse(entry)),
+      [["install"]]
+    );
+    assert.equal(
+      await readFile(path.join(projectRoot, "node_modules/current-cohort/marker"), "utf8"),
+      "new\n"
+    );
+    await assert.rejects(access(path.join(projectRoot, "node_modules/stale-peer/marker")), {
+      code: "ENOENT"
+    });
+    assert.deepEqual(
+      (await readdir(projectRoot)).filter((entry) => entry.startsWith(".jskit-node-modules-")),
+      []
+    );
+  });
+});
+
+test("failed project update restores manifests, lockfile, and the previous installed cohort", async () => {
+  await withProject(async (projectRoot) => {
+    await writeStaleInstalledProject(projectRoot);
+    const trackedPaths = [
+      path.join(projectRoot, "package.json"),
+      path.join(projectRoot, "apps/admin/package.json"),
+      path.join(projectRoot, "package-lock.json")
+    ];
+    const before = await Promise.all(trackedPaths.map((filePath) => readFile(filePath, "utf8")));
+    const fakeNpm = `#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const root = process.cwd();
+if (fs.existsSync(path.join(root, "node_modules/stale-peer"))) process.exit(91);
+fs.writeFileSync(path.join(root, "package-lock.json"), "{\\"partial\\":true}\\n");
+fs.mkdirSync(path.join(root, "node_modules/partial-cohort"), { recursive: true });
+fs.writeFileSync(path.join(root, "node_modules/partial-cohort/marker"), "partial\\n");
+process.exit(17);
+`;
+
+    await withFakeNpm(projectRoot, fakeNpm, async () => {
+      await assert.rejects(
+        updateProject({ projectRoot, catalog: CATALOG }),
+        /npm install failed \(code=17, signal=none\)/u
+      );
+    });
+
+    assert.deepEqual(
+      await Promise.all(trackedPaths.map((filePath) => readFile(filePath, "utf8"))),
+      before
+    );
+    assert.equal(
+      await readFile(path.join(projectRoot, "node_modules/stale-peer/marker"), "utf8"),
+      "old\n"
+    );
+    await assert.rejects(access(path.join(projectRoot, "node_modules/partial-cohort/marker")), {
+      code: "ENOENT"
+    });
+    assert.deepEqual(
+      (await readdir(projectRoot)).filter((entry) => entry.startsWith(".jskit-node-modules-")),
+      []
+    );
   });
 });
 

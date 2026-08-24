@@ -14,16 +14,14 @@ workspace package in isolation.
 ## Add the supported project commands
 
 Current application foundations already contain these entries. For an older
-application, add the catalog and scripts at the project root:
+application, add the scripts at the project root; the updater adds the exact
+coordinated catalog dependency itself:
 
 ```json
 {
   "scripts": {
     "jskit:update": "npx --yes @jskit-ai/jskit-catalog@latest update",
     "jskit:check": "jskit check"
-  },
-  "devDependencies": {
-    "@jskit-ai/jskit-catalog": "<current exact version>"
   }
 }
 ```
@@ -32,14 +30,18 @@ If a legacy application still declares the retired authoring CLI, remove it
 first:
 
 ```bash
-npm uninstall --save-dev @jskit-ai/jskit-cli
+npm pkg delete 'devDependencies.@jskit-ai/jskit-cli'
 ```
 
-Then install the catalog once and let the updater select its exact coordinated
-version:
+If the application has app-local packages, make them real npm workspaces before
+updating. Declare the workspace paths at the root and depend on each local
+package by its exact manifest version. Do not retain legacy `file:` links; the
+updater does not infer or rewrite an application's local package topology.
+
+Then let the published updater select and install its exact coordinated
+catalog:
 
 ```bash
-npm install --save-dev --save-exact @jskit-ai/jskit-catalog@latest
 npm run jskit:update
 ```
 
@@ -53,10 +55,12 @@ optional-dependency declarations as one validated manifest set. Non-JSKIT
 dependencies are unchanged. It installs once from the root and checks the new
 `package-lock.json` before succeeding.
 
-If writing one manifest fails, the updater restores any manifests already
-replaced. If `npm install` fails because of registry access or a real peer
-conflict, the aligned manifests remain visible for repair; resolve the reported
-problem and rerun `npm run jskit:update`.
+During installation, the updater preserves non-JSKIT lockfile pins, removes the
+old JSKIT installation records from the candidate lock, and keeps the previous
+`node_modules` tree aside until the new graph passes `jskit check`. If writing,
+installation, or validation fails, it restores the previous manifests,
+lockfile, and installed tree before reporting the failure. Resolve the reported
+registry or real peer problem and rerun `npm run jskit:update`.
 
 ## Enforce the graph in CI
 
