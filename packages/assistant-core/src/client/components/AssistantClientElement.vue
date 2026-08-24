@@ -7,8 +7,8 @@
     @focus="onRootFocus"
     @pointerdown.capture="onRootPointerDown"
   >
-    <v-row class="assistant-layout h-100 flex-grow-1 my-0">
-      <v-col cols="12" lg="8" class="assistant-main-col d-flex flex-column overflow-hidden">
+    <v-row class="assistant-layout h-100 flex-grow-1 flex-nowrap my-0">
+      <v-col cols="12" md="8" class="assistant-main-col d-flex flex-column overflow-hidden">
         <v-card rounded="lg" elevation="1" border class="assistant-main-card d-flex flex-column flex-grow-1">
           <v-card-text class="assistant-main-card-text d-flex flex-column flex-grow-1">
             <div
@@ -91,7 +91,7 @@
               <div v-if="resolvedFeatures.composerActions" class="assistant-actions d-flex ga-2 flex-wrap mt-2">
                 <v-btn
                   v-if="resolvedFeatures.mobilePicker"
-                  class="d-lg-none"
+                  class="d-md-none"
                   variant="tonal"
                   :disabled="isStreaming || isRestoringConversation"
                   @click="onConversationPickerOpen"
@@ -104,13 +104,13 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" lg="4" class="assistant-side-col d-flex flex-column overflow-hidden">
+      <v-col cols="12" md="4" class="assistant-side-col d-none d-md-flex flex-column overflow-hidden">
         <v-card
           v-if="resolvedFeatures.historyPanel"
           rounded="lg"
           elevation="1"
           border
-          class="d-none d-lg-flex flex-column mb-3 assistant-history-card overflow-hidden"
+          class="d-flex flex-column mb-3 assistant-history-card overflow-hidden"
         >
           <v-card-item>
             <v-card-title class="text-subtitle-2 font-weight-bold">{{ copyText.conversationHistory }}</v-card-title>
@@ -1025,6 +1025,8 @@ onBeforeUnmount(() => {
 }
 
 .assistant-layout {
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   overflow: hidden;
 }
@@ -1058,6 +1060,29 @@ onBeforeUnmount(() => {
 .assistant-history-list,
 .assistant-tools-list {
   min-height: 0;
+}
+
+.assistant-main-col,
+.assistant-side-col,
+.assistant-main-card,
+.assistant-main-card-text {
+  height: 100%;
+  max-height: 100%;
+}
+
+.assistant-main-card-text,
+.assistant-history-card-text {
+  overflow: hidden;
+}
+
+.assistant-history-card {
+  flex: 1 1 auto;
+}
+
+.assistant-tools-card {
+  flex: 0 1 var(--assistant-tools-panel-height, 320px);
+  max-height: var(--assistant-tools-panel-height, 320px);
+  min-height: min(var(--assistant-tools-panel-height, 320px), 45%);
 }
 
 .messages-panel {
@@ -1299,19 +1324,4 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-@media (min-width: 1280px) {
-  .assistant-layout {
-    flex-wrap: nowrap;
-  }
-
-  .assistant-history-card {
-    flex: 1 1 auto;
-  }
-
-  .assistant-tools-card {
-    flex: 0 0 var(--assistant-tools-panel-height, 320px);
-    max-height: var(--assistant-tools-panel-height, 320px);
-    min-height: var(--assistant-tools-panel-height, 320px);
-  }
-}
 </style>

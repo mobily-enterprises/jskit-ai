@@ -4,6 +4,8 @@ import { createSchema } from "json-rest-schema";
 
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
@@ -185,6 +187,84 @@ test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", 
     ]
   );
   await runtime.shutdown();
+});
+
+test("generated CRUD actions expose truthful assistant contracts without changing native results", async () => {
+  const resource = createBookResource();
+  const document = (id, title) => ({
+    data: {
+      type: "books",
+      id,
+      attributes: { title }
+    }
+  });
+  const actions = createCrudJsonApiActions({
+    namespace: "books",
+    resource,
+    service: {
+      async queryDocuments() {
+        return returnJsonApiDocument({
+          data: [document("1", "Kindred").data],
+          meta: { page: { nextCursor: "cursor-2" } }
+        });
+      },
+      async getDocumentById() {
+        return returnJsonApiDocument(document("1", "Kindred"));
+      },
+      async createDocument() {
+        return returnJsonApiDocument(document("2", "Parable of the Sower"));
+      },
+      async patchDocumentById() {
+        return returnJsonApiDocument(document("1", "Kindred (updated)"));
+      },
+      async deleteDocumentById() {
+        return null;
+      }
+    },
+    surface: "admin",
+    permissionForOperation: () => ({ require: "authenticated" })
+  });
+  const byOperation = new Map(actions.map((entry) => [entry.id.split(".").at(-1), entry]));
+
+  assert.ok(actions.every((entry) => entry.output === null));
+  assert.equal(byOperation.get("list").extensions.assistant.output, resource.operations.list.output);
+  assert.equal(byOperation.get("view").extensions.assistant.output, resource.operations.view.output);
+  assert.equal(byOperation.get("create").extensions.assistant.output, resource.operations.create.output);
+  assert.equal(byOperation.get("update").extensions.assistant.output, resource.operations.patch.output);
+  assert.equal(byOperation.get("delete").extensions.assistant.output, resource.operations.delete.output);
+
+  const transform = async (operation, input = {}) => {
+    const definition = byOperation.get(operation);
+    const nativeResult = await definition.execute(input, {});
+    const assistantResult = await definition.extensions.assistant.transformResult(nativeResult, { input });
+    return validateSchemaPayload(definition.extensions.assistant.output, assistantResult, {
+      phase: "output"
+    });
+  };
+
+  assert.deepEqual(await transform("list"), {
+    items: [{ id: "1", title: "Kindred" }],
+    nextCursor: "cursor-2"
+  });
+  assert.deepEqual(await transform("view", { recordId: "1" }), {
+    id: "1",
+    title: "Kindred"
+  });
+  assert.deepEqual(await transform("create", { title: "Parable of the Sower" }), {
+    id: "2",
+    title: "Parable of the Sower"
+  });
+  assert.deepEqual(await transform("update", { recordId: "1", title: "Kindred (updated)" }), {
+    id: "1",
+    title: "Kindred (updated)"
+  });
+  assert.deepEqual(await transform("delete", { recordId: "1" }), {
+    id: "1",
+    deleted: true
+  });
+
+  assert.deepEqual(await byOperation.get("view").execute({ recordId: "1" }, {}),
+    returnJsonApiDocument(document("1", "Kindred")));
 });
 
 test("defineCrudJsonApiFeature lets product services name exact capability dependencies", async () => {

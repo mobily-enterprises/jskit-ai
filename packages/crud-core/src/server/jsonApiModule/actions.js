@@ -3,6 +3,11 @@ import {
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
+import {
+  normalizeJsonApiDocument,
+  simplifyJsonApiDocument,
+  unwrapJsonApiResult
+} from "@jskit-ai/http-runtime/shared";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
 import {
   createStandardCrudListQueryValidators,
@@ -12,6 +17,104 @@ import {
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
 const CRUD_LIFECYCLE_PHASES = Object.freeze(["before", "execute", "after", "afterCommit"]);
+const CRUD_ASSISTANT_RESOURCE_OPERATION = Object.freeze({
+  list: "list",
+  view: "view",
+  create: "create",
+  update: "patch",
+  delete: "delete"
+});
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeOptionalCursor(value) {
+  if (value == null) {
+    return null;
+  }
+  const normalized = String(value).trim();
+  return normalized || null;
+}
+
+function resolveDocumentNextCursor(document = {}) {
+  return normalizeOptionalCursor(
+    document?.meta?.page?.nextCursor ?? document?.meta?.pagination?.cursor?.next
+  );
+}
+
+function resolveAssistantResultValue(result) {
+  const taggedResult = unwrapJsonApiResult(result);
+  const value = taggedResult ? taggedResult.value : result;
+  const document = normalizeJsonApiDocument(value);
+  return {
+    value,
+    document
+  };
+}
+
+function transformCrudAssistantResult(operation, result, { input = {} } = {}) {
+  if (operation === "delete") {
+    const resolved = resolveAssistantResultValue(result);
+    if (isRecord(resolved.value) && resolved.value.deleted === true && resolved.value.id != null) {
+      return resolved.value;
+    }
+    return {
+      id: String(input.recordId || ""),
+      deleted: true
+    };
+  }
+
+  const resolved = resolveAssistantResultValue(result);
+  if (operation === "list") {
+    if (resolved.document.kind === "collection") {
+      return {
+        items: simplifyJsonApiDocument(resolved.value),
+        nextCursor: resolveDocumentNextCursor(resolved.document)
+      };
+    }
+    if (Array.isArray(resolved.value)) {
+      return {
+        items: resolved.value,
+        nextCursor: null
+      };
+    }
+    if (isRecord(resolved.value) && Array.isArray(resolved.value.items)) {
+      return {
+        items: resolved.value.items,
+        nextCursor: normalizeOptionalCursor(resolved.value.nextCursor)
+      };
+    }
+    return resolved.value;
+  }
+
+  if (resolved.document.kind === "resource") {
+    return simplifyJsonApiDocument(resolved.value);
+  }
+  return resolved.value;
+}
+
+function createCrudAssistantExtension(resource, namespace, operation) {
+  const resourceOperation = CRUD_ASSISTANT_RESOURCE_OPERATION[operation];
+  const output = resource?.operations?.[resourceOperation]?.output || null;
+  const actionLabel = operation === "list"
+    ? `List ${namespace} records.`
+    : operation === "view"
+      ? `View a ${namespace} record.`
+      : operation === "create"
+        ? `Create a ${namespace} record.`
+        : operation === "update"
+          ? `Update a ${namespace} record.`
+          : `Delete a ${namespace} record.`;
+
+  return Object.freeze({
+    description: actionLabel,
+    output,
+    transformResult(result, context) {
+      return transformCrudAssistantResult(operation, result, context);
+    }
+  });
+}
 
 function createActionInput(
   resource,
@@ -303,6 +406,9 @@ function createCrudJsonApiActions({
       permission: permission(definition.operation),
       input: input(definition.operation),
       output: null,
+      extensions: Object.freeze({
+        assistant: createCrudAssistantExtension(resource, namespace, definition.operation)
+      }),
       idempotency: definition.idempotency,
       audit: { actionName: id },
       observability: {},

@@ -166,7 +166,7 @@ Exports
 
 ### `src/server/lib/serviceToolCatalog.js`
 Exports
-- `createServiceToolCatalog(actions, { barredActionIds = [], skipActionPrefixes = [] } = {})`
+- `createServiceToolCatalog(actions, { barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
 Local functions
 - `normalizeAssistantExtension(value)`
 - `normalizeAssistantActionExtension(action = {})`
@@ -176,6 +176,17 @@ Local functions
 - `sanitizeToolName(value)`
 - `resolveUniqueToolName(baseName, used)`
 - `parseToolPayload(argumentsText)`
+- `normalizeNonNegativeInteger(value, fallback)`
+- `normalizePositiveInteger(value, fallback)`
+- `serializedByteLength(value)`
+- `createToolError(status, code, message)`
+- `ensureSerializedSize(value, maxBytes, { code = "assistant_tool_result_too_large", label = "Tool result" } = {})`
+- `ensureToolArgumentsSize(argumentsText, maxBytes)`
+- `normalizeActionLookupKey(actionId, version)`
+- `normalizeDiscoveryQuery(value)`
+- `encodeDiscoveryCursor(offset, query)`
+- `decodeDiscoveryCursor(value, query)`
+- `truncateDescription(value, maxLength = 240)`
 - `canInvokeMethod(permission, context)`
 - `normalizePermissionSpec(permission)`
 - `stripWorkspaceSlugFromSchema(schema, context = {})`
@@ -292,3 +303,17 @@ Exports
 ### `src/shared/support/positiveInteger.js`
 Exports
 - `toPositiveInteger(value, fallback = 0)`
+
+### fixtures
+
+### `fixtures/responsive-assistant/App.vue`
+Exports
+- None
+
+### `fixtures/responsive-assistant/main.js`
+Exports
+- None
+
+### `fixtures/responsive-assistant/vite.config.mjs`
+Exports
+- None

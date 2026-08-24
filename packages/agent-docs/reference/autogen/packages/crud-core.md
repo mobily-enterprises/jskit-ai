@@ -77,6 +77,12 @@ Exports
 - `createCrudJsonApiActions({ namespace, resource, repository = null, service, surface, permissionForOperation, permissionForAction = permissionForOperation, operations = CRUD_OPERATION_NAMES, scopeInputValidator = null, scopeInputKeys = [], listFilterQueryValidator = null, operationLifecycle = {}, operationInputs = {}, actions: additionalActionDefinitions = {}, dependencies = {} } = {})`
 - `normalizeCrudOperationLifecycle(value = {})`
 Local functions
+- `isRecord(value)`
+- `normalizeOptionalCursor(value)`
+- `resolveDocumentNextCursor(document = {})`
+- `resolveAssistantResultValue(result)`
+- `transformCrudAssistantResult(operation, result, { input = {} } = {})`
+- `createCrudAssistantExtension(resource, namespace, operation)`
 - `createActionInput(resource, operation, scopeInputValidator = null, listFilterQueryValidator = null, operationInputs = {})`
 - `omitInputKeys(input = {}, keys = [])`
 - `createLifecycleContext(value = {})`

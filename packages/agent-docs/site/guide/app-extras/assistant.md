@@ -35,6 +35,48 @@ Workspace scope is valid only when both the runtime and its settings surface
 are workspace-aware. Requests must retain the selected workspace through the
 server action boundary.
 
+## Action tools
+
+The assistant reads automation-capable actions from `runtime.actions`. It keeps
+the typing user's actor, permissions, target surface, and workspace context,
+then executes through `runtime.actions.execute()` with the `automation`
+channel. When workspace context resolves `workspaceSlug`, the tool schema hides
+that field and execution overwrites any model-supplied value with the trusted
+context value.
+
+An action is available as a tool only when it has an input contract and a
+truthful model-facing output contract. Ordinary actions use their normal
+`output`. An action whose native result needs a different model-facing shape
+can declare the adapter-specific contract and transformation explicitly:
+
+```js
+{
+  input,
+  output: null,
+  extensions: {
+    assistant: {
+      description: "List books.",
+      output: booksResource.operations.list.output,
+      transformResult(result, { input, context }) {
+        return toAssistantBookList(result, { input, context });
+      }
+    }
+  }
+}
+```
+
+The assistant validates the transformed result against
+`extensions.assistant.output` before returning it to the model. Generated
+JSON:API CRUD actions supply these assistant contracts and transformations
+automatically; their native action and HTTP result shapes do not change.
+
+Up to 32 authorized actions remain direct tools. For a larger authorized
+catalog, the runtime automatically exposes compact paged action search, exact
+one-action contract lookup, and contract-gated execution tools. Search returns
+at most 20 compact matches and never includes schemas. Tool arguments and
+results are byte-bounded; an oversized result returns a controlled error so it
+cannot overflow assistant transcript storage.
+
 ## Verification
 
 Run migrations, load assistant and settings pages through normal navigation,
