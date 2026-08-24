@@ -3,6 +3,7 @@ import {
   createSchema,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
+import { normalizeJsonApiFieldsets } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import {
   decodeJsonApiResourceResponse,
@@ -166,6 +167,102 @@ function createCrudAssistantTransport(resource, operation, relationshipEntries, 
   });
 }
 
+function projectCrudAssistantRecordFields(record, selectedFields = null, {
+  preserveKeys = []
+} = {}) {
+  if (!isRecord(record) || !Array.isArray(selectedFields)) {
+    return record;
+  }
+
+  const allowedKeys = new Set(["id", ...preserveKeys, ...selectedFields]);
+  return Object.fromEntries(
+    Object.entries(record).filter(([key]) => allowedKeys.has(key))
+  );
+}
+
+function projectCrudAssistantLookupValue(value, selectedFields = null) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => projectCrudAssistantRecordFields(entry, selectedFields));
+  }
+  return projectCrudAssistantRecordFields(value, selectedFields);
+}
+
+function projectCrudAssistantReadRecord(record, {
+  lookupContainerKey = "",
+  primaryFields = null,
+  relatedFieldsByLookupKey = new Map()
+} = {}) {
+  if (!isRecord(record)) {
+    return record;
+  }
+
+  const primaryProjection = projectCrudAssistantRecordFields(record, primaryFields, {
+    preserveKeys: lookupContainerKey && isRecord(record[lookupContainerKey])
+      ? [lookupContainerKey]
+      : []
+  });
+  const projectedRecord = primaryProjection === record ? { ...record } : primaryProjection;
+  if (!lookupContainerKey || !isRecord(projectedRecord[lookupContainerKey])) {
+    return projectedRecord;
+  }
+
+  projectedRecord[lookupContainerKey] = Object.fromEntries(
+    Object.entries(projectedRecord[lookupContainerKey]).map(([lookupKey, value]) => {
+      return [
+        lookupKey,
+        projectCrudAssistantLookupValue(value, relatedFieldsByLookupKey.get(lookupKey))
+      ];
+    })
+  );
+  return projectedRecord;
+}
+
+function createCrudAssistantResultProjection(input = {}, resource = {}, relationshipEntries = []) {
+  const primaryType = String(resource?.namespace || "").trim();
+  const fieldsets = normalizeJsonApiFieldsets(input?.fields, {
+    primaryType
+  });
+  if (Object.keys(fieldsets).length < 1) {
+    return null;
+  }
+
+  const relatedFieldsByLookupKey = new Map();
+  for (const entry of relationshipEntries) {
+    const selectedFields = fieldsets[entry.relationshipType];
+    if (!Array.isArray(selectedFields)) {
+      continue;
+    }
+    relatedFieldsByLookupKey.set(entry.relationshipName, selectedFields);
+    relatedFieldsByLookupKey.set(entry.attributeKey, selectedFields);
+  }
+
+  return {
+    primaryFields: fieldsets[primaryType],
+    relatedFieldsByLookupKey
+  };
+}
+
+function projectCrudAssistantReadResult(result, projection = null, {
+  lookupContainerKey = ""
+} = {}) {
+  if (!projection) {
+    return result;
+  }
+
+  const projectionOptions = {
+    ...projection,
+    lookupContainerKey
+  };
+  if (isRecord(result) && Array.isArray(result.items)) {
+    return {
+      ...result,
+      items: result.items.map((entry) => projectCrudAssistantReadRecord(entry, projectionOptions))
+    };
+  }
+
+  return projectCrudAssistantReadRecord(result, projectionOptions);
+}
+
 function transformCrudAssistantResult(operation, result, {
   input = {},
   resource,
@@ -184,39 +281,45 @@ function transformCrudAssistantResult(operation, result, {
   }
 
   const resolved = resolveAssistantResultValue(result);
+  const projection = operation === "list" || operation === "view"
+    ? createCrudAssistantResultProjection(input, resource, relationshipEntries)
+    : null;
+  const projectReadResult = (value) => projectCrudAssistantReadResult(value, projection, {
+    lookupContainerKey
+  });
   if (operation === "list") {
     if (resolved.document.kind === "collection") {
       const decoded = decodeJsonApiResourceResponse(
         resolved.value,
         createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
       );
-      return {
+      return projectReadResult({
         items: decoded.items,
         nextCursor: normalizeOptionalCursor(decoded.nextCursor)
-      };
+      });
     }
     if (Array.isArray(resolved.value)) {
-      return {
+      return projectReadResult({
         items: resolved.value,
         nextCursor: null
-      };
+      });
     }
     if (isRecord(resolved.value) && Array.isArray(resolved.value.items)) {
-      return {
+      return projectReadResult({
         items: resolved.value.items,
         nextCursor: normalizeOptionalCursor(resolved.value.nextCursor)
-      };
+      });
     }
     return resolved.value;
   }
 
   if (resolved.document.kind === "resource") {
-    return decodeJsonApiResourceResponse(
+    return projectReadResult(decodeJsonApiResourceResponse(
       resolved.value,
       createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
-    );
+    ));
   }
-  return resolved.value;
+  return projectReadResult(resolved.value);
 }
 
 function createCrudAssistantReadDescription({

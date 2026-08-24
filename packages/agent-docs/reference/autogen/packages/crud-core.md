@@ -83,6 +83,11 @@ Local functions
 - `createProjectionRecordSchema(recordSchema, { lookupContainerKey = "", relationshipEntries = [] } = {})`
 - `createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey)`
 - `createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)`
+- `projectCrudAssistantRecordFields(record, selectedFields = null, { preserveKeys = [] } = {})`
+- `projectCrudAssistantLookupValue(value, selectedFields = null)`
+- `projectCrudAssistantReadRecord(record, { lookupContainerKey = "", primaryFields = null, relatedFieldsByLookupKey = new Map() } = {})`
+- `createCrudAssistantResultProjection(input = {}, resource = {}, relationshipEntries = [])`
+- `projectCrudAssistantReadResult(result, projection = null, { lookupContainerKey = "" } = {})`
 - `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
 - `createCrudAssistantReadDescription({ fieldsetContract, lookupContainerKey = "", namespace = "", operation = "list" } = {})`
 - `createCrudAssistantExtension(resource, namespace, operation)`
