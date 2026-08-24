@@ -82,6 +82,12 @@ Local functions
 - `resolveLockPackageName(packagePath = "", record = {})`
 - `collectJskitOverridePaths(value, currentPath = "overrides", results = [])`
 - `writeManifestUpdates(updates = [])`
+- `readOptionalFile(absolutePath)`
+- `restoreProjectFiles(updates, packageLockPath, packageLockSnapshot)`
+- `removeJskitDependencyRecords(dependencies = {}, localPackageNames = new Set())`
+- `alignLockManifestRecord(lockRecord, manifest, localPackageNames)`
+- `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
+- `spawnNpmInstall(projectRoot)`
 - `runNpmInstall(projectRoot)`
 
 ### `scripts/verify-packages.mjs`

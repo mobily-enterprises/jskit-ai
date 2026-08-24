@@ -380,7 +380,115 @@ async function writeManifestUpdates(updates = []) {
   }
 }
 
-async function runNpmInstall(projectRoot) {
+async function readOptionalFile(absolutePath) {
+  try {
+    return Object.freeze({
+      contents: await readFile(absolutePath, "utf8"),
+      exists: true
+    });
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return Object.freeze({
+        contents: "",
+        exists: false
+      });
+    }
+    throw error;
+  }
+}
+
+async function restoreProjectFiles(updates, packageLockPath, packageLockSnapshot) {
+  const rollbackUpdates = updates.map((update) => Object.freeze({
+    contents: update.manifest.contents,
+    manifest: Object.freeze({
+      ...update.manifest,
+      contents: update.contents
+    })
+  }));
+  await writeManifestUpdates(rollbackUpdates);
+  if (packageLockSnapshot.exists) {
+    const temporaryPath = `${packageLockPath}.jskit-${process.pid}-rollback.tmp`;
+    try {
+      await writeFile(temporaryPath, packageLockSnapshot.contents, "utf8");
+      await rename(temporaryPath, packageLockPath);
+    } finally {
+      await rm(temporaryPath, { force: true });
+    }
+    return;
+  }
+  await rm(packageLockPath, { force: true });
+}
+
+function removeJskitDependencyRecords(dependencies = {}, localPackageNames = new Set()) {
+  for (const [packageId, record] of Object.entries(dependencies || {})) {
+    if (packageId.startsWith(JSKIT_SCOPE_PREFIX) && !localPackageNames.has(packageId)) {
+      delete dependencies[packageId];
+      continue;
+    }
+    if (record && typeof record === "object" && !Array.isArray(record)) {
+      removeJskitDependencyRecords(record.dependencies, localPackageNames);
+    }
+  }
+}
+
+function alignLockManifestRecord(lockRecord, manifest, localPackageNames) {
+  if (!lockRecord || typeof lockRecord !== "object" || Array.isArray(lockRecord)) {
+    return;
+  }
+  for (const field of DEPENDENCY_FIELDS) {
+    const nextDeclarations = {
+      ...(lockRecord[field] && typeof lockRecord[field] === "object" ? lockRecord[field] : {})
+    };
+    for (const packageId of Object.keys(nextDeclarations)) {
+      if (packageId.startsWith(JSKIT_SCOPE_PREFIX) && !localPackageNames.has(packageId)) {
+        delete nextDeclarations[packageId];
+      }
+    }
+    for (const [packageId, version] of Object.entries(manifest.value?.[field] || {})) {
+      if (packageId.startsWith(JSKIT_SCOPE_PREFIX) && !localPackageNames.has(packageId)) {
+        nextDeclarations[packageId] = version;
+      }
+    }
+    if (Object.keys(nextDeclarations).length > 0) {
+      lockRecord[field] = nextDeclarations;
+    } else {
+      delete lockRecord[field];
+    }
+  }
+}
+
+async function preparePackageLockForInstall(projectRoot, manifests, packageLockPath) {
+  if (!(await fileExists(packageLockPath))) {
+    return;
+  }
+  const packageLock = await readJsonRecord(packageLockPath);
+  const next = structuredClone(packageLock.value);
+  const localPackageNames = collectLocalPackageNames(manifests);
+  if (next.packages && typeof next.packages === "object" && !Array.isArray(next.packages)) {
+    for (const [packagePath, record] of Object.entries(next.packages)) {
+      const packageId = resolveLockPackageName(packagePath, record);
+      if (packageId && record?.link !== true && !localPackageNames.has(packageId)) {
+        delete next.packages[packagePath];
+      }
+    }
+    for (const manifest of manifests) {
+      const relativeDirectory = toPosixPath(
+        path.relative(projectRoot, path.dirname(manifest.absolutePath))
+      );
+      alignLockManifestRecord(next.packages[relativeDirectory], manifest, localPackageNames);
+    }
+  }
+  removeJskitDependencyRecords(next.dependencies, localPackageNames);
+  const temporaryPath = `${packageLockPath}.jskit-${process.pid}-install.tmp`;
+  try {
+    await writeFile(temporaryPath, serializePackageJson(next, packageLock.contents), "utf8");
+    await rename(temporaryPath, packageLockPath);
+  } finally {
+    await rm(temporaryPath, { force: true });
+  }
+}
+
+async function spawnNpmInstall(projectRoot) {
   await new Promise((resolve, reject) => {
     const child = spawn("npm", ["install"], {
       cwd: projectRoot,
@@ -396,6 +504,56 @@ async function runNpmInstall(projectRoot) {
       reject(new Error(`npm install failed (code=${code}, signal=${signal || "none"}).`));
     });
   });
+}
+
+async function runNpmInstall(projectRoot) {
+  const nodeModulesPath = path.join(projectRoot, "node_modules");
+  const backupPath = path.join(
+    projectRoot,
+    `.jskit-node-modules-${process.pid}-${Date.now()}`
+  );
+  const hadNodeModules = await fileExists(nodeModulesPath);
+  if (hadNodeModules) {
+    await rename(nodeModulesPath, backupPath);
+  }
+
+  let settled = false;
+  const transaction = Object.freeze({
+    async commit() {
+      if (settled) {
+        return;
+      }
+      if (hadNodeModules) {
+        await rm(backupPath, { force: true, recursive: true });
+      }
+      settled = true;
+    },
+    async rollback() {
+      if (settled) {
+        return;
+      }
+      await rm(nodeModulesPath, { force: true, recursive: true });
+      if (hadNodeModules) {
+        await rename(backupPath, nodeModulesPath);
+      }
+      settled = true;
+    }
+  });
+
+  try {
+    await spawnNpmInstall(projectRoot);
+    return transaction;
+  } catch (error) {
+    try {
+      await transaction.rollback();
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [error, rollbackError],
+        "npm install failed and the previous node_modules directory could not be restored."
+      );
+    }
+    throw error;
+  }
 }
 
 async function updateProject({
@@ -480,13 +638,40 @@ async function updateProject({
     }
   }
 
+  const packageLockPath = path.join(root, "package-lock.json");
+  const packageLockSnapshot = install ? await readOptionalFile(packageLockPath) : null;
   await writeManifestUpdates(updates);
-  if (install) {
-    await installProject(root);
-    const result = await checkProject({ projectRoot: root, catalog });
-    if (!result.ok) {
-      throw new Error(`JSKIT graph remains inconsistent after npm install:\n- ${result.issues.join("\n- ")}`);
+  let installTransaction = null;
+  try {
+    if (install) {
+      const updatedManifests = await discoverProjectManifests(root);
+      await preparePackageLockForInstall(root, updatedManifests, packageLockPath);
+      installTransaction = await installProject(root);
+      const result = await checkProject({ projectRoot: root, catalog });
+      if (!result.ok) {
+        throw new Error(`JSKIT graph remains inconsistent after npm install:\n- ${result.issues.join("\n- ")}`);
+      }
+      await installTransaction?.commit?.();
     }
+  } catch (error) {
+    const rollbackErrors = [];
+    try {
+      await installTransaction?.rollback?.();
+    } catch (rollbackError) {
+      rollbackErrors.push(rollbackError);
+    }
+    try {
+      await restoreProjectFiles(updates, packageLockPath, packageLockSnapshot);
+    } catch (rollbackError) {
+      rollbackErrors.push(rollbackError);
+    }
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...rollbackErrors],
+        "JSKIT update failed and its previous project state could not be fully restored."
+      );
+    }
+    throw error;
   }
 
   return Object.freeze({
