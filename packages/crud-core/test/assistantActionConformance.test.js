@@ -11,13 +11,45 @@ import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudReso
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 
 const BOOKINGS = Object.freeze([
-  Object.freeze({ id: "41", petId: "7", summary: "Wash and trim" }),
-  Object.freeze({ id: "42", petId: "8", summary: "Nail trim" })
+  Object.freeze({
+    id: "41",
+    serviceId: "11",
+    productId: "21",
+    contactId: "31",
+    petId: "7",
+    summary: "Wash and trim"
+  }),
+  Object.freeze({
+    id: "42",
+    serviceId: "12",
+    productId: "22",
+    contactId: "32",
+    petId: "8",
+    summary: "Nail trim"
+  })
 ]);
 const PETS = Object.freeze({
-  "7": Object.freeze({ id: "7", name: "Fido", species: "dog" }),
-  "8": Object.freeze({ id: "8", name: "Mabel", species: "cat" })
+  "7": Object.freeze({ id: "7", contactId: "31", breedId: "91", name: "Fido", species: "dog" }),
+  "8": Object.freeze({ id: "8", contactId: "32", breedId: "92", name: "Mabel", species: "cat" })
 });
+
+function lookupField(namespace, relationshipName) {
+  return {
+    type: "id",
+    required: true,
+    belongsTo: namespace,
+    as: relationshipName,
+    relation: {
+      kind: "lookup",
+      namespace,
+      valueKey: "id",
+      labelKey: "name"
+    },
+    operations: {
+      output: { required: true }
+    }
+  };
+}
 
 function createBookingsResource() {
   return defineCrudResource({
@@ -30,21 +62,10 @@ function createBookingsResource() {
       }
     },
     schema: {
-      petId: {
-        type: "id",
-        required: true,
-        belongsTo: "pets",
-        as: "pet",
-        relation: {
-          kind: "lookup",
-          namespace: "pets",
-          valueKey: "id",
-          labelKey: "name"
-        },
-        operations: {
-          output: { required: true }
-        }
-      },
+      serviceId: lookupField("services", "service"),
+      productId: lookupField("products", "product"),
+      contactId: lookupField("contacts", "contact"),
+      petId: lookupField("pets", "pet"),
       summary: {
         type: "string",
         required: true,
@@ -77,20 +98,24 @@ function createBookingDocument(query = {}) {
     .includes("pet");
   const rows = BOOKINGS.slice(0, limit);
   const data = rows.map((booking) => {
-    const includePetLinkage = !selectedBookings || selectedBookings.includes("petId");
     return {
       type: "bookings",
       id: booking.id,
       attributes: selectFields({ summary: booking.summary }, selectedBookings),
-      ...(includePetLinkage
-        ? {
-            relationships: {
-              pet: {
-                data: { type: "pets", id: booking.petId }
-              }
-            }
-          }
-        : {})
+      relationships: {
+        service: {
+          data: { type: "services", id: booking.serviceId }
+        },
+        product: {
+          data: { type: "products", id: booking.productId }
+        },
+        contact: {
+          data: { type: "contacts", id: booking.contactId }
+        },
+        pet: {
+          data: { type: "pets", id: booking.petId }
+        }
+      }
     };
   });
   const included = includesPet
@@ -100,7 +125,15 @@ function createBookingDocument(query = {}) {
         attributes: selectFields({
           name: PETS[booking.petId].name,
           species: PETS[booking.petId].species
-        }, selectedPets)
+        }, selectedPets),
+        relationships: {
+          contact: {
+            data: { type: "contacts", id: PETS[booking.petId].contactId }
+          },
+          breed: {
+            data: { type: "breeds", id: PETS[booking.petId].breedId }
+          }
+        }
       }))
     : [];
 
@@ -123,8 +156,12 @@ function createFixture() {
       calls.push({ query, context });
       return returnJsonApiDocument(createBookingDocument(query));
     },
-    async getDocumentById() {
-      return returnJsonApiDocument({ data: createBookingDocument().data[0] });
+    async getDocumentById(_recordId, query) {
+      const document = createBookingDocument(query);
+      return returnJsonApiDocument({
+        data: document.data[0],
+        ...(document.included ? { included: document.included } : {})
+      });
     }
   };
   const definitions = createCrudJsonApiActions({
@@ -210,14 +247,23 @@ test("generated CRUD list contracts conform through native assistant discovery a
     contract.result.inputSchema,
     contract.result.inputSchema.properties.fields
   );
-  assert.deepEqual(Object.keys(fieldsetInputSchema.properties), ["bookings", "pets"]);
+  assert.deepEqual(
+    Object.keys(fieldsetInputSchema.properties),
+    ["bookings", "services", "products", "contacts", "pets"]
+  );
   assert.equal(fieldsetInputSchema.additionalProperties, false);
-  assert.deepEqual(fieldsetInputSchema.properties.bookings.items.enum, ["id", "petId", "summary"]);
+  assert.deepEqual(
+    fieldsetInputSchema.properties.bookings.items.enum,
+    ["id", "serviceId", "productId", "contactId", "petId", "summary"]
+  );
   assert.equal(Object.hasOwn(fieldsetInputSchema.properties.pets.items, "enum"), false);
   assert.equal(Object.hasOwn(contract.result.inputSchema.properties, "workspaceSlug"), false);
   assert.match(contract.result.description, /include must be a comma-separated string/u);
-  assert.match(contract.result.description, /\{"bookings":\["petId"\],"pets":\["name"\]\}/u);
-  assert.match(contract.result.description, /fields keys must be JSON:API resource types: "bookings", "pets"/u);
+  assert.match(contract.result.description, /\{"bookings":\["serviceId"\],"services":\["name"\]\}/u);
+  assert.match(
+    contract.result.description,
+    /fields keys must be JSON:API resource types: "bookings", "services", "products", "contacts", "pets"/u
+  );
   assert.match(contract.result.description, /use "pets" instead of "pet"/u);
   assert.match(
     contract.result.description,
@@ -241,21 +287,35 @@ test("generated CRUD list contracts conform through native assistant discovery a
     const response = await executeList(fixture, toolSet, { limit: 5 });
     assert.equal(response.ok, true);
     assert.deepEqual(response.result.result.items, [
-      { id: "41", petId: 7, summary: "Wash and trim" },
-      { id: "42", petId: 8, summary: "Nail trim" }
+      {
+        id: "41",
+        serviceId: 11,
+        productId: 21,
+        contactId: 31,
+        petId: 7,
+        summary: "Wash and trim"
+      },
+      {
+        id: "42",
+        serviceId: 12,
+        productId: 22,
+        contactId: 32,
+        petId: 8,
+        summary: "Nail trim"
+      }
     ]);
     assert.equal(response.result.result.nextCursor, null);
   });
 
   await t.test("sparse primary fields only", async () => {
     const response = await executeList(fixture, toolSet, {
-      fields: { bookings: ["petId"] },
+      fields: { bookings: ["serviceId"] },
       limit: 5
     });
     assert.equal(response.ok, true);
     assert.deepEqual(response.result.result.items, [
-      { id: "41", petId: 7 },
-      { id: "42", petId: 8 }
+      { id: "41", serviceId: 11 },
+      { id: "42", serviceId: 12 }
     ]);
   });
 
@@ -264,6 +324,8 @@ test("generated CRUD list contracts conform through native assistant discovery a
     assert.equal(response.ok, true);
     assert.equal(response.result.result.items[0].lookups.pet.name, "Fido");
     assert.equal(response.result.result.items[0].lookups.pet.species, "dog");
+    assert.equal(response.result.result.items[0].lookups.pet.contactId, "31");
+    assert.equal(response.result.result.items[0].lookups.pet.breedId, "91");
     assert.equal(response.result.result.items[1].lookups.pet.name, "Mabel");
   });
 
@@ -271,7 +333,7 @@ test("generated CRUD list contracts conform through native assistant discovery a
     const response = await executeList(fixture, toolSet, {
       workspaceSlug: "model-controlled-workspace",
       include: "pet",
-      fields: { bookings: ["petId"], pets: ["name"] },
+      fields: { bookings: ["id", "serviceId"], pets: ["name"] },
       limit: 5
     });
     assert.equal(response.ok, true);
@@ -279,7 +341,7 @@ test("generated CRUD list contracts conform through native assistant discovery a
     assert.deepEqual(JSON.parse(JSON.stringify(response.result.result.items)), [
       {
         id: "41",
-        petId: 7,
+        serviceId: 11,
         lookups: {
           petId: { id: "7", name: "Fido" },
           pet: { id: "7", name: "Fido" }
@@ -287,7 +349,7 @@ test("generated CRUD list contracts conform through native assistant discovery a
       },
       {
         id: "42",
-        petId: 8,
+        serviceId: 12,
         lookups: {
           petId: { id: "8", name: "Mabel" },
           pet: { id: "8", name: "Mabel" }
@@ -295,7 +357,12 @@ test("generated CRUD list contracts conform through native assistant discovery a
       }
     ]);
     assert.equal(Object.hasOwn(response.result.result.items[0], "summary"), false);
+    assert.equal(Object.hasOwn(response.result.result.items[0], "productId"), false);
+    assert.equal(Object.hasOwn(response.result.result.items[0], "contactId"), false);
+    assert.equal(Object.hasOwn(response.result.result.items[0], "petId"), false);
     assert.equal(Object.hasOwn(response.result.result.items[0].lookups.pet, "species"), false);
+    assert.equal(Object.hasOwn(response.result.result.items[0].lookups.pet, "contactId"), false);
+    assert.equal(Object.hasOwn(response.result.result.items[0].lookups.pet, "breedId"), false);
     assert.deepEqual(
       validateSchemaPayload(listDefinition.extensions.assistant.output, response.result.result, {
         phase: "output"
@@ -303,7 +370,45 @@ test("generated CRUD list contracts conform through native assistant discovery a
       response.result.result
     );
     assert.equal(fixture.calls.at(-1).query.workspaceSlug, undefined);
+    assert.deepEqual(fixture.calls.at(-1).query.fields, {
+      bookings: ["id", "serviceId"],
+      pets: ["name"]
+    });
     assert.equal(fixture.calls.at(-1).context.workspace.slug, "north-clinic");
+  });
+
+  await t.test("sparse view projection removes unselected relationship linkage", async () => {
+    const viewContract = await fixture.catalog.executeToolCall({
+      toolName: "assistant_action_contract",
+      argumentsText: JSON.stringify({ actionId: "crud.bookings.view", version: 1 }),
+      context: fixture.context,
+      toolSet
+    });
+    assert.equal(viewContract.ok, true);
+
+    const response = await fixture.catalog.executeToolCall({
+      toolName: "assistant_action_execute",
+      argumentsText: JSON.stringify({
+        actionId: "crud.bookings.view",
+        version: 1,
+        input: {
+          recordId: "41",
+          include: "pet",
+          fields: { bookings: ["serviceId"], pets: ["name"] }
+        }
+      }),
+      context: fixture.context,
+      toolSet
+    });
+    assert.equal(response.ok, true);
+    assert.deepEqual(JSON.parse(JSON.stringify(response.result.result)), {
+      id: "41",
+      serviceId: 11,
+      lookups: {
+        petId: { id: "7", name: "Fido" },
+        pet: { id: "7", name: "Fido" }
+      }
+    });
   });
 
   await t.test("limit and cursor truncation remain bounded", async () => {
@@ -329,7 +434,7 @@ test("generated CRUD list contracts conform through native assistant discovery a
     assert.equal(response.error.status, 400);
     assert.match(
       response.error.message,
-      /fields expects an object keyed by JSON:API resource type, such as \{"bookings":\["petId"\],"pets":\["name"\]\}/u
+      /fields expects an object keyed by JSON:API resource type, such as \{"bookings":\["serviceId"\],"services":\["name"\]\}/u
     );
   });
 
@@ -344,7 +449,10 @@ test("generated CRUD list contracts conform through native assistant discovery a
     assert.equal(response.error.code, "ACTION_VALIDATION_FAILED");
     assert.equal(response.error.status, 400);
     assert.match(response.error.message, /fields\.pet: fields keys must be JSON:API resource types/u);
-    assert.match(response.error.message, /Allowed keys: "bookings", "pets"/u);
+    assert.match(
+      response.error.message,
+      /Allowed keys: "bookings", "services", "products", "contacts", "pets"/u
+    );
     assert.match(response.error.message, /use "pets" instead of "pet"/u);
     assert.equal(fixture.calls.length, callCount);
   });

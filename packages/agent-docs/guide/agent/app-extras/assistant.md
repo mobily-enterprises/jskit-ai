@@ -88,7 +88,10 @@ is a comma-separated string, and `fields` is keyed by resource type:
 
 Sparse primary fields remain sparse in the result. Requested included records
 use the resource's lookup container and relationship name, for example
-`items[0].lookups.pet.name`. Invalid array forms such as `include: ["pet"]` or
+`items[0].lookups.pet.name`. Resource identifiers remain available as `id`,
+but relationship IDs and included-resource fields that were not selected are
+removed after JSKIT uses JSON:API linkage to associate each lookup with its
+primary record. Invalid array forms such as `include: ["pet"]` or
 `fields: ["pet.name"]` are rejected with field-specific shape guidance. A
 relationship name is not a fieldset key: for a `pet` relationship whose
 JSON:API resource type is `pets`, use `fields: { "pets": ["name"] }`, not
