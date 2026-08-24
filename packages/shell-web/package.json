@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.171",
+  "version": "0.1.172",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -28,10 +28,10 @@
     "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js"
   },
   "dependencies": {
-    "@mdi/js": "^7.4.47",
-    "@jskit-ai/kernel": "0.1.167"
+    "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.168",
     "pinia": "^3.0.4",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
@@ -69,7 +69,8 @@
           "exclude": [
             "@jskit-ai/shell-web/client"
           ]
-        }
+        },
+        "singleton": true
       },
       "apiSummary": {
         "surfaces": [

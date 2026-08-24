@@ -19,7 +19,10 @@ const lookupIncludeQueryValidator = Object.freeze({
   schema: createSchema({
     include: {
       type: "string",
-      required: false
+      required: false,
+      messages: {
+        default: "include expects a comma-separated string such as \"pet,service\"."
+      }
     }
   }),
   mode: "patch"
@@ -30,6 +33,9 @@ const jsonApiFieldsetsQueryValidator = Object.freeze({
     fields: {
       type: "object",
       required: false,
+      messages: {
+        default: "fields expects an object such as {\"bookings\":[\"petId\"],\"pets\":[\"name\"]}."
+      },
       values: {
         type: "array",
         items: {

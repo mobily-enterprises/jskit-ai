@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/mobile-capacitor",
-  "version": "0.1.102",
+  "version": "0.1.103",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,9 +12,7 @@
   },
   "dependencies": {
     "@capacitor/browser": "^7.0.1",
-    "@capacitor/core": "^7.4.3",
-    "@jskit-ai/kernel": "0.1.167",
-    "@jskit-ai/shell-web": "0.1.171"
+    "@capacitor/core": "^7.4.3"
   },
   "description": "Thin Capacitor client integration for JSKIT mobile-shell launch routing and auth callback completion.",
   "jskit": {
@@ -54,7 +52,14 @@
           "client.mobile",
           "client.mobile-runtime"
         ]
+      },
+      "client": {
+        "singleton": true
       }
     }
+  },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.168",
+    "@jskit-ai/shell-web": "0.1.172"
   }
 }

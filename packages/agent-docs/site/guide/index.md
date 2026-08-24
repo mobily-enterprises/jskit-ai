@@ -8,6 +8,7 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 
 - [Quickstart](/guide/app-setup/quickstart)
 - [Application foundations](/guide/app-setup/initial-scaffolding)
+- [Upgrade JSKIT](/guide/app-setup/upgrading-jskit)
 - [Migrate an existing application](/guide/app-setup/existing-application-migration)
 - [A more interesting shell](/guide/app-setup/a-more-interesting-shell)
 - [Authentication](/guide/app-setup/authentication)
@@ -29,6 +30,7 @@ capabilities selected by the product. For implementation, the installed JSKIT
 skill routes the agent to package-owned `PATTERN.md` files and the smallest
 relevant public API reference.
 
-There are no generator or CLI chapters. Their useful source examples are
-package-owned patterns; their questionnaire, mutation, and provenance machinery
-is not part of JSKIT.
+There are no source-generator chapters. Package-owned patterns replace their
+useful source examples; questionnaire, mutation, and provenance machinery is
+not part of JSKIT. The supported `jskit update` and `jskit check` commands own
+only dependency manifests and lockfile conformance.

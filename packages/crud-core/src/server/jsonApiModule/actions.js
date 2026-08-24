@@ -1,14 +1,16 @@
 import {
   composeSchemaDefinitions,
+  createSchema,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import {
+  decodeJsonApiResourceResponse,
   normalizeJsonApiDocument,
-  simplifyJsonApiDocument,
   unwrapJsonApiResult
 } from "@jskit-ai/http-runtime/shared";
 import { resolveCrudRecordChangedEvent } from "@jskit-ai/resource-crud-core/shared/crudNamespaceSupport";
+import { resolveJsonApiRelationshipEntries } from "../routeContracts.js";
 import {
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
@@ -37,12 +39,6 @@ function normalizeOptionalCursor(value) {
   return normalized || null;
 }
 
-function resolveDocumentNextCursor(document = {}) {
-  return normalizeOptionalCursor(
-    document?.meta?.page?.nextCursor ?? document?.meta?.pagination?.cursor?.next
-  );
-}
-
 function resolveAssistantResultValue(result) {
   const taggedResult = unwrapJsonApiResult(result);
   const value = taggedResult ? taggedResult.value : result;
@@ -53,7 +49,129 @@ function resolveAssistantResultValue(result) {
   };
 }
 
-function transformCrudAssistantResult(operation, result, { input = {} } = {}) {
+function resolveSchemaFieldDefinitions(definition = null) {
+  const definitions = definition?.schema?.getFieldDefinitions?.();
+  return isRecord(definitions) ? definitions : {};
+}
+
+function createProjectionRecordSchema(recordSchema, {
+  lookupContainerKey = "",
+  relationshipEntries = []
+} = {}) {
+  const definitions = recordSchema?.getFieldDefinitions?.();
+  if (!isRecord(definitions)) {
+    return recordSchema;
+  }
+
+  const fields = Object.fromEntries(
+    Object.entries(definitions).map(([fieldKey, fieldDefinition]) => [
+      fieldKey,
+      {
+        ...fieldDefinition,
+        required: fieldKey === "id" && fieldDefinition?.required === true
+      }
+    ])
+  );
+  if (lookupContainerKey && isRecord(fields[lookupContainerKey])) {
+    const createRelatedRecordSchema = (entry) => createSchema({
+      id: {
+        type: "string",
+        required: true
+      },
+      ...(entry.labelKey && entry.labelKey !== "id"
+        ? {
+            [entry.labelKey]: {
+              type: "string",
+              required: false,
+              nullable: true
+            }
+          }
+        : {})
+    });
+    const lookupFields = Object.fromEntries(
+      relationshipEntries.map((entry) => [
+        entry.relationshipName,
+        entry.many === true
+          ? {
+              type: "array",
+              required: false,
+              items: {
+                type: "object",
+                schema: createRelatedRecordSchema(entry),
+                additionalProperties: true
+              }
+            }
+          : {
+              type: "object",
+              required: false,
+              schema: createRelatedRecordSchema(entry),
+              additionalProperties: true
+            }
+      ])
+    );
+    fields[lookupContainerKey] = {
+      ...fields[lookupContainerKey],
+      type: "object",
+      required: false,
+      ...(Object.keys(lookupFields).length > 0 ? { schema: createSchema(lookupFields) } : {}),
+      additionalProperties: true
+    };
+  }
+
+  return createSchema(fields);
+}
+
+function createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey) {
+  if (!output || (operation !== "list" && operation !== "view")) {
+    return output;
+  }
+
+  if (operation === "view") {
+    return Object.freeze({
+      schema: createProjectionRecordSchema(output.schema, { lookupContainerKey, relationshipEntries }),
+      mode: "replace"
+    });
+  }
+
+  const listFields = resolveSchemaFieldDefinitions(output);
+  const items = listFields.items;
+  if (!isRecord(items) || items.type !== "array" || typeof items.items?.getFieldDefinitions !== "function") {
+    return output;
+  }
+
+  return Object.freeze({
+    schema: createSchema({
+      ...listFields,
+      items: {
+        ...items,
+        items: createProjectionRecordSchema(items.items, { lookupContainerKey, relationshipEntries })
+      }
+    }),
+    mode: "replace"
+  });
+}
+
+function createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey) {
+  const lookupFieldMap = Object.fromEntries(
+    relationshipEntries
+      .filter((entry) => entry.many !== true)
+      .map((entry) => [entry.relationshipName, entry.attributeKey])
+  );
+  return Object.freeze({
+    kind: "jsonapi-resource",
+    responseType: resource.namespace,
+    responseKind: operation === "list" ? "collection" : "record",
+    ...(lookupContainerKey ? { lookupContainerKey } : {}),
+    ...(Object.keys(lookupFieldMap).length > 0 ? { lookupFieldMap } : {})
+  });
+}
+
+function transformCrudAssistantResult(operation, result, {
+  input = {},
+  resource,
+  relationshipEntries = [],
+  lookupContainerKey = ""
+} = {}) {
   if (operation === "delete") {
     const resolved = resolveAssistantResultValue(result);
     if (isRecord(resolved.value) && resolved.value.deleted === true && resolved.value.id != null) {
@@ -68,9 +186,13 @@ function transformCrudAssistantResult(operation, result, { input = {} } = {}) {
   const resolved = resolveAssistantResultValue(result);
   if (operation === "list") {
     if (resolved.document.kind === "collection") {
+      const decoded = decodeJsonApiResourceResponse(
+        resolved.value,
+        createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
+      );
       return {
-        items: simplifyJsonApiDocument(resolved.value),
-        nextCursor: resolveDocumentNextCursor(resolved.document)
+        items: decoded.items,
+        nextCursor: normalizeOptionalCursor(decoded.nextCursor)
       };
     }
     if (Array.isArray(resolved.value)) {
@@ -89,18 +211,44 @@ function transformCrudAssistantResult(operation, result, { input = {} } = {}) {
   }
 
   if (resolved.document.kind === "resource") {
-    return simplifyJsonApiDocument(resolved.value);
+    return decodeJsonApiResourceResponse(
+      resolved.value,
+      createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)
+    );
   }
   return resolved.value;
 }
 
 function createCrudAssistantExtension(resource, namespace, operation) {
   const resourceOperation = CRUD_ASSISTANT_RESOURCE_OPERATION[operation];
-  const output = resource?.operations?.[resourceOperation]?.output || null;
+  const nativeOutput = resource?.operations?.[resourceOperation]?.output || null;
+  const recordOutput = operation === "list"
+    ? Object.freeze({
+        schema: resolveSchemaFieldDefinitions(nativeOutput).items?.items,
+        mode: "replace"
+      })
+    : nativeOutput;
+  const relationshipEntries = resolveJsonApiRelationshipEntries(recordOutput);
+  const lookupContainerKey = String(resource?.contract?.lookup?.containerKey || "").trim();
+  const output = createProjectionOutputDefinition(
+    nativeOutput,
+    operation,
+    relationshipEntries,
+    lookupContainerKey
+  );
+  const firstRelationship = relationshipEntries[0] || null;
+  const fieldsExample = firstRelationship
+    ? ` fields can be {\"${namespace}\":[\"${firstRelationship.attributeKey}\"],` +
+      `\"${firstRelationship.relationshipType}\":[\"${firstRelationship.labelKey || "id"}\"]}.`
+    : ` fields can be {\"${namespace}\":[\"id\"]}.`;
+  const lookupExample = firstRelationship && lookupContainerKey
+    ? ` Included fields are returned under ${operation === "list" ? "items[]." : ""}${lookupContainerKey}.` +
+      `${firstRelationship.relationshipName}.${firstRelationship.labelKey || "<selectedField>"}.`
+    : "";
   const actionLabel = operation === "list"
-    ? `List ${namespace} records.`
+    ? `List ${namespace} records. include must be a comma-separated string such as \"pet,service\";${fieldsExample}${lookupExample}`
     : operation === "view"
-      ? `View a ${namespace} record.`
+      ? `View a ${namespace} record. include must be a comma-separated string such as \"pet,service\";${fieldsExample}${lookupExample}`
       : operation === "create"
         ? `Create a ${namespace} record.`
         : operation === "update"
@@ -111,7 +259,12 @@ function createCrudAssistantExtension(resource, namespace, operation) {
     description: actionLabel,
     output,
     transformResult(result, context) {
-      return transformCrudAssistantResult(operation, result, context);
+      return transformCrudAssistantResult(operation, result, {
+        ...context,
+        resource,
+        relationshipEntries,
+        lookupContainerKey
+      });
     }
   });
 }

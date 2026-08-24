@@ -40,9 +40,9 @@ async function readExamplePackageJson(patternName) {
   return JSON.parse(source);
 }
 
-async function readWorkspacePackageVersion(packageDirectory) {
+async function readWorkspacePackageVersion(packageDirectory, workspaceRoot = "packages") {
   const source = await readFile(
-    path.join(REPOSITORY_ROOT, "packages", packageDirectory, "package.json"),
+    path.join(REPOSITORY_ROOT, workspaceRoot, packageDirectory, "package.json"),
     "utf8"
   );
   return JSON.parse(source).version;
@@ -51,6 +51,7 @@ async function readWorkspacePackageVersion(packageDirectory) {
 test("application foundations are concrete source patterns rather than generator templates", async () => {
   const kernelVersion = await readWorkspacePackageVersion("kernel");
   const httpRuntimeVersion = await readWorkspacePackageVersion("http-runtime");
+  const catalogVersion = await readWorkspacePackageVersion("jskit-catalog", "tooling");
 
   for (const patternName of FOUNDATION_NAMES) {
     const patternRoot = path.join(PATTERNS_ROOT, patternName);
@@ -62,8 +63,14 @@ test("application foundations are concrete source patterns rather than generator
     assert.equal(packageJson.private, true);
     assert.equal(packageJson.dependencies?.["@jskit-ai/kernel"], kernelVersion);
     assert.equal(packageJson.dependencies?.["@jskit-ai/http-runtime"], httpRuntimeVersion);
+    assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-catalog"], catalogVersion);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-cli"], undefined);
-    assert.doesNotMatch(JSON.stringify(packageJson.scripts || {}), /\bjskit\b/u);
+    assert.equal(
+      packageJson.scripts?.["jskit:update"],
+      "npx --yes @jskit-ai/jskit-catalog@latest update"
+    );
+    assert.equal(packageJson.scripts?.["jskit:check"], "jskit check");
+    assert.match(packageJson.scripts?.verify || "", /^npm run jskit:check && /u);
     assert.ok(files.length > 25, `${patternName} must remain a coherent application tree.`);
 
     const combinedSource = (

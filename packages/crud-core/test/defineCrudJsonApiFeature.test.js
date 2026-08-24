@@ -227,11 +227,18 @@ test("generated CRUD actions expose truthful assistant contracts without changin
   const byOperation = new Map(actions.map((entry) => [entry.id.split(".").at(-1), entry]));
 
   assert.ok(actions.every((entry) => entry.output === null));
-  assert.equal(byOperation.get("list").extensions.assistant.output, resource.operations.list.output);
-  assert.equal(byOperation.get("view").extensions.assistant.output, resource.operations.view.output);
+  assert.notEqual(byOperation.get("list").extensions.assistant.output, resource.operations.list.output);
+  assert.notEqual(byOperation.get("view").extensions.assistant.output, resource.operations.view.output);
   assert.equal(byOperation.get("create").extensions.assistant.output, resource.operations.create.output);
   assert.equal(byOperation.get("update").extensions.assistant.output, resource.operations.patch.output);
   assert.equal(byOperation.get("delete").extensions.assistant.output, resource.operations.delete.output);
+  const sparseListContract = byOperation.get("list").extensions.assistant.output.schema.toJsonSchema({ mode: "replace" });
+  const sparseListItemContract = Object.values(sparseListContract.definitions)[0];
+  assert.deepEqual(sparseListItemContract.required, ["id"]);
+  assert.deepEqual(
+    byOperation.get("view").extensions.assistant.output.schema.toJsonSchema({ mode: "replace" }).required,
+    ["id"]
+  );
 
   const transform = async (operation, input = {}) => {
     const definition = byOperation.get(operation);

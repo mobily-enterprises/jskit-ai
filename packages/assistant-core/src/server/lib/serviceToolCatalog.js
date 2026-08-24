@@ -384,6 +384,26 @@ function truncateDescription(value, maxLength = 240) {
   return `${description.slice(0, Math.max(1, maxLength - 1))}…`;
 }
 
+function resolveValidationFailureMessage(error) {
+  const baseMessage = normalizeText(error?.message, { fallback: "Validation failed." });
+  if (normalizeText(error?.code).toUpperCase() !== "ACTION_VALIDATION_FAILED") {
+    return baseMessage;
+  }
+
+  const fieldErrors = error?.details?.fieldErrors;
+  if (!fieldErrors || typeof fieldErrors !== "object" || Array.isArray(fieldErrors)) {
+    return baseMessage;
+  }
+
+  const details = Object.entries(fieldErrors)
+    .map(([field, message]) => [normalizeText(field), truncateDescription(message, 300)])
+    .filter(([field, message]) => field && message)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .slice(0, 8)
+    .map(([field, message]) => `${field}: ${message}`);
+  return details.length > 0 ? `${baseMessage} ${details.join(" ")}` : baseMessage;
+}
+
 function canInvokeMethod(permission, context) {
   const permissionSpec = normalizePermissionSpec(permission);
 
@@ -832,7 +852,7 @@ function createServiceToolCatalog(
       ok: false,
       error: {
         code: String(error?.code || "assistant_tool_failed").trim() || "assistant_tool_failed",
-        message: status >= 500 ? "Tool call failed." : String(error?.message || "Tool call failed."),
+        message: status >= 500 ? "Tool call failed." : resolveValidationFailureMessage(error),
         status: Number.isInteger(status) ? status : 500
       }
     };

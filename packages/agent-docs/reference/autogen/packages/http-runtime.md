@@ -185,6 +185,7 @@ Exports
 - `encodeJsonApiResourceQueryObject`
 - `decodeJsonApiResourceQueryObject`
 - `createJsonApiResourceQueryTransportSchema`
+- `decodeJsonApiResourceResponse`
 - `JSON_API_ERROR_DOCUMENT_SCHEMA`
 - `createJsonApiResourceObjectTransportSchema`
 - `createJsonApiResourceRequestBodyTransportSchema`

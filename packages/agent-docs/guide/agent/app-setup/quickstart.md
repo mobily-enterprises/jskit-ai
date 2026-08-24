@@ -46,9 +46,11 @@ database product may need a local auth provider, auth UI, users, and one
 database runtime. A public single-user tool may need none of those.
 
 Inspect package details and patterns before modifying the package graph. Apply
-one coherent dependency plan, then run `npm install` once. Environment values
-come from the selected technology contract. They are not product questions and
-must not be copied into committed source.
+one coherent dependency plan, then run `npm install` once and `npm run
+jskit:check`. Use `npm run jskit:update` for later coordinated framework
+upgrades; see [Upgrade JSKIT](/guide/app-setup/upgrading-jskit). Environment
+values come from the selected technology contract. They are not product
+questions and must not be copied into committed source.
 
 ## Build the first product operation
 
