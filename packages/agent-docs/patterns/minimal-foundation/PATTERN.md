@@ -40,6 +40,8 @@ questionnaire or infer tenancy, authentication, or database requirements.
 - Preserve `.git` and all unrelated project and agent context.
 - Refuse or resolve real destination-file collisions before copying.
 - Keep `packages/main` limited to app composition and lightweight glue.
+- Declare `packages/*` as an npm workspace and depend on app-local packages by
+  their exact package versions, never through `file:` paths.
 - Use package public APIs; do not deep-import package internals.
 - Keep one server entry, one client bootstrap, and explicit surface access.
 - Keep one app-owned `npm run develop` entry that runs the API on loopback and

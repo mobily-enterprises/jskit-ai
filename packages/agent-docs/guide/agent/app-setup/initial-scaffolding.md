@@ -50,6 +50,11 @@ Inspect every collision. A direct pattern copy must never need `--force` and
 must never work through a temporary directory. Rename the packaged `gitignore`
 asset to `.gitignore` when using it.
 
+Keep the foundation's `packages/*` npm workspace declaration. Root and local
+workspace manifests depend on app-local packages by their exact package
+versions, not through `file:` paths. This lets npm resolve one coherent graph
+and lets `npm run jskit:update` and `npm run jskit:check` inspect every manifest.
+
 ## Ownership after copying
 
 All copied files are ordinary application source. The pattern package does not

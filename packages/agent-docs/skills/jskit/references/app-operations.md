@@ -26,6 +26,9 @@ Inspect the complete pattern before copying. Copy or author the useful files
 directly into the existing project. Preserve `.git` plus all unrelated project
 and agent context. Resolve every real destination collision explicitly.
 Rename the concrete example application in ordinary source and metadata.
+Retain the foundation's npm workspace declaration. App-local packages use
+their own exact versions in dependency declarations; do not replace them with
+`file:` links.
 
 The copied files immediately belong to the application. Do not add pattern
 receipts, generator provenance, completion ledgers, or hidden operation state.
