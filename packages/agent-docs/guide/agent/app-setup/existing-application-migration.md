@@ -53,8 +53,12 @@ generic CRUD merely to make the structure look uniform.
 Use the installed JSKIT pattern index and package metadata to select the
 smallest complete package set. Plan the top-level dependencies and their
 ordinary npm closure before changing the lockfile, then install that planned
-closure once. Review `package.json` and the lockfile as source changes. There
-is no framework synchronization step after npm installation.
+closure once. Review `package.json` and the lockfile as source changes. Adopt
+the supported package-graph scripts and run `npm run jskit:update` before
+changing application source; see the **Upgrade JSKIT** guide in the agent docs.
+The updater aligns root and workspace declarations to one published release
+cohort, installs once at the project root, and verifies the resulting lockfile.
+It does not regenerate or synchronize application source.
 
 Model product domains through `defineFeature()` when they own a real capability
 or operation boundary. A Feature declares stable named `requires`, optional
@@ -78,10 +82,12 @@ still have callers and tests.
 
 Audit application `AGENTS.md` files, ordinary documentation, npm scripts, CI,
 and package metadata as well as executable source. There is no supported
-`jskit doctor` command or general JSKIT authoring CLI. Replace stale
-instructions to run them with current-state checks owned by runtime startup,
-the client build, migration status and disposable rebuilds, the application's
-normal verification script, and Playwright.
+`jskit doctor` command or general JSKIT source-authoring CLI. The supported
+`jskit update` and `jskit check` commands own only the installed package graph;
+they do not author, regenerate, or certify application source. Replace stale
+doctor or authoring instructions with current-state checks owned by runtime
+startup, the client build, migration status and disposable rebuilds, the
+application's normal verification script, and Playwright.
 
 ## 3. Choose the narrowest server seam that owns each behavior
 

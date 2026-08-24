@@ -187,6 +187,7 @@ Local functions
 - `encodeDiscoveryCursor(offset, query)`
 - `decodeDiscoveryCursor(value, query)`
 - `truncateDescription(value, maxLength = 240)`
+- `resolveValidationFailureMessage(error)`
 - `canInvokeMethod(permission, context)`
 - `normalizePermissionSpec(permission)`
 - `stripWorkspaceSlugFromSchema(schema, context = {})`

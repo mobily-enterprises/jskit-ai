@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -44,14 +44,14 @@
     "./client/support/contractGuards": "./src/client/support/contractGuards.js"
   },
   "dependencies": {
-    "@jskit-ai/http-runtime": "0.1.165",
-    "@jskit-ai/kernel": "0.1.167",
-    "@jskit-ai/realtime": "0.1.164",
-    "@jskit-ai/resource-crud-core": "0.1.109",
-    "@jskit-ai/shell-web": "0.1.171",
+    "@jskit-ai/resource-crud-core": "0.1.110",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
+    "@jskit-ai/http-runtime": "0.1.166",
+    "@jskit-ai/kernel": "0.1.168",
+    "@jskit-ai/realtime": "0.1.165",
+    "@jskit-ai/shell-web": "0.1.172",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
@@ -118,6 +118,9 @@
             "summary": "Exports the shared CRUD add/edit screen."
           }
         ]
+      },
+      "client": {
+        "singleton": true
       }
     }
   }

@@ -72,12 +72,46 @@ The assistant validates the transformed result against
 JSON:API CRUD actions supply these assistant contracts and transformations
 automatically; their native action and HTTP result shapes do not change.
 
+Generated list and view actions use JSON:API query shapes directly. `include`
+is a comma-separated string, and `fields` is keyed by resource type:
+
+```json
+{
+  "include": "pet",
+  "fields": {
+    "bookings": ["petId"],
+    "pets": ["name"]
+  },
+  "limit": 5
+}
+```
+
+Sparse primary fields remain sparse in the result. Requested included records
+use the resource's lookup container and relationship name, for example
+`items[0].lookups.pet.name`. Invalid array forms such as `include: ["pet"]` or
+`fields: ["pet.name"]` are rejected with field-specific shape guidance.
+Applications do not need an assistant discovery or CRUD transformation bridge.
+
 Up to 32 authorized actions remain direct tools. For a larger authorized
 catalog, the runtime automatically exposes compact paged action search, exact
 one-action contract lookup, and contract-gated execution tools. Search returns
 at most 20 compact matches and never includes schemas. Tool arguments and
 results are byte-bounded; an oversized result returns a controlled error so it
 cannot overflow assistant transcript storage.
+
+## Height and scrolling
+
+`AssistantSurfaceClientElement` owns its bounded responsive layout. Below the
+medium breakpoint the sidebar column is absent and the compact conversation
+control remains available; at medium and expanded widths the non-wrapping 8/4
+chat and sidebar layout is visible. Long conversations scroll inside the
+message panel while the composer remains in view.
+
+Do not deep-override `.assistant-layout`, `.assistant-main-col`, or
+`.assistant-side-col`. A normal page can mount the public element directly. If
+the product deliberately embeds it in a shorter flex pane, that app-owned pane
+must have a definite height and `min-height: 0` so its child is allowed to
+shrink.
 
 ## Verification
 

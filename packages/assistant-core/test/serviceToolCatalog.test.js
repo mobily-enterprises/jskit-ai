@@ -216,6 +216,37 @@ test("assistant tools hide workspaceSlug and overwrite model values with trusted
   assert.equal(executed.context.channel, "automation");
 });
 
+test("assistant tools expose safe field-level input guidance to the model", async () => {
+  const actions = createActions([action({
+    input: schema({
+      include: {
+        type: "string",
+        required: false,
+        messages: {
+          default: "include expects a comma-separated string such as \"pet,service\"."
+        }
+      }
+    })
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: toolSet.tools[0].name,
+    argumentsText: JSON.stringify({ include: ["pet"] }),
+    context,
+    toolSet
+  }), {
+    ok: false,
+    error: {
+      code: "ACTION_VALIDATION_FAILED",
+      message: "Validation failed. include: include expects a comma-separated string such as \"pet,service\".",
+      status: 400
+    }
+  });
+});
+
 test("large authorized catalogs use compact paged discovery, exact contracts, and gated execution", async () => {
   const executions = [];
   const workspaceInput = schema({

@@ -79,9 +79,12 @@ Exports
 Local functions
 - `isRecord(value)`
 - `normalizeOptionalCursor(value)`
-- `resolveDocumentNextCursor(document = {})`
 - `resolveAssistantResultValue(result)`
-- `transformCrudAssistantResult(operation, result, { input = {} } = {})`
+- `resolveSchemaFieldDefinitions(definition = null)`
+- `createProjectionRecordSchema(recordSchema, { lookupContainerKey = "", relationshipEntries = [] } = {})`
+- `createProjectionOutputDefinition(output, operation, relationshipEntries, lookupContainerKey)`
+- `createCrudAssistantTransport(resource, operation, relationshipEntries, lookupContainerKey)`
+- `transformCrudAssistantResult(operation, result, { input = {}, resource, relationshipEntries = [], lookupContainerKey = "" } = {})`
 - `createCrudAssistantExtension(resource, namespace, operation)`
 - `createActionInput(resource, operation, scopeInputValidator = null, listFilterQueryValidator = null, operationInputs = {})`
 - `omitInputKeys(input = {}, keys = [])`
@@ -291,10 +294,10 @@ Local functions
 ### `src/server/routeContracts.js`
 Exports
 - `createCrudJsonApiRouteContracts({ resource = {}, routeParamsValidator = null, operations = ["list", "view", "create", "update", "delete"], operationInputs = {}, listSearchQueryValidator = defaultListSearchQueryValidator, lookupIncludeQueryValidator = defaultLookupIncludeQueryValidator, listFilterQueryValidator = null } = {})`
+- `resolveJsonApiRelationshipEntries(definition = null)`
 Local functions
 - `isRecord(value)`
 - `resolveSchemaFieldDefinitions(definition = null)`
-- `resolveJsonApiRelationshipEntries(definition = null)`
 - `readOwnValue(source = {}, key = "")`
 - `resolveLookupContainer(record = {}, lookupContainerKey = "")`
 - `resolveRelationshipValueSource(record = {}, entry = {}, { lookupContainerKey = "", preferLookup = false } = {})`

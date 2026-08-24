@@ -68,6 +68,7 @@ export {
   decodeJsonApiResourceQueryObject,
   createJsonApiResourceQueryTransportSchema
 } from "./validators/jsonApiQueryTransport.js";
+export { decodeJsonApiResourceResponse } from "./clientRuntime/jsonApiResourceTransport.js";
 export {
   JSON_API_ERROR_DOCUMENT_SCHEMA,
   createJsonApiResourceObjectTransportSchema,

@@ -22,9 +22,22 @@ Local functions
 - `toSortedUniqueStrings(values)`
 - `fileExists(absolutePath)`
 - `collectPackageRoots(packagesRoot)`
+- `normalizeWorkspacePatterns(value)`
+- `createWorkspaceSegmentPattern(segment = "")`
+- `expandWorkspacePattern(repoRoot, workspacePattern = "")`
+- `collectReleasePackageVersions(repoRoot)`
 - `readJson(absolutePath)`
 - `buildCatalog({ repoRoot, packagesRoot, outputPath })`
 - `main()`
+
+### `scripts/jskit.mjs`
+Exports
+- `isCliEntrypoint(argvPath = process.argv[1])`
+- `main(argv = process.argv.slice(2))`
+- `parseArgs(argv = [])`
+- `usage()`
+Local functions
+- `readCatalog()`
 
 ### `scripts/pattern-assets.mjs`
 Exports
@@ -44,6 +57,33 @@ Local functions
 - `directoryExists(directoryPath)`
 - `collectFiles(rootDirectory)`
 
+### `scripts/project-packages.mjs`
+Exports
+- `CATALOG_PACKAGE_ID`
+- `CHECK_SCRIPT`
+- `DEPENDENCY_FIELDS`
+- `UPDATE_SCRIPT`
+- `checkProject({ projectRoot = process.cwd(), catalog } = {})`
+- `collectLockInstallations(packageLock = {})`
+- `discoverProjectManifests(projectRoot)`
+- `normalizeCatalog(catalog = {})`
+- `updateProject({ projectRoot = process.cwd(), catalog, install = true, installProject = runNpmInstall } = {})`
+Local functions
+- `toPosixPath(value = "")`
+- `normalizeWorkspacePatterns(value)`
+- `globToRegExp(pattern = "")`
+- `createWorkspaceMatcher(workspaces)`
+- `fileExists(absolutePath)`
+- `readJsonRecord(absolutePath)`
+- `collectNestedPackageJsonPaths(directory, results = [])`
+- `serializePackageJson(value, originalContents = "")`
+- `collectManifestDeclarations(manifests, projectRoot)`
+- `collectLocalPackageNames(manifests)`
+- `resolveLockPackageName(packagePath = "", record = {})`
+- `collectJskitOverridePaths(value, currentPath = "overrides", results = [])`
+- `writeManifestUpdates(updates = [])`
+- `runNpmInstall(projectRoot)`
+
 ### `scripts/verify-packages.mjs`
 Exports
 - `main()`
@@ -51,6 +91,7 @@ Exports
 - `validateMigrations(packageRecord, migrationOwners)`
 - `validateProviderExport(value, label)`
 - `validateProviderList(packageRecord, side)`
+- `validateSingletonPeerDependencies(packages)`
 Local functions
 - `fileExists(filePath)`
 - `discoverFrameworkPackages()`

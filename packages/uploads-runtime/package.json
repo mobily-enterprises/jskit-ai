@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/uploads-runtime",
-  "version": "0.1.142",
+  "version": "0.1.143",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -15,8 +15,7 @@
     "./server/storage/createUploadStorageService": "./src/server/storage/createUploadStorageService.js"
   },
   "dependencies": {
-    "@fastify/multipart": "^9.4.0",
-    "@jskit-ai/kernel": "0.1.167"
+    "@fastify/multipart": "^9.4.0"
   },
   "description": "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
   "jskit": {
@@ -76,5 +75,8 @@
         ]
       }
     }
+  },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.168"
   }
 }

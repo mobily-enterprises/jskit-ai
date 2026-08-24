@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/storage-runtime",
-  "version": "0.1.164",
+  "version": "0.1.165",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,7 +10,6 @@
     "./server/providers/StorageProvider": "./src/server/providers/StorageProvider.js"
   },
   "dependencies": {
-    "@jskit-ai/kernel": "0.1.167",
     "unstorage": "^1.17.5"
   },
   "jskit": {
@@ -50,5 +49,8 @@
         ]
       }
     }
+  },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.168"
   }
 }

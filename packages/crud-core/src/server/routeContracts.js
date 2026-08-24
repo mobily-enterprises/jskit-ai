@@ -44,6 +44,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
         attributeKey: fieldKey,
         relationshipName,
         relationshipType,
+        labelKey: String(normalizedFieldDefinition?.relation?.labelKey || "").trim(),
         required: normalizedFieldDefinition.required === true,
         nullable: normalizedFieldDefinition.nullable === true
       }));
@@ -75,6 +76,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
       attributeKey: fieldKey,
       relationshipName: collectionRelationshipName,
       relationshipType: collectionRelationshipType,
+      labelKey: String(relation.labelKey || "").trim(),
       many: true,
       required: normalizedFieldDefinition.required === true,
       nullable: normalizedFieldDefinition.nullable === true
@@ -574,4 +576,4 @@ function createCrudJsonApiRouteContracts({
   });
 }
 
-export { createCrudJsonApiRouteContracts };
+export { createCrudJsonApiRouteContracts, resolveJsonApiRelationshipEntries };

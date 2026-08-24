@@ -1,12 +1,15 @@
 {
   "name": "@jskit-ai/jskit-catalog",
-  "version": "0.1.192",
+  "version": "0.1.193",
   "description": "Published metadata catalog for JSKIT package metadata.",
   "type": "module",
   "files": [
     "catalog",
     "scripts"
   ],
+  "bin": {
+    "jskit": "scripts/jskit.mjs"
+  },
   "exports": {
     ".": "./catalog/packages.json",
     "./packages": "./catalog/packages.json",
@@ -14,6 +17,7 @@
   },
   "scripts": {
     "catalog:build": "node ./scripts/build-catalog.mjs",
+    "jskit:check": "node ./scripts/jskit.mjs check",
     "verify:packages": "node ./scripts/verify-packages.mjs",
     "test": "node --test"
   },

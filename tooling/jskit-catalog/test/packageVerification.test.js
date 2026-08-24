@@ -6,7 +6,8 @@ import test from "node:test";
 import {
   validateCapabilityClosure,
   validateMigrations,
-  validateProviderList
+  validateProviderList,
+  validateSingletonPeerDependencies
 } from "../scripts/verify-packages.mjs";
 
 function packageRecord(packageRoot, {
@@ -141,5 +142,47 @@ test("catalog capability verification accepts kernel inputs and rejects an unpro
   assert.throws(
     () => validateCapabilityClosure(packages),
     /requires capability example\.missing/u
+  );
+});
+
+test("packages consume shared client runtimes through peer dependencies", () => {
+  const packages = [
+    {
+      packageJson: {
+        name: "@jskit-ai/shell-web",
+        jskit: { metadata: { client: { singleton: true } } }
+      }
+    },
+    {
+      packageJson: {
+        name: "@jskit-ai/assistant-runtime",
+        peerDependencies: {
+          "@jskit-ai/kernel": "0.1.2",
+          "@jskit-ai/shell-web": "0.1.2"
+        },
+        jskit: { metadata: { client: { singleton: true } } }
+      }
+    }
+  ];
+
+  assert.doesNotThrow(() => validateSingletonPeerDependencies(packages));
+  packages[1].packageJson.dependencies = { "@jskit-ai/shell-web": "0.1.2" };
+  delete packages[1].packageJson.peerDependencies["@jskit-ai/shell-web"];
+  assert.throws(
+    () => validateSingletonPeerDependencies(packages),
+    /assistant-runtime#dependencies\.@jskit-ai\/shell-web must be declared in peerDependencies/u
+  );
+});
+
+test("kernel is always treated as shared client infrastructure", () => {
+  assert.throws(
+    () => validateSingletonPeerDependencies([{
+      packageJson: {
+        name: "@jskit-ai/example",
+        dependencies: { "@jskit-ai/kernel": "0.1.2" },
+        jskit: {}
+      }
+    }]),
+    /@jskit-ai\/kernel owns shared client runtime state/u
   );
 });

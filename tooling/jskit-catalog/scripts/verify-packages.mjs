@@ -23,6 +23,7 @@ const BUILTIN_CAPABILITIES = new Set([
   "runtime.http",
   "runtime.logger"
 ]);
+const BUILTIN_SINGLETON_PACKAGE_IDS = new Set(["@jskit-ai/kernel"]);
 const ALLOWED_JSKIT_FIELDS = new Set([
   "capabilities",
   "kind",
@@ -302,6 +303,31 @@ function validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAP
   }
 }
 
+function validateSingletonPeerDependencies(packages) {
+  const singletonPackageIds = new Set(
+    [
+      ...BUILTIN_SINGLETON_PACKAGE_IDS,
+      ...packages
+      .filter(({ packageJson }) => packageJson.jskit?.metadata?.client?.singleton === true)
+      .map(({ packageJson }) => packageJson.name)
+    ]
+  );
+
+  for (const { packageJson } of packages) {
+    for (const section of ["dependencies", "optionalDependencies"]) {
+      for (const dependencyId of Object.keys(packageJson[section] || {})) {
+        if (!singletonPackageIds.has(dependencyId)) {
+          continue;
+        }
+        throw new Error(
+          `${packageJson.name}#${section}.${dependencyId} must be declared in peerDependencies because ` +
+          `${dependencyId} owns shared client runtime state.`
+        );
+      }
+    }
+  }
+}
+
 async function main() {
   const packages = await discoverFrameworkPackages();
   const localVersions = new Map(packages.map(({ packageJson }) => [packageJson.name, packageJson.version]));
@@ -309,6 +335,7 @@ async function main() {
   const patterns = [];
   let serverProviderCount = 0;
   validateCapabilityClosure(packages);
+  validateSingletonPeerDependencies(packages);
   for (const packageRecord of packages) {
     const packageResult = await validatePackage(packageRecord, localVersions, migrationOwners);
     patterns.push(...packageResult.patterns);
@@ -330,5 +357,6 @@ export {
   validateCapabilityClosure,
   validateMigrations,
   validateProviderExport,
-  validateProviderList
+  validateProviderList,
+  validateSingletonPeerDependencies
 };
