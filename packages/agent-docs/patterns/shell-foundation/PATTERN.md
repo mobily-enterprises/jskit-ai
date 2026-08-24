@@ -44,6 +44,8 @@ not convert those choices into a generator questionnaire.
   supervise framework-specific processes.
 - Keep `packages/main` as composition and light glue, not a feature dumping
   ground.
+- Declare `packages/*` as an npm workspace and depend on app-local packages by
+  their exact package versions, never through `file:` paths.
 - Preserve accessible navigation, 48px compact interaction targets, warm-cache
   state hydration, skeleton loading, and toast-based transient errors.
 - Use public shell controls in browser tests rather than implementation-detail

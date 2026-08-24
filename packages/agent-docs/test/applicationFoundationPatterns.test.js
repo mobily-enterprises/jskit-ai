@@ -40,6 +40,14 @@ async function readExamplePackageJson(patternName) {
   return JSON.parse(source);
 }
 
+async function readExampleMainPackageJson(patternName) {
+  const source = await readFile(
+    path.join(PATTERNS_ROOT, patternName, "example", "packages", "main", "package.json"),
+    "utf8"
+  );
+  return JSON.parse(source);
+}
+
 async function readWorkspacePackageVersion(packageDirectory, workspaceRoot = "packages") {
   const source = await readFile(
     path.join(REPOSITORY_ROOT, workspaceRoot, packageDirectory, "package.json"),
@@ -58,9 +66,13 @@ test("application foundations are concrete source patterns rather than generator
     const exampleRoot = path.join(patternRoot, "example");
     const files = await collectFiles(exampleRoot);
     const packageJson = await readExamplePackageJson(patternName);
+    const mainPackageJson = await readExampleMainPackageJson(patternName);
 
     assert.equal(packageJson.name, "reading-room");
     assert.equal(packageJson.private, true);
+    assert.deepEqual(packageJson.workspaces, ["packages/*"]);
+    assert.equal(packageJson.dependencies?.[mainPackageJson.name], mainPackageJson.version);
+    assert.doesNotMatch(JSON.stringify(packageJson), /"file:/u);
     assert.equal(packageJson.dependencies?.["@jskit-ai/kernel"], kernelVersion);
     assert.equal(packageJson.dependencies?.["@jskit-ai/http-runtime"], httpRuntimeVersion);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-catalog"], catalogVersion);
