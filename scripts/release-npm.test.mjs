@@ -5,6 +5,7 @@ import {
   collectPublishDependencies,
   discoverWorkspacePackages,
   parseArgs,
+  resolvePublishAuthentication,
   topologicalPublishOrder,
   updatePackageDependencyVersions,
   updatePatternPackageJsonContents,
@@ -24,6 +25,72 @@ test("release commands have one explicit intent", () => {
   });
   assert.throws(() => parseArgs([]), /prepare\|publish/u);
   assert.throws(() => parseArgs(["prepare", "--only", "kernel"]), /Unknown argument/u);
+});
+
+test("publish authentication prefers an existing npm login over NPM_TOKEN", async () => {
+  let tokenConfigCreated = false;
+  const authentication = await resolvePublishAuthentication(
+    "https://registry.npmjs.org",
+    {
+      env: { NPM_TOKEN: "stale-token" },
+      readIdentity: async () => "mercmobily",
+      createTokenConfig: async () => {
+        tokenConfigCreated = true;
+        return { configPath: "/unused", directory: "/unused" };
+      }
+    }
+  );
+
+  assert.deepEqual(authentication, {
+    identity: "mercmobily",
+    kind: "npm-login",
+    npmConfig: null
+  });
+  assert.equal(tokenConfigCreated, false);
+});
+
+test("publish authentication falls back to NPM_TOKEN for automation", async () => {
+  const observed = {};
+  const authentication = await resolvePublishAuthentication(
+    "https://registry.example.test",
+    {
+      env: { NPM_TOKEN: "automation-token" },
+      readIdentity: async (registry) => {
+        observed.registry = registry;
+        return "";
+      },
+      createTokenConfig: async (registry, token) => {
+        observed.tokenConfig = { registry, token };
+        return { configPath: "/tmp/npmrc", directory: "/tmp/config" };
+      }
+    }
+  );
+
+  assert.deepEqual(observed, {
+    registry: "https://registry.example.test",
+    tokenConfig: {
+      registry: "https://registry.example.test",
+      token: "automation-token"
+    }
+  });
+  assert.deepEqual(authentication, {
+    identity: "",
+    kind: "npm-token",
+    npmConfig: { configPath: "/tmp/npmrc", directory: "/tmp/config" }
+  });
+});
+
+test("publish authentication explains how to authenticate when no credential works", async () => {
+  await assert.rejects(
+    resolvePublishAuthentication(
+      "https://registry.npmjs.org",
+      {
+        env: {},
+        readIdentity: async () => ""
+      }
+    ),
+    /Run npm login.*or set NPM_TOKEN/u
+  );
 });
 
 test("prepare increments exact patch versions", () => {

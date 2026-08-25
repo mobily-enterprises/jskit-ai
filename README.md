@@ -47,13 +47,17 @@ and commit that source change.
 Then publish the committed versions:
 
 ```bash
-NPM_TOKEN=... npm run release:npm:publish
+npm run release:npm:publish
 npm run verify:registry
 ```
 
 `publish` edits nothing. It rejects stale internal versions and dependency
 cycles, then publishes the current packages directly to npm in dependency
-order. `verify:registry` contains the checks that require the public registry.
+order. For local releases it prefers the identity already authenticated by
+`npm login`, even when an unrelated `NPM_TOKEN` is present. In automation,
+where no npm login is available, it falls back to `NPM_TOKEN` through a
+temporary user config that is removed after the command. `verify:registry`
+contains the checks that require the public registry.
 
 For a one-shot release, `npm run release` runs `prepare`, the deterministic
 source verification gate, and `publish` in that order.
