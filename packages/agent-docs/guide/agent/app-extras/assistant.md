@@ -107,6 +107,30 @@ at most 20 compact matches and never includes schemas. Tool arguments and
 results are byte-bounded; an oversized result returns a controlled error so it
 cannot overflow assistant transcript storage.
 
+## Conversation lifecycle
+
+Tool selection, execution, correction, and recovery run silently. The client
+receives tool timeline events, but assistant prose is emitted only when the
+answer is complete. Progress-only responses such as “Let me query…” are
+retried internally and are not stored or replayed as chat history.
+
+The runtime permits up to 16 bounded tool rounds so catalog search, contract
+lookup, and execution can complete in one turn. If the model still cannot
+finish after bounded recovery, the runtime returns the latest successful tool
+result with a 4,000-character cap, or a concise failure when there was no
+successful result. It does not discard a successful result merely because the
+round budget ended.
+
+For current or relative date and time questions, the runtime instructs the
+model to use an available authoritative workspace clock action. The action and
+its timezone policy remain application-owned; JSKIT does not invent a clock
+action or infer the current date from model knowledge. Make that action
+automation-capable and available on the assistant surface if the product needs
+now, today, tomorrow, or other relative-date answers.
+
+Restored tool calls without matching results, and live calls still pending when
+a stream ends, are shown as interrupted rather than remaining pending forever.
+
 ## Height and scrolling
 
 `AssistantSurfaceClientElement` owns its bounded responsive layout. Below the
