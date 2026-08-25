@@ -1542,7 +1542,7 @@
           "@jskit-ai/database-runtime": "0.1.172",
           "@jskit-ai/resource-crud-core": "0.1.114",
           "hooked-api": "1.x.x",
-          "json-rest-api": "^1.0.27"
+          "json-rest-api": "^1.0.28"
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.1.172"

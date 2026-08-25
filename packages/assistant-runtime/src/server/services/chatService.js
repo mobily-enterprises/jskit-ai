@@ -5,10 +5,15 @@ import {
   ASSISTANT_STREAM_EVENT_TYPES
 } from "@jskit-ai/assistant-core/shared";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { isAssistantProgressOnlyText } from "../../shared/assistantResponseText.js";
 
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_INPUT_CHARS = 8000;
-const MAX_TOOL_ROUNDS = 4;
+const MAX_TOOL_ROUNDS = 16;
+const MAX_RECOVERY_PASSES = 3;
+const MAX_TOOL_RESULT_FALLBACK_CHARS = 4000;
+const CLOCK_INSTRUCTION = "For current or relative date and time questions, first use any available authoritative workspace clock action; never infer the current date or time from model knowledge.";
+const COMPLETION_INSTRUCTION = "Do not narrate future work or describe what you are about to do. Either call the required available tool now or provide the completed final answer.";
 
 function normalizeConversationId(value) {
   return normalizeRecordId(value, { fallback: null });
@@ -26,7 +31,7 @@ function normalizeHistory(history = []) {
       }
 
       const content = normalizeText(item.content).slice(0, MAX_INPUT_CHARS);
-      if (!content) {
+      if (!content || (role === "assistant" && isAssistantProgressOnlyText(content))) {
         return null;
       }
 
@@ -152,6 +157,7 @@ function buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspa
     "Use tools when they are necessary and only when available.",
     "Do not mention tools that are not available.",
     "When answering schema questions, rely only on tool contracts and tool results.",
+    CLOCK_INSTRUCTION,
     workspaceLine,
     toolSummary,
     toolContracts
@@ -183,22 +189,17 @@ function buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [
   const failureSuffix = failureSummary ? ` Recent tool failures: ${failureSummary}.` : "";
   const successSuffix = successSummary ? ` Successful tools: ${successSummary}.` : "";
   if (normalizedReason === "tool_failure") {
-    return `One or more tool calls may fail. Continue with available successful results. Do not output function-call markup. Do not mention failed operations unless explicitly asked.${failureSuffix}${successSuffix}`;
+    return `One or more tool calls may fail. Continue with available successful results. Do not output function-call markup. Do not mention failed operations unless explicitly asked. ${COMPLETION_INSTRUCTION}${failureSuffix}${successSuffix}`;
   }
 
-  return `Tool-call rounds were exhausted. Provide the best direct answer with available context and successful results only.${failureSuffix}${successSuffix}`;
+  return `Tool-call rounds were exhausted. Provide the best direct answer with available context and successful results only. ${COMPLETION_INSTRUCTION}${failureSuffix}${successSuffix}`;
 }
 
-function buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {}) {
-  const normalizedReason = normalizeText(reason).toLowerCase();
-  if (normalizedReason === "tool_failure") {
-    return buildToolOutcomeFallbackAnswer({
-      toolFailures,
-      toolSuccesses
-    });
-  }
-
-  return "I reached the tool-call limit for this request. Please narrow the request and I will continue.";
+function buildRecoveryFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {}) {
+  return buildToolOutcomeFallbackAnswer({
+    toolFailures,
+    toolSuccesses
+  });
 }
 
 function toSafeToolResultText(value) {
@@ -217,26 +218,19 @@ function toSafeToolResultText(value) {
 }
 
 function buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {}) {
-  const successNames = [...new Set(
-    (Array.isArray(toolSuccesses) ? toolSuccesses : [])
-      .map((entry) => normalizeText(entry?.name))
-      .filter(Boolean)
-  )];
+  const successfulResults = (Array.isArray(toolSuccesses) ? toolSuccesses : [])
+    .filter((entry) => normalizeText(entry?.name));
   const hasFailures = Array.isArray(toolFailures) && toolFailures.length > 0;
 
-  if (successNames.length > 0) {
-    const summaryLines = (Array.isArray(toolSuccesses) ? toolSuccesses : [])
-      .filter((entry) => normalizeText(entry?.name))
-      .map((entry) => {
-        const name = normalizeText(entry.name);
-        const payload = toSafeToolResultText(entry.result);
-        return `- ${name}:\n\`\`\`json\n${payload}\n\`\`\``;
-      });
+  if (successfulResults.length > 0) {
+    const latestSuccess = successfulResults.at(-1);
+    const answer = `Latest successful result from ${normalizeText(latestSuccess.name)}:\n${toSafeToolResultText(latestSuccess.result)}`;
+    if (answer.length <= MAX_TOOL_RESULT_FALLBACK_CHARS) {
+      return answer;
+    }
 
-    return [
-      "I used the available successful results:",
-      ...summaryLines
-    ].join("\n");
+    const suffix = "\n…[truncated]";
+    return `${answer.slice(0, MAX_TOOL_RESULT_FALLBACK_CHARS - suffix.length)}${suffix}`;
   }
 
   if (hasFailures) {
@@ -255,7 +249,8 @@ function sanitizeAssistantMessageText(value) {
   const blockPatterns = [
     /<[^>\n]*function_calls[^>\n]*>[\s\S]*?<\/[^>\n]*function_calls>/gi,
     /<[^>\n]*tool_calls?[^>\n]*>[\s\S]*?<\/[^>\n]*tool_calls?[^>\n]*>/gi,
-    /<[^>\n]*invoke\b[^>\n]*>[\s\S]*?<\/[^>\n]*invoke>/gi
+    /<[^>\n]*invoke\b[^>\n]*>[\s\S]*?<\/[^>\n]*invoke>/gi,
+    /<(?:analysis|reasoning|think)>[\s\S]*?<\/(?:analysis|reasoning|think)>/gi
   ];
   for (const pattern of blockPatterns) {
     source = source.replace(pattern, " ");
@@ -279,10 +274,10 @@ function sanitizeAssistantMessageText(value) {
     .join("\n");
 }
 
-function buildAssistantToolCallMessage({ assistantText = "", toolCalls = [] } = {}) {
+function buildAssistantToolCallMessage(toolCalls = []) {
   return {
     role: "assistant",
-    content: assistantText || "",
+    content: "",
     tool_calls: toolCalls.map((toolCall) => ({
       id: toolCall.id,
       type: "function",
@@ -336,96 +331,8 @@ function parseDsmlToolCallsFromText(value = "") {
   return calls;
 }
 
-function createDsmlDeltaSanitizer() {
-  let inTag = false;
-  let tagBuffer = "";
-  let suppressedDepth = 0;
-
-  function resolveTagType(rawTag = "") {
-    const normalizedTag = String(rawTag || "").toLowerCase();
-    if (normalizedTag.includes("function_calls")) {
-      return "function_calls";
-    }
-    if (normalizedTag.includes("tool_calls")) {
-      return "tool_calls";
-    }
-    if (normalizedTag.includes("invoke")) {
-      return "invoke";
-    }
-    return "";
-  }
-
-  function processTag(rawTag = "") {
-    const source = String(rawTag || "");
-    const inner = source.slice(1, -1).trim();
-    const isClosing = inner.startsWith("/");
-    const isSelfClosing = inner.endsWith("/");
-    const tagType = resolveTagType(inner);
-
-    if (suppressedDepth > 0) {
-      if (tagType && isClosing) {
-        suppressedDepth = Math.max(0, suppressedDepth - 1);
-      } else if (tagType && !isClosing && !isSelfClosing) {
-        suppressedDepth += 1;
-      }
-      return "";
-    }
-
-    if (!tagType) {
-      return source;
-    }
-
-    if (!isClosing && !isSelfClosing) {
-      suppressedDepth = 1;
-    }
-    return "";
-  }
-
-  function process(delta = "") {
-    const source = String(delta || "");
-    if (!source) {
-      return "";
-    }
-
-    let output = "";
-    for (const char of source) {
-      if (inTag) {
-        tagBuffer += char;
-        if (char === ">") {
-          inTag = false;
-          output += processTag(tagBuffer);
-          tagBuffer = "";
-        }
-        continue;
-      }
-
-      if (char === "<") {
-        inTag = true;
-        tagBuffer = "<";
-        continue;
-      }
-
-      if (suppressedDepth < 1) {
-        output += char;
-      }
-    }
-
-    return output;
-  }
-
-  function flush() {
-    return "";
-  }
-
-  return Object.freeze({
-    process,
-    flush
-  });
-}
-
-async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true, deltaSanitizer = null } = {}) {
+async function consumeCompletionStream(stream) {
   let assistantText = "";
-  let streamedAssistantText = "";
   const toolCallsByIndex = new Map();
 
   for await (const chunk of stream) {
@@ -435,19 +342,6 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
     const textDelta = extractTextDelta(delta.content);
     if (textDelta) {
       assistantText += textDelta;
-      if (emitDeltas) {
-        const safeDelta =
-          deltaSanitizer && typeof deltaSanitizer.process === "function"
-            ? String(deltaSanitizer.process(textDelta) || "")
-            : textDelta;
-        if (safeDelta) {
-          streamedAssistantText += safeDelta;
-          streamWriter.sendAssistantDelta({
-            type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
-            delta: safeDelta
-          });
-        }
-      }
     }
 
     const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
@@ -489,45 +383,10 @@ async function consumeCompletionStream({ stream, streamWriter, emitDeltas = true
     }
   }
 
-  if (emitDeltas && deltaSanitizer && typeof deltaSanitizer.flush === "function") {
-    const trailing = String(deltaSanitizer.flush() || "");
-    if (trailing) {
-      streamedAssistantText += trailing;
-      streamWriter.sendAssistantDelta({
-        type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA,
-        delta: trailing
-      });
-    }
-  }
-
   return {
     assistantText,
-    streamedAssistantText,
     toolCalls
   };
-}
-
-function mergeAssistantMessageText(streamedText = "", completionText = "") {
-  const streamed = normalizeText(sanitizeAssistantMessageText(streamedText));
-  const completion = normalizeText(sanitizeAssistantMessageText(completionText));
-
-  if (!streamed) {
-    return completion;
-  }
-  if (!completion) {
-    return streamed;
-  }
-  if (streamed === completion) {
-    return streamed;
-  }
-  if (completion.startsWith(streamed) || completion.includes(streamed)) {
-    return completion;
-  }
-  if (streamed.startsWith(completion) || streamed.includes(completion)) {
-    return streamed;
-  }
-
-  return `${streamed}\n${completion}`;
 }
 
 function requireAssistantSurface(appConfig = {}, targetSurfaceId = "") {
@@ -664,10 +523,9 @@ function createChatService({
         content: source.input
       }
     ];
-    let streamedAssistantText = "";
 
     async function completeWithAssistantMessage(assistantMessageText, { metadata = {} } = {}) {
-      const normalizedAssistantMessageText = mergeAssistantMessageText(streamedAssistantText, assistantMessageText);
+      const normalizedAssistantMessageText = normalizeText(sanitizeAssistantMessageText(assistantMessageText));
       if (!normalizedAssistantMessageText) {
         throw new AppError(502, "Assistant returned no output.");
       }
@@ -820,7 +678,6 @@ function createChatService({
     }
 
     async function recoverWithoutTools({ reason = "", toolFailures = [], toolSuccesses = [] } = {}) {
-      const MAX_RECOVERY_PASSES = 3;
       for (let pass = 0; pass < MAX_RECOVERY_PASSES; pass += 1) {
         const recoveryMessages = [
           ...messages,
@@ -839,31 +696,15 @@ function createChatService({
           tools: [],
           signal: options.abortSignal
         });
-        const completion = await consumeCompletionStream({
-          stream: completionStream,
-          streamWriter,
-          emitDeltas: true,
-          deltaSanitizer: createDsmlDeltaSanitizer()
-        });
-        streamedAssistantText += String(completion.streamedAssistantText || "");
+        const completion = await consumeCompletionStream(completionStream);
 
         const recoveryToolCalls = completion.toolCalls.filter((entry) => entry.name);
         if (recoveryToolCalls.length > 0) {
-          messages.push(
-            buildAssistantToolCallMessage({
-              assistantText: completion.assistantText,
-              toolCalls: recoveryToolCalls
-            })
-          );
-          await executeToolCalls(recoveryToolCalls, {
-            toolFailures,
-            toolSuccesses
-          });
           continue;
         }
 
         const assistantMessageText = normalizeText(sanitizeAssistantMessageText(completion.assistantText));
-        if (assistantMessageText) {
+        if (assistantMessageText && !isAssistantProgressOnlyText(assistantMessageText)) {
           return completeWithAssistantMessage(assistantMessageText, {
             metadata: {
               recoveryReason: reason || "unknown",
@@ -914,18 +755,12 @@ function createChatService({
           signal: options.abortSignal
         });
 
-        const completion = await consumeCompletionStream({
-          stream: completionStream,
-          streamWriter,
-          emitDeltas: true,
-          deltaSanitizer: createDsmlDeltaSanitizer()
-        });
-        streamedAssistantText += String(completion.streamedAssistantText || "");
+        const completion = await consumeCompletionStream(completionStream);
 
         const toolCalls = completion.toolCalls.filter((entry) => entry.name);
         if (toolCalls.length < 1) {
           const finalMessageText = normalizeText(sanitizeAssistantMessageText(completion.assistantText));
-          if (finalMessageText) {
+          if (finalMessageText && !isAssistantProgressOnlyText(finalMessageText)) {
             return completeWithAssistantMessage(finalMessageText, {
               metadata: toolFailures.length > 0
                 ? {
@@ -936,23 +771,14 @@ function createChatService({
             });
           }
 
-          if (toolFailures.length > 0) {
-            return recoverWithoutTools({
-              reason: "tool_failure",
-              toolFailures,
-              toolSuccesses
-            });
-          }
-
-          return completeWithAssistantMessage(completion.assistantText);
+          messages.push({
+            role: "system",
+            content: COMPLETION_INSTRUCTION
+          });
+          continue;
         }
 
-        messages.push(
-          buildAssistantToolCallMessage({
-            assistantText: completion.assistantText,
-            toolCalls
-          })
-        );
+        messages.push(buildAssistantToolCallMessage(toolCalls));
 
         const roundFailures = await executeToolCalls(toolCalls, {
           toolFailures,

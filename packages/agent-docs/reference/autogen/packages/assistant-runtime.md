@@ -34,13 +34,8 @@ Local functions
 - `buildScopeStorageKey(scope = {})`
 - `readStoredActiveConversationId(scope = {})`
 - `writeStoredActiveConversationId(scope = {}, conversationId)`
-- `buildId(prefix = "id")`
-- `normalizeToolName(value)`
 - `normalizeConversationStatus(value)`
 - `formatConversationStartedAt(value)`
-- `parseToolResultPayload(value)`
-- `buildHistory(messages)`
-- `mapTranscriptEntriesToAssistantState(entries)`
 - `resolveRuntimePolicy()`
 - `createRuntimeApi({ overrideApi = null, resolveBasePath, resolveSurfaceId = null } = {})`
 
@@ -54,6 +49,14 @@ Exports
 ### `src/client/providers/AssistantClientProvider.js`
 Exports
 - `AssistantClientProvider`
+
+### `src/client/support/assistantRuntimeState.js`
+Exports
+- `buildHistory(messages)`
+- `buildId(prefix = "id")`
+- `interruptPendingToolEvents(toolEvents)`
+- `mapTranscriptEntriesToAssistantState(entries)`
+- `normalizeToolName(value)`
 
 ### `src/client/support/composerInputSupport.js`
 Exports
@@ -167,15 +170,13 @@ Local functions
 - `buildToolContractLine(toolDescriptor = {})`
 - `buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {})`
 - `buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
-- `buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
+- `buildRecoveryFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
 - `toSafeToolResultText(value)`
 - `buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
 - `sanitizeAssistantMessageText(value)`
-- `buildAssistantToolCallMessage({ assistantText = "", toolCalls = [] } = {})`
+- `buildAssistantToolCallMessage(toolCalls = [])`
 - `parseDsmlToolCallsFromText(value = "")`
-- `createDsmlDeltaSanitizer()`
-- `consumeCompletionStream({ stream, streamWriter, emitDeltas = true, deltaSanitizer = null } = {})`
-- `mergeAssistantMessageText(streamedText = "", completionText = "")`
+- `consumeCompletionStream(stream)`
 - `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `buildAssistantActionContext(context = {}, assistantSurface = {})`
 
@@ -205,6 +206,10 @@ Exports
 Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context = {})`
+
+### `src/shared/assistantResponseText.js`
+Exports
+- `isAssistantProgressOnlyText(value)`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports

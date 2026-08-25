@@ -27,7 +27,7 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
   assert.equal(exportsMap["./server/jsonRestApiHost"], "./src/server/jsonRestApiHost.js");
   assert.equal(exportsMap["./server"], undefined);
-  assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.27");
+  assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.28");
 });
 
 test("server jsonRestApiHost entrypoint exposes only the focused host API", async () => {
