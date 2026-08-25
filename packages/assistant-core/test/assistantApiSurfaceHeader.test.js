@@ -43,10 +43,12 @@ test("assistant api forwards normalized surface header on requests", async () =>
     input: "Hello"
   });
   await api.listConversations({
-    limit: 5
+    cursor: "next-page",
+    limit: 5,
+    status: "completed"
   });
   await api.getConversationMessages(99, {
-    page: 1,
+    page: 2,
     pageSize: 5
   });
   await api.getSettings();
@@ -59,6 +61,18 @@ test("assistant api forwards normalized surface header on requests", async () =>
   assert.equal(observed.messages?.options?.headers?.["x-jskit-surface"], "admin");
   assert.equal(observed.settingsRead?.options?.headers?.["x-jskit-surface"], "admin");
   assert.equal(observed.settingsUpdate?.options?.headers?.["x-jskit-surface"], "admin");
+  const conversationsUrl = new URL(observed.list?.url, "https://assistant.test");
+  assert.equal(conversationsUrl.searchParams.get("page[cursor]"), "next-page");
+  assert.equal(conversationsUrl.searchParams.get("page[limit]"), "5");
+  assert.equal(conversationsUrl.searchParams.get("filter[status]"), "completed");
+  assert.equal(conversationsUrl.searchParams.has("cursor"), false);
+  assert.equal(conversationsUrl.searchParams.has("limit"), false);
+  assert.equal(conversationsUrl.searchParams.has("status"), false);
+  const messagesUrl = new URL(observed.messages?.url, "https://assistant.test");
+  assert.equal(messagesUrl.searchParams.get("filter[page]"), "2");
+  assert.equal(messagesUrl.searchParams.get("filter[pageSize]"), "5");
+  assert.equal(messagesUrl.searchParams.has("page"), false);
+  assert.equal(messagesUrl.searchParams.has("pageSize"), false);
   assert.deepEqual(observed.list?.options?.transport, ASSISTANT_CONVERSATIONS_TRANSPORT);
   assert.deepEqual(observed.messages?.options?.transport, ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT);
   assert.deepEqual(observed.settingsRead?.options?.transport, ASSISTANT_SETTINGS_TRANSPORT);

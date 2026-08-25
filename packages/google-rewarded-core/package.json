@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/google-rewarded-core",
-  "version": "0.1.109",
+  "version": "0.1.110",
   "type": "module",
   "exports": {
     "./shared": "./src/shared/index.js",
@@ -112,15 +112,15 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.1.184",
-    "@jskit-ai/database-runtime": "0.1.173",
-    "@jskit-ai/json-rest-api-core": "0.1.117",
-    "@jskit-ai/resource-crud-core": "0.1.115",
-    "@jskit-ai/workspaces-core": "0.1.151"
+    "@jskit-ai/crud-core": "0.1.185",
+    "@jskit-ai/database-runtime": "0.1.174",
+    "@jskit-ai/json-rest-api-core": "0.1.118",
+    "@jskit-ai/resource-crud-core": "0.1.116",
+    "@jskit-ai/workspaces-core": "0.1.152"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.171",
-    "@jskit-ai/http-runtime": "0.1.171",
-    "@jskit-ai/kernel": "0.1.173"
+    "@jskit-ai/auth-core": "0.1.172",
+    "@jskit-ai/http-runtime": "0.1.172",
+    "@jskit-ai/kernel": "0.1.174"
   }
 }

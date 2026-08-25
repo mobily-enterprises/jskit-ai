@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.1.186",
+  "version": "0.1.187",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -13,12 +13,12 @@
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.173",
-    "@jskit-ai/json-rest-api-core": "0.1.117",
-    "@jskit-ai/resource-core": "0.1.115",
-    "@jskit-ai/resource-crud-core": "0.1.115",
-    "@jskit-ai/storage-runtime": "0.1.170",
-    "@jskit-ai/uploads-runtime": "0.1.148",
+    "@jskit-ai/database-runtime": "0.1.174",
+    "@jskit-ai/json-rest-api-core": "0.1.118",
+    "@jskit-ai/resource-core": "0.1.116",
+    "@jskit-ai/resource-crud-core": "0.1.116",
+    "@jskit-ai/storage-runtime": "0.1.171",
+    "@jskit-ai/uploads-runtime": "0.1.149",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Users/account runtime plus HTTP routes for account features.",
@@ -166,8 +166,8 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.171",
-    "@jskit-ai/http-runtime": "0.1.171",
-    "@jskit-ai/kernel": "0.1.173"
+    "@jskit-ai/auth-core": "0.1.172",
+    "@jskit-ai/http-runtime": "0.1.172",
+    "@jskit-ai/kernel": "0.1.174"
   }
 }

@@ -249,11 +249,26 @@ test("assistant tools expose safe field-level input guidance to the model", asyn
 
 test("large authorized catalogs use compact paged discovery, exact contracts, and gated execution", async () => {
   const executions = [];
+  let clockExecution = null;
   const workspaceInput = schema({
     workspaceSlug: { type: "string", required: true },
     q: { type: "string", required: false }
   });
   const definitions = [
+    action({
+      id: "demo.clock.read",
+      input: workspaceInput,
+      extensions: {
+        assistant: {
+          alwaysAvailable: true,
+          preflight: ["CURRENT-TIME", "current-time"]
+        }
+      },
+      execute: async (input, context) => {
+        clockExecution = { input, context };
+        return { ok: true };
+      }
+    }),
     action({
       id: "demo.books.list",
       input: workspaceInput,
@@ -284,8 +299,24 @@ test("large authorized catalogs use compact paged discovery, exact contracts, an
   assert.deepEqual(toolSet.tools.map((entry) => entry.name), [
     "assistant_action_search",
     "assistant_action_contract",
-    "assistant_action_execute"
+    "assistant_action_execute",
+    "demo_clock_read"
   ]);
+  const clockTool = toolSet.tools.find((entry) => entry.actionId === "demo.clock.read");
+  assert.deepEqual(clockTool.preflight, ["current-time"]);
+  assert.equal(clockTool.alwaysAvailable, true);
+  assert.equal(clockTool.parameters.required?.includes("workspaceSlug") || false, false);
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: clockTool.name,
+    argumentsText: "{}",
+    context,
+    toolSet
+  }), {
+    ok: true,
+    result: { ok: true }
+  });
+  assert.deepEqual(clockExecution.input, { workspaceSlug: "library" });
+  assert.equal(clockExecution.context.channel, "automation");
 
   const firstPage = await catalog.executeToolCall({
     toolName: "assistant_action_search",
@@ -377,6 +408,44 @@ test("large authorized catalogs use compact paged discovery, exact contracts, an
     q: "octavia"
   });
   assert.equal(executions[0].context.channel, "automation");
+});
+
+test("discovery mode bounds authorized always-available tools", () => {
+  const definitions = Array.from({ length: 10 }, (_, index) => action({
+    id: `demo.clock-${String(index + 1).padStart(2, "0")}.read`,
+    extensions: {
+      assistant: {
+        alwaysAvailable: true,
+        preflight: ["current-time"]
+      }
+    }
+  }));
+  definitions.push(action({
+    id: "demo.clock-denied.read",
+    permission: { require: "all", permissions: ["clock.read"] },
+    extensions: {
+      assistant: {
+        alwaysAvailable: true,
+        preflight: ["current-time"]
+      }
+    }
+  }));
+
+  const toolSet = createServiceToolCatalog(createActions(definitions), {
+    maxDirectTools: 0
+  }).resolveToolSet({ actor: { id: "7" }, surface: "admin" });
+
+  assert.deepEqual(toolSet.tools.slice(0, 3).map((entry) => entry.name), [
+    "assistant_action_search",
+    "assistant_action_contract",
+    "assistant_action_execute"
+  ]);
+  assert.equal(toolSet.tools.length, 11);
+  assert.deepEqual(
+    toolSet.tools.slice(3).map((entry) => entry.actionId),
+    definitions.slice(0, 8).map((entry) => entry.id)
+  );
+  assert.equal(toolSet.tools.some((entry) => entry.actionId === "demo.clock-denied.read"), false);
 });
 
 test("discovery pages and persisted tool results stay within configured bounds", async () => {

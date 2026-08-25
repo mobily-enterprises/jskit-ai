@@ -64,6 +64,14 @@ Exports
 Local functions
 - `normalizeSelectionBoundary(value, fallback, max)`
 
+### `src/client/support/conversationRestoreSupport.js`
+Exports
+- `loadConversationTranscript({ fetchPage, pageSize = DEFAULT_RESTORE_MESSAGES_PAGE_SIZE, maxEntries = DEFAULT_RESTORE_MESSAGES_MAX_ENTRIES } = {})`
+- `resolveConversationRestorePolicy({ pageSize, maxEntries } = {})`
+Local functions
+- `normalizeBoundedPositiveInteger(value, fallback, maximum)`
+- `normalizeTotalPages(value)`
+
 ### `src/client/support/workspaceScopeSupport.js`
 Exports
 - `EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT`
@@ -165,12 +173,14 @@ Local functions
 - `normalizeStreamInput(payload = {})`
 - `hasStreamWriter(streamWriter)`
 - `isAbortError(error)`
+- `requiresCurrentTime(value = "")`
+- `resolvePreflightTools(toolDescriptors = [], input = "")`
 - `extractTextDelta(deltaContent)`
 - `toCompactJson(value, fallback = "{}")`
 - `buildToolContractLine(toolDescriptor = {})`
 - `buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {})`
 - `buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
-- `buildRecoveryFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
+- `buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
 - `toSafeToolResultText(value)`
 - `buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
 - `sanitizeAssistantMessageText(value)`
