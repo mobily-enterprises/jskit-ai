@@ -105,6 +105,23 @@ at most 20 compact matches and never includes schemas. Tool arguments and
 results are byte-bounded; an oversized result returns a controlled error so it
 cannot overflow assistant transcript storage.
 
+An application can keep a small critical action directly available in a large
+catalog by opting it in explicitly:
+
+```js
+extensions: {
+  assistant: {
+    alwaysAvailable: true,
+    preflight: ["current-time"]
+  }
+}
+```
+
+The catalog exposes at most eight authorized `alwaysAvailable` actions beside
+the three discovery tools. Permission, surface, channel, actor, and trusted
+workspace enforcement remain unchanged. Other actions still require contract
+lookup before discovery-mode execution.
+
 ## Conversation lifecycle
 
 Tool selection, execution, correction, and recovery run silently. The client
@@ -113,18 +130,34 @@ answer is complete. Progress-only responses such as “Let me query…” are
 retried internally and are not stored or replayed as chat history.
 
 The runtime permits up to 16 bounded tool rounds so catalog search, contract
-lookup, and execution can complete in one turn. If the model still cannot
-finish after bounded recovery, the runtime returns the latest successful tool
-result with a 4,000-character cap, or a concise failure when there was no
-successful result. It does not discard a successful result merely because the
-round budget ended.
+lookup, and execution can complete in one turn. If ordinary tool-failure
+recovery cannot finish, the runtime returns the latest successful tool result
+with a 4,000-character cap, or a concise failure when there was no successful
+result. Genuine round-budget exhaustion ends with exactly `Limit reached. Start
+a new conversation.`
 
 For current or relative date and time questions, the runtime instructs the
-model to use an available authoritative workspace clock action. The action and
-its timezone policy remain application-owned; JSKIT does not invent a clock
-action or infer the current date from model knowledge. Make that action
-automation-capable and available on the assistant surface if the product needs
-now, today, tomorrow, or other relative-date answers.
+model to use an available authoritative workspace clock action. When an
+authorized `preflight: ["current-time"]` action has no model-required input,
+the runtime executes it before the first model completion and places its result
+in model history. Mark it `alwaysAvailable` when the authorized catalog can
+enter discovery mode. Trusted workspace input can still be required by the
+application because JSKIT hides and injects it before execution.
+
+The clock action and its timezone policy remain application-owned; JSKIT does
+not invent a clock action or infer the current date from model knowledge. Make
+that action automation-capable and available on the assistant surface if the
+product needs now, today, tomorrow, or other relative-date answers.
+
+Conversation restoration loads every transcript page needed to retain the
+newest bounded transcript window, so a completed response on page two does not
+disappear after navigation or remounting. The defaults are 200 entries per page
+and at most 2,000 restored entries. Applications can set
+`assistant.restoreMessagesPageSize` up to 500 and
+`assistant.restoreMessagesMaxEntries` up to the hard 5,000-entry limit. Longer
+conversations restore the newest entries rather than expanding client memory
+without a bound. Each page has its own query-cache key and can be reused by a
+warm remount.
 
 Restored tool calls without matching results, and live calls still pending when
 a stream ends, are shown as interrupted rather than remaining pending forever.

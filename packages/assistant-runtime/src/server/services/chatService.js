@@ -12,6 +12,7 @@ const MAX_INPUT_CHARS = 8000;
 const MAX_TOOL_ROUNDS = 16;
 const MAX_RECOVERY_PASSES = 3;
 const MAX_TOOL_RESULT_FALLBACK_CHARS = 4000;
+const CURRENT_TIME_PREFLIGHT_INTENT = "current-time";
 const CLOCK_INSTRUCTION = "For current or relative date and time questions, first use any available authoritative workspace clock action; never infer the current date or time from model knowledge.";
 const COMPLETION_INSTRUCTION = "Do not narrate future work or describe what you are about to do. Either call the required available tool now or provide the completed final answer.";
 
@@ -93,6 +94,36 @@ function isAbortError(error) {
   }
 
   return String(error.name || "").trim() === "AbortError";
+}
+
+function requiresCurrentTime(value = "") {
+  const text = normalizeText(value);
+  if (!text) {
+    return false;
+  }
+
+  return [
+    /\b(?:now|today|tomorrow|yesterday|tonight)\b/iu,
+    /\b(?:current|local)\s+(?:date|day|time|date\s+and\s+time)\b/iu,
+    /\bwhat(?:'s|\s+is)\s+(?:the\s+)?(?:date|day|time)\b/iu,
+    /\b(?:this|next|last)\s+(?:day|week|month|year|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/iu
+  ].some((pattern) => pattern.test(text));
+}
+
+function resolvePreflightTools(toolDescriptors = [], input = "") {
+  if (!requiresCurrentTime(input)) {
+    return [];
+  }
+
+  const currentTimeTool = toolDescriptors.find((tool) => {
+    const intents = Array.isArray(tool?.preflight) ? tool.preflight : [];
+    const requiredParameters = Array.isArray(tool?.parameters?.required)
+      ? tool.parameters.required
+      : [];
+    return requiredParameters.length < 1 && intents.includes(CURRENT_TIME_PREFLIGHT_INTENT);
+  });
+
+  return currentTimeTool ? [currentTimeTool] : [];
 }
 
 function extractTextDelta(deltaContent) {
@@ -195,7 +226,11 @@ function buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [
   return `Tool-call rounds were exhausted. Provide the best direct answer with available context and successful results only. ${COMPLETION_INSTRUCTION}${failureSuffix}${successSuffix}`;
 }
 
-function buildRecoveryFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {}) {
+function buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {}) {
+  if (normalizeText(reason).toLowerCase() === "max_tool_rounds") {
+    return "Limit reached. Start a new conversation.";
+  }
+
   return buildToolOutcomeFallbackAnswer({
     toolFailures,
     toolSuccesses
@@ -742,6 +777,26 @@ function createChatService({
       const excludedToolNames = new Set();
       const toolFailures = [];
       const toolSuccesses = [];
+
+      const preflightTools = resolvePreflightTools(toolSet.tools, source.input);
+      for (const [index, tool] of preflightTools.entries()) {
+        const toolCall = {
+          id: `assistant_preflight_${index + 1}`,
+          name: tool.name,
+          arguments: "{}"
+        };
+        messages.push(buildAssistantToolCallMessage([toolCall]));
+        const preflightFailures = await executeToolCalls([toolCall], {
+          toolFailures,
+          toolSuccesses
+        });
+        for (const failure of preflightFailures) {
+          const toolName = normalizeText(failure?.name);
+          if (toolName) {
+            excludedToolNames.add(toolName);
+          }
+        }
+      }
 
       for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
         const roundToolDescriptors = toolSet.tools.filter(

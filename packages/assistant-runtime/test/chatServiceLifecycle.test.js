@@ -69,22 +69,24 @@ async function* completionStream(completion = {}) {
   }
 }
 
-function createHarness(completions, { executeToolCall = null } = {}) {
+function createHarness(completions, { executeToolCall = null, tools: configuredTools = null } = {}) {
   const pendingCompletions = [...completions];
   const completionRequests = [];
   const transcriptMessages = [];
   const completedConversations = [];
   const executedTools = [];
   const streamEvents = [];
-  const tools = ["action_search", "action_contract", "action_execute"].map((name) => ({
-    name,
-    parameters: {
-      type: "object"
-    },
-    outputSchema: {
-      type: "object"
-    }
-  }));
+  const tools = Array.isArray(configuredTools)
+    ? configuredTools
+    : ["action_search", "action_contract", "action_execute"].map((name) => ({
+        name,
+        parameters: {
+          type: "object"
+        },
+        outputSchema: {
+          type: "object"
+        }
+      }));
 
   const chatService = createChatService({
     aiClientFactory: {
@@ -206,14 +208,44 @@ function assistantMessages(events) {
 }
 
 test("progress-only output is retried silently and current-time prompts require a workspace clock", async () => {
-  const harness = createHarness([
-    textCompletion("Let me query the current time."),
-    textCompletion("<think>This must remain private.</think>\nIt is Tuesday in the workspace timezone.")
-  ]);
+  const harness = createHarness(
+    [
+      textCompletion("Let me query the current time."),
+      textCompletion("<think>This must remain private.</think>\nIt is Tuesday in the workspace timezone.")
+    ],
+    {
+      tools: [{
+        name: "workspace_clock",
+        parameters: {
+          type: "object",
+          additionalProperties: false,
+          properties: {}
+        },
+        outputSchema: { type: "object" },
+        preflight: ["current-time"]
+      }],
+      executeToolCall() {
+        return {
+          ok: true,
+          result: {
+            localDateTime: "2026-08-25T11:15:00+08:00",
+            timeZone: "Australia/Perth"
+          }
+        };
+      }
+    }
+  );
 
   const result = await harness.run("What day is it today?");
 
   assert.equal(result.status, "completed");
+  assert.deepEqual(harness.executedTools.map((request) => request.toolName), ["workspace_clock"]);
+  assert.equal(
+    harness.completionRequests[0].messages.some((message) => (
+      message.role === "tool" && /Australia\/Perth/u.test(message.content)
+    )),
+    true
+  );
   assert.deepEqual(assistantMessages(harness.streamEvents), ["It is Tuesday in the workspace timezone."]);
   assert.equal(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"), false);
   assert.match(
@@ -234,6 +266,50 @@ test("progress-only output is retried silently and current-time prompts require 
       .map((message) => message.contentText),
     ["What day is it today?", "It is Tuesday in the workspace timezone."]
   );
+});
+
+test("current-time preflight does not run for unrelated prompts", async () => {
+  const harness = createHarness(
+    [textCompletion("There are three active bookings.")],
+    {
+      tools: [{
+        name: "workspace_clock",
+        parameters: { type: "object", properties: {} },
+        outputSchema: { type: "object" },
+        preflight: ["current-time"]
+      }]
+    }
+  );
+
+  await harness.run("How many active bookings are there?");
+
+  assert.deepEqual(harness.executedTools, []);
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["There are three active bookings."]);
+});
+
+test("current-time preflight does not invent required tool input", async () => {
+  const harness = createHarness(
+    [textCompletion("Choose a timezone before asking for its local time.")],
+    {
+      tools: [{
+        name: "timezone_clock",
+        parameters: {
+          type: "object",
+          required: ["timeZone"],
+          properties: {
+            timeZone: { type: "string" }
+          }
+        },
+        outputSchema: { type: "object" },
+        preflight: ["current-time"]
+      }]
+    }
+  );
+
+  await harness.run("What time is it now?");
+
+  assert.deepEqual(harness.executedTools, []);
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["Choose a timezone before asking for its local time."]);
 });
 
 test("native search, contract, and execution workflows can exceed four silent tool rounds", async () => {
@@ -261,7 +337,7 @@ test("native search, contract, and execution workflows can exceed four silent to
   assert.equal(assistantToolMessages.every((message) => message.content === ""), true);
 });
 
-test("tool-loop exhaustion returns the latest successful result with a hard output cap", async () => {
+test("tool-loop exhaustion gives the concise new-conversation instruction", async () => {
   const mainRounds = Array.from({ length: 16 }, (_, index) =>
     toolCompletion("action_execute", index + 1)
   );
@@ -290,11 +366,50 @@ test("tool-loop exhaustion returns the latest successful result with a hard outp
   const finalMessages = assistantMessages(harness.streamEvents);
   assert.equal(harness.executedTools.length, 16);
   assert.equal(harness.completionRequests.length, 19);
-  assert.equal(finalMessages.length, 1);
-  assert.ok(finalMessages[0].length <= 4000);
-  assert.match(finalMessages[0], /Latest successful result from action_execute/u);
-  assert.match(finalMessages[0], /"sequence": 16/u);
-  assert.match(finalMessages[0], /…\[truncated\]$/u);
-  assert.doesNotMatch(finalMessages[0], /Please narrow the request/u);
+  assert.deepEqual(finalMessages, ["Limit reached. Start a new conversation."]);
   assert.equal(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"), false);
+});
+
+test("tool-failure recovery retains the bounded latest successful result", async () => {
+  const mainRounds = Array.from({ length: 16 }, (_, index) =>
+    toolCompletion(index === 1 ? "action_search" : "action_execute", index + 1)
+  );
+  const harness = createHarness(
+    [
+      ...mainRounds,
+      textCompletion("Let me prepare the answer."),
+      textCompletion("I'll summarize the result."),
+      textCompletion("Checking the final output.")
+    ],
+    {
+      executeToolCall(request, sequence) {
+        if (request.toolName === "action_search") {
+          return {
+            ok: false,
+            error: {
+              code: "assistant_tool_failed",
+              message: "Tool call failed."
+            }
+          };
+        }
+        return {
+          ok: true,
+          result: {
+            sequence,
+            payload: sequence === 16 ? "x".repeat(10_000) : "ok"
+          }
+        };
+      }
+    }
+  );
+
+  await harness.run();
+
+  const [fallback] = assistantMessages(harness.streamEvents);
+  assert.equal(harness.executedTools.length, 16);
+  assert.ok(fallback.length <= 4000);
+  assert.match(fallback, /Latest successful result from action_execute/u);
+  assert.match(fallback, /"sequence": 16/u);
+  assert.match(fallback, /…\[truncated\]$/u);
+  assert.doesNotMatch(fallback, /Limit reached/u);
 });

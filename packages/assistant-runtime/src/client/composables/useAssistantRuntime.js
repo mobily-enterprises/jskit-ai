@@ -29,13 +29,15 @@ import {
   normalizeToolName
 } from "../support/assistantRuntimeState.js";
 import { insertTextAtSelection } from "../support/composerInputSupport.js";
+import {
+  loadConversationTranscript,
+  resolveConversationRestorePolicy
+} from "../support/conversationRestoreSupport.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 
 const DEFAULT_STREAM_TIMEOUT_MS = 120_000;
 const DEFAULT_HISTORY_PAGE_SIZE = 20;
-const DEFAULT_MESSAGES_PAGE_SIZE = 200;
 const DEFAULT_HISTORY_STALE_TIME_MS = 60_000;
-const RESTORE_MESSAGES_PAGE = 1;
 
 function toNonNegativeInteger(value, fallback = 0) {
   const parsed = Number(value);
@@ -106,11 +108,16 @@ function formatConversationStartedAt(value) {
 function resolveRuntimePolicy() {
   const appConfig = getClientAppConfig();
   const assistantConfig = normalizeObject(appConfig?.assistant);
+  const conversationRestorePolicy = resolveConversationRestorePolicy({
+    pageSize: assistantConfig.restoreMessagesPageSize,
+    maxEntries: assistantConfig.restoreMessagesMaxEntries
+  });
 
   return Object.freeze({
     timeoutMs: toPositiveInteger(assistantConfig.timeoutMs, DEFAULT_STREAM_TIMEOUT_MS),
     historyPageSize: toPositiveInteger(assistantConfig.historyPageSize, DEFAULT_HISTORY_PAGE_SIZE),
-    restoreMessagesPageSize: toPositiveInteger(assistantConfig.restoreMessagesPageSize, DEFAULT_MESSAGES_PAGE_SIZE),
+    restoreMessagesPageSize: conversationRestorePolicy.pageSize,
+    restoreMessagesMaxEntries: conversationRestorePolicy.maxEntries,
     historyStaleTimeMs: toNonNegativeInteger(assistantConfig.historyStaleTimeMs, DEFAULT_HISTORY_STALE_TIME_MS)
   });
 }
@@ -370,19 +377,23 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     setRuntimeError("");
 
     try {
-      const response = await queryClient.fetchQuery({
-        queryKey: assistantConversationMessagesQueryKey(runtimeScope.value, parsedConversationId, {
-          page: RESTORE_MESSAGES_PAGE,
-          pageSize: runtimePolicy.restoreMessagesPageSize
-        }),
-        queryFn: () =>
-          runtimeApi.getConversationMessages(parsedConversationId, {
-            page: RESTORE_MESSAGES_PAGE,
-            pageSize: runtimePolicy.restoreMessagesPageSize
-          })
+      const transcript = await loadConversationTranscript({
+        pageSize: runtimePolicy.restoreMessagesPageSize,
+        maxEntries: runtimePolicy.restoreMessagesMaxEntries,
+        fetchPage: (page, pageSize) => queryClient.fetchQuery({
+          queryKey: assistantConversationMessagesQueryKey(runtimeScope.value, parsedConversationId, {
+            page,
+            pageSize
+          }),
+          queryFn: () => runtimeApi.getConversationMessages(parsedConversationId, {
+            page,
+            pageSize
+          }),
+          staleTime: runtimePolicy.historyStaleTimeMs
+        })
       });
 
-      const restored = mapTranscriptEntriesToAssistantState(response?.entries);
+      const restored = mapTranscriptEntriesToAssistantState(transcript.entries);
       messages.value = restored.messages;
       pendingToolEvents.value = restored.pendingToolEvents;
       input.value = "";

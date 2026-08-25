@@ -28,6 +28,7 @@ export {
 export {
   MAX_INPUT_CHARS,
   MAX_HISTORY_MESSAGES,
+  MAX_MESSAGE_PAGE_SIZE,
   assistantResource,
   assistantConversationOutputValidator
 } from "./assistantResource.js";

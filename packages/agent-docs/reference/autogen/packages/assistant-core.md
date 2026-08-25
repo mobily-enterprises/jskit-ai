@@ -71,6 +71,7 @@ Exports
 - `buildStreamEventError(event)`
 Local functions
 - `appendQueryParam(params, key, value)`
+- `createAssistantQueryParams(query = {}, transport = null)`
 - `normalizeSurfaceHeaderValue(value)`
 - `resolveAssistantRequestHeaders(resolveSurfaceId)`
 - `resolveRequiredBasePath(resolveBasePath)`
@@ -168,6 +169,7 @@ Exports
 Exports
 - `createServiceToolCatalog(actions, { barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
 Local functions
+- `normalizePreflightIntents(value)`
 - `normalizeAssistantExtension(value)`
 - `normalizeAssistantActionExtension(action = {})`
 - `normalizeBarredEntry(value)`
@@ -216,6 +218,7 @@ Local functions
 Exports
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
+- `MAX_MESSAGE_PAGE_SIZE`
 - `assistantResource`
 - `assistantConversationOutputValidator`
 
@@ -246,6 +249,7 @@ Exports
 - `normalizeAssistantStreamEventType`
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
+- `MAX_MESSAGE_PAGE_SIZE`
 - `assistantResource`
 - `assistantConversationOutputValidator`
 - `MAX_SYSTEM_PROMPT_CHARS`

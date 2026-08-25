@@ -1,4 +1,5 @@
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
+import { encodeJsonApiResourceQueryObject } from "@jskit-ai/http-runtime/shared";
 import {
   ASSISTANT_CONVERSATIONS_TRANSPORT,
   ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
@@ -28,6 +29,19 @@ function appendQueryParam(params, key, value) {
   }
 
   params.set(key, normalized);
+}
+
+function createAssistantQueryParams(query = {}, transport = null) {
+  const params = new URLSearchParams();
+  const encodedQuery = encodeJsonApiResourceQueryObject(query, {
+    responseType: transport?.responseType
+  });
+
+  for (const [key, value] of Object.entries(encodedQuery)) {
+    appendQueryParam(params, key, value);
+  }
+
+  return params;
 }
 
 function normalizeSurfaceHeaderValue(value) {
@@ -110,10 +124,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
 
     listConversations(query = {}) {
       const basePath = resolveRequiredBasePath(resolveBasePath);
-      const params = new URLSearchParams();
-      appendQueryParam(params, "cursor", query.cursor);
-      appendQueryParam(params, "limit", query.limit);
-      appendQueryParam(params, "status", query.status);
+      const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATIONS_TRANSPORT);
       const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
 
       return request(
@@ -128,9 +139,7 @@ function createAssistantApi({ request, requestStream, resolveBasePath, resolveSu
     getConversationMessages(conversationId, query = {}) {
       const basePath = resolveRequiredBasePath(resolveBasePath);
       const encodedConversationId = encodeURIComponent(String(conversationId || "").trim());
-      const params = new URLSearchParams();
-      appendQueryParam(params, "page", query.page);
-      appendQueryParam(params, "pageSize", query.pageSize);
+      const params = createAssistantQueryParams(query, ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT);
       const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);
 
       return request(
