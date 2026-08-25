@@ -324,6 +324,30 @@ async function runCommand(command, args, { cwd = REPO_ROOT, env = process.env } 
   });
 }
 
+async function readNpmIdentity(registry) {
+  return new Promise((resolve) => {
+    const child = spawn(
+      "npm",
+      ["whoami", "--registry", registry],
+      {
+        cwd: REPO_ROOT,
+        env: process.env,
+        stdio: ["ignore", "pipe", "ignore"]
+      }
+    );
+    let output = "";
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      output += chunk;
+    });
+    child.on("error", () => resolve(""));
+    child.on("close", (code) => {
+      resolve(code === 0 ? String(output || "").trim() : "");
+    });
+  });
+}
+
 async function prepareRelease(records, { dryRun }) {
   const currentVersions = currentVersionMap(records);
   const nextVersions = nextVersionMap(records);
@@ -349,11 +373,7 @@ async function prepareRelease(records, { dryRun }) {
   process.stdout.write(dryRun ? "Prepare dry-run complete.\n" : "Release source prepared.\n");
 }
 
-async function createNpmUserConfig(registry) {
-  const token = String(process.env.NPM_TOKEN || "").trim();
-  if (!token) {
-    throw new Error("NPM_TOKEN is required for publish.");
-  }
+async function createNpmUserConfig(registry, token) {
   const registryUrl = new URL(registry);
   const registryWithSlash = `${registryUrl.origin}${registryUrl.pathname}`.replace(/\/+$/u, "/");
   const authHost = `${registryUrl.host}${registryUrl.pathname}`.replace(/\/+$/u, "");
@@ -367,6 +387,37 @@ async function createNpmUserConfig(registry) {
   return { configPath, directory };
 }
 
+async function resolvePublishAuthentication(
+  registry,
+  {
+    env = process.env,
+    readIdentity = readNpmIdentity,
+    createTokenConfig = createNpmUserConfig
+  } = {}
+) {
+  const identity = String(await readIdentity(registry) || "").trim();
+  if (identity) {
+    return {
+      identity,
+      kind: "npm-login",
+      npmConfig: null
+    };
+  }
+
+  const token = String(env.NPM_TOKEN || "").trim();
+  if (!token) {
+    throw new Error(
+      "npm authentication is required for publish. Run npm login for a local release or set NPM_TOKEN for automation."
+    );
+  }
+
+  return {
+    identity: "",
+    kind: "npm-token",
+    npmConfig: await createTokenConfig(registry, token)
+  };
+}
+
 async function publishRelease(records, { dryRun, registry }) {
   const versions = await validateReleaseState(records);
   const order = topologicalPublishOrder(records);
@@ -376,9 +427,14 @@ async function publishRelease(records, { dryRun, registry }) {
     process.stdout.write(`- ${name}@${versions.get(name)}\n`);
   }
 
-  let npmConfig = null;
+  let authentication = null;
   if (!dryRun) {
-    npmConfig = await createNpmUserConfig(registry);
+    authentication = await resolvePublishAuthentication(registry);
+    if (authentication.kind === "npm-login") {
+      process.stdout.write(`Using authenticated npm login: ${authentication.identity}.\n`);
+    } else {
+      process.stdout.write("Using NPM_TOKEN authentication.\n");
+    }
   }
   try {
     for (const name of order) {
@@ -394,14 +450,14 @@ async function publishRelease(records, { dryRun, registry }) {
       ];
       if (dryRun) {
         args.push("--dry-run");
-      } else {
-        args.push("--userconfig", npmConfig.configPath);
+      } else if (authentication.npmConfig) {
+        args.push("--userconfig", authentication.npmConfig.configPath);
       }
       await runCommand("npm", args, { cwd: recordsByName.get(name).dir });
     }
   } finally {
-    if (npmConfig) {
-      await rm(npmConfig.directory, { recursive: true, force: true });
+    if (authentication?.npmConfig) {
+      await rm(authentication.npmConfig.directory, { recursive: true, force: true });
     }
   }
   process.stdout.write(dryRun ? "Publish dry-run complete.\n" : "Publish complete.\n");
@@ -436,6 +492,7 @@ export {
   collectVersionMismatches,
   discoverWorkspacePackages,
   parseArgs,
+  resolvePublishAuthentication,
   topologicalPublishOrder,
   updatePackageDependencyVersions,
   updatePatternPackageJsonContents,
