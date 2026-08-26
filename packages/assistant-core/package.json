@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.150",
+  "version": "0.1.151",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,16 +11,16 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.116",
-    "@jskit-ai/resource-crud-core": "0.1.116",
+    "@jskit-ai/resource-core": "0.1.117",
+    "@jskit-ai/resource-crud-core": "0.1.117",
     "dompurify": "^3.4.13",
     "json-rest-schema": "^1.0.17",
     "marked": "^17.0.4",
     "openai": "^6.22.0"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.172",
-    "@jskit-ai/kernel": "0.1.174",
+    "@jskit-ai/http-runtime": "0.1.173",
+    "@jskit-ai/kernel": "0.1.175",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
