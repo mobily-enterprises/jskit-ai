@@ -177,7 +177,10 @@ Do not conflate these identities:
   not synthesize any of them as a side effect.
 
 For a managed preview, retain the app-owned `tools/preview-identity`
-executable and declare it in the managed Launch target. It calls the
+executable and declare it under `#### Preview identity` in the web-presented
+Vibe64 `Outputs` target. JSKIT owns the executable/library pattern, Vibe64 owns
+the declaration's grammar and runtime behavior, and Genesis transports the
+consumer-owned section without interpreting it. The executable calls the
 `@jskit-ai/auth-web` server-side managed-preview library; it does not need a
 framework CLI. Never expose the exchange secret in browser code, a URL, client
 environment, logs, or source.
@@ -212,7 +215,7 @@ do not accept a visually similar screen as behavioral equivalence.
 When the project uses Genesis, run an explicit reconciliation after the port is
 functionally green. Compare the implemented source with the current Blueprint,
 selected Stack, Program, resources, managed skills, and effective workspace and
-Launch recipes. Update stale citations and declarations to describe what now
+Outputs recipes. Update stale citations and declarations to describe what now
 exists. Do not duplicate an inherited setup recipe merely to make the project
 look self-contained.
 
@@ -239,7 +242,7 @@ evidence in ordinary source, configuration, command output, and tests:
    when supplied.
 2. **Reconciliation:** a dedicated Genesis reconciliation confirms the
    Blueprint, Stack, Program, resources, managed skills, and effective setup and
-   Launch recipes match the implementation. For a project without Genesis,
+   Outputs recipes match the implementation. For a project without Genesis,
    reconcile its equivalent authoritative product and host documentation.
 3. **Deslop:** a distinct JSKIT Deslop pass, including the selected Material 3
    audit where UI is affected, removes obsolete framework residue without

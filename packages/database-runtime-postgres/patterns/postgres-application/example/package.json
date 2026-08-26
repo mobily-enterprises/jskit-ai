@@ -8,6 +8,6 @@
     "db:migrate:status": "knex --knexfile ./knexfile.js migrate:list"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime-postgres": "0.1.171"
+    "@jskit-ai/database-runtime-postgres": "0.1.172"
   }
 }
