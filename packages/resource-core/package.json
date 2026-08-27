@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-core",
-  "version": "0.1.117",
+  "version": "0.1.118",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -27,6 +27,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.175"
+    "@jskit-ai/kernel": "0.1.176"
   }
 }
