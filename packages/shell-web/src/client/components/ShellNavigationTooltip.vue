@@ -17,6 +17,7 @@ const theme = useTheme();
     :theme="theme.name.value"
     location="end"
     content-class="shell-navigation-tooltip"
+    :open-delay="400"
     :open-on-focus="true"
     :open-on-hover="true"
   >
@@ -32,6 +33,5 @@ const theme = useTheme();
     rgb(var(--v-theme-inverse-surface, var(--v-theme-on-surface))) !important;
   color:
     rgb(var(--v-theme-inverse-on-surface, var(--v-theme-surface))) !important;
-  opacity: 1 !important;
 }
 </style>

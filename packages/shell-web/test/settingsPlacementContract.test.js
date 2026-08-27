@@ -126,6 +126,16 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.doesNotMatch(template, /ShellOutlet|ShellRouteTransition|useShellLayoutState|pointerdown|v-navigation-drawer|v-bottom-navigation/);
 });
 
+test("shell navigation tooltips ignore incidental pointer traversal", async () => {
+  const source = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "components", "ShellNavigationTooltip.vue"),
+    "utf8"
+  );
+
+  assert.match(source, /:open-delay="400"/u);
+  assert.doesNotMatch(source, /opacity:\s*1\s*!important/u);
+});
+
 test("shell-web error host uses one explicit close affordance for banner errors", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellErrorHost.vue"), "utf8");
 
