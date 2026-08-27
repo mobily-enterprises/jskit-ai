@@ -57,6 +57,7 @@ async function assertTooltipContrast(page, linkName, interaction) {
   }
   const tooltip = page.locator(".shell-navigation-tooltip").filter({ hasText: linkName }).last();
   await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveCSS("opacity", "1");
   const colors = await tooltip.evaluate((element) => {
     const style = window.getComputedStyle(element);
     return {
@@ -74,6 +75,49 @@ async function assertTooltipContrast(page, linkName, interaction) {
     `${linkName} tooltip contrast was ${contrastRatio(foreground, background).toFixed(2)}:1.`
   );
   await page.keyboard.press("Escape");
+}
+
+async function assertRapidTooltipTraversal(page) {
+  const result = await page.locator(".shell-menu-link-item").evaluateAll(async (links) => {
+    const pause = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration));
+    const countVisibleTooltips = () => Array.from(
+      document.querySelectorAll(".shell-navigation-tooltip")
+    ).filter((element) => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        Number(style.opacity) > 0 &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    }).length;
+
+    const samples = [];
+    let activeLink = null;
+    for (const link of links) {
+      activeLink?.dispatchEvent(new MouseEvent("mouseleave"));
+      link.dispatchEvent(new MouseEvent("mouseenter"));
+      activeLink = link;
+      await pause(24);
+      samples.push(countVisibleTooltips());
+    }
+    activeLink?.dispatchEvent(new MouseEvent("mouseleave"));
+    await pause(100);
+
+    return {
+      afterLeaving: countVisibleTooltips(),
+      maximumVisible: Math.max(0, ...samples)
+    };
+  });
+
+  assert.equal(
+    result.maximumVisible,
+    0,
+    "Briefly crossing navigation links must not leave tooltip overlays on screen."
+  );
+  assert.equal(result.afterLeaving, 0, "Navigation tooltips must remain hidden after traversal.");
 }
 
 async function assertDrawerFit(page) {
@@ -203,10 +247,21 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
       await page.goto(pathAndTheme);
       await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
       await assertDrawerFit(page);
+      await assertRapidTooltipTraversal(page);
       await assertTooltipContrast(page, "Bookings", "focus");
       await assertTooltipContrast(page, "Help and support", "hover");
       await page.close();
     }
+
+    const mediumTooltipPage = await context.newPage();
+    await mediumTooltipPage.setViewportSize({ width: 1024, height: 1024 });
+    await mediumTooltipPage.goto("/w/acme/admin/bookings?theme=light");
+    await expect(mediumTooltipPage.getByTestId("jskit-shell-drawer")).toHaveAttribute(
+      "data-layout",
+      "medium"
+    );
+    await assertRapidTooltipTraversal(mediumTooltipPage);
+    await mediumTooltipPage.close();
 
     const railPage = await context.newPage();
     await railPage.setViewportSize({ width: 1280, height: 900 });

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-supabase-core",
-  "version": "0.1.172",
+  "version": "0.1.173",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -59,7 +59,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.173",
-    "@jskit-ai/kernel": "0.1.175"
+    "@jskit-ai/auth-core": "0.1.174",
+    "@jskit-ai/kernel": "0.1.176"
   }
 }
