@@ -52,15 +52,14 @@ function isPathInsideRoot(rootPath, candidatePath) {
 }
 
 /**
- * Generated apps intentionally preserve package symlinks, so a bare import from an editable local
- * package would otherwise keep its node_modules path. optimizeDeps.exclude only prevents prebundling;
- * Vite can still append its dependency-wide ?v hash and serve that source as one-year immutable.
- * That hash does not change when local source changes, which lets a browser reuse stale client code
- * even after Vite restarts.
+ * Vite's default real-path resolution keeps linked packages on editable application source. This
+ * table is a fallback for declared file dependencies when another resolver still returns their
+ * installed node_modules identity. optimizeDeps.exclude alone does not prevent Vite from appending
+ * a dependency version token and assigning one-year immutable browser caching.
  *
- * Build this table from every local package declared by the app, not only packages with a ./client export.
- * Resolving only the bootstrap entry is insufficient: a local client can use bare imports from another
- * local package's root, shared entry, or exported subpath and accidentally re-enter node_modules caching.
+ * Include every declared file dependency, not only packages with a client export. A local client can
+ * import another local package's root, shared entry, or exported subpath and accidentally re-enter
+ * node_modules caching.
  */
 async function resolveLocalPackageSources({ appRoot }) {
   const appPackageJson = await readJsonFile(path.resolve(appRoot, "package.json"), {});
@@ -350,6 +349,7 @@ function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
 
 function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
   let appRoot = process.cwd();
+  let hasMutableLocalPackages = false;
   let localPackages = Object.freeze([]);
   let resolvePackageSpecifier = null;
 
@@ -371,6 +371,11 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
       localPackages = await resolveLocalPackageSources({
         appRoot
       });
+      hasMutableLocalPackages = (
+        localPackages.length > 0 ||
+        localScopePackageIds.length > 0 ||
+        installedPackages.some((entry) => LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
+      );
       const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
       const localScopeExcludeSpecifiers = resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds);
       const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
@@ -399,6 +404,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         },
         resolve: {
           ...userResolve,
+          ...(hasMutableLocalPackages ? { preserveSymlinks: false } : {}),
           dedupe
         },
         server: {
@@ -410,6 +416,11 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
       };
     },
     configResolved(resolvedConfig) {
+      if (hasMutableLocalPackages && resolvedConfig.resolve?.preserveSymlinks === true) {
+        throw new Error(
+          "JSKIT mutable local packages require Vite real-path resolution. Remove resolve.preserveSymlinks: true."
+        );
+      }
       // Do not use `this.resolve()` for this lookup. That re-enters Vite's live plugin chain, where
       // the dependency optimizer can turn an unlisted local subpath into node_modules/.vite (or add
       // its dependency ?v hash) before JSKIT sees the selected file. The config resolver applies the

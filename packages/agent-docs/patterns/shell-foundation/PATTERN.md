@@ -42,6 +42,11 @@ not convert those choices into a generator questionnaire.
 - Keep one app-owned `npm run develop` entry that runs the API on loopback and
   Vite on the host-supplied preview port; do not require a host to infer or
   supervise framework-specific processes.
+- Keep Vite's default `resolve.preserveSymlinks: false` so linked application
+  packages resolve to mutable `/packages/` source during development.
+- If the application adds a production service worker, never cache Vite
+  development paths. Cache JavaScript and CSS only through content-hashed
+  `/assets/` URLs.
 - Keep `packages/main` as composition and light glue, not a feature dumping
   ground.
 - Declare `packages/*` as an npm workspace and depend on app-local packages by

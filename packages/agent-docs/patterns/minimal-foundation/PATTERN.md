@@ -47,6 +47,11 @@ questionnaire or infer tenancy, authentication, or database requirements.
 - Keep one app-owned `npm run develop` entry that runs the API on loopback and
   Vite on the host-supplied preview port; do not require a host to infer or
   supervise framework-specific processes.
+- Keep Vite's default `resolve.preserveSymlinks: false` so linked application
+  packages resolve to mutable `/packages/` source during development.
+- If the application adds a production service worker, never cache Vite
+  development paths. Cache JavaScript and CSS only through content-hashed
+  `/assets/` URLs.
 - Treat copied files as app-owned source. Do not add provenance, ownership
   markers, receipts, ledgers, or operation-history state.
 - Keep browser dependencies aligned with the execution environment that will

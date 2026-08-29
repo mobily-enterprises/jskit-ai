@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime-postgres",
-  "version": "0.1.173",
+  "version": "0.1.174",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,7 +12,7 @@
     "./shared/dialect": "./src/shared/dialect.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.176",
+    "@jskit-ai/database-runtime": "0.1.177",
     "pg": "^8.13.1"
   },
   "jskit": {

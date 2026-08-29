@@ -125,6 +125,45 @@ test("application foundations own one exact development command", async () => {
   }
 });
 
+test("application foundations keep linked packages on mutable Vite source paths", async () => {
+  for (const patternName of FOUNDATION_NAMES) {
+    const viteConfigSource = await readFile(
+      path.join(PATTERNS_ROOT, patternName, "example", "vite.config.mjs"),
+      "utf8"
+    );
+
+    assert.doesNotMatch(
+      viteConfigSource,
+      /preserveSymlinks/u,
+      `${patternName} must retain Vite's default real-path resolution.`
+    );
+    assert.match(viteConfigSource, /createJskitClientBootstrapPlugin/u);
+  }
+});
+
+test("application foundation guidance keeps service workers away from development modules", async () => {
+  const guideSource = await readFile(
+    path.join(PACKAGE_ROOT, "site", "guide", "app-setup", "initial-scaffolding.md"),
+    "utf8"
+  );
+
+  assert.match(guideSource, /resolve\.preserveSymlinks: false/u);
+  assert.match(guideSource, /content-hashed `\/assets\/` URLs/u);
+  for (const developmentPath of [
+    "/@fs/",
+    "/@id/",
+    "/@vite/",
+    "/node_modules/",
+    "/packages/",
+    "/src/"
+  ]) {
+    assert.ok(
+      guideSource.includes(`\`${developmentPath}\``),
+      `Service-worker guidance is missing ${developmentPath}.`
+    );
+  }
+});
+
 test("shell foundation demonstrates skeleton loading and public adaptive-shell verification", async () => {
   const shellRoot = path.join(PATTERNS_ROOT, "shell-foundation", "example");
   const homeSource = await readFile(path.join(shellRoot, "src", "pages", "home", "index.vue"), "utf8");

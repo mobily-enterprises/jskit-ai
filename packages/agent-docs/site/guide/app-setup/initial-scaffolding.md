@@ -53,6 +53,23 @@ workspace manifests depend on app-local packages by their exact package
 versions, not through `file:` paths. This lets npm resolve one coherent graph
 and lets `npm run jskit:update` and `npm run jskit:check` inspect every manifest.
 
+## Development modules and service-worker caching
+
+Keep Vite's default `resolve.preserveSymlinks: false`. Linked application
+packages under `node_modules/@local/` must resolve through their real
+`/packages/` source paths during development. This keeps them watched as
+mutable source and served with revalidation instead of a dependency `?v=` URL
+and one-year immutable browser caching. The JSKIT client bootstrap plugin also
+restores this safe setting for existing applications that still specify
+`preserveSymlinks: true`.
+
+The foundations do not install a service worker. If an application adds PWA
+caching, register it only for production and never cache development module
+paths beginning with `/@fs/`, `/@id/`, `/@vite/`, `/node_modules/`,
+`/packages/`, or `/src/`. Cache production JavaScript and CSS only through
+content-hashed `/assets/` URLs. Fonts, images, and explicitly selected shell
+files may use their own deliberate production policies.
+
 ## Ownership after copying
 
 All copied files are ordinary application source. The pattern package does not

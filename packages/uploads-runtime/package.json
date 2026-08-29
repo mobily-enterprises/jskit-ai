@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/uploads-runtime",
-  "version": "0.1.151",
+  "version": "0.1.152",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -77,6 +77,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.176"
+    "@jskit-ai/kernel": "0.1.177"
   }
 }
