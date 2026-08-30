@@ -50,12 +50,14 @@ generic CRUD merely to make the structure look uniform.
 
 ## 2. Plan one coordinated dependency and capability graph
 
-Use the installed JSKIT pattern index and package metadata to select the
-smallest complete package set. Plan the top-level dependencies and their
-ordinary npm closure before changing the lockfile, then install that planned
-closure once. Review `package.json` and the lockfile as source changes. Adopt
-the supported package-graph scripts and run `npm run jskit:update` before
-changing application source; see the **Upgrade JSKIT** guide in the agent docs.
+Use the [JSKIT source pattern library](/patterns/) and installed package
+metadata to select the smallest complete package set. Do not install an
+unrelated runtime package only to read its pattern. Plan the top-level
+dependencies and their ordinary npm closure before changing the lockfile, then
+install that planned closure once. Review `package.json` and the lockfile as
+source changes. Adopt the supported package-graph scripts and run `npm run
+jskit:update` before changing application source; see the **Upgrade JSKIT**
+guide in the agent docs.
 The updater aligns root and workspace declarations to one published release
 cohort, installs once at the project root, and verifies the resulting lockfile.
 It does not regenerate or synchronize application source.

@@ -1,3 +1,5 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/crud-operations.md` by `npm run agent-docs:build`. -->
+
 # CRUD operations
 
 Read this before database, schema, CRUD, repository, or persistence work.
@@ -5,12 +7,12 @@ Read this before database, schema, CRUD, repository, or persistence work.
 ## Establish the product contract
 
 Take database, surface, access, ownership, operations, and fields from product
-intent and current source. Ask when a material choice is missing. Do not translate the work into generator options.
+intent and current source. Ask when a material choice is missing. Do not
+translate the work into generator options.
 
-Read the narrow package-owned pattern from the generated index:
-`crud/resource-contract` for the resource, `crud/json-api-resource-package` for
-the server, and `crud/crud-screen-set` for routed UI. Child-resource and
-row-policy patterns own those variations.
+Read the narrow package-owned pattern in the [bundled source pattern index](pattern-index.md): `crud/resource-contract` for the resource,
+`crud/json-api-resource-package` for the server, and `crud/crud-screen-set`
+for routed UI. Child-resource and row-policy patterns own those variations.
 
 Normal CRUD tables use one non-null integer primary key. Foreign keys are
 single-column; composite unique indexes are business constraints, not
@@ -65,7 +67,9 @@ Honor `temporalPrecision`; repositories return strict strings.
 
 ## Migration ownership
 
-Migrations are immutable application source owned with their resource. Never make a live table or a generator the sole source of truth. Schema inspection is for adoption and diagnosis, not compulsory authoring.
+Migrations are immutable application source owned with their resource. Never
+make a live table or a generator the sole source of truth. Schema inspection
+is for adoption and diagnosis, not compulsory authoring.
 
 Before sign-off, rebuild from zero in a fresh disposable database, compare the
 schema, test ownership boundaries and failure cases, and run current-state

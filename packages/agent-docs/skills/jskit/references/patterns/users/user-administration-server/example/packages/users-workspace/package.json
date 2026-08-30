@@ -1,0 +1,43 @@
+{
+  "name": "@app/users-workspace",
+  "version": "0.0.0",
+  "description": "App-local workspace-scoped read-only user administration feature.",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server/UsersWorkspaceFeature": "./src/server/UsersWorkspaceFeature.js",
+    "./shared": "./src/shared/index.js"
+  },
+  "dependencies": {
+    "@jskit-ai/crud-core": "0.1.188",
+    "@jskit-ai/resource-crud-core": "0.1.119",
+    "@jskit-ai/workspaces-core": "0.1.155"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "app.users-workspace"
+      ],
+      "requires": [
+        "runtime.http",
+        "runtime.json-rest-api",
+        "runtime.actions",
+        "runtime.database"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/UsersWorkspaceFeature.js",
+            "export": "UsersWorkspaceFeature"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    }
+  }
+}

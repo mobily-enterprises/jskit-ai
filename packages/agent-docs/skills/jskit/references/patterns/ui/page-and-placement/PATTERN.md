@@ -1,0 +1,76 @@
+---
+id: ui/page-and-placement
+title: Routed page, section navigation, and placed element
+summary: Add product routes and shell extensions through file routing, semantic placements, topology, and registered component tokens.
+keywords: component, navigation, outlet, page, placement, routes, section, shell, subpages, vue
+requires: @jskit-ai/kernel, @jskit-ai/shell-web
+---
+
+# Routed page, section navigation, and placed element
+
+## Use when
+
+Use this pattern for an application-owned route page, a section with child
+routes, or a component rendered in an existing shell placement. It demonstrates
+the same public contracts for all three without a page generator.
+
+## Do not use when
+
+Do not use section navigation for a single page, add a primary link for a detail
+or workflow route, or create a new placement system when an existing semantic
+placement fits. CRUD routes should use the CRUD screen pattern.
+
+## Product decisions
+
+Decide the route, surface, navigation role, label, icon, section ownership,
+ordering, and whether the content belongs in navigation or a component outlet.
+These are product information architecture decisions, not defaults to infer from
+a filename alone.
+
+## Invariants
+
+- File routes and placement destinations agree.
+- Placement ids describe product ownership, not the authoring mechanism.
+- Child links share an explicit section owner.
+- Topology maps each semantic placement to concrete responsive outlets.
+- Placed components are registered by token through a client provider.
+- Compact navigation controls remain accessible and at least 48 CSS pixels.
+- Application source has no generated-file marker, receipt, or overwrite state.
+
+## Framework APIs
+
+Use `createPlacementRegistry()`, `addPlacement()`, `addPlacementTopology()`, and
+`ShellOutlet` from `@jskit-ai/shell-web`. Use file routes and
+`redirectToChild()` from `@jskit-ai/kernel`. Register app-owned component tokens
+through the application's normal client provider.
+
+## Example files
+
+`example/` contains a Reports section with Overview and Activity child routes,
+the matching section-navigation placements/topology, and a Sync Status component
+placed in the existing shell status area.
+
+## Variation points
+
+Change the route hierarchy, surface, semantic target, section owner, component
+token, order, label, icon, and responsive outlet mapping. Omit the parent host
+and topology when no child navigation is needed. Omit provider registration for
+link-only placements.
+
+## Verification
+
+- navigate directly to each route and through each visible link
+- verify the section index redirects to its intended child
+- verify the placed component resolves through its provider token
+- exercise compact, medium, and expanded variants
+- verify current-link state, keyboard operation, target size, and no overflow
+- run client tests and the production build
+
+## Avoid
+
+- generator-branded placement ids or CSS classes
+- navigation links for detail/workflow routes unless explicitly chosen
+- duplicated route tables beside file routing
+- hard-coded component instances where a semantic placement is required
+- placeholder pages that instruct developers to replace their content
+- provenance comments, receipts, or hidden mutation markers

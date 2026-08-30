@@ -1,16 +1,16 @@
 # App Agent Instructions
 
-Use current project context, JSKIT public APIs, and the installed JSKIT pattern
-index as the source of truth for application work.
+Use current project context, JSKIT public APIs, and the official framework
+documentation as the source of truth for application work.
 
-Recommended references:
+Framework references:
 
-- `node_modules/@jskit-ai/agent-docs/guide/agent/index.md`
-- `node_modules/@jskit-ai/agent-docs/patterns/INDEX.md`
+- `https://mobily-enterprises.github.io/jskit-ai/guide/`
+- `https://mobily-enterprises.github.io/jskit-ai/patterns/`
 
-Before database, schema, CRUD, repository, or persistence work, inspect the
-relevant package-owned pattern from
-`node_modules/@jskit-ai/agent-docs/reference/autogen/PATTERN_INDEX.md`.
+Before implementation, read the narrow relevant source pattern completely. If
+its owner package is installed, prefer that version-matched package-owned copy.
+Do not install an unrelated runtime package only to read documentation.
 
 Copied pattern source is ordinary application source. Do not add generator
 provenance, receipts, completion ledgers, or tooling-operation history. Keep

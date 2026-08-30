@@ -1,0 +1,111 @@
+---
+id: app/shell-foundation
+title: Adaptive-shell JSKIT application foundation
+summary: A concrete JSKIT web application foundation with responsive shell navigation, settings, placements, and browser verification.
+keywords: app, foundation, material, navigation, placements, shell, vite, vue
+requires: @jskit-ai/http-runtime, @jskit-ai/kernel, @jskit-ai/shell-web
+---
+
+# Adaptive-shell JSKIT application foundation
+
+## Use when
+
+Use this pattern for a new browser application that needs the normal JSKIT
+adaptive shell: responsive navigation, route surfaces, settings, placement
+topology, app-local providers, server/runtime composition, and representative
+browser coverage. It is the normal starting point for a full JSKIT product.
+
+The example is a concrete `reading-room` application. An agent may copy it
+directly, adapt a narrow set of files, or use it as evidence while authoring a
+different layout through the same public framework APIs.
+
+## Do not use when
+
+Do not impose this tree on an existing application. Do not use it for a
+command-line service, an API-only service, or a product whose navigation model
+is still unknown. Use the minimal foundation when the shell would be
+premature.
+
+## Product decisions
+
+Decide the application name, initial surface, navigation vocabulary, public or
+authenticated access, and which settings actually exist. Decide database,
+authentication, tenancy, and domain capabilities separately. The pattern does
+not convert those choices into a generator questionnaire.
+
+## Invariants
+
+- Materialize source inside the existing project without disturbing `.git` or
+  any existing project/agent context.
+- Inspect and resolve file collisions; never force-overwrite product source.
+- Keep placements and topology explicit and use shell public components.
+- Keep one app-owned `npm run develop` entry that runs the API on loopback and
+  Vite on the host-supplied preview port; do not require a host to infer or
+  supervise framework-specific processes.
+- Keep Vite's default `resolve.preserveSymlinks: false` so linked application
+  packages resolve to mutable `/packages/` source during development.
+- If the application adds a production service worker, never cache Vite
+  development paths. Cache JavaScript and CSS only through content-hashed
+  `/assets/` URLs.
+- Keep `packages/main` as composition and light glue, not a feature dumping
+  ground.
+- Declare `packages/*` as an npm workspace and depend on app-local packages by
+  their exact package versions, never through `file:` paths.
+- Preserve accessible navigation, 48px compact interaction targets, warm-cache
+  state hydration, skeleton loading, and toast-based transient errors.
+- Use public shell controls in browser tests rather than implementation-detail
+  scrims or coordinates.
+- Do not attach generator provenance, receipts, completion state, or replay
+  history to copied source.
+
+## Framework APIs
+
+The example uses `@jskit-ai/shell-web` for layout, navigation, placement, and
+adaptive shell testing; `@jskit-ai/kernel` for provider/runtime composition;
+and `@jskit-ai/http-runtime` for the server boundary. Application routes,
+placement declarations, surface access, and app-local providers remain normal
+source files.
+
+## Example files
+
+`example/` contains the complete reference tree. Rename `example/gitignore` to
+`.gitignore` when copying it to an app. Managed preview identity belongs to the
+authentication surface pattern, not the shell foundation.
+
+Read these together before adapting the shell:
+
+- `example/src/App.vue`
+- `example/src/components/ShellLayout.vue`
+- `example/src/placement.js`
+- `example/src/placementTopology.js`
+- `example/config/surfaceAccessPolicies.js`
+- `example/src/pages/home.vue`
+- `example/src/pages/home/settings.vue`
+- `example/tests/e2e/adaptive-shell.spec.ts`
+
+## Variation points
+
+Rename the example, replace the home content, add or remove settings routes,
+and change placements through their public contracts. Use package-owned
+patterns for auth, users, databases, CRUD, realtime, and other capabilities.
+Do not preinstall capabilities solely because they appear in another app.
+
+## Verification
+
+Install the declared packages once, run `npm run develop` for the live
+application, then run lint, server tests, client tests, the production build,
+and the adaptive browser smoke at compact, medium, and expanded viewports.
+Verify navigation through accessible controls and confirm there is no
+horizontal overflow.
+
+## Avoid
+
+- Do not run `create-app` or reproduce its options in another command.
+- Do not create a temporary scaffold directory.
+- Do not require `.generated-ui-screen` or another magic class to recognize a
+  valid screen.
+- Do not add spinners for ordinary screen loading; use structure-matching
+  skeletons.
+- Do not push content down with persistent transient-error banners; use the
+  standard toast/error presentation.
+- Do not preserve historical template ownership after copying.

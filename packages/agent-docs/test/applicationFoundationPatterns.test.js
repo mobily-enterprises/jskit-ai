@@ -76,6 +76,7 @@ test("application foundations are concrete source patterns rather than generator
     assert.equal(packageJson.dependencies?.["@jskit-ai/kernel"], kernelVersion);
     assert.equal(packageJson.dependencies?.["@jskit-ai/http-runtime"], httpRuntimeVersion);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-catalog"], catalogVersion);
+    assert.equal(packageJson.devDependencies?.["@jskit-ai/agent-docs"], undefined);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-cli"], undefined);
     assert.equal(
       packageJson.scripts?.["jskit:update"],

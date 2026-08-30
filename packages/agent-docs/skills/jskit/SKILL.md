@@ -11,11 +11,14 @@ belongs to the application immediately.
 
 ## Pattern-first implementation
 
-Search [the generated source pattern index](references/pattern-index.md)
-for the requested outcome before reading broad operational guidance or
-inventing a local structure. Read a selected package's `PATTERN.md` completely,
-then use its example directly, adapt it, compose compatible patterns, or treat
-it as evidence for a different implementation through the same public APIs.
+Search [the bundled source pattern index](references/pattern-index.md) for the
+requested outcome before reading broad operational guidance or inventing a
+local structure. It contains every indexed `PATTERN.md` and complete example
+tree; do not install a runtime package merely to read them. Read the selected
+pattern completely, then use its example directly, adapt it, compose compatible
+patterns, or treat it as evidence for a different implementation through the
+same public APIs. If its owner runtime package is already installed at a
+different version, prefer that package's version-matched pattern.
 
 Do not write or consult receipts, provenance, completion ledgers, or other
 durable bookkeeping for pattern or authoring-tool runs. Current source,

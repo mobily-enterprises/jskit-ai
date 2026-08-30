@@ -50,5 +50,6 @@ framework ceremony.
 
 - [Read the guide](/guide/)
 - [Start with an application foundation](/guide/app-setup/initial-scaffolding)
+- [Browse every source pattern](/patterns/)
 - [See how JSKIT is AI ready](/ai-ready)
 - [Using JSKIT with an external agent host](/vibe-guide)

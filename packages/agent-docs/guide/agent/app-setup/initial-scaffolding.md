@@ -13,7 +13,8 @@ agent can copy, adapt, compose, or use as evidence.
 
 ## The adaptive-shell foundation
 
-`app/shell-foundation` is the normal browser-product baseline. It includes:
+[`app/shell-foundation`](/patterns/app/shell-foundation) is the normal
+browser-product baseline. It includes:
 
 - Fastify server and health endpoint
 - Vue/Vite client bootstrap
@@ -29,15 +30,16 @@ when it is wrong for the product.
 
 ## The minimal foundation
 
-`app/minimal-foundation` keeps the same server/client/package boundaries but
-does not install the full adaptive shell. Use it for deliberately small or
-unusual products, not as a temporary hurdle before installing what was already
-known to be required.
+[`app/minimal-foundation`](/patterns/app/minimal-foundation) keeps the same
+server/client/package boundaries but does not install the full adaptive shell.
+Use it for deliberately small or unusual products, not as a temporary hurdle
+before installing what was already known to be required.
 
 ## Safe realization inside an existing repository
 
-Read the entire selected `PATTERN.md` first. Copy or author files directly in
-the initialized project. Always preserve `.git`; when present, also preserve
+Read the entire selected `PATTERN.md` first. Each public pattern page links its
+complete example source tree. Copy or author files directly in the initialized
+project. Always preserve `.git`; when present, also preserve
 existing project and agent context, including roots such as:
 
 ```text

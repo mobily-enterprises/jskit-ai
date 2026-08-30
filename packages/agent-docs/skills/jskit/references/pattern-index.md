@@ -7,7 +7,7 @@ Patterns are ordinary package-owned Markdown and example files. Read the matchin
 
 Do not create or consult receipts recording that a pattern was used. Current source and verification are the evidence.
 
-Resolve an installed pattern from the project root as `node_modules/<package-id>/<document-path>`. Example files are beside it under the listed example path.
+This documentation artifact contains a version-matched copy of every listed pattern and example. Runtime packages remain separate dependencies and should be installed only when the application selects them.
 
 ## Minimal JSKIT application foundation
 
@@ -16,8 +16,8 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
 - Owner: `@jskit-ai/agent-docs@0.1.149`
-- Read: `node_modules/@jskit-ai/agent-docs/patterns/minimal-foundation/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/agent-docs/patterns/minimal-foundation/example/`
+- Read: [PATTERN.md](patterns/app/minimal-foundation/PATTERN.md)
+- Examples: [example/](patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
 
 ## Adaptive-shell JSKIT application foundation
@@ -27,8 +27,8 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
 - Owner: `@jskit-ai/agent-docs@0.1.149`
-- Read: `node_modules/@jskit-ai/agent-docs/patterns/shell-foundation/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/agent-docs/patterns/shell-foundation/example/`
+- Read: [PATTERN.md](patterns/app/shell-foundation/PATTERN.md)
+- Examples: [example/](patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## Assistant surface and settings
@@ -38,8 +38,8 @@ Configure an assistant runtime for one application surface and expose its chat a
 - Id: `assistant/assistant-surface`
 - Keywords: `ai`, `assistant`, `chat`, `config`, `environment`, `page`, `placement`, `settings`, `surface`
 - Owner: `@jskit-ai/assistant-runtime@0.1.148`
-- Read: `node_modules/@jskit-ai/assistant-runtime/patterns/assistant-surface/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/assistant-runtime/patterns/assistant-surface/example/`
+- Read: [PATTERN.md](patterns/assistant/assistant-surface/PATTERN.md)
+- Examples: [example/](patterns/assistant/assistant-surface/example/)
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/shell-web`
 
 ## Authentication surface
@@ -49,8 +49,8 @@ Compose JSKIT authentication routes, views, profile controls, and public surface
 - Id: `auth/auth-surface`
 - Keywords: `account`, `auth`, `login`, `logout`, `password`, `placement`, `profile`, `reset`, `surface`
 - Owner: `@jskit-ai/auth-web@0.1.177`
-- Read: `node_modules/@jskit-ai/auth-web/patterns/auth-surface/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/auth-web/patterns/auth-surface/example/`
+- Read: [PATTERN.md](patterns/auth/auth-surface/PATTERN.md)
+- Examples: [example/](patterns/auth/auth-surface/example/)
 - Requires: `@jskit-ai/auth-core`, `@jskit-ai/auth-web`, `@jskit-ai/shell-web`
 
 ## Supabase authentication
@@ -60,8 +60,8 @@ Add Supabase authentication through normal npm composition, explicit environment
 - Id: `auth/supabase-auth`
 - Keywords: `auth`, `authentication`, `oauth`, `sessions`, `supabase`
 - Owner: `@jskit-ai/auth-provider-supabase-core@0.1.174`
-- Read: `node_modules/@jskit-ai/auth-provider-supabase-core/patterns/supabase-auth/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/auth-provider-supabase-core/patterns/supabase-auth/example/`
+- Read: [PATTERN.md](patterns/auth/supabase-auth/PATTERN.md)
+- Examples: [example/](patterns/auth/supabase-auth/example/)
 - Requires: `@jskit-ai/auth-provider-supabase-core`
 
 ## Owner console surface
@@ -71,8 +71,8 @@ Add a protected administration surface, settings shell, and semantic navigation 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
 - Owner: `@jskit-ai/console-web@0.1.145`
-- Read: `node_modules/@jskit-ai/console-web/patterns/console-surface/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/console-web/patterns/console-surface/example/`
+- Read: [PATTERN.md](patterns/console/console-surface/PATTERN.md)
+- Examples: [example/](patterns/console/console-surface/example/)
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
 
 ## CRUD list, view, create, and edit screens
@@ -82,8 +82,8 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 - Id: `crud/crud-screen-set`
 - Keywords: `actions`, `add`, `crud`, `delete`, `edit`, `filters`, `list`, `material`, `routes`, `view`, `vue`
 - Owner: `@jskit-ai/http-web@0.1.22`
-- Read: `node_modules/@jskit-ai/http-web/patterns/crud-screen-set/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/http-web/patterns/crud-screen-set/example/`
+- Read: [PATTERN.md](patterns/crud/crud-screen-set/PATTERN.md)
+- Examples: [example/](patterns/crud/crud-screen-set/example/)
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-crud-core`
 
 ## JSON API CRUD resource package
@@ -93,8 +93,8 @@ Build a complete application-owned CRUD server package from a migration, resourc
 - Id: `crud/json-api-resource-package`
 - Keywords: `actions`, `crud`, `database`, `json-api`, `migration`, `permissions`, `provider`, `repository`, `routes`, `service`
 - Owner: `@jskit-ai/crud-core@0.1.188`
-- Read: `node_modules/@jskit-ai/crud-core/patterns/json-api-resource-package/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/crud-core/patterns/json-api-resource-package/example/`
+- Read: [PATTERN.md](patterns/crud/json-api-resource-package/PATTERN.md)
+- Examples: [example/](patterns/crud/json-api-resource-package/example/)
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-crud-core`
 
 ## Owner-scoped CRUD resource contract
@@ -104,8 +104,8 @@ Define an authenticated application resource whose records belong to the current
 - Id: `crud/resource-contract`
 - Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `user`
 - Owner: `@jskit-ai/resource-crud-core@0.1.119`
-- Read: `node_modules/@jskit-ai/resource-crud-core/patterns/resource-contract/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/resource-crud-core/patterns/resource-contract/example/`
+- Read: [PATTERN.md](patterns/crud/resource-contract/PATTERN.md)
+- Examples: [example/](patterns/crud/resource-contract/example/)
 - Requires: `@jskit-ai/resource-crud-core`
 
 ## MySQL application database
@@ -115,8 +115,8 @@ Configure a JSKIT application for MySQL with a fixed driver, ordinary environmen
 - Id: `database/mysql-application`
 - Keywords: `database`, `knex`, `mariadb`, `migrations`, `mysql`, `mysql2`
 - Owner: `@jskit-ai/database-runtime-mysql@0.1.175`
-- Read: `node_modules/@jskit-ai/database-runtime-mysql/patterns/mysql-application/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/database-runtime-mysql/patterns/mysql-application/example/`
+- Read: [PATTERN.md](patterns/database/mysql-application/PATTERN.md)
+- Examples: [example/](patterns/database/mysql-application/example/)
 - Requires: `@jskit-ai/database-runtime-mysql`
 
 ## PostgreSQL application database
@@ -126,8 +126,8 @@ Configure a JSKIT application for PostgreSQL with a fixed driver, ordinary envir
 - Id: `database/postgres-application`
 - Keywords: `database`, `knex`, `migrations`, `pg`, `postgres`, `postgresql`
 - Owner: `@jskit-ai/database-runtime-postgres@0.1.174`
-- Read: `node_modules/@jskit-ai/database-runtime-postgres/patterns/postgres-application/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/database-runtime-postgres/patterns/postgres-application/example/`
+- Read: [PATTERN.md](patterns/database/postgres-application/PATTERN.md)
+- Examples: [example/](patterns/database/postgres-application/example/)
 - Requires: `@jskit-ai/database-runtime-postgres`
 
 ## Capacitor Android application
@@ -137,8 +137,8 @@ Wrap a JSKIT web application in a Capacitor Android shell using native Capacitor
 - Id: `mobile/android-application`
 - Keywords: `android`, `capacitor`, `device`, `mobile`, `native`, `shell`, `webview`
 - Owner: `@jskit-ai/mobile-capacitor@0.1.112`
-- Read: `node_modules/@jskit-ai/mobile-capacitor/patterns/android-application/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/mobile-capacitor/patterns/android-application/example/`
+- Read: [PATTERN.md](patterns/mobile/android-application/PATTERN.md)
+- Examples: [example/](patterns/mobile/android-application/example/)
 - Requires: `@capacitor/android`, `@capacitor/app`, `@capacitor/cli`, `@jskit-ai/mobile-capacitor`
 
 ## Realtime application
@@ -148,8 +148,8 @@ Add JSKIT realtime events with an optional Redis backplane and an explicit shell
 - Id: `realtime/realtime-application`
 - Keywords: `realtime`, `redis`, `socket.io`, `sockets`, `status`, `websocket`
 - Owner: `@jskit-ai/realtime@0.1.174`
-- Read: `node_modules/@jskit-ai/realtime/patterns/realtime-application/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/realtime/patterns/realtime-application/example/`
+- Read: [PATTERN.md](patterns/realtime/realtime-application/PATTERN.md)
+- Examples: [example/](patterns/realtime/realtime-application/example/)
 - Requires: `@jskit-ai/realtime`, `@jskit-ai/shell-web`
 
 ## App-local server feature package
@@ -159,8 +159,8 @@ Define a server feature through explicit capabilities and first-class actions, a
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
 - Owner: `@jskit-ai/agent-docs@0.1.149`
-- Read: `node_modules/@jskit-ai/agent-docs/patterns/feature-package/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/agent-docs/patterns/feature-package/example/`
+- Read: [PATTERN.md](patterns/server/feature-package/PATTERN.md)
+- Examples: [example/](patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
 
 ## Responsive application shell
@@ -170,8 +170,8 @@ Compose the JSKIT responsive shell, semantic placements, settings navigation, an
 - Id: `shell/application-shell`
 - Keywords: `adaptive`, `app`, `layout`, `navigation`, `placement`, `responsive`, `settings`, `shell`
 - Owner: `@jskit-ai/shell-web@0.1.181`
-- Read: `node_modules/@jskit-ai/shell-web/patterns/application-shell/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/shell-web/patterns/application-shell/example/`
+- Read: [PATTERN.md](patterns/shell/application-shell/PATTERN.md)
+- Examples: [example/](patterns/shell/application-shell/example/)
 - Requires: `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## Routed page, section navigation, and placed element
@@ -181,8 +181,8 @@ Add product routes and shell extensions through file routing, semantic placement
 - Id: `ui/page-and-placement`
 - Keywords: `component`, `navigation`, `outlet`, `page`, `placement`, `routes`, `section`, `shell`, `subpages`, `vue`
 - Owner: `@jskit-ai/shell-web@0.1.181`
-- Read: `node_modules/@jskit-ai/shell-web/patterns/page-and-placement/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/shell-web/patterns/page-and-placement/example/`
+- Read: [PATTERN.md](patterns/ui/page-and-placement/PATTERN.md)
+- Examples: [example/](patterns/ui/page-and-placement/example/)
 - Requires: `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## Account settings surface
@@ -192,8 +192,8 @@ Compose an account settings route and profile, preference, and notification sect
 - Id: `users/account-settings`
 - Keywords: `account`, `notifications`, `preferences`, `profile`, `settings`, `user`, `vue`
 - Owner: `@jskit-ai/users-web@0.1.195`
-- Read: `node_modules/@jskit-ai/users-web/patterns/account-settings/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/users-web/patterns/account-settings/example/`
+- Read: [PATTERN.md](patterns/users/account-settings/PATTERN.md)
+- Examples: [example/](patterns/users/account-settings/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
 
 ## User administration server package
@@ -203,8 +203,8 @@ Expose user administration and workspace-scoped member operations through app-ow
 - Id: `users/user-administration-server`
 - Keywords: `account`, `admin`, `member`, `repository`, `resource`, `routes`, `service`, `user`, `workspace`
 - Owner: `@jskit-ai/users-core@0.1.190`
-- Read: `node_modules/@jskit-ai/users-core/patterns/user-administration-server/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/users-core/patterns/user-administration-server/example/`
+- Read: [PATTERN.md](patterns/users/user-administration-server/PATTERN.md)
+- Examples: [example/](patterns/users/user-administration-server/example/)
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/users-core`
 
 ## Workspace tenancy server composition
@@ -214,8 +214,8 @@ Configure roles, workspace access policy, invitations, and app-owned invitation 
 - Id: `workspaces/workspace-server`
 - Keywords: `access`, `invite`, `membership`, `multitenancy`, `policy`, `role`, `tenancy`, `workspace`
 - Owner: `@jskit-ai/workspaces-core@0.1.155`
-- Read: `node_modules/@jskit-ai/workspaces-core/patterns/workspace-server/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/workspaces-core/patterns/workspace-server/example/`
+- Read: [PATTERN.md](patterns/workspaces/workspace-server/PATTERN.md)
+- Examples: [example/](patterns/workspaces/workspace-server/example/)
 - Requires: `@jskit-ai/users-core`, `@jskit-ai/workspaces-core`
 
 ## Workspace application and administration surfaces
@@ -225,6 +225,6 @@ Compose workspace selection, invitation, member administration, settings, and re
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
 - Owner: `@jskit-ai/workspaces-web@0.1.156`
-- Read: `node_modules/@jskit-ai/workspaces-web/patterns/workspace-surfaces/PATTERN.md`
-- Examples: `node_modules/@jskit-ai/workspaces-web/patterns/workspace-surfaces/example/`
+- Read: [PATTERN.md](patterns/workspaces/workspace-surfaces/PATTERN.md)
+- Examples: [example/](patterns/workspaces/workspace-surfaces/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`

@@ -12,6 +12,12 @@ const OPERATIONAL_REFERENCE_FILES = Object.freeze([
   "material-3.md",
   "ui-operations.md",
 ]);
+const OPERATIONAL_GUIDE_PATHS = Object.freeze({
+  "app-operations.md": "framework/application-operations.md",
+  "crud-operations.md": "framework/crud-operations.md",
+  "material-3.md": "framework/material-3.md",
+  "ui-operations.md": "framework/ui-operations.md",
+});
 
 async function collectMarkdownFiles(root) {
   const files = [];
@@ -47,7 +53,11 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   const skillRoot = path.join(packageRoot, "skills/jskit");
   const referencesRoot = path.join(skillRoot, "references");
   const skill = await readFile(path.join(skillRoot, "SKILL.md"), "utf8");
-  const referenceFiles = (await readdir(referencesRoot)).sort();
+  const referenceEntries = await readdir(referencesRoot, { withFileTypes: true });
+  const referenceFiles = referenceEntries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .sort();
   const references = await Promise.all(referenceFiles.map(async (file) => ({
     file,
     source: await readFile(path.join(referencesRoot, file), "utf8"),
@@ -63,12 +73,22 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "pattern-index.md",
     "ui-operations.md",
   ]);
+  assert.deepEqual(
+    referenceEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(),
+    ["patterns"]
+  );
   for (const file of referenceFiles) {
     assert.match(skill, new RegExp(`\\(references/${file.replace(".", "\\.")}\\)`, "u"));
   }
+  for (const { file, source } of operationalReferences) {
+    assert.match(
+      source,
+      new RegExp(`site/guide/${OPERATIONAL_GUIDE_PATHS[file].replaceAll("/", "\\/").replace(".", "\\.")}`, "u")
+    );
+  }
   const localLinks = [...skill.matchAll(/\[[^\]\n]*\]\(([^)]+)\)/gu)].map((match) => match[1]);
   assert.deepEqual(localLinks.sort(), referenceFiles.map((file) => `references/${file}`).sort());
-  assert.equal(references.every(({ source }) => !/\[[^\]\n]*\]\((?!https?:|mailto:|#)[^)]+\)/u.test(source)), true);
+  assert.match(operationalSource, /\[bundled source pattern index\]\(pattern-index\.md\)/u);
 
   assert.match(operationalSource, /current diff/);
   assert.match(operationalSource, /app\/shell-foundation/u);
@@ -88,8 +108,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   const crudReference = references.find(({ file }) => file === "crud-operations.md").source;
   const materialReference = references.find(({ file }) => file === "material-3.md").source;
   const uiReference = references.find(({ file }) => file === "ui-operations.md").source;
-  assert.match(crudReference, /Do not translate the work into generator options/u);
-  assert.match(crudReference, /Never make a live table or a generator the sole source of truth/u);
+  assert.match(crudReference, /Do not\s+translate the work into generator options/u);
+  assert.match(crudReference, /Never\s+make a live table or a generator the sole source of truth/u);
   assert.match(uiReference, /Resolve current dynamic parameters\s+to an absolute URL or route object/u);
   assert.match(skill, /every Vue\/Vuetify UI creation, modification, review, or deslop task/u);
   assert.match(skill, /Material 3 audit/u);
@@ -112,8 +132,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     /(?:^|[\s`(])\.\.\//mu
   );
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])(?:patterns|guide\/agent|site\/guide)\//mu);
-  assert.ok(Buffer.byteLength(operationalSource) <= 20 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 13 * 1024);
+  assert.ok(Buffer.byteLength(operationalSource) <= 21 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 14 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {

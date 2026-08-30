@@ -1,0 +1,80 @@
+---
+id: database/mysql-application
+title: MySQL application database
+summary: Configure a JSKIT application for MySQL with a fixed driver, ordinary environment values, and rebuildable Knex migrations.
+keywords: database, knex, mariadb, migrations, mysql, mysql2
+requires: @jskit-ai/database-runtime-mysql
+---
+
+# MySQL application database
+
+## Use when
+
+Use this pattern when an application deliberately chooses MySQL or MariaDB.
+Install `@jskit-ai/database-runtime-mysql`; its normal npm dependencies provide
+the database runtime, Knex, and `mysql2` without a package-setup wizard.
+
+## Do not use when
+
+Do not use this pattern for PostgreSQL, a database-neutral library, or a service
+that does not own its database connection. Do not install both JSKIT drivers
+unless the application genuinely selects between them at runtime.
+
+## Product decisions
+
+Decide the database name, credentials, host, deployment secret source, backup
+policy, and application migrations. Those are application and environment
+decisions, not framework questions.
+
+## Invariants
+
+- The application depends directly on the selected JSKIT driver.
+- Credentials stay outside Git.
+- `knexfile.js` fixes `mysql2`; a single-driver application does not require
+  `DB_CLIENT`.
+- Schema changes are ordinary immutable migrations.
+- The current package graph, environment, and migrations are authoritative.
+
+## Framework APIs
+
+Use `createKnexMigrationConfigFromApp()` from
+`@jskit-ai/database-runtime/server/knexMigrationConfig`. The running JSKIT
+application automatically selects the sole installed database driver, while
+Knex discovers package-owned migrations from the installed dependency graph.
+
+## Example files
+
+`example/package.json` contains the runtime dependency and database scripts.
+`example/knexfile.js` loads an optional local `.env` and fixes the MySQL dialect.
+`example/scripts/prepare-database.js` is the portable migrate-then-seed
+entrypoint for managed sessions and deployments. `example/.env.example` names
+the five connection values without a secret.
+
+## Variation points
+
+Change scripts, migration location, connection values, and secret injection to
+fit the application. Supply `DATABASE_URL` instead of individual values when
+the environment owns a URL. Add `DB_CLIENT=mysql2` only when a shared external
+tool explicitly needs a dialect selector. When the product needs initial data,
+import one idempotent app-owned seed function in `prepare-database.js` and pass
+it as `seed` to `prepareDatabaseFromApp()`.
+
+## Verification
+
+- Install dependencies once with `npm install`.
+- Run `npm run db:prepare` against a fresh disposable database.
+- Run `npm run db:migrate:status` and the application verification command.
+- Exercise one transaction and one negative connection case.
+- When a seed exists, run `db:prepare` twice and require the second run to be safe.
+
+`example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
+an explicit MariaDB service. Adapt it as source rather than generating it from
+package metadata.
+
+## Avoid
+
+- framework questionnaires for credentials
+- generated `.env` secrets
+- depending on a live schema as the source contract
+- a second driver installed “just in case”
+- migration receipts, provenance, replay logs, or generator ownership

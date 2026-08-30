@@ -17,6 +17,14 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Multi-homing](/guide/app-setup/multi-homing)
 - [Console](/guide/app-setup/console)
 
+## Framework reference
+
+- [Application operations](/guide/framework/application-operations)
+- [CRUD operations](/guide/framework/crud-operations)
+- [UI operations](/guide/framework/ui-operations)
+- [Material 3](/guide/framework/material-3)
+- [Complete source pattern library](/patterns/)
+
 ## Optional capabilities
 
 - [Mobile Capacitor](/guide/app-extras/mobile-capacitor)
@@ -26,9 +34,11 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 ## How to use the guide
 
 Begin with the Quickstart and one application-foundation pattern. Add only the
-capabilities selected by the product. For implementation, the installed JSKIT
-skill routes the agent to package-owned `PATTERN.md` files and the smallest
-relevant public API reference.
+capabilities selected by the product. The public pattern library contains every
+published `PATTERN.md` and links its complete example tree. If a runtime package
+is installed, its package-owned copy is the version-matched implementation
+reference. The optional standalone JSKIT Agent Skill bundles the same pattern
+documents and examples, but no agent host is required to install it.
 
 There are no source-generator chapters. Package-owned patterns replace their
 useful source examples; questionnaire, mutation, and provenance machinery is

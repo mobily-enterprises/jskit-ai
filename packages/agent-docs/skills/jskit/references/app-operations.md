@@ -1,6 +1,8 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/application-operations.md` by `npm run agent-docs:build`. -->
+
 # Application operations
 
-Read this for establishing an application foundation, selecting package
+Use this for establishing an application foundation, selecting package
 capabilities, and realizing product features from JSKIT patterns.
 
 ## Establish a new application
@@ -10,11 +12,10 @@ request, current source, and ordinary project documentation. Ask the user for
 any material missing product decision before writing application source. Do
 not run a JSKIT questionnaire and do not create a temporary scaffold app.
 
-Read the generated pattern index:
-
-```text
-node_modules/@jskit-ai/agent-docs/reference/autogen/PATTERN_INDEX.md
-```
+Read the [bundled source pattern index](pattern-index.md). When the optional standalone
+JSKIT Agent Skill is installed, its pattern index contains the same
+version-matched pattern documents and examples. Do not install a runtime
+package only to read its documentation.
 
 For a browser product, inspect one foundation:
 
@@ -74,11 +75,11 @@ mark a resource valid because a generator once wrote it.
 
 ## Verify current state
 
-Run verification against source, package graph, migrations, and
-runtime behavior. Runtime startup owns the capability/provider graph,
-loadability, ids, environment, and configuration. Builds own client imports;
-migration status and disposable rebuilds own schema state. App lint, tests,
-audit, browser checks, and CI own security, runtimes, and behavior.
+Run verification against source, package graph, migrations, and runtime
+behavior. Runtime startup owns the capability/provider graph, loadability,
+ids, environment, and configuration. Builds own client imports; migration
+status and disposable rebuilds own schema state. App lint, tests, audit,
+browser checks, and CI own security, runtimes, and behavior.
 
 There is no supported `jskit doctor` command. Old CLI authoring-history
 warnings do not describe AI-first apps. Diagnose current contracts; never add

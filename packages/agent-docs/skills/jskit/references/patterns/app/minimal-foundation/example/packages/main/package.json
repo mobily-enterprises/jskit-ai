@@ -1,0 +1,42 @@
+{
+  "name": "@local/main",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./shared": "./src/shared/index.js"
+  },
+  "description": "App-local runtime composition and lightweight glue.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "metadata": {
+      "jskit": {
+        "ownershipGuidance": {
+          "title": "App-local main lane",
+          "summary": "Keep @local/main focused on app composition and lightweight glue. Substantial server features should become dedicated packages instead of growing inside packages/main.",
+          "responsibilities": [
+            "packages/main server code: bootstraps app-local configuration and lightweight wiring only",
+            "substantial server features: author a dedicated app-local package from the relevant framework pattern",
+            "packages/main: do not add service/controller/route/repository feature trees here"
+          ],
+          "examples": [
+            "packages/booking-engine owns booking operations",
+            "packages/availability-engine owns availability orchestration"
+          ]
+        }
+      },
+      "server": {
+        "routes": []
+      },
+      "ui": {
+        "routes": [],
+        "elements": [],
+        "overrides": []
+      }
+    }
+  }
+}
