@@ -11,9 +11,6 @@ const profile = props.runtime.profile;
 
 <template>
   <v-sheet rounded="lg" border class="account-settings-section">
-    <header class="account-settings-section__header">
-      <h2 class="account-settings-section__title">Profile</h2>
-    </header>
     <div class="account-settings-section__body">
       <v-form @submit.prevent="profile.submit" novalidate>
         <v-row class="mb-2">
@@ -95,17 +92,6 @@ const profile = props.runtime.profile;
 <style scoped>
 .account-settings-section {
   overflow: hidden;
-}
-
-.account-settings-section__header {
-  padding: 1rem 1rem 0;
-}
-
-.account-settings-section__title {
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.2;
-  margin: 0;
 }
 
 .account-settings-section__body {

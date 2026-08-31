@@ -11,9 +11,6 @@ const preferences = props.runtime.preferences;
 
 <template>
   <v-sheet rounded="lg" border class="account-settings-section">
-    <header class="account-settings-section__header">
-      <h2 class="account-settings-section__title">Preferences</h2>
-    </header>
     <div class="account-settings-section__body">
       <v-form @submit.prevent="preferences.submit" novalidate>
         <v-row>
@@ -126,17 +123,6 @@ const preferences = props.runtime.preferences;
 <style scoped>
 .account-settings-section {
   overflow: hidden;
-}
-
-.account-settings-section__header {
-  padding: 1rem 1rem 0;
-}
-
-.account-settings-section__title {
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.2;
-  margin: 0;
 }
 
 .account-settings-section__body {

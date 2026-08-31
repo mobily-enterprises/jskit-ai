@@ -32,6 +32,7 @@ placement registry, topology, and adaptive smoke helper exported by
 ## Invariants
 
 - `App.vue`, the shell layout, placements, topology, and route pages agree.
+- Route pages do not add a page header or standalone heading by default.
 - Navigation uses semantic placements rather than direct component injection.
 - Compact controls have accessible names and at least 48 CSS-pixel targets.
 - Cached route/resource state hydrates writable UI state synchronously or with

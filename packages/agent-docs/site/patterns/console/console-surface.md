@@ -30,6 +30,7 @@ placement, and topology APIs for application composition.
 ## Invariants
 
 - Server policy enforces console access before application actions run.
+- Route pages do not add a page header or standalone heading by default.
 - The surface definition and route pages use the same surface id.
 - The profile switch is visible only to authorized authenticated users.
 - Settings navigation uses semantic placements and responsive topology.

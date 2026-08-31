@@ -12,6 +12,10 @@ Before implementation, read the narrow relevant source pattern completely. If
 its owner package is installed, prefer that version-matched package-owned copy.
 Do not install an unrelated runtime package only to read documentation.
 
+Pages never start with a page header, title block, welcome heading, or other
+standalone heading copy. Start with the useful content and actions. If the user
+wants a heading, they will ask for or add one.
+
 Copied pattern source is ordinary application source. Do not add generator
 provenance, receipts, completion ledgers, or tooling-operation history. Keep
 changes scoped to the user request and verify runtime behavior directly.

@@ -54,7 +54,7 @@ test("shell-web application pattern exposes surface-derived settings outlets", a
 
   assert.match(source, /target="home-settings:primary-menu"/);
   assert.match(source, /class="settings-shell d-flex flex-column ga-4"/);
-  assert.match(source, /--settings-shell-title-size/);
+  assert.match(source, /--settings-shell-panel-padding/);
   assert.doesNotMatch(source, /generated-ui/u);
   assert.doesNotMatch(source, /default-link-component-token/);
   assert.match(source, /<RouterView \/>/);
@@ -538,9 +538,9 @@ test("shell-web pattern home page relies on adaptive navigation instead of dead 
   );
 
   assert.match(source, /class="home-surface-screen d-flex flex-column ga-4"/);
-  assert.match(source, /--home-surface-title-size/);
+  assert.match(source, /--home-surface-panel-padding/);
   assert.doesNotMatch(source, /generated-ui/u);
-  assert.match(source, /Core services are available\./);
+  assert.match(source, /Service health/);
   assert.match(source, /to="\/home\/settings\/general"/);
   assert.doesNotMatch(source, /Use bottom navigation|Replace this content|Main public surface/);
   assert.doesNotMatch(source, /\/console/);

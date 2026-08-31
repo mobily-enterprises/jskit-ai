@@ -16,12 +16,9 @@ const drawerDefaultOpenModel = computed({
 
 <template>
   <section class="settings-general-screen d-flex flex-column ga-4">
-    <div>
-      <h2 class="text-h6 mb-2">Navigation</h2>
-      <p class="text-body-2 text-medium-emphasis mb-0">
-        On wider screens, collapsed navigation remains available as a rail. Phone layouts close the drawer and keep primary navigation in the bottom bar.
-      </p>
-    </div>
+    <p class="text-body-2 text-medium-emphasis mb-0">
+      On wider screens, collapsed navigation remains available as a rail. Phone layouts close the drawer and keep primary navigation in the bottom bar.
+    </p>
 
     <v-switch
       v-model="drawerDefaultOpenModel"

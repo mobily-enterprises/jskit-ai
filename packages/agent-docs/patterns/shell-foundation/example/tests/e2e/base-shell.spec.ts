@@ -11,7 +11,7 @@ test.describe("application responsive smoke", () => {
     test(`${viewport.name} home route renders without horizontal overflow`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto("/home");
-      await expect(page.getByRole("heading", { name: "Ready" })).toBeVisible();
+      await expect(page.getByText("Service health")).toBeVisible();
 
       const dimensions = await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,

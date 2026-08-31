@@ -53,7 +53,7 @@ import { loginAsExistingUser } from "@jskit-ai/auth-web/test/playwright";
 test("authenticated feature", async ({ page }) => {
   await loginAsExistingUser(page, { email: "ada@example.com" });
   await page.goto("/w/acme/admin/contacts");
-  await expect(page.getByRole("heading", { name: "Contacts" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add contact" })).toBeVisible();
 });
 ```
 

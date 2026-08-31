@@ -1,13 +1,8 @@
 <template>
   <section class="console-home-screen d-flex flex-column ga-4">
-    <header class="console-home-screen__header">
-      <div>
-        <p class="text-overline text-medium-emphasis mb-1">Console</p>
-        <h1 class="console-home-screen__title">Operations Console</h1>
-        <p class="text-body-2 text-medium-emphasis mb-0">Operator tools, scripts, and diagnostics.</p>
-      </div>
+    <div class="console-home-screen__actions">
       <v-btn color="primary" variant="flat" to="/home">Back to home</v-btn>
-    </header>
+    </div>
 
     <v-sheet rounded="lg" border class="console-home-screen__panel">
       <div class="console-home-screen__status-row">
@@ -22,19 +17,9 @@
 </template>
 
 <style scoped>
-.console-home-screen__header {
-  align-items: flex-start;
+.console-home-screen__actions {
   display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-}
-
-.console-home-screen__title {
-  font-size: clamp(1.5rem, 2.5vw, 2.25rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  margin: 0 0 0.4rem;
+  justify-content: flex-end;
 }
 
 .console-home-screen__panel {
@@ -50,11 +35,7 @@
 }
 
 @media (max-width: 640px) {
-  .console-home-screen__header {
-    flex-direction: column;
-  }
-
-  .console-home-screen__header :deep(.v-btn) {
+  .console-home-screen__actions :deep(.v-btn) {
     min-height: 48px;
     width: 100%;
   }

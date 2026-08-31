@@ -12,6 +12,8 @@ and action UI.
 - Compact interactive targets are at least 48 CSS pixels.
 - Navigation uses semantic placements and explicit navigation roles.
 - Pages do not stack decorative cards inside structural cards.
+- Pages do not include a header, title block, welcome heading, or standalone
+  heading copy unless the user explicitly requests one.
 - Shared screens own repeated chrome; app pages own product fields and domain
   sections.
 

@@ -10,33 +10,13 @@ const props = defineProps({
     type: Object,
     required: true
   },
-  titleLabel: {
-    type: String,
-    default: "Records"
-  },
-  headingTitle: {
-    type: String,
-    default: ""
-  },
-  subtitle: {
-    type: String,
-    default: ""
-  },
   createLabel: {
     type: String,
     default: "New record"
   },
-  loadErrorTitle: {
-    type: String,
-    default: "Unable to load records"
-  },
   loadErrorBody: {
     type: String,
     default: "Check the connection and try again."
-  },
-  emptyTitle: {
-    type: String,
-    default: "No records yet"
   },
   emptyBody: {
     type: String,
@@ -57,10 +37,6 @@ const hasBulkActions = computed(() => Boolean(unref(bulkActions.value?.hasAction
 const hasRowActions = computed(() => Boolean(unref(rowActions.value?.hasActions)));
 const hasViewUrl = computed(() => Boolean(props.screen?.hasViewUrl));
 const hasEditUrl = computed(() => Boolean(props.screen?.hasEditUrl));
-const resolvedHeadingTitle = computed(() => String(props.headingTitle || props.titleLabel || "").trim());
-const resolvedSubtitle = computed(() =>
-  String(props.subtitle || `Search, review, and update ${props.titleLabel} from this screen.`).trim()
-);
 
 function resolveListRecordTitle(record) {
   if (typeof props.screen?.resolveRecordTitle === "function") {
@@ -127,32 +103,25 @@ function setSelectableRowsSelected(selected = true) {
 
 <template>
   <section class="crud-screen crud-screen--operator crud-list-element d-flex flex-column ga-4">
-    <header class="crud-list-header">
-      <div class="crud-list-header__copy">
-        <p class="text-overline text-medium-emphasis mb-1">{{ titleLabel }}</p>
-        <h1 class="crud-list-header__title">{{ resolvedHeadingTitle }}</h1>
-        <p class="text-body-2 text-medium-emphasis mb-0">{{ resolvedSubtitle }}</p>
-      </div>
-      <div class="crud-list-header__actions">
-        <v-btn
-          color="primary"
-          variant="tonal"
-          :disabled="records.isFetching"
-          @click="records.reload"
-        >
-          {{ records.isFetching ? "Refreshing…" : "Refresh" }}
-        </v-btn>
-        <v-btn
-          v-if="listPrimaryAction"
-          class="crud-list-header__primary-action"
-          color="primary"
-          variant="flat"
-          :to="listPrimaryAction"
-        >
-          {{ createLabel }}
-        </v-btn>
-      </div>
-    </header>
+    <div class="crud-list-actions">
+      <v-btn
+        color="primary"
+        variant="tonal"
+        :disabled="records.isFetching"
+        @click="records.reload"
+      >
+        {{ records.isFetching ? "Refreshing…" : "Refresh" }}
+      </v-btn>
+      <v-btn
+        v-if="listPrimaryAction"
+        class="crud-list-primary-action"
+        color="primary"
+        variant="flat"
+        :to="listPrimaryAction"
+      >
+        {{ createLabel }}
+      </v-btn>
+    </div>
 
     <v-sheet rounded="lg" border class="crud-list-panel">
       <div class="crud-list-toolbar">
@@ -182,7 +151,6 @@ function setSelectableRowsSelected(selected = true) {
       </template>
       <template v-else>
         <div v-if="records.loadError" class="crud-list-state">
-          <h2 class="text-h6 mb-2">{{ loadErrorTitle }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ loadErrorBody }}</p>
           <v-btn
             color="primary"
@@ -195,7 +163,6 @@ function setSelectableRowsSelected(selected = true) {
         </div>
 
         <div v-else-if="displayRows.length < 1" class="crud-list-state">
-          <h2 class="text-h6 mb-2">{{ emptyTitle }}</h2>
           <p class="text-body-2 text-medium-emphasis mb-4">{{ emptyBody }}</p>
           <v-btn v-if="listPrimaryAction" color="primary" variant="flat" :to="listPrimaryAction">
             {{ createLabel }}
@@ -354,7 +321,6 @@ function setSelectableRowsSelected(selected = true) {
 
 <style scoped>
 .crud-screen {
-  --crud-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
   --crud-screen-state-padding: 2.5rem 1.25rem;
 }
 
@@ -362,26 +328,7 @@ function setSelectableRowsSelected(selected = true) {
   --crud-screen-state-padding: 2rem 1rem;
 }
 
-.crud-list-header {
-  align-items: flex-start;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-}
-
-.crud-list-header__copy {
-  min-width: 0;
-}
-
-.crud-list-header__title {
-  font-size: var(--crud-screen-title-size);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 0 0 0.35rem;
-}
-
-.crud-list-header__actions {
+.crud-list-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -495,11 +442,7 @@ function setSelectableRowsSelected(selected = true) {
 }
 
 @media (max-width: 960px) {
-  .crud-list-header {
-    flex-direction: column;
-  }
-
-  .crud-list-header__actions {
+  .crud-list-actions {
     width: 100%;
   }
 
@@ -507,7 +450,7 @@ function setSelectableRowsSelected(selected = true) {
     min-height: 48px;
   }
 
-  .crud-list-header__primary-action {
+  .crud-list-primary-action {
     display: none;
   }
 

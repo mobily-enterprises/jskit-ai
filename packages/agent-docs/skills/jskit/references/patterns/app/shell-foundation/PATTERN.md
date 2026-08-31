@@ -37,6 +37,8 @@ not convert those choices into a generator questionnaire.
 
 - Materialize source inside the existing project without disturbing `.git` or
   any existing project/agent context.
+- Pages start with useful content and actions, never a default page header or
+  standalone heading.
 - Inspect and resolve file collisions; never force-overwrite product source.
 - Keep placements and topology explicit and use shell public components.
 - Keep one app-owned `npm run develop` entry that runs the API on loopback and

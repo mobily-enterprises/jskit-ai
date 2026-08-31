@@ -34,7 +34,8 @@ hash, pattern receipt, or tool-owned source declaration.
 
 - Keep screens phone/task-first with drawer-independent primary actions and
   at least 48 CSS-pixel targets.
-- Use a page header and direct surfaces instead of needless nested cards.
+- Never add page headers or standalone headings unless the user explicitly asks.
+- Use direct surfaces instead of needless nested cards.
 - Render all meaningful loading, empty, error, permission, and retry states.
 - Use structure-matching Material skeletons for visible loading; never use a
   generic spinner or circular progress indicator.
