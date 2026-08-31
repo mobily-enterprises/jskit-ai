@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/console-core",
-  "version": "0.1.140",
+  "version": "0.1.141",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -10,9 +10,9 @@
     "./shared/resources/consoleSettingsResource": "./src/shared/resources/consoleSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.177",
-    "@jskit-ai/resource-crud-core": "0.1.119",
-    "@jskit-ai/users-core": "0.1.190",
+    "@jskit-ai/database-runtime": "0.1.178",
+    "@jskit-ai/resource-crud-core": "0.1.120",
+    "@jskit-ai/users-core": "0.1.191",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
@@ -94,8 +94,8 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.175",
-    "@jskit-ai/http-runtime": "0.1.175",
-    "@jskit-ai/kernel": "0.1.177"
+    "@jskit-ai/auth-core": "0.1.176",
+    "@jskit-ai/http-runtime": "0.1.176",
+    "@jskit-ai/kernel": "0.1.178"
   }
 }
