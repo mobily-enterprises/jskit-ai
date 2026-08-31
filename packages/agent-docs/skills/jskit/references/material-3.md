@@ -44,8 +44,9 @@ Do not replace a shared screen to restyle it. Use its public seams.
 - Use Vuetify spacing utilities and established JSKIT dimensions before raw
   values. Preserve JSKIT shell widths, target sizes, and spacing props.
 - Use elevation `0` through `5`, shape props, and component variants instead of
-  arbitrary shadows and radii. Prefer a page header and direct `v-sheet` work
-  region; add cards or dialogs only for genuinely grouped or elevated objects.
+  arbitrary shadows and radii. Never add page headers or standalone headings
+  unless explicitly requested. Use a direct `v-sheet` work region when needed;
+  reserve cards and dialogs for genuinely grouped or elevated objects.
 
 ## Components, state, and feedback
 

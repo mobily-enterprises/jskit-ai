@@ -5,12 +5,6 @@ import { RouterView } from "vue-router";
 
 <template>
   <section class="settings-shell d-flex flex-column ga-4">
-    <header>
-      <p class="text-overline text-medium-emphasis mb-1">Settings</p>
-      <h1 class="settings-shell__title">Home settings</h1>
-      <p class="text-body-2 text-medium-emphasis mb-0">Configure shell behavior for this surface.</p>
-    </header>
-
     <v-sheet rounded="lg" border class="settings-shell__panel">
       <div class="settings-shell__body">
         <nav class="settings-shell__nav" aria-label="Home settings sections">
@@ -29,16 +23,7 @@ import { RouterView } from "vue-router";
 
 <style scoped>
 .settings-shell {
-  --settings-title-size: 1.85rem;
   --settings-panel-padding: 1rem;
-}
-
-.settings-shell__title {
-  font-size: var(--settings-title-size);
-  font-weight: 650;
-  letter-spacing: 0;
-  line-height: 1.15;
-  margin: 0 0 0.35rem;
 }
 
 .settings-shell__panel {
@@ -81,10 +66,6 @@ import { RouterView } from "vue-router";
 }
 
 @media (max-width: 960px) {
-  .settings-shell {
-    --settings-title-size: 1.35rem;
-  }
-
   .settings-shell__body {
     grid-template-columns: 1fr;
   }

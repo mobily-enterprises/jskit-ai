@@ -25,11 +25,7 @@ const screen = useCrudListScreen({
 <template>
   <CrudListScreen
     :screen="screen"
-    title-label="Books"
-    heading-title="My books"
-    subtitle="Search and maintain your catalogue."
     create-label="Add book"
-    empty-title="No books yet"
     empty-body="Add your first book to begin the catalogue."
   >
     <template #card-fields="{ record, formatListCardValue }">

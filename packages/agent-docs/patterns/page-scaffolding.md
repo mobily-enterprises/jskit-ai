@@ -29,7 +29,8 @@ Rules:
   ownership rather than creating a parallel navigation structure.
 - For a small placeholder route inside an existing route family, keep the change scoped unless the durable route or surface plan in the app blueprint changed.
 - Live pages must be usable screens, not instructional scaffolds. Do not ship copy such as "replace this", "use this area", or "this page is ready".
-- Prefer a page header plus a direct `v-sheet` working region. Do not wrap every page in a generic `v-card`.
+- Never add a page header, title block, welcome heading, or standalone heading copy by default. Start with the useful content and actions; add a heading only when the user explicitly asks for one.
+- Prefer a direct `v-sheet` working region when the content needs a surface. Do not wrap every page in a generic `v-card`.
 - If the screen is not implemented yet, use a product-shaped empty state with one clear next action or status, not developer instructions.
 - Primary navigation links belong in semantic placements such as `shell.primary-nav` or `page.section-nav`; do not place every route into one drawer by default.
 - Compact layouts must be checked first: no horizontal overflow, no unreachable primary action, and tap targets should be at least 48 px.
@@ -38,7 +39,7 @@ UI contract:
 
 - App-facing screens are phone-first and task-first; admin/console screens may be denser but still need responsive controls.
 - Navigation uses semantic placements by default. Raw `host:position` outlets are advanced infrastructure.
-- Page architecture is header plus direct work region, normally `v-sheet`; do not use generic page-level `v-card` shells.
+- Page architecture starts with the direct work region and actions, normally using `v-sheet` when a surface is needed; it does not include default page-heading chrome or generic page-level `v-card` shells.
 - Empty/loading/error states are product-shaped and resource-named.
 - Detail and workflow routes are not primary navigation by default.
 - Changed UI must have compact, medium, and expanded browser checks when it changes user-facing behavior.
@@ -46,6 +47,7 @@ UI contract:
 Avoid:
 
 - inventing a page and placement shape without checking the existing pattern and neighboring routes
+- adding a route-name heading, welcome heading, or other page title the user did not request
 - treating a small page stub as permission to rewrite marketing copy, route architecture, or app blueprint scope
-- adding cards inside cards or repeating the page title inside a card title
+- adding cards inside cards
 - treating Vuetify component defaults as the product architecture

@@ -31,6 +31,8 @@ Use the workspace client provider, components, and composables exported by
 ## Invariants
 
 - Route workspace slug, selected workspace, and server scope stay synchronized.
+- Route and surface pages do not add a page header or standalone heading by
+  default.
 - Invitation acceptance is public only where the server contract permits it.
 - Administrative UI visibility never substitutes for server authorization.
 - Query and route state hydrate immediately on warm-cache navigation.

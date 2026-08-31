@@ -11,9 +11,6 @@ const notifications = props.runtime.notifications;
 
 <template>
   <v-sheet rounded="lg" border class="account-settings-section">
-    <header class="account-settings-section__header">
-      <h2 class="account-settings-section__title">Notifications</h2>
-    </header>
     <div class="account-settings-section__body">
       <v-form @submit.prevent="notifications.submit" novalidate>
         <v-switch
@@ -56,17 +53,6 @@ const notifications = props.runtime.notifications;
 <style scoped>
 .account-settings-section {
   overflow: hidden;
-}
-
-.account-settings-section__header {
-  padding: 1rem 1rem 0;
-}
-
-.account-settings-section__title {
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.2;
-  margin: 0;
 }
 
 .account-settings-section__body {

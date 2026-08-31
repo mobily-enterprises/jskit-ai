@@ -34,6 +34,7 @@ questionnaire.
 
 - Route pages stay thin and use `useCrudListScreen()`, `useCrudViewScreen()`,
   or `useCrudAddEditScreen()`.
+- Route pages do not add a page header or standalone heading by default.
 - Transport and validators come from the shared resource contract.
 - Initial visible loading uses structure-matching skeletons; pending buttons use
   stable disabled labels, never spinners.

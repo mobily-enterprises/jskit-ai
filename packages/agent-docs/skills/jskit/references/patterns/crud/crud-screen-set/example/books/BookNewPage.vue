@@ -7,8 +7,6 @@ import { bookFormFields } from "./formFields.js";
 
 const screen = useCrudAddEditScreen({
   mode: "new",
-  title: "Add book",
-  subtitle: "Add a book to your catalogue.",
   saveLabel: "Save book",
   cancelTo: "/books",
   resource: bookResource,

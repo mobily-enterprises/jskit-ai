@@ -30,6 +30,8 @@ ordinary `useCommand()` mutation behavior, and JSKIT shell placements.
 ## Invariants
 
 - Sections use JSKIT account settings APIs rather than direct HTTP helpers.
+- Settings pages and sections do not add headers or standalone headings by
+  default.
 - Cached resource data hydrates local writable fields immediately.
 - Mutation errors use the standard toast and do not push the form down.
 - Loading uses layout-stable skeletons, never an indeterminate spinner.

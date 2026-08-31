@@ -28,8 +28,6 @@ const formRuntime = computed(() => props.screen?.formRuntime || {});
 const addEdit = computed(() => props.screen?.addEdit || formRuntime.value?.addEdit || {});
 const formState = computed(() => props.screen?.formState || formRuntime.value?.form || {});
 const mode = computed(() => String(unref(props.screen?.mode) || "new").trim() || "new");
-const title = computed(() => String(unref(props.screen?.title) || "").trim());
-const subtitle = computed(() => String(unref(props.screen?.subtitle) || "").trim());
 const saveLabel = computed(() => String(unref(props.screen?.saveLabel) || "Save").trim() || "Save");
 const cancelTo = computed(() => unref(props.screen?.cancelTo) || "");
 
@@ -53,27 +51,20 @@ function resolveCancelTo(target = cancelTo.value) {
 
 <template>
   <section class="crud-screen crud-screen--operator crud-add-edit-form d-flex flex-column ga-4">
-    <header class="crud-add-edit-form__header">
-      <div class="crud-add-edit-form__copy">
-        <h1 class="crud-add-edit-form__title">{{ title }}</h1>
-        <p v-if="subtitle" class="text-body-2 text-medium-emphasis mb-0">{{ subtitle }}</p>
-      </div>
-      <div class="crud-add-edit-form__actions">
-        <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          :disabled="addEdit.isSubmitDisabled"
-          @click="addEdit.submit"
-        >
-          {{ addEdit.isSaving ? "Saving…" : saveLabel }}
-        </v-btn>
-      </div>
-    </header>
+    <div class="crud-add-edit-form__actions">
+      <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
+      <v-btn
+        color="primary"
+        variant="flat"
+        :disabled="addEdit.isSubmitDisabled"
+        @click="addEdit.submit"
+      >
+        {{ addEdit.isSaving ? "Saving…" : saveLabel }}
+      </v-btn>
+    </div>
 
     <v-sheet rounded="lg" border class="crud-add-edit-form__panel">
       <div v-if="addEdit.loadError" class="crud-add-edit-form__state">
-        <h2 class="text-h6 mb-2">Unable to load form</h2>
         <p class="text-body-2 text-medium-emphasis mb-4">
           {{ addEdit.loadError }}
         </p>
@@ -89,7 +80,7 @@ function resolveCancelTo(target = cancelTo.value) {
       </div>
       <template v-else-if="formRuntime.showFormSkeleton">
         <div class="pa-4">
-          <v-skeleton-loader type="heading, text@2, article" />
+          <v-skeleton-loader type="text@2, article" />
         </div>
       </template>
       <v-form v-else class="pa-4" @submit.prevent="addEdit.submit" novalidate>
@@ -114,31 +105,11 @@ function resolveCancelTo(target = cancelTo.value) {
 
 <style scoped>
 .crud-screen {
-  --crud-screen-title-size: clamp(1.35rem, 2vw, 1.85rem);
   --crud-screen-state-padding: 2.5rem 1.25rem;
 }
 
 .crud-screen--operator {
   --crud-screen-state-padding: 2rem 1rem;
-}
-
-.crud-add-edit-form__header {
-  align-items: flex-start;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-}
-
-.crud-add-edit-form__copy {
-  min-width: 0;
-}
-
-.crud-add-edit-form__title {
-  font-size: var(--crud-screen-title-size);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 0 0 0.35rem;
 }
 
 .crud-add-edit-form__actions {
@@ -164,10 +135,6 @@ function resolveCancelTo(target = cancelTo.value) {
 }
 
 @media (max-width: 960px) {
-  .crud-add-edit-form__header {
-    flex-direction: column;
-  }
-
   .crud-add-edit-form__actions {
     width: 100%;
   }

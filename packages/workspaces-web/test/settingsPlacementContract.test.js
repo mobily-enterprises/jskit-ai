@@ -99,9 +99,9 @@ test("workspace pattern includes pending-invite context and product-ready empty 
   assert.match(cue, /placementContext\.value\?\.pendingInvitesCount/);
   assert.match(cue, /placementContext\.value\?\.workspaceInvitesEnabled/);
   assert.doesNotMatch(cue, /\bfetch\s*\(|\buseQuery\b/);
-  assert.match(settingsLanding, /No settings sections yet/);
-  assert.match(appSurface, /No workspace activity yet/);
-  assert.match(adminSurface, /Manage members and workspace settings/);
+  assert.match(settingsLanding, /This app has no workspace-level settings configured/);
+  assert.match(appSurface, /Activity from workspace workflows will appear here/);
+  assert.match(adminSurface, /Review workspace access, members, and operational settings/);
   assert.doesNotMatch(appSurface, /Replace this page|Primary in-workspace surface/);
   assert.doesNotMatch(adminSurface, /Use this area|Privileged workspace workflows/);
 });

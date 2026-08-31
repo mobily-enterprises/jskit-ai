@@ -12,8 +12,6 @@ const routeRecordId = computed(() => String(route.params.bookId || "").trim());
 
 const screen = useCrudAddEditScreen({
   mode: "edit",
-  title: "Edit book",
-  subtitle: "Update this catalogue entry.",
   saveLabel: "Save changes",
   cancelTo: "/books/:bookId",
   preserveCancelQuery: true,

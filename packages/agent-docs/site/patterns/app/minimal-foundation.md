@@ -37,6 +37,8 @@ questionnaire or infer tenancy, authentication, or database requirements.
 ## Invariants
 
 - Preserve `.git` and all unrelated project and agent context.
+- Pages start with useful content and actions, never a default page header or
+  standalone heading.
 - Refuse or resolve real destination-file collisions before copying.
 - Keep `packages/main` limited to app composition and lightweight glue.
 - Declare `packages/*` as an npm workspace and depend on app-local packages by

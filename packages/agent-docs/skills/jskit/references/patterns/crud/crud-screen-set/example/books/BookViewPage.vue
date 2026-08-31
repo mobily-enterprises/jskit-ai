@@ -30,7 +30,6 @@ const deleteAction = useCrudDeleteAction({
     :screen="screen"
     resource-singular-title="Book"
     resource-plural-title="Books"
-    description="Review this catalogue entry."
   >
     <template #actions>
       <CrudDeleteAction :action="deleteAction" resource-singular-title="Book" />

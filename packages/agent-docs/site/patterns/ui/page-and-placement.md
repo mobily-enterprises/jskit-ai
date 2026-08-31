@@ -29,6 +29,7 @@ a filename alone.
 ## Invariants
 
 - File routes and placement destinations agree.
+- Route pages do not add a page header or standalone heading by default.
 - Placement ids describe product ownership, not the authoring mechanism.
 - Child links share an explicit section owner.
 - Topology maps each semantic placement to concrete responsive outlets.

@@ -5,12 +5,6 @@ import { RouterView } from "vue-router";
 
 <template>
   <section class="settings-shell d-flex flex-column ga-4">
-    <header>
-      <p class="text-overline text-medium-emphasis mb-1">Console</p>
-      <h1 class="settings-shell__title">Console settings</h1>
-      <p class="text-body-2 text-medium-emphasis mb-0">Global configuration and reference data for the whole app.</p>
-    </header>
-
     <v-sheet rounded="lg" border class="settings-shell__panel">
       <nav class="settings-shell__nav" aria-label="Console settings sections">
         <v-list nav density="compact" class="settings-shell__nav-list">
@@ -25,14 +19,6 @@ import { RouterView } from "vue-router";
 </template>
 
 <style scoped>
-.settings-shell__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 0 0 0.35rem;
-}
-
 .settings-shell__panel {
   display: grid;
   gap: 1rem;

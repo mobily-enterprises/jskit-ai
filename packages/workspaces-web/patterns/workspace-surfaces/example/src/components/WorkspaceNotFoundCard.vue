@@ -19,12 +19,9 @@ const normalizedMessage = computed(() => String(props.message || "").trim() || "
 
 <template>
   <v-sheet rounded="lg" border class="workspace-unavailable-panel">
-    <div class="workspace-unavailable-panel__header">
+    <div class="workspace-unavailable-panel__status">
       <v-icon :icon="mdiAlertCircleOutline" color="error" />
-      <div>
-        <h1 class="workspace-unavailable-panel__title">Unavailable</h1>
-        <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedSurfaceLabel }} surface.</p>
-      </div>
+      <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedSurfaceLabel }} surface unavailable.</p>
     </div>
     <p class="text-body-2 text-medium-emphasis mb-0">{{ normalizedMessage }}</p>
   </v-sheet>
@@ -37,17 +34,9 @@ const normalizedMessage = computed(() => String(props.message || "").trim() || "
   padding: 1rem;
 }
 
-.workspace-unavailable-panel__header {
+.workspace-unavailable-panel__status {
   align-items: flex-start;
   display: flex;
   gap: 0.75rem;
-}
-
-.workspace-unavailable-panel__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 0 0 0.25rem;
 }
 </style>
