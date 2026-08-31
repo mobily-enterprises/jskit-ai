@@ -71,6 +71,6 @@ callback routing and external links, then build the native release variant.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/mobile-capacitor@0.1.112`
+- Owner: `@jskit-ai/mobile-capacitor@0.1.113`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/mobile-capacitor/patterns/android-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/mobile-capacitor/patterns/android-application/example)
