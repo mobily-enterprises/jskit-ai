@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime-mysql",
-  "version": "0.1.176",
+  "version": "0.1.177",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,7 +12,7 @@
     "./shared/dialect": "./src/shared/dialect.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.178",
+    "@jskit-ai/database-runtime": "0.1.179",
     "mysql2": "^3.11.2"
   },
   "jskit": {
@@ -56,6 +56,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.178"
+    "@jskit-ai/kernel": "0.1.179"
   }
 }
