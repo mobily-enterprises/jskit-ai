@@ -856,7 +856,11 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
 
     process.chdir(tempRoot);
     const plugin = createJskitClientBootstrapPlugin();
-    const result = await plugin.config({});
+    const result = await plugin.config({
+      resolve: {
+        preserveSymlinks: true
+      }
+    });
 
     assert.deepEqual(result.optimizeDeps.exclude, [
       "@example/local-client",
@@ -868,6 +872,7 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
       "@jskit-ai/kernel/client/moduleBootstrap",
       "mime-match"
     ]);
+    assert.equal(result.resolve.preserveSymlinks, false);
     assert.deepEqual(result.resolve.dedupe, ["@tanstack/vue-query", "pinia", "vue", "vue-router", "vuetify"]);
   } finally {
     process.chdir(previousCwd);
@@ -951,6 +956,34 @@ test("createJskitClientBootstrapPlugin config excludes all @local scoped package
       "@example/remote-client/client",
       "@jskit-ai/kernel/client/moduleBootstrap"
     ]);
+    assert.equal(result.resolve.preserveSymlinks, false);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin rejects a later preserveSymlinks override for local packages", async () => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-symlink-config-"));
+  const previousCwd = process.cwd();
+
+  try {
+    await declareInstalledPackages(tempRoot, {
+      "@local/main": { packagePath: "packages/main" }
+    });
+
+    process.chdir(tempRoot);
+    const plugin = createJskitClientBootstrapPlugin();
+    const result = await plugin.config({});
+
+    assert.equal(result.resolve.preserveSymlinks, false);
+    assert.throws(
+      () => plugin.configResolved({
+        resolve: {
+          preserveSymlinks: true
+        }
+      }),
+      /mutable local packages require Vite real-path resolution/u
+    );
   } finally {
     process.chdir(previousCwd);
   }

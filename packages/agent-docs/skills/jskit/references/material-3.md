@@ -1,3 +1,5 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/material-3.md` by `npm run agent-docs:build`. -->
+
 # Material 3
 
 Read completely before any JSKIT Vue/Vuetify UI task.

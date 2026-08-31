@@ -1,0 +1,108 @@
+---
+id: server/feature-package
+title: App-local server feature package
+summary: Define a server feature through explicit capabilities and first-class actions, adding services or repositories only when its domain earns them.
+keywords: actions, feature, json-rest, knex, orchestration, package, provider, repository, routes, server
+requires: @jskit-ai/kernel
+---
+
+# App-local server feature package
+
+## Use when
+
+Use this pattern when a server capability has its own product language and
+should not grow inside `packages/main`. It shows the smallest normal shape: a
+feature declaration, named capability inputs and outputs, and first-class
+actions whose implementations capture those exact dependencies.
+
+The concrete `booking-engine` example is intentionally repository-free. The
+`variations/` directory preserves the two important escalations: a meaningful
+orchestration service and an explicit custom Knex repository for a domain that
+cannot fit the normal resource APIs.
+
+## Do not use when
+
+Do not create a package for a tiny composition callback or one route with no
+domain behavior. Use the CRUD resource patterns when ordinary resource
+operations fit. Do not select custom Knex merely because SQL is familiar; it
+is an explicit exception for persistence behavior the higher-level APIs cannot
+express.
+
+## Product decisions
+
+Decide the feature's public operations, access surface, authentication policy,
+input and output contracts, transactional boundary, and whether it truly owns
+persistence. Decide whether HTTP routes are needed or another package will call
+its actions internally. These decisions come from the product, not a JSKIT
+questionnaire.
+
+## Invariants
+
+- `packages/main` composes the application; substantial feature logic lives in
+  the feature package.
+- `defineFeature()` receives only declared capabilities and returns only
+  declared feature APIs.
+- Actions define the public operation contract and close over the feature APIs
+  they need. They never resolve arbitrary dependencies at execution time.
+- The service orchestrates the feature and does not issue SQL directly.
+- A repository owns persistence and accepts transaction/context options.
+- The normal persistence lane uses a public or documented high-level resource
+  API; custom Knex is an explicit, reviewed exception.
+- Ordinary HTTP and assistant exposure is projected from actions. Explicit
+  route code exists only for a genuinely custom transport.
+- Register routes, actions, contributors, and other catalogue entries during
+  `setup()`. Runtime catalogues may be sealed before provider `boot()` begins.
+  Reserve `boot()` for starting long-lived work such as consumers, schedulers,
+  or notification loops after the application structure is complete.
+- Application source contains no scaffold-shape, lane, provenance, receipt, or
+  authoring-history metadata.
+
+## Framework APIs
+
+The provider uses `defineFeature()` from
+`@jskit-ai/kernel/server/features`. The runtime supplies named capabilities
+and the feature publishes its actions through the dedicated action catalogue.
+The custom persistence variation uses `createWithTransaction()` from
+`@jskit-ai/database-runtime/shared`.
+
+## Example files
+
+`example/booking-engine/` is a concrete app-local package showing the preferred
+small-feature boundary. Its status query is deliberately small: product logic
+can grow inside the returned feature API without creating ceremonial layers.
+
+`example/variations/AvailabilityEngineProvider.js` and
+`example/variations/orchestratorService.js` show the repository-free lane.
+`example/variations/InvoiceRollupProvider.js` and
+`example/variations/customKnexRepository.js` show the explicit custom
+persistence lane.
+
+## Variation points
+
+Rename the package, capability id, actions, validators, and domain methods.
+Select the correct channels and surfaces in `actionDefaults`, overriding them
+only for exceptional actions. Add a service when orchestration is shared or
+stateful. Add a repository only when the feature owns persistence. Replace the
+illustrative status query with narrow product language before shipping.
+
+## Verification
+
+- Import the feature and verify its declared capability inputs and outputs.
+- Exercise actions through the action runtime, including invalid input and
+  denied access.
+- Exercise HTTP routes only when the package owns them.
+- Test service orchestration independently from persistence.
+- Test repository transaction and context forwarding.
+- Rebuild any schema from immutable migrations in a disposable database.
+- Run the app's package, server, and integration verification.
+
+## Avoid
+
+- product logic in the provider or `packages/main`
+- registering routes or action catalogue entries from `boot()`
+- direct SQL in actions, routes, or services
+- a repository for an orchestration-only feature
+- generic `execute(anything)` operations in finished product code
+- `app.make()`, `scope.make()`, container tokens, or service-location helpers
+- metadata claiming which authoring tool or pattern created the package
+- field questionnaires, overwrite switches, or durable operation records

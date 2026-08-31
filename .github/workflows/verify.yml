@@ -61,6 +61,11 @@ jobs:
       - name: Install Chromium
         run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
+      - name: Verify linked application package caching
+        env:
+          JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION: "1"
+        run: node --test packages/agent-docs/test/viteLinkedPackageCache.browser.test.js
+
       - name: Verify responsive CRUD date filters
         env:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"

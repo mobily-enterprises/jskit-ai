@@ -15,6 +15,7 @@ export default defineConfig({
       { text: "AI Ready", link: "/ai-ready" },
       { text: "Vibe Guide", link: "/vibe-guide" },
       { text: "Guide", link: "/guide/" },
+      { text: "Patterns", link: "/patterns/" },
       { text: "GitHub", link: "https://github.com/mobily-enterprises/jskit-ai" }
     ],
     sidebar: {
@@ -45,6 +46,22 @@ export default defineConfig({
             { text: "Realtime", link: "/guide/app-extras/realtime" },
             { text: "Assistant", link: "/guide/app-extras/assistant" }
           ]
+        },
+        {
+          text: "Framework Reference",
+          items: [
+            { text: "Application Operations", link: "/guide/framework/application-operations" },
+            { text: "CRUD Operations", link: "/guide/framework/crud-operations" },
+            { text: "UI Operations", link: "/guide/framework/ui-operations" },
+            { text: "Material 3", link: "/guide/framework/material-3" },
+            { text: "Source Patterns", link: "/patterns/" }
+          ]
+        }
+      ],
+      "/patterns/": [
+        {
+          text: "Source Patterns",
+          items: [{ text: "Pattern Index", link: "/patterns/" }]
         }
       ]
     },

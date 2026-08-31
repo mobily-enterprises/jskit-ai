@@ -154,13 +154,22 @@ async function reservePort() {
   return port;
 }
 
-async function startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {} } = {}) {
+async function startViteFixture({
+  fixtureRoot,
+  configFile = "vite.config.mjs",
+  env = {},
+  port: requestedPort
+} = {}) {
   const resolvedFixtureRoot = String(fixtureRoot || "").trim();
   if (!resolvedFixtureRoot) {
     throw new TypeError("startViteFixture requires fixtureRoot.");
   }
 
-  const port = await reservePort();
+  const normalizedRequestedPort = Number(requestedPort);
+  if (requestedPort != null && (!Number.isInteger(normalizedRequestedPort) || normalizedRequestedPort <= 0)) {
+    throw new TypeError("startViteFixture port must be a positive integer.");
+  }
+  const port = requestedPort == null ? await reservePort() : normalizedRequestedPort;
   const runtime = startCapturedProcess(process.execPath, [
     VITE_CLI,
     "--config",

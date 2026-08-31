@@ -58,9 +58,10 @@ features and providers are assembled.
 
 ## The agent host remains independent
 
-JSKIT supplies documentation, skills, patterns, and runtime APIs. It does not
-own the product blueprint, editor, chat session, preview process, environment
-store, or deployment system. Those may come from Genesis, Vibe64, another
+JSKIT supplies public documentation, package-owned patterns, runtime APIs, and
+an optional independently installable Agent Skill. It does not own the product
+blueprint, editor, chat session, preview process, environment store, deployment
+system, or host skill catalogue. Those may come from Genesis, Vibe64, another
 agent host, or a developer working directly in a terminal.
 
 ## Verification is ordinary engineering

@@ -1,14 +1,16 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/ui-operations.md` by `npm run agent-docs:build`. -->
+
 # UI operations
 
 Read this for routes, pages, surfaces, placements, responsive UI, and browser
-verification.
+verification. Also read the complete [Material 3 contract](material-3.md).
 
 ## Pages, surfaces, and placements
 
 Take the surface and navigation role from the request, product context, and
 current app. They control routes, access, placement visibility, and often
-ownership. Inspect `app/shell-foundation` plus the narrow UI pattern that
-matches the requested outcome before authoring source.
+ownership. Inspect `app/shell-foundation` plus the narrow matching entry in
+the [bundled source pattern index](pattern-index.md) before authoring source.
 
 Create route files and placement declarations as normal application code.
 Use semantic placement ids and shell public helpers; use concrete outlet ids

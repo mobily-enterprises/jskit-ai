@@ -19,7 +19,7 @@ Exports
 - `createChromiumLaunchOptions({ env = process.env } = {})`
 - `reservePort()`
 - `startCapturedProcess(command, args, { cwd, env = {} } = {})`
-- `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {} } = {})`
+- `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {}, port: requestedPort } = {})`
 - `stopProcess(runtime)`
 
 ### `currentJskitWorkspaces.mjs`

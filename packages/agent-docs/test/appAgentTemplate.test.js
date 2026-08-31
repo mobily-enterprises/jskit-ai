@@ -7,13 +7,15 @@ import { fileURLToPath } from "node:url";
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const templatePath = path.join(packageRoot, "templates/app/AGENTS.md");
 
-test("app agent template points to AI-first package patterns without generator residue", async () => {
+test("app agent template points to public framework docs without requiring agent-docs", async () => {
   const body = await readFile(templatePath, "utf8");
 
-  assert.match(body, /agent-docs\/guide\/agent\/index\.md/);
-  assert.match(body, /agent-docs\/patterns\/INDEX\.md/);
-  assert.match(body, /agent-docs\/reference\/autogen\/PATTERN_INDEX\.md/);
+  assert.match(body, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\//u);
+  assert.match(body, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/patterns\//u);
+  assert.match(body, /prefer that version-matched package-owned copy/u);
+  assert.match(body, /Do not install an unrelated runtime package only to read documentation/u);
   assert.match(body, /Do not add generator\s+provenance, receipts/u);
+  assert.doesNotMatch(body, /node_modules\/@jskit-ai\/agent-docs/u);
 
   assert.doesNotMatch(body, /local app scaffold/u);
   assert.doesNotMatch(body, /crud-scaffolding\.md/u);

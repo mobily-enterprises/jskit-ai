@@ -76,6 +76,7 @@ test("application foundations are concrete source patterns rather than generator
     assert.equal(packageJson.dependencies?.["@jskit-ai/kernel"], kernelVersion);
     assert.equal(packageJson.dependencies?.["@jskit-ai/http-runtime"], httpRuntimeVersion);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-catalog"], catalogVersion);
+    assert.equal(packageJson.devDependencies?.["@jskit-ai/agent-docs"], undefined);
     assert.equal(packageJson.devDependencies?.["@jskit-ai/jskit-cli"], undefined);
     assert.equal(
       packageJson.scripts?.["jskit:update"],
@@ -122,6 +123,45 @@ test("application foundations own one exact development command", async () => {
     assert.match(developSource, /VITE_API_PROXY_TARGET/u);
     assert.match(developSource, /--strictPort/u);
     assert.match(developSource, /startServer/u);
+  }
+});
+
+test("application foundations keep linked packages on mutable Vite source paths", async () => {
+  for (const patternName of FOUNDATION_NAMES) {
+    const viteConfigSource = await readFile(
+      path.join(PATTERNS_ROOT, patternName, "example", "vite.config.mjs"),
+      "utf8"
+    );
+
+    assert.doesNotMatch(
+      viteConfigSource,
+      /preserveSymlinks/u,
+      `${patternName} must retain Vite's default real-path resolution.`
+    );
+    assert.match(viteConfigSource, /createJskitClientBootstrapPlugin/u);
+  }
+});
+
+test("application foundation guidance keeps service workers away from development modules", async () => {
+  const guideSource = await readFile(
+    path.join(PACKAGE_ROOT, "site", "guide", "app-setup", "initial-scaffolding.md"),
+    "utf8"
+  );
+
+  assert.match(guideSource, /resolve\.preserveSymlinks: false/u);
+  assert.match(guideSource, /content-hashed `\/assets\/` URLs/u);
+  for (const developmentPath of [
+    "/@fs/",
+    "/@id/",
+    "/@vite/",
+    "/node_modules/",
+    "/packages/",
+    "/src/"
+  ]) {
+    assert.ok(
+      guideSource.includes(`\`${developmentPath}\``),
+      `Service-worker guidance is missing ${developmentPath}.`
+    );
   }
 });
 

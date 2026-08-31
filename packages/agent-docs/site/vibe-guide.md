@@ -11,9 +11,11 @@ vocabulary before describing a product.
 
 ## 1. Start with a product conversation
 
-Create an ordinary Git repository and ask your agent to read the installed
-JSKIT skill before starting implementation. Explain what the product is for,
-who uses it, and what its first useful version must accomplish.
+Create an ordinary Git repository and give your agent the [JSKIT framework
+guide](/guide/) before starting implementation. Explain what the product is
+for, who uses it, and what its first useful version must accomplish. A host may
+offer an optional JSKIT Agent Skill, but the framework does not require or
+silently install one.
 
 JSKIT does not create a second blueprint, product-memory system, or seed
 questionnaire. Use the request and ordinary project documentation supplied by
@@ -27,8 +29,9 @@ decisions; the agent never selects them silently.
 
 ## 3. Realize the application from patterns
 
-The JSKIT skill routes the agent to the generated pattern index. For a normal
-browser product it will inspect one of:
+The [public source pattern library](/patterns/) routes the agent to the full
+pattern document and example tree. For a normal browser product it will inspect
+one of:
 
 - `app/shell-foundation` — responsive application shell, navigation, settings,
   placements, and browser coverage
@@ -69,3 +72,4 @@ Useful next reading:
 - [Migrate an existing application](/guide/app-setup/existing-application-migration)
 - [Authentication](/guide/app-setup/authentication)
 - [Database layer](/guide/app-setup/database-layer)
+- [Source patterns](/patterns/)

@@ -15,19 +15,22 @@ cd exampleapp
 git init -b main
 ```
 
-Ask your agent to read the installed JSKIT skill, then describe the product in
-normal language. The opening conversation should make the product direction
+Give your agent the [JSKIT framework guide](/guide/) and describe the product
+in normal language. The opening conversation should make the product direction
 and any material technology choice clear. Explicitly choose JSKIT and any
 database integration you actually need. JSKIT does not ask the same questions
-again through a framework questionnaire.
+again through a framework questionnaire. An agent host may offer its own
+optional skills, but JSKIT does not require one.
 
 ## Select an application foundation
 
-The installed JSKIT skill and generated pattern index expose two initial
+The [public source pattern library](/patterns/) exposes two initial
 foundations:
 
-- `app/shell-foundation` for the normal responsive application shell
-- `app/minimal-foundation` for an intentionally smaller foundation
+- [`app/shell-foundation`](/patterns/app/shell-foundation) for the normal
+  responsive application shell
+- [`app/minimal-foundation`](/patterns/app/minimal-foundation) for an
+  intentionally smaller foundation
 
 The agent reads `PATTERN.md` and its complete `example/` tree. It copies or
 adapts the pattern into this existing repository, preserving `.git` and any

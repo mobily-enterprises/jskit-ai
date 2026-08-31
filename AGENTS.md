@@ -14,13 +14,20 @@
 - Generated package outputs under these paths are build artifacts:
   - `packages/agent-docs/reference/autogen/`
   - `packages/agent-docs/guide/agent/`
+  - `packages/agent-docs/site/patterns/`
+  - `packages/agent-docs/skills/jskit/references/app-operations.md`
+  - `packages/agent-docs/skills/jskit/references/crud-operations.md`
+  - `packages/agent-docs/skills/jskit/references/material-3.md`
+  - `packages/agent-docs/skills/jskit/references/ui-operations.md`
   - `packages/agent-docs/skills/jskit/references/pattern-index.md`
   - `packages/agent-docs/skills/jskit/references/existing-application-migration.md`
+  - `packages/agent-docs/skills/jskit/references/patterns/`
 - Authored agent documentation under these paths is edited directly:
   - `packages/agent-docs/patterns/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
-  - `packages/agent-docs/skills/`
+  - `packages/agent-docs/skills/jskit/SKILL.md`
+  - `packages/agent-docs/skills/jskit/agents/`
 
 ## Visible Change Checkpoint
 
