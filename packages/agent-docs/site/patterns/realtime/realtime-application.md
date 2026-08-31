@@ -69,6 +69,6 @@ match the product. Keep transport retry policy in the realtime runtime.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/realtime@0.1.175`
+- Owner: `@jskit-ai/realtime@0.1.176`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/realtime/patterns/realtime-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/realtime/patterns/realtime-application/example)
