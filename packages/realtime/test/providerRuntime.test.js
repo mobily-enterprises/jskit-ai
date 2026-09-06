@@ -72,7 +72,7 @@ test("realtime delivery sends explicit action events to their selected rooms", a
   });
 
   assert.deepEqual(io.emitted, [{
-    room: "workspace:11",
+    room: ["workspace:11"],
     eventName: "workspace.settings.changed",
     payload: {
       workspaceSlug: "acme",
@@ -115,7 +115,7 @@ test("realtime delivery resolves an explicit database-backed audience without ex
     }
   });
   assert.equal(io.emitted.length, 1);
-  assert.equal(io.emitted[0].room, "user:55");
+  assert.deepEqual(io.emitted[0].room, ["user:55"]);
   assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
 });
 

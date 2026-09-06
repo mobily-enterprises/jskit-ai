@@ -63,13 +63,14 @@ const RealtimeProvider = defineProvider({
   provides: {
     realtime: "runtime.realtime"
   },
-  setup({ config, database, env, events, fastify, logger }) {
+  setup({ authService, config, database, env, events, fastify, logger, workspaces }) {
     const io = createSocketIoServer({ fastify });
     const providerLogger = createProviderLogger(logger, { debugEnabled: debugEnabled(config, env) });
-    const delivery = createRealtimeDelivery({ io, database, logger: providerLogger });
+    const delivery = createRealtimeDelivery({ io, database, logger: providerLogger, authService, workspaces });
     const realtime = createRealtimeCapability({ io });
     stateByCapability.set(realtime, {
       authenticationRequired: false,
+      delivery,
       io,
       providerLogger,
       redisConnection: null
@@ -92,13 +93,16 @@ const RealtimeProvider = defineProvider({
       workspaces
     });
     state.redisConnection = await configureSocketIoRedisAdapter(state.io, {
+      logger: state.providerLogger,
       redisUrl: resolveRealtimeRedisUrl(env),
       redisNamespace: resolveRealtimeRedisNamespace(env)
     });
+    state.delivery.start({ redisConfigured: state.redisConnection.enabled });
   },
   async shutdown(_dependencies, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) return;
+    state.delivery.stop();
     await closeSocketIoServer(state.io);
     await closeSocketIoRedisConnections(state.redisConnection || {});
     stateByCapability.delete(outputs.realtime);

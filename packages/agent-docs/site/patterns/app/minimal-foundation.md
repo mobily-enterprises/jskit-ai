@@ -107,6 +107,6 @@ Confirm `/api/health` and the first product route.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/agent-docs@0.1.151`
+- Owner: `@jskit-ai/agent-docs@0.1.152`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/patterns/minimal-foundation/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/agent-docs/patterns/minimal-foundation/example)

@@ -59,6 +59,6 @@ loads, compact navigation, settings navigation, and production build output.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/console-web@0.1.147`
+- Owner: `@jskit-ai/console-web@0.1.148`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/console-web/patterns/console-surface/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/console-web/patterns/console-surface/example)

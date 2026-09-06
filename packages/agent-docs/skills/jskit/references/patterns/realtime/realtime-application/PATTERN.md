@@ -60,6 +60,14 @@ unauthenticated handshake before the client can join any broadcast room. A
 browser whose login identity changes must disconnect and reconnect its socket
 so the next handshake resolves the new actor.
 
+Use `auth.service.realtime.authorizeEvent({ actor, event: { name, payload } })`
+for resource-specific read authorization. Return `true` only when the current
+actor can read that event's resource. Authentication is revalidated before
+delivery and every 30 seconds while idle. Redis peers perform the same checks
+locally. Realtime failures are logged without failing an already-successful
+mutation; one mutation owner publishes each completion, while progress events
+describe distinct lifecycle states.
+
 ## Verification
 
 - Test in-process delivery without Redis.

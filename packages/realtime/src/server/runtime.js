@@ -81,6 +81,7 @@ async function configureSocketIoRedisAdapter(
   {
     redisUrl = "",
     redisNamespace = "",
+    logger = console,
     createRedisAdapter = createSocketIoRedisAdapter,
     createRedisConnection = createRedisClient
   } = {}
@@ -105,6 +106,19 @@ async function configureSocketIoRedisAdapter(
     url: normalizedRedisUrl
   });
   const subClient = pubClient.duplicate();
+  const reportError = (error) => logger.warn({ error: String(error?.message || error) }, "Realtime Redis connection failed.");
+  pubClient.on("error", reportError);
+  subClient.on("error", reportError);
+  const publish = pubClient.publish.bind(pubClient);
+  // The Socket.IO adapter does not await Redis publish promises.
+  pubClient.publish = async (...args) => {
+    try {
+      return await publish(...args);
+    } catch (error) {
+      reportError(error);
+      return 0;
+    }
+  };
 
   try {
     await pubClient.connect();
