@@ -24,6 +24,12 @@ generic “something changed” escape hatch.
 Client features register listeners through `@jskit-ai/realtime`. Keep query
 invalidation close to the resource that owns the query keys.
 
+When the entire realtime surface is authenticated, the selected `auth.service`
+can expose `realtime.requireAuthentication: true`. The realtime server then
+rejects unauthenticated handshakes before a socket joins any broadcast room.
+Clients must disconnect and reconnect after their login identity changes so a
+new handshake establishes the current actor.
+
 ## Single process and Redis
 
 The in-process adapter is correct for one server process. Set
@@ -38,7 +44,8 @@ the shell.
 
 ## Verification
 
-Test in-process delivery, audience isolation, disconnect/reconnect recovery,
+Test in-process delivery, audience isolation, authenticated-handshake rejection
+when selected, login-identity reconnects, disconnect/reconnect recovery,
 duplicate listener cleanup, and live query refresh. When Redis is selected,
 exercise delivery between two server processes.
 

@@ -190,15 +190,52 @@ async function resolveSocketActorId(authService, socket) {
     : null;
 }
 
+function realtimeAuthenticationRequired(authService = null) {
+  return authService?.realtime?.requireAuthentication === true;
+}
+
+function authenticationRequiredError() {
+  const error = new Error("Authentication required.");
+  error.data = Object.freeze({ code: "AUTHENTICATION_REQUIRED" });
+  return error;
+}
+
+function rememberSocketActorId(socket, actorId) {
+  socket.data = socket.data && typeof socket.data === "object" ? socket.data : {};
+  socket.data.actorId = actorId;
+}
+
+function registerRequiredSocketAuthentication({ io, logger, authService }) {
+  if (!realtimeAuthenticationRequired(authService)) return;
+  if (typeof io?.use !== "function") {
+    throw new TypeError("Realtime authenticated-client mode requires Socket.IO middleware support.");
+  }
+  io.use(async (socket, next) => {
+    try {
+      const actorId = await resolveSocketActorId(authService, socket);
+      if (!actorId) {
+        next(authenticationRequiredError());
+        return;
+      }
+      rememberSocketActorId(socket, actorId);
+      next();
+    } catch (error) {
+      logger.warn({ error: String(error?.message || error) }, "Realtime socket authentication failed.");
+      next(authenticationRequiredError());
+    }
+  });
+}
+
 function registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null }) {
   if (typeof io?.on !== "function") return;
+  registerRequiredSocketAuthentication({ io, logger, authService });
   io.on("connection", async (socket) => {
     try {
       socket.join(ALL_CLIENTS_ROOM);
-      const actorId = await resolveSocketActorId(authService, socket);
+      const actorId = normalizeRecordId(socket?.data?.actorId, { fallback: null })
+        || await resolveSocketActorId(authService, socket);
       if (!actorId) return;
-      socket.data = socket.data && typeof socket.data === "object" ? socket.data : {};
-      socket.data.actorId = actorId;
+      rememberSocketActorId(socket, actorId);
       socket.join(ALL_USERS_ROOM);
       socket.join(roomForUser(actorId));
       const repository = workspaces?.repositories?.workspaceMemberships;
@@ -217,4 +254,8 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, works
   });
 }
 
-export { registerSocketAudienceBootstrap, resolveAudienceTargets };
+export {
+  realtimeAuthenticationRequired,
+  registerSocketAudienceBootstrap,
+  resolveAudienceTargets
+};

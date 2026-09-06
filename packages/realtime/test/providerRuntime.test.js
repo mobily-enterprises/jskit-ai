@@ -168,6 +168,58 @@ test("socket audience bootstrap authenticates explicitly and joins actor workspa
   ]);
 });
 
+test("socket audience bootstrap rejects unauthenticated handshakes when the auth service requires them", async () => {
+  let connectionHandler = null;
+  let authenticationMiddleware = null;
+  const io = {
+    on(eventName, handler) {
+      if (eventName === "connection") connectionHandler = handler;
+    },
+    use(handler) {
+      authenticationMiddleware = handler;
+    }
+  };
+  registerSocketAudienceBootstrap({
+    io,
+    logger,
+    authService: {
+      realtime: { requireAuthentication: true },
+      async authenticateRequest(request) {
+        return request.cookies.session === "valid"
+          ? { authenticated: true, actor: { id: 17 } }
+          : { authenticated: false, actor: null };
+      }
+    }
+  });
+
+  const rejected = [];
+  await authenticationMiddleware({
+    data: {},
+    handshake: { headers: { cookie: "session=invalid" } },
+    request: { headers: {} }
+  }, (error) => rejected.push(error));
+  assert.equal(rejected.length, 1);
+  assert.equal(rejected[0].data.code, "AUTHENTICATION_REQUIRED");
+
+  const socket = {
+    data: {},
+    handshake: { headers: { cookie: "session=valid" } },
+    request: { headers: {} },
+    join(room) {
+      this.joinedRooms ||= [];
+      this.joinedRooms.push(room);
+    }
+  };
+  let acceptedError = "not-called";
+  await authenticationMiddleware(socket, (error) => {
+    acceptedError = error;
+  });
+  assert.equal(acceptedError, undefined);
+  await connectionHandler(socket);
+  assert.equal(socket.data.actorId, "17");
+  assert.deepEqual(socket.joinedRooms, ["clients", "users", "user:17"]);
+});
+
 async function startRealtimeClient({ mobile = null } = {}) {
   const registrations = new Map();
   const provided = new Map();

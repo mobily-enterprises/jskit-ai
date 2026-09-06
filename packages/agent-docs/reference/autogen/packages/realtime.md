@@ -44,6 +44,7 @@ Exports
 
 ### `src/server/realtimeAudience.js`
 Exports
+- `realtimeAuthenticationRequired(authService = null)`
 - `registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null })`
 - `resolveAudienceTargets(audience, event, { database = null, logger })`
 Local functions
@@ -58,6 +59,9 @@ Local functions
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
 - `resolveSocketActorId(authService, socket)`
+- `authenticationRequiredError()`
+- `rememberSocketActorId(socket, actorId)`
+- `registerRequiredSocketAuthentication({ io, logger, authService })`
 
 ### `src/server/realtimeDelivery.js`
 Exports

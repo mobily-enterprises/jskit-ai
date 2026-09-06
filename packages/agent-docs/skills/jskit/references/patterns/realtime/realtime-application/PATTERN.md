@@ -53,9 +53,18 @@ Omit the placement when the product does not need a visible connection state.
 Change event listeners, Redis provisioning, and client invalidation behavior to
 match the product. Keep transport retry policy in the realtime runtime.
 
+When every realtime event belongs behind the application's authentication
+boundary, let the selected `auth.service` opt in with
+`realtime.requireAuthentication: true`. Socket.IO then rejects an
+unauthenticated handshake before the client can join any broadcast room. A
+browser whose login identity changes must disconnect and reconnect its socket
+so the next handshake resolves the new actor.
+
 ## Verification
 
 - Test in-process delivery without Redis.
+- When authenticated-client mode is selected, reject an anonymous handshake
+  and reconnect after login, logout, and identity changes.
 - When Redis is selected, test delivery across two server processes.
 - Disconnect and reconnect a browser and verify recovery behavior.
 - Confirm the status contribution renders in compact and expanded shells.

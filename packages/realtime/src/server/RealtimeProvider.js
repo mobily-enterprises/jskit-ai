@@ -2,7 +2,10 @@ import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRealtimeDelivery } from "./realtimeDelivery.js";
-import { registerSocketAudienceBootstrap } from "./realtimeAudience.js";
+import {
+  realtimeAuthenticationRequired,
+  registerSocketAudienceBootstrap
+} from "./realtimeAudience.js";
 import {
   closeSocketIoRedisConnections,
   closeSocketIoServer,
@@ -32,6 +35,7 @@ function createRealtimeCapability({ io }) {
     diagnostics() {
       const state = stateByCapability.get(capability);
       return Object.freeze({
+        authenticationRequired: state?.authenticationRequired === true,
         connectedClients: Number.isInteger(Number(io?.engine?.clientsCount))
           ? Number(io.engine.clientsCount)
           : null,
@@ -64,7 +68,12 @@ const RealtimeProvider = defineProvider({
     const providerLogger = createProviderLogger(logger, { debugEnabled: debugEnabled(config, env) });
     const delivery = createRealtimeDelivery({ io, database, logger: providerLogger });
     const realtime = createRealtimeCapability({ io });
-    stateByCapability.set(realtime, { io, providerLogger, redisConnection: null });
+    stateByCapability.set(realtime, {
+      authenticationRequired: false,
+      io,
+      providerLogger,
+      redisConnection: null
+    });
     events.register({
       id: "runtime.realtime.delivery",
       matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
@@ -75,6 +84,7 @@ const RealtimeProvider = defineProvider({
   async boot({ authService, env, workspaces }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");
+    state.authenticationRequired = realtimeAuthenticationRequired(authService);
     registerSocketAudienceBootstrap({
       io: state.io,
       logger: state.providerLogger,
