@@ -53,6 +53,7 @@ Local functions
 - `roomForUser(userId)`
 - `roomForWorkspace(workspaceId)`
 - `roomForWorkspaceUser(workspaceId, userId)`
+- `workspaceAudienceRooms(workspaceIds, actorId)`
 - `resolveScopeWorkspaceId(scope = {})`
 - `resolveScopeUserId(scope = {})`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`

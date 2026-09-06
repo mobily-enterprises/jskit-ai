@@ -8,8 +8,36 @@ import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js"
 import { RealtimeProvider } from "../src/server/RealtimeProvider.js";
 import { registerSocketAudienceBootstrap } from "../src/server/realtimeAudience.js";
 import { createRealtimeDelivery } from "../src/server/realtimeDelivery.js";
+import { attachDeferredAuthService, createDeferredAuthService } from "../../auth-core/src/server/deferredAuthService.js";
 
 const logger = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
+
+test("RealtimeProvider waits for authentication boot before accessing the auth service", async () => {
+  const authService = createDeferredAuthService();
+  const authProvider = defineProvider({
+    id: "test.deferred.auth",
+    provides: { authService: "auth.service" },
+    setup() { return { authService }; },
+    boot() {
+      attachDeferredAuthService(authService, {
+        realtime: { requireAuthentication: true },
+        async authenticateRequest() { return { authenticated: false, actor: null }; }
+      });
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "runtime.config": {}, "runtime.env": {},
+      "runtime.fastify": { server: createServer() }, "runtime.logger": logger
+    },
+    providers: [EventProvider, RealtimeProvider, authProvider]
+  });
+  try {
+    await runtime.start();
+  } finally {
+    await runtime.shutdown();
+  }
+});
 
 function createIoDouble() {
   const emitted = [];

@@ -63,28 +63,25 @@ const RealtimeProvider = defineProvider({
   provides: {
     realtime: "runtime.realtime"
   },
-  setup({ authService, config, database, env, events, fastify, logger, workspaces }) {
+  setup({ config, env, fastify, logger }) {
     const io = createSocketIoServer({ fastify });
     const providerLogger = createProviderLogger(logger, { debugEnabled: debugEnabled(config, env) });
-    const delivery = createRealtimeDelivery({ io, database, logger: providerLogger, authService, workspaces });
     const realtime = createRealtimeCapability({ io });
     stateByCapability.set(realtime, {
       authenticationRequired: false,
-      delivery,
+      delivery: null,
       io,
       providerLogger,
       redisConnection: null
     });
-    events.register({
-      id: "runtime.realtime.delivery",
-      matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
-      handle: delivery.handle
-    });
     return { realtime };
   },
-  async boot({ authService, env, workspaces }, { outputs }) {
+  async boot({ authService, database, env, events, workspaces }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");
+    state.delivery = createRealtimeDelivery({
+      io: state.io, database, logger: state.providerLogger, authService, workspaces
+    });
     state.authenticationRequired = realtimeAuthenticationRequired(authService);
     registerSocketAudienceBootstrap({
       io: state.io,
@@ -98,11 +95,16 @@ const RealtimeProvider = defineProvider({
       redisNamespace: resolveRealtimeRedisNamespace(env)
     });
     state.delivery.start({ redisConfigured: state.redisConnection.enabled });
+    events.register({
+      id: "runtime.realtime.delivery",
+      matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
+      handle: state.delivery.handle
+    });
   },
   async shutdown(_dependencies, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) return;
-    state.delivery.stop();
+    state.delivery?.stop();
     await closeSocketIoServer(state.io);
     await closeSocketIoRedisConnections(state.redisConnection || {});
     stateByCapability.delete(outputs.realtime);

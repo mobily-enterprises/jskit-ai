@@ -80,6 +80,6 @@ package metadata.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/database-runtime-mysql@0.1.178`
+- Owner: `@jskit-ai/database-runtime-mysql@0.1.179`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/database-runtime-mysql/patterns/mysql-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/database-runtime-mysql/patterns/mysql-application/example)
