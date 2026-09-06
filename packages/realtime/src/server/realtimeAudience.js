@@ -26,6 +26,17 @@ function roomForWorkspaceUser(workspaceId, userId) {
   return `workspace:${String(workspaceId || "").trim()}:user:${String(userId || "").trim()}`;
 }
 
+function workspaceAudienceRooms(workspaceIds, actorId) {
+  const rooms = [];
+  for (const rawId of normalizeArray(workspaceIds)) {
+    const workspaceId = normalizeRecordId(rawId, { fallback: null });
+    if (workspaceId) {
+      rooms.push(roomForWorkspace(workspaceId), roomForWorkspaceUser(workspaceId, actorId));
+    }
+  }
+  return rooms;
+}
+
 function resolveScopeWorkspaceId(scope = {}) {
   const kind = normalizeText(scope?.kind).toLowerCase();
   if (kind === "workspace") return normalizeRecordId(scope.id, { fallback: null });
@@ -242,11 +253,8 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, works
       const workspaceIds = typeof repository?.listActiveWorkspaceIdsByUserId === "function"
         ? await repository.listActiveWorkspaceIdsByUserId(actorId)
         : [];
-      for (const rawId of normalizeArray(workspaceIds)) {
-        const workspaceId = normalizeRecordId(rawId, { fallback: null });
-        if (!workspaceId) continue;
-        socket.join(roomForWorkspace(workspaceId));
-        socket.join(roomForWorkspaceUser(workspaceId, actorId));
+      for (const room of workspaceAudienceRooms(workspaceIds, actorId)) {
+        socket.join(room);
       }
     } catch (error) {
       logger.warn({ error: String(error?.message || error) }, "Realtime socket audience bootstrap failed.");
@@ -262,21 +270,18 @@ async function revalidateSocket({ socket, authService, workspaces = null }) {
     socket.disconnect(true);
     return null;
   }
-  if (actor) {
-    rememberSocketActorId(socket, actor.id);
-    const repository = workspaces?.repositories?.workspaceMemberships;
-    if (typeof repository?.listActiveWorkspaceIdsByUserId === "function") {
-      const workspaceIds = await repository.listActiveWorkspaceIdsByUserId(actor.id);
-      const rooms = new Set(normalizeArray(workspaceIds).flatMap((id) => {
-        const workspaceId = normalizeRecordId(id, { fallback: null });
-        return workspaceId ? [roomForWorkspace(workspaceId), roomForWorkspaceUser(workspaceId, actor.id)] : [];
-      }));
-      for (const room of socket.rooms) {
-        if (room.startsWith("workspace:") && !rooms.has(room)) await socket.leave(room);
-      }
-      for (const room of rooms) await socket.join(room);
-    }
+  if (!actor) return null;
+
+  rememberSocketActorId(socket, actor.id);
+  const repository = workspaces?.repositories?.workspaceMemberships;
+  if (typeof repository?.listActiveWorkspaceIdsByUserId !== "function") return actor;
+
+  const workspaceIds = await repository.listActiveWorkspaceIdsByUserId(actor.id);
+  const rooms = new Set(workspaceAudienceRooms(workspaceIds, actor.id));
+  for (const room of socket.rooms) {
+    if (room.startsWith("workspace:") && !rooms.has(room)) await socket.leave(room);
   }
+  for (const room of rooms) await socket.join(room);
   return actor;
 }
 

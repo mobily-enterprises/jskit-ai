@@ -6,11 +6,14 @@ const DELIVERY_EVENT = "jskit:realtime:delivery";
 function publicRealtimePayload(event) {
   const { realtime } = event && typeof event === "object" ? event : {};
   const canonical = {};
-  for (const key of ["type", "source", "entity", "operation", "entityId", "scope", "actorId", "commandId", "sourceClientId", "occurredAt"]) {
+  for (const key of [
+    "type", "source", "entity", "operation", "entityId", "scope", "actorId",
+    "commandId", "sourceClientId", "occurredAt"
+  ]) {
     if (Object.hasOwn(event, key)) canonical[key] = event[key];
   }
   const payload = realtime?.payload;
-  if (payload != null && (!payload || typeof payload !== "object" || Array.isArray(payload))) {
+  if (payload != null && (typeof payload !== "object" || Array.isArray(payload))) {
     throw new TypeError("Realtime event payload must be an object when provided.");
   }
   return Object.freeze({ ...(payload || {}), ...canonical });
@@ -35,7 +38,7 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   let revalidationTimer = null;
   let stopped = false;
 
-  async function authenticate(socket) {
+  async function revalidate(socket) {
     try {
       return await revalidateSocket({ socket, authService, workspaces });
     } catch (error) {
@@ -48,11 +51,16 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   async function deliverLocal({ eventName, payload, targets }) {
     await Promise.all([...io.sockets.sockets.values()].map(async (socket) => {
       try {
-        const actor = await authenticate(socket);
+        const actor = await revalidate(socket);
         if (!socket.connected) return;
         if (!targets.broadcastAllClients && !targets.rooms.some((room) => socket.rooms.has(room))) return;
-        if (typeof authService.realtime?.authorizeEvent === "function" &&
-            await authService.realtime.authorizeEvent({ actor, event: { name: eventName, payload } }) !== true) return;
+        if (typeof authService.realtime?.authorizeEvent === "function") {
+          const authorized = await authService.realtime.authorizeEvent({
+            actor,
+            event: { name: eventName, payload }
+          });
+          if (authorized !== true) return;
+        }
         if (socket.connected) socket.emit(eventName, payload);
       } catch (error) {
         logger.warn({ socketEvent: eventName, error: String(error?.message || error) }, "Realtime delivery denied after authorization failure.");
@@ -71,7 +79,7 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
   function scheduleRevalidation() {
     if (stopped) return;
     revalidationTimer = setTimeout(async () => {
-      await Promise.all([...io.sockets.sockets.values()].map(authenticate));
+      await Promise.all([...io.sockets.sockets.values()].map(revalidate));
       scheduleRevalidation();
     }, 30_000);
     revalidationTimer.unref();
