@@ -2,7 +2,10 @@ import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRealtimeDelivery } from "./realtimeDelivery.js";
-import { registerSocketAudienceBootstrap } from "./realtimeAudience.js";
+import {
+  realtimeAuthenticationRequired,
+  registerSocketAudienceBootstrap
+} from "./realtimeAudience.js";
 import {
   closeSocketIoRedisConnections,
   closeSocketIoServer,
@@ -32,6 +35,7 @@ function createRealtimeCapability({ io }) {
     diagnostics() {
       const state = stateByCapability.get(capability);
       return Object.freeze({
+        authenticationRequired: state?.authenticationRequired === true,
         connectedClients: Number.isInteger(Number(io?.engine?.clientsCount))
           ? Number(io.engine.clientsCount)
           : null,
@@ -59,22 +63,26 @@ const RealtimeProvider = defineProvider({
   provides: {
     realtime: "runtime.realtime"
   },
-  setup({ config, database, env, events, fastify, logger }) {
+  setup({ config, env, fastify, logger }) {
     const io = createSocketIoServer({ fastify });
     const providerLogger = createProviderLogger(logger, { debugEnabled: debugEnabled(config, env) });
-    const delivery = createRealtimeDelivery({ io, database, logger: providerLogger });
     const realtime = createRealtimeCapability({ io });
-    stateByCapability.set(realtime, { io, providerLogger, redisConnection: null });
-    events.register({
-      id: "runtime.realtime.delivery",
-      matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
-      handle: delivery.handle
+    stateByCapability.set(realtime, {
+      authenticationRequired: false,
+      delivery: null,
+      io,
+      providerLogger,
+      redisConnection: null
     });
     return { realtime };
   },
-  async boot({ authService, env, workspaces }, { outputs }) {
+  async boot({ authService, database, env, events, workspaces }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");
+    state.delivery = createRealtimeDelivery({
+      io: state.io, database, logger: state.providerLogger, authService, workspaces
+    });
+    state.authenticationRequired = realtimeAuthenticationRequired(authService);
     registerSocketAudienceBootstrap({
       io: state.io,
       logger: state.providerLogger,
@@ -82,13 +90,21 @@ const RealtimeProvider = defineProvider({
       workspaces
     });
     state.redisConnection = await configureSocketIoRedisAdapter(state.io, {
+      logger: state.providerLogger,
       redisUrl: resolveRealtimeRedisUrl(env),
       redisNamespace: resolveRealtimeRedisNamespace(env)
+    });
+    state.delivery.start({ redisConfigured: state.redisConnection.enabled });
+    events.register({
+      id: "runtime.realtime.delivery",
+      matches: (event) => Boolean(normalizeText(event?.realtime?.event)),
+      handle: state.delivery.handle
     });
   },
   async shutdown(_dependencies, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) return;
+    state.delivery?.stop();
     await closeSocketIoServer(state.io);
     await closeSocketIoRedisConnections(state.redisConnection || {});
     stateByCapability.delete(outputs.realtime);

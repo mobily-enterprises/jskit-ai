@@ -169,12 +169,15 @@ test("configureSocketIoRedisAdapter applies namespaced adapter key when redis na
   const createRedisConnection = ({ url }) => {
     const client = {
       url,
+      on() {},
+      async publish() { throw new Error("Redis publication unavailable"); },
       async connect() {
         connectionCalls.push(`${url}:connect`);
       },
       async quit() {},
       duplicate() {
         return {
+          on() {},
           async connect() {
             connectionCalls.push(`${url}:duplicate.connect`);
           },
@@ -191,6 +194,7 @@ test("configureSocketIoRedisAdapter applies namespaced adapter key when redis na
   });
 
   const result = await configureSocketIoRedisAdapter(io, {
+    logger: { warn() {} },
     redisUrl: "redis://localhost:6379",
     redisNamespace: "my-app:production",
     createRedisConnection,
@@ -202,4 +206,5 @@ test("configureSocketIoRedisAdapter applies namespaced adapter key when redis na
   assert.equal(adapterCalls[0].options?.key, "my-app:production:socket.io");
   assert.equal(result.adapterKey, "my-app:production:socket.io");
   assert.equal(result.redisNamespace, "my-app:production");
+  assert.equal(await result.pubClient.publish("channel", "payload"), 0);
 });

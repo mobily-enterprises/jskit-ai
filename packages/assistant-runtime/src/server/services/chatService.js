@@ -193,6 +193,20 @@ function buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspa
     toolSummary,
     toolContracts
   ];
+  if (toolDescriptors.length > 0) {
+    promptSegments.push(
+      "For counts or summaries, first look for a suitable count, aggregate, or report action before reading individual records. Use collection reads when no such action can answer the request. For requests to read several records, compare records, or examine all records, look for a collection action such as list, search, or query.",
+      "Match the user's current scope. When the user broadens a request, find the underlying collection and remove earlier date or other filters that no longer apply; a previous result subset is not the full collection.",
+      "Inspect the action's input and output contracts, use supported filters and field selection, and follow returned pagination until the requested number or scope is covered. For all records or a comparison across the whole collection, cover every relevant page unless a suitable aggregate action answers the request. Never present a partial page or sample as complete; state any incomplete coverage."
+    );
+  }
+  if (toolDescriptors.some((tool) => tool.name === "assistant_action_search")) {
+    promptSegments.push(
+      "The directly exposed tools are entry points into a larger authorized action catalog. Additional application capabilities are available through assistant_action_search, assistant_action_contract, and assistant_action_execute.",
+      "Before claiming an operation or dataset is unavailable or asking the user for access, discover relevant actions with assistant_action_search. Search for the resource and the requested operation: list/search/query for reading records, count/aggregate/report for totals or summaries. Search matches literal words, not meanings: use short resource or operation terms, try broader terms such as list or query when wording differs, or omit query to browse. Continue through catalog nextCursor pages when needed to find a relevant action; one empty search or unrelated page does not establish that a capability is absent.",
+      "Choose an action by its returned description and exact contract, then load assistant_action_contract before assistant_action_execute. Use discovered action IDs and contract fields; do not invent them. Catalog pagination discovers actions; a collection action's pagination retrieves records."
+    );
+  }
   if (normalizedCustomSystemPrompt) {
     promptSegments.push(`Additional instructions for this surface: ${normalizedCustomSystemPrompt}`);
   }

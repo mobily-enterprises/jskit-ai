@@ -207,6 +207,54 @@ function assistantMessages(events) {
     .map((event) => event.payload.text);
 }
 
+test("the provider receives collection guidance in direct and discovery modes", async (t) => {
+  for (const discovery of [false, true]) {
+    await t.test(discovery ? "discovery" : "direct", async () => {
+      const toolNames = discovery
+        ? ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"]
+        : ["inventory_assets_list"];
+      const harness = createHarness([textCompletion("The requested comparison is complete.")], {
+        tools: toolNames.map((name) => ({
+          name,
+          parameters: { type: "object" },
+          outputSchema: { type: "object" }
+        }))
+      });
+
+      await harness.run("Compare all records, including those outside last week's results.");
+
+      const prompt = harness.completionRequests[0].messages[0].content;
+      assert.match(prompt, /collection action such as list, search, or query/u);
+      assert.match(prompt, /first look for a suitable count, aggregate, or report action before reading individual records/u);
+      assert.match(prompt, /remove earlier date or other filters that no longer apply/u);
+      assert.match(prompt, /follow returned pagination until the requested number or scope is covered/u);
+      assert.match(prompt, /Never present a partial page or sample as complete/u);
+      if (discovery) {
+        assert.match(prompt, /Before claiming an operation or dataset is unavailable.*assistant_action_search/u);
+        assert.match(prompt, /count\/aggregate\/report for totals or summaries/u);
+        assert.match(prompt, /broader terms such as list or query.*omit query to browse/u);
+        assert.match(prompt, /one empty search or unrelated page does not establish that a capability is absent/u);
+        assert.match(prompt, /load assistant_action_contract before assistant_action_execute/u);
+      } else {
+        assert.doesNotMatch(prompt, /assistant_action_search|assistant_action_contract|assistant_action_execute/u);
+      }
+    });
+  }
+});
+
+test("an empty authorized tool set does not advertise discovery or collection actions", async () => {
+  const harness = createHarness([textCompletion("No application actions are available in this session.")], {
+    tools: []
+  });
+
+  await harness.run("List the available records.");
+
+  const request = harness.completionRequests[0];
+  assert.deepEqual(request.tools, []);
+  assert.match(request.messages[0].content, /No tools are currently available for this user\/session/u);
+  assert.doesNotMatch(request.messages[0].content, /assistant_action_search|collection action/u);
+});
+
 test("progress-only output is retried silently and current-time prompts require a workspace clock", async () => {
   const harness = createHarness(
     [

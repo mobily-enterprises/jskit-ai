@@ -44,6 +44,8 @@ Exports
 
 ### `src/server/realtimeAudience.js`
 Exports
+- `realtimeAuthenticationRequired(authService = null)`
+- `revalidateSocket({ socket, authService, workspaces = null })`
 - `registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null })`
 - `resolveAudienceTargets(audience, event, { database = null, logger })`
 Local functions
@@ -51,17 +53,21 @@ Local functions
 - `roomForUser(userId)`
 - `roomForWorkspace(workspaceId)`
 - `roomForWorkspaceUser(workspaceId, userId)`
+- `workspaceAudienceRooms(workspaceIds, actorId)`
 - `resolveScopeWorkspaceId(scope = {})`
 - `resolveScopeUserId(scope = {})`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
-- `resolveSocketActorId(authService, socket)`
+- `resolveSocketActor(authService, socket)`
+- `authenticationRequiredError()`
+- `rememberSocketActorId(socket, actorId)`
+- `registerRequiredSocketAuthentication({ io, logger, authService })`
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, database = null, logger })`
+- `createRealtimeDelivery({ io, database = null, logger, authService = null, workspaces = null })`
 Local functions
 - `publicRealtimePayload(event)`
 
@@ -81,7 +87,7 @@ Exports
 - `REDIS_NAMESPACE_ENV_KEY`
 - `resolveRealtimeRedisUrl(env = {})`
 - `resolveRealtimeRedisNamespace(env = {})`
-- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient } = {})`
+- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger = console, createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient } = {})`
 - `closeSocketIoRedisConnections({ pubClient = null, subClient = null } = {})`
 Local functions
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`

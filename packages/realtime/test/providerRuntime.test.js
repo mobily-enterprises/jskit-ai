@@ -8,8 +8,36 @@ import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js"
 import { RealtimeProvider } from "../src/server/RealtimeProvider.js";
 import { registerSocketAudienceBootstrap } from "../src/server/realtimeAudience.js";
 import { createRealtimeDelivery } from "../src/server/realtimeDelivery.js";
+import { attachDeferredAuthService, createDeferredAuthService } from "../../auth-core/src/server/deferredAuthService.js";
 
 const logger = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
+
+test("RealtimeProvider waits for authentication boot before accessing the auth service", async () => {
+  const authService = createDeferredAuthService();
+  const authProvider = defineProvider({
+    id: "test.deferred.auth",
+    provides: { authService: "auth.service" },
+    setup() { return { authService }; },
+    boot() {
+      attachDeferredAuthService(authService, {
+        realtime: { requireAuthentication: true },
+        async authenticateRequest() { return { authenticated: false, actor: null }; }
+      });
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: {
+      "runtime.config": {}, "runtime.env": {},
+      "runtime.fastify": { server: createServer() }, "runtime.logger": logger
+    },
+    providers: [EventProvider, RealtimeProvider, authProvider]
+  });
+  try {
+    await runtime.start();
+  } finally {
+    await runtime.shutdown();
+  }
+});
 
 function createIoDouble() {
   const emitted = [];
@@ -72,7 +100,7 @@ test("realtime delivery sends explicit action events to their selected rooms", a
   });
 
   assert.deepEqual(io.emitted, [{
-    room: "workspace:11",
+    room: ["workspace:11"],
     eventName: "workspace.settings.changed",
     payload: {
       workspaceSlug: "acme",
@@ -115,7 +143,7 @@ test("realtime delivery resolves an explicit database-backed audience without ex
     }
   });
   assert.equal(io.emitted.length, 1);
-  assert.equal(io.emitted[0].room, "user:55");
+  assert.deepEqual(io.emitted[0].room, ["user:55"]);
   assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
 });
 
@@ -166,6 +194,58 @@ test("socket audience bootstrap authenticates explicitly and joins actor workspa
     "workspace:11", "workspace:11:user:9",
     "workspace:12", "workspace:12:user:9"
   ]);
+});
+
+test("socket audience bootstrap rejects unauthenticated handshakes when the auth service requires them", async () => {
+  let connectionHandler = null;
+  let authenticationMiddleware = null;
+  const io = {
+    on(eventName, handler) {
+      if (eventName === "connection") connectionHandler = handler;
+    },
+    use(handler) {
+      authenticationMiddleware = handler;
+    }
+  };
+  registerSocketAudienceBootstrap({
+    io,
+    logger,
+    authService: {
+      realtime: { requireAuthentication: true },
+      async authenticateRequest(request) {
+        return request.cookies.session === "valid"
+          ? { authenticated: true, actor: { id: 17 } }
+          : { authenticated: false, actor: null };
+      }
+    }
+  });
+
+  const rejected = [];
+  await authenticationMiddleware({
+    data: {},
+    handshake: { headers: { cookie: "session=invalid" } },
+    request: { headers: {} }
+  }, (error) => rejected.push(error));
+  assert.equal(rejected.length, 1);
+  assert.equal(rejected[0].data.code, "AUTHENTICATION_REQUIRED");
+
+  const socket = {
+    data: {},
+    handshake: { headers: { cookie: "session=valid" } },
+    request: { headers: {} },
+    join(room) {
+      this.joinedRooms ||= [];
+      this.joinedRooms.push(room);
+    }
+  };
+  let acceptedError = "not-called";
+  await authenticationMiddleware(socket, (error) => {
+    acceptedError = error;
+  });
+  assert.equal(acceptedError, undefined);
+  await connectionHandler(socket);
+  assert.equal(socket.data.actorId, "17");
+  assert.deepEqual(socket.joinedRooms, ["clients", "users", "user:17"]);
 });
 
 async function startRealtimeClient({ mobile = null } = {}) {

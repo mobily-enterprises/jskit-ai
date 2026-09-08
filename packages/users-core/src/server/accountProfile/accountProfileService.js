@@ -44,7 +44,7 @@ function createService({
     let session = null;
     let updatedProfile = null;
     if (authService && typeof authService.updateDisplayName === "function") {
-      const result = await authService.updateDisplayName(request, payload.displayName);
+      const result = await authService.updateDisplayName(request, { displayName: payload.displayName });
       session = result?.session || null;
       updatedProfile = result?.profile || null;
     }

@@ -52,9 +52,26 @@ Omit the placement when the product does not need a visible connection state.
 Change event listeners, Redis provisioning, and client invalidation behavior to
 match the product. Keep transport retry policy in the realtime runtime.
 
+When every realtime event belongs behind the application's authentication
+boundary, let the selected `auth.service` opt in with
+`realtime.requireAuthentication: true`. Socket.IO then rejects an
+unauthenticated handshake before the client can join any broadcast room. A
+browser whose login identity changes must disconnect and reconnect its socket
+so the next handshake resolves the new actor.
+
+Use `auth.service.realtime.authorizeEvent({ actor, event: { name, payload } })`
+for resource-specific read authorization. Return `true` only when the current
+actor can read that event's resource. Authentication is revalidated before
+delivery and every 30 seconds while idle. Redis peers perform the same checks
+locally. Realtime failures are logged without failing an already-successful
+mutation; one mutation owner publishes each completion, while progress events
+describe distinct lifecycle states.
+
 ## Verification
 
 - Test in-process delivery without Redis.
+- When authenticated-client mode is selected, reject an anonymous handshake
+  and reconnect after login, logout, and identity changes.
 - When Redis is selected, test delivery across two server processes.
 - Disconnect and reconnect a browser and verify recovery behavior.
 - Confirm the status contribution renders in compact and expanded shells.
@@ -69,6 +86,6 @@ match the product. Keep transport retry policy in the realtime runtime.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/realtime@0.1.176`
+- Owner: `@jskit-ai/realtime@0.1.179`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/realtime/patterns/realtime-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/realtime/patterns/realtime-application/example)

@@ -26,6 +26,17 @@ function roomForWorkspaceUser(workspaceId, userId) {
   return `workspace:${String(workspaceId || "").trim()}:user:${String(userId || "").trim()}`;
 }
 
+function workspaceAudienceRooms(workspaceIds, actorId) {
+  const rooms = [];
+  for (const rawId of normalizeArray(workspaceIds)) {
+    const workspaceId = normalizeRecordId(rawId, { fallback: null });
+    if (workspaceId) {
+      rooms.push(roomForWorkspace(workspaceId), roomForWorkspaceUser(workspaceId, actorId));
+    }
+  }
+  return rooms;
+}
+
 function resolveScopeWorkspaceId(scope = {}) {
   const kind = normalizeText(scope?.kind).toLowerCase();
   if (kind === "workspace") return normalizeRecordId(scope.id, { fallback: null });
@@ -171,7 +182,7 @@ function parseCookieHeader(value = "") {
   return cookies;
 }
 
-async function resolveSocketActorId(authService, socket) {
+async function resolveSocketActor(authService, socket) {
   if (typeof authService?.authenticateRequest !== "function") return null;
   const handshakeHeaders = socket?.handshake?.headers || {};
   const requestHeaders = socket?.request?.headers || {};
@@ -185,31 +196,65 @@ async function resolveSocketActorId(authService, socket) {
   if (host) request.headers = { host };
   if (remoteAddress) request.socket = { remoteAddress };
   const result = await authService.authenticateRequest(request);
-  return result?.authenticated === true
-    ? normalizeRecordId(result?.actor?.id, { fallback: null })
-    : null;
+  const id = result?.authenticated === true
+    ? normalizeRecordId(result?.actor?.id, { fallback: null }) : null;
+  return id ? { ...result.actor, id } : null;
+}
+
+function realtimeAuthenticationRequired(authService = null) {
+  return authService?.realtime?.requireAuthentication === true;
+}
+
+function authenticationRequiredError() {
+  const error = new Error("Authentication required.");
+  error.data = Object.freeze({ code: "AUTHENTICATION_REQUIRED" });
+  return error;
+}
+
+function rememberSocketActorId(socket, actorId) {
+  socket.data = socket.data && typeof socket.data === "object" ? socket.data : {};
+  socket.data.actorId = actorId;
+}
+
+function registerRequiredSocketAuthentication({ io, logger, authService }) {
+  if (!realtimeAuthenticationRequired(authService)) return;
+  if (typeof io?.use !== "function") {
+    throw new TypeError("Realtime authenticated-client mode requires Socket.IO middleware support.");
+  }
+  io.use(async (socket, next) => {
+    try {
+      const actorId = (await resolveSocketActor(authService, socket))?.id;
+      if (!actorId) {
+        next(authenticationRequiredError());
+        return;
+      }
+      rememberSocketActorId(socket, actorId);
+      next();
+    } catch (error) {
+      logger.warn({ error: String(error?.message || error) }, "Realtime socket authentication failed.");
+      next(authenticationRequiredError());
+    }
+  });
 }
 
 function registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null }) {
   if (typeof io?.on !== "function") return;
+  registerRequiredSocketAuthentication({ io, logger, authService });
   io.on("connection", async (socket) => {
     try {
       socket.join(ALL_CLIENTS_ROOM);
-      const actorId = await resolveSocketActorId(authService, socket);
+      const actorId = normalizeRecordId(socket?.data?.actorId, { fallback: null })
+        || (await resolveSocketActor(authService, socket))?.id;
       if (!actorId) return;
-      socket.data = socket.data && typeof socket.data === "object" ? socket.data : {};
-      socket.data.actorId = actorId;
+      rememberSocketActorId(socket, actorId);
       socket.join(ALL_USERS_ROOM);
       socket.join(roomForUser(actorId));
       const repository = workspaces?.repositories?.workspaceMemberships;
       const workspaceIds = typeof repository?.listActiveWorkspaceIdsByUserId === "function"
         ? await repository.listActiveWorkspaceIdsByUserId(actorId)
         : [];
-      for (const rawId of normalizeArray(workspaceIds)) {
-        const workspaceId = normalizeRecordId(rawId, { fallback: null });
-        if (!workspaceId) continue;
-        socket.join(roomForWorkspace(workspaceId));
-        socket.join(roomForWorkspaceUser(workspaceId, actorId));
+      for (const room of workspaceAudienceRooms(workspaceIds, actorId)) {
+        socket.join(room);
       }
     } catch (error) {
       logger.warn({ error: String(error?.message || error) }, "Realtime socket audience bootstrap failed.");
@@ -217,4 +262,32 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, works
   });
 }
 
-export { registerSocketAudienceBootstrap, resolveAudienceTargets };
+async function revalidateSocket({ socket, authService, workspaces = null }) {
+  const actor = await resolveSocketActor(authService, socket);
+  const previousActorId = socket.data?.actorId;
+  if ((!actor && realtimeAuthenticationRequired(authService)) ||
+      (previousActorId && previousActorId !== actor?.id)) {
+    socket.disconnect(true);
+    return null;
+  }
+  if (!actor) return null;
+
+  rememberSocketActorId(socket, actor.id);
+  const repository = workspaces?.repositories?.workspaceMemberships;
+  if (typeof repository?.listActiveWorkspaceIdsByUserId !== "function") return actor;
+
+  const workspaceIds = await repository.listActiveWorkspaceIdsByUserId(actor.id);
+  const rooms = new Set(workspaceAudienceRooms(workspaceIds, actor.id));
+  for (const room of socket.rooms) {
+    if (room.startsWith("workspace:") && !rooms.has(room)) await socket.leave(room);
+  }
+  for (const room of rooms) await socket.join(room);
+  return actor;
+}
+
+export {
+  realtimeAuthenticationRequired,
+  revalidateSocket,
+  registerSocketAudienceBootstrap,
+  resolveAudienceTargets
+};
