@@ -90,6 +90,6 @@ keyboard interaction, warm-cache return navigation, and browser refresh.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/auth-web@0.1.182`
+- Owner: `@jskit-ai/auth-web@0.1.183`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/auth-web/patterns/auth-surface/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/auth-web/patterns/auth-surface/example)
