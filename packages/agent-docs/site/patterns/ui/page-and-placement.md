@@ -77,6 +77,6 @@ link-only placements.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/shell-web@0.1.185`
+- Owner: `@jskit-ai/shell-web@0.1.186`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/shell-web/patterns/page-and-placement/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/shell-web/patterns/page-and-placement/example)
