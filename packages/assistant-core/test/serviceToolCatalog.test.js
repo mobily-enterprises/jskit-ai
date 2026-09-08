@@ -410,6 +410,56 @@ test("large authorized catalogs use compact paged discovery, exact contracts, an
   assert.equal(executions[0].context.channel, "automation");
 });
 
+test("operation search and unfiltered browsing discover collections despite different user terminology", async () => {
+  const catalog = createServiceToolCatalog(createActions([
+    action({ id: "library.books.list", extensions: { assistant: { description: "List books." } } }),
+    action({ id: "warehouse.assets.list", extensions: { assistant: { description: "List assets." } } }),
+    action({ id: "warehouse.assets.view" }),
+    action({ id: "private.assets.list", permission: { require: "all", permissions: ["private.read"] } })
+  ]), { maxDirectTools: 1 });
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  const searchTool = catalog.toOpenAiToolSchema(toolSet.tools[0]);
+  assert.match(searchTool.function.description, /Search before claiming a capability is unavailable/u);
+  assert.match(searchTool.function.parameters.properties.query.description, /every word must match/u);
+  assert.match(searchTool.function.parameters.properties.query.description, /Omit query to browse/u);
+
+  const missedSearch = await catalog.executeToolCall({
+    toolName: "assistant_action_search",
+    argumentsText: JSON.stringify({ query: "vehicles" }),
+    context,
+    toolSet
+  });
+  assert.deepEqual(missedSearch, { ok: true, result: { items: [], nextCursor: null, total: 0 } });
+
+  const collectionSearch = await catalog.executeToolCall({
+    toolName: "assistant_action_search",
+    argumentsText: JSON.stringify({ query: "list" }),
+    context,
+    toolSet
+  });
+  assert.equal(collectionSearch.ok, true);
+  assert.deepEqual(collectionSearch.result.items.map((item) => item.actionId), [
+    "library.books.list", "warehouse.assets.list"
+  ]);
+
+  const browsedActions = [];
+  let cursor;
+  do {
+    const page = await catalog.executeToolCall({
+      toolName: "assistant_action_search",
+      argumentsText: JSON.stringify({ limit: 1, ...(cursor ? { cursor } : {}) }),
+      context,
+      toolSet
+    });
+    assert.equal(page.ok, true);
+    assert.equal(page.result.total, 3);
+    browsedActions.push(...page.result.items.map((item) => item.actionId));
+    cursor = page.result.nextCursor;
+  } while (cursor);
+  assert.deepEqual(browsedActions, ["library.books.list", "warehouse.assets.list", "warehouse.assets.view"]);
+});
+
 test("discovery mode bounds authorized always-available tools", () => {
   const definitions = Array.from({ length: 10 }, (_, index) => action({
     id: `demo.clock-${String(index + 1).padStart(2, "0")}.read`,

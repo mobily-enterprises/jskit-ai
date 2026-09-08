@@ -107,6 +107,26 @@ at most 20 compact matches and never includes schemas. Tool arguments and
 results are byte-bounded; an oversized result returns a controlled error so it
 cannot overflow assistant transcript storage.
 
+The runtime tells the model that discovery tools are entry points into the
+authorized action catalog. Before claiming a capability or dataset is missing,
+it must search or browse that catalog and inspect relevant action contracts.
+Search matches every supplied word literally against action IDs, kinds, and
+descriptions. If user terminology finds no match, the model is instructed to
+try broader resource or operation terms such as `list` or `query`, or omit
+`query` to browse. Catalog `nextCursor` pages contain more actions, not more
+business records.
+
+For requests involving several records, comparisons, or whole collections,
+the shared instructions direct the model to appropriate list, search, query,
+or aggregate actions. For counts and summaries, it first looks for suitable
+count, aggregate, or report actions before reading individual records. The
+model must respect the user's current scope, reconsider earlier filters when
+that scope broadens, and follow the selected action's
+record pagination until the requested count or scope is covered. Partial
+results must not be described as a complete collection. This guidance applies
+to every resource; application-specific vocabulary belongs in action
+descriptions. Model adherence still requires conversational verification.
+
 An application can keep a small critical action directly available in a large
 catalog by opting it in explicitly:
 

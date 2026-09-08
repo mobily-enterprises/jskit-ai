@@ -33,7 +33,7 @@ const ACTION_SEARCH_PARAMETERS = Object.freeze({
     query: {
       type: "string",
       maxLength: 200,
-      description: "Optional words or action-id fragments to match."
+      description: "Optional literal words or action-id fragments; every word must match. Use short resource or operation terms such as list. Omit query to browse all available actions."
     },
     cursor: {
       type: "string",
@@ -125,7 +125,7 @@ const ACTION_EXECUTE_OUTPUT_SCHEMA = Object.freeze({
 const DISCOVERY_TOOL_DESCRIPTORS = Object.freeze([
   Object.freeze({
     name: DISCOVERY_TOOL_NAMES.search,
-    description: "Search the actions available to the current user and surface. Returns compact paged matches without schemas.",
+    description: "Discover application actions available to the current user and surface, including list, search, and query operations for multiple records. Search before claiming a capability is unavailable. If terminology does not match, use broader terms or omit query to browse. Returns compact paged matches without schemas; follow nextCursor when more discovery is needed.",
     parameters: ACTION_SEARCH_PARAMETERS,
     outputSchema: ACTION_SEARCH_OUTPUT_SCHEMA
   }),
