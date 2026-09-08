@@ -102,6 +102,6 @@ different pattern and requires corresponding policy and migration evidence.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/resource-crud-core@0.1.124`
+- Owner: `@jskit-ai/resource-crud-core@0.1.125`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/resource-crud-core/patterns/resource-contract/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/resource-crud-core/patterns/resource-contract/example)
