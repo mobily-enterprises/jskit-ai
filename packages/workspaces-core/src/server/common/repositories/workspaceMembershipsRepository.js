@@ -1,5 +1,4 @@
 import {
-  createWithTransaction,
   normalizeLowerText,
   normalizeRecordId,
   normalizeDbRecordId,
@@ -8,14 +7,10 @@ import {
   toIsoString
 } from "./repositoryUtils.js";
 import {
-  createJsonApiInputRecord,
-  createJsonApiRelationship,
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
-
-const RESOURCE_TYPE = "workspaceMemberships";
 
 function normalizeMembershipRecord(payload) {
   if (!payload) {
@@ -61,28 +56,12 @@ function normalizeMemberSummaryRow(row) {
   };
 }
 
-function createMembershipRelationships({ workspaceId = null, userId = null } = {}) {
-  const relationships = {};
-
-  if (workspaceId) {
-    relationships.workspace = createJsonApiRelationship("workspaces", workspaceId);
-  }
-  if (userId) {
-    relationships.user = createJsonApiRelationship("userProfiles", userId);
-  }
-
-  return relationships;
-}
-
-function createRepository({ api, knex } = {}) {
+function createRepository({ api } = {}) {
   if (!api?.resources?.workspaceMemberships) {
     throw new TypeError("workspaceMembershipsRepository requires json-rest-api workspaceMemberships resource.");
   }
-  if (typeof knex !== "function") {
-    throw new TypeError("workspaceMembershipsRepository requires knex.");
-  }
 
-  const withTransaction = createWithTransaction(knex);
+  const withTransaction = (work) => api.transaction(work);
 
   async function queryMemberships(filters = {}, options = {}, { include = [] } = {}) {
     const normalizedInclude = Array.from(
@@ -100,7 +79,7 @@ function createRepository({ api, knex } = {}) {
             ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -139,17 +118,14 @@ function createRepository({ api, knex } = {}) {
         const updatedAt = new Date().toISOString();
         await api.resources.workspaceMemberships.patch(
           {
-            inputRecord: createJsonApiInputRecord(
-              RESOURCE_TYPE,
-              {
-                roleSid: OWNER_ROLE_ID,
-                status: "active",
-                updatedAt
-              },
-              {
-                id: existing.id
-              }
-            ),
+            id: existing.id,
+            data: {
+              roleSid: OWNER_ROLE_ID,
+              status: "active",
+              updatedAt
+            },
+            format: "plain",
+            returning: "full",
             transaction: options?.trx || null
           },
           createJsonRestContext(options?.context || null)
@@ -162,27 +138,22 @@ function createRepository({ api, knex } = {}) {
       const createdAt = new Date().toISOString();
       await api.resources.workspaceMemberships.post(
         {
-          inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
-            {
-              roleSid: OWNER_ROLE_ID,
-              status: "active",
-              createdAt,
-              updatedAt: createdAt
-            },
-            {
-              relationships: createMembershipRelationships({
-                workspaceId: normalizedWorkspaceId,
-                userId: normalizedUserId
-              })
-            }
-          ),
+          data: {
+            roleSid: OWNER_ROLE_ID,
+            status: "active",
+            createdAt,
+            updatedAt: createdAt,
+            workspace: normalizedWorkspaceId,
+            user: normalizedUserId
+          },
+          format: "plain",
+          returning: "full",
           transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
     } catch (error) {
-      if (!isDuplicateEntryError(error)) {
+      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -210,27 +181,22 @@ function createRepository({ api, knex } = {}) {
         const createdAt = new Date().toISOString();
         await api.resources.workspaceMemberships.post(
           {
-            inputRecord: createJsonApiInputRecord(
-              RESOURCE_TYPE,
-              {
-                roleSid,
-                status,
-                createdAt,
-                updatedAt: createdAt
-              },
-              {
-                relationships: createMembershipRelationships({
-                  workspaceId: normalizedWorkspaceId,
-                  userId: normalizedUserId
-                })
-              }
-            ),
+            data: {
+              roleSid,
+              status,
+              createdAt,
+              updatedAt: createdAt,
+              workspace: normalizedWorkspaceId,
+              user: normalizedUserId
+            },
+            format: "plain",
+            returning: "full",
             transaction: options?.trx || null
           },
           createJsonRestContext(options?.context || null)
         );
       } catch (error) {
-        if (!isDuplicateEntryError(error)) {
+        if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
           throw error;
         }
       }
@@ -240,17 +206,14 @@ function createRepository({ api, knex } = {}) {
     const updatedAt = new Date().toISOString();
     await api.resources.workspaceMemberships.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            roleSid,
-            status,
-            updatedAt
-          },
-          {
-            id: existing.id
-          }
-        ),
+        id: existing.id,
+        data: {
+          roleSid,
+          status,
+          updatedAt
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)

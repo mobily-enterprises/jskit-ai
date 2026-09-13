@@ -1,7 +1,10 @@
 {
   "name": "@jskit-ai/rewarded-web",
-  "version": "0.1.121",
+  "version": "0.1.123",
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
     ".": "./src/index.js",
     "./client": "./src/client/index.js",
@@ -51,11 +54,11 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/rewarded-core": "0.1.121"
+    "@jskit-ai/rewarded-core": "0.1.123"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.183",
-    "@jskit-ai/kernel": "0.1.185",
-    "@jskit-ai/shell-web": "0.1.189"
+    "@jskit-ai/http-runtime": "0.1.185",
+    "@jskit-ai/kernel": "0.1.187",
+    "@jskit-ai/shell-web": "0.1.191"
   }
 }

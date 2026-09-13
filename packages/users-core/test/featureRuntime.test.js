@@ -46,7 +46,6 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
       "auth.extensions": authExtensions,
       "auth.service": {},
       "runtime.bootstrap": bootstrap,
-      "runtime.database": { knex() {} },
       "runtime.http": {
         router: {
           register(method, path) {

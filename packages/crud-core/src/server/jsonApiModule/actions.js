@@ -3,6 +3,7 @@ import {
   createSchema,
   recordIdParamsValidator
 } from "@jskit-ai/kernel/shared/validators";
+import { RestApiWriteError } from "json-rest-api";
 import { normalizeJsonApiFieldsets } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import {
@@ -618,15 +619,22 @@ function createCrudJsonApiActions({
     }
     const result = mutation ? await repository.withTransaction(run) : await run();
     if (hooks.afterCommit) {
-      await hooks.afterCommit(createLifecycleContext({
-        operation,
-        input: value,
-        context,
-        resource,
-        repository,
-        service,
-        result
-      }));
+      try {
+        await hooks.afterCommit(createLifecycleContext({
+          operation,
+          input: value,
+          context,
+          resource,
+          repository,
+          service,
+          result
+        }));
+      } catch (error) {
+        throw new RestApiWriteError(`CRUD ${operation} afterCommit hook failed.`, {
+          cause: error,
+          transactionOutcome: "committed"
+        });
+      }
     }
     return result;
   }

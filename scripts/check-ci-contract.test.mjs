@@ -14,7 +14,6 @@ jobs:
     strategy:
       matrix:
         node:
-          - 22
           - 24
           - 26
     steps:
@@ -23,14 +22,14 @@ jobs:
 `;
 
 test("CI runtime parsing keeps the workflow matrix aligned with package engines", () => {
-  assert.deepEqual(collectEngineMajors("^22.13.0 || ^24.0.0 || ^26.0.0"), [22, 24, 26]);
-  assert.deepEqual(collectMatrixMajors(VALID_VERIFY_WORKFLOW), [22, 24, 26]);
+  assert.deepEqual(collectEngineMajors("^24.0.0 || ^26.0.0"), [24, 26]);
+  assert.deepEqual(collectMatrixMajors(VALID_VERIFY_WORKFLOW), [24, 26]);
 });
 
 test("CI contract verification accepts current scripts, test targets, and runtime coverage", async () => {
   const issues = await collectCiContractIssues({
     packageJson: {
-      engines: { node: "^22.13.0 || ^24.0.0 || ^26.0.0" },
+      engines: { node: "^24.0.0 || ^26.0.0" },
       scripts: { verify: "node verify.mjs" }
     },
     workflows: { "verify.yml": VALID_VERIFY_WORKFLOW },
@@ -43,7 +42,7 @@ test("CI contract verification accepts current scripts, test targets, and runtim
 test("CI contract verification reports stale scripts, files, and runtime matrices", async () => {
   const issues = await collectCiContractIssues({
     packageJson: {
-      engines: { node: "^22.13.0 || ^24.0.0 || ^26.0.0" },
+      engines: { node: "^24.0.0 || ^26.0.0" },
       scripts: {}
     },
     workflows: {
@@ -55,6 +54,6 @@ test("CI contract verification reports stale scripts, files, and runtime matrice
   assert.deepEqual(issues, [
     "verify.yml runs missing root package script \"verify\".",
     "verify.yml runs missing test target \"packages/example/test/example.test.js\".",
-    "verify workflow Node matrix (22, 26) must match engines.node (22, 24, 26)."
+    "verify workflow Node matrix (26) must match engines.node (24, 26)."
   ]);
 });

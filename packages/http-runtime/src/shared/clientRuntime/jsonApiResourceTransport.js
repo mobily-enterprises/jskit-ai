@@ -1,4 +1,4 @@
-import { normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeArray, normalizeObject, normalizeText, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
@@ -331,12 +331,14 @@ function createJsonApiClientErrorPayload(payload = {}) {
 
   const firstError = normalizeArray(document.errors)[0] || {};
   const fieldErrors = decodeJsonApiErrorFieldErrors(payload);
+  const transactionOutcome = normalizeTransactionOutcome(firstError.meta?.transactionOutcome);
 
   return {
     error: normalizeText(firstError.detail || firstError.title, {
       fallback: "Request failed."
     }),
     code: normalizeText(firstError.code) || null,
+    ...(transactionOutcome ? { transactionOutcome } : {}),
     ...(Object.keys(fieldErrors).length > 0
       ? {
           fieldErrors,

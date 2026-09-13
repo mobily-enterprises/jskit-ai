@@ -106,6 +106,7 @@ Local functions
 Exports
 - `toIsoString`
 - `isDuplicateEntryError`
+- `findDuplicateEntryError`
 - `normalizeText`
 - `normalizeLowerText`
 - `normalizeRecordId`
@@ -113,11 +114,10 @@ Exports
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
-- `createWithTransaction`
 
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
-- `createRepository({ api, knex } = {})`
+- `createRepository({ api } = {})`
 Local functions
 - `normalizeUsername(value)`
 - `normalizeNullableString(value)`
@@ -128,12 +128,12 @@ Local functions
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `duplicateTargetsEmail(error)`
 - `duplicateTargetsUsername(error)`
-- `createDuplicateEmailConflictError()`
+- `createDuplicateEmailConflictError(cause)`
 - `resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {})`
 
 ### `src/server/common/repositories/userSettingsRepository.js`
 Exports
-- `createRepository({ api, knex } = {})`
+- `createRepository({ api } = {})`
 Local functions
 - `pickPatchFields(source = {})`
 - `createDefaultUserSettingsCreatePayload(userId)`

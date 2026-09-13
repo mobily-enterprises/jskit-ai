@@ -1,18 +1,13 @@
-import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 import {
   buildJsonRestQueryParams,
-  createJsonApiInputRecord,
   createJsonRestContext,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 
-function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } = {}) {
+function createCrudJsonApiRepository({ api, resource, resourceScopeName } = {}) {
   if (!api) {
     throw new TypeError("createCrudJsonApiRepository requires api.");
-  }
-  if (!knex) {
-    throw new TypeError("createCrudJsonApiRepository requires knex.");
   }
   if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
     throw new TypeError("createCrudJsonApiRepository requires resource.");
@@ -22,7 +17,30 @@ function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } 
     throw new TypeError("createCrudJsonApiRepository requires resourceScopeName.");
   }
 
-  const withTransaction = createWithTransaction(knex);
+  function withTransaction(work) {
+    return api.transaction(work);
+  }
+
+  function inputData(payload) {
+    const data = { ...payload };
+    for (const [fieldName, definition] of Object.entries(resource.schema || {})) {
+      if (!definition?.belongsTo || !Object.hasOwn(data, fieldName)) {
+        continue;
+      }
+      const relationshipName = definition.as || fieldName;
+      if (relationshipName === fieldName) {
+        continue;
+      }
+      if (Object.hasOwn(data, relationshipName)) {
+        throw new TypeError(`Provide either "${fieldName}" or "${relationshipName}", not both.`);
+      }
+      if (data[fieldName] !== undefined) {
+        data[relationshipName] = data[fieldName];
+      }
+      delete data[fieldName];
+    }
+    return data;
+  }
 
   function requireApiResource() {
     const apiResource = api.resources?.[scopeName];
@@ -38,7 +56,7 @@ function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } 
         {
           queryParams: buildJsonRestQueryParams(scopeName, query),
           transaction: options.trx || null,
-          simplified: false
+          format: "jsonapi"
         },
         createJsonRestContext(options.context || null)
       )
@@ -53,7 +71,7 @@ function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } 
             id: recordId,
             queryParams: buildJsonRestQueryParams(scopeName, query),
             transaction: options.trx || null,
-            simplified: false
+            format: "jsonapi"
           },
           createJsonRestContext(options.context || null)
         )
@@ -64,9 +82,10 @@ function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } 
   async function createDocument(payload = {}, options = {}) {
     return requireApiResource().post(
       {
-        inputRecord: createJsonApiInputRecord(scopeName, payload, { resource }),
+        data: inputData(payload),
+        returning: "full",
         transaction: options.trx || null,
-        simplified: false
+        format: "jsonapi"
       },
       createJsonRestContext(options.context || null)
     );
@@ -82,9 +101,10 @@ function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } 
       requireApiResource().patch(
         {
           id: recordId,
-          inputRecord: createJsonApiInputRecord(scopeName, sourcePatch, { resource }),
+          data: inputData(sourcePatch),
+          returning: "full",
           transaction: options.trx || null,
-          simplified: false
+          format: "jsonapi"
         },
         createJsonRestContext(options.context || null)
       )
@@ -96,8 +116,9 @@ function createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } 
       await requireApiResource().delete(
         {
           id: recordId,
+          returning: "none",
           transaction: options.trx || null,
-          simplified: false
+          format: "jsonapi"
         },
         createJsonRestContext(options.context || null)
       );

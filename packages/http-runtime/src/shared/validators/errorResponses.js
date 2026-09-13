@@ -1,4 +1,5 @@
 import { createSchema } from "json-rest-schema";
+import { TRANSACTION_OUTCOMES } from "@jskit-ai/kernel/shared/support/normalize";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { createEmbeddableTransportSchemaDocument } from "./transportSchemaEmbedding.js";
 
@@ -28,6 +29,7 @@ const apiErrorOutputValidator = deepFreeze({
   schema: createSchema({
     error: { type: "string", required: true, minLength: 1 },
     code: { type: "string", required: false, minLength: 1 },
+    transactionOutcome: { type: "string", required: false, enum: TRANSACTION_OUTCOMES },
     details: {
       type: "object",
       required: false,
@@ -46,6 +48,7 @@ const apiValidationErrorOutputValidator = deepFreeze({
   schema: createSchema({
     error: { type: "string", required: true, minLength: 1 },
     code: { type: "string", required: false, minLength: 1 },
+    transactionOutcome: { type: "string", required: false, enum: TRANSACTION_OUTCOMES },
     fieldErrors: {
       ...fieldErrorsFieldDefinition,
       required: true
@@ -77,6 +80,7 @@ const fastifyDefaultErrorTransportSchema = {
     error: { type: "string", minLength: 1 },
     message: { type: "string", minLength: 1 },
     code: { type: "string", minLength: 1 },
+    transactionOutcome: { type: "string", enum: TRANSACTION_OUTCOMES },
     details: {},
     fieldErrors: {
       type: "object",

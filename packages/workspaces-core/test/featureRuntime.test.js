@@ -73,7 +73,6 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
       "auth.extensions": authExtensions,
       "runtime.bootstrap": bootstrap,
       "runtime.config": runtimeConfig(),
-      "runtime.database": { knex() {} },
       "runtime.env": {},
       "runtime.http": {
         router: {

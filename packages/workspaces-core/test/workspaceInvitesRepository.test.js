@@ -3,18 +3,6 @@ import test from "node:test";
 import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 
-function createKnexStub() {
-  const knex = Object.assign(() => {
-    throw new Error("query execution not expected");
-  }, {
-    async transaction(work) {
-      return work({ trxId: "trx-1" });
-    }
-  });
-
-  return knex;
-}
-
 function asCollectionDocument(rows = []) {
   return {
     data: Array.isArray(rows) ? rows : []
@@ -58,7 +46,8 @@ function createWorkspaceInvitesApiStub({
   const api = {
     resources: {
       workspaceInvites: {
-        async query({ queryParams }) {
+        async query({ queryParams, format }) {
+          assert.equal(format, "plain");
           const filters = queryParams?.filters || {};
           const matching = rows.filter((row) => {
             if (Object.hasOwn(filters, "id") && String(row.id) !== String(filters.id)) {
@@ -82,21 +71,25 @@ function createWorkspaceInvitesApiStub({
           return asCollectionDocument(matching.map((row) => toWorkspaceInviteRow(row)));
         },
         async post(payload) {
-          const inputRecord = payload?.inputRecord?.data || {};
-          state.postPayload = inputRecord;
+          const data = payload?.data || {};
+          assert.equal(payload.format, "plain");
+          assert.equal(payload.returning, "full");
+          assert.equal(payload.inputRecord, undefined);
+          assert.equal(payload.document, undefined);
+          state.postPayload = payload;
           const row = {
             id: "1",
-            workspace: { id: String(inputRecord.relationships?.workspace?.data?.id || "") },
-            email: inputRecord.attributes?.email,
-            roleSid: inputRecord.attributes?.roleSid,
-            status: inputRecord.attributes?.status,
-            tokenHash: inputRecord.attributes?.tokenHash,
-            invitedByUser: inputRecord.relationships?.invitedByUser?.data
-              ? { id: String(inputRecord.relationships.invitedByUser.data.id) }
+            workspace: { id: String(data.workspace || "") },
+            email: data.email,
+            roleSid: data.roleSid,
+            status: data.status,
+            tokenHash: data.tokenHash,
+            invitedByUser: data.invitedByUser
+              ? { id: String(data.invitedByUser) }
               : null,
-            expiresAt: inputRecord.attributes?.expiresAt,
-            acceptedAt: inputRecord.attributes?.acceptedAt,
-            revokedAt: inputRecord.attributes?.revokedAt,
+            expiresAt: data.expiresAt,
+            acceptedAt: data.acceptedAt,
+            revokedAt: data.revokedAt,
             createdAt: "2026-03-09 00:26:35.710",
             updatedAt: "2026-03-09 00:26:35.710"
           };
@@ -105,17 +98,21 @@ function createWorkspaceInvitesApiStub({
           return toWorkspaceInviteRow(row);
         },
         async patch(payload) {
-          const inputRecord = payload?.inputRecord?.data || {};
-          state.patchPayloads.push(inputRecord);
-          const existing = rowById.get(String(inputRecord.id));
+          const data = payload?.data || {};
+          assert.equal(payload.format, "plain");
+          assert.equal(payload.returning, "full");
+          assert.equal(payload.inputRecord, undefined);
+          assert.equal(payload.document, undefined);
+          state.patchPayloads.push(payload);
+          const existing = rowById.get(String(payload.id));
           if (existing) {
             const updated = {
               ...existing,
-              ...(inputRecord.attributes || {})
+              ...data
             };
-            rowById.set(String(inputRecord.id), updated);
+            rowById.set(String(payload.id), updated);
           }
-          const updatedRow = rowById.get(String(inputRecord.id)) || null;
+          const updatedRow = rowById.get(String(payload.id)) || null;
           return updatedRow ? toWorkspaceInviteRow(updatedRow) : null;
         }
       }
@@ -127,7 +124,7 @@ function createWorkspaceInvitesApiStub({
 
 test("workspaceInvitesRepository.insert preserves expiresAt and relationship fields through the resource write path", async () => {
   const { api, state } = createWorkspaceInvitesApiStub();
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   await repository.insert({
     workspaceId: "1",
@@ -139,11 +136,11 @@ test("workspaceInvitesRepository.insert preserves expiresAt and relationship fie
     expiresAt: "2026-03-16T00:26:35.709Z"
   });
 
-  assert.equal(state.postPayload.relationships?.workspace?.data?.id, "1");
-  assert.equal(state.postPayload.attributes?.email, "invitee@example.com");
-  assert.equal(state.postPayload.relationships?.invitedByUser?.data?.id, "1");
-  assert.equal(state.postPayload.attributes?.tokenHash, "hash");
-  assert.equal(typeof state.postPayload.attributes?.expiresAt, "string");
+  assert.equal(state.postPayload.data.workspace, "1");
+  assert.equal(state.postPayload.data.email, "invitee@example.com");
+  assert.equal(state.postPayload.data.invitedByUser, "1");
+  assert.equal(state.postPayload.data.tokenHash, "hash");
+  assert.equal(typeof state.postPayload.data.expiresAt, "string");
 });
 
 test("workspaceInvitesRepository.findPendingByTokenHash reads from the canonical invite resource without workspace data", async () => {
@@ -165,7 +162,7 @@ test("workspaceInvitesRepository.findPendingByTokenHash reads from the canonical
       }
     ]
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const invite = await repository.findPendingByTokenHash("hash-token");
 
@@ -197,7 +194,7 @@ test("workspaceInvitesRepository.findByTokenHashWithWorkspace preserves workspac
       }
     ]
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const invite = await repository.findByTokenHashWithWorkspace("hash-token");
 
@@ -227,14 +224,14 @@ test("workspaceInvitesRepository.markAcceptedById uses the internal invite resou
       }]
     ])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   await repository.markAcceptedById("1");
 
   const payload = state.patchPayloads[0];
-  assert.equal(payload.attributes?.status, "accepted");
-  assert.equal(typeof payload.attributes?.acceptedAt, "string");
-  assert.equal(payload.attributes?.updatedAt, payload.attributes?.acceptedAt);
+  assert.equal(payload.data.status, "accepted");
+  assert.equal(typeof payload.data.acceptedAt, "string");
+  assert.equal(payload.data.updatedAt, payload.data.acceptedAt);
 });
 
 test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps workspace join fields outside the base resource contract", async () => {
@@ -261,7 +258,7 @@ test("workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace keeps wor
       }
     ]
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const invites = await repository.listPendingByWorkspaceIdWithWorkspace("9");
 

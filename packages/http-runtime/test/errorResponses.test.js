@@ -118,3 +118,11 @@ test("error response validators export transport schemas from the same contracts
     true
   );
 });
+
+test("standard error schemas preserve optional transaction outcomes during serialization", () => {
+  const outcomes = ["none", "pending", "committed", "rolledBack", "unknown"];
+  for (const schema of [apiErrorTransportSchema, apiValidationErrorTransportSchema, fastifyDefaultErrorTransportSchema]) {
+    assert.deepEqual(schema.properties.transactionOutcome.enum, outcomes);
+    assert.equal(schema.required.includes("transactionOutcome"), false);
+  }
+});

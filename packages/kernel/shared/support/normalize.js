@@ -1,3 +1,9 @@
+const TRANSACTION_OUTCOMES = Object.freeze(["none", "pending", "committed", "rolledBack", "unknown"]);
+
+function normalizeTransactionOutcome(value) {
+  return TRANSACTION_OUTCOMES.includes(value) ? value : "";
+}
+
 function normalizeText(value, { fallback = "" } = {}) {
   const normalized = String(value || "").trim();
   return normalized || fallback;
@@ -351,6 +357,8 @@ function ensureNonEmptyText(value, label = "value") {
 }
 
 export {
+  TRANSACTION_OUTCOMES,
+  normalizeTransactionOutcome,
   normalizeText,
   hasValue,
   normalizeBoolean,

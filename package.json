@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": "^22.13.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.0.0 || ^26.0.0"
   },
   "scripts": {
     "lint": "eslint packages tooling scripts --max-warnings=0",
@@ -41,6 +41,7 @@
     "@vitejs/plugin-vue": "^6.0.7",
     "better-sqlite3": "13.0.3",
     "cloc": "^2.6.0-cloc",
+    "fastify": "5.12.3",
     "jscpd": "^4.0.8",
     "knex": "^3.1.0",
     "pinia": "^3.0.4",
@@ -53,11 +54,11 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/csrf-protection": "^7.1.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@jskit-ai/auth-core": "0.1.183",
-    "@jskit-ai/auth-provider-supabase-core": "0.1.182",
-    "@jskit-ai/auth-web": "0.1.185",
-    "@jskit-ai/http-runtime": "0.1.183",
-    "@jskit-ai/kernel": "0.1.185",
+    "@jskit-ai/auth-core": "0.1.185",
+    "@jskit-ai/auth-provider-supabase-core": "0.1.184",
+    "@jskit-ai/auth-web": "0.1.187",
+    "@jskit-ai/http-runtime": "0.1.185",
+    "@jskit-ai/kernel": "0.1.187",
     "@mdi/js": "^7.4.47",
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.3.1",

@@ -1,9 +1,8 @@
 import {
   normalizeDbRecordId,
-  toIsoString,
-  createWithTransaction
+  toIsoString
 } from "@jskit-ai/database-runtime/shared";
-import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
+import { findDuplicateEntryError, isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function uniqueSorted(values) {
@@ -32,12 +31,12 @@ function toDbJson(value, fallback = {}) {
 export {
   toIsoString,
   isDuplicateEntryError,
+  findDuplicateEntryError,
   normalizeText,
   normalizeLowerText,
   normalizeRecordId,
   normalizeDbRecordId,
   uniqueSorted,
   parseJson,
-  toDbJson,
-  createWithTransaction
+  toDbJson
 };

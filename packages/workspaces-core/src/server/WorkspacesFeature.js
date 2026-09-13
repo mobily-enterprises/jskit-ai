@@ -82,28 +82,21 @@ async function installWorkspaceResources(jsonRestApi) {
   );
 }
 
-function createWorkspacesRuntime({ config, database, env, jsonRestApi } = {}) {
+function createWorkspacesRuntime({ config, env, jsonRestApi } = {}) {
   const tenancyProfile = resolveTenancyProfile(config);
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
   const roleCatalog = createWorkspaceRoleCatalog(config);
   const workspaceSettingsRepository = createWorkspaceSettingsRepository({
     api: jsonRestApi,
-    knex: database.knex,
     defaultInvitesEnabled: requireBoolean(
       config?.workspaceSettings?.defaults?.invitesEnabled,
       "runtime.config.workspaceSettings.defaults.invitesEnabled"
     )
   });
-  const workspacesRepository = createWorkspacesRepository({ api: jsonRestApi, knex: database.knex });
-  const workspaceMembershipsRepository = createWorkspaceMembershipsRepository({
-    api: jsonRestApi,
-    knex: database.knex
-  });
-  const workspaceInvitesRepository = createWorkspaceInvitesRepository({
-    api: jsonRestApi,
-    knex: database.knex
-  });
+  const workspacesRepository = createWorkspacesRepository({ api: jsonRestApi });
+  const workspaceMembershipsRepository = createWorkspaceMembershipsRepository({ api: jsonRestApi });
+  const workspaceInvitesRepository = createWorkspaceInvitesRepository({ api: jsonRestApi });
   const workspaceService = createWorkspaceService({
     appConfig: config,
     workspacesRepository,
@@ -165,7 +158,6 @@ const WorkspacesFeature = defineFeature({
   requires: {
     bootstrap: "runtime.bootstrap",
     config: "runtime.config",
-    database: "runtime.database",
     env: "runtime.env",
     http: "runtime.http",
     jsonRestApi: "runtime.json-rest-api",
@@ -174,9 +166,9 @@ const WorkspacesFeature = defineFeature({
   provides: {
     workspaces: "workspaces.core"
   },
-  async setup({ bootstrap, config, database, env, http, jsonRestApi, users }) {
+  async setup({ bootstrap, config, env, http, jsonRestApi, users }) {
     await installWorkspaceResources(jsonRestApi);
-    const workspaces = createWorkspacesRuntime({ config, database, env, jsonRestApi });
+    const workspaces = createWorkspacesRuntime({ config, env, jsonRestApi });
 
     bootstrap.register({
       id: "workspaces.bootstrap",

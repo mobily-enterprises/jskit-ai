@@ -47,32 +47,28 @@ Exports
 - `uniqueSorted(values)`
 - `parseJson(value, fallback = {})`
 - `toDbJson(value, fallback = {})`
-- `createWithTransaction`
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports
-- `createRepository({ api, knex } = {})`
+- `createRepository({ api } = {})`
 - `normalizeInviteRecord(payload)`
 - `normalizeInviteWithWorkspace(payload = {})`
 Local functions
 - `normalizeInvitePatchPayload(payload = {})`
-- `createInviteRelationships({ workspaceId = null, invitedByUserId = undefined } = {})`
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
-- `createRepository({ api, knex } = {})`
+- `createRepository({ api } = {})`
 - `normalizeMembershipRecord(payload)`
 - `normalizeMemberSummaryRow(row)`
 Local functions
 - `normalizeMembershipPatchPayload(payload = {})`
-- `createMembershipRelationships({ workspaceId = null, userId = null } = {})`
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
-- `createRepository({ api, knex } = {})`
+- `createRepository({ api } = {})`
 Local functions
 - `normalizeWorkspaceRecord(payload = null)`
-- `createWorkspaceRelationships(source = {})`
 
 ### `src/server/common/services/workspaceContextService.js`
 Exports
@@ -226,7 +222,7 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository({ api, knex, defaultInvitesEnabled = true } = {})`
+- `createRepository({ api, defaultInvitesEnabled = true } = {})`
 Local functions
 - `pickPatchFields(source = {})`
 - `createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled)`
@@ -238,7 +234,7 @@ Exports
 ### `src/server/WorkspacesFeature.js`
 Exports
 - `WorkspacesFeature`
-- `createWorkspacesRuntime({ config, database, env, jsonRestApi } = {})`
+- `createWorkspacesRuntime({ config, env, jsonRestApi } = {})`
 - `installWorkspaceResources(jsonRestApi)`
 Local functions
 - `requirePositiveInteger(value, label)`

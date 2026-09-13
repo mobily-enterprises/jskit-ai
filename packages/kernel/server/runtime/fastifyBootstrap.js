@@ -1,5 +1,5 @@
 import { ActionRuntimeError } from "../../shared/actions/actionDefinitions.js";
-import { normalizeOpaqueId } from "../../shared/support/normalize.js";
+import { normalizeOpaqueId, normalizeTransactionOutcome } from "../../shared/support/normalize.js";
 import { resolveDefaultSurfaceId } from "../support/appConfig.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
@@ -255,7 +255,9 @@ function resolveRequestRouteTransport(request) {
 
 function applyRouteTransportErrorResponse(reply, request, error, {
   statusCode = 500,
-  normalizedErrorCode = ""
+  normalizedErrorCode = "",
+  message = error?.message,
+  exposeDetails = true
 } = {}) {
   const transport = resolveRequestRouteTransport(request);
   const errorSerializer = transport && typeof transport.error === "function" ? transport.error : null;
@@ -267,7 +269,9 @@ function applyRouteTransportErrorResponse(reply, request, error, {
     request,
     reply,
     statusCode,
-    code: normalizedErrorCode
+    code: normalizedErrorCode,
+    message,
+    exposeDetails
   });
 
   if (payload && typeof payload.then === "function") {
@@ -280,6 +284,36 @@ function applyRouteTransportErrorResponse(reply, request, error, {
 
   reply.code(statusCode).send(payload);
   return true;
+}
+
+function resolveApiErrorStatus(error, code) {
+  // JSON REST's public error codes need HTTP classification even without status hints.
+  switch (code) {
+    case "REST_API_VALIDATION":
+      return 422;
+    case "REST_API_RESOURCE":
+      switch (error?.subtype) {
+        case "not_found": return 404;
+        case "forbidden": return 403;
+        case "conflict": return 409;
+        default: return 400;
+      }
+    case "REST_API_VERSION_CONFLICT":
+      return 409;
+    case "REST_API_PRECONDITION_FAILED":
+      return 412;
+    case "REST_API_FIELDSET_INVALID":
+    case "REST_API_INCLUDE_INVALID":
+      return 400;
+    case "REST_API_PAYLOAD":
+      return error?.statusCode === 413 ? 413 : 400;
+    case "REST_API_TEMPORAL_DATA_INVALID":
+      return 500;
+    default: {
+      const status = Number(error?.statusCode || error?.status);
+      return Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
+    }
+  }
 }
 
 function registerApiErrorHandler(
@@ -308,10 +342,10 @@ function registerApiErrorHandler(
 
   app.setErrorHandler((error, request, reply) => {
     const normalizedErrorCode = String(error?.code || "").trim();
+    const transactionOutcome = normalizeTransactionOutcome(error?.transactionOutcome);
+    const outcomeFields = transactionOutcome ? { transactionOutcome } : {};
     const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
-    const statusFromError = Number(error?.statusCode || error?.status);
-    const statusCode =
-      Number.isInteger(statusFromError) && statusFromError >= 400 && statusFromError <= 599 ? statusFromError : 500;
+    const statusCode = resolveApiErrorStatus(error, normalizedErrorCode);
 
     if (Array.isArray(error?.validation)) {
       const fieldErrors = resolveValidationFieldErrors(error);
@@ -325,6 +359,7 @@ function registerApiErrorHandler(
       reply.code(400).send({
         error: "Validation failed.",
         code: validationErrorCode,
+        ...outcomeFields,
         fieldErrors,
         details: {
           fieldErrors
@@ -336,7 +371,8 @@ function registerApiErrorHandler(
     if (isAppError(error) || error instanceof ActionRuntimeError) {
       if (applyRouteTransportErrorResponse(reply, request, error, {
         statusCode: error.status,
-        normalizedErrorCode: normalizedErrorCode || "app_error"
+        normalizedErrorCode: normalizedErrorCode || "app_error",
+        exposeDetails: shouldExposeAppErrorDetails(normalizedErrorCode)
       })) {
         return;
       }
@@ -349,7 +385,8 @@ function registerApiErrorHandler(
       const appErrorCode = normalizedErrorCode || "app_error";
       const payload = {
         error: error.message,
-        code: appErrorCode
+        code: appErrorCode,
+        ...outcomeFields
       };
       if (error.details && shouldExposeAppErrorDetails(appErrorCode)) {
         payload.details = error.details;
@@ -385,7 +422,8 @@ function registerApiErrorHandler(
       normalizedErrorCode || (statusCode >= 500 ? "internal_server_error" : "request_failed");
     const payload = {
       error: message,
-      code: fallbackErrorCode
+      code: fallbackErrorCode,
+      ...outcomeFields
     };
     if (isCsrfErrorCode) {
       payload.details = {
@@ -394,7 +432,9 @@ function registerApiErrorHandler(
     }
     if (applyRouteTransportErrorResponse(reply, request, error, {
       statusCode,
-      normalizedErrorCode: fallbackErrorCode
+      normalizedErrorCode: fallbackErrorCode,
+      message,
+      exposeDetails: statusCode < 500
     })) {
       return;
     }

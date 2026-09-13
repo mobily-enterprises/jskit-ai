@@ -233,7 +233,6 @@ function defineCrudJsonApiFeature({
       );
       const defaultRepository = createCrudJsonApiRepository({
         api: jsonRestApi,
-        knex: database.knex,
         resource,
         resourceScopeName
       });

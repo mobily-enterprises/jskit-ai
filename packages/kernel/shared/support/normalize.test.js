@@ -17,8 +17,18 @@ import {
   normalizeOneOf,
   normalizeQueryToken,
   normalizeText,
+  normalizeTransactionOutcome,
   normalizeUniqueTextList
 } from "./normalize.js";
+
+test("normalizeTransactionOutcome accepts only the documented literal outcomes", () => {
+  for (const value of ["none", "pending", "committed", "rolledBack", "unknown"]) {
+    assert.equal(normalizeTransactionOutcome(value), value);
+  }
+  for (const value of [undefined, null, false, 0, "", "rolledback", " committed ", { toString: () => "committed" }]) {
+    assert.equal(normalizeTransactionOutcome(value), "");
+  }
+});
 
 test("hasValue returns false for nullish and blank text, true otherwise", () => {
   assert.equal(hasValue(null), false);

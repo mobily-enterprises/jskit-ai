@@ -98,7 +98,7 @@ Local functions
 
 ### `src/server/jsonApiModule/repository.js`
 Exports
-- `createCrudJsonApiRepository({ api, knex, resource, resourceScopeName } = {})`
+- `createCrudJsonApiRepository({ api, resource, resourceScopeName } = {})`
 
 ### `src/server/jsonApiModule/routes.js`
 Exports
