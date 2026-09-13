@@ -21,6 +21,82 @@ function mockResponse({ status = 200, data = {}, contentType = "application/json
   };
 }
 
+test("request retains standard and JSON:API write outcomes without retrying", async () => {
+  for (const jsonapi of [false, true]) {
+    for (const outcome of ["committed", "rolledBack", "unknown", "invalid"]) {
+      let requests = 0;
+      const data = jsonapi
+        ? { errors: [{ status: "500", title: "Internal server error.", meta: { transactionOutcome: outcome } }] }
+        : { error: "Internal server error.", transactionOutcome: outcome };
+      const client = createHttpClient({
+        fetchImpl: async () => {
+          requests += 1;
+          return mockResponse({ status: 500, data, contentType: jsonapi ? "application/vnd.api+json" : "application/json" });
+        }
+      });
+      await assert.rejects(
+        () => client.request("/api/books/1", { method: "PATCH", body: { title: "Dune" }, csrf: false }),
+        (error) => {
+          assert.equal(error.status, 500);
+          assert.equal(error.transactionOutcome, outcome === "invalid" ? undefined : outcome);
+          return true;
+        }
+      );
+      assert.equal(requests, 1);
+    }
+  }
+});
+
+test("CSRF recovery replays writes only when their transaction outcome permits it", async (t) => {
+  for (const requestMethod of ["request", "requestStream"]) {
+    for (const jsonapi of [false, true]) {
+      for (const outcome of ["none", "rolledBack", "pending", "committed", "unknown"]) {
+        await t.test(`${requestMethod} ${jsonapi ? "JSON:API" : "plain"} ${outcome}`, async () => {
+          const calls = [];
+          let writes = 0;
+          const client = createHttpClient({
+            fetchImpl: async (url) => {
+              calls.push(url);
+              if (url === "/api/session") {
+                return mockResponse({ data: { csrfToken: "csrf-token" } });
+              }
+              writes += 1;
+              if (writes > 1) {
+                return mockResponse({ data: { ok: true } });
+              }
+              return mockResponse({
+                status: 403,
+                contentType: jsonapi ? "application/vnd.api+json" : "application/json",
+                data: jsonapi
+                  ? { errors: [{ status: "403", code: "FST_CSRF_INVALID_TOKEN", title: "Invalid CSRF token.", meta: { transactionOutcome: outcome } }] }
+                  : { error: "Invalid CSRF token.", details: { code: "FST_CSRF_INVALID_TOKEN" }, transactionOutcome: outcome }
+              });
+            }
+          });
+          const request = () => client[requestMethod]("/api/books", {
+            method: "POST",
+            body: { title: "Dune" }
+          });
+
+          if (["none", "rolledBack"].includes(outcome)) {
+            await request();
+            assert.equal(writes, 2);
+            assert.deepEqual(calls, ["/api/session", "/api/books", "/api/session", "/api/books"]);
+          } else {
+            await assert.rejects(request, (error) => {
+              assert.equal(error.status, 403);
+              assert.equal(error.transactionOutcome, outcome);
+              return true;
+            });
+            assert.equal(writes, 1);
+            assert.deepEqual(calls, ["/api/session", "/api/books"]);
+          }
+        });
+      }
+    }
+  }
+});
+
 test("request serializes json body and injects csrf token for unsafe methods", async () => {
   const calls = [];
   const fetchImpl = async (url, options) => {

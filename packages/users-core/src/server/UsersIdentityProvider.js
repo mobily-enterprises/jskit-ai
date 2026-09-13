@@ -14,14 +14,13 @@ const UsersIdentityProvider = defineProvider({
   id: "users.identity",
   requires: {
     authExtensions: "auth.extensions",
-    database: "runtime.database",
     extensions: "users.extensions",
     jsonRestApi: "runtime.json-rest-api"
   },
   provides: {
     identity: "users.identity"
   },
-  async setup({ authExtensions, database, extensions, jsonRestApi }) {
+  async setup({ authExtensions, extensions, jsonRestApi }) {
     const scopeOptions = {
       writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
     };
@@ -36,8 +35,8 @@ const UsersIdentityProvider = defineProvider({
       createJsonRestResourceScopeOptions(userSettingsResource, scopeOptions)
     );
     const repositories = Object.freeze({
-      userProfiles: createUserProfilesRepository({ api: jsonRestApi, knex: database.knex }),
-      userSettings: createUserSettingsRepository({ api: jsonRestApi, knex: database.knex })
+      userProfiles: createUserProfilesRepository({ api: jsonRestApi }),
+      userSettings: createUserSettingsRepository({ api: jsonRestApi })
     });
     const profileProjector = createAuthProfileSyncService({
       userProfilesRepository: repositories.userProfiles,

@@ -1,5 +1,5 @@
 import {
-  createWithTransaction,
+  findDuplicateEntryError,
   isDuplicateEntryError,
   normalizeDbRecordId,
   normalizeLowerText,
@@ -8,13 +8,11 @@ import {
   toIsoString
 } from "./repositoryUtils.js";
 import {
-  createJsonApiInputRecord,
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
 
-const RESOURCE_TYPE = "userProfiles";
 const USERNAME_MAX_LENGTH = 120;
 
 function normalizeUsername(value) {
@@ -114,25 +112,28 @@ function buildUsernameCandidate(baseUsername, suffix) {
 }
 
 function duplicateTargetsEmail(error) {
-  if (!isDuplicateEntryError(error)) {
+  const duplicate = findDuplicateEntryError(error);
+  if (!duplicate) {
     return false;
   }
 
-  const message = normalizeLowerText(error?.sqlMessage || error?.message);
+  const message = normalizeLowerText(duplicate.sqlMessage || duplicate.message);
   return message.includes("email");
 }
 
 function duplicateTargetsUsername(error) {
-  if (!isDuplicateEntryError(error)) {
+  const duplicate = findDuplicateEntryError(error);
+  if (!duplicate) {
     return false;
   }
 
-  const message = normalizeLowerText(error?.sqlMessage || error?.message);
+  const message = normalizeLowerText(duplicate.sqlMessage || duplicate.message);
   return message.includes("username");
 }
 
-function createDuplicateEmailConflictError() {
-  const error = new Error("Email is already linked to a different profile.");
+function createDuplicateEmailConflictError(cause) {
+  const error = new Error("Email is already linked to a different profile.", { cause });
+  error.transactionOutcome = cause.transactionOutcome;
   error.code = "USER_PROFILE_EMAIL_CONFLICT";
   return error;
 }
@@ -150,7 +151,7 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
           }
         },
         transaction,
-        simplified: true
+        format: "plain"
       })
     );
     const existing = existingRows[0] || null;
@@ -163,15 +164,12 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
   throw new Error("Unable to generate unique username.");
 }
 
-function createRepository({ api, knex } = {}) {
+function createRepository({ api } = {}) {
   if (!api?.resources?.userProfiles) {
     throw new TypeError("internal.repository.user-profiles requires json-rest-api userProfiles resource.");
   }
-  if (typeof knex !== "function") {
-    throw new TypeError("internal.repository.user-profiles requires knex.");
-  }
 
-  const withTransaction = createWithTransaction(knex);
+  const withTransaction = (work) => api.transaction(work);
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(
@@ -181,7 +179,7 @@ function createRepository({ api, knex } = {}) {
             filters
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -233,16 +231,13 @@ function createRepository({ api, knex } = {}) {
 
     const updated = await api.resources.userProfiles.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            displayName,
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: normalizedUserId
-          }
-        ),
+        id: normalizedUserId,
+        data: {
+          displayName,
+          updatedAt: new Date().toISOString()
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
@@ -259,18 +254,15 @@ function createRepository({ api, knex } = {}) {
 
     const updated = await api.resources.userProfiles.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            avatarStorageKey: avatar.avatarStorageKey ?? null,
-            avatarVersion: avatar.avatarVersion ?? null,
-            avatarUpdatedAt: toIsoString(avatar.avatarUpdatedAt ?? new Date()),
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: normalizedUserId
-          }
-        ),
+        id: normalizedUserId,
+        data: {
+          avatarStorageKey: avatar.avatarStorageKey ?? null,
+          avatarVersion: avatar.avatarVersion ?? null,
+          avatarUpdatedAt: toIsoString(avatar.avatarUpdatedAt ?? new Date()),
+          updatedAt: new Date().toISOString()
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
@@ -287,18 +279,15 @@ function createRepository({ api, knex } = {}) {
 
     const updated = await api.resources.userProfiles.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            avatarStorageKey: null,
-            avatarVersion: null,
-            avatarUpdatedAt: null,
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: normalizedUserId
-          }
-        ),
+        id: normalizedUserId,
+        data: {
+          avatarStorageKey: null,
+          avatarVersion: null,
+          avatarUpdatedAt: null,
+          updatedAt: new Date().toISOString()
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
@@ -330,84 +319,80 @@ function createRepository({ api, knex } = {}) {
         context: options?.context || null
       });
 
-      try {
-        if (existing) {
-          const existingUsername = normalizeUsername(existing.username);
-          const username = existingUsername || (
-            await resolveUniqueUsername(
-              api,
-              requestedUsername || usernameBaseFromEmail(email),
-              { excludeUserId: existing.id, transaction: trx }
-            )
-          );
-
-          const updated = await api.resources.userProfiles.patch(
-            {
-              inputRecord: createJsonApiInputRecord(
-                RESOURCE_TYPE,
-                {
-                  email,
-                  displayName,
-                  username,
-                  updatedAt: new Date().toISOString()
-                },
-                {
-                  id: normalizeDbRecordId(existing.id, { fallback: null })
-                }
-              ),
-              transaction: trx
-            },
-            createJsonRestContext(options?.context || null)
-          );
-
-          return normalizeProfileRecord(updated);
-        }
-
-        const username = await resolveUniqueUsername(
-          api,
-          requestedUsername || usernameBaseFromEmail(email),
-          { transaction: trx }
+      if (existing) {
+        const existingUsername = normalizeUsername(existing.username);
+        const username = existingUsername || (
+          await resolveUniqueUsername(
+            api,
+            requestedUsername || usernameBaseFromEmail(email),
+            { excludeUserId: existing.id, transaction: trx }
+          )
         );
 
-        const created = await api.resources.userProfiles.post(
+        const updated = await api.resources.userProfiles.patch(
           {
-            inputRecord: createJsonApiInputRecord(RESOURCE_TYPE, {
-              authProvider: identity.provider,
-              authProviderUserSid: identity.providerUserId,
+            id: normalizeDbRecordId(existing.id, { fallback: null }),
+            data: {
               email,
               displayName,
               username,
-              createdAt: new Date().toISOString()
-            }),
+              updatedAt: new Date().toISOString()
+            },
+            format: "plain",
+            returning: "full",
             transaction: trx
           },
           createJsonRestContext(options?.context || null)
         );
 
-        return normalizeProfileRecord(created);
-      } catch (error) {
-        if (duplicateTargetsEmail(error)) {
-          throw createDuplicateEmailConflictError();
-        }
-        if (duplicateTargetsUsername(error)) {
-          throw error;
-        }
-        if (!isDuplicateEntryError(error)) {
-          throw error;
-        }
+        return normalizeProfileRecord(updated);
       }
 
-      return findByIdentity(identity, {
-        trx,
-        context: options?.context || null
-      });
+      const username = await resolveUniqueUsername(
+        api,
+        requestedUsername || usernameBaseFromEmail(email),
+        { transaction: trx }
+      );
+
+      const created = await api.resources.userProfiles.post(
+        {
+          data: {
+            authProvider: identity.provider,
+            authProviderUserSid: identity.providerUserId,
+            email,
+            displayName,
+            username,
+            createdAt: new Date().toISOString()
+          },
+          format: "plain",
+          returning: "full",
+          transaction: trx
+        },
+        createJsonRestContext(options?.context || null)
+      );
+
+      return normalizeProfileRecord(created);
     };
 
-    if (options?.trx) {
-      return executeUpsert(options.trx);
+    try {
+      return await (options?.trx ? executeUpsert(options.trx) : withTransaction(executeUpsert));
+    } catch (error) {
+      if (["pending", "rolledBack"].includes(error?.transactionOutcome) && duplicateTargetsEmail(error)) {
+        throw createDuplicateEmailConflictError(error);
+      }
+      // A failed participant cannot recover inside the caller's transaction.
+      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+        throw error;
+      }
+      if (duplicateTargetsUsername(error)) {
+        throw error;
+      }
+      const existing = await findByIdentity(identity, { context: options?.context || null });
+      if (existing) {
+        return existing;
+      }
+      throw error;
     }
-
-    return withTransaction(executeUpsert);
   }
 
   return Object.freeze({

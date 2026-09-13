@@ -155,6 +155,44 @@ test("registerApiErrorHandler includes internal_server_error code for unhandled 
   assert.equal(reply.payload.error, "Internal server error.");
 });
 
+test("registerApiErrorHandler exposes only allowlisted transaction outcomes", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify, { isAppError });
+  for (const transactionOutcome of ["none", "pending", "committed", "rolledBack", "unknown"]) {
+    const error = Object.assign(new Error("Private SQL failure"), {
+      transactionOutcome,
+      cause: { password: "private" },
+      cleanupErrors: [{ message: "private cleanup" }]
+    });
+    const reply = createReplyStub();
+    fastify.errorHandler(error, {}, reply);
+    assert.equal(reply.statusCode, 500);
+    assert.deepEqual(reply.payload, {
+      error: "Internal server error.",
+      code: "internal_server_error",
+      transactionOutcome
+    });
+  }
+  for (const transactionOutcome of [undefined, "success", { secret: "private" }]) {
+    const reply = createReplyStub();
+    fastify.errorHandler(Object.assign(new Error("private"), { transactionOutcome }), {}, reply);
+    assert.equal(Object.hasOwn(reply.payload, "transactionOutcome"), false);
+  }
+});
+
+test("AppError and validation payloads retain transaction outcomes", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify, { isAppError });
+  for (const error of [
+    Object.assign(new AppError(409, "Conflict."), { transactionOutcome: "rolledBack" }),
+    { validation: [{ instancePath: "/title", message: "Required" }], transactionOutcome: "none" }
+  ]) {
+    const reply = createReplyStub();
+    fastify.errorHandler(error, {}, reply);
+    assert.equal(reply.payload.transactionOutcome, error.transactionOutcome);
+  }
+});
+
 test("registerApiErrorHandler keeps known error code for non-app errors", () => {
   const fastify = createFastifyStub();
   registerApiErrorHandler(fastify, { isAppError });

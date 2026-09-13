@@ -1,16 +1,13 @@
 import {
   normalizeRecordId,
-  isDuplicateEntryError,
-  createWithTransaction
+  isDuplicateEntryError
 } from "./repositoryUtils.js";
 import {
-  createJsonApiInputRecord,
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
-const RESOURCE_TYPE = "userSettings";
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
   "locale",
@@ -56,14 +53,11 @@ function createDefaultUserSettingsCreatePayload(userId) {
   };
 }
 
-function createRepository({ api, knex } = {}) {
+function createRepository({ api } = {}) {
   if (!api?.resources?.userSettings) {
     throw new TypeError("userSettingsRepository requires json-rest-api userSettings resource.");
   }
-  if (typeof knex !== "function") {
-    throw new TypeError("userSettingsRepository requires knex.");
-  }
-  const withTransaction = createWithTransaction(knex);
+  const withTransaction = (work) => api.transaction(work);
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(
@@ -73,7 +67,7 @@ function createRepository({ api, knex } = {}) {
             filters
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -105,19 +99,15 @@ function createRepository({ api, knex } = {}) {
     try {
       await api.resources.userSettings.post(
         {
-          inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
-            createDefaultUserSettingsCreatePayload(normalizedUserId),
-            {
-              id: normalizedUserId
-            }
-          ),
+          data: createDefaultUserSettingsCreatePayload(normalizedUserId),
+          format: "plain",
+          returning: "full",
           transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
     } catch (error) {
-      if (!isDuplicateEntryError(error)) {
+      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -141,16 +131,13 @@ function createRepository({ api, knex } = {}) {
 
     await api.resources.userSettings.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            ...updatePayload,
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: normalizedUserId
-          }
-        ),
+        id: normalizedUserId,
+        data: {
+          ...updatePayload,
+          updatedAt: new Date().toISOString()
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)

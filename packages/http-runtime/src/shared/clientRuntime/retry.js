@@ -1,3 +1,6 @@
+import { normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
+import { createJsonApiClientErrorPayload } from "./jsonApiResourceTransport.js";
+
 const DEFAULT_RETRYABLE_CSRF_ERROR_CODES = Object.freeze(["FST_CSRF_INVALID_TOKEN", "FST_CSRF_MISSING_SECRET"]);
 
 function toUpperStringSet(values, fallback = []) {
@@ -28,7 +31,13 @@ function shouldRetryForCsrfFailure({
     return false;
   }
 
-  const code = String(data?.details?.code || "")
+  const payload = createJsonApiClientErrorPayload(data) || data;
+  const transactionOutcome = normalizeTransactionOutcome(payload?.transactionOutcome);
+  if (["pending", "committed", "unknown"].includes(transactionOutcome)) {
+    return false;
+  }
+
+  const code = String(payload?.details?.code || payload?.code || "")
     .trim()
     .toUpperCase();
   const retryableCodes = toUpperStringSet(retryableErrorCodes, DEFAULT_RETRYABLE_CSRF_ERROR_CODES);

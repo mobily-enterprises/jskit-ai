@@ -3,18 +3,6 @@ import test from "node:test";
 import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspaceMembershipsRepository.js";
 
-function createKnexStub() {
-  const knex = Object.assign(() => {
-    throw new Error("query execution not expected");
-  }, {
-    async transaction(work) {
-      return work({ trxId: "trx-1" });
-    }
-  });
-
-  return knex;
-}
-
 function asCollectionDocument(rows = []) {
   return {
     data: Array.isArray(rows) ? rows : []
@@ -55,7 +43,8 @@ function createWorkspaceMembershipsApiStub({
   const api = {
     resources: {
       workspaceMemberships: {
-        async query({ queryParams }) {
+        async query({ queryParams, format }) {
+          assert.equal(format, "plain");
           state.queryCalls.push(queryParams || {});
           const filters = queryParams?.filters || {};
           const includeUser = Array.isArray(queryParams?.include) && queryParams.include.includes("user");
@@ -100,14 +89,18 @@ function createWorkspaceMembershipsApiStub({
           return asCollectionDocument([]);
         },
         async post(payload) {
-          const inputRecord = payload?.inputRecord?.data || {};
-          state.postPayload = inputRecord;
+          const data = payload?.data || {};
+          assert.equal(payload.format, "plain");
+          assert.equal(payload.returning, "full");
+          assert.equal(payload.inputRecord, undefined);
+          assert.equal(payload.document, undefined);
+          state.postPayload = payload;
           const row = rowById.get("1") || {
             id: "1",
-            workspace: { id: String(inputRecord.relationships?.workspace?.data?.id || "") },
-            user: { id: String(inputRecord.relationships?.user?.data?.id || "") },
-            roleSid: String(inputRecord.attributes?.roleSid || ""),
-            status: String(inputRecord.attributes?.status || ""),
+            workspace: { id: String(data.workspace || "") },
+            user: { id: String(data.user || "") },
+            roleSid: String(data.roleSid || ""),
+            status: String(data.status || ""),
             createdAt: "2026-03-09 00:26:35.710",
             updatedAt: "2026-03-09 00:26:35.710"
           };
@@ -116,13 +109,17 @@ function createWorkspaceMembershipsApiStub({
           return toWorkspaceMembershipRow(row);
         },
         async patch(payload) {
-          const inputRecord = payload?.inputRecord?.data || {};
-          state.patchPayload = inputRecord;
-          const existing = rowById.get(String(inputRecord.id));
+          const data = payload?.data || {};
+          assert.equal(payload.format, "plain");
+          assert.equal(payload.returning, "full");
+          assert.equal(payload.inputRecord, undefined);
+          assert.equal(payload.document, undefined);
+          state.patchPayload = payload;
+          const existing = rowById.get(String(payload.id));
           const updated = {
             ...(existing || {}),
-            ...(inputRecord.attributes || {}),
-            id: String(inputRecord.id),
+            ...data,
+            id: String(payload.id),
             workspace: existing?.workspace || { id: "" },
             user: existing?.user || { id: "" }
           };
@@ -150,7 +147,7 @@ test("workspaceMembershipsRepository.findByWorkspaceIdAndUserId normalizes canon
   const { api } = createWorkspaceMembershipsApiStub({
     rowByComposite: new Map([["7:9", membershipRow]])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const membership = await repository.findByWorkspaceIdAndUserId("7", "9");
 
@@ -185,13 +182,13 @@ test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing 
     rowById: new Map([["11", refreshedRow]]),
     rowByComposite: new Map([["7:9", existingRow]])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const membership = await repository.ensureOwnerMembership("7", "9");
 
-  assert.equal(state.patchPayload.attributes?.roleSid, "owner");
-  assert.equal(state.patchPayload.attributes?.status, "active");
-  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "string");
+  assert.equal(state.patchPayload.data.roleSid, "owner");
+  assert.equal(state.patchPayload.data.status, "active");
+  assert.equal(typeof state.patchPayload.data.updatedAt, "string");
   assert.deepEqual(membership, {
     id: "11",
     workspaceId: "7",
@@ -199,7 +196,7 @@ test("workspaceMembershipsRepository.ensureOwnerMembership upgrades an existing 
     roleSid: "owner",
     status: "active",
     createdAt: toIsoString("2026-03-09 00:26:35.710"),
-    updatedAt: toIsoString(state.patchPayload.attributes.updatedAt)
+    updatedAt: toIsoString(state.patchPayload.data.updatedAt)
   });
 });
 
@@ -217,17 +214,17 @@ test("workspaceMembershipsRepository.upsertMembership creates normalized members
     rowById: new Map([["1", createdRow]]),
     rowByComposite: new Map()
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   await repository.upsertMembership("7", "9", {
     roleSid: "ADMIN",
     status: "ACTIVE"
   });
 
-  assert.equal(state.postPayload.relationships?.workspace?.data?.id, "7");
-  assert.equal(state.postPayload.relationships?.user?.data?.id, "9");
-  assert.equal(state.postPayload.attributes?.roleSid, "admin");
-  assert.equal(state.postPayload.attributes?.status, "active");
+  assert.equal(state.postPayload.data.workspace, "7");
+  assert.equal(state.postPayload.data.user, "9");
+  assert.equal(state.postPayload.data.roleSid, "admin");
+  assert.equal(state.postPayload.data.status, "active");
 });
 
 test("workspaceMembershipsRepository.listActiveByWorkspaceId keeps summary rows separate from the canonical membership resource", async () => {
@@ -244,7 +241,7 @@ test("workspaceMembershipsRepository.listActiveByWorkspaceId keeps summary rows 
       }
     ]
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const members = await repository.listActiveByWorkspaceId("7");
 
@@ -272,7 +269,7 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
   const { api, state } = createWorkspaceMembershipsApiStub({
     rowByComposite: new Map([["7:9", membershipRow]])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const workspaceIds = await repository.listActiveWorkspaceIdsByUserId("9");
 

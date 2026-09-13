@@ -19,26 +19,18 @@ Exports
 - `JSON_REST_AUTOFILTER_PRESETS`
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
-- `createJsonApiInputRecord(resourceType = "", attributes = {}, { id = null, relationships = null, resource = null } = {})`
-- `createJsonApiRelationship(resourceType = "", id = null)`
 - `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId = null, rowPolicy = undefined, searchSchema = null, queryFields = null } = {})`
 - `createJsonRestContext(context = null)`
-- `extractJsonRestCollectionRows(payload = null)`
+- `extractJsonRestCollectionRows(payload)`
 - `isJsonRestResourceMissingError(error = null)`
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
-- `createJsonRestApiHost({ knex })`
+- `createJsonRestApiHost({ knex, logger = JSON_REST_DEFAULT_LOGGER })`
 Local functions
 - `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
-- `resolveCanonicalCalendarDate(value)`
-- `serializeJsonRestCalendarDate(value)`
-- `resolveCanonicalDateTime(value)`
-- `applyJsonRestCalendarDateWriteSerializers(scopeOptions = {})`
-- `normalizeJsonRestTemporalEntry(entry = null, scopes = {})`
-- `normalizeJsonRestTemporalDocument(document = null, scopes = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestText(value, { fallback = "" } = {})`
 - `normalizeJsonRestFilterValue(value)`
@@ -50,7 +42,6 @@ Local functions
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
 - `resolveJsonRestDefaultExcludedFields(resource = {})`
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
-- `extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null)`
 - `isJsonRestSparseFieldError(error = null)`
 
 ### `src/server/JsonRestApiProvider.js`

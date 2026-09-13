@@ -1,3 +1,4 @@
+import { normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
 import { isRecord, resolveFieldErrors } from "../support/fieldErrors.js";
 import { createJsonApiClientErrorPayload } from "./jsonApiResourceTransport.js";
 
@@ -20,6 +21,10 @@ function createHttpError(response, data = {}) {
   const normalizedFieldErrors = resolveFieldErrors(payload);
   error.status = Number(response?.status || 0);
   error.code = String(payload.code || "").trim() || null;
+  const transactionOutcome = normalizeTransactionOutcome(payload.transactionOutcome);
+  if (transactionOutcome) {
+    error.transactionOutcome = transactionOutcome;
+  }
   error.fieldErrors = Object.keys(normalizedFieldErrors).length > 0 ? normalizedFieldErrors : null;
   if (isRecord(payload.details)) {
     error.details = payload.details;

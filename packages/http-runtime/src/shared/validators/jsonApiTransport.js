@@ -1,4 +1,4 @@
-import { normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeArray, normalizeObject, normalizeText, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
 import { simplifyJsonApiResourceWithRelationshipIds } from "../support/jsonApiSimplify.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
@@ -388,11 +388,14 @@ function createJsonApiErrorDocumentFromFailure({
   statusCode = 500,
   code = "",
   message = "",
+  transactionOutcome,
   fieldErrors = {},
   validationIssues = [],
   validationContext = "",
   pointerPrefix = "/data/attributes"
 } = {}) {
+  const outcome = normalizeTransactionOutcome(transactionOutcome);
+  const meta = outcome ? { transactionOutcome: outcome } : undefined;
   const normalizedStatus = String(Number(statusCode) || 500);
   const normalizedCode = String(code || "").trim();
   const normalizedMessage = String(message || "").trim() || "Request failed.";
@@ -404,6 +407,7 @@ function createJsonApiErrorDocumentFromFailure({
       errors: issues.map((issue) =>
         createJsonApiErrorObject({
           status: normalizedStatus,
+          meta,
           code: normalizedCode,
           title: normalizedMessage,
           detail: String(issue?.message || "Invalid value.").trim() || "Invalid value.",
@@ -419,6 +423,7 @@ function createJsonApiErrorDocumentFromFailure({
       errors: fieldEntries.map(([field, detail]) =>
         createJsonApiErrorObject({
           status: normalizedStatus,
+          meta,
           code: normalizedCode,
           title: normalizedMessage,
           detail: String(detail || "Invalid value.").trim() || "Invalid value.",
@@ -434,6 +439,7 @@ function createJsonApiErrorDocumentFromFailure({
     errors: [
       createJsonApiErrorObject({
         status: normalizedStatus,
+        meta,
         code: normalizedCode,
         title: normalizedMessage
       })

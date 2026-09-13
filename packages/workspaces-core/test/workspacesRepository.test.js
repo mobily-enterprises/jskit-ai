@@ -3,16 +3,6 @@ import test from "node:test";
 import { toIsoString } from "@jskit-ai/database-runtime/shared";
 import { createRepository } from "../src/server/common/repositories/workspacesRepository.js";
 
-function createKnexStub() {
-  return Object.assign(() => {
-    throw new Error("query execution not expected");
-  }, {
-    async transaction(work) {
-      return work({ trxId: "trx-1" });
-    }
-  });
-}
-
 function asCollectionDocument(rows = []) {
   return {
     data: Array.isArray(rows) ? rows : []
@@ -24,7 +14,7 @@ function toWorkspaceRow(row = {}) {
     id: String(row.id || ""),
     slug: row.slug,
     name: row.name,
-    ownerUserId: row.ownerUserId == null ? null : String(row.ownerUserId),
+    owner: row.ownerUserId == null ? null : { id: String(row.ownerUserId) },
     isPersonal: row.isPersonal,
     avatarUrl: row.avatarUrl,
     createdAt: row.createdAt,
@@ -60,7 +50,8 @@ function createWorkspacesApiStub({
   const api = {
     resources: {
       workspaces: {
-        async query({ queryParams }) {
+        async query({ queryParams, format }) {
+          assert.equal(format, "plain");
           const filters = queryParams?.filters || {};
 
           if (Object.hasOwn(filters, "id")) {
@@ -81,21 +72,25 @@ function createWorkspacesApiStub({
           return asCollectionDocument([]);
         },
         async post(payload) {
-          const inputRecord = payload?.inputRecord?.data || {};
-          state.postPayload = inputRecord;
+          const data = payload?.data || {};
+          assert.equal(payload.format, "plain");
+          assert.equal(payload.returning, "full");
+          assert.equal(payload.inputRecord, undefined);
+          assert.equal(payload.document, undefined);
+          state.postPayload = payload;
           if (insertError) {
             throw insertError;
           }
 
           const row = {
             id: "1",
-            slug: String(inputRecord.attributes?.slug || ""),
-            name: String(inputRecord.attributes?.name || ""),
-            ownerUserId: String(inputRecord.relationships?.owner?.data?.id || ""),
-            isPersonal: Boolean(inputRecord.attributes?.isPersonal),
-            avatarUrl: String(inputRecord.attributes?.avatarUrl || ""),
-            createdAt: inputRecord.attributes?.createdAt,
-            updatedAt: inputRecord.attributes?.updatedAt,
+            slug: String(data.slug || ""),
+            name: String(data.name || ""),
+            ownerUserId: String(data.owner || ""),
+            isPersonal: Boolean(data.isPersonal),
+            avatarUrl: String(data.avatarUrl || ""),
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
             deletedAt: null
           };
           rowsById.set(row.id, row);
@@ -105,18 +100,22 @@ function createWorkspacesApiStub({
           return toWorkspaceRow(row);
         },
         async patch(payload) {
-          const inputRecord = payload?.inputRecord?.data || {};
-          state.patchPayload = inputRecord;
-          const existing = rowsById.get(String(inputRecord.id)) || {
-            id: String(inputRecord.id)
+          const data = payload?.data || {};
+          assert.equal(payload.format, "plain");
+          assert.equal(payload.returning, "full");
+          assert.equal(payload.inputRecord, undefined);
+          assert.equal(payload.document, undefined);
+          state.patchPayload = payload;
+          const existing = rowsById.get(String(payload.id)) || {
+            id: String(payload.id)
           };
           const updated = {
             ...existing,
-            ...(inputRecord.attributes || {}),
-            ...(inputRecord.relationships?.owner?.data?.id
-              ? { ownerUserId: String(inputRecord.relationships.owner.data.id) }
+            ...data,
+            ...(data.owner
+              ? { ownerUserId: String(data.owner) }
               : {}),
-            id: String(inputRecord.id)
+            id: String(payload.id)
           };
           rowsById.set(updated.id, updated);
           if (updated.slug) {
@@ -126,7 +125,8 @@ function createWorkspacesApiStub({
         }
       },
       workspaceMemberships: {
-        async query({ queryParams }) {
+        async query({ queryParams, format }) {
+          assert.equal(format, "plain");
           const filters = queryParams?.filters || {};
           if (Object.hasOwn(filters, "user") && Object.hasOwn(filters, "status")) {
             const rows = membershipRows.filter((row) => (
@@ -161,7 +161,7 @@ test("workspacesRepository.findById reads a canonical workspace row through json
       }]
     ])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const workspace = await repository.findById("7");
 
@@ -207,7 +207,7 @@ test("workspacesRepository.findPersonalByOwnerUserId returns the first personal 
       ]]
     ])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const workspace = await repository.findPersonalByOwnerUserId("9");
 
@@ -217,7 +217,7 @@ test("workspacesRepository.findPersonalByOwnerUserId returns the first personal 
 
 test("workspacesRepository.insert writes canonical fields through json-rest-api", async () => {
   const { api, state } = createWorkspacesApiStub();
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const inserted = await repository.insert({
     slug: "TonyMobily3",
@@ -227,13 +227,13 @@ test("workspacesRepository.insert writes canonical fields through json-rest-api"
     isPersonal: false
   });
 
-  assert.equal(state.postPayload.relationships?.owner?.data?.id, "9");
-  assert.equal(state.postPayload.attributes?.slug, "TonyMobily3");
-  assert.equal(state.postPayload.attributes?.name, "TonyMobily3");
-  assert.equal(state.postPayload.attributes?.isPersonal, false);
-  assert.equal(state.postPayload.attributes?.avatarUrl, "");
-  assert.equal(typeof state.postPayload.attributes?.createdAt, "string");
-  assert.equal(state.postPayload.attributes?.updatedAt, state.postPayload.attributes?.createdAt);
+  assert.equal(state.postPayload.data.owner, "9");
+  assert.equal(state.postPayload.data.slug, "TonyMobily3");
+  assert.equal(state.postPayload.data.name, "TonyMobily3");
+  assert.equal(state.postPayload.data.isPersonal, false);
+  assert.equal(state.postPayload.data.avatarUrl, "");
+  assert.equal(typeof state.postPayload.data.createdAt, "string");
+  assert.equal(state.postPayload.data.updatedAt, state.postPayload.data.createdAt);
   assert.equal(inserted.id, "1");
   assert.equal(inserted.ownerUserId, "9");
 });
@@ -252,9 +252,9 @@ test("workspacesRepository.insert falls back to slug lookup on duplicate slug", 
   };
   const { api } = createWorkspacesApiStub({
     rowsBySlug: new Map([["shared-workspace", existingRow]]),
-    insertError: { code: "ER_DUP_ENTRY" }
+    insertError: { code: "REST_API_WRITE", transactionOutcome: "rolledBack", cause: { code: "ER_DUP_ENTRY" } }
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const inserted = await repository.insert({
     slug: "shared-workspace",
@@ -282,15 +282,15 @@ test("workspacesRepository.updateById patches canonical fields and updatedAt", a
       }]
     ])
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   await repository.updateById("7", {
     name: "TonyMobily 4"
   });
 
   assert.equal(state.patchPayload.id, "7");
-  assert.equal(state.patchPayload.attributes?.name, "TonyMobily 4");
-  assert.equal(typeof state.patchPayload.attributes?.updatedAt, "string");
+  assert.equal(state.patchPayload.data.name, "TonyMobily 4");
+  assert.equal(typeof state.patchPayload.data.updatedAt, "string");
 });
 
 test("workspacesRepository.listForUserId keeps membership fields outside the canonical workspace row", async () => {
@@ -346,7 +346,7 @@ test("workspacesRepository.listForUserId keeps membership fields outside the can
       }
     ]
   });
-  const repository = createRepository({ api, knex: createKnexStub() });
+  const repository = createRepository({ api });
 
   const workspaces = await repository.listForUserId("9");
 

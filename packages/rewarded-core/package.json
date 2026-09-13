@@ -2,6 +2,9 @@
   "name": "@jskit-ai/rewarded-core",
   "version": "0.1.121",
   "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
   "exports": {
     "./shared": "./src/shared/index.js",
     "./server/actions": "./src/server/actions.js",

@@ -1,6 +1,6 @@
-import { Api } from "hooked-api";
 import {
   AutoFilterPlugin,
+  JsonRestApi,
   QueryProjectionsPlugin,
   REST_API_FIELDSET_ERROR_CODE,
   RestApiKnexPlugin,
@@ -51,9 +51,9 @@ const JSON_REST_RESERVED_QUERY_KEYS = Object.freeze(new Set([
   "sort",
   "fields"
 ]));
-const JSON_REST_CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-const JSON_REST_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/u;
-const JSON_REST_DATABASE_UTC_DATE_TIME_PATTERN = /^(\d{4}-\d{2}-\d{2}) ((?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?)$/u;
+const JSON_REST_DEFAULT_LOGGER = Object.freeze({
+  error: (...args) => console.error(...args)
+});
 
 function isPlainJsonRestObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -105,132 +105,6 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
 
   return next;
 }
-
-function resolveCanonicalCalendarDate(value) {
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime())
-      ? ""
-      : value.toISOString().slice(0, 10);
-  }
-
-  const normalized = typeof value === "string" ? value.trim() : "";
-  const candidate = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:$|T)/u)?.[1] || "";
-  if (!JSON_REST_CALENDAR_DATE_PATTERN.test(candidate)) {
-    return "";
-  }
-
-  const parsed = new Date(`${candidate}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== candidate) {
-    return "";
-  }
-
-  return candidate;
-}
-
-function serializeJsonRestCalendarDate(value) {
-  if (value == null) {
-    return value;
-  }
-
-  const canonical = resolveCanonicalCalendarDate(value);
-  if (!canonical) {
-    throw new TypeError("json-rest-api calendar date must be a valid YYYY-MM-DD value.");
-  }
-  return canonical;
-}
-
-function resolveCanonicalDateTime(value) {
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? "" : value.toISOString();
-  }
-
-  const normalized = typeof value === "string" ? value.trim() : "";
-  if (JSON_REST_DATE_TIME_PATTERN.test(normalized)) {
-    return normalized;
-  }
-
-  const databaseMatch = JSON_REST_DATABASE_UTC_DATE_TIME_PATTERN.exec(normalized);
-  return databaseMatch ? `${databaseMatch[1]}T${databaseMatch[2]}Z` : "";
-}
-
-function applyJsonRestCalendarDateWriteSerializers(scopeOptions = {}) {
-  const schema = normalizeJsonRestObject(scopeOptions.schema);
-  for (const fieldDefinition of Object.values(schema)) {
-    if (normalizeJsonRestText(fieldDefinition?.type).toLowerCase() !== "date") {
-      continue;
-    }
-    if (fieldDefinition?.virtual === true || fieldDefinition?.storage?.virtual === true) {
-      continue;
-    }
-
-    const storage = normalizeJsonRestObject(fieldDefinition.storage);
-    if (typeof storage.serialize === "function") {
-      continue;
-    }
-    fieldDefinition.storage = {
-      ...storage,
-      serialize: serializeJsonRestCalendarDate
-    };
-  }
-}
-
-function normalizeJsonRestTemporalEntry(entry = null, scopes = {}) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-    return entry;
-  }
-
-  const schema = normalizeJsonRestObject(
-    scopes?.[normalizeJsonRestText(entry.type)]?.vars?.schemaInfo?.schemaStructure
-  );
-  const attributes = normalizeJsonRestObject(entry.attributes);
-  for (const [fieldName, definition] of Object.entries(schema)) {
-    if (!Object.hasOwn(attributes, fieldName) || attributes[fieldName] == null) {
-      continue;
-    }
-
-    const fieldType = normalizeJsonRestText(definition?.type).toLowerCase();
-    const canonical = fieldType === "date"
-      ? resolveCanonicalCalendarDate(attributes[fieldName])
-      : fieldType === "datetime"
-        ? resolveCanonicalDateTime(attributes[fieldName])
-        : "";
-    if (canonical) {
-      attributes[fieldName] = canonical;
-    }
-  }
-
-  return entry;
-}
-
-function normalizeJsonRestTemporalDocument(document = null, scopes = {}) {
-  if (!document || typeof document !== "object" || Array.isArray(document)) {
-    return document;
-  }
-
-  const data = Array.isArray(document.data) ? document.data : [document.data];
-  for (const entry of data) {
-    normalizeJsonRestTemporalEntry(entry, scopes);
-  }
-  for (const entry of Array.isArray(document.included) ? document.included : []) {
-    normalizeJsonRestTemporalEntry(entry, scopes);
-  }
-  return document;
-}
-
-const JsonRestTemporalPlugin = Object.freeze({
-  name: "jskit-temporal",
-  dependencies: ["rest-api"],
-  install({ addHook, scopes }) {
-    addHook("finish", "normalizeCalendarDateDocuments", {}, ({ context }) => {
-      if (context?.record) {
-        normalizeJsonRestTemporalDocument(context.record, scopes);
-      }
-      if (context?.responseRecord) {
-        normalizeJsonRestTemporalDocument(context.responseRecord, scopes);
-      }
-    });
-  }
-});
 
 async function addResourceIfMissing(api, scopeName, resourceConfig) {
   if (api?.resources?.[scopeName]) {
@@ -572,94 +446,11 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
   return queryParams;
 }
 
-function extractJsonRestCollectionRows(payload = null) {
-  if (Array.isArray(payload)) {
-    return payload;
+function extractJsonRestCollectionRows(payload) {
+  if (!isPlainJsonRestObject(payload) || !Array.isArray(payload.data)) {
+    throw new TypeError("json-rest-api collection response must contain a data array.");
   }
-
-  const source = normalizeJsonRestObject(payload);
-  return Array.isArray(source.data) ? source.data : [];
-}
-
-function extractJsonApiInputRelationships(attributes = {}, resource = null, relationships = null) {
-  const normalizedAttributes = {
-    ...normalizeJsonRestObject(attributes)
-  };
-  const normalizedRelationships = {
-    ...normalizeJsonRestObject(relationships)
-  };
-  const resourceSchema = normalizeJsonRestObject(resource?.schema);
-
-  for (const [fieldName, fieldDefinition] of Object.entries(resourceSchema)) {
-    if (!Object.hasOwn(normalizedAttributes, fieldName)) {
-      continue;
-    }
-
-    const normalizedFieldDefinition = normalizeJsonRestObject(fieldDefinition);
-    const relationshipType = normalizeJsonRestText(normalizedFieldDefinition.belongsTo);
-    if (!relationshipType) {
-      continue;
-    }
-
-    const relationshipName = normalizeJsonRestText(normalizedFieldDefinition.as, {
-      fallback: fieldName
-    });
-    if (!relationshipName) {
-      continue;
-    }
-
-    const relationshipValue = normalizedAttributes[fieldName];
-    delete normalizedAttributes[fieldName];
-
-    if (relationshipValue === undefined) {
-      continue;
-    }
-
-    if (!Object.hasOwn(normalizedRelationships, relationshipName)) {
-      normalizedRelationships[relationshipName] = createJsonApiRelationship(
-        relationshipType,
-        relationshipValue
-      );
-    }
-  }
-
-  return {
-    attributes: normalizedAttributes,
-    relationships: normalizedRelationships
-  };
-}
-
-function createJsonApiInputRecord(
-  resourceType = "",
-  attributes = {},
-  { id = null, relationships = null, resource = null } = {}
-) {
-  const normalizedInput = extractJsonApiInputRelationships(attributes, resource, relationships);
-  return {
-    data: {
-      type: normalizeJsonRestText(resourceType),
-      ...(id == null ? {} : { id: String(id) }),
-      attributes: normalizedInput.attributes,
-      ...(Object.keys(normalizedInput.relationships).length < 1
-        ? {}
-        : { relationships: normalizedInput.relationships })
-    }
-  };
-}
-
-function createJsonApiRelationship(resourceType = "", id = null) {
-  if (id == null) {
-    return {
-      data: null
-    };
-  }
-
-  return {
-    data: {
-      type: normalizeJsonRestText(resourceType),
-      id: String(id)
-    }
-  };
+  return payload.data;
 }
 
 function createJsonRestResourceScopeOptions(
@@ -675,7 +466,6 @@ function createJsonRestResourceScopeOptions(
   const scopeOptions = cloneJsonRestResourceValue(resource, {
     writeSerializers: normalizeJsonRestObject(writeSerializers)
   });
-  applyJsonRestCalendarDateWriteSerializers(scopeOptions);
   if (isPlainJsonRestObject(searchSchema)) {
     scopeOptions.searchSchema = {
       ...normalizeJsonRestObject(scopeOptions.searchSchema),
@@ -767,7 +557,8 @@ async function returnNullWhenJsonRestResourceMissing(run) {
   try {
     return await run();
   } catch (error) {
-    if (isJsonRestResourceMissingError(error)) {
+    if (isJsonRestResourceMissingError(error) &&
+      (!error.transactionOutcome || ["none", "rolledBack"].includes(error.transactionOutcome))) {
       return null;
     }
 
@@ -791,32 +582,30 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
       throw error;
     }
 
-    throw new AppError(400, error.message, {
+    const mapped = new AppError(400, error.message, {
       code: "JSON_API_FIELDSET_INVALID"
     });
+    Object.defineProperty(mapped, "cause", { value: error, configurable: true });
+    if (error.transactionOutcome) {
+      mapped.transactionOutcome = error.transactionOutcome;
+    }
+    throw mapped;
   }
 }
 
-async function createJsonRestApiHost({ knex }) {
+async function createJsonRestApiHost({ knex, logger = JSON_REST_DEFAULT_LOGGER }) {
   if (typeof knex !== "function") {
     throw new TypeError("createJsonRestApiHost requires knex.");
   }
 
-  const api = new Api({
+  const api = new JsonRestApi({
     name: "jskit-internal-json-rest-api",
-    logging: {
-      level: "error"
-    }
+    logger
   });
 
   await api.use(RestApiPlugin, {
-    simplifiedApi: true,
-    simplifiedTransport: false,
-    returnRecordApi: {
-      post: "full",
-      put: "full",
-      patch: "full"
-    },
+    format: "plain",
+    returning: "full",
     normalizeId: normalizeRecordId
   });
 
@@ -830,7 +619,6 @@ async function createJsonRestApiHost({ knex }) {
     },
     presets: JSON_REST_AUTOFILTER_PRESETS
   });
-  await api.use(JsonRestTemporalPlugin);
 
   return api;
 }
@@ -839,8 +627,6 @@ export {
   JSON_REST_AUTOFILTER_PRESETS,
   addResourceIfMissing,
   buildJsonRestQueryParams,
-  createJsonApiInputRecord,
-  createJsonApiRelationship,
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
   extractJsonRestCollectionRows,

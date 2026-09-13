@@ -300,7 +300,7 @@ Exports
 - `JSON_API_CONTENT_TYPE`
 - `resolveJsonApiTransportTypes({ type = "", requestType = "", responseType = "" } = {}, { context = "JSON:API transport" } = {})`
 - `createJsonApiDocument({ data = undefined, included = undefined, links = undefined, meta = undefined, errors = undefined } = {})`
-- `createJsonApiErrorDocumentFromFailure({ statusCode = 500, code = "", message = "", fieldErrors = {}, validationIssues = [], validationContext = "", pointerPrefix = "/data/attributes" } = {})`
+- `createJsonApiErrorDocumentFromFailure({ statusCode = 500, code = "", message = "", transactionOutcome, fieldErrors = {}, validationIssues = [], validationContext = "", pointerPrefix = "/data/attributes" } = {})`
 - `createJsonApiErrorObject({ status = "", code = "", title = "", detail = "", source = undefined, links = undefined, meta = undefined } = {})`
 - `createJsonApiResourceObject({ type = "", id = null, attributes = undefined, relationships = undefined, links = undefined, meta = undefined } = {})`
 - `isJsonApiCollectionDocument(payload = {})`

@@ -2,6 +2,9 @@
   "name": "@jskit-ai/crud-core",
   "version": "0.1.196",
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "test": "node --test"
   },
@@ -26,7 +29,8 @@
     "@jskit-ai/database-runtime": "0.1.185",
     "@jskit-ai/json-rest-api-core": "0.1.129",
     "@jskit-ai/resource-crud-core": "0.1.127",
-    "json-rest-schema": "^1.0.17"
+    "json-rest-schema": "^1.0.17",
+    "json-rest-api": "git+https://github.com/mobily-enterprises/json-rest-api.git#f97dc859321aee41915f3b0e256a861c382bc1b3"
   },
   "description": "Shared server-side CRUD service, repository, route, and query helpers.",
   "jskit": {

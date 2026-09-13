@@ -864,9 +864,11 @@ function createJsonApiResourceRouteTransport({
     },
     error(error, {
       statusCode = 500,
-      code = ""
+      code = "",
+      message = error?.message,
+      exposeDetails = true
     } = {}) {
-      const fieldErrors = isRecord(error?.fieldErrors)
+      const fieldErrors = !exposeDetails ? {} : isRecord(error?.fieldErrors)
         ? error.fieldErrors
         : isRecord(error?.details?.fieldErrors)
           ? error.details.fieldErrors
@@ -875,9 +877,10 @@ function createJsonApiResourceRouteTransport({
       return createJsonApiErrorDocumentFromFailure({
         statusCode,
         code,
-        message: error?.message,
+        message,
+        transactionOutcome: error?.transactionOutcome,
         fieldErrors,
-        validationIssues: Array.isArray(error?.validation) ? error.validation : [],
+        validationIssues: exposeDetails && Array.isArray(error?.validation) ? error.validation : [],
         validationContext: String(error?.validationContext || "").trim(),
         pointerPrefix
       });

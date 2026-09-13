@@ -2,14 +2,13 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import knexLib from "knex";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { RestApiFieldsetError } from "json-rest-api";
+import { JsonRestApi, RestApiFieldsetError, RestApiWriteError } from "json-rest-api";
 
 import {
   addResourceIfMissing,
   buildJsonRestQueryParams,
-  createJsonApiInputRecord,
-  createJsonApiRelationship,
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
   createJsonRestApiHost,
@@ -27,19 +26,18 @@ test("package exports include explicit server jsonRestApiHost entrypoint only", 
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
   assert.equal(exportsMap["./server/jsonRestApiHost"], "./src/server/jsonRestApiHost.js");
   assert.equal(exportsMap["./server"], undefined);
-  assert.equal(packageJson.dependencies?.["json-rest-api"], "^1.0.29");
 });
 
 test("server jsonRestApiHost entrypoint exposes only the focused host API", async () => {
   const hostModule = await import("../src/server/jsonRestApiHost.js");
   assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
+  assert.equal(Object.hasOwn(hostModule, "createJsonApiInputRecord"), false);
+  assert.equal(Object.hasOwn(hostModule, "createJsonApiRelationship"), false);
 });
 
 test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof addResourceIfMissing, "function");
   assert.equal(typeof buildJsonRestQueryParams, "function");
-  assert.equal(typeof createJsonApiInputRecord, "function");
-  assert.equal(typeof createJsonApiRelationship, "function");
   assert.equal(typeof createJsonRestResourceScopeOptions, "function");
   assert.equal(typeof createJsonRestContext, "function");
   assert.equal(typeof createJsonRestApiHost, "function");
@@ -95,7 +93,6 @@ test("createJsonRestContext returns an empty mutable object when source context 
 test("extractJsonRestCollectionRows understands the internal collection-document contract", () => {
   const rows = [{ id: "1" }, { id: "2" }];
 
-  assert.deepEqual(extractJsonRestCollectionRows(rows), rows);
   assert.deepEqual(
     extractJsonRestCollectionRows({
       data: rows,
@@ -105,8 +102,10 @@ test("extractJsonRestCollectionRows understands the internal collection-document
     }),
     rows
   );
-  assert.deepEqual(extractJsonRestCollectionRows({ data: null }), []);
-  assert.deepEqual(extractJsonRestCollectionRows(null), []);
+  assert.deepEqual(extractJsonRestCollectionRows({ data: [] }), []);
+  for (const malformed of [rows, { data: null }, {}, null, undefined]) {
+    assert.throws(() => extractJsonRestCollectionRows(malformed), /collection response must contain a data array/);
+  }
 });
 
 test("createJsonRestApiHost installs normalizeRecordId as the default resource id normalizer", async () => {
@@ -136,7 +135,7 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
   assert.equal(api.vars.normalizeId(7.5), null);
 });
 
-test("createJsonRestApiHost configures the internal json-rest logger at error level", async () => {
+test("createJsonRestApiHost uses the v2 runtime, error-only default logging and an injected logger", async (t) => {
   const fakeKnex = Object.assign(() => {}, {
     client: {
       config: {
@@ -153,11 +152,25 @@ test("createJsonRestApiHost configures the internal json-rest logger at error le
     transaction() {}
   });
 
+  const messages = [];
   const api = await createJsonRestApiHost({
-    knex: fakeKnex
+    knex: fakeKnex,
+    logger: { error: (...args) => messages.push(args) }
   });
 
-  assert.equal(api.options.logging.level, "error");
+  assert.ok(api instanceof JsonRestApi);
+  assert.equal(api.vars.format, "plain");
+  assert.equal(api.vars.returning, "full");
+  assert.equal(api.options.logging, undefined);
+  api.log.error("failure", { code: "example" });
+  assert.deepEqual(messages, [["failure", { code: "example" }]]);
+
+  const errorSink = t.mock.method(console, "error", () => {});
+  const defaultApi = await createJsonRestApiHost({ knex: fakeKnex });
+  defaultApi.log.info("quiet");
+  defaultApi.log.error("default failure");
+  assert.equal(errorSink.mock.callCount(), 1);
+  assert.deepEqual(errorSink.mock.calls[0].arguments, ["default failure"]);
 });
 
 test("createJsonRestApiHost installs row policies before resources are added", async () => {
@@ -200,7 +213,7 @@ test("createJsonRestApiHost installs row policies before resources are added", a
   assert.equal(scopeOptions.rowPolicy, rowPolicy);
 });
 
-test("shared query/document helpers build json-rest-api request shapes", () => {
+test("shared query helper builds json-rest-api request shapes", () => {
   assert.deepEqual(
     buildJsonRestQueryParams("contacts", {
       q: "Merc",
@@ -228,70 +241,6 @@ test("shared query/document helpers build json-rest-api request shapes", () => {
         contactNotes: "body,id",
         contacts: "dob,name",
         workspaces: "id,slug"
-      }
-    }
-  );
-
-  assert.deepEqual(
-    createJsonApiInputRecord("contacts", {
-      name: "Merc"
-    }, {
-      id: 7,
-      relationships: {
-        workspace: createJsonApiRelationship("workspaces", 9)
-      }
-    }),
-    {
-      data: {
-        type: "contacts",
-        id: "7",
-        attributes: {
-          name: "Merc"
-        },
-        relationships: {
-          workspace: {
-            data: {
-              type: "workspaces",
-              id: "9"
-            }
-          }
-        }
-      }
-    }
-  );
-
-  assert.deepEqual(
-    createJsonApiInputRecord("products", {
-      serviceId: "9",
-      name: "Style Groom"
-    }, {
-      resource: {
-        schema: {
-          serviceId: {
-            type: "id",
-            belongsTo: "services",
-            as: "service"
-          },
-          name: {
-            type: "string"
-          }
-        }
-      }
-    }),
-    {
-      data: {
-        type: "products",
-        attributes: {
-          name: "Style Groom"
-        },
-        relationships: {
-          service: {
-            data: {
-              type: "services",
-              id: "9"
-            }
-          }
-        }
       }
     }
   );
@@ -424,16 +373,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(result.schema.createdAt.storage.serialize, serializer);
   assert.equal(result.schema.createdAt.storage.serialize(null), null);
   assert.equal(result.schema.createdAt.storage.writeSerializer, undefined);
-  assert.equal(
-    result.schema.publishedOn.storage.serialize(new Date("2024-02-29T00:00:00.000Z")),
-    "2024-02-29"
-  );
-  assert.equal(result.schema.publishedOn.storage.serialize("2024-02-29"), "2024-02-29");
-  assert.equal(result.schema.publishedOn.storage.serialize(null), null);
-  assert.throws(
-    () => result.schema.publishedOn.storage.serialize("2023-02-29"),
-    /valid YYYY-MM-DD/
-  );
+  assert.equal(result.schema.publishedOn.storage, undefined);
   assert.equal(result.schema.bookingSteps.virtual, true);
   assert.equal(result.schema.pets.virtual, true);
   assert.equal(result.normalizeId, normalizeId);
@@ -604,22 +544,18 @@ test("createJsonRestResourceScopeOptions rejects query field names for column-ba
   );
 });
 
-test("createJsonRestApiHost installs json-rest-api query projections", async () => {
-  const fakeKnex = Object.assign(() => {}, {
-    client: {
-      config: {
-        client: "sqlite3"
-      }
-    },
-    raw(sql) {
-      if (String(sql || "").includes("sqlite_version")) {
-        return [{ version: "3.35.5" }];
-      }
-      return { sql };
-    },
-    async transaction() {}
+test("createJsonRestApiHost installs json-rest-api query projections", async (t) => {
+  const knex = knexLib({
+    client: "better-sqlite3",
+    connection: { filename: ":memory:" },
+    useNullAsDefault: true
   });
-  const api = await createJsonRestApiHost({ knex: fakeKnex });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("projection_contacts", (table) => {
+    table.increments("id");
+  });
+  await knex("projection_contacts").insert({ id: 1 });
+  const api = await createJsonRestApiHost({ knex });
 
   await api.addResource("projectionContacts", {
     tableName: "projection_contacts",
@@ -636,130 +572,119 @@ test("createJsonRestApiHost installs json-rest-api query projections", async () 
     }
   });
 
-  assert.equal(typeof api.resources.projectionContacts.vars.queryFields.displayName.select, "function");
+  const result = await api.resources.projectionContacts.query({ format: "plain" });
+  assert.deepEqual(result.data, [{ id: "1", displayName: "Display" }]);
 });
 
-test("createJsonRestApiHost returns JSON-native temporal values from database records", async () => {
-  const fakeKnex = Object.assign(() => {}, {
-    client: {
-      config: {
-        client: "sqlite3"
-      }
-    },
-    async raw() {
-      return [{ version: "3.35.5" }];
-    },
-    transaction() {}
+async function createTemporalFixture() {
+  const knex = knexLib({
+    client: "better-sqlite3",
+    connection: { filename: ":memory:" },
+    useNullAsDefault: true
   });
-  const api = await createJsonRestApiHost({ knex: fakeKnex });
-
-  await api.addResource("books", createJsonRestResourceScopeOptions({
-    tableName: "books",
-    schema: {
-      id: { type: "id", primary: true },
-      publishedOn: { type: "date" },
-      scheduledAt: { type: "dateTime" },
-      opensAt: { type: "time" }
-    }
-  }));
-  await api.addResource("holidays", createJsonRestResourceScopeOptions({
-    tableName: "holidays",
-    schema: {
-      id: { type: "id", primary: true },
-      observedOn: { type: "date" }
-    }
-  }));
-
-  const scheduledAt = new Date("2024-02-29T12:34:56.000Z");
-  const record = {
-    data: {
-      type: "books",
-      id: "1",
-      attributes: {
-        publishedOn: new Date("2024-02-29T00:00:00.000Z"),
-        scheduledAt,
-        opensAt: "09:45:00"
-      }
-    },
-    included: [{
-      type: "holidays",
-      id: "7",
-      attributes: {
-        observedOn: new Date("2024-03-01T00:00:00.000Z")
-      }
-    }]
-  };
-
-  await api.runHooks("finish", {
-    record
-  });
-
-  assert.equal(record.data.attributes.publishedOn, "2024-02-29");
-  assert.equal(record.data.attributes.scheduledAt, "2024-02-29T12:34:56.000Z");
-  assert.equal(record.data.attributes.opensAt, "09:45:00");
-  assert.equal(record.included[0].attributes.observedOn, "2024-03-01");
-});
-
-test("calendar date writes and responses keep leap day across server time zones", () => {
-  const hostModuleUrl = new URL(
-    "../src/server/jsonRestApiHost.js",
-    import.meta.url
-  ).href;
-  const script = `
-    import {
-      createJsonRestApiHost,
-      createJsonRestResourceScopeOptions
-    } from ${JSON.stringify(hostModuleUrl)};
-    const fakeKnex = Object.assign(() => {}, {
-      client: { config: { client: "sqlite3" } },
-      async raw() { return [{ version: "3.35.5" }]; },
-      transaction() {}
+  try {
+    await knex.schema.createTable("holidays", (table) => {
+      table.increments("id");
+      table.date("observed_on");
     });
-    const api = await createJsonRestApiHost({ knex: fakeKnex });
-    const scopeOptions = createJsonRestResourceScopeOptions({
+    await knex.schema.createTable("books", (table) => {
+      table.increments("id");
+      table.date("published_on");
+      table.dateTime("scheduled_at");
+      table.time("opens_at");
+      table.integer("holiday_id").references("id").inTable("holidays");
+    });
+    const api = await createJsonRestApiHost({ knex });
+    await api.addResource("holidays", createJsonRestResourceScopeOptions({
+      tableName: "holidays",
+      schema: {
+        id: { type: "id", primary: true },
+        observedOn: { type: "date" }
+      }
+    }));
+    await api.addResource("books", createJsonRestResourceScopeOptions({
       tableName: "books",
       schema: {
         id: { type: "id", primary: true },
         publishedOn: { type: "date" },
         scheduledAt: { type: "dateTime" },
-        opensAt: { type: "time" }
+        opensAt: { type: "time" },
+        holidayId: { type: "id", belongsTo: "holidays", as: "holiday", nullable: true }
       }
-    });
-    await api.addResource("books", scopeOptions);
-    const record = {
-      data: {
-        type: "books",
-        id: "1",
-        attributes: {
-          publishedOn: new Date("2024-02-29T00:00:00.000Z"),
-          scheduledAt: new Date("2024-02-29T12:34:56.000Z"),
+    }));
+    return { api, knex };
+  } catch (error) {
+    await knex.destroy();
+    throw error;
+  }
+}
+
+test("createJsonRestApiHost uses core temporal normalization for writes, reads and includes", async (t) => {
+  const { api, knex } = await createTemporalFixture();
+  t.after(() => knex.destroy());
+  const holiday = await api.resources.holidays.post({ data: { observedOn: "2024-03-01" } });
+  const book = await api.resources.books.post({
+    data: {
+      publishedOn: "2024-02-29",
+      scheduledAt: "2024-02-29T20:34:56+08:00",
+      opensAt: "09:45",
+      holiday: holiday.id
+    }
+  });
+
+  assert.equal(book.publishedOn, "2024-02-29");
+  assert.equal(book.scheduledAt, "2024-02-29T12:34:56.000Z");
+  assert.equal(book.opensAt, "09:45:00");
+  const document = await api.resources.books.get({
+    id: book.id,
+    format: "jsonapi",
+    queryParams: { include: ["holiday"] }
+  });
+  assert.equal(document.data.attributes.publishedOn, "2024-02-29");
+  assert.equal(document.data.attributes.scheduledAt, "2024-02-29T12:34:56.000Z");
+  assert.equal(document.included[0].attributes.observedOn, "2024-03-01");
+  await assert.rejects(
+    () => api.resources.books.patch({ id: book.id, data: { publishedOn: "2023-02-29" } }),
+    (error) => error.code === "REST_API_VALIDATION"
+  );
+});
+
+test("calendar date writes and responses keep leap day across server time zones", () => {
+  const hostModuleUrl = new URL("../src/server/jsonRestApiHost.js", import.meta.url).href;
+  const script = `
+    import knexLib from "knex";
+    import { createJsonRestApiHost, createJsonRestResourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
+    ${createTemporalFixture.toString()}
+    const { api, knex } = await createTemporalFixture();
+    try {
+      const book = await api.resources.books.post({
+        data: {
+          publishedOn: "2024-02-29",
+          scheduledAt: "2024-02-29T12:34:56.000Z",
           opensAt: "09:45:00"
         }
-      }
-    };
-    await api.runHooks("finish", { record });
-    process.stdout.write(JSON.stringify({
-      write: scopeOptions.schema.publishedOn.storage.serialize(
-        new Date("2024-02-29T00:00:00.000Z")
-      ),
-      publishedOn: record.data.attributes.publishedOn,
-      scheduledAt: record.data.attributes.scheduledAt,
-      opensAt: record.data.attributes.opensAt
-    }));
+      });
+      const row = await knex("books").where({ id: book.id }).first();
+      process.stdout.write(JSON.stringify({
+        write: row.published_on,
+        publishedOn: book.publishedOn,
+        scheduledAt: book.scheduledAt,
+        opensAt: book.opensAt
+      }));
+    } finally {
+      await knex.destroy();
+    }
   `;
 
   for (const timezone of ["UTC", "Australia/Perth", "America/Los_Angeles", "Pacific/Kiritimati"]) {
     const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
       encoding: "utf8",
-      env: {
-        ...process.env,
-        TZ: timezone
-      }
+      env: { ...process.env, TZ: timezone }
     });
 
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(JSON.parse(result.stdout), {
-      write: "2024-02-29",
+      write: Date.parse("2024-02-29T00:00:00.000Z"),
       publishedOn: "2024-02-29",
       scheduledAt: "2024-02-29T12:34:56.000Z",
       opensAt: "09:45:00"
@@ -767,36 +692,17 @@ test("calendar date writes and responses keep leap day across server time zones"
   }
 });
 
-test("createJsonRestApiHost maps UTC database datetimes to RFC 3339 strings", async () => {
-  const fakeKnex = Object.assign(() => {}, {
-    client: { config: { client: "sqlite3" } },
-    async raw() {
-      return [{ version: "3.35.5" }];
-    },
-    transaction() {}
+test("createJsonRestApiHost maps native database datetime strings through core reads", async (t) => {
+  const { api, knex } = await createTemporalFixture();
+  t.after(() => knex.destroy());
+  await knex("books").insert({
+    id: 1,
+    published_on: "2024-02-29",
+    scheduled_at: "2024-02-29 12:34:56.123",
+    opens_at: "09:45:00"
   });
-  const api = await createJsonRestApiHost({ knex: fakeKnex });
-
-  await api.addResource("jobs", createJsonRestResourceScopeOptions({
-    tableName: "jobs",
-    schema: {
-      id: { type: "id", primary: true },
-      scheduledAt: { type: "dateTime" }
-    }
-  }));
-  const record = {
-    data: {
-      type: "jobs",
-      id: "1",
-      attributes: {
-        scheduledAt: "2024-02-29 12:34:56.123"
-      }
-    }
-  };
-
-  await api.runHooks("finish", { record });
-
-  assert.equal(record.data.attributes.scheduledAt, "2024-02-29T12:34:56.123Z");
+  const book = await api.resources.books.get({ id: "1" });
+  assert.equal(book.scheduledAt, "2024-02-29T12:34:56.123Z");
 });
 
 test("returnNullWhenJsonRestResourceMissing only swallows missing-resource errors", async () => {
@@ -841,6 +747,7 @@ test("typed invalid sparse fields become a stable 400 without message matching",
       assert.equal(error.status, 400);
       assert.equal(error.code, "JSON_API_FIELDSET_INVALID");
       assert.equal(error.message, sparseFieldError.message);
+      assert.equal(error.cause, sparseFieldError);
       return true;
     }
   );
@@ -860,6 +767,47 @@ test("typed invalid sparse fields become a stable 400 without message matching",
     }),
     (error) => error === unrelatedError
   );
+});
+
+test("missing-resource mapping preserves failures from unresolved or committed writes", async () => {
+  const cause = Object.freeze({ code: "REST_API_RESOURCE", subtype: "not_found" });
+  for (const transactionOutcome of ["pending", "committed", "unknown"]) {
+    const failure = new RestApiWriteError("Missing resource", { cause, transactionOutcome });
+    await assert.rejects(
+      () => returnNullWhenJsonRestResourceMissing(() => Promise.reject(failure)),
+      (error) => error === failure
+    );
+  }
+  for (const transactionOutcome of ["none", "rolledBack"]) {
+    const failure = new RestApiWriteError("Missing resource", { cause, transactionOutcome });
+    assert.equal(await returnNullWhenJsonRestResourceMissing(() => Promise.reject(failure)), null);
+  }
+});
+
+test("fieldset mapping retains write outcome and the original error chain", async () => {
+  const cause = Object.freeze(new RestApiFieldsetError({ field: "privateNotes", resourceType: "books" }));
+  const failure = new RestApiWriteError(cause.message, { cause, transactionOutcome: "committed" });
+  await assert.rejects(
+    () => returnBadRequestWhenJsonRestFieldsetInvalid(() => Promise.reject(failure)),
+    (error) => {
+      assert.equal(error.code, "JSON_API_FIELDSET_INVALID");
+      assert.equal(error.transactionOutcome, "committed");
+      assert.equal(error.cause, failure);
+      assert.equal(error.cause.cause, cause);
+      return true;
+    }
+  );
+});
+
+test("unrelated primitive failures remain unchanged through host error mapping", async () => {
+  for (const failure of [null, undefined, "failure", 7]) {
+    for (const mapError of [returnNullWhenJsonRestResourceMissing, returnBadRequestWhenJsonRestFieldsetInvalid]) {
+      await assert.rejects(
+        () => mapError(() => Promise.reject(failure)),
+        (error) => error === failure
+      );
+    }
+  }
 });
 
 test("scope resolvers understand explicit scopeValues and JSKIT visibilityContext", () => {

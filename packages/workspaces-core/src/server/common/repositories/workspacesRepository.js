@@ -1,18 +1,13 @@
 import {
-  createWithTransaction,
   normalizeRecordId,
   isDuplicateEntryError,
   normalizeText,
   toIsoString
 } from "./repositoryUtils.js";
 import {
-  createJsonApiInputRecord,
-  createJsonApiRelationship,
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-
-const RESOURCE_TYPE = "workspaces";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -32,26 +27,12 @@ function normalizeWorkspaceRecord(payload = null) {
   };
 }
 
-function createWorkspaceRelationships(source = {}) {
-  const relationships = {};
-  const ownerUserId = normalizeRecordId(source.ownerUserId, { fallback: null });
-
-  if (ownerUserId) {
-    relationships.owner = createJsonApiRelationship("userProfiles", ownerUserId);
-  }
-
-  return relationships;
-}
-
-function createRepository({ api, knex } = {}) {
+function createRepository({ api } = {}) {
   if (!api?.resources?.workspaces || !api?.resources?.workspaceMemberships) {
     throw new TypeError("workspacesRepository requires json-rest-api workspaces and workspaceMemberships resources.");
   }
-  if (typeof knex !== "function") {
-    throw new TypeError("workspacesRepository requires knex.");
-  }
 
-  const withTransaction = createWithTransaction(knex);
+  const withTransaction = (work) => api.transaction(work);
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(
@@ -61,7 +42,7 @@ function createRepository({ api, knex } = {}) {
             filters
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -104,7 +85,7 @@ function createRepository({ api, knex } = {}) {
             }
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -140,17 +121,14 @@ function createRepository({ api, knex } = {}) {
       const createdAt = new Date().toISOString();
       const created = await api.resources.workspaces.post(
         {
-          inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
-            {
-              ...createPayload,
-              createdAt,
-              updatedAt: createdAt
-            },
-            {
-              relationships: createWorkspaceRelationships({ ownerUserId })
-            }
-          ),
+          data: {
+            ...createPayload,
+            createdAt,
+            updatedAt: createdAt,
+            owner: ownerUserId
+          },
+          format: "plain",
+          returning: "full",
           transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
@@ -158,7 +136,7 @@ function createRepository({ api, knex } = {}) {
 
       return normalizeWorkspaceRecord(created);
     } catch (error) {
-      if (!isDuplicateEntryError(error)) {
+      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
       if (!Object.hasOwn(createPayload, "slug")) {
@@ -184,18 +162,17 @@ function createRepository({ api, knex } = {}) {
       ...sourcePatch,
       updatedAt: new Date().toISOString()
     };
-    const relationships = createWorkspaceRelationships(sourcePatch);
+    delete workspacePatch.ownerUserId;
+    if (Object.hasOwn(sourcePatch, "ownerUserId")) {
+      workspacePatch.owner = normalizeRecordId(sourcePatch.ownerUserId, { fallback: null });
+    }
 
     const updated = await api.resources.workspaces.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          workspacePatch,
-          {
-            id: normalizedWorkspaceId,
-            relationships
-          }
-        ),
+        id: normalizedWorkspaceId,
+        data: workspacePatch,
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
@@ -221,7 +198,7 @@ function createRepository({ api, knex } = {}) {
             include: ["workspace"]
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )

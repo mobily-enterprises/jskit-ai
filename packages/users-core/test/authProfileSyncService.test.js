@@ -147,3 +147,31 @@ test("authProfileSyncService.findByIdentity normalizes provider identity input",
     providerUserId: "user-1"
   });
 });
+
+test("auth profile sync joins the supplied managed transaction and propagates contributor failure", async () => {
+  const trx = { trxId: "managed-profile-sync" };
+  const failure = new Error("Lifecycle participant failed");
+  const calls = [];
+  const profile = {
+    id: "7", authProvider: "local", authProviderUserSid: "local-7",
+    email: "ada@example.com", displayName: "Ada"
+  };
+  const service = createService({
+    userProfilesRepository: {
+      async findByIdentity(_identity, options) { calls.push(options.trx); return null; },
+      async upsert(_data, options) { calls.push(options.trx); return profile; },
+      async withTransaction() { throw new Error("Must join the caller's owner"); }
+    },
+    userSettingsRepository: {
+      async ensureForUserId(_id, options) { calls.push(options.trx); }
+    },
+    resolveLifecycleContributors: () => [{
+      async afterIdentityProfileSynced({ options }) {
+        calls.push(options.trx);
+        throw failure;
+      }
+    }]
+  });
+  await assert.rejects(service.syncIdentityProfile(profile, { trx }), error => error === failure);
+  assert.deepEqual(calls, [trx, trx, trx, trx]);
+});

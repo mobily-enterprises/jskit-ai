@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "engines": {
-    "node": "^22.13.0 || ^24.0.0 || ^26.0.0"
+    "node": "^24.0.0 || ^26.0.0"
   },
   "scripts": {
     "lint": "eslint packages tooling scripts --max-warnings=0",
@@ -41,6 +41,7 @@
     "@vitejs/plugin-vue": "^6.0.7",
     "better-sqlite3": "13.0.3",
     "cloc": "^2.6.0-cloc",
+    "fastify": "5.12.3",
     "jscpd": "^4.0.8",
     "knex": "^3.1.0",
     "pinia": "^3.0.4",

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
+import { RestApiWriteError } from "json-rest-api";
 
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
@@ -580,6 +581,80 @@ test("CRUD operation lifecycle does not run after or afterCommit when the transa
     (value) => value === error
   );
   assert.deepEqual(calls, ["transaction:begin", "before", "service"]);
+});
+
+test("CRUD afterCommit failures preserve the original cause and acknowledged commit", async () => {
+  for (const failure of [new Error("notification failed"), Object.freeze(new Error("frozen failure")), null, undefined]) {
+    let committed = false;
+    const actions = createCrudJsonApiActions({
+      namespace: "books",
+      resource: createBookResource(),
+      repository: {
+        async withTransaction(work) {
+          const result = await work({ id: "transaction" });
+          committed = true;
+          return result;
+        }
+      },
+      service: {
+        patchDocumentById(id, attributes) { return { data: { id, attributes } }; }
+      },
+      surface: "app",
+      operations: ["update"],
+      permissionForOperation: () => ({ require: "authenticated" }),
+      operationLifecycle: {
+        update: { afterCommit() { assert.equal(committed, true); throw failure; } }
+      }
+    });
+    await assert.rejects(
+      () => actions[0].execute({ recordId: "42", title: "Kindred" }, {}),
+      (error) => {
+        assert.ok(error instanceof RestApiWriteError);
+        assert.equal(error.transactionOutcome, "committed");
+        assert.equal(error.cause, failure);
+        return true;
+      }
+    );
+  }
+});
+
+test("CRUD failures before acknowledged commit are not marked committed", async () => {
+  for (const phase of ["before", "after", "commit"]) {
+    const failure = Object.freeze(new Error(`${phase} failed`));
+    let committed = false;
+    let afterCommitCalled = false;
+    const actions = createCrudJsonApiActions({
+      namespace: "books",
+      resource: createBookResource(),
+      repository: {
+        async withTransaction(work) {
+          const result = await work({ id: "transaction" });
+          if (phase === "commit") throw failure;
+          committed = true;
+          return result;
+        }
+      },
+      service: {
+        patchDocumentById(id, attributes) { return { data: { id, attributes } }; }
+      },
+      surface: "app",
+      operations: ["update"],
+      permissionForOperation: () => ({ require: "authenticated" }),
+      operationLifecycle: {
+        update: {
+          before() { if (phase === "before") throw failure; },
+          after() { if (phase === "after") throw failure; },
+          afterCommit() { afterCommitCalled = true; }
+        }
+      }
+    });
+    await assert.rejects(
+      () => actions[0].execute({ recordId: "42", title: "Kindred" }, {}),
+      (error) => error === failure && error.transactionOutcome === undefined
+    );
+    assert.equal(committed, false);
+    assert.equal(afterCommitCalled, false);
+  }
 });
 
 test("defineCrudJsonApiFeature exposes custom service methods as actions and optional routes", async () => {

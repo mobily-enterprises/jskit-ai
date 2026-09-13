@@ -86,7 +86,8 @@ Exports
 
 ### `src/shared/duplicateEntry.js`
 Exports
-- `isDuplicateEntryError(error, { dialect = "", client = null } = {})`
+- `findDuplicateEntryError(error, { dialect = "", client = null } = {})`
+- `isDuplicateEntryError(error, options)`
 Local functions
 - `isMysqlDuplicateEntryError(error)`
 - `isPostgresDuplicateEntryError(error)`
@@ -117,6 +118,7 @@ Exports
 - `resolveDatabaseClientFromEnvironment`
 - `resolveDatabaseConnectionFromEnvironment`
 - `resolveKnexConnectionFromEnvironment`
+- `findDuplicateEntryError`
 - `isDuplicateEntryError`
 - `normalizePath`
 - `jsonTextExpression`

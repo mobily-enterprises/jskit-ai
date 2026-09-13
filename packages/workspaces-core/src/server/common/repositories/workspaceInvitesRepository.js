@@ -1,5 +1,4 @@
 import {
-  createWithTransaction,
   normalizeLowerText,
   normalizeRecordId,
   normalizeDbRecordId,
@@ -8,13 +7,9 @@ import {
   toIsoString
 } from "./repositoryUtils.js";
 import {
-  createJsonApiInputRecord,
-  createJsonApiRelationship,
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-
-const RESOURCE_TYPE = "workspaceInvites";
 
 function normalizeInviteRecord(payload) {
   if (!payload) {
@@ -80,28 +75,12 @@ function normalizeInviteWithWorkspace(payload = {}) {
   };
 }
 
-function createInviteRelationships({ workspaceId = null, invitedByUserId = undefined } = {}) {
-  const relationships = {};
-
-  if (workspaceId) {
-    relationships.workspace = createJsonApiRelationship("workspaces", workspaceId);
-  }
-  if (invitedByUserId !== undefined) {
-    relationships.invitedByUser = createJsonApiRelationship("userProfiles", invitedByUserId);
-  }
-
-  return relationships;
-}
-
-function createRepository({ api, knex } = {}) {
+function createRepository({ api } = {}) {
   if (!api?.resources?.workspaceInvites) {
     throw new TypeError("workspaceInvitesRepository requires json-rest-api workspaceInvites resource.");
   }
-  if (typeof knex !== "function") {
-    throw new TypeError("workspaceInvitesRepository requires knex.");
-  }
 
-  const withTransaction = createWithTransaction(knex);
+  const withTransaction = (work) => api.transaction(work);
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
     return extractJsonRestCollectionRows(
@@ -112,7 +91,7 @@ function createRepository({ api, knex } = {}) {
             ...(includeWorkspace ? { include: ["workspace"] } : {})
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -210,26 +189,21 @@ function createRepository({ api, knex } = {}) {
       const createdAt = new Date().toISOString();
       const created = await api.resources.workspaceInvites.post(
         {
-          inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
-            {
-              email: createPayload.email,
-              roleSid: createPayload.roleSid,
-              status: createPayload.status,
-              tokenHash: createPayload.tokenHash,
-              expiresAt: createPayload.expiresAt == null ? null : toIsoString(createPayload.expiresAt),
-              acceptedAt: null,
-              revokedAt: null,
-              createdAt,
-              updatedAt: createdAt
-            },
-            {
-              relationships: createInviteRelationships({
-                workspaceId: createPayload.workspaceId,
-                invitedByUserId: createPayload.invitedByUserId ?? null
-              })
-            }
-          ),
+          data: {
+            email: createPayload.email,
+            roleSid: createPayload.roleSid,
+            status: createPayload.status,
+            tokenHash: createPayload.tokenHash,
+            expiresAt: createPayload.expiresAt == null ? null : toIsoString(createPayload.expiresAt),
+            acceptedAt: null,
+            revokedAt: null,
+            createdAt,
+            updatedAt: createdAt,
+            workspace: createPayload.workspaceId,
+            invitedByUser: createPayload.invitedByUserId ?? null
+          },
+          format: "plain",
+          returning: "full",
           transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
@@ -237,7 +211,7 @@ function createRepository({ api, knex } = {}) {
 
       return normalizeInviteRecord(created);
     } catch (error) {
-      if (!isDuplicateEntryError(error)) {
+      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -277,16 +251,13 @@ function createRepository({ api, knex } = {}) {
       }
       await api.resources.workspaceInvites.patch(
         {
-          inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
-            {
-              status: patch.status,
-              updatedAt: new Date().toISOString()
-            },
-            {
-              id: row.id
-            }
-          ),
+          id: row.id,
+          data: {
+            status: patch.status,
+            updatedAt: new Date().toISOString()
+          },
+          format: "plain",
+          returning: "full",
           transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
@@ -303,17 +274,14 @@ function createRepository({ api, knex } = {}) {
     const acceptedAt = new Date().toISOString();
     await api.resources.workspaceInvites.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            status: "accepted",
-            acceptedAt,
-            updatedAt: acceptedAt
-          },
-          {
-            id: normalizedInviteId
-          }
-        ),
+        id: normalizedInviteId,
+        data: {
+          status: "accepted",
+          acceptedAt,
+          updatedAt: acceptedAt
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)
@@ -329,17 +297,14 @@ function createRepository({ api, knex } = {}) {
     const revokedAt = new Date().toISOString();
     await api.resources.workspaceInvites.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            status: "revoked",
-            revokedAt,
-            updatedAt: revokedAt
-          },
-          {
-            id: normalizedInviteId
-          }
-        ),
+        id: normalizedInviteId,
+        data: {
+          status: "revoked",
+          revokedAt,
+          updatedAt: revokedAt
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)

@@ -53,7 +53,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
   });
   const api = await createJsonRestApiHost({ knex });
   await addResourceIfMissing(api, "books", createJsonRestResourceScopeOptions(resource));
-  const repository = createCrudJsonApiRepository({ api, knex, resource, resourceScopeName: "books" });
+  const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
   const service = createCrudJsonApiService({ repository });
   const actions = createActionCatalogue();
   actions.register({
@@ -141,8 +141,9 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
 
   await t.test("plain writes and JSON:API repository writes preserve full records", async () => {
     const created = await api.resources.books.post({
-      inputRecord: { id: "501", workspaceId: "1", name: "Plain record", createdAt: "2026-09-09T00:00:00.000Z" },
-      format: "plain"
+      data: { id: "501", workspaceId: "1", name: "Plain record", createdAt: "2026-09-09T00:00:00.000Z" },
+      format: "plain",
+      returning: "full"
     }, createJsonRestContext(context));
     assert.equal(created.id, "501");
     assert.equal(created.name, "Plain record");
@@ -155,7 +156,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     assert.equal(document.data.id, "502");
     assert.equal(document.data.attributes.name, "JSON:API record");
     assert.equal((await api.resources.books.get({ id: "502", format: "plain" }, createJsonRestContext(context))).name, "JSON:API record");
-    await assert.rejects(knex.transaction(async (trx) => {
+    await assert.rejects(api.transaction(async (trx) => {
       await repository.patchDocumentById("502", { name: "Rolled back" }, { trx, context });
       throw new Error("Rollback proof");
     }), /Rollback proof/);

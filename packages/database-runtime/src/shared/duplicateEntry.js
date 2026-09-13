@@ -15,23 +15,35 @@ function isPostgresDuplicateEntryError(error) {
   return code === "23505";
 }
 
-function isDuplicateEntryError(error, { dialect = "", client = null } = {}) {
-  if (!error) {
-    return false;
-  }
-
+function findDuplicateEntryError(error, { dialect = "", client = null } = {}) {
   const resolvedDialect =
     normalizeDialect(dialect) || (client ? normalizeDialect(detectDialectFromClient(client)) : "");
+  const seen = new Set();
+  let duplicate = null;
 
-  if (resolvedDialect === "postgres") {
-    return isPostgresDuplicateEntryError(error);
+  while (error && typeof error === "object" && !seen.has(error)) {
+    seen.add(error);
+    let matches;
+    if (resolvedDialect === "postgres") {
+      matches = isPostgresDuplicateEntryError(error);
+    } else if (resolvedDialect === "mysql") {
+      matches = isMysqlDuplicateEntryError(error);
+    } else {
+      matches = isMysqlDuplicateEntryError(error) || isPostgresDuplicateEntryError(error);
+    }
+
+    if (matches) {
+      // Wrappers may copy driver codes; retain the underlying constraint details.
+      duplicate = error;
+    }
+    error = error.cause;
   }
 
-  if (resolvedDialect === "mysql") {
-    return isMysqlDuplicateEntryError(error);
-  }
-
-  return isMysqlDuplicateEntryError(error) || isPostgresDuplicateEntryError(error);
+  return duplicate;
 }
 
-export { isDuplicateEntryError };
+function isDuplicateEntryError(error, options) {
+  return findDuplicateEntryError(error, options) !== null;
+}
+
+export { findDuplicateEntryError, isDuplicateEntryError };

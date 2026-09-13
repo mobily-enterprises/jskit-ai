@@ -17,7 +17,7 @@ The standard CRUD repository pattern follows this path:
 ```js
 return api.resources.contacts.query({
   queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, contactListFilterContract.toJsonRestQuery(query)),
-  simplified: false
+  format: "jsonapi"
 }, createJsonRestContext(context));
 ```
 

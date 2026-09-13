@@ -117,6 +117,75 @@ explicit input, permissions, routes where needed, audit behavior, events, and
 tests. Do not hide unrelated workflows behind a generic `execute(anything)`
 action, and do not create a custom repository merely because SQL is familiar.
 
+### JSON REST v2 integration
+
+Applications using `@jskit-ai/json-rest-api-core` require Node.js 24 or newer.
+JSKIT's repository and application default is Node.js 26. Upgrade dependencies,
+custom resource calls, and hooks together; rebuild native database dependencies
+after changing Node.
+
+The standard `defineCrudJsonApiFeature()` API keeps `queryDocuments`,
+`getDocumentById`, `createDocument`, `patchDocumentById`, and
+`deleteDocumentById`, with `{ trx, context }` repository/service options.
+Read, create, and patch services still return tagged JSON:API documents.
+Application-owned hosts use `JsonRestApi` from `json-rest-api`; the JSKIT host
+already owns that setup.
+
+For direct resource calls, replace `inputRecord` with exactly one of `data`
+(plain values) or `document` (a JSON:API document). `format` selects output
+independently: `"plain"` or `"jsonapi"`. Replace `simplified` and
+`returnFullRecord` with `format` and `returning: "full" | "minimal" | "none"`.
+The JSKIT host defaults to plain output and full write responses; standard
+document repositories explicitly request JSON:API output and full create/patch
+responses. A plain collection is still `{ data: [...], meta?, links? }`; use
+`extractJsonRestCollectionRows()` when a custom repository needs its rows.
+
+```js
+await jsonRestApi.resources.books.patch({
+  id: recordId,
+  data: { title: "Revised title" },
+  format: "jsonapi",
+  returning: "full",
+  transaction: trx
+}, createJsonRestContext(context));
+```
+
+Keep the target ID outside the patch data. Direct plain writes use the
+belongs-to relationship name and ID, such as `author: authorId`; the standard
+repository maps a resource field's declared `as` alias. Do not send both names.
+
+Resource hooks share the mutable context supplied as the second argument
+within one operation. The normalized hook field remains
+`context.inputRecord.data`; only the public input argument changed.
+`createJsonRestContext()` clones the JSKIT execution context and its
+`visibilityContext` and `scopeValues`, allowing frozen caller contexts; other
+nested objects remain shared references. Permission hooks use
+`context.originalContext ?? context` for operation-wide caches; enrichment
+hooks use `context.parentContext`. Built-in nested operations get separate
+contexts with shallow inheritance. For an application-initiated child call,
+choose the application properties to share in a fresh context and pass
+`transaction` explicitly; reusing or blindly spreading an active operation
+context carries its working state into the child.
+
+The standard repository's `withTransaction(work)` delegates to
+`jsonRestApi.transaction(work)`. Its callback and mutation lifecycle phases
+receive the actual callable Knex transaction: custom repository SQL can use
+`await trx("audit_entries").insert(...)`, while resource calls receive it as
+`transaction`. Await every participant before returning. The helper owns
+commit, rollback, and completion hooks. Raw `knex.transaction()` handles cannot
+own resource writes, and calling `transaction()` again starts an independent
+unit; forward the existing handle to compose work.
+
+Preserve `error.transactionOutcome` and its cause when translating failures:
+`none` means no transaction was acquired or accepted, `pending` leaves
+completion to the owner, `rolledBack` confirms rollback, `committed` confirms
+commit, and `unknown` means the outcome is unresolved. These describe database
+transaction evidence, not external effects. A failed JSKIT mutation
+`afterCommit` hook raises `RestApiWriteError` with outcome `committed` and does
+not undo the write. Do not turn pending, committed, or unknown write failures
+into successful missing-record results, or automatically replay a committed
+or unresolved write.
+
 ## 4. Adopt migrations without breaking either database history
 
 Every immutable migration belongs to the package that owns its tables. Declare

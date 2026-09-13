@@ -1,16 +1,13 @@
 import {
   normalizeRecordId,
-  isDuplicateEntryError,
-  createWithTransaction
+  isDuplicateEntryError
 } from "../common/repositories/repositoryUtils.js";
 import {
-  createJsonApiInputRecord,
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
 
-const RESOURCE_TYPE = "workspaceSettings";
 const WORKSPACE_SETTINGS_PATCH_FIELDS = Object.freeze([
   "lightPrimaryColor",
   "lightSecondaryColor",
@@ -52,14 +49,11 @@ function createDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvites
   };
 }
 
-function createRepository({ api, knex, defaultInvitesEnabled = true } = {}) {
+function createRepository({ api, defaultInvitesEnabled = true } = {}) {
   if (!api?.resources?.workspaceSettings) {
     throw new TypeError("workspaceSettingsRepository requires json-rest-api workspaceSettings resource.");
   }
-  if (typeof knex !== "function") {
-    throw new TypeError("workspaceSettingsRepository requires knex.");
-  }
-  const withTransaction = createWithTransaction(knex);
+  const withTransaction = (work) => api.transaction(work);
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(
@@ -69,7 +63,7 @@ function createRepository({ api, knex, defaultInvitesEnabled = true } = {}) {
             filters
           },
           transaction: options?.trx || null,
-          simplified: true
+          format: "plain"
         },
         createJsonRestContext(options?.context || null)
       )
@@ -101,19 +95,15 @@ function createRepository({ api, knex, defaultInvitesEnabled = true } = {}) {
     try {
       await api.resources.workspaceSettings.post(
         {
-          inputRecord: createJsonApiInputRecord(
-            RESOURCE_TYPE,
-            createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaultInvitesEnabled === true),
-            {
-              id: normalizedWorkspaceId
-            }
-          ),
+          data: createDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaultInvitesEnabled === true),
+          format: "plain",
+          returning: "full",
           transaction: options?.trx || null
         },
         createJsonRestContext(options?.context || null)
       );
     } catch (error) {
-      if (!isDuplicateEntryError(error)) {
+      if (options?.trx || error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
         throw error;
       }
     }
@@ -137,16 +127,13 @@ function createRepository({ api, knex, defaultInvitesEnabled = true } = {}) {
 
     await api.resources.workspaceSettings.patch(
       {
-        inputRecord: createJsonApiInputRecord(
-          RESOURCE_TYPE,
-          {
-            ...updatePayload,
-            updatedAt: new Date().toISOString()
-          },
-          {
-            id: normalizedWorkspaceId
-          }
-        ),
+        id: normalizedWorkspaceId,
+        data: {
+          ...updatePayload,
+          updatedAt: new Date().toISOString()
+        },
+        format: "plain",
+        returning: "full",
         transaction: options?.trx || null
       },
       createJsonRestContext(options?.context || null)

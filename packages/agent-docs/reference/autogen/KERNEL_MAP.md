@@ -65,6 +65,8 @@ Exports
 
 ### `support/normalize.js`
 Exports
+- `TRANSACTION_OUTCOMES`
+- `normalizeTransactionOutcome(value)`
 - `normalizeText(value, { fallback = "" } = {})`
 - `hasValue(value)`
 - `normalizeBoolean(value)`

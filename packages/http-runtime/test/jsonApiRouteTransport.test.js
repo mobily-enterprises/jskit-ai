@@ -1,8 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Fastify from "fastify";
+import knexLib from "knex";
+import {
+  RestApiFieldsetError,
+  RestApiIncludeError,
+  RestApiPayloadError,
+  RestApiPreconditionFailedError,
+  RestApiResourceError,
+  RestApiTemporalDataError,
+  RestApiValidationError,
+  RestApiVersionConflictError,
+  RestApiWriteError
+} from "json-rest-api";
 
 import {
   JSON_API_CONTENT_TYPE,
+  apiErrorTransportSchema,
   encodeJsonApiResourceQueryObject,
   createJsonApiResourceQueryTransportSchema,
   createJsonApiResourceRequestBodyTransportSchema,
@@ -15,6 +29,10 @@ import {
 } from "../src/shared/index.js";
 import { createSchema } from "../../kernel/shared/validators/index.js";
 import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/routeValidator.js";
+import { registerApiErrorHandler } from "../../kernel/server/runtime/fastifyBootstrap.js";
+import { AppError, isAppError } from "../../kernel/server/runtime/errors.js";
+import { createHttpError } from "../src/shared/clientRuntime/errors.js";
+import { createJsonRestApiHost } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
 
 const CONTACT_BODY_SCHEMA = Object.freeze({
   schema: createSchema({
@@ -195,6 +213,189 @@ test("createJsonApiResourceRouteTransport unwraps request payloads and wraps res
   assert.equal(errorPayload.errors[0].status, "400");
   assert.equal(errorPayload.errors[0].code, "validation_failed");
   assert.equal(errorPayload.errors[0].source.pointer, "/data/attributes/name");
+});
+
+test("real HTTP responses classify typed JSON REST read and write errors", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  registerApiErrorHandler(app, { isAppError });
+  const transport = createJsonApiResourceRouteTransport({ type: "books" });
+  const cases = [
+    ["validation", () => new RestApiValidationError("Title is required."), 422],
+    ["missing", () => new RestApiResourceError("Book not found.", { subtype: "not_found" }), 404],
+    ["forbidden", () => new RestApiResourceError("Book is forbidden.", { subtype: "forbidden" }), 403],
+    ["conflict", () => new RestApiResourceError("Book conflicts.", { subtype: "conflict" }), 409],
+    ["resource", () => new RestApiResourceError("Invalid resource."), 400],
+    ["version", () => new RestApiVersionConflictError({ resourceType: "books", resourceId: "1" }), 409],
+    ["precondition", () => new RestApiPreconditionFailedError({ resourceType: "books", resourceId: "1" }), 412],
+    ["fieldset", () => new RestApiFieldsetError({ resourceType: "books", field: "missing" }), 400],
+    ["include", () => new RestApiIncludeError({ resourceType: "books", path: "missing" }), 400],
+    ["payload", () => new RestApiPayloadError("Invalid document."), 400],
+    ["large-payload", () => new RestApiPayloadError("Document too large.", { statusCode: 413 }), 413],
+    ["temporal", () => new RestApiTemporalDataError({ resourceType: "private_table", field: "private_column", fieldType: "date" }), 500],
+    ["custom-status", () => Object.assign(new Error("Custom error."), { status: 418 }), 418],
+    ["server-status", () => Object.assign(new Error("private server failure"), { statusCode: 503 }), 503],
+    ["invalid-status", () => Object.assign(new Error("private invalid status"), { statusCode: 200 }), 500]
+  ];
+
+  for (const jsonapi of [false, true]) {
+    for (const wrapped of [false, true]) {
+      const prefix = `/${jsonapi ? "jsonapi" : "plain"}/${wrapped ? "write" : "read"}`;
+      app.get(`${prefix}/:kind`, {
+        config: jsonapi ? { transport: { runtime: transport } } : {},
+        ...(jsonapi ? {} : { schema: { response: { "4xx": apiErrorTransportSchema, "5xx": apiErrorTransportSchema } } })
+      }, async (request) => {
+        const [, createError] = cases.find(([name]) => name === request.params.kind);
+        const cause = createError();
+        if (wrapped) {
+          throw new RestApiWriteError(cause.message, { cause, transactionOutcome: "rolledBack" });
+        }
+        throw cause;
+      });
+    }
+  }
+
+  for (const jsonapi of [false, true]) {
+    for (const wrapped of [false, true]) {
+      for (const [name, createError, expectedStatus] of cases) {
+        const url = `/${jsonapi ? "jsonapi" : "plain"}/${wrapped ? "write" : "read"}/${name}`;
+        const response = await app.inject({ method: "GET", url });
+        assert.equal(response.statusCode, expectedStatus, url);
+        const payload = response.json();
+        const clientError = createHttpError({ status: response.statusCode }, payload);
+        assert.equal(clientError.status, expectedStatus, url);
+        assert.equal(clientError.transactionOutcome, wrapped ? "rolledBack" : undefined, url);
+        assert.equal(clientError.message, expectedStatus >= 500 ? "Internal server error." : createError().message, url);
+        assert.equal(clientError.cause, undefined);
+        if (jsonapi) {
+          assert.equal(payload.errors[0].status, String(expectedStatus));
+          assert.match(response.headers["content-type"], /^application\/vnd\.api\+json/u);
+        }
+        if (expectedStatus >= 500) {
+          assert.doesNotMatch(response.body, /private/u);
+        }
+      }
+    }
+  }
+});
+
+test("real resource validation, permission hooks and completion failures retain HTTP semantics", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("books", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+  });
+  const api = await createJsonRestApiHost({ knex, logger: { error() {} } });
+  await api.addResource("books", { schema: { title: { type: "string", required: true } } });
+  await api.customize({ hooks: {
+    checkPermissions({ context }) {
+      if ((context.originalContext ?? context).deny) {
+        throw new RestApiResourceError("Book access denied.", { subtype: "forbidden" });
+      }
+    },
+    afterCommit({ context }) {
+      if (context.failAfterCommit) {
+        throw new Error("private notification failure");
+      }
+    }
+  } });
+  registerApiErrorHandler(app, { isAppError });
+  const transport = createJsonApiResourceRouteTransport({ type: "books" });
+  for (const jsonapi of [false, true]) {
+    const prefix = `/${jsonapi ? "jsonapi" : "plain"}`;
+    const options = { config: jsonapi ? { transport: { runtime: transport } } : {} };
+    app.get(`${prefix}/denied`, options, async () => api.resources.books.query({}, { deny: true }));
+    app.post(`${prefix}/invalid`, options, async (request) => api.resources.books.post({ data: request.body }));
+    app.post(`${prefix}/committed`, options, async (request) => api.resources.books.post({ data: request.body }, { failAfterCommit: true }));
+  }
+
+  for (const jsonapi of [false, true]) {
+    const prefix = `/${jsonapi ? "jsonapi" : "plain"}`;
+    for (const [path, method, payload, status, code, outcome] of [
+      ["denied", "GET", undefined, 403, "REST_API_RESOURCE", undefined],
+      ["invalid", "POST", {}, 422, "REST_API_VALIDATION", "rolledBack"],
+      ["committed", "POST", { title: "Stored book" }, 500, "REST_API_WRITE", "committed"]
+    ]) {
+      const response = await app.inject({ method, url: `${prefix}/${path}`, ...(payload ? { payload } : {}) });
+      assert.equal(response.statusCode, status, response.body);
+      const clientError = createHttpError({ status: response.statusCode }, response.json());
+      assert.equal(clientError.status, status);
+      assert.equal(clientError.code, code);
+      assert.equal(clientError.transactionOutcome, outcome);
+      if (status === 500) {
+        assert.equal(clientError.message, "Internal server error.");
+        assert.doesNotMatch(response.body, /private/u);
+      }
+    }
+  }
+  assert.deepEqual(await knex("books").pluck("title"), ["Stored book", "Stored book"]);
+});
+
+test("error handler, JSON:API transport and client preserve outcomes without disclosing internal failures", () => {
+  const transport = createJsonApiResourceRouteTransport({ type: "books" });
+  const app = { log: { error() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
+  registerApiErrorHandler(app, { isAppError });
+
+  for (const transactionOutcome of ["none", "pending", "committed", "rolledBack", "unknown", "invalid", undefined]) {
+    const failure = Object.assign(new Error("Private SQL statement"), {
+      transactionOutcome,
+      code: "REST_API_WRITE",
+      fieldErrors: { secret: "Private SQL value" },
+      cause: { secret: "Private cause" },
+      cleanupErrors: [{ message: "Private cleanup" }]
+    });
+    for (const jsonapi of [false, true]) {
+      const reply = {
+        statusCode: 200,
+        headers: {},
+        code(value) { this.statusCode = value; return this; },
+        header(name, value) { this.headers[name] = value; return this; },
+        send(payload) { this.payload = payload; return this; }
+      };
+      app.errorHandler(failure, jsonapi ? { routeTransport: transport } : {}, reply);
+      assert.equal(reply.statusCode, 500);
+      const clientError = createHttpError({ status: reply.statusCode }, reply.payload);
+      assert.equal(clientError.message, "Internal server error.");
+      assert.equal(clientError.code, "REST_API_WRITE");
+      assert.equal(clientError.transactionOutcome, transactionOutcome === "invalid" ? undefined : transactionOutcome);
+      assert.equal(clientError.cause, undefined);
+      assert.equal(clientError.fieldErrors, null);
+      assert.equal(JSON.stringify(reply.payload).includes("Private"), false);
+      if (jsonapi) {
+        assert.equal(reply.headers["Content-Type"], JSON_API_CONTENT_TYPE);
+        assert.equal(reply.payload.errors[0].meta?.transactionOutcome, clientError.transactionOutcome);
+      }
+    }
+  }
+});
+
+test("JSON:API field errors retain outcomes and permission details remain private", () => {
+  const transport = createJsonApiResourceRouteTransport({ type: "books" });
+  const payload = transport.error({
+    message: "Validation failed.",
+    transactionOutcome: "rolledBack",
+    fieldErrors: { title: "Required", author: "Missing" }
+  }, { statusCode: 422 });
+  assert.equal(payload.errors.length, 2);
+  assert.ok(payload.errors.every((error) => error.meta.transactionOutcome === "rolledBack"));
+
+  const app = { log: { error() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
+  registerApiErrorHandler(app, { isAppError });
+  const reply = {
+    code() { return this; },
+    header() { return this; },
+    send(value) { this.payload = value; return this; }
+  };
+  app.errorHandler(new AppError(403, "Forbidden.", {
+    code: "ACTION_PERMISSION_DENIED",
+    details: { fieldErrors: { secret: "Required private permission" } }
+  }), { routeTransport: transport }, reply);
+  assert.deepEqual(reply.payload, {
+    errors: [{ status: "403", code: "ACTION_PERMISSION_DENIED", title: "Forbidden." }]
+  });
 });
 
 test("createJsonApiResourceQueryTransportSchema and route transport map list query params to JSON:API", () => {

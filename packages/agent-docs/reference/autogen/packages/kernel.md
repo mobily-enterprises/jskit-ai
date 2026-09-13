@@ -189,6 +189,8 @@ Exports
 
 ### `shared/support/normalize.js`
 Exports
+- `TRANSACTION_OUTCOMES`
+- `normalizeTransactionOutcome(value)`
 - `normalizeText(value, { fallback = "" } = {})`
 - `hasValue(value)`
 - `normalizeBoolean(value)`
@@ -934,7 +936,8 @@ Local functions
 - `hasRequestBody(headers = {})`
 - `resolveValidationFieldErrors(error)`
 - `resolveRequestRouteTransport(request)`
-- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "" } = {})`
+- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true } = {})`
+- `resolveApiErrorStatus(error, code)`
 
 ### `server/runtime/index.js`
 Exports
