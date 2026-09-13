@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.185",
+  "version": "0.1.186",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -21,7 +21,6 @@
     "./shared/repositoryOptions": "./src/shared/repositoryOptions.js",
     "./shared/visibility": "./src/shared/visibility.js",
     "./shared/retention": "./src/shared/retention.js",
-    "./shared/runtime": "./src/shared/runtime.js",
     "./shared/runtimeErrors": "./src/shared/runtimeErrors.js",
     "./shared/transactionManager": "./src/shared/transactionManager.js",
     "./shared/transactions": "./src/shared/transactions.js"
@@ -80,6 +79,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.185"
+    "@jskit-ai/kernel": "0.1.186"
   }
 }
