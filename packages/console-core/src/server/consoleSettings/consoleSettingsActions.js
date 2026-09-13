@@ -17,6 +17,11 @@ const consoleSettingsActionSpecifications = Object.freeze([
     },
     input: emptyInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe."
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "console.settings.read"
@@ -45,6 +50,7 @@ const consoleSettingsActionSpecifications = Object.freeze([
     },
     observability: {},
     extensions: {
+      assistant: { exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe." },
       realtime: {
         event: "console.settings.changed",
         audience: "all_users"

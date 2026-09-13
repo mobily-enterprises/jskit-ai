@@ -72,6 +72,52 @@ The assistant validates the transformed result against
 JSON:API CRUD actions supply these assistant contracts and transformations
 automatically; their native action and HTTP result shapes do not change.
 
+### Framework account and workspace actions
+
+Account and workspace action owners supply assistant-specific descriptions,
+output validators and result adapters. Their API routes keep their existing
+responses. The current tagged JSON:API action result stores its payload in
+`result.value`; profile update stores it in `result.response.value` beside a
+server-only session. Do not forward the wrapper or session to the assistant.
+
+`surfaces: ["*"]` matches every named surface. An empty surface list remains
+unrestricted; explicit names remain restrictive. Surface matching never grants
+permissions. Trusted `workspaceSlug` replaces model input only on actions whose
+input declares that field; account and directory-list actions receive no extra
+workspace parameter.
+
+There are 22 enabled framework contracts: eight account actions and fourteen
+workspace actions. Invitation creation returns invitation summaries, the created
+ID and delivery status, without token previews, invitation URLs, provider message
+IDs or provider delivery messages. Pending invitation lists omit raw tokens.
+Output validation rejects unexpected fields, including nested fields, instead
+of passing arbitrary server state into model results.
+
+Nine actions are explicitly excluded from assistant discovery and execution:
+
+| Actions | Reason / existing alternative |
+| --- | --- |
+| `settings.profile.avatar.upload` | Use the authenticated account file picker; no upload streams in tool arguments. |
+| `settings.security.password.change` | Use the authenticated account security form; no passwords in tool arguments. |
+| `settings.security.oauth.link.start` | Use the authenticated account security screen; authorization URLs contain transient state. |
+| `workspace.invitation.resolve`, `workspace.invite.redeem` | Use the invitation screen; no raw invitation tokens in tool arguments. |
+| `assistant.settings.read`, `assistant.settings.update` | Assistant self-configuration stays disabled. Use the existing assistant settings screen. |
+| `console.settings.read`, `console.settings.update` | Application-defined settings have no framework field allowlist. An application must define its own safe contract before exposing configuration. |
+
+An owner records an exclusion as `extensions.assistant.exclude`, containing a
+human-readable reason. An exclusion takes precedence even if the action later
+gains a structured HTTP output. It affects assistant tools only, not API or
+internal execution. The runtime also retains its `assistant.` prefix exclusion,
+so recursive chat/history operations remain unavailable. This release introduces
+no protected handoff subsystem. Do not ask a user to paste credentials into chat
+to work around an excluded operation.
+
+The framework inventory test checks all account, workspace and console action
+specification modules plus the assistant runtime automation actions. Every action
+must have a documented exclusion or a description, output contract, result adapter
+and execution fixture. Application-defined automation actions require the same
+review; automation capability alone does not mean model exposure is safe.
+
 Generated list and view actions use JSON:API query shapes directly. `include`
 is a comma-separated string, and `fields` is keyed by resource type:
 

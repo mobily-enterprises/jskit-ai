@@ -25,6 +25,11 @@ const accountSecurityActionSpecifications = Object.freeze([
     },
     input: userSettingsResource.operations.passwordChange.body,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Use the authenticated account security form; passwords must not enter assistant arguments."
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.security.password.change"
@@ -52,6 +57,13 @@ const accountSecurityActionSpecifications = Object.freeze([
     },
     input: userSettingsResource.operations.passwordMethodToggle.body,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Enable or disable password sign-in for the signed-in user, subject to the account authentication policy.",
+        output: userSettingsResource.operations.passwordMethodToggle.output,
+        transformResult: (result) => ({ securityStatus: result.value.securityStatus, settings: result.value.settings })
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.security.password_method.toggle"
@@ -79,6 +91,11 @@ const accountSecurityActionSpecifications = Object.freeze([
     },
     input: oauthLinkStartInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Use the authenticated account security screen; OAuth authorization URLs contain transient credentials."
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.link.start"
@@ -106,6 +123,13 @@ const accountSecurityActionSpecifications = Object.freeze([
     },
     input: userSettingsResource.operations.oauthUnlink.params,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Unlink an OAuth sign-in method from the signed-in account, subject to the account authentication policy.",
+        output: userSettingsResource.operations.oauthUnlink.output,
+        transformResult: (result) => ({ securityStatus: result.value.securityStatus })
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.security.oauth.unlink"
@@ -133,6 +157,13 @@ const accountSecurityActionSpecifications = Object.freeze([
     },
     input: userSettingsResource.operations.logoutOtherSessions.body,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Sign the current user out of other devices.",
+        output: userSettingsResource.operations.logoutOtherSessions.output,
+        transformResult: () => ({ ok: true })
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.security.sessions.logout_others"

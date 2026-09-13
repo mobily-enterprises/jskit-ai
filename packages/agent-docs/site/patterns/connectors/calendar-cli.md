@@ -106,6 +106,6 @@ inside a desktop binary or browser bundle.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connector-google-calendar@0.1.1`
+- Owner: `@jskit-ai/connector-google-calendar@0.1.2`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connector-google-calendar/patterns/calendar-cli/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connector-google-calendar/patterns/calendar-cli/example)
