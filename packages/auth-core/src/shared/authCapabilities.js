@@ -1,6 +1,6 @@
 import { normalizeOAuthProviderId } from "./oauthProviders.js";
 
-const AUTH_PASSWORD_RECOVERY_DELIVERIES = Object.freeze(["smtp", "dev-log", "dev-response", "disabled"]);
+const AUTH_PASSWORD_RECOVERY_DELIVERIES = Object.freeze(["email", "dev-log", "dev-response", "disabled"]);
 
 const AUTH_OPTIONAL_OPERATION_FEATURES = Object.freeze({
   register: "password.register",

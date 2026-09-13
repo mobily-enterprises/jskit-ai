@@ -12,7 +12,7 @@ const SUPABASE_OAUTH_PROVIDER_METADATA = Object.freeze({
   figma: Object.freeze({ id: "figma", label: "Figma" }),
   github: Object.freeze({ id: "github", label: "GitHub" }),
   gitlab: Object.freeze({ id: "gitlab", label: "GitLab" }),
-  google: Object.freeze({ id: "google", label: "Google", queryParams: { prompt: "select_account" } }),
+  google: Object.freeze({ id: "google", label: "Google" }),
   kakao: Object.freeze({ id: "kakao", label: "Kakao" }),
   keycloak: Object.freeze({ id: "keycloak", label: "Keycloak" }),
   linkedin_oidc: Object.freeze({ id: "linkedin_oidc", label: "LinkedIn" }),

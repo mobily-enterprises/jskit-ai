@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "registrations": {
+    "wordpress": {
+      "source": "own",
+      "clientId": "YOUR_ASSIGNED_CLIENT_ID",
+      "clientSecretRef": "env:WORDPRESS_COM_CLIENT_SECRET",
+      "callbackUrlRef": "env:WORDPRESS_COM_CALLBACK_URL"
+    }
+  },
+  "integrations": {
+    "publishing": {
+      "provider": "wordpress-com",
+      "displayName": "Publishing account",
+      "accountMode": "per-user",
+      "scopes": ["users", "sites", "posts"],
+      "authentication": { "method": "oauth2", "registrationRef": "wordpress" }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "name": "@jskit-ai/payments-core",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Application-owned payment configuration, subscription access and transactional usage credits.",
+  "exports": {
+    "./shared": "./src/shared/configuration.js",
+    "./configuration.schema.json": "./contracts/configuration.schema.json",
+    "./conformance.json": "./contracts/conformance.json",
+    "./docs/contract.md": "./docs/contract.md",
+    "./docs/conformance.md": "./docs/conformance.md",
+    "./server": "./src/server/service.js",
+    "./server/storage": "./src/server/knexStore.js",
+    "./server/checkout": "./src/server/checkout.js",
+    "./server/stripe": "./src/server/stripe.js",
+    "./server/paddle": "./src/server/paddle.js",
+    "./server/catalogue": "./src/server/catalogue.js",
+    "./server/readiness": "./src/server/readiness.js"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "dependencies": {
+    "@paddle/paddle-node-sdk": "3.10.0",
+    "ajv": "8.20.0",
+    "stripe": "22.6.2"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "migrations": {
+      "directories": [
+        "migrations"
+      ]
+    },
+    "metadata": {
+      "jskit": {
+        "tableOwnership": {
+          "tables": [
+            {
+              "tableName": "payment_accounts"
+            },
+            {
+              "tableName": "payment_entries"
+            },
+            {
+              "tableName": "payment_customers"
+            },
+            {
+              "tableName": "payment_catalogues"
+            }
+          ]
+        }
+      }
+    },
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    }
+  }
+}

@@ -23,7 +23,8 @@ function oauthConfig(config) {
     providers: Array.isArray(oauth.providers)
       ? oauth.providers.map((entry) => String(entry || "").trim()).filter(Boolean)
       : splitCsv(oauth.providers),
-    defaultProvider: String(oauth.defaultProvider || "").trim()
+    defaultProvider: String(oauth.defaultProvider || "").trim(),
+    queryParams: normalizeRecord(oauth.queryParams)
   };
 }
 
@@ -38,7 +39,8 @@ function providerConfig(env, config) {
     ).trim(),
     jwtAudience: String(env.AUTH_JWT_AUDIENCE || "authenticated").trim(),
     oauthProviders: envProviders.length > 0 ? envProviders : configuredOauth.providers,
-    oauthDefaultProvider: String(env.AUTH_OAUTH_DEFAULT_PROVIDER || "").trim() || configuredOauth.defaultProvider
+    oauthDefaultProvider: String(env.AUTH_OAUTH_DEFAULT_PROVIDER || "").trim() || configuredOauth.defaultProvider,
+    oauthProviderQueryParams: configuredOauth.queryParams
   };
 }
 

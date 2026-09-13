@@ -9,6 +9,7 @@ test("local auth has no package mutation or CI recipe", () => {
   assert.equal(Object.hasOwn(packageMetadata, "mutations"), false);
 });
 
-test("local auth declares Nodemailer as its own runtime dependency", () => {
-  assert.equal(typeof packageJson.dependencies.nodemailer, "string");
+test("local auth delegates recovery delivery to the application", () => {
+  assert.equal(packageJson.dependencies?.nodemailer, undefined);
+  assert.ok(packageMetadata.metadata.apiSummary.extensionCapabilities.includes("auth.local.recovery-sender"));
 });

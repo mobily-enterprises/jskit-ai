@@ -308,9 +308,9 @@ packages/mobile-capacitor/
   - [ ] login works
   - [ ] workspace route navigation works
   - [ ] deep links work
-  - [ ] `google-rewarded-web` gate opens inside the Android shell
+  - [ ] `rewarded-web` gate opens inside the Android shell
   - [ ] the rewarded video ad loads in the Android shell
-  - [ ] reward completion reaches `google-rewarded-core`
+  - [ ] reward completion reaches `rewarded-core`
   - [ ] unlock receipt state is written correctly
   - [ ] the gated feature unlocks correctly after reward grant
   - [x] release AAB builds

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "logos": {
+      "provider": "logo-dev",
+      "displayName": "Company logos",
+      "accountMode": "shared",
+      "scopes": [],
+      "authentication": { "method": "api-key", "secretRef": "env:LOGO_DEV_PUBLISHABLE_KEY" }
+    }
+  }
+}

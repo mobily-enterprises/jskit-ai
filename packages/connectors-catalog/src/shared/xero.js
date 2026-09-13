@@ -1,0 +1,46 @@
+const xeroDefinition = Object.freeze({
+  id: "xero", name: "Xero", description: "Manage contacts and invoices, record payments and read financial reports in connected organisations.",
+  accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
+  oauthClientAuthenticationMethods: ["client_secret_basic"],
+  scopes: [
+    { value: "offline_access", label: "Keep access when the user is away", recommended: true },
+    { value: "accounting.settings.read", label: "Read organisation settings", recommended: true },
+    { value: "accounting.contacts.read", label: "Read contacts", recommended: true },
+    { value: "accounting.invoices.read", label: "Read invoices and bills", recommended: true },
+    { value: "accounting.settings", label: "Read and manage organisation settings" },
+    { value: "accounting.contacts", label: "Read and manage contacts" },
+    { value: "accounting.invoices", label: "Read and manage invoices and bills" },
+    { value: "accounting.payments", label: "Read and manage payments" },
+    { value: "accounting.payments.read", label: "Read payments" },
+    { value: "accounting.banktransactions", label: "Read and manage bank transactions" },
+    { value: "accounting.banktransactions.read", label: "Read bank transactions" },
+    { value: "accounting.manualjournals", label: "Read and manage manual journals" },
+    { value: "accounting.manualjournals.read", label: "Read manual journals" },
+    { value: "accounting.attachments", label: "Read and manage attachments" },
+    { value: "accounting.attachments.read", label: "Read attachments" },
+    { value: "accounting.reports.profitandloss.read", label: "Read profit and loss reports" },
+    { value: "accounting.reports.balancesheet.read", label: "Read balance sheet reports" },
+    { value: "accounting.reports.aged.read", label: "Read aged receivables and payables reports" },
+    { value: "accounting.reports.executivesummary.read", label: "Read executive summary reports" },
+    { value: "accounting.reports.banksummary.read", label: "Read bank summary reports" },
+    { value: "accounting.reports.trialbalance.read", label: "Read trial balance reports" },
+    { value: "accounting.reports.budgetsummary.read", label: "Read budget summary reports" },
+    { value: "accounting.reports.taxreports.read", label: "Read GST and BAS reports" },
+    { value: "accounting.budgets.read", label: "Read budgets" }
+  ],
+  setup: { url: "https://developer.xero.com/documentation/guides/oauth2/auth-flow/", steps: [
+    "Open My Apps in the Xero developer portal and create an app using the Auth Code grant type. Copy its Client ID and generate a Client Secret.",
+    "Register the exact backend callback URL. Xero requires HTTPS except http://localhost for local testing; http://127.0.0.1 is not accepted.",
+    "Store the secret and callback in Env. This provider uses HTTP Basic client authentication; the saved registration selects it automatically.",
+    "After consent, list connected organisations and let the application choose an authorised organisation. A connection is not application login.",
+    "Default permissions allow organisation, contact and invoice reads. Select Read and manage contacts for deliberate contact creation or changes. Select Read payments for payment pages. For financial reports, select the matching Read profit and loss, balance sheet, aged receivables and payables, executive summary, bank summary or trial balance permission, then reconnect to approve the added permissions. Aged reports require a contact ID; your app must supply reporting dates. Read settings supplies the organisation’s currencies, tax rates and tracking categories as well as accounts. Your Xero user also needs access to those reports. Other permission choices do not add operations.",
+    "To inspect bank transactions or manual journals, select Read bank transactions or Read manual journals and reconnect. Your app selects the connected organisation and requests numbered pages, then retrieves an individual record for its full lines. These read permissions do not authorize changes or bank reconciliation.",
+    "To create or change manual journals, select Read and manage manual journals and reconnect. Choose account codes from Accounts, supply balanced debit (positive) and credit (negative) lines, narration, date and tax basis. New journals default to DRAFT; posting must be an explicit app action. Xero validates balance, tax and allowed status changes. Keep a stable request key and inspect the journal after an uncertain result before retrying.",
+    "To create or edit ordinary SPEND/RECEIVE bank transactions, select Read and manage bank transactions and reconnect. Choose a bank account from Accounts and a contact, then supply date, tax basis and complete lines. Currency comes from the bank account. Keep the exact request and stable request key. Transfers, prepayments, overpayments and automatic reconciliation are not supported by these write operations.",
+    "For record attachments, select Read attachments to list/download, or Read and manage attachments to upload/replace, then reconnect. Choose a contact, invoice, bank transaction or manual journal in the connected organisation. Files are limited to 3 MiB by this adapter; replacement uses the existing filename. Keep the request key and inspect the attachment list after an uncertain upload before retrying. Saving configuration never uploads files.",
+    "For budget lists and account budget lines, select Read budgets. For the budget summary report, separately select Read budget summary reports. Reconnect after adding either permission. Choose a budget returned by the connected organisation; summary periods use 1 for months, 3 for quarters or 12 for years. These operations read existing budgets and do not create or edit them.",
+    "To record an invoice payment, select Read and manage payments and reconnect. Your app must choose the invoice, a suitable bank or payment-enabled account, date and amount, and retain the exact request with its idempotency key. This records a payment in Xero; it does not charge a customer. Inspect payment history after an uncertain result before retrying.",
+    "To create or update sales invoices and supplier bills, select Read and manage invoices and bills and reconnect. Your app supplies contact, dates, currency, tax basis and line items; creation defaults to Draft. Review authorisation, voiding or deletion explicitly. Keep the exact request and idempotency key, inspect uncertain results before retrying, and preserve existing line IDs when replacing lines. Saving this form writes no accounting records."
+  ] }
+});
+export { xeroDefinition };

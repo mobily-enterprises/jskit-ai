@@ -5,51 +5,57 @@
   },
   "release": {
     "packages": {
-      "@jskit-ai/agent-docs": "0.1.155",
-      "@jskit-ai/assistant-core": "0.1.159",
-      "@jskit-ai/assistant-runtime": "0.1.154",
-      "@jskit-ai/auth-core": "0.1.181",
-      "@jskit-ai/auth-provider-local-core": "0.1.84",
-      "@jskit-ai/auth-provider-local-db-core": "0.1.75",
-      "@jskit-ai/auth-provider-supabase-core": "0.1.180",
-      "@jskit-ai/auth-web": "0.1.183",
-      "@jskit-ai/config-eslint": "0.1.180",
-      "@jskit-ai/console-core": "0.1.146",
-      "@jskit-ai/console-web": "0.1.151",
-      "@jskit-ai/crud-core": "0.1.194",
-      "@jskit-ai/database-runtime": "0.1.183",
-      "@jskit-ai/database-runtime-mysql": "0.1.181",
-      "@jskit-ai/database-runtime-postgres": "0.1.180",
-      "@jskit-ai/google-rewarded-core": "0.1.119",
-      "@jskit-ai/google-rewarded-web": "0.1.119",
-      "@jskit-ai/http-runtime": "0.1.181",
-      "@jskit-ai/http-web": "0.1.28",
-      "@jskit-ai/jskit-catalog": "0.1.208",
-      "@jskit-ai/json-rest-api-core": "0.1.127",
-      "@jskit-ai/kernel": "0.1.183",
-      "@jskit-ai/mobile-capacitor": "0.1.118",
-      "@jskit-ai/realtime": "0.1.180",
-      "@jskit-ai/resource-core": "0.1.125",
-      "@jskit-ai/resource-crud-core": "0.1.125",
-      "@jskit-ai/shell-web": "0.1.187",
-      "@jskit-ai/storage-runtime": "0.1.180",
-      "@jskit-ai/uploads-image-web": "0.1.158",
-      "@jskit-ai/uploads-runtime": "0.1.158",
-      "@jskit-ai/users-core": "0.1.196",
-      "@jskit-ai/users-web": "0.1.201",
-      "@jskit-ai/workspaces-core": "0.1.161",
-      "@jskit-ai/workspaces-web": "0.1.162"
+      "@jskit-ai/agent-docs": "0.1.156",
+      "@jskit-ai/assistant-core": "0.1.160",
+      "@jskit-ai/assistant-runtime": "0.1.155",
+      "@jskit-ai/auth-core": "0.1.182",
+      "@jskit-ai/auth-provider-local-core": "0.1.85",
+      "@jskit-ai/auth-provider-local-db-core": "0.1.76",
+      "@jskit-ai/auth-provider-supabase-core": "0.1.181",
+      "@jskit-ai/auth-web": "0.1.184",
+      "@jskit-ai/config-eslint": "0.1.181",
+      "@jskit-ai/connector-google-calendar": "0.1.1",
+      "@jskit-ai/connectors-catalog": "0.1.1",
+      "@jskit-ai/connectors-core": "0.1.1",
+      "@jskit-ai/connectors-web": "0.1.1",
+      "@jskit-ai/console-core": "0.1.147",
+      "@jskit-ai/console-web": "0.1.152",
+      "@jskit-ai/crud-core": "0.1.195",
+      "@jskit-ai/database-runtime": "0.1.184",
+      "@jskit-ai/database-runtime-mysql": "0.1.182",
+      "@jskit-ai/database-runtime-postgres": "0.1.181",
+      "@jskit-ai/http-runtime": "0.1.182",
+      "@jskit-ai/http-web": "0.1.29",
+      "@jskit-ai/jskit-catalog": "0.1.209",
+      "@jskit-ai/json-rest-api-core": "0.1.128",
+      "@jskit-ai/kernel": "0.1.184",
+      "@jskit-ai/mobile-capacitor": "0.1.119",
+      "@jskit-ai/payments-core": "0.1.1",
+      "@jskit-ai/payments-web": "0.1.1",
+      "@jskit-ai/realtime": "0.1.181",
+      "@jskit-ai/resource-core": "0.1.126",
+      "@jskit-ai/resource-crud-core": "0.1.126",
+      "@jskit-ai/rewarded-core": "0.1.120",
+      "@jskit-ai/rewarded-web": "0.1.120",
+      "@jskit-ai/shell-web": "0.1.188",
+      "@jskit-ai/storage-runtime": "0.1.181",
+      "@jskit-ai/uploads-image-web": "0.1.159",
+      "@jskit-ai/uploads-runtime": "0.1.159",
+      "@jskit-ai/users-core": "0.1.197",
+      "@jskit-ai/users-web": "0.1.202",
+      "@jskit-ai/workspaces-core": "0.1.162",
+      "@jskit-ai/workspaces-web": "0.1.163"
     },
     "singletonPackages": [
       "@jskit-ai/assistant-runtime",
       "@jskit-ai/auth-core",
       "@jskit-ai/auth-web",
-      "@jskit-ai/google-rewarded-web",
       "@jskit-ai/http-runtime",
       "@jskit-ai/http-web",
       "@jskit-ai/kernel",
       "@jskit-ai/mobile-capacitor",
       "@jskit-ai/realtime",
+      "@jskit-ai/rewarded-web",
       "@jskit-ai/shell-web",
       "@jskit-ai/users-web",
       "@jskit-ai/workspaces-web"
@@ -58,7 +64,7 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.159",
+      "version": "0.1.160",
       "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
       "jskit": {
         "kind": "runtime",
@@ -98,16 +104,16 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/resource-core": "0.1.125",
-          "@jskit-ai/resource-crud-core": "0.1.125",
+          "@jskit-ai/resource-core": "0.1.126",
+          "@jskit-ai/resource-crud-core": "0.1.126",
           "dompurify": "^3.4.13",
           "json-rest-schema": "^1.0.17",
           "marked": "^17.0.4",
           "openai": "^6.22.0"
         },
         "peerDependencies": {
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0"
         }
@@ -115,7 +121,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.154",
+      "version": "0.1.155",
       "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
       "jskit": {
         "kind": "runtime",
@@ -198,15 +204,15 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.1.159",
-          "@jskit-ai/database-runtime": "0.1.183",
+          "@jskit-ai/assistant-core": "0.1.160",
+          "@jskit-ai/database-runtime": "0.1.184",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/http-web": "0.1.28",
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/http-web": "0.1.29",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188",
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0"
@@ -215,7 +221,7 @@
     },
     {
       "packageId": "@jskit-ai/auth-core",
-      "version": "0.1.181",
+      "version": "0.1.182",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -295,13 +301,13 @@
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-core",
-      "version": "0.1.84",
+      "version": "0.1.85",
       "description": "Local auth provider with a file backend default and no database requirement.",
       "jskit": {
         "kind": "runtime",
@@ -343,24 +349,22 @@
               "auth.invitation-context",
               "auth.local.backend",
               "auth.local.password-strategy",
-              "auth.profile.projector"
+              "auth.profile.projector",
+              "auth.local.recovery-sender"
             ]
           }
         }
       },
       "packageJson": {
-        "dependencies": {
-          "nodemailer": "^9.0.3"
-        },
         "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/auth-provider-local-db-core",
-      "version": "0.1.75",
+      "version": "0.1.76",
       "description": "Database-backed local auth storage backend for JSKIT local auth.",
       "jskit": {
         "kind": "runtime",
@@ -423,14 +427,14 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/auth-provider-local-core": "0.1.84",
-          "@jskit-ai/database-runtime": "0.1.183"
+          "@jskit-ai/auth-provider-local-core": "0.1.85",
+          "@jskit-ai/database-runtime": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/auth-provider-supabase-core",
-      "version": "0.1.180",
+      "version": "0.1.181",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -481,14 +485,14 @@
           "ws": "^8.21.1"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/auth-web",
-      "version": "0.1.183",
+      "version": "0.1.184",
       "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
       "jskit": {
         "kind": "runtime",
@@ -755,10 +759,10 @@
           "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187",
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188",
           "@tanstack/vue-query": "^5.90.5",
           "pinia": "^3.0.4",
           "vue": "^3.5.13",
@@ -768,8 +772,154 @@
       }
     },
     {
+      "packageId": "@jskit-ai/connector-google-calendar",
+      "version": "0.1.1",
+      "description": "Google Calendar account configuration and event operations for JSKIT connectors.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/connectors-core": "0.1.1",
+          "json-rest-schema": "^1.0.17"
+        },
+        "peerDependencies": {
+          "@jskit-ai/kernel": "0.1.184"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/connectors-catalog",
+      "version": "0.1.1",
+      "description": "Provider definitions and focused API operations for JSKIT connectors.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@aws-sdk/client-athena": "3.1128.0",
+          "@aws-sdk/client-redshift-data": "3.1128.0",
+          "@aws-sdk/client-s3": "3.1128.0",
+          "@aws-sdk/s3-request-presigner": "3.1128.0",
+          "@jskit-ai/connectors-core": "0.1.1",
+          "@modelcontextprotocol/sdk": "1.30.0",
+          "@smithy/fetch-http-handler": "5.8.0",
+          "json-rest-schema": "^1.0.17",
+          "jose": "^6.1.3"
+        },
+        "peerDependencies": {
+          "@jskit-ai/kernel": "0.1.184"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/connectors-core",
+      "version": "0.1.1",
+      "description": "Portable integration configuration and server-side account connection runtime.",
+      "jskit": {
+        "kind": "runtime",
+        "migrations": {
+          "directories": [
+            "migrations"
+          ]
+        },
+        "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "connector_connections"
+                },
+                {
+                  "tableName": "connector_authorization_attempts"
+                }
+              ]
+            }
+          }
+        },
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "jose": "^6.1.3",
+          "json-rest-schema": "^1.0.17",
+          "oauth4webapi": "3.8.8",
+          "proper-lockfile": "4.1.2"
+        },
+        "peerDependencies": {
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/connectors-web",
+      "version": "0.1.1",
+      "description": "Shared Vue fields for portable application integration configuration.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/connectors-core": "0.1.1"
+        },
+        "peerDependencies": {
+          "vue": "^3.5.13",
+          "vuetify": "^4.0.0"
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/console-core",
-      "version": "0.1.146",
+      "version": "0.1.147",
       "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
       "jskit": {
         "kind": "runtime",
@@ -850,21 +1000,21 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
-          "@jskit-ai/resource-crud-core": "0.1.125",
-          "@jskit-ai/users-core": "0.1.196",
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/resource-crud-core": "0.1.126",
+          "@jskit-ai/users-core": "0.1.197",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.151",
+      "version": "0.1.152",
       "description": "Authenticated console surface scaffold and surface policy wiring.",
       "jskit": {
         "kind": "runtime",
@@ -966,17 +1116,17 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/console-core": "0.1.146"
+          "@jskit-ai/console-core": "0.1.147"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187"
+          "@jskit-ai/auth-web": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188"
         }
       }
     },
     {
       "packageId": "@jskit-ai/crud-core",
-      "version": "0.1.194",
+      "version": "0.1.195",
       "description": "Shared server-side CRUD service, repository, route, and query helpers.",
       "jskit": {
         "kind": "runtime",
@@ -995,20 +1145,20 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
-          "@jskit-ai/json-rest-api-core": "0.1.127",
-          "@jskit-ai/resource-crud-core": "0.1.125",
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/json-rest-api-core": "0.1.128",
+          "@jskit-ai/resource-crud-core": "0.1.126",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/database-runtime",
-      "version": "0.1.183",
+      "version": "0.1.184",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1064,13 +1214,13 @@
           "knex": "^3.1.0"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "version": "0.1.181",
+      "version": "0.1.182",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1113,17 +1263,17 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
+          "@jskit-ai/database-runtime": "0.1.184",
           "mysql2": "^3.11.2"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "version": "0.1.180",
+      "version": "0.1.181",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1166,186 +1316,14 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
+          "@jskit-ai/database-runtime": "0.1.184",
           "pg": "^8.13.1"
         }
       }
     },
     {
-      "packageId": "@jskit-ai/google-rewarded-core",
-      "version": "0.1.119",
-      "description": "Google rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
-      "jskit": {
-        "kind": "runtime",
-        "capabilities": {
-          "provides": [
-            "google-rewarded.rules",
-            "google-rewarded.provider-configs",
-            "google-rewarded.watch-sessions",
-            "google-rewarded.unlock-receipts",
-            "google-rewarded.core"
-          ],
-          "requires": [
-            "runtime.actions",
-            "runtime.database",
-            "runtime.http",
-            "runtime.json-rest-api"
-          ]
-        },
-        "runtime": {
-          "server": {
-            "providers": [
-              {
-                "entrypoint": "src/server/GoogleRewardedResources.js",
-                "export": "GoogleRewardedRulesFeature"
-              },
-              {
-                "entrypoint": "src/server/GoogleRewardedResources.js",
-                "export": "GoogleRewardedProviderConfigsFeature"
-              },
-              {
-                "entrypoint": "src/server/GoogleRewardedResources.js",
-                "export": "GoogleRewardedWatchSessionsFeature"
-              },
-              {
-                "entrypoint": "src/server/GoogleRewardedResources.js",
-                "export": "GoogleRewardedUnlockReceiptsFeature"
-              },
-              {
-                "entrypoint": "src/server/GoogleRewardedCoreProvider.js",
-                "export": "GoogleRewardedCoreFeature"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "jskit": {
-            "tableOwnership": {
-              "tables": [
-                {
-                  "tableName": "google_rewarded_rules",
-                  "providerEntrypoint": "src/server/GoogleRewardedResources.js",
-                  "ownershipFilter": "workspace"
-                },
-                {
-                  "tableName": "google_rewarded_provider_configs",
-                  "providerEntrypoint": "src/server/GoogleRewardedResources.js",
-                  "ownershipFilter": "workspace"
-                },
-                {
-                  "tableName": "google_rewarded_watch_sessions",
-                  "providerEntrypoint": "src/server/GoogleRewardedResources.js",
-                  "ownershipFilter": "workspace_user"
-                },
-                {
-                  "tableName": "google_rewarded_unlock_receipts",
-                  "providerEntrypoint": "src/server/GoogleRewardedResources.js",
-                  "ownershipFilter": "workspace_user"
-                }
-              ]
-            }
-          },
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./shared",
-                "summary": "Exports Google rewarded shared CRUD resources."
-              },
-              {
-                "subpath": "./server/actions",
-                "summary": "Exports Google rewarded workflow action identifiers and validators."
-              },
-              {
-                "subpath": "./server/requireGoogleRewardedUnlock",
-                "summary": "Exports the server helper that enforces a rewarded unlock before a protected feature action continues."
-              }
-            ],
-            "capabilities": [
-              "google-rewarded.rules",
-              "google-rewarded.provider-configs",
-              "google-rewarded.watch-sessions",
-              "google-rewarded.unlock-receipts",
-              "google-rewarded.core"
-            ]
-          }
-        },
-        "migrations": {
-          "directories": [
-            "migrations"
-          ]
-        }
-      },
-      "packageJson": {
-        "dependencies": {
-          "@jskit-ai/crud-core": "0.1.194",
-          "@jskit-ai/database-runtime": "0.1.183",
-          "@jskit-ai/json-rest-api-core": "0.1.127",
-          "@jskit-ai/resource-crud-core": "0.1.125",
-          "@jskit-ai/workspaces-core": "0.1.161"
-        },
-        "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/google-rewarded-web",
-      "version": "0.1.119",
-      "description": "Google rewarded client runtime with a fullscreen gate host and GPT orchestration.",
-      "jskit": {
-        "kind": "runtime",
-        "capabilities": {
-          "provides": [
-            "google-rewarded.web"
-          ],
-          "requires": []
-        },
-        "runtime": {
-          "server": {
-            "providers": []
-          },
-          "client": {
-            "providers": [
-              {
-                "entrypoint": "src/client/providers/GoogleRewardedClientProvider.js",
-                "export": "GoogleRewardedClientProvider"
-              }
-            ]
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./client",
-                "summary": "Exports the Google rewarded client provider, runtime composable, and fullscreen gate host."
-              }
-            ]
-          },
-          "client": {
-            "singleton": true
-          }
-        }
-      },
-      "packageJson": {
-        "dependencies": {
-          "@jskit-ai/google-rewarded-core": "0.1.119"
-        },
-        "peerDependencies": {
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187"
-        }
-      }
-    },
-    {
       "packageId": "@jskit-ai/http-runtime",
-      "version": "0.1.181",
+      "version": "0.1.182",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -1408,13 +1386,13 @@
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/http-web",
-      "version": "0.1.28",
+      "version": "0.1.29",
       "description": "Neutral Vue request, command, resource, and CRUD UI runtime for JSKIT web applications.",
       "jskit": {
         "kind": "runtime",
@@ -1484,14 +1462,14 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/resource-crud-core": "0.1.125",
+          "@jskit-ai/resource-crud-core": "0.1.126",
           "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/realtime": "0.1.180",
-          "@jskit-ai/shell-web": "0.1.187",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/realtime": "0.1.181",
+          "@jskit-ai/shell-web": "0.1.188",
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
@@ -1501,7 +1479,7 @@
     },
     {
       "packageId": "@jskit-ai/json-rest-api-core",
-      "version": "0.1.127",
+      "version": "0.1.128",
       "description": "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
       "jskit": {
         "kind": "runtime",
@@ -1539,19 +1517,19 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
-          "@jskit-ai/resource-crud-core": "0.1.125",
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/resource-crud-core": "0.1.126",
           "hooked-api": "1.x.x",
           "json-rest-api": "^1.0.29"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/mobile-capacitor",
-      "version": "0.1.118",
+      "version": "0.1.119",
       "description": "Thin Capacitor client integration for JSKIT mobile-shell launch routing and auth callback completion.",
       "jskit": {
         "kind": "runtime",
@@ -1602,14 +1580,92 @@
           "@capacitor/core": "^7.4.3"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187"
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/payments-core",
+      "version": "0.1.1",
+      "description": "Application-owned payment configuration, subscription access and transactional usage credits.",
+      "jskit": {
+        "kind": "runtime",
+        "migrations": {
+          "directories": [
+            "migrations"
+          ]
+        },
+        "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "payment_accounts"
+                },
+                {
+                  "tableName": "payment_entries"
+                },
+                {
+                  "tableName": "payment_customers"
+                },
+                {
+                  "tableName": "payment_catalogues"
+                }
+              ]
+            }
+          }
+        },
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@paddle/paddle-node-sdk": "3.10.0",
+          "ajv": "8.20.0",
+          "stripe": "22.6.2"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/payments-web",
+      "version": "0.1.1",
+      "description": "Application-owned billing views for JSKIT Vue applications.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "peerDependencies": {
+          "vue": "^3.5.13",
+          "vuetify": "^4.0.0"
         }
       }
     },
     {
       "packageId": "@jskit-ai/realtime",
-      "version": "0.1.180",
+      "version": "0.1.181",
       "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",
       "jskit": {
         "kind": "runtime",
@@ -1714,15 +1770,15 @@
           "socket.io-client": "^4.8.3"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188",
           "vue": "^3.5.13"
         }
       }
     },
     {
       "packageId": "@jskit-ai/resource-core",
-      "version": "0.1.125",
+      "version": "0.1.126",
       "description": "Generic resource-definition helpers and schema-definition normalization.",
       "jskit": {
         "kind": "runtime",
@@ -1743,13 +1799,13 @@
       },
       "packageJson": {
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/resource-crud-core",
-      "version": "0.1.125",
+      "version": "0.1.126",
       "description": "Shared CRUD resource, field, lookup, filter, and namespace contracts.",
       "jskit": {
         "kind": "runtime",
@@ -1770,16 +1826,198 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/resource-core": "0.1.125"
+          "@jskit-ai/resource-core": "0.1.126"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/rewarded-core",
+      "version": "0.1.120",
+      "description": "Rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [
+            "rewarded.rules",
+            "rewarded.provider-configs",
+            "rewarded.watch-sessions",
+            "rewarded.unlock-receipts",
+            "rewarded.core"
+          ],
+          "requires": [
+            "runtime.actions",
+            "runtime.database",
+            "runtime.http",
+            "runtime.json-rest-api",
+            "rewarded.grant-policy"
+          ],
+          "applicationRequires": [
+            "rewarded.grant-policy"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/RewardedResources.js",
+                "export": "RewardedRulesFeature"
+              },
+              {
+                "entrypoint": "src/server/RewardedResources.js",
+                "export": "RewardedProviderConfigsFeature"
+              },
+              {
+                "entrypoint": "src/server/RewardedResources.js",
+                "export": "RewardedWatchSessionsFeature"
+              },
+              {
+                "entrypoint": "src/server/RewardedResources.js",
+                "export": "RewardedUnlockReceiptsFeature"
+              },
+              {
+                "entrypoint": "src/server/RewardedCoreProvider.js",
+                "export": "RewardedCoreFeature"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "rewarded_rules",
+                  "providerEntrypoint": "src/server/RewardedResources.js",
+                  "ownershipFilter": "workspace"
+                },
+                {
+                  "tableName": "rewarded_provider_configs",
+                  "providerEntrypoint": "src/server/RewardedResources.js",
+                  "ownershipFilter": "workspace"
+                },
+                {
+                  "tableName": "rewarded_watch_sessions",
+                  "providerEntrypoint": "src/server/RewardedResources.js",
+                  "ownershipFilter": "workspace_user"
+                },
+                {
+                  "tableName": "rewarded_unlock_receipts",
+                  "providerEntrypoint": "src/server/RewardedResources.js",
+                  "ownershipFilter": "workspace_user"
+                }
+              ]
+            }
+          },
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./shared",
+                "summary": "Exports Rewarded shared CRUD resources."
+              },
+              {
+                "subpath": "./server/actions",
+                "summary": "Exports Rewarded workflow action identifiers and validators."
+              },
+              {
+                "subpath": "./server/requireRewardedUnlock",
+                "summary": "Exports the server helper that enforces a rewarded unlock before a protected feature action continues."
+              }
+            ],
+            "capabilities": [
+              "rewarded.rules",
+              "rewarded.provider-configs",
+              "rewarded.watch-sessions",
+              "rewarded.unlock-receipts",
+              "rewarded.core"
+            ]
+          }
+        },
+        "migrations": {
+          "directories": [
+            "migrations"
+          ]
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/crud-core": "0.1.195",
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/json-rest-api-core": "0.1.128",
+          "@jskit-ai/resource-crud-core": "0.1.126",
+          "@jskit-ai/workspaces-core": "0.1.162"
+        },
+        "peerDependencies": {
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/rewarded-web",
+      "version": "0.1.120",
+      "description": "Rewarded gate client workflow with explicitly composed application delivery.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [
+            "rewarded.web"
+          ],
+          "requires": [
+            "client.vue",
+            "client.rewarded-delivery"
+          ],
+          "applicationRequires": [
+            "client.rewarded-delivery"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": [
+              {
+                "entrypoint": "src/client/providers/RewardedClientProvider.js",
+                "export": "RewardedClientProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "Exports the Rewarded client provider, runtime composable, and fullscreen gate host."
+              }
+            ]
+          },
+          "client": {
+            "singleton": true
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/rewarded-core": "0.1.120"
+        },
+        "peerDependencies": {
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188"
         }
       }
     },
     {
       "packageId": "@jskit-ai/shell-web",
-      "version": "0.1.187",
+      "version": "0.1.188",
       "description": "Web shell layout runtime with outlet-based placement contributions.",
       "jskit": {
         "kind": "runtime",
@@ -2121,7 +2359,7 @@
           "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183",
+          "@jskit-ai/kernel": "0.1.184",
           "pinia": "^3.0.4",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
@@ -2131,7 +2369,7 @@
     },
     {
       "packageId": "@jskit-ai/storage-runtime",
-      "version": "0.1.180",
+      "version": "0.1.181",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -2175,13 +2413,13 @@
           "unstorage": "^1.17.5"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/uploads-image-web",
-      "version": "0.1.158",
+      "version": "0.1.159",
       "description": "Reusable client-side image upload runtime with pre-upload image editing.",
       "jskit": {
         "kind": "runtime",
@@ -2239,7 +2477,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/uploads-runtime": "0.1.158",
+          "@jskit-ai/uploads-runtime": "0.1.159",
           "@uppy/compressor": "^3.1.0",
           "@uppy/core": "^5.2.0",
           "@uppy/dashboard": "^5.1.1",
@@ -2253,7 +2491,7 @@
     },
     {
       "packageId": "@jskit-ai/uploads-runtime",
-      "version": "0.1.158",
+      "version": "0.1.159",
       "description": "Reusable upload runtime primitives for multipart parsing, policy validation, and blob storage.",
       "jskit": {
         "kind": "runtime",
@@ -2318,13 +2556,13 @@
           "@fastify/multipart": "^9.4.0"
         },
         "peerDependencies": {
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/users-core",
-      "version": "0.1.196",
+      "version": "0.1.197",
       "description": "Users/account runtime plus HTTP routes for account features.",
       "jskit": {
         "kind": "runtime",
@@ -2471,24 +2709,24 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
-          "@jskit-ai/json-rest-api-core": "0.1.127",
-          "@jskit-ai/resource-core": "0.1.125",
-          "@jskit-ai/resource-crud-core": "0.1.125",
-          "@jskit-ai/storage-runtime": "0.1.180",
-          "@jskit-ai/uploads-runtime": "0.1.158",
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/json-rest-api-core": "0.1.128",
+          "@jskit-ai/resource-core": "0.1.126",
+          "@jskit-ai/resource-crud-core": "0.1.126",
+          "@jskit-ai/storage-runtime": "0.1.181",
+          "@jskit-ai/uploads-runtime": "0.1.159",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.1.201",
+      "version": "0.1.202",
       "description": "Users web module with account, profile, and user-specific shell UI.",
       "jskit": {
         "kind": "runtime",
@@ -2681,15 +2919,15 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/uploads-image-web": "0.1.158",
-          "@jskit-ai/users-core": "0.1.196"
+          "@jskit-ai/uploads-image-web": "0.1.159",
+          "@jskit-ai/users-core": "0.1.197"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.1.183",
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/http-web": "0.1.28",
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187",
+          "@jskit-ai/auth-web": "0.1.184",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/http-web": "0.1.29",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188",
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
@@ -2699,7 +2937,7 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-core",
-      "version": "0.1.161",
+      "version": "0.1.162",
       "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
       "jskit": {
         "kind": "runtime",
@@ -2845,23 +3083,23 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.183",
-          "@jskit-ai/json-rest-api-core": "0.1.127",
-          "@jskit-ai/resource-core": "0.1.125",
-          "@jskit-ai/resource-crud-core": "0.1.125",
-          "@jskit-ai/users-core": "0.1.196",
+          "@jskit-ai/database-runtime": "0.1.184",
+          "@jskit-ai/json-rest-api-core": "0.1.128",
+          "@jskit-ai/resource-core": "0.1.126",
+          "@jskit-ai/resource-crud-core": "0.1.126",
+          "@jskit-ai/users-core": "0.1.197",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-core": "0.1.181",
-          "@jskit-ai/http-runtime": "0.1.181",
-          "@jskit-ai/kernel": "0.1.183"
+          "@jskit-ai/auth-core": "0.1.182",
+          "@jskit-ai/http-runtime": "0.1.182",
+          "@jskit-ai/kernel": "0.1.184"
         }
       }
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.1.162",
+      "version": "0.1.163",
       "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
       "jskit": {
         "kind": "runtime",
@@ -3105,16 +3343,16 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/users-core": "0.1.196",
-          "@jskit-ai/workspaces-core": "0.1.161",
+          "@jskit-ai/users-core": "0.1.197",
+          "@jskit-ai/workspaces-core": "0.1.162",
           "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.1.183",
-          "@jskit-ai/http-web": "0.1.28",
-          "@jskit-ai/kernel": "0.1.183",
-          "@jskit-ai/shell-web": "0.1.187",
-          "@jskit-ai/users-web": "0.1.201",
+          "@jskit-ai/auth-web": "0.1.184",
+          "@jskit-ai/http-web": "0.1.29",
+          "@jskit-ai/kernel": "0.1.184",
+          "@jskit-ai/shell-web": "0.1.188",
+          "@jskit-ai/users-web": "0.1.202",
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
@@ -3144,7 +3382,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/assistant-runtime",
-      "packageVersion": "0.1.154",
+      "packageVersion": "0.1.155",
       "documentPath": "patterns/assistant-surface/PATTERN.md",
       "examplePath": "patterns/assistant-surface/example",
       "files": [
@@ -3176,7 +3414,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/auth-web",
-      "packageVersion": "0.1.183",
+      "packageVersion": "0.1.184",
       "documentPath": "patterns/auth-surface/PATTERN.md",
       "examplePath": "patterns/auth-surface/example",
       "files": [
@@ -3207,13 +3445,434 @@
         "@jskit-ai/auth-provider-supabase-core"
       ],
       "packageId": "@jskit-ai/auth-provider-supabase-core",
-      "packageVersion": "0.1.180",
+      "packageVersion": "0.1.181",
       "documentPath": "patterns/supabase-auth/PATTERN.md",
       "examplePath": "patterns/supabase-auth/example",
       "files": [
         ".env.example",
         "config/server.js",
         "package.json"
+      ]
+    },
+    {
+      "id": "connectors/ai-connections",
+      "title": "App-owned AI connections and static model selection",
+      "summary": "Resolve an administrator environment key or an individual user's grant, then use the application's chosen AI SDK directly.",
+      "keywords": [
+        "ai",
+        "api-key",
+        "big-pickle",
+        "cli",
+        "environment",
+        "free",
+        "models",
+        "ownership",
+        "zai",
+        "zen"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/ai-connections/PATTERN.md",
+      "examplePath": "patterns/ai-connections/example",
+      "files": [
+        "ai-model.js",
+        "perplexity-answer.js"
+      ]
+    },
+    {
+      "id": "connectors/api-key-connection",
+      "title": "API-key connections with portable JSON configuration",
+      "summary": "Compose provider operations, authorization and encrypted file storage from a CLI or application server.",
+      "keywords": [
+        "api-key",
+        "clay",
+        "cli",
+        "clickhouse",
+        "connectors",
+        "dbt",
+        "files",
+        "firecrawl",
+        "granola",
+        "integrations",
+        "metrics",
+        "prestashop",
+        "resend",
+        "semantic-layer",
+        "semrush",
+        "x-twitter"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/api-key-connection/PATTERN.md",
+      "examplePath": "patterns/api-key-connection/example",
+      "files": [
+        "connections.js",
+        "integrations.json"
+      ]
+    },
+    {
+      "id": "connectors/assistant-mcp",
+      "title": "Assistant MCP connections with portable files",
+      "summary": "Compose token-based MCP discovery and explicitly authorized tool calls using the shared connector runtime.",
+      "keywords": [
+        "assistant",
+        "cli",
+        "connectors",
+        "files",
+        "integrations",
+        "mcp",
+        "n8n",
+        "sanity"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/assistant-mcp/PATTERN.md",
+      "examplePath": "patterns/assistant-mcp/example",
+      "files": [
+        "integrations.json"
+      ]
+    },
+    {
+      "id": "connectors/assistant-mcp-oauth",
+      "title": "Assistant MCP OAuth with portable files",
+      "summary": "Configure assistant OAuth clients, then compose existing state, encrypted file grants and authorized MCP calls.",
+      "keywords": [
+        "amplitude",
+        "assistant",
+        "atlassian",
+        "canva",
+        "cli",
+        "client metadata",
+        "confidence",
+        "connectors",
+        "figma",
+        "files",
+        "granola",
+        "hex",
+        "mcp",
+        "miro",
+        "oauth"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/assistant-mcp-oauth/PATTERN.md",
+      "examplePath": "patterns/assistant-mcp-oauth/example",
+      "files": [
+        "integrations.json"
+      ]
+    },
+    {
+      "id": "connectors/aws-storage-queries",
+      "title": "AWS object storage and Athena queries with explicit credentials",
+      "summary": "Compose signed AWS operations, file configuration and application authorization from CLI or server code.",
+      "keywords": [
+        "athena",
+        "aws",
+        "cli",
+        "connectors",
+        "files",
+        "iam",
+        "queries",
+        "s3",
+        "storage",
+        "sts"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/aws-storage-queries/PATTERN.md",
+      "examplePath": "patterns/aws-storage-queries/example",
+      "files": [
+        "formats/data-formats.js",
+        "formats/package-lock.json",
+        "formats/package.json",
+        "formats/verify-formats.mjs",
+        "integrations.json",
+        "s3-transfer.js"
+      ]
+    },
+    {
+      "id": "connectors/calendar-cli",
+      "title": "Google Calendar from an application-owned CLI",
+      "summary": "Compose reusable connection libraries with portable configuration, application ownership and durable storage.",
+      "keywords": [
+        "calendar",
+        "cli",
+        "connectors",
+        "google",
+        "integrations",
+        "oauth",
+        "permissions"
+      ],
+      "requires": [
+        "@jskit-ai/connector-google-calendar",
+        "@jskit-ai/connectors-core",
+        "@jskit-ai/database-runtime-mysql"
+      ],
+      "packageId": "@jskit-ai/connector-google-calendar",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/calendar-cli/PATTERN.md",
+      "examplePath": "patterns/calendar-cli/example",
+      "files": [
+        ".env.example",
+        ".gitignore",
+        "integrations.json",
+        "knexfile.js",
+        "package.json",
+        "scripts/calendar.js"
+      ]
+    },
+    {
+      "id": "connectors/event-delivery",
+      "title": "Authorized Inngest event delivery with portable files",
+      "summary": "Compose the shared connector runtime for event delivery while leaving workflow code and event policy with the application.",
+      "keywords": [
+        "cli",
+        "connectors",
+        "events",
+        "files",
+        "inngest",
+        "integrations",
+        "workflows"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/event-delivery/PATTERN.md",
+      "examplePath": "patterns/event-delivery/example",
+      "files": [
+        "integrations.json"
+      ]
+    },
+    {
+      "id": "connectors/firebase-messaging",
+      "title": "Firebase messaging from a CLI or application backend",
+      "summary": "Wire service-account grants, file storage, explicit message actions and public browser settings without generating an application.",
+      "keywords": [
+        "cli",
+        "connectors",
+        "fcm",
+        "files",
+        "firebase",
+        "integrations",
+        "jwt",
+        "notifications",
+        "push",
+        "service-account",
+        "vapid"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/firebase-messaging/PATTERN.md",
+      "examplePath": "patterns/firebase-messaging/example",
+      "files": [
+        "server/notifications.js"
+      ]
+    },
+    {
+      "id": "connectors/google-ads-search",
+      "title": "Existing-account Google Ads Search",
+      "summary": "Compose reviewed Search campaigns with project-owned Google OAuth and portable saved plans.",
+      "keywords": [
+        "ads",
+        "campaigns",
+        "cli",
+        "connectors",
+        "conversion",
+        "google",
+        "search"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/google-ads-search/PATTERN.md",
+      "examplePath": "patterns/google-ads-search/example",
+      "files": [
+        "ads-setup.js"
+      ]
+    },
+    {
+      "id": "connectors/oauth-connection",
+      "title": "OAuth connections with portable files",
+      "summary": "Compose provider consent, verification and encrypted file persistence from an application server or CLI.",
+      "keywords": [
+        "accounting",
+        "assistant permissions",
+        "books",
+        "cli",
+        "client credentials",
+        "connectors",
+        "consent",
+        "crm",
+        "databricks",
+        "developer token",
+        "fabric",
+        "files",
+        "gaql",
+        "google ads",
+        "graphql",
+        "integrations",
+        "linkedin",
+        "microsoft",
+        "oauth",
+        "powerpoint",
+        "salesforce",
+        "service principal",
+        "shopify",
+        "soql",
+        "staffing",
+        "tiktok",
+        "twitch",
+        "wave",
+        "word",
+        "wordpress",
+        "workday",
+        "xero",
+        "zoho"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/oauth-connection/PATTERN.md",
+      "examplePath": "patterns/oauth-connection/example",
+      "files": [
+        "integrations.json"
+      ]
+    },
+    {
+      "id": "connectors/paddle-catalogue",
+      "title": "Create Paddle products with prices",
+      "summary": "Compose a sequential catalogue batch and preserve partial success for application-owned recovery.",
+      "keywords": [
+        "batch",
+        "paddle",
+        "payments",
+        "prices",
+        "products"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/paddle-catalogue/PATTERN.md",
+      "examplePath": "patterns/paddle-catalogue/example",
+      "files": [
+        "create-products.js"
+      ]
+    },
+    {
+      "id": "connectors/public-image",
+      "title": "Public logo images from portable integration configuration",
+      "summary": "Resolve a publishable image key deliberately and use the shared URL library in a browser, backend or CLI.",
+      "keywords": [
+        "cli",
+        "connectors",
+        "files",
+        "images",
+        "integrations",
+        "logo-dev",
+        "public-key"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/public-image/PATTERN.md",
+      "examplePath": "patterns/public-image/example",
+      "files": [
+        "integrations.json",
+        "logo-url.js"
+      ]
+    },
+    {
+      "id": "connectors/redshift-queries",
+      "title": "Redshift queries with shared AWS credentials",
+      "summary": "Compose file configuration, Redshift Data API operations and application query ownership.",
+      "keywords": [
+        "aws",
+        "cli",
+        "connectors",
+        "files",
+        "iam",
+        "provisioned",
+        "redshift",
+        "serverless",
+        "sql",
+        "warehouse"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/redshift-queries/PATTERN.md",
+      "examplePath": "patterns/redshift-queries/example",
+      "files": [
+        "integrations.json"
+      ]
+    },
+    {
+      "id": "connectors/source-scanning",
+      "title": "Authorised project source scans with Wiz",
+      "summary": "Use the shared scanner runtime from a CLI or a host worker with portable configuration and explicit source ownership.",
+      "keywords": [
+        "cancellation",
+        "cli",
+        "connectors",
+        "integrations",
+        "scanning",
+        "security",
+        "source",
+        "wiz",
+        "worker"
+      ],
+      "requires": [
+        "@jskit-ai/connectors-catalog",
+        "@jskit-ai/connectors-core"
+      ],
+      "packageId": "@jskit-ai/connectors-catalog",
+      "packageVersion": "0.1.1",
+      "documentPath": "patterns/source-scanning/PATTERN.md",
+      "examplePath": "patterns/source-scanning/example",
+      "files": [
+        "source-scanner.js"
       ]
     },
     {
@@ -3235,7 +3894,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/console-web",
-      "packageVersion": "0.1.151",
+      "packageVersion": "0.1.152",
       "documentPath": "patterns/console-surface/PATTERN.md",
       "examplePath": "patterns/console-surface/example",
       "files": [
@@ -3267,7 +3926,7 @@
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/http-web",
-      "packageVersion": "0.1.28",
+      "packageVersion": "0.1.29",
       "documentPath": "patterns/crud-screen-set/PATTERN.md",
       "examplePath": "patterns/crud-screen-set/example",
       "files": [
@@ -3301,7 +3960,7 @@
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/crud-core",
-      "packageVersion": "0.1.194",
+      "packageVersion": "0.1.195",
       "documentPath": "patterns/json-api-resource-package/PATTERN.md",
       "examplePath": "patterns/json-api-resource-package/example",
       "files": [
@@ -3328,7 +3987,7 @@
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/resource-crud-core",
-      "packageVersion": "0.1.125",
+      "packageVersion": "0.1.126",
       "documentPath": "patterns/resource-contract/PATTERN.md",
       "examplePath": "patterns/resource-contract/example",
       "files": [
@@ -3351,7 +4010,7 @@
         "@jskit-ai/database-runtime-mysql"
       ],
       "packageId": "@jskit-ai/database-runtime-mysql",
-      "packageVersion": "0.1.181",
+      "packageVersion": "0.1.182",
       "documentPath": "patterns/mysql-application/PATTERN.md",
       "examplePath": "patterns/mysql-application/example",
       "files": [
@@ -3378,7 +4037,7 @@
         "@jskit-ai/database-runtime-postgres"
       ],
       "packageId": "@jskit-ai/database-runtime-postgres",
-      "packageVersion": "0.1.180",
+      "packageVersion": "0.1.181",
       "documentPath": "patterns/postgres-application/PATTERN.md",
       "examplePath": "patterns/postgres-application/example",
       "files": [
@@ -3409,7 +4068,7 @@
         "@jskit-ai/mobile-capacitor"
       ],
       "packageId": "@jskit-ai/mobile-capacitor",
-      "packageVersion": "0.1.118",
+      "packageVersion": "0.1.119",
       "documentPath": "patterns/android-application/PATTERN.md",
       "examplePath": "patterns/android-application/example",
       "files": [
@@ -3433,13 +4092,36 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/realtime",
-      "packageVersion": "0.1.180",
+      "packageVersion": "0.1.181",
       "documentPath": "patterns/realtime-application/PATTERN.md",
       "examplePath": "patterns/realtime-application/example",
       "files": [
         ".env.example",
         "package.json",
         "src/placement.js"
+      ]
+    },
+    {
+      "id": "rewards/google-rewarded",
+      "title": "Google rewarded delivery",
+      "summary": "Compose application-owned Google Publisher Tag delivery with the generic rewarded workflow.",
+      "keywords": [
+        "ads",
+        "google",
+        "publisher tag",
+        "rewarded",
+        "unlock"
+      ],
+      "requires": [
+        "@jskit-ai/rewarded-web"
+      ],
+      "packageId": "@jskit-ai/rewarded-web",
+      "packageVersion": "0.1.120",
+      "documentPath": "patterns/google-rewarded/PATTERN.md",
+      "examplePath": "patterns/google-rewarded/example",
+      "files": [
+        "googlePublisherTag.js",
+        "GoogleRewardedDeliveryProvider.js"
       ]
     },
     {
@@ -3461,7 +4143,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/shell-web",
-      "packageVersion": "0.1.187",
+      "packageVersion": "0.1.188",
       "documentPath": "patterns/application-shell/PATTERN.md",
       "examplePath": "patterns/application-shell/example",
       "files": [
@@ -3505,7 +4187,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/shell-web",
-      "packageVersion": "0.1.187",
+      "packageVersion": "0.1.188",
       "documentPath": "patterns/page-and-placement/PATTERN.md",
       "examplePath": "patterns/page-and-placement/example",
       "files": [
@@ -3538,7 +4220,7 @@
         "@jskit-ai/users-web"
       ],
       "packageId": "@jskit-ai/users-web",
-      "packageVersion": "0.1.201",
+      "packageVersion": "0.1.202",
       "documentPath": "patterns/account-settings/PATTERN.md",
       "examplePath": "patterns/account-settings/example",
       "files": [
@@ -3568,7 +4250,7 @@
         "@jskit-ai/users-core"
       ],
       "packageId": "@jskit-ai/users-core",
-      "packageVersion": "0.1.196",
+      "packageVersion": "0.1.197",
       "documentPath": "patterns/user-administration-server/PATTERN.md",
       "examplePath": "patterns/user-administration-server/example",
       "files": [
@@ -3601,7 +4283,7 @@
         "@jskit-ai/workspaces-core"
       ],
       "packageId": "@jskit-ai/workspaces-core",
-      "packageVersion": "0.1.161",
+      "packageVersion": "0.1.162",
       "documentPath": "patterns/workspace-server/PATTERN.md",
       "examplePath": "patterns/workspace-server/example",
       "files": [
@@ -3629,7 +4311,7 @@
         "@jskit-ai/workspaces-web"
       ],
       "packageId": "@jskit-ai/workspaces-web",
-      "packageVersion": "0.1.162",
+      "packageVersion": "0.1.163",
       "documentPath": "patterns/workspace-surfaces/PATTERN.md",
       "examplePath": "patterns/workspace-surfaces/example",
       "files": [

@@ -13,6 +13,15 @@ const PACKAGES_ROOT = path.join(REPO_ROOT, "packages");
 const ARCHITECTURE_ID_PATTERN = /^[a-z][a-z0-9_.-]*$/u;
 const LOCAL_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
 const BUILTIN_CAPABILITIES = new Set([
+  "client.vue",
+  "client.router",
+  "client.pinia",
+  "client.query",
+  "client.env",
+  "client.surface",
+  "client.surface-mode",
+  "client.logger",
+  "client.components",
   "runtime.actions",
   "runtime.app-root",
   "runtime.bootstrap",
@@ -289,12 +298,23 @@ function validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAP
   }
 
   for (const { packageJson } of packages) {
-    for (const capabilityId of packageJson.jskit?.capabilities?.requires || []) {
+    const requirements = packageJson.jskit?.capabilities?.requires || [];
+    const applicationRequirements = requireStringArray(
+      packageJson.jskit?.capabilities?.applicationRequires || [],
+      `${packageJson.name}#jskit.capabilities.applicationRequires`
+    );
+    for (const capabilityId of applicationRequirements) {
+      requireArchitectureId(capabilityId, `${packageJson.name}#jskit.capabilities.applicationRequires[]`);
+      if (!requirements.includes(capabilityId)) {
+        throw new Error(`${packageJson.name} application requirement ${capabilityId} must also appear in requires.`);
+      }
+    }
+    for (const capabilityId of requirements) {
       const normalizedCapabilityId = requireArchitectureId(
         capabilityId,
         `${packageJson.name}#jskit.capabilities.requires[]`
       );
-      if (!providedCapabilities.has(normalizedCapabilityId)) {
+      if (!providedCapabilities.has(normalizedCapabilityId) && !applicationRequirements.includes(normalizedCapabilityId)) {
         throw new Error(
           `${packageJson.name} requires capability ${normalizedCapabilityId}, but neither the kernel nor a framework package provides it.`
         );

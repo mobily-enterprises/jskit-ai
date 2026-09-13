@@ -1,0 +1,151 @@
+---
+id: connectors/event-delivery
+title: Authorized Inngest event delivery with portable files
+summary: Compose the shared connector runtime for event delivery while leaving workflow code and event policy with the application.
+keywords: connectors, integrations, inngest, events, workflows, files, cli
+requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
+---
+
+# Authorized Inngest event delivery with portable files
+
+## Use when
+
+An existing application or CLI must send an event to Inngest and inspect app
+metadata using separately owned Signing and Event Keys.
+
+## Do not use when
+
+This fragment does not execute or register workflow functions, implement an
+Inngest serve endpoint, configure schedules or provide application-user login.
+Those concerns belong to the app and its chosen Inngest SDK integration.
+
+## Product decisions
+
+Choose the connection owner, allowed event names, payload schema and stable
+business operation ID. Decide which authenticated users may trigger each event.
+Determine how the app will reconcile delivery uncertainty and report workflow
+progress independently of the connector's delivery receipt.
+
+## Invariants
+
+- Configuration and connection state remain text files.
+- Signing and Event Key values remain environment bindings, outside source.
+- Metadata verification never sends an event or verifies the Event Key.
+- Authorization sees the requested event before its Event Key is resolved.
+- An accepted event does not prove a function completed.
+- A cancelled request must not automatically replay a possibly accepted event.
+
+## Framework APIs
+
+Use the `api-key-connection` pattern's existing composition with
+`providers: [inngestProvider]`, imported from
+`@jskit-ai/connectors-catalog/server/inngest`. The JSKIT library owns validated
+requests, credential selection, responses, cancellation and file grants.
+
+## Example files
+
+`example/integrations.json` supplies the shared `workflows` slot. Provision
+`INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` in the backend environment and
+use the existing file-store protection and authenticated connection context.
+
+```js
+async function applicationConnectionPolicy(context, request) {
+  const owner = await workflowAccess.requireConnectionOwner(context, request.integrationId);
+  if (request.operation === "events.send") {
+    await workflowAccess.requireEventPermission(context, request.input);
+  }
+  return owner;
+}
+```
+
+`workflowAccess` is application-owned policy, not a JSKIT API. It must validate
+allowed names and payload ownership against authenticated state. It must also
+authorize connection management and metadata reads. Return a stable trusted
+`applicationId` and `subjectId`; do not trust owner IDs supplied by a browser.
+
+```js
+await connections.connectApiKey({ context, integrationId: "workflows" });
+// In an authorized application action, after validating report ownership:
+const receipt = await connections.invoke({
+  context, integrationId: "workflows", operation: "events.send", signal,
+  input: {
+    name: "app/report.requested",
+    id: `app/report.requested:${reportRequestId}`,
+    data: { reportRequestId }
+  }
+});
+// Record receipt.ids[0] as delivered; track workflow completion separately.
+```
+
+The application supplies `reportRequestId` from its validated business request.
+Inngest's deduplication window is finite; a stable ID is not a permanent
+exactly-once guarantee. Within an Inngest function, use the SDK's documented
+step event-sending primitive so delivery participates in durable execution.
+Do not replace SDK function orchestration with connector calls.
+
+## Variation points
+
+`settings.branchEnvironment` routes event delivery to a branch and does not
+change metadata query selection. `accountMode: "assistant"` requires the host's
+delegated event authority, including any explicit approval. A trusted operator
+CLI uses the same JSON and library without depending on editor storage.
+
+## Verification
+
+The provider's focused tests simulate metadata and event replies and use real
+encrypted file storage. The public-editor test exercises the same reference
+and branch settings. This source pattern does not generate or run a sample app;
+live event delivery and SDK function execution remain separate acceptance work.
+
+## Avoid
+
+Do not expose either key in browser code, send events as a connection probe,
+interpret delivery as completed work, permit arbitrary events through a shared
+public route, or retry after an ambiguous network failure without reconciliation.
+
+## Native functions and cron
+
+App-owned composition, using the native SDK's current `triggers` option
+([functions](https://www.inngest.com/docs/learn/inngest-functions),
+[cron](https://www.inngest.com/docs/guides/scheduled-functions),
+[serve adapters](https://www.inngest.com/docs/learn/serving-inngest-functions);
+reviewed 2026-09-13). Add `inngest` to the consuming application, not to JSKIT's
+connector package. Resolve the JSON slot's Env references before constructing
+its SDK client; standard names below match the example configuration.
+
+```js
+import { Inngest } from "inngest";
+import { fastifyPlugin } from "inngest/fastify";
+
+const workflows = new Inngest({ id: "reports", eventKey: process.env.INNGEST_EVENT_KEY });
+const report = workflows.createFunction(
+  { id: "requested-report", triggers: { event: "app/report.requested" } },
+  async ({ event, step }) => {
+    const id = event.data.reportRequestId;
+    if (typeof id !== "string" || !id) throw new Error("Missing report request ID");
+    return step.run("render-and-store", () => reports.renderRequestedReport(id));
+  }
+);
+const reconcile = workflows.createFunction(
+  { id: "reconcile-reports", triggers: { cron: "TZ=UTC 0 * * * *" } },
+  async ({ step }) => step.run("reconcile-due", () => reports.reconcileDueRequests())
+);
+// `fastify` is the app's existing server. The SDK validates signed requests
+// using INNGEST_SIGNING_KEY from the deployed application's environment.
+await fastify.register(fastifyPlugin, { client: workflows, functions: [report, reconcile] });
+```
+
+`reports` is the application's business service, not a library API. It loads
+persisted, previously authorized requests, enforces tenant boundaries and makes
+writes safe to retry. Do not trust an event's arbitrary user/tenant identifier
+as authorization. `step.run` may retry failed work; a durable step is not a
+substitute for idempotent business writes. Cron timezone is explicit; choose
+schedules with awareness of daylight-saving behavior.
+
+Expose the SDK route through the app's normal server composition, then deploy
+and sync its HTTPS `/api/inngest` URL in the selected Inngest environment.
+Keep the Signing Key private and let the native adapter verify signatures.
+JSKIT CLI users follow the same steps without Vibe64. Other stacks use native
+SDKs where available and the same event name/payload/Env contract; this example
+does not promise an SDK in every language. No function execution, cloud sync
+or generated application is performed by this reference pattern.

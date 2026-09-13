@@ -1,0 +1,31 @@
+{
+  "name": "@jskit-ai/payments-web",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Application-owned billing views for JSKIT Vue applications.",
+  "exports": {
+    "./client/components/PaymentAccount": "./src/client/components/PaymentAccount.vue"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vuetify": "^4.0.0"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  }
+}

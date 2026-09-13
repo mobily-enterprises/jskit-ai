@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.1.84",
+  "version": "0.1.85",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -8,9 +8,6 @@
   "exports": {
     "./server/providers/AuthLocalProvider": "./src/server/providers/AuthLocalProvider.js",
     "./server/lib/index": "./src/server/lib/index.js"
-  },
-  "dependencies": {
-    "nodemailer": "^9.0.3"
   },
   "description": "Local auth provider with a file backend default and no database requirement.",
   "jskit": {
@@ -53,13 +50,14 @@
           "auth.invitation-context",
           "auth.local.backend",
           "auth.local.password-strategy",
-          "auth.profile.projector"
+          "auth.profile.projector",
+          "auth.local.recovery-sender"
         ]
       }
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.181",
-    "@jskit-ai/kernel": "0.1.183"
+    "@jskit-ai/auth-core": "0.1.182",
+    "@jskit-ai/kernel": "0.1.184"
   }
 }

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "registrations": {
+    "amplitude": {
+      "source": "own",
+      "clientId": "assigned-client-id",
+      "clientSecretRef": "env:AMPLITUDE_CLIENT_SECRET",
+      "callbackUrlRef": "env:AMPLITUDE_CALLBACK_URL"
+    },
+    "atlassian": {
+      "source": "own",
+      "clientId": "assigned-v2-client-id",
+      "clientSecretRef": "env:ATLASSIAN_CLIENT_SECRET",
+      "callbackUrlRef": "env:ATLASSIAN_CALLBACK_URL"
+    },
+    "canva": {
+      "source": "own",
+      "clientId": "https://assistant.example/oauth/canva.json",
+      "tokenEndpointAuthMethod": "none",
+      "callbackUrlRef": "env:CANVA_CALLBACK_URL"
+    },
+    "figma": {
+      "source": "own",
+      "clientId": "assigned-client-id",
+      "clientSecretRef": "env:FIGMA_CLIENT_SECRET",
+      "callbackUrlRef": "env:FIGMA_CALLBACK_URL"
+    },
+    "miro": {
+      "source": "own",
+      "clientId": "assigned-client-id",
+      "clientSecretRef": "env:MIRO_CLIENT_SECRET",
+      "callbackUrlRef": "env:MIRO_CALLBACK_URL"
+    }
+  },
+  "integrations": {
+    "analytics": {
+      "provider": "amplitude",
+      "accountMode": "assistant",
+      "scopes": [
+        "mcp:read",
+        "offline_access"
+      ],
+      "authentication": {
+        "method": "oauth2",
+        "registrationRef": "amplitude"
+      },
+      "settings": {
+        "region": "us"
+      }
+    },
+    "work": {
+      "provider": "atlassian",
+      "accountMode": "assistant",
+      "scopes": [
+        "read:me",
+        "read:jira:agent-interface",
+        "offline_access"
+      ],
+      "authentication": {
+        "method": "oauth2",
+        "registrationRef": "atlassian"
+      }
+    },
+    "design": {
+      "provider": "canva",
+      "displayName": "Design assistant",
+      "accountMode": "assistant",
+      "scopes": [
+        "profile:read",
+        "design:meta:read",
+        "design:content:read",
+        "folder:read"
+      ],
+      "authentication": {
+        "method": "oauth2",
+        "registrationRef": "canva"
+      }
+    },
+    "figma-design": {
+      "provider": "figma",
+      "accountMode": "assistant",
+      "scopes": [
+        "mcp:connect"
+      ],
+      "authentication": {
+        "method": "oauth2",
+        "registrationRef": "figma"
+      }
+    },
+    "miro-boards": {
+      "provider": "miro",
+      "accountMode": "assistant",
+      "scopes": [
+        "boards:read"
+      ],
+      "authentication": {
+        "method": "oauth2",
+        "registrationRef": "miro"
+      }
+    }
+  }
+}
