@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.1.130",
+  "version": "0.1.131",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -12,9 +12,9 @@
     "./server/jsonRestApiHost": "./src/server/jsonRestApiHost.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.186",
-    "@jskit-ai/resource-crud-core": "0.1.128",
-    "json-rest-api": "git+https://github.com/mobily-enterprises/json-rest-api.git#f97dc859321aee41915f3b0e256a861c382bc1b3"
+    "@jskit-ai/database-runtime": "0.1.187",
+    "@jskit-ai/resource-crud-core": "0.1.129",
+    "json-rest-api": "2.0.0"
   },
   "description": "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
   "jskit": {
@@ -52,6 +52,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.186"
+    "@jskit-ai/kernel": "0.1.187"
   }
 }
