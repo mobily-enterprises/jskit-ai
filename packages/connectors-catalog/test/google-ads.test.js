@@ -241,6 +241,9 @@ test("Google Ads rejects declined or insufficient consent and keeps managed assi
 });
 
 test("Google Ads refresh scope reduction, API cancellation and timeout do not replay requests", async (t) => {
+  // The fake transport has no socket to keep Node 22 alive for an unrefed timeout.
+  const keepAlive = setTimeout(() => {}, 1000);
+  t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.connect(); f.state.stall = "api";
   const timed = createConnectionService({ ...f.options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
   await assert.rejects(f.invoke(undefined, timed), { code: "connector_provider_timeout" });
