@@ -235,6 +235,9 @@ test("Salesforce host policy, cancelled/denied consent and managed references ca
 });
 
 test("Salesforce cancellation and timeout interrupt requests and a revoked refresh becomes reconnect-required", async (t) => {
+  // The fake transport has no socket to keep Node 22 alive for an unrefed timeout.
+  const keepAlive = setTimeout(() => {}, 1000);
+  t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.connect(); f.state.stall = "api";
   const timed = createConnectionService({ ...f.options, providers: [{ ...provider, requestTimeoutMs: 30 }] });
   await assert.rejects(timed.invoke({ ...input, operation: "limits.read" }), { code: "connector_provider_timeout" });

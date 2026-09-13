@@ -248,6 +248,9 @@ test("Xero errors are redacted, never retried and require reconnect after authen
 });
 
 test("Xero interruption and timeout stop before the accounting call and keep the connection usable", async (t) => {
+  // The fake transport has no socket to keep Node 22 alive for an unrefed timeout.
+  const keepAlive = setTimeout(() => {}, 1000);
+  t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.connect(); f.state.stall = true;
   const service = createConnectionService({ ...f.options, providers: [{ ...xeroProvider, requestTimeoutMs: 35 }] });
   const count = f.requests.length;

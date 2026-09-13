@@ -163,6 +163,9 @@ test("dbt changing environment, host or token reference requires verification fo
 });
 
 test("dbt abort and timeout interrupt requests without replay or automatic page traversal", async (t) => {
+  // The fake transport has no socket to keep Node 22 alive for an unrefed timeout.
+  const keepAlive = setTimeout(() => {}, 1000);
+  t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.service.connectApiKey(input); const before = f.requests.length;
   const controller = new AbortController(); controller.abort();
   await assert.rejects(f.service.invoke({ ...input, operation: "metrics.list", signal: controller.signal }), { code: "connector_cancelled" });
