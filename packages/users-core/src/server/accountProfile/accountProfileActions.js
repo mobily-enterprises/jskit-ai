@@ -1,3 +1,4 @@
+import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import {
   emptyInputValidator,
   resolveRequest
@@ -24,6 +25,13 @@ const accountProfileActionSpecifications = deepFreeze([
     },
     input: emptyInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Read the signed-in user’s profile, preferences, notifications and security status.",
+        output: userSettingsResource.operations.view.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.read"
@@ -46,6 +54,13 @@ const accountProfileActionSpecifications = deepFreeze([
     },
     input: settingsProfileUpdateInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Update the signed-in user’s display name.",
+        output: userSettingsResource.operations.view.output,
+        transformResult: (result) => result.response.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "settings.profile.update"
@@ -74,6 +89,11 @@ const accountProfileActionSpecifications = deepFreeze([
     },
     input: userProfileResource.operations.avatarUpload.body,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Use the authenticated account profile file picker; upload streams must not enter assistant arguments."
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.upload"
@@ -109,6 +129,13 @@ const accountProfileActionSpecifications = deepFreeze([
     },
     input: userProfileResource.operations.avatarDelete.body,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Remove the signed-in user’s uploaded avatar.",
+        output: userSettingsResource.operations.view.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "settings.profile.avatar.delete"

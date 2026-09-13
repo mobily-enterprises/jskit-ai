@@ -13,7 +13,7 @@ test("workspace settings action specifications stay explicit", () => {
   assert.deepEqual(workspaceSettingsActionSpecifications[0].surfaces, ["*"]);
   assert.deepEqual(workspaceSettingsActionSpecifications[1].surfaces, ["*"]);
   assert.deepEqual(workspaceSettingsActionSpecifications[1].channels, ["api", "assistant_tool", "automation", "internal"]);
-  assert.equal(workspaceSettingsActionSpecifications[1].extensions?.assistant?.description, "Update workspace settings.");
+  assert.equal(workspaceSettingsActionSpecifications[1].extensions?.assistant?.description, "Update the active workspace appearance and invitation settings.");
 });
 
 test("workspace actions array excludes workspace settings actions", () => {

@@ -187,6 +187,11 @@ function createAssistantActions({ assistantConfigService, chatService, config = 
     },
     input: settingsReadInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Assistant self-configuration is disabled; use the authenticated assistant settings screen."
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: actionIds.settingsRead
@@ -209,6 +214,11 @@ function createAssistantActions({ assistantConfigService, chatService, config = 
     },
     input: settingsUpdateInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Assistant self-configuration is disabled; use the authenticated assistant settings screen."
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: actionIds.settingsUpdate

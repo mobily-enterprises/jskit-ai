@@ -159,6 +159,7 @@ function normalizeAssistantExtension(value) {
 
   return Object.freeze({
     description: normalizeText(source.description),
+    exclude: normalizeText(source.exclude),
     alwaysAvailable: source.alwaysAvailable === true,
     preflight: normalizePreflightIntents(source.preflight),
     output: Object.hasOwn(source, "output") ? source.output : null,
@@ -508,7 +509,7 @@ function canUseToolOnSurface(entry = {}, context = {}) {
     return true;
   }
 
-  return toolSurfaces.includes(contextSurfaceId);
+  return toolSurfaces.includes("*") || toolSurfaces.includes(contextSurfaceId);
 }
 
 function resolveActionBackedToolEntries(actions) {
@@ -533,6 +534,10 @@ function resolveActionBackedToolEntries(actions) {
     try {
       assistantExtension = normalizeAssistantActionExtension(action);
     } catch {
+      continue;
+    }
+
+    if (assistantExtension.exclude) {
       continue;
     }
 
@@ -614,6 +619,7 @@ function resolveActionToolEntries(
           outputSchema: actionEntry.outputSchema
         }),
         kind: actionEntry.kind,
+        acceptsWorkspaceSlug: Object.hasOwn(actionEntry.inputSchema.properties || {}, "workspaceSlug"),
         outputDefinition: actionEntry.outputDefinition,
         transformResult: actionEntry.transformResult,
         permission: actionEntry.permission,
@@ -809,17 +815,17 @@ function createServiceToolCatalog(
     return contract;
   }
 
-  function createActionInput(value, context = {}) {
+  function createActionInput(entry, value, context = {}) {
     const actionInput = value && typeof value === "object" && !Array.isArray(value) ? { ...value } : {};
     const trustedWorkspaceSlug = resolveWorkspaceSlug(context);
-    if (trustedWorkspaceSlug) {
+    if (trustedWorkspaceSlug && entry.acceptsWorkspaceSlug) {
       actionInput.workspaceSlug = trustedWorkspaceSlug;
     }
     return actionInput;
   }
 
   async function executeActionEntry(entry, input = {}, context = {}) {
-    const actionInput = createActionInput(input, context);
+    const actionInput = createActionInput(entry, input, context);
     const executionContext = {
       ...context,
       channel: AUTOMATION_CHANNEL

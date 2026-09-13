@@ -1,3 +1,4 @@
+import { workspaceInviteAssistantOutput } from "../../shared/resources/workspaceAssistantOutputs.js";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
@@ -76,6 +77,13 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: workspaceSlugParamsValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "List the active workspace roles and assignable permissions.",
+        output: workspaceMembersResource.operations.rolesList.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.roles.list"
@@ -97,6 +105,13 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: workspaceSlugParamsValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "List members of the active workspace.",
+        output: workspaceMembersResource.operations.membersList.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.members.list"
@@ -120,6 +135,13 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: updateMemberRoleActionInput,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Change a member’s role in the active workspace.",
+        output: workspaceMembersResource.operations.updateMemberRole.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.role.update"
@@ -147,6 +169,13 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: removeMemberActionInput,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Remove a member from the active workspace.",
+        output: workspaceMembersResource.operations.removeMember.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.member.remove"
@@ -173,6 +202,13 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: workspaceSlugParamsValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "List invitations for the active workspace without invitation tokens.",
+        output: workspaceMembersResource.operations.invitesList.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.invites.list"
@@ -196,17 +232,24 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: createInviteActionInput,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Invite a person to the active workspace and report delivery status without exposing invitation links.",
+        output: workspaceInviteAssistantOutput,
+        transformResult: (result) => ({
+          createdInviteId: result.value.createdInviteId,
+          invites: result.value.invites.map(({ id, email, roleSid, status, expiresAt }) =>
+            ({ id, email, roleSid, status, expiresAt })),
+          deliveryStatus: result.value.inviteDelivery.status
+        })
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.create"
     },
     observability: {},
     events: WORKSPACE_INVITE_CREATED_EVENTS,
-    extensions: {
-      assistant: {
-        description: "Invite a person to the workspace."
-      }
-    },
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
@@ -233,6 +276,13 @@ const workspaceMembersActionSpecifications = Object.freeze([
     },
     input: revokeInviteActionInput,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Revoke an invitation to the active workspace.",
+        output: workspaceMembersResource.operations.revokeInvite.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.revoke"

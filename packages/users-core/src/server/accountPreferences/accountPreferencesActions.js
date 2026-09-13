@@ -17,6 +17,13 @@ const accountPreferencesActionSpecifications = Object.freeze([
     },
     input: userSettingsResource.operations.preferencesUpdate.body,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Update the signed-in user’s display and regional preferences.",
+        output: userSettingsResource.operations.preferencesUpdate.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "settings.preferences.update"

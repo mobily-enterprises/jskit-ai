@@ -32,6 +32,13 @@ const workspaceSettingsActionSpecifications = Object.freeze([
     },
     input: workspaceSlugParamsValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Read the active workspace appearance and invitation settings.",
+        output: workspaceSettingsResource.operations.view.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.settings.read"
@@ -57,17 +64,19 @@ const workspaceSettingsActionSpecifications = Object.freeze([
     },
     input: workspaceSettingsUpdateInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Update the active workspace appearance and invitation settings.",
+        output: workspaceSettingsResource.operations.patch.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.settings.update"
     },
     observability: {},
     events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
-    extensions: {
-      assistant: {
-        description: "Update workspace settings."
-      }
-    },
     async run(workspaceSettingsService, input, context) {
       const { workspaceSlug, ...patch } = input;
       const response = await workspaceSettingsService.updateWorkspaceSettings(

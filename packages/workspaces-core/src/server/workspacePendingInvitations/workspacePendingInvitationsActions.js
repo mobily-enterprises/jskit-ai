@@ -1,3 +1,4 @@
+import { pendingInvitationsAssistantOutput } from "../../shared/resources/workspaceAssistantOutputs.js";
 import {
   emptyInputValidator
 } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
@@ -21,6 +22,11 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
     },
     input: workspacePendingInvitationsResource.operations.resolve.query,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Use the invitation screen; raw invitation tokens must not enter assistant arguments."
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.invitation.resolve"
@@ -45,6 +51,18 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
     },
     input: emptyInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "List pending workspace invitations for the signed-in user without invitation tokens.",
+        output: pendingInvitationsAssistantOutput,
+        transformResult: (result) => ({
+          pendingInvites: result.value.pendingInvites.map(
+            ({ id, workspaceId, workspaceSlug, workspaceName, roleSid, status, expiresAt }) =>
+              ({ id, workspaceId, workspaceSlug, workspaceName, roleSid, status, expiresAt })
+          )
+        })
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.invitations.pending.list"
@@ -69,6 +87,11 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
     },
     input: workspaceMembersResource.operations.redeemInvite.body,
     output: null,
+    extensions: {
+      assistant: {
+        exclude: "Use the authenticated invitation screen to accept or refuse; raw invitation tokens must not enter assistant arguments."
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.invite.redeem"

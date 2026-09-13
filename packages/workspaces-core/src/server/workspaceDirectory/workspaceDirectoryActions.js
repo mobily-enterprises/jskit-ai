@@ -8,6 +8,10 @@ import { workspaceResource } from "../../shared/resources/workspaceResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
+function workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl }) {
+  return { id, slug, name, ownerUserId, avatarUrl };
+}
+
 const workspaceUpdateInputValidator = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
   workspaceResource.operations.patch.body
@@ -28,16 +32,18 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
     },
     input: workspaceResource.operations.create.body,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Create a workspace for the signed-in user.",
+        output: workspaceResource.operations.create.output,
+        transformResult: (result) => workspaceAssistantSummary(result.value)
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.create"
     },
     observability: {},
-    extensions: {
-      assistant: {
-        description: "Create a workspace for the authenticated user."
-      }
-    },
     async run(workspaceService, input, context) {
       return returnJsonApiData(await workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
         request: resolveRequest(context),
@@ -56,6 +62,17 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
     },
     input: emptyInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "List workspaces accessible to the signed-in user.",
+        output: workspaceResource.operations.list.output,
+        transformResult: (result) => ({
+          items: result.value.items.map(({ id, slug, name, avatarUrl, roleSid, isAccessible }) =>
+            ({ id, slug, name, avatarUrl, roleSid, isAccessible })),
+          nextCursor: result.value.nextCursor
+        })
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.list"
@@ -83,6 +100,13 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
     },
     input: workspaceSlugParamsValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Read the active workspace profile.",
+        output: workspaceResource.operations.view.output,
+        transformResult: (result) => workspaceAssistantSummary(result.value)
+      }
+    },
     idempotency: "none",
     audit: {
       actionName: "workspace.workspaces.read"
@@ -111,16 +135,18 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
     },
     input: workspaceUpdateInputValidator,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Update the active workspace name or avatar URL.",
+        output: workspaceResource.operations.patch.output,
+        transformResult: (result) => workspaceAssistantSummary(result.value)
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "workspace.workspaces.update"
     },
     observability: {},
-    extensions: {
-      assistant: {
-        description: "Update workspace profile fields."
-      }
-    },
     async run(workspaceService, input, context) {
       const { workspaceSlug, ...patch } = input;
       return returnJsonApiData(await workspaceService.updateWorkspaceForAuthenticatedUser(

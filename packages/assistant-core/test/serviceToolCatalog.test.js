@@ -593,3 +593,53 @@ test("assistant tools reject unknown tools and return safe action failures", asy
     error: { code: "DATABASE_FAILED", message: "Tool call failed.", status: 500 }
   });
 });
+
+test("wildcard and empty surfaces match named surfaces without bypassing permissions", async () => {
+  for (const [surfaces, allowed] of [
+    [["*"], ["admin", "app", "console", "custom"]],
+    [["admin"], ["admin"]],
+    [["admin", "console"], ["admin", "console"]]
+  ]) {
+    const catalog = createServiceToolCatalog(createActions([action({
+      surfaces, permission: { require: "all", permissions: ["books.read"] }
+    })]));
+    for (const surface of ["admin", "app", "console", "custom"]) {
+      const context = { actor: { id: "7" }, surface, permissions: ["books.read"] };
+      const toolSet = catalog.resolveToolSet(context);
+      assert.equal(toolSet.tools.length, allowed.includes(surface) ? 1 : 0);
+      assert.equal(catalog.resolveToolSet({ ...context, permissions: [] }).tools.length, 0);
+      if (toolSet.tools.length) {
+        const denied = await catalog.executeToolCall({ toolName: toolSet.tools[0].name, toolSet,
+          context: { ...context, permissions: [] } });
+        assert.equal(denied.ok, false);
+      }
+    }
+  }
+});
+
+test("explicit assistant exclusion wins over otherwise valid contracts", async () => {
+  let executed = false;
+  const catalog = createServiceToolCatalog(createActions([action({
+    extensions: { assistant: { exclude: "Use the authenticated password form." } },
+    execute: async () => { executed = true; return { ok: true }; }
+  })]));
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  assert.equal(toolSet.tools.length, 0);
+  const result = await catalog.executeToolCall({ toolName: "demo.books.list", context, toolSet });
+  assert.equal(result.ok, false);
+  assert.equal(executed, false);
+});
+
+
+test("catalogue retains unrestricted matching for externally supplied empty surface metadata", () => {
+  // The kernel disallows registering an empty list, but catalogue adapters historically accept it.
+  const catalog = createServiceToolCatalog({
+    listDefinitions: () => [action({ surfaces: [] })],
+    execute: async () => ({ ok: true })
+  });
+  for (const surface of ["admin", "app", "console", "custom"]) {
+    assert.equal(catalog.resolveToolSet({ actor: { id: "7" }, surface }).tools.length, 1);
+    assert.equal(catalog.resolveToolSet({ surface }).tools.length, 0);
+  }
+});

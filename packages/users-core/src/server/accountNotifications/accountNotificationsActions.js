@@ -17,6 +17,13 @@ const accountNotificationsActionSpecifications = Object.freeze([
     },
     input: userSettingsResource.operations.notificationsUpdate.body,
     output: null,
+    extensions: {
+      assistant: {
+        description: "Update the signed-in user’s notification preferences.",
+        output: userSettingsResource.operations.notificationsUpdate.output,
+        transformResult: (result) => result.value
+      }
+    },
     idempotency: "optional",
     audit: {
       actionName: "settings.notifications.update"

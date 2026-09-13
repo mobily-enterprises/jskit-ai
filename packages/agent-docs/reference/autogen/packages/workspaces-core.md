@@ -165,6 +165,8 @@ Local functions
 Exports
 - `workspaceDirectoryActionSpecifications`
 - `buildWorkspaceDirectoryActions({ workspaceService } = {})`
+Local functions
+- `workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl })`
 
 ### `src/server/workspaceMembers/bootWorkspaceMembers.js`
 Exports
@@ -264,6 +266,11 @@ Exports
 ### `src/shared/operationMessages.js`
 Exports
 - `createOperationMessages({ validationMessage = "Validation failed.", apiValidationMessage = validationMessage } = {})`
+
+### `src/shared/resources/workspaceAssistantOutputs.js`
+Exports
+- `workspaceInviteAssistantOutput`
+- `pendingInvitationsAssistantOutput`
 
 ### `src/shared/resources/workspaceInvitesResource.js`
 Exports
