@@ -44,7 +44,7 @@ There is no OAuth callback for these modes. See
 
 ## Framework APIs
 
-Follow the [API-key connection pattern](../api-key-connection/PATTERN.md) to
+Follow the [API-key connection pattern](/patterns/connectors/api-key-connection) to
 read configuration, construct encrypted file storage and define authorization.
 Register the provider exports needed by that application:
 

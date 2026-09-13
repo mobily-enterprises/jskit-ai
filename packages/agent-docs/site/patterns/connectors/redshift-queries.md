@@ -45,7 +45,7 @@ URL and does not depend on an Online registration or allocation.
 
 ## Framework APIs
 
-Follow the [API-key connection pattern](../api-key-connection/PATTERN.md) to read
+Follow the [API-key connection pattern](/patterns/connectors/api-key-connection) to read
 configuration, create protected file connection storage, resolve explicit
 bindings and implement `authorize`. Register this runtime export:
 
