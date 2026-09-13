@@ -38,3 +38,7 @@ capabilities with the generic names. Replace `useGoogleRewardedRuntime()` with
 There is no compatibility fallback. The core README describes table, route and
 configuration migration. Install `@jskit-ai/rewarded-core` for server workflow
 ownership; the Google example remains application source.
+
+The package manifest lists application-owned inputs in both `capabilities.requires`
+and `capabilities.applicationRequires`. The latter identifies who supplies them;
+it does not make the runtime dependency optional or provide a default.

@@ -10,7 +10,7 @@ requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
 
 ## Use when
 
-Use the [AI guide](../../docs/ai.md) to choose the model, account owner and
+Use the [AI guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/ai.md) to choose the model, account owner and
 framework SDK before wiring requests. The shared catalogue is a deliberate
 static extraction, not an OpenCode runtime integration. The default Big Pickle
 route needs no account, user key or environment setup.

@@ -28,7 +28,7 @@ Select serverless or provisioned in the same JSON edited by Vibe64. Serverless
 requires a workgroup name; provisioned requires a cluster identifier and may use
 an explicit database user. Both require a database and region. Store AWS secrets
 outside the file. Temporary credentials additionally need `sessionTokenRef` and
-host renewal. See the [Redshift guide](../../docs/amazon-redshift.md) for setup,
+host renewal. See the [Redshift guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/amazon-redshift.md) for setup,
 field names, automation feasibility and remaining federation work.
 
 ## Invariants

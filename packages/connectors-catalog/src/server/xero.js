@@ -146,6 +146,7 @@ function attachmentOperation(action) {
     ...(writing ? {
       idempotencyKey: idempotencyField,
       filename: { type: "string", required: true, minLength: 1, maxLength: 255,
+        // eslint-disable-next-line no-control-regex -- Reject literal control characters in provider input.
         validator: value => !/[\\/\x00-\x1f\x7f]/u.test(value) && ![".", ".."].includes(value) || "Use a filename without path separators or control characters." },
       contentBase64: { type: "string", required: true, minLength: 4, maxLength: 4194304, noTrim: true }
     } : {})

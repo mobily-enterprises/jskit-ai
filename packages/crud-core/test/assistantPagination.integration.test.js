@@ -6,6 +6,7 @@ import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import {
   addResourceIfMissing,
   createJsonRestApiHost,
+  createJsonRestContext,
   createJsonRestResourceScopeOptions
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
@@ -137,4 +138,31 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
       assert.equal(new Set(ids).size, 205);
     });
   }
+
+  await t.test("plain writes and JSON:API repository writes preserve full records", async () => {
+    const created = await api.resources.books.post({
+      inputRecord: { id: "501", workspaceId: "1", name: "Plain record", createdAt: "2026-09-09T00:00:00.000Z" },
+      format: "plain"
+    }, createJsonRestContext(context));
+    assert.equal(created.id, "501");
+    assert.equal(created.name, "Plain record");
+    const patched = await repository.patchDocumentById("501", { name: "JSON:API update" }, { context });
+    assert.equal(patched.data.id, "501");
+    assert.equal(patched.data.attributes.name, "JSON:API update");
+    const document = await repository.createDocument({
+      id: "502", workspaceId: "1", name: "JSON:API record", createdAt: "2026-09-09T00:00:00.000Z"
+    }, { context });
+    assert.equal(document.data.id, "502");
+    assert.equal(document.data.attributes.name, "JSON:API record");
+    assert.equal((await api.resources.books.get({ id: "502", format: "plain" }, createJsonRestContext(context))).name, "JSON:API record");
+    await assert.rejects(knex.transaction(async (trx) => {
+      await repository.patchDocumentById("502", { name: "Rolled back" }, { trx, context });
+      throw new Error("Rollback proof");
+    }), /Rollback proof/);
+    assert.equal((await repository.getDocumentById("502", {}, { context })).data.attributes.name, "JSON:API record");
+    await repository.deleteDocumentById("501", { context });
+    await repository.deleteDocumentById("502", { context });
+    assert.equal(await repository.getDocumentById("501", {}, { context }), null);
+    assert.equal(await knex("books").whereIn("id", [501, 502]).first(), undefined);
+  });
 });

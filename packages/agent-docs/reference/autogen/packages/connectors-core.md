@@ -70,7 +70,7 @@ Exports
 - `getProviderAuthenticationMethods(provider, settings = {})`
 - `getProviderClientAuthenticationMethods(provider, grantType = "authorization_code", settings = {})`
 - `getProviderAccountModes(provider, settings = {})`
-- `getProviderScopes(provider, settings = {}, grantType = "authorization_code")`
+- `getProviderScopes(provider, settings = {}, grantType = "authorization_code", authenticationMethod)`
 - `getProviderSettingsSchema(provider, settings = {})`
 - `secretReference`
 - `integrationsSchema`

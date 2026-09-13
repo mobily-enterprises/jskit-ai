@@ -9,7 +9,7 @@ description: "Compose a sequential catalogue batch and preserve partial success 
 
 ## Use when
 
-Use the [Paddle setup guide](../../docs/paddle.md) to configure and verify the
+Use the [Paddle setup guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/paddle.md) to configure and verify the
 application's merchant key. This recipe creates catalogue entries only.
 Checkout, subscriptions and charging customers are separate application work.
 
@@ -78,6 +78,6 @@ report does not prove durable recovery or live merchant acceptance.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Owner: `@jskit-ai/connectors-catalog@0.1.1`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/paddle-catalogue/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/paddle-catalogue/example)

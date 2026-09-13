@@ -301,3 +301,63 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     await stopProcess(vite);
   }
 });
+
+test("shell-web preserves the active form across responsive changes", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const startingWidth of [1280, 390]) {
+      const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: startingWidth, height: 900 } });
+      await page.goto("/w/acme/admin/contacts");
+      await page.getByRole("link", { name: "Bookings", exact: true }).click();
+      await expect(page).toHaveURL(/\/bookings$/u);
+      await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
+      const answer = page.getByRole("textbox", { name: "Unsaved answer" });
+      await answer.fill("Keep this unsaved answer");
+      await page.getByText("More details", { exact: true }).click();
+      await page.getByRole("button", { name: "Validate answer" }).click();
+      await answer.focus();
+      const originalInput = await answer.elementHandle();
+      for (const viewport of [
+        { width: 390, height: 844 },
+        { width: 1024, height: 1024 },
+        { width: 1280, height: 900 },
+        { width: 1280, height: 420 },
+        { width: 390, height: 420 },
+        { width: 390, height: 844 }
+      ]) {
+        await page.setViewportSize(viewport);
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        await expect(answer).toHaveValue("Keep this unsaved answer");
+        await expect(page.locator("details")).toHaveAttribute("open", "");
+        await expect(page.getByRole("status")).toHaveText("Please review this answer.");
+        await expect(answer).toBeFocused();
+        assert.equal(await originalInput.evaluate((element) => element === document.activeElement), true);
+        await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
+        await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+      }
+      // Real compact navigation still replaces the pane and runs its animation.
+      await page.getByRole("link", { name: "Contacts", exact: true }).click();
+      await expect(page).toHaveURL(/\/contacts$/u);
+      await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
+      await expect(answer).toHaveValue("");
+      assert.equal(await originalInput.evaluate((element) => element.isConnected), false);
+      // Desktop same-surface navigation continues to reuse the routed component.
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.getByRole("link", { name: "Bookings", exact: true }).click();
+      await expect(page).toHaveURL(/\/bookings$/u);
+      await answer.fill("Desktop state");
+      await page.getByRole("link", { name: "Contacts", exact: true }).click();
+      await expect(page).toHaveURL(/\/contacts$/u);
+      await expect(answer).toHaveValue("Desktop state");
+      await page.close();
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});

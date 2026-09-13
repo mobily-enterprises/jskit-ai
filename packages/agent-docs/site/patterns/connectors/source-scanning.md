@@ -47,7 +47,7 @@ Use `parseIntegrationConfiguration` from connectors-core/shared/configuration,
 connectors-catalog/server/wiz. Supply the host's `authorize`, `resolveReference`,
 `resolveScanTarget` and installed CLI absolute path. The runtime's `scan` operation
 accepts only context, integration ID and an optional AbortSignal.
-See [Wiz setup and limits](../../docs/wiz.md).
+See [Wiz setup and limits](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/wiz.md).
 
 ## Example files
 
@@ -83,6 +83,6 @@ as if it were a fixed revision, or substitute a generic API reader for source sc
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Owner: `@jskit-ai/connectors-catalog@0.1.1`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/source-scanning/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/source-scanning/example)

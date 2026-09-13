@@ -9,7 +9,7 @@ description: "Resolve an administrator environment key or an individual user's g
 
 ## Use when
 
-Use the [AI guide](../../docs/ai.md) to choose the model, account owner and
+Use the [AI guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/ai.md) to choose the model, account owner and
 framework SDK before wiring requests. The shared catalogue is a deliberate
 static extraction, not an OpenCode runtime integration. The default Big Pickle
 route needs no account, user key or environment setup.
@@ -84,6 +84,6 @@ use their own native Perplexity/OpenAI-compatible clients and the same slot.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Owner: `@jskit-ai/connectors-catalog@0.1.1`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/ai-connections/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/ai-connections/example)

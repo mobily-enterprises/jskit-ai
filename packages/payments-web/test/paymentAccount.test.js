@@ -38,8 +38,8 @@ test('billing component preserves read state and guards checkout while leaving a
     const events = [];
     const root = node('root');
     app = renderer.createApp({ render: () => h(PaymentAccount, { ...props, onCheckout: (id) => events.push(['checkout', id]), onPortal: () => events.push(['portal']), onRefresh: () => events.push(['refresh']), onHistory: (request) => events.push(['history', request]), 'onRetry-history': () => events.push(['retry-history']) }) });
-    app.component('v-btn', defineComponent({ setup: (_props, { slots }) => () => h('button', {}, slots.default?.()) }));
-    app.component('v-skeleton-loader', defineComponent({ setup: () => () => h('div', 'Loading billing') }));
+    app.component('VBtn', defineComponent({ setup: (_props, { slots }) => () => h('button', {}, slots.default?.()) }));
+    app.component('VSkeletonLoader', defineComponent({ setup: () => () => h('div', 'Loading billing') }));
     for (const name of ['v-list', 'v-list-item', 'v-list-item-title', 'v-list-item-subtitle']) {
       app.component(name, defineComponent({ setup: (_props, { slots }) => () => h('div', {}, slots.default?.()) }));
     }

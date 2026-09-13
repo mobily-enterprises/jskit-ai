@@ -35,6 +35,7 @@ const submitQuery = jsonOperation((settings) => `${origin}/bigquery/v2/projects/
 }, validQueryResult, "POST");
 const metadataScopes = [...queryScopes, "https://www.googleapis.com/auth/bigquery.readonly", "https://www.googleapis.com/auth/cloud-platform.read-only"];
 const resourceId = { type: "string", required: true, noTrim: true, minLength: 1, maxLength: 1024,
+  // eslint-disable-next-line no-control-regex -- Reject literal control characters in provider input.
   validator: (value) => (!/[\/\\\u0000-\u001f]/u.test(value) && value !== "." && value !== "..") || "Enter a resource ID, not a path." };
 const metadataPage = { maxResults: resultFields.maxResults, pageToken: { ...pageToken, noTrim: true } };
 const jobFields = { jobId: resultsSchema.getFieldDefinitions().jobId, location: resultFields.location };

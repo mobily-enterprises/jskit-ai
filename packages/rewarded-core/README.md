@@ -143,3 +143,7 @@ schema; verify indexes, constraints and ownership with its database tools before
 resuming writers. Decide explicitly whether to retain active watch sessions and
 unlock receipts. No library migration shim, alias, old-table reader or dual write
 performs this conversion.
+
+The package manifest lists application-owned inputs in both `capabilities.requires`
+and `capabilities.applicationRequires`. The latter identifies who supplies them;
+it does not make the runtime dependency optional or provide a default.

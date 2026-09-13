@@ -42,7 +42,7 @@ Use `parseIntegrationConfiguration` from connectors-core/shared/configuration,
 `createLogoDevImageUrl` from connectors-catalog/client/logo-dev. The latter is
 portable to Node and browsers and exposes `logoDevImageSchema` for input fields.
 Use the application's reference resolver; no environment object goes to the
-browser. See [provider setup](../../docs/logo-dev.md) for inputs and limitations.
+browser. See [provider setup](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/logo-dev.md) for inputs and limitations.
 
 ## Example files
 
@@ -84,6 +84,6 @@ service origin to the browser. Do not treat key naming as provider quota isolati
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Owner: `@jskit-ai/connectors-catalog@0.1.1`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/public-image/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/public-image/example)

@@ -216,7 +216,7 @@ Import `slackProvider` from `@jskit-ai/connectors-catalog/server/slack` and incl
 it in the provider array used for parsing and `createConnectionService`.
 Set `settings.actor` to `user` or `bot`, independently of application ownership.
 Use an own confidential registration and a real registered HTTPS callback;
-plain HTTP loopback is not supported by Slack. The [Slack guide](../../docs/slack.md)
+plain HTTP loopback is not supported by Slack. The [Slack guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/slack.md)
 contains a complete portable JSON file and manual/API registration instructions.
 
 For channel listing, request `channels:read` and call:
@@ -724,6 +724,6 @@ this initial fragment. Consent and live tenant testing require separate access.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Owner: `@jskit-ai/connectors-catalog@0.1.1`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/oauth-connection/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/oauth-connection/example)

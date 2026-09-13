@@ -76,6 +76,7 @@ function absenceRead(kind) {
   };
 }
 const reportSegment = { type: "string", required: true, minLength: 1, maxLength: 256, noTrim: true,
+  // eslint-disable-next-line no-control-regex -- Reject literal control characters in provider input.
   validator: value => !/[\\/\s%?#\u0000-\u001f]/u.test(value) && value !== "." && value !== ".." || "Copy the report URL's owner/name segment without separators or escaping." };
 const reportSchema = createSchema({
   owner: reportSegment, report: reportSegment,

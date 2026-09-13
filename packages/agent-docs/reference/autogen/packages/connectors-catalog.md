@@ -18,6 +18,14 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `firebaseCloudMessagingWebConfiguration(settings)`
 
+### `src/client/google-analytics.js`
+Exports
+- `createGoogleAnalytics({ measurementId, window: browser = globalThis.window } = {})`
+
+### `src/client/google-maps-platform.js`
+Exports
+- `mountGoogleMap({ element, maps = globalThis.google?.maps, center, zoom = 12, mapId, markers = [], path = [], signal } = {})`
+
 ### `src/client/logo-dev.js`
 Exports
 - `createLogoDevImageUrl(input)`
@@ -35,7 +43,6 @@ Local functions
 - `recordPath(baseId, tableId)`
 - `recordResult(result)`
 - `tableResult(result)`
-- `operation(fields, build, validateResult)`
 
 ### `src/server/algolia.js`
 Exports
@@ -71,7 +78,6 @@ Exports
 - `apifyProvider`
 Local functions
 - `runResult(value)`
-- `operation(fields, request, validateResult)`
 
 ### `src/server/apollo-io.js`
 Exports
@@ -79,17 +85,24 @@ Exports
 Local functions
 - `record(key)`
 - `collection(key)`
-- `operation(fields, build, validateResult)`
 - `query(method, endpoint, input)`
 - `write(method, endpoint, fields, key, requiredNames = [])`
 
 ### `src/server/asana.js`
 Exports
 - `asanaProvider`
+Local functions
+- `record(result)`
+- `list(result)`
+- `read(endpoint, input = {}, fields)`
+- `write(method, endpoint, fields, resultFields)`
 
 ### `src/server/ashby.js`
 Exports
 - `ashbyProvider`
+Local functions
+- `response(check)`
+- `call(endpoint, fields, validate = record)`
 
 ### `src/server/atlassian.js`
 Exports
@@ -99,6 +112,11 @@ Exports
 ### `src/server/attention.js`
 Exports
 - `attentionProvider`
+Local functions
+- `list(result)`
+- `record(result)`
+- `conversation(result)`
+- `operation(method, endpoint, fields, validateResult, prepare = value => value)`
 
 ### `src/server/aws-athena.js`
 Exports
@@ -127,14 +145,28 @@ Exports
 - `bigqueryProvider`
 Local functions
 - `validQueryResult(value)`
+- `validJob(job)`
+- `validPage(result, field, reference)`
+- `projectOperation(fields, destination, validateResult, scopes = metadataScopes, method = "GET")`
 
 ### `src/server/brevo.js`
 Exports
 - `brevoProvider`
+Local functions
+- `empty(result)`
+- `record(result)`
+- `operation(method, endpoint, fields, validateResult, prepare = value => value)`
+- `changed(value)`
+- `content(value)`
 
 ### `src/server/calendly.js`
 Exports
 - `calendlyProvider`
+Local functions
+- `record(result)`
+- `collection(result)`
+- `uri(kind)`
+- `operation(method, endpoint, fields, scope, validateResult, prepare = value => value)`
 
 ### `src/server/canva.js`
 Exports
@@ -145,16 +177,22 @@ Exports
 - `chargebeeProvider`
 Local functions
 - `origin({ siteName })`
+- `record(key)`
+- `collection(key)`
+- `operation(method, endpoint, fields, validateResult, defaults = {})`
 
 ### `src/server/clay.js`
 Exports
 - `clayProvider`
+Local functions
+- `array(items, maximum, minimum = 0)`
+- `routineOperation(method, suffix, fields, validateResult)`
 
 ### `src/server/clickhouse.js`
 Exports
 - `clickhouseProvider`
 Local functions
-- `queryOperation(query, fields, validateData)`
+- `queryOperation(query, fields, validateData, parameters = values => values)`
 
 ### `src/server/confidence.js`
 Exports
@@ -167,6 +205,11 @@ Local functions
 ### `src/server/contentful.js`
 Exports
 - `contentfulProvider`
+Local functions
+- `resource(type)`
+- `collection(type)`
+- `endpoint(settings, path)`
+- `getOperation(path, type, fields = {})`
 
 ### `src/server/databricks.js`
 Exports
@@ -223,6 +266,9 @@ Exports
 ### `src/server/gatewayapi.js`
 Exports
 - `gatewayApiProvider`
+- `verifyGatewayApiEvent({ rawBody, signature, secret })`
+Local functions
+- `validReceipt(result)`
 
 ### `src/server/gemini-enterprise.js`
 Exports
@@ -238,22 +284,43 @@ Exports
 - `githubApiProvider`
 Local functions
 - `normalizeTokenResponse(response)`
+- `issueResult(value)`
+- `repositoryOperation(suffix, fields, validateResult, method = "GET")`
 
 ### `src/server/gitlab-api.js`
 Exports
 - `gitlabApiProvider`
 Local functions
 - `origin(settings = {})`
+- `itemResult(value)`
+- `projectOperation(suffix, fields, validateResult, method = "GET")`
 
 ### `src/server/gmail.js`
 Exports
 - `gmailProvider`
+Local functions
+- `messageResult(value)`
+- `draftResult(value)`
+- `gmailWrite(scopes, fields, destination, validateResult, method = "POST")`
 
 ### `src/server/gong.js`
 Exports
 - `gongProvider`
 Local functions
 - `origin(settings)`
+- `recordsValid(value)`
+- `callOperation(path, field, extensive = false)`
+
+### `src/server/google-ads-search.js`
+Exports
+- `googleAdsSearchOperations`
+- `createGoogleAdsSearchService({ connections, configuration, context, integrationId })`
+Local functions
+- `error(message)`
+- `hash(value)`
+- `requestOperation(fields, build, validateResult)`
+- `mutated(result)`
+- `searchMutation(plan, validateOnly)`
 
 ### `src/server/google-ads.js`
 Exports
@@ -266,33 +333,54 @@ Local functions
 ### `src/server/google-docs.js`
 Exports
 - `googleDocsProvider`
+Local functions
+- `validDocument(value)`
 
 ### `src/server/google-drive.js`
 Exports
 - `googleDriveProvider`
+Local functions
+- `validFile(value)`
+- `validBytes(value)`
+- `url(fileId, query = {}, suffix = "")`
 
 ### `src/server/google-maps-platform.js`
 Exports
 - `googleMapsPlatformProvider`
 Local functions
 - `validateGeocoding(result)`
+- `mapsOperation(fields, request, validateResult)`
 
 ### `src/server/google-search-console.js`
 Exports
 - `googleSearchConsoleProvider`
+Local functions
+- `website(value)`
+- `plain(value)`
+- `propertyPath(site)`
 
 ### `src/server/google-sheets.js`
 Exports
 - `googleSheetsProvider`
+Local functions
+- `validSheet(value)`
+- `sheetUrl(id)`
+- `write(fields, destination, validateResult)`
+- `checkValues(rows)`
+- `validUpdate(value)`
 
 ### `src/server/google-slides.js`
 Exports
 - `googleSlidesProvider`
+Local functions
+- `validPresentation(value)`
 
 ### `src/server/google.js`
 Exports
+- `googleOperation(scopes, fields, request, validateResult)`
 - `googleRead(scopes, fields, destination, validateResult)`
 - `googleProvider(definition, origin, checkOperation, operations)`
+- `googleFileVerification(get, field)`
 - `documentId`
 - `pageToken`
 Local functions
@@ -333,10 +421,18 @@ Exports
 ### `src/server/hubspot.js`
 Exports
 - `hubspotProvider`
+Local functions
+- `validRecord(value)`
+- `objectOperations(object)`
 
 ### `src/server/incident-io.js`
 Exports
 - `incidentIoProvider`
+Local functions
+- `page(max)`
+- `result(key)`
+- `address(path)`
+- `literal(value)`
 
 ### `src/server/inngest.js`
 Exports
@@ -347,16 +443,21 @@ Local functions
 ### `src/server/jsonOperation.js`
 Exports
 - `jsonOperation(url, fields, validateResult, method = "GET")`
+- `validatedOperation(fields, build, validateResult)`
 
 ### `src/server/klipy.js`
 Exports
 - `klipyProvider`
 Local functions
-- `clipResult(response)`
+- `mediaResult(response)`
 
 ### `src/server/lexware.js`
 Exports
 - `lexwareProvider`
+Local functions
+- `pageResult(result)`
+- `resourceResult(result)`
+- `operation(fields, build, validateResult = resourceResult)`
 
 ### `src/server/lightspeed.js`
 Exports
@@ -405,6 +506,9 @@ Exports
 ### `src/server/microsoft-excel.js`
 Exports
 - `microsoftExcelProvider`
+Local functions
+- `rangeResult(value)`
+- `rangeOperation(write)`
 
 ### `src/server/microsoft-fabric.js`
 Exports
@@ -419,14 +523,22 @@ Local functions
 ### `src/server/microsoft-onedrive.js`
 Exports
 - `microsoftOneDriveProvider`
+Local functions
+- `item(value)`
 
 ### `src/server/microsoft-onenote.js`
 Exports
 - `microsoftOneNoteProvider`
+Local functions
+- `escape(value)`
 
 ### `src/server/microsoft-outlook.js`
 Exports
 - `microsoftOutlookProvider`
+Local functions
+- `resource(value)`
+- `operation(scopes, fields, destination, validateResult = resource)`
+- `url(path)`
 
 ### `src/server/microsoft-powerpoint.js`
 Exports
@@ -435,10 +547,15 @@ Exports
 ### `src/server/microsoft-sharepoint.js`
 Exports
 - `microsoftSharePointProvider`
+Local functions
+- `fileOperation(name, scopes)`
 
 ### `src/server/microsoft-teams.js`
 Exports
 - `microsoftTeamsProvider`
+Local functions
+- `channelPath({ teamId, channelId })`
+- `send(scope, fields, path)`
 
 ### `src/server/microsoft-word.js`
 Exports
@@ -467,10 +584,16 @@ Exports
 Exports
 - `notionProvider`
 - `registerNotionMcpClient(input, options)`
+Local functions
+- `listResult(result)`
+- `objectResult(object)`
+- `readObject(collection, object)`
 
 ### `src/server/oura.js`
 Exports
 - `ouraProvider`
+Local functions
+- `collection(endpoint, scope = "daily", timed = false)`
 
 ### `src/server/paddle.js`
 Exports
@@ -485,6 +608,7 @@ Exports
 - `pipedriveProvider`
 Local functions
 - `companyApiDomain(value)`
+- `crmOperation(collection, action)`
 
 ### `src/server/polar.js`
 Exports
@@ -505,10 +629,18 @@ Local functions
 ### `src/server/replicate.js`
 Exports
 - `replicateProvider`
+Local functions
+- `predictionResult(result)`
+- `predictionOperation(fields, method, destination, validateResult = predictionResult)`
 
 ### `src/server/resend.js`
 Exports
 - `resendProvider`
+Local functions
+- `hasId(result)`
+- `membershipResult(result)`
+- `listResult(result)`
+- `marketingOperation(fields, method, destination, validateResult = hasId, draft = false)`
 
 ### `src/server/salesforce.js`
 Exports
@@ -525,16 +657,23 @@ Local functions
 ### `src/server/sanity.js`
 Exports
 - `sanityProvider`
+- `registerSanityClient(input, options)`
 
 ### `src/server/semrush.js`
 Exports
 - `semrushProvider`
 Local functions
+- `semrushKeywordReport(target, kind)`
+- `semrushTrackingReport(type, positions = false)`
+- `parseSemrushCsv(text)`
 - `validProject(project)`
 
 ### `src/server/sentry.js`
 Exports
 - `sentryProvider`
+- `registerSentryClient(input, options)`
+Local functions
+- `sentryEndpoint(settings)`
 
 ### `src/server/sevdesk.js`
 Exports
@@ -554,6 +693,7 @@ Local functions
 ### `src/server/slack.js`
 Exports
 - `slackProvider`
+- `verifySlackRequest({ rawBody, signature, timestamp, secret, contentType, appId, teamId, now = Date.now() })`
 Local functions
 - `checkReply(value)`
 - `normalizeTokenResponse(response, { settings, grantType })`
@@ -566,10 +706,14 @@ Local functions
 - `origin(settings)`
 - `object(value)`
 - `database(value)`
+- `uuid(value)`
+- `sqlResult(value)`
 
 ### `src/server/storyblok.js`
 Exports
 - `storyblokProvider`
+Local functions
+- `story(value)`
 
 ### `src/server/stripe.js`
 Exports
@@ -582,6 +726,8 @@ Exports
 ### `src/server/tally.js`
 Exports
 - `tallyProvider`
+Local functions
+- `formResult(result)`
 
 ### `src/server/telegram.js`
 Exports
@@ -601,14 +747,29 @@ Local functions
 ### `src/server/twilio.js`
 Exports
 - `twilioProvider`
+- `verifyTwilioRequest({ rawBody, signature, authToken, url, accountSid, contentType })`
+Local functions
+- `sid(prefix)`
+- `resourceOperation(resource, method, fields, checkInput)`
 
 ### `src/server/twitch.js`
 Exports
 - `twitchProvider`
+- `parseTwitchEventSubMessage(raw, { broadcasterId, sessionId, subscriptionIds = [] } = {})`
 Local functions
 - `userId(value)`
 - `scopeList(value)`
 - `validToken(value)`
+- `eventSubscriptions(value)`
+- `choiceList(max)`
+- `interactionResult(value)`
+- `helixOperation(path, fields, scopes, validateResult, method = "GET", checkInput)`
+- `page(value, record)`
+- `analyticsOperation(kind, identity)`
+- `rewardResult(value)`
+- `scheduleResult(value)`
+- `scheduleWrite(fields, method)`
+- `rewardWrite(path, fields, method, queryNames, validateResult)`
 - `normalizeTokenResponse(response)`
 
 ### `src/server/wave.js`
@@ -617,13 +778,41 @@ Exports
 Local functions
 - `identifier(value)`
 - `validPage(value, validNode)`
+- `decimal(value)`
+- `namedRecord(value)`
+- `businessPage(resource, selection, scopes, validateNode, sort = "")`
+- `validInvoice(value)`
+- `productMutation(action)`
+- `validAccount(value)`
+- `validTax(value)`
+- `accountingMutation(kind, action, fields)`
+- `validEstimate(value)`
+- `documentMutation(kind, action, fields, permission)`
 
 ### `src/server/wix.js`
 Exports
 - `wixProvider`
 Local functions
+- `serializeNativeJson(value)`
 - `guid(value)`
 - `cursor(value)`
+- `bookingDirectoryOperation(kind)`
+- `validContact(value)`
+- `contactOperation(action)`
+- `validService(value)`
+- `localDate(value)`
+- `validSlot(value)`
+- `availabilityOperation(action, events = false)`
+- `productReadOperation(version, action)`
+- `collectionId(value)`
+- `validCollection(value)`
+- `locationWriteOperation(action)`
+- `locationActionOperation(action)`
+- `validLocation(value)`
+- `validOrder(value)`
+- `bookingConfirmationOperation(action)`
+- `fulfillmentWriteOperation(update)`
+- `wixSiteOperation(operation)`
 
 ### `src/server/wiz.js`
 Exports
@@ -636,18 +825,38 @@ Local functions
 ### `src/server/woocommerce.js`
 Exports
 - `woocommerceProvider`
+- `verifyWooCommerceWebhook({ rawBody, signature, secret } = {})`
 Local functions
 - `baseUrl(settings)`
+- `readRecord(resource)`
+- `deleteRecord(resource)`
+- `categoryOperation(action)`
+- `couponWrite(update)`
+- `productWrite(update)`
+- `customerWrite(update)`
+- `variationOperation(action)`
+- `refundOperation(action)`
+- `reportOperation(report)`
 
 ### `src/server/wordpress-com.js`
 Exports
 - `wordpressComProvider`
+Local functions
+- `postRecord(value)`
+- `siteOperation(action, fields, { resource = "posts", scope = resource, read = false, changesRequired = false, collection = false, validateResult = postRecord } = {})`
+- `mediaRecord(value)`
+- `commentRecord(value)`
+- `termRecord(value)`
 
 ### `src/server/wordpress-self-hosted.js`
 Exports
 - `wordpressSelfHostedProvider`
 Local functions
 - `baseUrl(settings)`
+- `contentRecord(value)`
+- `wordpressOperation(resource, fields, method, validateResult, { write = false } = {})`
+- `mediaRecord(value)`
+- `userRecord(value)`
 
 ### `src/server/workday.js`
 Exports
@@ -656,6 +865,10 @@ Local functions
 - `workersUrl(settings)`
 - `object(value)`
 - `worker(value)`
+- `organizationRecord(value)`
+- `organizationPage(value)`
+- `organizationRead(part)`
+- `absenceRead(kind)`
 
 ### `src/server/x-twitter.js`
 Exports
@@ -670,8 +883,16 @@ Exports
 - `xeroProvider`
 Local functions
 - `uuid(value)`
+- `reportRow(row)`
+- `reportResult(value)`
 - `validConnections(value)`
 - `accountingRead(resource, fields, scopes, validateResult)`
+- `accountingRecord(resource, idName, scopes, fields = {})`
+- `contactWrite(update)`
+- `invoiceWrite(update)`
+- `attachmentOperation(action)`
+- `bankTransactionWrite(update)`
+- `manualJournalWrite(update)`
 
 ### `src/server/zoho-books.js`
 Exports
@@ -815,6 +1036,14 @@ Exports
 ### `src/shared/gong.js`
 Exports
 - `gongDefinition`
+
+### `src/shared/google-ads-search.js`
+Exports
+- `googleAdsSearchFields`
+- `validateGoogleAdsSearchPlan(input)`
+Local functions
+- `text(max)`
+- `list(item, min, max)`
 
 ### `src/shared/google-ads.js`
 Exports
@@ -1049,6 +1278,10 @@ Exports
 Exports
 - `createConfiguredAiModel({ configuration, authorize, resolveReference, createModel })`
 
+### `patterns/ai-connections/example/perplexity-answer.js`
+Exports
+- `createPerplexityAnswers({ configuration, authorize, createClient, resolveReference = createEnvironmentReferenceResolver() })`
+
 ### `patterns/api-key-connection/example/connections.js`
 Exports
 - `applicationConnections({ authorize, env = process.env, configFile = "integrations.json" })`
@@ -1069,6 +1302,10 @@ Exports
 ### `patterns/firebase-messaging/example/server/notifications.js`
 Exports
 - `openNotificationConnections({ configurationPath, runtimeDirectory, credentialKey, environment, authorizeConnectionOperation })`
+
+### `patterns/google-ads-search/example/ads-setup.js`
+Exports
+- `dispatchAdsSetup(request, service)`
 
 ### `patterns/paddle-catalogue/example/create-products.js`
 Exports

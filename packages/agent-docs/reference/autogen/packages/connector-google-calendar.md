@@ -20,6 +20,9 @@ Exports
 Local functions
 - `scope(name)`
 - `queryUrl(path, input)`
+- `invalid(message)`
+- `eventBody(body, creating)`
+- `writeEvent(method)`
 
 ### `src/shared/definition.js`
 Exports

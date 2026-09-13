@@ -17,6 +17,7 @@ const getSchema = createSchema({ itemId: driveItemId });
 const uploadSchema = createSchema({
   parentId: driveItemId,
   name: { type: "string", required: true, minLength: 1, maxLength: 255,
+    // eslint-disable-next-line no-control-regex -- Reject literal control characters in provider input.
     validator: (value) => !/[\\/\x00-\x1f"*:<>?|]/u.test(value) && ![".", ".."].includes(value) || "Use a simple file name without reserved characters." },
   bodyBase64: { type: "string", required: true, noTrim: true, maxLength: 6666668 },
   conflictBehavior: { type: "string", enum: ["fail", "replace", "rename"], defaultTo: "fail" }

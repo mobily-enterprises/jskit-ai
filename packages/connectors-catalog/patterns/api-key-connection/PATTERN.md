@@ -47,7 +47,7 @@ not require putting credentials into source.
   apply. A missing explicit binding is always an error. Use the fixed
   `tables.list`, `columns.list` and `rows.list` operations with typed parameters;
   never interpolate SQL or assume verification grants access to every table.
-  See the [ClickHouse guide](../../docs/clickhouse.md) for settings constraints,
+  See the [ClickHouse guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/clickhouse.md) for settings constraints,
   administrator setup, pagination and the absence of an OAuth callback.
 - Provider settings use the provider's shared schema. Save the normalized
   configuration returned by validation so CLI and UI defaults agree.
@@ -187,7 +187,7 @@ session, not request parameters.
 ## Semrush composition
 
 Import `semrushProvider` from `@jskit-ai/connectors-catalog/server/semrush` and
-supply the configuration in the [Semrush guide](../../docs/semrush.md). Reuse
+supply the configuration in the [Semrush guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/semrush.md). Reuse
 `createConnectionService`, the file store and the host policy shown above:
 
 ```js

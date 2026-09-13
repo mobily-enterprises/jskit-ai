@@ -56,6 +56,7 @@ Local functions
 - `units(value)`
 - `timestamp(value)`
 - `fingerprint(value)`
+- `unexpired(lot, now)`
 - `available(lots, now)`
 - `once(tx, key, input, work)`
 - `grant(tx, { reference: id, units: quantity, expiresAt }, now)`

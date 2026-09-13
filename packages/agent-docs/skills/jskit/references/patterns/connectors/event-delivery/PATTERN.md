@@ -102,3 +102,50 @@ live event delivery and SDK function execution remain separate acceptance work.
 Do not expose either key in browser code, send events as a connection probe,
 interpret delivery as completed work, permit arbitrary events through a shared
 public route, or retry after an ambiguous network failure without reconciliation.
+
+## Native functions and cron
+
+App-owned composition, using the native SDK's current `triggers` option
+([functions](https://www.inngest.com/docs/learn/inngest-functions),
+[cron](https://www.inngest.com/docs/guides/scheduled-functions),
+[serve adapters](https://www.inngest.com/docs/learn/serving-inngest-functions);
+reviewed 2026-09-13). Add `inngest` to the consuming application, not to JSKIT's
+connector package. Resolve the JSON slot's Env references before constructing
+its SDK client; standard names below match the example configuration.
+
+```js
+import { Inngest } from "inngest";
+import { fastifyPlugin } from "inngest/fastify";
+
+const workflows = new Inngest({ id: "reports", eventKey: process.env.INNGEST_EVENT_KEY });
+const report = workflows.createFunction(
+  { id: "requested-report", triggers: { event: "app/report.requested" } },
+  async ({ event, step }) => {
+    const id = event.data.reportRequestId;
+    if (typeof id !== "string" || !id) throw new Error("Missing report request ID");
+    return step.run("render-and-store", () => reports.renderRequestedReport(id));
+  }
+);
+const reconcile = workflows.createFunction(
+  { id: "reconcile-reports", triggers: { cron: "TZ=UTC 0 * * * *" } },
+  async ({ step }) => step.run("reconcile-due", () => reports.reconcileDueRequests())
+);
+// `fastify` is the app's existing server. The SDK validates signed requests
+// using INNGEST_SIGNING_KEY from the deployed application's environment.
+await fastify.register(fastifyPlugin, { client: workflows, functions: [report, reconcile] });
+```
+
+`reports` is the application's business service, not a library API. It loads
+persisted, previously authorized requests, enforces tenant boundaries and makes
+writes safe to retry. Do not trust an event's arbitrary user/tenant identifier
+as authorization. `step.run` may retry failed work; a durable step is not a
+substitute for idempotent business writes. Cron timezone is explicit; choose
+schedules with awareness of daylight-saving behavior.
+
+Expose the SDK route through the app's normal server composition, then deploy
+and sync its HTTPS `/api/inngest` URL in the selected Inngest environment.
+Keep the Signing Key private and let the native adapter verify signatures.
+JSKIT CLI users follow the same steps without Vibe64. Other stacks use native
+SDKs where available and the same event name/payload/Env contract; this example
+does not promise an SDK in every language. No function execution, cloud sync
+or generated application is performed by this reference pattern.

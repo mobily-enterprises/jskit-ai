@@ -10,7 +10,7 @@ requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
 
 ## Use when
 
-Use the [Paddle setup guide](../../docs/paddle.md) to configure and verify the
+Use the [Paddle setup guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/paddle.md) to configure and verify the
 application's merchant key. This recipe creates catalogue entries only.
 Checkout, subscriptions and charging customers are separate application work.
 

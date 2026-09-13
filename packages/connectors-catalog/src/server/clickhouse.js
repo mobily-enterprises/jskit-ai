@@ -46,6 +46,7 @@ const clickhouseProvider = Object.freeze({
       (rows) => rows.length === 1 && rows[0].ok === 1 && typeof rows[0].user === "string" && rows[0].user.length > 0),
     "queries.read": queryOperation(values => values.sql, {
       sql: { type: "string", required: true, minLength: 1, maxLength: 16000,
+        // eslint-disable-next-line no-control-regex -- Reject literal control characters in provider input.
         validator: value => /^\s*(SELECT|WITH)\b/iu.test(value) && !/[;\u0000]/u.test(value) || "Use one SELECT/WITH query without a terminating semicolon; pass values as typed parameters." },
       parameters: { type: "object", additionalProperties: true,
         validator: value => Object.keys(value).length <= 100 && Object.entries(value).every(([key, item]) =>

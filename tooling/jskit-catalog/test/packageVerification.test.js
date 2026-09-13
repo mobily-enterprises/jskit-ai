@@ -119,7 +119,7 @@ test("catalog capability verification accepts kernel inputs and rejects an unpro
         jskit: {
           capabilities: {
             provides: ["example.base"],
-            requires: ["runtime.env"]
+            requires: ["runtime.env", "client.vue"]
           }
         }
       }
@@ -143,6 +143,19 @@ test("catalog capability verification accepts kernel inputs and rejects an unpro
     () => validateCapabilityClosure(packages),
     /requires capability example\.missing/u
   );
+});
+
+test("application requirements are explicit, local to the consumer, and remain required", () => {
+  const owner = { packageJson: { name: "@jskit-ai/example", jskit: { capabilities: {
+    requires: ["example.policy"], applicationRequires: ["example.policy"]
+  } } } };
+  assert.doesNotThrow(() => validateCapabilityClosure([owner]));
+  const other = { packageJson: { name: "@jskit-ai/other", jskit: { capabilities: {
+    requires: ["example.policy"]
+  } } } };
+  assert.throws(() => validateCapabilityClosure([owner, other]), /requires capability example\.policy/u);
+  owner.packageJson.jskit.capabilities.requires = [];
+  assert.throws(() => validateCapabilityClosure([owner]), /must also appear in requires/u);
 });
 
 test("packages consume shared client runtimes through peer dependencies", () => {

@@ -26,8 +26,8 @@ connecting does not approve arbitrary future SQL.
 
 ## Product decisions
 
-Use the exact [S3](../../docs/aws-s3.md) or
-[Athena](../../docs/aws-athena.md) JSON. The same file is usable by CLI and the
+Use the exact [S3](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-s3.md) or
+[Athena](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-athena.md) JSON. The same file is usable by CLI and the
 Vibe64 form. Store the actual secret access key, access key ID and optional
 session token outside source. The access key ID uses `settings.accessKeyIdRef`,
 the secret uses `authentication.secretRef`, and temporary credentials add
@@ -40,7 +40,7 @@ STS credentials. It must not give a public application the paid account's
 identity just because that application names a binding. Resource provisioning,
 account assignments, quotas and credential renewal are separate operations.
 There is no OAuth callback for these modes. See
-[AWS ownership](../../docs/aws-credentials.md).
+[AWS ownership](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/aws-credentials.md).
 
 ## Framework APIs
 
@@ -169,6 +169,6 @@ object transfer, SQL execution or generated app is needed for this test scope.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Owner: `@jskit-ai/connectors-catalog@0.1.1`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/aws-storage-queries/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/aws-storage-queries/example)
