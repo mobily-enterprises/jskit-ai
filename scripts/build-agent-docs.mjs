@@ -762,10 +762,16 @@ function renderPublicPatternIndex(patterns, commandName) {
   return `${lines.join("\n").trim()}\n`;
 }
 
-function renderPublicPattern(pattern, sourceText, commandName) {
+function renderPublicPattern(pattern, sourceText, commandName, patterns) {
   const documentRepositoryPath = patternRepositoryPath(pattern, pattern.documentPath);
   const exampleRepositoryPath = patternRepositoryPath(pattern, pattern.examplePath);
-  const body = stripFrontMatter(sourceText);
+  const body = stripFrontMatter(sourceText).replace(/\]\((\.\.?\/[^)]+\/PATTERN\.md)\)/gu, (link, destination) => {
+    const targetPath = path.resolve(pattern.ownerRoot, path.dirname(pattern.documentPath), destination);
+    const target = patterns.find((candidate) =>
+      path.resolve(candidate.ownerRoot, candidate.documentPath) === targetPath
+    );
+    return target ? `](/patterns/${target.id})` : link;
+  });
   const lines = [
     "---",
     `title: ${JSON.stringify(pattern.title)}`,
@@ -838,7 +844,7 @@ async function buildPatternIndex(commandName) {
     await cp(sourceExamplePath, path.join(bundledPatternRoot, "example"), { recursive: true });
     await writeTextFile(
       path.join(PUBLIC_PATTERN_ROOT, `${pattern.id}.md`),
-      renderPublicPattern(pattern, sourceText, commandName)
+      renderPublicPattern(pattern, sourceText, commandName, patterns)
     );
   }
 }
