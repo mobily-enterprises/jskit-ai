@@ -77,6 +77,7 @@ async function createStartedApp({
   env = {},
   profileProjector = null,
   passwordStrategy = null,
+  recoverySender = null,
   invitationContextResolver = null,
   logger = null,
   configureExtensions = null
@@ -130,6 +131,7 @@ async function createStartedApp({
     "auth.extensions": extensions,
     "auth.local.backend": backend,
     ...(passwordStrategy ? { "auth.local.password-strategy": passwordStrategy } : {}),
+    ...(recoverySender !== null ? { "auth.local.recovery-sender": recoverySender } : {}),
   };
   const runtime = createCapabilityRuntime({
     inputs,
@@ -577,7 +579,6 @@ test("local auth login verifies password and creates session in one backend tran
     config: {
       sessionSecret: "test-secret",
       nodeEnv: "test",
-      smtpConfigured: false,
       recoveryDevOutput: "response",
       appPublicUrl: "http://localhost:5173"
     }
@@ -683,7 +684,6 @@ test("local auth service accepts a custom stored-password format", async () => {
     config: {
       sessionSecret: "test-secret",
       nodeEnv: "test",
-      smtpConfigured: false,
       recoveryDevOutput: "response",
       appPublicUrl: "http://localhost:5173"
     },
@@ -1055,16 +1055,13 @@ test("local auth provider passes resolved invitation context into profile projec
   assert.equal(registered.actor.appUserId, "invited-app-user");
 });
 
-test("local auth provider requires an explicit public URL for SMTP recovery", async () => {
+test("local auth provider requires an explicit public URL for email recovery", async () => {
   await assert.rejects(
     () => createStartedApp({
-      env: {
-        APP_PUBLIC_URL: "",
-        AUTH_LOCAL_SMTP_HOST: "smtp.example.com",
-        AUTH_LOCAL_SMTP_FROM: "support@example.com"
-      }
+      env: { APP_PUBLIC_URL: "" },
+      recoverySender: async () => {}
     }),
-    /APP_PUBLIC_URL is required when local auth SMTP recovery is configured/
+    /APP_PUBLIC_URL is required when local auth email recovery is configured/
   );
 });
 
@@ -1151,4 +1148,43 @@ test("local file backend replays a pending multi-file transaction journal before
   assert.equal(recovered.session.id, "ses_journal");
   assert.equal(recovered.recovery.id, "rec_journal");
   await assert.rejects(() => fs.stat(path.join(storeDir, "transaction.journal")), { code: "ENOENT" });
+});
+
+test("local recovery uses the application sender without returning or logging its token", async (t) => {
+  const messages = [];
+  const logs = [];
+  const app = await createStartedApp({
+    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret" },
+    recoverySender: async (message) => { messages.push(message); },
+    logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  await app.authService.register({ email: "sender@example.com", password: "correct horse battery staple" });
+  assert.equal(app.authService.getCapabilities().features.passwordRecovery.delivery, "email");
+  const result = await app.authService.requestPasswordReset({ email: "sender@example.com" });
+  assert.equal(result.recoveryUrl, undefined);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].email, "sender@example.com");
+  assert.match(messages[0].recoveryUrl, /^http:\/\/localhost:5173\/auth\/reset-password\?/);
+  assert.equal(JSON.stringify(logs).includes(messages[0].recoveryUrl), false);
+  const unknown = await app.authService.requestPasswordReset({ email: "absent@example.com" });
+  assert.deepEqual(unknown, result);
+  assert.equal(messages.length, 1);
+  const token = new URL(messages[0].recoveryUrl).searchParams.get("token");
+  const recovery = await app.authService.completePasswordRecovery({ code: token, type: "recovery" });
+  assert.equal(recovery.actor.email, "sender@example.com");
+});
+
+test("a failing recovery sender does not fall back to development output", async (t) => {
+  const logs = [];
+  const failure = new Error("delivery unavailable");
+  const app = await createStartedApp({
+    env: { AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" },
+    recoverySender: async () => { throw failure; },
+    logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  await app.authService.register({ email: "failure@example.com", password: "correct horse battery staple" });
+  await assert.rejects(app.authService.requestPasswordReset({ email: "failure@example.com" }), failure);
+  assert.equal(logs.some((args) => JSON.stringify(args).includes("recoveryUrl")), false);
 });

@@ -7,7 +7,7 @@
 - [x] Re-read the CRUD scaffolding pattern in `packages/agent-docs/patterns/crud-scaffolding.md`.
 - [x] Re-read the client request pattern in `packages/agent-docs/patterns/client-requests.md`.
 - [x] Confirmed that `crud-server-generator` supports `--internal` for internal HTTP CRUD routes.
-- [x] Confirmed the current Google rewarded direction: `google-rewarded-core` plus `google-rewarded-web`.
+- [x] Confirmed the current Google rewarded direction: `rewarded-core` plus `rewarded-web`.
 
 ## Scope and Constraints
 
@@ -21,13 +21,13 @@
 ## Phase 1: Finalize Package Shape
 
 - [x] Define the exact package ids and directory names for:
-  - `@jskit-ai/google-rewarded-core`
-  - `@jskit-ai/google-rewarded-web`
-- [x] Define the exact CRUD provider/resource namespaces inside `google-rewarded-core` before scaffolding.
+  - `@jskit-ai/rewarded-core`
+  - `@jskit-ai/rewarded-web`
+- [x] Define the exact CRUD provider/resource namespaces inside `rewarded-core` before scaffolding.
 - [x] Decide whether any day-0 admin/config UI is in scope or deferred.
 - [x] Decide the package dependency graph:
-  - `google-rewarded-core` runtime/server dependencies
-  - `google-rewarded-web` client/runtime dependencies
+  - `rewarded-core` runtime/server dependencies
+  - `rewarded-web` client/runtime dependencies
 - [x] Decide which existing JSKIT capabilities each package provides and requires.
 - [x] Decide whether workspace-aware behavior is first-class on day 0 or only global/user-level behavior is in scope.
 
@@ -36,10 +36,10 @@
 - [x] Finalize the persisted entity list.
 - [x] Confirm which tables are CRUD-owned and which logic stays workflow-only.
 - [x] Finalize day-0 tables:
-  - `google_rewarded_rules`
-  - `google_rewarded_provider_configs`
-  - `google_rewarded_unlock_receipts`
-  - `google_rewarded_watch_sessions`
+  - `rewarded_rules`
+  - `rewarded_provider_configs`
+  - `rewarded_unlock_receipts`
+  - `rewarded_watch_sessions`
 - [x] Finalize ownership per table:
   - `workspace` for rule/config tables if they are workspace-scoped
   - `workspace_user` for per-user unlock/session tables in workspace apps
@@ -70,12 +70,12 @@
 - [x] Adjust generated resources only where the DB contract requires explicit metadata refinement.
 - [x] Verify doctor recognizes the tables as CRUD-owned and not as undocumented exceptions.
 
-## Phase 4: Build `google-rewarded-core`
+## Phase 4: Build `rewarded-core`
 
-- [x] Define `packages/google-rewarded-core/package.json.jskit`.
-- [x] Keep package-level migrations out of `google-rewarded-core` unless a real non-CRUD workflow table is explicitly justified.
+- [x] Define `packages/rewarded-core/package.json.jskit`.
+- [x] Keep package-level migrations out of `rewarded-core` unless a real non-CRUD workflow table is explicitly justified.
 - [x] Add the server provider:
-  - `src/server/GoogleRewardedCoreProvider.js`
+  - `src/server/RewardedCoreProvider.js`
 - [x] Wire server container tokens for the gate workflow service.
 - [x] Decide whether the workflow service consumes CRUD services, CRUD repositories, or both.
 - [x] Add the core gate decision service.
@@ -96,10 +96,10 @@
 
 - [x] Finalize the custom endpoint set.
 - [x] Likely endpoints:
-  - `GET /api/google-rewarded/current`
-  - `POST /api/google-rewarded/start`
-  - `POST /api/google-rewarded/grant`
-  - `POST /api/google-rewarded/close`
+  - `GET /api/rewarded/current`
+  - `POST /api/rewarded/start`
+  - `POST /api/rewarded/grant`
+  - `POST /api/rewarded/close`
 - [x] Define exact request/response contracts for each endpoint.
 - [x] Use JSKIT HTTP runtime contracts instead of ad hoc payload handling.
 - [x] Keep these endpoints as plain workflow payloads with explicit contracts, not JSON:API documents.
@@ -122,11 +122,11 @@
 - [x] Define what to do when the user closes the ad before reward grant.
 - [x] Define what minimal provider config must exist in DB/app config.
 
-## Phase 7: Build `google-rewarded-web`
+## Phase 7: Build `rewarded-web`
 
-- [x] Define `packages/google-rewarded-web/package.json.jskit`.
+- [x] Define `packages/rewarded-web/package.json.jskit`.
 - [x] Add the client provider:
-  - `src/client/providers/GoogleRewardedClientProvider.js`
+  - `src/client/providers/RewardedClientProvider.js`
 - [x] Add a client runtime abstraction for gate requests and GPT orchestration.
 - [x] Add a GPT script loader helper.
 - [x] Add a rewarded slot controller/helper.

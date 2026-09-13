@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "integrations": {
+    "calendar": {
+      "provider": "google-calendar",
+      "displayName": "My calendar",
+      "accountMode": "per-user",
+      "scopes": [
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+        "https://www.googleapis.com/auth/calendar.events.readonly"
+      ],
+      "authentication": { "method": "oauth2", "registrationRef": "google" }
+    }
+  },
+  "registrations": {
+    "google": {
+      "source": "own",
+      "clientId": "YOUR_GOOGLE_CLIENT_ID",
+      "clientSecretRef": "env:GOOGLE_CLIENT_SECRET",
+      "callbackUrlRef": "env:GOOGLE_CALLBACK_URL"
+    }
+  }
+}

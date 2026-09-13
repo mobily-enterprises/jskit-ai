@@ -257,43 +257,23 @@ function normalizeInvitationInput(value = null) {
   };
 }
 
-async function maybeSendRecoveryEmail(config, recoveryUrl, email) {
-  if (!config.smtpConfigured) {
-    return;
-  }
-  const nodemailer = await import("nodemailer");
-  const transport = nodemailer.createTransport({
-    host: config.smtp.host,
-    port: config.smtp.port,
-    secure: config.smtp.secure,
-    auth: config.smtp.user
-      ? {
-          user: config.smtp.user,
-          pass: config.smtp.password
-        }
-      : undefined
-  });
-  await transport.sendMail({
-    from: config.smtp.from,
-    replyTo: config.smtp.replyTo || undefined,
-    to: email,
-    subject: "Reset your password",
-    text: `Open this link to reset your password:\n\n${recoveryUrl}\n`
-  });
-}
-
 function createLocalAuthService({
   backend,
   config,
   profileProjector = null,
   passwordStrategy = null,
-  invitationContextResolver = null
+  invitationContextResolver = null,
+  recoverySender = null
 }) {
   if (!backend || typeof backend.withTransaction !== "function") {
     throw new Error("Local auth requires auth.local.backend with withTransaction().");
   }
   if (!config?.sessionSecret) {
     throw new Error("Local auth requires a session secret.");
+  }
+
+  if (recoverySender !== null && typeof recoverySender !== "function") {
+    throw new Error("auth.local.recovery-sender must be a function.");
   }
 
   const passwords = normalizePasswordStrategy(passwordStrategy);
@@ -303,8 +283,8 @@ function createLocalAuthService({
   });
   assertDevAuthPolicy(devAuth);
   const profileProjectionEnabled = typeof profileProjector?.syncIdentityProfile === "function";
-  const recoveryDelivery = config.smtpConfigured
-    ? "smtp"
+  const recoveryDelivery = recoverySender
+    ? "email"
     : isProduction
       ? "disabled"
       : config.recoveryDevOutput === "response"
@@ -639,15 +619,15 @@ function createLocalAuthService({
       });
     });
     if (recoveryUrl) {
-      await maybeSendRecoveryEmail(config, recoveryUrl, email);
-      if (!config.smtpConfigured && config.recoveryDevOutput === "log" && config.logger?.info) {
+      if (recoverySender) await recoverySender({ email, recoveryUrl });
+      if (!recoverySender && config.recoveryDevOutput === "log" && config.logger?.info) {
         config.logger.info({ recoveryUrl, email }, "Local auth password recovery URL created.");
       }
     }
     return {
       ok: true,
       message: "If an account exists for that email, password reset instructions have been sent.",
-      ...(recoveryUrl && !config.smtpConfigured && config.recoveryDevOutput === "response" ? { recoveryUrl } : {})
+      ...(recoveryUrl && !recoverySender && config.recoveryDevOutput === "response" ? { recoveryUrl } : {})
     };
   }
 

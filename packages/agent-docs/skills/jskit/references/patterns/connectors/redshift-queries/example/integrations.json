@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "serverless-reports": {
+      "provider": "amazon-redshift",
+      "accountMode": "shared",
+      "scopes": [],
+      "authentication": { "method": "api-key", "secretRef": "env:REPORTING_AWS_SECRET_ACCESS_KEY" },
+      "settings": {
+        "deploymentType": "serverless",
+        "region": "us-east-1",
+        "accessKeyIdRef": "env:REPORTING_AWS_ACCESS_KEY_ID",
+        "workgroup": "analytics",
+        "database": "dev"
+      }
+    },
+    "cluster-reports": {
+      "provider": "amazon-redshift",
+      "accountMode": "shared",
+      "scopes": [],
+      "authentication": { "method": "api-key", "secretRef": "env:CLUSTER_AWS_SECRET_ACCESS_KEY" },
+      "settings": {
+        "deploymentType": "provisioned",
+        "region": "us-east-1",
+        "accessKeyIdRef": "env:CLUSTER_AWS_ACCESS_KEY_ID",
+        "clusterIdentifier": "analytics-cluster",
+        "database": "dev",
+        "databaseUser": "report_reader"
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "name": "@jskit-ai/rewarded-web",
+  "version": "0.1.119",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./shared": "./src/shared/index.js"
+  },
+  "description": "Rewarded gate client workflow with explicitly composed application delivery.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "rewarded.web"
+      ],
+      "requires": [
+        "client.vue",
+        "client.rewarded-delivery"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": [
+          {
+            "entrypoint": "src/client/providers/RewardedClientProvider.js",
+            "export": "RewardedClientProvider"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./client",
+            "summary": "Exports the Rewarded client provider, runtime composable, and fullscreen gate host."
+          }
+        ]
+      },
+      "client": {
+        "singleton": true
+      }
+    }
+  },
+  "dependencies": {
+    "@jskit-ai/rewarded-core": "0.1.119"
+  },
+  "peerDependencies": {
+    "@jskit-ai/http-runtime": "0.1.181",
+    "@jskit-ai/kernel": "0.1.183",
+    "@jskit-ai/shell-web": "0.1.187"
+  }
+}

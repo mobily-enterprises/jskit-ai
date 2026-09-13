@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Application payment declaration, integrations.json extensions.payments",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "environments",
+    "plans"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "sandbox": {
+          "$ref": "#/definitions/environment"
+        },
+        "live": {
+          "$ref": "#/definitions/environment"
+        }
+      }
+    },
+    "plans": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 100,
+      "propertyNames": {
+        "$ref": "#/definitions/id"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/plan"
+      }
+    }
+  },
+  "definitions": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "maxLength": 100,
+      "not": {
+        "enum": [
+          "constructor",
+          "prototype"
+        ]
+      }
+    },
+    "env": {
+      "type": "string",
+      "pattern": "^env:[A-Z_][A-Z0-9_]*$",
+      "maxLength": 200
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "integrationId",
+        "providerAccountId",
+        "webhookSecretRef",
+        "returnUrlRef"
+      ],
+      "properties": {
+        "integrationId": {
+          "$ref": "#/definitions/id"
+        },
+        "providerAccountId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "webhookSecretRef": {
+          "$ref": "#/definitions/env"
+        },
+        "returnUrlRef": {
+          "$ref": "#/definitions/env"
+        },
+        "taxCategory": {
+          "type": "string",
+          "enum": [
+            "digital-goods",
+            "ebooks",
+            "implementation-services",
+            "professional-services",
+            "saas",
+            "software-programming-services",
+            "standard",
+            "training-services",
+            "website-hosting"
+          ]
+        },
+        "publicClientTokenRef": {
+          "$ref": "#/definitions/env"
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "amount",
+        "currency",
+        "interval",
+        "features",
+        "renewalCredits"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "interval": {
+          "enum": [
+            "month",
+            "year"
+          ]
+        },
+        "features": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/id"
+          }
+        },
+        "renewalCredits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000000
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,718 @@
+{
+  "version": 1,
+  "configurationCases": [
+    {
+      "id": "stripe-sandbox",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": true
+    },
+    {
+      "id": "paddle-sandbox",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "paddle",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            },
+            "settings": {
+              "environment": "sandbox"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL",
+                "taxCategory": "saas",
+                "publicClientTokenRef": "env:PADDLE_CLIENT_TOKEN"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": true
+    },
+    {
+      "id": "fractional-price",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 12.5,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": false,
+      "configurationValid": false
+    },
+    {
+      "id": "negative-credits",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": -1
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": false,
+      "configurationValid": false
+    },
+    {
+      "id": "duplicate-feature",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export",
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": false,
+      "configurationValid": false
+    },
+    {
+      "id": "inline-webhook-secret",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "not-an-env-reference",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": false,
+      "configurationValid": false
+    },
+    {
+      "id": "missing-connection",
+      "document": {
+        "integrations": {},
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    },
+    {
+      "id": "per-user-merchant",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "per-user",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    },
+    {
+      "id": "inline-api-key",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "not-an-env-reference"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    },
+    {
+      "id": "paddle-environment-mismatch",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "paddle",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            },
+            "settings": {
+              "environment": "live"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL",
+                "taxCategory": "saas",
+                "publicClientTokenRef": "env:PADDLE_CLIENT_TOKEN"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    },
+    {
+      "id": "paddle-client-token-missing",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "paddle",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            },
+            "settings": {
+              "environment": "sandbox"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL",
+                "taxCategory": "saas"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    }
+  ],
+  "accountScenario": {
+    "document": {
+      "integrations": {
+        "billing": {
+          "provider": "stripe",
+          "accountMode": "shared",
+          "authentication": {
+            "method": "api-key",
+            "secretRef": "env:STRIPE_KEY"
+          }
+        }
+      },
+      "extensions": {
+        "payments": {
+          "version": 1,
+          "environments": {
+            "sandbox": {
+              "integrationId": "billing",
+              "providerAccountId": "acct_fixture",
+              "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+              "returnUrlRef": "env:BILLING_RETURN_URL"
+            }
+          },
+          "plans": {
+            "pro": {
+              "name": "Pro",
+              "amount": 1200,
+              "currency": "USD",
+              "interval": "month",
+              "features": [
+                "export"
+              ],
+              "renewalCredits": 100
+            }
+          }
+        }
+      }
+    },
+    "scope": {
+      "applicationId": "app-fixture",
+      "integrationId": "billing",
+      "providerAccountId": "acct_fixture",
+      "environment": "sandbox",
+      "subjectId": "tenant-a"
+    },
+    "clock": 1000,
+    "customerId": "customer-fixture",
+    "steps": [
+      {
+        "operation": "inspect",
+        "expect": {
+          "balance": 0,
+          "features": [],
+          "subscriptions": []
+        }
+      },
+      {
+        "operation": "reconcileEvent",
+        "input": {
+          "eventId": "event-one",
+          "customerId": "customer-fixture"
+        },
+        "facts": {
+          "subscription": {
+            "id": "sub_fixture",
+            "status": "active",
+            "planId": "pro",
+            "periodEnd": 5000
+          },
+          "renewal": {
+            "id": "invoice_fixture",
+            "planId": "pro",
+            "periodEnd": 5000
+          }
+        },
+        "expect": {
+          "duplicate": false,
+          "subscriptionId": "sub_fixture"
+        }
+      },
+      {
+        "operation": "inspect",
+        "expect": {
+          "balance": 100,
+          "features": [
+            "export"
+          ],
+          "subscriptions": [
+            {
+              "id": "sub_fixture",
+              "status": "active",
+              "planId": "pro",
+              "periodEnd": 5000
+            }
+          ]
+        }
+      },
+      {
+        "operation": "reconcileEvent",
+        "input": {
+          "eventId": "event-one",
+          "customerId": "customer-fixture"
+        },
+        "facts": {
+          "subscription": {
+            "id": "sub_fixture",
+            "status": "active",
+            "planId": "pro",
+            "periodEnd": 5000
+          },
+          "renewal": {
+            "id": "invoice_fixture",
+            "planId": "pro",
+            "periodEnd": 5000
+          }
+        },
+        "expect": {
+          "duplicate": true
+        }
+      },
+      {
+        "operation": "reconcileEvent",
+        "input": {
+          "eventId": "event-two",
+          "customerId": "customer-fixture"
+        },
+        "facts": {
+          "subscription": {
+            "id": "sub_fixture",
+            "status": "active",
+            "planId": "pro",
+            "periodEnd": 5000
+          },
+          "renewal": {
+            "id": "invoice_fixture",
+            "planId": "pro",
+            "periodEnd": 5000
+          }
+        },
+        "expect": {
+          "duplicate": false,
+          "creditGrant": {
+            "duplicate": true,
+            "granted": 100,
+            "expiresAt": 5000
+          }
+        }
+      },
+      {
+        "operation": "debitCredits",
+        "input": {
+          "reference": "export-one",
+          "units": 30
+        },
+        "expect": {
+          "duplicate": false,
+          "debited": 30
+        }
+      },
+      {
+        "operation": "debitCredits",
+        "input": {
+          "reference": "export-one",
+          "units": 30
+        },
+        "expect": {
+          "duplicate": true,
+          "debited": 30
+        }
+      },
+      {
+        "operation": "debitCredits",
+        "input": {
+          "reference": "export-one",
+          "units": 31
+        },
+        "error": "payment_reference_conflict"
+      },
+      {
+        "operation": "inspect",
+        "expect": {
+          "balance": 70,
+          "features": [
+            "export"
+          ]
+        }
+      },
+      {
+        "operation": "inspect",
+        "subjectId": "tenant-b",
+        "expect": {
+          "balance": 0,
+          "features": [],
+          "subscriptions": []
+        }
+      },
+      {
+        "operation": "inspect",
+        "clock": 5000,
+        "expect": {
+          "balance": 0,
+          "features": []
+        }
+      },
+      {
+        "operation": "refundDebit",
+        "input": {
+          "debitReference": "export-one"
+        },
+        "expect": {
+          "restored": 0,
+          "expired": 30,
+          "duplicate": false
+        }
+      },
+      {
+        "operation": "grantCredits",
+        "input": {
+          "reference": "promotion-one",
+          "units": 20,
+          "expiresAt": null
+        },
+        "expect": {
+          "granted": 20,
+          "expiresAt": null,
+          "duplicate": false
+        }
+      },
+      {
+        "operation": "debitCredits",
+        "input": {
+          "reference": "too-large",
+          "units": 21
+        },
+        "error": "payment_insufficient_credits"
+      },
+      {
+        "operation": "inspect",
+        "expect": {
+          "balance": 20,
+          "features": []
+        }
+      }
+    ]
+  }
+}

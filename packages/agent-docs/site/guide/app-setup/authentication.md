@@ -35,6 +35,74 @@ Protected server operations declare an auth policy; they do not trust a hidden
 button or a page-local session check. Other packages extend auth through the
 public extension capability rather than replacing the auth service.
 
+## Application-owned recovery email
+
+Local auth owns recovery tokens, expiry and recovery-scoped sessions. The
+application supplies the optional `auth.local.recovery-sender` capability as an
+async function accepting `{ email, recoveryUrl }`. It owns message content,
+sender address, provider credentials and delivery. The function must reject on
+failure and must not log the recovery URL or raw provider credentials.
+
+Wire the application's selected email integration or transport into this
+capability using an ordinary application provider:
+
+```js
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+
+export const RecoveryEmailProvider = defineProvider({
+  id: "app.recovery-email",
+  requires: { mail: "app.mail" },
+  provides: { recoverySender: "auth.local.recovery-sender" },
+  setup({ mail }) {
+    return {
+      recoverySender: async ({ email, recoveryUrl }) => {
+        await mail.send({
+          to: email,
+          subject: "Reset your password",
+          text: `Open this link to reset your password:\n\n${recoveryUrl}\n`
+        });
+      }
+    };
+  }
+});
+```
+
+`app.mail` is an application-owned capability in this example, not a built-in
+JSKIT email API. Its `send()` implementation owns the selected integration,
+credential resolution and safe error mapping. A connected account or a domain
+listing adapter alone does not implement email sending. Install this provider
+alongside the application's mail provider and `AuthLocalProvider`.
+For direct library composition, pass the same function as `recoverySender` to
+`createLocalAuthService()`.
+
+Set `APP_PUBLIC_URL` to the application's actual public URL. When a sender is
+configured, auth requires this value and does not return or log the recovery
+URL. Without a sender, production recovery is disabled; explicit development
+output remains available for local testing. A sender failure never falls back
+to development output. The generic recovery delivery capability is `email`.
+
+### Pre-release migration
+
+This is a V0 breaking change. There is one runtime path, with no old SMTP reader
+or compatibility adapter.
+
+1. Supply `auth.local.recovery-sender` (or the direct `recoverySender` argument)
+   using your application’s chosen delivery implementation.
+2. Move sender, reply-to and transport credentials into that implementation's
+   configuration and private Env. Remove `AUTH_LOCAL_SMTP_HOST`,
+   `AUTH_LOCAL_SMTP_PORT`, `AUTH_LOCAL_SMTP_SECURE`, `AUTH_LOCAL_SMTP_USER`,
+   `AUTH_LOCAL_SMTP_PASSWORD`, `AUTH_LOCAL_SMTP_FROM` and
+   `AUTH_LOCAL_SMTP_REPLY_TO`. These variables are no longer consumed by auth.
+3. If retaining SMTP, explicitly install Nodemailer in the application and own
+   its transport there. Local auth no longer installs or imports Nodemailer.
+4. Retain `APP_PUBLIC_URL`. Replace direct-service `config.smtp` and
+   `config.smtpConfigured` with the sender argument. Update consumers that
+   inspect `features.passwordRecovery.delivery` from `smtp` to `email`, including
+   Supabase-backed consumers: this describes delivery, not transport protocol.
+5. Verify recovery delivery, unknown-account responses, delivery failures and
+   the completed password-reset flow before releasing the updated application.
+   This change does not alter identity, session or recovery-token storage.
+
 ## Browser boundary
 
 `@jskit-ai/auth-web` owns the normal auth views, guard runtime, sign-out flow,

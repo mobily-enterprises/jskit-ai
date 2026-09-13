@@ -1,0 +1,84 @@
+---
+id: connectors/public-image
+title: Public logo images from portable integration configuration
+summary: Resolve a publishable image key deliberately and use the shared URL library in a browser, backend or CLI.
+keywords: connectors, integrations, logo-dev, images, public-key, cli, files
+requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
+---
+
+# Public logo images from portable integration configuration
+
+## Use when
+
+Use for Logo.dev's public image service. `createLogoDevImageUrl` is implemented
+in the library; the example owns only application configuration and wiring.
+This path does not need a server connection grant or a database.
+
+## Do not use when
+
+Private JSON API keys, user OAuth tokens and managed service credentials must
+not be placed in public image URLs. Logo.dev search/describe use different
+credentials and are outside this pattern.
+
+## Product decisions
+
+Choose the domains that may load images, attribution placement and missing-image
+behavior. Choose whether a build step publishes the permitted key in public
+configuration or an authorized backend returns image URLs. The application's
+existing access policy applies before exposing its configured resources.
+
+## Invariants
+
+- CLI and Vibe64 edit the same reference-only `integrations.json`.
+- Only a `pk_` key enters an image URL; a private key fails validation.
+- URL creation is local and does not establish a verified account connection.
+- Browser load/error events report delivery. A monogram is not proof of a brand logo.
+- Domain restrictions concern the app that loads the image, including previews
+  and custom domains. The editor VM may have a different origin.
+
+## Framework APIs
+
+Use `parseIntegrationConfiguration` from connectors-core/shared/configuration,
+`logoDevDefinition` from connectors-catalog/shared, and
+`createLogoDevImageUrl` from connectors-catalog/client/logo-dev. The latter is
+portable to Node and browsers and exposes `logoDevImageSchema` for input fields.
+Use the application's reference resolver; no environment object goes to the
+browser. See [provider setup](../../docs/logo-dev.md) for inputs and limitations.
+
+## Example files
+
+`integrations.json` is ordinary application source. `logo-url.js` demonstrates
+resolving its chosen integration and producing a public URL from the library.
+Supply authorized configuration, a resolver and the desired image input:
+
+```js
+const url = await logoUrlFromConfiguration({
+  configurationText, integrationId: "logos", resolveReference,
+  image: { domain: "example.com", fallback: "404" }
+});
+```
+
+In Vue, compute the URL from approved public configuration and bind `:src` on
+an `<img>` with `alt`, `referrerpolicy="origin"` and an `@error` fallback. A CLI
+can print or embed the same URL without generating an application. Treat the
+returned URL as containing a public key; do not substitute a private credential.
+
+## Variation points
+
+Application code owns public configuration delivery, allowed domains, display
+size, theme and fallback. Use explicit permanent-hosting arrangements if the
+product needs to retain or redistribute provider assets.
+
+## Verification
+
+Library tests cover key and domain validation, option bounds and fixed-origin
+URL construction. Browser fixtures exercise simulated image success and error.
+Source-pattern tests use a supplied resolver and reject a different provider
+slot. Editor tests verify reference-only source, field errors and reload.
+These checks need neither live credentials nor generated sample applications.
+
+## Avoid
+
+Do not call server `connectApiKey` to manufacture a Connected receipt for this
+image flow. Do not send a secret key, an environment dump or a caller-selected
+service origin to the browser. Do not treat key naming as provider quota isolation.

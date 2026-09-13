@@ -39,6 +39,31 @@ Use `@jskit-ai/auth-provider-supabase-core` for the provider and
 `@jskit-ai/auth-core` policy contracts. Configure `config.auth` through the
 application's ordinary server configuration.
 
+## Provider login policy and prerelease migration
+
+Provider-specific login query parameters belong to the application. For example,
+an application choosing Google's account picker can configure:
+
+```js
+const config = {
+  auth: {
+    oauth: {
+      providers: ["google"],
+      defaultProvider: "google",
+      queryParams: { google: { prompt: "select_account" } }
+    }
+  }
+};
+```
+
+Pre-release applications that relied on the previous implicit Google
+`select_account` parameter must add this configuration if they want to retain
+that behavior. The runtime no longer supplies it automatically. This is a manual
+V0 migration; there is no fallback to the old policy. These values control the
+Supabase login flow. They do not configure a Gmail API connection or confer
+mailbox permissions. The application still owns its identity and account-linking
+policy, while connectors manage separately authorized provider access.
+
 ## Example files
 
 `example/package.json` declares the selected provider. `example/.env.example`

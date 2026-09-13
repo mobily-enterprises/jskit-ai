@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "automation": {
+      "provider": "n8n",
+      "accountMode": "assistant",
+      "scopes": [],
+      "authentication": { "method": "api-key", "secretRef": "env:N8N_MCP_TOKEN" },
+      "settings": { "serverUrl": "https://automation.example.com/mcp-server/http" }
+    }
+  }
+}

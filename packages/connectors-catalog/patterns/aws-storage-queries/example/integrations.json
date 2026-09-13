@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "files": {
+      "provider": "aws-s3",
+      "displayName": "Application files",
+      "accountMode": "shared",
+      "scopes": [
+        "read"
+      ],
+      "authentication": {
+        "method": "api-key",
+        "secretRef": "env:AWS_SECRET_ACCESS_KEY"
+      },
+      "settings": {
+        "region": "ap-southeast-2",
+        "bucket": "my-app-files",
+        "accessKeyIdRef": "env:AWS_ACCESS_KEY_ID"
+      }
+    },
+    "queries": {
+      "provider": "aws-athena",
+      "accountMode": "shared",
+      "scopes": [],
+      "authentication": {
+        "method": "api-key",
+        "secretRef": "env:AWS_SECRET_ACCESS_KEY"
+      },
+      "settings": {
+        "region": "ap-southeast-2",
+        "accessKeyIdRef": "env:AWS_ACCESS_KEY_ID",
+        "workgroup": "reports",
+        "resultLocation": "s3://query-results/reports/"
+      }
+    }
+  }
+}

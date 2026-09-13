@@ -1,0 +1,106 @@
+---
+id: connectors/calendar-cli
+title: Google Calendar from an application-owned CLI
+summary: Compose reusable connection libraries with portable configuration, application ownership and durable storage.
+keywords: connectors, integrations, google, calendar, oauth, cli, permissions
+requires: @jskit-ai/connectors-core, @jskit-ai/connector-google-calendar, @jskit-ai/database-runtime-mysql
+---
+
+# Google Calendar from an application-owned CLI
+
+## Use when
+
+Use this pattern for a local operator command that connects an account and reads
+Calendar pages. The example deliberately selects MySQL/MariaDB. A web app should
+use its existing selected database client and authenticated callback routes.
+
+## Do not use when
+
+Do not use the local operator identity or loopback listener as a public web
+application's authentication. Do not use this example for managed gateway
+registrations, native public OAuth clients or service accounts.
+
+## Product decisions
+
+Adapt the example's `integrations.json`, environment bindings, command names,
+ownership policy and output handling. Install its dependencies with ordinary
+`npm install`; no JSKIT CLI, generator or template installation is involved.
+The example's loopback HTTP callback is local command wiring. OAuth exchange,
+PKCE, state checks, refresh, provider requests, encryption and storage remain
+imports from the libraries.
+
+The example trusts the local process owner. `CONNECTOR_APPLICATION_ID` and
+`CONNECTOR_SUBJECT_ID` identify its persistent connection. Do not copy that
+environment-based identity policy into an HTTP API: derive its owner from the
+authenticated user and check membership/operation permissions there.
+
+## Invariants
+
+- One configuration file is read by CLI and UI.
+- Credential values and connection grants stay outside source.
+- The application authorizes owners and executes package-owned migrations.
+- OAuth and persistence machinery is imported from the library.
+- Provider consent and a successful account check precede Connected.
+
+## Framework APIs
+
+The script imports `parseIntegrationConfiguration`, `createConnectionService`,
+`createEnvironmentReferenceResolver`, `createCredentialProtection`,
+`createKnexConnectionStore` and `googleCalendarProvider`. `knexfile.js` uses
+`createKnexMigrationConfigFromApp` with the selected MySQL dialect.
+
+## Example files
+
+`example/integrations.json` is portable source. `example/.env.example` lists
+private runtime bindings. `example/scripts/calendar.js` owns command parsing
+and local callback wiring. `example/package.json` and `example/knexfile.js`
+provide ordinary npm and migration operations.
+
+## Verification
+
+1. Follow the package's provider setup guide. Register the exact loopback URL
+   from `.env.example` on your own Google OAuth web client.
+2. Adapt `example/package.json`, `knexfile.js`, `integrations.json` and
+   `scripts/calendar.js` into your application. Make `.env` from `.env.example`,
+   supply database and provider credentials, and exclude it from Git. Create
+   the application's migration directories with `mkdir -p migrations/constraints`.
+3. Generate a private storage key with
+   `node -e 'console.log(require("node:crypto").randomBytes(32).toString("base64"))'`.
+   Save it as `CONNECTOR_STORAGE_KEY`. Preserve it across restarts and backups.
+4. Run `npm install`, then `npm run db:migrate` against your application's
+   database. Package migrations are discovered directly; do not copy them.
+5. Run `npm run calendar -- validate`. This needs no database or provider
+   credentials and uses exactly the validator used by the UI.
+6. Run `npm run calendar -- connect`, open the displayed URL in your normal
+   browser and approve the account permissions. A local callback completes the
+   command. Ctrl-C cancels the pending attempt.
+7. Run `npm run calendar -- calendars`, then
+   `npm run calendar -- events '{"calendarId":"primary","maxResults":10}'`.
+   The output includes the provider's next-page token when present.
+8. Restart the process and run `npm run calendar -- status`. Run
+   `npm run calendar -- disconnect` to remove this application's local grant.
+
+For command output, apply your application's privacy requirements before
+retaining or sharing calendar data. The example prints operation results, not
+credentials.
+
+## Variation points
+
+Use `createConnectorsFeature()` with the ordinary JSKIT action runtime, or call
+`createConnectionService()` from an existing Feature. Keep business operations
+named, such as `calendar.events.list`. Use the app's authenticated context in
+the authorization policy. A web callback recovers the initiating owner's
+context and passes the full registered callback URL to `completeAuthorization`.
+
+Use `IntegrationConfigurationFields` from `@jskit-ai/connectors-web/client` for
+the form. The parent uses the normal resource/add-edit seam to save the same
+file, detect concurrent edits and expose the existing secret-entry control.
+Saving configuration and connecting an account are different operations.
+
+## Avoid
+
+The source pattern is validated locally; live Google consent still requires
+your credentials and account approval. The initial runtime implements own web
+client registrations. The editor configures the generated application's own registration. Its backend
+resolves the secret from the application environment; never ship a client secret
+inside a desktop binary or browser bundle.

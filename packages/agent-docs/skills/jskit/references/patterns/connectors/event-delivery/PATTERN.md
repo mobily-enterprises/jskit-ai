@@ -1,0 +1,104 @@
+---
+id: connectors/event-delivery
+title: Authorized Inngest event delivery with portable files
+summary: Compose the shared connector runtime for event delivery while leaving workflow code and event policy with the application.
+keywords: connectors, integrations, inngest, events, workflows, files, cli
+requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
+---
+
+# Authorized Inngest event delivery with portable files
+
+## Use when
+
+An existing application or CLI must send an event to Inngest and inspect app
+metadata using separately owned Signing and Event Keys.
+
+## Do not use when
+
+This fragment does not execute or register workflow functions, implement an
+Inngest serve endpoint, configure schedules or provide application-user login.
+Those concerns belong to the app and its chosen Inngest SDK integration.
+
+## Product decisions
+
+Choose the connection owner, allowed event names, payload schema and stable
+business operation ID. Decide which authenticated users may trigger each event.
+Determine how the app will reconcile delivery uncertainty and report workflow
+progress independently of the connector's delivery receipt.
+
+## Invariants
+
+- Configuration and connection state remain text files.
+- Signing and Event Key values remain environment bindings, outside source.
+- Metadata verification never sends an event or verifies the Event Key.
+- Authorization sees the requested event before its Event Key is resolved.
+- An accepted event does not prove a function completed.
+- A cancelled request must not automatically replay a possibly accepted event.
+
+## Framework APIs
+
+Use the `api-key-connection` pattern's existing composition with
+`providers: [inngestProvider]`, imported from
+`@jskit-ai/connectors-catalog/server/inngest`. The JSKIT library owns validated
+requests, credential selection, responses, cancellation and file grants.
+
+## Example files
+
+`example/integrations.json` supplies the shared `workflows` slot. Provision
+`INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` in the backend environment and
+use the existing file-store protection and authenticated connection context.
+
+```js
+async function applicationConnectionPolicy(context, request) {
+  const owner = await workflowAccess.requireConnectionOwner(context, request.integrationId);
+  if (request.operation === "events.send") {
+    await workflowAccess.requireEventPermission(context, request.input);
+  }
+  return owner;
+}
+```
+
+`workflowAccess` is application-owned policy, not a JSKIT API. It must validate
+allowed names and payload ownership against authenticated state. It must also
+authorize connection management and metadata reads. Return a stable trusted
+`applicationId` and `subjectId`; do not trust owner IDs supplied by a browser.
+
+```js
+await connections.connectApiKey({ context, integrationId: "workflows" });
+// In an authorized application action, after validating report ownership:
+const receipt = await connections.invoke({
+  context, integrationId: "workflows", operation: "events.send", signal,
+  input: {
+    name: "app/report.requested",
+    id: `app/report.requested:${reportRequestId}`,
+    data: { reportRequestId }
+  }
+});
+// Record receipt.ids[0] as delivered; track workflow completion separately.
+```
+
+The application supplies `reportRequestId` from its validated business request.
+Inngest's deduplication window is finite; a stable ID is not a permanent
+exactly-once guarantee. Within an Inngest function, use the SDK's documented
+step event-sending primitive so delivery participates in durable execution.
+Do not replace SDK function orchestration with connector calls.
+
+## Variation points
+
+`settings.branchEnvironment` routes event delivery to a branch and does not
+change metadata query selection. `accountMode: "assistant"` requires the host's
+delegated event authority, including any explicit approval. A trusted operator
+CLI uses the same JSON and library without depending on editor storage.
+
+## Verification
+
+The provider's focused tests simulate metadata and event replies and use real
+encrypted file storage. The public-editor test exercises the same reference
+and branch settings. This source pattern does not generate or run a sample app;
+live event delivery and SDK function execution remain separate acceptance work.
+
+## Avoid
+
+Do not expose either key in browser code, send events as a connection probe,
+interpret delivery as completed work, permit arbitrary events through a shared
+public route, or retry after an ambiguous network failure without reconciliation.

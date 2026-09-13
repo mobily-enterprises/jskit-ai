@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "workflows": {
+      "provider": "inngest",
+      "displayName": "Report workflows",
+      "accountMode": "shared",
+      "scopes": [],
+      "authentication": {
+        "method": "api-key",
+        "secretRef": "env:INNGEST_SIGNING_KEY"
+      },
+      "settings": { "eventKeyRef": "env:INNGEST_EVENT_KEY" }
+    }
+  }
+}

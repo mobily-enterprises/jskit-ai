@@ -74,7 +74,7 @@ Local functions
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null, invitationContextResolver = null })`
+- `createLocalAuthService({ backend, config, profileProjector = null, passwordStrategy = null, invitationContextResolver = null, recoverySender = null })`
 Local functions
 - `nowSeconds()`
 - `isoFromNow(seconds)`
@@ -102,7 +102,6 @@ Local functions
 - `devLoginAsValidationError(fieldErrors = {})`
 - `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
 - `normalizeInvitationInput(value = null)`
-- `maybeSendRecoveryEmail(config, recoveryUrl, email)`
 
 ### `src/server/lib/tokens.js`
 Exports
@@ -117,9 +116,8 @@ Local functions
 ### `src/server/providers/AuthLocalProvider.js`
 Exports
 - `AuthLocalProvider`
-- `resolveConfig({ appRoot, backend, env, logger })`
+- `resolveConfig({ appRoot, backend, env, logger, recoverySender = null })`
 Local functions
 - `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isProduction })`
-- `resolveSmtpConfig(env)`
-- `resolveAppPublicUrl(env, { smtpConfigured })`
+- `resolveAppPublicUrl(env, { recoverySender })`

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "mail": {
+      "provider": "resend",
+      "displayName": "Sending domains",
+      "accountMode": "shared",
+      "scopes": [],
+      "authentication": { "method": "api-key", "secretRef": "env:RESEND_API_KEY" }
+    },
+    "web": {
+      "provider": "firecrawl",
+      "accountMode": "assistant",
+      "scopes": [],
+      "authentication": { "method": "api-key", "secretRef": "env:FIRECRAWL_API_KEY" }
+    }
+  }
+}

@@ -1,0 +1,84 @@
+---
+id: connectors/ai-connections
+title: App-owned AI connections and static model selection
+summary: Resolve an administrator environment key or an individual user's grant, then use the application's chosen AI SDK directly.
+keywords: ai, models, free, big-pickle, zen, zai, environment, api-key, ownership, cli
+requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
+---
+
+# App-owned AI connections and static model selection
+
+## Use when
+
+Use the [AI guide](../../docs/ai.md) to choose the model, account owner and
+framework SDK before wiring requests. The shared catalogue is a deliberate
+static extraction, not an OpenCode runtime integration. The default Big Pickle
+route needs no account, user key or environment setup.
+
+## Framework APIs
+
+The imported library validates configuration and resolves authorized server-side
+parameters. The example only composes those parameters with an **app-supplied**
+model factory. It does not implement inference or install an SDK. Pass a factory
+for the returned provider/protocol; do not treat every model as chat completions.
+
+## Product decisions
+
+For a CLI app, read and validate `integrations.json`, use a trusted local
+operator policy and your normal private environment. For a web app, derive
+identity from its authenticated server session and explicitly authorize shared
+account use. Never adapt a permissive CLI policy into a public HTTP endpoint.
+
+## Invariants
+
+Administrator keys use `env:APP_AI_API_KEY`; the existing environment resolver
+is the default. Individual keys use an app-owned reference and a resolver scoped
+to authorized application, user, provider and integration. The application owns
+key-entry and disconnect screens. Never return connection parameters to a
+browser or share coding-agent subscription credentials.
+
+## Do not use when
+
+Frameworks outside Node follow their own configuration and AI client patterns.
+These provider facts and the text file are portable; this JavaScript example is
+not a dependency that Laravel or another framework must install.
+
+## Example files
+
+- `example/ai-model.js` composes the connection resolver with an app-owned SDK factory.
+
+## Variation points
+
+Choose shared Env or an authenticated individual-key resolver, then provide the
+SDK factory for the selected provider. The application owns prompts, request
+limits, streaming, tools and user-visible provider failures.
+
+## Verification
+
+Verify with controlled SDK factories and private test keys. Do not call live
+inference or generate/deploy a sample application to prove configuration wiring.
+
+## Avoid
+
+Do not add a runtime catalogue fetch, token billing, an inference proxy, a
+cross-language runtime or a silent paid fallback. Never infer that a model
+marked free can be used without the authentication its provider requires.
+
+## Existing Perplexity connector slots
+
+Use `example/perplexity-answer.js` when configuration already has provider
+`perplexity`. It reads that exact slot, authorizes the caller, resolves its private
+reference and passes it to an app-supplied OpenAI-compatible SDK factory.
+It neither creates another `ai` slot nor stores another copy of the key.
+The app installs its own native SDK, for example `openai`, and supplies
+`createClient: options => new OpenAI(options)`. No SDK is a dependency of this
+connector package. Call the returned function with context, integrationId,
+question, current provider model name and optional stream/signal.
+For a normal result render choices[0].message.content with citations and
+search_results. For stream=true consume the async iterator, rendering deltas
+and retaining final citations/search_results; cancel with AbortSignal.
+Allow only safe HTTP(S) links in rendered citations. Never send the API key/client
+to a browser. A public route must sanitize SDK failures and enforce app budgets.
+This is direct app-to-provider traffic, with no Vibe64 token sales or proxy.
+A trusted CLI operator can use the same JSON/Env and factory. Other frameworks
+use their own native Perplexity/OpenAI-compatible clients and the same slot.
