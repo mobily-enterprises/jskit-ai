@@ -180,7 +180,7 @@ function createService(options) {
       passwordRecovery: {
         request: supabaseConfigured,
         complete: supabaseConfigured,
-        delivery: supabaseConfigured ? "smtp" : "disabled"
+        delivery: supabaseConfigured ? "email" : "disabled"
       },
       otp: {
         login: supabaseConfigured

@@ -24,7 +24,7 @@ function env(overrides = {}) {
   };
 }
 
-async function startRuntime({ profileMode = "provider", envOverrides = {}, identity = null, decorate = null } = {}) {
+async function startRuntime({ profileMode = "provider", envOverrides = {}, identity = null, decorate = null, oauth = {} } = {}) {
   const extensions = createAuthExtensions();
   if (decorate) {
     extensions.registerServiceDecorator({
@@ -43,7 +43,7 @@ async function startRuntime({ profileMode = "provider", envOverrides = {}, ident
   });
   const inputs = {
     "auth.extensions": extensions,
-    "runtime.config": config(profileMode),
+    "runtime.config": { ...config(profileMode), auth: { profileMode, oauth } },
     "runtime.env": env(envOverrides),
     ...(identity ? { "users.identity": identity } : {})
   };
@@ -108,4 +108,23 @@ test("AuthSupabaseProvider requires users.identity only when users profile proje
     () => startRuntime({ profileMode: "users" }),
     /requires the users\.identity capability/
   );
+});
+
+
+test("Supabase login query policy belongs to application configuration", async (t) => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("This fixture must not contact Supabase."); };
+  t.after(() => { globalThis.fetch = originalFetch; });
+  for (const queryParams of [{}, { google: { prompt: "select_account" } }]) {
+    const { authService, runtime } = await startRuntime({ oauth: { providers: ["google"], queryParams } });
+    try {
+      const result = await authService.oauthStart({ provider: "google", returnTo: "/" });
+      const url = new URL(result.url);
+      assert.equal(url.origin, "https://example.supabase.co");
+      assert.equal(url.searchParams.get("provider"), "google");
+      assert.equal(url.searchParams.get("prompt"), queryParams.google?.prompt || null);
+    } finally {
+      await runtime.shutdown();
+    }
+  }
 });

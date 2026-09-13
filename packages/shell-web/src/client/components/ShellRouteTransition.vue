@@ -233,16 +233,20 @@ const routeTransitionName = computed(() => {
   return "";
 });
 
-const routeTransitionKey = computed(() => {
-  const routePathKey = routeTransitionName.value
-    ? normalizeComparablePathname(route?.path || route?.fullPath || "/")
-    : "";
-  return resolveShellRouteTransitionKey({
-    routePathKey,
-    routeTransitionName: routeTransitionName.value,
-    surfaceId: currentSurfaceId.value
-  });
-});
+// Animation can change with viewport geometry; pane identity changes only with
+// navigation. Resizing must not recreate the routed form or lose focus.
+const routeTransitionKey = ref("");
+watch(
+  [() => normalizeComparablePathname(route?.path || route?.fullPath || "/"), currentSurfaceId],
+  ([routePathKey, surfaceId]) => {
+    routeTransitionKey.value = resolveShellRouteTransitionKey({
+      routePathKey,
+      routeTransitionName: routeTransitionName.value,
+      surfaceId
+    });
+  },
+  { immediate: true, flush: "sync" }
+);
 
 const swipeNavigationEnabled = computed(() =>
   Boolean(

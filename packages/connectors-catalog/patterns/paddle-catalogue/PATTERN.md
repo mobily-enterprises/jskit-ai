@@ -1,0 +1,78 @@
+---
+id: connectors/paddle-catalogue
+title: Create Paddle products with prices
+summary: Compose a sequential catalogue batch and preserve partial success for application-owned recovery.
+keywords: paddle, products, prices, batch, payments
+requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
+---
+
+# Create Paddle products with prices
+
+## Use when
+
+Use the [Paddle setup guide](../../docs/paddle.md) to configure and verify the
+application's merchant key. This recipe creates catalogue entries only.
+Checkout, subscriptions and charging customers are separate application work.
+
+## Do not use when
+
+Use the payments-core reviewed catalogue workflow when the application requires
+durable publication recovery. This bounded recipe is not that workflow.
+
+## Framework APIs
+
+Adapt [create-products.js](example/create-products.js) into the application's
+backend. Replace its repository-relative provider import with
+`@jskit-ai/connectors-catalog/server/paddle`. Pass the application's connection
+runtime, authenticated context, integration ID and an array of `{ product,
+price }` inputs described in the guide. The newly created product supplies the
+price's product_id. One item implements product-with-price; several implement
+batch creation. The limit of 100 items is this recipe's bounded workload choice,
+not a Paddle API limit. It executes serially and does not invent a remote batch
+API or transaction.
+
+## Invariants
+
+The recipe validates the entire cloned batch before the first write. It calls
+the ordinary runtime for each request, preserving authorization and the
+connection's configured sandbox/live environment. The sandbox setting used for
+local schema validation sends no request and does not override runtime routing.
+
+## Product decisions
+
+For assistant use, authorize the complete cloned request with
+`authorizeAssistantAction`, action `products.create` for one item or
+`products.batchCreate` for several, before calling the recipe. The host must
+bind approval to that exact snapshot and caller. Individual runtime invocations
+still enforce their policies; do not turn off runtime authorization to bypass
+an additional required approval. Application use instead enforces its normal
+administrator permissions. This file does not supply a public HTTP endpoint.
+
+## Avoid
+
+Retain `completed` and `failed` in app-owned operation state. A failed price
+step includes the newly created product ID. No later items run after failure,
+and no failed call is retried. An interrupted request may have succeeded at
+Paddle; inspect the merchant catalogue before repeating any write. Process
+termination can prevent the returned report from being saved, so an application
+needing crash recovery must record each completed step durably. This small
+recipe does not promise crash recovery, rollback or exactly-once execution.
+
+## Variation points
+
+CLI users can call this same JavaScript recipe with their own runtime. Vibe64
+configures the project; it does not execute catalogue writes on configuration
+save. Laravel applications implement this composition with their own framework
+and Paddle client, without importing JavaScript or depending on Vibe64.
+
+## Example files
+
+- [create-products.js](example/create-products.js): sequential product/price
+  composition with input validation and a partial-success report.
+
+## Verification
+
+Exercise the recipe with controlled provider responses. Verify whole-batch
+validation before writes, authorization for each operation, product-to-price
+identity, stop-on-failure behavior and preservation of completed IDs. A returned
+report does not prove durable recovery or live merchant acceptance.

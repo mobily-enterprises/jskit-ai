@@ -157,7 +157,6 @@ function createService(backend, options = {}) {
       nodeEnv: "test",
       sessionSecret: "test-secret",
       appPublicUrl: "http://localhost:5173",
-      smtpConfigured: false,
       recoveryDevOutput: "response",
       ...config
     },

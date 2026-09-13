@@ -1,0 +1,127 @@
+{
+  "name": "@jskit-ai/rewarded-core",
+  "version": "0.1.119",
+  "type": "module",
+  "exports": {
+    "./shared": "./src/shared/index.js",
+    "./server/actions": "./src/server/actions.js",
+    "./server/requireRewardedUnlock": "./src/server/support/requireRewardedUnlock.js"
+  },
+  "description": "Rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "rewarded.rules",
+        "rewarded.provider-configs",
+        "rewarded.watch-sessions",
+        "rewarded.unlock-receipts",
+        "rewarded.core"
+      ],
+      "requires": [
+        "runtime.actions",
+        "runtime.database",
+        "runtime.http",
+        "runtime.json-rest-api",
+        "rewarded.grant-policy"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/RewardedResources.js",
+            "export": "RewardedRulesFeature"
+          },
+          {
+            "entrypoint": "src/server/RewardedResources.js",
+            "export": "RewardedProviderConfigsFeature"
+          },
+          {
+            "entrypoint": "src/server/RewardedResources.js",
+            "export": "RewardedWatchSessionsFeature"
+          },
+          {
+            "entrypoint": "src/server/RewardedResources.js",
+            "export": "RewardedUnlockReceiptsFeature"
+          },
+          {
+            "entrypoint": "src/server/RewardedCoreProvider.js",
+            "export": "RewardedCoreFeature"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "jskit": {
+        "tableOwnership": {
+          "tables": [
+            {
+              "tableName": "rewarded_rules",
+              "providerEntrypoint": "src/server/RewardedResources.js",
+              "ownershipFilter": "workspace"
+            },
+            {
+              "tableName": "rewarded_provider_configs",
+              "providerEntrypoint": "src/server/RewardedResources.js",
+              "ownershipFilter": "workspace"
+            },
+            {
+              "tableName": "rewarded_watch_sessions",
+              "providerEntrypoint": "src/server/RewardedResources.js",
+              "ownershipFilter": "workspace_user"
+            },
+            {
+              "tableName": "rewarded_unlock_receipts",
+              "providerEntrypoint": "src/server/RewardedResources.js",
+              "ownershipFilter": "workspace_user"
+            }
+          ]
+        }
+      },
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./shared",
+            "summary": "Exports Rewarded shared CRUD resources."
+          },
+          {
+            "subpath": "./server/actions",
+            "summary": "Exports Rewarded workflow action identifiers and validators."
+          },
+          {
+            "subpath": "./server/requireRewardedUnlock",
+            "summary": "Exports the server helper that enforces a rewarded unlock before a protected feature action continues."
+          }
+        ],
+        "capabilities": [
+          "rewarded.rules",
+          "rewarded.provider-configs",
+          "rewarded.watch-sessions",
+          "rewarded.unlock-receipts",
+          "rewarded.core"
+        ]
+      }
+    },
+    "migrations": {
+      "directories": [
+        "migrations"
+      ]
+    }
+  },
+  "dependencies": {
+    "@jskit-ai/crud-core": "0.1.194",
+    "@jskit-ai/database-runtime": "0.1.183",
+    "@jskit-ai/json-rest-api-core": "0.1.127",
+    "@jskit-ai/resource-crud-core": "0.1.125",
+    "@jskit-ai/workspaces-core": "0.1.161"
+  },
+  "peerDependencies": {
+    "@jskit-ai/auth-core": "0.1.181",
+    "@jskit-ai/http-runtime": "0.1.181",
+    "@jskit-ai/kernel": "0.1.183"
+  }
+}

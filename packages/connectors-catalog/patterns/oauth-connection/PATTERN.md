@@ -1,0 +1,724 @@
+---
+id: connectors/oauth-connection
+title: OAuth connections with portable files
+summary: Compose provider consent, verification and encrypted file persistence from an application server or CLI.
+keywords: connectors, integrations, oauth, shopify, assistant permissions, workday, staffing, tiktok, linkedin, google ads, gaql, developer token, salesforce, soql, databricks, fabric, graphql, service principal, client credentials, wordpress, twitch, microsoft, word, powerpoint, xero, wave, zoho, crm, books, accounting, files, cli, consent
+requires: @jskit-ai/connectors-core, @jskit-ai/connectors-catalog
+---
+
+# OAuth connections with portable files
+
+## Use when
+
+Use an own OAuth web-client registration to connect accounts from an existing
+application or operator CLI. The same library owns state, code exchange,
+verification and token handling. WordPress.com illustrates composition here;
+follow each selected provider's setup guide and scopes.
+
+## Do not use when
+
+This runtime accepts application-owned registrations; managed gateway
+assignments are invalid configuration. Native public clients are not covered by
+this pattern. A shared provider account is not each user's personal
+account. An OAuth data connection does not create the application's login.
+
+## Product decisions
+
+Choose the integration's ownership mode, scopes and callback owner. Shared
+connections require membership checks before mapping to a stable shared subject.
+Personal connections use the existing authenticated user's stable identity.
+The callback must recover that same owner; do not accept owner IDs from a URL.
+An operator CLI can use its trusted process-owner policy and a registered local
+callback listener. Never copy that identity policy into a public web route.
+
+## Invariants
+
+- The UI and CLI edit the same `integrations.json` and shared validation schema.
+- Client secrets, tokens and pending attempts stay outside exported source.
+- File runtime state is encrypted with a durable operator-owned key.
+- Saving configuration is not consent; provider verification precedes Connected.
+- Callbacks must match their registered destination, pending state and owner.
+- Failed or cancelled replacement consent preserves an existing grant.
+- Reduced permission grants remain reduced; source edits do not grant access.
+
+## Shopify product operations and assistant permissions
+
+Import `shopifyProvider` from `@jskit-ai/connectors-catalog/server/shopify` and read
+the packaged `docs/shopify.md`. The supported new-app flow is an installed app in
+the **same Shopify organization** as its store, with `grantType: "client_credentials"`.
+There is no callback in this flow. Put the client secret in an environment
+reference and configure the permanent `shopDomain`, not a custom storefront URL.
+Call `connectClientCredentials` before the named product operations. Existing
+Admin API tokens use `connectApiKey` instead. Other merchants need the unfinished
+Shopify installation/consent flow; do not pretend client credentials cover them.
+
+The runtime sends Shopify's header and GraphQL Admin API 2026-07 requests. It
+supports bounded product listing, creation, update and deletion. Create defaults
+to draft. Use Product GIDs; price/SKU/variants and publication are separate work.
+Do not retry a mutation blindly after timeout. A store connection is not shopper
+login or an individual staff member's authorized session.
+
+Construct assistant-facing services with `executionMode: "assistant"`; the
+host's trusted authorization callback receives `{ assistantPermission, input }`.
+It must verify real human approval and return `approved: true` for `ask`, together
+with the checked owner identity. The shared runtime denies `never` and does not
+accept a browser-supplied approval flag. `always` still checks application access.
+The host must bind approval to the exact request and supply its existing decision
+UI/storage; the library does not create another approval system.
+
+The portable `assistantPolicy` holds enablement, a default and action overrides.
+It is independent of credentials, provider scopes and connection sharing. Host
+workspace policy may further restrict it. Use `authorizeAssistantAction` only
+before a host-owned lifecycle operation such as enabling or claiming a store;
+it authorizes but does not execute that action. The captured remaining action
+choices do not mean variant/discount/store lifecycle adapters are implemented.
+The application owns its registration and token storage. The editor's
+Connect/approval journey must invoke that application's setup operations.
+
+## HubSpot account connections
+
+Import `hubspotProvider` from `@jskit-ai/connectors-catalog/server/hubspot`.
+Use the packaged `docs/hubspot.md` registration instructions. Configure an own
+registration with `clientId`, `clientSecretRef: "env:HUBSPOT_CLIENT_SECRET"`,
+`callbackUrlRef: "env:HUBSPOT_CALLBACK_URL"` and
+`tokenEndpointAuthMethod: "client_secret_post"`. Select scopes `oauth` and
+`crm.objects.contacts.read`; the integration's authentication is
+`{ "method": "oauth2", "registrationRef": "hubspot" }` when that registration
+is named `hubspot`.
+
+Use `beginAuthorization`, the existing application's callback route and
+`completeAuthorization`, then `contacts.list` with optional `limit`, `after`
+and `archived`. Verification reads contacts. The provider implements confidential
+code exchange, scope-array normalization and refresh through HubSpot's current
+token endpoint; do not build another token exchange or gateway.
+
+For `per-user`, the application's authenticated identity owns each local grant.
+HubSpot installations normally expose account-level CRM access; this mode does
+not itself enforce HubSpot record ownership or implement application login.
+For `shared`, only authorized app administrators can connect the shared account.
+Use the API-key pattern instead for a static/private token, retaining the
+`crm.objects.contacts.read` configuration permission. Disconnect is local;
+provider installation removal is separate.
+
+## Linear account connections
+
+Import `linearProvider` from `@jskit-ai/connectors-catalog/server/linear` and
+follow `docs/linear.md` to create the project's own registration. Store its
+Client ID in configuration, Client Secret in `env:LINEAR_CLIENT_SECRET`, and
+callback in `env:LINEAR_CALLBACK_URL`; select `client_secret_post`.
+Use authentication `{ "method": "oauth2", "registrationRef": "linear" }`
+when the registration is named `linear`, and keep `scopes: ["read"]`.
+
+The application calls `beginAuthorization`, handles its registered callback with
+`completeAuthorization`, then invokes `profile.read` or `issues.list` (optional
+`first` and `after`). The provider owns S256, scope delimiter normalization and
+rotating refresh. The caller owns authorization and subject identity. Shared
+connections belong to the application's authorized administrator; per-user
+connections belong to the signed-in application user. Connecting Linear does not
+implement application login. This flow acts as the consenting Linear user.
+
+The same grant supports `tools.list` and `tools.call` against Linear's fixed MCP
+endpoint. Authorize each tool and its arguments before invocation; tools can
+write if the provider permissions allow it. No second MCP registration or Vibe64
+gateway is needed. For personal keys use the API-key pattern, keep the `read`
+configuration scope and restrict the actual key in Linear. Disconnect deletes
+the local grant; provider revocation remains a separate account action.
+
+## Framework APIs
+
+Import configuration validation, `createConnectionService`, environment
+resolution and the file storage/protection exports from connectors-core.
+The selected catalogue provider supplies the protocol and operation contracts.
+
+## Example files
+
+Use the packaged `docs/wordpress-com.md` guide in `@jskit-ai/connectors-catalog`.
+`example/integrations.json` supplies its portable configuration. Replace the
+placeholder with the provider's assigned Client ID, then compose the ordinary
+package APIs in an application module:
+
+```js
+import { readFile } from "node:fs/promises";
+import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
+import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
+import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
+import { wordpressComProvider } from "@jskit-ai/connectors-catalog/server/wordpress-com";
+
+const providers = [wordpressComProvider];
+const configuration = parseIntegrationConfiguration(await readFile("integrations.json", "utf8"), { providers });
+const protection = createCredentialProtection({
+  keys: { current: Buffer.from(process.env.CONNECTOR_STORAGE_KEY, "base64") }, activeKeyId: "current"
+});
+const connections = createConnectionService({
+  configuration, providers,
+  store: createFileConnectionStore({ directory: process.env.CONNECTOR_STATE_DIRECTORY, protection }),
+  resolveReference: createEnvironmentReferenceResolver(), authorize: applicationConnectionPolicy
+});
+```
+
+`applicationConnectionPolicy` checks the authenticated caller and requested
+operation, then returns `{ applicationId, subjectId }`. Keep the state directory
+outside source and preserve its encryption key across restarts/backups.
+
+1. Call `beginAuthorization({ context, integrationId })` and open the returned
+   `authorizationUrl` in the user's browser. A resource-specific provider may
+   also require `verificationInput`, validated before consent starts.
+2. At the application's registered callback, recover authenticated `context`
+   and call `completeAuthorization({ context, integrationId, callbackUrl })`.
+   Route errors through ordinary application error handling.
+3. Call `invoke({ context, integrationId, operation, input })` for a named
+   provider operation. Provider responses stay subject to application policy.
+4. `cancelAuthorization({ context, integrationId, state })` abandons a pending
+   attempt. `disconnect({ context, integrationId })` removes local access and
+   pending attempts. It does not revoke provider-wide access.
+
+## Variation points
+
+Google, Microsoft, Oura and WordPress.com have different scope and token
+contracts. Use their provider exports instead of inferring these from fields.
+WordPress.com verifies token ownership/scopes from its profile and requests
+comma-separated permissions. Oura handles reduced callback scopes and rotated
+refresh tokens. Some providers do not return a refresh token; expired access
+then needs consent again. Provider PKCE enforcement needs provider evidence.
+
+## Twitch composition
+
+Use `twitchProvider` from `@jskit-ai/connectors-catalog/server/twitch` in the
+provider array above and the portable JSON in `docs/twitch.md`. Start with
+`user:read:email` and `user:read:follows` for `profile.read` and
+`channels.followed`; remove any permission whose operation is not used.
+Its normal operations verify the token before data access. The provider also
+exposes `token.validate` for Twitch's required startup/hourly validation of
+maintained sessions, including idle connections:
+
+```js
+// Run from the host's startup and scheduled-job paths. Contexts are derived
+// by its existing authorization owner, never from caller-supplied user IDs.
+for (const context of maintainedTwitchContexts) {
+  try {
+    await connections.invoke({ context, integrationId: "twitch", operation: "token.validate" });
+  } catch (error) {
+    await reportConnectionFailure(context, error);
+  }
+}
+```
+
+The host supplies `maintainedTwitchContexts` and `reportConnectionFailure`;
+these are not JSKIT exports. Its scheduler must prevent overlapping runs and
+surface reconnect state. Merely saving configuration installs no scheduled
+job. Neither the provider nor this composition implements application login.
+Twitch requires an application-specific registration: do not reuse one editor
+client ID across independent generated apps. Register the application's own callback URL. The runtime handles array/string token
+scopes and Client-ID headers; do not duplicate those details in app scaffolding.
+
+## Slack composition
+
+Import `slackProvider` from `@jskit-ai/connectors-catalog/server/slack` and include
+it in the provider array used for parsing and `createConnectionService`.
+Set `settings.actor` to `user` or `bot`, independently of application ownership.
+Use an own confidential registration and a real registered HTTPS callback;
+plain HTTP loopback is not supported by Slack. The [Slack guide](../../docs/slack.md)
+contains a complete portable JSON file and manual/API registration instructions.
+
+For channel listing, request `channels:read` and call:
+
+```js
+const firstPage = await connections.invoke({
+  context: authenticatedContext,
+  integrationId: "slack",
+  operation: "channels.list",
+  input: { limit: 50, exclude_archived: true }
+});
+// Retain next_cursor even when filtering leaves this page empty.
+const nextCursor = firstPage.response_metadata?.next_cursor;
+```
+
+The host supplies `authenticatedContext`; user request parameters cannot select
+another owner. The library selects `user_scope` versus `scope`, extracts the
+requested token identity, checks Slack's HTTP-200 errors and refreshes rotating
+grants under the file lock. Do not duplicate that code in generated handlers.
+Add the corresponding read permission before using `groups.list`,
+`directMessages.list` or `groupMessages.list`. `auth.test` returns identity.
+
+An individually owned bot connection still acts as the installed workspace bot.
+It is not a personal account or an application login. Actor changes require
+reconnection and remove incompatible form scopes. Captured permission choices
+do not imply implemented operations: history, sends, events, organization-wide
+installs and Sign in with Slack remain outside this fragment. The application implements and registers its own callback.
+
+## Microsoft document composition
+
+Import `microsoftWordProvider` or `microsoftPowerPointProvider` from the matching
+`@jskit-ai/connectors-catalog/server/microsoft-word` or
+`@jskit-ai/connectors-catalog/server/microsoft-powerpoint` export. Use that provider
+in the composition above and its packaged guide's JSON. A `files` slot requests
+`Files.Read` and, for refresh capability, `offline_access`. Set `settings.tenantId`
+to an allowed audience or directory GUID matching the registration. The shared
+library uses it for authorization, token exchange and refresh; changing the
+tenant requires reconnecting. Never build token URLs from unvalidated user input.
+
+After consent and verification, the host can call the same service:
+
+```js
+const page = await connections.invoke({
+  context, integrationId: "files", operation: "items.list",
+  input: { folderId, pageSize: 25, nextLink }
+});
+const file = await connections.invoke({
+  context, integrationId: "files", operation: "items.get", input: { itemId }
+});
+```
+
+The host supplies authenticated `context`, an optional `folderId`/`nextLink`
+and the chosen `itemId`. Pass the original folder ID with every continuation.
+Keep `page["@odata.nextLink"]` even if `page.value` is empty: the adapter filters
+an upstream page by file extension, so the next page can contain matching files.
+Display folder and file metadata through the app's existing UI. The returned
+`file` is metadata, not document contents; returned web URLs do not authorize
+additional downloads. These adapters implement no document editing, recursive
+crawl or app login. Leave paging and named-operation HTTP ownership in JSKIT;
+the app owns its file selection, presentation and access policy.
+
+## Xero composition
+
+Import `xeroProvider` from `@jskit-ai/connectors-catalog/server/xero` and use
+the exact portable configuration in `docs/xero.md`. Its registration requires
+`tokenEndpointAuthMethod: "client_secret_basic"`; code exchange and refresh
+stay in JSKIT. Use an HTTPS callback or Xero's permitted `http://localhost`
+callback for local CLI work; `127.0.0.1` is not accepted by this provider.
+
+```js
+const tenants = await connections.invoke({
+  context, integrationId: "xero", operation: "connections.list"
+});
+// The app displays permitted ORGANISATION entries, takes an explicit choice,
+// and authorises that choice against its own workspace/account policy.
+const tenantId = await choosePermittedOrganisation(tenants, context);
+const contacts = await connections.invoke({
+  context, integrationId: "xero", operation: "contacts.list",
+  input: { tenantId, page: 1, pageSize: 50 }
+});
+```
+
+`choosePermittedOrganisation` is application-owned selection and policy, not a
+JSKIT export. Never select the first tenant automatically or trust a submitted
+ID merely because it has UUID syntax. Runtime reads additionally check that the
+current token still has an ORGANISATION connection before sending a tenant
+header. This does not replace the application's own authorisation boundary.
+The same pattern applies to `organisation.read` and `invoices.list` with their
+required read scopes. Follow page numbers explicitly; the library performs no
+automatic crawl, calculations, writes or login. Present private data only to
+the authorised caller. Refresh and encrypted file state remain library code.
+
+The guide covers the manual developer-app setup, connection tiers and
+application callback requirements. The application supplies its own registration.
+
+## Wave composition
+
+Import `waveProvider` from `@jskit-ai/connectors-catalog/server/wave` into the
+same provider array and use `docs/wave.md` for portable JSON and registration
+setup. Keep `client_secret_post` authentication. Grant `user:read` for verification,
+`business:read` for selection, and the matching customer/invoice read permission.
+
+```js
+const businesses = await connections.invoke({
+  context, integrationId: "wave", operation: "businesses.list",
+  input: { page: 1, pageSize: 20 }
+});
+const businessId = await choosePermittedBusiness(businesses.data.businesses, context);
+const customers = await connections.invoke({
+  context, integrationId: "wave", operation: "customers.list",
+  input: { businessId, page: 1, pageSize: 20 }
+});
+```
+
+`choosePermittedBusiness` is the host's selection and authorization function,
+not a JSKIT export. Do not default to the first business or trust an incoming
+business ID without policy checks. Preserve `pageInfo` and nullable edge nodes;
+advance only when the caller requests another page. `invoice:write` alone cannot
+authorize invoice reads. Results with GraphQL errors are rejected even if they
+contain partial data. The library sends fixed queries and owns token refresh,
+including Wave's original redirect URI, under encrypted file storage.
+
+Wave OAuth business access requires Pro or Advisor, and use for other customers
+requires provider approval. This is a data connection, not login. The application must implement and register an actual
+served callback. Do not replace OAuth with a personal full-access token for
+customer applications or copy protocol logic into generated routes.
+
+## Verification
+
+Focused tests simulate consent and provider responses with real temporary
+encrypted text storage. They cover restart, cancellation, scope reduction,
+ownership, refresh/reconnect and errors. Editor tests verify JSON fields and
+persistence. These checks do not generate or run sample applications or use
+real provider credentials.
+
+## Avoid
+
+Do not implement OAuth protocol logic in copied scaffolding, put client secrets
+in browser code, assume requested permissions were all granted, or label a
+saved registration as a connected account. Do not create a database solely
+for connector configuration or runtime state.
+
+
+## Zoho CRM composition
+
+Import `zohoCrmProvider` from `@jskit-ai/connectors-catalog/server/zoho-crm` and
+pass it to the existing connection service. Follow the packaged
+`docs/zoho-crm.md` for registration, references and portable configuration.
+Choose the account's data center and CRM environment explicitly. Do not follow
+callback-supplied hosts or choose another organisation on the user's behalf.
+
+```js
+const page = await connections.invoke({
+  context: authenticatedOwner,
+  integrationId: "crm",
+  operation: "leads.list",
+  input: { fields: "Last_Name,Email", per_page: 50, page: 1 }
+});
+```
+
+The library owns comma-separated scopes, PKCE, token exchange/refresh, API-domain
+validation and `Zoho-oauthtoken` headers. `users.current` verifies the connection;
+`contacts.list`, `accounts.list` and `deals.list` are also available. Keep page
+tokens associated with the same authenticated owner and query, and request later
+pages explicitly. HTTP204 becomes an empty page. The host owns data presentation,
+record access policy and the OAuth callback. Reference secrets instead of putting
+them in JSON; use the same file and connection service for a trusted CLI.
+
+A shared connection shares one organisation's CRM access. Personal connections
+require the host's per-user policy. The application owns its registration and callback. These data scopes do not
+implement app sign-in or promise independent provider quotas.
+
+
+## Zoho Books composition
+
+Import `zohoBooksProvider` from `@jskit-ai/connectors-catalog/server/zoho-books`
+and use the same connection service, file store and owner policy above. See
+`docs/zoho-books.md` for the JSON and regional client setup. Match the selected
+region to the account. Keep `ZohoBooks.settings.READ` for verification.
+
+```js
+const result = await connections.invoke({
+  context: authenticatedOwner, integrationId: "books", operation: "organizations.list"
+});
+// Present active organisations from result.organizations. The application
+// validates the user's choice and any narrower organisation access policy.
+const invoices = await connections.invoke({
+  context: authenticatedOwner, integrationId: "books", operation: "invoices.list",
+  input: { organization_id: selectedOrganizationId, page: 1, per_page: 50 }
+});
+```
+
+Never pick the first or default organisation automatically. A configured
+`settings.organizationId` fixes the organisation and can supply the operation's
+ID; an input attempting to override it fails. With no configured ID the caller
+must supply one. Zoho enforces resource access; the host must enforce any
+narrower per-user policy, especially when deliberately sharing one connection.
+`organizations.list` verifies access to a configured active organisation but
+returns the account's organisation list for discovery. It does not select one.
+
+The library owns regional OAuth, PKCE, refresh, API-domain validation and token
+headers. Lists make one request and preserve `page_context`; use its
+`has_more_page` value for explicit continued paging. IDs stay strings. The host
+owns callbacks, presentation and selection. Configuration save does not grant
+provider access or implement app login. Registrations remain application-owned.
+
+
+## Lightspeed X-Series composition
+
+Import `lightspeedProvider` from `@jskit-ai/connectors-catalog/server/lightspeed`
+and give it to the existing connection service. Use the JSON and provider setup
+in `docs/lightspeed.md`. The store prefix is required and fixed before consent;
+never route credentials using a callback-supplied domain. Keep `products:read`
+for verification and pass `verificationInput: { page_size: 1 }` when starting it.
+
+```js
+const products = await connections.invoke({
+  context: authenticatedOwner, integrationId: "retail", operation: "products.list",
+  input: { page_size: 50, deleted: false }
+});
+```
+
+`customers.list` and `outlets.list` use the same paging inputs with their own read
+scopes. Request subsequent pages explicitly with version bounds. Preserve null
+customer values and avoid assuming a full page means more records certainly exist.
+The library pins the current API version, validates store-bound token responses,
+and persists each rotated refresh token before reading data. It sends PKCE;
+provider enforcement has not been proven with a live client. Do not add retries
+around authorization codes, refresh or interrupted requests.
+
+The host owns authenticated subjects, shared-store access, callback routes and
+rendering. CLI and UI use the same configuration; no database is required for
+editor configuration. Each application supplies its own registration and callback; app sign-in is a separate concern. Extra
+scope selections do not create write operations or independent provider quotas.
+## Databricks user consent and service accounts
+
+Import `databricksProvider` from `@jskit-ai/connectors-catalog/server/databricks`.
+Read `docs/databricks.md` for the two portable configurations. A custom OAuth app
+uses `authorization_code`, `client_secret_post`, a callback reference and
+`all-apis offline_access`. A service principal uses `client_credentials`,
+`client_secret_basic` and its Databricks OAuth secret reference; it has no
+callback or user refresh token. Use `jobs` for a suitably scoped service secret.
+Service principals cannot use `per-user` ownership.
+
+Compose the ordinary connections service/Feature and file store. Call
+`connectClientCredentials` or the `connectors.verifyClientCredentials` action
+to verify a service principal. User access still uses `beginAuthorization` and
+`completeAuthorization`. The library owns token requests, renewal, secret
+resolution, state, grant checks and persistence; do not generate replacements
+in the application. The app owns routes, binding values and trusted identity.
+
+`jobs.list` reads one page with `limit`, `name`, `expand_tasks` and `page_token`.
+`jobs.get` reads one job with a safe numeric `job_id` and optional continuation
+token. Empty lists may omit `jobs`; nested job arrays may need further pages.
+No job execution, SQL query, compute startup or write operation is implemented.
+Source permission changes to a service account require reconnecting. The
+runtime renews only its prior grant and commits renewal even if a later API
+read fails. Never supply an arbitrary request URL or reuse a service grant as
+an app user's connection.
+
+Both flows pin requests to the configured per-workspace origin. The application
+implements and registers its own user-consent callback. Its registration belongs
+to its Databricks account; it is not automatically universal across customer
+accounts. Follow the guide for admin provisioning and direct CLI wiring.
+Application login remains separate.
+
+## Microsoft Fabric GraphQL
+
+Import `microsoftFabricProvider` from
+`@jskit-ai/connectors-catalog/server/microsoft-fabric`. Read the package's
+`docs/microsoft-fabric.md` before wiring it. Use its portable configuration with
+an exact directory GUID, Application (client) ID, secret reference and the
+existing GraphQL API endpoint. Do not reuse the ordinary Microsoft Graph
+providers or their permissions: Fabric uses a different resource.
+
+User consent uses `authorization_code`, the confidential `client_secret_post`
+method, a callback reference, delegated
+`https://analysis.windows.net/powerbi/api/GraphQLApi.Execute.All` and optional
+`offline_access`. Service accounts use `client_credentials`, the same client
+authentication method, and `https://api.fabric.microsoft.com/.default`. They
+have no callback, user refresh token or per-user ownership. Switching grants
+in the shared UI removes incompatible scopes; choose the new permission before
+saving. The CLI parser enforces the same contract.
+
+Reuse `createConnectionService` or `ConnectorsFeature`, the file connection store
+and existing authorization/reference resolver. Call `connectClientCredentials`
+or `connectors.verifyClientCredentials` for a service account; use the ordinary
+authorization start/callback methods for user consent. The library owns token
+exchange, renewal, locking, scope validation and encrypted storage. The app owns
+the authenticated owner mapping and its allowed GraphQL documents.
+
+Verification runs `connection.check`, a fixed root `__typename` query. It does
+not establish access to every table. `schema.types` uses explicit introspection,
+which a Fabric workspace administrator must enable; an exported SDL is an
+alternative for authoring. `graphql.execute` accepts a document, optional JSON
+variables and an operation name and returns one response. It can execute writes.
+Keep documents in app server code, validate the permitted variables, and use
+the shared authorization callback to restrict each operation. Do not present
+this as a read-only proxy or accept arbitrary documents from app users. Request
+pagination in the app's chosen document; no automatic traversal is implemented.
+
+GraphQL errors, including partial successes, fail without exposing provider
+messages. A failed mutation may have changed data; the runtime does not replay
+it. Cancellation is local interruption, not proof of remote rollback. Token
+renewal persists before the document executes, including when that execution
+fails. Changing tenant, API endpoint, client or grant requires reconnecting.
+
+User consent returns to the application's own implemented and registered callback.
+Service access has no callback. Entra registrations, tenant enablement, API
+permissions and source access remain administrator-owned provisioning. Distinct registration names do not isolate Fabric capacity. The application
+owns login separately and keeps its client secret in private Env.
+
+
+## Salesforce composition
+
+Use `salesforceProvider` from `@jskit-ai/connectors-catalog/server/salesforce`
+and the portable JSON in `docs/salesforce.md`. Read that guide before provisioning
+an External Client App. Production/Developer Edition and Sandbox have distinct
+My Domain formats. Client credentials remain in references; the runtime pins
+consent, token exchange and APIs to that org and handles undated/rotating grants.
+The ordinary file service, Env resolver and application owner policy above apply.
+
+After consent, `limits.read` verifies API access. A server action can expose an
+approved query through the same library:
+
+```js
+const result = await connections.invoke({
+  context: authenticatedContext, integrationId: "crm", operation: "query.read",
+  input: { q: "SELECT Id, Name FROM Account ORDER BY Id LIMIT 20" }, signal
+});
+```
+
+The application supplies the trusted context and abort signal. It authorizes
+objects, fields and any query parameters in its existing action/policy; avoid
+an unrestricted query endpoint. `api` can authorize writes even though these
+operations only read. Do not use provider connection identity as application
+login. For metadata, call `objects.list` and `objects.describe` with an object
+API name. Keep a returned `nextRecordsUrl` with its original owner/query and pass
+it only to `query.next`. No automatic paging is installed.
+
+Map `connector_cursor_expired` to restarting the authorized query and
+`connector_reconnect_required` to the existing connection UI. Do not retry a
+failed operation in a loop. Register the application's implemented callback and
+follow provider requirements for distributing an app across customer orgs.
+Separate registrations do not divide an org's API allocation.
+
+## Google Ads composition
+
+Use `googleAdsProvider` from `@jskit-ai/connectors-catalog/server/google-ads`
+with the same file service and owner policy. Start from the actual portable JSON
+in `docs/google-ads.md`. Setup needs a Web OAuth client in a Cloud project
+with the required Google Ads API access level. Developer tokens were retired
+on September 9, 2026; do not add a developer-token reference or pilot selector.
+The app owns its registration and grants. This does not establish app login
+or make arbitrary reports public.
+
+`customers.listAccessible` verifies the grant and returns directly accessible
+customer resource names. It does not list every manager descendant. Use
+`customers.listClients` for an authorized manager's hierarchy metadata, keeping
+the operation customer ID separate from optional `settings.loginCustomerId`.
+For a useful campaign report, the existing server action can call:
+
+```js
+const report = await connections.invoke({
+  context: authenticatedContext,
+  integrationId: "ads",
+  operation: "reports.search",
+  input: {
+    customerId: authorizedCustomerId,
+    query: "SELECT campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros FROM campaign WHERE segments.date DURING LAST_7_DAYS LIMIT 100"
+  },
+  signal
+});
+```
+
+Derive `authorizedCustomerId` from the app's existing account-access policy.
+Authorize fields, date ranges and filters too; do not send arbitrary browser/AI
+GAQL to a public server route. The library passes the operation and input
+snapshot to the host policy before credentials or API requests. Google's
+`adwords` permission may allow writes, despite this operation set's reads.
+
+Render `report.results ?? []`; retain integer strings and cost micros without
+rounding. Keep `nextPageToken` with the exact query/customer/owner for an explicit
+next call. No automatic page loop or SearchStream endpoint is installed. API
+errors can reflect developer approval, account relationships or quotas even
+after valid OAuth consent. Map `connector_api_access_invalid` to API setup,
+`connector_scope_missing` and `connector_reconnect_required` to consent recovery,
+and `connector_rate_limited` to the app's bounded usage policy. Never solve API
+approval by repeatedly asking the user to reconnect.
+
+The provider guide includes console clicks, API/CLI automation feasibility,
+application-owned callback configuration and account quota boundaries.
+Different client IDs do not automatically separate developer-token capacity;
+approved pilot projects can have usage caps while organization/account limits
+still apply. The CLI uses exactly this library and file configuration without
+Vibe64. No generated app or live provider operation is required to validate the
+configuration, run the focused provider tests or read this source pattern.
+
+## LinkedIn composition
+
+Use `linkedinProvider` from `@jskit-ai/connectors-catalog/server/linkedin` and
+`docs/linkedin.md`. Both `openid` and `profile` are required; request `email`
+only when needed. `profile.read` accepts no input and reads the connected
+member's userinfo. Optional email fields may be absent. The fragment discards
+ID tokens and does not implement app login or member posting; preserving
+`w_member_social` in configuration does not provide a publishing operation.
+Ordinary expiry requires reconnect unless LinkedIn approved programmatic
+refresh. Keep the confidential client secret on the backend, including when
+composing a CLI; the separately enabled native flow is not implemented.
+Implement and register the application's callback using its assigned app URL
+or explicit host override. Operator setup belongs to the application developer.
+
+## TikTok composition
+
+Use `tiktokProvider` from `@jskit-ai/connectors-catalog/server/tiktok` and the
+packaged `docs/tiktok.md`. The portable `clientId` field stores TikTok's Client
+key. The adapter sends `client_key` during authorize/token exchanges, comma
+separated scopes, and requires a static HTTPS Web callback under 512 characters.
+The CLI uses that same callback-owning backend and file runtime; do not embed
+its secret into distributed clients or assume HTTP loopback/native support.
+
+`profile.read` verifies basic access. `profile.extended`, `profile.stats` and
+`videos.list` require their respective optional permissions. Handle declined
+permissions as unavailable operations; never substitute the builder's account
+for an app user's connection. Video reads use explicit pages with string IDs;
+the runtime implements no posting or Research API. Refresh rotates credentials
+and may reduce permissions. Local disconnect does not revoke access at TikTok.
+The application owns its callback and allowed return destination. App login
+remains a separate concern from this data connection.
+
+## Snowflake account OAuth
+
+Use `snowflakeProvider` from `@jskit-ai/connectors-catalog/server/snowflake` and
+`docs/snowflake.md`. Its portable settings are `accountUrl` and optional `role`.
+The shared form and CLI parser derive compatible scope choices from the role.
+Omit the role for the connected user's default and retain `refresh_token`;
+otherwise include the exact required role scope returned by `getProviderScopes`.
+Do not hand-encode a space-containing role twice. Changing role/account requires
+new consent. The registration supports confidential client secret POST or Basic;
+PKCE remains enabled for both.
+
+The useful operation is `databases.list` with `showLimit`, `like`, `startsWith`,
+`fromName` and `history`. It reads one metadata page and pins the configured role
+in the request header. Do not turn user text into SQL or infer table access from
+successful metadata verification. HTTP 202 remains an explicit incomplete
+response, with no polling implementation in this fragment.
+
+An administrator creates the custom OAuth integration inside each customer's
+Snowflake account. AI can assist through authorized SQL/CLI provisioning, but
+reader credentials do not grant that authority. Keep secret results out of chat.
+Register the application's callback and update that registration and its
+environment binding when the callback domain changes. Compute billing belongs
+to the Snowflake account. Use application authorization, reference resolution
+and durable storage; the editor does not hold the grant.
+
+## Gemini Enterprise search
+
+Use `geminiEnterpriseProvider` from
+`@jskit-ai/connectors-catalog/server/gemini-enterprise` with the existing core
+connection service. `docs/gemini-enterprise.md` contains the portable file and
+provider setup worksheet. Store `projectId`, `location` (`global`, `us`, `eu`)
+and `engineId` as settings, with a confidential Google OAuth registration and
+the `https://www.googleapis.com/auth/cloud-platform` scope. The settings choose
+the API origin and the engine under `default_collection`; callers cannot change
+the target or supply a source identity in an operation request.
+
+`engine.get` checks metadata access. `search` accepts `query`, `pageSize` (1–25,
+default 10) and optional `pageToken`. Reuse the same query/page size while
+paginating. The result is Google's JSON envelope, not a generated answer. Treat
+document snippets and `redirectUri` as untrusted data; do not follow returned URLs
+automatically. Search permission and source access are separate from engine
+metadata permission. Shared and assistant modes act as one connected Google
+account, so authorize every caller before exposing that account's search results.
+This fragment implements no per-user Google identity, Workforce Identity, widget,
+resource ingestion, app login or chat sessions.
+
+The application implements and registers its own callback. A callback domain
+change requires updating its provider registration and environment binding.
+Independent Google Cloud registration projects can separate some quotas, but
+engine billing and limits also depend on the project hosting the engine. Don't
+claim two OAuth client IDs isolate all paid/free consumption. An authorized AI
+can help prepare resource/IAM configuration; Google Auth Platform client setup,
+verification, consent and licensing remain explicit operator/provider tasks.
+
+## Workday composition
+
+Import `workdayProvider` from `@jskit-ai/connectors-catalog/server/workday` and
+use the portable file and administrator steps in `docs/workday.md`. This is a
+per-user tenant connection with three endpoint fields, Client ID and secret and
+callback references. Its confidential flow omits PKCE and URL scope strings;
+Staffing functional areas and user domain permissions are configured in Workday.
+Keep that provider exception inside the library. Other providers retain S256.
+
+Use `workers.me` for the connected worker and `workers.list` for explicit pages
+with limit, offset, optional name/worker-ID search and visibility flags. The
+library selects Staffing v7 on the configured API host, path prefix and tenant;
+never substitute another user's token or derive ownership from request input.
+An account without a visible worker record cannot pass the initial check.
+
+Every customer tenant needs its own registration and the application's actual
+callback URL. Distinct client IDs do not imply separate tenant quotas.
+The CLI composes the same server APIs and encrypted file store. App login,
+Workday Extend, ISU, SOAP, writes and bulk sync are outside
+this initial fragment. Consent and live tenant testing require separate access.

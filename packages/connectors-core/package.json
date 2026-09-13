@@ -1,0 +1,65 @@
+{
+  "name": "@jskit-ai/connectors-core",
+  "version": "0.1.0",
+  "description": "Portable integration configuration and server-side account connection runtime.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "exports": {
+    "./shared/configuration": "./src/shared/configuration.js",
+    "./server": "./src/server/index.js",
+    "./server/storage": "./src/server/storage.js",
+    "./server/file-storage": "./src/server/fileStorage.js"
+  },
+  "dependencies": {
+    "jose": "^6.1.3",
+    "json-rest-schema": "^1.0.17",
+    "oauth4webapi": "3.8.8",
+    "proper-lockfile": "4.1.2"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "migrations": {
+      "directories": [
+        "migrations"
+      ]
+    },
+    "metadata": {
+      "jskit": {
+        "tableOwnership": {
+          "tables": [
+            {
+              "tableName": "connector_connections"
+            },
+            {
+              "tableName": "connector_authorization_attempts"
+            }
+          ]
+        }
+      }
+    },
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "server": {
+        "providers": []
+      },
+      "client": {
+        "providers": []
+      }
+    }
+  },
+  "peerDependencies": {
+    "@jskit-ai/database-runtime": "0.1.183",
+    "@jskit-ai/http-runtime": "0.1.181",
+    "@jskit-ai/kernel": "0.1.183"
+  },
+  "peerDependenciesMeta": {
+    "@jskit-ai/database-runtime": {
+      "optional": true
+    }
+  }
+}

@@ -64,6 +64,160 @@ Add Supabase authentication through normal npm composition, explicit environment
 - Examples: [example/](patterns/auth/supabase-auth/example/)
 - Requires: `@jskit-ai/auth-provider-supabase-core`
 
+## App-owned AI connections and static model selection
+
+Resolve an administrator environment key or an individual user's grant, then use the application's chosen AI SDK directly.
+
+- Id: `connectors/ai-connections`
+- Keywords: `ai`, `api-key`, `big-pickle`, `cli`, `environment`, `free`, `models`, `ownership`, `zai`, `zen`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/ai-connections/PATTERN.md)
+- Examples: [example/](patterns/connectors/ai-connections/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## API-key connections with portable JSON configuration
+
+Compose provider operations, authorization and encrypted file storage from a CLI or application server.
+
+- Id: `connectors/api-key-connection`
+- Keywords: `api-key`, `clay`, `cli`, `clickhouse`, `connectors`, `dbt`, `files`, `firecrawl`, `granola`, `integrations`, `metrics`, `prestashop`, `resend`, `semantic-layer`, `semrush`, `x-twitter`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/api-key-connection/PATTERN.md)
+- Examples: [example/](patterns/connectors/api-key-connection/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Assistant MCP connections with portable files
+
+Compose token-based MCP discovery and explicitly authorized tool calls using the shared connector runtime.
+
+- Id: `connectors/assistant-mcp`
+- Keywords: `assistant`, `cli`, `connectors`, `files`, `integrations`, `mcp`, `n8n`, `sanity`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/assistant-mcp/PATTERN.md)
+- Examples: [example/](patterns/connectors/assistant-mcp/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Assistant MCP OAuth with portable files
+
+Configure assistant OAuth clients, then compose existing state, encrypted file grants and authorized MCP calls.
+
+- Id: `connectors/assistant-mcp-oauth`
+- Keywords: `amplitude`, `assistant`, `atlassian`, `canva`, `cli`, `client metadata`, `confidence`, `connectors`, `figma`, `files`, `granola`, `hex`, `mcp`, `miro`, `oauth`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/assistant-mcp-oauth/PATTERN.md)
+- Examples: [example/](patterns/connectors/assistant-mcp-oauth/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## AWS object storage and Athena queries with explicit credentials
+
+Compose signed AWS operations, file configuration and application authorization from CLI or server code.
+
+- Id: `connectors/aws-storage-queries`
+- Keywords: `athena`, `aws`, `cli`, `connectors`, `files`, `iam`, `queries`, `s3`, `storage`, `sts`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/aws-storage-queries/PATTERN.md)
+- Examples: [example/](patterns/connectors/aws-storage-queries/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Google Calendar from an application-owned CLI
+
+Compose reusable connection libraries with portable configuration, application ownership and durable storage.
+
+- Id: `connectors/calendar-cli`
+- Keywords: `calendar`, `cli`, `connectors`, `google`, `integrations`, `oauth`, `permissions`
+- Owner: `@jskit-ai/connector-google-calendar@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/calendar-cli/PATTERN.md)
+- Examples: [example/](patterns/connectors/calendar-cli/example/)
+- Requires: `@jskit-ai/connector-google-calendar`, `@jskit-ai/connectors-core`, `@jskit-ai/database-runtime-mysql`
+
+## Authorized Inngest event delivery with portable files
+
+Compose the shared connector runtime for event delivery while leaving workflow code and event policy with the application.
+
+- Id: `connectors/event-delivery`
+- Keywords: `cli`, `connectors`, `events`, `files`, `inngest`, `integrations`, `workflows`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/event-delivery/PATTERN.md)
+- Examples: [example/](patterns/connectors/event-delivery/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Firebase messaging from a CLI or application backend
+
+Wire service-account grants, file storage, explicit message actions and public browser settings without generating an application.
+
+- Id: `connectors/firebase-messaging`
+- Keywords: `cli`, `connectors`, `fcm`, `files`, `firebase`, `integrations`, `jwt`, `notifications`, `push`, `service-account`, `vapid`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/firebase-messaging/PATTERN.md)
+- Examples: [example/](patterns/connectors/firebase-messaging/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Existing-account Google Ads Search
+
+Compose reviewed Search campaigns with project-owned Google OAuth and portable saved plans.
+
+- Id: `connectors/google-ads-search`
+- Keywords: `ads`, `campaigns`, `cli`, `connectors`, `conversion`, `google`, `search`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/google-ads-search/PATTERN.md)
+- Examples: [example/](patterns/connectors/google-ads-search/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## OAuth connections with portable files
+
+Compose provider consent, verification and encrypted file persistence from an application server or CLI.
+
+- Id: `connectors/oauth-connection`
+- Keywords: `accounting`, `assistant permissions`, `books`, `cli`, `client credentials`, `connectors`, `consent`, `crm`, `databricks`, `developer token`, `fabric`, `files`, `gaql`, `google ads`, `graphql`, `integrations`, `linkedin`, `microsoft`, `oauth`, `powerpoint`, `salesforce`, `service principal`, `shopify`, `soql`, `staffing`, `tiktok`, `twitch`, `wave`, `word`, `wordpress`, `workday`, `xero`, `zoho`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/oauth-connection/PATTERN.md)
+- Examples: [example/](patterns/connectors/oauth-connection/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Create Paddle products with prices
+
+Compose a sequential catalogue batch and preserve partial success for application-owned recovery.
+
+- Id: `connectors/paddle-catalogue`
+- Keywords: `batch`, `paddle`, `payments`, `prices`, `products`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/paddle-catalogue/PATTERN.md)
+- Examples: [example/](patterns/connectors/paddle-catalogue/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Public logo images from portable integration configuration
+
+Resolve a publishable image key deliberately and use the shared URL library in a browser, backend or CLI.
+
+- Id: `connectors/public-image`
+- Keywords: `cli`, `connectors`, `files`, `images`, `integrations`, `logo-dev`, `public-key`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/public-image/PATTERN.md)
+- Examples: [example/](patterns/connectors/public-image/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Redshift queries with shared AWS credentials
+
+Compose file configuration, Redshift Data API operations and application query ownership.
+
+- Id: `connectors/redshift-queries`
+- Keywords: `aws`, `cli`, `connectors`, `files`, `iam`, `provisioned`, `redshift`, `serverless`, `sql`, `warehouse`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/redshift-queries/PATTERN.md)
+- Examples: [example/](patterns/connectors/redshift-queries/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
+## Authorised project source scans with Wiz
+
+Use the shared scanner runtime from a CLI or a host worker with portable configuration and explicit source ownership.
+
+- Id: `connectors/source-scanning`
+- Keywords: `cancellation`, `cli`, `connectors`, `integrations`, `scanning`, `security`, `source`, `wiz`, `worker`
+- Owner: `@jskit-ai/connectors-catalog@0.1.0`
+- Read: [PATTERN.md](patterns/connectors/source-scanning/PATTERN.md)
+- Examples: [example/](patterns/connectors/source-scanning/example/)
+- Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
+
 ## Owner console surface
 
 Add a protected administration surface, settings shell, and semantic navigation through JSKIT console and shell APIs.
@@ -151,6 +305,17 @@ Add JSKIT realtime events with an optional Redis backplane and an explicit shell
 - Read: [PATTERN.md](patterns/realtime/realtime-application/PATTERN.md)
 - Examples: [example/](patterns/realtime/realtime-application/example/)
 - Requires: `@jskit-ai/realtime`, `@jskit-ai/shell-web`
+
+## Google rewarded delivery
+
+Compose application-owned Google Publisher Tag delivery with the generic rewarded workflow.
+
+- Id: `rewards/google-rewarded`
+- Keywords: `ads`, `google`, `publisher tag`, `rewarded`, `unlock`
+- Owner: `@jskit-ai/rewarded-web@0.1.119`
+- Read: [PATTERN.md](patterns/rewards/google-rewarded/PATTERN.md)
+- Examples: [example/](patterns/rewards/google-rewarded/example/)
+- Requires: `@jskit-ai/rewarded-web`
 
 ## App-local server feature package
 

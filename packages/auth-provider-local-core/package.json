@@ -9,9 +9,6 @@
     "./server/providers/AuthLocalProvider": "./src/server/providers/AuthLocalProvider.js",
     "./server/lib/index": "./src/server/lib/index.js"
   },
-  "dependencies": {
-    "nodemailer": "^9.0.3"
-  },
   "description": "Local auth provider with a file backend default and no database requirement.",
   "jskit": {
     "kind": "runtime",
@@ -53,7 +50,8 @@
           "auth.invitation-context",
           "auth.local.backend",
           "auth.local.password-strategy",
-          "auth.profile.projector"
+          "auth.profile.projector",
+          "auth.local.recovery-sender"
         ]
       }
     }

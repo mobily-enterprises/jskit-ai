@@ -34,7 +34,7 @@ test("normalizeAuthCapabilities returns one provider-neutral feature shape", () 
       passwordRecovery: {
         request: true,
         complete: true,
-        delivery: "smtp"
+        delivery: "email"
       },
       oauthLogin: {
         enabled: true,
@@ -56,7 +56,7 @@ test("normalizeAuthCapabilities returns one provider-neutral feature shape", () 
   assert.equal(capabilities.provider.label, "Local");
   assert.equal(capabilities.features.password.login, true);
   assert.equal(capabilities.features.password.methodToggle, false);
-  assert.equal(capabilities.features.passwordRecovery.delivery, "smtp");
+  assert.equal(capabilities.features.passwordRecovery.delivery, "email");
   assert.deepEqual(capabilities.features.oauthLogin.providers, [
     { id: "google", label: "Google" },
     { id: "github", label: "github" }

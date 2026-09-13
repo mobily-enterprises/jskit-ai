@@ -262,10 +262,9 @@ test("shell-web route transition keeps mobile route motion placement-driven", as
   assert.match(source, /\.shell-route-transition__pane\s*\{[\s\S]*flex:\s*1 1 auto/);
   assert.match(source, /\.shell-route-transition__pane\s*\{[\s\S]*min-height:\s*0/);
   assert.match(source, /transitionDirection\.value = nextIndex > previousIndex \? "forward" : "reverse"/);
-  assert.match(
-    source,
-    /const routeTransitionKey = computed\(\(\) => \{[\s\S]*const routePathKey = routeTransitionName\.value[\s\S]*normalizeComparablePathname\(route\?\.path \|\| route\?\.fullPath \|\| "\/"\)[\s\S]*resolveShellRouteTransitionKey\(\{[\s\S]*routeTransitionName: routeTransitionName\.value,[\s\S]*surfaceId: currentSurfaceId\.value[\s\S]*\}\);[\s\S]*\}\);/
-  );
+  assert.match(source, /const routeTransitionKey = ref\(""\)/);
+  assert.match(source, /\[\(\) => normalizeComparablePathname\(route\?\.path \|\| route\?\.fullPath \|\| "\/"\), currentSurfaceId\]/);
+  assert.match(source, /routeTransitionKey\.value = resolveShellRouteTransitionKey/);
   assert.match(source, /prefers-reduced-motion:\s*reduce/);
 });
 
