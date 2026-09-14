@@ -30,6 +30,10 @@ Local functions
 - `resolveEnabled(value)`
 - `resolveEventName(value)`
 
+### `src/client/connectionRecovery.js`
+Exports
+- `attachSocketConnectionRecovery(socket)`
+
 ### `src/client/RealtimeClientProvider.js`
 Exports
 - `RealtimeClientProvider`

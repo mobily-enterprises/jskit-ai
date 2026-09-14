@@ -3,10 +3,14 @@ import { EMPTY_REALTIME_SOCKET, useRealtimeSocket } from "../composables/useReal
 
 const ROOT_STYLE = Object.freeze({
   alignItems: "center",
+  background: "transparent",
+  border: "0",
+  borderRadius: "50%",
   display: "inline-flex",
-  height: "32px",
+  height: "48px",
   justifyContent: "center",
-  width: "32px"
+  padding: "0",
+  width: "48px"
 });
 
 const DOT_STYLE = Object.freeze({
@@ -37,7 +41,7 @@ function resolveTooltipText({ realtimeAvailable, connected }) {
   if (connected) {
     return "Realtime is connected. Live updates are active.";
   }
-  return "Realtime is disconnected. The client will keep trying to reconnect.";
+  return "Live updates are disconnected. Click to reconnect. If your session expired, sign in again.";
 }
 
 const RealtimeConnectionIndicator = defineComponent({
@@ -104,11 +108,14 @@ const RealtimeConnectionIndicator = defineComponent({
 
     return () =>
       h(
-        "span",
+        "button",
         {
-          style: ROOT_STYLE,
+          disabled: !realtimeAvailable || connected.value,
+          onClick: () => socket.connect?.(),
+          style: { ...ROOT_STYLE, cursor: realtimeAvailable && !connected.value ? "pointer" : "default" },
           title: tooltipText.value,
-          "aria-label": statusLabel.value
+          type: "button",
+          "aria-label": realtimeAvailable && !connected.value ? "Reconnect live updates" : statusLabel.value
         },
         [
           h("span", { style: dotStyle.value, "aria-hidden": "true" }),
