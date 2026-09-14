@@ -89,6 +89,15 @@ product surface, add capabilities through their owning packages, and change
 surface access deliberately. Add authentication, database, CRUD, shell, or
 mobile patterns only when chosen. Do not pre-emptively include them.
 
+## Development warmup
+
+Keep development-server warmup limited to the selected application entry.
+Warming every page and component transforms and caches screens before they are
+visited, increasing startup work and memory as the application grows. Add a
+specific frequently used file only when a measured loading delay justifies it.
+Keep dependency optimization separate: reducing warmup does not require disabling
+the dependency scanner or JSKIT's installed-package optimization settings.
+
 ## Verification
 
 After adapting the example, install the declared packages once and run
@@ -107,6 +116,6 @@ Confirm `/api/health` and the first product route.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/agent-docs@0.1.160`
+- Owner: `@jskit-ai/agent-docs@0.1.161`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/patterns/minimal-foundation/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/agent-docs/patterns/minimal-foundation/example)

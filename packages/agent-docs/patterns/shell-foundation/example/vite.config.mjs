@@ -63,12 +63,7 @@ export default defineConfig({
   server: {
     port: devPort,
     warmup: {
-      clientFiles: [
-        "src/main.{js,ts}",
-        "src/router/**/*.{js,ts}",
-        "src/pages/**/*.{js,ts,vue}",
-        "src/components/**/*.{js,ts,vue}"
-      ]
+      clientFiles: [clientEntry.slice(1)]
     },
     proxy: {
       "/api": {
