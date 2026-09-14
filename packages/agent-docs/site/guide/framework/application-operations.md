@@ -37,13 +37,6 @@ their own exact versions in dependency declarations; do not replace them with
 The copied files immediately belong to the application. Do not add pattern
 receipts, generator provenance, completion ledgers, or hidden operation state.
 
-Keep development-server warmup limited to the selected application entry.
-Warming every page and component transforms and caches screens before they are
-visited, increasing startup work and memory as the application grows. Add a
-specific frequently used file only when a measured loading delay justifies it.
-Keep dependency optimization separate: reducing warmup does not require disabling
-the dependency scanner or JSKIT's installed-package optimization settings.
-
 ## Install and compose capabilities
 
 Plan the complete capability set before changing dependencies. Use the package
