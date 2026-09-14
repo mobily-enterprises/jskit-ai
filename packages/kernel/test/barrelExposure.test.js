@@ -131,6 +131,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
     filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "http", "index.js"),
     expectedExports: Object.freeze([
       "HttpProvider",
+      "createCachedResponseSerializerFactory",
       "createCapabilityHttpRuntime"
     ])
   })

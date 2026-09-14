@@ -714,6 +714,7 @@ Exports
 Exports
 - `createCapabilityHttpRuntime`
 - `HttpProvider`
+- `createCachedResponseSerializerFactory`
 
 ### `server/http/lib/controller.js`
 Exports
@@ -817,6 +818,13 @@ Local functions
 - `normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {})`
 - `compileNormalizedRouteValidator(normalizedValidator)`
 - `normalizeRouteValidatorSource(validator, { context = "route validator" } = {})`
+
+### `server/http/responseSerializerFactory.js`
+Exports
+- `createCachedResponseSerializerFactory(buildSerializer)`
+Local functions
+- `isJsonValue(value, ancestors = new Set())`
+- `schemaCacheKey(schema)`
 
 ### `server/platform/index.js`
 Exports
