@@ -51,6 +51,7 @@ class CodexAppServerJsonRpcClient {
   constructor({
     endpoint = "",
     maxMessageBytes = Number.POSITIVE_INFINITY,
+    onDisconnect = null,
     requestTimeoutMs = CODEX_APP_SERVER_REQUEST_TIMEOUT_MS,
     WebSocketImpl = WebSocket
   } = {}) {
@@ -60,6 +61,7 @@ class CodexAppServerJsonRpcClient {
       : Number.POSITIVE_INFINITY;
     this.requestTimeoutMs = normalizePositiveInteger(requestTimeoutMs, CODEX_APP_SERVER_REQUEST_TIMEOUT_MS);
     this.WebSocketImpl = WebSocketImpl;
+    this.onDisconnect = onDisconnect;
     this.nextRequestId = 1;
     this.notificationSubscribers = new Set();
     this.pendingRequests = new Map();
@@ -105,10 +107,15 @@ class CodexAppServerJsonRpcClient {
         callback(value);
       };
       cleanup.push(addSocketListener(socket, "open", () => {
-        if (this.socket === socket) {
-          this.connected = true;
+        if (this.socket !== socket) {
+          settle(reject, new Error("Codex connection was closed before it opened."));
+          return;
         }
+        this.connected = true;
         settle(resolve);
+      }));
+      cleanup.push(addSocketListener(socket, "close", () => {
+        settle(reject, new Error("Codex connection closed before it opened."));
       }));
       cleanup.push(addSocketListener(socket, "error", (error) => {
         if (this.socket === socket) {
@@ -118,13 +125,14 @@ class CodexAppServerJsonRpcClient {
         settle(reject, error?.error || error);
       }));
     });
-    addSocketListener(socket, "message", (event) => this.handleMessage(event));
+    addSocketListener(socket, "message", (event) => {
+      if (this.socket === socket) this.handleMessage(event);
+    });
     addSocketListener(socket, "close", () => {
-      if (this.socket === socket) {
-        this.connected = false;
-        this.socket = null;
-      }
-      this.rejectPendingRequests(new Error("Codex app-server connection closed."));
+      if (this.socket === socket) this.disconnect(new Error("Codex app-server connection closed."));
+    });
+    addSocketListener(socket, "error", (event) => {
+      if (this.socket === socket) this.disconnect(event?.error || new Error("Codex app-server connection failed."));
     });
     return this;
   }
@@ -240,12 +248,15 @@ class CodexAppServerJsonRpcClient {
       if (text === null) {
         const error = new Error("Codex app-server message exceeded the configured transport limit.");
         error.code = "assistant_codex_app_server_message_too_large";
-        this.rejectPendingRequests(error);
-        this.close();
+        this.disconnect(error);
         return;
       }
       message = JSON.parse(text);
-    } catch {
+      if (!message || typeof message !== "object" || Array.isArray(message)) {
+        throw new TypeError("Codex JSON-RPC messages must be objects.");
+      }
+    } catch (error) {
+      this.disconnect(new Error("Codex app-server sent an unreadable message.", { cause: error }));
       return;
     }
     if (Object.hasOwn(message, "id") && message.method) {
@@ -314,6 +325,12 @@ class CodexAppServerJsonRpcClient {
       pending.reject(error);
     }
     this.pendingRequests.clear();
+  }
+
+  disconnect(error) {
+    this.rejectPendingRequests(error);
+    this.close();
+    this.onDisconnect?.(error);
   }
 
   close() {

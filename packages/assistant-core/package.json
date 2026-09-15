@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.167",
+  "version": "0.1.169",
   "type": "module",
   "scripts": {
     "test": "node --test"

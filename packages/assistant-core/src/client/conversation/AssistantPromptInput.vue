@@ -156,6 +156,7 @@ const props = defineProps({
 const textareaRef = ref(null);
 const textareaId = `assistant-prompt-${useId()}`;
 let resizeFrame = 0;
+let resizeObserver = null;
 let preserveHeightForNextModelValueChange = false;
 const combinedErrorMessages = computed(() => {
   return Array.isArray(props.errorMessages)
@@ -201,9 +202,7 @@ function queueResizeTextarea() {
   if (!props.autoGrow || typeof window === "undefined") {
     return;
   }
-  if (resizeFrame) {
-    window.cancelAnimationFrame(resizeFrame);
-  }
+  if (resizeFrame) return;
   resizeFrame = window.requestAnimationFrame(() => {
     resizeFrame = 0;
     resizeTextarea();
@@ -241,6 +240,7 @@ function handleTextareaBlur(event = {}) {
 }
 
 function handleTextareaKeydown(event = {}) {
+  if (props.disabled || event.isComposing) return;
   if (event.key === "Escape") {
     emit("escape", event);
     return;
@@ -292,9 +292,22 @@ function focusTextarea(options = { preventScroll: true }) {
   textareaRef.value?.focus?.(options);
 }
 
-onMounted(queueResizeTextarea);
+onMounted(() => {
+  queueResizeTextarea();
+  let lastWidth = 0;
+  resizeObserver = new ResizeObserver(([entry]) => {
+    // Height changes are our own output. Only width changes need another layout.
+    const width = entry.contentRect.width;
+    if (width !== lastWidth) {
+      lastWidth = width;
+      queueResizeTextarea();
+    }
+  });
+  resizeObserver.observe(textareaRef.value);
+});
 
 onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
   if (resizeFrame && typeof window !== "undefined") {
     window.cancelAnimationFrame(resizeFrame);
     resizeFrame = 0;
@@ -306,7 +319,8 @@ watch(() => [
   props.modelValue,
   props.placeholder,
   props.placeholderAffectsHeight,
-  props.rows
+  props.rows,
+  props.density
 ], (values, previousValues = []) => {
   const modelValueChanged = values[1] !== previousValues[1];
   if (preserveHeightForNextModelValueChange && modelValueChanged) {
@@ -314,7 +328,7 @@ watch(() => [
     return;
   }
   queueResizeTextarea();
-});
+}, { flush: "post" });
 
 defineExpose({ inputElement: textareaRef, focus: focusTextarea, preserveHeightForNextModelValue, queueResizeTextarea });
 </script>
