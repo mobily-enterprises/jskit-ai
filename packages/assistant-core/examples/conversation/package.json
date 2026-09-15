@@ -1,0 +1,22 @@
+{
+  "name": "assistant-conversation-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host=127.0.0.1 --port=5175 --strictPort",
+    "server": "node server.js",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@jskit-ai/assistant-core": "0.1.163",
+    "@jskit-ai/http-runtime": "0.1.185",
+    "@jskit-ai/kernel": "0.1.187",
+    "@mdi/js": "^7.4.47",
+    "vue": "^3.5.13",
+    "vuetify": "^4.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.2.1"
+  }
+}
