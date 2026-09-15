@@ -1,106 +1,44 @@
 <script setup>
 import { computed, ref } from "vue";
-import AssistantClientElement from "../../src/client/components/AssistantClientElement.vue";
-
-const longConversation = Array.from(
-  { length: 90 },
-  (_, index) => `Conversation line ${index + 1}: responsive scroll containment must keep the composer visible.`
-).join("\n\n");
-
-const messages = ref([
-  {
-    id: "message-1",
-    role: "assistant",
-    kind: "chat",
-    status: "completed",
-    text: longConversation
+import AssistantConversationElement from "../../src/client/conversation/AssistantConversationElement.vue";
+import { conversationTurnsFromMessages } from "../../src/shared/conversation/turns.js";
+const draft = ref("");
+const controls = new URLSearchParams(location.search).has("controls");
+const scope = ref("one");
+const messages = ref(Array.from({ length: 70 }, (_, index) => ({
+  id: `message-${index}`, role: index % 2 ? "assistant" : "user", status: "completed",
+  text: `Conversation line ${index + 1}: responsive scroll containment keeps the composer visible.\n\nMore text with **formatting**, a [link](https://example.com), and a_long_word_that_must_wrap_in_narrow_panes_without_overflow.`
+})));
+if (controls) messages.value[0].text = messages.value[0].text.repeat(4);
+const adapter = computed(() => ({
+  conversation: { turns: conversationTurnsFromMessages(messages.value), scrollKey: scope.value, hasMoreBefore: controls },
+  composer: { draft: draft.value, canSend: Boolean(draft.value.trim()), rows: 2 },
+  actions: {
+    setDraft(value) { draft.value = value; },
+    submit() { draft.value = ""; },
+    loadMore({ complete }) {
+      messages.value.unshift({ id: "older", role: "assistant", text: "Older conversation paragraph. ".repeat(40), status: "completed" });
+      complete({ changed: true });
+    }
   }
-]);
-const input = ref("");
-const isStreaming = ref(false);
-const isRestoringConversation = ref(false);
-const conversationId = ref("conversation-1");
-const conversationHistory = ref([
-  {
-    id: "conversation-1",
-    title: "Responsive layout regression",
-    status: "completed",
-    startedAt: "2026-08-24T00:00:00.000Z",
-    messageCount: 1
-  }
-]);
-const conversationHistoryLoading = ref(false);
-const conversationHistoryLoadingMore = ref(false);
-const conversationHistoryHasMore = ref(false);
-const conversationHistoryError = ref("");
-const pendingToolEvents = ref([
-  {
-    id: "tool-1",
-    name: "assistant_action_search",
-    status: "completed"
-  }
-]);
-
-const state = Object.freeze({
-  messages,
-  input,
-  isStreaming,
-  isRestoringConversation,
-  pendingToolEvents,
-  conversationId,
-  conversationHistory,
-  conversationHistoryLoading,
-  conversationHistoryLoadingMore,
-  conversationHistoryHasMore,
-  conversationHistoryError,
-  isAdminSurface: ref(false),
-  canSend: computed(() => input.value.trim().length > 0),
-  canStartNewConversation: ref(true)
-});
-
-const actions = Object.freeze({
-  async sendMessage() {},
-  handleInputKeydown() {},
-  async cancelStream() {},
-  async startNewConversation() {},
-  async selectConversation() {},
-  async refreshConversationHistory() {},
-  async loadMoreConversationHistory() {}
-});
-
-const meta = Object.freeze({
-  formatConversationStartedAt() {
-    return "Aug 24, 2026";
-  }
-});
+}));
 </script>
-
 <template>
   <v-app>
     <v-main>
       <main class="assistant-responsive-fixture">
-        <AssistantClientElement
-          :meta="meta"
-          :state="state"
-          :actions="actions"
-          :viewer="{ displayName: 'Ada Lovelace' }"
-        />
+        <nav v-if="controls">
+          <button @click="scope = scope === 'one' ? 'two' : 'one'">Change conversation</button>
+          <button @click="messages.push({ id: `added-${messages.length}`, role: 'assistant', text: 'New reply. '.repeat(30), status: 'completed' })">Append reply</button>
+        </nav>
+        <AssistantConversationElement :adapter="adapter" class="assistant-responsive-fixture__conversation" />
       </main>
     </v-main>
   </v-app>
 </template>
-
 <style>
-html,
-body,
-#app {
-  block-size: 100%;
-  margin: 0;
-  min-block-size: 0;
-}
-
-.assistant-responsive-fixture {
-  block-size: 100%;
-  min-block-size: 0;
-}
+html, body, #app { height: 100%; margin: 0; min-height: 0; }
+.assistant-responsive-fixture { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: .5rem; }
+.assistant-responsive-fixture nav { display: flex; flex: 0 0 auto; gap: 1rem; }
+.assistant-responsive-fixture__conversation { flex: 1 1 auto; }
 </style>

@@ -14,44 +14,6 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/client/components/AssistantClientElement.vue`
-Exports
-- None
-Local functions
-- `formatConversationStartedAt(value)`
-- `normalizeConversationStatus(value)`
-- `messageAuthorLabel(message)`
-- `showAssistantTypingIndicator(message)`
-- `isAssistantChatMessage(message)`
-- `keepMessagesPanelPinnedToBottom({ behavior = "auto" } = {})`
-- `renderAssistantMarkdownSnapshot()`
-- `scheduleAssistantMarkdownRender({ immediate = false } = {})`
-- `assistantMessageHtml(message)`
-- `resolveConversationActorLabel(conversation)`
-- `conversationSubtitle(conversation)`
-- `conversationDisplayTitle(conversation)`
-- `isActiveConversation(conversation)`
-- `onSelectConversation(conversation)`
-- `selectConversationFromPicker(conversation)`
-- `onStartNewConversation()`
-- `startNewConversationFromPicker()`
-- `onLoadMoreConversations()`
-- `onSendMessage()`
-- `onConversationPickerOpen()`
-- `onHandleInputKeydown(event)`
-- `resolveComposerTextarea()`
-- `focusComposer(selectText = false)`
-- `focusComposerWithRetry(selectText = false)`
-- `requestComposerFocus({ selectText = false } = {})`
-- `onRootFocus(event)`
-- `onRootPointerDown()`
-- `normalizeScrollValue(value)`
-- `distanceFromBottom(element)`
-- `isScrolledToBottom(element)`
-- `scrollMessagesToBottom({ behavior = "auto" } = {})`
-- `handleMessagesPanelScroll()`
-- `syncViewportHeight()`
-
 ### `src/client/components/AssistantSettingsFormCard.vue`
 Exports
 - None
@@ -161,12 +123,10 @@ Local functions
 
 ### `src/client/index.js`
 Exports
-- `AssistantClientElement`
 - `AssistantSettingsFormCard`
 - `assistantHttpClient`
 - `createAssistantApi`
 - `buildStreamEventError`
-- `renderMarkdownToSafeHtml`
 
 ### `src/client/lib/assistantApi.js`
 Exports
@@ -182,12 +142,6 @@ Local functions
 ### `src/client/lib/assistantHttpClient.js`
 Exports
 - `assistantHttpClient`
-
-### `src/client/lib/markdownRenderer.js`
-Exports
-- `renderMarkdownToSafeHtml(value = "")`
-Local functions
-- `normalizeMarkdownText(value)`
 
 ### `src/server/conversation/codexClient.js`
 Exports

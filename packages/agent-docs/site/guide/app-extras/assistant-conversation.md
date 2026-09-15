@@ -6,9 +6,9 @@ project directory, application database, identity scheme, or avatar.
 
 Use this contract when the application already owns its conversation endpoints
 or needs custom storage and provider execution. Applications using the complete
-JSKIT assistant surface can continue to use [Assistant](./assistant.md), which
+JSKIT assistant surface use [Assistant](./assistant.md), which
 owns its routes, database repositories, action-tool loop, and settings.
-Choose one transcript owner for a conversation.
+Both integrations render the same `AssistantConversationElement`. Choose one transcript owner for a conversation.
 
 ## Ownership
 
@@ -21,7 +21,8 @@ Choose one transcript owner for a conversation.
 
 No global store or router is installed by the element. Multiple assistants can
 coexist with separate adapters. The application mounts it in a pane with a
-definite height and `min-height: 0`.
+definite height and `min-height: 0`. The composer does not shrink under transcript
+pressure. Bubbles use the application's Vuetify theme colors.
 
 ## Client contract
 
@@ -54,7 +55,7 @@ composer is present, and `stop` when `canStop` can become true.
 | --- | --- |
 | `setDraft(text)` | Update the application draft synchronously. |
 | `submit({ configuration })` | Send or steer through the app's normal admission, attachment and delivery path. Own pending state, accepted-draft clearing and visible failures. The element checks `canSend` before calling. |
-| `stop()` | Stop the owned provider turn. Own pending state and errors; the element checks stop availability. |
+| `stop()` | Request cancellation through the backend owner. Report pending state, errors, and what actually stopped; the element checks stop availability. |
 | `loadMore({ complete })` | Prepend older turns, then call `complete({ changed })` after updating reactive state. Call it on failures too; this releases the scroll anchor. |
 | `reload()` | Refresh authoritative history. |
 | `resend(id)`, `cancel(id)`, `edit(id)` | Handle a failed optimistic turn using its stable `optimistic.id`. Retry according to server delivery evidence. |
@@ -114,12 +115,24 @@ Other slots:
 
 | Slot | Scope / use |
 | --- | --- |
+| `welcome` | Application welcome content and suggested requests, shown when `welcomeMessage` is nonempty |
 | `attachments` | `{ items, message }`; app-owned downloads/previews and access checks |
 | `message-actions` | `{ message, turn }`; integration approvals, SQL actions or other app behavior |
 | `system-message` | `{ message }`; status/repair actions |
 | `hints` | `{ adapter }`; app progress/status/errors above the composer |
 | `composer` | `{ adapter }`; replace the composer while keeping the shared transcript |
 | `input-start`, `composer-tools` | `{ adapter }`; app-owned input adornments and tools |
+
+The element exposes `focus()`, `submit()`, and `stop()`. Focus it only when the
+application intentionally opens or activates the conversation, not on each
+stream or state update. Closing the element does not cancel work by itself;
+the adapter owner must decide whether to cancel, retain, or detach its operation.
+For an editor-owned proposal with no cancellation endpoint, omit `canStop`. Keep
+`disabled: false` while running and make `canSend` reflect actual availability.
+An application may leave `canSend` true for an empty draft when its submit action
+needs to show prerequisite guidance beside the button; validation remains owned
+by that action. Keep domain validation or proposal controls in the documented
+slots, and keep the editor conversation out of unrelated assistant history.
 
 `AssistantTranscript`, `AssistantPromptInput`, `AssistantComposerActions`, and
 `AssistantProgress` are exported separately for compositions with retained

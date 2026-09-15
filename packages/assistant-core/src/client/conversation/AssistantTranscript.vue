@@ -72,7 +72,7 @@
             <span>{{ assistantLabel }}</span>
           </div>
         </div>
-        <p>{{ welcomeMessage }}</p>
+        <slot name="welcome"><p>{{ welcomeMessage }}</p></slot>
       </div>
 
       <div
@@ -873,6 +873,11 @@ onBeforeUnmount(() => {
   clearLoadMoreScrollSnapshot();
 });
 
+watch(() => props.scrollKey, () => {
+  expandedUserMessages.value = new Set();
+  displayMessageCache.clear();
+});
+
 watch(() => [
   timelineScrollTrigger.value,
   latestRenderedTailKey.value
@@ -1073,21 +1078,21 @@ watch(timelineScrollTrigger, () => {
 }
 
 .assistant-transcript__avatar--user {
-  background: #e9f2fc;
-  color: #2f79ca;
+  background: rgba(var(--v-theme-primary), 0.1);
+  color: rgb(var(--v-theme-primary));
   margin-top: 0.2rem;
 }
 
 .assistant-transcript__avatar--assistant {
-  background: #5b9ce1;
-  color: #ffffff;
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
   margin-top: 0.05rem;
 }
 
 .assistant-transcript__message--user {
-  background: #e3ebf5;
+  background: rgba(var(--v-theme-primary), 0.1);
   border-radius: 16px;
-  color: #202936;
+  color: rgb(var(--v-theme-on-surface));
   gap: 0.75rem;
   justify-content: space-between;
   overflow-x: auto;

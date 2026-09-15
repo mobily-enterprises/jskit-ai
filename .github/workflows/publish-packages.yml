@@ -46,6 +46,16 @@ jobs:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
         run: node --test packages/http-web/test/crudListDateFilterSurface.browser.test.js
 
+      - name: Verify shared assistant conversation UI
+        env:
+          JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/assistant-core/test/assistantScroll.browser.test.js
+
+      - name: Verify ready-made assistant lifecycle
+        env:
+          JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/assistant-runtime/test/conversation.browser.test.js
+
       - name: Verify adaptive shell behavior
         env:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
