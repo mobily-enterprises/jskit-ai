@@ -11,7 +11,7 @@
     <slot name="hints" :adapter="adapter" />
     <slot name="composer" :adapter="adapter">
       <AssistantPromptInput
-        v-if="adapter.composer" ref="input" v-bind="adapter.composer"
+        v-if="adapter.composer" ref="input" v-bind="adapter.composer" class="assistant-conversation__composer"
         :model-value="adapter.composer.draft || ''" :submit-enabled="adapter.composer.canSend"
         :aria-label="adapter.composer.ariaLabel || 'Message AI assistant'" :rows="adapter.composer.rows || 2"
         tab-to-submit @update:model-value="adapter.actions.setDraft($event)"
@@ -53,7 +53,7 @@ const props = defineProps({
   configurationMode: { type: String, default: "hidden", validator: (value) => ["hidden", "readonly", "editable"].includes(value) }
 });
 const slots = useSlots();
-const transcriptSlots = computed(() => ["attachments", "system-message", "message-actions"].filter((name) => slots[name]));
+const transcriptSlots = computed(() => ["welcome", "attachments", "system-message", "message-actions"].filter((name) => slots[name]));
 const input = ref(null);
 const delivery = ref(null);
 function submit() {
@@ -74,5 +74,6 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 <style scoped>
 .assistant-conversation { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; }
 .assistant-conversation__transcript { flex: 1 1 auto; min-height: 0; }
+.assistant-conversation__composer { flex: 0 0 auto; }
 .assistant-conversation__setting { min-width: 8rem; max-width: 16rem; }
 </style>

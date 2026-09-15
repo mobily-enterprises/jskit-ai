@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.169",
+  "version": "0.1.170",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -21,18 +21,16 @@
     "./testing/conversation-storage": "./src/testing/conversationStorageContract.js"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.133",
-    "@jskit-ai/resource-crud-core": "0.1.133",
-    "dompurify": "^3.4.13",
+    "@jskit-ai/resource-core": "0.1.134",
+    "@jskit-ai/resource-crud-core": "0.1.134",
     "json-rest-schema": "^1.0.17",
-    "marked": "^17.0.4",
     "openai": "^6.22.0",
     "@mdi/js": "^7.4.47",
     "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.189",
-    "@jskit-ai/kernel": "0.1.191",
+    "@jskit-ai/http-runtime": "0.1.190",
+    "@jskit-ai/kernel": "0.1.192",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },

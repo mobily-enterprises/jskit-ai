@@ -1,4 +1,4 @@
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, onScopeDispose, ref, shallowRef, toValue, watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -28,7 +28,6 @@ import {
   mapTranscriptEntriesToAssistantState,
   normalizeToolName
 } from "../support/assistantRuntimeState.js";
-import { insertTextAtSelection } from "../support/composerInputSupport.js";
 import {
   loadConversationTranscript,
   resolveConversationRestorePolicy
@@ -51,7 +50,8 @@ function toNonNegativeInteger(value, fallback = 0) {
 function buildScopeStorageKey(scope = {}) {
   const runtimeSurfaceId = normalizeText(scope?.targetSurfaceId).toLowerCase() || "assistant";
   const workspaceSlug = normalizeText(scope?.workspaceSlug).toLowerCase() || "global";
-  return `assistant.activeConversationId:${runtimeSurfaceId}:${workspaceSlug}`;
+  const userId = normalizeRecordId(scope?.userId, { fallback: "anonymous" });
+  return `assistant.activeConversationId:${runtimeSurfaceId}:${workspaceSlug}:${userId}`;
 }
 
 function readStoredActiveConversationId(scope = {}) {
@@ -151,11 +151,13 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
   const error = ref("");
   const pendingToolEvents = ref([]);
   const conversationId = ref(null);
-  const abortController = ref(null);
+  const abortController = shallowRef(null);
+  const isCanceling = ref(false);
+  let restoreVersion = 0;
 
   const placementSnapshot = computed(() => normalizeObject(placementContext.value));
   const assistantSurface = computed(() =>
-    resolveAssistantSurfaceConfig(appConfig, surfaceId)
+    resolveAssistantSurfaceConfig(appConfig, toValue(surfaceId))
   );
   const routeScope = computed(() => workspaceScopeSupport.readRouteScope(routeContext));
   const runtimeScope = computed(() => {
@@ -165,6 +167,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
 
     return {
       targetSurfaceId: normalizeText(assistantSurface.value?.targetSurfaceId).toLowerCase(),
+      userId: normalizeRecordId(placementSnapshot.value?.user?.id, { fallback: null }),
       workspaceSlug,
       workspaceId: assistantSurface.value?.runtimeSurfaceRequiresWorkspace
         ? normalizeRecordId(placementSnapshot.value?.workspace?.id, { fallback: null })
@@ -197,7 +200,8 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         normalizeText(input.value)
     );
   });
-  const canStartNewConversation = computed(() => Boolean(hasRuntimeScope.value && !isStreaming.value));
+  const canStartNewConversation = computed(() => Boolean(hasRuntimeScope.value && !isStreaming.value && !isRestoringConversation.value));
+  const scopeKey = computed(() => JSON.stringify(runtimeScope.value));
 
   function setRuntimeError(message, dedupeKey = "") {
     const normalizedMessage = normalizeText(message);
@@ -218,9 +222,9 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
 
   const conversationHistoryCollection = usePagedCollection({
     queryKey: computed(() =>
-      assistantConversationsListQueryKey(runtimeScope.value, {
+      [...assistantConversationsListQueryKey(runtimeScope.value, {
         limit: runtimePolicy.historyPageSize
-      })
+      }), runtimeScope.value.userId]
     ),
     queryFn: ({ pageParam = null }) =>
       runtimeApi.listConversations({
@@ -248,23 +252,6 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
   const conversationHistoryHasMore = conversationHistoryCollection.hasMore;
   const conversationHistoryError = conversationHistoryCollection.loadError;
 
-  watch(conversationId, (nextConversationId, previousConversationId) => {
-    if (!hasRuntimeScope.value) {
-      return;
-    }
-
-    const nextConversationIdKey = normalizeRecordId(nextConversationId, { fallback: null });
-    if (nextConversationIdKey) {
-      writeStoredActiveConversationId(runtimeScope.value, nextConversationIdKey);
-      return;
-    }
-
-    const previousConversationIdKey = normalizeRecordId(previousConversationId, { fallback: null });
-    if (previousConversationIdKey) {
-      writeStoredActiveConversationId(runtimeScope.value, "");
-    }
-  });
-
   watch(
     [
       hasRuntimeScope,
@@ -282,7 +269,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       nextConversationHistory,
       nextIsRestoringConversation
     ]) => {
-      if (!nextHasRuntimeScope || nextConversationHistoryLoading || nextIsRestoringConversation) {
+      if (!nextHasRuntimeScope || nextConversationHistoryLoading || nextIsRestoringConversation || isStreaming.value) {
         return;
       }
 
@@ -309,7 +296,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         return;
       }
 
-      await selectConversationById(storedConversationId);
+      await selectConversationById(storedConversationId, { preserveDraft: true });
     },
     {
       immediate: true
@@ -360,19 +347,16 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     await conversationHistoryCollection.loadMore();
   }
 
-  async function selectConversationById(nextConversationId) {
-    const normalizedConversationId = normalizeText(nextConversationId);
+  async function selectConversationById(nextConversationId, { preserveDraft = false } = {}) {
+    const normalizedConversationId = normalizeRecordId(nextConversationId, { fallback: "" });
     if (!normalizedConversationId || isStreaming.value || isRestoringConversation.value || !hasRuntimeScope.value) {
       return;
     }
 
-    const parsedConversationId = normalizeRecordId(normalizedConversationId, { fallback: null });
-    if (!parsedConversationId) {
-      return;
-    }
-
-    const previousConversationId = conversationId.value;
-    conversationId.value = parsedConversationId;
+    const version = ++restoreVersion;
+    const scope = runtimeScope.value;
+    const previousDraft = input.value;
+    if (!preserveDraft) input.value = "";
     isRestoringConversation.value = true;
     setRuntimeError("");
 
@@ -381,27 +365,33 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         pageSize: runtimePolicy.restoreMessagesPageSize,
         maxEntries: runtimePolicy.restoreMessagesMaxEntries,
         fetchPage: (page, pageSize) => queryClient.fetchQuery({
-          queryKey: assistantConversationMessagesQueryKey(runtimeScope.value, parsedConversationId, {
+          queryKey: [...assistantConversationMessagesQueryKey(scope, normalizedConversationId, {
             page,
             pageSize
-          }),
-          queryFn: () => runtimeApi.getConversationMessages(parsedConversationId, {
-            page,
-            pageSize
-          }),
+          }), scope.userId],
+          queryFn: () => {
+            if (version !== restoreVersion) throw new DOMException("Conversation changed.", "AbortError");
+            return runtimeApi.getConversationMessages(normalizedConversationId, { page, pageSize });
+          },
           staleTime: runtimePolicy.historyStaleTimeMs
         })
       });
 
+      if (version !== restoreVersion) return;
       const restored = mapTranscriptEntriesToAssistantState(transcript.entries);
+      conversationId.value = normalizedConversationId;
+      writeStoredActiveConversationId(scope, normalizedConversationId);
       messages.value = restored.messages;
       pendingToolEvents.value = restored.pendingToolEvents;
-      input.value = "";
     } catch (loadError) {
-      conversationId.value = previousConversationId;
+      if (version !== restoreVersion) return;
+      if (readStoredActiveConversationId(scope) === normalizedConversationId) {
+        writeStoredActiveConversationId(scope, "");
+      }
+      if (!input.value) input.value = previousDraft;
       setRuntimeError(normalizeText(loadError?.message) || "Unable to load conversation.");
     } finally {
-      isRestoringConversation.value = false;
+      if (version === restoreVersion) isRestoringConversation.value = false;
     }
   }
 
@@ -409,61 +399,33 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     await selectConversationById(conversation?.id);
   }
 
-  function startNewConversation() {
-    if (abortController.value) {
-      abortController.value.abort();
-    }
-
+  function clearView() {
+    restoreVersion += 1;
+    abortController.value?.abort();
+    abortController.value = null;
     messages.value = [];
     pendingToolEvents.value = [];
     input.value = "";
-    setRuntimeError("");
+    error.value = "";
     conversationId.value = null;
-    writeStoredActiveConversationId(runtimeScope.value, "");
     isStreaming.value = false;
+    isCanceling.value = false;
     isRestoringConversation.value = false;
-    abortController.value = null;
   }
 
-  function handleInputKeydown(event) {
-    if (event?.key === "Enter" && isStreaming.value) {
-      event.preventDefault();
-      return;
-    }
-
-    if (event?.key === "Enter" && event?.altKey === true && event?.ctrlKey !== true && event?.metaKey !== true) {
-      event.preventDefault();
-
-      const target = event?.target;
-      const nextValue = insertTextAtSelection(input.value, target?.selectionStart, target?.selectionEnd, "\n");
-      input.value = nextValue.value;
-
-      void nextTick(() => {
-        if (!target || typeof target.setSelectionRange !== "function") {
-          return;
-        }
-
-        target.setSelectionRange(nextValue.selectionStart, nextValue.selectionEnd);
-      });
-      return;
-    }
-
-    if (
-      event?.key === "Enter" &&
-      event?.shiftKey !== true &&
-      event?.ctrlKey !== true &&
-      event?.metaKey !== true &&
-      event?.altKey !== true
-    ) {
-      event.preventDefault();
-      void sendMessage();
-    }
+  function startNewConversation() {
+    if (!canStartNewConversation.value) return;
+    writeStoredActiveConversationId(runtimeScope.value, "");
+    clearView();
   }
+
+  watch(scopeKey, clearView, { flush: "sync" });
+  onScopeDispose(clearView);
 
   function cancelStream() {
-    if (abortController.value) {
-      abortController.value.abort();
-    }
+    if (!abortController.value || isCanceling.value) return;
+    isCanceling.value = true;
+    abortController.value.abort();
   }
 
   async function sendMessage() {
@@ -505,6 +467,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     }, runtimePolicy.timeoutMs);
 
     let streamDoneStatus = "";
+    const ownsStream = () => abortController.value === streamAbortController;
 
     try {
       await runtimeApi.streamChat(
@@ -517,10 +480,12 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         {
           signal: streamAbortController.signal,
           onEvent(event) {
+            if (!ownsStream() || streamAbortController.signal.aborted) return;
             const eventType = normalizeAssistantStreamEventType(event?.type, "");
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.META && Object.hasOwn(event || {}, "conversationId")) {
               conversationId.value = normalizeRecordId(event?.conversationId, { fallback: null });
+              writeStoredActiveConversationId(runtimeScope.value, conversationId.value);
               return;
             }
 
@@ -552,6 +517,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
                 ...pendingToolEvents.value,
                 {
                   id: toolCallId,
+                  messageId: assistantMessageId,
                   name: normalizeToolName(event?.name),
                   arguments: String(event?.arguments || ""),
                   status: "pending",
@@ -600,6 +566,8 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         }
       );
 
+      if (!ownsStream()) return;
+      if (streamAbortController.signal.aborted) streamDoneStatus = "aborted";
       const assistantMessage = findMessage(assistantMessageId);
       const assistantMessageText = normalizeText(assistantMessage?.text);
       if (!assistantMessageText && streamDoneStatus !== "aborted") {
@@ -619,6 +587,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
         }));
       }
     } catch (streamError) {
+      if (!ownsStream()) return;
       if (String(streamError?.name || "") === "AbortError") {
         updateMessage(assistantMessageId, {
           status: "canceled"
@@ -631,11 +600,19 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       }
     } finally {
       clearTimeout(streamTimeout);
-      pendingToolEvents.value = interruptPendingToolEvents(pendingToolEvents.value);
-      abortController.value = null;
-      isStreaming.value = false;
-      await invalidateConversationScope();
-      await refreshConversationHistory();
+      if (ownsStream()) {
+        const answer = findMessage(assistantMessageId);
+        if (answer?.status === "error") {
+          updateMessage(assistantMessageId, { error: error.value });
+          if (!answer.text && !input.value) input.value = normalizedInput;
+        }
+        pendingToolEvents.value = interruptPendingToolEvents(pendingToolEvents.value);
+        abortController.value = null;
+        isStreaming.value = false;
+        isCanceling.value = false;
+        await invalidateConversationScope();
+        await refreshConversationHistory();
+      }
     }
   }
 
@@ -657,6 +634,9 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       messages,
       input,
       isStreaming,
+      isCanceling,
+      hasRuntimeScope,
+      scopeKey,
       isRestoringConversation,
       error,
       pendingToolEvents,
@@ -673,7 +653,6 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     },
     actions: {
       sendMessage,
-      handleInputKeydown,
       cancelStream,
       startNewConversation,
       clearConversation: startNewConversation,

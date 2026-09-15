@@ -25,6 +25,10 @@ Local functions
 ### `src/client/components/AssistantSurfaceClientElement.vue`
 Exports
 - None
+Local functions
+- `conversationSubtitle(entry)`
+- `selectConversation(entry)`
+- `startNewConversation()`
 
 ### `src/client/composables/useAssistantRuntime.js`
 Exports
@@ -56,13 +60,8 @@ Exports
 - `buildId(prefix = "id")`
 - `interruptPendingToolEvents(toolEvents)`
 - `mapTranscriptEntriesToAssistantState(entries)`
+- `mapAssistantConversationTurns(messages, toolEvents = [], { showToolActivity = true } = {})`
 - `normalizeToolName(value)`
-
-### `src/client/support/composerInputSupport.js`
-Exports
-- `insertTextAtSelection(source = "", selectionStart, selectionEnd, text = "")`
-Local functions
-- `normalizeSelectionBoundary(value, fallback, max)`
 
 ### `src/client/support/conversationRestoreSupport.js`
 Exports
@@ -239,6 +238,22 @@ Exports
 - `resolveAssistantSurfaceConfig`
 - `resolveAssistantSurfacesConfig`
 - `resolveSurfaceDefinitions`
+
+### fixtures
+
+### `fixtures/conversation/App.vue`
+Exports
+- None
+Local functions
+- `switchWorkspace()`
+
+### `fixtures/conversation/main.js`
+Exports
+- None
+
+### `fixtures/conversation/vite.config.mjs`
+Exports
+- None
 
 ### migrations
 

@@ -5,6 +5,25 @@ import {
   parseJsonObject
 } from "@jskit-ai/assistant-core/shared";
 import { isAssistantProgressOnlyText } from "../../shared/assistantResponseText.js";
+import { conversationTurnsFromMessages } from "@jskit-ai/assistant-core/shared/conversation";
+
+const CONVERSATION_MESSAGE_STATUS = Object.freeze({
+  streaming: "inProgress",
+  done: "completed",
+  error: "failed",
+  canceled: "interrupted"
+});
+
+function mapAssistantConversationTurns(messages, toolEvents = [], { showToolActivity = true } = {}) {
+  return conversationTurnsFromMessages(messages.map((message) => ({
+    ...message,
+    messageId: String(message.id),
+    status: CONVERSATION_MESSAGE_STATUS[message.status],
+    progressUpdates: showToolActivity ? toolEvents
+      .filter((event) => event.messageId === message.id)
+      .map((event) => ({ id: event.id, text: `${event.name} — ${event.status}` })) : []
+  })));
+}
 
 function buildId(prefix = "id") {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -64,6 +83,9 @@ function mapTranscriptEntriesToAssistantState(entries) {
   const sourceEntries = Array.isArray(entries) ? entries : [];
   const messages = [];
   const toolEventsById = new Map();
+  let latestUserId = null;
+  let currentAssistantId = null;
+  const pendingAssociation = [];
 
   function ensureToolEvent(toolCallId, toolName) {
     const key = normalizeText(toolCallId) || buildId("tool_call");
@@ -103,6 +125,15 @@ function mapTranscriptEntriesToAssistantState(entries) {
         text,
         status: "done"
       });
+      if (role === "user") {
+        latestUserId = messageId;
+        currentAssistantId = null;
+        pendingAssociation.length = 0;
+      } else {
+        currentAssistantId = messageId;
+        for (const event of pendingAssociation) event.messageId = messageId;
+        pendingAssociation.length = 0;
+      }
       continue;
     }
 
@@ -111,6 +142,8 @@ function mapTranscriptEntriesToAssistantState(entries) {
       const toolEvent = ensureToolEvent(toolCallId, metadata.tool);
       toolEvent.arguments = String(entry?.contentText || "");
       toolEvent.status = "pending";
+      toolEvent.messageId = currentAssistantId || latestUserId;
+      pendingAssociation.push(toolEvent);
       continue;
     }
 
@@ -136,5 +169,6 @@ export {
   buildId,
   interruptPendingToolEvents,
   mapTranscriptEntriesToAssistantState,
+  mapAssistantConversationTurns,
   normalizeToolName
 };

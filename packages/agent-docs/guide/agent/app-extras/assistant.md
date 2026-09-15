@@ -234,19 +234,80 @@ warm remount.
 Restored tool calls without matching results, and live calls still pending when
 a stream ends, are shown as interrupted rather than remaining pending forever.
 
-## Height and scrolling
+## Shared conversation UI
 
-`AssistantSurfaceClientElement` owns its bounded responsive layout. Below the
-medium breakpoint the sidebar column is absent and the compact conversation
-control remains available; at medium and expanded widths the non-wrapping 8/4
-chat and sidebar layout is visible. Long conversations scroll inside the
-message panel while the composer remains in view.
+`AssistantSurfaceClientElement` connects `useAssistantRuntime` to
+`AssistantConversationElement`. There is one maintained conversation renderer
+and composer. Applications that own a separate conversation operation use the
+[embeddable element](./assistant-conversation.md) directly through their own
+adapter; they do not need the generic assistant's database or tool loop.
 
-Do not deep-override `.assistant-layout`, `.assistant-main-col`, or
-`.assistant-side-col`. A normal page can mount the public element directly. If
-the product deliberately embeds it in a shorter flex pane, that app-owned pane
-must have a definite height and `min-height: 0` so its child is allowed to
-shrink.
+The runtime owns the draft, requests, saved conversations, history selection,
+provider settings, authorization scope and action tools. Its adapter maps
+`streaming` to `inProgress`, `done` to `completed`, `error` to `failed`, and
+`canceled` to `interrupted`. Existing message IDs stay stable while text streams.
+Restored entries retain their database IDs; equal text is not a duplicate ID.
+Tool activity shows the existing tool name and status, never raw arguments or
+results. No provider reasoning is invented.
+
+Typing stays available during streaming and history restoration; Send waits for
+the active operation. The runtime clears an accepted draft synchronously, so
+later typing survives response completion and cancellation. A failure before an
+answer restores the request as a draft if the user has not already typed a new
+one. Enter sends, Shift/Alt+Enter inserts a newline, and Ctrl/Cmd+Enter sends.
+IME composition never submits. Only the shared composer handles these keys.
+
+Stop aborts the browser's response request. The pending cancellation ends when
+that local request settles. It does not prove that a tool already executing on
+the server has stopped; the UI states that limitation. Closing/unmounting a view
+also aborts its local request and releases its state. Reopening can restore the
+selected saved conversation. It does not reattach a stream or resume work.
+Switching the configured surface or workspace clears that view's draft and
+messages and rejects late responses from its previous scope. Applications must
+continue to supply their normal authenticated shell and workspace context.
+
+Conversation selection and cached transcripts are separated by the signed-in user,
+assistant surface, and workspace. Switching any of them clears the mounted draft
+and detaches its pending response. The application must supply the current user
+and surface through JSKIT placement context and the workspace through the normal
+workspace scope provider; text from a prompt is never used as that authority.
+A failed automatic restore waits for explicit conversation selection to retry.
+Typing during a restore is retained.
+
+### Pages and compact panels
+
+```vue
+<AssistantSurfaceClientElement
+  surface-id="admin"
+  layout="compact"
+  assistant-label="Workspace assistant"
+  welcome-message="What would you like to do in this workspace?"
+  placeholder="Ask about your workspace…"
+  :show-tool-activity="true"
+/>
+```
+
+`surfaceId` selects an existing configured assistant surface. The presentation
+props are `layout` (`page` or `compact`), `assistantLabel`, `welcomeMessage`,
+`placeholder`, and `showToolActivity`. Configuration controls stay on the
+application's existing assistant-settings route; these presentation props do
+not change provider settings or permissions.
+
+Conversation selection, Refresh, Start new conversation and loading older
+conversations are available through the Conversations dialog at every width.
+The current title remains visible. Activity opens the current tool-status list;
+setting `showToolActivity` to false hides presentation only. The
+`composer-tools` slot receives `{ runtime }` for application-owned supplementary
+controls. The element exposes `focus()` so a drawer owner can focus it once when
+opened and restore focus to the opener when closed.
+
+Mount the element in a pane with a definite height and `min-height: 0`. Long
+transcripts scroll internally; the composer keeps its space. The compact layout
+removes page padding and uses the shared compact input. Style the app-owned
+container and use the application's Vuetify theme. Do not target private DOM
+classes or pass the retired renderer's `variant`, `features`, `ui`, or `copy`
+objects. `AssistantClientElement` and its Markdown/keyboard helpers have been
+removed; there is no forwarding alias.
 
 ## Verification
 

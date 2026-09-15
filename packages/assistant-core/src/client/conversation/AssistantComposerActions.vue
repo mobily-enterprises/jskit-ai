@@ -36,7 +36,7 @@ defineExpose({ focus() { (sendButton.value?.$el || sendButton.value)?.focus?.();
 .assistant-composer-actions__tools { flex: 1 1 auto; flex-wrap: wrap; }
 .assistant-composer-actions__delivery { flex: 0 0 auto; margin-left: auto; }
 .assistant-composer-actions__send { min-width: 5.25rem; }
-@media (pointer: coarse) {
+@media (max-width: 600px), (pointer: coarse) {
   .assistant-composer-actions__delivery > .v-btn { min-height: 3rem; min-width: 3rem; }
   .assistant-composer-actions__delivery > .assistant-composer-actions__send { min-width: 5.25rem; }
 }

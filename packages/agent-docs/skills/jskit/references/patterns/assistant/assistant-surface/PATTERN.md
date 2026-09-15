@@ -75,3 +75,20 @@ public workspace support.
 - workspace scope on a non-workspace surface
 - copied runtime repositories, actions, or routes
 - generator commands, question metadata, receipts, or provenance
+
+## Presentation and view lifetime
+
+The surface uses the same `AssistantConversationElement` as applications with
+their own runtime. Use `layout="compact"` for a bounded drawer and the
+`assistantLabel`, `welcomeMessage`, `placeholder`, and `showToolActivity` props
+for presentation. Conversations remains available at all widths. Keep settings
+on the configured settings route. Use the `composer-tools` slot for extra
+application controls and `focus()` when opening a pane; do not target internal
+DOM classes.
+
+The runtime owns one draft and maps its stream statuses to the shared contract.
+Typing remains possible during a response; Send waits. Unmounting or switching
+workspace/surface aborts the local response and discards that view's state.
+Reopening restores saved history, not a live stream. Stop cannot guarantee that
+a server-side tool already running has stopped. Custom editor conversations
+should use their own adapter and keep their existing operation/storage owner.

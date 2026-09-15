@@ -724,6 +724,6 @@ this initial fragment. Consent and live tenant testing require separate access.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.8`
+- Owner: `@jskit-ai/connectors-catalog@0.1.9`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/oauth-connection/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/oauth-connection/example)
