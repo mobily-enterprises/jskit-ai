@@ -6,7 +6,7 @@
   "release": {
     "packages": {
       "@jskit-ai/agent-docs": "0.1.163",
-      "@jskit-ai/assistant-core": "0.1.167",
+      "@jskit-ai/assistant-core": "0.1.169",
       "@jskit-ai/assistant-runtime": "0.1.162",
       "@jskit-ai/auth-core": "0.1.189",
       "@jskit-ai/auth-provider-local-core": "0.1.92",
@@ -64,7 +64,7 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.167",
+      "version": "0.1.169",
       "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
       "jskit": {
         "kind": "runtime",
@@ -246,7 +246,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.1.167",
+          "@jskit-ai/assistant-core": "0.1.169",
           "@jskit-ai/database-runtime": "0.1.191",
           "json-rest-schema": "^1.0.17"
         },
