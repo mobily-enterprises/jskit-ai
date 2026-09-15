@@ -275,3 +275,25 @@ or use the component directly. It runs without credentials using a labelled demo
 provider; optional API credentials enable the existing JSKIT model client.
 Its backend validates configuration independently of the UI and accepts a
 replacement storage module. See its README for commands and scope limits.
+
+## Observation loss and composer responsiveness
+
+`CodexAppServerJsonRpcClient({ endpoint, onDisconnect(error) })` reports an
+unexpected close, socket error, or unreadable message once for the current
+connection. An explicit `close()` does not call the callback. Obsolete socket
+events cannot settle current requests or reach subscribers. The application
+owns handling callback failures, verified cancellation, reconnection and any
+policy requiring an explicit Resume or Send. A transport disconnect is not
+proof that native execution stopped. OpenCode's SSE iterator ending is likewise
+not proof that the native session is idle; its consumer owns that decision.
+
+Update `draft` synchronously in `setDraft`. Keep the composer mounted during
+external state changes, and change `canSend`, `canStop`, `stopPending` and labels
+from authoritative state. Use `disabled` only when typing itself is unavailable.
+A stopped session must become sendable without waiting for an unrelated pending
+HTTP response. Do not clear the draft on connection recovery or Stop.
+
+The textbox coalesces height measurements once per animation frame, after Vue
+applies model changes, and remeasures when its pane width or density changes.
+External state changes retain focus and selection. IME composition does not
+submit or move focus to Send.

@@ -623,6 +623,10 @@ Exports
 Exports
 - None
 
+### `fixtures/responsive-assistant/ConversationFixture.vue`
+Exports
+- None
+
 ### `fixtures/responsive-assistant/main.js`
 Exports
 - None

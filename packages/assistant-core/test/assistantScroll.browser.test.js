@@ -137,3 +137,50 @@ test("AssistantClientElement keeps long conversations scrollable across responsi
     await stopProcess(vite);
   }
 });
+
+test("conversation composer preserves typing and reacts to external state and pane resizing", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
+    await page.goto(`${vite.baseURL}/?conversation=1`);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    const draft = "Keep this draft while the assistant changes state. This is a longer message to verify wrapping when the chat pane becomes narrower.";
+    await input.fill(draft);
+    await input.evaluate((element) => { element.focus(); element.setSelectionRange(10, 10); });
+    for (const phase of ["active", "reconnecting", "stopping", "stopped", "idle"]) {
+      // External events must not take focus like clicking a fixture button would.
+      await page.getByRole("button", { name: `External ${phase}`, exact: true }).evaluate((element) => element.click());
+      await expect(input).toHaveValue(draft);
+      await expect(input).toBeFocused();
+      await expect(input).toBeEnabled();
+      assert.equal(await input.evaluate((element) => element.selectionStart), 10);
+      const send = page.locator(".assistant-composer-actions__send");
+      if (["reconnecting", "stopping"].includes(phase)) await expect(send).toBeDisabled();
+      else await expect(send).toBeEnabled();
+      if (phase === "active") await expect(page.getByRole("button", { name: "Stop", exact: true })).toBeEnabled();
+      if (phase === "stopping") await expect(page.getByRole("button", { name: "Stopping…", exact: true })).toBeDisabled();
+      if (phase === "stopped") await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+    }
+    const before = await input.evaluate((element) => element.clientHeight);
+    await page.getByRole("button", { name: "Resize pane" }).evaluate((element) => element.click());
+    await expect.poll(() => input.evaluate((element) => element.clientHeight)).toBeGreaterThan(before);
+    await input.dispatchEvent("keydown", { key: "Enter", isComposing: true });
+    await expect(input).toHaveValue(draft);
+    await input.press("Enter");
+    await expect(page.locator("output")).toHaveText("active; submitted 1");
+    await expect(input).toHaveValue("");
+    for (const width of [390, 800, 1224]) {
+      await page.setViewportSize({ width, height: 900 });
+      await input.fill(draft);
+      await expect(input).toBeVisible();
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
