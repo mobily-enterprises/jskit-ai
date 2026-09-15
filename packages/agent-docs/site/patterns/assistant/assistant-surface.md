@@ -94,6 +94,6 @@ should use their own adapter and keep their existing operation/storage owner.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/assistant-runtime@0.1.163`
+- Owner: `@jskit-ai/assistant-runtime@0.1.164`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/assistant-runtime/patterns/assistant-surface/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/assistant-runtime/patterns/assistant-surface/example)

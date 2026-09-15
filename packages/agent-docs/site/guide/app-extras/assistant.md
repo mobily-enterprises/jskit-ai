@@ -269,6 +269,8 @@ assistant surface, and workspace. Switching any of them clears the mounted draft
 and detaches its pending response. The application must supply the current user
 and surface through JSKIT placement context and the workspace through the normal
 workspace scope provider; text from a prompt is never used as that authority.
+The composer waits for a signed-in user. Workspace metadata arriving for the
+same route does not replace the conversation or clear a draft.
 A failed automatic restore waits for explicit conversation selection to retry.
 Typing during a restore is retained.
 
@@ -299,9 +301,11 @@ setting `showToolActivity` to false hides presentation only. The
 controls. The element exposes `focus()` so a drawer owner can focus it once when
 opened and restore focus to the opener when closed.
 
-Mount the element in a pane with a definite height and `min-height: 0`. Long
-transcripts scroll internally; the composer keeps its space. The compact layout
-removes page padding and uses the shared compact input. Style the app-owned
+Page layout fills the viewport below its actual position, reserving the Vuetify
+bottom layout and a small gutter. Compact layout fills an app-owned pane with a
+definite height and `min-height: 0`. Long transcripts scroll internally; the
+composer keeps its space. Compact layout removes page padding and uses the
+shared compact input. Style the app-owned
 container and use the application's Vuetify theme. Do not target private DOM
 classes or pass the retired renderer's `variant`, `features`, `ui`, or `copy`
 objects. `AssistantClientElement` and its Markdown/keyboard helpers have been

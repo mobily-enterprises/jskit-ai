@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, toRef } from "vue";
+import { computed, onMounted, onScopeDispose, reactive, ref, toRef, watchPostEffect } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import { useAssistantRuntime } from "../composables/useAssistantRuntime.js";
 import { mapAssistantConversationTurns } from "../support/assistantRuntimeState.js";
@@ -15,7 +15,22 @@ const props = defineProps({
 const runtime = useAssistantRuntime({ surfaceId: toRef(props, "surfaceId") });
 const state = reactive(runtime.state);
 const conversation = ref(null);
+const root = ref(null);
 const historyOpen = ref(false);
+// Page mode owns viewport sizing; compact mode fills the host's bounded pane.
+onMounted(() => {
+  const syncPageOffset = () => {
+    if (props.layout === "page") root.value.style.setProperty("--assistant-page-top", `${Math.max(0, root.value.getBoundingClientRect().top)}px`);
+  };
+  const observer = new ResizeObserver(syncPageOffset);
+  observer.observe(root.value.parentElement);
+  window.addEventListener("resize", syncPageOffset);
+  watchPostEffect(syncPageOffset);
+  onScopeDispose(() => {
+    observer.disconnect();
+    window.removeEventListener("resize", syncPageOffset);
+  });
+});
 const selectedConversation = computed(() => state.conversationHistory.find((entry) => String(entry.id) === state.activeConversationId));
 const turns = computed(() => mapAssistantConversationTurns(state.messages, state.pendingToolEvents, props));
 const adapter = computed(() => ({
@@ -67,7 +82,7 @@ defineExpose({ focus: () => conversation.value?.focus() });
 </script>
 
 <template>
-  <section class="assistant-surface" :class="`assistant-surface--${layout}`" :aria-label="assistantLabel">
+  <section ref="root" class="assistant-surface" :class="`assistant-surface--${layout}`" :aria-label="assistantLabel">
     <div class="assistant-surface__toolbar">
       <span class="assistant-surface__title">{{ selectedConversation?.title || 'New conversation' }}</span>
       <v-btn variant="text" @click="historyOpen = true">Conversations</v-btn>
@@ -122,7 +137,7 @@ defineExpose({ focus: () => conversation.value?.focus() });
 
 <style scoped>
 .assistant-surface { display: flex; flex-direction: column; height: 100%; max-height: 100%; min-height: 0; min-width: 0; overflow: hidden; gap: .5rem; }
-.assistant-surface--page { padding: .5rem; }
+.assistant-surface--page { padding: .5rem; height: calc(100dvh - var(--assistant-page-top, 0px) - var(--v-layout-bottom, 0px) - 1rem - env(safe-area-inset-bottom, 0px)); }
 .assistant-surface__toolbar { display: flex; align-items: center; flex-wrap: wrap; flex: 0 0 auto; gap: .25rem; }
 .assistant-surface__title { flex: 1 1 8rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .875rem; }
 .assistant-surface__conversation { flex: 1 1 auto; }
