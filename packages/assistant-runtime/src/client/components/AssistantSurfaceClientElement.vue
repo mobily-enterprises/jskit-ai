@@ -17,9 +17,10 @@ const state = reactive(runtime.state);
 const conversation = ref(null);
 const historyOpen = ref(false);
 const selectedConversation = computed(() => state.conversationHistory.find((entry) => String(entry.id) === state.activeConversationId));
+const turns = computed(() => mapAssistantConversationTurns(state.messages, state.pendingToolEvents, props));
 const adapter = computed(() => ({
   conversation: {
-    turns: mapAssistantConversationTurns(state.messages, state.pendingToolEvents, props),
+    turns: turns.value,
     scrollKey: `${state.scopeKey}:${state.activeConversationId || "new"}`,
     loading: state.isRestoringConversation,
     assistantLabel: props.assistantLabel,

@@ -144,6 +144,13 @@ test("conversation composer preserves typing and reacts to external state and pa
     const before = await input.evaluate((element) => element.clientHeight);
     await page.getByRole("button", { name: "Resize pane" }).evaluate((element) => element.click());
     await expect.poll(() => input.evaluate((element) => element.clientHeight)).toBeGreaterThan(before);
+    await page.getByRole("button", { name: "Toggle action feedback" }).evaluate((element) => element.click());
+    const feedback = page.getByText("Describe what you want to change.", { exact: true });
+    await expect(feedback).toBeVisible();
+    const sendBounds = await page.getByRole("button", { name: "Send", exact: true }).boundingBox();
+    assert.ok(sendBounds.height >= 48, "Compact panes retain a 48px action target on desktop");
+    assert.ok((await feedback.boundingBox()).y >= sendBounds.y + sendBounds.height, "Narrow action feedback follows the button");
+    await expect(input).toBeFocused();
     await input.dispatchEvent("keydown", { key: "Enter", isComposing: true });
     await expect(input).toHaveValue(draft);
     await input.press("Enter");

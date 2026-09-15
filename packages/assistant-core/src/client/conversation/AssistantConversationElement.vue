@@ -34,6 +34,7 @@
               />
             </slot>
             <slot name="composer-tools" :adapter="adapter" />
+            <template #feedback><slot name="composer-feedback" :adapter="adapter" /></template>
           </AssistantComposerActions>
         </template>
       </AssistantPromptInput>
