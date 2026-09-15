@@ -79,7 +79,7 @@ defineExpose({ focus: () => conversation.value?.focus() });
         </v-list>
       </v-menu>
     </div>
-    <AssistantConversationElement ref="conversation" :adapter="adapter" :label="assistantLabel" class="assistant-surface__conversation">
+    <AssistantConversationElement ref="conversation" :adapter="adapter" label="Conversation" class="assistant-surface__conversation">
       <template #message-actions="{ message }">
         <p v-if="message.status === 'failed' && message.error" class="assistant-surface__message-error" role="status">{{ message.error }}</p>
         <p v-if="message.status === 'interrupted'" class="assistant-surface__notice" role="status">Response canceled. A tool already running may still finish.</p>
