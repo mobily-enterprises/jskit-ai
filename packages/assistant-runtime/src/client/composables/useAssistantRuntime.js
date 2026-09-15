@@ -168,14 +168,11 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     return {
       targetSurfaceId: normalizeText(assistantSurface.value?.targetSurfaceId).toLowerCase(),
       userId: normalizeRecordId(placementSnapshot.value?.user?.id, { fallback: null }),
-      workspaceSlug,
-      workspaceId: assistantSurface.value?.runtimeSurfaceRequiresWorkspace
-        ? normalizeRecordId(placementSnapshot.value?.workspace?.id, { fallback: null })
-        : null
+      workspaceSlug
     };
   });
   const hasRuntimeScope = computed(() =>
-    Boolean(assistantSurface.value) &&
+    Boolean(assistantSurface.value && runtimeScope.value.userId) &&
     (assistantSurface.value?.runtimeSurfaceRequiresWorkspace ? Boolean(runtimeScope.value.workspaceSlug) : true)
   );
 

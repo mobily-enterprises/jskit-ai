@@ -18,10 +18,11 @@ function switchWorkspace() { router.push({ query: { workspace: workspace.value =
 <template>
   <v-app>
     <v-main>
-      <div class="fixture">
+      <div class="fixture" :class="{ 'fixture--page': route.query.page === '1' }">
         <nav aria-label="Fixture controls">
           <button @click="switchWorkspace">Switch workspace</button>
           <button @click="mergeContext({ user: { id: context.user.id === '1' ? '2' : '1' } })">Switch user</button>
+          <button @click="mergeContext({ workspace: { id: '42', slug: workspace, name: 'Workspace metadata loaded' } })">Load workspace metadata</button>
           <button @click="surface = surface === 'admin' ? 'console' : 'admin'">Switch surface</button>
           <button @click="mounted = !mounted">Toggle view</button>
           <button @click="second = !second">Second instance</button>
@@ -44,4 +45,6 @@ html, body, #app { height: 100%; margin: 0; }
 .fixture__panes { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
 .fixture__panes > * { flex: 1 1 0; min-width: 0; }
 .fixture__panes--compact { width: min(360px, 100%); }
+.fixture--page { height: auto; }
+.fixture--page .fixture__panes { display: block; }
 </style>

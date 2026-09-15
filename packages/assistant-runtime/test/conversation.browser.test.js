@@ -224,3 +224,37 @@ test("history restores preserve new typing and reject obsolete pages and failed 
     await stopProcess(vite);
   }
 });
+
+test("page assistant bounds long history in a document layout and preserves drafts when workspace metadata arrives", {
+  skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  const page = await browser.newPage();
+  try {
+    await page.goto(`${vite.baseURL}/?page=1`);
+    await page.getByRole("button", { name: "Conversations", exact: true }).click();
+    await page.getByRole("dialog", { name: "Conversations", exact: true }).getByText("Saved conversation", { exact: true }).click();
+    await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    for (const viewport of [{ width: 390, height: 844 }, { width: 800, height: 800 }, { width: 1280, height: 600 }]) {
+      await page.setViewportSize(viewport);
+      await expect.poll(async () => {
+        const bounds = await input.boundingBox();
+        return bounds.y + bounds.height;
+      }).toBeLessThanOrEqual(viewport.height);
+      assert.ok(await page.getByLabel("Conversation messages", { exact: true }).evaluate(element => element.scrollHeight > element.clientHeight));
+    }
+    await input.fill("Keep this draft while workspace details load.");
+    await input.evaluate(element => { element.focus(); element.setSelectionRange(5, 9); });
+    await page.getByRole("button", { name: "Load workspace metadata" }).evaluate(element => element.click());
+    await expect(input).toHaveValue("Keep this draft while workspace details load.");
+    await expect(input).toBeFocused();
+    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
+    await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
