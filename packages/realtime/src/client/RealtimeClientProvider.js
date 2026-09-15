@@ -4,6 +4,7 @@ import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLo
 import { getClientAppConfig, resolveClientBootstrapDebugEnabled, resolveMobileConfig } from "@jskit-ai/kernel/client";
 import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicator.js";
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
+import { attachSocketConnectionRecovery } from "./connectionRecovery.js";
 
 const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
   createSocketIoClient,
@@ -59,6 +60,7 @@ function createRealtimeClient({ config, loggerInput } = {}) {
     initialized = true;
 
     if (typeof socket.on === "function") {
+      detach.push(attachSocketConnectionRecovery(socket));
       const onConnect = () => logger.debug({ socketConnected: true }, "Realtime client socket connected.");
       const onDisconnect = (reason) =>
         logger.debug(

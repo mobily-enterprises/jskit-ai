@@ -69,6 +69,18 @@ A status indicator is optional product UI. When wanted, register it through the
 normal component and placement APIs. Installing realtime does not append it to
 the shell.
 
+The standard status indicator is a button while disconnected. Clicking it starts
+a fresh connection attempt. The client also retries server-initiated disconnects
+and rejected handshakes, backing off from one second to at most thirty seconds.
+Those extra retries pause while the page is hidden or offline and resume when it
+becomes available. Socket.IO continues to own ordinary transport reconnection.
+Explicit client disconnection and `reconnection: false` remain respected.
+
+Every attempt goes through normal authentication. Reconnection does not restore
+revoked access; an expired login still requires signing in. Applications should
+preserve unsent input, distinguish disconnected status from running work, and
+refresh authoritative state after reconnecting without resending mutations.
+
 ## Verification
 
 Test in-process delivery, audience isolation, authenticated-handshake rejection

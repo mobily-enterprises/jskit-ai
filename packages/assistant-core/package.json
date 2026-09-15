@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.165",
+  "version": "0.1.167",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -8,19 +8,31 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
-    "./shared": "./src/shared/index.js"
+    "./shared": "./src/shared/index.js",
+    "./client/conversation": "./src/client/conversation/index.js",
+    "./server/codex-events": "./src/server/conversation/codexEvents.js",
+    "./server/codex-turn": "./src/server/conversation/codexTurn.js",
+    "./server/codex-client": "./src/server/conversation/codexClient.js",
+    "./server/opencode-client": "./src/server/conversation/openCodeClient.js",
+    "./server/conversation": "./src/server/conversation/index.js",
+    "./shared/conversation": "./src/shared/conversation/index.js",
+    "./client/conversation-submit": "./src/client/conversation/submitText.js",
+    "./client/conversation-scroll": "./src/client/conversation/useScrollToBottom.js",
+    "./testing/conversation-storage": "./src/testing/conversationStorageContract.js"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.131",
-    "@jskit-ai/resource-crud-core": "0.1.131",
+    "@jskit-ai/resource-core": "0.1.133",
+    "@jskit-ai/resource-crud-core": "0.1.133",
     "dompurify": "^3.4.13",
     "json-rest-schema": "^1.0.17",
     "marked": "^17.0.4",
-    "openai": "^6.22.0"
+    "openai": "^6.22.0",
+    "@mdi/js": "^7.4.47",
+    "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.187",
-    "@jskit-ai/kernel": "0.1.189",
+    "@jskit-ai/http-runtime": "0.1.189",
+    "@jskit-ai/kernel": "0.1.191",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
@@ -55,6 +67,46 @@
           {
             "subpath": "./shared",
             "summary": "Exports reusable assistant validators, path helpers, query keys, and stream/settings events."
+          },
+          {
+            "subpath": "./client/conversation",
+            "summary": "Embeddable conversation element, transcript, composer and progress presentation with application-owned state and actions."
+          },
+          {
+            "subpath": "./server/conversation",
+            "summary": "Conversation transcript lifecycle with replaceable application storage and an explicit transient memory adapter."
+          },
+          {
+            "subpath": "./shared/conversation",
+            "summary": "Turn mapping, rich-text parsing, question helpers and scroll-follow state."
+          },
+          {
+            "subpath": "./server/codex-client",
+            "summary": "Codex app-server JSON-RPC client; the application supplies the endpoint, identity and request authorization."
+          },
+          {
+            "subpath": "./server/codex-turn",
+            "summary": "Native Codex detached-turn observation and final-result recovery."
+          },
+          {
+            "subpath": "./server/codex-events",
+            "summary": "Native Codex notification and thread-history classification."
+          },
+          {
+            "subpath": "./server/opencode-client",
+            "summary": "Bounded OpenCode loopback HTTP and SSE client."
+          },
+          {
+            "subpath": "./client/conversation-submit",
+            "summary": "Companion text submission through the application draft and canonical send action."
+          },
+          {
+            "subpath": "./client/conversation-scroll",
+            "summary": "Layout-aware scroll-follow operations."
+          },
+          {
+            "subpath": "./testing/conversation-storage",
+            "summary": "Reusable checks for application conversation storage adapters."
           }
         ],
         "capabilities": []

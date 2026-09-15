@@ -11,6 +11,10 @@ npm run db:migrate
 
 Use the `assistant/assistant-surface` pattern. There is no assistant generator.
 
+For an app-owned backend or custom conversation storage, use the
+[embeddable conversation element and backend contracts](./assistant-conversation.md).
+The package includes a standalone application template.
+
 ## Product decisions
 
 Choose:
