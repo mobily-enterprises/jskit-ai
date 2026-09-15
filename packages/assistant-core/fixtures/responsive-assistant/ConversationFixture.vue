@@ -5,11 +5,13 @@ const phase = ref("idle");
 const draft = ref("");
 const narrow = ref(false);
 const submissions = ref(0);
+const feedback = ref(false);
 const adapter = reactive({
   conversation: { turns: [], visible: true, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture" },
   composer: {
     draft,
     rows: 2,
+    density: computed(() => narrow.value ? "compact" : "default"),
     submitOnEnter: true,
     canSend: computed(() => Boolean(draft.value.trim()) && ["idle", "active", "stopped"].includes(phase.value)),
     canStop: computed(() => ["active", "stopping"].includes(phase.value)),
@@ -29,10 +31,13 @@ const adapter = reactive({
       <div class="controls">
         <button v-for="state in ['idle', 'active', 'reconnecting', 'stopping', 'stopped']" :key="state" @click="phase = state">External {{ state }}</button>
         <button @click="narrow = !narrow">Resize pane</button>
+        <button @click="feedback = !feedback">Toggle action feedback</button>
         <output>{{ phase }}; submitted {{ submissions }}</output>
       </div>
       <main class="fixture" :class="{ narrow }">
-        <AssistantConversationElement :adapter="adapter" />
+        <AssistantConversationElement :adapter="adapter">
+          <template #composer-feedback><p v-if="feedback" class="feedback" role="status">Describe what you want to change.</p></template>
+        </AssistantConversationElement>
       </main>
     </v-main>
   </v-app>
@@ -42,4 +47,5 @@ const adapter = reactive({
 .controls button { border: 1px solid; padding: 4px; }
 .fixture { height: 70vh; width: min(900px, 100%); margin: auto; }
 .fixture.narrow { width: min(320px, 100%); }
+.feedback { flex: 1 1 24rem; min-width: 0; margin: 0; }
 </style>

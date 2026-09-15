@@ -122,6 +122,7 @@ Other slots:
 | `hints` | `{ adapter }`; app progress/status/errors above the composer |
 | `composer` | `{ adapter }`; replace the composer while keeping the shared transcript |
 | `input-start`, `composer-tools` | `{ adapter }`; app-owned input adornments and tools |
+| `composer-feedback` | `{ adapter }`; action feedback after Send/Stop, wrapping below the controls in a narrow pane |
 
 The element exposes `focus()`, `submit()`, and `stop()`. Focus it only when the
 application intentionally opens or activates the conversation, not on each
@@ -133,6 +134,9 @@ An application may leave `canSend` true for an empty draft when its submit actio
 needs to show prerequisite guidance beside the button; validation remains owned
 by that action. Keep domain validation or proposal controls in the documented
 slots, and keep the editor conversation out of unrelated assistant history.
+Compact composer density keeps the action targets at least 48px tall even in a
+narrow rail on a desktop screen. Give action feedback a wrapping flex basis so
+it fits beside the buttons when space permits and below them otherwise.
 
 `AssistantTranscript`, `AssistantPromptInput`, `AssistantComposerActions`, and
 `AssistantProgress` are exported separately for compositions with retained

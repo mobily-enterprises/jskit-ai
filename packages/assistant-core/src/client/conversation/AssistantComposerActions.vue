@@ -1,5 +1,5 @@
 <template>
-  <div class="assistant-composer-actions">
+  <div class="assistant-composer-actions" :class="{ 'assistant-composer-actions--compact': state.density === 'compact' }">
     <div class="assistant-composer-actions__tools"><slot /></div>
     <div class="assistant-composer-actions__delivery">
       <v-btn
@@ -18,6 +18,7 @@
         {{ state.submitLabel || (state.pending ? 'Sending…' : 'Send') }}
       </v-btn>
     </div>
+    <slot name="feedback" />
   </div>
 </template>
 <script setup>
@@ -36,6 +37,7 @@ defineExpose({ focus() { (sendButton.value?.$el || sendButton.value)?.focus?.();
 .assistant-composer-actions__tools { flex: 1 1 auto; flex-wrap: wrap; }
 .assistant-composer-actions__delivery { flex: 0 0 auto; margin-left: auto; }
 .assistant-composer-actions__send { min-width: 5.25rem; }
+.assistant-composer-actions--compact .assistant-composer-actions__delivery > .v-btn { min-height: 3rem; }
 @media (max-width: 600px), (pointer: coarse) {
   .assistant-composer-actions__delivery > .v-btn { min-height: 3rem; min-width: 3rem; }
   .assistant-composer-actions__delivery > .assistant-composer-actions__send { min-width: 5.25rem; }
