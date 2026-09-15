@@ -137,9 +137,7 @@ test("ready-made assistant preserves streaming, drafts, scope and compact conver
     await expect.poll(async () => (await requestState()).streams.at(-1).closed).toBe(true);
     assert.deepEqual(errors, []);
   } catch (error) {
-    await page.screenshot({ path: "/tmp/assistant-consolidation/runtime-failure.png" });
-    const geometry = await page.evaluate(() => [...document.querySelectorAll(".fixture,.fixture__panes,.assistant-surface,.assistant-conversation,.assistant-transcript,.assistant-prompt-input")].map((element) => ({ name: element.className, height: element.getBoundingClientRect().height, top: element.getBoundingClientRect().top, flex: getComputedStyle(element).flex, minHeight: getComputedStyle(element).minHeight })));
-    throw new Error(`${error.message}\nGeometry: ${JSON.stringify(geometry)}\nPage errors: ${JSON.stringify(errors)}\n${vite.readOutput()}`, { cause: error });
+    throw new Error(`${error.message}\nPage errors: ${JSON.stringify(errors)}\n${vite.readOutput()}`, { cause: error });
   } finally {
     await browser.close();
     await stopProcess(vite);
