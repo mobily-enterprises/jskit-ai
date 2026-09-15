@@ -56,6 +56,109 @@ Local functions
 Exports
 - None
 
+### `src/client/conversation/AssistantComposerActions.vue`
+Exports
+- None
+
+### `src/client/conversation/AssistantConversationElement.vue`
+Exports
+- None
+Local functions
+- `submit()`
+- `stop()`
+- `updateConfiguration(value)`
+
+### `src/client/conversation/AssistantProgress.vue`
+Exports
+- None
+
+### `src/client/conversation/AssistantPromptInput.vue`
+Exports
+- None
+Local functions
+- `resizeTextarea()`
+- `queueResizeTextarea()`
+- `preserveHeightForNextModelValue()`
+- `handleTextareaInput(event = {})`
+- `handleTextareaFocus(event = {})`
+- `handleTextareaBlur(event = {})`
+- `handleTextareaKeydown(event = {})`
+- `focusTextarea(options = { preventScroll: true })`
+
+### `src/client/conversation/AssistantTranscript.vue`
+Exports
+- None
+Local functions
+- `displayTime(value = "")`
+- `userMessagePreviewText(value = "")`
+- `displayMessage(message = null, { allowNumberedQuestions = false, preserveParagraphLineBreaks = false, previewUserMessage = false } = {}, cacheKey = "")`
+- `displayThinkingMessage(message = null)`
+- `conversationAgentMessages(turn = {})`
+- `conversationMessageKey(message = {}, index = 0)`
+- `displayAgentTimeline(turn = {}, turnKey = "")`
+- `handleLongTextLinkClick(payload)`
+- `userMessageCollapsible(message = null)`
+- `userMessageExpanded(turn = {})`
+- `toggleExpandedKey(expandedKeys, key)`
+- `toggleUserMessage(turn = {})`
+- `messageScrollKey(message = null)`
+- `agentTimelineScrollKey(timeline = [])`
+- `latestRenderedTailScrollKey(turns = [])`
+- `clearUserScrollIntent()`
+- `resumePendingTailFollow()`
+- `markUserScrollIntent()`
+- `markKeyboardScrollIntent(event = {})`
+- `scrollToLatestMessageAfterLayout({ behavior = "auto", force = false } = {})`
+- `queueInitialBottomScroll()`
+- `queueLiveBottomScroll({ force = false } = {})`
+- `clearLiveBottomScroll()`
+- `updateLatestFollowFromScroll(event = {})`
+- `requestLoadMore()`
+- `clearLoadMoreScrollSnapshot()`
+- `completeLoadMoreRequest(version, changed)`
+
+### `src/client/conversation/index.js`
+Exports
+- `AssistantConversationElement`
+- `AssistantTranscript`
+- `AssistantPromptInput`
+- `AssistantComposerActions`
+- `AssistantProgress`
+- `LongTextPreviewBlocks`
+- `LongTextInlineParts`
+- `useScrollToBottom`
+- `createAssistantTextSubmission`
+
+### `src/client/conversation/LongTextInlineParts.vue`
+Exports
+- None
+Local functions
+- `partKey(part, partIndex)`
+- `handleLinkClick(event, part = {})`
+
+### `src/client/conversation/LongTextPreviewBlocks.vue`
+Exports
+- None
+Local functions
+- `isListBlock(block)`
+- `blockKey(block, blockIndex)`
+- `headingTag(level)`
+- `tableCellClass(block = {}, columnIndex = 0)`
+
+### `src/client/conversation/submitText.js`
+Exports
+- `createAssistantTextSubmission({ getState, setDraft, submit, afterDraftChange = async () => {} })`
+
+### `src/client/conversation/useScrollToBottom.js`
+Exports
+- `useScrollToBottom({ anchor = null, enabled = true, scrollAnchorIntoView = true, settleDelaysMs = DEFAULT_SETTLE_DELAYS_MS, target } = {})`
+Local functions
+- `readElement(value)`
+- `hasWindowTimer(name)`
+- `waitForLayoutFrame()`
+- `normalizedScrollBehavior(value = "")`
+- `scrollElementToBottom(targetElement, behavior = "auto")`
+
 ### `src/client/index.js`
 Exports
 - `AssistantClientElement`
@@ -85,6 +188,103 @@ Exports
 - `renderMarkdownToSafeHtml(value = "")`
 Local functions
 - `normalizeMarkdownText(value)`
+
+### `src/server/conversation/codexClient.js`
+Exports
+- `CodexAppServerJsonRpcClient`
+- `socketPathFromCodexAppServerEndpoint(endpoint = "")`
+Local functions
+- `normalizePositiveInteger(value, fallback)`
+- `codexAppServerRequestAbortedError(method = "")`
+- `addSocketListener(socket, eventName, handler)`
+- `socketMessageText(event, maxBytes = Number.POSITIVE_INFINITY)`
+
+### `src/server/conversation/codexEvents.js`
+Exports
+- `classifyCodexAppServerEvent(notification = {})`
+- `codexAppServerAssistantItemText(item = {})`
+- `codexAppServerContentText(value = null)`
+- `codexAppServerContextRefreshReason(notification = {})`
+- `codexAppServerErrorText(value = null, seen = new Set())`
+- `codexAppServerNotificationError(notification = {})`
+- `codexAppServerNotificationEvent(notification = {})`
+- `codexAppServerNotificationEventPayload(notification = {}, event = null)`
+- `codexAppServerNotificationEventType(notification = {}, event = null)`
+- `codexAppServerNotificationItem(notification = {})`
+- `codexAppServerNotificationItemId(notification = {})`
+- `codexAppServerNotificationParams(notification = {})`
+- `codexAppServerNotificationThreadId(notification = {})`
+- `codexAppServerNotificationTurnId(notification = {})`
+- `codexAppServerNotificationTurnStatus(notification = {})`
+- `codexAppServerNotificationUsageLimitExceeded(notification = {})`
+- `codexAppServerProviderThreadAssistantSegments(value = {}, turnId = "")`
+- `codexAppServerOutputOwnerTurnId({ notificationThreadId = "", notificationTurnId = "", trackedActive = false, trackedState = "", trackedThreadId = "", trackedTurnId = "" } = {})`
+- `codexAppServerStatusFromValue(status = null)`
+- `codexAppServerUserMessageText(item = {})`
+Local functions
+- `codexAppServerTextInputText(input = {})`
+- `codexAppServerHookPromptText(item = {})`
+- `codexAppServerFinalEventText(notification = {}, event = null, payload = {})`
+- `codexAppServerSignalName(value = "")`
+- `codexAppServerSignalNames(value = null)`
+- `codexAppServerProviderThread(value = {})`
+- `codexAppServerProviderTurnId(turn = {})`
+- `codexAppServerProviderTurnItems(turn = {})`
+- `codexAppServerProviderThreadTurn(value = {}, turnId = "")`
+- `codexAppServerProviderTurnAssistantSegments(turn = {})`
+
+### `src/server/conversation/codexTurn.js`
+Exports
+- `createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "", { includeThreadHistory = true, onEvent = null, timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS } = {})`
+- `codexAppServerTurnStatusIsActive(status = "")`
+- `codexAppServerTurnStatusIsComplete(status = "")`
+- `codexAppServerTurnStatusIsSuccessfulComplete(status = "")`
+- `codexAppServerTurnStatusIsProviderFailure(status = "")`
+Local functions
+- `codexAppServerTurnTokenUsage(notification = {})`
+
+### `src/server/conversation/index.js`
+Exports
+- `createConversationTranscript`
+- `createMemoryConversationStorage`
+
+### `src/server/conversation/memoryStorage.js`
+Exports
+- `createMemoryConversationStorage()`
+
+### `src/server/conversation/normalize.js`
+Exports
+- `normalizeText(value)`
+- `isPlainObject(value)`
+
+### `src/server/conversation/openCodeClient.js`
+Exports
+- `OPENCODE_RESPONSE_LIMIT_BYTES`
+- `createOpenCodeServerClient({ allowAttachmentDirectories = false, baseUrl = "", directory = "", fetchImpl = globalThis.fetch, password = "", username = "opencode" } = {})`
+- `readBoundedResponse(response, limitBytes = OPENCODE_RESPONSE_LIMIT_BYTES)`
+Local functions
+- `text(value = "")`
+- `record(value = null)`
+- `openCodeServerError(message, { body = null, code = "assistant_opencode_server_request_failed", method = "", path = "", status = 0 } = {})`
+- `parsedJson(value = "")`
+- `responseErrorMessage(payload = null, fallback = "OpenCode rejected the request.")`
+- `queryString(values = {})`
+- `sessionPath(sessionId = "", suffix = "")`
+- `stableSessionPath(sessionId = "", suffix = "")`
+- `normalizedMessageRows(value = null)`
+- `providerCapabilityMedia(value = null)`
+- `sanitizedOpenCodeModel(model = {}, fallbackId = "")`
+- `invalidOpenCodeCatalogError()`
+- `sanitizedOpenCodeProviderCatalog(value = null)`
+- `stablePromptBody(input = {})`
+- `eventSessionId(value = null)`
+- `decodeOpenCodeEventData(value = "")`
+
+### `src/server/conversation/transcript.js`
+Exports
+- `createConversationTranscript({ storage, clock = () => new Date() } = {})`
+Local functions
+- `hasMessages(turn)`
 
 ### `src/server/index.js`
 Exports
@@ -227,6 +427,84 @@ Exports
 - `MAX_SYSTEM_PROMPT_CHARS`
 - `assistantConfigResource`
 
+### `src/shared/conversation/answerChoiceSugar.js`
+Exports
+- `UI_ANSWER_CHOICE_FIELD`
+- `answerChoiceFromLine(line = "")`
+- `answerChoiceInputFields(choices = [])`
+- `answerChoiceSubmissionFields(choiceValue = "", fieldName = "response")`
+- `answerChoiceSugarForMessageInput({ fields = [], fieldName = "response", intentId = "", message = "", requiredIntentId = "", requiredStepStatus = "", stepStatus = "" } = {})`
+- `canRenderAnswerChoiceSugar({ fields = [], fieldName = "response", intentId = "", requiredIntentId = "", requiredStepStatus = "", stepStatus = "" } = {})`
+- `parseAnswerChoicePrompt(value = "")`
+Local functions
+- `inactiveAnswerChoiceSugar()`
+- `normalizedChoiceText(value = "")`
+- `isSingleTextareaMessageField(fields = [], fieldName = "response")`
+- `optionalValueMatches(actual = "", expected = "")`
+- `answerChoiceHeadingLine(line = "")`
+- `answerChoiceLineText(line = "")`
+- `validAnswerChoice(choice = {})`
+
+### `src/shared/conversation/index.js`
+Exports
+- None
+
+### `src/shared/conversation/longTextBlocks.js`
+Exports
+- `parseLongTextInlineParts(value = "")`
+- `parseLongTextReviewBlocks(value, options = {})`
+Local functions
+- `expandCompactPipeTableLines(lines = [])`
+- `parsePipeTableAt(lines = [], startIndex = 0)`
+- `parsePipeTableRow(value = "")`
+- `tableAlignments(cells = null)`
+- `pushInlineTextPart(parts = [], text = "")`
+- `closingMarkdownBracketIndex(text = "", start = 0)`
+- `closingMarkdownDestinationIndex(text = "", start = 0)`
+- `normalizeMarkdownLinkHref(value = "")`
+- `markdownLinkAt(text = "", start = 0)`
+
+### `src/shared/conversation/numberedQuestionSugar.js`
+Exports
+- `canRenderNumberedQuestionSugar({ fields = [], fieldName = "response", intentId = "", requiredIntentId = "", requiredStepStatus = "", stepStatus = "" } = {})`
+- `numberedQuestionInputFields(questions = [], options = {})`
+- `numberedQuestionSubmissionFields(questions = [], values = {}, fieldName = "response")`
+- `numberedQuestionSubmissionText(questions = [], values = {})`
+- `numberedQuestionSugarForMessageInput({ fields = [], fieldName = "response", intentId = "", message = "", requiredIntentId = "", requiredStepStatus = "", stepStatus = "" } = {})`
+- `numberedQuestionSugarForInput(interaction = {}, fields = [])`
+- `parseNumberedQuestionPrompt(value = "")`
+- `UI_QUESTION_FIELD_PREFIX`
+Local functions
+- `inactiveNumberedQuestionSugar()`
+- `isSingleTextareaMessageField(fields = [], fieldName = "response")`
+- `optionalValueMatches(actual = "", expected = "")`
+- `numberedQuestionMarkerMatch(line = "")`
+- `trailingAnswerChoiceHeadingLine(line = "")`
+- `trailingAnswerChoiceLine(line = "")`
+- `numberedQuestionLabelLooksLikeQuestion(label = "")`
+- `validNumberedQuestions(questions = [])`
+- `numberedQuestionChoice(line = "")`
+- `trailingAnswerChoiceBlock(lines = [], startIndex = 0)`
+- `questionForMarkerMatch(match = [], index = 0)`
+- `parseLineNumberedQuestionPrompt(value = "")`
+- `parseInlineNumberedQuestionPrompt(value = "")`
+
+### `src/shared/conversation/scrollFollowState.js`
+Exports
+- `DEFAULT_SCROLL_FOLLOW_THRESHOLD_PX`
+- `scrollDistanceFromBottom(element = null)`
+- `scrollElementNearBottom(element = null, thresholdPx = DEFAULT_SCROLL_FOLLOW_THRESHOLD_PX)`
+Local functions
+- `numericElementValue(value)`
+
+### `src/shared/conversation/thinkingText.js`
+Exports
+- `normalizeThinkingMessageText(value = "")`
+
+### `src/shared/conversation/turns.js`
+Exports
+- `conversationTurnsFromMessages(messages = [])`
+
 ### `src/shared/index.js`
 Exports
 - `ASSISTANT_API_RELATIVE_PATH`
@@ -308,6 +586,36 @@ Exports
 ### `src/shared/support/positiveInteger.js`
 Exports
 - `toPositiveInteger(value, fallback = 0)`
+
+### `src/testing/conversationStorageContract.js`
+Exports
+- `verifyConversationStorageContract(storage)`
+
+### examples
+
+### `examples/conversation/App.vue`
+Exports
+- None
+Local functions
+- `reload()`
+- `submit({ configuration: selectedConfiguration })`
+- `stop()`
+
+### `examples/conversation/main.js`
+Exports
+- None
+
+### `examples/conversation/server.js`
+Exports
+- None
+Local functions
+- `configurationFor(input)`
+- `body(request)`
+- `json(response, status, value)`
+
+### `examples/conversation/vite.config.js`
+Exports
+- None
 
 ### fixtures
 

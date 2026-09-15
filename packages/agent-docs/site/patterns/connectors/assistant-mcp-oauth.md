@@ -235,6 +235,6 @@ collects events, provisions a warehouse or automatically attaches tools to an AI
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.6`
+- Owner: `@jskit-ai/connectors-catalog@0.1.7`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/assistant-mcp-oauth/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/assistant-mcp-oauth/example)

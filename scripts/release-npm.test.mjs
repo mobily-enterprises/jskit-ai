@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   bumpPatch,
   collectPublishDependencies,
+  collectPatternPackageJsonPaths,
   discoverWorkspacePackages,
   parseArgs,
   topologicalPublishOrder,
@@ -61,6 +65,19 @@ test("prepare updates concrete package manifests inside patterns", () => {
 
   assert.equal(update.changed, true);
   assert.match(update.contents, /"@jskit-ai\/kernel": "0\.1\.2"/u);
+});
+
+test("release checks include standalone examples and exclude installed dependencies", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-release-examples-"));
+  try {
+    const paths = ["patterns/feature/example/package.json", "examples/conversation/package.json",
+      "examples/conversation/node_modules/dependency/package.json"];
+    for (const relative of paths) {
+      await mkdir(path.dirname(path.join(root, relative)), { recursive: true });
+      await writeFile(path.join(root, relative), "{}");
+    }
+    assert.deepEqual(await collectPatternPackageJsonPaths(root), paths.slice(0, 2).map((entry) => path.join(root, entry)).sort());
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("publish order places dependencies before consumers", () => {

@@ -40,7 +40,7 @@ export function createMemoryConversationStorage() {
         const turn = turns.get(id) || { messages: [] };
         const previous = turn.messages.find((entry) => entry.role === "assistant");
         turn.messages = turn.messages.filter((entry) => entry.role !== "assistant");
-        turn.messages.push({ ...structuredClone(message), at: previous?.at || message.at });
+        turn.messages.push({ ...previous, ...structuredClone(message), at: previous?.at || message.at });
         turns.set(id, turn);
       }
     };

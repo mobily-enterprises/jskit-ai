@@ -94,6 +94,7 @@ createServer(async (request, response) => {
       // A duplicate request returns saved state; it never launches the provider again.
       if (turn) {
         const history = await transcript.readConversationLog(scope);
+        emit({ type: "snapshot", turns: history.map((entry) => entry.turnId === turn.turnId ? { ...entry, pending: true } : entry) });
         const messages = history.flatMap((entry) => [entry.user, entry.assistant].filter(Boolean))
           .slice(-20).map((entry) => ({ role: entry.role, content: entry.text }));
         for await (const text of reply(messages, configuration, controller.signal)) {

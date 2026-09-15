@@ -16,6 +16,7 @@ export async function verifyConversationStorageContract(storage) {
   assert.deepEqual(await transcript.readConversationLog(other), [], "Scopes must be isolated.");
   await transcript.writeConversationThinkingMessage(scope, { messageId: "thinking-a", text: "Thinking" });
   await transcript.writeConversationCommentaryMessage(scope, { messageId: "commentary-a", text: "Checking" });
+  await transcript.writeConversationAssistantMessage(scope, { messageId: "answer-a", text: "Initial answer" });
   await transcript.upsertConversationAssistantMessage(scope, { turnId: first.turnId, text: "Partial answer" });
   await transcript.upsertConversationAssistantMessage(scope, { turnId: first.turnId, text: "Final answer" });
   await transcript.writeConversationUserMessage(scope, { messageId: "request-b", text: "Second question" });
@@ -26,6 +27,7 @@ export async function verifyConversationStorageContract(storage) {
   assert.equal(older.pagination.hasMoreBefore, false);
   assert.equal(older.conversationLog[0].turnId, first.turnId);
   assert.equal(older.conversationLog[0].assistant.text, "Final answer");
+  assert.equal(older.conversationLog[0].assistant.messageId, "answer-a", "Final replacement preserves message identity.");
   assert.deepEqual(older.conversationLog[0].messages.map((message) => message.role), ["user", "thinking", "commentary", "assistant"]);
   older.conversationLog[0].user.text = "Client mutation";
   assert.equal((await transcript.readConversationLog(scope))[0].user.text, "First question", "Reads must be detached snapshots.");

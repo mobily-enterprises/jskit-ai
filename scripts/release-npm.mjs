@@ -174,13 +174,12 @@ function updatePackageDependencyVersions(packageJson, versions) {
 }
 
 async function collectPatternPackageJsonPaths(packageRoot) {
-  const patternsRoot = path.join(packageRoot, "patterns");
-  if (!(await fileExists(patternsRoot))) {
-    return [];
-  }
-
   const results = [];
-  const directories = [patternsRoot];
+  const directories = [];
+  for (const name of ["patterns", "examples"]) {
+    const directory = path.join(packageRoot, name);
+    if (await fileExists(directory)) directories.push(directory);
+  }
   while (directories.length > 0) {
     const directory = directories.pop();
     for (const entry of await readdir(directory, { withFileTypes: true })) {
