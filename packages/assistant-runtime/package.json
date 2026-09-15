@@ -11,7 +11,7 @@
     "./server/actionIds": "./src/server/actionIds.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.167",
+    "@jskit-ai/assistant-core": "0.1.169",
     "@jskit-ai/database-runtime": "0.1.191",
     "json-rest-schema": "^1.0.17"
   },
