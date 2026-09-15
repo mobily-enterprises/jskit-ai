@@ -114,6 +114,40 @@ explicit input, permissions, routes where needed, audit behavior, events, and
 tests. Do not hide unrelated workflows behind a generic `execute(anything)`
 action, and do not create a custom repository merely because SQL is familiar.
 
+### Reuse response serializers
+
+The foundation servers reuse compiled response serializers for identical JSON
+schemas through `createCachedResponseSerializerFactory` from
+`@jskit-ai/kernel/server/http`. This reduces duplicate startup compilation and
+retained memory in applications with many routes. Each Fastify compiler context
+keeps its own cache; request data and response payloads are not cached.
+
+Existing applications adopt the same setup in their own `server.js` after
+upgrading JSKIT and declaring the directly used
+`@fastify/fast-json-stringify-compiler` dependency:
+
+```js
+import Fastify from "fastify";
+import SerializerSelector from "@fastify/fast-json-stringify-compiler";
+import { createCachedResponseSerializerFactory } from "@jskit-ai/kernel/server/http";
+
+const app = Fastify({
+  schemaController: {
+    compilersFactory: {
+      buildSerializer: createCachedResponseSerializerFactory(SerializerSelector())
+    }
+  }
+});
+```
+
+Keep the application's other Fastify options, including serializer options and
+validator configuration. This setup wraps the native default serializer builder;
+retain any deliberately chosen custom compiler instead of replacing or wrapping
+it. Native route-level compiler overrides continue to apply. Update the lockfile
+through the application's normal installation flow and restart the backend to
+activate the new setup. Updating packages or starter examples alone does not
+change an existing application's startup source.
+
 ### JSON REST v2 integration
 
 Applications using `@jskit-ai/json-rest-api-core` require Node.js 24 or newer.

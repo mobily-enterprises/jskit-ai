@@ -91,6 +91,15 @@ and change placements through their public contracts. Use package-owned
 patterns for auth, users, databases, CRUD, realtime, and other capabilities.
 Do not preinstall capabilities solely because they appear in another app.
 
+## Development warmup
+
+Keep development-server warmup limited to the selected application entry.
+Warming every page and component transforms and caches screens before they are
+visited, increasing startup work and memory as the application grows. Add a
+specific frequently used file only when a measured loading delay justifies it.
+Keep dependency optimization separate: reducing warmup does not require disabling
+the dependency scanner or JSKIT's installed-package optimization settings.
+
 ## Verification
 
 Install the declared packages once, run `npm run develop` for the live
@@ -113,6 +122,6 @@ horizontal overflow.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/agent-docs@0.1.159`
+- Owner: `@jskit-ai/agent-docs@0.1.161`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/patterns/shell-foundation/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/agent-docs/patterns/shell-foundation/example)
