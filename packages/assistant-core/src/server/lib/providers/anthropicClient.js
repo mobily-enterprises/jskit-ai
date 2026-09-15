@@ -1,3 +1,4 @@
+import { createAiConnectionClient } from "../aiConnectionClient.js";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createDisabledClient,
@@ -201,12 +202,6 @@ function mapAnthropicContentToOpenAiDelta(content = []) {
   return delta;
 }
 
-function createSingleChunkStream(chunk) {
-  return (async function* singleChunkGenerator() {
-    yield chunk;
-  })();
-}
-
 async function fetchAnthropicMessage({
   apiKey,
   baseUrl,
@@ -349,21 +344,11 @@ function createAnthropicClient({
     provider: "anthropic",
     defaultModel: normalizedModel,
     createChatCompletion: createCompletion,
-    async createChatCompletionStream({ messages = [], tools = [], temperature = 0.2, signal } = {}) {
-      const completion = await createCompletion({
-        messages,
-        tools,
-        temperature,
-        signal
-      });
-
-      return createSingleChunkStream({
-        choices: [
-          {
-            delta: completion.__openAiLikeDelta || {}
-          }
-        ]
-      });
+    createChatCompletionStream(input) {
+      return createAiConnectionClient({
+        providerId: "anthropic", sdkPackage: "@ai-sdk/anthropic", apiKey: normalizedApiKey,
+        model: normalizedModel, baseURL: `${normalizedBaseUrl}/v1`
+      }, { timeoutMs, maxOutputTokens: DEFAULT_ANTHROPIC_MAX_OUTPUT_LIMIT }).createChatCompletionStream({ temperature: 0.2, ...input });
     }
   });
 }

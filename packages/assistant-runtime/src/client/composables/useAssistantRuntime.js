@@ -135,7 +135,7 @@ function createRuntimeApi({ overrideApi = null, resolveBasePath, resolveSurfaceI
   });
 }
 
-function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
+function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } = {}) {
   const runtimePolicy = resolveRuntimePolicy();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
@@ -425,8 +425,8 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
     abortController.value.abort();
   }
 
-  async function sendMessage() {
-    const normalizedInput = normalizeText(input.value).slice(0, MAX_INPUT_CHARS);
+  async function sendMessage({ attachments = [], onAccepted } = {}) {
+    const normalizedInput = normalizeText(input.value).slice(0, MAX_INPUT_CHARS) || (attachments.length ? "Please review the attached files." : "");
     if (!normalizedInput || isStreaming.value || isRestoringConversation.value || !hasRuntimeScope.value) {
       return;
     }
@@ -441,6 +441,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
       role: "user",
       kind: "chat",
       text: normalizedInput,
+      attachments,
       status: "done"
     });
 
@@ -472,6 +473,8 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
           messageId,
           ...(parsedConversationId ? { conversationId: parsedConversationId } : {}),
           input: normalizedInput,
+          ...(attachments.length ? { attachmentIds: attachments.map(file => file.attachmentId) } : {}),
+          ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {}),
           history
         },
         {
@@ -481,6 +484,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
             const eventType = normalizeAssistantStreamEventType(event?.type, "");
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.META && Object.hasOwn(event || {}, "conversationId")) {
+              onAccepted?.();
               conversationId.value = normalizeRecordId(event?.conversationId, { fallback: null });
               writeStoredActiveConversationId(runtimeScope.value, conversationId.value);
               return;
@@ -503,7 +507,7 @@ function useAssistantRuntime({ api = null, surfaceId = "" } = {}) {
               const text = String(event?.text || "");
               updateMessage(assistantMessageId, {
                 text,
-                status: "done"
+                status: event.status === "streaming" ? "streaming" : "done"
               });
               return;
             }

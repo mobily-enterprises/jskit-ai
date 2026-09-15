@@ -1,6 +1,7 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { createAiClient } from "@jskit-ai/assistant-core/server";
+import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { createAiClient, createAiConnectionClient } from "@jskit-ai/assistant-core/server";
 import { createAssistantActions } from "./actions.js";
 import { registerRoutes } from "./registerRoutes.js";
 import { createRepository as createAssistantConfigRepository } from "./repositories/assistantConfigRepository.js";
@@ -9,7 +10,7 @@ import { createRepository as createMessagesRepository } from "./repositories/mes
 import { createService as createAssistantConfigService } from "./services/assistantConfigService.js";
 import { createChatService } from "./services/chatService.js";
 import { createTranscriptService } from "./services/transcriptService.js";
-import { resolveAssistantAiConfig } from "./support/assistantServerConfig.js";
+import { resolveAssistantAiConfig, resolveAssistantServerConfig } from "./support/assistantServerConfig.js";
 import { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolCatalog.js";
 
 function createAssistantAiClientFactory(config = {}) {
@@ -18,11 +19,23 @@ function createAssistantAiClientFactory(config = {}) {
   const cache = new Map();
 
   return Object.freeze({
-    resolveClient(targetSurfaceId = "") {
+    async resolveClient(targetSurfaceId = "", { context, integrationId } = {}) {
       const normalizedTargetSurfaceId = normalizeText(targetSurfaceId).toLowerCase();
       if (!normalizedTargetSurfaceId) {
         throw new Error("assistant.ai.client.factory.resolveClient requires targetSurfaceId.");
       }
+
+      const surfaceConfig = resolveAssistantServerConfig(appConfig, normalizedTargetSurfaceId);
+      if (surfaceConfig.aiIntegrationId) {
+        const selected = integrationId || surfaceConfig.aiIntegrationId;
+        if (![surfaceConfig.aiIntegrationId, ...surfaceConfig.aiIntegrationIds].includes(selected)) {
+          throw new AppError(403, "This AI connection is not available in this assistant.");
+        }
+        if (!config.aiConnections?.resolve) throw new Error("The assistant requires an authorized AI connection resolver.");
+        const connection = await config.aiConnections.resolve({ context, integrationId: selected });
+        return createAiConnectionClient(connection, { timeoutMs: surfaceConfig.timeoutMs });
+      }
+      if (integrationId) throw new AppError(403, "This assistant does not allow selecting an AI connection.");
 
       if (cache.has(normalizedTargetSurfaceId)) {
         return cache.get(normalizedTargetSurfaceId);
@@ -48,13 +61,15 @@ function createAssistantRuntime({
   consoleRuntime,
   database,
   env,
+  aiConnections,
+  attachments,
   workspaces
 } = {}) {
   const assistantConfigRepository = createAssistantConfigRepository(database.knex);
   const conversationsRepository = createConversationsRepository(database.knex);
   const messagesRepository = createMessagesRepository(database.knex);
   const workspaceScopeSupport = workspaces?.scope || null;
-  const aiClientFactory = createAssistantAiClientFactory({ appConfig: config, env });
+  const aiClientFactory = createAssistantAiClientFactory({ appConfig: config, env, aiConnections });
   const toolCatalog = createSurfaceAwareToolCatalog(actionCatalogue, { appConfig: config });
   const configService = createAssistantConfigService({
     assistantConfigRepository,
@@ -64,6 +79,7 @@ function createAssistantRuntime({
   });
   const transcriptService = createTranscriptService({ conversationsRepository, messagesRepository });
   const chatService = createChatService({
+    attachments,
     aiClientFactory,
     transcriptService,
     serviceToolCatalog: toolCatalog,
@@ -94,6 +110,8 @@ const AssistantFeature = defineFeature({
     http: "runtime.http"
   },
   optional: {
+    aiConnections: "integrations.ai",
+    attachments: "assistant.attachments",
     consoleRuntime: "console.core",
     workspaces: "workspaces.core"
   },

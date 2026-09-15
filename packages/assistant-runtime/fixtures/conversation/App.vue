@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref } from "vue";
+import { useAssistantAttachments } from "@jskit-ai/assistant-core/client/conversation";
+import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
@@ -12,6 +13,12 @@ const mounted = ref(true);
 const second = ref(false);
 const compact = ref(false);
 const surface = ref("admin");
+const integrationId = ref("quick");
+const attachments = reactive(useAssistantAttachments({
+  sessionId: () => String(route.query.workspace || "alpha"),
+  uploadAttachment: async (_scope, file) => ({ attachmentId: "fixture-file", fileName: file.name, size: file.size }),
+  deleteAttachment: async () => {}
+}));
 const workspace = computed(() => route.query.workspace || "alpha");
 function switchWorkspace() { router.push({ query: { workspace: workspace.value === "alpha" ? "beta" : "alpha" } }); }
 </script>
@@ -30,7 +37,7 @@ function switchWorkspace() { router.push({ query: { workspace: workspace.value =
           <button @click="theme.change(theme.global.name.value === 'dark' ? 'light' : 'dark')">Toggle theme</button>
         </nav>
         <div class="fixture__panes" :class="{ 'fixture__panes--compact': compact }">
-          <AssistantSurfaceClientElement v-if="mounted" :surface-id="surface" :layout="compact ? 'compact' : 'page'" assistant-label="Fixture assistant" />
+          <AssistantSurfaceClientElement v-if="mounted" v-model:integration-id="integrationId" :connections="[{ id: 'quick', label: 'Quick model' }, { id: 'deep', label: 'Deep model' }]" :attachments="route.query.files ? attachments : null" :surface-id="surface" :layout="compact ? 'compact' : 'page'" assistant-label="Fixture assistant" />
           <AssistantSurfaceClientElement v-if="second" surface-id="console" assistant-label="Second assistant" />
         </div>
       </div>

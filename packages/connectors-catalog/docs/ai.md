@@ -189,3 +189,18 @@ A static, attributed September 10 provider/model catalogue, searchable free/paid
 No inference engine, streaming, tools, conversation storage, provider OAuth/login screens, account/key provisioning, live credential verification, usage metering, billing, token resale or Vibe64 AI gateway. No automatic SDK installation, catalogue updates, model replacement or paid fallback. Only the 13 explicitly supported direct-key routes are configurable; other catalogue entries are framework metadata, not implemented cloud/coding-subscription authentication. Model availability, pricing/free classification and endpoint operation are dated source information, not live proof; even no-setup choices can be unavailable or capacity-limited. Detailed provider-specific personal-key entry, verification, encrypted storage, rotation/disconnect and authorization remain application work; the resolver only consumes those bindings. The app/framework owns SDK installation, protocol selection, requests, errors and UI. Generic key-creation guidance and linked provider documentation are supplied; bespoke audited login/key-creation screens for every catalogue provider are not. To extend: deliberately refresh the static snapshot, improve selected provider-specific instructions, and wire any desired app-native key-entry/inference features. This intentionally differs from Lovable managed AI; Vibe64 coding-agent credentials and runtime remain separate.
 
 10 source and 10 installed-package tests passed on September 13, proving snapshot/default selection, rejected unsupported modes, no-network public parameters, authorized Env and individual references, rotation/deletion, redaction and SDK handoff. Historical September 10 compact/medium/expanded UI evidence is retained; no fresh browser, live inference, provider account, generated-app execution or release was performed.
+
+
+## Assistant integration
+
+`@jskit-ai/assistant-core/server` exports `createAiConnectionClient(connection)`
+for the result of this resolver. It owns installed SDK adapters and inference;
+this catalogue still owns selection and authorized connection resolution.
+`@jskit-ai/assistant-runtime` consumes an app-provided `integrations.ai` capability
+and selects its ID through `assistantServer.<surface>.aiIntegrationId`. An optional
+`aiIntegrationIds` list permits the shared chat model chooser. Resolve on every
+request so individual accounts and key rotation keep their existing owner.
+The Assistant guide and `assistant/assistant-surface` pattern document setup.
+No Vibe64 coding credentials, paid fallback or runtime package installation is
+involved. The standalone conversation template includes a separate suggestion
+integration, streaming answers and app-owned uploads and storage.

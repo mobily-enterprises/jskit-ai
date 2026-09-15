@@ -32,7 +32,7 @@ Local functions
 
 ### `src/client/composables/useAssistantRuntime.js`
 Exports
-- `useAssistantRuntime({ api = null, surfaceId = "" } = {})`
+- `useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } = {})`
 Local functions
 - `toNonNegativeInteger(value, fallback = 0)`
 - `buildScopeStorageKey(scope = {})`
@@ -92,7 +92,7 @@ Local functions
 Exports
 - `AssistantFeature`
 - `createAssistantAiClientFactory(config = {})`
-- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, database, env, workspaces } = {})`
+- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, database, env, aiConnections, attachments, workspaces } = {})`
 
 ### `src/server/inputSchemas.js`
 Exports
@@ -165,7 +165,7 @@ Exports
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ aiClientFactory, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
+- `createChatService({ aiClientFactory, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
 Local functions
 - `normalizeConversationId(value)`
 - `normalizeHistory(history = [])`
@@ -185,7 +185,7 @@ Local functions
 - `sanitizeAssistantMessageText(value)`
 - `buildAssistantToolCallMessage(toolCalls = [])`
 - `parseDsmlToolCallsFromText(value = "")`
-- `consumeCompletionStream(stream)`
+- `consumeCompletionStream(stream, onText = () => {})`
 - `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `buildAssistantActionContext(context = {}, assistantSurface = {})`
 
@@ -274,6 +274,10 @@ Exports
 ### `patterns/assistant-surface/example/config/server.js`
 Exports
 - None
+
+### `patterns/assistant-surface/example/src/ApplicationAiFeature.js`
+Exports
+- `ApplicationAiFeature`
 
 ### `patterns/assistant-surface/example/src/pages/admin/assistant/index.vue`
 Exports

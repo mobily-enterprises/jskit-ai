@@ -167,3 +167,147 @@ test("conversation composer preserves typing and reacts to external state and pa
     await stopProcess(vite);
   }
 });
+
+test("working state appears before output and suggestion agents and activity rendering are replaceable", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`${vite.baseURL}/?conversation=1&support=1`);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    await page.getByRole("button", { name: "Use suggestion: Suggestion from small-model", exact: true }).hover();
+    await expect(input).toHaveAttribute("placeholder", "Suggestion from small-model");
+    await expect(input).toHaveValue("");
+    await page.getByRole("button", { name: "Change suggestion model" }).click();
+    await page.getByRole("button", { name: "Use suggestion: Suggestion from other-model", exact: true }).click();
+    await expect(input).toHaveValue("Suggestion from other-model");
+    await expect(input).toBeFocused();
+    await input.press("Enter");
+    const activity = page.locator(".assistant-composer-support__assistant-status");
+    await expect(activity).toHaveText("Assistant is working…");
+    await expect(page.locator(".assistant-composer-support__sr-status")).toHaveText("Assistant is working…");
+    await input.fill("Keep typing while waiting");
+    await input.evaluate(element => element.setSelectionRange(5, 11));
+    await page.getByRole("button", { name: "Custom activity", exact: true }).evaluate(element => element.click());
+    await expect(activity).toHaveText("Custom activity: Assistant is working…");
+    await expect(input).toBeFocused();
+    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 11]);
+    await page.getByRole("button", { name: "External stopping", exact: true }).evaluate(element => element.click());
+    await expect(activity).toHaveText("Custom activity: Stopping…");
+    await page.getByRole("button", { name: "External stopped", exact: true }).evaluate(element => element.click());
+    await expect(activity).toHaveCount(0);
+    await expect(input).toHaveValue("Keep typing while waiting");
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+
+test("optional goals show running and paused lights, count only active time, and adapt to pane width", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
+    await page.clock.install();
+    await page.goto(`${vite.baseURL}/?conversation=1&goal=1`);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    await page.getByRole("button", { name: "Set goal", exact: true }).click();
+    await page.getByRole("textbox", { name: "Goal objective" }).fill("Complete the shared assistant.");
+    await page.getByRole("spinbutton", { name: "Token budget (optional)" }).fill("10000");
+    await page.getByRole("button", { name: "Start goal", exact: true }).click();
+    await expect(page.getByText("Complete the shared assistant.", { exact: true })).toBeVisible();
+    await input.click();
+    await input.fill("Preserve this draft and caret");
+    await input.evaluate(element => element.setSelectionRange(5, 9));
+    const light = page.locator(".assistant-goal__light");
+    await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
+    await expect(light).toHaveCSS("animation-name", /^assistant-goal-flash/u);
+    const elapsed = page.locator(".assistant-goal__elapsed");
+    await page.clock.fastForward(65_000);
+    await expect(elapsed).toHaveText("1:05");
+    await expect(input).toBeFocused();
+    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
+    await page.getByRole("button", { name: "Goal running", exact: true }).click();
+    await page.getByRole("button", { name: "Pause goal", exact: true }).click();
+    await expect(light).toHaveCSS("background-color", "rgb(239, 108, 0)");
+    await expect(light).toHaveCSS("animation-name", "none");
+    const pausedTime = await elapsed.textContent();
+    await page.clock.fastForward(120_000);
+    await expect(elapsed).toHaveText(pausedTime);
+    await page.getByRole("button", { name: "Resume goal", exact: true }).click();
+    await page.clock.fastForward(5_000);
+    await expect(elapsed).toHaveText("1:10");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(light).toHaveCSS("animation-name", "none");
+    await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
+    await input.click();
+    await page.getByRole("button", { name: "Resize pane" }).click();
+    await expect(elapsed).toBeHidden();
+    await expect(light).toBeVisible();
+    await page.getByRole("button", { name: "Goal running", exact: true }).click();
+    await expect(page.getByText("Running time: 1:10", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Toggle goals" }).evaluate(element => element.click());
+    await expect(page.locator(".assistant-goal")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeHidden();
+    await expect(input).toHaveValue("Preserve this draft and caret");
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+
+test("shared model choices and file delivery preserve a responsive composer", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(`${vite.baseURL}/?conversation=1&capabilities=1`);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    await page.getByRole("button", { name: "Choose AI", exact: true }).click();
+    const model = page.getByRole("combobox", { name: "Choose model", exact: true });
+    await model.click();
+    await model.press("ControlOrMeta+A");
+    await model.press("Backspace");
+    await model.pressSequentially("Model 3");
+    await page.getByRole("option", { name: "Model 3", exact: true }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByText("Model: model-2; sent files:", { exact: true })).toBeVisible();
+    await input.click();
+    await input.fill("Read these files");
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("First file") },
+      { name: "tasks.txt", mimeType: "text/plain", buffer: Buffer.from("Second file") }
+    ]);
+    await expect(page.getByText("0 of 2 ready · 50%", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+    await input.fill("Keep editing while files upload");
+    await input.evaluate(element => element.setSelectionRange(5, 9));
+    await page.getByRole("button", { name: "Finish uploads", exact: true }).evaluate(element => element.click());
+    await expect(page.getByText("2 of 2 ready", { exact: true })).toBeVisible();
+    await expect(input).toBeFocused();
+    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
+    await page.getByRole("button", { name: "Remove notes.txt", exact: true }).click();
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.getByText("Model: model-2; sent files: tasks.txt", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Message attachments", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Choose AI", exact: true }).click();
+    await expect(model).toBeDisabled();
+    await expect(page.getByText("AI choices are view-only while the assistant is working.", { exact: true })).toBeVisible();
+    await input.fill("The next message stays editable");
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});

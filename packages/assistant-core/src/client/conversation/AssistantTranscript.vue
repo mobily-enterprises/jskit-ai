@@ -144,7 +144,7 @@
             >
               {{ userMessageExpanded(turn) ? "Show less" : "Read more" }}
             </button>
-            <slot name="attachments" :items="turn.user.attachments" :message="turn.user" />
+            <slot name="attachments" :items="turn.user.attachments" :message="turn.user"><AssistantMessageAttachments :attachments="turn.user.attachments || []" /></slot>
             <div
               v-if="turn.user.displayAt"
               class="assistant-transcript__message-footer assistant-transcript__message-footer--user"
@@ -280,6 +280,7 @@
 </template>
 
 <script setup>
+import AssistantMessageAttachments from "./AssistantMessageAttachments.vue";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import {
   mdiAccountOutline,
