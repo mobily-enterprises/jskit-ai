@@ -150,6 +150,6 @@ No live AWS account, executed SQL or generated application is claimed.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.7`
+- Owner: `@jskit-ai/connectors-catalog@0.1.8`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/redshift-queries/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/redshift-queries/example)

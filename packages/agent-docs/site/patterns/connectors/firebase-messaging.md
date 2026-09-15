@@ -156,6 +156,6 @@ retry a send whose outcome is unknown.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.7`
+- Owner: `@jskit-ai/connectors-catalog@0.1.8`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/firebase-messaging/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/firebase-messaging/example)

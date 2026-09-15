@@ -122,6 +122,6 @@ horizontal overflow.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/agent-docs@0.1.162`
+- Owner: `@jskit-ai/agent-docs@0.1.163`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/patterns/shell-foundation/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/agent-docs/patterns/shell-foundation/example)
