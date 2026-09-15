@@ -18,7 +18,40 @@ Use this on demand; do not load the full index at startup.
 Exports
 - None
 
+### `src/client/conversation/AssistantAttachmentPreview.vue`
+Exports
+- None
+
+### `src/client/conversation/AssistantAttachmentQueue.vue`
+Exports
+- None
+Local functions
+- `attachmentCountLabel(count = 0)`
+- `itemKey(item = {})`
+- `itemName(item = {})`
+- `itemPhase(item = {})`
+- `itemPercent(item = {})`
+- `itemProgressVisible(item = {})`
+- `itemProgressIndeterminate(item = {})`
+- `itemProgressValue(item = {})`
+- `itemProgressStationary(item = {})`
+- `itemBytesLabel(item = {})`
+- `itemStatusLabel(item = {})`
+- `itemCancelable(item = {})`
+- `actionKey(item = {}, action = "")`
+- `actionElement(element = null)`
+- `setActionElement(item = {}, action = "", element = null)`
+- `focusItemAction(item = {})`
+- `handleAction(action, item, index)`
+- `itemIcon(item = {})`
+- `itemColor(item = {})`
+- `updateReducedMotionPreference()`
+
 ### `src/client/conversation/AssistantComposerActions.vue`
+Exports
+- None
+
+### `src/client/conversation/AssistantComposerSupport.vue`
 Exports
 - None
 
@@ -26,9 +59,35 @@ Exports
 Exports
 - None
 Local functions
+- `attachmentEvent(method, event)`
+- `attachSelectedFiles(event)`
+- `applyModel()`
+- `selectSuggestion(value)`
+- `dismissSuggestions()`
 - `submit()`
 - `stop()`
 - `updateConfiguration(value)`
+
+### `src/client/conversation/AssistantGoalControl.vue`
+Exports
+- None
+Local functions
+- `setGoal()`
+
+### `src/client/conversation/AssistantMessageAttachments.vue`
+Exports
+- None
+Local functions
+- `attachmentIcon(attachment)`
+- `attachmentKey(attachment, index)`
+
+### `src/client/conversation/AssistantModelControl.vue`
+Exports
+- None
+Local functions
+- `selectProvider(value)`
+- `selectModel(value)`
+- `selectVariant(value)`
 
 ### `src/client/conversation/AssistantProgress.vue`
 Exports
@@ -46,6 +105,10 @@ Local functions
 - `handleTextareaBlur(event = {})`
 - `handleTextareaKeydown(event = {})`
 - `focusTextarea(options = { preventScroll: true })`
+
+### `src/client/conversation/AssistantQuestionInputs.vue`
+Exports
+- None
 
 ### `src/client/conversation/AssistantTranscript.vue`
 Exports
@@ -86,10 +149,19 @@ Exports
 - `AssistantPromptInput`
 - `AssistantComposerActions`
 - `AssistantProgress`
+- `AssistantComposerSupport`
+- `AssistantGoalControl`
+- `useAssistantSuggestions`
 - `LongTextPreviewBlocks`
 - `LongTextInlineParts`
 - `useScrollToBottom`
 - `createAssistantTextSubmission`
+- `useAssistantAttachments`
+- `AssistantAttachmentQueue`
+- `AssistantModelControl`
+- `AssistantMessageAttachments`
+- `AssistantAttachmentPreview`
+- `AssistantQuestionInputs`
 
 ### `src/client/conversation/LongTextInlineParts.vue`
 Exports
@@ -110,6 +182,36 @@ Local functions
 ### `src/client/conversation/submitText.js`
 Exports
 - `createAssistantTextSubmission({ getState, setDraft, submit, afterDraftChange = async () => {} })`
+
+### `src/client/conversation/useAssistantAttachments.js`
+Exports
+- `ASSISTANT_ATTACHMENT_MAX_BYTES`
+- `ASSISTANT_ATTACHMENT_MAX_ITEMS`
+- `ASSISTANT_ATTACHMENT_UPLOAD_CONCURRENCY`
+- `assistantAttachmentEventHasFiles(event)`
+- `assistantAttachmentFiles(fileList = [])`
+- `assistantAttachmentFilesFromDropEvent(event)`
+- `assistantAttachmentFilesFromPasteEvent(event)`
+- `assistantAttachmentFilesFromTransferItems(items = [])`
+- `useAssistantAttachments({ canUpload = () => true, deleteAttachment = null, onError = null, onUploaded = async () => null, sessionId, uploadAttachment, maxBytes = ASSISTANT_ATTACHMENT_MAX_BYTES, maxItems = ASSISTANT_ATTACHMENT_MAX_ITEMS, uploadConcurrency = ASSISTANT_ATTACHMENT_UPLOAD_CONCURRENCY } = {})`
+Local functions
+- `assistantAttachmentSessionId(sessionId)`
+- `assistantAttachmentUploadAllowed(canUpload)`
+- `assistantAttachmentFilesFromClipboardItems(items = [])`
+- `assistantAttachmentClipboardText(event)`
+- `assistantAttachmentClipboardLocalFileReference(event)`
+- `attachmentUploadError(attachment = {})`
+- `attachmentIdentity(attachment = {})`
+- `deliverUploadedAttachments(onUploaded, uploaded = [])`
+- `nextAttachmentClientId()`
+- `attachmentFileName(file = {})`
+- `attachmentUploadResult(upload = null)`
+- `attachmentProgress(progress = {}, possibleTotal, fallbackTotal = 0)`
+- `attachmentReceipt(row, uploaded = {})`
+
+### `src/client/conversation/useAssistantSuggestions.js`
+Exports
+- `useAssistantSuggestions({ active = true, requestKey = "", draft = "", configuration = {}, generate, onSelect = () => false, debounceMs = 750 } = {})`
 
 ### `src/client/conversation/useScrollToBottom.js`
 Exports
@@ -245,6 +347,7 @@ Exports
 - `createAiClient`
 - `SUPPORTED_AI_PROVIDERS`
 - `DEFAULT_AI_PROVIDER`
+- `createAiConnectionClient`
 - `DEFAULT_AI_TIMEOUT_MS`
 - `normalizeOptionalHttpUrl`
 - `normalizeTimeoutMs`
@@ -261,6 +364,12 @@ Exports
 - `createAiClient(options = {})`
 - `SUPPORTED_AI_PROVIDERS`
 - `DEFAULT_AI_PROVIDER`
+
+### `src/server/lib/aiConnectionClient.js`
+Exports
+- `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens } = {})`
+Local functions
+- `sdkMessages(messages)`
 
 ### `src/server/lib/ndjson.js`
 Exports
@@ -281,7 +390,6 @@ Local functions
 - `toAnthropicTools(tools = [])`
 - `toAnthropicSystemAndMessages(messages = [])`
 - `mapAnthropicContentToOpenAiDelta(content = [])`
-- `createSingleChunkStream(chunk)`
 - `fetchAnthropicMessage({ apiKey, baseUrl, model, timeoutMs, system = "", messages, tools, temperature = 0.2, signal } = {})`
 
 ### `src/server/lib/providers/common.js`
@@ -398,6 +506,10 @@ Local functions
 - `answerChoiceHeadingLine(line = "")`
 - `answerChoiceLineText(line = "")`
 - `validAnswerChoice(choice = {})`
+
+### `src/shared/conversation/attachments.js`
+Exports
+- `attachmentSizeLabel(size)`
 
 ### `src/shared/conversation/index.js`
 Exports
@@ -551,9 +663,20 @@ Exports
 Exports
 - None
 Local functions
+- `requestJson(url, options)`
 - `reload()`
-- `submit({ configuration: selectedConfiguration })`
+- `submit({ configuration: selectedConfiguration, attachments: selectedFiles })`
 - `stop()`
+
+### `examples/conversation/attachments.js`
+Exports
+- `upload(request)`
+- `resolveFiles(ids = [])`
+- `contentFor(file)`
+- `acceptFiles(selected)`
+- `removeFile(id)`
+- `download(response, id)`
+- `maxFileBytes`
 
 ### `examples/conversation/main.js`
 Exports
@@ -563,6 +686,7 @@ Exports
 Exports
 - None
 Local functions
+- `clientFor(integrationId)`
 - `configurationFor(input)`
 - `body(request)`
 - `json(response, status, value)`
@@ -580,6 +704,8 @@ Exports
 ### `fixtures/responsive-assistant/ConversationFixture.vue`
 Exports
 - None
+Local functions
+- `finishUploads()`
 
 ### `fixtures/responsive-assistant/main.js`
 Exports

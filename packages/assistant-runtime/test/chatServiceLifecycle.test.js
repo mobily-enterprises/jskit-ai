@@ -69,7 +69,7 @@ async function* completionStream(completion = {}) {
   }
 }
 
-function createHarness(completions, { executeToolCall = null, tools: configuredTools = null } = {}) {
+function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true } = {}) {
   const pendingCompletions = [...completions];
   const completionRequests = [];
   const transcriptMessages = [];
@@ -89,10 +89,12 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
       }));
 
   const chatService = createChatService({
+    attachments,
     aiClientFactory: {
       resolveClient() {
         return {
           enabled: true,
+          supportsAttachments,
           provider: "test",
           defaultModel: "test-model",
           async createChatCompletionStream(request) {
@@ -102,7 +104,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
             });
             const completion = pendingCompletions.shift();
             assert.ok(completion, "Expected a queued assistant completion.");
-            return completionStream(completion);
+            return completion[Symbol.asyncIterator] ? completion : completionStream(completion);
           }
         };
       }
@@ -172,13 +174,14 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
     };
   }
 
-  async function run(input = "Help me") {
+  async function run(input = "Help me", payload = {}) {
     return chatService.streamChat(
       {
         targetSurfaceId: "assistant",
         messageId: "message_1",
         input,
-        history: []
+        history: [],
+        ...payload
       },
       {
         context: {
@@ -203,7 +206,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
 
 function assistantMessages(events) {
   return events
-    .filter((event) => event.method === "sendAssistantMessage")
+    .filter((event) => event.method === "sendAssistantMessage" && event.payload.status !== "streaming")
     .map((event) => event.payload.text);
 }
 
@@ -255,7 +258,7 @@ test("an empty authorized tool set does not advertise discovery or collection ac
   assert.doesNotMatch(request.messages[0].content, /assistant_action_search|collection action/u);
 });
 
-test("progress-only output is retried silently and current-time prompts require a workspace clock", async () => {
+test("progress-only output is replaced on retry and current-time prompts require a workspace clock", async () => {
   const harness = createHarness(
     [
       textCompletion("Let me query the current time."),
@@ -295,7 +298,7 @@ test("progress-only output is retried silently and current-time prompts require 
     true
   );
   assert.deepEqual(assistantMessages(harness.streamEvents), ["It is Tuesday in the workspace timezone."]);
-  assert.equal(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"), false);
+  assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
   assert.match(
     harness.completionRequests[0].messages[0].content,
     /first use any available authoritative workspace clock action/u
@@ -360,7 +363,7 @@ test("current-time preflight does not invent required tool input", async () => {
   assert.deepEqual(assistantMessages(harness.streamEvents), ["Choose a timezone before asking for its local time."]);
 });
 
-test("native search, contract, and execution workflows can exceed four silent tool rounds", async () => {
+test("native search, contract, and execution workflows stream progress across more than four tool rounds", async () => {
   const harness = createHarness([
     toolCompletion("action_search", 1, { text: "I'll search first." }),
     toolCompletion("action_contract", 2, { text: "Let me inspect that contract." }),
@@ -377,7 +380,7 @@ test("native search, contract, and execution workflows can exceed four silent to
     ["action_search", "action_contract", "action_execute", "action_contract", "action_execute"]
   );
   assert.deepEqual(assistantMessages(harness.streamEvents), ["The requested operation completed successfully."]);
-  assert.equal(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"), false);
+  assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
   const assistantToolMessages = harness.completionRequests
     .flatMap((request) => request.messages)
     .filter((message) => Array.isArray(message.tool_calls));
@@ -415,7 +418,7 @@ test("tool-loop exhaustion gives the concise new-conversation instruction", asyn
   assert.equal(harness.executedTools.length, 16);
   assert.equal(harness.completionRequests.length, 19);
   assert.deepEqual(finalMessages, ["Limit reached. Start a new conversation."]);
-  assert.equal(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"), false);
+  assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
 });
 
 test("tool-failure recovery retains the bounded latest successful result", async () => {
@@ -460,4 +463,73 @@ test("tool-failure recovery retains the bounded latest successful result", async
   assert.match(fallback, /"sequence": 16/u);
   assert.match(fallback, /…\[truncated\]$/u);
   assert.doesNotMatch(fallback, /Limit reached/u);
+});
+
+
+test("answer text reaches the client before the provider finishes, then persists once", async () => {
+  const firstChunk = Promise.withResolvers();
+  const continueResponse = Promise.withResolvers();
+  async function* response() {
+    yield { choices: [{ delta: { content: "The first sentence." } }] };
+    firstChunk.resolve();
+    await continueResponse.promise;
+    yield { choices: [{ delta: { content: " The second sentence." } }] };
+  }
+  const harness = createHarness([response()]);
+  const running = harness.run();
+  await firstChunk.promise;
+  try {
+    assert.deepEqual(harness.streamEvents.filter(event => event.method === "sendAssistantDelta").map(event => event.payload.delta), ["The first sentence."]);
+    assert.deepEqual(harness.completedConversations, []);
+    assert.deepEqual(harness.transcriptMessages.filter(message => message.role === "assistant"), []);
+  } finally {
+    continueResponse.resolve();
+  }
+  await running;
+  assert.deepEqual(harness.streamEvents.filter(event => event.method === "sendAssistantDelta").map(event => event.payload.delta), ["The first sentence.", " The second sentence."]);
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["The first sentence. The second sentence."]);
+  assert.deepEqual(harness.transcriptMessages.filter(message => message.role === "assistant").map(message => message.contentText), ["The first sentence. The second sentence."]);
+});
+
+test("split internal tags and tool arguments never become answer deltas", async () => {
+  async function* response() {
+    for (const content of ["<th", "ink>private reasoning", "</thi", "nk>", "<｜DSML｜function_", "calls><｜DSML｜invoke name=\"action_search\">", '{"secret":"private arguments"}', "</｜DSML｜invoke></｜DSML｜function_calls>"]) {
+      yield { choices: [{ delta: { content } }] };
+    }
+  }
+  const harness = createHarness([response(), textCompletion("The search is complete.")]);
+  await harness.run();
+  assert.deepEqual(harness.executedTools.map(request => request.toolName), ["action_search"]);
+  assert.deepEqual(harness.streamEvents.filter(event => event.method === "sendAssistantDelta").map(event => event.payload.delta), ["The search is complete."]);
+  assert.deepEqual(assistantMessages(harness.streamEvents), ["The search is complete."]);
+});
+
+
+test("application-authorized attachments reach the model and survive transcript restore", async () => {
+  const calls = [];
+  const receipt = { attachmentId: "file-one", fileName: "notes.txt", size: 12 };
+  const attachments = { async resolve(request) {
+    calls.push(request);
+    assert.equal(request.context.actor.id, "user_1");
+    assert.equal(request.conversation.id, "conversation_1");
+    if (request.attachmentIds[0] !== "file-one") throw new Error("Attachment access denied");
+    return { attachments: [receipt], content: [{ type: "text", text: "Authorized file bytes" }] };
+  } };
+  const harness = createHarness([textCompletion("I read your notes.")], { attachments });
+  await harness.run("Read this", { attachmentIds: ["file-one"], history: [
+    { role: "user", content: "Previous file", attachmentIds: ["file-one"] }
+  ] });
+  assert.equal(calls.length, 2, "Both current and historical files must be authorized");
+  assert.deepEqual(harness.transcriptMessages[0].metadata.attachments, [receipt]);
+  assert.deepEqual(harness.completionRequests[0].messages.at(-1).content, [
+    { type: "text", text: "Read this" }, { type: "text", text: "Authorized file bytes" }
+  ]);
+  const denied = createHarness([textCompletion("Must not run")], { attachments });
+  await assert.rejects(denied.run("Read this", { attachmentIds: ["another-users-file"] }), /access denied/);
+  assert.deepEqual(denied.completionRequests, []);
+  assert.deepEqual(denied.transcriptMessages, []);
+  const disabled = createHarness([textCompletion("Must not run")]);
+  await assert.rejects(disabled.run("Read this", { attachmentIds: ["file-one"] }), /not configured/);
+  const legacy = createHarness([textCompletion("Must not run")], { attachments, supportsAttachments: false });
+  await assert.rejects(legacy.run("Read this", { attachmentIds: ["file-one"] }), /not configured/);
 });

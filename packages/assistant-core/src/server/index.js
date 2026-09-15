@@ -1,4 +1,5 @@
 export { createAiClient, SUPPORTED_AI_PROVIDERS, DEFAULT_AI_PROVIDER } from "./lib/aiClient.js";
+export { createAiConnectionClient } from "./lib/aiConnectionClient.js";
 export {
   DEFAULT_AI_TIMEOUT_MS,
   normalizeOptionalHttpUrl,

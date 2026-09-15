@@ -38,7 +38,8 @@ function normalizeHistory(history = []) {
 
       return {
         role,
-        content
+        content,
+        attachmentIds: role === "user" ? item.attachmentIds : []
       };
     })
     .filter(Boolean);
@@ -71,6 +72,7 @@ function normalizeStreamInput(payload = {}) {
     messageId,
     conversationId: normalizeConversationId(source.conversationId),
     input,
+    attachmentIds: source.attachmentIds,
     history: normalizeHistory(source.history)
   };
 }
@@ -296,10 +298,10 @@ function sanitizeAssistantMessageText(value) {
   }
 
   const blockPatterns = [
-    /<[^>\n]*function_calls[^>\n]*>[\s\S]*?<\/[^>\n]*function_calls>/gi,
-    /<[^>\n]*tool_calls?[^>\n]*>[\s\S]*?<\/[^>\n]*tool_calls?[^>\n]*>/gi,
-    /<[^>\n]*invoke\b[^>\n]*>[\s\S]*?<\/[^>\n]*invoke>/gi,
-    /<(?:analysis|reasoning|think)>[\s\S]*?<\/(?:analysis|reasoning|think)>/gi
+    /<[^>\n]*function_calls[^>\n]*>[\s\S]*?(?:<\/[^>\n]*function_calls>|$)/gi,
+    /<[^>\n]*tool_calls?[^>\n]*>[\s\S]*?(?:<\/[^>\n]*tool_calls?[^>\n]*>|$)/gi,
+    /<[^>\n]*invoke\b[^>\n]*>[\s\S]*?(?:<\/[^>\n]*invoke>|$)/gi,
+    /<(?:analysis|reasoning|think)>[\s\S]*?(?:<\/(?:analysis|reasoning|think)>|$)/gi
   ];
   for (const pattern of blockPatterns) {
     source = source.replace(pattern, " ");
@@ -380,7 +382,7 @@ function parseDsmlToolCallsFromText(value = "") {
   return calls;
 }
 
-async function consumeCompletionStream(stream) {
+async function consumeCompletionStream(stream, onText = () => {}) {
   let assistantText = "";
   const toolCallsByIndex = new Map();
 
@@ -391,6 +393,11 @@ async function consumeCompletionStream(stream) {
     const textDelta = extractTextDelta(delta.content);
     if (textDelta) {
       assistantText += textDelta;
+      // An opening provider tag can be split between chunks. Keep it private
+      // until its boundary is known; complete internal blocks are stripped below.
+      const tagStart = assistantText.lastIndexOf("<");
+      const safeText = tagStart > assistantText.lastIndexOf(">") ? assistantText.slice(0, tagStart) : assistantText;
+      onText(sanitizeAssistantMessageText(safeText));
     }
 
     const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
@@ -456,6 +463,7 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
 
 function createChatService({
   aiClientFactory,
+  attachments,
   transcriptService,
   serviceToolCatalog,
   assistantConfigService,
@@ -486,14 +494,16 @@ function createChatService({
 
   async function streamChat(payload = {}, options = {}) {
     const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), payload?.targetSurfaceId);
-    const aiClient = aiClientFactory.resolveClient(assistantSurface.targetSurfaceId);
+    const context = normalizeObject(options.context);
+    const assistantContext = buildAssistantActionContext(context, assistantSurface);
+    const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
+    const aiClient = await aiClientFactory.resolveClient(assistantSurface.targetSurfaceId, {
+      context: assistantContext, integrationId: payload.integrationId
+    });
     if (!aiClient.enabled) {
       throw new AppError(503, "Assistant provider is not configured.");
     }
 
-    const context = normalizeObject(options.context);
-    const assistantContext = buildAssistantActionContext(context, assistantSurface);
-    const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
     const source = normalizeStreamInput(payload);
     const streamWriter = options.streamWriter;
     if (!hasStreamWriter(streamWriter)) {
@@ -524,6 +534,27 @@ function createChatService({
       throw new AppError(500, "Assistant failed to create conversation.");
     }
 
+    async function resolveFiles(attachmentIds) {
+      if (attachmentIds === undefined || (Array.isArray(attachmentIds) && !attachmentIds.length)) return { attachments: [], content: [] };
+      if (!Array.isArray(attachmentIds) || attachmentIds.length > 10 ||
+          attachmentIds.some(id => typeof id !== "string" || !id || id.length > 256)) {
+        throw new AppError(400, "Invalid attachment identifiers.");
+      }
+      if (!attachments?.resolve || !aiClient.supportsAttachments) {
+        throw new AppError(400, "File attachments are not configured for this assistant.");
+      }
+      // Only the application can authorize uploads and turn stored bytes into
+      // provider input. Browser-supplied paths, URLs and file contents are never used.
+      return attachments.resolve({ attachmentIds, context: assistantContext, workspace, conversation });
+    }
+    const files = await resolveFiles(source.attachmentIds);
+    const history = [];
+    for (const message of source.history) {
+      const previousFiles = await resolveFiles(message.attachmentIds);
+      history.push({ role: message.role, content: previousFiles.content.length
+        ? [{ type: "text", text: message.content }, ...previousFiles.content] : message.content });
+    }
+
     await transcriptService.appendMessage(
       assistantSurface,
       conversationId,
@@ -533,7 +564,8 @@ function createChatService({
         clientMessageSid: source.messageId,
         contentText: source.input,
         metadata: {
-          surfaceId: assistantSurface.targetSurfaceId
+          surfaceId: assistantSurface.targetSurfaceId,
+          ...(files.attachments.length ? { attachments: files.attachments } : {})
         }
       },
       {
@@ -566,10 +598,10 @@ function createChatService({
         role: "system",
         content: systemPrompt
       },
-      ...source.history,
+      ...history,
       {
         role: "user",
-        content: source.input
+        content: files.content.length ? [{ type: "text", text: source.input }, ...files.content] : source.input
       }
     ];
 
@@ -621,6 +653,23 @@ function createChatService({
         messageId: source.messageId,
         status: "completed"
       };
+    }
+
+    let displayedText = "";
+    async function consumeResponse(stream) {
+      if (displayedText) {
+        streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: "", status: "streaming" });
+        displayedText = "";
+      }
+      return consumeCompletionStream(stream, text => {
+        if (text === displayedText) return;
+        if (text.startsWith(displayedText)) {
+          streamWriter.sendAssistantDelta({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA, delta: text.slice(displayedText.length) });
+        } else {
+          streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text, status: "streaming" });
+        }
+        displayedText = text;
+      });
     }
 
     async function executeToolCalls(toolCalls = [], { toolFailures = [], toolSuccesses = [] } = {}) {
@@ -745,7 +794,7 @@ function createChatService({
           tools: [],
           signal: options.abortSignal
         });
-        const completion = await consumeCompletionStream(completionStream);
+        const completion = await consumeResponse(completionStream);
 
         const recoveryToolCalls = completion.toolCalls.filter((entry) => entry.name);
         if (recoveryToolCalls.length > 0) {
@@ -824,7 +873,7 @@ function createChatService({
           signal: options.abortSignal
         });
 
-        const completion = await consumeCompletionStream(completionStream);
+        const completion = await consumeResponse(completionStream);
 
         const toolCalls = completion.toolCalls.filter((entry) => entry.name);
         if (toolCalls.length < 1) {

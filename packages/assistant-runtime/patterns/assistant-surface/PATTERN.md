@@ -3,7 +3,7 @@ id: assistant/assistant-surface
 title: Assistant surface and settings
 summary: Configure an assistant runtime for one application surface and expose its chat and settings elements through ordinary pages and placements.
 keywords: ai, assistant, chat, config, environment, page, placement, settings, surface
-requires: @jskit-ai/assistant-runtime, @jskit-ai/shell-web
+requires: @jskit-ai/assistant-runtime, @jskit-ai/shell-web, @jskit-ai/connectors-catalog, @jskit-ai/connectors-core
 ---
 
 # Assistant surface and settings
@@ -32,7 +32,8 @@ in source or a questionnaire transcript.
 - Workspace configuration is used only when both surfaces require a workspace.
 - Each runtime surface appears once in `assistantSurfaces` and
   `assistantServer`.
-- The server config contains an environment prefix, never a credential value.
+- The server config selects an AI integration ID, never a credential value.
+- The application publishes an authorized `integrations.ai` resolver capability.
 - Runtime and settings pages use the public assistant elements.
 - Environment values are supplied through the application's normal secret
   environment boundary.
@@ -48,12 +49,16 @@ and `assistantServer` in server config.
 ## Example files
 
 `example/` contains concrete public/server config, assistant and settings pages,
-and semantic placements for an `admin` surface. Adapt the complete files to the
+semantic placements, an AI integration and its server resolver for an `admin` surface.
+Install `@jskit-ai/connectors-catalog` and `@jskit-ai/connectors-core` and register
+`ApplicationAiFeature` in the ordinary server feature list. Set its application ID
+and AI-use policy. The example explicitly selects the catalogue's no-key model;
+provider availability is independent of configuration. Adapt the complete files to the
 application's existing config and placement registries.
 
 ## Variation points
 
-Change surface ids, settings location, config scope, environment prefix, routes,
+Change surface ids, settings location, config scope, AI integration IDs, routes,
 labels, icons, and placement targets. A workspace-scoped application must retain
 the current workspace in both routes and assistant requests through the runtime's
 public workspace support.
@@ -92,3 +97,18 @@ workspace/surface aborts the local response and discards that view's state.
 Reopening restores saved history, not a live stream. Stop cannot guarantee that
 a server-side tool already running has stopped. Custom editor conversations
 should use their own adapter and keep their existing operation/storage owner.
+
+## Shared optional controls
+
+The shared status row shows “Assistant is working…” before output and answers
+stream as they arrive. Pass safe `connections: [{ id, label }]` with
+`v-model:integration-id` to offer the shared model chooser; list every selectable
+ID in server `aiIntegrationIds`. Use `configuration-mode="hidden"` for a supplied
+fixed connection or `readonly` to show its fixed choice.
+
+The optional `suggestions`, `attachments`, `goal` and `activity` props use the
+embeddable conversation contract. Goals are disabled unless a real backend
+scheduler is supplied. Suggestions use their own generator and agent policy.
+File bytes and upload authorization belong to the app's `assistant.attachments`
+resolver and upload routes. See the Assistant and Embeddable assistant
+conversations guides for exact callback shapes.

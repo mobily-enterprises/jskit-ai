@@ -60,7 +60,8 @@ function buildHistory(messages) {
     })
     .map((message) => ({
       role: message.role,
-      content: String(message.text || "").slice(0, MAX_INPUT_CHARS)
+      content: String(message.text || "").slice(0, MAX_INPUT_CHARS),
+      ...(message.role === "user" && message.attachments?.length ? { attachmentIds: message.attachments.map(file => file.attachmentId) } : {})
     }));
 
   return normalizedHistory.slice(-MAX_HISTORY_MESSAGES);
@@ -123,6 +124,7 @@ function mapTranscriptEntriesToAssistantState(entries) {
         role,
         kind: "chat",
         text,
+        ...(Array.isArray(metadata.attachments) ? { attachments: metadata.attachments } : {}),
         status: "done"
       });
       if (role === "user") {

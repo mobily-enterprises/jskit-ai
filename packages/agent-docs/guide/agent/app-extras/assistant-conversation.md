@@ -16,7 +16,7 @@ Both integrations render the same `AssistantConversationElement`. Choose one tra
 
 | JSKIT owns | The application supplies |
 | --- | --- |
-| Bubbles, rich text, reasoning groups, long-message expansion, scroll following, composer, delivery controls | Conversation selection, labels, loading/errors, current draft and action implementations |
+| Bubbles, rich text, reasoning groups, long-message expansion, scroll following, composer, delivery controls, working status, suggestions, model and goal controls, file and question UI | Conversation selection, labels, loading/errors, current draft and action implementations |
 | Turn grouping, message deduplication, final-answer replacement and history pagination | Storage adapter, authorized scope, transaction/locking implementation, retention, migrations and attachment bytes |
 | Codex JSON-RPC and notification classification, detached-turn completion/recovery, OpenCode HTTP/SSE | Provider process/connection, account credentials, execution environment, permissions, tools, model policy and reconnect ownership |
 | Display of supplied configuration and optional editing controls | Authoritative configuration, permitted changes and server validation |
@@ -56,7 +56,7 @@ composer is present, and `stop` when `canStop` can become true.
 | Action | Arguments and responsibility |
 | --- | --- |
 | `setDraft(text)` | Update the application draft synchronously. |
-| `submit({ configuration })` | Send or steer through the app's normal admission, attachment and delivery path. Own pending state, accepted-draft clearing and visible failures. The element checks `canSend` before calling. |
+| `submit({ configuration, attachments })` | Send or steer through the app's normal admission, attachment and delivery path. Own pending state, accepted-draft clearing and visible failures. The element checks `canSend` before calling. |
 | `stop()` | Request cancellation through the backend owner. Report pending state, errors, and what actually stopped; the element checks stop availability. |
 | `loadMore({ complete })` | Prepend older turns, then call `complete({ changed })` after updating reactive state. Call it on failures too; this releases the scroll anchor. |
 | `reload()` | Refresh authoritative history. |
@@ -121,7 +121,8 @@ Other slots:
 | `attachments` | `{ items, message }`; app-owned downloads/previews and access checks |
 | `message-actions` | `{ message, turn }`; integration approvals, SQL actions or other app behavior |
 | `system-message` | `{ message }`; status/repair actions |
-| `hints` | `{ adapter }`; app progress/status/errors above the composer |
+| `activity` | `{ activity }`; replace the working indicator; accessible status text stays available |
+| `hints` | `{ adapter }`; replace the entire support row, including default working status and suggestions |
 | `composer` | `{ adapter }`; replace the composer while keeping the shared transcript |
 | `input-start`, `composer-tools` | `{ adapter }`; app-owned input adornments and tools |
 | `composer-feedback` | `{ adapter }`; action feedback after Send/Stop, wrapping below the controls in a narrow pane |
@@ -146,6 +147,163 @@ drafts or app-managed uploads. `AssistantPromptInput` accepts `attachmentState`
 and an `attachments` slot; it never uploads or deletes files. Its exposed methods
 are `focus()`, `preserveHeightForNextModelValue()` and `queueResizeTextarea()`;
 `inputElement` exposes the textarea for app-owned editing operations.
+
+## Optional shared capabilities
+
+All capabilities below are optional. Omit their adapter field to leave them off.
+They work in the aggregate element and as separately exported components; Vibe64
+uses the same components with its native transport and project policy.
+Configuration UI never grants backend permissions.
+
+### Working status and suggestions
+
+The default support row immediately shows “Assistant is working…” when
+`composer.canStop` or a turn's `pending` is true, “Sending to assistant…” during
+admission, and “Stopping…” while `stopPending`. Supply
+`adapter.activity = { label, animated: true }` to choose the text, or use the
+`activity` slot to replace its visual content. An empty label suppresses it.
+`AssistantComposerSupport` is the standalone presentation component. It keeps
+its status row stable and honors reduced-motion preferences.
+
+```js
+import { useAssistantSuggestions } from "@jskit-ai/assistant-core/client/conversation-suggestions";
+const suggestions = reactive(useAssistantSuggestions({
+  active: () => !busy.value,
+  requestKey: () => conversationId.value,
+  draft,
+  configuration: () => ({ integrationId: "suggestions", style: suggestionStyle.value }),
+  generate: ({ draft, configuration, signal }) => app.suggest({ draft, configuration, signal }),
+  onSelect: prompt => { draft.value = prompt; },
+  debounceMs: 750
+}));
+adapter.suggestions = suggestions;
+```
+
+`generate` returns `[{ label, prompt }]`; count is application-defined. It may
+use a different agent, model, prompt and tools from chat. Configuration must be
+JSON-compatible and contain no secrets. The server authorizes and validates it.
+Changing scope, draft, configuration or eligibility aborts and invalidates old
+requests. Disposal cancels requests; late results are ignored. `items`, `loading`,
+`preview`, `visible`, `error`, and `composerFocused` are reactive. `focus`, `blur`,
+`previewSuggestion`, `select`, and `dismiss` drive the shared interaction.
+Selection edits the draft; submission remains explicit. The standalone example
+includes a separate suggestion integration and server prompt.
+
+### Models and application configuration
+
+Use `adapter.models` for `AssistantModelControl`:
+
+```js
+{
+  enabled: true,
+  providerRows: [{ id: "application", label: "Application AI" }],
+  modelProviderId: "application",
+  modelRows: [{ id: "quick", label: "Quick answers" }], modelId: "quick",
+  variantRows: [], variantId: "", // optional thinking/effort choices
+  selectionSummary: "Quick answers", buttonTitle: "Choose AI",
+  changesDisabled: false, saving: false, canSave: true,
+  catalogLoading: false, catalogError: "",
+  selectProvider(id), selectModel(id), selectVariant(id), apply(), reload()
+}
+```
+
+Selections edit application draft configuration. `apply()` saves it and closes
+the chooser unless it resolves `false`. The app handles errors and sets `saving`
+and `changesDisabled`. More than six model choices get searchable selection.
+The standalone component additionally provides `before-choices`, `model-note`,
+`provider-controls`, and `footer` slots for account-specific controls. The
+aggregate's `configurationMode` applies to its separate custom configuration
+fields; disable or omit `models` independently when supplying fixed agent settings.
+
+### Goals
+
+`adapter.goal` uses this contract:
+
+```js
+{
+  enabled: true, pending: false, error: "",
+  goal: { objective: "Finish the report", status: "active",
+    elapsedSeconds: 120, sampledAt: Date.now() },
+  set({ objective, tokenBudget }), pause(), resume()
+}
+```
+
+`goal` is null before creation. `set` receives an optional positive integer token
+budget only when supplied by the user. Callbacks update authoritative state and
+surface failures in `error`; return `false` on unsuccessful creation. The shared
+`AssistantGoalControl` owns the form and presentation, not a scheduler or goal
+storage. Supported statuses are `active`, `paused`, `blocked`, `usageLimited`,
+`budgetLimited`, and `complete`. The UI offers creation only without an unfinished
+goal and offers Pause/Resume only for their applicable statuses.
+
+An active goal flashes red; a paused goal stays orange. `elapsedSeconds` is the
+accumulated **active running time**, and `sampledAt` is its sample time in epoch
+**milliseconds**. The UI adds time only while active. Omit elapsed time if the
+backend cannot supply it truthfully. The clock hides in a narrow conversation
+pane; the light stays visible and details retain the time. Reduced motion uses
+a steady red light. Pausing prevents future automatic turns and does not interrupt
+the current turn; Stop is separate. Omit `goal` or use `enabled: false` for agents
+without goals, including OpenCode.
+
+### Files
+
+```js
+import { useAssistantAttachments } from "@jskit-ai/assistant-core/client/conversation-attachments";
+adapter.attachments = reactive(useAssistantAttachments({
+  sessionId: () => uploadScope.value,
+  maxBytes: 100_000_000, maxItems: 10, uploadConcurrency: 2,
+  uploadAttachment: (scope, file, { signal, onProgress }) => app.upload(scope, file, { signal, onProgress }),
+  deleteAttachment: (scope, attachmentId) => app.deleteUpload(scope, attachmentId)
+}));
+```
+
+`sessionId` is an opaque application upload scope, such as a conversation or
+session identifier. It does not require Vibe64. The application owns routes,
+authentication, storage, limits, inspection, retention and provider file access.
+An upload returns `{ attachmentId, fileName, size }` with optional `reference` and
+application fields. Progress reports use `{ loaded, total }`. The controller
+owns queueing, concurrent uploads, cancellation, retries, stale-response cleanup,
+drag/drop/paste and scope disposal. `queueItems`, `attachments`, `canSubmit`,
+`canAddFiles`, `dragActive`, and `status` feed the aggregate. Uploads block Send
+until resolved; typing stays available. The UI defaults to ten files and 100 MB
+per file; the server must enforce its own limits.
+
+After acknowledged delivery, call
+`clearAttachments({ accepted: true, attachmentIds })` with that submission's
+IDs. It removes only those queue entries and preserves accepted files. To abandon
+uploads, use `accepted: false`. Scope changes/disposal abandon unsent uploads;
+the app's deletion endpoint must preserve files already accepted by a message,
+including when a browser loses the acknowledgement. Never infer acceptance from
+an HTTP request merely starting.
+
+The shared `AssistantAttachmentQueue`, `AssistantMessageAttachments` and
+`AssistantAttachmentPreview` provide queue, sent-file list and preview UI.
+Set `adapter.attachments.open(receipt)` for queue preview. Sent-file rendering
+is available by default; use the `attachments` slot with
+`AssistantMessageAttachments :preview-enabled="true" @preview="openFile"`
+to enable your authorized download flow. `AssistantAttachmentPreview` receives
+`attachment`, an authorized `downloadUrl`, optional image `previewUrl`, and emits
+`close`. It never invents URLs or grants access to a path. A favourite-files
+picker, screenshot producer or project file browser remains an application tool.
+
+### Questions
+
+`AssistantQuestionInputs` renders numbered question fields and suggested-answer
+chips. Pass `questions`, optional `selectItems` keyed by question name, `choices`,
+`v-model:answers`, and `v-model:choice`; handle `dismiss`. Questions contain
+`{ name, number, label, choices }`; choices use `{ value, label, selectLabel }`.
+The aggregate accepts the same fields under `adapter.questions`, with
+`setAnswers`, `setChoice`, and `dismiss` callbacks. Existing question parsers and
+submission formatters are exported from `/shared/conversation`. The app decides
+which message is awaiting a reply and submits answers through its normal action.
+
+### Incremental answers
+
+Replace the same message's `text` as chunks arrive, keeping its identity stable
+and the turn pending until completion. The shared renderer follows new output
+only when the user is already following the latest message; it preserves typing,
+selection and a reader's position in older history. Final text replaces the
+provisional answer. The ready-made runtime performs this mapping automatically.
 
 ## Backend storage contract
 
@@ -231,7 +389,7 @@ multi-process writes, failed commits and attachment cleanup.
 
 ## Provider contract
 
-API-model apps can use `createAiClient` and the existing tool-catalog helpers
+API-model apps can use `createAiConnectionClient` with an authorized AI integration resolver (see [Assistant](./assistant.md)), or `createAiClient` for existing environment-based configurations, and the tool-catalog helpers
 from `@jskit-ai/assistant-core/server`, or the complete assistant runtime.
 Native-agent hosts can import:
 
@@ -289,7 +447,7 @@ changes, including switching away and back to the same retained conversation.
 The published package contains `examples/conversation`, a standalone Vue app
 with a Node backend and no editor dependency. Copy it as an application template
 or use the component directly. It runs without credentials using a labelled demo
-provider; optional API credentials enable the existing JSKIT model client.
+provider; an explicit integration configuration enables real AI inference.
 Its backend validates configuration independently of the UI and accepts a
 replacement storage module. See its README for commands and scope limits.
 

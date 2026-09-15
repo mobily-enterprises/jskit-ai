@@ -258,3 +258,44 @@ test("page assistant bounds long history in a document layout and preserves draf
     await stopProcess(vite);
   }
 });
+
+
+test("the ready-made UI streams from the real chat service with selected AI connections and files", {
+  skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+  try {
+    await page.request.get(`${vite.baseURL}/fixture/service`);
+    await page.goto(`${vite.baseURL}/?files=1`);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    await expect(input).toBeEnabled();
+    await page.getByRole("button", { name: "Choose AI", exact: true }).click();
+    await page.getByRole("button", { name: "Deep model", exact: true }).click();
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await page.locator('input[type="file"]').setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("notes") });
+    await expect(page.getByText("notes.txt", { exact: true })).toBeVisible();
+    await input.fill("Read the notes");
+    await input.press("Enter");
+    await expect(page.getByText("Assistant is working…", { exact: true }).last()).toBeVisible();
+    await expect(page.getByLabel("Message attachments")).toHaveCount(0);
+    await expect(page.getByLabel("Attached files")).toBeVisible();
+    await input.fill("My next draft");
+    await input.evaluate(element => element.setSelectionRange(3, 7));
+    await page.request.get(`${vite.baseURL}/fixture/next`);
+    await expect(page.getByText("Partial answer", { exact: true })).toBeVisible();
+    await expect(input).toHaveValue("My next draft");
+    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [3, 7]);
+    let state = await (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
+    assert.equal(state.requests[0].integrationId, "deep");
+    assert.deepEqual(state.requests[0].attachmentIds, ["fixture-file"]);
+    assert.equal(state.transcript.filter(message => message.role === "assistant").length, 0);
+    await page.request.get(`${vite.baseURL}/fixture/next?finish=1`);
+    await expect(page.getByText("Partial answer completed.", { exact: true })).toHaveCount(1);
+    await expect(page.getByText("Assistant is working…", { exact: true })).toHaveCount(0);
+    state = await (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
+    assert.deepEqual(state.transcript[0].metadata.attachments, [{ attachmentId: "fixture-file", fileName: "notes.txt", size: 5 }]);
+    assert.equal(state.transcript.filter(message => message.role === "assistant").length, 1);
+  } finally { await browser.close(); await stopProcess(vite); }
+});

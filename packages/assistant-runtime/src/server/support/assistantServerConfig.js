@@ -18,6 +18,8 @@ function resolveAssistantServerConfigMap(appConfig = {}) {
     }
 
     resolved[targetSurfaceId] = Object.freeze({
+      aiIntegrationId: normalizeText(entry.aiIntegrationId),
+      aiIntegrationIds: Object.freeze(normalizeUniqueTextList(entry.aiIntegrationIds)),
       aiConfigPrefix: normalizeText(entry.aiConfigPrefix),
       provider: normalizeText(entry.provider).toLowerCase(),
       apiKey: normalizeText(entry.apiKey),

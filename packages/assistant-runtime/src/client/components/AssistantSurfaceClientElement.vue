@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onScopeDispose, reactive, ref, toRef, watchPostEffect } from "vue";
+import { computed, onMounted, onScopeDispose, reactive, ref, toRef, watch, watchPostEffect } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import { useAssistantRuntime } from "../composables/useAssistantRuntime.js";
 import { mapAssistantConversationTurns } from "../support/assistantRuntimeState.js";
@@ -10,9 +10,18 @@ const props = defineProps({
   assistantLabel: { type: String, default: "Assistant" },
   welcomeMessage: { type: String, default: "What would you like to do?" },
   placeholder: { type: String, default: "Message the assistant…" },
-  showToolActivity: { type: Boolean, default: true }
+  showToolActivity: { type: Boolean, default: true },
+  connections: { type: Array, default: () => [] },
+  attachments: { type: Object, default: null },
+  suggestions: { type: Object, default: null },
+  goal: { type: Object, default: null },
+  activity: { type: Object, default: undefined },
+  configurationMode: { type: String, default: "editable", validator: value => ["hidden", "readonly", "editable"].includes(value) }
 });
-const runtime = useAssistantRuntime({ surfaceId: toRef(props, "surfaceId") });
+const integrationId = defineModel("integrationId", { type: String, default: "" });
+const draftIntegrationId = ref(integrationId.value);
+watch(integrationId, value => { draftIntegrationId.value = value; });
+const runtime = useAssistantRuntime({ surfaceId: toRef(props, "surfaceId"), integrationId });
 const state = reactive(runtime.state);
 const conversation = ref(null);
 const root = ref(null);
@@ -34,6 +43,20 @@ onMounted(() => {
 const selectedConversation = computed(() => state.conversationHistory.find((entry) => String(entry.id) === state.activeConversationId));
 const turns = computed(() => mapAssistantConversationTurns(state.messages, state.pendingToolEvents, props));
 const adapter = computed(() => ({
+  attachments: props.attachments,
+  suggestions: props.suggestions,
+  goal: props.goal,
+  activity: props.activity,
+  models: props.connections.length && props.configurationMode !== "hidden" ? {
+    providerRows: [{ id: "application", label: "Application AI" }],
+    modelProviderId: "application", modelRows: props.connections, modelId: draftIntegrationId.value,
+    selectionSummary: props.connections.find(connection => connection.id === integrationId.value)?.label || "Application default",
+    changesDisabled: props.configurationMode !== "editable" || state.isStreaming,
+    canSave: props.configurationMode === "editable" && !state.isStreaming && draftIntegrationId.value !== integrationId.value &&
+      props.connections.some(connection => connection.id === draftIntegrationId.value),
+    selectModel(value) { draftIntegrationId.value = value; },
+    apply() { integrationId.value = draftIntegrationId.value; }
+  } : null,
   conversation: {
     turns: turns.value,
     scrollKey: `${state.scopeKey}:${state.activeConversationId || "new"}`,
@@ -43,7 +66,8 @@ const adapter = computed(() => ({
   },
   composer: {
     draft: state.input,
-    canSend: state.canSend,
+    canSend: state.canSend || Boolean(props.attachments?.enabled !== false && props.attachments?.attachments?.length &&
+      !state.isStreaming && !state.isRestoringConversation && state.hasRuntimeScope),
     disabled: !state.hasRuntimeScope,
     canStop: state.isStreaming,
     stopPending: state.isCanceling,
@@ -55,7 +79,10 @@ const adapter = computed(() => ({
   },
   actions: {
     setDraft(value) { state.input = value; },
-    submit: runtime.actions.sendMessage,
+    submit: ({ attachments }) => runtime.actions.sendMessage({
+      attachments,
+      onAccepted: () => props.attachments?.clearAttachments({ accepted: true, attachmentIds: attachments.map(file => file.attachmentId) })
+    }),
     stop: runtime.actions.cancelStream
   }
 }));
@@ -96,11 +123,13 @@ defineExpose({ focus: () => conversation.value?.focus() });
       </v-menu>
     </div>
     <AssistantConversationElement ref="conversation" :adapter="adapter" label="Conversation" class="assistant-surface__conversation">
+      <template v-if="$slots.activity" #activity="scope"><slot name="activity" v-bind="scope" /></template>
+      <template v-if="$slots.attachments" #attachments="scope"><slot name="attachments" v-bind="scope" /></template>
       <template #message-actions="{ message }">
         <p v-if="message.status === 'failed' && message.error" class="assistant-surface__message-error" role="status">{{ message.error }}</p>
         <p v-if="message.status === 'interrupted'" class="assistant-surface__notice" role="status">Response canceled. A tool already running may still finish.</p>
       </template>
-      <template #hints>
+      <template #composer-feedback>
         <p v-if="state.error && !state.messages.some((message) => message.error === state.error)" class="assistant-surface__message-error" role="status">{{ state.error }}</p>
       </template>
       <template #composer-tools><slot name="composer-tools" :runtime="runtime" /></template>

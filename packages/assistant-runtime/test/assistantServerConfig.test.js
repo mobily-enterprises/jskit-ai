@@ -32,6 +32,8 @@ test("assistant server config resolves per-surface AI config without app-level g
   };
 
   assert.deepEqual(resolveAssistantServerConfig(appConfig, "admin"), {
+    aiIntegrationId: "",
+    aiIntegrationIds: [],
     aiConfigPrefix: "ADMIN_ASSISTANT",
     provider: "anthropic",
     apiKey: "config-key",

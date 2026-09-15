@@ -25,8 +25,9 @@ Choose:
 - provider and model policy;
 - whether the assistant begins disabled until credentials exist.
 
-The application records an environment prefix, never an API key, in source.
-Secrets arrive through the normal deployment or development environment.
+The application selects an AI integration ID in server configuration. Credentials
+come from that integration's authorized shared or per-user account. Existing
+environment-prefix configurations remain supported.
 
 ## Composition
 
@@ -38,6 +39,85 @@ config, then register routes and placements like any other feature.
 Workspace scope is valid only when both the runtime and its settings surface
 are workspace-aware. Requests must retain the selected workspace through the
 server action boundary.
+
+## AI integration: the short setup path
+
+1. Configure an `ai` integration using JSKIT's existing integration editor or
+   portable `integrations.json`. Its provider/model, account mode and credential
+   reference have one owner: the AI integration.
+2. Publish a server capability named `integrations.ai` whose value is
+   `createAiConnectionResolver({ configuration, authorize, resolveReference })`
+   from `@jskit-ai/connectors-catalog/server/ai`. `authorize` derives the trusted
+   `{ applicationId, subjectId }` from the authenticated request. Use the normal
+   environment reference resolver for shared keys and your account resolver for
+   per-user keys. Never return credentials to the browser.
+3. Select it in server config:
+
+```js
+assistantServer: {
+  admin: { aiIntegrationId: "assistant", aiIntegrationIds: ["quick", "detailed"] }
+}
+```
+
+`aiIntegrationId` is the default. `aiIntegrationIds` is an optional allowlist for
+user selection. For a fixed agent, omit that list and hide its model control.
+For selection, pass allowed `{ id, label }` choices to the client. Client values
+never extend the server allowlist. Resolution runs for each request, so account
+isolation, key rotation and disconnect remain the existing resolver's job.
+
+The runtime uses `createAiConnectionClient` from `@jskit-ai/assistant-core/server`
+with the authorized resolver result. JSKIT installs the direct-provider SDK
+adapters and preserves their actual protocols, including Responses, Messages,
+Chat Completions and generateContent. It does not run an OpenCode/Codex coding
+subscription, dynamically install packages, or fall back to a paid model.
+The ordinary action-tool loop stays the runtime's owner; the SDK does not execute
+application tools. Provider availability and account entitlement still come from
+the provider. Existing `aiConfigPrefix` environment configuration is supported
+when no integration is selected; that path rejects client integration overrides.
+
+The `assistant/assistant-surface` pattern includes a concrete AI capability and
+integration file. The published `assistant-core/examples/conversation` template
+also uses this connection path, with an offline demo mode for local exploration.
+
+### Optional files, suggestions and goals
+
+The surface accepts `attachments`, `suggestions`, `goal` and `activity` using the
+[shared capability contracts](./assistant-conversation.md#optional-shared-capabilities).
+The `activity` slot replaces the working visual. Goals are off by default: API
+model providers have no native goal scheduler. Supply one only when your backend
+actually supports it. Suggestions use an independent app-authorized generator;
+selecting a chat model does not silently change the suggestion agent.
+
+For files, supply the shared upload controller to `attachments` and a server
+capability named `assistant.attachments`:
+
+```js
+{
+  async resolve({ attachmentIds, context, workspace, conversation }) {
+    // Authenticate every ID for this actor and conversation, then read bytes.
+    return {
+      attachments: [{ attachmentId, fileName, size }], // safe transcript receipts
+      content: [{ type: "text", text: extractedText }]
+    };
+  }
+}
+```
+
+`content` contains AI SDK user-content parts: text, image bytes with `mediaType`,
+or file bytes with `mediaType` and optional `filename`. The selected model must
+support those inputs. Use authorized bytes rather than user-supplied remote
+URLs. This feature requires the AI integration client; legacy environment model
+clients reject attachments explicitly. Up to ten IDs are accepted per message.
+Current and historical attachment IDs are resolved again on each request.
+Access denial prevents model invocation. The runtime stores only safe receipts
+in message metadata and restores them with history. Upload/download/delete routes,
+bytes, ownership and retention belong to the app. Preserve accepted files when
+an upload-cleanup request arrives after a lost acknowledgement.
+
+The client clears only acknowledged attachment IDs, after the server's `meta`
+event. It retains failed uploads and permits typing while uploads are pending.
+Supply the controller with an upload scope that changes with user, workspace and
+conversation ownership. The server must enforce those boundaries independently.
 
 ## Action tools
 
@@ -194,10 +274,12 @@ lookup before discovery-mode execution.
 
 ## Conversation lifecycle
 
-Tool selection, execution, correction, and recovery run silently. The client
-receives tool timeline events, but assistant prose is emitted only when the
-answer is complete. Progress-only responses such as “Let me query…” are
-retried internally and are not stored or replayed as chat history.
+The client receives answer text incrementally and shows working status before
+text arrives. Tool calls produce timeline events. Internal reasoning tags and raw
+tool arguments do not become visible answer text. A tool/recovery round replaces
+its provisional answer; only the completed answer is persisted. Progress-only
+responses such as “Let me query…” may appear provisionally while streaming but
+are retried internally and never stored or replayed as final chat history.
 
 The runtime permits up to 16 bounded tool rounds so catalog search, contract
 lookup, and execution can complete in one turn. If ordinary tool-failure
@@ -289,9 +371,11 @@ Typing during a restore is retained.
 
 `surfaceId` selects an existing configured assistant surface. The presentation
 props are `layout` (`page` or `compact`), `assistantLabel`, `welcomeMessage`,
-`placeholder`, and `showToolActivity`. Configuration controls stay on the
-application's existing assistant-settings route; these presentation props do
-not change provider settings or permissions.
+`placeholder`, and `showToolActivity`. System-prompt settings remain on the
+application's settings route. Optional `connections` and `v-model:integration-id`
+show the shared model chooser; `configuration-mode` is `editable`, `readonly`,
+or `hidden`. Each connection is a safe `{ id, label }` entry, never credentials.
+The server independently validates each selected integration ID.
 
 Conversation selection, Refresh, Start new conversation and loading older
 conversations are available through the Conversations dialog at every width.

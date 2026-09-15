@@ -1,7 +1,7 @@
 const config = {
   assistantServer: {
     admin: {
-      aiConfigPrefix: "ADMIN_ASSISTANT"
+      aiIntegrationId: "assistant"
     }
   }
 };

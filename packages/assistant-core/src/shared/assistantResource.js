@@ -10,7 +10,12 @@ const MAX_HISTORY_MESSAGES = 20;
 const MAX_PAGE_SIZE = 200;
 const MAX_MESSAGE_PAGE_SIZE = 500;
 
+const attachmentIdsField = {
+  type: "array", required: false, maxItems: 10,
+  items: { type: "string", minLength: 1, maxLength: 256 }
+};
 const historyMessageSchema = createSchema({
+  attachmentIds: attachmentIdsField,
   role: {
     type: "string",
     required: true,
@@ -38,6 +43,8 @@ const clientContextSchema = createSchema({
 });
 
 const chatStreamBodySchema = createSchema({
+  attachmentIds: attachmentIdsField,
+  integrationId: { type: "string", required: false, minLength: 1, maxLength: 128 },
   messageId: {
     type: "string",
     required: true,

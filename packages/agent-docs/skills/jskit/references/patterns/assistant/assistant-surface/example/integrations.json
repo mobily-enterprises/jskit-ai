@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "registrations": {},
+  "integrations": {
+    "assistant": {
+      "provider": "ai",
+      "accountMode": "shared",
+      "scopes": [],
+      "settings": {
+        "model": "opencode/big-pickle"
+      },
+      "authentication": {
+        "method": "none"
+      }
+    }
+  }
+}
