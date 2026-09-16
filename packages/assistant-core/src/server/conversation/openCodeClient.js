@@ -505,7 +505,19 @@ function createOpenCodeServerClient({
   });
 }
 
+/** Read text snapshots without trimming the whitespace at a streaming boundary. */
+function openCodeAssistantMessageText(message = {}) {
+  const values = [
+    message.text,
+    ...(message.content || [])
+      .filter((part) => part?.type === "text")
+      .map((part) => part.text)
+  ].filter((value) => typeof value === "string" && value.trim());
+  return [...new Set(values)].join("\n\n");
+}
+
 export {
+  openCodeAssistantMessageText,
   OPENCODE_RESPONSE_LIMIT_BYTES,
   createOpenCodeServerClient,
   readBoundedResponse
