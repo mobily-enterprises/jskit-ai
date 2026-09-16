@@ -1,7 +1,8 @@
 const assistantRuntimeConfig = Object.freeze({
   configTable: "assistant_config",
   conversationsTable: "assistant_conversations",
-  messagesTable: "assistant_messages"
+  messagesTable: "assistant_messages",
+  turnRequestsTable: "assistant_turn_requests"
 });
 
 export { assistantRuntimeConfig };

@@ -16,3 +16,4 @@ export { default as AssistantModelControl } from "./AssistantModelControl.vue";
 export { default as AssistantMessageAttachments } from "./AssistantMessageAttachments.vue";
 export { default as AssistantAttachmentPreview } from "./AssistantAttachmentPreview.vue";
 export { default as AssistantQuestionInputs } from "./AssistantQuestionInputs.vue";
+export { createAssistantMessageDelivery } from "./messageDelivery.js";

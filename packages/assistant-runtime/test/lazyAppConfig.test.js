@@ -1,3 +1,4 @@
+import { createMemoryTurnRequests } from "./support/memoryTurnRequests.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
@@ -338,6 +339,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
 
 test("chat service uses explicit app config when conversations are listed", async () => {
   const chatService = createChatService({
+    turnRequests: createMemoryTurnRequests(),
     aiClientFactory: {
       resolveClient() {
         throw new Error("resolveClient should not be called when listing conversations.");
@@ -388,6 +390,7 @@ test("chat service uses explicit app config when conversations are listed", asyn
 
 test("chat service rejects workspace-scoped assistant surfaces when workspace support is unavailable", async () => {
   const chatService = createChatService({
+    turnRequests: createMemoryTurnRequests(),
     aiClientFactory: {
       resolveClient() {
         throw new Error("resolveClient should not be called when listing conversations.");

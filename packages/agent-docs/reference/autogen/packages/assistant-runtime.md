@@ -26,6 +26,7 @@ Local functions
 Exports
 - None
 Local functions
+- `submitMessage({ attachments = [], retryMessageId = "" })`
 - `conversationSubtitle(entry)`
 - `selectConversation(entry)`
 - `startNewConversation()`
@@ -159,13 +160,17 @@ Exports
 - `toIso(value)`
 - `resolveInsertedId(insertResult)`
 
+### `src/server/repositories/turnRequestsRepository.js`
+Exports
+- `createRepository(knex)`
+
 ### `src/server/services/assistantConfigService.js`
 Exports
 - `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ aiClientFactory, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
+- `createChatService({ aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
 Local functions
 - `normalizeConversationId(value)`
 - `normalizeHistory(history = [])`
@@ -262,6 +267,10 @@ Exports
 - None
 
 ### `migrations/assistant_transcripts_initial.cjs`
+Exports
+- None
+
+### `migrations/assistant_turn_requests.cjs`
 Exports
 - None
 

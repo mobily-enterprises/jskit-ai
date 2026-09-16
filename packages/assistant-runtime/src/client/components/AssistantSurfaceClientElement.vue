@@ -43,6 +43,7 @@ onMounted(() => {
 const selectedConversation = computed(() => state.conversationHistory.find((entry) => String(entry.id) === state.activeConversationId));
 const turns = computed(() => mapAssistantConversationTurns(state.messages, state.pendingToolEvents, props));
 const adapter = computed(() => ({
+  delivery: runtime.delivery,
   attachments: props.attachments,
   suggestions: props.suggestions,
   goal: props.goal,
@@ -61,6 +62,7 @@ const adapter = computed(() => ({
     turns: turns.value,
     scrollKey: `${state.scopeKey}:${state.activeConversationId || "new"}`,
     loading: state.isRestoringConversation,
+    working: state.isStreaming && !runtime.delivery.state.sending,
     assistantLabel: props.assistantLabel,
     welcomeMessage: state.messages.length || state.isRestoringConversation ? "" : props.welcomeMessage
   },
@@ -79,13 +81,21 @@ const adapter = computed(() => ({
   },
   actions: {
     setDraft(value) { state.input = value; },
-    submit: ({ attachments }) => runtime.actions.sendMessage({
-      attachments,
-      onAccepted: () => props.attachments?.clearAttachments({ accepted: true, attachmentIds: attachments.map(file => file.attachmentId) })
-    }),
+    submit: ({ attachments }) => submitMessage({ attachments }),
+    resend: (messageId) => submitMessage({ retryMessageId: messageId }),
     stop: runtime.actions.cancelStream
   }
 }));
+
+function submitMessage({ attachments = [], retryMessageId = "" }) {
+  const attachmentOwner = props.attachments;
+  const acceptedFiles = retryMessageId ? runtime.delivery.find(retryMessageId)?.payload.displayAttachments || [] : attachments;
+  return runtime.actions.sendMessage({
+    attachments,
+    retryMessageId,
+    onAccepted: () => attachmentOwner?.clearAttachments({ accepted: true, attachmentIds: acceptedFiles.map(file => file.attachmentId) })
+  });
+}
 
 function conversationSubtitle(entry) {
   const details = [runtime.meta.normalizeConversationStatus(entry.status), runtime.meta.formatConversationStartedAt(entry.startedAt), `${Number(entry.messageCount || 0)} messages`];

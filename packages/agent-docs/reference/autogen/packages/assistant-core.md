@@ -59,11 +59,15 @@ Exports
 Exports
 - None
 Local functions
+- `resend(id)`
+- `cancel(id)`
+- `edit(id)`
 - `attachmentEvent(method, event)`
 - `attachSelectedFiles(event)`
 - `applyModel()`
 - `selectSuggestion(value)`
 - `dismissSuggestions()`
+- `clearAcceptedAttachments(response, payload, attachments)`
 - `submit()`
 - `stop()`
 - `updateConfiguration(value)`
@@ -159,6 +163,7 @@ Exports
 - `AssistantMessageAttachments`
 - `AssistantAttachmentPreview`
 - `AssistantQuestionInputs`
+- `createAssistantMessageDelivery`
 
 ### `src/client/conversation/LongTextInlineParts.vue`
 Exports
@@ -175,6 +180,14 @@ Local functions
 - `blockKey(block, blockIndex)`
 - `headingTag(level)`
 - `tableCellClass(block = {}, columnIndex = 0)`
+
+### `src/client/conversation/messageDelivery.js`
+Exports
+- `createAssistantMessageDelivery({ deliver: defaultDeliver } = {})`
+- `unmatchedOptimisticMessages(turns = [], optimisticMessages = [])`
+Local functions
+- `messageText(value)`
+- `turnMatchesOptimisticMessage(turn = {}, optimistic = {})`
 
 ### `src/client/conversation/submitText.js`
 Exports
@@ -672,7 +685,8 @@ Exports
 Local functions
 - `requestJson(url, options)`
 - `reload()`
-- `submit({ configuration: selectedConfiguration, attachments: selectedFiles })`
+- `deliver(payload)`
+- `readStream(response, controller, admission)`
 - `stop()`
 
 ### `examples/conversation/attachments.js`
@@ -716,6 +730,12 @@ Exports
 - None
 Local functions
 - `finishUploads()`
+
+### `fixtures/responsive-assistant/DeliveryFixture.vue`
+Exports
+- None
+Local functions
+- `accept()`
 
 ### `fixtures/responsive-assistant/main.js`
 Exports

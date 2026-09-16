@@ -314,6 +314,30 @@ warm remount.
 Restored tool calls without matching results, and live calls still pending when
 a stream ends, are shown as interrupted rather than remaining pending forever.
 
+### Duplicate submissions and recovery
+
+Apply the package migrations before running the updated server. The runtime owns
+`assistant_turn_requests`, including its unique actor, surface/workspace and
+message-ID key. The database arbitrates concurrent requests across server
+processes before provider or tool execution. A reused ID with a different request
+returns a conflict. An identical retry replays the recorded answer or failure
+without calling the provider or tools again, including after a process restart.
+
+The acceptance receipt is stored before execution; completion is stored before
+sending the final stream event. If a request is still running, or its process
+stopped without recording completion, retry returns `assistant_request_unconfirmed`
+and directs the user to conversation history. The runtime never takes over such
+a request automatically: a tool may already have changed application data.
+This protects against duplicate execution; it cannot guarantee completion after
+a process crash. The browser does not automatically resubmit ambiguous work.
+
+Request records contain the submitted text/history and the replay response.
+They survive conversation removal so an old request cannot become executable
+again, and are deleted when their actor is deleted. Application retention or
+privacy jobs must account for this table and must not remove active request
+identities. Custom transports using only `assistant-core` still own equivalent
+server-side protection; the UI controller alone cannot prevent duplicate work.
+
 ## Shared conversation UI
 
 `AssistantSurfaceClientElement` connects `useAssistantRuntime` to
@@ -330,11 +354,18 @@ Restored entries retain their database IDs; equal text is not a duplicate ID.
 Tool activity shows the existing tool name and status, never raw arguments or
 results. No provider reasoning is invented.
 
-Typing stays available during streaming and history restoration; Send waits for
-the active operation. The runtime clears an accepted draft synchronously, so
-later typing survives response completion and cancellation. A failure before an
-answer restores the request as a draft if the user has not already typed a new
-one. Enter sends, Shift/Alt+Enter inserts a newline, and Ctrl/Cmd+Enter sends.
+Typing stays available during delivery, streaming and history restoration; Send
+waits for the active operation. The shared delivery controller displays a submitted
+message immediately and clears that draft synchronously. Before the server accepts
+it, the UI shows sending status. A delivery failure offers Resend, Edit and Cancel
+beside the message. Resend retains the original message ID, text, selected
+integration, history and attachment IDs; newer typing and newly attached files
+remain untouched. Edit moves failed text into the composer and preserves newer
+text. Cancel removes only that local failed entry.
+
+After acceptance, the runtime displays provider progress and streamed answers.
+An execution failure before an answer restores the request as a draft only if the
+user has not already typed a new one. Enter sends, Shift/Alt+Enter inserts a newline, and Ctrl/Cmd+Enter sends.
 IME composition never submits. Only the shared composer handles these keys.
 
 Stop aborts the browser's response request. The pending cancellation ends when

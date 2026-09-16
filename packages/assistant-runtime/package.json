@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.168",
+  "version": "0.1.169",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -11,15 +11,15 @@
     "./server/actionIds": "./src/server/actionIds.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.175",
-    "@jskit-ai/database-runtime": "0.1.197",
+    "@jskit-ai/assistant-core": "0.1.176",
+    "@jskit-ai/database-runtime": "0.1.198",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.195",
-    "@jskit-ai/http-web": "0.1.42",
-    "@jskit-ai/kernel": "0.1.197",
-    "@jskit-ai/shell-web": "0.1.201",
+    "@jskit-ai/http-runtime": "0.1.196",
+    "@jskit-ai/http-web": "0.1.43",
+    "@jskit-ai/kernel": "0.1.198",
+    "@jskit-ai/shell-web": "0.1.202",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
@@ -71,6 +71,9 @@
             },
             {
               "tableName": "assistant_messages"
+            },
+            {
+              "tableName": "assistant_turn_requests"
             }
           ]
         }

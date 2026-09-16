@@ -7,6 +7,7 @@ import { registerRoutes } from "./registerRoutes.js";
 import { createRepository as createAssistantConfigRepository } from "./repositories/assistantConfigRepository.js";
 import { createRepository as createConversationsRepository } from "./repositories/conversationsRepository.js";
 import { createRepository as createMessagesRepository } from "./repositories/messagesRepository.js";
+import { createRepository as createTurnRequestsRepository } from "./repositories/turnRequestsRepository.js";
 import { createService as createAssistantConfigService } from "./services/assistantConfigService.js";
 import { createChatService } from "./services/chatService.js";
 import { createTranscriptService } from "./services/transcriptService.js";
@@ -68,6 +69,7 @@ function createAssistantRuntime({
   const assistantConfigRepository = createAssistantConfigRepository(database.knex);
   const conversationsRepository = createConversationsRepository(database.knex);
   const messagesRepository = createMessagesRepository(database.knex);
+  const turnRequests = createTurnRequestsRepository(database.knex);
   const workspaceScopeSupport = workspaces?.scope || null;
   const aiClientFactory = createAssistantAiClientFactory({ appConfig: config, env, aiConnections });
   const toolCatalog = createSurfaceAwareToolCatalog(actionCatalogue, { appConfig: config });
@@ -79,6 +81,7 @@ function createAssistantRuntime({
   });
   const transcriptService = createTranscriptService({ conversationsRepository, messagesRepository });
   const chatService = createChatService({
+    turnRequests,
     attachments,
     aiClientFactory,
     transcriptService,
@@ -92,7 +95,8 @@ function createAssistantRuntime({
     repositories: Object.freeze({
       config: assistantConfigRepository,
       conversations: conversationsRepository,
-      messages: messagesRepository
+      messages: messagesRepository,
+      turnRequests
     }),
     services: Object.freeze({ chat: chatService, config: configService, transcript: transcriptService }),
     aiClientFactory,

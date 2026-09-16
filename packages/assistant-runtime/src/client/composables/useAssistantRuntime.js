@@ -2,6 +2,7 @@ import { computed, onScopeDispose, ref, shallowRef, toValue, watch } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { createAssistantMessageDelivery } from "@jskit-ai/assistant-core/client/conversation-delivery";
 import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import {
   ASSISTANT_STREAM_EVENT_TYPES,
@@ -153,6 +154,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
   const conversationId = ref(null);
   const abortController = shallowRef(null);
   const isCanceling = ref(false);
+  const delivery = createAssistantMessageDelivery();
   let restoreVersion = 0;
 
   const placementSnapshot = computed(() => normalizeObject(placementContext.value));
@@ -378,6 +380,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       const restored = mapTranscriptEntriesToAssistantState(transcript.entries);
       conversationId.value = normalizedConversationId;
       writeStoredActiveConversationId(scope, normalizedConversationId);
+      delivery.reset();
       messages.value = restored.messages;
       pendingToolEvents.value = restored.pendingToolEvents;
     } catch (loadError) {
@@ -398,6 +401,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
 
   function clearView() {
     restoreVersion += 1;
+    delivery.reset();
     abortController.value?.abort();
     abortController.value = null;
     messages.value = [];
@@ -425,35 +429,47 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
     abortController.value.abort();
   }
 
-  async function sendMessage({ attachments = [], onAccepted } = {}) {
-    const normalizedInput = normalizeText(input.value).slice(0, MAX_INPUT_CHARS) || (attachments.length ? "Please review the attached files." : "");
-    if (!normalizedInput || isStreaming.value || isRestoringConversation.value || !hasRuntimeScope.value) {
-      return;
-    }
-
-    const messageId = buildId("message");
-    const assistantMessageId = buildId("assistant");
-    const history = buildHistory(messages.value);
+  async function sendMessage({ attachments = [], onAccepted, retryMessageId = "" } = {}) {
+    if (isStreaming.value || isRestoringConversation.value || !hasRuntimeScope.value) return false;
+    const retry = retryMessageId ? delivery.find(retryMessageId) : null;
+    if (retryMessageId && retry?.status !== "failed") return false;
+    const message = normalizeText(input.value).slice(0, MAX_INPUT_CHARS) || (attachments.length ? "Please review the attached files." : "");
     const parsedConversationId = normalizeRecordId(conversationId.value, { fallback: null });
+    const payload = retry?.payload || {
+      message,
+      displayAttachments: attachments,
+      request: {
+        input: message,
+        ...(parsedConversationId ? { conversationId: parsedConversationId } : {}),
+        ...(attachments.length ? { attachmentIds: attachments.map(file => file.attachmentId) } : {}),
+        ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {}),
+        history: buildHistory(messages.value)
+      }
+    };
+    if (!payload.message) return false;
+    if (!retry) input.value = "";
+    try {
+      return await delivery.send(payload, {
+        messageId: retryMessageId || buildId("message"),
+        deliver(submission) {
+          const admission = Promise.withResolvers();
+          runStream(submission, { onAccepted, admission }).then(
+            () => admission.reject(new Error("Assistant did not confirm this message.")),
+            admission.reject
+          );
+          return admission.promise;
+        }
+      });
+    } catch {
+      // The shared delivery state owns failures before the server accepts a turn.
+      return false;
+    }
+  }
 
-    appendMessage({
-      id: buildId("user"),
-      role: "user",
-      kind: "chat",
-      text: normalizedInput,
-      attachments,
-      status: "done"
-    });
-
-    appendMessage({
-      id: assistantMessageId,
-      role: "assistant",
-      kind: "chat",
-      text: "",
-      status: "streaming"
-    });
-
-    input.value = "";
+  async function runStream({ messageId, message: normalizedInput, displayAttachments: attachments, request }, { onAccepted, admission }) {
+    const assistantMessageId = buildId("assistant");
+    let accepted = false;
+    let admissionError = "";
     setRuntimeError("");
     isStreaming.value = true;
 
@@ -469,14 +485,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
 
     try {
       await runtimeApi.streamChat(
-        {
-          messageId,
-          ...(parsedConversationId ? { conversationId: parsedConversationId } : {}),
-          input: normalizedInput,
-          ...(attachments.length ? { attachmentIds: attachments.map(file => file.attachmentId) } : {}),
-          ...(toValue(integrationId) ? { integrationId: toValue(integrationId) } : {}),
-          history
-        },
+        { ...request, messageId },
         {
           signal: streamAbortController.signal,
           onEvent(event) {
@@ -484,7 +493,14 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
             const eventType = normalizeAssistantStreamEventType(event?.type, "");
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.META && Object.hasOwn(event || {}, "conversationId")) {
-              onAccepted?.();
+              if (!accepted) {
+                accepted = true;
+                appendMessage({ id: messageId, role: "user", kind: "chat", text: normalizedInput, attachments, status: "done" });
+                appendMessage({ id: assistantMessageId, role: "assistant", kind: "chat", text: "", status: "streaming" });
+                delivery.reconcile([{ user: { messageId } }]);
+                onAccepted?.();
+                admission.resolve(true);
+              }
               conversationId.value = normalizeRecordId(event?.conversationId, { fallback: null });
               writeStoredActiveConversationId(runtimeScope.value, conversationId.value);
               return;
@@ -550,6 +566,10 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
             }
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.ERROR) {
+              if (!accepted) {
+                admissionError = normalizeText(event?.message) || "Assistant request failed.";
+                return;
+              }
               setRuntimeError(
                 normalizeText(event?.message) || "Assistant request failed.",
                 "assistant.runtime:stream-event-error"
@@ -568,6 +588,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       );
 
       if (!ownsStream()) return;
+      if (!accepted) throw new Error(admissionError || "Assistant did not confirm this message.");
       if (streamAbortController.signal.aborted) streamDoneStatus = "aborted";
       const assistantMessage = findMessage(assistantMessageId);
       const assistantMessageText = normalizeText(assistantMessage?.text);
@@ -589,6 +610,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       }
     } catch (streamError) {
       if (!ownsStream()) return;
+      if (!accepted) throw streamError;
       if (String(streamError?.name || "") === "AbortError") {
         updateMessage(assistantMessageId, {
           status: "canceled"
@@ -611,8 +633,10 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
         abortController.value = null;
         isStreaming.value = false;
         isCanceling.value = false;
-        await invalidateConversationScope();
-        await refreshConversationHistory();
+        if (accepted) {
+          await invalidateConversationScope();
+          await refreshConversationHistory();
+        }
       }
     }
   }
@@ -631,6 +655,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       normalizeConversationStatus,
       formatConversationStartedAt
     },
+    delivery,
     state: {
       messages,
       input,

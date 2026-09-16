@@ -1,3 +1,4 @@
+import { createMemoryTurnRequests } from "./support/memoryTurnRequests.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createChatService } from "../src/server/services/chatService.js";
@@ -89,6 +90,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
       }));
 
   const chatService = createChatService({
+    turnRequests: createMemoryTurnRequests(),
     attachments,
     aiClientFactory: {
       resolveClient() {
@@ -186,7 +188,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
       {
         context: {
           actor: {
-            id: "user_1"
+            id: "1"
           }
         },
         streamWriter
@@ -510,7 +512,7 @@ test("application-authorized attachments reach the model and survive transcript 
   const receipt = { attachmentId: "file-one", fileName: "notes.txt", size: 12 };
   const attachments = { async resolve(request) {
     calls.push(request);
-    assert.equal(request.context.actor.id, "user_1");
+    assert.equal(request.context.actor.id, "1");
     assert.equal(request.conversation.id, "conversation_1");
     if (request.attachmentIds[0] !== "file-one") throw new Error("Attachment access denied");
     return { attachments: [receipt], content: [{ type: "text", text: "Authorized file bytes" }] };

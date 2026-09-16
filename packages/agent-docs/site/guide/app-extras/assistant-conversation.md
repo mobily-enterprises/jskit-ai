@@ -48,17 +48,17 @@ const adapter = reactive({
 Use reactive values or replace the adapter when state changes. Ordinary nested
 objects containing refs must be wrapped in `reactive()` so their fields unwrap.
 Only `conversation` is required; omit `composer` for a transcript-only view.
-Missing optional actions are ignored. Supply `setDraft` and `submit` when a
+Missing optional actions are ignored. Supply `setDraft` and either `delivery` or a custom `submit` when a
 composer is present, and `stop` when `canStop` can become true.
 
 | Action | Arguments and responsibility |
 | --- | --- |
 | `setDraft(text)` | Update the application draft synchronously. |
-| `submit({ configuration, attachments })` | Send or steer through the app's normal admission, attachment and delivery path. Own pending state, accepted-draft clearing and visible failures. The element checks `canSend` before calling. |
+| `submit({ configuration, attachments })` | Send or steer through the app's normal admission, attachment and delivery path. Use the delivery controller below for pending messages and failures; retain accepted-draft clearing and application admission. The element checks `canSend` before calling. |
 | `stop()` | Request cancellation through the backend owner. Report pending state, errors, and what actually stopped; the element checks stop availability. |
 | `loadMore({ complete })` | Prepend older turns, then call `complete({ changed })` after updating reactive state. Call it on failures too; this releases the scroll anchor. |
 | `reload()` | Refresh authoritative history. |
-| `resend(id)`, `cancel(id)`, `edit(id)` | Handle a failed optimistic turn using its stable `optimistic.id`. Retry according to server delivery evidence. |
+| `resend(id)`, `cancel(id)`, `edit(id)` | Optional overrides of the shared delivery actions. Keep the stable message identity when retrying. |
 | `openLink({ event, href, text })` | Optionally handle app-owned links and call `event.preventDefault()`. Otherwise a validated ordinary link keeps normal browser behavior. |
 | `updateConfiguration(value)` | Accept an edited draft configuration; the server remains authoritative. |
 
@@ -73,6 +73,72 @@ available for an explicit retry. Clear the error when retrying succeeds.
 `reloadable`, `reloading`, `welcomeMessage`, and `variant: "main" | "task"`
 control the corresponding transcript presentation. `userMessageFormat` is
 `"formatted"` by default; `"plain"` preserves literal user-authored text.
+
+### Message delivery
+
+Use `createAssistantMessageDelivery` from `/client/conversation` (or the
+Vue-component-free `/client/conversation-delivery` entry) once per conversation.
+Pass it as `adapter.delivery`. The element then handles submission, merges pending messages into the
+transcript, shows sending status, reconciles saved receipts, and supplies
+Resend, Cancel and Edit without application-specific delivery handlers.
+
+```js
+const delivery = createAssistantMessageDelivery({
+  async deliver({ messageId, message, ...payload }) {
+    const result = await app.sendMessage({ messageId, message, ...payload });
+    turns.value = result.turns;
+    return result;
+  }
+});
+const adapter = reactive({
+  delivery,
+  conversation: { turns, visible: true, scrollKey: conversationId },
+  composer: { draft, canSend, canStop },
+  actions: {
+    setDraft: value => { draft.value = value; },
+    stop
+  }
+});
+```
+
+Without a custom `actions.submit`, the element captures the draft, configuration
+and attached files, clears the submitted draft immediately, and calls
+`delivery.send`. Success clears only the accepted attachment IDs. A newer draft
+and newer files stay intact; a failure remains beside its message. Set
+`composer.payload` to an object for additional captured request fields, such as
+an integration ID. `composer.attachmentMessage` optionally replaces the default
+"Please review the attached files." text for attachment-only sends. Supplying
+`actions.submit` overrides this whole path for application-specific admission
+or generated prompts; it still uses the same delivery controller.
+
+`send(payload, options?)` inserts the message synchronously, before invoking
+`deliver`. Payloads must be JSON-compatible and are copied at submission. They
+require `message`; optional `displayMessage` and
+`displayAttachments` control the visible bubble. Additional fields travel to
+`deliver` unchanged. Include settings and attachment IDs in the payload so a
+retry retains the original request even if the composer settings later change. Each send creates a stable `messageId`, or
+the application may supply one in options. `false`, `{ ok: false, error }`, or
+a thrown error retain a failed entry. Exceptions are rethrown after recording
+the visible failure. Success retains the pending bubble until authoritative
+history contains its `user.messageId`, so it cannot flicker away before history
+arrives. Older histories without IDs can match by text and timestamp.
+
+Resend keeps the same payload and message ID; the backend must deduplicate that
+ID. Edit moves failed text into the composer while preserving a newer draft;
+Cancel removes only the failed local entry. Neither action stops native work.
+Resend leaves the current draft untouched. Attachment bytes and removal on
+acceptance remain with the application's attachment owner.
+
+`state.sending`, `state.messages`, `turns(savedTurns)`, `reconcile(savedTurns)`,
+`find(id)`, `remove(id)`, `resend(id)`, `edit(id, draft)` and `cancel(id)` are
+available for custom composers and application admission policies. `edit`
+returns the merged draft or `null` when unavailable. An application may override
+`adapter.actions.resend/cancel/edit`; those actions take precedence.
+`send` also accepts per-call `deliver` and `isCurrent` for retained application
+owners. Call `reset()` when that controller's conversation retires; late results
+cannot change a replacement conversation. Rendering alone does not retire state.
+Transport promises should settle on admission, not after the full AI answer;
+streaming and provider execution remain separately observable application work.
 
 ### Turns and messages
 

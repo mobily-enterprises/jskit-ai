@@ -42,7 +42,10 @@ offline when `ASSISTANT_INTEGRATIONS` is unset.
 
 The shared chooser selects the configured chat integrations; suggestions keep
 their independent connection. The shared row shows suggestions and working status,
-and responses stream incrementally. The example accepts text, JSON and common
+and responses stream incrementally. Messages appear immediately through
+`createAssistantMessageDelivery`; the shared element submits the draft, clears
+accepted files and supplies failed-message Resend, Edit and Cancel actions. Resend preserves the request identity and any
+newer composer draft. The example accepts text, JSON and common
 web images up to 2 MB each. Uploads use opaque IDs, preview through app URLs,
 and preserve files accepted by a message. Both uploaded bytes and default history
 are transient. When replacing history storage, also replace `attachments.js`
