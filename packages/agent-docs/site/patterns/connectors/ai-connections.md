@@ -84,6 +84,6 @@ use their own native Perplexity/OpenAI-compatible clients and the same slot.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.13`
+- Owner: `@jskit-ai/connectors-catalog@0.1.14`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/ai-connections/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/ai-connections/example)
