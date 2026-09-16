@@ -120,15 +120,12 @@ Local functions
 - `displayThinkingMessage(message = null)`
 - `conversationAgentMessages(turn = {})`
 - `conversationMessageKey(message = {}, index = 0)`
-- `displayAgentTimeline(turn = {}, turnKey = "")`
 - `handleLongTextLinkClick(payload)`
 - `userMessageCollapsible(message = null)`
 - `userMessageExpanded(turn = {})`
 - `toggleExpandedKey(expandedKeys, key)`
 - `toggleUserMessage(turn = {})`
 - `messageScrollKey(message = null)`
-- `agentTimelineScrollKey(timeline = [])`
-- `latestRenderedTailScrollKey(turns = [])`
 - `clearUserScrollIntent()`
 - `resumePendingTailFollow()`
 - `markUserScrollIntent()`
@@ -710,6 +707,12 @@ Local functions
 ### `fixtures/responsive-assistant/main.js`
 Exports
 - None
+
+### `fixtures/responsive-assistant/ProgressFixture.vue`
+Exports
+- None
+Local functions
+- `append(role)`
 
 ### `fixtures/responsive-assistant/vite.config.mjs`
 Exports

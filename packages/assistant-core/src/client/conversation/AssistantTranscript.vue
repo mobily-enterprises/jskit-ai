@@ -98,12 +98,12 @@
       </div>
 
       <article
-        v-for="turn in displayTurns"
-        :key="turn.turnId"
+        v-for="entry in displayEntries"
+        :key="entry.key"
         class="assistant-transcript__turn"
       >
         <div
-          v-if="turn.system"
+          v-if="entry.role === 'system'"
           class="assistant-transcript__system"
         >
           <v-icon
@@ -114,55 +114,55 @@
           <div class="assistant-transcript__system-body">
             <div class="assistant-transcript__system-meta">
               <span>{{ systemLabel }}</span>
-              <time v-if="turn.system.displayAt">{{ turn.system.displayAt }}</time>
+              <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
             </div>
-            <slot name="system-message" :message="turn.system"><LongTextPreviewBlocks compact :blocks="turn.system.blocks" @link-click="handleLongTextLinkClick" /></slot>
+            <slot name="system-message" :message="entry.message"><LongTextPreviewBlocks compact :blocks="entry.message.blocks" @link-click="handleLongTextLinkClick" /></slot>
           </div>
         </div>
 
         <div
-          v-if="turn.user"
+          v-else-if="entry.role === 'user'"
           class="assistant-transcript__message-row assistant-transcript__message-row--user"
         >
           <div class="assistant-transcript__message assistant-transcript__message--user">
             <div
               class="assistant-transcript__user-content"
             >
-              <p v-if="userMessageFormat === 'plain'" class="assistant-transcript__plain-user">{{ userMessageExpanded(turn) ? turn.user.text : userMessagePreviewText(turn.user.text) || turn.user.text }}</p>
+              <p v-if="userMessageFormat === 'plain'" class="assistant-transcript__plain-user">{{ userMessageExpanded(entry.turn) ? entry.message.text : userMessagePreviewText(entry.message.text) || entry.message.text }}</p>
               <LongTextPreviewBlocks
                 v-else
-                :blocks="userMessageExpanded(turn) ? turn.user.blocks : (turn.user.previewBlocks || turn.user.blocks)"
+                :blocks="userMessageExpanded(entry.turn) ? entry.message.blocks : (entry.message.previewBlocks || entry.message.blocks)"
                 @link-click="handleLongTextLinkClick"
               />
             </div>
             <button
-              v-if="userMessageCollapsible(turn.user)"
-              :aria-expanded="userMessageExpanded(turn)"
+              v-if="userMessageCollapsible(entry.message)"
+              :aria-expanded="userMessageExpanded(entry.turn)"
               class="assistant-transcript__user-content-toggle"
               type="button"
-              @click="toggleUserMessage(turn)"
+              @click="toggleUserMessage(entry.turn)"
             >
-              {{ userMessageExpanded(turn) ? "Show less" : "Read more" }}
+              {{ userMessageExpanded(entry.turn) ? "Show less" : "Read more" }}
             </button>
-            <slot name="attachments" :items="turn.user.attachments" :message="turn.user"><AssistantMessageAttachments :attachments="turn.user.attachments || []" /></slot>
+            <slot name="attachments" :items="entry.message.attachments" :message="entry.message"><AssistantMessageAttachments :attachments="entry.message.attachments || []" /></slot>
             <div
-              v-if="turn.user.displayAt"
+              v-if="entry.message.displayAt"
               class="assistant-transcript__message-footer assistant-transcript__message-footer--user"
             >
-              <time v-if="turn.user.displayAt">{{ turn.user.displayAt }}</time>
+              <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
             </div>
             <div
-              v-if="turn.optimistic?.status === 'failed'"
+              v-if="entry.turn.optimistic?.status === 'failed'"
               class="assistant-transcript__optimistic-failure"
             >
-              <span>{{ turn.optimistic.error || "Message could not be sent." }}</span>
+              <span>{{ entry.turn.optimistic.error || "Message could not be sent." }}</span>
               <div class="assistant-transcript__optimistic-actions">
                 <v-btn
                   color="primary"
                   size="x-small"
                   type="button"
                   variant="tonal"
-                  @click="emit('resend-turn', turn.optimistic.id)"
+                  @click="emit('resend-turn', entry.turn.optimistic.id)"
                 >
                   Resend
                 </v-btn>
@@ -170,7 +170,7 @@
                   size="x-small"
                   type="button"
                   variant="text"
-                  @click="emit('cancel-turn', turn.optimistic.id)"
+                  @click="emit('cancel-turn', entry.turn.optimistic.id)"
                 >
                   Cancel
                 </v-btn>
@@ -178,7 +178,7 @@
                   size="x-small"
                   type="button"
                   variant="text"
-                  @click="emit('edit-turn', turn.optimistic.id)"
+                  @click="emit('edit-turn', entry.turn.optimistic.id)"
                 >
                   Edit
                 </v-btn>
@@ -190,84 +190,79 @@
           </span>
         </div>
 
-        <template
-          v-for="entry in turn.agentTimeline"
-          :key="entry.key"
+        <AssistantProgress
+          v-else-if="entry.role === 'thinking'"
+          :key="`${scrollKey}:${entry.key}`"
+          class="assistant-transcript__thinking"
+          :messages="entry.messages"
+          :pending="isWorking && entry === displayEntries.at(-1)"
+          :preview-limit="progressPreviewLimit"
+          :aria-label="`${assistantLabel} progress`"
+        />
+        <div
+          v-else
+          class="assistant-transcript__message-row assistant-transcript__message-row--assistant"
+          :data-message-role="entry.role"
         >
-          <AssistantProgress
-            v-if="entry.role === 'thinking'"
-            :key="`${turn.turnId}:${turn.pending ? 'active' : 'completed'}:${entry.key}`"
-            class="assistant-transcript__thinking"
-            :messages="entry.messages"
-            :pending="turn.pending"
-            :preview-limit="progressPreviewLimit"
-            :aria-label="`${assistantLabel} progress`"
-          />
-          <div
-            v-else
-            class="assistant-transcript__message-row assistant-transcript__message-row--assistant"
-            :data-message-role="entry.role"
-          >
-            <div class="assistant-transcript__assistant-header">
-              <span class="assistant-transcript__avatar assistant-transcript__avatar--assistant">
-                <v-icon :icon="mdiRobotOutline" size="16" />
-              </span>
-              <div class="assistant-transcript__message-header">
-                <span>{{ assistantLabel }}</span>
-              </div>
-            </div>
-            <div class="assistant-transcript__message assistant-transcript__message--assistant">
-              <LongTextPreviewBlocks
-                v-if="entry.message.blocks.length"
-                :blocks="entry.message.blocks"
-                @link-click="handleLongTextLinkClick"
-              />
-              <ol
-                v-if="entry.message.questions.length"
-                class="assistant-transcript__questions"
-              >
-                <li
-                  v-for="question in entry.message.questions"
-                  :key="question.name"
-                  class="assistant-transcript__question"
-                >
-                  <span class="assistant-transcript__question-number">{{ question.number }}</span>
-                  <div class="assistant-transcript__question-content">
-                    <span class="assistant-transcript__question-text">
-                      <LongTextInlineParts
-                        :text="question.label"
-                        @link-click="handleLongTextLinkClick"
-                      />
-                    </span>
-                    <ul
-                      v-if="question.choices.length"
-                      class="assistant-transcript__question-choices"
-                    >
-                      <li v-for="choice in question.choices" :key="choice.value">
-                        <LongTextInlineParts
-                          :text="choice.label"
-                          @link-click="handleLongTextLinkClick"
-                        /><span v-if="choice.recommended"> · Recommended</span>
-                      </li>
-                    </ul>
-                  </div>
-                </li>
-              </ol>
-              <LongTextPreviewBlocks
-                v-if="entry.message.outroBlocks.length"
-                :blocks="entry.message.outroBlocks"
-                @link-click="handleLongTextLinkClick"
-              />
-              <slot name="message-actions" :message="entry.message" :turn="turn" />
-            </div>
-            <div
-              v-if="entry.message.displayAt"
-              class="assistant-transcript__message-footer assistant-transcript__message-footer--assistant"
-            >
-              <time>{{ entry.message.displayAt }}</time>
+          <div class="assistant-transcript__assistant-header">
+            <span class="assistant-transcript__avatar assistant-transcript__avatar--assistant">
+              <v-icon :icon="mdiRobotOutline" size="16" />
+            </span>
+            <div class="assistant-transcript__message-header">
+              <span>{{ assistantLabel }}</span>
             </div>
           </div>
-        </template>
+          <div class="assistant-transcript__message assistant-transcript__message--assistant">
+            <LongTextPreviewBlocks
+              v-if="entry.message.blocks.length"
+              :blocks="entry.message.blocks"
+              @link-click="handleLongTextLinkClick"
+            />
+            <ol
+              v-if="entry.message.questions.length"
+              class="assistant-transcript__questions"
+            >
+              <li
+                v-for="question in entry.message.questions"
+                :key="question.name"
+                class="assistant-transcript__question"
+              >
+                <span class="assistant-transcript__question-number">{{ question.number }}</span>
+                <div class="assistant-transcript__question-content">
+                  <span class="assistant-transcript__question-text">
+                    <LongTextInlineParts
+                      :text="question.label"
+                      @link-click="handleLongTextLinkClick"
+                    />
+                  </span>
+                  <ul
+                    v-if="question.choices.length"
+                    class="assistant-transcript__question-choices"
+                  >
+                    <li v-for="choice in question.choices" :key="choice.value">
+                      <LongTextInlineParts
+                        :text="choice.label"
+                        @link-click="handleLongTextLinkClick"
+                      /><span v-if="choice.recommended"> · Recommended</span>
+                    </li>
+                  </ul>
+                </div>
+              </li>
+            </ol>
+            <LongTextPreviewBlocks
+              v-if="entry.message.outroBlocks.length"
+              :blocks="entry.message.outroBlocks"
+              @link-click="handleLongTextLinkClick"
+            />
+            <slot name="message-actions" :message="entry.message" :turn="entry.turn" />
+          </div>
+          <div
+            v-if="entry.message.displayAt"
+            class="assistant-transcript__message-footer assistant-transcript__message-footer--assistant"
+          >
+            <time>{{ entry.message.displayAt }}</time>
+          </div>
+        </div>
       </article>
 
       <div
@@ -303,6 +298,7 @@ import {
 
 const props = defineProps({
   systemLabel: { type: String, default: "Status" },
+  working: { type: Boolean, default: undefined },
   progressPreviewLimit: { type: Number, default: 2 },
   userMessageFormat: { type: String, default: "formatted", validator: (value) => ["plain", "formatted"].includes(value) },
   assistantLabel: {
@@ -373,6 +369,7 @@ const DISPLAY_MESSAGE_CACHE_LIMIT = 500;
 const bodyElement = ref(null);
 const bottomElement = ref(null);
 const expandedUserMessages = ref(new Set());
+const isWorking = computed(() => props.working ?? props.turns.some(turn => turn.pending));
 const followingLatest = ref(true);
 const initialScrollSettled = ref(false);
 const userScrollIntent = ref(false);
@@ -530,65 +527,48 @@ function conversationMessageKey(message = {}, index = 0) {
   ].join(":");
 }
 
-function displayAgentTimeline(turn = {}, turnKey = "") {
-  const timeline = [];
-  for (const [index, message] of conversationAgentMessages(turn).entries()) {
-    const role = String(message?.role || "").trim();
-    if (role === "thinking") {
-      const displayed = displayThinkingMessage(message);
-      if (!displayed) {
-        continue;
+// Storage rows are not visual boundaries. Only an intervening message ends a
+// reasoning group, including when history is prepended or execution continues.
+const displayEntries = computed(() => {
+  const entries = [];
+  for (const [index, turn] of props.turns.entries()) {
+    const turnId = String(turn.turnId || index + 1);
+    const messages = [
+      turn.system && { ...turn.system, role: "system" },
+      turn.user && { ...turn.user, role: "user" },
+      ...conversationAgentMessages(turn)
+    ].filter(Boolean);
+    for (const [messageIndex, message] of messages.entries()) {
+      const role = String(message.role || "").trim();
+      const key = `${turnId}:${conversationMessageKey(message, messageIndex)}`;
+      const displayed = role === "thinking" ? displayThinkingMessage(message) : displayMessage(message, {
+        allowNumberedQuestions: role !== "user" && role !== "system",
+        preserveParagraphLineBreaks: role === "user",
+        previewUserMessage: role === "user"
+      }, key);
+      if (!displayed) continue;
+      const previous = entries.at(-1);
+      if (role === "thinking" && previous?.role === "thinking") {
+        previous.messages.push({ ...displayed, key });
+      } else {
+        entries.push({
+          key, role, turn: { ...turn, turnId }, message: displayed,
+          ...(role === "thinking" ? { messages: [{ ...displayed, key }] } : {})
+        });
       }
-      const keyedMessage = {
-        ...displayed,
-        key: conversationMessageKey(message, index)
-      };
-      const previous = timeline.at(-1);
-      if (previous?.role === "thinking") {
-        previous.messages.push(keyedMessage);
-        continue;
-      }
-      timeline.push({
-        key: `thinking:${keyedMessage.key}`,
-        messages: [keyedMessage],
-        role
-      });
-      continue;
     }
-    timeline.push({
-      key: conversationMessageKey(message, index),
-      message: displayMessage(message, {
-        allowNumberedQuestions: true
-      }, `${turnKey}:agent:${conversationMessageKey(message, index)}`),
-      role
-    });
   }
-  return timeline;
-}
+  // Anchor a progress group to the following message, or to the transcript end.
+  // Appending progress or prepending history then preserves its expansion state.
+  for (const [index, entry] of entries.entries()) {
+    if (entry.role === "thinking") entry.key = `progress:${entries[index + 1]?.key || "tail"}`;
+  }
+  return entries;
+});
 
 function handleLongTextLinkClick(payload) {
   emit("link-click", payload);
 }
-
-const displayTurns = computed(() => (Array.isArray(props.turns) ? props.turns : [])
-  .map((turn, index) => {
-    const turnId = String(turn.turnId || index + 1);
-    return {
-      ...turn,
-      agentTimeline: displayAgentTimeline(turn, turnId),
-      optimistic: turn.optimistic && typeof turn.optimistic === "object" && !Array.isArray(turn.optimistic)
-        ? turn.optimistic
-        : null,
-      pending: turn.pending === true,
-      system: displayMessage(turn.system, {}, `${turnId}:system`),
-      turnId,
-      user: displayMessage(turn.user, {
-        preserveParagraphLineBreaks: true,
-        previewUserMessage: true
-      }, `${turnId}:user`)
-    };
-  })
-  .filter((turn) => turn.system || turn.user || turn.agentTimeline.length));
 
 function userMessageCollapsible(message = null) {
   return Array.isArray(message?.previewBlocks);
@@ -618,11 +598,11 @@ function toggleUserMessage(turn = {}) {
 
 const loadingIndicatorVisible = computed(() => Boolean(
   props.loading &&
-  !displayTurns.value.length
+  !displayEntries.value.length
 ));
 const initialScrollPending = computed(() => Boolean(
   props.visible &&
-  displayTurns.value.length &&
+  displayEntries.value.length &&
   !initialScrollSettled.value
 ));
 
@@ -638,40 +618,24 @@ function messageScrollKey(message = null) {
   ].join("/");
 }
 
-function agentTimelineScrollKey(timeline = []) {
-  return (Array.isArray(timeline) ? timeline : []).map((entry) => (
-    entry?.role === "thinking"
-      ? (entry.messages || []).map(messageScrollKey).join("+")
-      : messageScrollKey(entry?.message)
-  )).join("|");
-}
-
-function latestRenderedTailScrollKey(turns = []) {
-  const turn = Array.isArray(turns) ? turns.at(-1) : null;
-  if (!turn) {
-    return "";
-  }
-  const timeline = Array.isArray(turn.agentTimeline) ? turn.agentTimeline : [];
-  return [
-    turn.turnId,
-    messageScrollKey(turn.system),
-    messageScrollKey(turn.user),
-    turn.optimistic?.id || "",
-    turn.optimistic?.status || "",
-    turn.optimistic?.error || "",
-    turn.pending ? "pending" : "settled",
-    agentTimelineScrollKey(timeline)
-  ].join(":");
-}
-
 const timelineScrollTrigger = computed(() => [
   props.visible ? "visible" : "hidden",
   props.error ? "error" : "body",
   loadingIndicatorVisible.value ? "loading" : "ready",
-  displayTurns.value.length ? "has-turns" : "empty",
+  displayEntries.value.length ? "has-messages" : "empty",
   props.scrollKey
 ].join(":"));
-const latestRenderedTailKey = computed(() => latestRenderedTailScrollKey(displayTurns.value));
+const latestRenderedTailKey = computed(() => {
+  const entry = displayEntries.value.at(-1);
+  if (!entry) return "";
+  return [
+    entry.key,
+    isWorking.value,
+    entry.role === "thinking" ? entry.messages.map(messageScrollKey).join("+") : messageScrollKey(entry.message),
+    entry.turn.optimistic?.status || "",
+    entry.turn.optimistic?.error || ""
+  ].join(":");
+});
 const autoScrollEnabled = computed(() => Boolean(
   props.visible &&
   followingLatest.value

@@ -6,6 +6,7 @@ import * as directives from "vuetify/directives";
 import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import App from "./App.vue";
 import ConversationFixture from "./ConversationFixture.vue";
+import ProgressFixture from "./ProgressFixture.vue";
 
 const vuetify = createVuetify({
   components,
@@ -20,6 +21,7 @@ const vuetify = createVuetify({
   }
 });
 
-createApp(new URLSearchParams(location.search).has("conversation") ? ConversationFixture : App)
+const query = new URLSearchParams(location.search);
+createApp(query.has("progress") ? ProgressFixture : query.has("conversation") ? ConversationFixture : App)
   .use(vuetify)
   .mount("#app");
