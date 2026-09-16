@@ -18,6 +18,7 @@ const emit = defineEmits(["dismiss"]);
     <div class="assistant-questions__question-fields-header">
       <v-btn
         aria-label="Answer normally instead"
+        class="ml-auto"
         color="primary"
         :prepend-icon="mdiPencilOutline"
         size="small"
@@ -97,15 +98,6 @@ const emit = defineEmits(["dismiss"]);
   gap: 0.25rem 0.5rem;
   justify-content: space-between;
   min-width: 0;
-}
-
-.assistant-questions__question-fields-header > span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.assistant-questions__question-fields-header :deep(.v-btn) {
-  margin-left: auto;
 }
 
 .assistant-questions__question-field {
