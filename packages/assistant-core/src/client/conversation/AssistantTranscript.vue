@@ -380,7 +380,9 @@ let initialScrollVersion = 0;
 let loadMoreScrollSnapshot = null;
 let loadMoreRequestVersion = 0;
 let pendingTailFollow = false;
+let previousScrollTop = 0;
 const USER_SCROLL_INTENT_RESET_MS = 600;
+const LOAD_MORE_THRESHOLD_PX = 160;
 const KEYBOARD_SCROLL_KEYS = new Set([
   " ",
   "ArrowDown",
@@ -766,6 +768,13 @@ function clearLiveBottomScroll() {
 
 function updateLatestFollowFromScroll(event = {}) {
   const target = event?.currentTarget || bodyElement.value;
+  const scrollTop = target?.scrollTop || 0;
+  const scrolledUp = scrollTop < previousScrollTop;
+  previousScrollTop = scrollTop;
+  // Keep following the reader while the request is pending, before rows prepend.
+  if (loadMoreScrollSnapshot && target.scrollHeight === loadMoreScrollSnapshot.scrollHeight) {
+    loadMoreScrollSnapshot.scrollTop = scrollTop;
+  }
   const shouldFollow = scrollElementNearBottom(target);
   if (!shouldFollow && !userScrollIntent.value && followingLatest.value) {
     return;
@@ -776,14 +785,20 @@ function updateLatestFollowFromScroll(event = {}) {
     resumePendingTailFollow();
     return;
   }
-  if (!shouldFollow) {
-    clearLiveBottomScroll();
-    clearScheduledScrolls();
+  clearLiveBottomScroll();
+  clearScheduledScrolls();
+  if (
+    scrolledUp &&
+    initialScrollSettled.value &&
+    scrollTop <= LOAD_MORE_THRESHOLD_PX &&
+    !props.loadMoreError
+  ) {
+    requestLoadMore();
   }
 }
 
 function requestLoadMore() {
-  if (!props.hasMoreBefore || props.loadingMore) {
+  if (!props.hasMoreBefore || props.loadingMore || loadMoreScrollSnapshot) {
     return;
   }
   followingLatest.value = false;
@@ -827,7 +842,8 @@ async function completeLoadMoreRequest(version, changed) {
   }
   const element = bodyElement.value;
   if (element) {
-    element.scrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+    previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+    element.scrollTop = previousScrollTop;
   }
   clearLoadMoreScrollSnapshot();
 }

@@ -159,8 +159,8 @@ test("conversation scrolling preserves history anchors and resets expansion on s
     await page.goto(`${vite.baseURL}/?controls=1`);
     const body = page.locator(".assistant-transcript__body");
     await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
-    await body.hover();
-    await page.mouse.wheel(0, -100_000);
+    // Keep the explicit button path covered independently of automatic loading.
+    await body.evaluate(element => { element.scrollTop = 0; });
     await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBe(0);
     await page.getByRole("button", { name: "Read more", exact: true }).click();
     await expect(page.getByRole("button", { name: "Show less", exact: true })).toBeVisible();
@@ -181,6 +181,99 @@ test("conversation scrolling preserves history anchors and resets expansion on s
     await page.getByRole("button", { name: "Change conversation", exact: true }).click();
     await expect(page.getByRole("button", { name: "Show less", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Read more", exact: true })).toBeAttached();
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+test("upward scrolling loads older history once and preserves retry and selection behavior", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const touch = width < 1000;
+      const page = await browser.newPage({ viewport: { width, height: 900 }, hasTouch: touch, isMobile: touch });
+      const errors = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.goto(`${vite.baseURL}/?controls=1&history=1`);
+      const body = page.locator(".assistant-transcript__body");
+      const requests = page.locator("output");
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
+      await expect(requests).toHaveText("History requests: 0");
+      // Detach from initial follow before positioning above the history boundary.
+      await body.hover();
+      await page.mouse.wheel(0, -100);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
+      await body.evaluate(element => { element.scrollTop = 420; });
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await expect(requests).toHaveText("History requests: 0");
+      if (touch) {
+        const bounds = await body.boundingBox();
+        const cdp = await page.context().newCDPSession(page);
+        const x = bounds.x + bounds.width / 2;
+        const y = bounds.y + 40;
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        for (let offset = 20; offset <= 380; offset += 20) {
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + offset }] });
+          await page.evaluate(() => new Promise(requestAnimationFrame));
+        }
+        const stopped = body.evaluate(element => new Promise(resolve => {
+          element.addEventListener("scrollend", () => resolve(), { once: true });
+        }));
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await stopped;
+        await cdp.detach();
+      } else {
+        await body.hover();
+        await page.mouse.wheel(0, -380);
+      }
+      const pending = page.getByRole("button", { name: "Loading older messages…", exact: true });
+      await expect(pending).toBeDisabled();
+      await expect(requests).toHaveText("History requests: 1");
+      // Repeated events while waiting must not issue another request.
+      await body.evaluate(element => {
+        element.dispatchEvent(new Event("scroll"));
+        element.dispatchEvent(new Event("scroll"));
+      });
+      const original = page.getByText("Conversation line 1:", { exact: false }).first();
+      const originalTop = (await original.boundingBox()).y;
+      await external("Complete history load");
+      await expect(pending).toHaveCount(0);
+      await expect.poll(async () => Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
+      await expect(requests).toHaveText("History requests: 1");
+
+      // Keyboard navigation also requests older history.
+      await body.focus();
+      await body.press("Home");
+      await expect(requests).toHaveText("History requests: 2");
+      await external("Fail history load");
+      await expect(page.getByText("History unavailable", { exact: true })).toBeVisible();
+      await body.press("ArrowDown");
+      await body.press("Home");
+      await expect(requests).toHaveText("History requests: 2");
+      await page.getByRole("button", { name: "Load older messages", exact: true }).click();
+      await expect(requests).toHaveText("History requests: 3");
+      await external("Complete history load");
+      await expect(page.getByText("History unavailable", { exact: true })).toHaveCount(0);
+
+      await external("Change conversation");
+      await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
+      await expect(requests).toHaveText("History requests: 3");
+      await external("Exhaust history");
+      await body.focus();
+      await body.press("Home");
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
+      await expect(requests).toHaveText("History requests: 3");
+      await expect(page.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      assert.deepEqual(errors, []);
+      await page.close();
+    }
   } finally {
     await browser.close();
     await stopProcess(vite);

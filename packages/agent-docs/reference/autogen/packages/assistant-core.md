@@ -695,6 +695,8 @@ Exports
 ### `fixtures/responsive-assistant/App.vue`
 Exports
 - None
+Local functions
+- `finishHistory(error = "")`
 
 ### `fixtures/responsive-assistant/ConversationFixture.vue`
 Exports

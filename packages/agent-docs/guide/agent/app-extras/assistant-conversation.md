@@ -66,6 +66,12 @@ composer is present, and `stop` when `canStop` can become true.
 
 `scrollKey` changes when conversation ownership changes, resetting scroll and
 expansion state. `followLatestKey` requests following the newest message.
+Scrolling upward within 160 CSS pixels of the transcript's top requests older
+history through `loadMore`, including touch, wheel and keyboard scrolling.
+Only one request runs at a time, and prepending preserves the reading position.
+Initial positioning and conversation selection do not fetch older pages.
+`loadMoreError` pauses automatic loading; the older-messages button remains
+available for an explicit retry. Clear the error when retrying succeeds.
 `reloadable`, `reloading`, `welcomeMessage`, and `variant: "main" | "task"`
 control the corresponding transcript presentation. `userMessageFormat` is
 `"formatted"` by default; `"plain"` preserves literal user-authored text.
