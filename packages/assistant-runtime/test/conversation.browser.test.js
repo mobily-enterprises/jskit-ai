@@ -299,3 +299,53 @@ test("the ready-made UI streams from the real chat service with selected AI conn
     assert.equal(state.transcript.filter(message => message.role === "assistant").length, 1);
   } finally { await browser.close(); await stopProcess(vite); }
 });
+
+test("pending delivery appears immediately and retries the original request without replacing a newer draft", {
+  skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const held = Promise.withResolvers();
+  const requests = [];
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  try {
+    await page.route("**/chat/stream", async route => {
+      requests.push(route.request().postDataJSON());
+      if (requests.length === 1) {
+        await held.promise;
+        await route.fulfill({ status: 503, json: { error: "Temporarily unavailable." } });
+      } else {
+        await route.continue();
+      }
+    });
+    await page.goto(vite.baseURL);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    await input.fill("Show this immediately.");
+    await input.press("Enter");
+    await expect(page.getByText("Show this immediately.", { exact: true })).toHaveCount(1);
+    await expect(page.locator(".assistant-composer-support__assistant-status")).toHaveText("Sending to assistant…");
+    await expect(input).toHaveValue("");
+    await input.fill("Keep this newer draft.");
+    held.resolve();
+    await expect(page.getByRole("button", { name: "Resend", exact: true })).toBeVisible();
+    await expect(input).toHaveValue("Keep this newer draft.");
+    await page.getByRole("button", { name: "Resend", exact: true }).click();
+    await expect(page.getByLabel("Fixture assistant progress")).toBeVisible();
+    assert.equal(requests.length, 2);
+    assert.deepEqual(requests[1], requests[0]);
+    await expect(page.getByText("Show this immediately.", { exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Resend", exact: true })).toHaveCount(0);
+    await expect(input).toHaveValue("Keep this newer draft.");
+    await page.request.get(`${vite.baseURL}/fixture/next?finish=1`);
+    await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+    await expect(input).toHaveValue("Keep this newer draft.");
+    assert.deepEqual(errors, []);
+  } finally {
+    held.resolve();
+    await browser.close();
+    await stopProcess(vite);
+  }
+});

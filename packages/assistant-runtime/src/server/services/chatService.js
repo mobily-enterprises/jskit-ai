@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
@@ -49,11 +50,11 @@ function normalizeStreamInput(payload = {}) {
   const source = normalizeObject(payload);
   const messageId = normalizeText(source.messageId);
   const input = normalizeText(source.input).slice(0, MAX_INPUT_CHARS);
-  if (!messageId) {
+  if (!messageId || messageId.length > 128) {
     throw new AppError(400, "Validation failed.", {
       details: {
         fieldErrors: {
-          messageId: "messageId is required."
+          messageId: "messageId is required and must be at most 128 characters."
         }
       }
     });
@@ -463,6 +464,7 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
 
 function createChatService({
   aiClientFactory,
+  turnRequests,
   attachments,
   transcriptService,
   serviceToolCatalog,
@@ -471,9 +473,9 @@ function createChatService({
   resolveAppConfig = null,
   workspaceScopeSupport = null
 } = {}) {
-  if (!aiClientFactory || typeof aiClientFactory.resolveClient !== "function" || !transcriptService || !serviceToolCatalog || !assistantConfigService) {
+  if (!aiClientFactory || typeof aiClientFactory.resolveClient !== "function" || !turnRequests || !transcriptService || !serviceToolCatalog || !assistantConfigService) {
     throw new Error(
-      "createChatService requires aiClientFactory.resolveClient(), transcriptService, serviceToolCatalog, and assistantConfigService."
+      "createChatService requires aiClientFactory.resolveClient(), turnRequests, transcriptService, serviceToolCatalog, and assistantConfigService."
     );
   }
 
@@ -492,132 +494,132 @@ function createChatService({
     return workspaceScopeSupport.resolveWorkspace(context, input);
   }
 
+  function replayRequest(record, request, writer) {
+    if (!isDeepStrictEqual(record.request, JSON.parse(JSON.stringify(request)))) {
+      throw new AppError(409, "This message ID belongs to a different request.");
+    }
+    const response = record.response || {};
+    if (record.status === "running") {
+      if (response.meta) writer.sendMeta(response.meta);
+      writer.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, code: "assistant_request_unconfirmed",
+        message: "This message was already submitted. Its completion is not confirmed; check conversation history before sending new work." });
+      writer.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: request.messageId, status: "unconfirmed" });
+      return { conversationId: response.meta?.conversationId, messageId: request.messageId, status: "unconfirmed" };
+    }
+    if (response.failure && !response.meta) throw new AppError(response.failure.status, response.failure.message);
+    if (response.meta) writer.sendMeta(response.meta);
+    if (response.answer) writer.sendAssistantMessage(response.answer);
+    if (response.error) writer.sendError(response.error);
+    if (response.failure) writer.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, ...response.failure });
+    writer.sendDone(response.done || { type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: request.messageId, status: record.status });
+    return { conversationId: response.meta?.conversationId, messageId: request.messageId, status: record.status };
+  }
+
   async function streamChat(payload = {}, options = {}) {
     const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), payload?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
+    const source = normalizeStreamInput(payload);
+    const actor = context.actor;
+    const actorUserId = normalizeRecordId(actor?.id, { fallback: null });
+    if (!actorUserId) throw new AppError(401, "Authentication required.");
+    if (!hasStreamWriter(options.streamWriter)) throw new Error("assistant.chat.stream requires streamWriter methods.");
+    const scope = { actorUserId, surfaceId: assistantSurface.targetSurfaceId,
+      workspaceId: normalizeRecordId(workspace?.id || workspace, { fallback: null }) };
+    const request = { ...source, integrationId: normalizeText(payload.integrationId) };
+    const existing = await turnRequests.find(scope, source.messageId);
+    if (existing) return replayRequest(existing, request, options.streamWriter);
     const aiClient = await aiClientFactory.resolveClient(assistantSurface.targetSurfaceId, {
       context: assistantContext, integrationId: payload.integrationId
     });
-    if (!aiClient.enabled) {
-      throw new AppError(503, "Assistant provider is not configured.");
-    }
-
-    const source = normalizeStreamInput(payload);
-    const streamWriter = options.streamWriter;
-    if (!hasStreamWriter(streamWriter)) {
-      throw new Error("assistant.chat.stream requires streamWriter methods.");
-    }
-
-    const actor = context.actor;
-
-    const conversationResult = await transcriptService.createConversationForTurn(
-      assistantSurface,
-      workspace,
-      actor,
-      {
-        conversationId: source.conversationId,
-        provider: aiClient.provider,
-        model: aiClient.defaultModel,
-        surfaceId: assistantSurface.targetSurfaceId,
-        messageId: source.messageId
+    if (!aiClient.enabled) throw new AppError(503, "Assistant provider is not configured.");
+    const claim = await turnRequests.claim(scope, request);
+    if (!claim.acquired) return replayRequest(claim, request, options.streamWriter);
+    const response = {};
+    const output = options.streamWriter;
+    const streamWriter = {
+      sendToolCall: event => output.sendToolCall(event),
+      sendToolResult: event => output.sendToolResult(event),
+      sendMeta(event) { response.meta = event; output.sendMeta(event); },
+      sendAssistantDelta(event) {
+        response.answer = { type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE,
+          text: `${response.answer?.text || ""}${event.delta || ""}`, status: "streaming" };
+        output.sendAssistantDelta(event);
       },
-      {
-        context: assistantContext
-      }
-    );
-
-    const conversation = conversationResult.conversation;
-    const conversationId = conversation?.id;
-    if (!conversationId) {
-      throw new AppError(500, "Assistant failed to create conversation.");
+      sendAssistantMessage(event) { response.answer = event; output.sendAssistantMessage(event); },
+      sendError(event) { response.error = event; output.sendError(event); },
+      sendDone(event) { response.done = event; }
+    };
+    let result;
+    try {
+      result = await executeTurn();
+    } catch (error) {
+      response.failure = { message: String(error?.message || "Assistant request failed."),
+        status: Number(error?.status || error?.statusCode || 500) };
+      await turnRequests.update(claim, response, "failed");
+      throw error;
     }
+    await turnRequests.update(claim, response, result.status);
+    if (response.done) output.sendDone(response.done);
+    return result;
 
-    async function resolveFiles(attachmentIds) {
-      if (attachmentIds === undefined || (Array.isArray(attachmentIds) && !attachmentIds.length)) return { attachments: [], content: [] };
-      if (!Array.isArray(attachmentIds) || attachmentIds.length > 10 ||
-          attachmentIds.some(id => typeof id !== "string" || !id || id.length > 256)) {
-        throw new AppError(400, "Invalid attachment identifiers.");
-      }
-      if (!attachments?.resolve || !aiClient.supportsAttachments) {
-        throw new AppError(400, "File attachments are not configured for this assistant.");
-      }
-      // Only the application can authorize uploads and turn stored bytes into
-      // provider input. Browser-supplied paths, URLs and file contents are never used.
-      return attachments.resolve({ attachmentIds, context: assistantContext, workspace, conversation });
-    }
-    const files = await resolveFiles(source.attachmentIds);
-    const history = [];
-    for (const message of source.history) {
-      const previousFiles = await resolveFiles(message.attachmentIds);
-      history.push({ role: message.role, content: previousFiles.content.length
-        ? [{ type: "text", text: message.content }, ...previousFiles.content] : message.content });
-    }
-
-    await transcriptService.appendMessage(
-      assistantSurface,
-      conversationId,
-      {
-        role: "user",
-        kind: "chat",
-        clientMessageSid: source.messageId,
-        contentText: source.input,
-        metadata: {
+    async function executeTurn() {
+      const conversationResult = await transcriptService.createConversationForTurn(
+        assistantSurface,
+        workspace,
+        actor,
+        {
+          conversationId: source.conversationId,
+          provider: aiClient.provider,
+          model: aiClient.defaultModel,
           surfaceId: assistantSurface.targetSurfaceId,
-          ...(files.attachments.length ? { attachments: files.attachments } : {})
+          messageId: source.messageId
+        },
+        {
+          context: assistantContext
         }
-      },
-      {
-        context: assistantContext,
-        workspace
-      }
-    );
+      );
 
-    const toolSet = serviceToolCatalog.resolveToolSet(assistantContext);
-    const customSystemPrompt = await assistantConfigService.resolveSystemPrompt(
-      assistantSurface,
-      workspace,
-      {
-        surface: assistantSurface.targetSurfaceId
-      },
-      {
-        context: assistantContext,
-        input: payload
+      const conversation = conversationResult.conversation;
+      const conversationId = conversation?.id;
+      if (!conversationId) {
+        throw new AppError(500, "Assistant failed to create conversation.");
       }
-    );
-    const systemPrompt = buildSystemPrompt({
-      targetSurfaceId: assistantSurface.targetSurfaceId,
-      toolDescriptors: toolSet.tools,
-      workspaceSlug: resolveWorkspaceSlug(assistantContext, payload),
-      customSystemPrompt
-    });
 
-    const messages = [
-      {
-        role: "system",
-        content: systemPrompt
-      },
-      ...history,
-      {
-        role: "user",
-        content: files.content.length ? [{ type: "text", text: source.input }, ...files.content] : source.input
+      async function resolveFiles(attachmentIds) {
+        if (attachmentIds === undefined || (Array.isArray(attachmentIds) && !attachmentIds.length)) return { attachments: [], content: [] };
+        if (!Array.isArray(attachmentIds) || attachmentIds.length > 10 ||
+            attachmentIds.some(id => typeof id !== "string" || !id || id.length > 256)) {
+          throw new AppError(400, "Invalid attachment identifiers.");
+        }
+        if (!attachments?.resolve || !aiClient.supportsAttachments) {
+          throw new AppError(400, "File attachments are not configured for this assistant.");
+        }
+        // Only the application can authorize uploads and turn stored bytes into
+        // provider input. Browser-supplied paths, URLs and file contents are never used.
+        return attachments.resolve({ attachmentIds, context: assistantContext, workspace, conversation });
       }
-    ];
-
-    async function completeWithAssistantMessage(assistantMessageText, { metadata = {} } = {}) {
-      const normalizedAssistantMessageText = normalizeText(sanitizeAssistantMessageText(assistantMessageText));
-      if (!normalizedAssistantMessageText) {
-        throw new AppError(502, "Assistant returned no output.");
+      const files = await resolveFiles(source.attachmentIds);
+      const history = [];
+      for (const message of source.history) {
+        const previousFiles = await resolveFiles(message.attachmentIds);
+        history.push({ role: message.role, content: previousFiles.content.length
+          ? [{ type: "text", text: message.content }, ...previousFiles.content] : message.content });
       }
 
       await transcriptService.appendMessage(
         assistantSurface,
         conversationId,
         {
-          role: "assistant",
+          role: "user",
           kind: "chat",
-          contentText: normalizedAssistantMessageText
+          clientMessageSid: source.messageId,
+          contentText: source.input,
+          metadata: {
+            surfaceId: assistantSurface.targetSurfaceId,
+            ...(files.attachments.length ? { attachments: files.attachments } : {})
+          }
         },
         {
           context: assistantContext,
@@ -625,75 +627,50 @@ function createChatService({
         }
       );
 
-      await transcriptService.completeConversation(
+      const toolSet = serviceToolCatalog.resolveToolSet(assistantContext);
+      const customSystemPrompt = await assistantConfigService.resolveSystemPrompt(
         assistantSurface,
-        conversationId,
+        workspace,
         {
-          status: "completed",
-          metadata
+          surface: assistantSurface.targetSurfaceId
         },
         {
           context: assistantContext,
-          workspace
+          input: payload
         }
       );
-
-      streamWriter.sendAssistantMessage({
-        type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE,
-        text: normalizedAssistantMessageText
-      });
-      streamWriter.sendDone({
-        type: ASSISTANT_STREAM_EVENT_TYPES.DONE,
-        messageId: source.messageId,
-        status: "completed"
+      const systemPrompt = buildSystemPrompt({
+        targetSurfaceId: assistantSurface.targetSurfaceId,
+        toolDescriptors: toolSet.tools,
+        workspaceSlug: resolveWorkspaceSlug(assistantContext, payload),
+        customSystemPrompt
       });
 
-      return {
-        conversationId,
-        messageId: source.messageId,
-        status: "completed"
-      };
-    }
-
-    let displayedText = "";
-    async function consumeResponse(stream) {
-      if (displayedText) {
-        streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: "", status: "streaming" });
-        displayedText = "";
-      }
-      return consumeCompletionStream(stream, text => {
-        if (text === displayedText) return;
-        if (text.startsWith(displayedText)) {
-          streamWriter.sendAssistantDelta({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA, delta: text.slice(displayedText.length) });
-        } else {
-          streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text, status: "streaming" });
+      const messages = [
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        ...history,
+        {
+          role: "user",
+          content: files.content.length ? [{ type: "text", text: source.input }, ...files.content] : source.input
         }
-        displayedText = text;
-      });
-    }
+      ];
 
-    async function executeToolCalls(toolCalls = [], { toolFailures = [], toolSuccesses = [] } = {}) {
-      const roundFailures = [];
-
-      for (const toolCall of toolCalls) {
-        streamWriter.sendToolCall({
-          type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_CALL,
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          arguments: toolCall.arguments
-        });
+      async function completeWithAssistantMessage(assistantMessageText, { metadata = {} } = {}) {
+        const normalizedAssistantMessageText = normalizeText(sanitizeAssistantMessageText(assistantMessageText));
+        if (!normalizedAssistantMessageText) {
+          throw new AppError(502, "Assistant returned no output.");
+        }
 
         await transcriptService.appendMessage(
           assistantSurface,
           conversationId,
           {
             role: "assistant",
-            kind: "tool_call",
-            contentText: toolCall.arguments,
-            metadata: {
-              toolCallId: toolCall.id,
-              tool: toolCall.name
-            }
+            kind: "chat",
+            contentText: normalizedAssistantMessageText
           },
           {
             context: assistantContext,
@@ -701,25 +678,12 @@ function createChatService({
           }
         );
 
-        const toolResult = await serviceToolCatalog.executeToolCall({
-          toolName: toolCall.name,
-          argumentsText: toolCall.arguments,
-          context: assistantContext,
-          toolSet
-        });
-
-        await transcriptService.appendMessage(
+        await transcriptService.completeConversation(
           assistantSurface,
           conversationId,
           {
-            role: "assistant",
-            kind: "tool_result",
-            contentText: JSON.stringify(toolResult),
-            metadata: {
-              toolCallId: toolCall.id,
-              tool: toolCall.name,
-              ok: toolResult.ok === true
-            }
+            status: "completed",
+            metadata
           },
           {
             context: assistantContext,
@@ -727,236 +691,328 @@ function createChatService({
           }
         );
 
-        if (toolResult.ok) {
-          toolSuccesses.push({
+        streamWriter.sendAssistantMessage({
+          type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE,
+          text: normalizedAssistantMessageText
+        });
+        streamWriter.sendDone({
+          type: ASSISTANT_STREAM_EVENT_TYPES.DONE,
+          messageId: source.messageId,
+          status: "completed"
+        });
+
+        return {
+          conversationId,
+          messageId: source.messageId,
+          status: "completed"
+        };
+      }
+
+      let displayedText = "";
+      async function consumeResponse(stream) {
+        if (displayedText) {
+          streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text: "", status: "streaming" });
+          displayedText = "";
+        }
+        return consumeCompletionStream(stream, text => {
+          if (text === displayedText) return;
+          if (text.startsWith(displayedText)) {
+            streamWriter.sendAssistantDelta({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_DELTA, delta: text.slice(displayedText.length) });
+          } else {
+            streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text, status: "streaming" });
+          }
+          displayedText = text;
+        });
+      }
+
+      async function executeToolCalls(toolCalls = [], { toolFailures = [], toolSuccesses = [] } = {}) {
+        const roundFailures = [];
+
+        for (const toolCall of toolCalls) {
+          streamWriter.sendToolCall({
+            type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_CALL,
+            toolCallId: toolCall.id,
             name: toolCall.name,
-            result: toolResult.result
+            arguments: toolCall.arguments
           });
+
+          await transcriptService.appendMessage(
+            assistantSurface,
+            conversationId,
+            {
+              role: "assistant",
+              kind: "tool_call",
+              contentText: toolCall.arguments,
+              metadata: {
+                toolCallId: toolCall.id,
+                tool: toolCall.name
+              }
+            },
+            {
+              context: assistantContext,
+              workspace
+            }
+          );
+
+          const toolResult = await serviceToolCatalog.executeToolCall({
+            toolName: toolCall.name,
+            argumentsText: toolCall.arguments,
+            context: assistantContext,
+            toolSet
+          });
+
+          await transcriptService.appendMessage(
+            assistantSurface,
+            conversationId,
+            {
+              role: "assistant",
+              kind: "tool_result",
+              contentText: JSON.stringify(toolResult),
+              metadata: {
+                toolCallId: toolCall.id,
+                tool: toolCall.name,
+                ok: toolResult.ok === true
+              }
+            },
+            {
+              context: assistantContext,
+              workspace
+            }
+          );
+
+          if (toolResult.ok) {
+            toolSuccesses.push({
+              name: toolCall.name,
+              result: toolResult.result
+            });
+            streamWriter.sendToolResult({
+              type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_RESULT,
+              toolCallId: toolCall.id,
+              name: toolCall.name,
+              ok: true,
+              result: toolResult.result
+            });
+
+            messages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(toolResult.result ?? null)
+            });
+            continue;
+          }
+
+          const failure = {
+            name: toolCall.name,
+            error: toolResult.error
+          };
+          roundFailures.push(failure);
+          toolFailures.push(failure);
+
           streamWriter.sendToolResult({
             type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_RESULT,
             toolCallId: toolCall.id,
             name: toolCall.name,
-            ok: true,
-            result: toolResult.result
+            ok: false,
+            error: toolResult.error
           });
 
           messages.push({
             role: "tool",
             tool_call_id: toolCall.id,
-            content: JSON.stringify(toolResult.result ?? null)
-          });
-          continue;
-        }
-
-        const failure = {
-          name: toolCall.name,
-          error: toolResult.error
-        };
-        roundFailures.push(failure);
-        toolFailures.push(failure);
-
-        streamWriter.sendToolResult({
-          type: ASSISTANT_STREAM_EVENT_TYPES.TOOL_RESULT,
-          toolCallId: toolCall.id,
-          name: toolCall.name,
-          ok: false,
-          error: toolResult.error
-        });
-
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({
-            error: toolResult.error
-          })
-        });
-      }
-
-      return roundFailures;
-    }
-
-    async function recoverWithoutTools({ reason = "", toolFailures = [], toolSuccesses = [] } = {}) {
-      for (let pass = 0; pass < MAX_RECOVERY_PASSES; pass += 1) {
-        const recoveryMessages = [
-          ...messages,
-          {
-            role: "system",
-            content: buildRecoveryPrompt({
-              reason,
-              toolFailures,
-              toolSuccesses
+            content: JSON.stringify({
+              error: toolResult.error
             })
-          }
-        ];
-
-        const completionStream = await aiClient.createChatCompletionStream({
-          messages: recoveryMessages,
-          tools: [],
-          signal: options.abortSignal
-        });
-        const completion = await consumeResponse(completionStream);
-
-        const recoveryToolCalls = completion.toolCalls.filter((entry) => entry.name);
-        if (recoveryToolCalls.length > 0) {
-          continue;
-        }
-
-        const assistantMessageText = normalizeText(sanitizeAssistantMessageText(completion.assistantText));
-        if (assistantMessageText && !isAssistantProgressOnlyText(assistantMessageText)) {
-          return completeWithAssistantMessage(assistantMessageText, {
-            metadata: {
-              recoveryReason: reason || "unknown",
-              toolFailureCount: Array.isArray(toolFailures) ? toolFailures.length : 0
-            }
           });
         }
+
+        return roundFailures;
       }
 
-      const fallbackText = buildRecoveryFallbackAnswer({
-        reason,
-        toolFailures,
-        toolSuccesses
-      });
-      return completeWithAssistantMessage(fallbackText, {
-        metadata: {
-          recoveryReason: reason || "unknown",
-          toolFailureCount: Array.isArray(toolFailures) ? toolFailures.length : 0
-        }
-      });
-    }
+      async function recoverWithoutTools({ reason = "", toolFailures = [], toolSuccesses = [] } = {}) {
+        for (let pass = 0; pass < MAX_RECOVERY_PASSES; pass += 1) {
+          const recoveryMessages = [
+            ...messages,
+            {
+              role: "system",
+              content: buildRecoveryPrompt({
+                reason,
+                toolFailures,
+                toolSuccesses
+              })
+            }
+          ];
 
-    let streamed = false;
+          const completionStream = await aiClient.createChatCompletionStream({
+            messages: recoveryMessages,
+            tools: [],
+            signal: options.abortSignal
+          });
+          const completion = await consumeResponse(completionStream);
 
-    try {
-      streamWriter.sendMeta({
-        type: ASSISTANT_STREAM_EVENT_TYPES.META,
-        messageId: source.messageId,
-        conversationId,
-        provider: aiClient.provider,
-        model: aiClient.defaultModel
-      });
-      streamed = true;
-
-      const excludedToolNames = new Set();
-      const toolFailures = [];
-      const toolSuccesses = [];
-
-      const preflightTools = resolvePreflightTools(toolSet.tools, source.input);
-      for (const [index, tool] of preflightTools.entries()) {
-        const toolCall = {
-          id: `assistant_preflight_${index + 1}`,
-          name: tool.name,
-          arguments: "{}"
-        };
-        messages.push(buildAssistantToolCallMessage([toolCall]));
-        const preflightFailures = await executeToolCalls([toolCall], {
-          toolFailures,
-          toolSuccesses
-        });
-        for (const failure of preflightFailures) {
-          const toolName = normalizeText(failure?.name);
-          if (toolName) {
-            excludedToolNames.add(toolName);
+          const recoveryToolCalls = completion.toolCalls.filter((entry) => entry.name);
+          if (recoveryToolCalls.length > 0) {
+            continue;
           }
-        }
-      }
 
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-        const roundToolDescriptors = toolSet.tools.filter(
-          (tool) => !excludedToolNames.has(normalizeText(tool.name))
-        );
-        const roundToolSchemas = roundToolDescriptors.map((tool) => serviceToolCatalog.toOpenAiToolSchema(tool));
-
-        const completionStream = await aiClient.createChatCompletionStream({
-          messages,
-          tools: roundToolSchemas,
-          signal: options.abortSignal
-        });
-
-        const completion = await consumeResponse(completionStream);
-
-        const toolCalls = completion.toolCalls.filter((entry) => entry.name);
-        if (toolCalls.length < 1) {
-          const finalMessageText = normalizeText(sanitizeAssistantMessageText(completion.assistantText));
-          if (finalMessageText && !isAssistantProgressOnlyText(finalMessageText)) {
-            return completeWithAssistantMessage(finalMessageText, {
-              metadata: toolFailures.length > 0
-                ? {
-                    recoveryReason: "tool_failure",
-                    toolFailureCount: toolFailures.length
-                  }
-                : {}
+          const assistantMessageText = normalizeText(sanitizeAssistantMessageText(completion.assistantText));
+          if (assistantMessageText && !isAssistantProgressOnlyText(assistantMessageText)) {
+            return completeWithAssistantMessage(assistantMessageText, {
+              metadata: {
+                recoveryReason: reason || "unknown",
+                toolFailureCount: Array.isArray(toolFailures) ? toolFailures.length : 0
+              }
             });
           }
-
-          messages.push({
-            role: "system",
-            content: COMPLETION_INSTRUCTION
-          });
-          continue;
         }
 
-        messages.push(buildAssistantToolCallMessage(toolCalls));
-
-        const roundFailures = await executeToolCalls(toolCalls, {
+        const fallbackText = buildRecoveryFallbackAnswer({
+          reason,
           toolFailures,
           toolSuccesses
         });
+        return completeWithAssistantMessage(fallbackText, {
+          metadata: {
+            recoveryReason: reason || "unknown",
+            toolFailureCount: Array.isArray(toolFailures) ? toolFailures.length : 0
+          }
+        });
+      }
 
-        if (roundFailures.length > 0) {
-          for (const failure of roundFailures) {
+      let streamed = false;
+
+      try {
+        const receipt = {
+          type: ASSISTANT_STREAM_EVENT_TYPES.META,
+          messageId: source.messageId,
+          conversationId,
+          provider: aiClient.provider,
+          model: aiClient.defaultModel
+        };
+        await turnRequests.update(claim, { meta: receipt });
+        streamWriter.sendMeta(receipt);
+        streamed = true;
+
+        const excludedToolNames = new Set();
+        const toolFailures = [];
+        const toolSuccesses = [];
+
+        const preflightTools = resolvePreflightTools(toolSet.tools, source.input);
+        for (const [index, tool] of preflightTools.entries()) {
+          const toolCall = {
+            id: `assistant_preflight_${index + 1}`,
+            name: tool.name,
+            arguments: "{}"
+          };
+          messages.push(buildAssistantToolCallMessage([toolCall]));
+          const preflightFailures = await executeToolCalls([toolCall], {
+            toolFailures,
+            toolSuccesses
+          });
+          for (const failure of preflightFailures) {
             const toolName = normalizeText(failure?.name);
             if (toolName) {
               excludedToolNames.add(toolName);
             }
           }
         }
-      }
 
-      return recoverWithoutTools({
-        reason: toolFailures.length > 0 ? "tool_failure" : "max_tool_rounds",
-        toolFailures,
-        toolSuccesses
-      });
-    } catch (error) {
-      const aborted = isAbortError(error);
-      const status = aborted ? "aborted" : "failed";
+        for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+          const roundToolDescriptors = toolSet.tools.filter(
+            (tool) => !excludedToolNames.has(normalizeText(tool.name))
+          );
+          const roundToolSchemas = roundToolDescriptors.map((tool) => serviceToolCatalog.toOpenAiToolSchema(tool));
 
-      if (streamed) {
-        await transcriptService.completeConversation(
-          assistantSurface,
-          conversationId,
-          {
-            status
-          },
-          {
-            context: assistantContext,
-            workspace
+          const completionStream = await aiClient.createChatCompletionStream({
+            messages,
+            tools: roundToolSchemas,
+            signal: options.abortSignal
+          });
+
+          const completion = await consumeResponse(completionStream);
+
+          const toolCalls = completion.toolCalls.filter((entry) => entry.name);
+          if (toolCalls.length < 1) {
+            const finalMessageText = normalizeText(sanitizeAssistantMessageText(completion.assistantText));
+            if (finalMessageText && !isAssistantProgressOnlyText(finalMessageText)) {
+              return completeWithAssistantMessage(finalMessageText, {
+                metadata: toolFailures.length > 0
+                  ? {
+                      recoveryReason: "tool_failure",
+                      toolFailureCount: toolFailures.length
+                    }
+                  : {}
+              });
+            }
+
+            messages.push({
+              role: "system",
+              content: COMPLETION_INSTRUCTION
+            });
+            continue;
           }
-        );
 
-        streamWriter.sendError({
-          type: ASSISTANT_STREAM_EVENT_TYPES.ERROR,
-          messageId: source.messageId,
-          code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),
-          message: aborted ? "Assistant request was cancelled." : String(error?.message || "Assistant request failed."),
-          status: aborted ? 499 : Number(error?.status || error?.statusCode || 500)
+          messages.push(buildAssistantToolCallMessage(toolCalls));
+
+          const roundFailures = await executeToolCalls(toolCalls, {
+            toolFailures,
+            toolSuccesses
+          });
+
+          if (roundFailures.length > 0) {
+            for (const failure of roundFailures) {
+              const toolName = normalizeText(failure?.name);
+              if (toolName) {
+                excludedToolNames.add(toolName);
+              }
+            }
+          }
+        }
+
+        return recoverWithoutTools({
+          reason: toolFailures.length > 0 ? "tool_failure" : "max_tool_rounds",
+          toolFailures,
+          toolSuccesses
         });
+      } catch (error) {
+        const aborted = isAbortError(error);
+        const status = aborted ? "aborted" : "failed";
 
-        streamWriter.sendDone({
-          type: ASSISTANT_STREAM_EVENT_TYPES.DONE,
-          messageId: source.messageId,
-          status
-        });
+        if (streamed) {
+          await transcriptService.completeConversation(
+            assistantSurface,
+            conversationId,
+            {
+              status
+            },
+            {
+              context: assistantContext,
+              workspace
+            }
+          );
 
-        return {
-          conversationId,
-          messageId: source.messageId,
-          status
-        };
+          streamWriter.sendError({
+            type: ASSISTANT_STREAM_EVENT_TYPES.ERROR,
+            messageId: source.messageId,
+            code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),
+            message: aborted ? "Assistant request was cancelled." : String(error?.message || "Assistant request failed."),
+            status: aborted ? 499 : Number(error?.status || error?.statusCode || 500)
+          });
+
+          streamWriter.sendDone({
+            type: ASSISTANT_STREAM_EVENT_TYPES.DONE,
+            messageId: source.messageId,
+            status
+          });
+
+          return {
+            conversationId,
+            messageId: source.messageId,
+            status
+          };
+        }
+
+        throw error;
       }
-
-      throw error;
     }
   }
 

@@ -1,10 +1,10 @@
 <template>
   <section class="assistant-conversation" :aria-label="label">
     <AssistantTranscript
-      v-bind="adapter.conversation" :working="working" class="assistant-conversation__transcript"
+      v-bind="conversation" :working="working" class="assistant-conversation__transcript"
       @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
-      @resend-turn="adapter.actions?.resend?.($event)" @cancel-turn="adapter.actions?.cancel?.($event)"
-      @edit-turn="adapter.actions?.edit?.($event)" @link-click="adapter.actions?.openLink?.($event)"
+      @resend-turn="resend($event)" @cancel-turn="cancel($event)"
+      @edit-turn="edit($event)" @link-click="adapter.actions?.openLink?.($event)"
     >
       <template v-for="name in transcriptSlots" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
     </AssistantTranscript>
@@ -56,7 +56,7 @@
           </slot>
         </template>
         <template #footer>
-          <AssistantComposerActions ref="delivery" :state="{ ...adapter.composer, canSend }" @submit="submit" @stop="stop">
+          <AssistantComposerActions ref="delivery" :state="{ ...adapter.composer, pending, canSend }" @submit="submit" @stop="stop">
             <AssistantModelControl
               v-if="adapter.models && adapter.models.enabled !== false" v-model="modelsOpen" v-bind="adapter.models"
               @select-provider="adapter.models.selectProvider?.($event)" @select-model="adapter.models.selectModel?.($event)"
@@ -68,13 +68,13 @@
             />
             <slot
               v-if="configurationMode !== 'hidden'" name="configuration"
-              :configuration="configuration" :disabled="configurationMode !== 'editable' || adapter.composer.pending"
+              :configuration="configuration" :disabled="configurationMode !== 'editable' || pending"
               :update="updateConfiguration"
             >
               <v-select
                 v-for="field in configurationFields" :key="field.name"
                 :model-value="configuration[field.name]" :label="field.label" :items="field.items"
-                :disabled="configurationMode !== 'editable' || adapter.composer.pending"
+                :disabled="configurationMode !== 'editable' || pending"
                 density="compact" hide-details variant="outlined" class="assistant-conversation__setting"
                 @update:model-value="updateConfiguration({ ...configuration, [field.name]: $event })"
               />
@@ -91,7 +91,7 @@
   </section>
 </template>
 <script setup>
-import { computed, ref, useId, useSlots } from "vue";
+import { computed, ref, useId, useSlots, watch } from "vue";
 import { mdiPaperclip } from "@mdi/js";
 import AssistantTranscript from "./AssistantTranscript.vue";
 import AssistantPromptInput from "./AssistantPromptInput.vue";
@@ -115,13 +115,22 @@ const fileInput = ref(null);
 const modelsOpen = ref(false);
 const delivery = ref(null);
 const statusId = `assistant-status-${useId()}`;
-const working = computed(() => props.adapter.conversation.working ?? Boolean(
-  props.adapter.composer?.canStop || props.adapter.conversation.turns?.some(turn => turn.pending)
-));
+const conversation = computed(() => {
+  const saved = props.adapter.conversation;
+  if (!props.adapter.delivery) return saved;
+  const turns = props.adapter.delivery.turns(saved.turns || []);
+  return { ...saved, turns, welcomeMessage: turns.length ? "" : saved.welcomeMessage };
+});
+watch(() => [props.adapter.delivery, props.adapter.conversation.turns], ([controller, turns]) => {
+  controller?.reconcile(turns || []);
+}, { immediate: true });
+const pending = computed(() => Boolean(props.adapter.delivery?.state.sending || props.adapter.composer?.pending));
+const working = computed(() => conversation.value.working ?? (!pending.value && Boolean(
+  props.adapter.composer?.canStop || conversation.value.turns?.some(turn => turn.pending)
+)));
 const activity = computed(() => props.adapter.activity ?? {
   label: props.adapter.composer?.stopPending ? "Stopping…"
-    : working.value
-      ? "Assistant is working…" : props.adapter.composer?.pending ? "Sending to assistant…" : ""
+    : pending.value ? "Sending to assistant…" : working.value ? "Assistant is working…" : ""
 });
 const suggestionPreview = computed(() => !props.adapter.composer?.draft && props.adapter.suggestions?.visible
   ? props.adapter.suggestions.preview : "");
@@ -130,7 +139,28 @@ const attachmentState = computed(() => ({
   count: attachmentsEnabled.value ? props.adapter.attachments.queueItems?.length || 0 : 0,
   canSubmit: !attachmentsEnabled.value || props.adapter.attachments.canSubmit !== false
 }));
-const canSend = computed(() => props.adapter.composer?.canSend && attachmentState.value.canSubmit);
+const canSend = computed(() => !pending.value && props.adapter.composer?.canSend && attachmentState.value.canSubmit);
+async function resend(id) {
+  if (props.adapter.actions?.resend) return props.adapter.actions.resend(id);
+  const controller = props.adapter.delivery;
+  const payload = controller?.find(id)?.payload;
+  const attachments = props.adapter.attachments;
+  try {
+    const response = await controller?.resend(id);
+    clearAcceptedAttachments(response, payload, attachments);
+    return response;
+  }
+  catch { /* The delivery controller retains the error beside the failed message. */ }
+}
+function cancel(id) {
+  return props.adapter.actions?.cancel ? props.adapter.actions.cancel(id) : props.adapter.delivery?.cancel(id);
+}
+function edit(id) {
+  if (props.adapter.actions?.edit) return props.adapter.actions.edit(id);
+  if (!props.adapter.actions?.setDraft) return;
+  const draft = props.adapter.delivery?.edit(id, props.adapter.composer?.draft || "");
+  if (draft != null) { props.adapter.actions.setDraft(draft); input.value?.focus(); }
+}
 function attachmentEvent(method, event) {
   if (attachmentsEnabled.value) return props.adapter.attachments[method]?.(event);
 }
@@ -149,17 +179,42 @@ function dismissSuggestions() {
   props.adapter.suggestions?.dismiss();
   input.value?.focus();
 }
-function submit() {
-  if (!canSend.value) return;
-  return props.adapter.actions.submit({ configuration: props.configuration, attachments: attachmentsEnabled.value ? props.adapter.attachments.attachments.map(item => ({ ...item })) : [] });
+function clearAcceptedAttachments(response, payload, attachments) {
+  if (response !== false && response?.ok !== false && payload?.attachmentIds?.length) {
+    attachments?.clearAttachments({ accepted: true, attachmentIds: payload.attachmentIds });
+  }
 }
+async function submit() {
+  if (!canSend.value) return;
+  const attachments = props.adapter.attachments;
+  const files = attachmentsEnabled.value ? props.adapter.attachments.attachments.map(item => ({ ...item })) : [];
+  if (props.adapter.actions?.submit) return props.adapter.actions.submit({ configuration: props.configuration, attachments: files });
+  const controller = props.adapter.delivery;
+  if (!controller || !props.adapter.actions?.setDraft) return;
+  const message = String(props.adapter.composer.draft || "").trim() ||
+    (files.length ? props.adapter.composer.attachmentMessage || "Please review the attached files." : "");
+  if (!message) return;
+  const payload = {
+    ...props.adapter.composer.payload,
+    configuration: { ...props.configuration },
+    message,
+    ...(files.length ? { attachmentIds: files.map(file => file.attachmentId), displayAttachments: files } : {})
+  };
+  props.adapter.actions.setDraft("");
+  try {
+    const response = await controller.send(payload);
+    clearAcceptedAttachments(response, payload, attachments);
+    return response;
+  } catch { return false; /* Delivery retains the failed message and its actions. */ }
+}
+
 function stop() {
   const state = props.adapter.composer;
   if (!state?.canStop || state.stopDisabled || state.stopPending) return;
   return props.adapter.actions.stop();
 }
 function updateConfiguration(value) {
-  if (props.configurationMode !== "editable" || props.adapter.composer?.pending) return;
+  if (props.configurationMode !== "editable" || pending.value) return;
   return props.adapter.actions?.updateConfiguration?.(value);
 }
 defineExpose({ focus: () => input.value?.focus(), submit, stop });

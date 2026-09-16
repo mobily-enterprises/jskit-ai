@@ -1,3 +1,4 @@
+import { createMemoryTurnRequests } from "../../test/support/memoryTurnRequests.js";
 import { createChatService } from "../../src/server/services/chatService.js";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
@@ -12,6 +13,7 @@ export default defineConfig({
       const streams = [];
       const requests = [];
       const transcript = [];
+      const turnRequests = createMemoryTurnRequests();
       let realService = false;
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://fixture");
@@ -58,6 +60,7 @@ export default defineConfig({
             });
             stream.advance = parameters => release(parameters);
             const service = createChatService({
+              turnRequests,
               aiClientFactory: { async resolveClient(_surface, { integrationId }) {
                 return { enabled: true, provider: "fixture", defaultModel: integrationId, supportsAttachments: true,
                   async *createChatCompletionStream({ messages }) {

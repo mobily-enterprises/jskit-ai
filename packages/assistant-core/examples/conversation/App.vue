@@ -20,7 +20,7 @@
 </template>
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
-import { AssistantConversationElement, AssistantAttachmentPreview, AssistantMessageAttachments, useAssistantAttachments, useAssistantSuggestions } from "@jskit-ai/assistant-core/client/conversation";
+import { createAssistantMessageDelivery, AssistantConversationElement, AssistantAttachmentPreview, AssistantMessageAttachments, useAssistantAttachments, useAssistantSuggestions } from "@jskit-ai/assistant-core/client/conversation";
 
 const turns = ref([]), draft = ref(""), loading = ref(true), pending = ref(false), error = ref("");
 const accepted = ref(false);
@@ -75,10 +75,9 @@ async function reload() {
   finally { if (!disposed) loading.value = false; }
 }
 
-async function submit({ configuration: selectedConfiguration, attachments: selectedFiles }) {
-  if (pending.value || (!draft.value.trim() && !selectedFiles.length)) return;
-  const draftSnapshot = draft.value;
-  const text = draftSnapshot || "Please review the attached files.";
+const delivery = createAssistantMessageDelivery({ deliver });
+
+async function deliver(payload) {
   pending.value = true;
   accepted.value = false;
   error.value = "";
@@ -87,30 +86,48 @@ async function submit({ configuration: selectedConfiguration, attachments: selec
   try {
     const response = await fetch("/api/messages", {
       method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-      body: JSON.stringify({ messageId: crypto.randomUUID(), text, configuration: selectedConfiguration, integrationId: integrationId.value, attachmentIds: selectedFiles.map(file => file.attachmentId) })
+      body: JSON.stringify({ ...payload, text: payload.message })
     });
     if (!response.ok) throw new Error((await response.json()).error || "Could not send.");
-    if (draft.value === draftSnapshot) draft.value = "";
-    const reader = response.body.getReader(), decoder = new TextDecoder();
-    let buffer = "";
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let newline;
-        while ((newline = buffer.indexOf("\n")) >= 0) {
-          const event = JSON.parse(buffer.slice(0, newline));
-          buffer = buffer.slice(newline + 1);
-          if (disposed) continue;
-          if (event.type === "accepted") { accepted.value = true; attachments.clearAttachments({ accepted: true, attachmentIds: selectedFiles.map(file => file.attachmentId) }); }
-          if (event.type === "snapshot") turns.value = event.turns;
-          if (event.type === "error") error.value = event.message;
+    const admission = Promise.withResolvers();
+    void readStream(response, controller, admission);
+    return await admission.promise;
+  } catch (failure) {
+    pending.value = false;
+    request = null;
+    throw failure;
+  }
+}
+
+async function readStream(response, controller, admission) {
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline;
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        const event = JSON.parse(buffer.slice(0, newline));
+        buffer = buffer.slice(newline + 1);
+        if (disposed) continue;
+        if (event.type === "accepted") { accepted.value = true; admission.resolve({ ok: true }); }
+        if (event.type === "snapshot") turns.value = event.turns;
+        if (event.type === "error") {
+          if (accepted.value) error.value = event.message;
+          else admission.reject(new Error(event.message));
         }
       }
-    } finally { reader.releaseLock(); }
-  } catch (failure) { if (!disposed) error.value = failure.message; }
-  finally { if (!disposed) pending.value = false; request = null; }
+    }
+  } catch (failure) {
+    if (accepted.value && !disposed) error.value = failure.message;
+    admission.reject(failure);
+  } finally {
+    admission.reject(new Error("The stream ended before the message was accepted."));
+    reader.releaseLock();
+    if (request === controller) { pending.value = false; request = null; }
+  }
 }
 
 async function stop() {
@@ -121,6 +138,7 @@ async function stop() {
 }
 
 const adapter = reactive({
+  delivery,
   attachments,
   suggestions,
   models: computed(() => modelChoices.value.length && configurationMode.value !== "hidden" ? {
@@ -134,17 +152,17 @@ const adapter = reactive({
   } : null),
   conversation: { turns, loading, visible: true, assistantLabel: "Assistant", scrollKey: "example" },
   composer: {
-    draft, pending: computed(() => pending.value && !accepted.value), submitOnEnter: true, submitOnModifierEnter: true,
+    draft, payload: computed(() => ({ integrationId: integrationId.value })), pending: computed(() => pending.value && !accepted.value), submitOnEnter: true, submitOnModifierEnter: true,
     canSend: computed(() => !loading.value && !pending.value && Boolean(draft.value.trim() || attachments.attachments.length)),
     canStop: pending, placeholder: "Ask a question…"
   },
-  actions: { reload, submit, stop,
+  actions: { reload, stop,
     setDraft: (value) => { draft.value = value; },
     updateConfiguration: (value) => { configuration.value = value; }
   }
 });
 onMounted(reload);
-onBeforeUnmount(() => { disposed = true; request?.abort(); });
+onBeforeUnmount(() => { disposed = true; delivery.reset(); request?.abort(); });
 </script>
 <style>
 html, body, #app { margin: 0; height: 100%; }
