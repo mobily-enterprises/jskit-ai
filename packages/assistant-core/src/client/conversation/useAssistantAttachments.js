@@ -39,13 +39,9 @@ function assistantAttachmentFilesFromDropEvent(event) {
   return assistantAttachmentFiles(dataTransfer?.files);
 }
 
-function assistantAttachmentFilesFromClipboardItems(items = []) {
-  return assistantAttachmentFilesFromTransferItems(items);
-}
-
 function assistantAttachmentFilesFromPasteEvent(event) {
   const clipboardData = event?.clipboardData;
-  const itemFiles = assistantAttachmentFilesFromClipboardItems(clipboardData?.items);
+  const itemFiles = assistantAttachmentFilesFromTransferItems(clipboardData?.items);
   if (itemFiles.length > 0) {
     return itemFiles;
   }
@@ -103,13 +99,6 @@ function attachmentIdentity(attachment = {}) {
     attachment?.fileName ||
     ""
   );
-}
-
-async function deliverUploadedAttachments(onUploaded, uploaded = []) {
-  if (uploaded.length > 0) {
-    return await onUploaded(uploaded);
-  }
-  return null;
 }
 
 const ASSISTANT_ATTACHMENT_MAX_BYTES = 100_000_000;
@@ -400,7 +389,7 @@ function useAssistantAttachments({
       attachments.value.push(receipt);
     }
     try {
-      const handoff = await deliverUploadedAttachments(onUploaded, [receipt]);
+      const handoff = await onUploaded([receipt]);
       const accepted = handoff?.accepted === true;
       if (row.activeHandoffToken !== token || !row.retained || row.phase === "cancelled") {
         removeReadyReceipt(row);
