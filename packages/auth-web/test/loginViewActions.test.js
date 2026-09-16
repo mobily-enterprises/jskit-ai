@@ -55,6 +55,44 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
   };
 }
 
+for (const authenticated of [true, false]) {
+  test(`login initialization ${authenticated ? "redirects an existing session" : "keeps the signed-out form"}`, async (t) => {
+    const state = createMinimalLoginViewState("/w/acme/bookings?date=2026-09-16");
+    const destinations = [];
+    const originalWindow = globalThis.window;
+    globalThis.window = {
+      location: {
+        href: "https://example.com/auth/login",
+        replace: (path) => destinations.push(path)
+      }
+    };
+    t.after(() => {
+      if (originalWindow === undefined) delete globalThis.window;
+      else globalThis.window = originalWindow;
+      clearAuthCsrfTokenCache();
+    });
+    const fetch = t.mock.method(globalThis, "fetch", async (url) => {
+      assert.equal(url, "/api/session");
+      return createJsonResponse({ authenticated, csrfToken: "csrf-session" });
+    });
+    const actions = useLoginViewActions({
+      state,
+      validation: {},
+      queryClient: {
+        fetchQuery: ({ queryFn }) => queryFn()
+      },
+      errorRuntime: { report: (entry) => assert.fail(entry.message) }
+    });
+
+    await actions.initializeOnMounted();
+
+    assert.equal(fetch.mock.callCount(), 1);
+    assert.deepEqual(destinations, authenticated ? [state.requestedReturnTo.value] : []);
+    assert.equal(state.loading.value, false);
+    assert.equal(state.errorMessage.value, "");
+  });
+}
+
 test("useLoginViewActions preserves the intended destination when starting OAuth sign-in", () => {
   const state = createMinimalLoginViewState("/w/acme/workouts/2026-05-07?tab=chart");
   const assignedTargets = [];

@@ -60,6 +60,10 @@ a user as a side effect.
 - Public auth routes do not require an existing session.
 - Protected routes use the framework auth policy rather than page-local checks.
 - Login, sign-out, and reset views use the public auth components/composables.
+- A custom login view must preserve the default view's initial session check:
+  already authenticated people return to the validated requested destination.
+  Process incoming login callbacks before that redirect, and keep signed-out
+  people on the login form. This also covers managed preview identity changes.
 - Profile placements are conditional on the current authenticated state.
 - Transient mutation failures use the application toast; initial load failures
   remain in the affected surface.
@@ -81,6 +85,8 @@ placements, and post-auth destinations while retaining the runtime contracts.
 
 Exercise failed and successful login, sign-out, reset, protected navigation,
 keyboard interaction, warm-cache return navigation, and browser refresh.
+Open the login route with an existing authenticated session and confirm it
+returns to the requested screen; repeat signed out and confirm the form remains.
 
 ## Avoid
 
