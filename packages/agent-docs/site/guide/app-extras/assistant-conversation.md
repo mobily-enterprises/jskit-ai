@@ -31,7 +31,7 @@ import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/co
 
 const adapter = reactive({
   conversation: {
-    turns, visible: true, loading, error, scrollKey: conversationId,
+    turns, working, visible: true, loading, error, scrollKey: conversationId,
     assistantLabel: "Assistant", hasMoreBefore, loadingMore, loadMoreError
   },
   composer: {
@@ -86,6 +86,18 @@ the turn's `thinking`, `commentary`, and `assistant` fields. Keep IDs stable acr
 updates and pagination. The UI never uses provider-internal turn IDs to decide
 application ownership. An optimistic turn can carry
 `optimistic: { id, status: "failed", error }`.
+
+Reasoning is grouped by adjacency in the displayed message sequence, across
+storage rows. A user message, commentary, answer or system message separates
+groups. Provider turn and conversation IDs do not define progress groups.
+This also groups older saved history without rewriting it.
+
+Supply `conversation.working` from the application's current execution state,
+including assistant-only continuation. While working, the trailing reasoning
+group previews its latest two summaries (`progressPreviewLimit` changes this).
+Other groups start collapsed. Explicit expansion survives new summaries and
+history loading; changing `scrollKey` resets it. When `working` is omitted, the
+element uses `composer.canStop` or a turn's `pending` for existing adapters.
 
 For an existing flat history, import `conversationTurnsFromMessages` from
 `@jskit-ai/assistant-core/shared/conversation`. It groups ordered messages,
@@ -156,7 +168,7 @@ Configuration UI never grants backend permissions.
 ### Working status and suggestions
 
 The default support row immediately shows “Assistant is working…” when
-`composer.canStop` or a turn's `pending` is true, “Sending to assistant…” during
+`conversation.working` is true (or the fallback above), “Sending to assistant…” during
 admission, and “Stopping…” while `stopPending`. Supply
 `adapter.activity = { label, animated: true }` to choose the text, or use the
 `activity` slot to replace its visual content. An empty label suppresses it.

@@ -1,7 +1,7 @@
 <template>
   <section class="assistant-conversation" :aria-label="label">
     <AssistantTranscript
-      v-bind="adapter.conversation" class="assistant-conversation__transcript"
+      v-bind="adapter.conversation" :working="working" class="assistant-conversation__transcript"
       @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
       @resend-turn="adapter.actions?.resend?.($event)" @cancel-turn="adapter.actions?.cancel?.($event)"
       @edit-turn="adapter.actions?.edit?.($event)" @link-click="adapter.actions?.openLink?.($event)"
@@ -115,9 +115,12 @@ const fileInput = ref(null);
 const modelsOpen = ref(false);
 const delivery = ref(null);
 const statusId = `assistant-status-${useId()}`;
+const working = computed(() => props.adapter.conversation.working ?? Boolean(
+  props.adapter.composer?.canStop || props.adapter.conversation.turns?.some(turn => turn.pending)
+));
 const activity = computed(() => props.adapter.activity ?? {
   label: props.adapter.composer?.stopPending ? "Stopping…"
-    : props.adapter.composer?.canStop || props.adapter.conversation.turns?.some(turn => turn.pending)
+    : working.value
       ? "Assistant is working…" : props.adapter.composer?.pending ? "Sending to assistant…" : ""
 });
 const suggestionPreview = computed(() => !props.adapter.composer?.draft && props.adapter.suggestions?.visible

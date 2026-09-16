@@ -22,6 +22,79 @@ const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "drawer", width: 360, height: 600 })
 ]);
 
+test("adjacent reasoning stays grouped across storage rows, history pages and execution changes", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const errors = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.goto(`${vite.baseURL}/?progress=1`);
+      const groups = page.locator(".assistant-progress");
+      const summaries = page.locator(".assistant-progress__message");
+      const input = page.getByRole("textbox", { name: "Message AI assistant" });
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      await expect(groups).toHaveCount(1);
+      await expect(summaries).toHaveText(["Reasoning 2", "Reasoning 3"]);
+      await input.fill("Keep my draft");
+      await input.evaluate(element => element.setSelectionRange(2, 5));
+      await external("Change storage rows");
+      await expect(groups).toHaveCount(1);
+      await expect(summaries).toHaveText(["Reasoning 2", "Reasoning 3"]);
+      await external("Change storage rows");
+      await external("Toggle working");
+      await expect(summaries).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Show all 3 progress updates" })).toBeVisible();
+      await external("Toggle working");
+      await expect(summaries).toHaveText(["Reasoning 2", "Reasoning 3"]);
+      await external("Show all 3 progress updates");
+      await expect(summaries).toHaveCount(3);
+      await external("Load older messages");
+      await expect(groups).toHaveCount(1);
+      await expect(summaries).toHaveText(["Older reasoning", "Reasoning 1", "Reasoning 2", "Reasoning 3"]);
+      await external("Append thinking");
+      await expect(summaries).toHaveCount(5);
+      await expect(input).toBeFocused();
+      await expect(input).toHaveValue("Keep my draft");
+      assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [2, 5]);
+      await external("Show latest 2 progress updates");
+      await external("Toggle working");
+      await expect(summaries).toHaveCount(0);
+      await external("Show all 5 progress updates");
+      await external("Change conversation");
+      await expect(summaries).toHaveCount(0);
+      await external("Toggle working");
+
+      // Every visible non-reasoning message separates groups, regardless of rows.
+      for (const [index, role] of ["commentary", "assistant", "user", "system"].entries()) {
+        await external(`Append ${role}`);
+        await expect(summaries).toHaveCount(0);
+        await external("Append thinking");
+        await external("Append thinking");
+        await expect(groups).toHaveCount(index + 2);
+        await expect(summaries).toHaveCount(2);
+      }
+      await external("Change storage rows");
+      await expect(groups).toHaveCount(5);
+      await expect(summaries).toHaveCount(2);
+      const bodyText = await page.locator(".assistant-transcript__body").textContent();
+      assert.ok(bodyText.indexOf("commentary 6") < bodyText.indexOf("assistant 9"));
+      assert.ok(bodyText.indexOf("assistant 9") < bodyText.indexOf("user 12"));
+      assert.ok(bodyText.indexOf("user 12") < bodyText.indexOf("system 15"));
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      assert.deepEqual(errors, []);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 async function assertResponsiveAssistant(page, viewport) {
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
   await page.goto("/");
