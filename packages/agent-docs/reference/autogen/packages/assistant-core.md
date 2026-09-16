@@ -194,12 +194,10 @@ Exports
 Local functions
 - `assistantAttachmentSessionId(sessionId)`
 - `assistantAttachmentUploadAllowed(canUpload)`
-- `assistantAttachmentFilesFromClipboardItems(items = [])`
 - `assistantAttachmentClipboardText(event)`
 - `assistantAttachmentClipboardLocalFileReference(event)`
 - `attachmentUploadError(attachment = {})`
 - `attachmentIdentity(attachment = {})`
-- `deliverUploadedAttachments(onUploaded, uploaded = [])`
 - `nextAttachmentClientId()`
 - `attachmentFileName(file = {})`
 - `attachmentUploadResult(upload = null)`
