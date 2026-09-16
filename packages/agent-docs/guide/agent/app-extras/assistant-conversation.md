@@ -420,6 +420,39 @@ These are real execution primitives, also consumed by applications with their
 own process and permission owners. They do not spawn an agent, select a user
 account, grant filesystem access or install tools.
 
+### Live native-provider text
+
+`createConversationStreams()` from `/server/conversation` holds transient output
+by an application-supplied scope. After authorizing the native thread and turn,
+call `update(scope, { turnId, messageId, role, delta })` for incremental text or
+`update(scope, { turnId, messageId, text })` for a provider snapshot. Deltas retain
+all whitespace; snapshots replace text. A changed update returns
+`{ revision, messages }`; an unchanged snapshot or a completed item returns `null`.
+Messages carry `status: "inProgress"`. Supply the same message ID to live output
+and its eventual durable writer.
+
+The Codex classifier exposes `assistant_started` (including assistant/commentary
+role) and `assistant_delta` (including raw `delta`). Start the stream item before
+its deltas to retain its role. `openCodeAssistantMessageText(message)` from
+`/server/opencode-client` reads text from the client's normalized message rows,
+preserving whitespace at the partial-text boundary.
+
+Send snapshots over the application's existing transport and include `read(scope)`
+in its authorized history read for reconnects. On the client,
+`mergeConversationStream(savedTurns, snapshot)` from `/shared/conversation`
+overlays live messages without mutating saved turns. Saved message IDs win over
+matching live messages. Consumers such as final-answer speech and answer actions
+must wait until the message no longer has `status: "inProgress"`.
+
+After successfully saving an item, call `complete(scope, messageId)` and publish
+the returned snapshot with the saved turn. Completed items reject late chunks
+until the next native turn. Call `clear(scope)` when work stops or the scope is
+retired. Applications must reject stale provider events before updating a stream;
+the buffer does not authorize events or determine which native turn is current.
+The buffer survives browser reconnects while its server process remains alive.
+Provider history and application persistence remain responsible for process-restart
+recovery; partial text is never persisted as a completed answer by this API.
+
 The Codex client takes `{ endpoint, maxMessageBytes, requestTimeoutMs,
 WebSocketImpl }`. It connects to a WebSocket or `unix://` endpoint, then
 `initialize({ clientInfo, capabilities })` performs the native handshake.

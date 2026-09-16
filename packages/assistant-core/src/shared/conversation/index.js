@@ -1,4 +1,5 @@
 export * from "./turns.js";
+export * from "./streaming.js";
 export * from "./longTextBlocks.js";
 export * from "./numberedQuestionSugar.js";
 export * from "./answerChoiceSugar.js";

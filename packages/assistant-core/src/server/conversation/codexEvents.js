@@ -347,6 +347,23 @@ function classifyCodexAppServerEvent(notification = {}) {
     turnId: codexAppServerNotificationTurnId(notification)
   };
 
+  if (method === "item/agentMessage/delta") {
+    const { delta } = codexAppServerNotificationParams(notification);
+    return {
+      ...base,
+      kind: "assistant_delta",
+      delta: typeof delta === "string" ? delta : ""
+    };
+  }
+
+  if (method === "item/started" && itemType === "agentMessage") {
+    return {
+      ...base,
+      kind: "assistant_started",
+      role: phase === "commentary" ? "commentary" : "assistant"
+    };
+  }
+
   if (method === "error") {
     return {
       ...base,

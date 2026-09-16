@@ -298,6 +298,7 @@ Local functions
 Exports
 - `createConversationTranscript`
 - `createMemoryConversationStorage`
+- `createConversationStreams`
 
 ### `src/server/conversation/memoryStorage.js`
 Exports
@@ -310,6 +311,7 @@ Exports
 
 ### `src/server/conversation/openCodeClient.js`
 Exports
+- `openCodeAssistantMessageText(message = {})`
 - `OPENCODE_RESPONSE_LIMIT_BYTES`
 - `createOpenCodeServerClient({ allowAttachmentDirectories = false, baseUrl = "", directory = "", fetchImpl = globalThis.fetch, password = "", username = "opencode" } = {})`
 - `readBoundedResponse(response, limitBytes = OPENCODE_RESPONSE_LIMIT_BYTES)`
@@ -330,6 +332,10 @@ Local functions
 - `stablePromptBody(input = {})`
 - `eventSessionId(value = null)`
 - `decodeOpenCodeEventData(value = "")`
+
+### `src/server/conversation/streams.js`
+Exports
+- `createConversationStreams({ clock = () => new Date() } = {})`
 
 ### `src/server/conversation/transcript.js`
 Exports
@@ -558,6 +564,12 @@ Exports
 Local functions
 - `numericElementValue(value)`
 
+### `src/shared/conversation/streaming.js`
+Exports
+- `mergeConversationStream(turns = [], snapshot = {})`
+Local functions
+- `messagesForTurn(turn)`
+
 ### `src/shared/conversation/thinkingText.js`
 Exports
 - `normalizeThinkingMessageText(value = "")`
@@ -696,6 +708,7 @@ Exports
 Exports
 - None
 Local functions
+- `finishStream()`
 - `finishHistory(error = "")`
 
 ### `fixtures/responsive-assistant/ConversationFixture.vue`

@@ -22,6 +22,38 @@ const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "drawer", width: 360, height: 600 })
 ]);
 
+test("streaming answers grow in one bubble, preserve drafts and settle once at every width", {
+  skip: !RUN_BROWSER_TEST, timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${vite.baseURL}/?streaming=1`);
+      const input = page.getByRole("textbox", { name: "Message AI assistant" });
+      await input.fill("Keep this draft");
+      await input.evaluate(element => element.setSelectionRange(2, 5));
+      const receive = () => page.getByRole("button", { name: "Receive text" }).evaluate(element => element.click());
+      await receive();
+      const answer = page.locator(".assistant-transcript__body").getByText("Growing answer.", { exact: true });
+      await expect(answer).toHaveCount(1);
+      await receive();
+      await expect(page.getByText("Growing answer. Growing answer.", { exact: true })).toHaveCount(1);
+      await expect(input).toBeFocused();
+      assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [2, 5]);
+      await page.getByRole("button", { name: "Finish answer" }).evaluate(element => element.click());
+      await expect(page.getByText("Growing answer. Growing answer.", { exact: true })).toHaveCount(1);
+      await expect(input).toHaveValue("Keep this draft");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("adjacent reasoning stays grouped across storage rows, history pages and execution changes", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000

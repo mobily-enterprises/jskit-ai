@@ -2,10 +2,14 @@
 import { computed, ref } from "vue";
 import AssistantConversationElement from "../../src/client/conversation/AssistantConversationElement.vue";
 import { conversationTurnsFromMessages } from "../../src/shared/conversation/turns.js";
+import { mergeConversationStream } from "../../src/shared/conversation/streaming.js";
 const draft = ref("");
 const query = new URLSearchParams(location.search);
 const controls = query.has("controls");
 const deferredHistory = query.has("history");
+const streaming = query.has("streaming");
+const liveText = ref("");
+const liveMessage = computed(() => ({ messageId: "stream-answer", role: "assistant", text: liveText.value, status: "inProgress" }));
 const scope = ref("one");
 const loadingMore = ref(false);
 const loadMoreError = ref("");
@@ -17,6 +21,11 @@ const messages = ref(Array.from({ length: 70 }, (_, index) => ({
   text: `Conversation line ${index + 1}: responsive scroll containment keeps the composer visible.\n\nMore text with **formatting**, a [link](https://example.com), and a_long_word_that_must_wrap_in_narrow_panes_without_overflow.`
 })));
 if (controls) messages.value[0].text = messages.value[0].text.repeat(4);
+if (streaming) messages.value.push({ id: "stream-question", role: "user", text: "Show the answer as it arrives." });
+function finishStream() {
+  messages.value.push({ ...liveMessage.value, status: "completed" });
+  liveText.value = "";
+}
 function finishHistory(error = "") {
   loadMoreError.value = error;
   if (!error) {
@@ -28,7 +37,7 @@ function finishHistory(error = "") {
 }
 const adapter = computed(() => ({
   conversation: {
-    turns: conversationTurnsFromMessages(messages.value), scrollKey: scope.value,
+    turns: mergeConversationStream(conversationTurnsFromMessages(messages.value), { messages: [liveMessage.value] }), scrollKey: scope.value,
     hasMoreBefore: hasMoreBefore.value, loadingMore: loadingMore.value, loadMoreError: loadMoreError.value
   },
   composer: { draft: draft.value, canSend: Boolean(draft.value.trim()), rows: 2 },
@@ -49,6 +58,10 @@ const adapter = computed(() => ({
   <v-app>
     <v-main>
       <main class="assistant-responsive-fixture">
+        <nav v-if="streaming">
+          <button @click="liveText += 'Growing answer. '">Receive text</button>
+          <button @click="finishStream">Finish answer</button>
+        </nav>
         <nav v-if="controls">
           <button @click="scope = scope === 'one' ? 'two' : 'one'">Change conversation</button>
           <button @click="messages.push({ id: `added-${messages.length}`, role: 'assistant', text: 'New reply. '.repeat(30), status: 'completed' })">Append reply</button>
