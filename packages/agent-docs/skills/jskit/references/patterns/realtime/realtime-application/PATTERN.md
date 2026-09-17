@@ -32,6 +32,8 @@ deployment needs a Redis backplane.
 - Listeners are registered through the public provider seams.
 - The status indicator is an explicit app placement, not a source mutation.
 - Event payloads do not become an undocumented second API.
+- Socket.IO owns `/socket.io`; other WebSocket routes keep their own upgrade
+  and access-check lifecycle without Socket.IO's one-second cleanup timeout.
 
 ## Framework APIs
 

@@ -31,6 +31,8 @@ deployment needs a Redis backplane.
 - Listeners are registered through the public provider seams.
 - The status indicator is an explicit app placement, not a source mutation.
 - Event payloads do not become an undocumented second API.
+- Socket.IO owns `/socket.io`; other WebSocket routes keep their own upgrade
+  and access-check lifecycle without Socket.IO's one-second cleanup timeout.
 
 ## Framework APIs
 
@@ -86,6 +88,6 @@ describe distinct lifecycle states.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/realtime@0.1.195`
+- Owner: `@jskit-ai/realtime@0.1.196`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/realtime/patterns/realtime-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/realtime/patterns/realtime-application/example)

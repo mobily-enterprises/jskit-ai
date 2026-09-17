@@ -92,6 +92,6 @@ acceptance from fixture tests. Keep larger campaign types outside this recipe.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.15`
+- Owner: `@jskit-ai/connectors-catalog@0.1.16`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/google-ads-search/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/google-ads-search/example)
