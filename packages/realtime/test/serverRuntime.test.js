@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { createServer, get } from "node:http";
 import test from "node:test";
+import { io as connectSocketIo } from "socket.io-client";
 
 import {
   REDIS_URL_ENV_KEY,
@@ -40,11 +43,57 @@ test("createSocketIoServer uses provided http server and fixed socket path", () 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].server, httpServer);
   assert.deepEqual(calls[0].options, {
+    destroyUpgrade: false,
     path: "/socket.io",
     cors: {
       origin: "*"
     }
   });
+});
+
+test("realtime leaves slow application upgrades and access denials to their route owner", { timeout: 5_000 }, async (t) => {
+  const server = createServer();
+  const sockets = new Set();
+  const timers = new Set();
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+  server.on("upgrade", (request, socket) => {
+    if (request.url.startsWith("/socket.io/")) return;
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      socket.end(request.url === "/allowed"
+        ? "HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n"
+        : "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    }, 1_200);
+    timers.add(timer);
+  });
+  const realtime = createSocketIoServer({ httpServer: server });
+  let client;
+  t.after(async () => {
+    client?.disconnect();
+    for (const timer of timers) clearTimeout(timer);
+    for (const socket of sockets) socket.destroy();
+    await closeSocketIoServer(realtime);
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  for (const [pathname, status] of [["/allowed", 101], ["/denied", 403]]) {
+    const response = await new Promise((resolve, reject) => {
+      const request = get(`${origin}${pathname}`, {
+        headers: { Connection: "Upgrade", Upgrade: "websocket" }
+      });
+      request.on("error", reject);
+      request.on("response", (reply) => { reply.resume(); resolve(reply.statusCode); });
+      request.on("upgrade", (reply, socket) => { socket.destroy(); resolve(reply.statusCode); });
+    });
+    assert.equal(response, status);
+  }
+  client = connectSocketIo(origin, { transports: ["websocket"], reconnection: false });
+  await once(client, "connect");
+  assert.equal(client.connected, true, "Socket.IO still owns its own upgrade route");
 });
 
 test("createSocketIoServer falls back to fastify.server", () => {

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.176",
+  "version": "0.1.177",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -34,8 +34,8 @@
     "@ai-sdk/perplexity": "^4.0.43",
     "@ai-sdk/togetherai": "^3.0.49",
     "@ai-sdk/xai": "^4.0.58",
-    "@jskit-ai/resource-core": "0.1.140",
-    "@jskit-ai/resource-crud-core": "0.1.140",
+    "@jskit-ai/resource-core": "0.1.141",
+    "@jskit-ai/resource-crud-core": "0.1.141",
     "@mdi/js": "^7.4.47",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.101",
@@ -44,8 +44,8 @@
     "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.196",
-    "@jskit-ai/kernel": "0.1.198",
+    "@jskit-ai/http-runtime": "0.1.197",
+    "@jskit-ai/kernel": "0.1.199",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/payments-web",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "type": "module",
   "description": "Application-owned billing views for JSKIT Vue applications.",
   "exports": {

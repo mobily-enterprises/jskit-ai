@@ -33,6 +33,8 @@ function createSocketIoServer({
   });
   const source = options && typeof options === "object" && !Array.isArray(options) ? options : {};
   const normalizedOptions = {
+    // Application WebSocket routes may still be authorizing their upgrades.
+    destroyUpgrade: false,
     ...source,
     path: SOCKET_IO_PATH
   };
