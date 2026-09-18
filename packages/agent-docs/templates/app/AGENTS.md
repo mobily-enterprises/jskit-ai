@@ -14,7 +14,9 @@ Do not install an unrelated runtime package only to read documentation.
 
 Before adding or changing browser-test setup, read `patterns/ui-testing.md` in
 this package. Routine tests reuse the isolated schema and prepare fixtures once
-per suite invocation. Require repeat-start regression proof; do not rebuild the
+per suite invocation. Keep `BROWSER_TEST_DB_NAME` distinct from disposable
+`TEST_DB_NAME` and prove that disposable cleanup preserves browser migrations.
+Require repeat-start regression proof; do not rebuild the
 database or production frontend for each focused browser check.
 
 Pages never start with a page header, title block, welcome heading, or other

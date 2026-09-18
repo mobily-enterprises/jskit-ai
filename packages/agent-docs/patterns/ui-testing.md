@@ -33,6 +33,11 @@ seed. MySQL applications start from the `database/mysql-application` pattern's
 proves unchanged migration history, removal of stale data, pending migration
 application, and isolation from the normal database.
 
+Use `BROWSER_TEST_DB_NAME` for that retained schema and a different
+`TEST_DB_NAME` for disposable integration and migration tests. Reject a name
+collision before connecting. Include disposable cleanup between browser starts
+in the regression: one test's teardown must not erase another test's migrations.
+
 Do not drop/recreate the database, replay completed migrations, build every
 module fixture, or run a production frontend build for each focused check.
 Choose small fixture sets for the selected suite. Fresh-schema migration tests

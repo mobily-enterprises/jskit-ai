@@ -47,17 +47,24 @@ Knex discovers package-owned migrations from the installed dependency graph.
 `example/knexfile.js` loads an optional local `.env` and fixes the MySQL dialect.
 `example/scripts/prepare-database.js` is the portable migrate-then-seed
 entrypoint for managed sessions and deployments. `example/.env.example` names
-the five connection values without a secret.
+the connection values and separate test databases without a secret.
 
 `example/tests/browser/database.js` is the application-owned browser preparation
-helper. It requires the exact `TEST_DB_NAME`, rejects the ordinary database,
+helper. It requires the exact `BROWSER_TEST_DB_NAME`, rejects the ordinary and
+disposable `TEST_DB_NAME` databases,
 retains the schema and migration ledger, applies pending migrations, then clears
 test rows and calls one explicit fixture seed transaction. The seed must restore
 any migration-owned baseline rows the app needs. Call it once before starting
 the isolated test server, never in `beforeEach`. It closes its connections without
 dropping the database. The launcher selects that database only for its own server
 and identity process, disables external effects, and proves actual server identity
-before the suite writes data. It must not edit the normal environment.
+before the suite writes data. It must not edit the normal environment. Provision
+both test databases with exact grants for the application account. A disposable
+integration or migration test must never drop the browser database.
+
+Startup reports whether the schema exists, the number of migrations applied,
+and the migration, fixture-reset and seed durations. Use those measurements to
+diagnose a slow start before rerunning a browser case.
 
 Keep fixtures small for the selected test scope. Run related cases in one suite
 invocation. Use the development launcher for ordinary browser checks; test the
@@ -80,7 +87,7 @@ it as `seed` to `prepareDatabaseFromApp()`.
 - Run `npm run db:migrate:status` and the application verification command.
 - Exercise one transaction and one negative connection case.
 - When a seed exists, run `db:prepare` twice and require the second run to be safe.
-- For browser preparation, prove two consecutive starts: the second applies no
+- For browser preparation, run a disposable test between two starts: the second applies no
   old migrations, stale fixture data is removed, baseline rows are restored,
   foreign-key checks remain enabled, and the normal database is unchanged.
   Also prove that a new pending migration is applied. Keep this as a regression
@@ -100,6 +107,6 @@ package metadata.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/database-runtime-mysql@0.1.198`
+- Owner: `@jskit-ai/database-runtime-mysql@0.1.199`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/database-runtime-mysql/patterns/mysql-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/database-runtime-mysql/patterns/mysql-application/example)

@@ -166,10 +166,15 @@ database migration table are sufficient.
 
 Keep the test schema and migration history between routine browser runs. The
 MySQL application pattern includes `example/tests/browser/database.js`: it
-validates the exact `TEST_DB_NAME`, applies pending migrations, clears test rows,
+validates the exact `BROWSER_TEST_DB_NAME`, applies pending migrations, clears test rows,
 and runs one explicit fixture seed. Restore migration-owned baseline rows in
 that seed. Prove repeat preparation, stale-data removal, pending migrations, and
-isolation from the normal database before adopting the launcher.
+isolation from the normal database before adopting the launcher. Give disposable
+integration and migration tests their own `TEST_DB_NAME`; require the two names
+to differ and provision exact grants for each. Run disposable cleanup between
+two browser preparations in the regression test to prove it cannot erase the
+reusable schema. Startup reports applied migration counts and phase durations
+so a cold rebuild is visible to the caller.
 
 Run related checks in one suite invocation and prepare only their required
 fixtures. The application foundations use the development launcher for ordinary

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/connector-google-calendar",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Google Calendar account configuration and event operations for JSKIT connectors.",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "./server": "./src/server/provider.js"
   },
   "dependencies": {
-    "@jskit-ai/connectors-core": "0.1.17",
+    "@jskit-ai/connectors-core": "0.1.18",
     "json-rest-schema": "^1.0.17"
   },
   "jskit": {
@@ -30,6 +30,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.200"
+    "@jskit-ai/kernel": "0.1.201"
   }
 }
