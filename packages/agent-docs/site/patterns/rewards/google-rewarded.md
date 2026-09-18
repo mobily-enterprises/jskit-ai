@@ -69,6 +69,6 @@ Check duplicate grant and expired unlock behavior before enabling the feature.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/rewarded-web@0.1.137`
+- Owner: `@jskit-ai/rewarded-web@0.1.138`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/rewarded-web/patterns/google-rewarded/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/rewarded-web/patterns/google-rewarded/example)

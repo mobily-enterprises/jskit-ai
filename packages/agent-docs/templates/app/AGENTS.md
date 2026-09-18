@@ -19,6 +19,16 @@ per suite invocation. Keep `BROWSER_TEST_DB_NAME` distinct from disposable
 Require repeat-start regression proof; do not rebuild the
 database or production frontend for each focused browser check.
 
+Keep verification output small. Run the relevant cases together, save complete
+stdout/stderr to local artifacts, and preserve the exit status. Report counts,
+duration, failed case names and artifact paths; read only actionable failure
+excerpts. Do not dump full JSON/TAP reports, passing assertions, request logs or
+traces into agent context. Wait on the existing run instead of restarting it or
+repeatedly printing unchanged output. Keep startup and cleanup errors visible.
+For browser evidence, use existing automated cases, targeted locators and
+meaningful visual checkpoints. Avoid a full DOM snapshot or screenshot after
+every action; retain the required viewport, identity and security checks.
+
 Pages never start with a page header, title block, welcome heading, or other
 standalone heading copy. Start with the useful content and actions. If the user
 wants a heading, they will ask for or add one.

@@ -46,6 +46,19 @@ fixture, and server startup time before retrying a slow launch or raising its
 deadline. When a host supplies a managed target, use its scoped suite command so
 one startup serves the whole batch and cleanup restores normal Preview.
 
+## Keep browser evidence focused
+
+Use existing automated cases for repeat verification; reserve interactive
+browser exploration for unknown behavior and diagnosis. Batch related actions
+and assertions in one test or browser evaluation, returning only the values
+needed to assess them. Do not print DOM trees, component state or network
+responses wholesale. Inspect the affected region or locator before requesting
+a full-page snapshot. Capture screenshots at meaningful visual checkpoints
+or failures, not after every click; retain every required viewport check.
+Reuse the browser/context when isolation permits, but preserve separate users,
+roles and clean contexts where the test depends on them. After a timeout,
+inspect the existing failure and resource evidence before a justified rerun.
+
 ## Preserve baseline tests
 
 Foundation-pattern baseline tests are app-owned and customizable. Adapt infrastructure
@@ -109,11 +122,29 @@ Do not call `loginAsExistingUser()` against a managed preview. It is deliberatel
 
 ## Run verification
 
-Run the focused Playwright command directly:
+Run the focused Playwright command and keep the complete output in a local
+artifact. Preserve its exit status; a pipe through `tail` must not turn a failed
+test into a successful command. For an unmanaged project, for example:
 
 ```bash
-npx playwright test tests/e2e/contacts.spec.ts -g filters
+npx playwright test tests/e2e/contacts.spec.ts -g filters --reporter=dot > /tmp/contacts-test.log 2>&1
 ```
+
+On Vibe64, use `vibe64-playwright --target <declared-test-target> test ...`
+with the same file/case selection and output redirection. Do not replace the
+managed launcher with the unmanaged example.
+
+Read a compact summary first: exit status, passed/failed/skipped counts,
+duration and artifact paths. On failure, extract the affected case and its
+actionable error; expand the matching log or trace only if that evidence is
+insufficient. Do not feed whole JSON/TAP reports, passing assertions, HTTP
+request logs, screenshots or traces back into agent context. Structured JSON
+reports may be captured to a file when needed; parse their result fields rather
+than printing the document. A wrapper may append diagnostics after the JSON
+object: retain those diagnostics and the original exit status too. Startup,
+resource and cleanup failures must remain visible even if assertions passed.
+Wait on the same invocation and inspect new output only when it adds evidence;
+do not restart tests to recover logs or poll unchanged output repeatedly.
 
 Use the application's relevant focused checks. Do not automatically follow each
 browser check with a full lint, build, or test sweep; follow its verification policy.
