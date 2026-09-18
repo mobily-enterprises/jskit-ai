@@ -119,6 +119,7 @@ jobs:
           DB_PASSWORD: native_test_password
           DB_NAME: application
           TEST_DB_NAME: browser_pattern_test
+          BROWSER_TEST_DB_NAME: browser_pattern_browser_test
         run: node --test --test-concurrency=1 packages/database-runtime-mysql/test/browserDatabasePattern.test.js
 
   deploy-docs:
