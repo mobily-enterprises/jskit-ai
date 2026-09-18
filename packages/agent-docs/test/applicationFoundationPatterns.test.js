@@ -126,6 +126,21 @@ test("application foundations own one exact development command", async () => {
   }
 });
 
+test("foundation browser configurations reuse the development launcher or the managed server", async () => {
+  for (const patternName of FOUNDATION_NAMES) {
+    const configPath = path.join(PATTERNS_ROOT, patternName, "example", "playwright.config.mjs");
+    for (const baseURL of ["", "http://127.0.0.1:4321"]) {
+      const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
+        const { default: config } = await import(${JSON.stringify(configPath)});
+        console.log(JSON.stringify({ command: config.webServer?.command, baseURL: config.use.baseURL }));
+      `], { env: { ...process.env, PLAYWRIGHT_BASE_URL: baseURL } });
+      const config = JSON.parse(stdout);
+      assert.equal(config.command, baseURL ? undefined : "npm run develop");
+      assert.equal(config.baseURL, baseURL || "http://127.0.0.1:4173");
+    }
+  }
+});
+
 test("application foundations keep linked packages on mutable Vite source paths", async () => {
   for (const patternName of FOUNDATION_NAMES) {
     const viteConfigSource = await readFile(
