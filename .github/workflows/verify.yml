@@ -85,11 +85,48 @@ jobs:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
         run: node --test packages/shell-web/test/adaptiveShell.browser.test.js
 
+  browser-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: application
+          MARIADB_ROOT_PASSWORD: native_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify incremental browser database preparation
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: native_test_password
+          DB_NAME: application
+          TEST_DB_NAME: browser_pattern_test
+        run: node --test --test-concurrency=1 packages/database-runtime-mysql/test/browserDatabasePattern.test.js
+
   deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - verify
       - browser-contracts
+      - browser-database
     runs-on: ubuntu-latest
     permissions:
       contents: read

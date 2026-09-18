@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/kernel",
-  "version": "0.1.199",
+  "version": "0.1.200",
   "type": "module",
   "dependencies": {
     "json-rest-schema": "^1.0.17"

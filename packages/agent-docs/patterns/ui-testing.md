@@ -22,6 +22,25 @@ Rules:
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
 
+## Keep startup incremental
+
+Run related cases in one suite invocation. Prepare the isolated database and
+fixtures once for that invocation, never once per test. Retain the test schema
+and migration ledger, apply only pending migrations, and reset fixture data
+deterministically. Restore any migration-owned baseline rows through the test
+seed. MySQL applications start from the `database/mysql-application` pattern's
+`example/tests/browser/database.js`. Require a repeat-start regression test that
+proves unchanged migration history, removal of stale data, pending migration
+application, and isolation from the normal database.
+
+Do not drop/recreate the database, replay completed migrations, build every
+module fixture, or run a production frontend build for each focused check.
+Choose small fixture sets for the selected suite. Fresh-schema migration tests
+and production-artifact tests are separate operations. Measure migration,
+fixture, and server startup time before retrying a slow launch or raising its
+deadline. When a host supplies a managed target, use its scoped suite command so
+one startup serves the whole batch and cleanup restores normal Preview.
+
 ## Preserve baseline tests
 
 Foundation-pattern baseline tests are app-owned and customizable. Adapt infrastructure
@@ -91,8 +110,8 @@ Run the focused Playwright command directly:
 npx playwright test tests/e2e/contacts.spec.ts -g filters
 ```
 
-For local pre-merge review, follow the focused run with the application's
-ordinary lint, package, build, and test scripts.
+Use the application's relevant focused checks. Do not automatically follow each
+browser check with a full lint, build, or test sweep; follow its verification policy.
 
 Do not mark the chunk done if:
 

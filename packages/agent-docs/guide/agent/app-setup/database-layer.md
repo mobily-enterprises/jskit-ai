@@ -161,3 +161,20 @@ not merely because a useful resource has behavior beyond list and save.
 Do not add migration receipts, sync ledgers, generator provenance, or dialect
 questionnaires. The installed graph, migration source, environment, and
 database migration table are sufficient.
+
+## Browser test preparation
+
+Keep the test schema and migration history between routine browser runs. The
+MySQL application pattern includes `example/tests/browser/database.js`: it
+validates the exact `TEST_DB_NAME`, applies pending migrations, clears test rows,
+and runs one explicit fixture seed. Restore migration-owned baseline rows in
+that seed. Prove repeat preparation, stale-data removal, pending migrations, and
+isolation from the normal database before adopting the launcher.
+
+Run related checks in one suite invocation and prepare only their required
+fixtures. The application foundations use the development launcher for ordinary
+browser checks; fresh-schema migration proofs and production builds are separate.
+A managed suite uses the host's server URL and identity, starts no second server,
+and restores normal Preview after the batch. Database isolation alone does not
+disable email, payments or other external effects: configure those test controls
+and verify the actual server identity before destructive requests.

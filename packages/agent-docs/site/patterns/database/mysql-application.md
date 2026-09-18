@@ -49,6 +49,21 @@ Knex discovers package-owned migrations from the installed dependency graph.
 entrypoint for managed sessions and deployments. `example/.env.example` names
 the five connection values without a secret.
 
+`example/tests/browser/database.js` is the application-owned browser preparation
+helper. It requires the exact `TEST_DB_NAME`, rejects the ordinary database,
+retains the schema and migration ledger, applies pending migrations, then clears
+test rows and calls one explicit fixture seed transaction. The seed must restore
+any migration-owned baseline rows the app needs. Call it once before starting
+the isolated test server, never in `beforeEach`. It closes its connections without
+dropping the database. The launcher selects that database only for its own server
+and identity process, disables external effects, and proves actual server identity
+before the suite writes data. It must not edit the normal environment.
+
+Keep fixtures small for the selected test scope. Run related cases in one suite
+invocation. Use the development launcher for ordinary browser checks; test the
+production build separately when needed. Fresh-schema migration proofs are
+separate from browser startup.
+
 ## Variation points
 
 Change scripts, migration location, connection values, and secret injection to
@@ -65,6 +80,11 @@ it as `seed` to `prepareDatabaseFromApp()`.
 - Run `npm run db:migrate:status` and the application verification command.
 - Exercise one transaction and one negative connection case.
 - When a seed exists, run `db:prepare` twice and require the second run to be safe.
+- For browser preparation, prove two consecutive starts: the second applies no
+  old migrations, stale fixture data is removed, baseline rows are restored,
+  foreign-key checks remain enabled, and the normal database is unchanged.
+  Also prove that a new pending migration is applied. Keep this as a regression
+  test when adapting the example; reject a harness that recreates the schema.
 
 `example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
 an explicit MariaDB service. Adapt it as source rather than generating it from
@@ -80,6 +100,6 @@ package metadata.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/database-runtime-mysql@0.1.197`
+- Owner: `@jskit-ai/database-runtime-mysql@0.1.198`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/database-runtime-mysql/patterns/mysql-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/database-runtime-mysql/patterns/mysql-application/example)

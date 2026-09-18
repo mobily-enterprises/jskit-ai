@@ -19,7 +19,7 @@ export default defineConfig({
   },
   ...(managedBaseUrl ? {} : {
     webServer: {
-      command: "npm run build && node ./bin/server.js",
+      command: "npm run develop",
       env: {
         PORT: "4173"
       },

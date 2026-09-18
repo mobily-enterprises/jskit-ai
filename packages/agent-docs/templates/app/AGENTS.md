@@ -12,6 +12,11 @@ Before implementation, read the narrow relevant source pattern completely. If
 its owner package is installed, prefer that version-matched package-owned copy.
 Do not install an unrelated runtime package only to read documentation.
 
+Before adding or changing browser-test setup, read `patterns/ui-testing.md` in
+this package. Routine tests reuse the isolated schema and prepare fixtures once
+per suite invocation. Require repeat-start regression proof; do not rebuild the
+database or production frontend for each focused browser check.
+
 Pages never start with a page header, title block, welcome heading, or other
 standalone heading copy. Start with the useful content and actions. If the user
 wants a heading, they will ask for or add one.
