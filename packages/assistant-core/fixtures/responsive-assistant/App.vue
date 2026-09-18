@@ -7,6 +7,7 @@ const draft = ref("");
 const query = new URLSearchParams(location.search);
 const controls = query.has("controls");
 const deferredHistory = query.has("history");
+const pagedHistory = query.has("paged-history");
 const streaming = query.has("streaming");
 const liveText = ref("");
 const liveMessage = computed(() => ({ messageId: "stream-answer", role: "assistant", text: liveText.value, status: "inProgress" }));
@@ -16,11 +17,18 @@ const loadMoreError = ref("");
 const historyRequests = ref(0);
 const hasMoreBefore = ref(controls);
 let completeHistory = null;
+function historyPage(first) {
+  return Array.from({ length: 20 }, (_, index) => ["user", "assistant"].map(role => ({
+    id: `${role}-${first + index}`, role, status: "completed",
+    text: `${role} message ${first + index}. A deliberately detailed update keeps the conversation tall enough to exercise the real overflow container.`
+  }))).flat();
+}
 const messages = ref(Array.from({ length: 70 }, (_, index) => ({
   id: `message-${index}`, role: index % 2 ? "assistant" : "user", status: "completed",
   text: `Conversation line ${index + 1}: responsive scroll containment keeps the composer visible.\n\nMore text with **formatting**, a [link](https://example.com), and a_long_word_that_must_wrap_in_narrow_panes_without_overflow.`
 })));
 if (controls) messages.value[0].text = messages.value[0].text.repeat(4);
+if (pagedHistory) messages.value = historyPage(21);
 if (streaming) messages.value.push({ id: "stream-question", role: "user", text: "Show the answer as it arrives." });
 function finishStream() {
   messages.value.push({ ...liveMessage.value, status: "completed" });
@@ -29,7 +37,12 @@ function finishStream() {
 function finishHistory(error = "") {
   loadMoreError.value = error;
   if (!error) {
-    messages.value.unshift({ id: `older-${historyRequests.value}`, role: "assistant", text: "Older conversation paragraph. ".repeat(40), status: "completed" });
+    if (pagedHistory) {
+      messages.value.unshift(...historyPage(1));
+      hasMoreBefore.value = false;
+    } else {
+      messages.value.unshift({ id: `older-${historyRequests.value}`, role: "assistant", text: "Older conversation paragraph. ".repeat(40), status: "completed" });
+    }
   }
   loadingMore.value = false;
   completeHistory({ changed: !error });
@@ -57,7 +70,7 @@ const adapter = computed(() => ({
 <template>
   <v-app>
     <v-main>
-      <main class="assistant-responsive-fixture">
+      <main class="assistant-responsive-fixture" :class="{ 'assistant-responsive-fixture--paged': pagedHistory }">
         <nav v-if="streaming">
           <button @click="liveText += 'Growing answer. '">Receive text</button>
           <button @click="finishStream">Finish answer</button>
@@ -80,6 +93,7 @@ const adapter = computed(() => ({
 <style>
 html, body, #app { height: 100%; margin: 0; min-height: 0; }
 .assistant-responsive-fixture { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding: .5rem; }
+.assistant-responsive-fixture--paged { width: min(420px, 100%); margin: auto; }
 .assistant-responsive-fixture nav { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 1rem; }
 .assistant-responsive-fixture__conversation { flex: 1 1 auto; }
 </style>

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.1.220",
+  "version": "0.1.222",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,15 +12,15 @@
     "./client/account-settings/sections": "./src/client/account-settings/sections.js"
   },
   "dependencies": {
-    "@jskit-ai/uploads-image-web": "0.1.177",
-    "@jskit-ai/users-core": "0.1.215"
+    "@jskit-ai/uploads-image-web": "0.1.179",
+    "@jskit-ai/users-core": "0.1.217"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-web": "0.1.202",
-    "@jskit-ai/http-runtime": "0.1.200",
-    "@jskit-ai/http-web": "0.1.47",
-    "@jskit-ai/kernel": "0.1.202",
-    "@jskit-ai/shell-web": "0.1.206",
+    "@jskit-ai/auth-web": "0.1.204",
+    "@jskit-ai/http-runtime": "0.1.202",
+    "@jskit-ai/http-web": "0.1.49",
+    "@jskit-ai/kernel": "0.1.204",
+    "@jskit-ai/shell-web": "0.1.208",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",

@@ -139,6 +139,7 @@ Local functions
 - `queueLiveBottomScroll({ force = false } = {})`
 - `clearLiveBottomScroll()`
 - `updateLatestFollowFromScroll(event = {})`
+- `visibleHistoryAnchor(element)`
 - `requestLoadMore()`
 - `clearLoadMoreScrollSnapshot()`
 - `completeLoadMoreRequest(version, changed)`
@@ -722,6 +723,7 @@ Exports
 Exports
 - None
 Local functions
+- `historyPage(first)`
 - `finishStream()`
 - `finishHistory(error = "")`
 
