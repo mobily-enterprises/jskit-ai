@@ -774,6 +774,7 @@ function updateLatestFollowFromScroll(event = {}) {
   // Keep following the reader while the request is pending, before rows prepend.
   if (loadMoreScrollSnapshot && target.scrollHeight === loadMoreScrollSnapshot.scrollHeight) {
     loadMoreScrollSnapshot.scrollTop = scrollTop;
+    loadMoreScrollSnapshot.anchor = visibleHistoryAnchor(target);
   }
   const shouldFollow = scrollElementNearBottom(target);
   if (!shouldFollow && !userScrollIntent.value && followingLatest.value) {
@@ -797,6 +798,17 @@ function updateLatestFollowFromScroll(event = {}) {
   }
 }
 
+function visibleHistoryAnchor(element) {
+  const top = element.getBoundingClientRect().top;
+  for (const turn of element.querySelectorAll(".assistant-transcript__turn")) {
+    const bounds = turn.getBoundingClientRect();
+    if (bounds.bottom > top) {
+      return { element: turn, offset: bounds.top - top };
+    }
+  }
+  return null;
+}
+
 function requestLoadMore() {
   if (!props.hasMoreBefore || props.loadingMore || loadMoreScrollSnapshot) {
     return;
@@ -809,6 +821,7 @@ function requestLoadMore() {
   loadMoreRequestVersion = version;
   loadMoreScrollSnapshot = element
     ? {
+        anchor: visibleHistoryAnchor(element),
         scrollHeight: element.scrollHeight,
         scrollKey: props.scrollKey,
         scrollTop: element.scrollTop,
@@ -842,7 +855,12 @@ async function completeLoadMoreRequest(version, changed) {
   }
   const element = bodyElement.value;
   if (element) {
-    previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+    // Offscreen turns use estimated heights. Preserve the visible turn instead
+    // of moving by the total height difference, which can change during layout.
+    const anchor = snapshot.anchor;
+    previousScrollTop = anchor && element.contains(anchor.element)
+      ? element.scrollTop + anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset
+      : snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
     element.scrollTop = previousScrollTop;
   }
   clearLoadMoreScrollSnapshot();

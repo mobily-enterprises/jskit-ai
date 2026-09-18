@@ -219,6 +219,41 @@ test("conversation scrolling preserves history anchors and resets expansion on s
   }
 });
 
+test("a delayed final history page preserves the visible message at every width", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${vite.baseURL}/?controls=1&history=1&paged-history=1`);
+      const body = page.locator(".assistant-transcript__body");
+      await expect(body).toBeVisible();
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await body.evaluate(element => {
+        element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: -1000 }));
+        element.scrollTop = 0;
+        element.dispatchEvent(new Event("scroll", { bubbles: true }));
+      });
+      await expect(page.getByRole("button", { name: "Loading older messages…", exact: true })).toBeDisabled();
+      const anchor = page.getByText("user message 21.", { exact: false });
+      const before = (await anchor.boundingBox()).y;
+      await page.getByRole("button", { name: "Complete history load", exact: true }).evaluate(element => element.click());
+      await expect(page.getByText("user message 1.", { exact: false })).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Loading older messages…", exact: true })).toHaveCount(0);
+      await expect.poll(async () => Math.abs((await anchor.boundingBox()).y - before)).toBeLessThan(2);
+      await expect(page.locator("output")).toHaveText("History requests: 1");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("upward scrolling loads older history once and preserves retry and selection behavior", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
@@ -249,14 +284,14 @@ test("upward scrolling loads older history once and preserves retry and selectio
         const cdp = await page.context().newCDPSession(page);
         const x = bounds.x + bounds.width / 2;
         const y = bounds.y + 40;
+        const stopped = body.evaluate(element => new Promise(resolve => {
+          element.addEventListener("scrollend", () => resolve(), { once: true });
+        }));
         await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
         for (let offset = 20; offset <= 380; offset += 20) {
           await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + offset }] });
           await page.evaluate(() => new Promise(requestAnimationFrame));
         }
-        const stopped = body.evaluate(element => new Promise(resolve => {
-          element.addEventListener("scrollend", () => resolve(), { once: true });
-        }));
         await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
         await stopped;
         await cdp.detach();
