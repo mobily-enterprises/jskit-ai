@@ -4,6 +4,8 @@ import AssistantConversationElement from "../../src/client/conversation/Assistan
 import { useAssistantAttachments } from "../../src/client/conversation/useAssistantAttachments.js";
 import { useAssistantSuggestions } from "../../src/client/conversation/useAssistantSuggestions.js";
 const phase = ref("idle");
+const attribution = new URLSearchParams(location.search).has("attribution");
+const assistantLabel = ref("Current assistant");
 const draft = ref("");
 const narrow = ref(false);
 const submissions = ref(0);
@@ -51,7 +53,17 @@ const goalState = reactive({
   resume() { goal.value = { ...goal.value, status: "active", sampledAt: Date.now() }; }
 });
 const adapter = reactive({
-  conversation: { turns: [], visible: true, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture" },
+  conversation: {
+    assistantLabel,
+    turns: attribution ? [
+      { turnId: "one", assistantLabel: "First assistant", assistantDetails: "First model",
+        assistant: { role: "assistant", text: "First answer" } },
+      { turnId: "two", assistantLabel: "Second assistant", assistantDetails: "Second model",
+        assistant: { role: "assistant", text: "Second answer", assistantLabel: "Message assistant", assistantDetails: "Message model" } },
+      { turnId: "three", assistant: { role: "assistant", text: "Unattributed answer" } }
+    ] : [],
+    visible: true, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture"
+  },
   composer: {
     draft,
     rows: 2,
@@ -76,6 +88,7 @@ const adapter = reactive({
   <v-app>
     <v-main>
       <div class="controls">
+        <button v-if="attribution" @click="assistantLabel = 'Next assistant'">Change assistant</button>
         <button v-for="state in ['idle', 'active', 'reconnecting', 'stopping', 'stopped']" :key="state" @click="phase = state">External {{ state }}</button>
         <button @click="narrow = !narrow">Resize pane</button>
         <button @click="feedback = !feedback">Toggle action feedback</button>

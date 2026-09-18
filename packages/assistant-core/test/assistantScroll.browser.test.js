@@ -22,6 +22,26 @@ const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "drawer", width: 360, height: 600 })
 ]);
 
+test("saved reply attribution remains when the current assistant changes", {
+  skip: !RUN_BROWSER_TEST, timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage();
+    await page.goto(`${vite.baseURL}/?conversation=1&attribution=1`);
+    const names = page.locator('[data-message-role="assistant"] .assistant-transcript__message-header span');
+    await expect(names).toHaveText(["First assistant", "Message assistant", "Current assistant"]);
+    await expect(names.nth(0)).toHaveAttribute("title", "First model");
+    await expect(names.nth(1)).toHaveAttribute("title", "Message model");
+    await page.getByRole("button", { name: "Change assistant", exact: true }).click();
+    await expect(names).toHaveText(["First assistant", "Message assistant", "Next assistant"]);
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("streaming answers grow in one bubble, preserve drafts and settle once at every width", {
   skip: !RUN_BROWSER_TEST, timeout: 90_000
 }, async () => {

@@ -197,7 +197,7 @@
           :messages="entry.messages"
           :pending="isWorking && entry === displayEntries.at(-1)"
           :preview-limit="progressPreviewLimit"
-          :aria-label="`${assistantLabel} progress`"
+          :aria-label="`${entry.turn.assistantLabel || assistantLabel} progress`"
         />
         <div
           v-else
@@ -209,7 +209,9 @@
               <v-icon :icon="mdiRobotOutline" size="16" />
             </span>
             <div class="assistant-transcript__message-header">
-              <span>{{ assistantLabel }}</span>
+              <span :title="entry.message.assistantDetails || entry.turn.assistantDetails || undefined">
+                {{ entry.message.assistantLabel || entry.turn.assistantLabel || assistantLabel }}
+              </span>
             </div>
           </div>
           <div class="assistant-transcript__message assistant-transcript__message--assistant">

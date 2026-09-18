@@ -159,6 +159,12 @@ updates and pagination. The UI never uses provider-internal turn IDs to decide
 application ownership. An optimistic turn can carry
 `optimistic: { id, status: "failed", error }`.
 
+Supply `assistantLabel` and optional `assistantDetails` on a turn to retain its
+answering identity when the conversation's current assistant changes. A message
+can override either field. The transcript displays the supplied details on name
+hover; otherwise it uses the conversation label. The application owns saving
+and formatting these values.
+
 Reasoning is grouped by adjacency in the displayed message sequence, across
 storage rows. A user message, commentary, answer or system message separates
 groups. Provider turn and conversation IDs do not define progress groups.
