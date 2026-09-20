@@ -8,14 +8,14 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.182",
-    "@jskit-ai/http-runtime": "0.1.202",
-    "@jskit-ai/kernel": "0.1.204",
+    "@jskit-ai/assistant-core": "0.1.183",
+    "@jskit-ai/http-runtime": "0.1.203",
+    "@jskit-ai/kernel": "0.1.205",
     "@mdi/js": "^7.4.47",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0",
-    "@jskit-ai/connectors-core": "0.1.21",
-    "@jskit-ai/connectors-catalog": "0.1.21"
+    "@jskit-ai/connectors-core": "0.1.22",
+    "@jskit-ai/connectors-catalog": "0.1.22"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.7",

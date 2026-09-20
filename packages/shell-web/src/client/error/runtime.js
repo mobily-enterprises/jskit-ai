@@ -1,6 +1,7 @@
 import {
   isRecord,
   normalizeAction,
+  normalizeAdditionalActions,
   normalizeChannel,
   normalizeErrorIntent,
   normalizeNonNegativeInteger,
@@ -49,6 +50,7 @@ function normalizeErrorEvent(rawEvent = {}) {
     channel: normalizeChannel(source.channel),
     presenterId: normalizeText(source.presenterId),
     action: normalizeAction(source.action),
+    additionalActions: normalizeAdditionalActions(source.additionalActions),
     persist: typeof source.persist === "boolean" ? source.persist : null,
     blocking: source.blocking === true,
     dedupeKey: normalizeText(source.dedupeKey),
@@ -71,6 +73,7 @@ function normalizePolicyDecision(policyDecision = {}, event = {}) {
     message: normalizeText(source.message || event.userMessage || event.message, "Request failed."),
     severity: normalizeSeverity(source.severity || event.severity, "error"),
     action: normalizeAction(source.action || event.action),
+    additionalActions: normalizeAdditionalActions(source.additionalActions ?? event.additionalActions),
     persist:
       typeof source.persist === "boolean"
         ? source.persist

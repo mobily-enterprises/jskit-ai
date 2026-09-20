@@ -106,13 +106,17 @@ function dismiss(entry) {
   store.dismiss(entry.channel, entry.id);
 }
 
-function runAction(entry) {
-  if (!entry || !entry.action || typeof entry.action.handler !== "function") {
+function actionsFor(entry) {
+  return entry ? [entry.action, ...entry.additionalActions].filter(Boolean) : [];
+}
+
+async function runAction(entry, action) {
+  if (!entry || typeof action?.handler !== "function") {
     return;
   }
 
   try {
-    entry.action.handler(entry);
+    await action.handler(entry);
   } catch (error) {
     runtime.report({
       source: "shell-web.error-host.action",
@@ -123,7 +127,7 @@ function runAction(entry) {
     });
   }
 
-  if (entry.action.dismissOnRun !== false) {
+  if (action.dismissOnRun !== false) {
     dismiss(entry);
   }
 }
@@ -171,13 +175,14 @@ function onSnackbarAfterLeave() {
             <span>{{ entry.message }}</span>
             <v-spacer />
             <v-btn
-              v-if="entry.action"
+              v-for="(action, index) in actionsFor(entry)"
+              :key="index"
               variant="text"
               size="small"
               class="text-none"
-              @click="runAction(entry)"
+              @click="runAction(entry, action)"
             >
-              {{ entry.action.label }}
+              {{ action.label }}
             </v-btn>
           </div>
         </v-alert>
@@ -188,6 +193,7 @@ function onSnackbarAfterLeave() {
       :model-value="snackbarOpen"
       location="bottom end"
       :timeout="resolveTimeout(displayedSnackbarEntry)"
+      :vertical="actionsFor(displayedSnackbarEntry).length > 1"
       :color="displayedSnackbarEntry ? resolveSeverityColor(displayedSnackbarEntry.severity) : undefined"
       @update:model-value="onSnackbarModelValue"
       @after-leave="onSnackbarAfterLeave"
@@ -196,12 +202,13 @@ function onSnackbarAfterLeave() {
 
       <template #actions>
         <v-btn
-          v-if="displayedSnackbarEntry?.action"
+          v-for="(action, index) in actionsFor(displayedSnackbarEntry)"
+          :key="index"
           variant="text"
-          size="small"
-          @click="runAction(displayedSnackbarEntry)"
+          min-height="48"
+          @click="runAction(displayedSnackbarEntry, action)"
         >
-          {{ displayedSnackbarEntry.action.label }}
+          {{ action.label }}
         </v-btn>
         <v-btn
           v-if="displayedSnackbarEntry"
@@ -226,11 +233,12 @@ function onSnackbarAfterLeave() {
         <v-card-actions>
           <v-spacer />
           <v-btn
-            v-if="dialogEntry.action"
+            v-for="(action, index) in actionsFor(dialogEntry)"
+            :key="index"
             variant="text"
-            @click="runAction(dialogEntry)"
+            @click="runAction(dialogEntry, action)"
           >
-            {{ dialogEntry.action.label }}
+            {{ action.label }}
           </v-btn>
           <v-btn
             color="primary"

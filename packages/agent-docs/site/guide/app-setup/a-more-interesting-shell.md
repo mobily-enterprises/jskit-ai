@@ -42,6 +42,14 @@ every route: detail and workflow pages usually should not appear there.
 - Cached route or resource data hydrates writable state immediately.
 - Browser back/forward restores the selected route and screen context.
 
+## Feedback actions
+
+Shell reports accept a primary `action` and ordered `additionalActions`, each
+with `label`, `handler(entry)` and optional `dismissOnRun: false`. The host awaits
+handlers and reports their failures through the shared error runtime. Multiple
+snackbar actions appear below the message. Use short labels for distinct useful
+destinations, such as a related booking and its delivery audit entry.
+
 ## Adaptive drawer
 
 Use Vuetify Material navigation. On compact/mobile layouts, close dismisses the
