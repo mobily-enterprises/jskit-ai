@@ -38,6 +38,21 @@ updating. Declare the workspace paths at the root and depend on each local
 package by its exact manifest version. Do not retain legacy `file:` links; the
 updater does not infer or rewrite an application's local package topology.
 
+The shell and authentication packages use Pinia 4. Before upgrading an app
+that still declares Pinia 3, update its manifest without installing the old
+JSKIT graph:
+
+```bash
+npm pkg set 'dependencies.pinia=^4.0.3' 'dependencies.@vue/devtools-api=^8.2.1' 'dependencies.vue-router=^5.3.1' 'dependencies.vue=^3.5.43'
+```
+
+Update any workspace Pinia declarations too. Pinia 4 requires ESM and the
+separate `@vue/devtools-api` peer; the current application foundations include
+both, with Vue Router 5.3.1 and Vue 3.5.43. Vue Router 5.0.6 still requires
+Pinia 3. The JSKIT updater changes only JSKIT dependencies, so it does not make
+this application-owned dependency change for you. Do not bypass peer conflicts
+with `--force` or `--legacy-peer-deps`.
+
 Then let the published updater select and install its exact coordinated
 catalog:
 

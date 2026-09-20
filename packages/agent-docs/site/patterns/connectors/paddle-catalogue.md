@@ -78,6 +78,6 @@ report does not prove durable recovery or live merchant acceptance.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.23`
+- Owner: `@jskit-ai/connectors-catalog@0.1.24`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/paddle-catalogue/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/paddle-catalogue/example)

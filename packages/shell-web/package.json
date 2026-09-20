@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.210",
+  "version": "0.1.211",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -31,10 +31,10 @@
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.206",
-    "pinia": "^3.0.4",
-    "vue": "^3.5.13",
-    "vue-router": "^5.0.4",
+    "@jskit-ai/kernel": "0.1.207",
+    "pinia": "^4.0.3",
+    "vue": "^3.5.43",
+    "vue-router": "^5.3.1",
     "vuetify": "^4.0.0"
   },
   "description": "Web shell layout runtime with outlet-based placement contributions.",
