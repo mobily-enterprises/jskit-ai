@@ -1,8 +1,52 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Fastify from "fastify";
 import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeFastify.mjs";
 
 import { authPolicyPlugin } from "../src/server/lib/index.js";
+
+test("auth policy protects real Fastify requests with CSRF and route rate limits", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  await authPolicyPlugin({
+    async resolveActor() {
+      return { authenticated: false, actor: null, transientFailure: false };
+    },
+    hasPermission() {
+      return false;
+    }
+  }, { nodeEnv: "test" })(app);
+
+  app.get("/api/csrf", { config: { authPolicy: "public" } }, (_request, reply) => ({
+    token: reply.generateCsrf()
+  }));
+  app.post("/api/write", { config: { authPolicy: "public" } }, () => ({ accepted: true }));
+  app.get("/api/limited", {
+    config: { authPolicy: "public", rateLimit: { max: 1, timeWindow: "1 minute" } }
+  }, () => ({ accepted: true }));
+
+  const missingToken = await app.inject({ method: "POST", url: "/api/write" });
+  assert.equal(missingToken.statusCode, 403);
+
+  const csrf = await app.inject({ method: "GET", url: "/api/csrf" });
+  assert.equal(csrf.statusCode, 200);
+  const cookies = Object.fromEntries(csrf.cookies.map(({ name, value }) => [name, value]));
+  const accepted = await app.inject({
+    method: "POST",
+    url: "/api/write",
+    cookies,
+    headers: { "x-csrf-token": csrf.json().token }
+  });
+  assert.equal(accepted.statusCode, 200);
+  assert.deepEqual(accepted.json(), { accepted: true });
+
+  const invalidToken = await app.inject({
+    method: "POST", url: "/api/write", cookies, headers: { "x-csrf-token": "invalid" }
+  });
+  assert.equal(invalidToken.statusCode, 403);
+  assert.equal((await app.inject({ method: "GET", url: "/api/limited" })).statusCode, 200);
+  assert.equal((await app.inject({ method: "GET", url: "/api/limited" })).statusCode, 429);
+});
 
 test("requires resolveActor and hasPermission dependencies", () => {
   assert.throws(() => authPolicyPlugin(), /resolveActor is required/);

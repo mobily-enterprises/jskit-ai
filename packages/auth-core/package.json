@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.1.205",
+  "version": "0.1.206",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -58,9 +58,9 @@
     "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js"
   },
   "dependencies": {
-    "@fastify/cookie": "^11.0.2",
-    "@fastify/csrf-protection": "^7.1.0",
-    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/csrf-protection": "^8.0.1",
+    "@fastify/rate-limit": "^11.2.0",
     "json-rest-schema": "^1.0.17"
   },
   "jskit": {
@@ -135,6 +135,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.207"
+    "@jskit-ai/kernel": "0.1.208"
   }
 }
