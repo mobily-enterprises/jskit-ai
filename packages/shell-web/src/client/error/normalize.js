@@ -79,6 +79,10 @@ function normalizeAction(value) {
   });
 }
 
+function normalizeAdditionalActions(value) {
+  return Object.freeze(Array.isArray(value) ? value.map(normalizeAction).filter(Boolean) : []);
+}
+
 export {
   ERROR_CHANNELS,
   ERROR_SEVERITIES,
@@ -89,5 +93,6 @@ export {
   normalizeSeverity,
   normalizeErrorIntent,
   normalizeNonNegativeInteger,
-  normalizeAction
+  normalizeAction,
+  normalizeAdditionalActions
 };

@@ -1,5 +1,6 @@
 import {
   normalizeAction,
+  normalizeAdditionalActions,
   normalizeChannel,
   normalizeErrorIntent,
   normalizeSeverity,
@@ -53,6 +54,7 @@ function createDefaultErrorPolicy({
       severity: normalizeSeverity(event.severity, normalizedDefaultSeverity),
       presenterId: normalizeText(event.presenterId),
       action: normalizeAction(event.action),
+      additionalActions: normalizeAdditionalActions(event.additionalActions),
       persist: channel !== "snackbar",
       dedupeKey: normalizeText(event.dedupeKey)
     });

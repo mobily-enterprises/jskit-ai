@@ -1,5 +1,6 @@
 import {
   normalizeAction,
+  normalizeAdditionalActions,
   normalizeSeverity,
   normalizeText
 } from "./normalize.js";
@@ -24,6 +25,7 @@ function cloneEntry(entry = {}) {
     severity: String(entry.severity || "error").trim(),
     persist: Boolean(entry.persist),
     action: entry.action || null,
+    additionalActions: entry.additionalActions,
     presenterId: String(entry.presenterId || "").trim(),
     dedupeKey: String(entry.dedupeKey || "").trim(),
     timestamp: Number(entry.timestamp || 0)
@@ -80,6 +82,7 @@ function createErrorPresentationStore({
       severity: normalizeSeverity(payload.severity, "error"),
       persist: typeof payload.persist === "boolean" ? payload.persist : normalizedChannel !== "snackbar",
       action: normalizeAction(payload.action),
+      additionalActions: normalizeAdditionalActions(payload.additionalActions),
       presenterId: normalizeText(payload.presenterId),
       dedupeKey: normalizeText(payload.dedupeKey),
       timestamp: Number(now())

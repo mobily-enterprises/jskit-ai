@@ -51,7 +51,8 @@ Local functions
 - `resolveSeverityIcon(severity = "error")`
 - `resolveTimeout(entry)`
 - `dismiss(entry)`
-- `runAction(entry)`
+- `actionsFor(entry)`
+- `runAction(entry, action)`
 - `onSnackbarModelValue(nextValue)`
 - `onDialogModelValue(nextValue)`
 - `onSnackbarAfterLeave()`
@@ -167,6 +168,7 @@ Exports
 - `normalizeErrorIntent(value, fallback = "")`
 - `normalizeNonNegativeInteger(value, fallback = 0)`
 - `normalizeAction(value)`
+- `normalizeAdditionalActions(value)`
 
 ### `src/client/error/policy.js`
 Exports

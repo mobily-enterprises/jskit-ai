@@ -100,6 +100,16 @@ the dependency scanner or JSKIT's installed-package optimization settings.
 
 ## Verification
 
+Keep the initial loading shell in `index.html`, with its critical inline styles
+and Reload link. It must not depend on JavaScript, external fonts, or framework
+components. Adapt its skeleton to the product without adding host branding.
+Vue replaces it on mount; the bootstrap failure handler retains an actionable
+error. A failed module download still leaves the static Reload link available.
+Preserve `tests/e2e/startup.spec.ts`: it holds JavaScript requests while proving
+visible loading feedback at three widths, then releases them and proves mounting.
+Run this check against the production build as part of the application's release
+verification, not only against Vite development mode.
+
 After adapting the example, install the declared packages once and run
 `npm run develop` for the live application. Then run the application's lint,
 server tests, client tests, production build, and focused browser smoke.
@@ -116,6 +126,6 @@ Confirm `/api/health` and the first product route.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/agent-docs@0.1.174`
+- Owner: `@jskit-ai/agent-docs@0.1.179`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/patterns/minimal-foundation/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/agent-docs/patterns/minimal-foundation/example)
