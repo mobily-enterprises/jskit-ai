@@ -53,14 +53,14 @@
     "@vue/devtools-api": "^8.2.1"
   },
   "dependencies": {
-    "@fastify/cookie": "^11.0.2",
-    "@fastify/csrf-protection": "^7.1.0",
-    "@fastify/rate-limit": "^10.3.0",
-    "@jskit-ai/auth-core": "0.1.205",
-    "@jskit-ai/auth-provider-supabase-core": "0.1.204",
-    "@jskit-ai/auth-web": "0.1.207",
-    "@jskit-ai/http-runtime": "0.1.205",
-    "@jskit-ai/kernel": "0.1.207",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/csrf-protection": "^8.0.1",
+    "@fastify/rate-limit": "^11.2.0",
+    "@jskit-ai/auth-core": "0.1.206",
+    "@jskit-ai/auth-provider-supabase-core": "0.1.205",
+    "@jskit-ai/auth-web": "0.1.208",
+    "@jskit-ai/http-runtime": "0.1.206",
+    "@jskit-ai/kernel": "0.1.208",
     "@mdi/js": "^7.4.47",
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.3.1",
@@ -73,6 +73,7 @@
     }
   },
   "allowScripts": {
+    "better-sqlite3@13.0.3": false,
     "esbuild@0.25.12": true,
     "fsevents@2.3.2": true,
     "fsevents@2.3.3": true,
