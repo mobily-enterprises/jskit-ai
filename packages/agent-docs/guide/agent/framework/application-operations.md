@@ -7,15 +7,19 @@ description: Establish a JSKIT application, select capabilities, and realize pro
 
 # Application operations
 
-Use this for establishing an application foundation, selecting package
-capabilities, and realizing product features from JSKIT patterns.
+## Initial browser loading
+
+Adopt the foundation's accessible HTML skeleton, inline styles, Reload link and
+startup-error message; package updates do not rewrite existing app HTML. Follow
+its cold-browser proof at compact, medium and expanded widths: delay JavaScript,
+check loading feedback, then release it and check app mount, including production
+builds. Compression belongs to hosting, not Genesis.
 
 ## Establish a new application
 
-Start with an initialized Git repository and a clear product request. Use the
-request, current source, and ordinary project documentation. Ask the user for
-any material missing product decision before writing application source. Do
-not run a JSKIT questionnaire and do not create a temporary scaffold app.
+Start with Git and a clear product request. Consult current source and project
+docs; ask for missing product decisions before writing source. Do not run a
+JSKIT questionnaire or create a temporary scaffold app.
 
 Read the [source pattern library](/patterns/). When the optional standalone
 JSKIT Agent Skill is installed, its pattern index contains the same
@@ -41,14 +45,9 @@ receipts, generator provenance, completion ledgers, or hidden operation state.
 
 ## Install and compose capabilities
 
-Plan the complete capability set before changing dependencies. Use the package
-catalogue and package-owned patterns to identify the required runtime packages,
-configuration, resources, and public APIs. Add one coherent package closure,
-then run `npm install` once for that planned change.
-
-Install the explicitly selected top-level packages through npm. Use one
-installation for the planned closure so npm can resolve their ordinary package
-dependencies together:
+Plan capabilities using the catalogue and package-owned patterns: required
+packages, configuration, resources and APIs. Install one planned dependency
+closure of explicitly selected top-level packages in a single npm invocation:
 
 ```bash
 npm install --save-exact @jskit-ai/<selected-package>@latest [...]

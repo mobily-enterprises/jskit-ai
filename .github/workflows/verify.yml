@@ -60,6 +60,11 @@ jobs:
       - name: Install Chromium
         run: npx --yes --allow-scripts=fsevents playwright@1.61.1 install --with-deps chromium
 
+      - name: Verify foundation loading before JavaScript
+        env:
+          JSKIT_FOUNDATION_STARTUP_INTEGRATION: "1"
+        run: node --test --test-concurrency=1 packages/agent-docs/test/foundationStartup.browser.test.js
+
       - name: Verify linked application package caching
         env:
           JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION: "1"

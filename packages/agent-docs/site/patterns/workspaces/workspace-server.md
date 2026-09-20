@@ -60,6 +60,6 @@ invitation expiry/redemption, cross-workspace isolation, and email output.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/workspaces-core@0.1.183`
+- Owner: `@jskit-ai/workspaces-core@0.1.184`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/workspaces-core/patterns/workspace-server/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/workspaces-core/patterns/workspace-server/example)
