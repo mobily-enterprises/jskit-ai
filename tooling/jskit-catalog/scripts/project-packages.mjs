@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import {
   access,
+  mkdtemp,
   readFile,
   readdir,
   rename,
@@ -508,13 +509,19 @@ async function spawnNpmInstall(projectRoot) {
 
 async function runNpmInstall(projectRoot) {
   const nodeModulesPath = path.join(projectRoot, "node_modules");
-  const backupPath = path.join(
-    projectRoot,
-    `.jskit-node-modules-${process.pid}-${Date.now()}`
-  );
   const hadNodeModules = await fileExists(nodeModulesPath);
+  const backupRoot = hadNodeModules
+    ? await mkdtemp(path.join(projectRoot, ".jskit-update-"))
+    : null;
+  // Preserve the dependency directory name so development watchers keep excluding it.
+  const backupPath = backupRoot ? path.join(backupRoot, "node_modules") : null;
   if (hadNodeModules) {
-    await rename(nodeModulesPath, backupPath);
+    try {
+      await rename(nodeModulesPath, backupPath);
+    } catch (error) {
+      await rm(backupRoot, { force: true, recursive: true });
+      throw error;
+    }
   }
 
   let settled = false;
@@ -523,8 +530,8 @@ async function runNpmInstall(projectRoot) {
       if (settled) {
         return;
       }
-      if (hadNodeModules) {
-        await rm(backupPath, { force: true, recursive: true });
+      if (backupRoot) {
+        await rm(backupRoot, { force: true, recursive: true });
       }
       settled = true;
     },
@@ -532,9 +539,19 @@ async function runNpmInstall(projectRoot) {
       if (settled) {
         return;
       }
-      await rm(nodeModulesPath, { force: true, recursive: true });
-      if (hadNodeModules) {
-        await rename(backupPath, nodeModulesPath);
+      try {
+        await rm(nodeModulesPath, { force: true, recursive: true });
+        if (backupPath) {
+          await rename(backupPath, nodeModulesPath);
+        }
+      } catch (error) {
+        if (backupPath) {
+          throw new Error(`Could not restore node_modules; backup retained at ${backupPath}.`, { cause: error });
+        }
+        throw error;
+      }
+      if (backupRoot) {
+        await rm(backupRoot, { force: true, recursive: true });
       }
       settled = true;
     }
@@ -549,7 +566,7 @@ async function runNpmInstall(projectRoot) {
     } catch (rollbackError) {
       throw new AggregateError(
         [error, rollbackError],
-        "npm install failed and the previous node_modules directory could not be restored."
+        `npm install failed and the previous node_modules directory could not be restored. ${rollbackError.message}`
       );
     }
     throw error;
@@ -668,7 +685,8 @@ async function updateProject({
     if (rollbackErrors.length > 0) {
       throw new AggregateError(
         [error, ...rollbackErrors],
-        "JSKIT update failed and its previous project state could not be fully restored."
+        "JSKIT update failed and its previous project state could not be fully restored.\n" +
+        rollbackErrors.map((rollbackError) => rollbackError.message).join("\n")
       );
     }
     throw error;
