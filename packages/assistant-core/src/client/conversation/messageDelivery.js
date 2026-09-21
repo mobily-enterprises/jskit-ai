@@ -34,7 +34,8 @@ function unmatchedOptimisticMessages(turns = [], optimisticMessages = []) {
 // the shared assistant element renders these pending and failed turns.
 function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   const state = reactive({ messages: [], sending: false });
-  let generation = 0;
+  let deliveryTail = null;
+  let pendingSends = new Map();
 
   function find(messageId) {
     return state.messages.find((message) => message.id === messageId) || null;
@@ -65,12 +66,21 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     ];
   }
 
-  async function send(payload, { messageId = crypto.randomUUID(), deliver = defaultDeliver, isCurrent = () => true } = {}) {
-    if (state.sending || !String(payload?.message || "").trim()) return false;
+  async function send(payload, {
+    messageId = crypto.randomUUID(),
+    deliver = defaultDeliver,
+    isCurrent = () => true,
+    queue = false
+  } = {}) {
+    if ((state.sending && !queue) || pendingSends.has(messageId) || !messageText(payload?.message)) return false;
     if (typeof deliver !== "function") throw new TypeError("Message delivery requires a deliver function.");
     const snapshot = JSON.parse(JSON.stringify(payload));
-    const ownerGeneration = generation;
-    const current = () => generation === ownerGeneration && isCurrent();
+    const ownerPendingSends = pendingSends;
+    const current = () => pendingSends === ownerPendingSends && isCurrent();
+    const predecessor = deliveryTail;
+    const settled = Promise.withResolvers();
+    deliveryTail = settled.promise;
+    ownerPendingSends.set(messageId, settled);
     const now = new Date();
     const message = {
       attachments: snapshot.displayAttachments || [],
@@ -85,10 +95,15 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     state.messages = [...state.messages.filter((entry) => entry.id !== messageId), message];
     state.sending = true;
     try {
+      if (predecessor) await predecessor;
+      if (!current()) return false;
       const response = await deliver({ ...snapshot, messageId });
       if (!current()) return false;
       if (response === false || response?.ok === false) {
         fail(messageId, response?.error || "Message could not be sent.");
+      } else {
+        const acceptedMessage = find(messageId);
+        if (acceptedMessage) acceptedMessage.status = "accepted";
       }
       return response;
     } catch (error) {
@@ -96,7 +111,12 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       fail(messageId, error);
       throw error;
     } finally {
-      if (generation === ownerGeneration) state.sending = false;
+      ownerPendingSends.delete(messageId);
+      if (pendingSends === ownerPendingSends) {
+        state.sending = ownerPendingSends.size > 0;
+        if (!state.sending) deliveryTail = null;
+      }
+      settled.resolve();
     }
   }
 
@@ -109,7 +129,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   }
 
   function cancel(messageId) {
-    if (state.sending || find(messageId)?.status !== "failed") return false;
+    if (find(messageId)?.status !== "failed") return false;
     remove(messageId);
     return true;
   }
@@ -120,14 +140,16 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     return !draft || draft.startsWith(message.text) ? draft || message.text : `${message.text}\n\n${draft}`;
   }
 
-  function resend(messageId) {
+  function resend(messageId, { queue = false } = {}) {
     const message = find(messageId);
     if (message?.status !== "failed") return false;
-    return send(message.payload, { messageId });
+    return send(message.payload, { messageId, queue });
   }
 
   function reset() {
-    generation += 1;
+    deliveryTail = null;
+    for (const pending of pendingSends.values()) pending.resolve();
+    pendingSends = new Map();
     state.messages = [];
     state.sending = false;
   }

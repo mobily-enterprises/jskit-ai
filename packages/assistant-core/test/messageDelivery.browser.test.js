@@ -26,10 +26,10 @@ test("the shared element renders delayed sends and supplies retry, edit and canc
       await expect(page.getByText("Start a conversation.", { exact: true })).toHaveCount(0);
       await expect(page.locator(".assistant-composer-support__assistant-status")).toHaveText("Sending to assistant…");
       await fail();
-      await expect(page.getByText("Delivery unavailable.", { exact: true })).toHaveCount(1);
+      await expect(page.getByText("Failed: Delivery unavailable.", { exact: true })).toHaveCount(1);
       await input.fill("Keep my newer draft.");
       await page.getByRole("button", { name: "Prepare newer input" }).click();
-      await page.getByRole("button", { name: "Resend", exact: true }).click();
+      await page.getByRole("button", { name: "Retry", exact: true }).click();
       await expect(input).toHaveValue("Keep my newer draft.");
       await page.getByRole("button", { name: "Accept request" }).click();
       await expect(page.getByText("Accepted once.", { exact: true })).toBeVisible();
@@ -53,6 +53,34 @@ test("the shared element renders delayed sends and supplies retry, edit and canc
       await page.getByRole("button", { name: "Cancel", exact: true }).click();
       await expect(input).toHaveValue("Retain this.");
       await expect(page.getByText("Cancel this question.", { exact: true })).toHaveCount(0);
+      await page.goto(`${vite.baseURL}/?delivery=1&queue=1`);
+      await send("First steer.");
+      await send("Second steer.");
+      await send("Third steer.");
+      await expect(input).toHaveValue("");
+      await expect(page.getByText("Pending", { exact: true })).toHaveCount(3);
+      await expect(page.locator(".assistant-transcript__message--pending")).toHaveCount(3);
+      assert.equal(JSON.parse(await page.locator("[data-requests]").textContent()).length, 1);
+      await input.fill("Keep this newer draft.");
+      await fail();
+      await expect(page.locator(".assistant-transcript__message--failed")).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
+      if (width === 390) {
+        const retryBox = await page.getByRole("button", { name: "Retry", exact: true }).boundingBox();
+        assert.ok(retryBox.width >= 48 && retryBox.height >= 48);
+      }
+      await page.getByRole("button", { name: "Retry", exact: true }).click();
+      await expect(page.getByText("Pending", { exact: true })).toHaveCount(3);
+      for (let count = 2; count <= 4; count += 1) {
+        await expect.poll(async () => JSON.parse(await page.locator("[data-requests]").textContent()).length).toBe(count);
+        await page.getByRole("button", { name: "Accept request" }).click();
+      }
+      await expect(page.getByText("Pending", { exact: true })).toHaveCount(0);
+      await expect(page.locator(".assistant-transcript__message--pending")).toHaveCount(0);
+      await expect(input).toHaveValue("Keep this newer draft.");
+      const queuedRequests = JSON.parse(await page.locator("[data-requests]").textContent());
+      assert.deepEqual(queuedRequests.map(item => item.message), ["First steer.", "Second steer.", "Third steer.", "First steer."]);
+      assert.deepEqual(queuedRequests[0], queuedRequests[3]);
       assert.deepEqual(errors, []);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.close();

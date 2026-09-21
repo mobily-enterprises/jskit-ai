@@ -41,7 +41,7 @@ test("failed delivery retains the original payload and identity for an explicit 
   assert.deepEqual(sent[0], sent[1]);
   assert.equal(sent[1].configuration.model, "one");
   assert.equal(delivery.state.messages.length, 1);
-  assert.equal(delivery.state.messages[0].status, "pending");
+  assert.equal(delivery.state.messages[0].status, "accepted");
 });
 
 test("cancel and edit affect failed messages and preserve a newer draft", async () => {
@@ -68,5 +68,81 @@ test("retiring a conversation isolates late responses from the next conversation
   assert.deepEqual(delivery.state.messages.map(message => message.text), ["New"]);
   newRequest.resolve({ ok: true });
   await newSend;
+  assert.equal(delivery.state.sending, false);
+});
+
+test("queued messages appear immediately and deliver in order with captured payloads", async () => {
+  const requests = [Promise.withResolvers(), Promise.withResolvers(), Promise.withResolvers()];
+  const sent = [];
+  const delivery = createAssistantMessageDelivery({ deliver: payload => {
+    sent.push(payload);
+    return requests[sent.length - 1].promise;
+  } });
+  const first = delivery.send({ message: "First" }, { messageId: "one" });
+  const payload = { message: "Second", configuration: { model: "original" } };
+  const second = delivery.send(payload, { messageId: "two", queue: true });
+  const third = delivery.send({ message: "Third" }, { messageId: "three", queue: true });
+  payload.configuration.model = "changed";
+  assert.deepEqual(delivery.turns().map(turn => [turn.user.text, turn.optimistic.status]),
+    [["First", "pending"], ["Second", "pending"], ["Third", "pending"]]);
+  assert.equal(await delivery.send({ message: "Duplicate" }, { messageId: "two", queue: true }), false);
+  assert.deepEqual(sent.map(message => message.messageId), ["one"]);
+  requests[0].resolve({ ok: true });
+  await first;
+  assert.equal(delivery.state.sending, true);
+  assert.equal(delivery.find("one").status, "accepted");
+  assert.deepEqual(sent.map(message => message.messageId), ["one", "two"]);
+  assert.equal(sent[1].configuration.model, "original");
+  requests[1].resolve({ ok: true });
+  await second;
+  assert.deepEqual(sent.map(message => message.messageId), ["one", "two", "three"]);
+  requests[2].resolve({ ok: true });
+  await third;
+  assert.equal(delivery.state.sending, false);
+});
+
+test("a failed message retains its retry identity while later guidance is pending", async () => {
+  const firstRequest = Promise.withResolvers();
+  const secondRequest = Promise.withResolvers();
+  const sent = [];
+  const delivery = createAssistantMessageDelivery({ deliver: payload => {
+    sent.push(payload);
+    return [firstRequest.promise, secondRequest.promise, { ok: true }][sent.length - 1];
+  } });
+  const first = delivery.send({ message: "First", configuration: { model: "one" } }, { messageId: "one" });
+  const second = delivery.send({ message: "Second" }, { messageId: "two", queue: true });
+  const rejected = assert.rejects(first, /Offline/);
+  firstRequest.reject(new Error("Offline"));
+  await rejected;
+  assert.equal(delivery.find("one").status, "failed");
+  assert.equal(delivery.find("one").error, "Offline");
+  const retry = delivery.resend("one", { queue: true });
+  assert.equal(delivery.find("one").status, "pending");
+  assert.equal(sent.length, 2);
+  secondRequest.resolve({ ok: true });
+  await second;
+  await retry;
+  assert.deepEqual(sent[2], sent[0]);
+  assert.equal(delivery.state.sending, false);
+});
+
+test("reset discards queued delivery without waiting for the old transport", async () => {
+  const request = Promise.withResolvers();
+  const sent = [];
+  const delivery = createAssistantMessageDelivery({ deliver: payload => {
+    sent.push(payload.message);
+    return request.promise;
+  } });
+  const first = delivery.send({ message: "Old" });
+  const queued = delivery.send({ message: "Queued" }, { queue: true });
+  delivery.reset();
+  assert.equal(await queued, false);
+  assert.deepEqual(sent, ["Old"]);
+  const next = delivery.send({ message: "New" });
+  assert.deepEqual(sent, ["Old", "New"]);
+  assert.equal(delivery.state.sending, true);
+  request.resolve({ ok: true });
+  assert.equal(await first, false);
+  assert.deepEqual(await next, { ok: true });
   assert.equal(delivery.state.sending, false);
 });
