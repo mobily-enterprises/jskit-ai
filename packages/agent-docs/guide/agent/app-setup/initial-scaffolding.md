@@ -67,6 +67,15 @@ and one-year immutable browser caching. The JSKIT client bootstrap plugin also
 restores this safe setting for existing applications that still specify
 `preserveSymlinks: true`.
 
+The plugin adds the resolved client entries behind its virtual bootstrap to
+Vite's dependency scan. Keep local packages as source rather than listing their
+roots in `optimizeDeps.exclude`: excluding them also hides their transitive
+browser dependencies from the scan and can trigger dependency rebuilds while a
+page is loading. Explicit package-owned exclusions remain supported and their
+client entries are scanned separately. Keep Vuetify's auto-imported components
+and directives in `optimizeDeps.include`, as shown in the foundation configs;
+those imports are introduced after scanning.
+
 The foundations do not install a service worker. If an application adds PWA
 caching, register it only for production and never cache development module
 paths beginning with `/@fs/`, `/@id/`, `/@vite/`, `/node_modules/`,

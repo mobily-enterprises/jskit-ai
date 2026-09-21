@@ -309,16 +309,11 @@ export { installedClientModules, bootInstalledClientModules };
 `;
 }
 
-// Vite-only: this Set-based source-type filter exists solely to drive optimizeDeps include/exclude decisions.
+// Explicit package exclusions remain separate from mutable local source resolution.
 function resolveClientOptimizeExcludeSpecifiers(clientModules = []) {
   const modulePackageMetadataEntries = normalizeClientModulePackageMetadataEntries(clientModules);
   return sortStrings(
-    [
-      ...modulePackageMetadataEntries
-        .filter((entry) => LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
-        .flatMap((entry) => [entry.packageId, `${entry.packageId}/shared`, `${entry.packageId}/client`]),
-      ...modulePackageMetadataEntries.flatMap((entry) => entry.packageMetadataClientOptimizeExcludeSpecifiers || [])
-    ]
+    modulePackageMetadataEntries.flatMap((entry) => entry.packageMetadataClientOptimizeExcludeSpecifiers || [])
   );
 }
 
@@ -335,12 +330,6 @@ function resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpeci
   );
 }
 
-function resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = []) {
-  return sortStrings(
-    localScopePackageIds.flatMap((packageId) => [packageId, `${packageId}/shared`, `${packageId}/client`])
-  );
-}
-
 function resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {}) {
   const resolveConfig = normalizeObject(userResolveConfig);
   const userDedupe = sortStrings(resolveConfig.dedupe);
@@ -352,6 +341,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
   let hasMutableLocalPackages = false;
   let localPackages = Object.freeze([]);
   let resolvePackageSpecifier = null;
+  let clientScanSpecifiers = [];
 
   return {
     name: "jskit-client-bootstrap",
@@ -377,14 +367,12 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         installedPackages.some((entry) => LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
       );
       const clientExcludeSpecifiers = resolveClientOptimizeExcludeSpecifiers(clientModules);
-      const localScopeExcludeSpecifiers = resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds);
       const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
       const userExclude = sortStrings(userOptimizeDeps.exclude);
       const userInclude = sortStrings(userOptimizeDeps.include);
       const exclude = sortStrings([
         ...userExclude,
-        ...clientExcludeSpecifiers,
-        ...localScopeExcludeSpecifiers
+        ...clientExcludeSpecifiers
       ]);
       const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
       const include = sortStrings([
@@ -392,6 +380,11 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         ...clientIncludeSpecifiers,
         CLIENT_BOOTSTRAP_MODULE_SPECIFIER
       ].filter((specifier) => !exclude.includes(specifier)));
+      // Vite cannot crawl the virtual bootstrap. Local and explicitly excluded clients
+      // still need scanning so their npm imports are ready before the first page loads.
+      clientScanSpecifiers = clientModules
+        .map((entry) => `${entry.packageId}/client`)
+        .filter((specifier) => !include.includes(specifier));
       const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
       const userServer = normalizeObject(userConfig.server);
       const userProxyEntries = normalizeObject(userServer.proxy);
@@ -415,7 +408,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         }
       };
     },
-    configResolved(resolvedConfig) {
+    async configResolved(resolvedConfig) {
       if (hasMutableLocalPackages && resolvedConfig.resolve?.preserveSymlinks === true) {
         throw new Error(
           "JSKIT mutable local packages require Vite real-path resolution. Remove resolve.preserveSymlinks: true."
@@ -426,6 +419,28 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
       // its dependency ?v hash) before JSKIT sees the selected file. The config resolver applies the
       // app's aliases, exports conditions, and wildcard rules without registering an optimized dep.
       resolvePackageSpecifier = resolvedConfig.createResolver({ scan: true });
+      if (clientScanSpecifiers.length === 0) {
+        return;
+      }
+      const clientEntries = await Promise.all(clientScanSpecifiers.map(async (specifier) => {
+        const entry = await resolvePackageSpecifier(specifier, path.join(appRoot, "package.json"));
+        if (!entry) {
+          throw new Error(`Cannot resolve JSKIT client dependency scan entry ${specifier}.`);
+        }
+        const localPackage = resolveLocalPackageForSpecifier(specifier, localPackages);
+        return localPackage ? resolveCanonicalLocalPackageId(entry, localPackage) || entry : entry;
+      }));
+      const optimizeDeps = resolvedConfig.environments.client.optimizeDeps;
+      const input = resolvedConfig.environments.client.input ?? resolvedConfig.build.rolldownOptions.input;
+      const entries = optimizeDeps.entries ?? (input
+        ? (typeof input === "string" || Array.isArray(input) ? input : Object.values(input))
+        : ["**/*.html", "!**/__tests__/**", "!**/coverage/**"]);
+      const scanEntries = sortStrings([
+        ...(Array.isArray(entries) ? entries : [entries]),
+        ...clientEntries
+      ]);
+      optimizeDeps.entries = scanEntries;
+      resolvedConfig.optimizeDeps.entries = scanEntries;
     },
     async resolveId(source, importer) {
       if (source === CLIENT_BOOTSTRAP_VIRTUAL_ID) {
@@ -472,7 +487,6 @@ export {
   resolveCanonicalLocalPackageId,
   resolveLocalPackageForSpecifier,
   resolveLocalPackageSources,
-  resolveLocalScopeOptimizeExcludeSpecifiers,
   resolveInstalledClientPackageIds,
   resolveLocalScopePackageIds,
   resolveInstalledClientModules,
