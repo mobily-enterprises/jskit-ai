@@ -125,6 +125,7 @@ watch(() => [props.adapter.delivery, props.adapter.conversation.turns], ([contro
   controller?.reconcile(turns || []);
 }, { immediate: true });
 const pending = computed(() => Boolean(props.adapter.delivery?.state.sending || props.adapter.composer?.pending));
+const queueWhileSending = computed(() => props.adapter.composer?.queueWhileSending === true);
 const working = computed(() => conversation.value.working ?? (!pending.value && Boolean(
   props.adapter.composer?.canStop || conversation.value.turns?.some(turn => turn.pending)
 )));
@@ -139,14 +140,17 @@ const attachmentState = computed(() => ({
   count: attachmentsEnabled.value ? props.adapter.attachments.queueItems?.length || 0 : 0,
   canSubmit: !attachmentsEnabled.value || props.adapter.attachments.canSubmit !== false
 }));
-const canSend = computed(() => !pending.value && props.adapter.composer?.canSend && attachmentState.value.canSubmit);
+const canSend = computed(() => (
+  (!pending.value || (queueWhileSending.value && attachmentState.value.count === 0)) &&
+  props.adapter.composer?.canSend && attachmentState.value.canSubmit
+));
 async function resend(id) {
   if (props.adapter.actions?.resend) return props.adapter.actions.resend(id);
   const controller = props.adapter.delivery;
   const payload = controller?.find(id)?.payload;
   const attachments = props.adapter.attachments;
   try {
-    const response = await controller?.resend(id);
+    const response = await controller?.resend(id, { queue: queueWhileSending.value });
     clearAcceptedAttachments(response, payload, attachments);
     return response;
   }
@@ -202,7 +206,7 @@ async function submit() {
   };
   props.adapter.actions.setDraft("");
   try {
-    const response = await controller.send(payload);
+    const response = await controller.send(payload, { queue: queueWhileSending.value });
     clearAcceptedAttachments(response, payload, attachments);
     return response;
   } catch { return false; /* Delivery retains the failed message and its actions. */ }

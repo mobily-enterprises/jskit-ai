@@ -82,7 +82,7 @@ Use `createAssistantMessageDelivery` from `/client/conversation` (or the
 Vue-component-free `/client/conversation-delivery` entry) once per conversation.
 Pass it as `adapter.delivery`. The element then handles submission, merges pending messages into the
 transcript, shows sending status, reconciles saved receipts, and supplies
-Resend, Cancel and Edit without application-specific delivery handlers.
+Retry, Cancel and Edit without application-specific delivery handlers.
 
 ```js
 const delivery = createAssistantMessageDelivery({
@@ -121,14 +121,26 @@ require `message`; optional `displayMessage` and
 retry retains the original request even if the composer settings later change. Each send creates a stable `messageId`, or
 the application may supply one in options. `false`, `{ ok: false, error }`, or
 a thrown error retain a failed entry. Exceptions are rethrown after recording
-the visible failure. Success retains the pending bubble until authoritative
+the visible failure. Undelivered bubbles use a neutral fill, dashed outline and
+Pending label. A failed bubble has an error outline, its error and Retry action.
+Success removes the pending treatment but retains the bubble until authoritative
 history contains its `user.messageId`, so it cannot flicker away before history
 arrives. Older histories without IDs can match by text and timestamp.
 
-Resend keeps the same payload and message ID; the backend must deduplicate that
+For native-agent steering, set `composer.queueWhileSending: true` to accept more
+text messages while delivery is outstanding. Custom composers call
+`send(payload, { queue: true })`. Each message appears immediately and keeps its
+own captured payload and ID; transports run in submission order. `state.sending`
+stays true until all queued deliveries settle. A failed message remains retryable
+while later messages continue; `resend(id, { queue: true })` queues that exact retry.
+An in-flight or queued message ID cannot be submitted again. The default still
+allows only one pending submission. The shared composer does not queue another
+message with attachments while an earlier delivery is pending.
+
+Retry keeps the same payload and message ID; the backend must deduplicate that
 ID. Edit moves failed text into the composer while preserving a newer draft;
 Cancel removes only the failed local entry. Neither action stops native work.
-Resend leaves the current draft untouched. Attachment bytes and removal on
+Retry leaves the current draft untouched. Attachment bytes and removal on
 acceptance remain with the application's attachment owner.
 
 `state.sending`, `state.messages`, `turns(savedTurns)`, `reconcile(savedTurns)`,
@@ -138,7 +150,9 @@ returns the merged draft or `null` when unavailable. An application may override
 `adapter.actions.resend/cancel/edit`; those actions take precedence.
 `send` also accepts per-call `deliver` and `isCurrent` for retained application
 owners. Call `reset()` when that controller's conversation retires; late results
-cannot change a replacement conversation. Rendering alone does not retire state.
+cannot change a replacement conversation, and queued messages cannot send there.
+Rendering alone does not retire state. The queue is in memory; applications own
+any persistence needed to retain unsent messages across a browser reload.
 Transport promises should settle on admission, not after the full AI answer;
 streaming and provider execution remain separately observable application work.
 

@@ -11,11 +11,11 @@
       </v-btn>
       <v-btn
         ref="sendButton" class="assistant-composer-actions__send" color="primary" :disabled="!state.canSend"
-        :aria-busy="state.pending ? 'true' : undefined" :aria-label="state.submitAriaLabel || state.submitLabel || 'Send message'"
+        :aria-busy="state.pending && !state.canSend ? 'true' : undefined" :aria-label="state.submitAriaLabel || state.submitLabel || 'Send message'"
         :title="state.submitTitle" :prepend-icon="state.submitIcon || mdiSend" size="small" variant="flat"
         @click="emit('submit')"
       >
-        {{ state.submitLabel || (state.pending ? 'Sending…' : 'Send') }}
+        {{ state.submitLabel || (state.pending && !state.canSend ? 'Sending…' : 'Send') }}
       </v-btn>
     </div>
     <slot name="feedback" />

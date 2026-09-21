@@ -8,8 +8,9 @@ const turns = ref([]);
 const requests = ref([]);
 const configuration = ref({ tone: "concise" });
 const clearedFiles = ref([]);
+const queueWhileSending = new URLSearchParams(location.search).has("queue");
 const attachments = reactive({
-  attachments: [{ attachmentId: "original-file", fileName: "original.txt" }],
+  attachments: queueWhileSending ? [] : [{ attachmentId: "original-file", fileName: "original.txt" }],
   queueItems: [], canSubmit: true, canAddFiles: false,
   clearAttachments({ attachmentIds }) {
     clearedFiles.value.push(...attachmentIds);
@@ -24,14 +25,14 @@ const delivery = createAssistantMessageDelivery({ deliver(payload) {
 } });
 function accept() {
   const payload = requests.value.at(-1);
-  turns.value = [{ turnId: "accepted", user: { messageId: payload.messageId, text: payload.message },
+  turns.value = [...turns.value, { turnId: payload.messageId, user: { messageId: payload.messageId, text: payload.message },
     assistant: { text: "Accepted once." } }];
   pendingRequest.resolve({ ok: true });
 }
 const adapter = reactive({
   delivery, attachments,
   conversation: { turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation." },
-  composer: { draft, canSend: true, submitOnEnter: true },
+  composer: { draft, canSend: true, submitOnEnter: true, queueWhileSending },
   actions: {
     setDraft(value) { draft.value = value; }
   }

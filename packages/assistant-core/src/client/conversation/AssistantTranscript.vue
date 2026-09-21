@@ -124,7 +124,13 @@
           v-else-if="entry.role === 'user'"
           class="assistant-transcript__message-row assistant-transcript__message-row--user"
         >
-          <div class="assistant-transcript__message assistant-transcript__message--user">
+          <div
+            class="assistant-transcript__message assistant-transcript__message--user"
+            :class="{
+              'assistant-transcript__message--pending': entry.turn.optimistic?.status === 'pending',
+              'assistant-transcript__message--failed': entry.turn.optimistic?.status === 'failed'
+            }"
+          >
             <div
               class="assistant-transcript__user-content"
             >
@@ -146,27 +152,30 @@
             </button>
             <slot name="attachments" :items="entry.message.attachments" :message="entry.message"><AssistantMessageAttachments :attachments="entry.message.attachments || []" /></slot>
             <div
-              v-if="entry.message.displayAt"
+              v-if="entry.message.displayAt || entry.turn.optimistic?.status === 'pending'"
               class="assistant-transcript__message-footer assistant-transcript__message-footer--user"
             >
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
+              <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">Pending</span>
             </div>
             <div
               v-if="entry.turn.optimistic?.status === 'failed'"
               class="assistant-transcript__optimistic-failure"
             >
-              <span>{{ entry.turn.optimistic.error || "Message could not be sent." }}</span>
+              <span role="status">Failed: {{ entry.turn.optimistic.error || "Message could not be sent." }}</span>
               <div class="assistant-transcript__optimistic-actions">
                 <v-btn
+                  class="assistant-transcript__delivery-action"
                   color="primary"
                   size="x-small"
                   type="button"
                   variant="tonal"
                   @click="emit('resend-turn', entry.turn.optimistic.id)"
                 >
-                  Resend
+                  Retry
                 </v-btn>
                 <v-btn
+                  class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"
                   variant="text"
@@ -175,6 +184,7 @@
                   Cancel
                 </v-btn>
                 <v-btn
+                  class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"
                   variant="text"
@@ -1101,6 +1111,21 @@ watch(timelineScrollTrigger, () => {
   width: fit-content;
 }
 
+.assistant-transcript__message--user.assistant-transcript__message--pending {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  outline: 1px dashed rgba(var(--v-theme-on-surface), 0.4);
+  outline-offset: -1px;
+}
+
+.assistant-transcript__message--pending .assistant-transcript__message-footer {
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.assistant-transcript__message--user.assistant-transcript__message--failed {
+  outline: 1px solid rgb(var(--v-theme-error));
+  outline-offset: -1px;
+}
+
 .assistant-transcript__message--assistant {
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
@@ -1230,6 +1255,13 @@ watch(timelineScrollTrigger, () => {
   align-items: center;
   display: inline-flex;
   gap: 0.25rem;
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .assistant-transcript__delivery-action {
+    min-height: 3rem;
+    min-width: 3rem;
+  }
 }
 
 .assistant-transcript__message--assistant :deep(.studio-long-text-review__blocks),

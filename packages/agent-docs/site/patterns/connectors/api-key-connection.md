@@ -368,6 +368,6 @@ account credential; that credential cannot access unrelated customer accounts.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.26`
+- Owner: `@jskit-ai/connectors-catalog@0.1.27`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/api-key-connection/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/api-key-connection/example)
