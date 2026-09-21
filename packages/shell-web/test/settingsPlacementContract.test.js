@@ -411,7 +411,9 @@ test("shell-web packageMetadata pre-optimizes package subpaths reached through d
 
   assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.include, [
     "@jskit-ai/shell-web/client/placement",
-    "@jskit-ai/shell-web/client/error"
+    "@jskit-ai/shell-web/client/error",
+    "@jskit-ai/shell-web/client/navigation/usePaths",
+    "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext"
   ]);
   assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.exclude, [
     "@jskit-ai/shell-web/client"
