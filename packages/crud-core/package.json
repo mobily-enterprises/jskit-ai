@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.1.223",
+  "version": "0.1.224",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -26,9 +26,9 @@
     "./server/routeContracts": "./src/server/routeContracts.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.212",
-    "@jskit-ai/json-rest-api-core": "0.1.156",
-    "@jskit-ai/resource-crud-core": "0.1.154",
+    "@jskit-ai/database-runtime": "0.1.213",
+    "@jskit-ai/json-rest-api-core": "0.1.157",
+    "@jskit-ai/resource-crud-core": "0.1.155",
     "json-rest-schema": "^1.0.17",
     "json-rest-api": "2.0.0"
   },
@@ -49,7 +49,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.210",
-    "@jskit-ai/kernel": "0.1.212"
+    "@jskit-ai/http-runtime": "0.1.211",
+    "@jskit-ai/kernel": "0.1.213"
   }
 }
