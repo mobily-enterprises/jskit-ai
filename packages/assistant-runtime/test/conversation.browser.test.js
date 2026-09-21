@@ -330,14 +330,14 @@ test("pending delivery appears immediately and retries the original request with
     await expect(input).toHaveValue("");
     await input.fill("Keep this newer draft.");
     held.resolve();
-    await expect(page.getByRole("button", { name: "Resend", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retry", exact: true })).toBeVisible();
     await expect(input).toHaveValue("Keep this newer draft.");
-    await page.getByRole("button", { name: "Resend", exact: true }).click();
+    await page.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(page.getByLabel("Fixture assistant progress")).toBeVisible();
     assert.equal(requests.length, 2);
     assert.deepEqual(requests[1], requests[0]);
     await expect(page.getByText("Show this immediately.", { exact: true })).toHaveCount(1);
-    await expect(page.getByRole("button", { name: "Resend", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
     await expect(input).toHaveValue("Keep this newer draft.");
     await page.request.get(`${vite.baseURL}/fixture/next?finish=1`);
     await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
