@@ -157,6 +157,22 @@ test("application foundations keep linked packages on mutable Vite source paths"
   }
 });
 
+test("application foundations limit warmup and prebundle auto-imported UI dependencies", async () => {
+  for (const patternName of FOUNDATION_NAMES) {
+    const source = await readFile(
+      path.join(PATTERNS_ROOT, patternName, "example", "vite.config.mjs"),
+      "utf8"
+    );
+
+    assert.match(source, /clientFiles:\s*\[clientEntry\.slice\(1\)\]/u,
+      `${patternName} must not eagerly transform every page and component.`);
+    assert.match(source, /["']vuetify\/components\/\*\*["']/u,
+      `${patternName} must optimize components introduced after dependency scanning.`);
+    assert.match(source, /["']vuetify\/directives\/\*\*["']/u,
+      `${patternName} must optimize directives introduced after dependency scanning.`);
+  }
+});
+
 test("application foundation guidance keeps service workers away from development modules", async () => {
   const guideSource = await readFile(
     path.join(PACKAGE_ROOT, "site", "guide", "app-setup", "initial-scaffolding.md"),

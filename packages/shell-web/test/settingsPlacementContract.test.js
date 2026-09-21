@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+import os from "node:os";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { optimizeDeps, resolveConfig } from "vite";
 import packageJson from "../package.json" with { type: "json" };
 
 const packageMetadata = packageJson.jskit;
@@ -409,15 +411,42 @@ test("shell-web packageMetadata pre-optimizes package subpaths reached through d
     "@jskit-ai/shell-web/client/error"
   ]);
 
-  assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.include, [
-    "@jskit-ai/shell-web/client/placement",
-    "@jskit-ai/shell-web/client/error",
-    "@jskit-ai/shell-web/client/navigation/usePaths",
-    "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext"
-  ]);
   assert.deepEqual(packageMetadata?.metadata?.client?.optimizeDeps?.exclude, [
     "@jskit-ai/shell-web/client"
   ]);
+});
+
+test("all public shell JavaScript helpers are ready in a cold dependency scan", async () => {
+  // The provider loads application-owned /src modules. It and Vue components stay source.
+  const sourceEntries = new Set(["./client", "./client/providers/ShellWebClientProvider"]);
+  const helpers = Object.entries(packageJson.exports)
+    .filter(([entry, target]) => entry.startsWith("./client/") && target.endsWith(".js") && !sourceEntries.has(entry))
+    .map(([entry]) => `${packageJson.name}${entry.slice(1)}`)
+    .sort();
+  const optimization = packageMetadata.metadata.client.optimizeDeps;
+  assert.deepEqual([...optimization.include].sort(), helpers,
+    "Every exported JavaScript helper needs prebundling beneath the excluded client entry.");
+
+  const root = await mkdtemp(path.join(os.tmpdir(), "shell-cold-scan-"));
+  try {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "shell-cold-scan", type: "module" }));
+    await symlink(path.resolve(PACKAGE_DIR, "../../node_modules"), path.join(root, "node_modules"), "dir");
+    const config = await resolveConfig({
+      root,
+      configFile: false,
+      cacheDir: path.join(root, "cache"),
+      logLevel: "silent",
+      optimizeDeps: { ...optimization, noDiscovery: true }
+    }, "serve");
+    const metadata = await optimizeDeps(config, true);
+    for (const helper of helpers) {
+      assert.ok(metadata.optimized[helper], `${helper} must be prepared before page loading.`);
+    }
+    assert.equal(metadata.optimized[`${packageJson.name}/client`], undefined);
+    assert.equal(metadata.optimized[`${packageJson.name}/client/providers/ShellWebClientProvider`], undefined);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("shell-web metadata advertises adaptive shell outlets and pattern-backed links", () => {
