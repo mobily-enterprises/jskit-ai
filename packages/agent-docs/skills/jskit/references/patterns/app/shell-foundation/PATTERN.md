@@ -100,6 +100,11 @@ visited, increasing startup work and memory as the application grows. Add a
 specific frequently used file only when a measured loading delay justifies it.
 Keep dependency optimization separate: reducing warmup does not require disabling
 the dependency scanner or JSKIT's installed-package optimization settings.
+The bootstrap plugin scans local client entries and their shared imports before
+page loading. Do not exclude local package roots from optimization: Vite already
+keeps their real paths as source, and exclusions hide their dependency imports.
+Keep the example's Vuetify component/directive includes because auto-imports are
+introduced after the initial scan.
 
 ## Verification
 
