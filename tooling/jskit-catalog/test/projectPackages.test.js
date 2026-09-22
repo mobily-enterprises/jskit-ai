@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { promisify } from "node:util";
+import { createServer } from "vite";
 import { isCliEntrypoint, parseArgs } from "../scripts/jskit.mjs";
 import {
   CHECK_SCRIPT,
@@ -276,7 +277,7 @@ fs.writeFileSync(path.join(root, "node_modules/current-cohort/marker"), "new\\n"
       code: "ENOENT"
     });
     assert.deepEqual(
-      (await readdir(projectRoot)).filter((entry) => entry.startsWith(".jskit-node-modules-")),
+      (await readdir(projectRoot)).filter((entry) => entry.startsWith(".jskit-update-")),
       []
     );
   });
@@ -321,10 +322,108 @@ process.exit(17);
       code: "ENOENT"
     });
     assert.deepEqual(
-      (await readdir(projectRoot)).filter((entry) => entry.startsWith(".jskit-node-modules-")),
+      (await readdir(projectRoot)).filter((entry) => entry.startsWith(".jskit-update-")),
       []
     );
   });
+});
+
+test("dependency replacement stays excluded from a running Vite watcher", { timeout: 15000 }, async (t) => {
+  await withProject(async (projectRoot) => {
+    await writeStaleInstalledProject(projectRoot);
+    const server = await createServer({
+      root: projectRoot,
+      configFile: false,
+      appType: "custom",
+      logLevel: "silent",
+      optimizeDeps: { noDiscovery: true, include: [] },
+      server: { middlewareMode: true, ws: false }
+    });
+    try {
+      await t.waitFor(() => server.watcher.getWatched()[projectRoot]?.includes("package.json"));
+      const backupDirectories = new Set();
+      const dependencyEvents = [];
+      server.watcher.on("all", (event, filePath) => {
+        const relativePath = path.relative(projectRoot, filePath).split(path.sep).join("/");
+        if (event === "addDir" && relativePath.startsWith(".jskit-")) {
+          backupDirectories.add(relativePath);
+        }
+        if (relativePath.includes("/stale-peer/")) {
+          dependencyEvents.push({ event, relativePath });
+        }
+      });
+      const fakeNpm = `#!/usr/bin/env node
+// Keep the backup present while the already-running watcher processes the rename.
+setTimeout(() => process.exit(17), 1000);
+`;
+      await withFakeNpm(projectRoot, fakeNpm, async () => {
+        await assert.rejects(
+          updateProject({ projectRoot, catalog: CATALOG }),
+          /npm install failed \(code=17, signal=none\)/u
+        );
+      });
+
+      assert.ok(backupDirectories.size > 0, "Vite observed the temporary backup directory");
+      assert.deepEqual(dependencyEvents, [], "Vite must not watch the backed-up dependencies");
+      assert.equal(
+        await readFile(path.join(projectRoot, "node_modules/stale-peer/marker"), "utf8"),
+        "old\n"
+      );
+    } finally {
+      await server.close();
+    }
+  });
+});
+
+test("failed dependency restoration retains and identifies the recovery backup", {
+  skip: process.platform === "win32" || process.getuid() === 0
+}, async (t) => {
+  for (const installExitCode of [17, 0]) {
+    await t.test(installExitCode ? "failed install" : "failed graph validation", async () => {
+      await withProject(async (projectRoot) => {
+        await writeStaleInstalledProject(projectRoot);
+        const fakeNpm = `#!/usr/bin/env node
+const fs = require("node:fs");
+const path = require("node:path");
+const root = process.cwd();
+const backupRoot = path.join(root, fs.readdirSync(root).find((entry) => entry.startsWith(".jskit-update-")));
+fs.writeFileSync(path.join(root, "backup-path.json"), JSON.stringify(backupRoot));
+fs.chmodSync(backupRoot, 0o500);
+process.exit(${installExitCode});
+`;
+        let updateError;
+        try {
+          await withFakeNpm(projectRoot, fakeNpm, async () => {
+            await assert.rejects(updateProject({ projectRoot, catalog: CATALOG }), (error) => {
+              updateError = error;
+              return error instanceof AggregateError;
+            });
+          });
+          const backupRoot = await readJson(path.join(projectRoot, "backup-path.json"));
+          assert.ok(updateError.message.includes(path.join(backupRoot, "node_modules")));
+          assert.equal(
+            updateError.errors[1].message,
+            `Could not restore node_modules; backup retained at ${path.join(backupRoot, "node_modules")}.`
+          );
+          assert.equal(updateError.errors[1].cause.code, "EACCES");
+          assert.equal(
+            await readFile(path.join(backupRoot, "node_modules/stale-peer/marker"), "utf8"),
+            "old\n"
+          );
+          assert.equal(
+            (await readJson(path.join(projectRoot, "package.json"))).dependencies["@jskit-ai/shell-web"],
+            "0.1.2"
+          );
+        } finally {
+          for (const entry of await readdir(projectRoot)) {
+            if (entry.startsWith(".jskit-update-")) {
+              await chmod(path.join(projectRoot, entry), 0o700);
+            }
+          }
+        }
+      });
+    });
+  }
 });
 
 test("project checks report stale declarations, mixed cohorts, and nested singleton stacks", async () => {
