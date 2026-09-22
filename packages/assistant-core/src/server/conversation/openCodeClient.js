@@ -416,6 +416,10 @@ function createOpenCodeServerClient({
     async deleteSession(sessionId = "", { signal } = {}) {
       return request("DELETE", `/session/${encodeURIComponent(text(sessionId))}`, { signal });
     },
+    async deleteMessage(sessionId, messageId, { signal } = {}) {
+      if (!text(messageId)) throw new TypeError("OpenCode message deletion requires a message id.");
+      return request("DELETE", stableSessionPath(sessionId, `/message/${encodeURIComponent(text(messageId))}`), { signal });
+    },
     events,
     forDirectory(nextDirectory = "") {
       const normalizedDirectory = text(nextDirectory);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createConversationStreams } from "../src/server/conversation/streams.js";
 import { classifyCodexAppServerEvent } from "../src/server/conversation/codexEvents.js";
-import { openCodeAssistantMessageText } from "../src/server/conversation/openCodeClient.js";
+import { createOpenCodeServerClient, openCodeAssistantMessageText } from "../src/server/conversation/openCodeClient.js";
 import { mergeConversationStream } from "../src/shared/conversation/streaming.js";
 
 test("Codex chunks retain whitespace and item identity; completed items reject late chunks", () => {
@@ -67,4 +67,21 @@ test("commentary keeps its role and saved answers replace live text without muta
   const withoutMessages = [{ turnId: "000001", user, assistant: final }];
   assert.equal(mergeConversationStream(withoutMessages, streams.read("one")), withoutMessages);
   assert.equal(mergeConversationStream([{ turnId: "000001", user }], streams.read("one"))[0].messages[0], user);
+});
+
+
+test("OpenCode deletes an exact message without reverting project files", async () => {
+  const calls = [];
+  const client = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:9999", directory: "/test/project", password: "test-password",
+    fetchImpl: async (url, options) => {
+      calls.push({ url: String(url), ...options });
+      return new Response("true", { headers: { "content-type": "application/json" } });
+    }
+  });
+  assert.equal(await client.deleteMessage("ses_test", "msg_test"), true);
+  assert.equal(calls[0].method, "DELETE");
+  assert.equal(new URL(calls[0].url).pathname, "/session/ses_test/message/msg_test");
+  assert.ok(calls[0].headers.Authorization || calls[0].headers.authorization);
+  await assert.rejects(client.deleteMessage("ses_test", ""), /requires a message id/);
+  assert.equal(calls.length, 1);
 });

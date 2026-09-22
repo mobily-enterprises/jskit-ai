@@ -631,7 +631,6 @@ Exports
 - `resolveCanonicalLocalPackageId(resolvedId, localPackage)`
 - `resolveLocalPackageForSpecifier(source, localPackages = [])`
 - `resolveLocalPackageSources({ appRoot })`
-- `resolveLocalScopeOptimizeExcludeSpecifiers(localScopePackageIds = [])`
 - `resolveInstalledClientPackageIds(options)`
 - `resolveLocalScopePackageIds({ appRoot })`
 - `resolveInstalledClientModules({ appRoot })`

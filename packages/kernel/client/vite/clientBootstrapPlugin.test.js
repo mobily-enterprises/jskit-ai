@@ -11,7 +11,6 @@ import {
   resolveCanonicalLocalPackageId,
   resolveLocalPackageForSpecifier,
   resolveLocalPackageSources,
-  resolveLocalScopeOptimizeExcludeSpecifiers,
   resolveClientOptimizeIncludeSpecifiers,
   resolveClientOptimizeExcludeSpecifiers,
   resolveLocalScopePackageIds,
@@ -164,7 +163,7 @@ test("createVirtualModuleSource renders deterministic client module imports", ()
   assert.match(source, /installedClientModules/);
 });
 
-test("resolveClientOptimizeExcludeSpecifiers excludes local/app-local package roots and client/shared subpaths", () => {
+test("resolveClientOptimizeExcludeSpecifiers lets Vite scan local source imports", () => {
   const exclude = resolveClientOptimizeExcludeSpecifiers([
     {
       packageId: "@z/pkg",
@@ -188,14 +187,7 @@ test("resolveClientOptimizeExcludeSpecifiers excludes local/app-local package ro
     }
   ]);
 
-  assert.deepEqual(exclude, [
-    "@a/pkg",
-    "@a/pkg/client",
-    "@a/pkg/shared",
-    "@b/pkg",
-    "@b/pkg/client",
-    "@b/pkg/shared"
-  ]);
+  assert.deepEqual(exclude, []);
 });
 
 test("resolveClientOptimizeExcludeSpecifiers includes packageMetadata-declared excludes", () => {
@@ -215,9 +207,6 @@ test("resolveClientOptimizeExcludeSpecifiers includes packageMetadata-declared e
   ]);
 
   assert.deepEqual(exclude, [
-    "@a/pkg",
-    "@a/pkg/client",
-    "@a/pkg/shared",
     "@z/pkg/client",
     "external-problem-dep"
   ]);
@@ -269,18 +258,6 @@ test("resolveClientOptimizeIncludeSpecifiers omits excluded package clients", ()
   );
 
   assert.deepEqual(include, ["@c/pkg/client"]);
-});
-
-test("resolveLocalScopeOptimizeExcludeSpecifiers expands @local package ids to root/client/shared", () => {
-  const exclude = resolveLocalScopeOptimizeExcludeSpecifiers(["@local/app", "@local/feature"]);
-  assert.deepEqual(exclude, [
-    "@local/app",
-    "@local/app/client",
-    "@local/app/shared",
-    "@local/feature",
-    "@local/feature/client",
-    "@local/feature/shared"
-  ]);
 });
 
 test("resolveInstalledClientPackageIds returns only installed packages with a client export", async () => {
@@ -681,11 +658,14 @@ test("createJskitClientBootstrapPlugin resolves multiple local packages before V
       ["@example/local-utility", path.join(tempRoot, "node_modules", "@example", "local-utility", "browser", "utility.js")],
       ["@example/local-utility/shared", path.join(tempRoot, "node_modules", "@example", "local-utility", "browser", "utility-shared.js")]
     ]);
-    plugin.configResolved({
+    await plugin.configResolved({
+      optimizeDeps: {},
+      environments: { client: { optimizeDeps: { entries: ["index.html"] } } },
+      build: { rolldownOptions: {} },
       createResolver(options) {
         assert.equal(options.scan, true);
         return async (source, importer) => {
-          assert.equal(importer, undefined);
+          assert.ok(importer === undefined || importer === path.join(tempRoot, "package.json"));
           return viteResolvedIds.get(source);
         };
       }
@@ -812,7 +792,7 @@ test("createJskitClientBootstrapPlugin config lets packageMetadata excludes over
   }
 });
 
-test("createJskitClientBootstrapPlugin config excludes local package roots and client/shared subpaths", async () => {
+test("createJskitClientBootstrapPlugin config keeps local packages as scannable source", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-local-"));
   const previousCwd = process.cwd();
 
@@ -862,11 +842,7 @@ test("createJskitClientBootstrapPlugin config excludes local package roots and c
       }
     });
 
-    assert.deepEqual(result.optimizeDeps.exclude, [
-      "@example/local-client",
-      "@example/local-client/client",
-      "@example/local-client/shared"
-    ]);
+    assert.deepEqual(result.optimizeDeps.exclude, []);
     assert.deepEqual(result.optimizeDeps.include, [
       "@example/remote-client/client",
       "@jskit-ai/kernel/client/moduleBootstrap",
@@ -910,7 +886,7 @@ test("createJskitClientBootstrapPlugin config preserves user resolve fields and 
   }
 });
 
-test("createJskitClientBootstrapPlugin config excludes all @local scoped packages from package.json", async () => {
+test("createJskitClientBootstrapPlugin config uses real paths for @local scoped packages", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-local-scope-config-"));
   const previousCwd = process.cwd();
 
@@ -944,14 +920,7 @@ test("createJskitClientBootstrapPlugin config excludes all @local scoped package
     const plugin = createJskitClientBootstrapPlugin();
     const result = await plugin.config({});
 
-    assert.deepEqual(result.optimizeDeps.exclude, [
-      "@local/feature",
-      "@local/feature/client",
-      "@local/feature/shared",
-      "@local/main",
-      "@local/main/client",
-      "@local/main/shared"
-    ]);
+    assert.deepEqual(result.optimizeDeps.exclude, []);
     assert.deepEqual(result.optimizeDeps.include, [
       "@example/remote-client/client",
       "@jskit-ai/kernel/client/moduleBootstrap"
@@ -976,7 +945,7 @@ test("createJskitClientBootstrapPlugin rejects a later preserveSymlinks override
     const result = await plugin.config({});
 
     assert.equal(result.resolve.preserveSymlinks, false);
-    assert.throws(
+    await assert.rejects(
       () => plugin.configResolved({
         resolve: {
           preserveSymlinks: true
