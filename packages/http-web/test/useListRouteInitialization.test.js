@@ -256,10 +256,14 @@ test("route-synchronized lists make one initial request with the hydrated route 
   });
 
   assert.equal(runtime.calls.length, 1);
+  const { signal } = runtime.calls[0].options;
+  assert.ok(signal instanceof AbortSignal);
+  assert.equal(signal.aborted, false);
   assert.deepEqual(runtime.calls[0], {
     path: "/contacts",
     options: {
       method: "GET",
+      signal,
       query: {
         currentness: "archived",
         limit: 20
