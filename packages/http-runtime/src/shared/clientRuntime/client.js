@@ -13,6 +13,15 @@ import {
 
 const DEFAULT_UNSAFE_METHODS = Object.freeze(["POST", "PUT", "PATCH", "DELETE"]);
 const DEFAULT_NDJSON_CONTENT_TYPE = "application/x-ndjson";
+const DEFAULT_READ_TIMEOUT_MS = 30_000;
+
+function requestSignalWithDeadline(signal, timeoutMs) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError("Request timeoutMs must be a positive finite integer.");
+  }
+  const deadline = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, deadline]) : deadline;
+}
 
 function normalizeMethod(method) {
   return String(method || "GET")
@@ -94,7 +103,7 @@ function appendRequestQueryToUrl(url, query = null, transport = null) {
   return appendQueryString(normalizedUrl, serializedQuery);
 }
 
-function parseJsonSafely(response) {
+function parseJsonSafely(response, signal) {
   const contentType = String(response?.headers?.get?.("content-type") || "");
   const isJson = isJsonContentType(contentType);
   if (!isJson) {
@@ -106,7 +115,13 @@ function parseJsonSafely(response) {
   }
 
   return Promise.resolve(response?.json?.())
-    .catch(() => ({}))
+    .catch((error) => {
+      signal?.throwIfAborted();
+      if (error?.name === "AbortError") {
+        throw error;
+      }
+      return {};
+    })
     .then((data) => ({
       contentType,
       isJson,
@@ -199,6 +214,7 @@ function createHttpClient(options = {}) {
 
   async function fetchSessionForCsrf() {
     const activeFetch = configuredFetchImpl || resolveFetch();
+    const signal = requestSignalWithDeadline(null, options.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS);
     const requestUrl = await resolveRequestUrl(csrf.sessionPath, {
       originalUrl: csrf.sessionPath,
       method: "GET",
@@ -213,13 +229,16 @@ function createHttpClient(options = {}) {
     try {
       response = await activeFetch(requestUrl, {
         method: "GET",
-        credentials: String(options?.credentials || "same-origin")
+        credentials: String(options?.credentials || "same-origin"),
+        signal
       });
     } catch (cause) {
+      signal.throwIfAborted();
       throw createNetworkError(cause);
     }
 
-    const { data } = await parseJsonSafely(response);
+    const { data } = await parseJsonSafely(response, signal);
+    signal.throwIfAborted();
     updateCsrfTokenFromPayload(data);
 
     if (!response.ok) {
@@ -352,6 +371,7 @@ function createHttpClient(options = {}) {
       transport: _transport,
       query: requestQuery,
       csrf: requestCsrf,
+      timeoutMs: requestTimeoutMs,
       ...forwardedRequestOptions
     } = requestOptions && typeof requestOptions === "object" ? requestOptions : {};
     const csrfEnabled = csrf.enabled && requestCsrf !== false;
@@ -385,6 +405,13 @@ function createHttpClient(options = {}) {
       method,
       headers
     };
+    const ordinaryRead = !stream && ["GET", "HEAD"].includes(method);
+    const timeoutMs = requestTimeoutMs ?? (ordinaryRead
+      ? options.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS
+      : undefined);
+    if (timeoutMs !== undefined) {
+      config.signal = requestSignalWithDeadline(config.signal, timeoutMs);
+    }
 
     if (transport) {
       setHeaderIfMissing(headers, "Accept", JSON_API_CONTENT_TYPE);
@@ -418,15 +445,18 @@ function createHttpClient(options = {}) {
   }
 
   async function executePreparedRequest(url, config, { method, state }, onNetworkFailure) {
+    config.signal?.throwIfAborted();
     let response;
     try {
       const activeFetch = configuredFetchImpl || resolveFetch();
       response = await activeFetch(url, config);
     } catch (cause) {
+      config.signal?.throwIfAborted();
       return onNetworkFailure(cause);
     }
 
-    const { contentType, isJson, data } = await parseJsonSafely(response);
+    const { contentType, isJson, data } = await parseJsonSafely(response, config.signal);
+    config.signal?.throwIfAborted();
     updateCsrfTokenFromPayload(data);
 
     return {
@@ -556,6 +586,9 @@ function createHttpClient(options = {}) {
       state,
       stream: false,
       async handleNetworkFailure({ cause, method, state: resolvedState }) {
+        if (cause?.name === "AbortError") {
+          throw cause;
+        }
         const error = createNetworkError(cause);
         await notifyFailure({
           url,

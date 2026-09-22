@@ -79,20 +79,15 @@ function useListCore({
     queryKey,
     initialPageParam,
     enabled: queryEnabled,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const requestPath = normalizedPath.value;
       if (!requestPath) {
         throw new Error("List path is required.");
       }
 
-      return activeClient.request(
-        requestPath,
-        buildListRequestOptions({
-          requestOptions,
-          transport,
-          pageParam
-        })
-      );
+      const options = buildListRequestOptions({ requestOptions, transport, pageParam });
+      options.signal = options.signal ? AbortSignal.any([signal, options.signal]) : signal;
+      return activeClient.request(requestPath, options);
     },
     getNextPageParam,
     selectItems,

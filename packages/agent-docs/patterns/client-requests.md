@@ -71,6 +71,9 @@ Why this is the standard JSKIT shape:
 - `useCommand()` resolves the scoped API path for the current route and surface.
 - The higher-level list, view, add/edit, and command runtimes send requests through the shared HTTP runtime.
 - `httpWebClient` already handles credentials and CSRF behavior.
+- Standard read composables forward TanStack Query cancellation to the HTTP client. A custom `queryFn` must also pass its `signal` to `request()`; a custom client must honor it.
+- Ordinary `GET`/`HEAD` requests have a 30-second deadline through JSON body reading even without a caller signal. Client `readTimeoutMs` and request `timeoutMs` accept positive finite integer milliseconds. CSRF session reads use `readTimeoutMs`. The transient HTTP client does not retry cancellations or deadline expiry; deadlines apply per HTTP attempt, not to an entire query lifecycle.
+- Writes and `requestStream()` have no default overall deadline; pass `timeoutMs` explicitly when appropriate and cancel long-lived streams when their owner stops. Read deadlines do not impose a concurrency limit or protect raw `fetch` calls.
 - `useEndpointResource()` is the shared endpoint primitive for loading, saving, and standard load/save error handling. Higher-level runtimes add UI feedback and field-error handling on top.
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
 - Standard CRUD and lookup reads use all resource-defined output fields by default. Hydrated relationships use the target resource's output contract. Pages and lookup controls do not repeat those definitions as request fieldsets.

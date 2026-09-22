@@ -14,6 +14,9 @@ function sleep(delayMs) {
 }
 
 function shouldRetryTransientHttpFailure(error, method, attemptIndex) {
+  if (error?.name === "AbortError" || error?.name === "TimeoutError") {
+    return false;
+  }
   if (!SAFE_RETRY_METHODS.has(String(method || "GET").toUpperCase())) {
     return false;
   }
@@ -23,13 +26,15 @@ function shouldRetryTransientHttpFailure(error, method, attemptIndex) {
   return Number(attemptIndex) < MAX_TRANSIENT_HTTP_RETRIES;
 }
 
-async function requestWithTransientRetry(executor, method) {
+async function requestWithTransientRetry(executor, method, signal) {
   let attemptIndex = 0;
 
   while (true) {
+    signal?.throwIfAborted();
     try {
       return await executor();
     } catch (error) {
+      signal?.throwIfAborted();
       if (!shouldRetryTransientHttpFailure(error, method, attemptIndex)) {
         throw error;
       }
@@ -48,14 +53,16 @@ function createTransientRetryHttpClient(options = {}) {
       const method = String(requestOptions?.method || "GET").toUpperCase();
       return requestWithTransientRetry(
         () => baseHttpClient.request(url, requestOptions, state),
-        method
+        method,
+        requestOptions?.signal
       );
     },
     requestStream(url, requestOptions = {}, handlers = {}, state = null) {
       const method = String(requestOptions?.method || "GET").toUpperCase();
       return requestWithTransientRetry(
         () => baseHttpClient.requestStream(url, requestOptions, handlers, state),
-        method
+        method,
+        requestOptions?.signal
       );
     }
   });
