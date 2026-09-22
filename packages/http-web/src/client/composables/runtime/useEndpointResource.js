@@ -91,7 +91,7 @@ function useEndpointResource({
 
   const query = useQuery({
     queryKey,
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       const requestPath = normalizedPath.value;
       if (!requestPath) {
         throw new Error("Resource path is required.");
@@ -102,7 +102,8 @@ function useEndpointResource({
           method: readMethod,
           query: readQuery,
           transport
-        })
+        }),
+        signal
       });
     },
     enabled: queryEnabled,

@@ -44,19 +44,24 @@ versions in workspace and template manifests, refreshes `package-lock.json`,
 and rebuilds the catalog and distributed agent documentation. Verify, review,
 and commit that source change.
 
-Then publish the committed versions:
+Commit the prepared release on `main` and push it to `origin/main`. Then publish
+those committed versions:
 
 ```bash
 NPM_TOKEN=... npm run release:npm:publish
 npm run verify:registry
 ```
 
-`publish` edits nothing. It rejects stale internal versions and dependency
+`publish` edits nothing. It requires a clean `main` checkout whose HEAD matches
+the actual `main` commit on `origin`, including when run through GitHub Actions.
+Feature branches, detached checkouts, uncommitted files, and unpushed or stale
+commits cannot publish. `publish --dry-run` may inspect work before committing.
+It rejects stale internal versions and dependency
 cycles, then publishes the current packages directly to npm in dependency
 order. `verify:registry` contains the checks that require the public registry.
 
-For a one-shot release, `npm run release` runs `prepare`, the deterministic
-source verification gate, and `publish` in that order.
+`npm run release` verifies and publishes an already prepared, committed and
+pushed `main` checkout. Run `prepare` and commit/push separately first.
 
 If npm interrupts a publication after accepting some packages, fix the cause
 and prepare a new coordinated patch release. Published npm versions are

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promise
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(__filename), "..");
@@ -366,7 +366,30 @@ async function createNpmUserConfig(registry) {
   return { configPath, directory };
 }
 
+function assertMainReleaseCheckout(repoRoot = REPO_ROOT) {
+  const git = (args) => execFileSync("git", args, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 30_000
+  }).trim();
+  if (git(["branch", "--show-current"]) !== "main") {
+    throw new Error("Publish requires the main branch.");
+  }
+  if (git(["status", "--porcelain", "--untracked-files=all"])) {
+    throw new Error("Publish requires a clean checkout; commit all release changes first.");
+  }
+  const head = git(["rev-parse", "HEAD"]);
+  const remoteMain = git(["ls-remote", "--exit-code", "origin", "refs/heads/main"]).split(/\s+/u)[0];
+  if (head !== remoteMain) {
+    throw new Error("Publish requires HEAD to match origin's main branch; reconcile and push main first.");
+  }
+}
+
 async function publishRelease(records, { dryRun, registry }) {
+  if (!dryRun) {
+    assertMainReleaseCheckout();
+  }
   const versions = await validateReleaseState(records);
   const order = topologicalPublishOrder(records);
   const recordsByName = new Map(records.map((record) => [record.name, record]));
@@ -429,6 +452,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 }
 
 export {
+  assertMainReleaseCheckout,
   bumpPatch,
   collectPublishDependencies,
   collectPatternPackageJsonPaths,

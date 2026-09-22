@@ -165,3 +165,73 @@ test("createTransientRetryHttpClient retries transient GET stream failures", asy
     assert.equal(callCount, 2);
   });
 });
+
+for (const phase of ["before request", "waiting for headers", "reading body", "retry delay"]) {
+  test(`request cancellation during ${phase} rejects without starting another fetch`, async () => {
+    await withImmediateTimers(async () => {
+      const controller = new AbortController();
+      const reason = new DOMException("Read superseded", "AbortError");
+      let callCount = 0;
+      const client = createTransientRetryHttpClient({
+        fetchImpl: async (_url, { signal }) => {
+          callCount += 1;
+          if (phase === "before request") signal.throwIfAborted();
+          if (phase === "waiting for headers") {
+            controller.abort(reason);
+            signal.throwIfAborted();
+          }
+          if (phase === "reading body") {
+            return {
+              ...mockResponse(),
+              async json() {
+                controller.abort(reason);
+                signal.throwIfAborted();
+              }
+            };
+          }
+          return mockResponse({ status: 503 });
+        }
+      });
+      const immediateTimer = globalThis.setTimeout;
+      if (phase === "before request") controller.abort(reason);
+      if (phase === "retry delay") {
+        globalThis.setTimeout = (handler, delay, ...args) => {
+          controller.abort(reason);
+          return immediateTimer(handler, delay, ...args);
+        };
+      }
+      await assert.rejects(client.request("/api/cancellation", { signal: controller.signal }),
+        (error) => error === reason);
+      assert.equal(callCount, phase === "before request" ? 0 : 1);
+    });
+  });
+}
+
+for (const phase of ["headers", "body"]) {
+  test(`default read deadline during ${phase} rejects without a caller signal or another fetch`, async (t) => {
+    await withImmediateTimers(async () => {
+      const deadline = new AbortController();
+      const reason = new DOMException("Read timed out", "TimeoutError");
+      t.mock.method(AbortSignal, "timeout", () => deadline.signal);
+      let callCount = 0;
+      const client = createTransientRetryHttpClient({
+        fetchImpl: async () => {
+          callCount += 1;
+          if (phase === "headers") {
+            deadline.abort(reason);
+            throw reason;
+          }
+          return {
+            ...mockResponse(),
+            async json() {
+              deadline.abort(reason);
+              throw new DOMException("Body read aborted", "AbortError");
+            }
+          };
+        }
+      });
+      await assert.rejects(client.request("/api/forgotten-read"), (error) => error === reason);
+      assert.equal(callCount, 1);
+    });
+  });
+}

@@ -45,7 +45,7 @@ Exports
 Local functions
 - `sleep(delayMs)`
 - `shouldRetryTransientHttpFailure(error, method, attemptIndex)`
-- `requestWithTransientRetry(executor, method)`
+- `requestWithTransientRetry(executor, method, signal)`
 
 ### `src/client/validationErrors.js`
 Exports
@@ -65,6 +65,7 @@ Exports
 Exports
 - `createHttpClient(options = {})`
 Local functions
+- `requestSignalWithDeadline(signal, timeoutMs)`
 - `normalizeMethod(method)`
 - `resolveUnsafeMethods(value)`
 - `resolveFetch()`
@@ -72,7 +73,7 @@ Local functions
 - `isObjectBody(value)`
 - `isQueryValuePresent(value)`
 - `appendRequestQueryToUrl(url, query = null, transport = null)`
-- `parseJsonSafely(response)`
+- `parseJsonSafely(response, signal)`
 - `emitNdjsonLine(line, handlers)`
 - `readNdjsonStream(response, handlers = {})`
 

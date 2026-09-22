@@ -42,6 +42,8 @@ hash, pattern receipt, or tool-owned source declaration.
 - Import neutral request and CRUD UI APIs from `@jskit-ai/http-web`. Install
   `users-web` only for actual account/profile/user UI.
 
+Ordinary GET/HEAD reads have 30-second deadlines; custom queries pass `signal`.
+
 ## Adaptive shell drawer
 
 Use Vuetify Material navigation. Compact close dismisses the temporary drawer;

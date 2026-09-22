@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createServer } from "node:http";
 
 import { createHttpClient } from "../src/shared/clientRuntime/client.js";
 
@@ -19,6 +20,62 @@ function mockResponse({ status = 200, data = {}, contentType = "application/json
       return text;
     }
   };
+}
+
+test("ordinary reads get a finite default deadline while streams keep their explicit lifetime", async (t) => {
+  const deadlines = [];
+  const calls = [];
+  t.mock.method(AbortSignal, "timeout", (milliseconds) => {
+    deadlines.push(milliseconds);
+    return new AbortController().signal;
+  });
+  const client = createHttpClient({
+    fetchImpl: async (_url, options) => {
+      calls.push(options);
+      return mockResponse();
+    }
+  });
+  await client.request("/api/list");
+  await client.request("/api/report", { timeoutMs: 90_000 });
+  await client.requestStream("/api/events");
+  assert.deepEqual(deadlines, [30_000, 90_000]);
+  assert.ok(calls[0].signal instanceof AbortSignal);
+  assert.equal(calls[1].timeoutMs, undefined);
+  assert.equal(calls[2].signal, undefined);
+  for (const timeoutMs of [0, -1, Infinity, NaN]) {
+    await assert.rejects(client.request("/api/list", { timeoutMs }), /positive finite integer/u);
+  }
+});
+
+for (const phase of ["headers", "body", "CSRF session"]) {
+  test(`read deadline closes a real HTTP connection stalled during ${phase}`, async (t) => {
+    let received;
+    let closed;
+    const requestReceived = new Promise((resolve) => { received = resolve; });
+    const responseClosed = new Promise((resolve) => { closed = resolve; });
+    const server = createServer((_request, response) => {
+      response.on("close", closed);
+      if (phase !== "headers") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.write('{"pending":');
+      }
+      received();
+    });
+    t.after(() => {
+      server.closeAllConnections();
+      server.close();
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const client = createHttpClient({ readTimeoutMs: 100, csrf: { sessionPath: `${origin}/session` } });
+    const pending = client.request(`${origin}/read`, phase === "CSRF session"
+      ? { method: "POST", body: { value: 1 } }
+      : {});
+    const rejected = assert.rejects(pending, (error) => error.name === "TimeoutError");
+    await requestReceived;
+    await rejected;
+    await responseClosed;
+  });
 }
 
 test("request retains standard and JSON:API write outcomes without retrying", async () => {

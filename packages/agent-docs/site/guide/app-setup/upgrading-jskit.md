@@ -125,3 +125,22 @@ Commit `package.json`, every changed workspace manifest, and
 `package-lock.json` together. Do not hand-edit one JSKIT version after the
 updater succeeds; select a different published cohort only through a catalog
 that advertises it.
+
+## Read cancellation and deadlines
+
+The standard endpoint, list, view, form-read, and CRUD read composables pass
+TanStack Query cancellation to the HTTP client. Superseding or cancelling a
+query therefore aborts its obsolete download. Custom query functions must
+forward their `signal`, and custom HTTP clients must honor it.
+
+Ordinary `createHttpClient()` and `http-web` `GET`/`HEAD` requests also have a
+30-second deadline covering fetch queueing, headers, and JSON body consumption.
+This applies even without a caller signal. Set `readTimeoutMs` when configuring
+the client, or `timeoutMs` on an individual request, for a different positive
+finite integer duration in milliseconds. CSRF session reads use `readTimeoutMs`.
+Cancellation and deadline errors are not retried by the transient HTTP client;
+the deadline applies per HTTP attempt, not to an entire query/retry lifecycle.
+
+Writes and `requestStream()` have no default overall deadline. They accept an
+explicit `timeoutMs`; long-lived streams still need lifecycle cancellation.
+These safeguards do not limit request volume or govern raw `fetch` calls.

@@ -110,6 +110,6 @@ tool's annotations, or fall back to provider OAuth without an implemented flow.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.1.31`
+- Owner: `@jskit-ai/connectors-catalog@0.1.32`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/assistant-mcp/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/assistant-mcp/example)

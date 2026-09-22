@@ -14,7 +14,7 @@ import {
   configureHttpWebClient,
   resetHttpWebClientForTests
 } from "../src/client/lib/httpClient.js";
-import { buildListRequestOptions } from "../src/client/composables/runtime/useListCore.js";
+import { buildListRequestOptions, useListCore } from "../src/client/composables/runtime/useListCore.js";
 import {
   resolveOperationRealtimeOptions
 } from "../src/client/composables/useRealtimeQueryInvalidation.js";
@@ -292,6 +292,75 @@ test("endpoint resource reads attach request recovery metadata to query options"
     requestRecoveryMethod: "GET"
   });
 });
+
+for (const kind of ["endpoint", "list", "list with caller signal"]) {
+  test(`repeated ${kind} refreshes abort superseded HTTP requests`, async (t) => {
+    const paginated = kind !== "endpoint";
+    const caller = kind === "list with caller signal" ? new AbortController() : null;
+    const queryClient = new QueryClient();
+    const queryKey = ["endpoint-cancellation"];
+    const requests = [];
+    const active = new Set();
+    let resource;
+    const payload = (revision) => paginated
+      ? { pages: [{ items: [revision] }], pageParams: [null] }
+      : { revision };
+    queryClient.setQueryData(queryKey, payload(0));
+    const app = createSSRApp({
+      setup() {
+        resource = (paginated ? useListCore : useEndpointResource)({
+          queryKey,
+          path: "/api/endpoint-cancellation",
+          requestOptions: caller ? { signal: caller.signal } : null,
+          queryOptions: { staleTime: Infinity, retry: false },
+          client: {
+            request(_path, { signal }) {
+              return new Promise((resolve, reject) => {
+                const request = { signal, resolve };
+                requests.push(request);
+                active.add(request);
+                signal?.addEventListener("abort", () => {
+                  active.delete(request);
+                  reject(new DOMException("Query cancelled", "AbortError"));
+                }, { once: true });
+              });
+            }
+          }
+        });
+        return () => h("div");
+      }
+    });
+    app.use(VueQueryPlugin, { queryClient });
+    t.after(() => {
+      queryClient.clear();
+      for (const request of requests) request.resolve({ revision: -1 });
+    });
+    await renderToString(app);
+
+    const refreshes = [];
+    for (let revision = 1; revision <= 10; revision += 1) {
+      // SSR has no mounted observer; include its cached query in invalidation.
+      refreshes.push(revision % 2 === 0
+        ? queryClient.invalidateQueries({ queryKey, refetchType: "all" })
+        : resource.reload());
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(requests.length, revision);
+      assert.equal(active.size, 1, "only the latest refresh should keep an HTTP request alive");
+    }
+    assert.equal(requests[0].signal.aborted, true);
+    assert.equal(requests.at(-1).signal.aborted, false);
+    requests.at(-1).resolve(paginated ? { items: [10] } : { revision: 10 });
+    await Promise.all(refreshes);
+    assert.deepEqual(queryClient.getQueryData(queryKey), payload(10));
+    if (caller) {
+      const pending = resource.reload();
+      caller.abort();
+      assert.equal(requests.at(-1).signal.aborted, true);
+      await pending;
+      assert.equal(resource.query.error.value.name, "AbortError");
+    }
+  });
+}
 
 test("endpoint resources use the configured http-web HTTP client by default", async () => {
   const queryClient = new QueryClient();
