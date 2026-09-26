@@ -44,6 +44,7 @@ function useAddEdit({
   buildRawPayload,
   buildSavePayload,
   onSaveSuccess,
+  validationFeedback = true,
   requestQueryParams = null,
   recordIdParam = "recordId",
   routeParams = null,
@@ -148,6 +149,7 @@ function useAddEdit({
     buildRawPayload,
     buildSavePayload,
     onSaveSuccess,
+    validationFeedback,
     messages: effectiveMessages
   });
 
@@ -155,7 +157,7 @@ function useAddEdit({
     enabled: clearOnRouteChange,
     route: routeContext.route,
     feedback,
-    fieldBag
+    onClear: addEdit.resetValidation
   });
 
   const isInitialLoading = operationScope.isLoading(endpointResource.isInitialLoading);
@@ -165,7 +167,7 @@ function useAddEdit({
     Boolean(!canSave.value || addEdit.saving.value || isRefetching.value)
   );
   const isSubmitDisabled = computed(() =>
-    Boolean(isInitialLoading.value || isRefetching.value || !canSave.value)
+    Boolean(isInitialLoading.value || isRefetching.value || !canSave.value || addEdit.saving.value)
   );
   const loadError = operationScope.loadError(endpointResource.loadError);
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
@@ -207,6 +209,9 @@ function useAddEdit({
     isLoading,
     isSaving: addEdit.saving,
     fieldErrors: addEdit.fieldErrors,
+    validationAttempted: addEdit.validationAttempted,
+    validationErrors: addEdit.validationErrors,
+    resetValidation: addEdit.resetValidation,
     message: addEdit.message,
     messageType: addEdit.messageType,
     submit: addEdit.submit,

@@ -5,8 +5,6 @@ description: Implement JSKIT database resources, repositories, services, actions
 
 # CRUD operations
 
-Read this before database, schema, CRUD, repository, or persistence work.
-
 ## Establish the product contract
 
 Take database, surface, access, ownership, operations, and fields from product
@@ -25,8 +23,6 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 
 ## Author the resource normally
 
-For a conventional resource:
-
 1. Write an immutable app-owned migration.
 2. Define the shared resource contract through `defineCrudResource()`.
 3. Use `defineCrudJsonApiFeature()` for standard repository, service, action,
@@ -42,13 +38,12 @@ Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
 `useCrudAddEditScreen()`; use `useCommand()` or `useEndpointResource()` for
 non-standard operations.
 
-Additional resource service methods are normal. Add them with
-`decorateService`; expose commands such as `confirm`, `publish`, or `cancel`
-through named `actions`. With `operationLifecycle`, mutation `before`,
+Add resource service methods with `decorateService`; expose commands such as
+`confirm`, `publish`, or `cancel` through named `actions`. With `operationLifecycle`, mutation `before`,
 `execute`, and `after` share one repository transaction, `execute` receives
 `standard(nextInput)`, and `afterCommit` follows commit. Repositories persist;
-services and hooks orchestrate them. Durable external work uses a transactional
-outbox.
+services and hooks orchestrate. Use a transactional outbox for durable
+external work.
 
 ## Record deletion
 
@@ -56,6 +51,9 @@ Deletion requires an explicit shared `DELETE` operation and confirmation
 decision. Use `CrudDeleteAction` and `useCrudDeleteAction()` through the view
 actions slot; do not rebuild their confirmation, request, invalidation, and
 navigation flow.
+
+For custom form actions, see
+[record form actions](https://mobily-enterprises.github.io/jskit-ai/guide/framework/crud-form-actions).
 
 ## Strict temporal values
 
@@ -72,10 +70,10 @@ Honor `temporalPrecision`; repositories return strict strings.
 ## Migration ownership
 
 Migrations are immutable application source owned with their resource. Never
-make a live table or a generator the sole source of truth. Schema inspection
-is for adoption and diagnosis, not compulsory authoring.
+make a live table or a generator the sole source of truth. Inspect schemas for
+adoption and diagnosis; inspection is optional.
 
-Before sign-off, rebuild from zero in a fresh disposable database, compare the
-schema, test ownership boundaries and failure cases, and run current-state
-verification. Do not create a workboard entry, ownership receipt, generation
-record, or historical proof that tooling ran.
+Before sign-off, rebuild in a fresh disposable database, compare schemas,
+test ownership boundaries and failures, and run current-state verification.
+Do not create a workboard entry, ownership receipt, generation record, or
+historical proof that tooling ran.

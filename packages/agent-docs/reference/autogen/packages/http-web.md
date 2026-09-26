@@ -197,7 +197,7 @@ Local functions
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "http-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "http-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
@@ -254,7 +254,7 @@ Exports
 
 ### `src/client/composables/runtime/operationUiHelpers.js`
 Exports
-- `setupRouteChangeCleanup({ enabled = true, route = null, feedback = null, fieldBag = null } = {})`
+- `setupRouteChangeCleanup({ enabled = true, route = null, feedback = null, fieldBag = null, onClear = null } = {})`
 - `setupOperationErrorReporting({ enabled = true, source = "http-web.operation", loadError = null, notFoundError = null, loadActionFactory = null, notFoundActionFactory = null, loadChannel = "", notFoundChannel = "", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
 Local functions
 - `normalizeMessage(value)`
@@ -265,7 +265,7 @@ Exports
 
 ### `src/client/composables/runtime/useAddEditCore.js`
 Exports
-- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, messages = {} } = {})`
+- `useAddEditCore({ model, resource, queryKey, canSave, fieldBag, feedback, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, messages = {} } = {})`
 
 ### `src/client/composables/runtime/useCommandCore.js`
 Exports

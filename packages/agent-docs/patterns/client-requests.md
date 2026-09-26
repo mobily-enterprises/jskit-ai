@@ -52,6 +52,7 @@ Screen wrapper extension rules:
 - Use `requestFieldsets` only when a specialised caller intentionally needs a typed JSON:API sparse fieldset. Ordinary generated reads use the complete resource output contract.
 - Use `readEnabled` and `queryKeyFactory` on `useCrudViewScreen()` when the detail read needs the same gating or cache identity control as `useCrudView()`.
 - Use `CrudViewScreen` slots (`before-fields`, `fields`, `after-fields`, `supporting-content`) for page-specific domain sections while keeping shared load/error/retry chrome.
+- Use the `CrudAddEditScreen` `actions` slot for custom save buttons. Call its `submit()`, bind `addEdit.isSubmitDisabled`, and use `addEdit.validationAttempted`, `addEdit.validationErrors`, and `addEdit.resetValidation()` for local guidance. Set `addEditOptions.validationFeedback: false` to suppress only local validation feedback; clear a saved form in `addEditOptions.onSaveSuccess`.
 - Use `listRowActions` with `defineCrudListRowActions(...)` for row-level commands in `CrudListScreen`.
 - Use `syntheticRows` for display-only rows that do not come from the CRUD response, such as owner/master rows.
 
