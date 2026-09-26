@@ -52,15 +52,27 @@ function resolveCancelTo(target = cancelTo.value) {
 <template>
   <section class="crud-screen crud-screen--operator crud-add-edit-form d-flex flex-column ga-4">
     <div class="crud-add-edit-form__actions">
-      <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
-      <v-btn
-        color="primary"
-        variant="flat"
-        :disabled="addEdit.isSubmitDisabled"
-        @click="addEdit.submit"
+      <slot
+        name="actions"
+        :screen="screen"
+        :mode="mode"
+        :form-runtime="formRuntime"
+        :form-state="formState"
+        :add-edit="addEdit"
+        :save-label="saveLabel"
+        :cancel-to="resolveCancelTo()"
+        :submit="addEdit.submit"
       >
-        {{ addEdit.isSaving ? "Saving…" : saveLabel }}
-      </v-btn>
+        <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">Cancel</v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :disabled="addEdit.isSubmitDisabled"
+          @click="addEdit.submit"
+        >
+          {{ addEdit.isSaving ? "Saving…" : saveLabel }}
+        </v-btn>
+      </slot>
     </div>
 
     <v-sheet rounded="lg" border class="crud-add-edit-form__panel">

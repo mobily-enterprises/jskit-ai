@@ -52,6 +52,7 @@ export default defineConfig({
           items: [
             { text: "Application Operations", link: "/guide/framework/application-operations" },
             { text: "CRUD Operations", link: "/guide/framework/crud-operations" },
+            { text: "Record Form Actions", link: "/guide/framework/crud-form-actions" },
             { text: "UI Operations", link: "/guide/framework/ui-operations" },
             { text: "Material 3", link: "/guide/framework/material-3" },
             { text: "Source Patterns", link: "/patterns/" }

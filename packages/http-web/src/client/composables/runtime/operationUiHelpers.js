@@ -106,7 +106,8 @@ function setupRouteChangeCleanup({
   enabled = true,
   route = null,
   feedback = null,
-  fieldBag = null
+  fieldBag = null,
+  onClear = null
 } = {}) {
   if (!enabled) {
     return;
@@ -117,6 +118,7 @@ function setupRouteChangeCleanup({
     () => {
       feedback?.clear?.();
       fieldBag?.clear?.();
+      onClear?.();
     }
   );
 }

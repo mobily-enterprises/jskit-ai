@@ -117,6 +117,8 @@ test("useAddEditCore snapshots the cache key after payload normalization", async
   await runtime.submit();
   scope.stop();
 
+  assert.equal(runtime.validationAttempted.value, true);
+  assert.deepEqual(runtime.validationErrors.value, {});
   assert.equal(model.status, "published");
   assert.equal(queryClient.getQueryData(["products", "draft"]), undefined);
   assert.deepEqual(queryClient.getQueryData(["products", "normalized"]), payload);

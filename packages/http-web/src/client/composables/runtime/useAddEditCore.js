@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/vue-query";
+import { computed, ref } from "vue";
 import { resolveFieldErrors } from "@jskit-ai/http-runtime/client";
 import { validateOperationInput } from "./operationValidationHelpers.js";
 import { watchResourceModelState } from "./modelStateHelpers.js";
@@ -15,6 +16,7 @@ function useAddEditCore({
   buildRawPayload,
   buildSavePayload,
   onSaveSuccess,
+  validationFeedback = true,
   messages = {}
 } = {}) {
   const queryClient = useQueryClient();
@@ -30,29 +32,50 @@ function useAddEditCore({
     }
   });
 
-  const saving = resource?.isSaving;
+  const submitting = ref(false);
+  const saving = computed(() => Boolean(submitting.value || resource?.isSaving?.value));
   const fieldErrors = fieldBag?.errors;
   const message = feedback?.message;
   const messageType = feedback?.messageType;
+  const validationAttempted = ref(false);
+  const validationErrors = computed(() => {
+    if (!validationAttempted.value || !input) {
+      return {};
+    }
+
+    // Revalidate without changing server field errors or reporting feedback.
+    const result = validateOperationInput({ input, rawPayload: resolveRawPayload() });
+    return result.ok ? {} : resolveFieldErrors(result.failure);
+  });
+
+  function resolveRawPayload() {
+    return typeof buildRawPayload === "function" ? buildRawPayload(model, {
+      queryClient,
+      resource
+    }) : {};
+  }
+
+  function resetValidation() {
+    validationAttempted.value = false;
+    fieldBag?.clear?.();
+  }
 
   async function submit() {
-    if (!canSave?.value || saving?.value) {
+    if (!canSave?.value || saving.value) {
       return;
     }
 
     feedback?.clear?.();
     fieldBag?.clear?.();
+    validationAttempted.value = true;
 
-    const rawPayload = typeof buildRawPayload === "function" ? buildRawPayload(model, {
-      queryClient,
-      resource
-    }) : {};
+    const rawPayload = resolveRawPayload();
 
     const validationResult = validateOperationInput({
       input,
       rawPayload,
       fieldBag,
-      feedback,
+      feedback: validationFeedback === false ? null : feedback,
       validationMessage: String(messages.validation || "Validation failed.")
     });
     if (!validationResult.ok) {
@@ -69,6 +92,7 @@ function useAddEditCore({
       : parsedInput;
 
     try {
+      submitting.value = true;
       const queryKeySnapshot = queryKey?.value;
       const payload = await resource.save(savePayload);
 
@@ -97,6 +121,8 @@ function useAddEditCore({
     } catch (error) {
       fieldBag?.apply?.(resolveFieldErrors(error));
       feedback?.error?.(error, String(messages.saveError || "Unable to save."));
+    } finally {
+      submitting.value = false;
     }
   }
 
@@ -105,6 +131,9 @@ function useAddEditCore({
     fieldErrors,
     message,
     messageType,
+    validationAttempted,
+    validationErrors,
+    resetValidation,
     submit
   });
 }
