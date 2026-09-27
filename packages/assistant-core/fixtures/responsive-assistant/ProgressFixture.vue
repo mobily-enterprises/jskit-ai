@@ -10,6 +10,9 @@ const combined = ref(false);
 const messages = ref([1, 2, 3].map(index => ({
   messageId: `progress-${index}`, role: "thinking", text: `Reasoning ${index}`
 })));
+if (new URLSearchParams(location.search).has("detail")) {
+  messages.value = [{ messageId: "raw-first", role: "thinking", text: "Full reasoning before the update", preview: false }];
+}
 let sequence = 3;
 function append(role) {
   sequence += 1;
@@ -47,6 +50,8 @@ const adapter = computed(() => ({
           <button @click="combined = !combined">Change storage rows</button>
           <button @click="scope = scope === 'first' ? 'second' : 'first'">Change conversation</button>
           <button v-for="role in ['thinking', 'commentary', 'assistant', 'user', 'system']" :key="role" @click="append(role)">Append {{ role }}</button>
+          <button @click="messages.push({ messageId: `summary-${sequence++}`, role: 'thinking', text: 'Checking the sources.' })">Add preview</button>
+          <button @click="messages.push({ messageId: `detail-${sequence++}`, role: 'thinking', text: 'Full reasoning after the update', preview: false })">Add detail</button>
         </nav>
         <AssistantConversationElement :adapter="adapter" />
       </main>
