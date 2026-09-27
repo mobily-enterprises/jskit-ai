@@ -38,6 +38,11 @@ expired, or changed actors are disconnected. Workspace membership rooms are
 refreshed from the current membership repository. Authentication lookup errors
 fail closed.
 
+The authentication request includes parsed cookies, the `Host`, `Origin` and
+`X-Forwarded-Proto` headers when present, and the socket address and TLS state.
+Applications own their origin policy and decide which proxy headers to trust;
+forwarding this context does not itself authorize an origin.
+
 For application-specific access rules, expose
 `auth.service.realtime.authorizeEvent({ actor, event: { name, payload } })`.
 Only an explicit `true` permits delivery. The actor is the current server-side
