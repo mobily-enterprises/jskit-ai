@@ -177,16 +177,21 @@ test("socket audience bootstrap authenticates explicitly and joins actor workspa
   });
   const joinedRooms = [];
   const socket = {
-    handshake: { headers: { cookie: "session=abc123; theme=dark", host: "127.0.0.1:3100" } },
-    request: { headers: {}, socket: { remoteAddress: "127.0.0.1" } },
+    handshake: { headers: {
+      cookie: "session=abc123; theme=dark", host: "127.0.0.1:3100",
+      origin: "https://127.0.0.1:3100", "x-forwarded-proto": "https"
+    } },
+    request: { headers: {}, socket: { remoteAddress: "127.0.0.1", encrypted: true } },
     data: {},
     join(room) { joinedRooms.push(room); }
   };
   await connectionHandler(socket);
   assert.deepEqual(authenticateCalls, [{
     cookies: { session: "abc123", theme: "dark" },
-    headers: { host: "127.0.0.1:3100" },
-    socket: { remoteAddress: "127.0.0.1" }
+    headers: {
+      host: "127.0.0.1:3100", origin: "https://127.0.0.1:3100", "x-forwarded-proto": "https"
+    },
+    socket: { remoteAddress: "127.0.0.1", encrypted: true }
   }]);
   assert.equal(socket.data.actorId, "9");
   assert.deepEqual(joinedRooms, [

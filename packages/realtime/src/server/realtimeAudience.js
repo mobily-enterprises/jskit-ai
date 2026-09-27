@@ -193,8 +193,14 @@ async function resolveSocketActor(authService, socket) {
   const request = {
     cookies: parseCookieHeader(handshakeHeaders.cookie || requestHeaders.cookie)
   };
-  if (host) request.headers = { host };
-  if (remoteAddress) request.socket = { remoteAddress };
+  const headers = host ? { host } : {};
+  for (const name of ["origin", "x-forwarded-proto"]) {
+    const value = handshakeHeaders[name] ?? requestHeaders[name];
+    if (value !== undefined) headers[name] = value;
+  }
+  if (Object.keys(headers).length > 0) request.headers = headers;
+  request.socket = { encrypted: socket?.request?.socket?.encrypted === true };
+  if (remoteAddress) request.socket.remoteAddress = remoteAddress;
   const result = await authService.authenticateRequest(request);
   const id = result?.authenticated === true
     ? normalizeRecordId(result?.actor?.id, { fallback: null }) : null;
