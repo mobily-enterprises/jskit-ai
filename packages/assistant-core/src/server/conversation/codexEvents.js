@@ -566,10 +566,17 @@ function codexAppServerProviderThreadTurn(value = {}, turnId = "") {
 
 function codexAppServerProviderTurnAssistantSegments(turn = {}) {
   const seenItemIds = new Set();
-  return codexAppServerProviderTurnItems(turn)
-    .filter((item) => {
+  const items = codexAppServerProviderTurnItems(turn);
+  // Providers without phases emit progress as ordinary assistant messages.
+  // Only the trailing response can be a final; reasoning/tools separate it
+  // from earlier updates. Explicit finals retain their native attribution.
+  let responseStart = items.length;
+  while (responseStart > 0 && codexAppServerAssistantItemText(items[responseStart - 1])) responseStart -= 1;
+  const active = ["inProgress", "starting"].includes(codexAppServerStatusFromValue(turn.status));
+  return items
+    .filter((item, index) => {
       const phase = normalizeText(item.phase);
-      return !phase || phase === "final_answer";
+      return phase === "final_answer" || (!phase && !active && index >= responseStart);
     })
     .map((item) => {
       const itemId = normalizeText(item.id);
