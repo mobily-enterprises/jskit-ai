@@ -1,7 +1,7 @@
 <template>
   <div class="assistant-progress">
     <button
-      v-if="messages.length > previewCount"
+      v-if="expanded || messages.length > previewMessages.length"
       :aria-expanded="expanded"
       class="assistant-progress__toggle"
       type="button"
@@ -29,16 +29,20 @@ const props = defineProps({
 });
 const expanded = ref(false);
 const previewCount = computed(() => props.pending ? props.previewLimit : 0);
+// Applications may retain detailed progress for expansion without previewing it.
+const previewMessages = computed(() => previewCount.value > 0
+  ? props.messages.filter(message => message.preview !== false).slice(-previewCount.value)
+  : []);
 const visibleMessages = computed(() => {
   if (expanded.value) {
     return props.messages;
   }
-  return previewCount.value > 0 ? props.messages.slice(-previewCount.value) : [];
+  return previewMessages.value;
 });
 const toggleLabel = computed(() => {
   if (expanded.value) {
-    return previewCount.value > 0
-      ? `Show latest ${previewCount.value} progress updates`
+    return previewMessages.value.length > 0
+      ? `Show latest ${previewMessages.value.length} progress ${previewMessages.value.length === 1 ? "update" : "updates"}`
       : "Hide progress updates";
   }
   return `Show all ${props.messages.length} progress ${props.messages.length === 1 ? "update" : "updates"}`;

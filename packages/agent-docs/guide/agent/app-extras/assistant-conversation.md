@@ -189,6 +189,9 @@ This also groups older saved history without rewriting it.
 Supply `conversation.working` from the application's current execution state,
 including assistant-only continuation. While working, the trailing reasoning
 group previews its latest two summaries (`progressPreviewLimit` changes this).
+Set `preview: false` on a thinking message to retain it in expanded progress while
+excluding it from the live preview. Later detail messages do not displace the
+latest eligible update, and a group containing only details still has an expand control.
 Other groups start collapsed. Explicit expansion survives new summaries and
 history loading; changing `scrollKey` resets it. When `working` is omitted, the
 element uses `composer.canStop` or a turn's `pending` for existing adapters.

@@ -22,6 +22,40 @@ const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "drawer", width: 360, height: 600 })
 ]);
 
+test("progress previews omit expandable details without hiding the current update", {
+  skip: !RUN_BROWSER_TEST, timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${vite.baseURL}/?progress=1&detail=1`);
+      const messages = page.locator(".assistant-progress__message");
+      await expect(messages).toHaveCount(0);
+      const toggle = page.locator(".assistant-progress__toggle");
+      await expect(toggle).toHaveText("Show all 1 progress update");
+      await page.getByRole("button", { name: "Add preview", exact: true }).click();
+      await page.getByRole("button", { name: "Add detail", exact: true }).click();
+      await expect(messages).toHaveText(["Checking the sources."]);
+      await toggle.click();
+      await expect(messages).toHaveText(["Full reasoning before the update", "Checking the sources.", "Full reasoning after the update"]);
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await toggle.click();
+      await expect(messages).toHaveText(["Checking the sources."]);
+      await page.getByRole("button", { name: "Toggle working", exact: true }).click();
+      await expect(messages).toHaveCount(0);
+      await toggle.click();
+      await expect(messages).toHaveCount(3);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("saved reply attribution remains when the current assistant changes", {
   skip: !RUN_BROWSER_TEST, timeout: 60_000
 }, async () => {
