@@ -211,14 +211,17 @@ test("conversation scrolling preserves history anchors and resets expansion on s
     await page.goto(`${vite.baseURL}/?controls=1`);
     const body = page.locator(".assistant-transcript__body");
     await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
-    // Keep the explicit button path covered independently of automatic loading.
-    await body.evaluate(element => { element.scrollTop = 0; });
-    await expect.poll(() => body.evaluate((element) => element.scrollTop)).toBe(0);
+    // User input cancels startup following; a scrollTop assignment does not.
+    // Automatic history loading may preserve an anchor above scrollTop zero.
+    await body.hover();
+    await page.mouse.wheel(0, -100_000);
+    await expect(page.getByRole("button", { name: "Read more", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Read more", exact: true }).click();
     await expect(page.getByRole("button", { name: "Show less", exact: true })).toBeVisible();
     const original = page.getByText("Conversation line 1:", { exact: false }).first();
     const originalTop = (await original.boundingBox()).y;
-    await page.getByRole("button", { name: "Load older messages", exact: true }).click();
+    // Measure history anchoring without Playwright first scrolling to the button.
+    await page.getByRole("button", { name: "Load older messages", exact: true }).evaluate(element => element.click());
     await expect.poll(async () => Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
     const before = await body.evaluate((element) => element.scrollTop);
     await page.getByRole("button", { name: "Append reply", exact: true }).click();
