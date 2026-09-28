@@ -58,8 +58,10 @@ Import `parseIntegrationConfiguration`, `validateIntegrationConfiguration` and
 `integrationsSchema` from `@jskit-ai/connectors-core/shared/configuration`.
 `integrationsSchema.getFieldDefinitions()` exposes the field definitions for
 form inspection. Validate with `validateIntegrationConfiguration`, which also
-checks references, credential combinations and provider scopes. Custom reference
-validators do not currently provide transport JSON Schema export hooks.
+checks references, credential combinations and provider scopes. Use
+`integrationsSchema.toJsonSchema({ mode: "replace" })` to export the structural
+contract, including credential-reference constraints, for machine callers.
+The export does not replace the provider-specific semantic validation.
 References use a binding namespace such as `env:NAME` or `vault:path`;
 literal HTTP/HTTPS URLs are rejected in reference fields.
 Pass registered provider definitions in `{ providers }` for provider validation.
