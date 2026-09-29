@@ -1,6 +1,7 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
-import { buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
+import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
+import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
 import { renderDefaultWorkspaceInviteEmail } from "./defaultWorkspaceInviteEmail.js";
@@ -127,10 +128,11 @@ function createService({
         message
       }, options);
       return normalizeInviteDeliveryResult(result || { status: "sent" });
-    } catch (error) {
+    } catch {
       return {
         status: "failed",
-        message: normalizeText(error?.message || "Unable to send workspace invite email."),
+        // Provider errors can contain the secret invitation URL.
+        message: "Unable to send workspace invite email.",
         providerMessageId: ""
       };
     }
@@ -234,8 +236,11 @@ function createService({
     return listInvitesPayload(workspace, options);
   }
 
-  async function createInvite(workspace, user, payload = {}, options = {}) {
+  // Trusted server composition: authorisation, association and retry receipts
+  // belong to the application. JSON REST writes enforce managed ownership.
+  async function prepareInvite(workspace, user, payload = {}, options = {}) {
     ensureWorkspaceInvitationsEnabled();
+    if (!options.trx) throw new TypeError("prepareInvite requires a managed transaction.");
     const email = normalizeLowerText(payload.email);
     const roleSid = normalizeLowerText(payload.roleSid || "member") || "member";
     if (!assignableRoleIds.includes(roleSid)) {
@@ -251,6 +256,7 @@ function createService({
     const token = buildInviteToken();
     const tokenHash = hashInviteToken(token);
     const expiresAt = new Date(Date.now() + resolvedInviteExpiresInMs).toISOString();
+    await workspaceInvitesRepository.lockWorkspaceForInvitations(workspace.id, options);
     await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
     const createdInvite = await workspaceInvitesRepository.insert(
       {
@@ -266,33 +272,54 @@ function createService({
     );
     const createdInviteId = normalizeRecordId(createdInvite?.id, { fallback: null });
     if (!createdInviteId) {
-      throw new Error("workspaceMembersService.createInvite expected repository to return created invite id.");
+      throw new Error("workspaceMembersService.prepareInvite expected repository to return created invite id.");
     }
 
-    const response = await listInvitesPayload(workspace, options);
-    const inviteUrl = resolvedInviteUrlBuilder({
-      token,
-      invite: createdInvite,
-      workspace
-    });
-    const inviteDelivery = await deliverInviteEmail({
-      workspace,
-      user,
-      invite: {
-        ...createdInvite,
-        email,
-        roleSid,
-        expiresAt: createdInvite?.expiresAt || expiresAt
-      },
-      inviteUrl
-    }, options);
+    return { createdInviteId, inviteTokenPreview: token };
+  }
+
+  async function sendInvite(workspace, user, prepared = {}, options = {}) {
+    ensureWorkspaceInvitationsEnabled();
+    if (options.trx) throw new TypeError("sendInvite must run after the invitation transaction commits.");
+    const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
+      prepared.createdInviteId, workspace.id, { ...options, includeWorkspace: true, lock: false }
+    );
+    if (!invite) throw new AppError(404, "Invite not found or already handled.");
+    if (invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
+      throw new AppError(409, "Invitation has expired.");
+    }
+    const token = Object.hasOwn(prepared, "inviteTokenPreview")
+      ? normalizeText(prepared.inviteTokenPreview)
+      : encodeInviteTokenHash(invite.tokenHash);
+    if (!token || resolveInviteTokenHash(token) !== invite.tokenHash) {
+      throw new AppError(400, "Invitation token does not match the saved invitation.");
+    }
+    const savedWorkspace = {
+      ...workspace,
+      id: invite.workspaceId,
+      slug: invite.workspaceSlug,
+      name: invite.workspaceName,
+      avatarUrl: invite.workspaceAvatarUrl
+    };
+    const inviteUrl = resolvedInviteUrlBuilder({ token, invite, workspace: savedWorkspace });
+    const response = await listInvitesPayload(savedWorkspace, options);
+    const inviteDelivery = await deliverInviteEmail({ workspace: savedWorkspace, user, invite, inviteUrl }, options);
     return {
       ...response,
-      inviteTokenPreview: token,
-      inviteUrl,
-      inviteDelivery,
-      createdInviteId
+      inviteTokenPreview: token, inviteUrl, inviteDelivery,
+      createdInviteId: normalizeRecordId(invite.id, { fallback: null })
     };
+  }
+
+  async function createInvite(workspace, user, payload = {}, options = {}) {
+    ensureWorkspaceInvitationsEnabled();
+    if (options.trx) {
+      throw new TypeError("Use prepareInvite inside a transaction, then sendInvite after commit.");
+    }
+    const prepared = await workspaceInvitesRepository.withTransaction((trx) =>
+      prepareInvite(workspace, user, payload, { ...options, trx })
+    );
+    return sendInvite(workspace, user, prepared, options);
   }
 
   async function revokeInvite(workspace, inviteId, options = {}) {
@@ -302,20 +329,18 @@ function createService({
       throw new AppError(400, "Validation failed.");
     }
 
-    const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
-      normalizedInviteId,
-      workspace.id,
-      options
-    );
-    if (!invite) {
-      throw new AppError(404, "Invite not found.");
-    }
-
-    await workspaceInvitesRepository.revokeById(normalizedInviteId, options);
-    const revokedInviteId = normalizeRecordId(invite?.id, { fallback: null });
-    if (!revokedInviteId) {
-      throw new Error("workspaceMembersService.revokeInvite expected repository to return pending invite id.");
-    }
+    const revoke = async (trx) => {
+      const transactionOptions = { ...options, trx, lock: true, workspaceId: workspace.id };
+      const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
+        normalizedInviteId, workspace.id, transactionOptions
+      );
+      if (!invite) throw new AppError(404, "Invite not found.");
+      await workspaceInvitesRepository.revokeById(normalizedInviteId, transactionOptions);
+      return normalizeRecordId(invite.id, { fallback: null });
+    };
+    const revokedInviteId = options.trx
+      ? await revoke(options.trx)
+      : await workspaceInvitesRepository.withTransaction(revoke);
 
     const response = await listInvitesPayload(workspace, options);
     return {
@@ -331,6 +356,8 @@ function createService({
     removeMember,
     listInvites,
     createInvite,
+    prepareInvite,
+    sendInvite,
     revokeInvite
   });
 }

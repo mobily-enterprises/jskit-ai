@@ -1,3 +1,5 @@
+<!-- Generated from `packages/agent-docs/site/guide/app-setup/multi-homing.md` by `npm run agent-docs:build`. -->
+
 # Workspace tenancy
 
 Use JSKIT workspaces when routes, records, or permissions belong to a selected

@@ -43,13 +43,21 @@ function createWorkspaceInvitesApiStub({
     patchPayloads: []
   };
 
+  const trx = () => ({
+    where() { return this; },
+    select() { return this; },
+    async first() { return { id: "1" }; },
+    forUpdate() { return this; },
+    then(resolve) { return Promise.resolve([...rowById.values()].filter((row) => row.status === "pending")).then(resolve); }
+  });
   const api = {
+    async transaction(work) { return work(trx); },
     resources: {
       workspaceInvites: {
         async query({ queryParams, format }) {
           assert.equal(format, "plain");
           const filters = queryParams?.filters || {};
-          const matching = rows.filter((row) => {
+          const matching = (rows.length ? rows : [...rowById.values()]).filter((row) => {
             if (Object.hasOwn(filters, "id") && String(row.id) !== String(filters.id)) {
               return false;
             }
@@ -213,7 +221,7 @@ test("workspaceInvitesRepository.markAcceptedById uses the internal invite resou
         workspace: { id: "1" },
         email: "invitee@example.com",
         roleSid: "member",
-        status: "accepted",
+        status: "pending",
         tokenHash: "hash",
         invitedByUser: { id: "1" },
         expiresAt: "2026-03-16 00:26:35.709",

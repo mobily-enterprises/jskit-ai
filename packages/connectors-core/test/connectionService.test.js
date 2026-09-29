@@ -3,11 +3,12 @@ import { firecrawlProvider } from "../../connectors-catalog/src/server/firecrawl
 import { mailgunDefinition } from "../../connectors-catalog/src/shared/tokens.js";
 import assert from "node:assert/strict";
 import test from "node:test";
+import Fastify from "fastify";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { googleCalendarProvider } from "../../connector-google-calendar/src/server/provider.js";
 import { createConnectionService, createConnectorsFeature, createEnvironmentReferenceResolver } from "../src/server/index.js";
-import { parseIntegrationConfiguration, validateIntegrationConfiguration } from "../src/shared/configuration.js";
+import { integrationsSchema, parseIntegrationConfiguration, validateIntegrationConfiguration } from "../src/shared/configuration.js";
 import { clickhouseProvider } from "../../connectors-catalog/src/server/clickhouse.js";
 
 const listScope = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
@@ -463,6 +464,27 @@ test("reference fields reject pasted web URLs while preserving environment and c
     const input = configuration();
     input.registrations.google.clientSecretRef = value;
     assert.equal(validateIntegrationConfiguration(input, { providers: [googleCalendarProvider] }).registrations.google.clientSecretRef, value);
+  }
+});
+
+test("the exported configuration contract enforces reference constraints for every credential field", async (t) => {
+  const app = Fastify({ ajv: { plugins: [(ajv) => ajv.addKeyword("x-json-rest-schema")] } });
+  t.after(() => app.close());
+  app.post("/configuration", { schema: { body: integrationsSchema.toJsonSchema({ mode: "replace" }) } }, async () => ({ ok: true }));
+  for (const field of ["secretRef", "clientSecretRef", "callbackUrlRef"]) {
+    for (const [value, valid] of [
+      ["env:KEY", true], ["vault:applications/key", true], ["vault://applications/key", true],
+      ["raw-key", false], ["https://example.test/key", false], ["http://localhost/key", false],
+      ["env:", false], ["env:two words", false], ["ENV:KEY", false], ["env:" + "a".repeat(197), false]
+    ]) {
+      const input = field === "secretRef" ? databaseConfiguration({ method: "api-key", secretRef: value }) : configuration();
+      if (field !== "secretRef") input.registrations.google[field] = value;
+      const check = () => validateIntegrationConfiguration(input, { providers: [googleCalendarProvider, clickhouseProvider] });
+      if (valid) assert.doesNotThrow(check, `${field}: ${value}`);
+      else assert.throws(check, { code: "integration_configuration_invalid" });
+      const response = await app.inject({ method: "POST", url: "/configuration", payload: input });
+      assert.equal(response.statusCode, valid ? 200 : 400, `${field}: ${value}`);
+    }
   }
 });
 

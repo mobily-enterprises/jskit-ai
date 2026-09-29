@@ -29,6 +29,7 @@ const JSKIT_SKILL_PATTERN_INDEX_PATH = path.join(JSKIT_SKILL_REFERENCES_ROOT, "p
 const JSKIT_SKILL_PATTERNS_ROOT = path.join(JSKIT_SKILL_REFERENCES_ROOT, "patterns");
 const JSKIT_SKILL_GUIDES = Object.freeze({
   "app-setup/existing-application-migration.md": "existing-application-migration.md",
+  "app-setup/multi-homing.md": "multi-homing.md",
   "framework/application-operations.md": "app-operations.md",
   "framework/crud-operations.md": "crud-operations.md",
   "framework/material-3.md": "material-3.md",

@@ -4,7 +4,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 const name = { type: "string", required: true, minLength: 1, maxLength: 200 };
 const secretReference = {
   ...name,
-  validator: (value) => (/^[a-z][a-z0-9-]*:[^\s]+$/u.test(value) && !/^https?:/u.test(value)) || "Use a reference such as env:VARIABLE_NAME."
+  pattern: "^(?!https?:)[a-z][a-z0-9-]*:[^\\s]+$"
 };
 const authenticationSchema = createSchema({
   method: { ...name, enum: ["oauth2", "api-key", "service-account", "none"] },

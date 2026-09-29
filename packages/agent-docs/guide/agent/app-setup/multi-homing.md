@@ -39,6 +39,218 @@ before an operation discloses records or record existence.
 membership semantics exactly; do not synthesize memberships to compensate for
 a policy/runtime mismatch.
 
+## Transactional invitation participation
+
+Use the existing `workspaces.core` capability when accepting an invitation must
+also connect an application-owned identity, training history, access scopes or
+required audit records. JSKIT owns tokens, invitation state and membership; the
+application owns its reviewed association and domain policy. The built-in
+`workspace.invite.redeem` action runs the participant. No replacement route,
+client follow-up save or after-action event is needed.
+
+Saving intended access without sending remains an application draft. Do not call
+preparation until an administrator deliberately issues an invitation: preparation
+creates a real token and pending invitation, but does not activate membership.
+
+### Public server methods
+
+These methods are trusted server composition APIs, not new public actions. The
+caller must authorize creation, delivery and revocation in the requested workspace.
+The ordinary invitation routes retain their existing authorization and role
+validation. Do not forward arbitrary HTTP input as server composition options.
+
+| Capability method | Contract |
+| --- | --- |
+| `workspaces.repositories.workspaceInvites.withTransaction(work)` | Delegates to the same JSON REST API's managed `transaction(work)`; awaits commit and completion hooks before resolving. |
+| `workspaces.repositories.workspaceInvites.lockWorkspaceForInvitations(workspaceId, { trx })` | Locks the workspace before application receipt/draft rows when composing preparation. Requires an active transaction. |
+| `workspaces.services.members.prepareInvite(workspace, actor, payload, options)` | Requires a managed `options.trx`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
+| `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Requires no `options.trx`. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
+| `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`; retains the ordinary response shape. Rejects `options.trx`. |
+| `workspaces.services.pendingInvitations.registerAcceptanceParticipant(fn)` | Registers one application callback receiving `({ invite, user }, options)`. Invalid, duplicate and late registration reject. |
+
+`sendInvite` accepts `{ createdInviteId, inviteTokenPreview }` from preparation or
+only `{ createdInviteId }` for a later attempt. The latter uses JSKIT's existing
+opaque token-hash encoding without rotating the token. Supplying an empty or
+mismatched token rejects. Email, role, expiry and workspace display fields come
+from the stored invitation/workspace, not replacement input. Its response keeps
+`createdInviteId`, `inviteTokenPreview`, `inviteUrl` and `inviteDelivery` alongside
+the ordinary workspace/invitation-list payload. Treat tokens and URLs as secrets;
+do not log them or put them in diagnostic messages or administrative receipts.
+A receipt normally needs only the exact invitation ID.
+
+### Preparation, association, commit and controlled delivery
+
+Inside application feature setup, declare `workspaces: "workspaces.core"` in
+`requires`, then use that capability. The `reviewedPeople`, `people`, `scopes`
+and `audit` names below represent application-owned services, not JSKIT APIs.
+Their writes must forward the provided transaction to their repositories.
+
+```js
+// During application Feature.setup, before serving requests:
+const { members, pendingInvitations } = workspaces.services;
+const invites = workspaces.repositories.workspaceInvites;
+
+pendingInvitations.registerAcceptanceParticipant(async ({ invite, user }, options) => {
+  // Resolve from the exact validated invitation, never a client person ID.
+  const association = await reviewedPeople.resolveInvitation(invite.id, options);
+  if (association.kind === "ordinary") return;
+  await reviewedPeople.requireCurrentReview(association, {
+    workspaceId: invite.workspaceId,
+    user,
+    roleSid: invite.roleSid
+  }, options);
+  await people.linkAccountAndTraining(association.personId, user.id, options);
+  await scopes.applyReviewedAccess(association, user.id, options);
+  await audit.recordInvitationAcceptance(association, user.id, options);
+});
+
+// Inside an authorized application command:
+const prepared = await invites.withTransaction(async (trx) => {
+  const options = { trx, context };
+  // Match acceptance's order: workspace, then application draft/receipt rows.
+  await invites.lockWorkspaceForInvitations(workspace.id, options);
+  const reviewed = await reviewedPeople.lockAuthorizedDraft(draftId, workspace.id, actor, options);
+  const receipt = await reviewedPeople.findMatchingReceipt(reviewed, requestId, options);
+  if (receipt) return { createdInviteId: receipt.inviteId };
+  const created = await members.prepareInvite(workspace, actor, {
+    email: reviewed.email,
+    roleSid: reviewed.roleSid
+  }, options);
+  await reviewedPeople.associateInvitationAndSaveReceipt(reviewed, requestId, created.createdInviteId, options);
+  return { createdInviteId: created.createdInviteId };
+}); // Confirmed commit; a rejection here must not fall through to delivery.
+
+const result = await members.sendInvite(workspace, actor, prepared, { context });
+// Persist delivery feedback through the application owner. Avoid logging result:
+// it contains a secret token and URL as well as the nonsecret delivery outcome.
+await reviewedPeople.recordDeliveryOutcome(prepared.createdInviteId, result.inviteDelivery, { context });
+```
+
+The application must lock its reviewed draft/receipt, enforce request identity,
+and reject changed input on a reused request ID. A retry after losing the
+preparation response reads that receipt instead of preparing another invitation.
+Association failure rolls back the new invitation, replacement of an older
+invitation, receipt and application writes. This is not generic framework
+idempotency, and does not imply exactly-once email.
+
+Real SMTP is unnecessary for implementation and verification. With no
+`workspaceInviteMailer`, delivery returns `status: "mailer_unconfigured"`, an
+explanatory `message` and an empty `providerMessageId`; the invitation remains
+committed. A test application can configure a controlled mailer:
+
+```js
+workspaceInviteMailer: {
+  async sendWorkspaceInvite(message) {
+    capturedInvites.push(message); // Test-local memory; contains the secret link.
+    return { status: "sent", message: "Captured by test mailer.", providerMessageId: "fixture-1" };
+  }
+}
+```
+
+A thrown renderer/mailer error returns `inviteDelivery.status: "failed"` and a
+fixed message, avoiding accidental token leakage through provider exceptions.
+It does not delete the invitation/association or activate membership. Mailer
+results retain their normalized status, message and provider message ID; a
+successful default is `sent`. A provider exception or interrupted response may
+occur after a provider accepted the message: `failed` is not proof of nondelivery.
+There is no exactly-once delivery guarantee. Applications own durable delivery
+attempts and safe retry policy. Validation checks committed invitation state
+before sending; revocation after sending starts cannot recall the message.
+
+### Acceptance and failure semantics
+
+Register one callback during feature setup. It composes any application domain
+owners explicitly. Non-functions throw `TypeError`; a second registration
+throws, and registration closes when acceptance/refusal first begins. The
+callback's invite, user and options envelope are shallow frozen. It receives the
+same managed `trx` and request `context`; transaction ownership stays with JSKIT.
+
+Acceptance authenticates the user, checks email, pending state and expiry, then
+revalidates the invitation under workspace/invitation locks. Membership is
+available as active inside that transaction before the callback runs. Existing
+role-upsert semantics remain: the stored invitation role becomes the membership
+role, including for an existing membership. The callback cannot authorize role
+or scope overrides from client input. It must recheck the reviewed version,
+workspace, current inviter authority, person eligibility, existing account link,
+and scope eligibility using application-owned data.
+
+An ordinary invitation with no application association may pass through. A
+stale, revoked, conflicting or expected-but-missing association must fail closed.
+The application needs enough durable association/review state to distinguish
+these cases; absence alone cannot identify a deleted reviewed association.
+
+Await every owner write and forward the same transaction. Do not commit,
+roll back, use savepoints, start a new transaction, or perform external side
+effects in the callback. Do not swallow failures. Participant exceptions and
+later invitation-status failures roll back membership (including its prior role
+and status), person/training links, scopes, required audit and accepted status.
+The callback is not invoked for an invalid invitation or on refusal. Acceptance
+and refusal reject borrowed `options.trx`; revocation can join a managed
+transaction or own one when none is supplied.
+
+A missing/already-handled invitation rejects with 404; mismatched authenticated
+email with 403; unauthenticated access with 401. An expired invitation for its
+matching recipient is revoked in a committed transaction and then rejects with
+409 and `transactionOutcome: "committed"`. It never activates membership or
+runs the participant. A failure to commit that revocation preserves the managed
+transaction error instead. Delivery rejects missing/foreign/handled invitations
+with 404, expired invitations with 409, and mismatched tokens with 400.
+
+Keep `error.transactionOutcome` and `error.cause` when translating failures.
+`rolledBack` confirms rollback; `committed` can indicate a completion-hook error
+after successful persistence; `unknown` leaves the outcome unresolved. A thrown
+error alone does not prove rollback. After-commit failures and external effects
+cannot be included in the atomic guarantee. See
+[managed transaction guidance](./existing-application-migration.md#json-rest-v2-integration).
+
+Invitation mutations lock workspace before invitation rows, and use current
+locking reads before terminal transitions. Accepted/revoked state cannot be
+overwritten by a losing acceptance, refusal, revocation or replacement. A
+replacement after acceptance may create a new pending invitation while retaining
+the older accepted invitation. Keep callbacks short: invitation changes in the
+same workspace serialize. Database deadlocks/serialization failures remain
+transaction errors; callbacks are not automatically replayed.
+
+### Compatibility and verification
+
+This server-composition contract starts with `@jskit-ai/workspaces-core@0.1.198`.
+Transactional callers of
+`createInvite` must migrate to preparation plus post-commit delivery. Related
+acceptance writes must move into the participant. `markAcceptedById` and
+`revokeById` now reject terminal/missing invitations rather than overwriting their
+state. No route/action ID, package export, table or migration is added.
+
+Verify ordinary invitations, rollback after each domain write, late framework
+failure, existing membership restoration, recipient checks, stale associations,
+controlled delivery failures and lost-response receipts. Run the normal redeem
+action in tests. Use independent connections to race acceptance against acceptance,
+refusal, revocation and replacement in both winning orders. The package fixture
+runs these races on native MySQL/MariaDB and PostgreSQL; SQLite skips those races
+and is not evidence of native locking correctness.
+
+Use only a verified empty disposable database named
+`jskit_repository_test_*` for native tests. The runner verifies the actual target,
+reports its engine version, applies package migrations and drops fixture tables.
+
+```sh
+node --test packages/workspaces-core/test/*.test.js
+# Set JSKIT_REPOSITORY_TEST_DATABASE_URL to the verified empty disposable target.
+node --test packages/workspaces-core/test/repositories.integration.test.js
+npm run verify
+```
+
+A passing framework fixture does not complete the application's People, training,
+permissions, privacy or browser integration. Publication remains a separate
+maintainer operation. After a coordinated release is published, run the
+application's `npm run jskit:update`, restart its backend and verify that
+`members.prepareInvite`, `members.sendInvite` and
+`pendingInvitations.registerAcceptanceParticipant` are functions on the installed
+`workspaces.core` capability. Check the installed package/catalogue versions
+against that release. The first coordinated release containing this contract pairs
+`@jskit-ai/workspaces-core@0.1.198`, `@jskit-ai/jskit-catalog@0.1.245` and
+`@jskit-ai/agent-docs@0.1.192`. Upgrade the coordinated dependency graph rather
+than pinning only `workspaces-core`. Do not patch installed `node_modules`.
+
 ## Browser composition
 
 Use `workspaces/workspace-surfaces` for workspace selection, invitation landing,
