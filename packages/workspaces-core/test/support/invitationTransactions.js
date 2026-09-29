@@ -101,8 +101,7 @@ export async function verifyInvitationTransactions(t, db) {
       input: { token: prepared.inviteTokenPreview, decision, ...extraInput },
       context: { ...options.context, actor }
     });
-    // Lock workspace before application receipt rows, matching acceptance's
-    // lock order. A lost response/retry returns the exact persisted invitation.
+    // Match acceptance's lock order: workspace, then application receipt.
     async function prepareOnce({ fail = false } = {}) {
       return invites.withTransaction(async (trx) => {
         await invites.lockWorkspaceForInvitations(workspace.id, { trx });
@@ -305,8 +304,7 @@ export async function verifyInvitationTransactions(t, db) {
       if (state === "revoked") await f.members.revokeInvite(f.workspace, prepared.createdInviteId);
       if (state === "accepted") await f.redeem(prepared);
       let called = false;
-      // An already-used service intentionally seals registration; use a fresh
-      // instance to verify terminal-state validation independently of sealing.
+      // The earlier acceptance closed registration on the original service.
       const pending = pendingService({ workspaceInvitesRepository: invites, workspaceMembershipsRepository: memberships });
       pending.registerAcceptanceParticipant(async () => { called = true; });
       const membershipBefore = await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id);
@@ -437,8 +435,7 @@ export async function verifyInvitationTransactions(t, db) {
         holdTransaction = true;
         connections.length = 0;
         const first = acceptanceWins ? f.redeem(prepared) : compete();
-        // Observe errors immediately so an assertion failure cannot create an
-        // unhandled rejection while a competing database operation is pending.
+        // Handle rejections while the competing transaction is still waiting.
         const firstSettled = Promise.allSettled([first]);
         await entered.promise;
         const waiting = Promise.withResolvers();

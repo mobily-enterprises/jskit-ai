@@ -81,8 +81,6 @@ function createFixture() {
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
-      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace(workspaceId) {
         assert.equal(Number(workspaceId), 7);
         return [];
@@ -111,7 +109,9 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
+      async withTransaction(work) {
+        return work({});
+      },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert(payload) {
@@ -170,7 +170,9 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
+      async withTransaction(work) {
+        return work({});
+      },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail(workspaceId, email) {
         assert.equal(workspaceId, "7");
@@ -258,8 +260,9 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
-      async lockWorkspaceForInvitations() {},
+      async withTransaction(work) {
+        return work({});
+      },
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },
@@ -307,8 +310,6 @@ test("workspaceMembersService rejects invite operations when invitations are dis
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
-      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         throw new Error("invite repository should not be called when invitations are disabled");
       },
@@ -449,8 +450,6 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
-      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },
@@ -504,8 +503,6 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
-      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },

@@ -16,7 +16,9 @@ function createFixture({
 
   const service = createService({
     workspaceInvitesRepository: {
-      async withTransaction(work) { return work({}); },
+      async withTransaction(work) {
+        return work({});
+      },
       async listPendingByEmail() {
         return Array.isArray(pendingInvitesByEmail) ? [...pendingInvitesByEmail] : [];
       },
@@ -277,7 +279,6 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
   assert.equal(response.workspaceId, "1");
 });
 
-
 test("participant registration rejects invalid, duplicate and late registration", async () => {
   const { service } = createFixture();
   assert.throws(() => service.registerAcceptanceParticipant(null), /must be a function/);
@@ -294,8 +295,12 @@ for (const transactionOutcome of ["committed", "unknown", "rolledBack"]) {
     const failure = Object.assign(new Error("Managed completion failed"), { transactionOutcome, cause });
     const service = createService({
       workspaceInvitesRepository: {
-        async findPendingByTokenHash() { return { workspaceId: "1", email: "a@example.test" }; },
-        async withTransaction() { throw failure; }
+        async findPendingByTokenHash() {
+          return { workspaceId: "1", email: "a@example.test" };
+        },
+        async withTransaction() {
+          throw failure;
+        }
       },
       workspaceMembershipsRepository: {}
     });

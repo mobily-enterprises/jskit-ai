@@ -16,26 +16,34 @@ function createService({
   let registrationClosed = false;
 
   function registerAcceptanceParticipant(participant) {
-    if (typeof participant !== "function") throw new TypeError("Acceptance participant must be a function.");
-    if (acceptanceParticipant) throw new Error("An invitation acceptance participant is already registered.");
-    if (registrationClosed) throw new Error("Invitation acceptance participant registration is closed.");
+    if (typeof participant !== "function") {
+      throw new TypeError("Acceptance participant must be a function.");
+    }
+    if (acceptanceParticipant) {
+      throw new Error("An invitation acceptance participant is already registered.");
+    }
+    if (registrationClosed) {
+      throw new Error("Invitation acceptance participant registration is closed.");
+    }
     acceptanceParticipant = participant;
   }
 
-  async function inTransaction(user, token, options, work) {
+  async function withInviteTransaction(user, token, options, work) {
     if (options.trx) {
       throw new TypeError("Invitation acceptance/refusal owns its transaction; use the acceptance participant for related writes.");
     }
     registrationClosed = true;
-    // Locate the workspace before opening the unit, avoiding a stale MySQL
-    // repeatable-read snapshot while waiting for its lock. Validate again under
-    // that lock; this preliminary read never authorises a write.
+    // Locate outside the transaction to avoid a stale MySQL repeatable-read
+    // snapshot. The callback validates again under the workspace/invite locks.
     const initial = await requirePendingInviteForUserByToken(user, token, options);
     const result = await workspaceInvitesRepository.withTransaction((trx) => work({
-      ...options, trx, lock: true, workspaceId: initial.invite.workspaceId, inviteId: initial.invite.id
+      ...options,
+      trx,
+      lock: true,
+      workspaceId: initial.invite.workspaceId,
+      inviteId: initial.invite.id
     }));
-    // Expiry revocation intentionally commits before reporting rejection, as it
-    // did before acceptance became atomic. Failed commit keeps its real outcome.
+    // Commit expiry revocation before reporting the rejection.
     if (result.expired) {
       throw Object.assign(new AppError(409, "Invitation has expired."), { transactionOutcome: "committed" });
     }
@@ -228,20 +236,25 @@ function createService({
   }
 
   async function acceptInviteByToken({ user, token } = {}, options = {}) {
-    return inTransaction(user, token, options, async (transactionOptions) => {
+    return withInviteTransaction(user, token, options, async (transactionOptions) => {
       const resolved = await resolveInviteActionInput(
-        user, token, transactionOptions, "workspacePendingInvitationsService.acceptInviteByToken"
+        user,
+        token,
+        transactionOptions,
+        "workspacePendingInvitationsService.acceptInviteByToken"
       );
-      if (resolved.expired) return resolved;
+      if (resolved.expired) {
+        return resolved;
+      }
       const { resolvedInvite, workspaceId } = resolved;
       await workspaceMembershipsRepository.upsertMembership(
-        workspaceId, resolvedInvite.user.id,
+        workspaceId,
+        resolvedInvite.user.id,
         { roleSid: resolvedInvite.invite.roleSid, status: "active" },
         transactionOptions
       );
       if (acceptanceParticipant) {
-        // Do not expose the repository's lock flag as a general application
-        // option. Freeze the envelope so participants cannot replace trx.
+        // Repository locking options stay internal to this service.
         await acceptanceParticipant({
           invite: Object.freeze({ ...resolvedInvite.invite }),
           user: Object.freeze({ ...resolvedInvite.user })
@@ -253,11 +266,16 @@ function createService({
   }
 
   async function refuseInviteByToken({ user, token } = {}, options = {}) {
-    return inTransaction(user, token, options, async (transactionOptions) => {
+    return withInviteTransaction(user, token, options, async (transactionOptions) => {
       const resolved = await resolveInviteActionInput(
-        user, token, transactionOptions, "workspacePendingInvitationsService.refuseInviteByToken"
+        user,
+        token,
+        transactionOptions,
+        "workspacePendingInvitationsService.refuseInviteByToken"
       );
-      if (resolved.expired) return resolved;
+      if (resolved.expired) {
+        return resolved;
+      }
       const { resolvedInvite, workspaceId } = resolved;
       await workspaceInvitesRepository.revokeById(resolvedInvite.invite.id, transactionOptions);
       return { decision: "refused", workspaceId };
