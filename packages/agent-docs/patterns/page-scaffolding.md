@@ -34,6 +34,8 @@ Rules:
 - If the screen is not implemented yet, use a product-shaped empty state with one clear next action or status, not developer instructions.
 - Primary navigation links belong in semantic placements such as `shell.primary-nav` or `page.section-nav`; do not place every route into one drawer by default.
 - Compact layouts must be checked first: no horizontal overflow, no unreachable primary action, and tap targets should be at least 48 px.
+- Check Back's presence, previous-page behavior, and position using the
+  [UI contract](./ui-contract.md); explain any omission or fixed destination.
 
 UI contract:
 

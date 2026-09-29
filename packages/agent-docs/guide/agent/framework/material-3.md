@@ -102,9 +102,18 @@ Run this behavior-preserving audit over every affected screen:
 3. Check hierarchy, token use, component purpose, responsive presentation,
    interaction states, keyboard/focus behavior, labels, targets, contrast, and
    reduced motion.
-4. Correct issues at the narrowest established owner. Consolidate only truly
+4. Audit Back on every affected page using [Back navigation](./ui-operations.md#back-navigation):
+   verify its presence or justified omission, actual previous-page destination,
+   safe direct-entry fallback, and retained origin context. Inspect handlers and
+   route bindings; a hardcoded parent/list link is an explicit exception, not
+   the default. Check label, accessible name, consistent leading placement,
+   keyboard order, responsive reachability, duplicates, and distinction from
+   Cancel, Close, or Previous step. Report misleading navigation as a finding;
+   fix behavior only within the requested scope, otherwise report it separately
+   from behavior-preserving cleanup.
+5. Correct issues at the narrowest established owner. Consolidate only truly
    repeated policy; avoid pass-through wrappers and speculative abstractions.
-5. Run focused tests and Playwright at compact, medium, and expanded widths.
+6. Run focused tests and Playwright at compact, medium, and expanded widths.
    Navigate away and back with warm query data when the screen persists state.
 
 Do not declare Material 3 compliance from visual resemblance alone. Report any
