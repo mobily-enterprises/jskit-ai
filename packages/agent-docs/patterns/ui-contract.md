@@ -11,6 +11,11 @@ and action UI.
   overflow.
 - Compact interactive targets are at least 48 CSS pixels.
 - Navigation uses semantic placements and explicit navigation roles.
+- Check every page for Back to the previous page unless returning makes no
+  product sense. Use the existing navigation owner; fixed destinations are
+  deliberate, explicitly labelled exceptions. Follow the
+  [Back navigation contract](../guide/agent/framework/ui-operations.md#back-navigation)
+  for history, direct-entry fallback, retained context, and consistent placement.
 - Pages do not stack decorative cards inside structural cards.
 - Pages do not include a header, title block, welcome heading, or standalone
   heading copy unless the user explicitly requests one.
@@ -50,6 +55,8 @@ it as a closed sheet and wider layouts as a closed side panel.
 
 - test skeleton, empty, loaded, local error, retry, and mutation feedback states
 - navigate away and back with warm query cache, including browser back/forward
+- during review or Deslop, audit Back's presence or justified omission, leading
+  position, label, and actual destination; verify two origins and direct entry
 - exercise compact, medium, and expanded viewports
 - verify accessible names, keyboard operation, target size, and no overflow
 - assert that no spinner or layout-shifting transient error banner appears

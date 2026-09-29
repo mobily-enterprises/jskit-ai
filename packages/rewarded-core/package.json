@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/rewarded-core",
-  "version": "0.1.156",
+  "version": "0.1.157",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -119,15 +119,15 @@
     }
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.1.231",
-    "@jskit-ai/database-runtime": "0.1.220",
-    "@jskit-ai/json-rest-api-core": "0.1.164",
-    "@jskit-ai/resource-crud-core": "0.1.162",
-    "@jskit-ai/workspaces-core": "0.1.198"
+    "@jskit-ai/crud-core": "0.1.232",
+    "@jskit-ai/database-runtime": "0.1.221",
+    "@jskit-ai/json-rest-api-core": "0.1.165",
+    "@jskit-ai/resource-crud-core": "0.1.163",
+    "@jskit-ai/workspaces-core": "0.1.199"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.218",
-    "@jskit-ai/http-runtime": "0.1.218",
-    "@jskit-ai/kernel": "0.1.220"
+    "@jskit-ai/auth-core": "0.1.219",
+    "@jskit-ai/http-runtime": "0.1.219",
+    "@jskit-ai/kernel": "0.1.221"
   }
 }

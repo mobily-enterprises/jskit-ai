@@ -30,7 +30,7 @@ How to use it:
   - `client-requests.md`
 - playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass
   - `ui-testing.md`
-- UI contract, design contract, navigation roles, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
+- UI contract, design contract, navigation roles, Back button, previous page, history, hardcoded destination, Deslop, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
   - `ui-contract.md`
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - `filters.md`
