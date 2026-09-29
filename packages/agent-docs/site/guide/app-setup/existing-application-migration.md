@@ -222,33 +222,28 @@ or unresolved write.
 
 ### Workspace invitation transaction compatibility (workspaces-core 0.1.198)
 
-Workspace invitation creation, acceptance and refusal now own managed
-transactions. Existing calls to `members.createInvite(..., { trx })` must become
-`members.prepareInvite(..., { trx })`, application association/receipt writes,
-confirmed commit, then `members.sendInvite(...)` without `trx`. Move writes that
-must accompany built-in acceptance into
-`pendingInvitations.registerAcceptanceParticipant(fn)` during feature setup.
-Acceptance/refusal reject borrowed transactions; revocation can still participate
-in a managed transaction. Ordinary invitation actions retain their IDs and
-response shapes. Terminal repository transitions now reject instead of
-rewriting already accepted/revoked invitations. Mailer exceptions return a fixed
-message to avoid leaking invitation tokens from provider diagnostics.
+Invitation creation, acceptance and refusal now own their managed transactions:
 
-Required participant writes roll back together. Preserve transaction outcomes:
-a failure after commit is not rollback, and an unresolved commit must not be
-blindly replayed. Matching-recipient expiry revocation deliberately commits
-before its 409 rejection. Review the
-[workspace invitation contract and example](./multi-homing.md#transactional-invitation-participation)
-when migrating. No schema migration is required for these framework APIs.
+- Replace `members.createInvite(..., { trx })` with
+  `members.prepareInvite(..., { trx })`, save the application association/receipt,
+  commit, then call `members.sendInvite(...)` without `trx`.
+- Move related acceptance writes into
+  `pendingInvitations.registerAcceptanceParticipant(fn)` during feature setup.
+  Acceptance/refusal reject borrowed transactions; revocation can still join one.
+- Terminal repository transitions reject accepted/revoked invitations. Mailer
+  exceptions return a fixed message to keep tokens out of provider diagnostics.
 
-The first coordinated release containing this contract includes
+Participant writes roll back together. Preserve transaction outcomes when handling
+errors: completion-hook failures cannot undo a commit, and expiry revocation
+commits before returning 409. See the
+[workspace invitation contract and example](./multi-homing.md#transactional-invitation-participation).
+Action IDs, response shapes and schema are unchanged.
+
+The first coordinated release includes
 `@jskit-ai/workspaces-core@0.1.198`, `@jskit-ai/jskit-catalog@0.1.245` and
-`@jskit-ai/agent-docs@0.1.192`. Once that release is published, use
-`npm run jskit:update` in the application to upgrade the coordinated graph,
-restart the backend, check the actual installed versions, and assert
-that `prepareInvite`, `sendInvite` and `registerAcceptanceParticipant` are present
-on the resolved capability. Application domain integration and real email
-activation remain separate work.
+`@jskit-ai/agent-docs@0.1.192`. Run `npm run jskit:update`, restart the backend,
+and check the installed versions and methods on `workspaces.core`. Application
+integration and real email activation remain separate work.
 
 ## 4. Adopt migrations without breaking either database history
 
@@ -259,9 +254,15 @@ historical migration when moving it so the existing Knex ledger continues to
 recognize it. Basenames must be unique across the effective graph.
 
 Keep cross-package foreign keys and other dependency-sensitive constraints in
-later application-owned migrations when package ordering requires it. Seeds
-are not migrations: run one explicit application-owned, idempotent seed after
-the complete graph has migrated.
+application `migrations/constraints/`, the final phase of
+`createKnexMigrationConfigFromApp()`. It uses `sortDirsSeparately: true`: root
+`migrations/` runs before the sorted package directories, and filenames only
+order work within their own directory. A later timestamp in a package does not
+defer its foreign key until another package has created the parent table.
+Follow the [database ordering and partial-failure recovery rules](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#directory-order-comes-before-filenames),
+including independent checks for columns and constraints after MySQL or MariaDB
+DDL fails. Seeds are not migrations: run one explicit application-owned,
+idempotent seed after the complete graph has migrated.
 
 Prove both histories:
 
@@ -272,6 +273,10 @@ Prove both histories:
    with the intended schema.
 3. Run the normal migrate-then-seed entry point twice. The second run must have
    no pending migration and the seed must be safe and stable.
+4. In disposable fixtures, prove upgrade from the previous schema preserves
+   rows, and multi-step MySQL or MariaDB DDL resumes from partial completion
+   with the intended foreign keys enforced. Read-only ledger inspection alone
+   does not prove an upgrade or recovery.
 
 A managed editor allocates one isolated mutable development database per
 session. It owns creation, credentials, lifetime, and environment injection;

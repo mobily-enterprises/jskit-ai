@@ -236,11 +236,11 @@ function createService({
     return listInvitesPayload(workspace, options);
   }
 
-  // Trusted server composition: authorisation, association and retry receipts
-  // belong to the application. JSON REST writes enforce managed ownership.
   async function prepareInvite(workspace, user, payload = {}, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    if (!options.trx) throw new TypeError("prepareInvite requires a managed transaction.");
+    if (!options.trx) {
+      throw new TypeError("prepareInvite requires a managed transaction.");
+    }
     const email = normalizeLowerText(payload.email);
     const roleSid = normalizeLowerText(payload.roleSid || "member") || "member";
     if (!assignableRoleIds.includes(roleSid)) {
@@ -280,11 +280,17 @@ function createService({
 
   async function sendInvite(workspace, user, prepared = {}, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    if (options.trx) throw new TypeError("sendInvite must run after the invitation transaction commits.");
+    if (options.trx) {
+      throw new TypeError("sendInvite must run after the invitation transaction commits.");
+    }
     const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
-      prepared.createdInviteId, workspace.id, { ...options, includeWorkspace: true, lock: false }
+      prepared.createdInviteId,
+      workspace.id,
+      { ...options, includeWorkspace: true, lock: false }
     );
-    if (!invite) throw new AppError(404, "Invite not found or already handled.");
+    if (!invite) {
+      throw new AppError(404, "Invite not found or already handled.");
+    }
     if (invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
       throw new AppError(409, "Invitation has expired.");
     }
@@ -306,7 +312,9 @@ function createService({
     const inviteDelivery = await deliverInviteEmail({ workspace: savedWorkspace, user, invite, inviteUrl }, options);
     return {
       ...response,
-      inviteTokenPreview: token, inviteUrl, inviteDelivery,
+      inviteTokenPreview: token,
+      inviteUrl,
+      inviteDelivery,
       createdInviteId: normalizeRecordId(invite.id, { fallback: null })
     };
   }
@@ -332,9 +340,13 @@ function createService({
     const revoke = async (trx) => {
       const transactionOptions = { ...options, trx, lock: true, workspaceId: workspace.id };
       const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
-        normalizedInviteId, workspace.id, transactionOptions
+        normalizedInviteId,
+        workspace.id,
+        transactionOptions
       );
-      if (!invite) throw new AppError(404, "Invite not found.");
+      if (!invite) {
+        throw new AppError(404, "Invite not found.");
+      }
       await workspaceInvitesRepository.revokeById(normalizedInviteId, transactionOptions);
       return normalizeRecordId(invite.id, { fallback: null });
     };

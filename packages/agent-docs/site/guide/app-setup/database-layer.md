@@ -109,8 +109,67 @@ package's metadata:
 }
 ```
 
-Names must remain unique across the effective migration directories. Keep
-constraints in a later migration when ordering matters.
+Names must remain unique across the effective migration directories. Preserve
+the basename when relocating a migration: Knex records that name in its ledger.
+Do not rename it to force execution or edit an already-applied migration's body;
+changed schema behavior requires a new migration.
+
+### Directory order comes before filenames
+
+`createKnexMigrationConfigFromApp()` sets `sortDirsSeparately: true` and runs
+pending migrations in this order, using the default `migrationsDirectory`:
+
+1. Application `migrations/`.
+2. Discovered package migration directories, sorted by their absolute paths
+   using `localeCompare`.
+3. Application `migrations/constraints/`.
+
+Knex sorts filenames within each directory, not across the whole graph; see
+its [`sortDirsSeparately` option](https://knexjs.org/guide/migrations.html#migration-api).
+Package discovery does not topologically order tables or foreign keys. A newer
+timestamp in an earlier package still runs before every file in a later package.
+Inspect the effective `knexfile.js` configuration if the app customizes it.
+
+Keep table and column creation with the owning package. Put cross-package
+foreign keys and other constraints that need the complete package schema in
+application `migrations/constraints/`. An ordinary root `migrations/` file runs
+too early for this purpose. For example, a `pet_notes.product_id` column can be
+added by the pet-notes package, but its foreign key to the products package's
+`products.id` belongs in the final constraints phase. Do not rely on today's
+package-directory order to make a cross-package reference work.
+
+Before adding the key, check that both tables and columns exist, the referenced
+key is indexed appropriately, column types match (including integer signedness),
+existing values have valid parents, and `ON DELETE SET NULL` uses a nullable
+column. An incorrectly formed foreign key is not always an ordering failure.
+Do not suppress the failure, skip a missing parent, or disable foreign-key
+checks to make preparation appear successful.
+
+### MySQL and MariaDB failures can leave partial schema
+
+MySQL and MariaDB DDL can commit implicitly. If adding a column succeeds and a
+later statement adding its foreign key fails, the column can remain even though
+Knex has not recorded that migration as completed. A Knex transaction does not
+make a multi-statement DDL migration atomic. See the
+[MySQL implicit-commit rules](https://dev.mysql.com/doc/refman/8.4/en/implicit-commit.html)
+and [MariaDB implicit-commit rules](https://mariadb.com/docs/server/reference/sql-statements/transactions/sql-statements-that-cause-an-implicit-commit).
+
+Design new multi-step DDL migrations for their concrete partial states. Inspect
+the column and foreign key independently; `hasColumn()` alone cannot prove the
+constraint exists. Verify the definition of an existing object before skipping
+its creation, complete only missing work, and fail clearly on incompatible
+schema. Do not catch arbitrary SQL errors as success or mark incomplete work
+as applied. Keep recovery local to the affected migration or an explicit repair;
+do not add schema repair to request handlers or normal server startup.
+
+For an existing failure, inspect the ledger and actual schema read-only first.
+Preserve applied migration bodies and use a new corrective migration for
+databases that already recorded them. If an earlier pending migration prevents
+that correction from running, describe the required backed-up, explicit repair
+before retrying; a later file alone cannot repair a blocked earlier step. Any
+relocation must retain its basename and be checked against both fresh and
+existing ledgers. Never drop valuable data or delete ledger entries to force
+a replay.
 
 ## Seed data is not a migration
 
@@ -149,12 +208,22 @@ not merely because a useful resource has behavior beyond list and save.
 
 ## Verification
 
-- Rebuild a disposable database from the complete migration graph.
-- Run `npm run db:migrate:status` after migration.
+- For every schema change, run the normal preparation entrypoint against a
+  fresh disposable database on the selected engine with the complete package
+  graph. An existing development database can hide ordering failures.
+- In a separate disposable fixture at the previous schema and ledger, apply
+  the upgrade and prove representative existing rows survive.
+- For multi-step MySQL or MariaDB DDL, reproduce partial completion (for
+  example, column present, foreign key absent, migration still pending), retry
+  preparation, and verify the final column and constraint definitions.
+- Run preparation again and `npm run db:migrate:status`; require no pending
+  migrations. Prove invalid references are rejected and the declared delete
+  behavior works. A stubbed Knex test or successful process exit is insufficient.
 - Exercise a real transaction and one invalid-connection case.
 - When a seed operation exists, run it twice and require the second run to be
   safe.
-- Test MySQL and PostgreSQL patterns independently.
+- Use the application's selected engine; exercise each supported engine when
+  changing a shared pattern. Report unavailable database verification explicitly.
 
 Do not add migration receipts, sync ledgers, generator provenance, or dialect
 questionnaires. The installed graph, migration source, environment, and

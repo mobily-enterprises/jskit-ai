@@ -58,6 +58,7 @@ async function fixture(t, requestedScopes = scopes) {
         const timer = setTimeout(() => reject(new Error("Abort was not delivered")), 1000);
         const abort = () => { clearTimeout(timer); reject(init.signal.reason); };
         if (init.signal.aborted) abort(); else init.signal.addEventListener("abort", abort, { once: true });
+        state.onHangingRequest?.();
       });
       const body = JSON.parse(init.body);
       let value = user;
@@ -270,9 +271,11 @@ test("Wave request cancellation and timeout stop the transport without retries",
   await connect(); state.hang = true;
   const count = requests.length;
   const controller = new AbortController();
+  state.onHangingRequest = () => controller.abort();
   const pending = service.invoke({ ...input, operation: "user.read", signal: controller.signal });
-  setTimeout(() => controller.abort(), 5);
   await assert.rejects(pending, { code: "connector_cancelled" });
+  assert.equal(requests.length, count + 1);
+  state.onHangingRequest = null;
   await assert.rejects(service.invoke({ ...input, operation: "user.read" }), { code: "connector_provider_timeout" });
   assert.equal(requests.length, count + 2);
 });

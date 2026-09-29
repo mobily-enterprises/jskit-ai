@@ -17,7 +17,6 @@ import { createRepository as createWorkspacesRepository } from "../src/server/co
 import { createRepository as createMembershipsRepository } from "../src/server/common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
-
 import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
 
 const TABLES = [

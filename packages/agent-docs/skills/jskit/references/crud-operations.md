@@ -69,7 +69,21 @@ Migrations are immutable application source owned with their resource. Never
 make a live table or a generator the sole source of truth. Inspect schemas for
 adoption and diagnosis; inspection is optional.
 
-Before sign-off, rebuild in a fresh disposable database, compare schemas,
-test ownership boundaries and failures, and run current-state verification.
+Read [ordering and recovery](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#directory-order-comes-before-filenames)
+before schema work; check Knex configuration and ledger.
+`createKnexMigrationConfigFromApp()` uses `sortDirsSeparately: true`: root
+`migrations/`, sorted package directories, then `migrations/constraints/`.
+Timestamps order only within directories. Keep tables/columns with their package;
+put cross-package foreign keys in the final phase.
+
+MySQL/MariaDB can leave committed DDL without a ledger entry. Check columns and
+keys separately; `hasColumn()` is insufficient. Validate existing definitions,
+complete missing work, and plan recovery for blocked steps. Preserve applied
+bodies and relocated basenames. Never disable foreign-key checks or skip parents.
+
+On the selected engine, prove fresh preparation, upgrades preserving rows,
+partial-DDL retries, and a second preparation with no pending migrations.
+Inspect constraints and test rejected references and delete behavior.
+
 Do not create a workboard entry, ownership receipt, generation record, or
 historical proof that tooling ran.
