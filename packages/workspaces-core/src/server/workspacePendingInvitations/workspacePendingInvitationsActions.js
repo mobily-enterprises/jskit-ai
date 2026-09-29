@@ -100,7 +100,7 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
     events: WORKSPACE_INVITE_DECISION_EVENTS,
     async run(workspacePendingInvitationsService, input, context) {
       const payload = input || {};
-      const user = resolveActionUser(context, input);
+      const user = resolveActionUser(context);
 
       if (payload.decision === "accept") {
         return returnJsonApiData(await workspacePendingInvitationsService.acceptInviteByToken({

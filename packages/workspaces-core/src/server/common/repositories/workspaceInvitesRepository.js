@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   normalizeLowerText,
   normalizeRecordId,
@@ -83,6 +84,30 @@ function createRepository({ api } = {}) {
   const withTransaction = (work) => api.transaction(work);
 
   async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
+    if (options.lock === true) {
+      if (typeof options.trx !== "function" || includeWorkspace) {
+        throw new TypeError("Locking invites requires a transaction and no relationship includes.");
+      }
+      // Read current rows under lock rather than authorising a state transition
+      // from the ordinary resource query's earlier snapshot.
+      const fields = { id: "id", workspace: "workspace_id", email: "email", status: "status", tokenHash: "token_hash" };
+      const where = Object.fromEntries(Object.entries(filters).map(([key, value]) => {
+        if (!fields[key]) throw new TypeError("Unsupported locking invitation filter.");
+        return [fields[key], value];
+      }));
+      // PostgreSQL's driver interprets timestamp-without-time-zone as local
+      // time. These owner columns store UTC; preserve their database text just
+      // as the resource read path does before toIsoString normalizes it.
+      const dateColumn = (name) => options.trx.client?.config?.client === "pg"
+        ? options.trx.raw("CAST(?? AS TEXT)", [name])
+        : name;
+      return options.trx("workspace_invites").where(where).select({
+        id: "id", workspaceId: "workspace_id", email: "email", roleSid: "role_sid",
+        status: "status", tokenHash: "token_hash", invitedByUserId: "invited_by_user_id",
+        expiresAt: dateColumn("expires_at"), acceptedAt: dateColumn("accepted_at"), revokedAt: dateColumn("revoked_at"),
+        createdAt: dateColumn("created_at"), updatedAt: dateColumn("updated_at")
+      }).forUpdate();
+    }
     return extractJsonRestCollectionRows(
       await api.resources.workspaceInvites.query(
         {
@@ -98,16 +123,34 @@ function createRepository({ api } = {}) {
     );
   }
 
-  async function findPendingByTokenHash(tokenHash, options = {}) {
-    const rows = await queryInvites(
-      {
-        tokenHash: normalizeText(tokenHash),
-        status: "pending"
-      },
-      options
-    );
+  async function lockWorkspaceForInvitations(workspaceId, options = {}) {
+    if (typeof options.trx !== "function" || options.trx.isCompleted?.()) {
+      throw new TypeError("Invitation locking requires an active transaction.");
+    }
+    const id = normalizeRecordId(workspaceId, { fallback: null });
+    if (!id) throw new TypeError("Invitation locking requires workspaceId.");
+    const row = await options.trx("workspaces").where({ id }).forUpdate().first("id");
+    if (!row) throw new AppError(404, "Invitation workspace no longer exists.");
+  }
 
-    return normalizeInviteRecord(rows[0] || null);
+  async function findPendingByTokenHash(tokenHash, options = {}) {
+    if (options.lock === true) {
+      // The service locates the workspace before opening its transaction, then
+      // revalidates this token against current state under workspace/invite locks.
+      await lockWorkspaceForInvitations(options.workspaceId, options);
+    }
+    const filters = options.lock === true
+      ? {
+          id: normalizeRecordId(options.inviteId, { fallback: null }),
+          workspace: normalizeRecordId(options.workspaceId, { fallback: null }),
+          status: "pending"
+        }
+      : { tokenHash: normalizeText(tokenHash), status: "pending" };
+    // The current locking query uses only IDs, keeping bearer-equivalent token
+    // hashes out of native lock-error SQL. Still recheck token correspondence.
+    const rows = await queryInvites(filters, options);
+    const invite = normalizeInviteRecord(rows[0] || null);
+    return invite?.tokenHash === normalizeText(tokenHash) ? invite : null;
   }
 
   async function findByTokenHashWithWorkspace(tokenHash, options = {}) {
@@ -235,6 +278,10 @@ function createRepository({ api } = {}) {
       return;
     }
 
+    if (!options.trx) {
+      return withTransaction((trx) => expirePendingByWorkspaceIdAndEmail(workspaceId, email, { ...options, trx }));
+    }
+    await lockWorkspaceForInvitations(normalizedWorkspaceId, options);
     const patch = normalizeInvitePatchPayload({ status: "expired" });
     const rows = await queryInvites(
       {
@@ -242,7 +289,7 @@ function createRepository({ api } = {}) {
         email: normalizeLowerText(email),
         status: "pending"
       },
-      options
+      { ...options, lock: true }
     );
 
     for (const row of rows) {
@@ -265,50 +312,43 @@ function createRepository({ api } = {}) {
     }
   }
 
-  async function markAcceptedById(inviteId, options = {}) {
-    const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
-    if (!normalizedInviteId) {
-      return;
+  async function transitionPendingById(inviteId, status, options = {}) {
+    const id = normalizeRecordId(inviteId, { fallback: null });
+    if (!id) throw new TypeError("Invitation transition requires inviteId.");
+    let workspaceId = options.workspaceId;
+    if (!workspaceId) {
+      const candidate = await queryInvites({ id }, { ...options, lock: false });
+      if (!candidate[0]) throw new AppError(404, "Invitation not found or already handled.");
+      workspaceId = normalizeInviteRecord(candidate[0]).workspaceId;
     }
-
-    const acceptedAt = new Date().toISOString();
+    if (!options.trx) {
+      return withTransaction((trx) => transitionPendingById(id, status, { ...options, trx, workspaceId }));
+    }
+    const invite = await findPendingByIdForWorkspace(id, workspaceId, { ...options, lock: true });
+    if (!invite) throw new AppError(404, "Invitation not found or already handled.");
+    const updatedAt = new Date().toISOString();
     await api.resources.workspaceInvites.patch(
       {
-        id: normalizedInviteId,
+        id,
         data: {
-          status: "accepted",
-          acceptedAt,
-          updatedAt: acceptedAt
+          status,
+          [status === "accepted" ? "acceptedAt" : "revokedAt"]: updatedAt,
+          updatedAt
         },
         format: "plain",
         returning: "full",
-        transaction: options?.trx || null
+        transaction: options.trx
       },
-      createJsonRestContext(options?.context || null)
+      createJsonRestContext(options.context || null)
     );
   }
 
-  async function revokeById(inviteId, options = {}) {
-    const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
-    if (!normalizedInviteId) {
-      return;
-    }
+  async function markAcceptedById(inviteId, options = {}) {
+    return transitionPendingById(inviteId, "accepted", options);
+  }
 
-    const revokedAt = new Date().toISOString();
-    await api.resources.workspaceInvites.patch(
-      {
-        id: normalizedInviteId,
-        data: {
-          status: "revoked",
-          revokedAt,
-          updatedAt: revokedAt
-        },
-        format: "plain",
-        returning: "full",
-        transaction: options?.trx || null
-      },
-      createJsonRestContext(options?.context || null)
-    );
+  async function revokeById(inviteId, options = {}) {
+    return transitionPendingById(inviteId, "revoked", options);
   }
 
   async function findPendingByIdForWorkspace(inviteId, workspaceId, options = {}) {
@@ -318,20 +358,25 @@ function createRepository({ api } = {}) {
       return null;
     }
 
+    if (options.lock === true) await lockWorkspaceForInvitations(normalizedWorkspaceId, options);
     const rows = await queryInvites(
       {
         id: normalizedInviteId,
         workspace: normalizedWorkspaceId,
         status: "pending"
       },
-      options
+      options,
+      { includeWorkspace: options.includeWorkspace === true }
     );
 
-    return normalizeInviteRecord(rows[0] || null);
+    return options.includeWorkspace === true
+      ? (rows[0] ? normalizeInviteWithWorkspace(rows[0]) : null)
+      : normalizeInviteRecord(rows[0] || null);
   }
 
   return Object.freeze({
     withTransaction,
+    lockWorkspaceForInvitations,
     findPendingByTokenHash,
     findByTokenHashWithWorkspace,
     listPendingByEmail,

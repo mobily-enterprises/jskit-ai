@@ -65,6 +65,7 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
     setup({ actions, workspaceCapability }) {
       actionCatalogue = actions;
       workspaces = workspaceCapability;
+      workspaceCapability.services.pendingInvitations.registerAcceptanceParticipant(async () => {});
       return {};
     }
   });
@@ -104,6 +105,10 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
     "workspaces"
   ]);
   assert.equal(typeof workspaces.services.directory.resolveWorkspaceContextForUserBySlug, "function");
+  assert.equal(typeof workspaces.services.members.prepareInvite, "function");
+  assert.equal(typeof workspaces.services.members.sendInvite, "function");
+  assert.throws(() => workspaces.services.pendingInvitations.registerAcceptanceParticipant(null), /must be a function/);
+  assert.throws(() => workspaces.services.pendingInvitations.registerAcceptanceParticipant(async () => {}), /already registered/);
   assert.equal(routes.includes("POST /api/workspaces"), true);
   assert.equal(routes.includes("GET /api/workspace/invitations/resolve"), true);
   assert.equal(actionCatalogue.listDefinitions().length, 16);

@@ -31,9 +31,9 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    existing tree, and the current diff when reviewing changes.
 3. Read the project's product documentation and current source. JSKIT does not
    own a second project brain or prescribe a particular agent orchestrator.
-4. Load only the task-relevant direct reference:
-   - Existing-app migration: read
-     [port guide](references/existing-application-migration.md).
+4. Load only relevant references:
+   - [port guide](references/existing-application-migration.md) for existing apps.
+   - [Tenancy/invitations](references/multi-homing.md).
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
    - Before database, schema, CRUD, repository, or persistence work, read

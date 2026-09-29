@@ -16,6 +16,7 @@ function createFixture({
 
   const service = createService({
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
       async listPendingByEmail() {
         return Array.isArray(pendingInvitesByEmail) ? [...pendingInvitesByEmail] : [];
       },
@@ -234,7 +235,7 @@ test("acceptInviteByToken accepts opaque invite token and resolves invite by dec
     token: encodedToken
   });
 
-  assert.deepEqual(calls.tokenHashCalls, [tokenHash]);
+  assert.deepEqual(calls.tokenHashCalls, [tokenHash, tokenHash]);
   assert.equal(calls.upsertCalls.length, 1);
   assert.deepEqual(calls.acceptCalls, [44]);
   assert.deepEqual(calls.revokeCalls, []);
@@ -268,10 +269,37 @@ test("refuseInviteByToken revokes the invite and returns refused", async () => {
     token: encodedToken
   });
 
-  assert.deepEqual(calls.tokenHashCalls, [tokenHash]);
+  assert.deepEqual(calls.tokenHashCalls, [tokenHash, tokenHash]);
   assert.deepEqual(calls.acceptCalls, []);
   assert.deepEqual(calls.revokeCalls, [45]);
   assert.equal(calls.upsertCalls.length, 0);
   assert.equal(response.decision, "refused");
   assert.equal(response.workspaceId, "1");
 });
+
+
+test("participant registration rejects invalid, duplicate and late registration", async () => {
+  const { service } = createFixture();
+  assert.throws(() => service.registerAcceptanceParticipant(null), /must be a function/);
+  service.registerAcceptanceParticipant(async () => {});
+  assert.throws(() => service.registerAcceptanceParticipant(async () => {}), /already registered/);
+  const { service: late } = createFixture();
+  await assert.rejects(late.acceptInviteByToken(), /Authentication required/);
+  assert.throws(() => late.registerAcceptanceParticipant(async () => {}), /registration is closed/);
+});
+
+for (const transactionOutcome of ["committed", "unknown", "rolledBack"]) {
+  test(`acceptance preserves a ${transactionOutcome} managed completion failure`, async () => {
+    const cause = new Error("Completion failed");
+    const failure = Object.assign(new Error("Managed completion failed"), { transactionOutcome, cause });
+    const service = createService({
+      workspaceInvitesRepository: {
+        async findPendingByTokenHash() { return { workspaceId: "1", email: "a@example.test" }; },
+        async withTransaction() { throw failure; }
+      },
+      workspaceMembershipsRepository: {}
+    });
+    await assert.rejects(service.acceptInviteByToken({ user: { id: "1", email: "a@example.test" }, token: "valid-token" }),
+      (error) => error === failure && error.cause === cause);
+  });
+}

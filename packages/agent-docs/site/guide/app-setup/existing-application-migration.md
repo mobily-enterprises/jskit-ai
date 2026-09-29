@@ -220,6 +220,36 @@ not undo the write. Do not turn pending, committed, or unknown write failures
 into successful missing-record results, or automatically replay a committed
 or unresolved write.
 
+### Workspace invitation transaction compatibility (workspaces-core 0.1.198)
+
+Workspace invitation creation, acceptance and refusal now own managed
+transactions. Existing calls to `members.createInvite(..., { trx })` must become
+`members.prepareInvite(..., { trx })`, application association/receipt writes,
+confirmed commit, then `members.sendInvite(...)` without `trx`. Move writes that
+must accompany built-in acceptance into
+`pendingInvitations.registerAcceptanceParticipant(fn)` during feature setup.
+Acceptance/refusal reject borrowed transactions; revocation can still participate
+in a managed transaction. Ordinary invitation actions retain their IDs and
+response shapes. Terminal repository transitions now reject instead of
+rewriting already accepted/revoked invitations. Mailer exceptions return a fixed
+message to avoid leaking invitation tokens from provider diagnostics.
+
+Required participant writes roll back together. Preserve transaction outcomes:
+a failure after commit is not rollback, and an unresolved commit must not be
+blindly replayed. Matching-recipient expiry revocation deliberately commits
+before its 409 rejection. Review the
+[workspace invitation contract and example](./multi-homing.md#transactional-invitation-participation)
+when migrating. No schema migration is required for these framework APIs.
+
+The first coordinated release containing this contract includes
+`@jskit-ai/workspaces-core@0.1.198`, `@jskit-ai/jskit-catalog@0.1.245` and
+`@jskit-ai/agent-docs@0.1.192`. Once that release is published, use
+`npm run jskit:update` in the application to upgrade the coordinated graph,
+restart the backend, check the actual installed versions, and assert
+that `prepareInvite`, `sendInvite` and `registerAcceptanceParticipant` are present
+on the resolved capability. Application domain integration and real email
+activation remain separate work.
+
 ## 4. Adopt migrations without breaking either database history
 
 Every immutable migration belongs to the package that owns its tables. Declare

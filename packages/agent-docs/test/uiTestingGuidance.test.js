@@ -70,6 +70,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "crud-operations.md",
     "existing-application-migration.md",
     "material-3.md",
+    "multi-homing.md",
     "pattern-index.md",
     "ui-operations.md",
   ]);

@@ -81,6 +81,8 @@ function createFixture() {
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace(workspaceId) {
         assert.equal(Number(workspaceId), 7);
         return [];
@@ -101,6 +103,7 @@ function createFixture() {
 
 test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", async () => {
   const expiresAtValues = [];
+  let savedInvite;
   const service = createService({
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
@@ -108,18 +111,19 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert(payload) {
         expiresAtValues.push(payload.expiresAt);
-        return {
-          id: "31"
-        };
+        savedInvite = { ...payload, id: "31" };
+        return savedInvite;
       },
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },
       async findPendingByIdForWorkspace() {
-        return null;
+        return savedInvite;
       },
       async revokeById() {}
     },
@@ -158,6 +162,7 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
 test("workspaceMembersService.createInvite sends generated invite URLs through the configured mailer", async () => {
   const templateCalls = [];
   const mailerCalls = [];
+  let savedInvite;
   const service = createService({
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
@@ -165,6 +170,8 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail(workspaceId, email) {
         assert.equal(workspaceId, "7");
         assert.equal(email, "invitee@example.com");
@@ -173,16 +180,14 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
         assert.equal(payload.workspaceId, "7");
         assert.equal(payload.email, "invitee@example.com");
         assert.equal(payload.roleSid, "admin");
-        return {
-          id: "88",
-          expiresAt: payload.expiresAt
-        };
+        savedInvite = { ...payload, id: "88", workspaceSlug: "acme", workspaceName: "Acme" };
+        return savedInvite;
       },
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },
       async findPendingByIdForWorkspace() {
-        return null;
+        return savedInvite;
       },
       async revokeById() {}
     },
@@ -253,6 +258,8 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },
@@ -300,6 +307,8 @@ test("workspaceMembersService rejects invite operations when invitations are dis
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         throw new Error("invite repository should not be called when invitations are disabled");
       },
@@ -440,6 +449,8 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },
@@ -493,6 +504,8 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
       }
     },
     workspaceInvitesRepository: {
+      async withTransaction(work) { return work({}); },
+      async lockWorkspaceForInvitations() {},
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
       },

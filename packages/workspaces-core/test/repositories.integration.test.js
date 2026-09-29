@@ -18,6 +18,8 @@ import { createRepository as createMembershipsRepository } from "../src/server/c
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
+import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
+
 const TABLES = [
   "workspace_invites", "workspace_settings", "workspace_memberships", "workspaces", "user_settings", "users"
 ];
@@ -45,7 +47,7 @@ function databaseConfig() {
         password: decodeURIComponent(url.password),
         database: url.pathname.slice(1)
       },
-      pool: { min: 1, max: 2 }
+      pool: { min: 1, max: 6 }
     };
   }
   return {
@@ -61,7 +63,7 @@ function databaseConfig() {
       supportBigNumbers: true,
       bigNumberStrings: true
     },
-    pool: { min: 1, max: 2 }
+    pool: { min: 1, max: 6 }
   };
 }
 
@@ -82,6 +84,12 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   before(async () => {
     knex = knexLib(configuration);
     if (databaseUrl) {
+      const target = configuration.client === "pg"
+        ? (await knex.raw("SELECT current_database() AS name, version() AS version")).rows[0]
+        : (await knex.raw("SELECT DATABASE() AS name, VERSION() AS version"))[0][0];
+      assert.equal(target.name, configuration.connection.database);
+      assert.match(target.name, /^jskit_repository_test_[a-z0-9_]+$/u);
+      console.log(`Disposable repository target: ${target.name}; engine: ${target.version}`);
       const tables = configuration.client === "pg"
         ? await knex("information_schema.tables").where({ table_schema: "public" }).select("table_name")
         : (await knex.raw("SHOW TABLES"))[0];
@@ -110,6 +118,11 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   });
 
   beforeEach(async () => {
+    if (await knex.schema.hasTable("test_invitation_drafts")) {
+      for (const table of ["test_invitation_audits", "test_invitation_scopes", "test_invitation_drafts"]) {
+        await knex(table).delete();
+      }
+    }
     for (const table of TABLES) await knex(table).delete();
   });
 
@@ -319,5 +332,8 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     });
     assert.equal(Number((await knex("users").count({ count: "*" }).first()).count), 1);
     assert.equal((await profiles.findByEmail(owner.email)).id, owner.id);
+  });
+  test("invitation creation and acceptance transaction participation", async (t) => {
+    await verifyInvitationTransactions(t, knex);
   });
 });

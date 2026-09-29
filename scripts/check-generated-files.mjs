@@ -15,6 +15,7 @@ const GENERATED_PATHS = Object.freeze([
   "packages/agent-docs/skills/jskit/references/ui-operations.md",
   "packages/agent-docs/skills/jskit/references/pattern-index.md",
   "packages/agent-docs/skills/jskit/references/existing-application-migration.md",
+  "packages/agent-docs/skills/jskit/references/multi-homing.md",
   "packages/agent-docs/skills/jskit/references/patterns",
   "tooling/jskit-catalog/catalog/packages.json"
 ]);
