@@ -105,13 +105,13 @@ test("operator model configuration and named voices reach native synthesis witho
   const engine = await createSherpaSpeechEngine({ modelsRoot: "/tmp/custom-speech", configuration: {
     recognizer: { modelConfig: { tokens: "${MODELS_ROOT}/different/tokens.txt" } },
     synthesizer: { model: { kokoro: { model: "${MODELS_ROOT}/tts/model.onnx", voices: "${MODELS_ROOT}/tts/voices.bin" } } },
-    voices: [{ id: "male", label: "Male", speakerId: 1 }, { id: "female", label: "Female", speakerId: 0 }], defaultVoice: "female"
+    voices: [{ id: "male", label: "Male", speakerId: 1 }, { id: "female", label: "Female", speakerId: 0, speed: 1.15 }], defaultVoice: "female"
   }, sherpa: {
     OnlineRecognizer: class { constructor(config) { recognizer = config; } }
   }, createSynthesizer: async config => {
     synthesizer = config;
     return { sampleRate: 24000, numSpeakers: 2, running: true, async close() {},
-      async synthesize(text, { speakerId, onAudio = () => null }) { speakers.push(speakerId); onAudio(Buffer.alloc(4)); }
+      async synthesize(text, { speakerId, speed, onAudio = () => null }) { speakers.push({ speakerId, speed }); onAudio(Buffer.alloc(4)); }
     };
   } });
   assert.equal(recognizer.modelConfig.tokens, "/tmp/custom-speech/different/tokens.txt");
@@ -120,10 +120,11 @@ test("operator model configuration and named voices reach native synthesis witho
   const audio = [];
   await engine.synthesize("Male voice.", { voiceId: "male", onAudio: frame => audio.push(frame) });
   await engine.synthesize("Default voice.");
-  assert.deepEqual(speakers, [1, 0]);
+  await engine.synthesize("Male voice again.", { voiceId: "male" });
+  assert.deepEqual(speakers, [{ speakerId: 1, speed: 1 }, { speakerId: 0, speed: 1.15 }, { speakerId: 1, speed: 1 }]);
   assert.equal(audio[0].length, 4);
   await assert.rejects(engine.synthesize("No.", { voiceId: "unknown" }), /not available/u);
-  assert.deepEqual(speakers, [1, 0]);
+  assert.equal(speakers.length, 3);
   assert.equal(engine.defaultVoice, "female");
 });
 
@@ -170,12 +171,27 @@ test("voice model validation releases incompatible models and rejects invalid sp
     { id: "male", label: "Male", modelId: "male", speakerId: 0 }
   ] };
   let resident = 0;
-  const options = { configuration, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: async config => {
+  const options = { configuration, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: async (config, { outputSampleRate }) => {
     resident += 1;
-    return { sampleRate: config.sampleRate, numSpeakers: 1, running: true, async close() { resident -= 1; } };
+    return { sampleRate: outputSampleRate || config.sampleRate, numSpeakers: 1, running: true, async close() { resident -= 1; } };
   } };
+  for (const speed of [0, 0.49, 2.01, NaN, Infinity, "1.15", null]) {
+    configuration.voices[0].speed = speed;
+    await assert.rejects(createSherpaSpeechEngine(options), /Voice speed/u);
+    assert.equal(resident, 0);
+  }
+  delete configuration.voices[0].speed;
   await assert.rejects(createSherpaSpeechEngine(options), /same output sample rate/u);
   assert.equal(resident, 0);
+  configuration.outputSampleRate = 22050;
+  const mixed = await createSherpaSpeechEngine(options);
+  assert.equal(mixed.sampleRate, 22050);
+  assert.equal(resident, 1);
+  await mixed.close();
+  assert.equal(resident, 0);
+  configuration.outputSampleRate = 0;
+  await assert.rejects(createSherpaSpeechEngine(options), /Output sample rate/u);
+  delete configuration.outputSampleRate;
   configuration.voices[1].modelId = "missing";
   await assert.rejects(createSherpaSpeechEngine(options), /configured synthesizer model/u);
   configuration.voices[1].modelId = "female";

@@ -3,6 +3,7 @@ import { fork } from "node:child_process";
 // Sherpa's Node API has no explicit model disposal. Process exit releases both
 // the model and ONNX's native arenas before another voice is loaded.
 export async function createSynthesisProcess(configuration, {
+  outputSampleRate,
   workerUrl = new URL("./synthesisWorker.js", import.meta.url)
 } = {}) {
   const child = fork(workerUrl, [], { execArgv: [], serialization: "advanced", stdio: ["ignore", "ignore", "inherit", "ipc"] });
@@ -50,18 +51,18 @@ export async function createSynthesisProcess(configuration, {
   }
 
   try {
-    const metadata = await request("load", { configuration });
+    const metadata = await request("load", { configuration, outputSampleRate });
     return Object.freeze({
       ...metadata,
       get running() { return !stopped; },
       close,
-      async synthesize(text, { speakerId, onAudio = () => null, signal } = {}) {
+      async synthesize(text, { speakerId, speed = 1, onAudio = () => null, signal } = {}) {
         let samples = 0;
         const abort = () => { void close(); };
         if (signal?.aborted) return { cancelled: true, sampleRate: metadata.sampleRate, samples };
         signal?.addEventListener("abort", abort, { once: true });
         try {
-          await request("synthesize", { text, speakerId }, frame => {
+          await request("synthesize", { text, speakerId, speed }, frame => {
             if (signal?.aborted) return;
             samples += frame.byteLength / 2;
             onAudio(frame);

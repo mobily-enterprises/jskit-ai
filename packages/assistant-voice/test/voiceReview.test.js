@@ -8,6 +8,7 @@ async function fixture(t, { slowStart = false, failSend = false } = {}) {
   let cancelled = false;
   const calls = { sends: [], playback: 0, cancels: 0 };
   const voice = {
+    availableVoices: vue.ref([]), selectedVoice: vue.ref(""),
     reconnecting: vue.ref(false), endpoint: vue.ref(null), completedUtterance: vue.ref(null), utteranceReset: vue.ref(null), canAppendSpeech: vue.ref(false),
     microphoneMuted: vue.ref(false), setMicrophoneMuted(value) { voice.microphoneMuted.value = value; },
     captureState: vue.ref("idle"), transcript: vue.ref(""), partialTranscript: vue.ref(""), error: vue.ref(""),

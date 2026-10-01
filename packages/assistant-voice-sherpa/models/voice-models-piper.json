@@ -1,6 +1,6 @@
 {
   "schema": "vibe64.voice-model-sources.v1",
-  "packRevision": 1,
+  "packRevision": 2,
   "models": [
     {
       "id": "streaming-zipformer-en-2023-06-26",
@@ -78,6 +78,21 @@
         "vits-piper-en_US-bryce-medium/tokens.txt": "tts/bryce/tokens.txt",
         "vits-piper-en_US-bryce-medium/MODEL_CARD": "tts/bryce/SOURCE.md"
       }
+    },
+    {
+      "id": "piper-en_GB-northern_english_male-medium",
+      "kind": "tts",
+      "archive": "vits-piper-en_GB-northern_english_male-medium.tar.bz2",
+      "archiveSha256": "2bb2c1e709f58c11f17c693b3b38f500e110e7f54f2651774ec48b8d41f12c55",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-northern_english_male-medium.tar.bz2",
+      "license": "CC-BY-SA-4.0 source recordings: OpenSLR 83, UK English regional accents",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_GB/northern_english_male/medium",
+      "files": {
+        "vits-piper-en_GB-northern_english_male-medium/en_GB-northern_english_male-medium.onnx": "tts/northern_english_male/model.onnx",
+        "vits-piper-en_GB-northern_english_male-medium/en_GB-northern_english_male-medium.onnx.json": "tts/northern_english_male/model.onnx.json",
+        "vits-piper-en_GB-northern_english_male-medium/tokens.txt": "tts/northern_english_male/tokens.txt",
+        "vits-piper-en_GB-northern_english_male-medium/MODEL_CARD": "tts/northern_english_male/SOURCE.md"
+      }
     }
   ],
   "configuration": {
@@ -109,6 +124,13 @@
         "speakerId": 0,
         "language": "en-US",
         "modelId": "bryce"
+      },
+      {
+        "id": "northern_english_male",
+        "label": "Northern English · male · British English",
+        "speakerId": 0,
+        "language": "en-GB",
+        "modelId": "northern_english_male"
       }
     ],
     "defaultVoice": "cori",
@@ -158,6 +180,18 @@
             "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
             "model": "${MODELS_ROOT}/tts/bryce/model.onnx",
             "tokens": "${MODELS_ROOT}/tts/bryce/tokens.txt"
+          }
+        }
+      },
+      "northern_english_male": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "vits": {
+            "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+            "model": "${MODELS_ROOT}/tts/northern_english_male/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/northern_english_male/tokens.txt"
           }
         }
       }

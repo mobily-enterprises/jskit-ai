@@ -90,6 +90,7 @@ Local functions
 Exports
 - `createVoiceDaemon`
 - `registerVoiceProxyRoute`
+- `readVoiceCatalogue`
 - `resolveVoiceProxyConfig`
 - `readVoiceAccessToken`
 - `voiceEndpoint`
@@ -123,6 +124,7 @@ Local functions
 ### `src/server/voiceProxy.js`
 Exports
 - `closeSocket(socket, code, reason)`
+- `readVoiceCatalogue(config, { fetchImpl = fetch } = {})`
 - `registerVoiceProxyRoute(fastify, { proxyConfig, route, authorize = null, WebSocketCtor = WebSocket } = {})`
 Local functions
 - `sendSocketError(socket, code, message)`

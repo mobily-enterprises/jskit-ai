@@ -11,6 +11,25 @@ import { normalizeVoiceCloseMetadata } from "./voiceSocketClose.js";
 const WEBSOCKET_CONNECTING = 0;
 const WEBSOCKET_OPEN = 1;
 
+async function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
+  try {
+    if (!config?.available) throw new Error("Voice is not configured.");
+    const url = new URL("/voices", config.endpoint);
+    url.protocol = url.protocol === "wss:" ? "https:" : "http:";
+    const response = await fetchImpl(url, {
+      headers: { authorization: `Bearer ${config.token}` }, signal: AbortSignal.timeout(5000)
+    });
+    if (!response.ok) throw new Error("Voice service refused the catalogue request.");
+    const catalogue = await response.json();
+    if (!Array.isArray(catalogue.voices) || typeof catalogue.defaultVoice !== "string") throw new Error("Invalid voice catalogue.");
+    return catalogue;
+  } catch (cause) {
+    throw Object.assign(new Error("Speaking voices could not load. Check the speech service and retry."), {
+      code: "voice_unavailable", statusCode: 503, cause
+    });
+  }
+}
+
 function closeSocket(socket, code, reason) {
   if ([WEBSOCKET_CONNECTING, WEBSOCKET_OPEN].includes(socket?.readyState)) {
     const metadata = normalizeVoiceCloseMetadata(code, reason);
@@ -175,5 +194,6 @@ function registerVoiceProxyRoute(fastify, {
 
 export {
   closeSocket,
+  readVoiceCatalogue,
   registerVoiceProxyRoute
 };

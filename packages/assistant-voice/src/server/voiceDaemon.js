@@ -149,6 +149,10 @@ function createVoiceDaemon({
   let ready = false;
   let startedAt = "";
   let stopping = false;
+  const voiceCatalogue = () => ({
+    voices: (engine.voices || []).map(({ id, label, language }) => ({ id, label, ...(language ? { language } : {}) })),
+    defaultVoice: engine.defaultVoice || ""
+  });
   const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && requestPathname(request) === "/health") {
       writeJsonResponse(response, ready && !stopping ? 200 : 503, {
@@ -161,6 +165,14 @@ function createVoiceDaemon({
       return;
     }
     try {
+      if (request.method === "GET" && requestPathname(request) === "/voices") {
+        let principal;
+        try { principal = await authorize(bearerVoiceAccessToken(request.headers), request); } catch { /* Deny invalid credentials. */ }
+        if (!principal) { writeJsonResponse(response, 401, { ok: false }); return; }
+        if (!ready || stopping) { writeJsonResponse(response, 503, { ok: false }); return; }
+        writeJsonResponse(response, 200, voiceCatalogue());
+        return;
+      }
       if (await handleRequest?.(request, response)) return;
       writeJsonResponse(response, 404, { ok: false });
     } catch {
@@ -485,8 +497,7 @@ function createVoiceDaemon({
     sendJson(socket, "voice.ready", {
       inputSampleRate: VOICE_INPUT_SAMPLE_RATE,
       outputSampleRate: Number(engine.sampleRate),
-      voices: (engine.voices || []).map(({ id, label, language }) => ({ id, label, ...(language ? { language } : {}) })),
-      defaultVoice: engine.defaultVoice || ""
+      ...voiceCatalogue()
     });
   });
 

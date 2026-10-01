@@ -184,11 +184,12 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
   const sessionId = vue.ref("session-a");
   const voiceModule = { useVibe64OnlineVoice: useVoiceTransport };
   let voice;
-  const colleagueProps = vue.reactive({ conversation: { conversationId: "colleague", messages: [], status: "ready" },
+  const colleagueProps = vue.reactive({ defaults: {}, conversation: { conversationId: "colleague", messages: [], status: "ready" },
     focus: { projectSlug: "example", sessionId: "session-a" }, submit: async () => {} });
   view = mountSetup(() => {
     if (colleague) {
       const state = useVoiceConversation({ id: "conversation", label: "Assistant", state: colleagueProps.conversation,
+        get defaults() { return colleagueProps.defaults; },
         captureContext: () => ({ ...colleagueProps.focus }),
         submitText: (text, { messageId, context }) => colleagueProps.submit(text, { messageId, focus: context }),
         onError: message => notices.push({ message, intent: "action-feedback" }),
@@ -1251,6 +1252,30 @@ test("starting push-to-talk loads voices before recording and keeps the selected
   assert.equal(start.voiceId, "michael");
   view.voice.selectedVoice.value = "emma";
   assert.equal(start.voiceId, "michael", "the next selection cannot rewrite an active request");
+});
+
+test("saved voice updates reach the live conversation and unavailable choices never overwrite preferences", async t => {
+  const view = mountVoice(t, { colleague: true, callMode: null });
+  view.colleagueProps.defaults.voiceId = "kitten_bella";
+  await vue.nextTick();
+  assert.equal(view.voice.selectedVoice.value, "kitten_bella");
+  await view.colleague.toggleLive();
+  const socket = view.sockets[0];
+  const voices = [{ id: "kitten_bella", label: "Bella" }, { id: "kitten_jasper", label: "Jasper" }];
+  socket.receive({ type: "voice.ready", voices, defaultVoice: "kitten_bella" });
+  await vue.nextTick();
+  view.colleagueProps.defaults.voiceId = "kitten_jasper";
+  await vue.nextTick();
+  await view.voice.speak("Saved choice.", "saved-voice");
+  assert.equal(controls(socket).find(message => message.type === "speak.start").voiceId, "kitten_jasper");
+  socket.receive({ type: "voice.ready", voices: voices.slice(0, 1), defaultVoice: "kitten_bella" });
+  await vue.nextTick();
+  assert.equal(view.voice.selectedVoice.value, "");
+  assert.equal(view.colleagueProps.defaults.voiceId, "kitten_jasper");
+  socket.receive({ type: "voice.ready", voices, defaultVoice: "kitten_bella" });
+  await vue.nextTick();
+  assert.equal(view.voice.selectedVoice.value, "kitten_jasper", "reinstalled voices restore the saved choice");
+  assert.equal(view.media.length, 0);
 });
 
 test("push-to-talk keeps one conversation open across turns and preserves sound off", async (t) => {

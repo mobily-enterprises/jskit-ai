@@ -25,8 +25,13 @@ const gesture = useVoiceLauncher({
 });
 const voiceWordsTarget = ref(null);
 const voiceAnswerTarget = ref(null);
-for (const [text, target] of [[voiceWords, voiceWordsTarget], [voiceAnswer, voiceAnswerTarget]]) {
-  watch(text, () => { if (target.value) target.value.scrollTop = target.value.scrollHeight; }, { flush: "post" });
+const followWords = ref(true);
+const followAnswer = ref(true);
+function isAtBottom(element) { return element.scrollHeight - element.scrollTop - element.clientHeight < 24; }
+for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWords], [voiceAnswer, voiceAnswerTarget, followAnswer]]) {
+  watch(text, () => {
+    if (target.value && following.value) target.value.scrollTop = target.value.scrollHeight;
+  }, { flush: "post" });
 }
 </script>
 
@@ -45,13 +50,13 @@ for (const [text, target] of [[voiceWords, voiceWordsTarget], [voiceAnswer, voic
         </div>
       </div>
       <div class="assistant-voice__captions" aria-label="Voice conversation text">
-        <section class="assistant-voice__caption" aria-label="Recognized words">
+        <section ref="voiceWordsTarget" class="assistant-voice__caption" aria-label="Recognized words" tabindex="0" @scroll="followWords = isAtBottom($event.currentTarget)">
           <strong class="text-label-medium">You<span v-if="heldTranscript && voice.listening.value && !microphoneMuted"> · Hearing…</span><span v-else-if="pendingTranscript && !sending"> · Not sent</span></strong>
-          <div ref="voiceWordsTarget" class="assistant-voice__caption-text text-body-medium" tabindex="0"><p>{{ voiceWords }}</p></div>
+          <p class="assistant-voice__caption-text text-body-medium">{{ voiceWords }}</p>
         </section>
-        <section class="assistant-voice__caption" :aria-label="`${targetLabel} latest answer`">
+        <section ref="voiceAnswerTarget" class="assistant-voice__caption" :aria-label="`${targetLabel} latest answer`" tabindex="0" @scroll="followAnswer = isAtBottom($event.currentTarget)">
           <strong class="text-label-medium">{{ targetLabel }}</strong>
-          <div ref="voiceAnswerTarget" class="assistant-voice__caption-text text-body-medium" tabindex="0"><p>{{ voiceAnswer }}</p></div>
+          <p class="assistant-voice__caption-text text-body-medium">{{ voiceAnswer }}</p>
         </section>
       </div>
       <section v-if="pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
@@ -85,7 +90,7 @@ for (const [text, target] of [[voiceWords, voiceWordsTarget], [voiceAnswer, voic
 
 <style scoped>
 .assistant-voice { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; border: 0; padding: 0; margin: 0; min-width: 0; }
-.assistant-voice__call { width: 100%; flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) minmax(112px, 25%) auto; }
+.assistant-voice__call { width: 100%; flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) minmax(144px, 30%) auto; }
 .assistant-voice__call-body { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 16px 0; text-align: center; }
 .assistant-voice__call-portrait { position: relative; height: min(240px, calc(100% - 64px)); aspect-ratio: 1; max-width: 100%; margin: 8px auto; isolation: isolate; }
 .assistant-voice__call-portrait::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; background: rgba(var(--v-theme-primary), .12); transform: scale(var(--call-audio-scale)); transition: transform 80ms linear; z-index: -1; }
@@ -93,10 +98,9 @@ for (const [text, target] of [[voiceWords, voiceWordsTarget], [voiceAnswer, voic
 .assistant-voice__call-status-row { display: flex; flex: 0 0 48px; justify-content: center; align-items: center; gap: 8px; height: 48px; }
 .assistant-voice__call-status-row p { margin: 0; max-height: 48px; overflow: hidden; }
 .assistant-voice__captions { min-height: 0; display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 16px; }
-.assistant-voice__caption { min-height: 0; display: flex; flex-direction: column; padding: 8px 12px; border-radius: 12px; background: rgba(var(--v-theme-on-surface), .04); }
-.assistant-voice__caption > strong { flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.assistant-voice__caption-text { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-.assistant-voice__caption-text p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assistant-voice__caption { min-height: 0; padding: 8px 12px; border-radius: 12px; background: rgba(var(--v-theme-on-surface), .04); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; touch-action: pan-y; }
+.assistant-voice__caption > strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.assistant-voice__caption-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .assistant-voice__talk-action { justify-self: center; width: min(288px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 6px 8px; padding: 16px; }
 .assistant-voice__talk { touch-action: none; user-select: none; -webkit-touch-callout: none; }
 .assistant-voice__talk-action p { grid-column: 1 / -1; margin: 0; text-align: center; white-space: nowrap; }

@@ -24,19 +24,21 @@ async function openText() {
     @update:mode="value => value === 'text' && invoke(openText)"
   >
     <template #header-actions>
-      <v-menu :close-on-content-click="false" location="bottom end" @update:model-value="open => open && invoke(() => state.session.voice.connect())">
+      <v-menu :close-on-content-click="false" location="bottom end" @update:model-value="open => open && !$slots.settings && invoke(() => state.session.voice.connect())">
         <template #activator="{ props: settingsButton }">
           <v-btn v-bind="settingsButton" :icon="mdiCog" variant="text" aria-label="Voice settings" title="Voice settings" />
         </template>
         <v-card class="voice-host__settings" role="region" aria-label="Voice settings">
           <v-card-text>
-            <v-select
-              v-model="state.session.voice.selectedVoice.value"
-              :items="state.session.voice.availableVoices.value" item-title="label" item-value="id"
-              :disabled="state.session.voice.availableVoices.value.length < 2"
-              label="Speaking voice" density="comfortable"
-              hint="Applies to the next spoken reply" persistent-hint
-            />
+            <slot name="settings" :voice="state.session.voice">
+              <v-select
+                v-model="state.session.voice.selectedVoice.value"
+                :items="state.session.voice.availableVoices.value" item-title="label" item-value="id"
+                :disabled="state.session.voice.availableVoices.value.length < 2"
+                label="Speaking voice" density="comfortable"
+                hint="Applies to the next spoken reply" persistent-hint
+              />
+            </slot>
           </v-card-text>
         </v-card>
       </v-menu>

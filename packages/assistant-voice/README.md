@@ -137,3 +137,19 @@ Focused package checks run one file at a time, for example:
 Native speech and physical microphone/speaker testing are separate. Browser echo
 cancellation plus local text filters cannot guarantee acoustic isolation on every
 device; test hands-free interruption with your actual hardware.
+
+### Application-owned voice preferences
+
+`VoiceConversationHost` has an optional `settings` slot for an application-owned
+selector. Persist the voice choice in your application, then supply its current
+value through reactive `binding.defaults.voiceId`. Changes apply to subsequent
+replies. An unavailable ID uses the server default without rewriting the saved
+choice; reconnecting can restore it if the voice returns. An empty string selects
+the server default. The built-in selector remains local to the voice session.
+
+`readVoiceCatalogue(proxyConfig)` from `/server` retrieves the daemon's authorized
+`GET /voices` metadata without reserving an audio connection. Expose it only
+through an application-authorized route; credentials stay on the server. The
+result contains `voices` (IDs, labels and optional languages) and `defaultVoice`,
+matching the WebSocket greeting. Listing voices does not synthesize or load
+additional voice models.

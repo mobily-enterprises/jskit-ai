@@ -35,6 +35,10 @@ async function createSherpaSpeechEngine({
   synthesizerThreads = 1
 } = {}) {
   if (!configuration || typeof configuration !== "object" || Array.isArray(configuration)) throw new TypeError("Speech configuration must be an object.");
+  const outputSampleRate = configuration.outputSampleRate;
+  if (outputSampleRate !== undefined && (!Number.isInteger(outputSampleRate) || outputSampleRate < 8000 || outputSampleRate > 48000)) {
+    throw new TypeError("Output sample rate must be an integer between 8000 and 48000 Hz.");
+  }
   const runtime = sherpa || require("sherpa-onnx-node");
   const root = path.resolve(String(modelsRoot || ""));
   function modelPaths(value) {
@@ -100,6 +104,9 @@ async function createSherpaSpeechEngine({
         !Number.isSafeInteger(voice.speakerId) || voice.speakerId < 0)) {
     throw new TypeError("Configure unique voice IDs, names and valid model speaker IDs.");
   }
+  if (voices.some(voice => voice.speed !== undefined && (!Number.isFinite(voice.speed) || voice.speed < 0.5 || voice.speed > 2))) {
+    throw new TypeError("Voice speed must be a number between 0.5 and 2.");
+  }
   const defaultVoice = configuration.defaultVoice || voices[0].id;
   if (!voices.some(voice => voice.id === defaultVoice)) throw new TypeError("The default voice must be in the configured voice list.");
   if (configuration.synthesizer && configuration.synthesizers) throw new TypeError("Configure synthesizer or synthesizers, not both.");
@@ -120,7 +127,7 @@ async function createSherpaSpeechEngine({
     await synthesizer?.close();
     synthesizer = null;
     if (closed) throw new Error("Speech engine is closed.");
-    replacement = createSynthesizer(modelConfigurations[modelId]);
+    replacement = createSynthesizer(modelConfigurations[modelId], { outputSampleRate });
     let model;
     try {
       model = await replacement;
@@ -238,7 +245,7 @@ async function createSherpaSpeechEngine({
     busy = true;
     try {
       const model = await selectModel(voice.modelId || "default");
-      return await model.synthesize(String(text || ""), { speakerId: voice.speakerId, onAudio, signal });
+      return await model.synthesize(String(text || ""), { speakerId: voice.speakerId, speed: voice.speed ?? 1, onAudio, signal });
     } finally { busy = false; }
   }
 

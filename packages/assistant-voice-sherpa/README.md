@@ -44,7 +44,7 @@ reuse. `--hotwords-file FILE` replaces the supplied recognition vocabulary.
 
 `--pack cori` (the default) uses the existing single Cori voice and English
 streaming Zipformer recognizer. `--pack piper` keeps that recognizer and offers
-four Piper medium voices at 22,050 Hz:
+five Piper medium voices at 22,050 Hz:
 
 | Voice | Sound |
 | --- | --- |
@@ -52,6 +52,7 @@ four Piper medium voices at 22,050 Hz:
 | Alba | Female, Scottish English |
 | Joe | Male, American English |
 | Bryce | Male, American English |
+| Northern English | Male, British English |
 
 Each Piper voice has a separate model. The service checks their metadata one at
 a time, then keeps only the default model loaded. Its existing queue synthesizes
@@ -74,6 +75,18 @@ Heart, Bella and Emma voices, and male Michael, Adam, George and Daniel voices.
 The service advertises these IDs/labels; the browser selects a speaker per reply.
 Model weights are not included in the npm artifact.
 
+`--pack kitten` offers **Bella, Luna, Rosie and Kiki** (female) and
+**Jasper, Bruno, Hugo and Leo** (male) from Kitten TTS Micro 0.8. All eight share
+one model and retain its native 24,000 Hz output. Bella uses a 1.15× speech speed;
+the other voices use normal speed. Kitten does not identify British or Australian
+accents in its voice catalogue.
+`--pack piper-kitten` combines the five Piper choices with those eight Kitten voices,
+listing Kitten first and keeping Cori as the default. It uses Sherpa's resampler inside the synthesis worker
+to deliver every voice at 22,050 Hz. Selecting another engine does not replace the
+audio connection. Only one synthesis model is resident, including when switching
+between Piper and Kitten. Measure Kitten's latency on the target CPU before
+choosing it as a default.
+
 Operators may edit a separate speech configuration JSON and pass `serve --config
 FILE` (or `JSKIT_VOICE_CONFIG`). Without an override, serving reads the prepared
 pack's `speech.json`. Native `recognizer` and `synthesizer` configuration objects
@@ -91,6 +104,11 @@ are forwarded to Sherpa after replacing `${MODELS_ROOT}` in paths. Other fields:
 }
 ```
 
+Each voice may set `speed` between `0.5` and `2` (default `1`). For example,
+`"speed": 1.15` increases its synthesis pace by about 15% without changing the
+playback sample rate. The setting belongs to that voice; it does not carry over
+when another voice is selected.
+
 Merge this example into the Kokoro pack's configuration, retaining its synthesizer
 model paths. Speaker IDs are specific to the selected model. Unknown IDs and
 invalid/duplicate catalogue entries fail explicitly. Voices do not change a
@@ -103,9 +121,10 @@ device. This is an input-level check, not a classifier for speech versus noise.
 
 For separate models, use `synthesizers: { modelId: nativeConfiguration }` instead
 of `synthesizer`, and give each voice a matching `modelId`. Speaker IDs are checked
-against that voice's model. All models must use the same output sample rate for
-the shared audio connection. `models/voice-models-piper.json` contains the complete
-four-voice example. The service selects a model per synthesis request; changing a
+against that voice's model. Set `outputSampleRate` (8,000–48,000 Hz) to normalize
+different native rates inside the worker. Without it, all models must use the same
+output sample rate for the shared audio connection. `models/voice-models-piper.json` contains the complete
+five-voice example. The service selects a model per synthesis request; changing a
 voice does not redirect an in-flight reply or another conversation.
 
 For other models, `prepare --sources-file FILE` accepts the source manifest shape
@@ -128,7 +147,9 @@ Models and phonemizer data have their own terms, separate from this package:
 - [Cori model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_GB/cori/medium/MODEL_CARD) describes the LibriVox public-domain dataset; the Piper repository declares MIT.
 - [Alba speech corpus](https://doi.org/10.7488/ds/2506): Valentini-Botinhao, Cassia; Yamagishi, Junichi (2019), University of Edinburgh, CC BY 4.0. The Piper model was trained from this corpus; preparation preserves its source notice.
 - [Joe model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/joe/medium/MODEL_CARD) declares CC0 source recordings. [Bryce's model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_US/bryce/medium/MODEL_CARD) declares public-domain recordings supplied by the speaker.
+- [Northern English Male model card](https://huggingface.co/rhasspy/piper-voices/blob/main/en/en_GB/northern_english_male/medium/MODEL_CARD) identifies OpenSLR 83 regional UK recordings under CC BY-SA 4.0. Preparation retains the model card.
 - [Kokoro model](https://huggingface.co/hexgrad/Kokoro-82M) declares Apache-2.0. Preparation retains the downloaded model's LICENSE.
+- [Kitten TTS Micro 0.8](https://huggingface.co/KittenML/kitten-tts-micro-0.8) declares Apache-2.0. Preparation retains its LICENSE and Sherpa conversion notes. Bella is speaker 1 and Jasper is speaker 0 in Sherpa's prepared voice table.
 - The archives also contain [eSpeak NG data](https://github.com/espeak-ng/espeak-ng/blob/master/COPYING), with GPL terms. Preserve applicable upstream notices when distributing a prepared pack.
 
 `models/` records pinned source archives; `sources.json` and `voice-models.json`

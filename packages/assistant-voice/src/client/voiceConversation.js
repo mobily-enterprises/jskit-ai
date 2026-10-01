@@ -29,6 +29,10 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     interruptSpeechOnListen: false,
     autoReconnect: true
   });
+  watch([() => binding.defaults?.voiceId, voice.availableVoices], ([voiceId, voices]) => {
+    if (voiceId === undefined) return;
+    voice.selectedVoice.value = !voices.length || voices.some(voice => voice.id === voiceId) ? voiceId : "";
+  });
   const microphoneMuted = voice.microphoneMuted;
   const capturing = computed(() => voice.captureState.value !== "idle");
   const speechActive = computed(() => Boolean(voice.activeSpeechTurnId.value));

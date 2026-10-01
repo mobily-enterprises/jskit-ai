@@ -90,7 +90,6 @@ words are resolved; `dispose()` always releases it. Reconnection does not replay
 messages, resend captured audio or automatically restart the microphone.
 
 Bindings may supply `defaults.mode` (`push-to-talk` or `hands-free`),
-`defaults.talkMode` (`tap` or `hold` for one-off recordings),
 `defaults.reviewBeforeSend`, and `defaults.voiceId`. One-off hold recordings
 always require review. The Talk/Pause microphone icon and speaker toggle show their states. The
 Voice settings cog loads the service's installed voices without recording.
@@ -166,7 +165,8 @@ token command does not implement a revocation store. Service defaults are
 `127.0.0.1:3092`, `/v1/voice` and readiness at `/health`.
 
 The `cori` preparation preset supplies one English voice. `piper` adds Alba
-(female, Scottish English), Joe and Bryce (male, American English), retaining
+(female, Scottish English), Joe and Bryce (male, American English) and
+Northern English (male, British English), retaining
 Cori (female, British English) as the default. These are separate Piper medium
 models; one synthesis worker retains only the selected model. Changing models
 releases the previous worker and its native caches before loading the next, while
@@ -177,8 +177,17 @@ Emma, Michael, Adam, George and Daniel. All presets use the English streaming
 Zipformer recognizer. Operators can supply
 `prepare --sources-file FILE` for pinned model archives and `serve --config FILE`
 for native recognition/synthesis settings, voice IDs, labels and speaker IDs.
+A voice's optional `speed` sets its synthesis pace from `0.5` to `2`, default `1`.
 Multiple native models use a `synthesizers` map and a `modelId` on each voice;
-their output sample rates must match. The settings cog lists installed voices.
+their output sample rates must match unless `outputSampleRate` configures a shared
+rate. The worker then uses Sherpa's resampler before sending audio.
+`kitten` provides Kitten Micro 0.8 Bella, Luna, Rosie and Kiki (female), and
+Jasper, Bruno, Hugo and Leo (male). All eight share one model. Bella uses
+`speed: 1.15`; the others use normal speed. Their upstream catalogue does not
+identify British or Australian accents.
+`piper-kitten` lists Kitten before the five Piper voices, defaults to Cori and
+normalizes output to 22,050 Hz. One synthesis model remains resident across
+engine changes. The settings cog lists installed voices.
 The package README documents the exact source manifest and configuration fields.
 Stop the service before replacing its prepared pack, verify it, then restart.
 
@@ -193,3 +202,19 @@ The published package's `examples/conversation/` directory contains an independe
 two-conversation Vue/Fastify application using a real AI account and speech
 endpoint. Use it to check installation, retained targets, interruption and
 recovery before integrating an application's own conversation store.
+
+### Application-owned voice preferences
+
+`VoiceConversationHost` has an optional `settings` slot for an application-owned
+selector. Persist the voice choice in your application, then supply its current
+value through reactive `binding.defaults.voiceId`. Changes apply to subsequent
+replies. An unavailable ID uses the server default without rewriting the saved
+choice; reconnecting can restore it if the voice returns. An empty string selects
+the server default. The built-in selector remains local to the voice session.
+
+`readVoiceCatalogue(proxyConfig)` from `/server` retrieves the daemon's authorized
+`GET /voices` metadata without reserving an audio connection. Expose it only
+through an application-authorized route; credentials stay on the server. The
+result contains `voices` (IDs, labels and optional languages) and `defaultVoice`,
+matching the WebSocket greeting. Listing voices does not synthesize or load
+additional voice models.

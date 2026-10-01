@@ -39,11 +39,13 @@ Exports
 
 ### `src/synthesisProcess.js`
 Exports
-- `createSynthesisProcess(configuration, { workerUrl = new URL("./synthesisWorker.js", import.meta.url) } = {})`
+- `createSynthesisProcess(configuration, { outputSampleRate, workerUrl = new URL("./synthesisWorker.js", import.meta.url) } = {})`
 
 ### `src/synthesisWorker.js`
 Exports
 - None
+Local functions
+- `sendAudio(samples)`
 
 ### `src/voiceModelContract.js`
 Exports

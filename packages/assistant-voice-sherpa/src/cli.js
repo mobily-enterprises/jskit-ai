@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -49,7 +50,7 @@ function usage() {
     "",
     "Commands:",
     "  serve --models-root PATH --key-file PATH [--host ADDRESS] [--port NUMBER] [--config FILE]",
-    "  prepare --models-root PATH [--pack cori|piper|kokoro] [--sources-file FILE] [--download-cache PATH] [--hotwords-file PATH]",
+    "  prepare --models-root PATH [--pack cori|piper|kitten|piper-kitten|kokoro] [--sources-file FILE] [--download-cache PATH] [--hotwords-file PATH]",
     "  verify --models-root PATH",
     "  token --key-file PATH --tenant NAME"
   ].join("\n");
@@ -76,15 +77,29 @@ async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = create
       "retain-downloads": "RETAIN_DOWNLOADS", "hotwords-file": "HOTWORDS_FILE"
     })) if (options[option]) env[`JSKIT_VOICE_${variable}`] = options[option];
     const pack = options.pack || process.env.JSKIT_VOICE_PACK || "cori";
-    const manifests = { cori: "voice-models.json", piper: "voice-models-piper.json", kokoro: "voice-models-kokoro.json" };
-    if (!Object.hasOwn(manifests, pack)) throw new Error("Choose --pack cori, piper or kokoro, or supply --sources-file for your own model pack.");
-    env.JSKIT_VOICE_SOURCES_FILE = options["sources-file"] || process.env.JSKIT_VOICE_SOURCES_FILE || fileURLToPath(new URL(
-      `../models/${manifests[pack]}`, import.meta.url));
-    await new Promise((resolve, reject) => {
-      const child = spawn("bash", [script], { env, stdio: "inherit" });
-      child.once("error", reject);
-      child.once("exit", (code, signal) => code === 0 ? resolve() : reject(new Error(`Voice model preparation failed (${signal || code}).`)));
-    });
+    const manifests = { cori: "voice-models.json", piper: "voice-models-piper.json", kitten: "voice-models-kitten.json", kokoro: "voice-models-kokoro.json" };
+    if (pack !== "piper-kitten" && !Object.hasOwn(manifests, pack)) throw new Error("Choose --pack cori, piper, kitten, piper-kitten or kokoro, or supply --sources-file for your own model pack.");
+    let temporary;
+    try {
+      env.JSKIT_VOICE_SOURCES_FILE = options["sources-file"] || process.env.JSKIT_VOICE_SOURCES_FILE;
+      if (!env.JSKIT_VOICE_SOURCES_FILE && pack === "piper-kitten") {
+        const piper = JSON.parse(await readFile(new URL("../models/voice-models-piper.json", import.meta.url), "utf8"));
+        const kitten = JSON.parse(await readFile(new URL("../models/voice-models-kitten.json", import.meta.url), "utf8"));
+        piper.models.push(...kitten.models.filter(model => model.kind === "tts"));
+        piper.configuration.voices.unshift(...kitten.configuration.voices);
+        Object.assign(piper.configuration.synthesizers, kitten.configuration.synthesizers);
+        piper.configuration.outputSampleRate = 22050;
+        temporary = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-sources-"));
+        env.JSKIT_VOICE_SOURCES_FILE = path.join(temporary, "sources.json");
+        await writeFile(env.JSKIT_VOICE_SOURCES_FILE, JSON.stringify(piper, null, 2) + "\n");
+      }
+      env.JSKIT_VOICE_SOURCES_FILE ||= fileURLToPath(new URL(`../models/${manifests[pack]}`, import.meta.url));
+      await new Promise((resolve, reject) => {
+        const child = spawn("bash", [script], { env, stdio: "inherit" });
+        child.once("error", reject);
+        child.once("exit", (code, signal) => code === 0 ? resolve() : reject(new Error(`Voice model preparation failed (${signal || code}).`)));
+      });
+    } finally { if (temporary) await rm(temporary, { recursive: true, force: true }); }
     return;
   }
   if (command === "verify") {

@@ -1,0 +1,116 @@
+{
+  "schema": "vibe64.voice-model-sources.v1",
+  "packRevision": 2,
+  "models": [
+    {
+      "id": "streaming-zipformer-en-2023-06-26",
+      "kind": "stt",
+      "archive": "sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "archiveSha256": "639e25b578e9e997131402199419c13a941f8e4e198e2da1ce57dbf5cf401282",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "files": {
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/encoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/decoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/joiner.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/tokens.txt": "stt/tokens.txt",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/README.md": "stt/SOURCE.md"
+      }
+    },
+    {
+      "id": "kitten-micro-en-v0_8",
+      "kind": "tts",
+      "archive": "kitten-micro-en-v0_8.tar.bz2",
+      "archiveSha256": "85faaea7511ca9d1d2f251fed0a4553bdf0d1ee046102fa60ddd8046c751f76f",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-micro-en-v0_8.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/KittenML/kitten-tts-micro-0.8",
+      "files": {
+        "kitten-micro-en-v0_8/model.onnx": "tts/kitten/model.onnx",
+        "kitten-micro-en-v0_8/tokens.txt": "tts/kitten/tokens.txt",
+        "kitten-micro-en-v0_8/voices.bin": "tts/kitten/voices.bin",
+        "kitten-micro-en-v0_8/espeak-ng-data": "tts/kitten/espeak-ng-data",
+        "kitten-micro-en-v0_8/LICENSE": "tts/kitten/LICENSE",
+        "kitten-micro-en-v0_8/README.md": "tts/kitten/README.md"
+      }
+    }
+  ],
+  "configuration": {
+    "defaultVoice": "kitten_bella",
+    "voices": [
+      {
+        "id": "kitten_bella",
+        "label": "Bella · female · Kitten",
+        "language": "en",
+        "speakerId": 1,
+        "speed": 1.15,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_jasper",
+        "label": "Jasper · male · Kitten",
+        "language": "en",
+        "speakerId": 0,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_luna",
+        "label": "Luna · female · Kitten",
+        "language": "en",
+        "speakerId": 3,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_bruno",
+        "label": "Bruno · male · Kitten",
+        "language": "en",
+        "speakerId": 2,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_rosie",
+        "label": "Rosie · female · Kitten",
+        "language": "en",
+        "speakerId": 5,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_hugo",
+        "label": "Hugo · male · Kitten",
+        "language": "en",
+        "speakerId": 4,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_kiki",
+        "label": "Kiki · female · Kitten",
+        "language": "en",
+        "speakerId": 7,
+        "modelId": "kitten"
+      },
+      {
+        "id": "kitten_leo",
+        "label": "Leo · male · Kitten",
+        "language": "en",
+        "speakerId": 6,
+        "modelId": "kitten"
+      }
+    ],
+    "synthesizers": {
+      "kitten": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "kitten": {
+            "model": "${MODELS_ROOT}/tts/kitten/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/kitten/tokens.txt",
+            "voices": "${MODELS_ROOT}/tts/kitten/voices.bin",
+            "dataDir": "${MODELS_ROOT}/tts/kitten/espeak-ng-data"
+          }
+        }
+      }
+    }
+  }
+}

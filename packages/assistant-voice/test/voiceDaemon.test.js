@@ -15,8 +15,28 @@ import {
   createBoundedSerialQueue,
   createVoiceDaemon
 } from "../src/server/voiceDaemon.js";
+import { readVoiceCatalogue } from "../src/server/voiceProxy.js";
 
 const ACCESS_KEY = "0123456789abcdef0123456789abcdef";
+
+test("voice choices require authorization and consume no audio connection", async t => {
+  const engine = fakeSpeechEngine();
+  engine.voices = [{ id: "kitten_bella", label: "Bella", language: "en", modelPath: "/private/model" }];
+  engine.defaultVoice = "kitten_bella";
+  engine.createListeningSession = () => assert.fail("Listing voices must not acquire recognition resources.");
+  engine.synthesize = () => assert.fail("Listing voices must not generate speech.");
+  const daemon = createVoiceDaemon({ engine, accessKey: ACCESS_KEY, port: 0 });
+  const address = await daemon.start();
+  t.after(() => daemon.close());
+  const endpoint = `ws://127.0.0.1:${address.port}/v1/voice`;
+  const token = createVoiceAccessToken({ key: ACCESS_KEY, tenant: "voice-settings" });
+  const catalogue = await readVoiceCatalogue({ available: true, endpoint, token });
+  assert.deepEqual(catalogue, { voices: [{ id: "kitten_bella", label: "Bella", language: "en" }], defaultVoice: "kitten_bella" });
+  assert.equal((await fetch(`http://127.0.0.1:${address.port}/health`).then(response => response.json())).connections, 0);
+  assert.equal((await fetch(`http://127.0.0.1:${address.port}/voices`)).status, 401);
+  await assert.rejects(readVoiceCatalogue({ available: true, endpoint, token: "wrong" }), { statusCode: 503 });
+  await assert.rejects(readVoiceCatalogue({ available: false }), { statusCode: 503 });
+});
 
 function createSocketMessageCollector(socket) {
   const messages = [];
