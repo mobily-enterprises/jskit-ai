@@ -87,7 +87,7 @@
           },
           {
             "subpath": "./server/conversation",
-            "summary": "Conversation transcript lifecycle with replaceable application storage and an explicit transient memory adapter."
+            "summary": "Conversation transcript lifecycle, system-instruction installation and application-owned storage adapters."
           },
           {
             "subpath": "./shared/conversation",

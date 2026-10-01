@@ -499,6 +499,123 @@ multi-process writes, failed commits and attachment cleanup.
 
 ## Provider contract
 
+### System instruction lifecycle
+
+`createConversationRuntime({ engine, ...host })` from `/server/conversation`
+selects the Codex, Claude or OpenCode instruction adapter. Applications supply
+current instructions and authorized host services; the adapter selects native
+installation, reuse, reconfiguration and recovery. None of these modules imports
+an application or a project-guidance compiler.
+
+The runtime has engine-specific transport methods because a native process,
+a Codex thread and an OpenCode plugin have different control protocols:
+
+| Engine | Host supplies | Runtime owns |
+| --- | --- | --- |
+| Claude | `getProcess`, `isActive`, `startProcess`, `stopProcess` | `prepare(input)` serializes updates, reuses unchanged bindings, applies native model/flag changes, or stops and starts the same native history with new instructions |
+| Codex | `client`, `runtime`, `runRequest`, environment/history facilities and optional `readInstructions` | `prepareInstructions(params, threadId)` maps `systemPrompt` into native developer instructions; `withThreadContext(id, params, operation)` verifies/reloads a native binding before the caller's operation |
+| OpenCode | `resolveInstructions(id)` returns `{ identity, read, placement }` | `transformSystem` installs one contribution in the native system lane; `event` invalidates it on compaction/deletion |
+
+For example, a Claude host supplies process ownership, not prompt-refresh rules:
+
+```js
+const conversation = createConversationRuntime({
+  engine: "claude",
+  getProcess: () => ownedProcess,
+  isActive: () => activeTurn,
+  startProcess: async ({ instructionArguments, ...configuration }) => {
+    ownedProcess = await launchOwnedProcess({ ...configuration, instructionArguments });
+    return ownedProcess; // contains client.request(nativeControlRequest)
+  },
+  stopProcess: () => stopAndVerifyOwnedProcess()
+});
+
+await conversation.prepare({
+  systemPrompt: currentInstructions,
+  contextIdentity: nativeConversationAndConfigurationIdentity,
+  instructionMode: "append", // use "replace" for a dedicated non-coding assistant
+  settings: authorizedFlags,
+  model: selectedModel,
+  liveUpdateIdentity: unchangedProcessConfigurationIdentity,
+  nativeId: conversationId // application data passed unchanged to startProcess
+});
+// Only now submit the ordinary user message through the native client.
+```
+
+Claude's `instructionArguments(input)` also supplies the native prompt flags for
+an explicitly opened terminal. The host launches those arguments unchanged.
+They disable Claude's native system-prompt snapshot: otherwise a resumed
+conversation ignores changed prompt arguments until compaction. The current
+instructions remain in the system lane; native message history is preserved.
+`liveUpdateIdentity` must remain equal only when the existing process can apply
+new settings/model controls; omit it to require replacement. The host retains
+native session identity and proves cleanup before starting a replacement.
+Active incompatible updates are rejected without invalidating ordinary steering.
+Drain `whenIdle()` before shutdown; `invalidate()` prevents a lost installation
+from authorizing inference.
+
+Codex preserves the distinction between a socket reconnect, native process loss
+and a different native conversation. Its adapter serializes controls per thread,
+pauses/resumes the same active goal only when still authorized, verifies owned
+shell environment after reload and never retries the caller's operation. The
+host provides `prepareEnvironment`, `prepareHistory`, `verifyEnvironment` and
+`threadParameters`; optional `prepareParameters`, `prepareResume`, `beforeResume`,
+`onRecoveryFailure` and `log` connect owned configuration and resources. Call
+`registerThread(id, { client, executionId, params, managed })` only after successful
+creation, using the native parameters returned by
+`threadParameters(params, environment)`, and call `goalChanged(id)` before explicit
+goal mutations. `close()` invalidates pending recovery. `verifyEnvironment` must
+verify the additional `requiredKeys` supplied as its fifth argument along with
+the host's own control keys. The runtime adds a prompt revision marker to prove
+that the native process applied the new configuration; it contains a digest,
+not instruction text.
+
+Codex resume configuration alone does not replace its existing developer message.
+The adapter installs changed instructions in the native configuration and emits
+one explicit developer-context revision before new work. An unknown installation
+also requires restoration. Ordinary turns and socket reconnects with an acknowledged
+prompt do not repeat it. Earlier revisions remain in native history, while native
+compaction rebuilds context with the current configured instructions. No synthetic
+user message carries the prompt. Restricted persistent consumers keep their own
+execution environment; updating instructions does not grant host tools.
+
+OpenCode calls the instruction supplier before every inference. Omit `identity`
+to read current text each time. Supply an identity only when it covers every
+source of prompt content; unchanged identities share a pending or completed read.
+A changed identity, `invalidate(id)`, native compaction or deletion requires a
+fresh read. Failed reads are retried on the next call.
+`placement: "append"` preserves native defaults; `"replace"` supplies the complete
+system context. Pass the runtime's `transformSystem` and `event` directly to the
+native plugin hooks. An invalidated pending read cannot install stale text.
+Applications must change a supplied identity when their prompt or tool catalogue
+changes. A conversation ID or project path alone is not a content revision.
+
+`createConversationHookBridge({ resolveConversation, readInstructions })` connects
+an existing native hook to the same ownership boundary. An absent binding returns
+`{ kind: "unclaimed" }`; `{ delivery: "native" }` returns
+`{ kind: "delivery", text: "" }`, yielding to the engine's native system field.
+`{ delivery: "hook" }` reads the complete current instructions on every invocation
+and returns `{ kind: "delivery", text }`. The host must propagate lookup and
+instruction failures. `readInstructions` is required only for hook delivery.
+Independent native IDs sharing a directory do not share
+ownership. Keep bindings through browser closure and resolve native ancestry
+through a trusted engine API before inheriting a parent's binding. The bridge
+owns no durable registry and never imports a project compiler.
+
+`createConversationSystemPrompt()` remains the low-level installation primitive
+for adapters and custom transports. `ensure({ systemPrompt, contextIdentity,
+install, retained })` acknowledges only successful installation, serializes updates
+and rejects invalidation during installation. `isCurrent()` checks the acknowledged
+binding; it is not a provider health check. `retained: false` supports protocols
+requiring a system field on every request without adding history entries.
+
+Instruction updates grant no permissions. Keep discovery bounded, authorize every
+tool execution against current application state, and preserve ordinary message
+text. These adapters do not own credentials, application tools, durable storage,
+process admission or UI. Native integration changes belong here; applications
+continue to own their content and resource facilities. Model caching, token
+accounting and the engine's own compaction remain native behavior.
+
 API-model apps can use `createAiConnectionClient` with an authorized AI integration resolver (see [Assistant](./assistant.md)), or `createAiClient` for existing environment-based configurations, and the tool-catalog helpers
 from `@jskit-ai/assistant-core/server`, or the complete assistant runtime.
 Native-agent hosts can import:

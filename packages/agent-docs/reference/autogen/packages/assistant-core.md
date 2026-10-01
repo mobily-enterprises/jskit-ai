@@ -308,11 +308,18 @@ Exports
 Local functions
 - `codexAppServerTurnTokenUsage(notification = {})`
 
+### `src/server/conversation/hookBridge.js`
+Exports
+- `createConversationHookBridge({ resolveConversation, readInstructions } = {})`
+
 ### `src/server/conversation/index.js`
 Exports
 - `createConversationTranscript`
 - `createMemoryConversationStorage`
 - `createConversationStreams`
+- `createConversationSystemPrompt`
+- `createConversationRuntime`
+- `createConversationHookBridge`
 
 ### `src/server/conversation/memoryStorage.js`
 Exports
@@ -347,9 +354,29 @@ Local functions
 - `eventSessionId(value = null)`
 - `decodeOpenCodeEventData(value = "")`
 
+### `src/server/conversation/providers/claude.js`
+Exports
+- `createClaudeConversationAdapter({ getProcess, isActive, startProcess, stopProcess } = {})`
+
+### `src/server/conversation/providers/codex.js`
+Exports
+- `createCodexConversationAdapter(host)`
+
+### `src/server/conversation/providers/opencode.js`
+Exports
+- `createOpenCodeConversationAdapter({ resolveInstructions } = {})`
+
+### `src/server/conversation/runtime.js`
+Exports
+- `createConversationRuntime({ engine, ...host } = {})`
+
 ### `src/server/conversation/streams.js`
 Exports
 - `createConversationStreams({ clock = () => new Date() } = {})`
+
+### `src/server/conversation/systemPrompt.js`
+Exports
+- `createConversationSystemPrompt()`
 
 ### `src/server/conversation/transcript.js`
 Exports
