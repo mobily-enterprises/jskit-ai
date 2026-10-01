@@ -1,4 +1,4 @@
-import { inject, onBeforeUnmount, ref, unref, watch } from "vue";
+import { inject, onScopeDispose, ref, unref, watch } from "vue";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const EMPTY_REALTIME_SOCKET = Object.freeze({
@@ -130,9 +130,7 @@ function useRealtimeEvent({
     { immediate: true }
   );
 
-  onBeforeUnmount(() => {
-    detach();
-  });
+  onScopeDispose(detach);
 
   return Object.freeze({
     active

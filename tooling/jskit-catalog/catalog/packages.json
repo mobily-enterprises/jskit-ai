@@ -8,6 +8,8 @@
       "@jskit-ai/agent-docs": "0.1.194",
       "@jskit-ai/assistant-core": "0.1.200",
       "@jskit-ai/assistant-runtime": "0.1.193",
+      "@jskit-ai/assistant-voice": "0.1.0",
+      "@jskit-ai/assistant-voice-sherpa": "0.1.0",
       "@jskit-ai/auth-core": "0.1.220",
       "@jskit-ai/auth-provider-local-core": "0.1.123",
       "@jskit-ai/auth-provider-local-db-core": "0.1.114",
@@ -275,6 +277,104 @@
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vuetify": "^4.0.0"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/assistant-voice",
+      "version": "0.1.0",
+      "description": "Duplex voice conversations with application-owned targets, authorization and speech services.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "client": {
+            "providers": []
+          },
+          "server": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./client",
+                "summary": "One application voice controller and Vue modal, with push-to-talk, hands-free capture, playback, review and avatar presentation."
+              },
+              {
+                "subpath": "./server",
+                "summary": "Authorized WebSocket proxy, bounded speech daemon, access tokens and service configuration."
+              },
+              {
+                "subpath": "./shared/protocol",
+                "summary": "Voice control validation, PCM frame limits and streamed speech text segmentation."
+              },
+              {
+                "subpath": "./shared/visemes",
+                "summary": "Shared mouth poses and pronunciation timing for voice avatars."
+              }
+            ],
+            "capabilities": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@mdi/js": "^7.4.47",
+          "ws": "^8.20.1"
+        },
+        "peerDependencies": {
+          "vue": "^3.5.13",
+          "vuetify": "^4.0.0"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/assistant-voice-sherpa",
+      "version": "0.1.0",
+      "description": "Optional native Sherpa speech engine and explicit model preparation for assistant voice.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "client": {
+            "providers": []
+          },
+          "server": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": ".",
+                "summary": "Native Sherpa recognition and synthesis with operator configuration and a named voice catalogue."
+              },
+              {
+                "subpath": "./models",
+                "summary": "Prepared model integrity manifests, construction and verification."
+              },
+              {
+                "subpath": "./cli",
+                "summary": "Portable prepare, verify, token and serve commands with an optional host-owned daemon factory."
+              }
+            ],
+            "capabilities": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/assistant-voice": "0.1.0",
+          "sherpa-onnx-node": "1.13.6"
         }
       }
     },
@@ -1780,7 +1880,7 @@
               },
               {
                 "subpath": "./client/composables/*",
-                "summary": "Exports component-level realtime socket composables."
+                "summary": "Exports realtime socket composables with subscriptions owned by their Vue effect scope."
               }
             ],
             "capabilities": {

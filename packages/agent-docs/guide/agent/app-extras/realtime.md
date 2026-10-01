@@ -26,6 +26,12 @@ generic “something changed” escape hatch.
 Client features register listeners through `@jskit-ai/realtime`. Keep query
 invalidation close to the resource that owns the query keys.
 
+`useRealtimeEvent()` follows its Vue effect scope. Ordinary component listeners
+detach when that component unmounts. A listener created inside an application-owned
+detached scope remains active after its original screen unmounts and detaches when
+that scope is stopped. Retain and release that scope with the resource's actual
+owners; a hidden screen alone must not dispose a conversation still used by voice.
+
 When the entire realtime surface is authenticated, the selected `auth.service`
 can expose `realtime.requireAuthentication: true`. The realtime server then
 rejects unauthenticated handshakes before a socket joins any broadcast room.

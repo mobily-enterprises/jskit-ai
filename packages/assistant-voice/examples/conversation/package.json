@@ -1,0 +1,23 @@
+{
+  "name": "assistant-voice-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host=127.0.0.1 --port=5176 --strictPort",
+    "server": "node server.js",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@jskit-ai/assistant-core": "0.1.200",
+    "@jskit-ai/assistant-voice": "0.1.0",
+    "@fastify/websocket": "^11.2.0",
+    "fastify": "^5.8.0",
+    "@mdi/js": "^7.4.47",
+    "vue": "^3.5.13",
+    "vuetify": "^4.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.2.1"
+  }
+}

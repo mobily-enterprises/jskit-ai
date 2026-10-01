@@ -44,7 +44,8 @@ export default defineConfig({
           items: [
             { text: "Mobile Capacitor", link: "/guide/app-extras/mobile-capacitor" },
             { text: "Realtime", link: "/guide/app-extras/realtime" },
-            { text: "Assistant", link: "/guide/app-extras/assistant" }
+            { text: "Assistant", link: "/guide/app-extras/assistant" },
+            { text: "Voice conversations", link: "/guide/app-extras/assistant-voice" }
           ]
         },
         {

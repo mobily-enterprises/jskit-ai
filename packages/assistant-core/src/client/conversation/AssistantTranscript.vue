@@ -633,7 +633,6 @@ function messageScrollKey(message = null) {
 }
 
 const timelineScrollTrigger = computed(() => [
-  props.visible ? "visible" : "hidden",
   props.error ? "error" : "body",
   loadingIndicatorVisible.value ? "loading" : "ready",
   displayEntries.value.length ? "has-messages" : "empty",
@@ -927,6 +926,11 @@ watch(timelineScrollTrigger, () => {
   flush: "post",
   immediate: true
 });
+
+watch(() => props.visible, (visible) => {
+  clearLoadMoreScrollSnapshot();
+  if (visible) queueLiveBottomScroll({ force: true });
+}, { flush: "post" });
 </script>
 
 <style scoped>

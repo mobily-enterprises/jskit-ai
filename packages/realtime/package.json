@@ -79,7 +79,7 @@
           },
           {
             "subpath": "./client/composables/*",
-            "summary": "Exports component-level realtime socket composables."
+            "summary": "Exports realtime socket composables with subscriptions owned by their Vue effect scope."
           }
         ],
         "capabilities": {

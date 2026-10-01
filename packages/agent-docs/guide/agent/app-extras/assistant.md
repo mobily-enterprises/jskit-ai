@@ -17,6 +17,9 @@ For an app-owned backend or custom conversation storage, use the
 [embeddable conversation element and backend contracts](./assistant-conversation.md).
 The package includes a standalone application template.
 
+For push-to-talk and hands-free interaction with those same conversations, use
+the optional [voice conversation runtime](./assistant-voice.md).
+
 ## Product decisions
 
 Choose:
