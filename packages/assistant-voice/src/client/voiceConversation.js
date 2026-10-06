@@ -6,7 +6,10 @@ import { takeStreamingSpeech } from "../shared/protocol.js";
 export function useVoiceConversation(binding, { socketUrl, createTransport = useVoiceTransport } = {}) {
   const oneOffTalkMode = computed(() => binding.defaults?.talkMode === "hold" ? "hold" : "tap");
   const targetLabel = computed(() => binding.label || "Assistant");
-  const readAloud = ref(false);
+  const readAloud = ref(binding.defaults?.readAloud === true);
+  const soundPreparing = ref(false);
+  let soundRevision = 0;
+  const conversationId = binding.conversationId || binding.id;
   const error = ref("");
   const pendingTranscript = ref(null);
   const heldReview = ref(false);
@@ -27,7 +30,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     voiceId: binding.defaults?.voiceId || "",
     speechEnabled: readAloud,
     interruptSpeechOnListen: false,
-    autoReconnect: true
+    autoReconnect: true,
+    onPlayback: receivePlayback
   });
   watch([() => binding.defaults?.voiceId, voice.availableVoices], ([voiceId, voices]) => {
     if (voiceId === undefined) return;
@@ -106,12 +110,42 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   let speechInvitation = "";
   let lastStreamingId = "";
 
-  function stopSpeech() {
-    for (const reply of speechQueue) reply.cancelled = true;
+  function observe(callback, value) {
+    try {
+      Promise.resolve(callback?.(value)).catch(() => {});
+    } catch {
+      // Observers cannot take ownership of scheduling or cleanup.
+    }
+  }
+  function emitReply(reply, phase, reason) {
+    if (reply.terminal || (phase === "started" && reply.audible)) return;
+    if (phase === "started") reply.audible = true;
+    else reply.terminal = true;
+    observe(binding.onPlayback, {
+      conversationId, outputId: reply.outputId, phase, ...(reason ? { reason } : {})
+    });
+  }
+  function receivePlayback(event) {
+    const reply = [...replies.values()].find(reply => reply.turnId === event.turnId);
+    if (!reply) return;
+    if (event.phase === "completed") {
+      reply.drained = true;
+      if (reply.canonicalFinal) emitReply(reply, "completed");
+    } else emitReply(reply, event.phase, event.reason);
+  }
+  function cancelReply(reply, reason = "cancelled", phase = "interrupted") {
+    reply.cancelled = true;
+    emitReply(reply, phase, reason);
+  }
+  function stopSpeech() { cancelSpeech(); }
+  function cancelSpeech(reason = "cancelled", phase = "interrupted") {
+    for (const reply of replies.values()) {
+      if (!reply.terminal) cancelReply(reply, reason, phase);
+    }
     speechQueue.length = 0;
     speechSuppressed = true;
     speechInvitation = "";
-    voice.stopSpeaking();
+    voice.stopSpeaking(reason);
   }
   function inviteSpeech(messageId) {
     // Only a new request from this page can lift silence. A delayed admission,
@@ -121,7 +155,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     speechInvitation = messageId;
   }
   async function drainSpeech() {
-    if (draining || disposed || !readAloud.value || speechSuppressed) return;
+    if (draining || disposed || !readAloud.value || speechSuppressed || soundPreparing.value || voice.playbackBlocked?.value) return;
     draining = true;
     try {
       while (speechQueue.length) {
@@ -133,15 +167,24 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         const chunk = takeStreamingSpeech(reply.raw.slice(reply.consumed), reply.final, reply.started ? 140 : 64);
         if (!chunk) {
           if (reply.final && reply.started) voice.endSpeech();
-          else if (reply.final) { speechQueue.shift(); continue; }
+          else if (reply.final) {
+            cancelReply(reply, "no-audio");
+            speechQueue.shift();
+            continue;
+          }
           return;
         }
         reply.consumed += chunk.consumed;
         if (!chunk.text) continue;
         if (!reply.started) {
           reply.started = true;
-          await voice.speak(chunk.text, crypto.randomUUID(), { stream: true });
+          reply.turnId = crypto.randomUUID();
+          const accepted = await voice.speak(chunk.text, reply.turnId, { stream: true });
           if (reply.cancelled || disposed) return;
+          if (accepted === false) {
+            cancelReply(reply, "no-audio");
+            continue;
+          }
         } else if (!voice.appendSpeech(chunk.text)) return;
         if (reply.final && reply.consumed >= reply.raw.length) { voice.endSpeech(); return; }
       }
@@ -152,7 +195,10 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     let reply = replies.get(message.id);
     if (!reply) {
       if (!primed || !readAloud.value || speechSuppressed || seen.has(message.id) || (!final && message.autonomous)) return;
-      reply = { id: message.id, streamId: message.streamId, raw: "", consumed: 0, final: false, started: false };
+      reply = {
+        id: message.id, outputId: message.outputId || message.id, streamId: message.streamId,
+        raw: "", consumed: 0, final: false, canonicalFinal: false, started: false
+      };
       replies.set(message.id, reply);
       speechQueue.push(reply);
     }
@@ -162,25 +208,43 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (!text.startsWith(spokenPrefix) && !(final && text.trimEnd() === spokenPrefix.trimEnd())) {
       // A model revision cannot unsay words. Retire that projection; never splice
       // its old prefix onto a different answer or replay it as a second answer.
-      reply.cancelled = true;
+      cancelReply(reply);
       if (speechQueue[0] === reply) voice.stopSpeaking();
       return;
     }
     reply.consumed = Math.min(reply.consumed, text.length);
     reply.raw = text;
+    reply.canonicalFinal ||= final;
     reply.final = final || text.length >= 4000;
+    if (reply.canonicalFinal && reply.drained) emitReply(reply, "completed");
   }
-  async function enableSpeech() {
-    speechSuppressed = false;
-    speechInvitation = "";
-    await voice.preparePlayback();
-    readAloud.value = true;
+  async function enableSound() {
+    const revision = ++soundRevision;
+    soundPreparing.value = true;
+    try {
+      await voice.preparePlayback();
+    } catch {
+      // Requested sound stays on; its recovery control remains available.
+    } finally {
+      if (revision === soundRevision && !disposed) {
+        soundPreparing.value = false;
+        void drainSpeech();
+      }
+    }
   }
   async function toggleReadAloud() {
     error.value = "";
-    if (readAloud.value) { readAloud.value = false; stopSpeech(); return; }
-    try { await enableSpeech(); }
-    catch (cause) { error.value = cause.message; }
+    readAloud.value = !readAloud.value;
+    observe(binding.onReadAloudChange, readAloud.value);
+    if (!readAloud.value) {
+      ++soundRevision;
+      soundPreparing.value = false;
+      cancelSpeech("muted");
+      return;
+    }
+    speechSuppressed = false;
+    speechInvitation = "";
+    await enableSound();
   }
   async function deliverTranscript() {
     const pending = pendingTranscript.value;
@@ -232,10 +296,6 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     // Keep the starting target even if navigation changes during this utterance.
     const next = { focus: { ...(binding.captureContext?.() || {}) }, messageId: crypto.randomUUID(), started: false, reviewBeforeSend, continuous };
     recording = next;
-    if (!reviewBeforeSend && !live.value) {
-      readAloud.value = true;
-      void voice.preparePlayback().catch((cause) => { error.value = cause.message; });
-    }
     try {
       const started = await voice.startListening({ continuous });
       if (recording === next) { next.started = started; if (!started) recording = null; }
@@ -264,7 +324,6 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     pushHolding.value = true;
     callMode.value = "push-to-talk";
     voice.setMicrophoneMuted(false);
-    retireAnswer(true);
     if (!live.value) await toggleLive();
     if (!pushHolding.value || !live.value || disposed) return;
     // A hold can take over an open hands-free microphone without throwing away
@@ -318,9 +377,6 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       committing = null;
       clearTimeout(stopTimer);
       await cancelRecording();
-      stopSpeech();
-      readAloud.value = false;
-      void voice.close().catch(cause => { if (!live.value) error.value = cause.message; });
       return;
     }
     if (disposed || microphoneMuted.value || capturing.value || pendingTranscript.value || sending.value) return;
@@ -329,16 +385,14 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     starting.value = true;
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]);
     try {
-      // Unlock playback in the click gesture. Live capture uses the same model
-      // admission as typed chat and does not need a separate Helper connection.
-      await voice.preparePlayback();
+      // Unlock requested sound in the gesture without delaying microphone startup.
+      if (readAloud.value) void enableSound();
       signal.throwIfAborted();
       await voice.connect();
       signal.throwIfAborted();
       if (disposed) return;
       starting.value = false;
       live.value = true;
-      readAloud.value = true;
       if (callMode.value === "hands-free") {
         await startRecording(false, true);
         if (startupAbort === controller && !recording?.started) live.value = false;
@@ -351,12 +405,6 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     } finally {
       if (startupAbort === controller) { startupAbort = null; starting.value = false; }
     }
-  }
-  function retireAnswer(smooth = false) {
-    for (const reply of speechQueue) reply.cancelled = true;
-    speechQueue.length = 0;
-    if (smooth) voice.finishCurrentPhrase();
-    else voice.stopSpeaking();
   }
   function currentSpokenText() {
     const reply = speechQueue[0];
@@ -394,8 +442,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       committing = { ...captured, turnId: candidate.turnId, revision: candidate.revision };
       if (!voice.finishUtterance(candidate)) { committing = null; return; }
       // The daemon rechecks the endpoint revision before returning final text.
-      // Continue the current phrase while the ordinary request steers the conversation.
-      retireAnswer(true);
+      // Ordinary steering leaves the current answer and queued audio intact.
     } catch (cause) {
       if (live.value && candidate === voice.endpoint.value) {
         live.value = false;
@@ -491,8 +538,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     }
     if (lastStreamingId && lastStreamingId !== reply?.id && !messages.some(message => message.id === lastStreamingId)) {
       const retired = replies.get(lastStreamingId);
-      if (retired && !retired.final && !retired.cancelled) {
-        retired.cancelled = true;
+      if (retired && !retired.canonicalFinal && !retired.cancelled) {
+        cancelReply(retired);
         if (speechQueue[0] === retired) voice.finishCurrentPhrase();
       }
     }
@@ -502,13 +549,14 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (!readAloud.value || !primed || reply.autonomous) seen.add(reply.id);
     }
     // Keep only the visible history plus active playback receipts in memory.
-    const retained = new Set([...messages.map((message) => message.id), reply?.id, ...speechQueue.map((item) => item.id)]);
+    const retained = new Set([...messages.map((message) => message.id), reply?.id, ...speechQueue.map((item) => item.id),
+      ...[...replies.values()].filter(item => !item.terminal).map(item => item.id)]);
     for (const id of seen) if (!retained.has(id)) seen.delete(id);
     for (const id of replies.keys()) if (!retained.has(id)) replies.delete(id);
     primed = true;
     void drainSpeech();
   }, { immediate: true });
-  watch(voice.error, (message) => { if (message) stopSpeech(); });
+  watch(voice.error, (message) => { if (message) cancelSpeech("playback-error", "failed"); });
   watch(() => error.value || voice.error.value, (message) => { if (message) binding.onError?.(message); });
   watch([voice.activeSpeechTurnId, voice.canAppendSpeech], () => { void drainSpeech(); });
   watch([pendingTranscript, voice.captureState, voice.partialTranscript], () => {
@@ -527,6 +575,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     page.removeEventListener?.("pagehide", cancelStartup);
     page.removeEventListener?.("blur", cancelPushToTalk);
     startupAbort?.abort(); startupAbort = null;
+    stopSpeech();
     binding.onTranscript?.(null); binding.onVisual?.(null); disposed = true; live.value = false; clearTimeout(stopTimer); recording = null; speechQueue.length = 0;
   });
 
@@ -549,7 +598,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     live, starting, callMode, changingCallMode, pushHolding, microphoneMuted, capturing,
     speechActive, talkLabel, liveLabel, callConnection, callStatus, callDetail, callModeBusy,
     microphoneStatus, avatarVisual, callAudioLevel, status, heldTranscript, voiceWords, voiceAnswer,
-    stopSpeech, inviteSpeech, toggleReadAloud, deliverTranscript, cancelRecording,
+    stopSpeech, inviteSpeech, toggleReadAloud, enableSound, soundPreparing, deliverTranscript, cancelRecording,
     discardRecording, dismissTranscript, talk, toggleMicrophoneMuted, changeCallMode,
     startPushToTalk, finishPushToTalk, cancelPushToTalk, toggleLive, toggleHandsFree, startHeldRecording,
     finishHeldRecording, discardHeldRecording, close, editTranscript, hasUnsentSpeech

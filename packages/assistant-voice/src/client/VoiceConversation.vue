@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import VoiceAvatar from "./VoiceAvatar.vue";
 import VoiceConversationControls from "./VoiceConversationControls.vue";
@@ -12,6 +12,10 @@ const props = defineProps({
 defineEmits(["update:avatarSize"]);
 const { targetLabel, voice, microphoneMuted, heldTranscript, pendingTranscript, sending,
   avatarVisual, callAudioLevel, voiceWords, voiceAnswer } = props.session;
+const presentationAdapter = computed(() => props.adapter && ({
+  ...props.adapter,
+  composer: { ...props.adapter.composer, canSend: props.adapter.composer?.canSend && !props.session.hasUnsentSpeech.value }
+}));
 const toolsTarget = ref(null);
 const voiceWordsTarget = ref(null);
 const voiceAnswerTarget = ref(null);
@@ -27,7 +31,7 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
 
 <template>
   <fieldset v-if="adapter" class="assistant-voice-conversation" :disabled="disabled">
-    <AssistantConversationElement :adapter="adapter" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
+    <AssistantConversationElement :adapter="presentationAdapter" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
       <template #avatar="size"><slot name="avatar" v-bind="avatarVisual" :size="size.size" :height="size.height"><VoiceAvatar v-bind="avatarVisual" /></slot></template>
       <template #composer-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
       <template #composer-feedback>

@@ -13,9 +13,14 @@ const {
   targetLabel, voice, error, microphoneMuted, live, starting, callMode,
   callStatus, speechActive, heldTranscript,
   capturing, pendingTranscript, pushHolding, sending,
-  stopSpeech, startPushToTalk, finishPushToTalk, cancelPushToTalk, toggleHandsFree, readAloud, toggleReadAloud,
+  stopSpeech, startPushToTalk, finishPushToTalk, cancelPushToTalk, toggleHandsFree, readAloud, toggleReadAloud, enableSound,
   deliverTranscript, discardHeldRecording, editTranscript
 } = props.session;
+const controlStatus = computed(() => {
+  if (!props.compact || !props.session.hasUnsentSpeech.value) return callStatus.value;
+  if (pendingTranscript.value) return "Send or discard speech to send text.";
+  return voice.listening.value ? "Recording · finish speech to send text." : "Finish speech to send text.";
+});
 const handsFreeListening = computed(() => live.value && callMode.value === "hands-free" && !microphoneMuted.value);
 const canTalk = computed(() => !props.disabled && !sending.value && !pendingTranscript.value &&
   (!capturing.value || voice.listening.value || pushHolding.value || starting.value));
@@ -32,8 +37,10 @@ const gesture = useVoiceLauncher({
 <template>
   <fieldset class="assistant-voice-controls" :class="{ 'assistant-voice-controls--compact': compact }" :disabled="disabled">
     <p v-if="error || voice.error.value" class="assistant-voice__error" role="alert">{{ error || voice.error.value }}</p>
-    <p v-if="callStatus" class="assistant-voice-controls__status text-body-small" role="status">{{ callStatus }}</p>
+    <p v-if="controlStatus" class="assistant-voice-controls__status text-body-small" role="status" :title="callStatus">{{ controlStatus }}</p>
     <p v-if="compact && heldTranscript && !pendingTranscript" class="assistant-voice-controls__provisional" role="status" aria-label="Recognized words">Not sent · {{ heldTranscript }}</p>
+    <p v-if="readAloud && voice.playbackBlocked?.value" class="assistant-voice-controls__status" role="status">Sound is blocked. Enable sound to hear future replies.</p>
+    <v-btn v-if="readAloud && voice.playbackBlocked?.value" min-height="48" @click="enableSound">Enable sound</v-btn>
     <section v-if="pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
       <v-textarea
         :model-value="pendingTranscript.text" label="Review your message" :disabled="sending"

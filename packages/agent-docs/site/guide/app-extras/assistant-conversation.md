@@ -3196,6 +3196,11 @@ the native session is idle; the shared native owner establishes that separately.
 Update `draft` synchronously in `setDraft`. Keep the composer mounted during
 external state changes, and change `canSend`, `canStop`, `stopPending` and labels
 from authoritative state. Use `disabled` only when typing itself is unavailable.
+The retained voice presentation applies a shallow composer `canSend` guard while
+its existing session has unfinished capture, transcription or review. It keeps
+the typed draft editable and shows how to resolve the speech first. Sending or
+discarding the speech restores typed Send; the guard does not replace delivery,
+attachments, questions or runtime ownership.
 A stopped session must become sendable without waiting for an unrelated pending
 HTTP response. Do not clear the draft on connection recovery or Stop.
 
