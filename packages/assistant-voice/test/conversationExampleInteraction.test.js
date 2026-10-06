@@ -337,6 +337,8 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await card("Planning").getByRole("button", { name: "Voice chat with Planning", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Planning conversation", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning question from the mounted starter.");
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
@@ -352,8 +354,10 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning answer is streaming. Complete while its text view is closed.");
     await expect(dialog).not.toContainText("Notes remains a different target.");
-    await dialog.getByRole("tab", { name: "Text", exact: true }).click();
+    await dialog.getByRole("button", { name: "Minimize conversation", exact: true }).click();
     await expect(dialog).not.toBeVisible();
+    await page.getByRole("navigation", { name: "Open a text conversation", exact: true })
+      .getByRole("button", { name: "Planning", exact: true }).click();
     await expect(input("Planning")).toBeFocused();
     await expect(input("Planning")).toHaveValue("Planning draft survives closing its text view.");
     await expect(input("Notes")).toHaveValue("Notes remains a different target.");
@@ -380,6 +384,90 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await expect(dialog).toBeVisible();
     const panel = dialog.locator(".voice-host__body");
     const canonical = dialog.locator(".assistant-voice-conversation");
+    // Project caption presentation through the same host/session, then restore
+    // its exact binding descriptors even if an assertion fails. No audio owner changes.
+    const captionHost = await panel.elementHandle();
+    const captionFallback = (enabled, showAvatar) => captionHost.evaluate((element, { enabled, showAvatar }) => {
+      let component = element.__vueParentComponent;
+      while (component && !component.props.controller) component = component.parent;
+      const { controller } = component.props;
+      const { binding, session } = controller.state;
+      if (enabled) {
+        element.__voiceFallbackSnapshot ||= {
+          controller, binding, session,
+          id: binding.id, conversationId: binding.conversationId,
+          descriptor: Object.getOwnPropertyDescriptor(binding, "adapter"),
+          avatarDescriptor: Object.getOwnPropertyDescriptor(binding, "showAvatar")
+        };
+        Object.defineProperty(binding, "adapter", { configurable: true, get: () => null });
+        if (showAvatar !== undefined) {
+          Object.defineProperty(binding, "showAvatar", { configurable: true, writable: true, value: showAvatar });
+        }
+      } else {
+        const original = element.__voiceFallbackSnapshot;
+        Object.defineProperty(original.binding, "adapter", original.descriptor);
+        if (original.avatarDescriptor) {
+          Object.defineProperty(original.binding, "showAvatar", original.avatarDescriptor);
+        } else {
+          delete original.binding.showAvatar;
+        }
+      }
+      const original = element.__voiceFallbackSnapshot;
+      if (controller !== original.controller || binding !== original.binding || session !== original.session ||
+          binding.id !== original.id || binding.conversationId !== original.conversationId) {
+        throw new Error("Caption presentation must retain the original host, binding and session.");
+      }
+      if (!enabled) delete element.__voiceFallbackSnapshot;
+      component.proxy.$forceUpdate();
+    }, { enabled, showAvatar });
+    try {
+      await captionFallback(true);
+      await expect(canonical).toHaveCount(0);
+      const captions = dialog.locator(".assistant-voice__captions");
+      await expect(captions).toBeVisible();
+      await expect(captions).toContainText("Planning question from the mounted starter.");
+      await expect(captions).toContainText("Planning answer is streaming. Complete while its text view is closed.");
+      await expect(captions).not.toContainText("Notes remains a different target.");
+      await expect(dialog.locator(".assistant-voice__call-portrait")).toBeVisible();
+      await expect(dialog.locator(".voice-avatar")).toBeVisible();
+      await captionFallback(true, false);
+      for (const width of [390, 800, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(dialog.locator(".assistant-voice__call-body")).toHaveCount(0);
+        await expect(dialog.locator(".assistant-voice__call-portrait")).toHaveCount(0);
+        await expect(dialog.locator(".voice-avatar")).toHaveCount(0);
+        await expect(captions).toBeInViewport({ ratio: 1 });
+        assert.ok((await captions.boundingBox()).height >= 144, "Omitting the portrait keeps readable captions");
+        await expect(dialog.locator(".assistant-voice__talk")).toBeInViewport({ ratio: 1 });
+        assert.equal(await dialog.locator(".assistant-voice__call").evaluate(element =>
+          getComputedStyle(element).gridTemplateRows.split(/\s+/u).length), 2, "Captions and controls have no empty portrait row");
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          `Avatar-free captions must fit the ${width}px viewport`);
+      }
+      await expect(captions).toContainText("Planning question from the mounted starter.");
+      await expect(captions).toContainText("Planning answer is streaming. Complete while its text view is closed.");
+      await expect(input("Planning")).toHaveValue("Planning draft survives closing its text view.");
+      await expect(input("Notes")).toHaveValue("Notes remains a different target.");
+      assert.equal(f.socketConnections(), 1, "Omitting the portrait retains the original conversation subscription");
+      assert.equal(f.requests.length, 1, "Omitting the portrait never submits another inference");
+      await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toBeVisible();
+      await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toBeVisible();
+      await dialog.getByRole("tab", { name: "Text", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      await expect(input("Planning")).toBeFocused();
+      await expect(input("Planning")).toHaveValue("Planning draft survives closing its text view.");
+      await expect(input("Notes")).toHaveValue("Notes remains a different target.");
+      assert.equal(f.socketConnections(), 1, "Caption navigation retains the same conversation subscription");
+      assert.equal(f.requests.length, 1, "Caption navigation never submits another inference");
+    } finally {
+      try { await captionFallback(false); }
+      finally { await captionHost.dispose(); }
+    }
+    await page.getByRole("button", { name: "Planning · Voice chat", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    await expect(canonical).toBeVisible();
+    await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toHaveCount(0);
     const typed = canonical.getByRole("textbox", { name: "Message AI assistant" });
     const history = canonical.locator(".assistant-transcript__body");
     const projectSpeech = state => panel.evaluate((element, value) => {
@@ -390,6 +478,12 @@ test("the mounted voice starter shares five standard cards and retains its origi
       if (value.busy !== undefined) controllerState.busy = value.busy;
       session.voice.captureState.value = value.partial ? "listening" : "idle";
       session.voice.partialTranscript.value = value.partial || "";
+      if (value.microphone !== undefined) {
+        session.live.value = value.microphone;
+        session.callMode.value = "hands-free";
+        session.voice.captureState.value = value.microphone ? "listening" : "idle";
+        session.voice.microphoneMuted.value = false;
+      }
       if (value.review) {
         session.pendingTranscript.value = { messageId: "review-message", text: value.review,
           focus: binding.captureContext(), reviewBeforeSend: true };
@@ -398,6 +492,24 @@ test("the mounted voice starter shares five standard cards and retains its origi
       }
       return session.pendingTranscript.value?.messageId;
     }, state);
+    const typedSend = canonical.getByRole("button", { name: "Send message", exact: true });
+    const speakerControl = canonical.getByRole("button", { name: /read-aloud off|answers aloud/u });
+    const microphoneControl = canonical.locator(".assistant-voice__talk");
+    for (const microphone of [false, true]) {
+      for (const speaker of [false, true]) {
+        await projectSpeech({ microphone });
+        if (await speakerControl.getAttribute("aria-pressed") !== String(speaker)) await speakerControl.click();
+        await expect(speakerControl).toHaveAttribute("aria-pressed", String(speaker));
+        await expect(microphoneControl).toHaveAttribute("aria-pressed", String(microphone));
+        await expect(typed).toBeEnabled();
+        if (microphone) await expect(typedSend).toBeDisabled();
+        else await expect(typedSend).toBeEnabled();
+        await expect(typed).toHaveValue("Planning draft survives closing its text view.");
+      }
+    }
+    await projectSpeech({ microphone: false });
+    await speakerControl.click();
+    assert.equal(f.requests.length, 1, "mic and speaker presentation states do not submit messages");
     for (const width of [390, 800, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await panel.evaluate(element => {
@@ -410,6 +522,11 @@ test("the mounted voice starter shares five standard cards and retains its origi
       await expect(canonical.getByRole("status", { name: "Recognized words", exact: true }))
         .toHaveText("Not sent · These captured words are not sent.");
       await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(1);
+      await expect(typedSend).toBeDisabled();
+      await typed.press("Enter");
+      await expect(typed).toHaveValue("Planning draft survives closing its text view.\n");
+      await typed.fill("Planning draft survives closing its text view.");
+      assert.equal(f.requests.length, 1, "typed Send cannot race provisional capture");
       await projectSpeech({ review: "Review this recording independently." });
       const review = canonical.getByRole("region", { name: "Review voice message", exact: true });
       const recorded = review.getByRole("textbox", { name: "Review your message", exact: true });
@@ -417,6 +534,12 @@ test("the mounted voice starter shares five standard cards and retains its origi
       assert.equal(await projectSpeech({}), "review-message", "Review edits retain the recording UUID");
       await expect(typed).toHaveValue("Planning draft survives closing its text view.");
       await expect(recorded).toHaveValue("Edited speech stays separate.");
+      await expect(typedSend).toBeDisabled();
+      await typed.press("Enter");
+      await expect(typed).toHaveValue("Planning draft survives closing its text view.\n");
+      await typed.fill("Planning draft survives closing its text view.");
+      assert.equal(f.requests.length, 1, "typed Send cannot compete with a pending voice review");
+      await expect(canonical.getByText("Send or discard speech to send text.", { exact: true })).toBeVisible();
       await projectSpeech({ busy: true });
       await expect(typed).toBeDisabled();
       await expect(recorded).toBeDisabled();
@@ -436,6 +559,7 @@ test("the mounted voice starter shares five standard cards and retains its origi
       }
       await review.getByRole("button", { name: "Discard", exact: true }).click();
       await expect(review).toHaveCount(0);
+      await expect(typedSend).toBeEnabled();
       await expect(typed).toHaveValue("Planning draft survives closing its text view.");
       await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(1);
       assert.equal(f.requests.length, 1, "Provisional capture, review edits and discard never submit a canonical message");

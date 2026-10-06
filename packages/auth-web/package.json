@@ -1,9 +1,9 @@
 {
   "name": "@jskit-ai/auth-web",
-  "version": "0.1.225",
+  "version": "0.1.226",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./server/controllers/AuthController": "./src/server/controllers/AuthController.js",
@@ -25,10 +25,10 @@
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.223",
-    "@jskit-ai/http-runtime": "0.1.223",
-    "@jskit-ai/kernel": "0.1.225",
-    "@jskit-ai/shell-web": "0.1.229",
+    "@jskit-ai/auth-core": "0.1.224",
+    "@jskit-ai/http-runtime": "0.1.224",
+    "@jskit-ai/kernel": "0.1.226",
+    "@jskit-ai/shell-web": "0.1.230",
     "@tanstack/vue-query": "^5.90.5",
     "pinia": "^4.0.3",
     "vue": "^3.5.43",

@@ -93,7 +93,7 @@ Exports
 
 ### `src/client/voiceTransport.js`
 Exports
-- `useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "" } = {})`
+- `useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "", onPlayback } = {})`
 - `voiceTurnId(prefix = "turn")`
 Local functions
 - `resolveWebSocketUrl(value)`

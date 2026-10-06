@@ -28,7 +28,7 @@ function mountSetup(setup, router) {
   };
 }
 
-function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-free", speechEnabled = false, voiceOptions = {} } = {}) {
+function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-free", speechEnabled = false, voiceOptions = {}, defaults = {} } = {}) {
   const media = [];
   const contexts = [];
   const worklets = [];
@@ -60,7 +60,13 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
     }
     async close() { this.state = "closed"; }
     createGain() { return { ...connectedNode(), gain: { value: 1 } }; }
-    createAnalyser() { return connectedNode(); }
+    createAnalyser() {
+      return {
+        ...connectedNode(), fftSize: 1024,
+        getFloatTimeDomainData(samples) { samples.fill(0); },
+        getByteFrequencyData(samples) { samples.fill(0); }
+      };
+    }
     createMediaStreamSource(stream) { this.stream = stream; return connectedNode(); }
     createBuffer(channels, length, sampleRate) {
       assert.equal(channels, 1);
@@ -73,6 +79,7 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
       return buffer;
     }
     createBufferSource() {
+      const context = this;
       const source = {
         stopped: false,
         disconnected: false,
@@ -81,7 +88,10 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
         disconnect() { this.disconnected = true; },
         start(at) { this.startedAt = at; },
         stop() { this.stopped = true; },
-        finish() { this.onended?.(); }
+        finish() {
+          if (!this.stopped) context.currentTime = Math.max(context.currentTime, this.startedAt + this.buffer.duration);
+          this.onended?.();
+        }
       };
       sources.push(source);
       return source;
@@ -185,7 +195,7 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
   const sessionId = vue.ref("session-a");
   const voiceModule = { useVibe64OnlineVoice: useVoiceTransport };
   let voice;
-  const colleagueProps = vue.reactive({ defaults: {}, conversation: { conversationId: "colleague", messages: [], status: "ready" },
+  const colleagueProps = vue.reactive({ defaults, conversation: { conversationId: "colleague", messages: [], status: "ready" },
     focus: { projectSlug: "example", sessionId: "session-a" }, submit: async () => {} });
   view = mountSetup(() => {
     if (colleague) {
@@ -194,6 +204,9 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
         captureContext: () => ({ ...colleagueProps.focus }),
         submitText: (text, { messageId, context }) => colleagueProps.submit(text, { messageId, focus: context }),
         onError: message => notices.push({ message, intent: "action-feedback" }),
+        conversationId: "logical-conversation",
+        onPlayback: value => { emitted.push(["playback", value]); return colleagueProps.onPlayback?.(value); },
+        onReadAloudChange: value => { emitted.push(["readAloud", value]); return colleagueProps.onReadAloudChange?.(value); },
         onTranscript: value => emitted.push(["transcript", value]), onVisual: value => emitted.push(["visual", value])
       }, { socketUrl: "/voice" });
       if (callMode) state.callMode.value = callMode;
@@ -206,6 +219,10 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
   });
   return {
     media, contexts, worklets, sockets, buffers, sources, sessionId, voice, notices, emitted,
+    advancePlayback(time) {
+      contexts[0].currentTime = time;
+      for (const [id, callback] of [...animationFrames]) { animationFrames.delete(id); callback(); }
+    },
     colleague: colleague ? view.value : null, colleagueProps, unmount: view.unmount,
     anotherVoice() {
       const another = mountSetup(() => voiceModule.useVibe64OnlineVoice({ socketUrl: "/voice/other" }));
@@ -480,6 +497,7 @@ test("Colleague clears an admitted voice retry on readback and dismisses an unse
 
 test("discarding Colleague recording preserves speech and prevents late transcript delivery", async (t) => {
   const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
   const deliveries = [];
   view.colleagueProps.submit = async (...args) => deliveries.push(args);
   const talking = view.colleague.talk();
@@ -1053,7 +1071,8 @@ for (const settleOldFirst of [true, false]) {
     const oldResume = Promise.withResolvers();
     const currentResume = Promise.withResolvers();
     t.after(() => { oldResume.resolve(); currentResume.resolve(); });
-    const view = mountVoice(t, { speechEnabled: true });
+    const receipts = [];
+    const view = mountVoice(t, { speechEnabled: true, voiceOptions: { onPlayback: event => receipts.push(event) } });
     assert.equal(await view.voice.speak("Previous answer", "speech-a"), true);
     const socket = view.sockets[0];
     socket.receive({ type: "speech.start", turnId: "speech-a", sampleRate: 22_050 });
@@ -1099,6 +1118,11 @@ for (const settleOldFirst of [true, false]) {
     await flushVue();
     assert.equal(view.buffers.length, 2);
     assert.equal(view.voice.state.value, "idle");
+    assert.deepEqual(receipts, [
+      { turnId: "speech-a", phase: "interrupted", reason: "cancelled" },
+      { turnId: "speech-b", phase: "started" },
+      { turnId: "speech-b", phase: "completed" }
+    ], "obsolete queue settlement cannot emit for either output again");
   });
 }
 
@@ -1241,6 +1265,7 @@ for (const ending of ["cancel", "disabled speech output"]) {
 
 test("starting push-to-talk loads voices before recording and keeps the selected speaker for each reply", async t => {
   const view = mountVoice(t, { colleague: true, callMode: null });
+  await view.colleague.toggleReadAloud();
   await view.colleague.toggleLive();
   assert.equal(view.sockets.length, 1, "Start voice confirms the service even while the microphone stays off");
   assert.equal(view.media.length, 0);
@@ -1257,6 +1282,7 @@ test("starting push-to-talk loads voices before recording and keeps the selected
 
 test("saved voice updates reach the live conversation and unavailable choices never overwrite preferences", async t => {
   const view = mountVoice(t, { colleague: true, callMode: null });
+  await view.colleague.toggleReadAloud();
   view.colleagueProps.defaults.voiceId = "kitten_bella";
   await vue.nextTick();
   assert.equal(view.voice.selectedVoice.value, "kitten_bella");
@@ -1289,7 +1315,7 @@ test("push-to-talk keeps one conversation open across turns and preserves sound 
   assert.equal(call.callConnection.value, "Voice active");
   assert.equal(call.callStatus.value, "Hold to speak");
   assert.equal(view.media.length, 0, "the mic stays closed between push-to-talk turns");
-  await call.toggleReadAloud();
+  assert.equal(call.readAloud.value, false, "mic startup preserves the default sound-off preference");
   for (const text of ["Inspect this project.", "Now explain the change."]) {
     const press = call.startPushToTalk();
     await flushVue();
@@ -1322,6 +1348,7 @@ for (const text of ["Stop talking", "Please stop speaking.", "Stap talking", "Be
   test(`push-to-talk handles ${JSON.stringify(text)} without confusing silence with a new request`, async (t) => {
     const silence = !text.startsWith("Do not") && !text.includes("DeepSeek");
     const view = mountVoice(t, { colleague: true, callMode: "push-to-talk" });
+    await view.colleague.toggleReadAloud();
     const call = view.colleague;
     const deliveries = [];
     view.colleagueProps.submit = async (...args) => deliveries.push(args);
@@ -1414,7 +1441,6 @@ test("voice captions follow recognized words, progress and the final answer from
     conversation.messages = [...conversation.messages, { id: options.messageId, role: "user", text }];
   };
   await view.colleague.toggleLive();
-  await view.colleague.toggleReadAloud();
   const press = view.colleague.startPushToTalk();
   await flushVue(); view.media[0].resolve(); await press;
   const socket = view.sockets[0];
@@ -1443,65 +1469,68 @@ test("voice captions follow recognized words, progress and the final answer from
   assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 0, "captions do not require sound");
 });
 
-test("hands-free startup opens capture without Helper routing and unlocks playback in the click gesture", async (t) => {
+test("hands-free startup opens capture without Helper routing or speaker startup", async (t) => {
   const view = mountVoice(t, { colleague: true });
   view.colleagueProps.check = () => assert.fail("live voice must not check Helper routing");
   view.colleagueProps.classify = () => assert.fail("live voice must not classify with a Helper");
   const starting = view.colleague.toggleLive();
-  assert.equal(view.contexts[0].resumeCalls, 1);
   await flushVue();
+  assert.equal(view.contexts.length, 0, "sound-off microphone startup allocates no playback context");
   assert.equal(view.media.length, 1);
-  view.media[0].resolve();
-  await starting;
+  view.media[0].resolve(); await starting;
   assert.equal(view.colleague.starting.value, false);
   assert.equal(view.colleague.live.value, true);
   assert.equal(view.voice.listening.value, true);
+  assert.equal(view.colleague.readAloud.value, false);
   assert.match(view.colleague.status.value, /Live conversation.*Listening/);
 });
 
-test("failed audio startup leaves capture off and Talk once remains usable", async (t) => {
+test("blocked speaker startup leaves requested sound on and capture usable", async (t) => {
   const view = mountVoice(t, { colleague: true });
-  const prepare = view.voice.preparePlayback;
-  view.voice.preparePlayback = async () => { throw new Error("Playback is unavailable."); };
-  await view.colleague.toggleLive();
-  assert.equal(view.media.length, 0);
-  assert.equal(view.colleague.live.value, false);
-  assert.equal(view.colleague.starting.value, false);
-  assert.match(view.colleague.error.value, /Playback is unavailable/);
-  view.voice.preparePlayback = prepare;
-  const talking = view.colleague.talk();
-  await flushVue(); view.media[0].resolve(); await talking;
+  await view.voice.preparePlayback();
+  view.contexts[0].nextResume = Promise.reject(new Error("Playback is unavailable."));
+  await view.colleague.toggleReadAloud();
+  assert.equal(view.voice.playbackBlocked.value, true);
+  assert.equal(view.colleague.readAloud.value, true);
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
   assert.equal(view.voice.listening.value, true);
+  assert.equal(view.colleague.live.value, true);
+  assert.equal(view.colleague.error.value, "");
+  assert.equal(view.colleague.readAloud.value, true);
+  await view.colleague.enableSound();
+  assert.equal(view.voice.playbackBlocked.value, false);
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), [["readAloud", true]], "recovery is not another preference change");
 });
 
 for (const action of ["cancel", "mute", "pagehide", "unmount"]) {
-  test(`late playback setup cannot open the microphone after ${action}`, async (t) => {
-    const view = mountVoice(t, { colleague: true });
-    const playback = Promise.withResolvers();
-    view.voice.preparePlayback = () => playback.promise;
+  test(`late connection setup cannot open the microphone after ${action}`, async (t) => {
+    const view = mountVoice(t, { colleague: true, autoReady: false });
     const starting = view.colleague.toggleLive();
     await flushVue();
     if (action === "cancel") await view.colleague.toggleLive();
     else if (action === "mute") await view.colleague.toggleMicrophoneMuted();
     else if (action === "pagehide") window.dispatchEvent(new Event("pagehide"));
     else view.unmount();
-    playback.resolve();
+    view.sockets[0].ready();
     await starting;
     assert.equal(view.media.length, 0);
-    assert.equal(view.sockets.length, 0);
     assert.equal(view.colleague.live.value, false);
     assert.equal(view.colleague.readAloud.value, false);
     assert.equal(view.colleague.error.value, "");
   });
 }
 
-test("cancelling audio startup preserves speech and a late failure cannot affect a retry", async (t) => {
-  const view = mountVoice(t, { colleague: true });
-  await view.colleague.toggleReadAloud();
-  await view.speak("Keep speaking this answer", "answer");
+test("cancelling microphone startup preserves speech and a late speaker failure cannot affect a retry", async (t) => {
+  const view = mountVoice(t, { colleague: true, autoReady: false });
+  const enabling = view.colleague.toggleReadAloud(); await enabling;
+  const speaking = view.speak("Keep speaking this answer", "answer");
+  await flushVue(); view.sockets[0].ready(); await speaking;
   view.sockets[0].receive({ type: "speech.start", turnId: "answer" });
   view.sockets[0].receive(new Int16Array(22050).buffer);
+  await flushVue();
   const playback = Promise.withResolvers();
+  t.after(() => playback.resolve());
   const prepare = view.voice.preparePlayback;
   view.voice.preparePlayback = () => playback.promise;
   const first = view.colleague.toggleLive();
@@ -1509,9 +1538,9 @@ test("cancelling audio startup preserves speech and a late failure cannot affect
   assert.equal(view.sources[0].stopped, false);
   view.voice.preparePlayback = prepare;
   const second = view.colleague.toggleLive();
-  await flushVue(); view.media[0].resolve(); await second;
+  await flushVue(); view.media.at(-1).resolve(); await second;
   playback.reject(new Error("Old playback failure"));
-  await first;
+  await first; await flushVue();
   assert.equal(view.colleague.live.value, true);
   assert.equal(view.voice.listening.value, true);
   assert.equal(view.colleague.error.value, "");
@@ -1605,6 +1634,7 @@ test("Colleague speaks a partial reply and prefetches the next phrase without re
 
 test("microphone mute pauses PCM without ending the utterance or creating a review", async (t) => {
   const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
   const deliveries = [];
   view.colleagueProps.submit = async (...args) => deliveries.push(args);
   const starting = view.colleague.toggleLive();
@@ -1746,6 +1776,7 @@ for (const text of ["Yes", "No", "With sugar", "What is it for?", "Do not stop t
 
 test("local hesitation waits for more words, while noise, mm-hmm and exact speech echoes leave playback alone", async (t) => {
   const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
   view.colleagueProps.submit = () => assert.fail("no user request was accepted");
   const starting = view.colleague.toggleLive();
   await flushVue(); view.media[0].resolve(); await starting;
@@ -1821,6 +1852,7 @@ test("a stale discard keeps the live utterance identity and its original destina
 for (const command of ["Stop talking", "Stap talking", "Wait, let me explain", "Please let me finish"]) {
 test(`live partial words retain their chat identity and ${JSON.stringify(command)} discards only voice`, async (t) => {
   const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
   const delivered = [];
   view.colleagueProps.submit = async (...args) => delivered.push(args);
   const starting = view.colleague.toggleLive();
@@ -1855,6 +1887,7 @@ test(`live partial words retain their chat identity and ${JSON.stringify(command
 
 test("reconnection opens only the transport and never replays speech or reopens the microphone", async (t) => {
   const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
   const starting = view.colleague.talk();
   await flushVue(); view.media[0].resolve(); await starting;
   await view.speak("Already heard answer", "old-answer");
@@ -2206,4 +2239,269 @@ test("canonical output identity finishes a spoken acknowledgement and keeps the 
   await flushVue();
   assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2);
   assert.equal(final.commentary[0].messageId, "saved-progress");
+});
+
+
+for (const microphone of [false, true]) {
+  for (const speaker of [false, true]) {
+    test(`microphone ${microphone ? "on" : "off"} and speaker ${speaker ? "on" : "off"} remain independent`, async t => {
+      const view = mountVoice(t, { colleague: true, defaults: { readAloud: speaker } });
+      assert.equal(view.media.length, 0);
+      assert.equal(view.contexts.length, 0, "hydrating a preference does not start audio");
+      if (microphone) {
+        const starting = view.colleague.toggleLive();
+        await flushVue(); view.media[0].resolve(); await starting;
+      }
+      view.colleagueProps.conversation.messages = [{ id: "answer", role: "assistant", text: "An ordinary answer." }];
+      await flushVue();
+      assert.equal(view.voice.listening.value, microphone);
+      assert.equal(view.colleague.readAloud.value, speaker);
+      assert.equal(view.media.length, microphone ? 1 : 0);
+      const starts = view.sockets.flatMap(controls).filter(control => control.type === "speak.start");
+      assert.equal(starts.length, speaker ? 1 : 0);
+      assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), []);
+      if (speaker) {
+        const socket = view.sockets[0];
+        socket.receive({ type: "speech.start", turnId: starts[0].turnId });
+        socket.receive(new Int16Array(22050).buffer);
+        await flushVue();
+        if (microphone) await view.colleague.toggleLive();
+        assert.equal(view.sources[0].stopped, false, "ending capture preserves the current reply");
+        assert.equal(view.colleague.readAloud.value, true);
+        assert.equal(view.voice.listening.value, false);
+      }
+    });
+  }
+}
+
+for (const steering of ["push", "hands-free", "typed"]) {
+  test(`ordinary ${steering} steering preserves current and queued playback`, async t => {
+    const view = mountVoice(t, { colleague: true, callMode: steering === "push" ? "push-to-talk" : "hands-free" });
+    await view.colleague.toggleReadAloud();
+    view.colleagueProps.conversation.messages = [
+      { id: "first", role: "assistant", text: "First answer." },
+      { id: "second", role: "assistant", text: "Queued answer." }
+    ];
+    await flushVue();
+    const socket = view.sockets[0];
+    const first = controls(socket).find(control => control.type === "speak.start");
+    socket.receive({ type: "speech.start", turnId: first.turnId });
+    socket.receive({ type: "speech.segment.start", turnId: first.turnId, segmentIndex: 0 });
+    socket.receive(new Int16Array(22050).buffer);
+    socket.receive({ type: "speech.segment.start", turnId: first.turnId, segmentIndex: 1 });
+    socket.receive(new Int16Array(22050).buffer);
+    socket.receive({ type: "speech.end", turnId: first.turnId });
+    await flushVue();
+    if (steering === "typed") {
+      view.colleague.inviteSpeech("typed-request");
+      view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages,
+        { id: "typed-request", role: "user", text: "Now explain another part." }];
+    } else {
+      const starting = steering === "push" ? view.colleague.startPushToTalk() : view.colleague.toggleLive();
+      await flushVue(); view.media[0].resolve(); await starting;
+      const turnId = view.voice.activeListenTurnId.value;
+      socket.receive({ type: "transcript.partial", turnId, text: "Now explain another part.", revision: 1 });
+      if (steering === "hands-free") socket.receive({ type: "transcript.endpoint", turnId, text: "Now explain another part.", revision: 1 });
+      else await view.colleague.finishPushToTalk();
+    }
+    await flushVue();
+    assert.ok(view.sources.every(source => !source.stopped), "all prefetched phrases survive ordinary steering");
+    assert.equal(controls(socket).filter(control => ["cancel", "speak.stop-after"].includes(control.type) && control.turnId === first.turnId).length, 0);
+    for (const source of [...view.sources]) source.finish();
+    await flushVue();
+    assert.deepEqual(controls(socket).filter(control => control.type === "speak.start").map(control => control.text), ["First answer.", "Queued answer."]);
+  });
+}
+
+test("playback receipts use canonical output identity and actual audio start and drain", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const progress = { id: "output", outputId: "canonical-output", role: "assistant", text: "An answer. ", status: "inProgress" };
+  view.colleagueProps.conversation.streamingReply = progress;
+  await flushVue();
+  const socket = view.sockets[0];
+  const start = controls(socket).find(control => control.type === "speak.start");
+  const events = () => view.emitted.filter(([kind]) => kind === "playback").map(([, value]) => value);
+  assert.deepEqual(events(), [], "text and synthesis request are not audible playback");
+  socket.receive({ type: "speech.start", turnId: start.turnId });
+  socket.receive(new Int16Array(22050).buffer);
+  socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+  await flushVue();
+  view.advancePlayback(view.sources[0].startedAt - 0.001);
+  assert.deepEqual(events(), [], "scheduled future PCM has not started");
+  view.advancePlayback(view.sources[0].startedAt);
+  assert.deepEqual(events(), [{ conversationId: "logical-conversation", outputId: "canonical-output", phase: "started" }]);
+  view.advancePlayback(view.sources[0].startedAt + 0.1);
+  view.colleagueProps.conversation.streamingReply = { ...progress, text: progress.text.trim(), status: "completed" };
+  await flushVue();
+  socket.receive({ type: "speech.end", turnId: start.turnId });
+  await flushVue();
+  assert.equal(events().length, 1, "server end and canonical final still wait for real scheduled audio");
+  view.sources[0].finish(); await flushVue();
+  assert.deepEqual(events().map(event => event.phase), ["started", "completed"]);
+  assert.ok(events().every(event => event.outputId === "canonical-output"));
+});
+
+test("speech cap drains without claiming completion before canonical final", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const output = { id: "capped", role: "assistant", text: "Answer ".repeat(572), status: "inProgress" };
+  view.colleagueProps.conversation.streamingReply = output; await flushVue();
+  const socket = view.sockets[0]; const start = controls(socket).find(control => control.type === "speak.start");
+  socket.receive({ type: "speech.start", turnId: start.turnId });
+  socket.receive(new Int16Array(22050).buffer);
+  socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+  await flushVue();
+  // The bounded projection can need several synthesis append acknowledgements.
+  for (let i = 0; i < 40; i++) { socket.receive({ type: "speech.chunk.end", turnId: start.turnId }); await flushVue(); }
+  assert.ok(controls(socket).some(control => control.type === "speak.end"));
+  socket.receive({ type: "speech.end", turnId: start.turnId });
+  await flushVue(); view.sources[0].finish(); await flushVue();
+  const events = () => view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event.phase);
+  assert.deepEqual(events(), ["started"]);
+  view.colleagueProps.conversation.streamingReply = { ...output, status: "completed" }; await flushVue();
+  assert.deepEqual(events(), ["started", "completed"]);
+});
+
+test("Stop interrupts queued outputs once without fictional starts or stale completion", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  view.colleagueProps.onPlayback = () => Promise.reject(new Error("observer failure"));
+  view.colleagueProps.onReadAloudChange = () => { throw new Error("preference observer failure"); };
+  view.colleagueProps.conversation.messages = [
+    { id: "first", role: "assistant", text: "First answer." }, { id: "queued", role: "assistant", text: "Queued answer." }
+  ];
+  await flushVue();
+  const socket = view.sockets[0]; const start = controls(socket).find(control => control.type === "speak.start");
+  socket.receive({ type: "speech.start", turnId: start.turnId }); socket.receive(new Int16Array(22050).buffer);
+  await flushVue();
+  await view.colleague.toggleReadAloud();
+  view.sources[0].finish(); socket.receive({ type: "speech.end", turnId: start.turnId }); await flushVue();
+  const events = view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event);
+  assert.deepEqual(events, [
+    { conversationId: "logical-conversation", outputId: "first", phase: "interrupted", reason: "muted" },
+    { conversationId: "logical-conversation", outputId: "queued", phase: "interrupted", reason: "muted" }
+  ]);
+  assert.equal(view.voice.activeSpeechTurnId.value, "");
+  assert.equal(view.colleague.readAloud.value, false);
+});
+
+test("failed playback and disappearing canonical output each settle once", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  view.colleagueProps.conversation.streamingReply = { id: "retired", role: "assistant", text: "An incomplete answer. ", status: "inProgress" };
+  await flushVue();
+  view.colleagueProps.conversation.streamingReply = null;
+  await flushVue();
+  view.colleagueProps.conversation.messages = [{ id: "failed", role: "assistant", text: "Another answer." }];
+  await flushVue();
+  const socket = view.sockets[0];
+  const start = controls(socket).filter(control => control.type === "speak.start").at(-1);
+  socket.receive({ type: "error", turnId: start.turnId, message: "Synthesis failed." });
+  await flushVue();
+  const events = view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event);
+  assert.deepEqual(events.map(event => [event.outputId, event.phase]), [["retired", "interrupted"], ["failed", "failed"]]);
+  socket.receive({ type: "speech.end", turnId: start.turnId }); await flushVue();
+  assert.equal(view.emitted.filter(([kind]) => kind === "playback").length, 2);
+});
+
+
+test("pending sound unlock stays recoverable and late rejection cannot undo the newer unlock", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.voice.preparePlayback();
+  const old = Promise.withResolvers();
+  t.after(() => old.resolve());
+  view.contexts[0].state = "suspended";
+  view.contexts[0].nextResume = old.promise;
+  const enabling = view.colleague.toggleReadAloud();
+  assert.equal(view.voice.playbackBlocked.value, true, "a browser-pending resume exposes Enable sound immediately");
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
+  assert.equal(view.voice.listening.value, true, "pending sound never gates permission or capture");
+  await view.colleague.enableSound();
+  assert.equal(view.voice.playbackBlocked.value, false);
+  old.reject(new Error("Obsolete blocked resume")); await enabling;
+  assert.equal(view.voice.playbackBlocked.value, false);
+  assert.equal(view.colleague.readAloud.value, true);
+  assert.equal(view.colleague.error.value, "");
+});
+
+
+for (const caller of ["speech request", "queued PCM"]) {
+  test(`newer sound unlock supersedes a stale ${caller} resume failure without cancelling capture or output`, async t => {
+    const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+    const starting = view.colleague.toggleLive();
+    await flushVue(); view.media[0].resolve(); await starting;
+    const socket = view.sockets[0];
+    const pending = Promise.withResolvers();
+    t.after(() => pending.resolve());
+    let turnId;
+    if (caller === "queued PCM") {
+      view.colleagueProps.conversation.messages = [{ id: "output", role: "assistant", text: "Recovered reply." }];
+      await flushVue();
+      turnId = controls(socket).find(control => control.type === "speak.start").turnId;
+      socket.receive({ type: "speech.start", turnId });
+    }
+    view.contexts[0].state = "suspended";
+    view.contexts[0].nextResume = pending.promise;
+    if (caller === "speech request") {
+      view.colleagueProps.conversation.messages = [{ id: "output", role: "assistant", text: "Recovered reply." }];
+    } else socket.receive(new Int16Array(22050).buffer);
+    await flushVue();
+    assert.equal(view.voice.playbackBlocked.value, true);
+    await view.colleague.enableSound();
+    assert.equal(view.voice.playbackBlocked.value, false);
+    pending.reject(new Error("Superseded playback failure"));
+    await flushVue();
+    turnId ||= controls(socket).find(control => control.type === "speak.start").turnId;
+    assert.equal(view.voice.activeSpeechTurnId.value, turnId);
+    assert.equal(view.voice.listening.value, true);
+    assert.equal(view.media[0].stops, 0);
+    assert.equal(view.voice.error.value, "");
+    assert.equal(view.colleague.error.value, "");
+    if (caller === "speech request") {
+      socket.receive({ type: "speech.start", turnId });
+      socket.receive(new Int16Array(22050).buffer);
+    }
+    socket.receive({ type: "speech.end", turnId }); await flushVue();
+    view.sources[0].finish(); await flushVue();
+    assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event.phase), ["started", "completed"]);
+  });
+}
+
+for (const unspeakable of ["***", "___", " "]) {
+  test(`a final no-audio projection ${JSON.stringify(unspeakable)} retires once and leaves the next output playable`, async t => {
+    const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
+    view.colleagueProps.conversation.messages = [
+      { id: "no-audio", role: "assistant", text: unspeakable }, { id: "next", role: "assistant", text: "The next reply." }
+    ];
+    await flushVue();
+    assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+      { conversationId: "logical-conversation", outputId: "no-audio", phase: "interrupted", reason: "no-audio" }
+    ]);
+    assert.deepEqual(controls(view.sockets[0]).filter(control => control.type === "speak.start").map(control => control.text), ["The next reply."]);
+    view.colleagueProps.conversation.messages = [];
+    await flushVue(); view.colleague.stopSpeech(); await flushVue();
+    assert.equal(view.emitted.filter(([kind, event]) => kind === "playback" && event.outputId === "no-audio").length, 1);
+  });
+}
+
+test("a declined speech request retires its canonical receipt without invented audio completion", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const speak = view.voice.speak;
+  view.voice.speak = async () => false;
+  view.colleagueProps.conversation.messages = [{ id: "declined", role: "assistant", text: "A reply with no admitted playback." }];
+  await flushVue();
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+    { conversationId: "logical-conversation", outputId: "declined", phase: "interrupted", reason: "no-audio" }
+  ]);
+  assert.equal(view.sockets.length, 0);
+  view.voice.speak = speak;
+  view.colleagueProps.conversation.messages = [{ id: "next", role: "assistant", text: "The next reply." }];
+  await flushVue();
+  assert.equal(controls(view.sockets[0]).find(control => control.type === "speak.start").text, "The next reply.");
+  view.colleague.stopSpeech(); await flushVue();
+  assert.equal(view.emitted.filter(([kind, event]) => kind === "playback" && event.outputId === "declined").length, 1);
 });

@@ -29,13 +29,14 @@ function resolveWebSocketUrl(value) {
   return url.toString();
 }
 
-function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "" } = {}) {
+function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "", onPlayback } = {}) {
   const availableVoices = ref([]);
   const selectedVoice = ref(voiceId);
   const connectionState = ref("idle");
   const captureState = ref("idle");
   const speechState = ref("idle");
   const error = ref("");
+  const playbackBlocked = ref(false);
   const transcript = ref("");
   const endpoint = ref(null);
   const completedUtterance = ref(null);
@@ -71,8 +72,10 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   let playbackGain = null;
   let playbackAnalyser = null;
   let playbackFrame = 0;
+  let playbackPreparation = 0;
   let nextPlaybackTime = 0;
   let playbackEpoch = 0;
+  let playbackReceipt = null;
   let playbackQueue = Promise.resolve();
   let queuedPlaybackFrames = 0;
   let speechStreamEnded = false;
@@ -102,12 +105,31 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   const canAppendSpeech = computed(() => Boolean(activeSpeechTurnId.value) && !speechInputEnded.value &&
     synthesisPending.value < 2 && bufferedSeconds.value < 4);
 
-  function setError(message = "") {
+  function emitPlayback(phase, reason) {
+    const receipt = playbackReceipt;
+    if (!receipt || receipt.terminal || (phase === "started" && receipt.started)) return;
+    if (phase === "started") receipt.started = true;
+    else receipt.terminal = true;
+    try {
+      Promise.resolve(onPlayback?.({
+        turnId: receipt.turnId, phase, ...(reason ? { reason } : {})
+      })).catch(() => {});
+    } catch {
+      // Observers cannot take ownership of playback or cleanup.
+    }
+  }
+
+  function observePlaybackStart(source) {
+    if (!source.voiceCancelled && playbackContext.state === "running" &&
+      playbackContext.currentTime >= source.voiceStartsAt) emitPlayback("started");
+  }
+
+  function setError(message = "", reason = "playback-error") {
     pendingListenTurnId = "";
     endpoint.value = null;
     activeListenTurnId.value = "";
     void closeMicrophone().catch(() => null);
-    stopPlayback();
+    stopPlayback("failed", reason);
     error.value = String(message || "Voice could not continue.");
     captureState.value = "idle";
     connectionState.value = "idle";
@@ -129,7 +151,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       ? "Voice connection was interrupted. Your unfinished recording needs review; use Talk to resume."
       : "Voice connection was interrupted. The answer remains in chat; use Talk to resume.";
     const wasActive = Boolean(activeListenTurnId.value || pendingListenTurnId || activeSpeechTurnId.value || reconnecting.value);
-    setError(message);
+    setError(message, "disconnected");
     disconnect({ preserveError: true });
     recoveryWanted = autoReconnect && wasActive;
     scheduleRecovery();
@@ -190,6 +212,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return total / Math.max(1, end - start);
     };
     const update = () => {
+      for (const source of playbackSources) observePlaybackStart(source);
       bufferedSeconds.value = Math.max(0, nextPlaybackTime - playbackContext.currentTime);
       playbackAnalyser.getFloatTimeDomainData(samples);
       playbackAnalyser.getByteFrequencyData(spectrum);
@@ -235,6 +258,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   async function preparePlayback() {
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) {
+      playbackBlocked.value = true;
       throw new Error("This browser does not support streamed audio playback.");
     }
     if (!playbackContext || playbackContext.state === "closed") {
@@ -247,13 +271,29 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       playbackAnalyser.connect(playbackContext.destination);
     }
     playbackGain.gain.value = speechOutputEnabled.value ? 1 : 0;
-    await playbackContext.resume();
+    const context = playbackContext;
+    const preparation = ++playbackPreparation;
+    try {
+      const resumed = context.resume();
+      if (preparation === playbackPreparation && context.state !== "running") playbackBlocked.value = true;
+      await resumed;
+      if (context.state !== "running") throw new Error("Sound is blocked by this browser.");
+      if (preparation === playbackPreparation && !unmounted) playbackBlocked.value = false;
+    } catch (cause) {
+      // A newer unlock of this same context supersedes an older resume failure.
+      if (preparation !== playbackPreparation && context === playbackContext &&
+        context.state === "running" && !unmounted) return;
+      if (preparation === playbackPreparation && !unmounted) playbackBlocked.value = true;
+      throw cause;
+    }
   }
 
   function finishPlaybackWhenDrained() {
     if (!activeSpeechTurnId.value || !speechStreamEnded || playbackSources.size || queuedPlaybackFrames) {
       return;
     }
+    if (playbackReceipt?.started) emitPlayback("completed");
+    else emitPlayback("failed", "playback-error");
     activeSpeechTurnId.value = "";
     speechState.value = "idle";
     if (speechOwner.value === speechClaim) speechOwner.value = null;
@@ -312,6 +352,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     source.onended = () => {
       source.disconnect();
       if (epoch !== playbackEpoch) return;
+      // A natural end also observes very short sounds between animation frames.
+      if (!source.voiceCancelled && playbackContext.state === "running") emitPlayback("started");
       playbackSources.delete(source);
       bufferedSeconds.value = playbackSources.size ? Math.max(0, nextPlaybackTime - playbackContext.currentTime) : 0;
       if (!playbackSources.size) speechState.value = "thinking";
@@ -337,7 +379,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       });
   }
 
-  function stopPlayback() {
+  function stopPlayback(phase = "interrupted", reason = "cancelled") {
+    emitPlayback(phase, reason);
     playbackEpoch += 1;
     activeSpeechTurnId.value = "";
     speechState.value = "idle";
@@ -347,6 +390,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     queuedPlaybackFrames = 0;
     for (const source of playbackSources) {
       try {
+        source.voiceCancelled = true;
         source.stop();
       } catch {
         // A source that already ended needs no further cleanup.
@@ -681,6 +725,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     }
     stopPlayback();
     const epoch = playbackEpoch;
+    playbackReceipt = { turnId, started: false, terminal: false };
     activeSpeechTurnId.value = turnId;
     speechState.value = "thinking";
     try {
@@ -708,7 +753,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return true;
     } catch (speechError) {
       if (epoch !== playbackEpoch) return false;
-      stopPlayback();
+      stopPlayback("failed", "playback-error");
       speechState.value = "idle";
       throw speechError;
     }
@@ -732,6 +777,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
 
   function finishCurrentPhrase() {
     if (!activeSpeechTurnId.value) return;
+    emitPlayback("interrupted", "cancelled");
     const now = playbackContext?.currentTime || 0;
     const current = [...playbackSources].find(source => source.voiceEndsAt > now);
     if (!current?.voiceSegment) { stopSpeaking(); return; }
@@ -739,6 +785,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     speechInputEnded.value = true;
     for (const source of [...playbackSources]) {
       if (source.voiceSegment?.index <= stopAfterSegment) continue;
+      source.voiceCancelled = true;
       source.stop();
       playbackSources.delete(source);
     }
@@ -747,10 +794,10 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     sendControl({ type: "speak.stop-after", turnId: activeSpeechTurnId.value, segmentIndex: stopAfterSegment });
   }
 
-  function stopSpeaking() {
+  function stopSpeaking(reason = "cancelled") {
     const turnId = activeSpeechTurnId.value;
     const pending = turnId && !ready.value && !activeListenTurnId.value && !pendingListenTurnId;
-    stopPlayback();
+    stopPlayback("interrupted", reason);
     if (turnId && socket?.readyState === WEBSOCKET_OPEN) sendControl({ turnId, type: "cancel" });
     if (pending) disconnect();
   }
@@ -807,7 +854,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       playbackGain.gain.value = enabled ? 1 : 0;
     }
     if (!enabled && activeSpeechTurnId.value) {
-      stopSpeaking();
+      stopSpeaking("muted");
     }
   }, { flush: "sync" });
   watch(selectedSocketPath, () => {
@@ -869,6 +916,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     microphoneMuted,
     muted,
     partialTranscript,
+    playbackBlocked,
     preparePlayback,
     ready,
     reconnecting,

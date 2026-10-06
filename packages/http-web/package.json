@@ -1,9 +1,9 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.1.70",
+  "version": "0.1.71",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./client": "./src/client/index.js",
@@ -44,14 +44,14 @@
     "./client/support/contractGuards": "./src/client/support/contractGuards.js"
   },
   "dependencies": {
-    "@jskit-ai/resource-crud-core": "0.1.167",
+    "@jskit-ai/resource-crud-core": "0.1.168",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.223",
-    "@jskit-ai/kernel": "0.1.225",
-    "@jskit-ai/realtime": "0.1.222",
-    "@jskit-ai/shell-web": "0.1.229",
+    "@jskit-ai/http-runtime": "0.1.224",
+    "@jskit-ai/kernel": "0.1.226",
+    "@jskit-ai/realtime": "0.1.223",
+    "@jskit-ai/shell-web": "0.1.230",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
