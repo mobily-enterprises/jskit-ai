@@ -116,7 +116,9 @@
               <span>{{ systemLabel }}</span>
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
             </div>
-            <slot name="system-message" :message="entry.message"><LongTextPreviewBlocks compact :blocks="entry.message.blocks" @link-click="handleLongTextLinkClick" /></slot>
+            <slot name="system-message" :message="entry.message">
+              <AssistantConversationStatus :message="entry.message" @check-delivery="emit('check-delivery', $event)" @link-click="handleLongTextLinkClick" />
+            </slot>
           </div>
         </div>
 
@@ -288,6 +290,7 @@
 
 <script setup>
 import AssistantMessageAttachments from "./AssistantMessageAttachments.vue";
+import AssistantConversationStatus from "./AssistantConversationStatus.vue";
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import {
   mdiAccountOutline,
@@ -372,7 +375,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(["cancel-turn", "edit-turn", "load-more", "link-click", "reload", "resend-turn"]);
+const emit = defineEmits(["cancel-turn", "check-delivery", "edit-turn", "load-more", "link-click", "reload", "resend-turn"]);
 
 const USER_MESSAGE_COLLAPSE_MIN_CHARACTERS = 360;
 const USER_MESSAGE_PREVIEW_MAX_CHARACTERS = 280;

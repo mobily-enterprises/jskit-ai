@@ -12,7 +12,7 @@ explicit conversation, coaching and organization operations.
    and enter a descriptive name.
 3. Copy the key from **API Key Created**; it is shown only once. Put it in the
    backend environment as `ATTENTION_API_KEY`.
-4. Add Attention in Vibe64 and enter `env:ATTENTION_API_KEY` in **API key
+4. Add Attention in the connection editor and enter `env:ATTENTION_API_KEY` in **API key
    reference**. Save, choose **Set credential in Env**, save the value there, then return and
    choose **Connect account** or **Verify again**. **Check connection** only reloads
    status; it does not validate a newly entered key.
@@ -151,9 +151,9 @@ application authorization against these endpoints; they need no Node service.
 
 ## LIMITATIONS
 
-Editor coding-assistant attachment is deferred. For example, an app can display
+Assistant tool attachment requires explicit host integration. For example, an app can display
 a sales-call transcript and save a manager's coaching score, but configuring this
-connector does not let Vibe64's Codex/OpenCode read those calls from editor chat.
+connector does not authorize an assistant to read those calls from chat.
 The app owns its dashboard, permissions, polling and handling of pending/error
 results. This does not supply Attention's recorder, CRM installation, webhooks,
 SCIM, scorecard-template designer or per-user OAuth. Media imports use an accessible

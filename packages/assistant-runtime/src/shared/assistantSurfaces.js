@@ -3,6 +3,19 @@ import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/
 
 const CONSOLE_OWNER_ACCESS_POLICY_ID = "console_owner";
 
+/** Declare one surface explicitly; full application surface maps remain supported. */
+function defineAssistantSurface(surfaceId, { pagesRoot = "", requiresWorkspace = false,
+  configScope = requiresWorkspace ? "workspace" : "global", ...definition } = {}) {
+  const id = normalizeSurfaceId(surfaceId);
+  if (!id) throw new TypeError("An assistant surface id is required.");
+  return Object.freeze({
+    surfaceDefinitions: Object.freeze({ [id]: Object.freeze({ ...definition, pagesRoot, requiresWorkspace }) }),
+    assistantSurfaces: Object.freeze({ [id]: Object.freeze({
+      settingsSurfaceId: id, configScope: normalizeAssistantConfigScope(configScope)
+    }) })
+  });
+}
+
 function resolveSurfaceDefinitions(appConfig = {}) {
   const source = normalizeObject(appConfig?.surfaceDefinitions);
   const resolved = {};
@@ -90,6 +103,7 @@ function resolveAssistantSurfaceConfig(appConfig = {}, targetSurfaceId = "") {
 }
 
 export {
+  defineAssistantSurface,
   normalizeAssistantConfigScope,
   resolveAssistantSurfaceConfig,
   resolveAssistantSurfacesConfig,

@@ -229,6 +229,5 @@ does not establish access to a particular object or field. A missing token expir
 uses a five-minute local renewal policy, not a provider lifetime guarantee.
 Disconnect removes local grants only; provider revocation remains an org/admin
 action. Native framework routes, business UI, app sessions and access policy are
-application-owned. Editor coding-agent attachment, live org/consent/data outcomes
-and generated-app execution remain deferred or unverified. The original broader
-CRM checklist stays backlog; this is not full Lovable parity.
+application-owned. Assistant tool attachment requires explicit host integration. Live
+org/consent/data outcomes and generated-app execution remain unverified.

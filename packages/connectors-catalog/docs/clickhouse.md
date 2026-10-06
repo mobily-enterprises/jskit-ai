@@ -232,9 +232,9 @@ The shared form tests cover mode changes, hidden-field removal, locking, CLI
 import and remount at 390, 820 and 1440 pixels. Public-editor cases cover phone
 and desktop file persistence. These checks do not execute SQL on a live server.
 
-**LIMITATIONS:** Automatic Vibe64 coding-assistant attachment remains deferred.
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration.
 For example, the app can show monthly booking totals through `queries.read`, but
-saving this configuration does not enable Vibe64 chat to query that database.
+saving this configuration does not authorize assistant chat to query that database.
 Writes, database provisioning/administration and per-user database identity
 management remain native work; use an administrator outside this connector to
 create a reporting user and its row/resource policies. There is no query-builder

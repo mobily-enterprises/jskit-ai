@@ -17,7 +17,7 @@ browser composition helper uses the Google Maps JavaScript SDK loaded by the app
    **Geocoding API**, and configure suitable server IP restrictions. For the
    additional operations, enable **Places API (New)** and **Routes API** in Library
    and allow those APIs on this server key as well. Save.
-4. Store that key as `GOOGLE_MAPS_SERVER_KEY`. In Vibe64, add Google Maps
+4. Store that key as `GOOGLE_MAPS_SERVER_KEY`. In the connection editor, add Google Maps
    Platform and enter `env:GOOGLE_MAPS_SERVER_KEY` in **Server API key reference**.
 5. For browser maps, create a different key, enable only the browser APIs the
    app uses, and apply **Websites** restrictions for the deployed and preview
@@ -200,8 +200,8 @@ Keep Google attribution and data-retention/display requirements intact.
 **Limitations:** no embedded map designer, SDK loader, autocomplete/session-token
 widget, Places photos/reviews, route optimization, transit or navigation product.
 For example, a generated app can find a groomer and display its location and a
-route, but cannot provide live voice navigation. Editor assistant attachment is
-deferred. Controlled HTTP/SDK fixtures do not prove live tiles, routes or billing.
+route, but cannot provide live voice navigation. Assistant tool attachment
+requires explicit host integration. Controlled HTTP/SDK fixtures do not prove live tiles, routes or billing.
 
 Sources: [Places Text Search](https://developers.google.com/maps/documentation/places/web-service/text-search),
 [Routes reference](https://developers.google.com/maps/documentation/routes/reference/rest/v2/TopLevel/computeRoutes),

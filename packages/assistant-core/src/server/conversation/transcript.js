@@ -1,7 +1,7 @@
 import { normalizeText } from "./normalize.js";
 
 /** Conversation policy, independent of database, filesystem, identity and HTTP. */
-export function createConversationTranscript({ storage, clock = () => new Date() } = {}) {
+export function createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {}) {
   if (typeof storage?.read !== "function" || typeof storage?.write !== "function") {
     throw new TypeError("Conversation storage requires read(scope, callback) and write(scope, callback).");
   }
@@ -44,15 +44,15 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     return ids.length ? transaction.readTurn(ids.at(-1)) : null;
   }
 
-  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], turnMetadata = null, requireOpenTurn = false } = {}) {
+  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], turnMetadata = null, requireOpenTurn = false, outputId = "" } = {}) {
     const messageText = normalizeText(text);
     const id = normalizeText(messageId);
-    if (!messageText) return null;
+    if (!messageText && !(role === "user" && Array.isArray(attachments) && attachments.length)) return null;
     return storage.write(scope, async (transaction) => {
       if (id && await transaction.hasMessage(id)) return null;
       const createdAt = new Date(at || clock());
       const tail = ["assistant", "commentary", "thinking"].includes(role) ? await tailTurn(transaction) : null;
-      const open = tail?.user && !tail.assistant ? tail : null;
+      const open = (tail?.user || applicationTurns && tail?.system?.origin === "application") && !tail.assistant ? tail : null;
       if (requireOpenTurn && !open) return null;
       const thinkingOnly = role === "thinking" && !open && at && tail &&
         !tail.system && !tail.user && !tail.assistant && !tail.commentary?.length &&
@@ -60,6 +60,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
       const turnId = open?.turnId || (thinkingOnly ? tail.turnId : await transaction.nextTurnId());
       await transaction.appendMessage(turnId, {
         role, text: messageText, messageId: id, at: createdAt.toISOString(),
+        ...(["assistant", "commentary", "thinking"].includes(role) && normalizeText(outputId) ? { outputId: normalizeText(outputId) } : {}),
         ...(role === "user" ? { attachments, turnMetadata } : {})
       });
       return transaction.readTurn(turnId);

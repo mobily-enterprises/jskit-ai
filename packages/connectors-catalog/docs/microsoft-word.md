@@ -49,7 +49,7 @@ Env variable. Use an account with an existing drive; JSKIT does not provision it
 }
 ```
 
-The same values are editable in Vibe64: display name, account ownership, tenant,
+The same values are editable in the connection editor: display name, account ownership, tenant,
 Client ID, secret/callback references and the two permission choices. Saving the
 file does not open provider consent. The [OAuth composition pattern](../patterns/oauth-connection/PATTERN.md)
 uses the library for consent, private encrypted text storage and runtime access.

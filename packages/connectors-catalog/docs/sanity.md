@@ -14,7 +14,7 @@ S256 and the single `global` scope. Keep the resource value exact even though
 MCP transport uses the root URL. Metadata was read without authentication;
 no client or provider account was created during implementation.
 
-In Vibe64 development settings, choose **Register client and connect** after
+In the connection editor, choose **Register client and connect** after
 setting the suggested callback. The existing owner-authorized action saves the
 client ID in configuration, saves secret/callback/recovery ID in Env and starts
 the application's setup command. It refuses occupied Env keys and stale source.
@@ -94,7 +94,7 @@ run JSKIT or call an editor server for content. The generated application can us
 its own Sanity SDK for runtime content; this builder-context connection does not
 automatically become a public site's credential. CLI composition uses the same
 configuration and runtime API without Vibe64. Neither path automatically attaches
-these tools to Vibe64's coding assistant.
+these tools to an assistant.
 
 ## Automation and application ownership
 

@@ -38,7 +38,7 @@ const waveDefinition = Object.freeze({
   ],
   setup: { url: "https://developer.waveapps.com/hc/en-us/articles/50682251860884-2-Create-an-application", steps: [
     "Sign in to Wave, open Manage applications in the developer portal, and choose Create New Application. Enter your application name and its backend Redirect URI, then save the application.",
-    "Use this project's deployed application URL as the callback origin, followed by the callback route implemented by its backend. Register that exact URL in Wave; do not use the Vibe64 editor address.",
+    "Use this project's deployed application URL as the callback origin, followed by the callback route implemented by its backend. Register that exact URL in Wave; do not use an editor address.",
     "Copy the issued Client ID into Client ID. Put the issued Client Secret in the project's Env, then enter its env:VARIABLE reference in Client secret reference. A personal access token is not a Client Secret.",
     "Put the same registered callback URL in the project's Env and enter its env:VARIABLE reference in Callback URL reference. The backend must serve that route and use the same callback during token refresh.",
     "Wave OAuth access requires an active Pro or Wave Advisor business subscription. Integrations for other Wave users require Wave approval.",

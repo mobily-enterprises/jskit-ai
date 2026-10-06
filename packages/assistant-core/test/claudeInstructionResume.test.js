@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { createConversationRuntime } from "../src/server/conversation/index.js";
+import { createClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
 
 const execute = promisify(execFile);
 
@@ -55,8 +55,8 @@ test("native Claude replaces a recorded system prompt on resume and retains ordi
     ANTHROPIC_DEFAULT_HAIKU_MODEL: "fixture-model", CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
     CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1", DISABLE_AUTOUPDATER: "1"
   };
-  const runtime = createConversationRuntime({ engine: "claude", getProcess: () => null,
-    isActive: () => false, startProcess: () => {}, stopProcess: () => {} });
+  const runtime = createClaudeConversationTurn({ conversationId: "instruction-arguments", process: { getProcess: () => null,
+    isActive: () => false, startProcess: () => {}, stopProcess: () => {} } });
   async function turn(id, instructions, text, resume) {
     const { stdout } = await execute("claude", ["--bare", "--print", "--output-format", "json", "--model", "fixture-model",
       "--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',

@@ -35,6 +35,11 @@ async function createSherpaSpeechEngine({
   synthesizerThreads = 1
 } = {}) {
   if (!configuration || typeof configuration !== "object" || Array.isArray(configuration)) throw new TypeError("Speech configuration must be an object.");
+  const recognitionVocabulary = configuration.recognitionVocabulary ?? {};
+  if (!recognitionVocabulary || typeof recognitionVocabulary !== "object" || Array.isArray(recognitionVocabulary) ||
+      Object.entries(recognitionVocabulary).some(([phrase, spelling]) => !phrase.trim() || typeof spelling !== "string" || !spelling.trim())) {
+    throw new TypeError("Recognition vocabulary must map nonempty phrases to their written spellings.");
+  }
   const outputSampleRate = configuration.outputSampleRate;
   if (outputSampleRate !== undefined && (!Number.isInteger(outputSampleRate) || outputSampleRate < 8000 || outputSampleRate > 48000)) {
     throw new TypeError("Output sample rate must be an integer between 8000 and 48000 Hz.");
@@ -154,7 +159,7 @@ async function createSherpaSpeechEngine({
     while (recognizer.isReady(stream)) {
       recognizer.decode(stream);
     }
-    return normalizeRecognizedText(recognizer.getResult(stream)?.text);
+    return normalizeRecognizedText(recognizer.getResult(stream)?.text, recognitionVocabulary);
   }
 
   function createListeningSession({ onPartial = () => null, onEndpoint = () => null, continuous = false } = {}) {

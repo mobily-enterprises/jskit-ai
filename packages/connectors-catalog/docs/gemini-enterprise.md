@@ -80,7 +80,7 @@ Never accept a shared subject or application ID directly from an untrusted calle
    **Create** and securely save the displayed client ID and secret. Enter only
    the ID and secret reference in the integration file. Google documents this
    confidential flow in its [web-server OAuth guide](https://developers.google.com/identity/protocols/oauth2/web-server).
-7. In Vibe64, copy **Suggested callback URL** into the Google redirect URI
+7. In the connection editor, copy **Suggested callback URL** into the Google redirect URI
    registration. **Save configuration**, then use the Env links for the secret
    and callback references. For the example above, set `GEMINI_ENTERPRISE_SECRET`
    and `GEMINI_ENTERPRISE_CALLBACK` in the

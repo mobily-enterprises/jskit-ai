@@ -263,8 +263,8 @@ the same application-owned credentials.
 There is no OAuth callback in this API-key flow, so editor VM URLs and custom
 application domains do not add OAuth redirect registrations. Twilio Verify and
 SMS login are separate products and are outside this adapter. The application
-owns access policy; connections are project-owned. Editor coding-assistant
-attachment is deferred and not enabled by saving this connector.
+owns access policy; connections are project-owned. Assistant tool attachment
+requires explicit host integration and is not enabled by saving this connector.
 
 ## Proof
 

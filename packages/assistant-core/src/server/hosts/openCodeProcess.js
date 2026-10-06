@@ -1,0 +1,23 @@
+export {
+  OPENCODE_EXPECTED_VERSION,
+  OPENCODE_HOST,
+  OPENCODE_READY_TIMEOUT_MS,
+  assertOpenCodeModelProvider,
+  createOpenCodeConversationPlugin,
+  createOpenCodeServerProcess,
+  createOpenCodeSharedRuntime,
+  ensureOpenCodeSession,
+  limitOpenCodeModelOutput,
+  openCodeApplicationToolSchemas,
+  openCodeConversationAgents,
+  openCodeEnvironmentForDirectory,
+  openCodeEnvironmentForSession,
+  openCodeModel,
+  openCodeProcessEnvironment,
+  openCodeServerForDirectory,
+  readOpenCodeEnvironments,
+  readOpenCodeCatalog,
+  readOpenCodeZenModelIds,
+  verifyOpenCodeApiKey,
+  sameOpenCodeSelection
+} from "../conversation/openCodeProcess.js";

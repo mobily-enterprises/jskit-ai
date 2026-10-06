@@ -17,16 +17,16 @@ requires remote HTTP MCP with OAuth; an API key cannot replace this flow.
    Management**, creates/edits the role, and selects **AI Features → Use MCP
    (read)** and, when needed, **Use MCP (write)**. Assign the role to the intended
    user/group/service account and projects.
-4. In Vibe64, leave the new Client ID empty, set the Suggested callback URL and
+4. In the connection editor, leave the new Client ID empty, set the Suggested callback URL and
    choose **Register client and connect**. The workspace owner can register once
-   at the selected regional authority; Vibe64 saves the client ID in configuration
+   at the selected regional authority; the connection editor saves the client ID in configuration
    and its secret, callback and recovery client ID in development Env before
    starting the application’s connection command. Existing Env values are not
    overwritten. If local saving fails, recover the client from Env/provider state
    before trying again. CLI users can use the setup operation below. The reviewed
    documentation establishes dynamic registration, not a manual developer-app
    creation screen; do not search for an invented console form.
-5. Enter the returned **Client ID** in Vibe64. Store its secret and the exact
+5. Enter the returned **Client ID** in the connection editor. Store its secret and the exact
    callback URL through Env, then fill **Client secret reference** and
    **Callback URL reference**. Keep secrets outside `integrations.json`.
 6. Save. Through the runtime's authorization flow, open the returned URL, sign
@@ -80,7 +80,7 @@ for every account or client policy; that acceptance check remains unperformed.
 
 For manual registration, use an HTTP client on your own machine:
 
-In Vibe64, expand **Set up Amplitude → OAuth client registration**. Set the
+In the connection editor, expand **Set up Amplitude → OAuth client registration**. Set the
 region, permissions and **Suggested callback URL** first. **Copy registration
 endpoint** and **Copy registration request** provide the values for this
 project without requiring a Client ID. Copying sends no request. The example
@@ -91,9 +91,9 @@ below is for CLI users or an HTTP client configured by hand.
    `/mcp`, `/authorize` or `/token` endpoint.
 2. Set the request header `Content-Type: application/json`. Set the body to
    raw JSON using the example below. Replace the example name and callback
-   with the owning application's name and exact callback shown in Vibe64.
+   with the owning application's name and exact callback shown in the connection editor.
    The application must implement that route before user consent can finish.
-3. Match `scope` to the permissions selected in Vibe64. The example uses the
+3. Match `scope` to the permissions selected in the connection editor. The example uses the
    default read and refresh permissions; add `mcp:write` only when needed.
 4. Send once. On a successful response, copy `client_id` into **Client ID**.
    Store `client_secret` as `AMPLITUDE_CLIENT_SECRET` through the project's
@@ -202,9 +202,8 @@ signup, live registration/consent, live tool calls and generated apps are exclud
 
 ## LIMITATIONS
 
-Editor coding-assistant tool attachment is deferred. For example, this runtime
+Assistant tool attachment requires explicit host integration. For example, this runtime
 can call an authorized Amplitude analytics tool from an explicitly composed
-application-owned assistant, but configuring it in Vibe64 does not let Codex or
-OpenCode answer “where are customers dropping out of my funnel?” from your live
+application-owned assistant, but saving its configuration alone does not authorize an assistant to answer “where are customers dropping out of my funnel?” from your live
 Amplitude data. Registration and consent do not attach tools to editor chat.
 No live Amplitude registration, consent or generated application was exercised.

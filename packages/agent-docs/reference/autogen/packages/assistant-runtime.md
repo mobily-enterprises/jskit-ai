@@ -14,6 +14,10 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/client/components/AssistantConversationClientElement.vue`
+Exports
+- None
+
 ### `src/client/components/AssistantSettingsClientElement.vue`
 Exports
 - None
@@ -31,6 +35,20 @@ Local functions
 - `selectConversation(entry)`
 - `startNewConversation()`
 
+### `src/client/composables/useAssistantConversation.js`
+Exports
+- `configureAssistantConversations(app, { actorKey, api = null, request, clearDraftOn = "dispatch" } = {})`
+- `useAssistantConversation(options)`
+- `useAssistantConversationFactory(options = {})`
+Local functions
+- `text(value)`
+- `isQuestionConfiguration(value)`
+- `draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "")`
+- `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, draftStorage, application, goalReadEnabled })`
+- `useBoundedTask({ command, endpoint, scope, input, result, onResult }, { active, data, presentation })`
+- `conversationBindingSetup({ socket, boundedTask = null } = {})`
+- `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, draftWhileLoading = false, draftStorage = null, application = null, boundedTask = null, data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup)`
+
 ### `src/client/composables/useAssistantRuntime.js`
 Exports
 - `useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } = {})`
@@ -47,9 +65,13 @@ Local functions
 ### `src/client/index.js`
 Exports
 - `AssistantSurfaceClientElement`
+- `AssistantConversationClientElement`
 - `AssistantSettingsClientElement`
 - `AssistantClientProvider`
 - `useAssistantRuntime`
+- `configureAssistantConversations`
+- `useAssistantConversation`
+- `useAssistantConversationFactory`
 
 ### `src/client/providers/AssistantClientProvider.js`
 Exports
@@ -72,6 +94,10 @@ Local functions
 - `normalizeBoundedPositiveInteger(value, fallback, maximum)`
 - `normalizeTotalPages(value)`
 
+### `src/client/support/subscribeAssistantConversation.js`
+Exports
+- `subscribeAssistantConversation({ socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug, read, onState, onEvent = () => {}, onError = () => {} } = {})`
+
 ### `src/client/support/workspaceScopeSupport.js`
 Exports
 - `EMPTY_WORKSPACE_WEB_SCOPE_SUPPORT`
@@ -85,37 +111,75 @@ Exports
 
 ### `src/server/actions.js`
 Exports
-- `createAssistantActions({ assistantConfigService, chatService, config = {} } = {})`
+- `createAssistantActions({ assistantConfigService, chatService, conversationRuntime = null, conversationAccess = null, conversationDataSchema = null, conversationConfigurationSchema = null, conversationSelectionSchema = null, conversationReplacementSchema = null, workspaceScopeSupport = null, config = {} } = {})`
 Local functions
 - `configuredAssistantSurfaces(config = {})`
+- `createConversationActions({ conversationRuntime, conversationDataSchema, conversationConfigurationSchema, conversationSelectionSchema, conversationReplacementSchema, config, runtimeSurfaces, workspaceScopeSupport })`
 
 ### `src/server/AssistantProvider.js`
 Exports
 - `AssistantFeature`
+
+### `src/server/createAssistantRuntime.js`
+Exports
 - `createAssistantAiClientFactory(config = {})`
-- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, database, env, aiConnections, attachments, workspaces } = {})`
+- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories = {}, env, aiConnections, attachments, workspaces } = {})`
+- `createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments })`
+
+### `src/server/createAssistantSettingsActions.js`
+Exports
+- `createAssistantSettingsActions({ assistantConfigService, settingsSurfaces })`
+
+### `src/server/index.js`
+Exports
+- `AssistantFeature`
+- `createAssistantActions`
+- `assistantConversationGoalBodyValidator`
+- `registerAssistantRoutes`
+- `registerConversationSubscriptions`
+- `registerFastifyConversations`
 
 ### `src/server/inputSchemas.js`
 Exports
+- `assistantConversationIdInputValidator`
+- `assistantConversationMessageIdInputValidator`
+- `assistantConversationReadQueryValidator`
+- `assistantConversationSendBodyValidator`
+- `conversationSendBodyValidator(conversationDataSchema = null)`
+- `conversationConfigureBodyValidator(configurationSchema)`
+- `conversationSelectBodyValidator(selectionSchema)`
+- `conversationReplaceBodyValidator(replacementSchema)`
+- `assistantConversationGoalBodyValidator`
 - `assistantSurfaceRouteParamsValidator`
 - `assistantTargetSurfaceInputValidator`
 
+### `src/server/registerConversationSubscriptions.js`
+Exports
+- `registerConversationSubscriptions({ realtime, events, actions, config = {}, workspaceScopeSupport = null, subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated" } = {})`
+Local functions
+- `requireSubscriptionId(input)`
+- `subscriptionError(error)`
+
+### `src/server/registerFastifyConversations.js`
+Exports
+- `registerFastifyConversations(app, { runtime, config, authenticate, bootstrap, env = process.env } = {})`
+
 ### `src/server/registerRoutes.js`
 Exports
-- `registerRoutes(router, { config = {}, workspaceScopeSupport = null } = {})`
+- `registerRoutes(router, { config = {}, workspaceScopeSupport = null, conversationRuntime = null, conversationAccess = null, conversationDataSchema = null, conversationConfigurationSchema = null, conversationSelectionSchema = null, conversationReplacementSchema = null, assistantConfigService = null } = {})`
 Local functions
-- `requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null)`
-- `readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null)`
-- `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
-- `requireHostSurfaceId(request)`
 - `shouldExposeAppErrorDetails(errorCode = "")`
 - `sendPreStreamErrorResponse(reply, error)`
-- `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 - `buildChatStreamActionInput(routeInput = {}, requestBody = {})`
-- `resolveAssistantSettingsRecordId(record = {})`
 - `resolveAssistantConversationMessagesRecordId(record = {})`
-- `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 - `registerRuntimeRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
+- `registerConversationRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null, conversationDataSchema = null, conversationConfigurationSchema = null, conversationSelectionSchema = null, conversationReplacementSchema = null } = {})`
+
+### `src/server/registerSettingsRoutes.js`
+Exports
+- `registerSettingsRoutes(router, resolveCurrentAppConfig, { requiresWorkspace = false, workspaceScopeSupport = null } = {})`
+Local functions
+- `resolveAssistantSettingsRecordId(record = {})`
 
 ### `src/server/repositories/assistantConfigRepository.js`
 Exports
@@ -170,41 +234,49 @@ Exports
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
+- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
 Local functions
 - `normalizeConversationId(value)`
 - `normalizeHistory(history = [])`
 - `normalizeStreamInput(payload = {})`
 - `hasStreamWriter(streamWriter)`
 - `isAbortError(error)`
-- `requiresCurrentTime(value = "")`
-- `resolvePreflightTools(toolDescriptors = [], input = "")`
-- `extractTextDelta(deltaContent)`
 - `toCompactJson(value, fallback = "{}")`
 - `buildToolContractLine(toolDescriptor = {})`
 - `buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {})`
-- `buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
-- `buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
-- `toSafeToolResultText(value)`
-- `buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
-- `sanitizeAssistantMessageText(value)`
-- `buildAssistantToolCallMessage(toolCalls = [])`
-- `parseDsmlToolCallsFromText(value = "")`
-- `consumeCompletionStream(stream, onText = () => {})`
 - `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `buildAssistantActionContext(context = {}, assistantSurface = {})`
 
 ### `src/server/services/transcriptService.js`
 Exports
 - `createTranscriptService({ conversationsRepository, messagesRepository } = {})`
+- `deriveConversationTitleFromMessage(contentText)`
+- `isDefaultConversationTitle(value)`
 Local functions
 - `resolveWorkspaceId(workspace, { required = false } = {})`
 - `resolveActorUserId(user, { required = false } = {})`
 - `normalizePagination(pagination = {}, { defaultPageSize = DEFAULT_PAGE_SIZE, maxPageSize = MAX_PAGE_SIZE } = {})`
 - `normalizeCursorPagination(query = {}, { defaultLimit = DEFAULT_PAGE_SIZE, maxLimit = MAX_PAGE_SIZE } = {})`
-- `deriveConversationTitleFromMessage(contentText)`
-- `isDefaultConversationTitle(value)`
 - `requireAssistantSurface(assistantSurface = {})`
+
+### `src/server/sqlConversationStorage.js`
+Exports
+- `createSqlConversationStorage({ conversationsRepository, messagesRepository })`
+- `inspectSqlConversationRows(conversation, rows)`
+Local functions
+- `authored(row)`
+- `rowLink(row)`
+- `messageFromRow(row)`
+- `requireUnambiguous(projection)`
+
+### `src/server/support/assistantRouteContext.js`
+Exports
+- `requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null)`
+- `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false, workspaceScopeSupport = null } = {})`
+Local functions
+- `readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null)`
+- `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
+- `requireHostSurfaceId(request)`
 
 ### `src/server/support/assistantServerConfig.js`
 Exports
@@ -221,30 +293,56 @@ Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context = {})`
 
-### `src/shared/assistantResponseText.js`
-Exports
-- `isAssistantProgressOnlyText(value)`
-
 ### `src/shared/assistantRuntimeConfig.js`
 Exports
 - `assistantRuntimeConfig`
 
 ### `src/shared/assistantSurfaces.js`
 Exports
+- `defineAssistantSurface(surfaceId, { pagesRoot = "", requiresWorkspace = false, configScope = requiresWorkspace ? "workspace" : "global", ...definition } = {})`
 - `normalizeAssistantConfigScope(value = "")`
 - `resolveAssistantSurfaceConfig(appConfig = {}, targetSurfaceId = "")`
 - `resolveAssistantSurfacesConfig(appConfig = {})`
 - `resolveSurfaceDefinitions(appConfig = {})`
 
+### `src/shared/conversationRealtime.js`
+Exports
+- `ASSISTANT_CONVERSATION_SUBSCRIBE`
+- `ASSISTANT_CONVERSATION_UNSUBSCRIBE`
+- `ASSISTANT_CONVERSATION_EVENT`
+
 ### `src/shared/index.js`
 Exports
 - `assistantRuntimeConfig`
+- `defineAssistantSurface`
 - `normalizeAssistantConfigScope`
 - `resolveAssistantSurfaceConfig`
 - `resolveAssistantSurfacesConfig`
 - `resolveSurfaceDefinitions`
 
 ### fixtures
+
+### `fixtures/canonical-conversation/App.vue`
+Exports
+- None
+Local functions
+- `recordDispatch(messageId)`
+
+### `fixtures/canonical-conversation/DraftConversation.vue`
+Exports
+- None
+
+### `fixtures/canonical-conversation/main.js`
+Exports
+- None
+
+### `fixtures/canonical-conversation/socket.js`
+Exports
+- `createFixtureSocket()`
+
+### `fixtures/canonical-conversation/vite.config.mjs`
+Exports
+- None
 
 ### `fixtures/conversation/App.vue`
 Exports

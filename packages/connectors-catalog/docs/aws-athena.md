@@ -52,7 +52,7 @@ ownership is supported; application users still share the configured AWS identit
    workgroup. Grant only the required source data, catalog, result storage and
    encryption access. Permissions depend on the actual query's data sources.
 5. Follow [AWS credential setup](aws-credentials.md), enter the references,
-   region and workgroup in Vibe64 or the JSON file, and save.
+   region and workgroup in the connection editor or the JSON file, and save.
 6. In the editor, use **Set credential in Env** for each saved reference and enter
    its value, then return and choose **Connect account**. CLI callers resolve the
    same references from their private environment and call `connectApiKey`.

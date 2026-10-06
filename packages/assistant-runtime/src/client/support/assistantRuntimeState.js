@@ -2,9 +2,9 @@ import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/ker
 import {
   MAX_HISTORY_MESSAGES,
   MAX_INPUT_CHARS,
+  isAssistantProgressOnlyText,
   parseJsonObject
 } from "@jskit-ai/assistant-core/shared";
-import { isAssistantProgressOnlyText } from "../../shared/assistantResponseText.js";
 import { conversationTurnsFromMessages } from "@jskit-ai/assistant-core/shared/conversation";
 
 const CONVERSATION_MESSAGE_STATUS = Object.freeze({

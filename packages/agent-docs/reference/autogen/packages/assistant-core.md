@@ -72,6 +72,10 @@ Local functions
 - `stop()`
 - `updateConfiguration(value)`
 
+### `src/client/conversation/AssistantConversationStatus.vue`
+Exports
+- None
+
 ### `src/client/conversation/AssistantGoalControl.vue`
 Exports
 - None
@@ -148,12 +152,14 @@ Local functions
 Exports
 - `AssistantConversationElement`
 - `AssistantTranscript`
+- `AssistantConversationStatus`
 - `AssistantPromptInput`
 - `AssistantComposerActions`
 - `AssistantProgress`
 - `AssistantComposerSupport`
 - `AssistantGoalControl`
 - `useAssistantSuggestions`
+- `useAssistantQuestions`
 - `LongTextPreviewBlocks`
 - `LongTextInlineParts`
 - `useScrollToBottom`
@@ -185,10 +191,15 @@ Local functions
 ### `src/client/conversation/messageDelivery.js`
 Exports
 - `createAssistantMessageDelivery({ deliver: defaultDeliver } = {})`
-- `unmatchedOptimisticMessages(turns = [], optimisticMessages = [])`
+- `unmatchedOptimisticMessages(turns = [], optimisticMessages = [], { receiptsOnly = false } = {})`
+- `retainAssistantConversation`
 Local functions
 - `messageText(value)`
 - `turnMatchesOptimisticMessage(turn = {}, optimistic = {})`
+
+### `src/client/conversation/retainedConversation.js`
+Exports
+- `retainAssistantConversation(app, key, createRuntime, reader = { active: true })`
 
 ### `src/client/conversation/submitText.js`
 Exports
@@ -217,6 +228,10 @@ Local functions
 - `attachmentUploadResult(upload = null)`
 - `attachmentProgress(progress = {}, possibleTotal, fallbackTotal = 0)`
 - `attachmentReceipt(row, uploaded = {})`
+
+### `src/client/conversation/useAssistantQuestions.js`
+Exports
+- `useAssistantQuestions({ message = "", extraChoice = null } = {})`
 
 ### `src/client/conversation/useAssistantSuggestions.js`
 Exports
@@ -254,6 +269,79 @@ Local functions
 Exports
 - `assistantHttpClient`
 
+### `src/server/conversation/agentRun.js`
+Exports
+- `conversationAgentRunRecord(record, normalizedRunId, { normalizeState = normalizeRunState, isActive = runStateIsActive } = {})`
+- `conversationAgentRunEvent(previous, normalizedRunId, { event = {}, patch = {} } = {}, { now = () => new Date(), normalizeState = normalizeRunState, isTerminal = runStateIsTerminal } = {})`
+- `createCodexConversationRunStore({ storage, scope, segmentId, isCurrent, clock = () => new Date() } = {})`
+- `createCodexConversationStore({ storage, scope, segmentId, isCurrent, transcript, streams } = {})`
+Local functions
+- `normalizeRunState(state)`
+- `runStateIsActive(state)`
+- `runStateIsTerminal(state)`
+
+### `src/server/conversation/attachments.js`
+Exports
+- `conversationAttachmentIds(value = [])`
+- `createConversationAttachmentReader({ attachments, context, conversationId, signal, authorize, types, maximumBytes })`
+Local functions
+- `invalid(message)`
+
+### `src/server/conversation/claudeClient.js`
+Exports
+- `CLAUDE_JSON_MAX_FRAME_BYTES`
+- `createClaudeJsonClient({ stream, onEvent = async () => {}, onControlRequest, onFailure = async () => {}, timeoutMs = 30_000 } = {})`
+- `readClaudeJsonFrames`
+Local functions
+- `claudeProtocolError(message, code = "assistant_claude_protocol_error")`
+
+### `src/server/conversation/claudeHistory.js`
+Exports
+- `listClaudeConversationStorage({ configRoot, binding })`
+- `deleteClaudeConversationHistory({ configRoot, workdir, conversationId })`
+- `retireClaudeConversationHistory({ configRoot, binding, beforeDelete, requireIdle, signal })`
+- `claudeMessageBlocks(frame, { includeNested = false } = {})`
+- `readClaudeHistory(options)`
+- `requireClaudeSessionId(id)`
+- `archivedClaudeProjectDirectory(workdir)`
+- `matchingClaudeProjectDirectories(names, directory)`
+Local functions
+- `claudeHistoryPath({ configRoot, workdir, conversationId })`
+
+### `src/server/conversation/claudeProcess.js`
+Exports
+- `readClaudeCodeAuthStatus({ env = process.env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal } = {})`
+- `claudeModelConfiguration({ providerId, model: modelId }, connection)`
+- `verifyClaudeProviderKey(provider, apiKey, fetchImpl)`
+- `claudeFlagSettings({ effort = "", providerEnv, hooks, commandHook } = {})`
+- `claudeCodeArguments({ sessionId, resume = false, model = "", effort = "", toolFree = false, applicationTools = false, outputSchema, terminal = false, instructionArguments = [], permissionMode, isolated = false, settings = { fallbackModel: [] } } = {})`
+- `stopClaudeCodeProcess({ process: native, executionId, stopExecution })`
+- `bindClaudeConversationAccount(entry, { identity, providerId, stop, save })`
+- `claudePlanUsage(value)`
+- `claudeCatalogueModels(initialization)`
+- `createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false })`
+- `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env = process.env, workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper, ...options } = {})`
+Local functions
+- `readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal })`
+
+### `src/server/conversation/claudeTools.js`
+Exports
+- `claudeApplicationToolResponse(request, { schemas, turn, signal })`
+- `CLAUDE_APPLICATION_TOOL_SERVER`
+
+### `src/server/conversation/claudeTurn.js`
+Exports
+- `claudeNativeMessageId(id)`
+- `waitForClaudeConversationTurn(conversation, input = {}, { signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = failure, interruptedMessage = "Claude was interrupted when the application disconnected." } = {})`
+- `runClaudeRenewalTurn(conversation, { clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId, requireFreshHistory = false, timeoutMs = 180_000 }, { createError = failure, unreadableCode = "assistant_claude_turn_unreadable", failedCode = "assistant_claude_turn_failed", acceptedField = "inputAccepted" } = {})`
+- `createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send })`
+- `createClaudeConversationOwner({ configRoot, store, preparation, process, onEvent, createError = failure, disconnectedMessage = "Claude was interrupted when the application disconnected." })`
+- `createClaudeConversationTurn({ conversationId, onEvent = async () => {}, process, entry } = {})`
+Local functions
+- `failure(message, code = "assistant_claude_turn_failed")`
+- `text(value)`
+- `now()`
+
 ### `src/server/conversation/codexClient.js`
 Exports
 - `CodexAppServerJsonRpcClient`
@@ -264,9 +352,64 @@ Local functions
 - `addSocketListener(socket, eventName, handler)`
 - `socketMessageText(event, maxBytes = Number.POSITIVE_INFINITY)`
 
+### `src/server/conversation/codexConfiguration.js`
+Exports
+- `normalizeCodexThreadId(value)`
+- `codexAppServerThreadSettings({ effectiveSettings, config = null, cwd = "", systemPrompt = null, hostContext = null, model = "", approvalPolicy, reasoningSummary, sandbox } = {})`
+- `codexAppServerReadOnlyThreadSettings(settings)`
+- `codexAppServerTurnSettings({ effectiveSettings, cwd = "", effort = "", model = "", approvalPolicy, reasoningSummary, sandboxPolicy, externalSandbox = false } = {})`
+- `codexInteractiveArguments({ command, threadId = "", remoteEndpoint = "", model, effort, disableStartupUpdates = false, bypassApprovalsAndSandbox = false, bypassHookTrust = false } = {})`
+- `codexAppServerProjectHookTrustConfig(provider, cwd = "", { persist = false } = {})`
+- `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [] })`
+- `codexAppServerTextHasControlCharacters(value = "")`
+- `createCodexAppServerIsolation({ clientName = "jskit", minimumVersion = "0.151.0", disabledFeatures = DISABLED_FEATURES, limits: { userAgentMaxLength = 512, mcpServerMaxCount = 128, mcpServerNameMaxLength = 256, configResponseMaxBytes = 256 * 1024, hookMaxCount = 256, hookErrorMaxCount = 256, hookFieldMaxLength = 2048, hookFingerprintMaxLength = 256 * 1024, hookResponseMaxBytes = 512 * 1024 } = {}, createError = codexAppServerIsolationPolicyError } = {})`
+- `codexToolFreeConfiguration(options)`
+- `readCodexToolFreeConfiguration(provider = null, workdir = "", assertCompatibility = codexConversationIsolation.assertCompatibility)`
+- `codexCatalogRows(value = null, createError = message => new Error(message))`
+- `codexCatalogReasoningEfforts(model = {})`
+- `codexCatalogModels(rows)`
+- `codexConfiguredModelCatalog(includeModel, model, reasoningEffort)`
+- `codexProviderModelCatalog({ models })`
+- `codexProviderConfiguration(provider, apiKey)`
+- `codexProviderFileConfiguration(provider, key, codexHome)`
+- `verifyCodexProviderKey(provider, apiKey, fetchImpl = fetch)`
+- `createCodexAccountReader({ errorPrefix = "", identityNamespace = "codex-account-v1", secretNamespace = "codex-auth-secret-v1" } = {})`
+- `codexAuthOutputRequiresReconnect(output = "")`
+- `CODEX_APP_SERVER_ACCOUNT_ID_MAX_LENGTH`
+Local functions
+- `isPlainRecord(value)`
+- `deepFreezeCodexAppServerHelperConfig(value)`
+- `codexAppServerIsolationPolicyError(message = "", details = {})`
+
+### `src/server/conversation/codexConversations.js`
+Exports
+- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, steerFailedCode })`
+
+### `src/server/conversation/codexDetachedTurn.js`
+Exports
+- `CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS`
+- `createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "", { includeThreadHistory = true, allowEmptyResponse = false, onEvent = null, timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS } = {})`
+- `waitForCodexAppServerTurn(provider, threadId = "", turn = null, { timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createError = codexAppServerTurnError } = {})`
+Local functions
+- `codexAppServerTurnTokenUsage(notification = {})`
+- `codexAppServerTurnError(reason, details = {}, providerMessage = "")`
+
 ### `src/server/conversation/codexEvents.js`
 Exports
+- `codexContextUsageFromNotification(notification = {})`
 - `classifyCodexAppServerEvent(notification = {})`
+- `codexAppServerThreadRawValue(thread = {})`
+- `codexAppServerThreadTurnId(thread = {})`
+- `codexAppServerThreadError(thread = {})`
+- `codexAppServerProviderThreadTurns(thread = null)`
+- `codexAppServerProviderTurnId(turn = {})`
+- `codexAppServerProviderTurnStatus(turn = {})`
+- `codexAppServerProviderTurnItems(turn = {})`
+- `codexAppServerProviderTurnClientIds(turn = {})`
+- `codexAppServerProviderTurnForOperation(thread = null, { clientMessageId = "", turnId = "" } = {})`
+- `inspectCodexAppServerRenewalThread(thread = null, { clientMessageId = "", turnId: expectedTurnId = "", requireFresh = false } = {})`
+- `codexAppServerProviderTurnText(thread = null, turnId = "")`
+- `codexAppServerProviderTurnError(turn = {})`
 - `codexAppServerAssistantItemText(item = {})`
 - `codexAppServerContentText(value = null)`
 - `codexAppServerContextRefreshReason(notification = {})`
@@ -287,26 +430,377 @@ Exports
 - `codexAppServerStatusFromValue(status = null)`
 - `codexAppServerUserMessageText(item = {})`
 Local functions
+- `nonNegativeInteger(value)`
 - `codexAppServerTextInputText(input = {})`
 - `codexAppServerHookPromptText(item = {})`
 - `codexAppServerFinalEventText(notification = {}, event = null, payload = {})`
 - `codexAppServerSignalName(value = "")`
 - `codexAppServerSignalNames(value = null)`
 - `codexAppServerProviderThread(value = {})`
-- `codexAppServerProviderTurnId(turn = {})`
-- `codexAppServerProviderTurnItems(turn = {})`
 - `codexAppServerProviderThreadTurn(value = {}, turnId = "")`
 - `codexAppServerProviderTurnAssistantSegments(turn = {})`
 
+### `src/server/conversation/codexGoalCommands.js`
+Exports
+- `createCodexGoalCommands({ conversationContext, ensureThreadReady, publish, readCodexAppServerAgentRunForSession, reconcileCodexAppServerGoalUpdated, submitCodexAppServerAssistantResult, subscribeCodexAppServerEvents, turnState })`
+
+### `src/server/conversation/codexHelperExecution.js`
+Exports
+- `errorMessage(value, fallback = "Codex could not be prepared.")`
+- `createCodexHelperOwnershipError({ applicationName = "Application", errorPrefix = "" } = {})`
+- `readCodexAppServerAccountIdentity(provider, codexAppServerHelperOwnershipError)`
+- `assertCodexAppServerHelperAccountIdentity(provider, expectedSignature = "", codexAppServerHelperOwnershipError)`
+- `sendPreparedCodexAppServerHelperTurn(provider, prepared, helperIsolation)`
+- `prepareDetachedCodexHelperThread(owner, scope, preparation, { applicationName = "Application" } = {})`
+Local functions
+- `normalizeText(value)`
+
+### `src/server/conversation/codexHelperThreadLedger.js`
+Exports
+- `CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION`
+- `CODEX_HELPER_THREAD_LIFECYCLES`
+- `createCodexHelperThreadLedgerOwner({ executionProfile, snapshotExecutionProfile = executionProfile, errorPrefix = "codex_helper_" } = {})`
+
+### `src/server/conversation/codexHelperThreadRecovery.js`
+Exports
+- `normalizeText(value)`
+- `directoryExists(filePath = "")`
+- `createCodexHelperThreadRecovery(lifecycle, { providerOwner, applicationName, errorPrefix })`
+
+### `src/server/conversation/codexHelperThreads.js`
+Exports
+- `createCodexHelperThreadLifecycle({ providerOwner, ledgerOwner, applicationName = "Application", errorPrefix = "" } = {})`
+Local functions
+- `isRecord(value)`
+
+### `src/server/conversation/codexHistoryAdapter.js`
+Exports
+- `startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fetchImpl = fetch, maxRequestBytes = MAX_REQUEST_BYTES } = {})`
+- `translateCodexHistory(body, destination = "openai")`
+- `prepareCodexHistory(params, client, { baseUrl, modelProviderId, ...options } = {})`
+Local functions
+- `compactionHistoryError(reason, statusCode = 422)`
+- `restoreCompactedHistory(body, { destination, historyPath, codexHome, signal, maxRequestBytes })`
+- `forwardedHeaders(input)`
+
+### `src/server/conversation/codexMessageCommands.js`
+Exports
+- `createCodexMessageCommands({ output, journal, recovery, threadStatus, selection, observer, delivery, promptDeliveries: codexAppServerPromptDeliveries, createRuntime, debugError, debugLog, errorPrefix, messageIdPrefix, messageMetadata, namespace, providerSessions, recoverAdmission, steerFailedCode, turnAlreadyRunningError, turnState })`
+
+### `src/server/conversation/codexMessageDelivery.js`
+Exports
+- `createCodexAppServerMessageDelivery({ namespace, publish, messageMetadata, createStore, turnStateFromAgentRun, deliveryStateMetadataKey, output, journal, recovery })`
+
+### `src/server/conversation/codexNativeHistoryExport.js`
+Exports
+- `exportCodexNativeHistory(client, threadId, onRecord, { signal, maxPages = 20_000, maxBytes = 2 * 1024 ** 3, errorPrefix = "" } = {})`
+Local functions
+- `threadHistoryMetadata(thread)`
+
+### `src/server/conversation/codexNotificationObserver.js`
+Exports
+- `createCodexNotificationObserver({ journal, recovery, threadStatus, output, delivery, notificationQueue, namespace, createRuntime, createStore, publish, captureContext, debugLog, onNotificationSignal, turnStateFromAgentRun })`
+
+### `src/server/conversation/codexNotificationQueue.js`
+Exports
+- `createCodexAppServerNotificationQueue({ namespace = normalizeCodexRunText, isClosing = () => false, runInContext = (_context, operation) => operation(), reportError = () => {} } = {})`
+
+### `src/server/conversation/codexObservationControl.js`
+Exports
+- `createCodexObservationControl({ conversations, output, journal, namespace, createRuntime, publish, runInContext, turnState, errorPrefix })`
+
+### `src/server/conversation/codexOutput.js`
+Exports
+- `createCodexAppServerOutput({ namespace, createRuntime, createStore, publish, acquireProvider, turnState, turnStateFromAgentRun, debugLog, debugError, liveProgressMaxLength, storeReadError, messageMetadata, snapshotRecoveryItemLimit })`
+
+### `src/server/conversation/codexProcess.js`
+Exports
+- `runCodexAppServerProcess({ runtimeDir, command, args = [], runtimeToken: token, bundled = false, additionalModels = [] })`
+- `ensureWritablePrivateDirectory(dirPath = "")`
+- `codexAppServerMetadataPath(runtimeDir = "")`
+- `normalizeCodexAppServerMetadata(metadata = {})`
+- `readCodexAppServerMetadata(runtimeDir = "")`
+- `writeCodexAppServerMetadata(runtimeDir = "", metadata = {})`
+- `fileExists(filePath = "")`
+- `tailTextFile(filePath = "", maxBytes = 4096)`
+- `acquireCodexRuntimeLock(runtimeDir = "", { busyCode = "codex_runtime_busy", timeoutMs = CODEX_APP_SERVER_LOCK_TIMEOUT_MS } = {})`
+- `codexAppServerExecutionMode(options = {})`
+- `codexAppServerIsHelper(options = {})`
+- `assertExistingDirectory(dirPath = "", label = "directory")`
+- `codexAppServerHelperHomeDir(runtimeDir = "")`
+- `codexAppServerHelperWorkspaceDir(runtimeDir = "")`
+- `codexAppServerProcessCwd({ executionRoot = "", runtimeDir = "", workdir = "" } = {})`
+- `codexAppServerRuntimeIdentity(runtime = {})`
+- `normalizeCodexAppServerTerminalEnv(terminalEnv = {})`
+- `codexAppServerCommandBaseEnv({ env = process.env, terminalEnv = {} } = {})`
+- `codexAppServerCredentialHome(toolHomeSource = "", baseEnv = {})`
+- `codexAppServerTerminalEnvHash(terminalEnv = {})`
+- `createCodexAppServerRuntime({ execution, credentials, configuration = {} })`
+- `CODEX_APP_SERVER_METADATA_SCHEMA_VERSION`
+- `CODEX_APP_SERVER_TRANSPORT`
+- `CODEX_APP_SERVER_RUNTIME_DIR_NAME`
+- `CODEX_APP_SERVER_PROCESS_STATE`
+Local functions
+- `ensurePrivateDirectory(dirPath = "")`
+- `codexAppServerLockDir(runtimeDir = "")`
+- `readLockOwner(lockDir = "")`
+- `lockIsStale(lockDir = "")`
+- `normalizePositiveInteger(value, fallback)`
+- `stableHash(value)`
+- `codexAppServerHelperCommandBaseEnv(env = process.env, codexHome = "")`
+- `codexAppServerLogPath(runtimeDir = "")`
+- `codexAppServerSocketPath(runtimeDir = "")`
+- `codexAppServerSocketPathBytes(socketPath = "")`
+- `codexAppServerSocketPathTooLong(socketPath = "")`
+- `codexAppServerUnixEndpoint(socketPath = "")`
+- `codexAppServerProjectTrustOverride(workdir = "")`
+- `codexAppServerRuntimeDirIsManaged(runtimeDir = "")`
+- `removeCodexAppServerRuntimeDir(runtimeDir = "")`
+- `removeCodexAppServerMetadataTemps(runtimeDir = "")`
+- `codexAppServerRuntimeCleanupCanSkip(error)`
+- `codexHistoryAdapterUrlIsValid(baseUrl, token)`
+- `codexAppServerLivenessTimeoutMs(options = {})`
+- `codexAppServerProcessCommandHash({ codexArgs = [], codexCommand = "", executionMode = "", processCwd = "", runtimeDir = "" } = {})`
+
+### `src/server/conversation/codexProcessLeader.js`
+Exports
+- None
+
+### `src/server/conversation/codexProvider.js`
+Exports
+- `CodexAppServerAgentProvider`
+- `CODEX_APP_SERVER_INVALID_REQUEST_CODE`
+- `assertCodexAuthPreflightReady(options = {}, { reason = "codex-auth-preflight", execution, credentials } = {})`
+- `createCodexAppServerModelCatalogCache({ cacheMs = 30_000, errorPrefix = "" } = {})`
+- `codexAppServerProviderConnectionGeneration(provider = null)`
+- `ensureCodexAppServerThread({ observeThread, provider, settings, projectHooks = false, identity, workdir = "", onStage = () => {} } = {})`
+- `sendCodexAppServerPrompt({ attachments = [], clientUserMessageId = "", outputSchema = null, provider, prompt = "", threadId = "", readOnly = false } = {}, authorized = {})`
+- `resumeExactCodexAppServerThread({ expectedThreadId = "", provider, settings, projectHooks = false, workdir = "", errorCode = "codex_renewal_thread_unreadable" } = {})`
+- `startFreshCodexAppServerThread({ provider, settings, projectHooks = false, identity, resumableThreadId = "", forbiddenThreadId = "", operationId = "", workdir = "", errorCode = "codex_renewal_fresh_thread_required", applicationName = "The application" } = {})`
+- `defineCodexRenewalThreadIds(value = [], { errorCode = "codex_renewal_fresh_thread_required" } = {})`
+- `codexRenewalThreadError(code, message, details = {}, { retryable = false } = {})`
+- `codexAppServerEndpointForTarget(endpoint = "")`
+- `codexAppServerRequestIsInvalid(error = null, method = "")`
+- `codexAppServerThreadIsMissing(error = null, threadId = "")`
+- `codexAppServerThreadHasReadableHistory(provider = null, threadId = "")`
+- `deleteCodexAppServerThread({ provider, threadId } = {})`
+- `deleteCodexAppServerHelperThread({ provider, threadId, turnId = "" } = {})`
+- `inspectCodexAppServerMessageAdmission({ provider, threadId, messageId } = {})`
+- `codexCliResumeCommand({ codexCommand = "", endpoint = "", threadId = "" } = {})`
+- `codexLocalImageInput(attachments = [])`
+- `codexTextInput(text = "")`
+- `codexTurnInput(input = [])`
+- `shellQuote(value = "")`
+- `exportCodexNativeHistory`
+- `retireCodexConversationHistory(provider, binding, { toolHomeSource, beforeDelete, signal, errorPrefix = "" } = {})`
+- `createCodexAppServerProviderOwner`
+- `codexAppServerOwnedRuntimeKey`
+- `codexAppServerRuntimeStopWasVerified`
+Local functions
+- `normalizePositiveInteger(value, fallback)`
+- `listCodexRenewalThreadIds(provider, workdir, errorCode)`
+- `assertCodexRenewalThreadSnapshot(threadSnapshot = null, { threadId = "", workdir = "", errorCode } = {})`
+- `codexRenewalThreadNeedsStatusRead(error = null, threadId = "")`
+- `readCodexRenewalSuccessorThreadSnapshot({ provider, threadId = "", workdir = "", errorCode } = {})`
+- `codexAppServerThreadResponseId(thread = null, fallback = "")`
+- `codexAppServerModelCatalogError(message = "", errorPrefix = "")`
+- `codexAppServerModelCatalogSnapshot(value = null, errorPrefix = "")`
+- `codexAppServerHelperLoginParams(auth = {}, errorPrefix = "")`
+- `codexAppServerHelperLoginResponseType(auth = {})`
+- `codexAppServerHelperAccountType(auth = {})`
+- `codexAppServerHelperRequestError(error = null, reason = "", errorPrefix = "")`
+- `normalizeCodexAppServerInfo(initializeResult = null)`
+- `tailAppend(text = "", chunk = "", maxBytes = CODEX_AUTH_PREFLIGHT_OUTPUT_TAIL_BYTES)`
+- `codexAuthPreflightArgs()`
+- `runCodexAuthPreflight({ codexCommand = "codex", env = process.env, executionRoot = "", runtimeDir = "", terminalEnv = {}, timeoutMs = CODEX_AUTH_PREFLIGHT_TIMEOUT_MS, toolHomeSource = "", workdir = "" } = {}, execution)`
+- `codexAppServerThreadRequestParams(params = {}, threadEnv = {})`
+- `codexControlProbeCommand(keys, marker)`
+- `codexAppServerThreadInventoryError(errorCode, label, detail)`
+- `listBoundedCodexAppServerThreadIds({ ancestorThreadId = "", archived = false, client, cwd = "", errorCode = "", label = "", requestLabel = "", runRequest, signal = null, sourceKinds = ["appServer"], state, verifyCwd = false } = {})`
+- `codexPlanUsage(limits = {})`
+- `normalizeAgentThread(value = {})`
+- `normalizeAgentTurn(value = {})`
+
+### `src/server/conversation/codexProviderOwner.js`
+Exports
+- `codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {})`
+- `codexAppServerRuntimeStopWasVerified(result = {})`
+- `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed." } = {})`
+Local functions
+- `normalizeText(value)`
+- `directoryExists(filePath = "")`
+
+### `src/server/conversation/codexProviderSelection.js`
+Exports
+- `createCodexProviderSelection({ providerSessions, turnState, helperLifecycle, helperOwnershipError, modelCatalogCacheMs, errorPrefix })`
+
+### `src/server/conversation/codexReasoning.js`
+Exports
+- `createCodexAppServerReasoning({ createStore, publish, turnStateFromAgentRun, debugLog, readCodexAppServerAgentRunForSession })`
+
+### `src/server/conversation/codexRenewalCommands.js`
+Exports
+- `createCodexRenewalCommands({ claimCodexAppServerTurnStart, codexAppServerNotificationQueue, completeCodexAppServerTurn, errorPrefix, markCodexAppServerTurnActive, markCodexAppServerTurnIdle, observer, selection, turnAlreadyRunningError, writeCodexAppServerUserMessageOwnership })`
+
+### `src/server/conversation/codexResultSettlement.js`
+Exports
+- `createCodexResultSettlement({ journal, output, createRuntime, publish, debugLog, debugError, turnState })`
+
+### `src/server/conversation/codexRunJournal.js`
+Exports
+- `createCodexRunJournal({ namespace, normalizeRunState, turnState, createRuntime, publish, checkpoint, debugLog, output, messageIdPrefix, sessionIdRequiredError, turnClaimsUnsupportedError, turnAlreadyRunningError, errorPrefix, idlePublishPayload, finalizingGraceMs, admissionTaskFinished, orphanedPromptMessage })`
+
+### `src/server/conversation/codexRuntimeLifecycle.js`
+Exports
+- `createCodexRuntimeLifecycle({ runOwner, providerSessions, helperLifecycle, captureContext, runInContext, debugLog, debugError, closingError = null })`
+
+### `src/server/conversation/codexSessionCleanup.js`
+Exports
+- `createCodexSessionCleanup({ namespace, runOwner, providerSessions, helperLifecycle, journal, conversations, debugLog, debugError })`
+
+### `src/server/conversation/codexSessionReconciliation.js`
+Exports
+- `createCodexSessionReconciliation({ runOwner, providerSessions, helperLifecycle, lifecycle, createRuntime, namespace, turnState, sessionIdRequiredError, debugLog, debugError })`
+
+### `src/server/conversation/codexThreadReadiness.js`
+Exports
+- `createCodexThreadReadiness({ providerSessions, selection, observer, threadStatus, recovery, turnState, debugLog, debugError })`
+
+### `src/server/conversation/codexThreadStatus.js`
+Exports
+- `createCodexThreadStatus({ journal, settlement, recovery, output, createRuntime, turnState, turnOutcomes, debugLog, debugError })`
+
 ### `src/server/conversation/codexTurn.js`
 Exports
-- `createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "", { includeThreadHistory = true, onEvent = null, timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS } = {})`
+- `createCodexAppServerRunOwner({ namespace = normalizeCodexRunText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = () => {}, debugError = error => normalizeCodexRunText(error?.message || error), createRuntime, createStore, publish = async () => null, acquireProvider = async () => null, providerSessions = null, serverClosingError = null, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation = null, storeReadError = "The session store does not support agent-run reads.", sessionIdRequiredError = "A session ID is required.", turnClaimsUnsupportedError = "The session runtime does not support Codex turn claims.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload = null, checkpoint = async () => null, messageMetadata = {}, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission = null, admissionTaskFinished = () => false, outcomeNotice = async () => null, resultDeliveryFailureMessage = ({ error = "" } = {}) => { const detail = normalizeCodexRunText(error); if (!detail) return "Codex app-server finished this turn, but the assistant result text was not received."; const punctuation = [".", "!", "?"].some(character => detail.endsWith(character)) ? "" : "."; return "Codex completed, but its response could not be processed: " + detail + punctuation; }, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = async () => null, captureContext = () => null, runInContext = (_context, operation) => operation(), notificationQueue = null, activeReconcileMs = 2000, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" } = {})`
+- `CODEX_APP_SERVER_RUN_STATE`
+- `normalizeCodexAppServerRunState`
+- `codexAppServerRunStateIsActive`
+- `codexAppServerRunStateIsTerminal`
+- `codexAppServerAgentRun`
+- `codexAppServerPendingUserMessageClientIds`
+- `codexAppServerPendingUserMessageOwnership`
+- `codexAppServerProcessedResultEvent`
+- `codexAppServerTurnStateFromAgentRun`
+- `codexAppServerTurnState`
+- `codexAppServerTurnOwnsActiveGoal`
+- `codexAppServerTurnMatches`
+- `codexAppServerTurnCanReceiveProviderCompletion`
+- `codexAppServerTurnAwaitsProviderIdentity`
+- `codexAppServerTurnCanReceiveProviderActivity`
+- `codexAppServerTurnCanAdoptSuccessor`
+- `codexAppServerTurnKey`
+- `codexAppServerAgentRunPatch`
+- `codexAppServerRunIdentityForPatch`
+- `codexAppServerRunPatchIsStaleAfterTerminalState`
+- `codexAppServerSteerFailure`
+- `codexAppServerMessageRequiresNewTurn`
+- `codexAppServerInterruptFailure`
+- `codexAppServerInterruptUnavailableResponse`
+- `codexAppServerFrozenTurnInterruptResponse`
+- `codexAppServerConversationTurnIsActive`
+- `codexAppServerMessageText`
+- `codexAppServerMessageDisplayText`
+- `codexAppServerThreadStatus`
+- `codexAppServerReadThreadStatus`
+- `codexAppServerTurnStatusIsActive`
+- `codexAppServerTurnStatusIsComplete`
+- `codexAppServerTurnStatusIsSuccessfulComplete`
+- `codexAppServerTurnStatusIsProviderFailure`
+- `createCodexAppServerDetachedTurnWatcher`
+- `waitForCodexAppServerTurn`
+- `createCodexAppServerNotificationQueue`
+- `sendPreparedCodexAppServerHelperTurn`
+- `codexAppServerThreadIsMissing`
+
+### `src/server/conversation/codexTurnControl.js`
+Exports
+- `createCodexTurnControl({ journal, settlement, recovery, threadStatus, debugError, debugLog, errorPrefix, interruptFailedCode, turnOutcomes, turnState })`
+
+### `src/server/conversation/codexTurnRecovery.js`
+Exports
+- `createCodexTurnRecovery({ journal, output, settlement, promptDeliveries, namespace, createRuntime, createStore, acquireProvider, turnState, turnStateFromAgentRun, debugLog, debugError, captureContext, runInContext, activeReconcileMs, hasRuntime, recoverAdmission, turnOutcomes, outcomeNotice, resultDeliveryFailureMessage })`
+
+### `src/server/conversation/codexTurnState.js`
+Exports
+- `normalizeCodexAppServerRunState(state)`
+- `codexAppServerRunStateIsActive(state)`
+- `codexAppServerRunStateIsTerminal(state)`
+- `codexAppServerAgentRun(session = {})`
+- `codexAppServerPendingUserMessageClientIds(run = {})`
+- `codexAppServerPendingUserMessageOwnership(run = {}, clientId = "")`
+- `codexAppServerProcessedResultEvent(session = {}, threadId = "", turnId = "")`
+- `codexAppServerTurnStateFromAgentRun(run = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerTurnState(session = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerTurnOwnsActiveGoal(turn = {}, threadId = "")`
+- `codexAppServerTurnMatches(turn = {}, threadId = "", turnId = "")`
+- `codexAppServerTurnCanReceiveProviderCompletion(turn = {}, threadId = "", turnId = "")`
+- `codexAppServerTurnAwaitsProviderIdentity(turn = {}, threadId = "", turnId = "")`
+- `codexAppServerTurnCanReceiveProviderActivity(turn = {}, threadId = "", turnId = "")`
+- `codexAppServerTurnCanAdoptSuccessor(turn = {}, threadId = "", turnId = "")`
+- `codexAppServerTurnKey(threadId = "", turnId = "")`
+- `codexAppServerAgentRunPatch({ error = "", inputSource = "", outerTurnId = "", phase, runState = CODEX_APP_SERVER_RUN_STATE.COMPLETED, session = {}, status = "", threadId = "", turnId = "", updatedAt = "" } = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerRunIdentityForPatch(session = {}, { threadId = "", turnId = "" } = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerRunPatchIsStaleAfterTerminalState(currentTurn = {}, patch = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerSteerFailure(result = {}, steerFailedCode = "codex_turn_steer_failed")`
+- `codexAppServerMessageRequiresNewTurn({ reason = "provider_idle", threadId = "", turnId = "" } = {})`
+- `codexAppServerInterruptFailure(result = {}, interruptFailedCode = "codex_turn_interrupt_failed")`
+- `codexAppServerInterruptUnavailableResponse({ active = false, threadId = "", turnId = "" } = {}, interruptFailedCode = "codex_turn_interrupt_failed")`
+- `codexAppServerFrozenTurnInterruptResponse({ threadId = "", turnId = "" } = {})`
+- `codexAppServerConversationTurnIsActive(status = "")`
+- `codexAppServerMessageText(input = {})`
+- `codexAppServerMessageDisplayText(input = {}, fallback = "")`
+- `CODEX_APP_SERVER_RUN_STATE`
+- `codexAppServerRunInputSource(run = {})`
+- `codexAppServerThreadStatus(thread = {})`
+- `codexAppServerReadThreadStatus(provider = null, threadId = "", { observeLatestTurn = false } = {})`
 - `codexAppServerTurnStatusIsActive(status = "")`
 - `codexAppServerTurnStatusIsComplete(status = "")`
 - `codexAppServerTurnStatusIsSuccessfulComplete(status = "")`
 - `codexAppServerTurnStatusIsProviderFailure(status = "")`
+- `normalizeCodexRunText(value)`
+- `codexAppServerErrorMessage(value, fallback = "Codex could not be prepared.")`
+- `codexAppServerMessageDeferred({ threadId = "", turnId = "" } = {}, steerFailedCode = "codex_turn_steer_failed")`
+- `codexPromptInputFromRequest(input = {})`
+- `CODEX_APP_SERVER_AGENT_RUN_ID`
+- `CODEX_APP_SERVER_RESULT_PROCESSED_EVENT`
+- `CODEX_AGENT_PROVIDER`
+- `CODEX_APP_SERVER_ACTIVE_RUN_STATES`
+
+### `src/server/conversation/commandHook.js`
+Exports
+- None
+
+### `src/server/conversation/commandWrapper.js`
+Exports
+- `validateCommandWrapper(wrapper)`
+- `wrapNativeCommand(wrapper, command)`
+- `nativeCommandHook(wrapper, input)`
+- `codexCommandHookCommand(wrapper)`
 Local functions
-- `codexAppServerTurnTokenUsage(notification = {})`
+- `shellQuote(value)`
+
+### `src/server/conversation/configuration.js`
+Exports
+- `normalizeConversationConfiguration(configuration, { engine, defaultIntegrationId } = {})`
+- `validateConversationConfiguration(configuration, { engine, connections, apiClientFactory, connectionRequired = false, structuredOutput = false, maxOutputCharacters, efforts = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"] } = {})`
+- `validateConnectionModel(configuration, connection)`
+
+### `src/server/conversation/continuity.js`
+Exports
+- `conversationMessageIdentity(turnId, message)`
+- `conversationMessageVersion(message, { includeData = false } = {})`
+- `createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {}, captureContext = false, applicationMessages = false })`
+- `conversationHistoryVersions(history)`
+- `conversationRequestText({ text, origin, data })`
+- `conversationContinuity({ history, briefing = "", maximumCharacters = 128_000 })`
+- `conversationNativeMessages(history)`
+Local functions
+- `writtenMessages(history, native = false)`
+
+### `src/server/conversation/fileStorage.js`
+Exports
+- `createFileConversationStorage({ directory } = {})`
 
 ### `src/server/conversation/hookBridge.js`
 Exports
@@ -315,15 +809,46 @@ Exports
 ### `src/server/conversation/index.js`
 Exports
 - `createConversationTranscript`
+- `conversationMessageIdentity`
+- `conversationMessageVersion`
+- `createConversationChangeover`
 - `createMemoryConversationStorage`
+- `createConversationStorage`
+- `createReentrantConversationStorage`
+- `createConversationOperationLease`
+- `beginConversationOperation`
+- `finishConversationOperation`
+- `conversationAgentRunRecord`
+- `conversationAgentRunEvent`
+- `createFileConversationStorage`
 - `createConversationStreams`
 - `createConversationSystemPrompt`
 - `createConversationRuntime`
+- `normalizeConversationConfiguration`
+- `upgradeConversationRuntimeState`
 - `createConversationHookBridge`
+- `nativeConversationStoragePolicy`
+- `createConversationProcessIdentity`
+- `validateConversationOutputSchema`
+
+### `src/server/conversation/localExecution.js`
+Exports
+- `createLocalConversationExecution()`
+- `createConversationProcessIdentity({ runtimeTokenEnvironmentName = "JSKIT_EXECUTION_RUNTIME_TOKEN", commandHashEnvironmentName = "JSKIT_EXECUTION_COMMAND_HASH", label = "Native", unavailableCode = "native_process_identity_unavailable" } = {})`
 
 ### `src/server/conversation/memoryStorage.js`
 Exports
 - `createMemoryConversationStorage()`
+
+### `src/server/conversation/nativeHistoryExport.js`
+Exports
+- `canonicalNativeHistoryJson(value)`
+- `createNativeHistoryExport(onRecord, { signal, maxBytes = 2 * 1024 ** 3 } = {})`
+- `retireNativeConversation({ binding, inspect, remove, beforeDelete, readConversation, exportConversation })`
+
+### `src/server/conversation/nativeStorage.js`
+Exports
+- `nativeConversationStoragePolicy(engineId)`
 
 ### `src/server/conversation/normalize.js`
 Exports
@@ -332,6 +857,7 @@ Exports
 
 ### `src/server/conversation/openCodeClient.js`
 Exports
+- `retireOpenCodeConversationHistory(storageClient, controlClient, binding, options = {})`
 - `openCodeAssistantMessageText(message = {})`
 - `OPENCODE_RESPONSE_LIMIT_BYTES`
 - `createOpenCodeServerClient({ allowAttachmentDirectories = false, baseUrl = "", directory = "", fetchImpl = globalThis.fetch, password = "", username = "opencode" } = {})`
@@ -353,36 +879,366 @@ Local functions
 - `stablePromptBody(input = {})`
 - `eventSessionId(value = null)`
 - `decodeOpenCodeEventData(value = "")`
+- `inspectOpenCodeConversationFamily(storageClient, controlClient, binding, { signal } = {})`
+- `exportOpenCodeNativeHistory(storageClient, controlClient, id, onRecord, { signal: inputSignal } = {})`
+
+### `src/server/conversation/openCodePlugin.js`
+Exports
+- `conversationInstructions({ client, registryPath = process.env.JSKIT_OPENCODE_ENV_REGISTRY, resolveHostInstructions } = {})`
+
+### `src/server/conversation/openCodeProcess.js`
+Exports
+- `openCodeProcessEnvironment(baseEnv = {}, { cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, password = "" } = {})`
+- `openCodeConversationAgent({ nativeTools = false, tools = false } = {})`
+- `openCodeConversationAgents({ sessionEnvironmentRegistry = "" } = {})`
+- `createOpenCodeConversationServer({ command = "opencode", execution = createLocalConversationExecution(), env = process.env, workdir, stateDirectory, databasePath, sessionEnvironmentRegistry, connection, maxOutputTokens, onStarted, onFailure, executionLimits, signal } = {})`
+- `createOpenCodeServerProcess({ command = "opencode", execution = createLocalConversationExecution(), env = process.env, workdir, privateRoot, directory = "", connections = [], port = 0, fetchImpl = globalThis.fetch, allowAttachmentDirectories = false, expectedVersion = OPENCODE_EXPECTED_VERSION, readinessTimeoutMs = OPENCODE_READY_TIMEOUT_MS, onStarted, onFailure, executionLimits, signal } = {})`
+- `readOpenCodeZenModelIds({ fetchImpl = globalThis.fetch, timeoutMs = OPENCODE_ZEN_CATALOG_TIMEOUT_MS } = {})`
+- `readOpenCodeCatalog({ createServerProcess, privateRoot = "", workdir = "" } = {})`
+- `verifyOpenCodeApiKey({ apiKey = "", agentId = openCodeConversationAgent(), prepareCommand, modelId = "", modelProviderId = "", privateRoot = "", workdir = "" } = {})`
+- `OPENCODE_EXPECTED_VERSION`
+- `OPENCODE_HOST`
+- `OPENCODE_READY_TIMEOUT_MS`
+- `OPENCODE_STOP_TIMEOUT_MS`
+- `openCodeApplicationToolSchemas`
+- `createOpenCodeSharedRuntime`
+- `openCodeServerForDirectory`
+- `readOpenCodeEnvironments`
+- `openCodeEnvironmentForDirectory`
+- `openCodeEnvironmentForSession`
+- `assertOpenCodeModelProvider`
+- `limitOpenCodeModelOutput`
+- `ensureOpenCodeSession`
+- `openCodeModel`
+- `sameOpenCodeSelection`
+- `createOpenCodeConversationPlugin`
+Local functions
+- `text(value = "")`
+- `availableLoopbackPort()`
+- `waitForOpenCodeReady({ client, expectedVersion = OPENCODE_EXPECTED_VERSION, processHandle, timeoutMs = OPENCODE_READY_TIMEOUT_MS, signal } = {})`
+- `openCodeZenCatalogError(cause = null)`
+
+### `src/server/conversation/openCodeRuntime.js`
+Exports
+- `assertOpenCodeModelProvider(selected, input = {})`
+- `limitOpenCodeModelOutput(input = {}, output = {})`
+- `readOpenCodeEnvironments(registryPath = "")`
+- `openCodeEnvironmentForDirectory(environments, cwd = "")`
+- `openCodeEnvironmentForSession(environments, sessionId = "", client = null)`
+- `openCodeServerForDirectory(server = {}, workdir = "")`
+- `openCodeModel(selection = {}, executionProfile = null)`
+- `sameOpenCodeSelection(left = {}, right = {})`
+- `ensureOpenCodeSession(target, { selection, model, workdir = target.workdir, identity = {}, signal, invalidIdentity = () => new Error("OpenCode did not return a native conversation ID.") })`
+- `createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {})`
+Local functions
+- `text(value)`
+- `openCodeTurnSnapshot(turn = null, threadId = "")`
+- `openCodeCredentialFailure(value = "")`
+- `openCodeProviderApiFailure(error = {})`
+- `pathContains(root = "", candidate = "")`
+
+### `src/server/conversation/openCodeTools.js`
+Exports
+- `createOpenCodeToolBridge({ execute, maxArgumentBytes, schemas })`
+
+### `src/server/conversation/openCodeTurn.js`
+Exports
+- `openCodeDetachedPrompt(input = {})`
+- `openCodeStructuredOutput(value = "")`
+- `observeOpenCodeEvents(client, conversationId, { abortController, signal = abortController.signal, ...options } = {})`
+- `openCodeMessageError(message = {})`
+- `inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, { signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS) } = {})`
+- `steerOpenCodeTurn(client, conversationId, turn, input, { signal } = {})`
+- `dispatchOpenCodeTurn(client, conversationId, turn, input, options = {})`
+- `openCodeMessageRows(value = null)`
+- `openCodePersistentConversationMessages(rows, conversationMessageId)`
+- `projectOpenCodeConversationMessages(messages, expectedId, { maximumOutput, outputSchema, previous, onMessage })`
+- `openCodeRowsForInput(value = null, inputMessageId = "")`
+- `openCodeLastAssistantResult(value = null, { readError = openCodeMessageError } = {})`
+- `waitForOpenCodeMessages(client, conversationId = "", inputMessageId = "", { onMessages = null, readFailure = () => null, readError = openCodeMessageError, signal } = {})`
+- `waitForOpenCodeFinalResponse(client, conversationId, turn, { agent, model, recoveryMessageId, beforeRecovery = null, ...options } = {})`
+- `observeOpenCodeTurnCompletion(runtime, target, conversationId, turn, { events, signal, timeoutMs, finalResponse, projectResult = value => value, afterClose, ...waitOptions } = {})`
+- `runOpenCodeConversationTurn(client, conversationId, input = {}, { expectedThreadId = "", forbiddenThreadId = "", requireFreshHistory = false, completeResult, close } = {})`
+- `OPENCODE_INTERRUPT_TIMEOUT_MS`
+Local functions
+- `text(value)`
+- `record(value = null)`
+- `openCodeEventSummary(event = {})`
+- `consumeOpenCodeEvents(client, conversationId, { eventStartedAt = null, onEvent = null, onError = null, onReady = null, readError = openCodeMessageError, signal } = {})`
+- `openCodeMessageResultForInput(value = null, inputMessageId = "", { readError = openCodeMessageError } = {})`
+- `latestOpenCodeMessageResult(value, readError)`
+
+### `src/server/conversation/provider.js`
+Exports
+- `createConversationProviderFactory({ connections, apiClientFactory, fetch, limits, actions, toolCatalog } = {})`
+
+### `src/server/conversation/providers/api.js`
+Exports
+- `createApiConversationDriver({ connections, apiClientFactory, fetch, limits = {} })`
+Local functions
+- `toolResultContent(result)`
 
 ### `src/server/conversation/providers/claude.js`
 Exports
 - `createClaudeConversationAdapter({ getProcess, isActive, startProcess, stopProcess } = {})`
 
+### `src/server/conversation/providers/claudeDriver.js`
+Exports
+- `createClaudeConversationDriver({ connections, host = {}, limits = {} } = {})`
+Local functions
+- `hash(value)`
+- `nativeInput(input)`
+- `claudeGoalValue(goal, conversationId)`
+
 ### `src/server/conversation/providers/codex.js`
 Exports
 - `createCodexConversationAdapter(host)`
+
+### `src/server/conversation/providers/codexDriver.js`
+Exports
+- `createCodexConversationDriver({ connections, host = {}, limits = {} } = {})`
+Local functions
+- `hash(value)`
+- `goalValue(goal)`
+- `nativeInput(input)`
 
 ### `src/server/conversation/providers/opencode.js`
 Exports
 - `createOpenCodeConversationAdapter({ resolveInstructions } = {})`
 
+### `src/server/conversation/providers/opencodeDriver.js`
+Exports
+- `createOpenCodeConversationDriver({ connections, host = {}, limits = {} } = {})`
+Local functions
+- `hash(value)`
+- `nativeMessageId(id)`
+
+### `src/server/conversation/providers/scoped.js`
+Exports
+- `runScopedConversationTurn({ operations, scope = {}, input = {}, context: options = {}, executionProfile: profileSnapshot } = {})`
+- `readPersistentConversation(options)`
+- `startPersistentConversationTurn(options)`
+- `inspectPersistentConversationAdmission(options)`
+- `preparePersistentConversationChangeover(options)`
+- `inspectPersistentConversationDelivery(options)`
+- `stopPersistentConversation({ sessionId, record, context, operations, records, projection })`
+- `deletePersistentConversation({ sessionId, record, context, operations, records, projection })`
+Local functions
+- `requireSuccess(result)`
+- `qualifyTranscript(turns, record, response, receipts)`
+- `publishTranscript({ sessionId, store, receipts, publish }, context, record, turns, response = {})`
+- `streamMessage({ sessionId, store, projection, publish }, context, record, event)`
+
 ### `src/server/conversation/runtime.js`
 Exports
-- `createConversationRuntime({ engine, ...host } = {})`
+- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, limits = {} } = {})`
+Local functions
+- `failure(message, code, statusCode = 409)`
+- `submittedMessage(turn)`
+- `retainedSegments(state)`
+- `nativeIdentity(segment)`
+- `pendingSuccessor(state)`
+- `sameRequest(left, right)`
+
+### `src/server/conversation/runtimeStateUpgrade.js`
+Exports
+- `hasUnfinishedConversationRewind(runtime)`
+- `upgradeConversationRuntimeState({ metadata, conversationLog })`
+Local functions
+- `object(value)`
+- `invalid(message)`
+- `validateSegment(segment)`
+- `nativeIdentity(segment)`
+- `inspectRequest(request, segment, version, warnings)`
+
+### `src/server/conversation/storage.js`
+Exports
+- `createConversationOperationLease()`
+- `beginConversationOperation(lease)`
+- `finishConversationOperation(lease, participant)`
+- `createReentrantConversationStorage(storage)`
+- `createConversationStorage({ readRecord, writeRecord, deleteRecord })`
+Local functions
+- `conversationMessageStorageKey({ role, at, messageId } = {})`
 
 ### `src/server/conversation/streams.js`
 Exports
 - `createConversationStreams({ clock = () => new Date() } = {})`
 
+### `src/server/conversation/structuredOutput.js`
+Exports
+- `validateConversationOutputSchema(outputSchema, { maxOutputCharacters, createError = (message, details) => Object.assign(new TypeError(message), { details }) } = {})`
+- `conversationOutputSchema(schema)`
+- `parseConversationOutput(text, schema)`
+Local functions
+- `isPlainRecord(value)`
+
 ### `src/server/conversation/systemPrompt.js`
 Exports
 - `createConversationSystemPrompt()`
 
+### `src/server/conversation/tools.js`
+Exports
+- `createConversationTools({ catalog, context, signal: turnSignal, previousCalls = [], authorize, save, emit, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
+
 ### `src/server/conversation/transcript.js`
 Exports
-- `createConversationTranscript({ storage, clock = () => new Date() } = {})`
+- `createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {})`
 Local functions
 - `hasMessages(turn)`
+
+### `src/server/hosts/claudeHistory.js`
+Exports
+- `listClaudeConversationStorage`
+- `readClaudeHistory`
+- `retireClaudeConversationHistory`
+
+### `src/server/hosts/claudeProcess.js`
+Exports
+- `bindClaudeConversationAccount`
+- `claudeCodeArguments`
+- `claudeCatalogueModels`
+- `claudeFlagSettings`
+- `claudeModelConfiguration`
+- `createClaudeAccountQueries`
+- `createClaudeCodeProcess`
+- `readClaudeCodeAuthStatus`
+- `verifyClaudeProviderKey`
+
+### `src/server/hosts/claudeTurn.js`
+Exports
+- `createClaudeConversationOwner`
+- `claudeNativeMessageId`
+
+### `src/server/hosts/codexConfiguration.js`
+Exports
+- `codexAppServerThreadSettings`
+- `codexAppServerReadOnlyThreadSettings`
+- `codexAppServerTurnSettings`
+- `codexInteractiveArguments`
+- `normalizeCodexThreadId`
+- `codexAppServerProjectHookTrustConfig`
+- `codexAuthOutputRequiresReconnect`
+- `codexProviderConfiguration`
+- `codexProviderFileConfiguration`
+- `verifyCodexProviderKey`
+- `codexProviderModelCatalog`
+- `codexCatalogRows`
+- `codexCatalogReasoningEfforts`
+- `codexCatalogModels`
+- `codexConfiguredModelCatalog`
+- `createCodexAccountReader`
+- `createCodexAppServerIsolation`
+- `readCodexToolFreeConfiguration`
+
+### `src/server/hosts/codexEvents.js`
+Exports
+- `codexContextUsageFromNotification`
+- `codexAppServerContextRefreshReason`
+- `codexAppServerNotificationEvent`
+- `codexAppServerNotificationItemId`
+- `codexAppServerNotificationTurnId`
+- `codexAppServerProviderThreadAssistantSegments`
+- `codexAppServerProviderThreadTurns`
+- `codexAppServerProviderTurnForOperation`
+- `codexAppServerProviderTurnId`
+- `codexAppServerThreadError`
+- `codexAppServerThreadTurnId`
+
+### `src/server/hosts/codexProcess.js`
+Exports
+- `CODEX_APP_SERVER_METADATA_SCHEMA_VERSION`
+- `CODEX_APP_SERVER_RUNTIME_DIR_NAME`
+- `CODEX_APP_SERVER_TRANSPORT`
+- `codexAppServerExecutionMode`
+- `codexAppServerHelperHomeDir`
+- `codexAppServerHelperWorkspaceDir`
+- `codexAppServerIsHelper`
+- `createCodexAppServerRuntime`
+- `normalizeCodexAppServerTerminalEnv`
+- `runCodexAppServerProcess`
+
+### `src/server/hosts/codexProvider.js`
+Exports
+- `CODEX_APP_SERVER_INVALID_REQUEST_CODE`
+- `CodexAppServerAgentProvider`
+- `assertCodexAuthPreflightReady`
+- `codexAppServerEndpointForTarget`
+- `codexAppServerRequestIsInvalid`
+- `codexAppServerRuntimeStopWasVerified`
+- `codexCliResumeCommand`
+- `codexRenewalThreadError`
+- `codexTextInput`
+- `codexTurnInput`
+- `createCodexAppServerProviderOwner`
+- `defineCodexRenewalThreadIds`
+- `deleteCodexAppServerHelperThread`
+- `deleteCodexAppServerThread`
+- `ensureCodexAppServerThread`
+- `inspectCodexAppServerMessageAdmission`
+- `retireCodexConversationHistory`
+- `resumeExactCodexAppServerThread`
+- `sendCodexAppServerPrompt`
+- `shellQuote`
+- `startFreshCodexAppServerThread`
+
+### `src/server/hosts/codexTurn.js`
+Exports
+- `codexAppServerAgentRun`
+- `codexAppServerConversationTurnIsActive`
+- `codexAppServerFrozenTurnInterruptResponse`
+- `codexAppServerInterruptUnavailableResponse`
+- `codexAppServerMessageDisplayText`
+- `codexAppServerMessageText`
+- `codexAppServerThreadStatus`
+- `codexAppServerTurnState`
+- `codexAppServerTurnStateFromAgentRun`
+- `createCodexAppServerNotificationQueue`
+- `createCodexAppServerRunOwner`
+- `sendPreparedCodexAppServerHelperTurn`
+- `CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION`
+- `CODEX_HELPER_THREAD_LIFECYCLES`
+- `createCodexHelperThreadLedgerOwner`
+
+### `src/server/hosts/nativeHistory.js`
+Exports
+- `retireNativeConversation`
+
+### `src/server/hosts/openCodeClient.js`
+Exports
+- `retireOpenCodeConversationHistory`
+
+### `src/server/hosts/openCodeProcess.js`
+Exports
+- `OPENCODE_EXPECTED_VERSION`
+- `OPENCODE_HOST`
+- `OPENCODE_READY_TIMEOUT_MS`
+- `assertOpenCodeModelProvider`
+- `createOpenCodeConversationPlugin`
+- `createOpenCodeServerProcess`
+- `createOpenCodeSharedRuntime`
+- `ensureOpenCodeSession`
+- `limitOpenCodeModelOutput`
+- `openCodeApplicationToolSchemas`
+- `openCodeConversationAgents`
+- `openCodeEnvironmentForDirectory`
+- `openCodeEnvironmentForSession`
+- `openCodeModel`
+- `openCodeProcessEnvironment`
+- `openCodeServerForDirectory`
+- `readOpenCodeEnvironments`
+- `readOpenCodeCatalog`
+- `readOpenCodeZenModelIds`
+- `verifyOpenCodeApiKey`
+- `sameOpenCodeSelection`
+
+### `src/server/hosts/openCodeTurn.js`
+Exports
+- `openCodeDetachedPrompt`
+- `openCodeMessageError`
+- `openCodeRowsForInput`
+- `openCodeStructuredOutput`
+- `runOpenCodeConversationTurn`
 
 ### `src/server/index.js`
 Exports
@@ -400,6 +1256,10 @@ Exports
 - `writeNdjson`
 - `resolveWorkspaceSlug`
 - `createServiceToolCatalog`
+- `consumeCompletionStream`
+- `sanitizeAssistantMessageText`
+- `runAssistantToolLoop`
+- `runBoundedAssistantToolLoop`
 
 ### `src/server/lib/aiClient.js`
 Exports
@@ -409,9 +1269,31 @@ Exports
 
 ### `src/server/lib/aiConnectionClient.js`
 Exports
-- `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens } = {})`
+- `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort } = {})`
 Local functions
 - `sdkMessages(messages)`
+
+### `src/server/lib/assistantCompletion.js`
+Exports
+- `consumeCompletionStream(stream, onText = () => {}, { signal, limits, preserveWhitespace = false, requireCallIds = false, callIdPrefix = "" } = {})`
+- `sanitizeAssistantMessageText(value, { preserveWhitespace = false } = {})`
+Local functions
+- `extractTextDelta(deltaContent)`
+- `parseDsmlToolCallsFromText(value = "")`
+
+### `src/server/lib/assistantToolLoop.js`
+Exports
+- `runAssistantToolLoop({ messages, input, toolSet, toToolSchema, complete, executeToolCalls, finish, preserveWhitespace = false })`
+- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = new Error("The assistant returned an invalid response."), failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext })`
+Local functions
+- `requiresCurrentTime(value = "")`
+- `resolvePreflightTools(toolDescriptors = [], input = "")`
+- `buildRecoveryPrompt({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
+- `buildRecoveryFallbackAnswer({ reason = "", toolFailures = [], toolSuccesses = [] } = {})`
+- `toSafeToolResultText(value)`
+- `buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
+- `buildAssistantToolCallMessage(toolCalls = [])`
+- `boundedResponseSchema(outputSchema, descriptors)`
 
 ### `src/server/lib/ndjson.js`
 Exports
@@ -471,7 +1353,8 @@ Exports
 
 ### `src/server/lib/serviceToolCatalog.js`
 Exports
-- `createServiceToolCatalog(actions, { barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
+- `createServiceToolCatalog(actions, { isActionAvailable, barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
+- `DISCOVERY_TOOL_DESCRIPTORS`
 Local functions
 - `normalizePreflightIntents(value)`
 - `normalizeAssistantExtension(value)`
@@ -526,6 +1409,10 @@ Exports
 - `assistantResource`
 - `assistantConversationOutputValidator`
 
+### `src/shared/assistantResponseText.js`
+Exports
+- `isAssistantProgressOnlyText(value)`
+
 ### `src/shared/assistantSettingsResource.js`
 Exports
 - `MAX_SYSTEM_PROMPT_CHARS`
@@ -552,6 +1439,8 @@ Local functions
 ### `src/shared/conversation/attachments.js`
 Exports
 - `attachmentSizeLabel(size)`
+- `conversationAttachmentManifest(attachments = [])`
+- `prepareConversationAttachmentMessage(input, attachments, displayAttachments)`
 
 ### `src/shared/conversation/index.js`
 Exports
@@ -596,6 +1485,32 @@ Local functions
 - `questionForMarkerMatch(match = [], index = 0)`
 - `parseLineNumberedQuestionPrompt(value = "")`
 - `parseInlineNumberedQuestionPrompt(value = "")`
+
+### `src/shared/conversation/pagination.js`
+Exports
+- `CONVERSATION_LOG_PAGE_LIMIT`
+- `normalizeConversationLogPagination(pagination = {})`
+- `normalizeConversationLogPage(payload = {})`
+- `mergeConversationLogPages(pages = [])`
+- `conversationLogReadQuery({ beforeTurnId = "", limit = CONVERSATION_LOG_PAGE_LIMIT } = {})`
+Local functions
+- `isRecord(value)`
+
+### `src/shared/conversation/patches.js`
+Exports
+- `normalizeConversationMessage(message = {}, { normalizeAttachments = value => Array.isArray(value) ? value : [] } = {})`
+- `normalizeConversationTurn(turn = {}, index = 0, options = {})`
+- `applyConversationLogPatch(payload = {}, patch = null, options = {})`
+Local functions
+- `isRecord(value)`
+- `chronologicalConversationActivity(messages = [])`
+
+### `src/shared/conversation/questions.js`
+Exports
+- `latestAssistantMessageAwaitingUserReply(conversationLog = {})`
+Local functions
+- `messageText(value = "")`
+- `conversationTurns(conversationLog = {})`
 
 ### `src/shared/conversation/scrollFollowState.js`
 Exports
@@ -655,6 +1570,7 @@ Exports
 - `normalizeConversationStatus`
 - `parseJsonObject`
 - `toPositiveInteger`
+- `isAssistantProgressOnlyText`
 
 ### `src/shared/jsonApiTransports.js`
 Exports
@@ -662,6 +1578,14 @@ Exports
 - `ASSISTANT_SETTINGS_UPDATE_TRANSPORT`
 - `ASSISTANT_CONVERSATIONS_TRANSPORT`
 - `ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT`
+
+### `src/shared/nativeProviders.js`
+Exports
+- `NATIVE_AI_PROVIDERS`
+- `nativeAiProvider(id)`
+- `nativeAiModel(id, providerId = "")`
+Local functions
+- `model(id, contextWindow, variants, options = {})`
 
 ### `src/shared/queryKeys.js`
 Exports
@@ -703,7 +1627,21 @@ Exports
 
 ### `src/testing/conversationStorageContract.js`
 Exports
-- `verifyConversationStorageContract(storage)`
+- `verifyConversationStorageContract(storage, { runtime = false } = {})`
+
+### `src/testing/nativeCodex.js`
+Exports
+- `CodexAppServerJsonRpcClient`
+- `startCodexHistoryAdapter`
+- `classifyCodexAppServerEvent`
+- `codexAppServerErrorText`
+- `codexAppServerNotificationUsageLimitExceeded`
+- `codexAppServerOutputOwnerTurnId`
+- `prepareCodexModelCatalog`
+
+### `src/testing/nativeOpenCode.js`
+Exports
+- `createOpenCodeServerClient`
 
 ### examples
 

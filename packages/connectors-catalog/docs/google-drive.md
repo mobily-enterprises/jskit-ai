@@ -70,8 +70,8 @@ larger JSON/base64 payload. No Vibe64 gateway receives or stores the content.
 sharing administration, permanent deletion, revision history or Workspace-format
 conversion on upload. Activity and app-data scopes do not implement those APIs.
 For example, a generated app can upload a booking report and offer a PDF export,
-but it cannot mirror a whole shared drive automatically. Editor assistant access
-is deferred. Controlled fixtures do not prove live Google sharing or file export.
+but it cannot mirror a whole shared drive automatically. Assistant tool access
+requires explicit host integration. Controlled fixtures do not prove live Google sharing or file export.
 
 References: [uploads](https://developers.google.com/workspace/drive/api/guides/manage-uploads),
 [downloads and exports](https://developers.google.com/workspace/drive/api/guides/manage-downloads).

@@ -64,6 +64,7 @@ async function fixture(t, grantType = "authorization_code") {
         const timer = setTimeout(() => reject(new Error("Missing abort")), 1000);
         const abort = () => { clearTimeout(timer); reject(init.signal.reason); };
         if (init.signal.aborted) abort(); else init.signal.addEventListener("abort", abort, { once: true });
+        state.started?.();
       });
       if (state.status === 204) return new Response(null, { status: 204 });
       if (typeof state.value === "string") return new Response(state.value, { status: state.status });
@@ -227,8 +228,9 @@ test("Fabric cancelled or denied consent keeps existing access and consumes the 
 test("Fabric aborts hanging requests without replay and local disconnect removes access", async (t) => {
   const f = await fixture(t); await f.connect(); f.state.hang = true;
   const before = f.requests.length; const controller = new AbortController();
+  const started = new Promise((resolve) => { f.state.started = resolve; });
   const pending = f.service.invoke({ ...args, operation: "graphql.execute", input: { query: "mutation Write { updateStock(id: 4) { id } }" }, signal: controller.signal });
-  setTimeout(() => controller.abort(), 5);
+  await Promise.race([started, pending]); controller.abort();
   await assert.rejects(pending, { code: "connector_cancelled" }); assert.equal(f.requests.length, before + 1);
   await assert.rejects(f.service.invoke({ ...args, operation: "connection.check" }), { code: "connector_provider_timeout" });
   assert.equal(f.requests.length, before + 2);

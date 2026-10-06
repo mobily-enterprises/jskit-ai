@@ -11,7 +11,7 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     };
   }
 
-  function update(scope, { turnId, messageId, role = "assistant", text, delta, at } = {}) {
+  function update(scope, { turnId, messageId, role = "assistant", text, delta, at, origin, nativeIdentity, outputId } = {}) {
     if (!turnId || !messageId || !["assistant", "commentary"].includes(role)) return null;
     let stream = streams.get(scope);
     if (!stream || stream.turnId !== turnId) {
@@ -22,12 +22,17 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     const previous = stream.messages.get(messageId);
     const next = {
       messageId,
+      ...((previous?.outputId || outputId) ? { outputId: previous?.outputId || outputId } : {}),
+      // Native grouping is private even when its authored origin is known.
+      // Ordinary runtime output already carries the exact authored row identity.
+      ...(["user", "application"].includes(origin || previous?.origin)
+        ? { ...(!nativeIdentity ? { turnId } : {}), origin: origin || previous.origin } : {}),
       role: previous?.role || role,
       at: previous?.at || at || clock().toISOString(),
       text: typeof delta === "string" ? (previous?.text || "") + delta : (text ?? previous?.text ?? ""),
       status: "inProgress"
     };
-    if (previous?.text === next.text && previous.role === next.role) return null;
+    if (previous?.text === next.text && previous.role === next.role && previous.outputId === next.outputId) return null;
     stream.messages.set(messageId, next);
     revision += 1;
     return read(scope);

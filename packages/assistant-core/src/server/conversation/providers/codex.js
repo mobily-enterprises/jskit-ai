@@ -241,6 +241,8 @@ export function createCodexConversationAdapter(host) {
     },
     goalChanged: (id) => goalChanges.set(id, (goalChanges.get(id) || 0) + 1),
     get bindingCount() { return bindings.size; },
+    get threadEnvironments() { return bindings; },
+    get threadEnvironmentTasks() { return tasks; },
     close() { contextGeneration += 1; bindings.clear(); instructionPrompts.clear(); }
   });
 }

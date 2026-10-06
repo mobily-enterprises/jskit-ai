@@ -149,7 +149,7 @@ function float32ToPcm16Le(samples = new Float32Array()) {
   return bytes;
 }
 
-function normalizeRecognizedText(value = "") {
+function normalizeRecognizedText(value = "", vocabulary = {}) {
   const text = String(value || "").replace(/\s+/gu, " ").trim();
   if (!text || text !== text.toUpperCase() || !/[A-Z]/u.test(text)) {
     return text;
@@ -157,37 +157,32 @@ function normalizeRecognizedText(value = "") {
   const normalized = text.toLowerCase().replace(/(^|[.!?]\s+)([a-z])/gu, (_match, prefix, letter) => (
     `${prefix}${letter.toUpperCase()}`
   ));
-  return normalized
-    .replace(/\bvibe sixty four\b/giu, "Vibe64")
+  let result = normalized
     .replace(/\bc plus plus\b/giu, "C++")
     .replace(/\b(?:j|jay)\s+(?:s|ess)\s+kit\b/giu, "JSKIT")
     .replace(/\bnode\s+(?:(?:j|jay)\s+(?:s|ess)|js)\b/giu, "Node.js")
     .replace(/\bpostgres\s+(?:s\s+)?q\s+l\b/giu, "PostgreSQL")
     .replace(/\bweb socket\b/giu, "WebSocket")
     .replace(/\bsherpa onnx\b/giu, "sherpa-onnx")
-    .replace(/\b(?:ai|sql|api|json|http|https|mysql|mariadb|postgresql|erd|id|uuid|env|pty|acl|hmac|onnx|npm|jskit|opencode|openai|javascript|typescript|vue|vuetify|fastify|playwright|vitest|github|git|systemd|incus|caddy|cmake|codex|merc|genesis|zipformer|websocket)\b/giu, (word) => ({
+    .replace(/\b(?:ai|sql|api|json|http|https|mysql|mariadb|postgresql|erd|id|uuid|env|pty|acl|hmac|onnx|npm|jskit|opencode|openai|javascript|typescript|vue|vuetify|fastify|playwright|vitest|github|git|systemd|cmake|codex|zipformer|websocket)\b/giu, (word) => ({
     acl: "ACL",
     ai: "AI",
     api: "API",
-    caddy: "Caddy",
     cmake: "CMake",
     codex: "Codex",
     env: "ENV",
     erd: "ERD",
     fastify: "Fastify",
-    genesis: "Genesis",
     git: "Git",
     github: "GitHub",
     http: "HTTP",
     https: "HTTPS",
     hmac: "HMAC",
     id: "ID",
-    incus: "Incus",
     javascript: "JavaScript",
     jskit: "JSKIT",
     json: "JSON",
     mariadb: "MariaDB",
-    merc: "Merc",
     mysql: "MySQL",
     npm: "npm",
     onnx: "ONNX",
@@ -206,6 +201,11 @@ function normalizeRecognizedText(value = "") {
     websocket: "WebSocket",
     zipformer: "Zipformer"
   })[word.toLowerCase()] || word);
+  for (const [phrase, spelling] of Object.entries(vocabulary)) {
+    const literal = phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    result = result.replace(new RegExp(`\\b${literal}\\b`, "giu"), () => spelling);
+  }
+  return result;
 }
 
 function speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS) {

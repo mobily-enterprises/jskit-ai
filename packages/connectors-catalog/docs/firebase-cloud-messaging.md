@@ -25,7 +25,7 @@ Connecting performs a dry-run check; it does not deliver a notification.
    key > JSON > Create**. Give this identity **Firebase Cloud Messaging API
    Admin** on the target project, or an appropriate custom role. Organization
    policy can prevent key creation. Do not substitute an unrelated credential.
-6. In Vibe64, enter `env:FIREBASE_SERVICE_ACCOUNT` in **Service-account JSON
+6. In the connection editor, enter `env:FIREBASE_SERVICE_ACCOUNT` in **Service-account JSON
    reference**, then **Save configuration**. Follow **Set credential in Env**
    and store the complete JSON under `FIREBASE_SERVICE_ACCOUNT`, not a filename
    or path. Return to the integration and connect. CLI applications supply the

@@ -22,7 +22,7 @@ Only OpenID and profile are required and selected by default. Publishing require
 4. For text publishing, request **Share on LinkedIn** under Products and
    confirm `w_member_social` is provisioned in Auth before selecting it.
    [Share product](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin).
-5. In Vibe64 choose **Add LinkedIn**, enter display name, ownership, Client ID
+5. In the connection editor choose **Add LinkedIn**, enter display name, ownership, Client ID
    and the two Env references. Open **Permissions** for optional email/publishing.
    Choose **Save configuration**, then **Set credential in Env** to store the
    Client Secret. Use **Open Env** to set the same registered callback. Return

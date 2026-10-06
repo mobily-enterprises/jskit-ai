@@ -134,8 +134,8 @@ This is a distinct host lifecycle, not a GraphQL product mutation. Shopify place
 installation restrictions on client transfer stores; dev stores cannot be
 transferred. A transfer also moves the store out of the original organization,
 so organization-only client credentials cannot be assumed to remain usable.
-Vibe64's automatic create/claim workflow and any commercial Shopify arrangement
-are not delivered by this fragment. Do not promise Lovable's trial terms.
+Automatic store creation/claim workflows and commercial Shopify arrangements
+remain application responsibilities. Do not promise Lovable's trial terms.
 See [client transfer stores](https://shopify.dev/docs/apps/build/stores/client-transfer-stores).
 
 ## Runtime and assistant authorization

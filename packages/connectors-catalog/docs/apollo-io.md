@@ -13,7 +13,7 @@ changes saved contacts, accounts and deals in an Apollo workspace.
    Add the endpoint permissions below only for capabilities the app will use.
 3. Choose **Create API key**, then **Copy**. Store the value under
    `APOLLO_API_KEY` in the backend environment.
-4. Add Apollo.io in Vibe64, give the integration a display name and enter
+4. Add Apollo.io in the connection editor, give the integration a display name and enter
    `env:APOLLO_API_KEY` in **API key reference**. Save the file configuration,
    use **Set credential in Env** to supply the value, then **Connect account**
    (or **Verify again**). **Check connection** only reads current status.
@@ -191,9 +191,8 @@ reference from project configuration.
 
 ## Limitations
 
-Editor coding-assistant attachment is deferred. For example, a generated sales
-app can search, enrich approved leads and save deals, but asking Vibe64's coding
-assistant to find leads does not grant it this connection. The app owns lead and
+Assistant tool attachment requires explicit host integration. For example, a generated sales
+app can search, enrich approved leads and save deals, but asking an assistant to find leads does not grant it this connection. The app owns lead and
 CRM screens, authorization and usage budgets. This adapter does not implement
 partner OAuth, outreach sequences, bulk jobs, deletion, custom-field discovery,
 or phone/waterfall webhooks. Native framework clients can compose those separate

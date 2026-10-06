@@ -81,8 +81,8 @@ interpretation; no Vibe64 service receives search data.
 indexing requests, sitemap generation, crawler or SEO dashboard. No fresh/hourly
 performance mode or exhaustive traffic export. For example, an app can report
 its popular queries and submit an existing sitemap, but cannot make an unverified
-site appear in Google or guarantee rankings. Editor assistant attachment is
-deferred. Fixtures do not prove live property access or indexing results.
+site appear in Google or guarantee rankings. Assistant tool attachment
+requires explicit host integration. Fixtures do not prove live property access or indexing results.
 
 Sources: [performance queries](https://developers.google.com/webmaster-tools/v1/searchanalytics/query),
 [sitemap submission](https://developers.google.com/webmaster-tools/v1/sitemaps/submit),

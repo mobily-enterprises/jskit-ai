@@ -85,3 +85,71 @@ test("OpenCode deletes an exact message without reverting project files", async 
   await assert.rejects(client.deleteMessage("ses_test", ""), /requires a message id/);
   assert.equal(calls.length, 1);
 });
+
+test("runtime streams retain authored identity and origin across application wakes and late output", () => {
+  const streams = createConversationStreams();
+  const oldUser = { messageId: "older-user", role: "user", text: "Earlier question" };
+  const wake = { messageId: "wake", role: "system", text: "Application update" };
+  const turns = [
+    { turnId: "older", user: oldUser, messages: [oldUser] },
+    { turnId: "update", system: wake, messages: [wake], metadata: { runtime: { origin: "application" } } }
+  ];
+  streams.update("chat", { turnId: "update", origin: "application", messageId: "answer", text: "Update" });
+  streams.update("chat", { turnId: "update", messageId: "answer", delta: " received" });
+  const snapshot = streams.read("chat");
+  assert.equal(snapshot.messages[0].turnId, "update");
+  assert.equal(snapshot.messages[0].origin, "application");
+  const live = mergeConversationStream(turns, snapshot);
+  assert.equal(live.length, 2);
+  assert.equal(live[1].turnId, "update");
+  assert.equal(live[1].assistant.origin, "application");
+  assert.equal(live[1].assistant.text, "Update received");
+  assert.equal(turns[1].messages.length, 1, "Projection must not mutate saved history");
+  const hiddenWake = mergeConversationStream([], snapshot);
+  assert.equal(hiddenWake[0].turnId, "update", "Hiding a system prompt must not change the reply identity");
+  const late = mergeConversationStream(turns, { messages: [
+    { messageId: "late-answer", turnId: "older", origin: "user", role: "assistant", text: "Earlier reply" }
+  ] });
+  assert.equal(late.length, 2);
+  assert.equal(late[0].assistant.text, "Earlier reply");
+  assert.equal(late[1].assistant, undefined, "Late output belongs to its authored turn, not the latest wake");
+});
+
+test("native streams retain proven origin without exposing or changing their native grouping", () => {
+  const streams = createConversationStreams();
+  const nativeIdentity = { threadId: "native-thread", turnId: "native-turn" };
+  const input = { nativeIdentity, turnId: "native-thread:native-turn", origin: "application", messageId: "native-reply" };
+  streams.update("chat", { ...input, text: "First" });
+  streams.update("chat", { ...input, delta: " chunk" });
+  const snapshot = streams.read("chat");
+  assert.equal(snapshot.messages[0].text, "First chunk");
+  assert.equal(snapshot.messages[0].origin, "application");
+  assert.equal(Object.hasOwn(snapshot.messages[0], "turnId"), false);
+  assert.equal(JSON.stringify(snapshot).includes("nativeIdentity"), false);
+  const projected = mergeConversationStream([], snapshot);
+  assert.equal(projected[0].assistant.origin, "application");
+  assert.equal(projected[0].turnId, "stream:native-reply");
+  streams.complete("chat", input.messageId);
+  assert.equal(streams.update("chat", { ...input, delta: "late" }), null);
+  const next = streams.update("chat", { ...input,
+    nativeIdentity: { ...nativeIdentity, turnId: "next-turn" }, turnId: "native-thread:next-turn", text: "Next reply" });
+  assert.equal(next.messages[0].text, "Next reply");
+});
+
+test("output identity survives stream revisions and saved projection without changing native message IDs", () => {
+  const streams = createConversationStreams();
+  const input = { turnId: "authored", messageId: "native-live", outputId: "exact-output", origin: "user" };
+  streams.update("chat", { ...input, text: "Partial" });
+  const snapshot = streams.update("chat", { turnId: input.turnId, messageId: input.messageId, delta: " answer" });
+  assert.equal(snapshot.messages[0].outputId, "exact-output");
+  assert.equal(snapshot.messages[0].messageId, "native-live");
+  const user = { role: "user", messageId: "request", text: "Question" };
+  const turns = [{ turnId: "authored", user, messages: [user] }];
+  assert.equal(mergeConversationStream(turns, snapshot)[0].assistant.outputId, "exact-output");
+  const saved = { role: "assistant", messageId: "native-saved", outputId: "exact-output", text: "Partial answer" };
+  streams.complete("chat", "native-live");
+  const final = [{ ...turns[0], assistant: saved, messages: [user, saved] }];
+  assert.equal(mergeConversationStream(final, streams.read("chat")), final);
+  assert.equal(final[0].assistant.messageId, "native-saved");
+  assert.equal(final[0].assistant.outputId, snapshot.messages[0].outputId);
+});

@@ -2,7 +2,7 @@
 
 Import `sevdeskProvider` from `@jskit-ai/connectors-catalog/server/sevdesk`.
 This fragment verifies an account API token and lists contacts, including people
-by default. Vibe64 labels its credential field **API token reference**.
+by default. The connection editor labels its credential field **API token reference**.
 
 ## Provider setup
 
@@ -12,7 +12,7 @@ by default. Vibe64 labels its credential field **API token reference**.
    enter your password, then copy the revealed token. Some plans also expose
    **Erweiterungen → API**, with the same reveal/password step.
 3. Store the value as `SEVDESK_API_TOKEN` in the backend environment. Add
-   Sevdesk in Vibe64 and enter `env:SEVDESK_API_TOKEN` in **API token reference**.
+   Sevdesk in the connection editor and enter `env:SEVDESK_API_TOKEN` in **API token reference**.
    The portable file contains that reference, never the revealed token.
 
 This retrieves an existing credential; it is not a new OAuth-app registration.

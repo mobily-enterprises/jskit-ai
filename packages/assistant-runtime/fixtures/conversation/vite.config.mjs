@@ -1,5 +1,7 @@
 import { createMemoryTurnRequests } from "../../test/support/memoryTurnRequests.js";
 import { createChatService } from "../../src/server/services/chatService.js";
+import { createAssistantConversationRuntime } from "../../src/server/createAssistantRuntime.js";
+import { createMemoryAssistantRows } from "../../test/support/memoryAssistantRows.js";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath } from "node:url";
@@ -59,7 +61,7 @@ export default defineConfig({
               controller.signal.addEventListener("abort", () => reject(new Error("Stopped")), { once: true });
             });
             stream.advance = parameters => release(parameters);
-            const service = createChatService({
+            const dependencies = {
               turnRequests,
               aiClientFactory: { async resolveClient(_surface, { integrationId }) {
                 return { enabled: true, provider: "fixture", defaultModel: integrationId, supportsAttachments: true,
@@ -69,6 +71,7 @@ export default defineConfig({
                     yield { choices: [{ delta: { content: "Partial answer" } }] };
                     await nextChunk();
                     yield { choices: [{ delta: { content: " completed." } }] };
+                    yield { choices: [{ delta: {}, finish_reason: "stop" }] };
                   }
                 };
               } },
@@ -81,11 +84,18 @@ export default defineConfig({
                 async appendMessage(_surface, _id, message) { transcript.push(message); },
                 async completeConversation() {}
               },
-              serviceToolCatalog: { resolveToolSet: () => ({ tools: [] }) },
+              serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
+                toOpenAiToolSchema: tool => ({ type: "function", function: tool }) },
               assistantConfigService: { resolveSystemPrompt: async () => "Answer the user." },
               appConfig: { surfaceDefinitions: { admin: { id: "admin", enabled: true, requiresWorkspace: false, accessPolicyId: "public" } },
                 assistantSurfaces: { admin: { settingsSurfaceId: "admin", configScope: "global" } } }
+            };
+            const conversationRuntime = createAssistantConversationRuntime({
+              ...createMemoryAssistantRows({ id: "100", surfaceId: "admin", messages: transcript }),
+              aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog,
+              attachments: dependencies.attachments
             });
+            const service = createChatService({ ...dependencies, conversationRuntime });
             const streamWriter = Object.fromEntries(["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"].map(method => [method, event => send(stream, event)]));
             try { await service.streamChat({ ...payload, targetSurfaceId: "admin" }, { streamWriter, abortSignal: controller.signal, context: { actor: { id: "1" } } }); }
             catch (error) { if (!res.destroyed) send(stream, { type: "error", message: error.message }); }

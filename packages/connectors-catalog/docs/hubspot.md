@@ -138,5 +138,5 @@ configuration and operation sequence. Keys and tokens stay server-side.
 bulk import/sync, custom association labels, company/ticket API or archive/delete
 operations. Example: a booking app can create a linked deal and advance its stage,
 but it must supply the trigger and cannot import an entire CRM automatically.
-Editor-assistant attachment is deferred. Fixture success does not prove live CRM
+Assistant tool attachment requires explicit host integration. Fixture success does not prove live CRM
 installation, property availability, subscription features or generated-app use.

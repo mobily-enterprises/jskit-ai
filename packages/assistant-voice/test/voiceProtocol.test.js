@@ -111,10 +111,18 @@ test("assistant speech preserves list item pauses through client and daemon norm
 test("streaming recognizer text is made readable without changing mixed-case input", () => {
   assert.equal(normalizeRecognizedText("SELECT THE MYSQL ID"), "Select the MySQL ID");
   assert.equal(
-    normalizeRecognizedText("VIBE SIXTY FOUR USES JAY ESS KIT WITH NODE J S AND POSTGRES Q L AND WEB SOCKET"),
-    "Vibe64 uses JSKIT with Node.js and PostgreSQL and WebSocket"
+    normalizeRecognizedText("THIS USES JAY ESS KIT WITH NODE J S AND POSTGRES Q L AND WEB SOCKET"),
+    "This uses JSKIT with Node.js and PostgreSQL and WebSocket"
   );
   assert.equal(normalizeRecognizedText("Keep MySQL as it is"), "Keep MySQL as it is");
+});
+
+test("recognition vocabulary supplies literal application spellings without changing mixed-case input", () => {
+  const vocabulary = { "acme labs": "Acme Labs", "example.org": "Example.org", cash: "$Cash" };
+  assert.equal(normalizeRecognizedText("ACME LABS USES EXAMPLE.ORG AND CASH", vocabulary), "Acme Labs uses Example.org and $Cash");
+  assert.equal(normalizeRecognizedText("ACME LABS USES EXAMPLEXORG AND CASHIER", vocabulary), "Acme Labs uses examplexorg and cashier");
+  assert.equal(normalizeRecognizedText("Keep acme labs as written", vocabulary), "Keep acme labs as written");
+  assert.equal(normalizeRecognizedText("ACME LABS"), "Acme labs");
 });
 
 test("speech text becomes a bounded phoneme-informed viseme timeline", () => {

@@ -1,65 +1,94 @@
 <script setup>
-import { computed, onMounted, onScopeDispose, reactive, ref } from "vue";
-import { createVoiceConversationController, VoiceConversationHost } from "@jskit-ai/assistant-voice/client";
-const selected = ref("planning");
-const provider = ref(""); const error = ref("");
-const states = reactive({ planning: { id: "planning", label: "Planning", messages: [] }, notes: { id: "notes", label: "Notes", messages: [] } });
-const drafts = reactive({ planning: "", notes: "" });
-const sending = reactive({ planning: false, notes: false });
-const pendingMessages = new Map();
-const current = computed(() => states[selected.value]);
-const controller = createVoiceConversationController({ connectSpeech: binding => `/api/conversations/${binding.id}/voice` });
-async function request(url, options = {}) {
-  const response = await fetch(url, options); const result = await response.json();
-  if (!response.ok) throw new Error(result.message || "Request failed.");
-  return result;
+import { inject, nextTick, onScopeDispose, ref } from "vue";
+import { createVoiceConversationController, projectConversationVoiceState, VoiceConversationHost } from "@jskit-ai/assistant-voice/client";
+import { ShellErrorHost } from "@jskit-ai/shell-web/client";
+import Conversation from "./Conversation.vue";
+
+const example = inject("example.application");
+const closed = ref([]);
+const views = new Map();
+const error = ref("");
+const controller = createVoiceConversationController({ connectSpeech: binding => binding.socketUrl });
+async function openText(id) {
+  closed.value = closed.value.filter(value => value !== id);
+  await nextTick();
+  views.get(id)?.focus();
 }
-async function reload() {
-  const result = await request("/api/conversations"); provider.value = result.provider;
-  for (const value of result.conversations) states[value.id] = value;
+function voiceBinding(runtime, label) {
+  const identity = runtime.identity;
+  let retained;
+  return {
+    id: JSON.stringify([identity.actorKey, identity.conversationId]), label,
+    socketUrl: `/api/conversations/${encodeURIComponent(identity.conversationId)}/voice`,
+    get state() { return projectConversationVoiceState({ turns: runtime.turns.value, status: runtime.snapshot.value?.status }); },
+    get available() { return runtime.available.value; },
+    captureContext: () => ({ ...identity }),
+    retain() { retained = runtime.retain(); runtime = retained.runtime; },
+    release() { retained?.release(); retained = null; },
+    submitText(text, { messageId, context } = {}) {
+      if (context?.actorKey !== identity.actorKey || context?.conversationId !== identity.conversationId) {
+        throw new Error("This recording belongs to another conversation.");
+      }
+      return runtime.send({ message: text }, { messageId });
+    },
+    cancelWork: () => runtime.cancel(),
+    openText: () => openText(identity.conversationId)
+  };
 }
-async function submit(id, text, messageId = crypto.randomUUID()) {
-  const result = await request(`/api/conversations/${id}/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, messageId }) });
-  await reload(); return result;
-}
-function binding(id) {
-  return { id, get label() { return states[id].label; }, get state() { return states[id]; }, available: true,
-    captureContext: () => ({ id }),
-    submitText(text, { messageId, context }) { if (context.id !== id) throw new Error("Wrong conversation."); return submit(id, text, messageId); },
-    cancelWork: () => request(`/api/conversations/${id}/stop`, { method: "POST" }) };
-}
-async function openVoice() { try { await controller.open({ conversation: binding(selected.value) }); } catch (cause) { error.value = cause.message; } }
-async function send() {
-  const id = selected.value; const text = drafts[id].trim(); if (!text || sending[id]) return;
-  let pending = pendingMessages.get(id);
-  if (pending?.text !== text) { pending = { text, messageId: crypto.randomUUID() }; pendingMessages.set(id, pending); }
-  sending[id] = true;
-  try { await submit(id, text, pending.messageId); pendingMessages.delete(id); if (drafts[id].trim() === text) drafts[id] = ""; error.value = ""; }
+async function openVoice(runtime, label) {
+  try { await controller.open({ conversation: voiceBinding(runtime, label) }); error.value = ""; }
   catch (cause) { error.value = cause.message; }
-  finally { sending[id] = false; }
 }
-let timer; let disposed = false;
-async function poll() { try { await reload(); } catch (cause) { error.value = cause.message; } finally { if (!disposed) timer = setTimeout(poll, 500); } }
-onMounted(poll);
-onScopeDispose(() => { disposed = true; clearTimeout(timer); void controller.dispose(); });
+onScopeDispose(() => { void controller.dispose(); });
 </script>
+
 <template>
   <v-app>
     <main class="example">
       <h1>Voice conversations</h1>
-      <p>{{ provider }}</p>
-      <v-btn-toggle v-model="selected" mandatory aria-label="Visible conversation"><v-btn value="planning">Planning</v-btn><v-btn value="notes">Notes</v-btn></v-btn-toggle>
-      <v-btn color="primary" class="ml-3" @click="openVoice">Voice chat with {{ current.label }}</v-btn>
-      <p v-if="error || current.error" role="alert">{{ error || current.error }}</p>
-      <p>Changing this view keeps the active voice destination. Use Voice chat to switch it explicitly.</p>
-      <section aria-label="Conversation messages">
-        <p v-for="message in current.messages" :key="message.id"><strong>{{ message.role }}:</strong> {{ message.text }}</p>
-        <p v-if="current.streamingReply"><strong>assistant:</strong> {{ current.streamingReply.text }}</p>
-      </section>
-      <v-textarea v-model="drafts[selected]" label="Message" rows="3" />
-      <v-btn :disabled="current.status === 'working' || sending[selected]" @click="send">Send</v-btn>
+      <p>{{ example.provider }}</p>
+      <p>Each chat has its own history and controls. Voice keeps its original target when you close or focus another text view.</p>
+      <nav aria-label="Open a text conversation" class="example__navigation">
+        <v-btn
+          v-for="conversation in example.conversations" :key="conversation.id" variant="tonal"
+          @click="openText(conversation.id)"
+        >
+          {{ conversation.label }}
+        </v-btn>
+      </nav>
+      <p v-if="error" role="alert">{{ error }}</p>
+      <div class="example__grid">
+        <section
+          v-for="conversation in example.conversations.filter(value => !closed.includes(value.id))"
+          :key="conversation.id" :aria-label="`${conversation.label} chat`" class="example__card"
+        >
+          <header>
+            <h2>{{ conversation.label }}</h2>
+            <v-btn
+              size="small" variant="text" :aria-label="`Close ${conversation.label} text view`"
+              @click="closed.push(conversation.id)"
+            >
+              Close text
+            </v-btn>
+          </header>
+          <Conversation
+            :ref="value => value ? views.set(conversation.id, value) : views.delete(conversation.id)"
+            :id="conversation.id" :label="conversation.label" @voice="runtime => openVoice(runtime, conversation.label)"
+          />
+        </section>
+      </div>
     </main>
     <VoiceConversationHost :controller="controller" />
+    <ShellErrorHost />
   </v-app>
 </template>
-<style scoped>.example { width: min(100% - 32px, 800px); margin: 24px auto; } section { min-height: 180px; } p { margin-block: 12px; white-space: pre-wrap; }</style>
+
+<style scoped>
+.example { width: min(100% - 32px, 1500px); margin: 24px auto; }
+p { margin-block: 12px; }
+.example__navigation { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.example__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 16px; }
+.example__card { display: flex; flex-direction: column; min-width: 0; height: min(720px, 85dvh); padding: 12px; border: 1px solid rgb(var(--v-theme-outline)); border-radius: 12px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+h2 { font-size: 1.1rem; }
+</style>

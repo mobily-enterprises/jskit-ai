@@ -10,7 +10,7 @@ emojis. It does not generate new emojis or implement managed billing.
 2. Enter the platform name, contact email, company website and product
    description; accept the API terms and submit.
 3. Create a named API key. Supply its **App URL** when available.
-4. Store the value as `KLIPY_APP_KEY` in the backend environment. In Vibe64,
+4. Store the value as `KLIPY_APP_KEY` in the backend environment. In the connection editor,
    add KLIPY, enter `env:KLIPY_APP_KEY` in **API key reference**, and choose
    **Save configuration**. Choose **Set credential in Env**, save the real key
    as `KLIPY_APP_KEY`, then return and choose **Connect account**. This reads

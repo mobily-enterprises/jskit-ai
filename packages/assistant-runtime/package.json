@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.193",
+  "version": "0.1.194",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -8,21 +8,23 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./shared": "./src/shared/index.js",
-    "./server/actionIds": "./src/server/actionIds.js"
+    "./server/actionIds": "./src/server/actionIds.js",
+    "./server": "./src/server/index.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.200",
-    "@jskit-ai/database-runtime": "0.1.222",
+    "@jskit-ai/assistant-core": "0.1.201",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.220",
-    "@jskit-ai/http-web": "0.1.67",
-    "@jskit-ai/kernel": "0.1.222",
-    "@jskit-ai/shell-web": "0.1.226",
+    "@jskit-ai/http-runtime": "0.1.221",
+    "@jskit-ai/http-web": "0.1.68",
+    "@jskit-ai/kernel": "0.1.223",
+    "@jskit-ai/realtime": "0.1.220",
+    "@jskit-ai/shell-web": "0.1.227",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
-    "vuetify": "^4.0.0"
+    "vuetify": "^4.0.0",
+    "@jskit-ai/database-runtime": "0.1.223"
   },
   "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
   "jskit": {
@@ -34,7 +36,6 @@
       "requires": [
         "runtime.actions",
         "runtime.config",
-        "runtime.database",
         "runtime.env",
         "runtime.http",
         "runtime.http-web",
@@ -91,6 +92,10 @@
           {
             "subpath": "./server/actionIds",
             "summary": "Exports assistant runtime action identifiers."
+          },
+          {
+            "subpath": "./server",
+            "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand and optional database integration."
           }
         ],
         "capabilities": [
@@ -105,6 +110,14 @@
       "directories": [
         "migrations"
       ]
+    }
+  },
+  "peerDependenciesMeta": {
+    "@jskit-ai/realtime": {
+      "optional": true
+    },
+    "@jskit-ai/database-runtime": {
+      "optional": true
     }
   }
 }

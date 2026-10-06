@@ -1535,8 +1535,7 @@
       {"id":"zai-org/GLM-5.3-Flash","name":"GLM-5.3-Flash","cost":{"input":0.15,"output":0.5,"cache_read":0.03},"limit":{"context":1048576,"output":131072},"modalities":{"input":["text","image","video","pdf"],"output":["text"]},"sdkPackage":"@ai-sdk/deepinfra","access":"paid"}
     ]},
     {"id": "deepseek", "name": "DeepSeek", "documentationUrl": "https://api-docs.deepseek.com/quick_start/pricing", "baseURL": "https://api.deepseek.com", "environment": ["DEEPSEEK_API_KEY"], "sdkPackage": "@ai-sdk/openai-compatible", "models": [
-      {"id":"deepseek-v4-flash","name":"DeepSeek V4 Flash","cost":{"input":0.14,"output":0.28,"reasoning":0.28,"cache_read":0.0028},"limit":{"context":1000000,"output":384000},"modalities":{"input":["text"],"output":["text"]},"sdkPackage":"@ai-sdk/openai-compatible","access":"paid"},
-      {"id":"deepseek-v4-flash-vision-exp","name":"DeepSeek V4 Flash Vision Exp","status":"beta","cost":{"input":0.14,"output":0.28,"reasoning":0.28,"cache_read":0.0028},"limit":{"context":1000000,"output":384000},"modalities":{"input":["text","image"],"output":["text"]},"sdkPackage":"@ai-sdk/openai-compatible","access":"paid"},
+      {"id":"deepseek-flash","name":"DeepSeek V4.1 Flash","limit":{"context":1048576,"output":384000},"modalities":{"input":["text","image"],"output":["text"]},"sdkPackage":"@ai-sdk/openai-compatible","access":"paid"},
       {"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","cost":{"input":0.435,"output":0.87,"reasoning":0.87,"cache_read":0.003625},"limit":{"context":1000000,"output":384000},"modalities":{"input":["text"],"output":["text"]},"sdkPackage":"@ai-sdk/openai-compatible","access":"paid"}
     ]},
     {"id": "digitalocean", "name": "DigitalOcean", "documentationUrl": "https://docs.digitalocean.com/products/gradient-ai-platform/details/models/", "baseURL": "https://inference.do-ai.run/v1", "environment": ["DIGITALOCEAN_ACCESS_TOKEN"], "sdkPackage": "@ai-sdk/openai-compatible", "models": [

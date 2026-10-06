@@ -10,8 +10,10 @@ business workflows. There is no automatic provider installation or activation.
 Each application owns its registration, callback, credentials and grants. Read
 the core package's [callback guide](../connectors-core/docs/oauth-callbacks.md)
 and [application setup contract](../connectors-core/docs/online-setup.md), which
-apply to hosted editors, installed editors and CLI use. There is no shared
-Vibe64 provider registration or token gateway.
+apply to hosted editors, installed editors and CLI use. The catalogue supplies no
+shared provider registration or token gateway. An assistant host must explicitly
+expose authorized connector operations as tools; saving a connection alone does
+not attach those tools to a conversation.
 
 ## Finding setup instructions from a CLI or coding agent
 

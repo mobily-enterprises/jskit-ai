@@ -47,7 +47,7 @@ function sdkMessages(messages) {
 }
 
 /** Accept only the server-side result of an authorized AI connection resolver. */
-export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens } = {}) {
+export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort } = {}) {
   if (!connection?.apiKey || !connection.model || !Object.hasOwn(providers, connection.sdkPackage)) {
     throw new TypeError("An authorized AI connection with a supported SDK and model is required.");
   }
@@ -61,7 +61,7 @@ export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_00
       tools: Object.fromEntries(tools.map(({ function: tool }) => [tool.name, {
         description: tool.description, inputSchema: jsonSchema(tool.parameters)
       }])),
-      abortSignal: signal, timeout: timeoutMs, maxRetries: 0, temperature, maxOutputTokens
+      abortSignal: signal, timeout: timeoutMs, maxRetries: 0, temperature, maxOutputTokens, reasoning: effort
     };
   }
   return Object.freeze({
@@ -70,21 +70,28 @@ export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_00
       const result = await generateText(options(input));
       return { choices: [{ message: { role: "assistant", content: result.text,
         tool_calls: result.toolCalls.map(call => ({ id: call.toolCallId, type: "function",
-          function: { name: call.toolName, arguments: JSON.stringify(call.input) } })) } }] };
+          function: { name: call.toolName, arguments: JSON.stringify(call.input) } })) }, finish_reason: result.finishReason }] };
     },
     async *createChatCompletionStream(input) {
       const result = streamText({ ...options(input), onError() {} });
       let toolIndex = 0;
+      let failure;
       for await (const part of result.fullStream) {
-        if (part.type === "error") throw part.error;
-        if (part.type === "abort") throw input?.signal?.reason || new Error("Assistant request was aborted.");
+        // Let the SDK settle its stream before reporting a rejected tool call.
+        // Cancelling this iterator mid-step leaves its completion unresolved.
+        if (part.type === "error" || (part.type === "tool-call" && part.invalid)) {
+          failure ||= part.error || new Error("The model returned an invalid tool call.");
+        }
+        if (part.type === "abort") failure ||= input?.signal?.reason || new Error("Assistant request was aborted.");
+        if (failure) continue;
         if (part.type === "text-delta") yield { choices: [{ delta: { content: part.text } }] };
+        if (part.type === "finish") yield { choices: [{ delta: {}, finish_reason: part.finishReason }], usage: part.totalUsage };
         if (part.type === "tool-call") {
-          if (part.invalid) throw part.error;
           yield { choices: [{ delta: { tool_calls: [{ index: toolIndex++, id: part.toolCallId,
             function: { name: part.toolName, arguments: JSON.stringify(part.input) } }] } }] };
         }
       }
+      if (failure) throw failure;
     }
   });
 }

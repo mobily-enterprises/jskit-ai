@@ -31,14 +31,14 @@ readiness at `/health`. An application's authenticated server proxy consumes the
 token file; neither the token nor signing key belongs in browser configuration.
 The standalone token command does not implement per-application revocation.
 Hosts needing grant rotation/revocation supply their existing grant policy through
-`runVoiceCli(argv, { createDaemon })` and the generic daemon's authorization seam.
+`runVoiceCli(argv, { createDaemon, recognitionVocabulary })` and the generic daemon's authorization seam.
 
 Preparation verifies archive hashes, stages exact model files/configuration,
 records file hashes and atomically replaces the model directory. Repeating the
 same preparation reuses a verified pack. Stop the service before replacing its
 pack, verify, then restart. Normal serving loads models without rehashing them on
 every restart. `--download-cache PATH` and `--retain-downloads 1` permit offline
-reuse. `--hotwords-file FILE` replaces the supplied recognition vocabulary.
+reuse. `--hotwords-file FILE` replaces the prepared recognizer hotwords file.
 
 ## Models and voices
 
@@ -100,9 +100,16 @@ are forwarded to Sherpa after replacing `${MODELS_ROOT}` in paths. Other fields:
   ],
   "defaultVoice": "am_michael",
   "recognizerTailPaddingSeconds": 1,
-  "recognizerMinimumRms": 0.001
+  "recognizerMinimumRms": 0.001,
+  "recognitionVocabulary": { "acme labs": "Acme Labs" }
 }
 ```
+
+`recognitionVocabulary` maps literal recognized phrases to application spellings.
+It applies only when making all-uppercase recognition readable; mixed-case text
+is left intact. The CLI host may supply default vocabulary through its options;
+an explicit speech configuration vocabulary replaces those defaults. This does
+not change the recognizer's hotwords or load another model.
 
 Each voice may set `speed` between `0.5` and `2` (default `1`). For example,
 `"speed": 1.15` increases its synthesis pace by about 15% without changing the

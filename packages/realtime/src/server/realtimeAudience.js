@@ -182,8 +182,7 @@ function parseCookieHeader(value = "") {
   return cookies;
 }
 
-async function resolveSocketActor(authService, socket) {
-  if (typeof authService?.authenticateRequest !== "function") return null;
+function createSocketRequest(socket) {
   const handshakeHeaders = socket?.handshake?.headers || {};
   const requestHeaders = socket?.request?.headers || {};
   const host = normalizeText(handshakeHeaders.host || requestHeaders.host);
@@ -201,6 +200,11 @@ async function resolveSocketActor(authService, socket) {
   if (Object.keys(headers).length > 0) request.headers = headers;
   request.socket = { encrypted: socket?.request?.socket?.encrypted === true };
   if (remoteAddress) request.socket.remoteAddress = remoteAddress;
+  return request;
+}
+
+async function resolveSocketActor(authService, socket, request = createSocketRequest(socket)) {
+  if (typeof authService?.authenticateRequest !== "function") return null;
   const result = await authService.authenticateRequest(request);
   const id = result?.authenticated === true
     ? normalizeRecordId(result?.actor?.id, { fallback: null }) : null;
@@ -268,8 +272,8 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, works
   });
 }
 
-async function revalidateSocket({ socket, authService, workspaces = null }) {
-  const actor = await resolveSocketActor(authService, socket);
+async function revalidateSocket({ socket, authService, workspaces = null, request }) {
+  const actor = await resolveSocketActor(authService, socket, request);
   const previousActorId = socket.data?.actorId;
   if ((!actor && realtimeAuthenticationRequired(authService)) ||
       (previousActorId && previousActorId !== actor?.id)) {
@@ -292,6 +296,7 @@ async function revalidateSocket({ socket, authService, workspaces = null }) {
 }
 
 export {
+  createSocketRequest,
   realtimeAuthenticationRequired,
   revalidateSocket,
   registerSocketAudienceBootstrap,

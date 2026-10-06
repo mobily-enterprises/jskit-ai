@@ -1,11 +1,13 @@
 export { default as AssistantConversationElement } from "./AssistantConversationElement.vue";
 export { default as AssistantTranscript } from "./AssistantTranscript.vue";
+export { default as AssistantConversationStatus } from "./AssistantConversationStatus.vue";
 export { default as AssistantPromptInput } from "./AssistantPromptInput.vue";
 export { default as AssistantComposerActions } from "./AssistantComposerActions.vue";
 export { default as AssistantProgress } from "./AssistantProgress.vue";
 export { default as AssistantComposerSupport } from "./AssistantComposerSupport.vue";
 export { default as AssistantGoalControl } from "./AssistantGoalControl.vue";
 export { useAssistantSuggestions } from "./useAssistantSuggestions.js";
+export { useAssistantQuestions } from "./useAssistantQuestions.js";
 export { default as LongTextPreviewBlocks } from "./LongTextPreviewBlocks.vue";
 export { default as LongTextInlineParts } from "./LongTextInlineParts.vue";
 export { useScrollToBottom } from "./useScrollToBottom.js";

@@ -114,5 +114,5 @@ provisioning after an authorized bootstrap key; the owner supplies initial acces
 workflow engine, webhook receiver, postmortem importer, custom-field/role editing,
 catalogue schema editing or bulk synchronizer. Example: an app can show the next
 shift and resolve an alert, but cannot generate a rota or start monitoring servers
-just by connecting. Editor-assistant attachment is deferred. Fixture tests do not
+just by connecting. Assistant tool attachment requires explicit host integration. Fixture tests do not
 prove live delivery, role entitlement or provider-side workflow effects.

@@ -1,5 +1,6 @@
 export { assistantRuntimeConfig } from "./assistantRuntimeConfig.js";
 export {
+  defineAssistantSurface,
   normalizeAssistantConfigScope,
   resolveAssistantSurfaceConfig,
   resolveAssistantSurfacesConfig,

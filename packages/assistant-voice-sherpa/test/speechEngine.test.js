@@ -24,6 +24,7 @@ test("streaming recognition uses bounded beam search and its installed technical
   const modelsRoot = path.resolve("/tmp/vibe64-voice-models");
   const engine = await createSherpaSpeechEngine({
     modelsRoot,
+    configuration: { recognitionVocabulary: { "acme labs": "Acme Labs" } },
     recognizerActivePaths: 16,
     synthesizerThreads: 2,
     createSynthesizer: async config => {
@@ -68,6 +69,11 @@ test("streaming recognition uses bounded beam search and its installed technical
   assert.deepEqual(endpoints, ["I meant sugar"], "a native hallucination from silence is not a new utterance");
   listening.acceptPcm(speechFrame);
   assert.deepEqual(endpoints, ["I meant sugar", "A second turn"]);
+  listening.reset();
+  result = "ACME LABS USES SQL";
+  listening.acceptPcm(speechFrame);
+  assert.equal(endpoints.at(-1), "Acme Labs uses SQL");
+  assert.equal(listening.finish(), "Acme Labs uses SQL");
   listening.cancel();
   assert.equal(listening.isEndpoint(), false);
 });

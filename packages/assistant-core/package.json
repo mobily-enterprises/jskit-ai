@@ -1,27 +1,38 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.200",
+  "version": "0.1.201",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
     "./shared": "./src/shared/index.js",
     "./client/conversation": "./src/client/conversation/index.js",
-    "./server/codex-events": "./src/server/conversation/codexEvents.js",
-    "./server/codex-turn": "./src/server/conversation/codexTurn.js",
-    "./server/codex-client": "./src/server/conversation/codexClient.js",
-    "./server/opencode-client": "./src/server/conversation/openCodeClient.js",
+    "./server/codex-events": "./src/server/hosts/codexEvents.js",
+    "./server/codex-turn": "./src/server/hosts/codexTurn.js",
+    "./server/opencode-client": "./src/server/hosts/openCodeClient.js",
     "./server/conversation": "./src/server/conversation/index.js",
     "./shared/conversation": "./src/shared/conversation/index.js",
-    "./client/conversation-submit": "./src/client/conversation/submitText.js",
     "./client/conversation-scroll": "./src/client/conversation/useScrollToBottom.js",
     "./testing/conversation-storage": "./src/testing/conversationStorageContract.js",
     "./client/conversation-suggestions": "./src/client/conversation/useAssistantSuggestions.js",
+    "./client/conversation-questions": "./src/client/conversation/useAssistantQuestions.js",
     "./client/conversation-attachments": "./src/client/conversation/useAssistantAttachments.js",
-    "./client/conversation-delivery": "./src/client/conversation/messageDelivery.js"
+    "./client/conversation-delivery": "./src/client/conversation/messageDelivery.js",
+    "./server/claude-history": "./src/server/hosts/claudeHistory.js",
+    "./server/claude-process": "./src/server/hosts/claudeProcess.js",
+    "./server/claude-turn": "./src/server/hosts/claudeTurn.js",
+    "./server/codex-configuration": "./src/server/hosts/codexConfiguration.js",
+    "./server/codex-process": "./src/server/hosts/codexProcess.js",
+    "./server/opencode-turn": "./src/server/hosts/openCodeTurn.js",
+    "./server/opencode-process": "./src/server/hosts/openCodeProcess.js",
+    "./shared/native-providers": "./src/shared/nativeProviders.js",
+    "./server/codex-provider": "./src/server/hosts/codexProvider.js",
+    "./server/native-history": "./src/server/hosts/nativeHistory.js",
+    "./testing/native-codex": "./src/testing/nativeCodex.js",
+    "./testing/native-opencode": "./src/testing/nativeOpenCode.js"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.53",
@@ -34,8 +45,8 @@
     "@ai-sdk/perplexity": "^4.0.43",
     "@ai-sdk/togetherai": "^3.0.49",
     "@ai-sdk/xai": "^4.0.58",
-    "@jskit-ai/resource-core": "0.1.164",
-    "@jskit-ai/resource-crud-core": "0.1.164",
+    "@jskit-ai/resource-core": "0.1.165",
+    "@jskit-ai/resource-crud-core": "0.1.165",
     "@mdi/js": "^7.4.47",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.101",
@@ -44,8 +55,8 @@
     "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.220",
-    "@jskit-ai/kernel": "0.1.222",
+    "@jskit-ai/http-runtime": "0.1.221",
+    "@jskit-ai/kernel": "0.1.223",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
@@ -70,60 +81,112 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./client",
-            "summary": "Exports reusable assistant UI primitives, HTTP helpers, and client API builders."
-          },
-          {
-            "subpath": "./server",
-            "summary": "Exports reusable assistant AI/provider and NDJSON streaming helpers."
-          },
-          {
-            "subpath": "./shared",
-            "summary": "Exports reusable assistant validators, path helpers, query keys, and stream/settings events."
+            "subpath": "./server/conversation",
+            "summary": "Conversation runtime: createConversationRuntime and file or application-owned storage; advanced storage and host contracts are documented separately."
           },
           {
             "subpath": "./client/conversation",
-            "summary": "Embeddable conversation element, transcript, composer and progress presentation with application-owned state and actions."
-          },
-          {
-            "subpath": "./server/conversation",
-            "summary": "Conversation transcript lifecycle, system-instruction installation and application-owned storage adapters."
+            "summary": "Optional UI: Embeddable conversation element, transcript, composer and progress presentation with application-owned state and actions."
           },
           {
             "subpath": "./shared/conversation",
-            "summary": "Turn mapping, rich-text parsing, question helpers and scroll-follow state."
-          },
-          {
-            "subpath": "./server/codex-client",
-            "summary": "Codex app-server JSON-RPC client; the application supplies the endpoint, identity and request authorization."
-          },
-          {
-            "subpath": "./server/codex-turn",
-            "summary": "Native Codex detached-turn observation and final-result recovery."
-          },
-          {
-            "subpath": "./server/codex-events",
-            "summary": "Native Codex notification and thread-history classification."
-          },
-          {
-            "subpath": "./server/opencode-client",
-            "summary": "Bounded OpenCode loopback HTTP and SSE client."
-          },
-          {
-            "subpath": "./client/conversation-submit",
-            "summary": "Companion text submission through the application draft and canonical send action."
+            "summary": "Optional UI: Turn mapping, rich-text parsing, question helpers and scroll-follow state."
           },
           {
             "subpath": "./client/conversation-scroll",
-            "summary": "Layout-aware scroll-follow operations."
+            "summary": "Optional UI: Layout-aware scroll-follow operations."
           },
           {
-            "subpath": "./testing/conversation-storage",
-            "summary": "Reusable checks for application conversation storage adapters."
+            "subpath": "./client/conversation-suggestions",
+            "summary": "Optional UI: Suggestion state and configuration for an application-supplied, separately authorized generator."
+          },
+          {
+            "subpath": "./client/conversation-questions",
+            "summary": "Optional UI: Question extraction and answer selection used by the supplied binding and custom presentation."
+          },
+          {
+            "subpath": "./client/conversation-attachments",
+            "summary": "Optional UI: Attachment upload and selection state; applications retain storage and authorization."
           },
           {
             "subpath": "./client/conversation-delivery",
-            "summary": "Optimistic message delivery, immutable retry payloads, failure actions and canonical receipt reconciliation."
+            "summary": "Optional UI: Optimistic message delivery, immutable retry payloads, failure actions and canonical receipt reconciliation."
+          },
+          {
+            "subpath": "./client",
+            "summary": "Framework integration: Exports reusable assistant UI primitives, HTTP helpers, and client API builders."
+          },
+          {
+            "subpath": "./server",
+            "summary": "Framework integration: Exports reusable assistant AI/provider and NDJSON streaming helpers."
+          },
+          {
+            "subpath": "./shared",
+            "summary": "Framework integration: Exports reusable assistant validators, path helpers, query keys, and stream/settings events."
+          },
+          {
+            "subpath": "./server/codex-events",
+            "summary": "Advanced native host: Codex event identities, thread-history projections and context-refresh facts for native hosts."
+          },
+          {
+            "subpath": "./server/codex-turn",
+            "summary": "Advanced native host: Original Codex run, receipt, observation, goal, steering, control, scoped-turn and renewal coordination."
+          },
+          {
+            "subpath": "./server/opencode-client",
+            "summary": "Advanced native host: OpenCode native history retirement for existing hosts."
+          },
+          {
+            "subpath": "./server/claude-history",
+            "summary": "Advanced native host: Claude native transcript reading, storage inventory and authorized history retirement."
+          },
+          {
+            "subpath": "./server/claude-process",
+            "summary": "Advanced native host: Claude command and account-query configuration, owned process startup and verified cleanup."
+          },
+          {
+            "subpath": "./server/claude-turn",
+            "summary": "Advanced native host: Original Claude admission, streaming, background-task completion, goals, steering and private renewal execution."
+          },
+          {
+            "subpath": "./server/codex-configuration",
+            "summary": "Advanced native host: Codex model and account configuration with verified Helper isolation for existing native hosts."
+          },
+          {
+            "subpath": "./server/codex-process",
+            "summary": "Advanced native host: Codex shared runtime acquisition, process leadership, verified retirement and recovery for managed execution hosts."
+          },
+          {
+            "subpath": "./server/opencode-turn",
+            "summary": "Advanced native host: OpenCode authorized history projections, structured results and bounded renewal for existing hosts."
+          },
+          {
+            "subpath": "./server/opencode-process",
+            "summary": "Advanced native host: OpenCode shared runtime selection, native plugin environment, owned server lifecycle, credential-free catalogue reads and bounded API-key verification for existing hosts."
+          },
+          {
+            "subpath": "./shared/native-providers",
+            "summary": "Advanced native host: Exact native provider routes, engine configuration facts and qualified model capabilities; applications choose which models to offer."
+          },
+          {
+            "subpath": "./server/codex-provider",
+            "summary": "Advanced native host: Original Codex provider acquisition, thread selection, control, recovery, native history retirement and private renewal identity operations."
+          },
+          {
+            "subpath": "./testing/conversation-storage",
+            "summary": "Testing: Reusable checks for application conversation storage adapters."
+          },
+          {
+            "subpath": "./server/native-history",
+            "summary": "Testing: Shared native retirement sequence retained for isolated archive and deletion-contract fixtures; native host integrations normally call their engine-specific retirement owner."
+          },
+          {
+            "subpath": "./testing/native-codex",
+            "summary": "Testing: Original Codex client, history-adapter, event and model-catalogue probes for isolated host tests; tests own endpoints, authorization and cleanup."
+          },
+          {
+            "subpath": "./testing/native-opencode",
+            "summary": "Testing: Original OpenCode loopback client for isolated host integration tests; tests own endpoints, authorization and cleanup."
           }
         ],
         "capabilities": []

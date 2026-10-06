@@ -1,3 +1,4 @@
+export { projectConversationVoiceState } from "./conversationVoiceState.js";
 export { createVoiceConversationController } from "./voiceController.js";
 export { default as VoiceConversationHost } from "./VoiceConversationHost.vue";
 export { default as ConversationDialog } from "./ConversationDialog.vue";

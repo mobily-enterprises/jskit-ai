@@ -17,7 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/cli.js`
 Exports
 - `argumentMap(values = [])`
-- `runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon } = {})`
+- `runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon, recognitionVocabulary = {} } = {})`
 Local functions
 - `requiredOption(options, key, environmentKey = "")`
 - `accessKeyFromFile(filePath)`

@@ -66,8 +66,8 @@ client with the same endpoint and its own OAuth storage. Production flag evaluat
 belongs to that framework's Confidence/OpenFeature integration; never place this
 management grant in a browser or treat it as the application's client secret.
 
-**LIMITATIONS:** Automatic Vibe64 coding-assistant attachment is deferred. Saving
-this connection does not let Vibe64 chat switch a feature on; an explicitly wired
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. Saving
+this connection does not let assistant chat switch a feature on; an explicitly wired
 host can approve and call these management tools. This is not a feature-flag
 execution engine, event pipeline or visual rollout dashboard. The generated app
 must separately implement runtime evaluation if it wants to hide/show features.

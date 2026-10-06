@@ -151,10 +151,10 @@ reference persistence. Live registrations, consent, actual Hex tool calls,
 single-tenant hosts, provider billing and real generated applications are not
 part of that proof. The separate Hex REST API/token mode is not implemented.
 
-**LIMITATIONS:** Editor coding-assistant attachment and notebook/Thread widgets
-are deferred. For example an app-owned MCP host can call Hex project or Thread
-tools after its own permission checks, but adding this form does not let Vibe64
-Codex/OpenCode analyze the workspace. The app owns tool discovery/schema use,
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration;
+notebook/Thread widgets are not supplied. For example an app-owned MCP host can
+call Hex project or Thread tools after its own permission checks, but saving the
+configuration alone does not authorize an assistant to analyze the workspace. The app owns tool discovery/schema use,
 status polling, output rendering, sensitive data policy and credit approval.
 Single-tenant custom hosts, REST/token mode and live Hex execution remain outside
 this adapter. Other frameworks use their native MCP client and the same project

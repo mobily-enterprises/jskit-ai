@@ -3,6 +3,7 @@ import test from "node:test";
 import * as vue from "vue";
 import { useVoiceTransport } from "../src/client/voiceTransport.js";
 import { useVoiceConversation } from "../src/client/voiceConversation.js";
+import { projectConversationVoiceState } from "../src/client/conversationVoiceState.js";
 
 function mountSetup(setup, router) {
   let value;
@@ -2072,4 +2073,137 @@ test("Pause with no new words is quiet and does not leave a review or false erro
   assert.equal(view.colleague.pendingTranscript.value, null);
   assert.equal(view.colleague.error.value, "");
   assert.equal(deliveries.length, 0);
+});
+
+test("canonical voice projection retains the original project identities and excludes activity", () => {
+  const turns = [{
+    turnId: "saved", user: { messageId: "request", text: "Question" },
+    assistant: { messageId: "native-final", text: "Earlier answer." },
+    commentary: [{ messageId: "progress", role: "commentary", text: "Checking." }],
+    thinking: [{ messageId: "reasoning", role: "thinking", text: "Private reasoning." }]
+  }, {
+    turnId: "current", user: { text: "Follow up" }, pending: true,
+    assistant: { messageId: "native-stream", text: "The answer is arriving.", status: "inProgress" }
+  }];
+  const original = structuredClone(turns);
+  const state = projectConversationVoiceState({ turns, status: "working" });
+  assert.deepEqual(state.messages.map(({ id, role }) => ({ id, role })), [
+    { id: "request", role: "user" }, { id: "saved:assistant", role: "assistant" }, { id: "current:user", role: "user" }
+  ]);
+  assert.equal(state.streamingReply.id, "current:assistant");
+  assert.equal(state.streamingReply.messageId, "native-stream", "The projection does not rewrite the native receipt.");
+  assert.equal(state.status, "working");
+  assert.deepEqual(turns, original);
+});
+
+test("canonical voice projection speaks temporary and saved native answer identities only once", async (t) => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const user = { messageId: "request", role: "user", text: "Question" };
+  const assistant = { messageId: "temporary-block", role: "assistant", text: "First sentence. More is coming", status: "inProgress" };
+  const turn = { turnId: "canonical-turn", user, assistant, pending: true };
+  Object.assign(view.colleagueProps.conversation, projectConversationVoiceState({ turns: [turn], status: "working" }));
+  await flushVue();
+  const socket = view.sockets[0];
+  const start = controls(socket).find(control => control.type === "speak.start");
+  assert.equal(start.text, "First sentence.");
+  assert.equal(start.stream, true);
+  assert.equal(view.colleagueProps.conversation.streamingReply.id, "canonical-turn:assistant");
+  socket.receive({ type: "speech.start", turnId: start.turnId });
+  socket.receive({ type: "speech.segment.start", turnId: start.turnId, segmentIndex: 0 });
+  socket.receive(new Int16Array(22050).buffer);
+  socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+  await flushVue();
+  assistant.text += " next. ";
+  Object.assign(view.colleagueProps.conversation, projectConversationVoiceState({ turns: [turn], status: "working" }));
+  await flushVue();
+  assert.deepEqual(controls(socket).filter(control => control.type === "speak.append").map(control => control.text), ["More is coming next."]);
+  assert.equal(view.sources[0].stopped, false, "next synthesis overlaps current playback");
+  const final = { ...turn, pending: false, assistant: { messageId: "saved-native-uuid", text: "First sentence. More is coming next." } };
+  Object.assign(view.colleagueProps.conversation, projectConversationVoiceState({ turns: [final], status: "ready" }));
+  await flushVue();
+  assert.equal(view.colleagueProps.conversation.messages.at(-1).id, "canonical-turn:assistant");
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+  assert.equal(controls(socket).filter(control => control.type === "speak.append").length, 1);
+  assert.equal(controls(socket).filter(control => control.type === "speak.end").length, 1);
+  assert.equal(view.sources[0].stopped, false, "trimming the final reply's trailing space must not cancel playback");
+});
+
+test("canonical voice projection suppresses autonomous partials and speaks the saved notification once", async (t) => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const turn = { turnId: "notification", system: { messageId: "wake", origin: "application", text: "A watched update." }, pending: true,
+    assistant: { messageId: "native-partial", role: "assistant", origin: "application", status: "inProgress", text: "The watched work is" } };
+  Object.assign(view.colleagueProps.conversation, projectConversationVoiceState({ turns: [turn], status: "working" }));
+  await flushVue();
+  assert.equal(view.colleagueProps.conversation.streamingReply.id, "notification:assistant:stream");
+  assert.equal(view.colleagueProps.conversation.streamingReply.autonomous, true);
+  assert.equal(view.colleague.voiceAnswer.value, "The watched work is");
+  assert.deepEqual(view.colleagueProps.conversation.messages, []);
+  assert.equal(view.sockets.length, 0, "An autonomous partial is a caption, not a speech invitation.");
+  const final = { ...turn, pending: false, assistant: { messageId: "saved-notification", text: "The watched work is complete." } };
+  const state = projectConversationVoiceState({ turns: [final], status: "ready" });
+  Object.assign(view.colleagueProps.conversation, state);
+  await flushVue();
+  const socket = view.sockets[0];
+  assert.equal(state.messages[0].id, "notification:assistant");
+  assert.deepEqual(controls(socket).filter(control => control.type === "speak.start").map(control => control.text), ["The watched work is complete."]);
+  Object.assign(view.colleagueProps.conversation, projectConversationVoiceState({ turns: [final], status: "ready" }));
+  await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1, "A canonical refresh cannot replay the notification.");
+});
+
+test("canonical output identity finishes a spoken acknowledgement and keeps the later answer separate", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const user = { messageId: "request", role: "user", text: "Check my projects." };
+  const progress = { messageId: "live-progress", outputId: "request:provider-progress", role: "assistant",
+    text: "Let me check your projects. ", status: "inProgress" };
+  const turn = { turnId: "canonical-turn", user, assistant: progress, pending: true };
+  const project = input => Object.assign(view.colleagueProps.conversation, projectConversationVoiceState(input));
+  project({ turns: [turn], status: "working" });
+  await flushVue();
+  const socket = view.sockets[0];
+  const start = controls(socket).find(control => control.type === "speak.start");
+  assert.equal(start.text, progress.text.trim());
+  assert.equal(view.colleagueProps.conversation.streamingReply.id, progress.outputId);
+  socket.receive({ type: "speech.start", turnId: start.turnId });
+  socket.receive({ type: "speech.segment.start", turnId: start.turnId, segmentIndex: 0 });
+  socket.receive(new Int16Array(22050).buffer);
+  socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+  await flushVue();
+
+  const savedProgress = { ...progress, messageId: "saved-progress", role: "commentary", text: progress.text.trim(), status: "complete" };
+  const interimReply = { ...savedProgress, id: "product-selection", role: "assistant", status: "completed" };
+  const withProgress = { ...turn, assistant: null, commentary: [savedProgress] };
+  project({ turns: [withProgress], status: "working", interimReply });
+  await flushVue();
+  assert.equal(view.colleagueProps.conversation.streamingReply.id, progress.outputId);
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1,
+    "Selecting the completed form of already spoken output must not replay it.");
+  assert.equal(controls(socket).filter(control => control.type === "speak.end").length, 1);
+  assert.equal(view.sources[0].stopped, false);
+  socket.receive({ type: "speech.end", turnId: start.turnId });
+  await flushVue();
+  view.sources[0].finish();
+  await flushVue();
+  project({ turns: [withProgress], status: "working", interimReply: { ...interimReply } });
+  await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+
+  const answer = { messageId: "live-answer", outputId: "request:provider-answer", role: "assistant",
+    text: "One project is open. ", status: "inProgress" };
+  project({ turns: [{ ...withProgress, assistant: answer }], status: "working", interimReply: null });
+  await flushVue();
+  const final = { ...withProgress, pending: false, assistant: { ...answer, messageId: "saved-answer", text: answer.text.trim(), status: "complete" } };
+  project({ turns: [final], status: "ready" });
+  await flushVue();
+  assert.deepEqual(controls(socket).filter(control => control.type === "speak.start").map(control => control.text),
+    [progress.text.trim(), answer.text.trim()]);
+  assert.equal(view.colleagueProps.conversation.messages.at(-1).id, answer.outputId);
+  assert.equal(view.colleagueProps.conversation.messages.at(-1).messageId, "saved-answer");
+  project({ turns: [final], status: "ready" });
+  await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2);
+  assert.equal(final.commentary[0].messageId, "saved-progress");
 });

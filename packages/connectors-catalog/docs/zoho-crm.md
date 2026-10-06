@@ -187,6 +187,6 @@ No native/self/client-credentials grants, additional regions beyond the configur
 seven, region auto-discovery or provider-side revocation. Current-user verification
 does not prove module/field permissions. The application supplies callbacks,
 organisation/user policy, end-user connection screens and native framework wiring;
-connecting CRM is not app sign-in. Disconnect is local. Editor assistant attachment,
-live regional OAuth/permissions/data and generated-app execution remain deferred
-or unverified. The original broader CRM packet remains backlog.
+connecting CRM is not app sign-in. Disconnect is local. Assistant tool attachment
+requires explicit host integration. Live regional OAuth/permissions/data and
+generated-app execution remain unverified.

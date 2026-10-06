@@ -8,8 +8,7 @@ either provider entry point. Both support assistant ownership only.
 
 1. Sign into the intended Confidence account and confirm access to the target
    organisation. The provider's account policy remains authoritative.
-2. Add **Confidence Flags** or **Confidence Exp** in Vibe64. These configure an explicitly wired assistant host; automatic Vibe64 chat
-   attachment is deferred. They do not configure production flag evaluation.
+2. Add **Confidence Flags** or **Confidence Exp** in the connection editor. These configure an explicitly wired assistant host; connecting alone does not attach tools to chat. They do not configure production flag evaluation.
 3. Confirm the suggested callback is the exact route served by that host and
    choose identity/profile/email/refresh permissions. In development, the owner
    can choose **Register client and connect**: the existing project registration action

@@ -12,15 +12,15 @@ The client identifier is a hosted JSON URL; this client has no secret.
 2. Supply the company/integration details and exact callback URL requested by
    the form. Wait for Canva's eligibility decision and callback allowlisting.
    This is a real provider prerequisite. Publishing metadata or entering a URL
-   in Vibe64 does not grant access, and JSKIT cannot approve an application.
+   in the connection editor does not grant access, and JSKIT cannot approve an application.
 3. Choose a public HTTPS URL that your assistant host controls, including a
    document path, such as `https://assistant.example/oauth/canva.json`.
 4. Generate the client metadata with the library helper below, or fill the metadata
-   URL and suggested callback in Vibe64 and choose **Copy client metadata** in
+   URL and suggested callback in the connection editor and choose **Copy client metadata** in
    the setup section. Serve that JSON
    at exactly the chosen URL with `Content-Type: application/json`, without
    authentication. The document contains public client information only.
-5. In Vibe64 open **Integrations → Add Canva → Credentials**. Enter **Client
+5. Add a Canva connection and open its credentials settings. Enter **Client
    metadata URL** and the **Callback URL reference**, for example
    `env:CANVA_CALLBACK_URL`. Store the actual callback through Env. No Client
    secret input is shown. **Display name** can supply the name used when
@@ -175,8 +175,8 @@ it does not substitute for Canva's live discovered input schemas or run a design
 CLI Node hosts use the same provider/pattern without Vibe64. Other frameworks use
 a native MCP client with the same metadata identity, callback and private grant state.
 
-**LIMITATIONS:** Vibe64's coding-assistant attachment is deferred. For example,
-configuring Canva does not yet let you ask Vibe64's Codex/OpenCode to create or edit
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. For example,
+configuring Canva alone does not authorize an assistant to create or edit
 your shop's poster. An explicitly wired application-owned assistant can invoke the
 supplied MCP runtime after Canva approves its callback and each owner consents.
 Metadata hosting and provider approval remain owner setup steps; Copy client metadata

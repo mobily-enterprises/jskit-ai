@@ -246,4 +246,4 @@ service credentials connect without a browser. Per-user mode requires individual
 connections inside the application. Saving alone grants neither API nor source
 access. Both methods use app-owned credentials and persistent grants.
 
-**LIMITATIONS (acceptance review):** No automatic table browser, schema-specific client, subscriptions, automatic pagination or Vibe64 assistant attachment. Example: the app can execute an inventory query using its real schema; this does not provide an inventory dashboard. Both authentication modes and operation/error handling have fixture proof, not live Fabric resource proof.
+**LIMITATIONS (acceptance review):** No automatic table browser, schema-specific client, subscriptions, automatic pagination or automatic assistant tool attachment. Example: the app can execute an inventory query using its real schema; this does not provide an inventory dashboard. Both authentication modes and operation/error handling have fixture proof, not live Fabric resource proof.

@@ -30,7 +30,7 @@ const snowflakeDefinition = Object.freeze({
       hint: "Exact case-sensitive schema name for SQL execution; blank uses the user's default namespace." },
     { name: "accountUrl", label: "Account URL", placeholder: "https://myorg-myaccount.snowflakecomputing.com",
       hint: "Copy the account URL from Snowflake. Snowsight browser paths and organization-console URLs are not API addresses." },
-    { name: "role", label: "Role", placeholder: "VIBE64_READER",
+    { name: "role", label: "Role", placeholder: "APP_READER",
       hint: "Use the exact name from SHOW ROLES, normally uppercase. Leave blank to use each connected user's default role. Shared accounts should use a dedicated role." }
   ],
   scopes: [{ value: "refresh_token", label: "Keep access between visits (required)", recommended: true, required: true }],

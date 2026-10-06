@@ -31,8 +31,13 @@ Exports
 - `createConversationNarrationTracker()`
 - `latestConversationFinalNarrationEntry(turns = [])`
 
+### `src/client/conversationVoiceState.js`
+Exports
+- `projectConversationVoiceState({ turns = [], status = "ready", interimReply = null } = {})`
+
 ### `src/client/index.js`
 Exports
+- `projectConversationVoiceState`
 - `createVoiceConversationController`
 - `VoiceConversationHost`
 - `ConversationDialog`
@@ -60,6 +65,8 @@ Exports
 ### `src/client/VoiceConversation.vue`
 Exports
 - None
+Local functions
+- `isAtBottom(element)`
 
 ### `src/client/VoiceConversationHost.vue`
 Exports
@@ -155,7 +162,7 @@ Exports
 - `VOICE_PROTOCOL_VERSION`
 - `assertVoiceAudioFrame(frame = null)`
 - `float32ToPcm16Le(samples = new Float32Array())`
-- `normalizeRecognizedText(value = "")`
+- `normalizeRecognizedText(value = "", vocabulary = {})`
 - `parseVoiceClientControl(raw = "")`
 - `pcm16LeToFloat32(frame = Buffer.alloc(0))`
 - `speechPauseDurationMs(value = "")`
@@ -182,13 +189,18 @@ Local functions
 Exports
 - None
 Local functions
-- `request(url, options = {})`
-- `reload()`
-- `submit(id, text, messageId = crypto.randomUUID())`
-- `binding(id)`
-- `openVoice()`
-- `send()`
-- `poll()`
+- `openText(id)`
+- `voiceBinding(runtime, label)`
+- `openVoice(runtime, label)`
+
+### `examples/conversation/config.js`
+Exports
+- `conversations`
+- `appConfig`
+
+### `examples/conversation/Conversation.vue`
+Exports
+- None
 
 ### `examples/conversation/main.js`
 Exports
@@ -196,12 +208,19 @@ Exports
 
 ### `examples/conversation/server.js`
 Exports
+- `createExampleServer({ env = process.env } = {})`
+
+### `examples/conversation/src/error.js`
+Exports
+- `default`
+
+### `examples/conversation/src/placement.js`
+Exports
 - None
-Local functions
-- `authorize(request)`
-- `conversation(request)`
-- `state(value)`
-- `reply(value, turn, controller)`
+
+### `examples/conversation/src/placementTopology.js`
+Exports
+- None
 
 ### `examples/conversation/vite.config.js`
 Exports

@@ -9,8 +9,20 @@ Install `@jskit-ai/assistant-voice` with Vue and Vuetify. Run your own speech
 service, or use `@jskit-ai/assistant-voice-sherpa` for local native inference.
 The native engine and model downloads are not dependencies of this package.
 
-## Conversation binding
+## Supplied conversation integration
 
+For ordinary conversations, use `AssistantConversationClientElement` from
+`@jskit-ai/assistant-runtime/client` with the common conversation runtime. Its
+`composer-tools` slot supplies the retained runtime used by the five-chat
+`examples/conversation/` starter. That example forwards voice text and Stop through
+`runtime.send()` and `runtime.cancel()`, retains the same reader when text closes,
+and uses `projectConversationVoiceState` for canonical speech presentation.
+Application code supplies the speech endpoint, label and navigation. It needs no
+engine-specific imports, separate transcript or conversation connection.
+
+### Custom conversation bindings
+
+Applications with an existing authorized reader can supply the following binding.
 Create one controller above routed screens, then mount `VoiceConversationHost`
 once within your application's Vuetify app:
 
@@ -129,8 +141,11 @@ The host must reject future requests for revoked grants in its authorizer.
 
 ## Example and testing
 
-`examples/conversation/` is an independent two-conversation application using a
-real AI account and speech service. Its README covers installation and launch.
+`examples/conversation/` composes the supplied conversation server integration,
+client binding and one shared realtime connection for five file-backed chats.
+Text and voice retain the same conversation; an optional headless task uses the
+same runtime directly. Its README covers packed-package setup, launch and the
+local origin policy. No Vibe64, Genesis or database runtime is required.
 
 Focused package checks run one file at a time, for example:
 `npm test --workspace packages/assistant-voice -- test/voiceController.test.js`.

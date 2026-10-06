@@ -56,7 +56,7 @@ function usage() {
   ].join("\n");
 }
 
-async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon } = {}) {
+async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon, recognitionVocabulary = {} } = {}) {
   const { command, options } = argumentMap(argv);
   if (command === "help" || command === "--help" || command === "-h") {
     process.stdout.write(`${usage()}\n`);
@@ -117,7 +117,7 @@ async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = create
     .then(JSON.parse).catch(error => { if (!configFile && error.code === "ENOENT") return {}; throw error; });
   const engine = await createSherpaSpeechEngine({
     modelsRoot,
-    configuration,
+    configuration: { ...configuration, recognitionVocabulary: configuration.recognitionVocabulary ?? recognitionVocabulary },
     recognizerActivePaths: positiveInteger(
       options["stt-active-paths"] || process.env.JSKIT_VOICE_STT_ACTIVE_PATHS,
       16

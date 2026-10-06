@@ -14,7 +14,7 @@ its Public API; its bearer key is still a private backend credential.
    read access and invoice creation only for the operations needed. Choose **WEITER**,
    give the key a name, then choose **API-Schlüssel erstellen**.
 3. Copy the key before closing the dialog; it is not displayed again. Store it
-   as `LEXWARE_API_KEY` in the backend environment. Add Lexware in Vibe64 and
+   as `LEXWARE_API_KEY` in the backend environment. Add Lexware in the connection editor and
    enter `env:LEXWARE_API_KEY` in **API key reference**.
 4. Record the expiry for operations: keys may be valid for up to 24 months.
    Use the provider's renewal controls before expiry. Changed permissions
@@ -139,6 +139,6 @@ quotation workflows, gross/tax-free invoice creation, finalization or event
 subscription receiver. Example: a booking can prepare a draft for an existing
 customer, but cannot ingest an expense receipt or deliver an invoice PDF with
 this adapter. Native app code must cover those features separately. Editor
-assistant attachment is deferred. No live financial action or generated app was
+assistant tool attachment requires explicit host integration. No live financial action or generated app was
 executed. Failed/uncertain creation is never automatically repeated: inspect
 vouchers first. Provider validation remains authoritative.

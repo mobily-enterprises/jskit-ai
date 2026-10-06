@@ -19,7 +19,7 @@ Payment details stay in Chargebee-hosted screens. It does not implement OAuth.
    **Create Key**, then retain the issued key securely. A publishable key or
    a key restricted to product-catalog reads is insufficient for this fragment.
 4. Store the key under `CHARGEBEE_API_KEY` in the backend environment. Enter
-   `env:CHARGEBEE_API_KEY` in Vibe64's API-key reference field and the site name
+   `env:CHARGEBEE_API_KEY` in the connection editor's API-key reference field and the site name
    in **Site name**. Save the configuration, then choose **Set credential in Env**,
    enter the issued key as `CHARGEBEE_API_KEY`, and save it. Return to the
    integration and choose **Connect account** or **Verify again**. **Check connection**
@@ -169,13 +169,13 @@ must decide access policy and reconcile later events. Never trust a browser-supp
 customer ID to issue a portal session: that URL grants billing-account access.
 
 Use the same service.invoke operations in a standalone Node/CLI application;
-Vibe64 only edits the portable configuration. Other frameworks use native Chargebee
+The connection editor only edits the portable configuration. Other frameworks use native Chargebee
 SDK/HTTP with these Env bindings, indexed form fields and app-owned intent state.
 No Node bridge or Vibe64 server is needed. The existing owner authorization callback
 must approve customer, subscription, return destination and financial intent.
 
-**LIMITATIONS:** Editor coding-assistant attachment is deferred. For example, an app
-can launch customer checkout and show invoices, but Vibe64's Codex/OpenCode cannot
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. For example, an app
+can launch customer checkout and show invoices, but an assistant cannot
 inspect the billing site through this saved connection. This is a connector, not the
 Stripe/Paddle payments product: product authoring, entitlement/credit engines,
 webhook receivers, immediate/prorated changes, refunds, contract-term cancellation,

@@ -11,7 +11,7 @@ webhooks or authenticate application users.
 2. Send `/newbot`, supply a display name, then choose an available username
    ending in `bot`. Keep the returned token private.
 3. Store the token in your backend environment as `TELEGRAM_BOT_TOKEN`.
-4. Add Telegram in Vibe64. Enter `env:TELEGRAM_BOT_TOKEN` in **Bot token
+4. Add Telegram in the connection editor. Enter `env:TELEGRAM_BOT_TOKEN` in **Bot token
    reference** and save. The CLI uses exactly the same JSON below.
 5. Run the application's connection verification. Saving an editor form alone
    does not contact Telegram or prove that the token works.

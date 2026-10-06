@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createConversationRuntime, createConversationHookBridge } from "../src/server/conversation/index.js";
+import { createConversationHookBridge } from "../src/server/conversation/index.js";
+import { createClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
+import { createCodexConversationAdapter } from "../src/server/conversation/providers/codex.js";
+import { createOpenCodeConversationAdapter } from "../src/server/conversation/providers/opencode.js";
 
 function claudeHost() {
   let process = null;
   const launches = [], requests = [];
   const state = { active: false, fail: false, stopFails: false };
-  const runtime = createConversationRuntime({ engine: "claude",
+  const runtime = createClaudeConversationTurn({ conversationId: "retained-history", process: {
     getProcess: () => process, isActive: () => state.active,
     startProcess: async (input) => {
       launches.push(input);
@@ -17,7 +20,7 @@ function claudeHost() {
       return process;
     },
     stopProcess: async () => { if (state.stopFails) throw new Error("cleanup unverified"); process = null; }
-  });
+  } });
   return { runtime, state, launches, requests, loseProcess: () => { process = null; } };
 }
 const claudeInput = { systemPrompt: "Use the calendar tools.", contextIdentity: "calendar/model-one",
@@ -88,7 +91,7 @@ function codexHost() {
     }
     throw new Error(`Unexpected native request: ${method}`);
   } };
-  const runtime = createConversationRuntime({ engine: "codex", client: async () => client,
+  const runtime = createCodexConversationAdapter({ client: async () => client,
     runtime: () => ({ executionId: state.process }), runRequest: (run) => run(),
     readInstructions: () => state.prompt,
     prepareEnvironment: async () => ({ TOOL_ENDPOINT: "current" }),
@@ -162,7 +165,7 @@ test("Codex distinguishes native process replacement from a retained loaded thre
 
 test("OpenCode restores current system instructions after compaction, changes and failed reads", async () => {
   let version = "one", reads = 0, fail = false;
-  const runtime = createConversationRuntime({ engine: "opencode", resolveInstructions: async (id) => id === "unknown" ? null : ({
+  const runtime = createOpenCodeConversationAdapter({ resolveInstructions: async (id) => id === "unknown" ? null : ({
     identity: version, placement: "replace", read: async () => { reads += 1; if (fail) throw new Error("owner unavailable"); return `Calendar ${version}`; }
   }) });
   const output = { system: ["Native defaults"] };
@@ -186,7 +189,7 @@ test("OpenCode restores current system instructions after compaction, changes an
 
 test("OpenCode rereads unversioned instructions before each inference without duplicate contributions", async () => {
   let text = "Initial project guidance", reads = 0;
-  const runtime = createConversationRuntime({ engine: "opencode", resolveInstructions: () => ({
+  const runtime = createOpenCodeConversationAdapter({ resolveInstructions: () => ({
     read: () => { reads += 1; return text; }
   }) });
   const output = { system: ["Native defaults"] };
@@ -221,7 +224,7 @@ test("hook delivery distinguishes unclaimed sessions, native placement and a mis
 test("OpenCode retries invalid content and rejects an invalidated in-flight read", async () => {
   let content = " ";
   let release;
-  const runtime = createConversationRuntime({ engine: "opencode", resolveInstructions: async () => ({
+  const runtime = createOpenCodeConversationAdapter({ resolveInstructions: async () => ({
     identity: "same-source", read: () => content === "pending" ? new Promise(resolve => { release = resolve; }) : content
   }) });
   await assert.rejects(runtime.transformSystem({ sessionID: "one" }, { system: [] }), /must contain text/);

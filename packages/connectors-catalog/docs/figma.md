@@ -18,7 +18,7 @@ The registration endpoint's existence does not remove that requirement.
 2. Choose the callback implemented by your backend or CLI host. For your own
    application, this is its actual HTTPS callback, or a loopback callback where
    accepted. The host must retain the pending owner and state through consent.
-3. After approval, use Vibe64's **OAuth client registration** section to copy
+3. After approval, use the connection editor's **OAuth client registration** section to copy
    the endpoint and JSON body into an HTTP client and send one POST with
    Content-Type application/json. Alternatively invoke `registerFigmaClient`
    once from a trusted setup command.
@@ -28,7 +28,7 @@ The registration endpoint's existence does not remove that requirement.
 4. Put the returned client ID in `registrations.figma.clientId`. Store the
    returned secret and callback in your host's existing secret/environment
    facilities; place only references in `clientSecretRef` and `callbackUrlRef`.
-5. In Vibe64, open **Integrations → Add Figma**. Enter **Client ID**,
+5. Add a Figma connection. Enter **Client ID**,
    **Client secret reference** and **Callback URL reference**. Keep **Assistant
    access** and **Use Figma MCP tools**, then save. Use **Set credential in Env** for the returned secret and **Set
    callback in Env** for the exact registered URL. Saving edits the same JSON
@@ -123,9 +123,9 @@ local to the machine running Figma Desktop and the consuming client: on Online,
 Figma Desktop independently; no tunnel/proxy is provided here. Government-only
 desktop deployments are outside this remote connector.
 
-Editor coding-assistant attachment is deferred. For example, an explicitly wired
+Assistant tool attachment requires explicit host integration. For example, an explicitly wired
 assistant host can receive an authorized booking-card layout and screenshot, but
-saving Figma in Vibe64 does not yet let Codex/OpenCode reproduce that frame.
+saving a Figma connection alone does not authorize an assistant to reproduce that frame.
 App-user login, Make resources/prompts and a visual Figma editor are not supplied.
 Other frameworks use a native MCP/OAuth client and the same config/Env contract;
 PHP/other runtime code does not belong in JSKIT. Provider approval remains external;

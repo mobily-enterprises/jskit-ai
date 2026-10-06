@@ -1,4 +1,11 @@
-# Standalone conversation example
+# Conversation primitives example
+
+This lower-level example assembles UI, delivery and HTTP primitives. For a new
+application, start with `@jskit-ai/assistant-voice/examples/conversation`; speech
+is optional, and its five chats plus headless task use the supplied conversation
+runtime, server integration and retained client binding. Native engines use that
+same ordinary integration. This example remains useful for custom primitive
+composition and its existing storage/attachment contract.
 
 Copy this directory into a new application, then run:
 

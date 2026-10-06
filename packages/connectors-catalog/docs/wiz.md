@@ -152,9 +152,9 @@ custom domain does not alter that account or the worker's stable application ID.
 
 Workspace connection availability and granting access to everyone are host-owned
 policies. A project-local JSON slot does not automatically confer workspace-wide
-access. Vibe64's workspace scanner orchestration, automatic scan inclusion,
-findings display/aggregation, stale-result UI and connection removal propagation
-remain unfinished. The initial editor surface edits the configuration only.
+access. Workspace scanner orchestration, automatic scan inclusion, findings
+display/aggregation, stale-result UI and connection removal propagation belong
+to the host. The connection editor edits the configuration only.
 
 ## Automation feasibility and proof
 

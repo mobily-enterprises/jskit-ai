@@ -42,6 +42,7 @@ test("the configured public AI integration streams its first chunk before comple
   assert.equal((await second).value.choices[0].delta.content, " there");
   await writer.write(new TextEncoder().encode('data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n'));
   await writer.close();
+  assert.equal((await iterator.next()).value.choices[0].finish_reason, "stop");
   assert.equal((await iterator.next()).done, true);
 });
 
@@ -120,6 +121,7 @@ test("legacy Anthropic configuration streams through the native Messages protoco
   await send({ type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 2 } });
   await send({ type: "message_stop" });
   await writer.close();
+  assert.equal((await iterator.next()).value.choices[0].finish_reason, "stop");
   assert.equal((await iterator.next()).done, true);
 });
 

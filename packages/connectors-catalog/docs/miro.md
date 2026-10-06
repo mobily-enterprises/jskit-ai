@@ -21,7 +21,7 @@ tools and calls explicitly authorized tools. Its fixed HTTP endpoint is
 4. Store the secret in the host's secret/environment facilities. Write the client
    ID, secret reference and callback reference into the portable registration.
    Never put the secret value in the configuration JSON.
-5. In Vibe64, select **Integrations → Add Miro**. Enter **Client ID**, **Client
+5. Add a Miro connection. Enter **Client ID**, **Client
    secret reference** and **Callback URL reference**. Keep **Assistant access**.
    **Read boards** starts selected; enable other permissions only as needed.
    The **OAuth client registration** panel supplies the endpoint and raw JSON
@@ -114,4 +114,4 @@ consent, board read/write or sample application was exercised. Managed
 assignments, automatic assistant attachment and application login remain
 outside this fragment.
 
-**LIMITATIONS (accepted deferral):** Automatic Vibe64 Codex/OpenCode attachment is deferred. Example: a wired CLI/assistant host may discover and authorize a board read or diagram tool, but connecting here does not make the board available in Vibe64 chat. No embedded board editor. Fixture board/diagram names are controlled test inputs, not claims about current remote tool names. Live board access remains unproven.
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. Example: a wired CLI/assistant host may discover and authorize a board read or diagram tool, but connecting here does not make the board available in assistant chat. No embedded board editor. Fixture board/diagram names are controlled test inputs, not claims about current remote tool names. Live board access remains unproven.

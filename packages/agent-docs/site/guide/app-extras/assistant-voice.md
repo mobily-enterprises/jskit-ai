@@ -30,7 +30,19 @@ onScopeDispose(() => { void voice.dispose(); });
 <VoiceConversationHost :controller="voice" />
 ```
 
-An application button opens an authorized conversation binding:
+For the ordinary setup, use the [standard Assistant integration](./assistant.md).
+`AssistantConversationClientElement` supplies the same retained `runtime` to its
+`composer-tools` slot. The five-chat example in
+`@jskit-ai/assistant-voice/examples/conversation` retains that runtime for voice,
+projects its canonical turns with `projectConversationVoiceState`, and forwards
+text and Stop through `runtime.send()` and `runtime.cancel()`. The application
+supplies the speech URL, target label and text-view navigation; it does not build
+another transcript, delivery ledger or realtime subscription.
+
+### Custom conversation binding
+
+Applications with an existing authorized conversation reader can instead supply
+this binding contract to the same voice controller:
 
 ```js
 await voice.open({ conversation: {
@@ -88,8 +100,9 @@ words are resolved; `dispose()` always releases it. Reconnection does not replay
 messages, resend captured audio or automatically restart the microphone.
 
 Bindings may supply `defaults.mode` (`push-to-talk` or `hands-free`),
-`defaults.reviewBeforeSend`, and `defaults.voiceId`. One-off hold recordings
-always require review. The Talk/Pause microphone icon and speaker toggle show their states. The
+`defaults.reviewBeforeSend`, and `defaults.voiceId`. Recordings started through
+`startHeldRecording()` require review; the modal's push-to-talk gesture uses
+`reviewBeforeSend`. The Talk/Pause microphone icon and speaker toggle show their states. The
 Voice settings cog loads the service's installed voices without recording.
 Pause finalizes the current utterance before muting, including buffered audio,
 and applies the recording's review preference. Resume starts a fresh recording.
@@ -136,6 +149,12 @@ application supplies the illustrated origin and conversation checks; authorizati
 runs before connecting upstream. No service key or token belongs in browser code.
 A speech grant does not authorize access to a conversation or execution of tools.
 
+Register the WebSocket plugin before starting the supplied realtime provider.
+The existing realtime attachment hands only `/socket.io` WebSocket upgrades to
+Socket.IO, so Fastify does not close that connection as an unknown speech route.
+Other upgrades remain with their application routes and authorization. The
+application does not need a separate upgrade handler.
+
 `createVoiceDaemon({ engine, accessKey, ... })` supplies the bounded service.
 The engine owns recognition and asynchronous synthesis. A host may supply its
 own `authorize(token)` and `handleRequest(request, response)` grant policy.
@@ -175,6 +194,10 @@ Emma, Michael, Adam, George and Daniel. All presets use the English streaming
 Zipformer recognizer. Operators can supply
 `prepare --sources-file FILE` for pinned model archives and `serve --config FILE`
 for native recognition/synthesis settings, voice IDs, labels and speaker IDs.
+`recognitionVocabulary` maps literal phrases to application spellings, for example
+`{ "acme labs": "Acme Labs" }`. It applies when normalizing uppercase recognition;
+mixed-case input remains intact. CLI hosts can supply the same option as a
+default, overridden by an explicit speech configuration vocabulary.
 A voice's optional `speed` sets its synthesis pace from `0.5` to `2`, default `1`.
 Multiple native models use a `synthesizers` map and a `modelId` on each voice;
 their output sample rates must match unless `outputSampleRate` configures a shared
@@ -197,9 +220,10 @@ onset RMS floor prevents silence from starting an utterance, but is not a
 speech-versus-noise classifier.
 
 The published package's `examples/conversation/` directory contains an independent
-two-conversation Vue/Fastify application using a real AI account and speech
-endpoint. Use it to check installation, retained targets, interruption and
-recovery before integrating an application's own conversation store.
+five-conversation Vue/Fastify application using the supplied file storage and
+retained binding, plus a separately addressed headless task. Model credentials
+and an optional speech endpoint are explicit setup inputs. Use it to check
+installation, retained targets, interruption and recovery.
 
 ### Application-owned voice preferences
 

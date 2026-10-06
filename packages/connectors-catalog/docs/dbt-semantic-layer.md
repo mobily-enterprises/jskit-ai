@@ -15,7 +15,7 @@ same file and validators. Saving does not contact dbt or run a warehouse query.
    credential**. Supply a warehouse identity allowed to read the source schemas.
 4. Map a new service token to that credential. Name it for this application and
    grant **Semantic Layer Only** and **Metadata Only** permissions. Save.
-5. Copy the one-time token. In Vibe64 enter `env:DBT_SERVICE_TOKEN` in
+5. Copy the one-time token. In the connection editor enter `env:DBT_SERVICE_TOKEN` in
    **Service token reference**, save configuration, and use **Set credential in
    Env** to paste and save the token as `DBT_SERVICE_TOKEN`. CLI users supply the
    same backend environment variable; source stores only its reference.
@@ -91,7 +91,7 @@ Disconnect removes local connection state, not the provider token.
 ## Application and CLI wiring
 
 Compose this provider with the existing connection service, your file-backed
-store, Env resolver and authorization callback. Vibe64 writes the same JSON;
+store, Env resolver and authorization callback. The connection editor writes the same JSON;
 it is not needed at runtime. After explicit token verification:
 
 ```js
@@ -163,8 +163,8 @@ performance cost. This path supports small metric tables; large production
 analytics should use native dbt/Arrow tooling. Arrow decoding, SQL compilation,
 saved-query execution, webhooks and app-user login are not supplied. For example,
 an app can fetch monthly revenue and render its own chart, but this connector
-does not build the chart or a continuous warehouse dashboard. Editor
-Codex/OpenCode attachment remains deferred. Personal access
+does not build the chart or a continuous warehouse dashboard. Assistant tool attachment
+requires explicit host integration. Personal access
 tokens are another documented provider option; the captured service-token setup
 is the supported initial onboarding journey.
 

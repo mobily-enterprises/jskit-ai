@@ -1,10 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createMicrophoneCapture, float32ToPcm16ArrayBuffer } from '../src/client/audioCapture.js';
 import { createConversationNarrationTracker, latestConversationFinalNarrationEntry } from '../src/client/conversationNarration.js';
 import { normalizeSpeechSegment, pcm16ArrayBufferToFloat32, visemeCueAtTime } from '../src/client/voicePlayback.js';
-const VOICE_COMPOSABLE_URL = new URL('../src/client/voiceTransport.js', import.meta.url);
 test("read-aloud ignores progress and narrates only the latest completed final answer", () => {
   const turns = [{
     assistant: { messageId: "answer-1", text: "Earlier answer." },

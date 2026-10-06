@@ -92,8 +92,8 @@ Use native ElevenLabs streaming for live conversation or larger outputs.
 Professional Voice Cloning, realtime agents, regional residency and provider
 verification workflows are not implemented here. For example, an app can generate
 an appointment announcement with an authorized cloned voice, but configuring this
-connector does not create a phone agent or let Vibe64's coding assistant use it.
-Editor assistant attachment is deferred. A failed or timed-out POST may already
+connector does not create a phone agent or authorize an assistant to use it.
+Assistant tool attachment requires explicit host integration. A failed or timed-out POST may already
 have consumed credits or created a clone; no automatic retry is performed.
 
 Focused fixtures additionally verify playable audio bytes/content type, malformed

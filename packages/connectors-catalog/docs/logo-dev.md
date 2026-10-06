@@ -9,7 +9,7 @@ exports `logoDevDefinition` for configuration and UI metadata.
 
 1. Sign into [Logo.dev API Keys](https://www.logo.dev/dashboard/api-keys).
    Copy the publishable `pk_` key.
-2. In Vibe64, add Logo.dev and enter `env:LOGO_DEV_PUBLISHABLE_KEY` in
+2. In the connection editor, add Logo.dev and enter `env:LOGO_DEV_PUBLISHABLE_KEY` in
    **Publishable key reference**. Choose **Save configuration**, then **Set
    credential in Env**, and store the actual `pk_` value as
    `LOGO_DEV_PUBLISHABLE_KEY`. Return after saving Env. The application resolves
