@@ -1,9 +1,9 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.225",
+  "version": "0.1.226",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./client": "./src/client/index.js",
@@ -79,6 +79,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.225"
+    "@jskit-ai/kernel": "0.1.226"
   }
 }

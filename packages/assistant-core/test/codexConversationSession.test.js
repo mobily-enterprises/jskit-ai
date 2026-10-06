@@ -142,7 +142,7 @@ test("Codex goal controls preserve native scheduling without authored command me
   const events = [];
   await f.conversation.subscribe(event => events.push(event));
   assert.equal((await f.conversation.updateGoal(command)).objective, command.objective);
-  const completed = await settledNativeGoal(f.conversation);
+  const completed = await settledNativeGoal(f);
   assert.equal(completed.error, "");
   assert.equal(completed.goal.status, "budgetLimited");
   assert.equal(completed.goal.tokensUsed, 45);
@@ -739,10 +739,16 @@ function apiOptions() {
   } };
 }
 
-async function settledNativeGoal(conversation) {
+async function settledNativeGoal(f) {
   for (let attempt = 0; attempt < 500; attempt++) {
-    const state = await conversation.read();
-    if (state.goal && state.goal.status !== "active" && state.status !== "working") return state;
+    const state = await f.conversation.read();
+    if (state.goal && state.goal.status !== "active" && state.status !== "working") {
+      // Original goal publication precedes durable run reconciliation. Wait for
+      // both owners before asserting their settled state; neither can be skipped.
+      const run = await f.storage.read("conversation", async transaction =>
+        (await transaction.readMetadata()).runtime.binding.codexAppServerRun);
+      if (run?.providerGoalStatus === state.goal.status) return state;
+    }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   assert.fail("The original native goal owner did not publish its settled state.");

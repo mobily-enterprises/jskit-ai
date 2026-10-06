@@ -119,6 +119,13 @@ preference owner. Its avatar slot receives the original visual state plus the
 core slot's requested `size` and effective `height`; temporary clamping preserves
 the preference.
 
+`VoiceConversation` also accepts `showAvatar`, which defaults to `true`.
+Set `binding.showAvatar: false` when using `VoiceConversationHost` to omit the
+portrait entirely. Caption-only views then give that space to the existing
+captions and controls; adapter-backed views omit the core avatar slot and its
+sizing control. This presentation choice does not change the retained session,
+typed draft, capture, review or playback operations.
+
 `VoiceConversationControls` reuses the session's original Talk/Pause gesture,
 speaker, Stop speaking, error and recording review operations. `compact` places
 48px voice actions beside the ordinary composer tools and bounds the independent

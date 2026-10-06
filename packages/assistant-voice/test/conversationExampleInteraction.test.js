@@ -384,28 +384,42 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await expect(dialog).toBeVisible();
     const panel = dialog.locator(".voice-host__body");
     const canonical = dialog.locator(".assistant-voice-conversation");
-    // Project the legacy adapter absence through the same host/session, then
-    // restore its exact getter even if an assertion fails. No audio owner changes.
+    // Project caption presentation through the same host/session, then restore
+    // its exact binding descriptors even if an assertion fails. No audio owner changes.
     const captionHost = await panel.elementHandle();
-    const captionFallback = enabled => captionHost.evaluate((element, enabled) => {
+    const captionFallback = (enabled, showAvatar) => captionHost.evaluate((element, { enabled, showAvatar }) => {
       let component = element.__vueParentComponent;
       while (component && !component.props.controller) component = component.parent;
       const { controller } = component.props;
       const { binding, session } = controller.state;
       if (enabled) {
-        element.__voiceFallbackSnapshot = { controller, binding, session,
-          descriptor: Object.getOwnPropertyDescriptor(binding, "adapter") };
+        element.__voiceFallbackSnapshot ||= {
+          controller, binding, session,
+          id: binding.id, conversationId: binding.conversationId,
+          descriptor: Object.getOwnPropertyDescriptor(binding, "adapter"),
+          avatarDescriptor: Object.getOwnPropertyDescriptor(binding, "showAvatar")
+        };
         Object.defineProperty(binding, "adapter", { configurable: true, get: () => null });
+        if (showAvatar !== undefined) {
+          Object.defineProperty(binding, "showAvatar", { configurable: true, writable: true, value: showAvatar });
+        }
       } else {
         const original = element.__voiceFallbackSnapshot;
         Object.defineProperty(original.binding, "adapter", original.descriptor);
-        if (controller !== original.controller || binding !== original.binding || session !== original.session) {
-          throw new Error("Caption presentation must retain the original host, binding and session.");
+        if (original.avatarDescriptor) {
+          Object.defineProperty(original.binding, "showAvatar", original.avatarDescriptor);
+        } else {
+          delete original.binding.showAvatar;
         }
-        delete element.__voiceFallbackSnapshot;
       }
+      const original = element.__voiceFallbackSnapshot;
+      if (controller !== original.controller || binding !== original.binding || session !== original.session ||
+          binding.id !== original.id || binding.conversationId !== original.conversationId) {
+        throw new Error("Caption presentation must retain the original host, binding and session.");
+      }
+      if (!enabled) delete element.__voiceFallbackSnapshot;
       component.proxy.$forceUpdate();
-    }, enabled);
+    }, { enabled, showAvatar });
     try {
       await captionFallback(true);
       await expect(canonical).toHaveCount(0);
@@ -414,6 +428,28 @@ test("the mounted voice starter shares five standard cards and retains its origi
       await expect(captions).toContainText("Planning question from the mounted starter.");
       await expect(captions).toContainText("Planning answer is streaming. Complete while its text view is closed.");
       await expect(captions).not.toContainText("Notes remains a different target.");
+      await expect(dialog.locator(".assistant-voice__call-portrait")).toBeVisible();
+      await expect(dialog.locator(".voice-avatar")).toBeVisible();
+      await captionFallback(true, false);
+      for (const width of [390, 800, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(dialog.locator(".assistant-voice__call-body")).toHaveCount(0);
+        await expect(dialog.locator(".assistant-voice__call-portrait")).toHaveCount(0);
+        await expect(dialog.locator(".voice-avatar")).toHaveCount(0);
+        await expect(captions).toBeInViewport({ ratio: 1 });
+        assert.ok((await captions.boundingBox()).height >= 144, "Omitting the portrait keeps readable captions");
+        await expect(dialog.locator(".assistant-voice__talk")).toBeInViewport({ ratio: 1 });
+        assert.equal(await dialog.locator(".assistant-voice__call").evaluate(element =>
+          getComputedStyle(element).gridTemplateRows.split(/\s+/u).length), 2, "Captions and controls have no empty portrait row");
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+          `Avatar-free captions must fit the ${width}px viewport`);
+      }
+      await expect(captions).toContainText("Planning question from the mounted starter.");
+      await expect(captions).toContainText("Planning answer is streaming. Complete while its text view is closed.");
+      await expect(input("Planning")).toHaveValue("Planning draft survives closing its text view.");
+      await expect(input("Notes")).toHaveValue("Notes remains a different target.");
+      assert.equal(f.socketConnections(), 1, "Omitting the portrait retains the original conversation subscription");
+      assert.equal(f.requests.length, 1, "Omitting the portrait never submits another inference");
       await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toBeVisible();
       await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toBeVisible();
       await dialog.getByRole("tab", { name: "Text", exact: true }).click();

@@ -1,12 +1,12 @@
 {
   "name": "@jskit-ai/kernel",
-  "version": "0.1.225",
+  "version": "0.1.226",
   "type": "module",
   "dependencies": {
     "json-rest-schema": "^1.0.17"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./_testable": "./_testable/index.js",

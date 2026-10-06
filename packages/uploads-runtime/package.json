@@ -1,9 +1,9 @@
 {
   "name": "@jskit-ai/uploads-runtime",
-  "version": "0.1.200",
+  "version": "0.1.201",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./client": "./src/client/index.js",
@@ -77,6 +77,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.225"
+    "@jskit-ai/kernel": "0.1.226"
   }
 }

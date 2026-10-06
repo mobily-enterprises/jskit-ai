@@ -108,6 +108,12 @@ recording destinations. Bindings without an adapter retain the original portrait
 and latest-word/latest-answer caption presentation while their consumers migrate.
 Headless controller/session use requires no adapter or mounted view.
 
+An adapter-backed combined view has no Talk/Text tabs: its typed composer and
+voice controls are available together. Minimize it to return to the application's
+existing text navigation; revealing it retains the same conversation. Caption-only
+bindings keep Talk/Text when `openText` is supplied, and Text calls that original
+navigation action without replacing the retained voice session.
+
 `VoiceConversation` accepts `adapter`, `session`, `disabled`, and controlled
 `avatarSize`, and emits `update:avatarSize`. `VoiceConversationHost` forwards that
 preference and event. Supply `v-model:avatar-size` from the application's existing
@@ -115,11 +121,22 @@ preference owner. Its avatar slot receives the original visual state plus the
 core slot's requested `size` and effective `height`; temporary clamping preserves
 the preference.
 
+`VoiceConversation` also accepts `showAvatar`, which defaults to `true`.
+Set `binding.showAvatar: false` when using `VoiceConversationHost` to omit the
+portrait entirely. Caption-only views then give that space to the existing
+captions and controls; adapter-backed views omit the core avatar slot and its
+sizing control. This presentation choice does not change the retained session,
+typed draft, capture, review or playback operations.
+
 `VoiceConversationControls` reuses the session's original Talk/Pause gesture,
 speaker, Stop speaking, error and recording review operations. `compact` places
 48px voice actions beside the ordinary composer tools and bounds the independent
 review textarea. Captured words stay explicitly Not sent until normal admission;
-review edits do not replace the typed draft. Send retries keep the recording's
+review edits do not replace the typed draft. While capture, transcription or review
+needs resolving, the canonical typed composer stays editable and its Send is
+disabled. Finish the recording, then send or discard its reviewed words before
+sending the typed draft. This presentation guard keeps the original adapter's
+actions, attachments and questions. Send retries keep the recording's
 UUID and captured destination; Discard uses the original cleanup operation.
 
 For custom compositions, its optional `toolsTarget` is a DOM element belonging
@@ -148,13 +165,30 @@ the visible screen preserves its destination. Opening another target first
 releases the old audio. Unfinished words must be sent or explicitly discarded
 before switching. A send in progress cannot be discarded to switch targets.
 
+Microphone and speaker choices are independent. Opening or restoring a voice
+view starts neither direction. Sound defaults off unless the application supplies
+`defaults.readAloud: true`. Tap or hold Talk starts capture without changing that
+choice; Pause or ending live capture leaves queued/current playback intact.
+Ordinary typed or spoken steering also leaves playback intact. An explicit
+silence command, Stop speaking, switching the speaker off, or releasing the voice
+target interrupts it.
+
+The speaker button changes the requested preference. Its optional
+`binding.onReadAloudChange(value)` callback runs only for that explicit change,
+never for preference hydration, microphone actions or navigation. The application
+owns storing it for the correct authenticated user. `defaults.readAloud` initializes
+a new session; it is not a second preference store. Sound on applies to future
+outputs and does not replay history. If browser playback is blocked, the speaker
+choice stays on and **Enable sound** retries unlocking it. Microphone permission
+and capture continue independently, including while sound unlock is pending.
+
 Stop speaking cancels playback and queued speech. Stop agent work calls the
 binding's separate `cancelWork` operation. `end()` releases voice after pending
 words are resolved; `dispose()` always releases it. Reconnection does not replay
 messages, resend captured audio or automatically restart the microphone.
 
 Bindings may supply `defaults.mode` (`push-to-talk` or `hands-free`),
-`defaults.reviewBeforeSend`, and `defaults.voiceId`. Recordings started through
+`defaults.reviewBeforeSend`, `defaults.voiceId`, and boolean `defaults.readAloud`. Recordings started through
 `startHeldRecording()` require review; the modal's push-to-talk gesture uses
 `reviewBeforeSend`. The Talk/Pause microphone icon and speaker toggle show their states. The
 Voice settings cog loads the service's installed voices without recording.
@@ -167,6 +201,39 @@ voice controls remain available. In the original caption presentation, the
 portrait and controls stay fixed while captions scroll. A voice selection affects the next reply; streamed
 phrases of a reply retain the original speaker. Voice does not change the agent's
 reasoning model.
+
+### Output playback observation
+
+Supply optional `binding.onPlayback(event)` before requesting the output:
+
+```js
+onPlayback({ conversationId, outputId, phase, reason }) {
+  // Store application-owned playback status for this canonical output.
+}
+```
+
+`conversationId` is the binding's logical `conversationId`, falling back to its
+scoped `id` for existing bindings. `outputId` is the canonical assistant output
+identity, never the internal synthesis chunk UUID. `phase` is `started`,
+`completed`, `interrupted` or `failed`; `reason` is optional and generic, such as
+`muted`, `cancelled`, `disconnected`, `playback-error` or `no-audio`.
+
+Start is observed from the running audio clock reaching scheduled PCM, or a
+natural end of a very short sound. Text arrival, synthesis requests and future
+scheduled audio do not claim playback. Completion requires the canonical output
+to be final and its server stream, queued frames and scheduled audio to drain
+successfully. The existing bounded speech projection still limits each output
+to 4,000 source characters; reaching that limit is not canonical finalization.
+A queued output cancelled before audio begins emits interrupted without started.
+A final projection with no speakable text, or declined playback, retires as
+interrupted with `no-audio`; it does not claim a start or completion.
+A disappearing unfinished output is interrupted. Each output starts at most once
+and has one terminal outcome; delayed audio from an old epoch cannot change it.
+Silent text mode emits no invented audio receipts.
+
+Observers cannot control scheduling or cleanup. Synchronous exceptions and
+rejected observer promises are isolated. Keep application actions, teaching cues
+and any interpretation of these generic receipts in the consuming application.
 
 `ConversationDialog` is the shared Vue frame for voice and application Text views.
 It fixes header/tab geometry, uses full screen below 600 pixels, and switches

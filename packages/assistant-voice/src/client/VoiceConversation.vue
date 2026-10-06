@@ -7,6 +7,7 @@ import VoiceConversationControls from "./VoiceConversationControls.vue";
 const props = defineProps({
   session: { type: Object, required: true }, disabled: { type: Boolean, default: false },
   adapter: { type: Object, default: null },
+  showAvatar: { type: Boolean, default: true },
   avatarSize: { type: String, default: "compact" }
 });
 defineEmits(["update:avatarSize"]);
@@ -32,7 +33,11 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
 <template>
   <fieldset v-if="adapter" class="assistant-voice-conversation" :disabled="disabled">
     <AssistantConversationElement :adapter="presentationAdapter" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
-      <template #avatar="size"><slot name="avatar" v-bind="avatarVisual" :size="size.size" :height="size.height"><VoiceAvatar v-bind="avatarVisual" /></slot></template>
+      <template v-if="showAvatar" #avatar="size">
+        <slot name="avatar" v-bind="avatarVisual" :size="size.size" :height="size.height">
+          <VoiceAvatar v-bind="avatarVisual" />
+        </slot>
+      </template>
       <template #composer-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
       <template #composer-feedback>
         <VoiceConversationControls :session="session" :disabled="disabled" compact :tools-target="toolsTarget">
@@ -42,8 +47,11 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
     </AssistantConversationElement>
   </fieldset>
   <fieldset v-else class="assistant-voice" :disabled="disabled">
-    <section class="assistant-voice__call" :aria-label="`${targetLabel} voice chat controls`">
-      <div class="assistant-voice__call-body">
+    <section
+      class="assistant-voice__call" :class="{ 'assistant-voice__call--without-avatar': !showAvatar }"
+      :aria-label="`${targetLabel} voice chat controls`"
+    >
+      <div v-if="showAvatar" class="assistant-voice__call-body">
         <div class="assistant-voice__call-portrait" :style="{ '--call-audio-scale': 1 + callAudioLevel * .16 }" aria-hidden="true">
           <slot name="avatar" v-bind="avatarVisual"><VoiceAvatar v-bind="avatarVisual" /></slot>
         </div>
@@ -68,6 +76,7 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
 .assistant-voice-conversation__tools { display: flex; flex-wrap: wrap; gap: 4px; }
 .assistant-voice { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; border: 0; padding: 0; margin: 0; min-width: 0; }
 .assistant-voice__call { width: 100%; flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) minmax(144px, 30%) auto; }
+.assistant-voice__call--without-avatar { grid-template-rows: minmax(144px, 1fr) auto; }
 .assistant-voice__call-body { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 16px 0; text-align: center; }
 .assistant-voice__call-portrait { position: relative; height: min(240px, calc(100% - 64px)); aspect-ratio: 1; max-width: 100%; margin: 8px auto; isolation: isolate; }
 .assistant-voice__call-portrait::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; background: rgba(var(--v-theme-primary), .12); transform: scale(var(--call-audio-scale)); transition: transform 80ms linear; z-index: -1; }

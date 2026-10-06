@@ -1,9 +1,9 @@
 {
   "name": "@jskit-ai/database-runtime-postgres",
-  "version": "0.1.222",
+  "version": "0.1.223",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "exports": {
     "./client": "./src/client/index.js",
@@ -12,7 +12,7 @@
     "./shared/dialect": "./src/shared/dialect.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.225",
+    "@jskit-ai/database-runtime": "0.1.226",
     "pg": "^8.13.1"
   },
   "jskit": {

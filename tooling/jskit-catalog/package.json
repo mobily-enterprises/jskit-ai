@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-catalog",
-  "version": "0.1.250",
+  "version": "0.1.251",
   "description": "Published metadata catalog for JSKIT package metadata.",
   "type": "module",
   "files": [
@@ -19,7 +19,7 @@
     "catalog:build": "node ./scripts/build-catalog.mjs",
     "jskit:check": "node ./scripts/jskit.mjs check",
     "verify:packages": "node ./scripts/verify-packages.mjs",
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "engines": {
     "node": "^22.13.0 || ^24.0.0 || ^26.0.0"
