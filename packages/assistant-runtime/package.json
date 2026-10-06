@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.195",
+  "version": "0.1.196",
   "type": "module",
   "scripts": {
     "test": "node --test"
@@ -12,19 +12,19 @@
     "./server": "./src/server/index.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.202",
+    "@jskit-ai/assistant-core": "0.1.203",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.222",
-    "@jskit-ai/http-web": "0.1.69",
-    "@jskit-ai/kernel": "0.1.224",
-    "@jskit-ai/realtime": "0.1.221",
-    "@jskit-ai/shell-web": "0.1.228",
+    "@jskit-ai/http-runtime": "0.1.223",
+    "@jskit-ai/http-web": "0.1.70",
+    "@jskit-ai/kernel": "0.1.225",
+    "@jskit-ai/realtime": "0.1.222",
+    "@jskit-ai/shell-web": "0.1.229",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0",
-    "@jskit-ai/database-runtime": "0.1.224"
+    "@jskit-ai/database-runtime": "0.1.225"
   },
   "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
   "jskit": {

@@ -42,6 +42,7 @@ Exports
 - `VoiceConversationHost`
 - `ConversationDialog`
 - `VoiceConversation`
+- `VoiceConversationControls`
 - `useVoiceLauncher`
 - `useVoiceAvatar`
 - `VoiceAvatar`
@@ -67,6 +68,10 @@ Exports
 - None
 Local functions
 - `isAtBottom(element)`
+
+### `src/client/VoiceConversationControls.vue`
+Exports
+- None
 
 ### `src/client/VoiceConversationHost.vue`
 Exports

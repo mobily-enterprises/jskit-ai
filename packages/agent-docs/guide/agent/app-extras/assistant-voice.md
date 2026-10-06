@@ -35,8 +35,10 @@ onScopeDispose(() => { void voice.dispose(); });
 For the ordinary setup, use the [standard Assistant integration](./assistant.md).
 `AssistantConversationClientElement` supplies the same retained `runtime` to its
 `composer-tools` slot. The five-chat example in
-`@jskit-ai/assistant-voice/examples/conversation` retains that runtime for voice,
-projects its canonical turns with `projectConversationVoiceState`, and forwards
+`@jskit-ai/assistant-voice/examples/conversation` uses
+`useAssistantConversationFactory()` to keep a voice-held reader of that same
+runtime and its current adapter. It projects canonical turns with
+`projectConversationVoiceState`, and forwards
 text and Stop through `runtime.send()` and `runtime.cancel()`. The application
 supplies the speech URL, target label and text-view navigation; it does not build
 another transcript, delivery ledger or realtime subscription.
@@ -82,6 +84,56 @@ Include the current identity scope in the binding ID when IDs can overlap betwee
 people; dispose the controller on identity replacement. Server authorization is
 still required for every message and speech connection.
 
+### Retained conversation presentation
+
+A binding may expose `get adapter()` returning its existing
+`AssistantConversationElement` adapter. `VoiceConversationHost` reads that getter
+for the current presentation. It renders the full core transcript and typed
+composer, including the adapter's delivery, questions, attachments and goal
+controls. Supply the live retained adapter; do not capture one computed snapshot
+or rebuild a transcript from voice `state.messages`.
+
+The five-chat example acquires its voice reader through
+`useAssistantConversationFactory()` with the original runtime's conversation,
+actor, endpoint, target/host surface and workspace identity. That reader shares
+the runtime, realtime subscription and typed draft with the text card. Closing
+the text card leaves the voice reader active; ending voice releases it through
+the existing binding lifecycle. Reader presentation does not create another
+conversation or submit a message.
+
+Optional `binding.conversationId` carries the logical conversation ID, separately
+from the scoped `binding.id`. The controller still compares `binding.id` to reveal
+or switch targets; adding the logical ID does not change that equality or captured
+recording destinations. Bindings without an adapter retain the original portrait
+and latest-word/latest-answer caption presentation while their consumers migrate.
+Headless controller/session use requires no adapter or mounted view.
+
+`VoiceConversation` accepts `adapter`, `session`, `disabled`, and controlled
+`avatarSize`, and emits `update:avatarSize`. `VoiceConversationHost` forwards that
+preference and event. Supply `v-model:avatar-size` from the application's existing
+preference owner. Its avatar slot receives the original visual state plus the
+core slot's requested `size` and effective `height`; temporary clamping preserves
+the preference.
+
+`VoiceConversationControls` reuses the session's original Talk/Pause gesture,
+speaker, Stop speaking, error and recording review operations. `compact` places
+48px voice actions beside the ordinary composer tools and bounds the independent
+review textarea. Captured words stay explicitly Not sent until normal admission;
+review edits do not replace the typed draft. Send retries keep the recording's
+UUID and captured destination; Discard uses the original cleanup operation.
+
+For custom compositions, its optional `toolsTarget` is a DOM element belonging
+to the local composer-tools slot. One controls instance moves its buttons there
+with Vue Teleport, while review and errors remain in composer-feedback. Keep
+that target mounted with the composer; there is no global portal or second
+gesture/session owner. With no target, the controls render together in place.
+
+The host's optional `conversation` slot receives `{ binding, session, disabled }`
+and replaces its primary body. Settings, target-switch guards, minimizing,
+reopening and controller lifetime stay with the same host. An application can
+render its retained conversation in this slot; the slot does not acquire a
+runtime or change capture and playback policy.
+
 ## Interaction ownership
 
 Opening voice shows its controls without acquiring the microphone. The single
@@ -110,7 +162,9 @@ Pause finalizes the current utterance before muting, including buffered audio,
 and applies the recording's review preference. Resume starts a fresh recording.
 The review panel stays hidden during automatic admission; failed admission keeps
 the words and message identity available for review and retry.
-The portrait and controls stay fixed while captions scroll. A voice selection affects the next reply; streamed
+The retained-adapter view scrolls the shared full history while its composer and
+voice controls remain available. In the original caption presentation, the
+portrait and controls stay fixed while captions scroll. A voice selection affects the next reply; streamed
 phrases of a reply retain the original speaker. Voice does not change the agent's
 reasoning model.
 
