@@ -1886,6 +1886,14 @@ does not recover ownership of an unknown process after a hard application crash;
 that requires operator cleanup or a host with durable execution ownership. Clean
 runtime shutdown drains its owned processes and preserves native history for resume.
 
+For account inspection, an explicitly supplied `host.execution.run` receives
+the native status command with `mode: "capture"`, `cwd`, `baseEnv`, `signal`,
+`timeout`, `maxBuffer` and resource limits. This lets a managed host apply its
+finite account-check policy independently of the conversation service policy;
+the status command runs in the credential home. Hosts without this operation
+retain the supplied streaming capture and cleanup path. Applications still use
+the same conversation API.
+
 Advanced execution hosts can use `createConversationProcessIdentity()` from
 `/server/conversation` for the extracted Linux process-group ownership checks.
 Supply the environment variable names carrying the runtime token and command
