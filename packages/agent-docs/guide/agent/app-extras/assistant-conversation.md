@@ -249,7 +249,7 @@ The composable exposes the same `runtime` and `error` refs; it is unnecessary fo
 an application that only adds standard component slots.
 
 The composable's `presentation` option accepts a value, ref or getter. Supply transcript
-fields `assistantLabel`, `systemLabel`, `welcomeMessage`, `variant`, `visible`,
+fields `assistantLabel`, `systemLabel`, `welcomeMessage`, `variant`, `visible`, `retainWhenHidden`,
 `userMessageFormat` and `progressPreviewLimit`, and composer fields `ariaLabel`,
 `submitAriaLabel`, `submitLabel`, `placeholder` and `rows`. `layout: "compact"`
 keeps the existing compact composer. These change presentation through the
@@ -564,6 +564,12 @@ composer is present, and `stop` when `canStop` can become true.
 
 `scrollKey` changes when conversation ownership changes, resetting scroll and
 expansion state. `followLatestKey` requests following the newest message.
+`retainWhenHidden: true` keeps the original transcript scroll node while `visible`
+is false and suspends hidden scroll work. Reopening preserves a reader's position;
+readers following the latest message still follow new replies. An older-history
+load completed while hidden restores its original anchor after reopening. First
+open and a changed `scrollKey` still position the conversation at its latest
+message. The default is false and retains the existing remove-and-follow behavior.
 Scrolling upward within 160 CSS pixels of the transcript's top requests older
 history through `loadMore`, including touch, wheel and keyboard scrolling.
 Only one request runs at a time, and prepending preserves the reading position.

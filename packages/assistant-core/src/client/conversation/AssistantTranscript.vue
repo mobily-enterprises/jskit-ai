@@ -1,6 +1,7 @@
 <template>
   <section
-    v-if="visible"
+    v-if="visible || retainWhenHidden"
+    v-show="visible"
     class="assistant-transcript"
     :class="`assistant-transcript--${variant}`"
     aria-label="Conversation history"
@@ -362,6 +363,10 @@ const props = defineProps({
     type: Boolean
   },
   reloading: {
+    default: false,
+    type: Boolean
+  },
+  retainWhenHidden: {
     default: false,
     type: Boolean
   },
@@ -747,6 +752,9 @@ function queueInitialBottomScroll() {
   const version = initialScrollVersion + 1;
   initialScrollVersion = version;
   initialScrollSettled.value = false;
+  if (props.retainWhenHidden && !props.visible) {
+    return;
+  }
   void scrollToLatestMessageAfterLayout({
     behavior: "auto",
     force: true
@@ -768,6 +776,9 @@ function queueLiveBottomScroll({
     pendingTailFollow = false;
     followingLatest.value = true;
     clearUserScrollIntent();
+  }
+  if (props.retainWhenHidden && !props.visible) {
+    return;
   }
   if (liveScrollFrame) {
     return;
@@ -794,6 +805,9 @@ function clearLiveBottomScroll() {
 }
 
 function updateLatestFollowFromScroll(event = {}) {
+  if (props.retainWhenHidden && !props.visible) {
+    return;
+  }
   const target = event?.currentTarget || bodyElement.value;
   const scrollTop = target?.scrollTop || 0;
   const scrolledUp = scrollTop < previousScrollTop;
@@ -837,7 +851,7 @@ function visibleHistoryAnchor(element) {
 }
 
 function requestLoadMore() {
-  if (!props.hasMoreBefore || props.loadingMore || loadMoreScrollSnapshot) {
+  if ((props.retainWhenHidden && !props.visible) || !props.hasMoreBefore || props.loadingMore || loadMoreScrollSnapshot) {
     return;
   }
   followingLatest.value = false;
@@ -876,19 +890,34 @@ async function completeLoadMoreRequest(version, changed) {
     clearLoadMoreScrollSnapshot();
     return;
   }
+  snapshot.completed = true;
   await nextTick();
   if (loadMoreScrollSnapshot?.version !== version) {
     return;
   }
-  const element = bodyElement.value;
-  if (element) {
-    // Offscreen turns use estimated heights. Preserve the visible turn instead
-    // of moving by the total height difference, which can change during layout.
-    const anchor = snapshot.anchor;
-    previousScrollTop = anchor && element.contains(anchor.element)
-      ? element.scrollTop + anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset
-      : snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
-    element.scrollTop = previousScrollTop;
+  const passes = props.retainWhenHidden ? 2 : 1;
+  for (let pass = 0; pass < passes; pass += 1) {
+    if (
+      (props.retainWhenHidden && !props.visible) ||
+      loadMoreScrollSnapshot?.version !== version ||
+      snapshot.scrollKey !== props.scrollKey
+    ) {
+      return;
+    }
+    const element = bodyElement.value;
+    if (element) {
+      // Offscreen turns use estimated heights. Preserve the visible turn instead
+      // of moving by the total height difference, which can change during layout.
+      const anchor = snapshot.anchor;
+      previousScrollTop = anchor && element.contains(anchor.element)
+        ? element.scrollTop + anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset
+        : snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+      element.scrollTop = previousScrollTop;
+    }
+    if (pass + 1 < passes && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      // Reopening materializes previously hidden content-visibility estimates.
+      await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    }
   }
   clearLoadMoreScrollSnapshot();
 }
@@ -944,6 +973,21 @@ watch(timelineScrollTrigger, () => {
 });
 
 watch(() => props.visible, (visible) => {
+  if (props.retainWhenHidden) {
+    if (!visible) {
+      clearLiveBottomScroll();
+      clearScheduledScrolls();
+      clearUserScrollIntent();
+      initialScrollVersion += 1;
+    } else if (loadMoreScrollSnapshot?.completed) {
+      void completeLoadMoreRequest(loadMoreScrollSnapshot.version, true);
+    } else if (!initialScrollSettled.value) {
+      queueInitialBottomScroll();
+    } else {
+      queueLiveBottomScroll();
+    }
+    return;
+  }
   clearLoadMoreScrollSnapshot();
   if (visible) queueLiveBottomScroll({ force: true });
 }, { flush: "post" });

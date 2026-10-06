@@ -624,7 +624,7 @@ function useBoundedTask({ command, endpoint, scope, input, result, onResult }, {
       conversation: {
         turns: conversationTurnsFromMessages(messages.value.map(message => ({ ...message, text: message.content }))),
         assistantLabel: display.assistantLabel || "Assistant", welcomeMessage: display.welcomeMessage,
-        visible: display.visible, variant: display.variant, scrollKey: toValue(scope)
+        visible: display.visible, retainWhenHidden: display.retainWhenHidden, variant: display.variant, scrollKey: toValue(scope)
       },
       composer: {
         draft: draft.value, disabled: busy.value, pending: busy.value,
@@ -867,7 +867,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
         loadingMore: current?.loadingMore.value || false, loadMoreError: current?.loadMoreError.value || "",
         loading: current?.loading.value || false, working: state?.status === "working" && !current.delivery.state.sending,
         assistantLabel: display.assistantLabel || "Assistant", welcomeMessage: display.welcomeMessage ?? "What would you like to do?",
-        systemLabel: display.systemLabel, variant: display.variant, visible: display.visible,
+        systemLabel: display.systemLabel, variant: display.variant, visible: display.visible, retainWhenHidden: display.retainWhenHidden,
         userMessageFormat: display.userMessageFormat, progressPreviewLimit: display.progressPreviewLimit,
         previewMessage: current?.available.value ? display.previewMessage : null },
       composer: { draft, disabled: !editable ||
