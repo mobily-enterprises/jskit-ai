@@ -838,7 +838,7 @@ animation; the element does not acquire audio or another conversation.
 `avatarSize` is a controlled preference: `hidden`, `compact`, `standard`, or
 `large`, requesting 0, 96, 112, or 176 CSS pixels of artwork. Its default is
 `compact`. The anonymous avatar icon at the chat's upper right shows the avatar;
-the expanded **Minimise** text button below the avatar controls hides it
+the expanded round minus icon at the end of the avatar controls row hides it
 (accessible label **Minimise avatar**). The collapsed **Show avatar** icon remains
 at the chat's upper right and remains clickable above the transcript's reload
 control. Both controls emit
@@ -851,7 +851,8 @@ rather than an opaque panel.
 Changing visibility does not change the input or composer button layout.
 
 The optional `avatar-tools` slot receives the same `{ size, height }` scope and
-places application-supplied controls below the artwork, outside the composer.
+places application-supplied controls below the artwork, outside the composer,
+immediately before the element's round minimise control in the same compact row.
 Its content stays mounted while Hidden conceals the presentation with `v-show`,
 so a local controls target can retain its identity. Keep required review,
 recovery and active-capture controls visible outside the hidden presentation.

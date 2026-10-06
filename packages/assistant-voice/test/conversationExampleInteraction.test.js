@@ -342,6 +342,54 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await card("Planning").getByRole("button", { name: "Voice chat with Planning", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Planning conversation", exact: true });
     await expect(dialog).toBeVisible();
+    // Reuse the actual mounted dialog type and its Vuetify context through the
+    // same public renderer as the feedback proof; no voice owner is replaced.
+    await dialog.evaluate(element => {
+      let component = element.__vueParentComponent;
+      while (component && !Object.hasOwn(component.props, "minimizable")) component = component.parent;
+      if (!component) throw new Error("ConversationDialog was not mounted.");
+      const activator = document.createElement("button");
+      activator.id = "native-minimize-event-activator";
+      activator.style.cssText = "position:fixed;left:8px;bottom:8px;width:100px;height:40px";
+      activator.textContent = "Restore proof";
+      document.body.append(activator);
+      const host = document.createElement("div");
+      host.id = "native-minimize-event-proof";
+      document.body.append(host);
+      window.nativeMinimizeEvents = [];
+      const { createVNode, render } = globalThis.__voiceFeedbackTestRenderer;
+      const node = createVNode(component.type, { modelValue: true, minimizable: true,
+        title: "Native event proof", activator,
+        onMinimize(event) {
+          window.nativeMinimizeEvents.push(event ? { sameEvent: event === window.nativeMinimizeClick,
+            isTrusted: event.isTrusted, type: event.type, label: event.currentTarget?.getAttribute("aria-label") } : null);
+        } });
+      node.appContext = component.appContext;
+      render(node, host);
+    });
+    const eventDialog = page.getByRole("dialog", { name: "Native event proof conversation", exact: true });
+    try {
+      await expect(eventDialog).toBeVisible();
+      const minimize = eventDialog.getByRole("button", { name: "Minimize conversation", exact: true });
+      await minimize.evaluate(element => element.addEventListener("click", event => {
+        window.nativeMinimizeClick = event;
+      }, { capture: true, once: true }));
+      await minimize.click();
+      assert.deepEqual(await page.evaluate(() => window.nativeMinimizeEvents), [{ sameEvent: true,
+        isTrusted: true, type: "click", label: "Minimize conversation" }]);
+      const bounds = await page.locator("#native-minimize-event-activator").boundingBox();
+      await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      await expect.poll(() => page.evaluate(() => window.nativeMinimizeEvents.length)).toBe(2);
+      assert.equal(await page.evaluate(() => window.nativeMinimizeEvents[1]), null,
+        "Activator/outside dismissal retains the original unqualified minimize emit");
+    } finally {
+      await page.evaluate(() => {
+        const host = document.getElementById("native-minimize-event-proof");
+        globalThis.__voiceFeedbackTestRenderer.render(null, host);
+        host.remove();
+        document.getElementById("native-minimize-event-activator").remove();
+      });
+    }
     await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
@@ -483,6 +531,11 @@ test("the mounted voice starter shares five standard cards and retains its origi
       if (value.busy !== undefined) controllerState.busy = value.busy;
       if (value.starting !== undefined) session.starting.value = value.starting;
       if (value.holding !== undefined) session.pushHolding.value = value.holding;
+      if (value.delivery !== undefined) {
+        session.sending.value = value.delivery;
+        session.pendingTranscript.value = value.delivery ? { messageId: "awaiting-delivery", text: "Keep this earlier request",
+          focus: binding.captureContext(), reviewBeforeSend: false } : null;
+      }
       if (value.speech !== undefined) session.voice.activeSpeechTurnId.value = value.speech ? "geometry-speech" : null;
       session.voice.captureState.value = value.partial ? "listening" : "idle";
       session.voice.partialTranscript.value = value.partial || "";
@@ -521,10 +574,11 @@ test("the mounted voice starter shares five standard cards and retains its origi
     const collapsedComposerBounds = [await typed.boundingBox(), await typedSend.boundingBox()];
     await canonical.getByRole("button", { name: "Minimise avatar", exact: true }).click();
     await expect(microphoneControl).toBeHidden();
-    const pausedMicrophone = canonical.getByRole("button", { name: "Pause microphone", exact: true });
-    await expect(pausedMicrophone).toBeVisible();
-    const pauseBounds = await pausedMicrophone.boundingBox();
-    assert.ok(pauseBounds.width >= 48 && pauseBounds.height >= 48);
+    await expect(canonical.getByRole("img", { name: "Listening", exact: true })).toBeVisible();
+    // The original fixture projects a queued output ID, not audible playback.
+    await expect(canonical.getByRole("img", { name: "Speaking", exact: true })).toHaveCount(0);
+    await expect(canonical.getByRole("button", { name: "Pause microphone", exact: true })).toHaveCount(0);
+    await expect(canonical.locator(".assistant-voice-controls__status").filter({ hasText: /^Listening…$/u })).toHaveCount(0);
     const readVoiceState = () => panel.evaluate(element => {
       let host = element.__vueParentComponent;
       while (host && !host.props.controller) host = host.parent;
@@ -536,14 +590,18 @@ test("the mounted voice starter shares five standard cards and retains its origi
       "Hiding preserves capture, the active output and speaker preference");
     assert.deepEqual([await typed.boundingBox(), await typedSend.boundingBox()], collapsedComposerBounds,
       "Hiding does not change the original typed composer rectangles");
-    await pausedMicrophone.click();
-    await expect(pausedMicrophone).toHaveCount(0);
-    assert.equal((await readVoiceState()).muted, true, "The collapsed control uses the original microphone pause action");
-    assert.equal((await readVoiceState()).output, "geometry-speech", "Pausing the microphone preserves the active speech direction");
     await canonical.getByRole("button", { name: "Show avatar", exact: true }).click();
     await expect(microphoneControl).toBeVisible();
     assert.deepEqual([await typed.boundingBox(), await typedSend.boundingBox()], collapsedComposerBounds,
       "Showing changes no original composer rectangle");
+    await microphoneControl.click();
+    assert.equal((await readVoiceState()).muted, true, "The expanded control uses the original microphone pause action");
+    assert.equal((await readVoiceState()).output, "geometry-speech", "Pausing the microphone preserves the active speech direction");
+    await canonical.getByRole("button", { name: "Minimise avatar", exact: true }).click();
+    await expect(canonical.getByRole("img", { name: "Listening", exact: true })).toHaveCount(0);
+    // The original fixture projects a queued output ID, not audible playback.
+    await expect(canonical.getByRole("img", { name: "Speaking", exact: true })).toHaveCount(0);
+    await canonical.getByRole("button", { name: "Show avatar", exact: true }).click();
     for (const width of [390, 800, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await panel.evaluate(element => {
@@ -557,10 +615,12 @@ test("the mounted voice starter shares five standard cards and retains its origi
       const talkBounds = await microphoneControl.boundingBox();
       const stopSpeaking = canonical.getByRole("button", { name: "Stop Planning speaking", exact: true });
       await expect(stopSpeaking).toHaveCount(0);
-      assert.ok(talkBounds.width >= 44 && talkBounds.height >= 44);
+      assert.equal(talkBounds.width, 40);
+      assert.ok(talkBounds.height >= 44);
       await expect(speakerControl).toBeVisible();
       const speakerBounds = await speakerControl.boundingBox();
-      assert.ok(speakerBounds.width >= 44 && speakerBounds.height >= 44);
+      assert.equal(speakerBounds.width, 40);
+      assert.ok(speakerBounds.height >= 44);
       for (const button of [microphoneControl, speakerControl]) {
         const circle = await button.locator(".assistant-voice-controls__icon-disc").boundingBox();
         assert.equal(circle.width, 32);
@@ -598,7 +658,13 @@ test("the mounted voice starter shares five standard cards and retains its origi
         assert.deepEqual(await microphoneControl.boundingBox(), talkBounds,
           "Compact Talk retains its full rectangle during startup, capture and speech");
       }
-      await projectSpeech({ microphone: false, starting: false, holding: false, speech: false });
+      await projectSpeech({ microphone: false, starting: false, holding: false, speech: false, delivery: true });
+      await expect(microphoneControl).toHaveAccessibleName("Talk");
+      await expect(microphoneControl).toBeEnabled();
+      await projectSpeech({ microphone: true });
+      await expect(microphoneControl).toHaveAccessibleName("Pause");
+      await expect(microphoneControl).toBeEnabled();
+      await projectSpeech({ microphone: false, delivery: false });
       await expect(stopSpeaking).toHaveCount(0);
       assert.deepEqual(await microphoneControl.boundingBox(), talkBounds);
       await projectSpeech({ partial: "These captured words are not sent." });
@@ -761,6 +827,7 @@ test("the mounted voice starter shares five standard cards and retains its origi
       if (await presentationHost.count()) await changePresentation("dialog");
     }
     assert.deepEqual(errors, []);
+
   } catch (error) {
     const mounted = page && !page.isClosed() ? await page.evaluate(() => {
       const value = input => input?.__v_isRef ? input.value : input;

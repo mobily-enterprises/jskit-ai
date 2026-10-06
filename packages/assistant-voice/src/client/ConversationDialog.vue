@@ -49,7 +49,7 @@ function updateOpen(value) {
       <v-card-title v-if="presentation !== 'inline'" class="conversation-dialog__title text-title-large">
         <span :title="title">{{ title }}</span>
         <slot name="header-actions" />
-        <v-btn v-if="minimizable" :icon="mdiMinus" variant="text" aria-label="Minimize conversation" title="Minimize conversation" @click="$emit('minimize')" />
+        <v-btn v-if="minimizable" :icon="mdiMinus" variant="text" aria-label="Minimize conversation" title="Minimize conversation" @click="$emit('minimize', $event)" />
         <v-btn :icon="mdiClose" variant="text" :aria-label="closeLabel" :title="closeLabel" @click="$emit('update:modelValue', false)" />
       </v-card-title>
       <v-tabs v-if="showModes" :model-value="mode" class="conversation-dialog__tabs" grow aria-label="Conversation mode" @update:model-value="$emit('update:mode', $event)">

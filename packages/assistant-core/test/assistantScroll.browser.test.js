@@ -656,7 +656,9 @@ test("an optional avatar clamps in a short conversation without consuming its pr
         assert.ok(send.y + send.height <= bounds.y + bounds.height + 1, "Send stays inside the supplied container");
         assert.ok(feedback.y + feedback.height <= bounds.y + bounds.height + 1, "Feedback stays inside the supplied container");
         assert.ok((await input.boundingBox()).height >= 40);
-        assert.ok(avatarButton.width >= 44 && avatarButton.height >= 44, "Avatar visibility retains a reachable touch target");
+        const avatarExpanded = await sizeControl.getAttribute("aria-expanded") === "true";
+        assert.equal(avatarButton.width, avatarExpanded ? 40 : 44, "Expanded minimise is compact; collapsed Show retains its wider target");
+        assert.ok(avatarButton.height >= 44, "Avatar visibility retains its original target height");
         assert.ok(toolBounds.width >= 48 && toolBounds.height >= 48, "Avatar tools retain a reachable touch target");
         await expect.poll(async () => (await body.boundingBox()).height, { message: "The short container retains readable history" }).toBeGreaterThanOrEqual(100);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -675,9 +677,11 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       const hideBounds = await sizeControl.boundingBox();
       assert.equal(faceBounds.y, chatBounds.y, "The face starts at the top of the chat without a controls row above it");
       const avatarToolBounds = await avatarTool.boundingBox();
-      assert.ok(hideBounds.y >= avatarToolBounds.y + avatarToolBounds.height,
-        "Minimise sits underneath the avatar controls instead of in a floating circle beside the face");
-      await expect(sizeControl).toHaveText("Minimise");
+      assert.ok(Math.abs(hideBounds.y + hideBounds.height / 2 - avatarToolBounds.y - avatarToolBounds.height / 2) < 1,
+        "The round minimise control shares the tools row below the face");
+      assert.equal(hideBounds.x, avatarToolBounds.x + avatarToolBounds.width, "Minimise directly follows the supplied tools without a gap");
+      await expect(sizeControl).toHaveText("");
+      await expect(sizeControl.locator('.assistant-conversation__avatar-size-disc')).toHaveCSS('border-radius', '50%');
       await expect(page.locator('[data-message-role="assistant"]')).toHaveCount(20);
       await page.evaluate(() => {
         window.avatarElements = [document.querySelector(".assistant-conversation"), document.querySelector("textarea"), document.querySelector(".assistant-transcript__body")];
@@ -702,6 +706,8 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       await expect(artwork).toHaveCount(0);
       await expect(sizeControl).toBeVisible();
       const showBounds = await sizeControl.boundingBox();
+      assert.equal(showBounds.width, 44, "Collapsed Show retains its original wider target");
+      assert.ok(showBounds.height >= 44);
       const collapsedControls = await page.locator(".assistant-conversation__avatar-controls").boundingBox();
       assert.equal(collapsedControls.y, chatBounds.y, "The collapsed controls stay at the chat top");
       assert.equal(showBounds.y + showBounds.height / 2, collapsedControls.y + collapsedControls.height / 2,

@@ -300,7 +300,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     } catch (cause) { recording = null; error.value = cause.message; }
   }
   async function startRecording(reviewBeforeSend, continuous = false) {
-    if (disposed || starting.value || microphoneMuted.value || capturing.value || pendingTranscript.value || sending.value) return;
+    if (disposed || starting.value || microphoneMuted.value || capturing.value || committing ||
+        (pendingTranscript.value || sending.value) && !(continuous && live.value && (callMode.value === "hands-free" || pushHolding.value))) return;
     error.value = "";
     reviewBeforeSend ||= binding.defaults?.reviewBeforeSend === true;
     heldReview.value = reviewBeforeSend;
@@ -317,9 +318,10 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     // A person's explicit microphone choice supersedes an Edit-owned pause.
     if (pendingTranscript.value) delete pendingTranscript.value.editPausedCaptureId;
     voice.setMicrophoneMuted(!microphoneMuted.value);
+    if (!microphoneMuted.value && recording) delete recording.finishAfterPending;
     clearTimeout(stopTimer);
     if (microphoneMuted.value && starting.value) await cancelRecording();
-    else if (!microphoneMuted.value && live.value && callMode.value === "hands-free" && !capturing.value && !pendingTranscript.value && !sending.value) await startRecording(false, true);
+    else if (!microphoneMuted.value && live.value && callMode.value === "hands-free" && !capturing.value) await startRecording(false, true);
   }
   async function changeCallMode(mode) {
     if (!["push-to-talk", "hands-free"].includes(mode) || mode === callMode.value || callModeBusy.value || committing) return;
@@ -332,12 +334,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   }
   async function startPushToTalk(event) {
     if (event?.repeat || event?.isPrimary === false || event?.button !== undefined && event.button !== 0 || pushHolding.value || disposed || starting.value
-      || capturing.value && !voice.listening.value || pendingTranscript.value || sending.value || committing) return;
+      || capturing.value && !voice.listening.value || committing) return;
     if (event?.pointerId !== undefined) event.currentTarget.setPointerCapture(event.pointerId);
     pushInput = event?.pointerId ?? event?.key ?? null;
     pushHolding.value = true;
     callMode.value = "push-to-talk";
     voice.setMicrophoneMuted(false);
+    if (recording) delete recording.finishAfterPending;
     if (!live.value) await toggleLive();
     if (!pushHolding.value || !live.value || disposed) return;
     // A hold can take over an open hands-free microphone without throwing away
@@ -346,7 +349,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       recording.continuous = false;
       return;
     }
-    await startRecording(false);
+    await startRecording(false, Boolean(pendingTranscript.value || sending.value));
     if (!recording) pushHolding.value = false;
   }
   async function finishPushToTalk(event) {
@@ -354,6 +357,11 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     pushHolding.value = false;
     pushInput = null;
     try {
+      if (voice.listening.value && (pendingTranscript.value || sending.value || committing)) {
+        if (recording) recording.finishAfterPending = true;
+        voice.setMicrophoneMuted(true);
+        return;
+      }
       if (voice.listening.value) await voice.stopListening();
       else await cancelRecording();
     } catch (cause) { await cancelRecording(); error.value = cause.message; }
@@ -367,10 +375,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   async function toggleHandsFree() {
     if (disposed || pushHolding.value) return;
     if (live.value && callMode.value === "hands-free" && voice.listening.value && (pendingTranscript.value || sending.value || committing)) {
+      // Pause must finish the newer recording after the existing admission,
+      // without replacing the one pending transcript or stopping output.
+      if (!microphoneMuted.value && recording) recording.finishAfterPending = true;
       await toggleMicrophoneMuted();
       return;
     }
-    if (pendingTranscript.value || sending.value || committing) return;
+    if (committing) return;
     if (starting.value) { await cancelRecording(); return; }
     if (capturing.value && !voice.listening.value) return;
     if (live.value && callMode.value === "hands-free") {
@@ -379,10 +390,16 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         // final sound is included; resuming starts a fresh recording.
         await voice.stopListening();
         voice.setMicrophoneMuted(true);
-      } else await toggleMicrophoneMuted();
+      } else if (microphoneMuted.value) await toggleMicrophoneMuted();
+      else await startRecording(false, true);
       return;
     }
-    if (callModeBusy.value) return;
+    if (callMode.value === "hands-free" && (pendingTranscript.value || sending.value)) {
+      voice.setMicrophoneMuted(false);
+      await toggleLive();
+      return;
+    }
+    if (pendingTranscript.value || sending.value || callModeBusy.value) return;
     voice.setMicrophoneMuted(false);
     await changeCallMode("hands-free");
     if (!live.value) await toggleLive();
@@ -398,7 +415,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       await cancelRecording();
       return;
     }
-    if (disposed || microphoneMuted.value || capturing.value || pendingTranscript.value || sending.value) return;
+    if (disposed || microphoneMuted.value || capturing.value || committing ||
+        (pendingTranscript.value || sending.value) && callMode.value !== "hands-free" && !pushHolding.value) return;
     const controller = new AbortController();
     startupAbort = controller;
     starting.value = true;
@@ -482,7 +500,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     // A discard can lose a race with resumed speech. Keep this utterance's
     // identity and destination until the daemon acknowledges the boundary.
     if (reset?.turnId !== voice.activeListenTurnId.value || !live.value || !recording) return;
-    recording = { focus: { ...(binding.captureContext?.() || {}) }, messageId: crypto.randomUUID(), started: true, continuous: true };
+    recording = { focus: { ...(binding.captureContext?.() || {}) }, messageId: crypto.randomUUID(), started: true, continuous: true,
+      ...(recording.finishAfterPending ? { finishAfterPending: true } : {}) };
   });
   watch(voice.partialTranscript, (text, previous) => {
     clearTimeout(stopTimer);
@@ -493,7 +512,16 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (live.value && !microphoneMuted.value && voice.partialTranscript.value === text) stopSpeech();
     }, 120);
   });
-  watch([pendingTranscript, sending], () => {
+  watch([pendingTranscript, sending, voice.utteranceReset], () => {
+    if (!disposed && live.value && !pushHolding.value && !changingCallMode.value &&
+        !pendingTranscript.value && !sending.value && !committing && microphoneMuted.value &&
+        recording?.finishAfterPending && voice.listening.value) {
+      // Retire intent before the asynchronous PCM drain so a receipt/reset
+      // cannot finalize this capture twice. Its original final watcher sends B.
+      delete recording.finishAfterPending;
+      void voice.stopListening().catch(cause => { error.value = cause.message; });
+      return;
+    }
     if (live.value && callMode.value === "hands-free" && !changingCallMode.value && !microphoneMuted.value && !capturing.value && !pendingTranscript.value && !sending.value && !voice.error.value) void startRecording(false, true);
   });
   async function startHeldRecording() { await startRecording(true); }

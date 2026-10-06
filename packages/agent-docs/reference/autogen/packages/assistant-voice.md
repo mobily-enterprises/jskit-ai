@@ -68,7 +68,6 @@ Exports
 Exports
 - None
 Local functions
-- `pauseMicrophone()`
 - `isAtBottom(element)`
 
 ### `src/client/VoiceConversationControls.vue`
@@ -86,6 +85,7 @@ Local functions
 Exports
 - None
 Local functions
+- `selectVoice(value)`
 - `openSettings(open)`
 
 ### `src/client/voiceLauncher.js`

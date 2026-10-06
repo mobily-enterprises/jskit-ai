@@ -8,6 +8,10 @@ const props = defineProps({
 });
 const emit = defineEmits(["error"]);
 const slots = useSlots();
+function selectVoice(value) {
+  const selectedVoice = props.voice.selectedVoice;
+  selectedVoice.value = value;
+}
 async function openSettings(open) {
   if (!open || slots.default || !props.voice) return;
   try { await props.voice.connect(); }
@@ -20,7 +24,7 @@ async function openSettings(open) {
     <template #activator="{ props: settingsButton }">
       <v-btn
         v-bind="settingsButton" :icon="mdiCog" variant="text" :color="compact ? 'primary' : undefined"
-        :min-width="compact ? 44 : 48" :min-height="compact ? 44 : 48" :disabled="!voice && !$slots.default"
+        :width="compact ? 40 : undefined" :min-width="compact ? 40 : 48" :min-height="compact ? 44 : 48" :disabled="!voice && !$slots.default"
         aria-label="Voice settings" title="Voice settings"
       >
         <template v-if="compact" #default><span class="voice-settings__disc"><v-icon size="20" :icon="mdiCog" /></span></template>
@@ -30,7 +34,7 @@ async function openSettings(open) {
       <v-card-text>
         <slot :voice="voice">
           <v-select
-            v-if="voice" v-model="voice.selectedVoice.value"
+            v-if="voice" :model-value="voice.selectedVoice.value" @update:model-value="selectVoice"
             :items="voice.availableVoices.value" item-title="label" item-value="id"
             :disabled="voice.availableVoices.value.length < 2"
             label="Speaking voice" density="comfortable"

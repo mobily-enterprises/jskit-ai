@@ -22,12 +22,19 @@
         <div v-if="avatarSize !== 'hidden'" class="assistant-conversation__avatar-visual" :style="{ height: `${avatarHeight}px`, width: `${avatarHeight}px` }">
           <slot name="avatar" :size="avatarSize" :height="avatarHeight" />
         </div>
-        <slot name="avatar-tools" :size="avatarSize" :height="avatarHeight" />
-        <v-btn
-          :prepend-icon="mdiMinus" size="small" variant="text" min-height="44"
-          aria-label="Minimise avatar" title="Minimise avatar" :aria-expanded="true"
-          @click="toggleAvatar"
-        >Minimise</v-btn>
+        <div class="assistant-conversation__avatar-tools">
+          <slot name="avatar-tools" :size="avatarSize" :height="avatarHeight" />
+          <v-btn
+            :icon="mdiMinus" size="small" variant="text" color="primary"
+            :width="40" :min-width="40" :min-height="44" class="assistant-conversation__avatar-size"
+            aria-label="Minimise avatar" title="Minimise avatar" :aria-expanded="true"
+            @click="toggleAvatar"
+          >
+            <span class="assistant-conversation__avatar-size-disc assistant-conversation__avatar-size-disc--minimise">
+              <v-icon size="20" :icon="mdiMinus" />
+            </span>
+          </v-btn>
+        </div>
       </div>
     </section>
     <AssistantTranscript
@@ -56,7 +63,9 @@
             v-if="scope.turn.previewMessage.actions.send" size="small" color="primary"
             :disabled="!scope.turn.previewMessage.actions.canSend"
             @click="scope.turn.previewMessage.actions.send(scope.turn.turnId)"
-          >{{ scope.turn.previewMessage.actions.sending ? 'Sending…' : 'Send' }}</v-btn>
+          >
+            {{ scope.turn.previewMessage.actions.sending ? 'Sending…' : 'Send' }}
+          </v-btn>
         </div>
         <slot name="user-message-actions" v-bind="scope" />
       </template>
@@ -385,7 +394,9 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__avatar--hidden .assistant-conversation__avatar-controls { right: 0; }
 .assistant-conversation__avatar-size { min-width: 44px; min-height: 44px; }
 .assistant-conversation__avatar-size-disc { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(var(--v-theme-on-surface), .08); }
+.assistant-conversation__avatar-size-disc--minimise { background: rgba(var(--v-theme-primary), .12); }
 .assistant-conversation__avatar-presentation { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.assistant-conversation__avatar-tools { display: flex; align-items: center; gap: 0; }
 .assistant-conversation__avatar-visual { display: flex; justify-content: center; min-height: 0; overflow: hidden; }
 .assistant-conversation__avatar-visual :deep(> *) { max-width: 100%; max-height: 100%; }
 .assistant-conversation__goal { display: flex; justify-content: flex-end; flex: 0 0 auto; }

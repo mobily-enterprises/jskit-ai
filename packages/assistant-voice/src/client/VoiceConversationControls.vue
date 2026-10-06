@@ -20,14 +20,14 @@ const {
   deliverTranscript, discardHeldRecording, editTranscript
 } = props.session;
 const controlStatus = computed(() => {
+  if (props.iconOnly && voice.listening.value && !starting.value && !error.value && !voice.error.value) return "";
   if (!props.compact || !props.session.hasUnsentSpeech.value) return callStatus.value;
   if (pendingTranscript.value) return props.reviewInTranscript ? "" : "Send or discard speech to send text.";
-  if (live.value && callMode.value === "hands-free" && voice.listening.value) return "Listening…";
+  if (live.value && callMode.value === "hands-free" && voice.listening.value && !microphoneMuted.value) return "Listening…";
   return voice.listening.value ? "Recording · finish speech to send text." : "Finish speech to send text.";
 });
-const handsFreeListening = computed(() => live.value && callMode.value === "hands-free" && !microphoneMuted.value);
-const canTalk = computed(() => !props.disabled && ((live.value && callMode.value === "hands-free" && voice.listening.value) ||
-  (!sending.value && !pendingTranscript.value && (!capturing.value || voice.listening.value || pushHolding.value || starting.value))));
+const handsFreeListening = computed(() => live.value && callMode.value === "hands-free" && voice.listening.value && !microphoneMuted.value);
+const canTalk = computed(() => !props.disabled && (!capturing.value || voice.listening.value || pushHolding.value || starting.value));
 const talkLabel = computed(() => starting.value ? "Connecting…" : pushHolding.value ? "Release to send" : handsFreeListening.value ? "Pause" : "Talk");
 const gestureHint = useId();
 const gesture = useVoiceLauncher({
@@ -42,25 +42,27 @@ const gesture = useVoiceLauncher({
   <fieldset class="assistant-voice-controls" :class="{ 'assistant-voice-controls--compact': compact }" :disabled="disabled">
     <Teleport :to="feedbackTarget" :disabled="!feedbackTarget">
       <fieldset class="assistant-voice-controls__feedback" :class="{ 'assistant-voice-controls__feedback--compact': compact }" :disabled="disabled">
-      <p
-        v-if="error || voice.error.value" class="assistant-voice__error"
-        :class="{ 'text-body-small': compact }" role="alert"
-      >{{ error || voice.error.value }}</p>
-      <p v-if="controlStatus" class="assistant-voice-controls__status text-body-small" role="status" :title="callStatus">{{ controlStatus }}</p>
-      <p v-if="compact && !reviewInTranscript && heldTranscript && !pendingTranscript" class="assistant-voice-controls__provisional" role="status" aria-label="Recognized words">Not sent · {{ heldTranscript }}</p>
-      <p v-if="readAloud && voice.playbackBlocked?.value" class="assistant-voice-controls__status" role="status">Sound is blocked. Enable sound to hear future replies.</p>
-      <v-btn v-if="readAloud && voice.playbackBlocked?.value" min-height="48" @click="enableSound">Enable sound</v-btn>
-      <section v-if="!reviewInTranscript && pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
-        <v-textarea
-          class="assistant-voice__review-input" :model-value="pendingTranscript.text" label="Review your message" :disabled="sending"
-          :density="compact ? 'compact' : 'default'" :rows="compact ? 1 : 2" :max-rows="compact ? 2 : 3"
-          auto-grow hide-details @update:model-value="editTranscript"
-        />
-        <div class="assistant-voice__review-actions">
-          <v-btn :disabled="sending" min-height="48" @click="discardHeldRecording">Discard</v-btn>
-          <v-btn :disabled="sending || !pendingTranscript.text.trim()" min-height="48" color="primary" @click="deliverTranscript">{{ sending ? 'Sending…' : 'Send' }}</v-btn>
-        </div>
-      </section>
+        <p
+          v-if="error || voice.error.value" class="assistant-voice__error"
+          :class="{ 'text-body-small': compact }" role="alert"
+        >
+          {{ error || voice.error.value }}
+        </p>
+        <p v-if="controlStatus" class="assistant-voice-controls__status text-body-small" role="status" :title="callStatus">{{ controlStatus }}</p>
+        <p v-if="compact && !reviewInTranscript && heldTranscript && !pendingTranscript" class="assistant-voice-controls__provisional" role="status" aria-label="Recognized words">Not sent · {{ heldTranscript }}</p>
+        <p v-if="readAloud && voice.playbackBlocked?.value" class="assistant-voice-controls__status" role="status">Sound is blocked. Enable sound to hear future replies.</p>
+        <v-btn v-if="readAloud && voice.playbackBlocked?.value" min-height="48" @click="enableSound">Enable sound</v-btn>
+        <section v-if="!reviewInTranscript && pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
+          <v-textarea
+            class="assistant-voice__review-input" :model-value="pendingTranscript.text" label="Review your message" :disabled="sending"
+            :density="compact ? 'compact' : 'default'" :rows="compact ? 1 : 2" :max-rows="compact ? 2 : 3"
+            auto-grow hide-details @update:model-value="editTranscript"
+          />
+          <div class="assistant-voice__review-actions">
+            <v-btn :disabled="sending" min-height="48" @click="discardHeldRecording">Discard</v-btn>
+            <v-btn :disabled="sending || !pendingTranscript.text.trim()" min-height="48" color="primary" @click="deliverTranscript">{{ sending ? 'Sending…' : 'Send' }}</v-btn>
+          </div>
+        </section>
       </fieldset>
     </Teleport>
     <Teleport :to="toolsTarget" :disabled="!toolsTarget">
@@ -77,7 +79,7 @@ const gesture = useVoiceLauncher({
             :aria-label="iconOnly ? talkLabel : undefined" title="click or long press to talk"
             :aria-pressed="handsFreeListening || pushHolding" :aria-describedby="gestureHint"
             :disabled="!canTalk" :slim="compact || iconOnly"
-            :width="iconOnly ? 44 : compact ? 148 : undefined" :min-width="iconOnly ? 44 : compact ? 148 : undefined"
+            :width="iconOnly ? 40 : compact ? 148 : undefined" :min-width="iconOnly ? 40 : compact ? 148 : undefined"
             @pointerdown="gesture.pointerDown" @pointerup="gesture.pointerUp" @pointercancel="gesture.cancel" @lostpointercapture="gesture.cancel"
             @keydown.space.prevent="gesture.keyDown" @keyup.space.prevent="gesture.keyUp"
             @keydown.enter.prevent="gesture.keyDown" @keyup.enter.prevent="gesture.keyUp" @blur="gesture.cancel" @contextmenu.prevent @click="gesture.click"
@@ -86,7 +88,7 @@ const gesture = useVoiceLauncher({
             <template v-else>{{ talkLabel }}</template>
           </v-btn>
           <v-btn
-            :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" :variant="iconOnly ? 'text' : 'tonal'" :color="iconOnly ? 'primary' : undefined" :min-height="iconOnly ? 44 : compact ? 48 : 64" :min-width="iconOnly ? 44 : compact ? 48 : 64" rounded="xl"
+            :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" :variant="iconOnly ? 'text' : 'tonal'" :color="iconOnly ? 'primary' : undefined" :min-height="iconOnly ? 44 : compact ? 48 : 64" :width="iconOnly ? 40 : undefined" :min-width="iconOnly ? 40 : compact ? 48 : 64" rounded="xl"
             :aria-label="readAloud ? `Turn ${targetLabel} read-aloud off` : `Read ${targetLabel} answers aloud`"
             :title="readAloud ? 'Spoken replies on' : 'Spoken replies off'" @click="toggleReadAloud"
           >
