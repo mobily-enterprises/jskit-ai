@@ -106,6 +106,12 @@ recording destinations. Bindings without an adapter retain the original portrait
 and latest-word/latest-answer caption presentation while their consumers migrate.
 Headless controller/session use requires no adapter or mounted view.
 
+An adapter-backed combined view has no Talk/Text tabs: its typed composer and
+voice controls are available together. Minimize it to return to the application's
+existing text navigation; revealing it retains the same conversation. Caption-only
+bindings keep Talk/Text when `openText` is supplied, and Text calls that original
+navigation action without replacing the retained voice session.
+
 `VoiceConversation` accepts `adapter`, `session`, `disabled`, and controlled
 `avatarSize`, and emits `update:avatarSize`. `VoiceConversationHost` forwards that
 preference and event. Supply `v-model:avatar-size` from the application's existing

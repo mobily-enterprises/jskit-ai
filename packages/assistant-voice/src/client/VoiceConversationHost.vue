@@ -20,7 +20,9 @@ async function openText() {
 
 <template>
   <ConversationDialog
-    v-if="state.session" :model-value="state.visible" :activator="activator" :title="state.binding.label || 'Assistant'" mode="talk" :show-modes="Boolean(state.binding.openText)"
+    v-if="state.session" :model-value="state.visible" :activator="activator"
+    :title="state.binding.label || 'Assistant'" mode="talk"
+    :show-modes="Boolean(state.binding.openText && !state.binding.adapter)"
     minimizable close-label="Close voice chat" @minimize="controller.minimize()" @update:model-value="invoke(() => controller.end({ discard: true }))"
     @update:mode="value => value === 'text' && invoke(openText)"
   >

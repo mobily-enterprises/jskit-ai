@@ -337,6 +337,8 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await card("Planning").getByRole("button", { name: "Voice chat with Planning", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Planning conversation", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning question from the mounted starter.");
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
@@ -352,8 +354,10 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning answer is streaming. Complete while its text view is closed.");
     await expect(dialog).not.toContainText("Notes remains a different target.");
-    await dialog.getByRole("tab", { name: "Text", exact: true }).click();
+    await dialog.getByRole("button", { name: "Minimize conversation", exact: true }).click();
     await expect(dialog).not.toBeVisible();
+    await page.getByRole("navigation", { name: "Open a text conversation", exact: true })
+      .getByRole("button", { name: "Planning", exact: true }).click();
     await expect(input("Planning")).toBeFocused();
     await expect(input("Planning")).toHaveValue("Planning draft survives closing its text view.");
     await expect(input("Notes")).toHaveValue("Notes remains a different target.");
@@ -380,6 +384,54 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await expect(dialog).toBeVisible();
     const panel = dialog.locator(".voice-host__body");
     const canonical = dialog.locator(".assistant-voice-conversation");
+    // Project the legacy adapter absence through the same host/session, then
+    // restore its exact getter even if an assertion fails. No audio owner changes.
+    const captionHost = await panel.elementHandle();
+    const captionFallback = enabled => captionHost.evaluate((element, enabled) => {
+      let component = element.__vueParentComponent;
+      while (component && !component.props.controller) component = component.parent;
+      const { controller } = component.props;
+      const { binding, session } = controller.state;
+      if (enabled) {
+        element.__voiceFallbackSnapshot = { controller, binding, session,
+          descriptor: Object.getOwnPropertyDescriptor(binding, "adapter") };
+        Object.defineProperty(binding, "adapter", { configurable: true, get: () => null });
+      } else {
+        const original = element.__voiceFallbackSnapshot;
+        Object.defineProperty(original.binding, "adapter", original.descriptor);
+        if (controller !== original.controller || binding !== original.binding || session !== original.session) {
+          throw new Error("Caption presentation must retain the original host, binding and session.");
+        }
+        delete element.__voiceFallbackSnapshot;
+      }
+      component.proxy.$forceUpdate();
+    }, enabled);
+    try {
+      await captionFallback(true);
+      await expect(canonical).toHaveCount(0);
+      const captions = dialog.locator(".assistant-voice__captions");
+      await expect(captions).toBeVisible();
+      await expect(captions).toContainText("Planning question from the mounted starter.");
+      await expect(captions).toContainText("Planning answer is streaming. Complete while its text view is closed.");
+      await expect(captions).not.toContainText("Notes remains a different target.");
+      await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toBeVisible();
+      await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toBeVisible();
+      await dialog.getByRole("tab", { name: "Text", exact: true }).click();
+      await expect(dialog).not.toBeVisible();
+      await expect(input("Planning")).toBeFocused();
+      await expect(input("Planning")).toHaveValue("Planning draft survives closing its text view.");
+      await expect(input("Notes")).toHaveValue("Notes remains a different target.");
+      assert.equal(f.socketConnections(), 1, "Caption navigation retains the same conversation subscription");
+      assert.equal(f.requests.length, 1, "Caption navigation never submits another inference");
+    } finally {
+      try { await captionFallback(false); }
+      finally { await captionHost.dispose(); }
+    }
+    await page.getByRole("button", { name: "Planning · Voice chat", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    await expect(canonical).toBeVisible();
+    await expect(dialog.getByRole("tab", { name: "Talk", exact: true })).toHaveCount(0);
+    await expect(dialog.getByRole("tab", { name: "Text", exact: true })).toHaveCount(0);
     const typed = canonical.getByRole("textbox", { name: "Message AI assistant" });
     const history = canonical.locator(".assistant-transcript__body");
     const projectSpeech = state => panel.evaluate((element, value) => {
