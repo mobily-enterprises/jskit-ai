@@ -12,6 +12,34 @@ import { createSchema } from "json-rest-schema";
 const configuration = { systemPrompt: "Keep these instructions fresh.", model: "test-model", effort: "high" };
 const input = { messageId: "first", text: "Hello" };
 
+test("Claude account checks use the supplied finite capture policy without starting a conversation service", async t => {
+  const local = createLocalConversationExecution();
+  const checks = [];
+  const f = await fixture(t, { execution: {
+    async run(request) {
+      checks.push(request);
+      assert.equal(request.mode, "capture");
+      assert.equal(request.cwd, request.baseEnv.HOME);
+      assert.deepEqual(request.args, ["auth", "status", "--json"]);
+      assert.equal(request.timeout, 30_000);
+      assert.equal(request.maxBuffer, 64 * 1024);
+      assert.equal(request.signal.aborted, false);
+      return { ok: true, exitCode: 0, stdout: JSON.stringify({ loggedIn: true,
+        authMethod: "claude.ai", email: "owner@example.test" }) };
+    },
+    start(request) {
+      assert.equal(request.args.includes("auth"), false, "Account checks must not borrow the native-turn execution policy");
+      return local.start(request);
+    },
+    stop: local.stop
+  } });
+  await f.conversation.send(input);
+  const result = await f.conversation.wait();
+  assert.equal(result.conversationLog[0].metadata.runtime.status, "complete", result.error);
+  assert.equal(result.conversationLog[0].assistant.text, "Answer: Hello");
+  assert.ok(checks.length > 0);
+});
+
 test("Claude exposes the durable native identity before dispatch and respects a rejected gate", async t => {
   const f = await fixture(t);
   await f.first.close();
