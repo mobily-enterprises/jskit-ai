@@ -207,7 +207,7 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
         conversationId: "logical-conversation",
         onPlayback: value => { emitted.push(["playback", value]); return colleagueProps.onPlayback?.(value); },
         onReadAloudChange: value => { emitted.push(["readAloud", value]); return colleagueProps.onReadAloudChange?.(value); },
-        onTranscript: value => emitted.push(["transcript", value]), onVisual: value => emitted.push(["visual", value])
+        onTranscript: (value, metadata) => emitted.push(["transcript", value, metadata]), onVisual: value => emitted.push(["visual", value])
       }, { socketUrl: "/voice" });
       if (callMode) state.callMode.value = callMode;
       voice = state.voice;
@@ -2505,3 +2505,409 @@ test("a declined speech request retires its canonical receipt without invented a
   view.colleague.stopSpeech(); await flushVue();
   assert.equal(view.emitted.filter(([kind, event]) => kind === "playback" && event.outputId === "declined").length, 1);
 });
+
+
+test("hands-free keeps new temporary words visible during admission and leaves typing available while listening", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  let accept;
+  const deliveries = [];
+  const typedDeliveries = [];
+  view.colleagueProps.submit = (text, options) => {
+    if (options.messageId === "typed-during-voice") {
+      typedDeliveries.push({ text, ...options });
+      return Promise.resolve({ ok: true });
+    }
+    deliveries.push({ text, ...options });
+    return new Promise(resolve => { accept = resolve; });
+  };
+  view.colleagueProps.conversation.status = "working";
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
+  const call = view.colleague;
+  assert.equal(call.composerBlocked.value, false, "an open continuous microphone does not block typed steering");
+  assert.equal(call.hasUnsentSpeech.value, true, "target-switch protection still owns the open recording");
+  const socket = view.sockets[0];
+  const turnId = view.voice.activeListenTurnId.value;
+  view.colleagueProps.conversation.messages = [{ id: "playing-reply", role: "assistant", text: "Keep this reply playing." }];
+  await flushVue();
+  const speechId = view.voice.activeSpeechTurnId.value;
+  assert.ok(speechId);
+  socket.receive({ type: "transcript.partial", turnId, text: "First direction", revision: 1 });
+  socket.receive({ type: "transcript.endpoint", turnId, text: "First direction", revision: 1 });
+  await flushVue();
+  socket.receive({ type: "transcript.final", turnId, text: "First direction", revision: 1, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId, revision: 2 });
+  await flushVue();
+  const firstId = call.pendingTranscript.value.messageId;
+  assert.equal(call.sending.value, true);
+  assert.equal(call.composerBlocked.value, false, "live hands-free admission leaves typed submission to the conversation owner");
+  assert.equal(call.hasUnsentSpeech.value, true, "unresolved voice still protects target switching");
+  const heldVoice = call.pendingTranscript.value;
+  assert.equal(await view.colleagueProps.submit("Typed steering while voice waits", {
+    messageId: "typed-during-voice", focus: { ...view.colleagueProps.focus }
+  }).then(result => result.ok), true);
+  assert.deepEqual(typedDeliveries, [{ text: "Typed steering while voice waits", messageId: "typed-during-voice",
+    focus: { projectSlug: "example", sessionId: "session-a" } }]);
+  assert.equal(call.pendingTranscript.value, heldVoice, "typed submission does not consume retained voice words");
+  assert.equal(call.sending.value, true);
+  const pcmBefore = socket.sent.filter(frame => typeof frame !== "string").length;
+  view.worklets[0].emit(new Float32Array([0.2, -0.2]));
+  assert.equal(socket.sent.filter(frame => typeof frame !== "string").length, pcmBefore + 1, "continuous PCM reaches the socket during admission");
+  socket.receive({ type: "transcript.partial", turnId, text: "Another direction while waiting", revision: 3 });
+  await flushVue();
+  const preview = view.emitted.filter(([name]) => name === "transcript").at(-1)[1];
+  assert.equal(preview.text, "Another direction while waiting");
+  assert.notEqual(preview.id, firstId);
+  assert.equal(call.pendingTranscript.value.text, "First direction", "new words do not overwrite the admitted request");
+  view.colleagueProps.focus = { projectSlug: "next-project", sessionId: "next-session" };
+  socket.receive({ type: "transcript.endpoint", turnId, text: "Another direction while waiting", revision: 3 });
+  await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 1, "the second endpoint waits for first admission");
+  await call.toggleHandsFree();
+  assert.equal(call.microphoneMuted.value, true, "Pause remains usable during admission");
+  assert.equal(view.media[0].stops, 0);
+  await call.toggleHandsFree();
+  assert.equal(call.microphoneMuted.value, false);
+  accept({ ok: true });
+  await flushVue();
+  assert.equal(call.pendingTranscript.value, null);
+  assert.equal(call.composerBlocked.value, false);
+  assert.equal(view.voice.listening.value, true);
+  assert.equal(view.emitted.filter(([name]) => name === "transcript").at(-1)[1].text, "Another direction while waiting");
+  assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 2, "release commits the waiting endpoint exactly once");
+  socket.receive({ type: "transcript.final", turnId, text: "Another direction while waiting", revision: 3, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId, revision: 4 });
+  await flushVue();
+  assert.equal(deliveries.length, 2);
+  assert.equal(deliveries[0].messageId, firstId);
+  assert.equal(deliveries[1].messageId, preview.id);
+  assert.deepEqual(deliveries[1].focus, { projectSlug: "example", sessionId: "session-a" }, "the second recording retains its captured focus");
+  assert.equal(deliveries[1].text, "Another direction while waiting");
+  accept({ ok: true });
+  await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 2);
+  assert.equal(deliveries.length, 2);
+  assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+  assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === speechId), false);
+});
+
+
+test("discarding temporary hands-free words restarts only capture and keeps playback and the conversation", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
+  const call = view.colleague;
+  view.colleagueProps.conversation.status = "working";
+  view.colleagueProps.conversation.messages = [{ id: "reply", role: "assistant", text: "Keep this answer playing." }];
+  await flushVue();
+  const socket = view.sockets[0];
+  const speechId = view.voice.activeSpeechTurnId.value;
+  const listenId = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId: listenId, text: "Discard only these words", revision: 1 });
+  await flushVue();
+  const [, selected, metadata] = view.emitted.filter(([kind]) => kind === "transcript").at(-1);
+  assert.equal(metadata.canTake, true);
+  assert.equal(await call.takeTranscript("wrong-preview"), false);
+  assert.equal(view.media[0].stops, 0);
+  const taking = call.takeTranscript(selected.id);
+  await flushVue();
+  assert.equal(view.media[0].stops, 1);
+  view.media[1].resolve();
+  assert.equal(await taking, true);
+  assert.equal(call.live.value, true);
+  assert.equal(view.voice.listening.value, true);
+  assert.notEqual(view.voice.activeListenTurnId.value, listenId);
+  assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+  assert.ok(speechId, "the accepted reply remains scheduled");
+  assert.equal(controls(socket).some(item => item.type === "cancel" && item.turnId === speechId), false);
+  socket.receive({ type: "transcript.partial", turnId: listenId, text: "Late discarded words", revision: 2 });
+  await flushVue();
+  assert.equal(view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1], null);
+  socket.receive({ type: "transcript.partial", turnId: view.voice.activeListenTurnId.value, text: "New direction", revision: 1 });
+  await flushVue();
+  assert.equal(view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1].text, "New direction");
+});
+
+test("editing a temporary message rechecks the typed draft and transfers exact words before cancelling capture", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
+  const socket = view.sockets[0];
+  socket.receive({ type: "transcript.partial", turnId: view.voice.activeListenTurnId.value, text: "Exact selected words", revision: 1 });
+  await flushVue();
+  const selected = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+  let draft = "Keep my typed request";
+  const transfer = text => {
+    if (draft) return false;
+    assert.equal(view.media[0].stops, 0, "transfer happens before asynchronous capture cleanup");
+    draft = text;
+    return true;
+  };
+  assert.equal(await view.colleague.takeTranscript(selected.id, transfer), false);
+  assert.equal(draft, "Keep my typed request");
+  assert.equal(view.media[0].stops, 0);
+  draft = "";
+  const taking = view.colleague.takeTranscript(selected.id, transfer);
+  assert.equal(draft, selected.text);
+  await flushVue(); view.media[1].resolve();
+  assert.equal(await taking, true);
+  assert.equal(draft, selected.text);
+  assert.equal(view.colleague.pendingTranscript.value, null);
+  assert.equal(view.voice.listening.value, true);
+});
+
+test("temporary message actions cannot cancel committing, sending, or accepted speech", async t => {
+  const view = mountVoice(t, { colleague: true });
+  let accept;
+  view.colleagueProps.submit = () => new Promise(resolve => { accept = resolve; });
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
+  const socket = view.sockets[0];
+  const turnId = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId, text: "Keep admitted words", revision: 1 });
+  await flushVue();
+  const selected = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+  socket.receive({ type: "transcript.endpoint", turnId, text: selected.text, revision: 1 });
+  await flushVue();
+  assert.equal(view.emitted.filter(([kind]) => kind === "transcript").at(-1)[2].canTake, false);
+  assert.equal(await view.colleague.takeTranscript(selected.id), false);
+  assert.equal(await view.colleague.beginTranscriptEdit(selected.id), false);
+  socket.receive({ type: "transcript.final", turnId, text: selected.text, revision: 1, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId, revision: 2 });
+  await flushVue();
+  assert.equal(view.colleague.sending.value, true);
+  socket.receive({ type: "transcript.partial", turnId, text: "New words during admission", revision: 3 });
+  await flushVue();
+  const next = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+  assert.equal(await view.colleague.takeTranscript(next.id), false);
+  assert.equal(await view.colleague.beginTranscriptEdit(next.id), false);
+  assert.equal(view.media[0].stops, 0);
+  accept({ ok: true }); await flushVue();
+  view.colleagueProps.conversation.messages = [{ id: next.id, role: "user", text: next.text }];
+  await flushVue();
+  assert.equal(await view.colleague.takeTranscript(next.id), false);
+  assert.equal(await view.colleague.beginTranscriptEdit(next.id), false);
+  assert.equal(view.media[0].stops, 0);
+});
+
+
+test("temporary message controls resolve an interrupted review without admitting or replacing a typed draft", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const starting = view.colleague.talk();
+  await flushVue(); view.media[0].resolve(); await starting;
+  view.sockets[0].receive({ type: "transcript.partial", turnId: view.voice.activeListenTurnId.value, text: "Recovered unfinished request" });
+  await flushVue();
+  window.dispatchEvent(new Event("pagehide"));
+  await flushVue();
+  const pending = view.colleague.pendingTranscript.value;
+  assert.equal(pending.text, "Recovered unfinished request");
+  assert.equal(view.colleague.composerBlocked.value, true, "one-off recovery still requires resolution before a competing typed send");
+  assert.equal(view.emitted.filter(([kind]) => kind === "transcript").at(-1)[2].canTake, true);
+  assert.equal(await view.colleague.takeTranscript(pending.messageId, () => false), false);
+  assert.equal(view.colleague.pendingTranscript.value, pending);
+  let draft = "";
+  assert.equal(await view.colleague.takeTranscript(pending.messageId, text => { draft = text; return true; }), true);
+  assert.equal(draft, pending.text);
+  assert.equal(view.colleague.pendingTranscript.value, null);
+  assert.equal(view.media.length, 1);
+  assert.equal(view.media[0].stops, 1);
+  assert.equal(view.voice.listening.value, false);
+});
+
+
+test("editing speech keeps its exact pending identity and destination without changing playback or typing", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  const attempts = [];
+  let failed = true;
+  view.colleagueProps.submit = async (text, options) => {
+    attempts.push({ text, ...options });
+    if (failed) throw new Error("Not admitted; keep these words.");
+    return { ok: true };
+  };
+  const starting = view.colleague.toggleLive();
+  await flushVue(); view.media[0].resolve(); await starting;
+  view.colleagueProps.conversation.status = "working";
+  view.colleagueProps.conversation.messages = [{ id: "playing", role: "assistant", text: "Keep speaking this answer." }];
+  await flushVue();
+  const call = view.colleague;
+  const socket = view.sockets[0];
+  const listenId = view.voice.activeListenTurnId.value;
+  const speechId = view.voice.activeSpeechTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId: listenId, text: "Exact selected speech", revision: 1 });
+  await flushVue();
+  const selected = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+  view.colleagueProps.focus = { projectSlug: "another", sessionId: "session-b" };
+  assert.equal(await call.beginTranscriptEdit("stale-preview"), false);
+  assert.equal(await call.beginTranscriptEdit(selected.id), true);
+  await flushVue();
+  assert.equal(call.pendingTranscript.value.messageId, selected.id);
+  assert.equal(call.pendingTranscript.value.text, selected.text);
+  assert.deepEqual(call.pendingTranscript.value.focus, { projectSlug: "example", sessionId: "session-a" });
+  assert.equal(call.pendingTranscript.value.editing, true);
+  assert.equal(call.composerBlocked.value, false, "a live hands-free bubble editor remains independent of the typed composer");
+  assert.equal(call.hasUnsentSpeech.value, true);
+  assert.equal(call.live.value, true);
+  assert.equal(view.media[0].stops, 1);
+  assert.equal(view.media.length, 1, "capture stays paused while the original pending message is edited");
+  assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+  assert.ok(speechId);
+  assert.equal(controls(socket).some(item => item.type === "cancel" && item.turnId === speechId), false);
+  call.editTranscript("Wrong message", "stale-preview");
+  assert.equal(call.pendingTranscript.value.text, selected.text);
+  call.editTranscript("", selected.id);
+  await flushVue();
+  assert.equal(view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1].id, selected.id);
+  assert.equal(view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1].text, "");
+  socket.receive({ type: "transcript.partial", turnId: listenId, text: "Late cancelled speech", revision: 2 });
+  await flushVue();
+  assert.equal(call.pendingTranscript.value.text, "");
+  call.editTranscript("Corrected selected speech", selected.id);
+  await call.deliverTranscript();
+  assert.equal(call.pendingTranscript.value.text, "Corrected selected speech");
+  assert.equal(view.media.length, 1);
+  failed = false;
+  await call.deliverTranscript();
+  await flushVue();
+  assert.equal(call.pendingTranscript.value, null);
+  assert.equal(view.media.length, 2, "the existing pending-clear watcher resumes hands-free once resolved");
+  view.media[1].resolve(); await flushVue();
+  assert.deepEqual(attempts, [
+    { text: "Corrected selected speech", messageId: selected.id, focus: { projectSlug: "example", sessionId: "session-a" } },
+    { text: "Corrected selected speech", messageId: selected.id, focus: { projectSlug: "example", sessionId: "session-a" } }
+  ]);
+  assert.equal(view.voice.listening.value, true);
+  call.editTranscript("Do not fabricate a pending message");
+  assert.equal(call.pendingTranscript.value, null);
+});
+
+
+test("unadmitted matching user records retain editable speech and cannot acknowledge a speech invitation", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const call = view.colleague;
+  await call.toggleReadAloud();
+  view.colleagueProps.conversation.messages = [{ id: "old-answer", role: "assistant", text: "An earlier answer." }];
+  await flushVue();
+  const socket = view.sockets[0];
+  call.stopSpeech();
+  const pending = { messageId: "unadmitted-voice", text: "Review these words", focus: { projectSlug: "example", sessionId: "session-a" } };
+  call.pendingTranscript.value = pending;
+  call.inviteSpeech(pending.messageId);
+  view.colleagueProps.conversation.messages = [
+    ...view.colleagueProps.conversation.messages,
+    { id: pending.messageId, role: "user", text: pending.text, receipt: false },
+    { id: "uninvited-answer", role: "assistant", text: "Not an admitted answer." }
+  ];
+  await flushVue();
+  assert.equal(call.pendingTranscript.value.messageId, pending.messageId);
+  assert.equal(await call.beginTranscriptEdit(pending.messageId), true);
+  assert.equal(call.pendingTranscript.value.editing, true);
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1, "unadmitted readback cannot lift Stop");
+  view.colleagueProps.conversation.messages = view.colleagueProps.conversation.messages.map(message =>
+    message.id === pending.messageId ? { ...message, receipt: true } : message);
+  view.colleagueProps.conversation.messages.push({ id: "admitted-answer", role: "assistant", text: "A newly admitted answer." });
+  await flushVue();
+  assert.equal(call.pendingTranscript.value, null);
+  assert.deepEqual(controls(socket).filter(control => control.type === "speak.start").map(control => control.text), ["An earlier answer.", "A newly admitted answer."]);
+  view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages];
+  await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2, "repeated admitted readback is processed once");
+  call.pendingTranscript.value = { ...pending, messageId: "legacy-admitted" };
+  view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages,
+    { id: "legacy-admitted", role: "user", text: pending.text }];
+  await flushVue();
+  assert.equal(call.pendingTranscript.value, null, "canonical records without an explicit receipt flag remain admitted");
+});
+
+for (const recovery of ["retry", "edit", "discard", "edit with explicit mute"]) {
+  test(`failed voice A ${recovery} preserves newer live B and commits B once`, async t => {
+    const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+    const deliveries = [];
+    let rejectFirst = true;
+    view.colleagueProps.submit = async (text, options) => {
+      deliveries.push({ text, ...options });
+      if (rejectFirst) {
+        rejectFirst = false;
+        return { ok: false, message: "The first utterance was not admitted." };
+      }
+      return { ok: true };
+    };
+    const starting = view.colleague.toggleLive();
+    await flushVue(); view.media[0].resolve(); await starting;
+    const call = view.colleague;
+    const socket = view.sockets[0];
+    const turnId = view.voice.activeListenTurnId.value;
+    view.colleagueProps.conversation.messages = [{ id: "playing", role: "assistant", text: "Keep this answer playing." }];
+    await flushVue();
+    const speechId = view.voice.activeSpeechTurnId.value;
+    assert.ok(speechId);
+    socket.receive({ type: "transcript.partial", turnId, text: "Failed first words", revision: 1 });
+    socket.receive({ type: "transcript.endpoint", turnId, text: "Failed first words", revision: 1 });
+    await flushVue();
+    socket.receive({ type: "transcript.final", turnId, text: "Failed first words", revision: 1, continuous: true });
+    socket.receive({ type: "transcript.reset", turnId, revision: 2 });
+    await flushVue();
+    const first = call.pendingTranscript.value;
+    assert.equal(first.text, "Failed first words");
+    assert.equal(call.sending.value, false);
+    assert.equal(call.error.value, "The first utterance was not admitted.");
+    view.colleagueProps.focus = { projectSlug: "newer-project", sessionId: "newer-session" };
+    socket.receive({ type: "transcript.partial", turnId, text: "Keep newer live words", revision: 3 });
+    socket.receive({ type: "transcript.endpoint", turnId, text: "Keep newer live words", revision: 3 });
+    await flushVue();
+    const newer = view.emitted.filter(([name]) => name === "transcript").at(-1)[1];
+    assert.notEqual(newer.id, first.messageId);
+    assert.equal(newer.text, "Keep newer live words");
+    assert.equal(call.canTakeTranscript(first.messageId), true, "retained A is recoverable even when current recognition is B");
+    assert.equal(call.canTakeTranscript(newer.id), true);
+    assert.equal(await call.beginTranscriptEdit(newer.id), false, "B cannot overwrite the one existing pending editor");
+    assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 1);
+    view.colleagueProps.focus = { projectSlug: "later-project", sessionId: "later-session" };
+    if (recovery.startsWith("edit")) {
+      assert.equal(await call.beginTranscriptEdit(first.messageId), true);
+      assert.equal(call.pendingTranscript.value.messageId, first.messageId);
+      assert.deepEqual(call.pendingTranscript.value.focus, { projectSlug: "example", sessionId: "session-a" });
+      assert.equal(call.microphoneMuted.value, true);
+      assert.equal(view.media[0].stops, 0, "editing A pauses capture without destroying B");
+      assert.equal(view.voice.activeListenTurnId.value, turnId);
+      assert.equal(view.voice.partialTranscript.value, newer.text);
+      const frames = socket.sent.filter(frame => typeof frame !== "string").length;
+      view.worklets[0].emit(new Float32Array([0.4, -0.4]));
+      assert.equal(socket.sent.filter(frame => typeof frame !== "string").length, frames, "Edit's pause owns only capture PCM");
+      call.editTranscript("Edited first words", first.messageId);
+      if (recovery === "edit with explicit mute") {
+        await call.toggleMicrophoneMuted();
+        await call.toggleMicrophoneMuted();
+        assert.equal(call.microphoneMuted.value, true);
+      }
+      await call.deliverTranscript();
+    } else if (recovery === "retry") await call.deliverTranscript();
+    else assert.equal(await call.takeTranscript(first.messageId), true);
+    await flushVue();
+    assert.equal(call.pendingTranscript.value, null);
+    assert.equal(view.voice.partialTranscript.value, newer.text);
+    assert.equal(view.emitted.filter(([name]) => name === "transcript").at(-1)[1].id, newer.id);
+    if (recovery === "edit with explicit mute") {
+      assert.equal(call.microphoneMuted.value, true, "A resolution cannot undo the person's later mute choice");
+      assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 1);
+      await call.toggleMicrophoneMuted();
+      socket.receive({ type: "transcript.endpoint", turnId, text: newer.text, revision: 3 });
+      await flushVue();
+    } else assert.equal(call.microphoneMuted.value, false);
+    assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 2);
+    socket.receive({ type: "transcript.final", turnId, text: newer.text, revision: 3, continuous: true });
+    socket.receive({ type: "transcript.reset", turnId, revision: 4 });
+    await flushVue();
+    const firstAttempts = deliveries.filter(delivery => delivery.messageId === first.messageId);
+    assert.equal(firstAttempts.length, recovery === "discard" ? 1 : 2);
+    if (recovery !== "discard") {
+      assert.equal(firstAttempts[1].text, recovery.startsWith("edit") ? "Edited first words" : first.text);
+      assert.deepEqual(firstAttempts[1].focus, first.focus);
+    }
+    assert.deepEqual(deliveries.filter(delivery => delivery.messageId === newer.id), [{ text: newer.text,
+      messageId: newer.id, focus: { projectSlug: "newer-project", sessionId: "newer-session" } }]);
+    assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 2);
+    assert.equal(view.media[0].stops, 0);
+    assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+    assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === speechId), false);
+  });
+}

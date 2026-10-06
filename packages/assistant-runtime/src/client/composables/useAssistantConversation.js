@@ -31,7 +31,7 @@ function configureAssistantConversations(app, { actorKey, api = null, request, c
 // occur after dispatch and must retain an uncertain receipt.
 const SEND_REJECTIONS = new Set([
   "ACTION_VALIDATION_FAILED", "ACTION_PERMISSION_DENIED", "ACTION_SURFACE_FORBIDDEN",
-  "conversation_invalid_message", "conversation_busy", "conversation_invalid_goal", "conversation_goal_changed"
+  "conversation_invalid_message", "conversation_busy", "conversation_not_steerable", "conversation_invalid_goal", "conversation_goal_changed"
 ]);
 
 function isQuestionConfiguration(value) {
@@ -46,7 +46,7 @@ function draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "") {
   return submitted && current.startsWith(submitted) ? current.slice(submitted.length) : current;
 }
 
-function createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, draftStorage, application, goalReadEnabled }) {
+function createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, draftStorage, application, goalReadEnabled }) {
   const disposed = ref(false);
   const placementRevision = ref(0);
   const stopPlacement = placement.subscribe(() => { placementRevision.value += 1; });
@@ -90,8 +90,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const editable = computed(() => active.value && !accessDenied.value);
   const available = computed(() => active.value && !loading.value && !accessDenied.value && Boolean(snapshot.value));
   const steerable = computed(() => snapshot.value?.status === "working" && snapshot.value?.capabilities?.steering === true);
-  const queueing = computed(() => queueWhileSending !== false && steerable.value);
-  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value) &&
+  const queueing = computed(() => queueWhileSending !== false && (steerable.value || deferWhileWorking));
+  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || deferWhileWorking && snapshot.value.status === "working") &&
     (queueWhileSending !== false || !delivery.state.sending) &&
     !delivery.state.messages.some(message => message.status === "uncertain"));
   const savedDraft = toValue(draftStorage);
@@ -109,9 +109,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const messages = Array.isArray(saved?.messages) ? saved.messages.filter(message =>
       typeof message?.id === "string" && typeof message.text === "string" &&
       typeof message.payload?.message === "string") : [];
-    const restoredMessages = messages.filter(message => !delivery.find(message.id))
-      .map(message => ({ ...message, status: "failed", error: message.error ||
-        "Delivery was not confirmed before this page closed. Check the conversation before retrying." }));
+    const restoredMessages = messages.filter(message => !delivery.find(message.id)).map(message => {
+      const status = ["failed", "accepted"].includes(message.status) ? message.status : "uncertain";
+      return { ...message, status, checking: false, error: message.error || (status === "accepted" ? "" :
+        "Delivery was not confirmed before this page closed. Check the conversation before retrying.") };
+    });
     delivery.state.messages = unmatchedOptimisticMessages(turns.value, [...delivery.state.messages, ...restoredMessages], { receiptsOnly: true });
   } catch {
     draft.value = "";
@@ -232,6 +234,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   }, { immediate: true, flush: "sync" });
   watch(current, value => {
     if (value) return;
+    for (const pending of pendingMessages.values()) if (!pending.dispatched) pending.controller.abort();
     delivery.reset();
     snapshot.value = null;
     olderPages.value = [];
@@ -251,7 +254,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     disposed.value = true;
     subscription?.();
     stopPlacement();
-    for (const controller of pendingMessages.values()) controller.abort();
+    for (const pending of pendingMessages.values()) pending.controller.abort();
     pendingMessages.clear();
     goalReadController?.abort();
     globalThis.removeEventListener?.("focus", refreshVisibleGoal);
@@ -268,7 +271,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const requestedSteering = request?.steer === true;
     if (requestedSteering && snapshot.value.capabilities?.steering !== true) return false;
     const steering = requestedSteering || steerable.value;
-    if ((snapshot.value.status === "working" || delivery.state.sending) && !steering) return false;
+    const deferred = deferWhileWorking && !retry && !steering;
+    if ((snapshot.value.status === "working" || delivery.state.sending) && !steering && !deferred) return false;
     if ((retry?.payload || payload).displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) return false;
     const captured = retry?.payload?.request ? retry.payload : { ...(retry?.payload || payload), request: payload.request || {
       text: String(payload.message || ""),
@@ -276,7 +280,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       ...(payload.displayAttachments?.length ? { attachmentIds: payload.displayAttachments.map(file => file.attachmentId) } : {}),
       ...(steerable.value ? { steer: true } : {})
     } };
-    return submitRequest(captured, { messageId, onAccepted, queue: queueWhileSending !== false && steering });
+    return submitRequest(captured, { messageId, onAccepted, queue: queueWhileSending !== false && (steering || deferred), deferred });
   }
   function submitPrepared(payload, { messageId = crypto.randomUUID(), onAccepted, prepare } = {}) {
     if (typeof prepare !== "function") throw new TypeError("Prepared submission requires application preparation.");
@@ -315,16 +319,50 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     }
     return result;
   }
-  async function submitRequest(payload, { messageId, onAccepted, queue = false, prepare }) {
+  function waitUntilReady({ controller }) {
+    return new Promise(resolve => {
+      let stop;
+      const finish = ready => {
+        stop?.();
+        controller.signal.removeEventListener("abort", check);
+        resolve(ready);
+      };
+      const check = () => {
+        if (controller.signal.aborted || !available.value) finish(false);
+        else if (snapshot.value.status === "ready") finish(true);
+        else if (snapshot.value.status !== "working") finish(false);
+      };
+      stop = watch([available, snapshot], check, { flush: "sync" });
+      controller.signal.addEventListener("abort", check, { once: true });
+      check();
+    });
+  }
+
+  async function submitRequest(payload, { messageId, onAccepted, queue = false, prepare, deferred = false }) {
+    if (pendingMessages.has(messageId)) return false;
+    // Register before the original serial tail so Stop/retirement also reaches
+    // a local follower whose deliver callback has not started yet.
+    const pending = { controller: new AbortController(), started: false, dispatched: false, deferred };
+    const { controller } = pending;
+    pendingMessages.set(messageId, pending);
     try {
       const result = await delivery.send(payload, {
         messageId, queue, isCurrent: () => current.value, onAccepted,
         receiptTurns: turns, uncertainOnError: true,
         async deliver(submission) {
-          const controller = new AbortController();
-          pendingMessages.set(messageId, controller);
-          let dispatched = false;
+          pending.started = true;
           try {
+            if (controller.signal.aborted) return false;
+            if (deferred) {
+              // Refresh through the same subscription after a queued predecessor;
+              // its receipt may have arrived before the working snapshot.
+              await subscription?.reload();
+              if (error.value || !await waitUntilReady(pending)) return false;
+              if (controller.signal.aborted || !available.value || snapshot.value.status !== "ready") return false;
+              if (submission.displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) {
+                return { ok: false, error: "This conversation no longer accepts attachments." };
+              }
+            }
             const request = prepare ? await prepare(submission, { signal: controller.signal }) : submission.request;
             if (prepare) {
               if (!current.value || accessDenied.value || controller.signal.aborted || request === false) return false;
@@ -332,20 +370,20 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
                 throw new TypeError("Application preparation must return its conversation request or false.");
               }
             }
-            dispatched = true;
+            pending.dispatched = true;
             return await (submission.goalRequest
               ? api.updateConversationGoal(identity.conversationId, { ...submission.goalRequest, messageId }, { signal: controller.signal })
               : api.sendConversationMessage(identity.conversationId, { ...request, messageId }, { signal: controller.signal }));
           }
           catch (failure) {
             if (controller.signal.aborted) return false;
-            if (prepare && !dispatched) return { ok: false, error: failure.message,
+            if (prepare && !pending.dispatched) return { ok: false, error: failure.message,
               ...(failure.code ? { code: failure.code } : {}) };
             if (SEND_REJECTIONS.has(failure.code)) return { ok: false, error: failure.message,
               ...(prepare && failure.code ? { code: failure.code } : {}) };
             throw failure;
           } finally {
-            if (pendingMessages.get(messageId) === controller) pendingMessages.delete(messageId);
+            if (pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);
           }
         }
       });
@@ -355,13 +393,15 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (prepare) return { ok: false, status: "uncertain", error: failure.message,
         ...(failure.code ? { code: failure.code } : {}) };
       return false;
-    } finally { if (current.value) subscription?.reload(); }
+    } finally {
+      if (!pending.started && pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);
+      if (current.value) subscription?.reload();
+    }
   }
   function cancelMessage(messageId) {
-    const controller = pendingMessages.get(messageId);
-    if (!controller) return false;
-    controller.abort();
-    pendingMessages.delete(messageId);
+    const pending = pendingMessages.get(messageId);
+    if (!pending) return false;
+    pending.controller.abort();
     return true;
   }
 
@@ -515,6 +555,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   async function cancel() {
     if (!editable.value || stopping.value) return false;
     stopping.value = true;
+    for (const pending of pendingMessages.values()) {
+      if (pending.deferred && !pending.dispatched) pending.controller.abort();
+    }
     try { return await api.cancelConversation(identity.conversationId); }
     catch (failure) { receiveError(failure); return false; }
     finally { stopping.value = false; if (current.value) subscription?.reload(); }
@@ -610,7 +653,7 @@ function conversationBindingSetup({ socket, boundedTask = null } = {}) {
 
 function createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug,
   actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent,
-  clearDraftOn: suppliedClearDraftOn, queueWhileSending, draftWhileLoading = false,
+  clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, draftWhileLoading = false,
   draftStorage = null, application = null, boundedTask = null,
   data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup) {
   const { app, routeContext, placement, workspaceScope, socket: setupSocket, config, defaults = {} } = setup ||
@@ -622,6 +665,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   });
   if (!["dispatch", "accepted"].includes(clearDraftOn)) throw new TypeError("clearDraftOn must be dispatch or accepted.");
   if (queueWhileSending !== undefined && typeof queueWhileSending !== "boolean") throw new TypeError("queueWhileSending must be a boolean.");
+  if (typeof deferWhileWorking !== "boolean") throw new TypeError("deferWhileWorking must be a boolean.");
   if (typeof draftWhileLoading !== "boolean") throw new TypeError("draftWhileLoading must be a boolean.");
   if (application !== null && typeof application !== "function") throw new TypeError("application must be a factory.");
   if (boundedTask !== null) return useBoundedTask(boundedTask, { active, data, presentation });
@@ -679,7 +723,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const key = JSON.stringify(["assistant", target.actorKey, target.endpoint, target.targetSurfaceId,
       target.hostSurfaceId, target.workspaceSlug, target.conversationId]);
     retained = retainAssistantConversation(app, key, readers => createConversation(target, {
-      readers, socket, actorKey, placement, queueWhileSending, draftStorage, application, goalReadEnabled: toValue(goal) === true,
+      readers, socket, actorKey, placement, queueWhileSending, deferWhileWorking, draftStorage, application, goalReadEnabled: toValue(goal) === true,
       api: suppliedApi || defaults.api || createAssistantApi({ request: defaults.request || assistantHttpClient.request,
         resolveBasePath: () => target.endpoint, resolveSurfaceId: () => target.hostSurfaceId })
     }), { active, questions, goal, onEvent });

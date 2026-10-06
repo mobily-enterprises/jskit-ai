@@ -43,6 +43,7 @@ Exports
 - `ConversationDialog`
 - `VoiceConversation`
 - `VoiceConversationControls`
+- `VoiceConversationSettings`
 - `useVoiceLauncher`
 - `useVoiceAvatar`
 - `VoiceAvatar`
@@ -67,6 +68,7 @@ Exports
 Exports
 - None
 Local functions
+- `pauseMicrophone()`
 - `isAtBottom(element)`
 
 ### `src/client/VoiceConversationControls.vue`
@@ -79,6 +81,12 @@ Exports
 Local functions
 - `invoke(operation)`
 - `openText()`
+
+### `src/client/VoiceConversationSettings.vue`
+Exports
+- None
+Local functions
+- `openSettings(open)`
 
 ### `src/client/voiceLauncher.js`
 Exports

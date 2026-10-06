@@ -10,6 +10,7 @@ const closed = ref([]);
 const views = new Map();
 const error = ref("");
 const avatarSize = ref("compact");
+const voicePresentation = ref("dialog");
 const acquireConversation = useAssistantConversationFactory();
 const controller = createVoiceConversationController({ connectSpeech: binding => binding.socketUrl });
 async function openText(id) {
@@ -91,7 +92,7 @@ onScopeDispose(() => { void controller.dispose(); });
         </section>
       </div>
     </main>
-    <VoiceConversationHost v-model:avatar-size="avatarSize" :controller="controller" />
+    <VoiceConversationHost v-model:avatar-size="avatarSize" :controller="controller" :presentation="voicePresentation" />
     <ShellErrorHost />
   </v-app>
 </template>

@@ -299,6 +299,11 @@ test("the mounted voice starter shares five standard cards and retains its origi
     // though Vite itself can resolve workspace imports through ancestor folders.
     await cp(exampleRoot, appDirectory, { recursive: true,
       filter: source => source !== join(exampleRoot, "node_modules") && source !== join(exampleRoot, "dist") });
+    // Mount the same shipped controls through Vue's public renderer for the
+    // feedback-target proof. Mutating an already mounted child's props bypasses
+    // its parent and cannot prove this supported component input.
+    const mainPath = join(appDirectory, "main.js");
+    await writeFile(mainPath, `${await readFile(mainPath, "utf8")}\nimport { createVNode, render } from "vue";\nglobalThis.__voiceFeedbackTestRenderer = { createVNode, render };\n`);
     await symlink(fileURLToPath(new URL("../../../node_modules", import.meta.url)), join(appDirectory, "node_modules"), "dir");
     vite = startCapturedProcess(process.execPath, [
       fileURLToPath(new URL("../../../node_modules/vite/bin/vite.js", import.meta.url)),
@@ -476,6 +481,9 @@ test("the mounted voice starter shares five standard cards and retains its origi
       const controllerState = component.props.controller.state;
       const { session, binding } = controllerState;
       if (value.busy !== undefined) controllerState.busy = value.busy;
+      if (value.starting !== undefined) session.starting.value = value.starting;
+      if (value.holding !== undefined) session.pushHolding.value = value.holding;
+      if (value.speech !== undefined) session.voice.activeSpeechTurnId.value = value.speech ? "geometry-speech" : null;
       session.voice.captureState.value = value.partial ? "listening" : "idle";
       session.voice.partialTranscript.value = value.partial || "";
       if (value.microphone !== undefined) {
@@ -502,14 +510,40 @@ test("the mounted voice starter shares five standard cards and retains its origi
         await expect(speakerControl).toHaveAttribute("aria-pressed", String(speaker));
         await expect(microphoneControl).toHaveAttribute("aria-pressed", String(microphone));
         await expect(typed).toBeEnabled();
-        if (microphone) await expect(typedSend).toBeDisabled();
-        else await expect(typedSend).toBeEnabled();
+        await expect(typedSend).toBeEnabled();
         await expect(typed).toHaveValue("Planning draft survives closing its text view.");
       }
     }
     await projectSpeech({ microphone: false });
     await speakerControl.click();
     assert.equal(f.requests.length, 1, "mic and speaker presentation states do not submit messages");
+    await projectSpeech({ microphone: true, speech: true });
+    const collapsedComposerBounds = [await typed.boundingBox(), await typedSend.boundingBox()];
+    await canonical.getByRole("button", { name: "Minimise avatar", exact: true }).click();
+    await expect(microphoneControl).toBeHidden();
+    const pausedMicrophone = canonical.getByRole("button", { name: "Pause microphone", exact: true });
+    await expect(pausedMicrophone).toBeVisible();
+    const pauseBounds = await pausedMicrophone.boundingBox();
+    assert.ok(pauseBounds.width >= 48 && pauseBounds.height >= 48);
+    const readVoiceState = () => panel.evaluate(element => {
+      let host = element.__vueParentComponent;
+      while (host && !host.props.controller) host = host.parent;
+      const { session } = host.props.controller.state;
+      return { capture: session.voice.captureState.value, muted: session.microphoneMuted.value,
+        output: session.voice.activeSpeechTurnId.value, readAloud: session.readAloud.value };
+    });
+    assert.deepEqual(await readVoiceState(), { capture: "listening", muted: false, output: "geometry-speech", readAloud: false },
+      "Hiding preserves capture, the active output and speaker preference");
+    assert.deepEqual([await typed.boundingBox(), await typedSend.boundingBox()], collapsedComposerBounds,
+      "Hiding does not change the original typed composer rectangles");
+    await pausedMicrophone.click();
+    await expect(pausedMicrophone).toHaveCount(0);
+    assert.equal((await readVoiceState()).muted, true, "The collapsed control uses the original microphone pause action");
+    assert.equal((await readVoiceState()).output, "geometry-speech", "Pausing the microphone preserves the active speech direction");
+    await canonical.getByRole("button", { name: "Show avatar", exact: true }).click();
+    await expect(microphoneControl).toBeVisible();
+    assert.deepEqual([await typed.boundingBox(), await typedSend.boundingBox()], collapsedComposerBounds,
+      "Showing changes no original composer rectangle");
     for (const width of [390, 800, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await panel.evaluate(element => {
@@ -518,6 +552,55 @@ test("the mounted voice starter shares five standard cards and retains its origi
       await expect(typed).toHaveValue("Planning draft survives closing its text view.");
       await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(1);
       await expect(canonical.locator('[data-message-role="assistant"]')).toHaveCount(1);
+      await projectSpeech({ microphone: false, starting: false, holding: false, speech: false });
+      await expect(microphoneControl).toHaveAccessibleName("Talk");
+      const talkBounds = await microphoneControl.boundingBox();
+      const stopSpeaking = canonical.getByRole("button", { name: "Stop Planning speaking", exact: true });
+      await expect(stopSpeaking).toHaveCount(0);
+      assert.ok(talkBounds.width >= 44 && talkBounds.height >= 44);
+      await expect(speakerControl).toBeVisible();
+      const speakerBounds = await speakerControl.boundingBox();
+      assert.ok(speakerBounds.width >= 44 && speakerBounds.height >= 44);
+      for (const button of [microphoneControl, speakerControl]) {
+        const circle = await button.locator(".assistant-voice-controls__icon-disc").boundingBox();
+        assert.equal(circle.width, 32);
+        assert.equal(circle.height, 32);
+        await expect(button).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      }
+      for (const state of [
+        { microphone: false, starting: true, label: "Connecting…" },
+        { microphone: true, starting: false, label: "Pause" },
+        { microphone: true, holding: true, label: "Release to send" },
+        { microphone: true, holding: false, speech: true, label: "Pause" }
+      ]) {
+        await projectSpeech(state);
+        await expect(microphoneControl).toHaveAccessibleName(state.label);
+        await expect(microphoneControl).toHaveAttribute("title", "click or long press to talk");
+        const labelBounds = await microphoneControl.evaluate(element => ({
+          button: element.getBoundingClientRect().toJSON(),
+          children: [...element.querySelectorAll(".v-btn__prepend, .v-btn__content")]
+            .map(child => child.getBoundingClientRect().toJSON())
+        }));
+        assert.ok(labelBounds.children.every(box =>
+          box.x >= labelBounds.button.x && box.x + box.width <= labelBounds.button.x + labelBounds.button.width &&
+          box.y >= labelBounds.button.y && box.y + box.height <= labelBounds.button.y + labelBounds.button.height),
+          `The accessible ${state.label} icon fits inside its stable target: ${JSON.stringify(labelBounds)}`);
+        if (state.speech) {
+          await expect(stopSpeaking).toBeVisible();
+          const stopBounds = await stopSpeaking.boundingBox();
+          assert.ok(stopBounds.width >= 48 && stopBounds.height >= 48);
+          const panelBounds = await panel.boundingBox();
+          assert.ok(stopBounds.x >= panelBounds.x && stopBounds.x + stopBounds.width <= panelBounds.x + panelBounds.width,
+            "The adjacent Stop-speaking target fits inside the narrow chat");
+          assert.ok(stopBounds.y + stopBounds.height <= (await typed.boundingBox()).y,
+            "The adjacent Stop-speaking target stays above the composer");
+        }
+        assert.deepEqual(await microphoneControl.boundingBox(), talkBounds,
+          "Compact Talk retains its full rectangle during startup, capture and speech");
+      }
+      await projectSpeech({ microphone: false, starting: false, holding: false, speech: false });
+      await expect(stopSpeaking).toHaveCount(0);
+      assert.deepEqual(await microphoneControl.boundingBox(), talkBounds);
       await projectSpeech({ partial: "These captured words are not sent." });
       await expect(canonical.getByRole("status", { name: "Recognized words", exact: true }))
         .toHaveText("Not sent · These captured words are not sent.");
@@ -530,16 +613,54 @@ test("the mounted voice starter shares five standard cards and retains its origi
       await projectSpeech({ review: "Review this recording independently." });
       const review = canonical.getByRole("region", { name: "Review voice message", exact: true });
       const recorded = review.getByRole("textbox", { name: "Review your message", exact: true });
+      await panel.evaluate(element => {
+        const controlsElement = element.querySelector(".assistant-voice-controls");
+        let controls = controlsElement.__vueParentComponent;
+        while (controls && !Object.hasOwn(controls.props, "feedbackTarget")) controls = controls.parent;
+        if (!controls) throw new Error("VoiceConversationControls was not mounted.");
+        const target = document.createElement("div");
+        target.id = "teleported-voice-feedback-proof";
+        document.body.append(target);
+        const host = document.createElement("div");
+        host.id = "voice-feedback-controls-proof";
+        document.body.append(host);
+        const { createVNode, render } = globalThis.__voiceFeedbackTestRenderer;
+        const node = createVNode(controls.type, { ...controls.props, disabled: true, feedbackTarget: target, toolsTarget: null });
+        node.appContext = controls.appContext;
+        render(node, host);
+      });
+      const movedFeedback = page.locator("#teleported-voice-feedback-proof");
+      await expect(movedFeedback.getByRole("textbox", { name: "Review your message", exact: true })).toBeDisabled();
+      await expect(movedFeedback.getByRole("button", { name: "Discard", exact: true })).toBeDisabled();
+      await expect(movedFeedback.getByRole("button", { name: "Send", exact: true })).toBeDisabled();
+      await page.evaluate(() => {
+        const host = document.getElementById("voice-feedback-controls-proof");
+        globalThis.__voiceFeedbackTestRenderer.render(null, host);
+        host.remove();
+      });
+      await expect(recorded).toBeEnabled();
+      await page.locator("#teleported-voice-feedback-proof").evaluate(element => element.remove());
       await recorded.fill("Edited speech stays separate.");
       assert.equal(await projectSpeech({}), "review-message", "Review edits retain the recording UUID");
       await expect(typed).toHaveValue("Planning draft survives closing its text view.");
       await expect(recorded).toHaveValue("Edited speech stays separate.");
+      assert.ok((await recorded.boundingBox()).width >= 120, "Compact review keeps a readable editing width");
+      assert.ok(await recorded.evaluate(element => element.scrollWidth <= element.clientWidth + 1),
+        "Reviewed words wrap within the compact editor rather than clipping horizontally");
+      await expect(canonical.getByRole("alert").filter({ hasText: "Delivery was not confirmed. Retry or discard." }))
+        .toHaveText("Delivery was not confirmed. Retry or discard.");
       await expect(typedSend).toBeDisabled();
       await typed.press("Enter");
       await expect(typed).toHaveValue("Planning draft survives closing its text view.\n");
       await typed.fill("Planning draft survives closing its text view.");
       assert.equal(f.requests.length, 1, "typed Send cannot compete with a pending voice review");
       await expect(canonical.getByText("Send or discard speech to send text.", { exact: true })).toBeVisible();
+      await canonical.getByRole("button", { name: "Minimise avatar", exact: true }).click();
+      await expect(microphoneControl).toBeHidden();
+      await expect(recorded).toBeVisible();
+      await expect(review.getByRole("button", { name: "Discard", exact: true })).toBeVisible();
+      await expect(review.getByRole("button", { name: "Send", exact: true })).toBeVisible();
+      await canonical.getByRole("button", { name: "Show avatar", exact: true }).click();
       await projectSpeech({ busy: true });
       await expect(typed).toBeDisabled();
       await expect(recorded).toBeDisabled();
@@ -569,20 +690,86 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await typed.press("Enter");
     await f.until(() => f.requests.length === 2, "canonical voice view's existing text submission");
     f.requests[1].text("A **formatted** answer with [help](https://example.com/help).");
+    await projectSpeech({ microphone: true, speech: true });
+    await expect(microphoneControl).toHaveAccessibleName("Pause");
+    const streamingTalkBounds = await microphoneControl.boundingBox();
+    f.requests[1].text(" More streamed reply text.".repeat(80));
+    await expect(history).toContainText("More streamed reply text.");
+    assert.deepEqual(await microphoneControl.boundingBox(), streamingTalkBounds,
+      "Growing the canonical reply keeps the active compact Talk rectangle fixed");
+    await projectSpeech({ microphone: false, speech: false });
+    assert.deepEqual(await microphoneControl.boundingBox(), streamingTalkBounds);
     f.requests[1].finish();
     await expect(history.locator("strong").getByText("formatted", { exact: true })).toBeVisible();
     await expect(history.getByRole("link", { name: "help", exact: true })).toHaveAttribute("href", "https://example.com/help");
     await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(2);
     await expect(canonical.locator('[data-message-role="assistant"]')).toHaveCount(2);
     assert.equal(f.socketConnections(), 1, "The canonical view retains the existing runtime and realtime connection");
+    await projectSpeech({ microphone: true, speech: true, review: "Resolve this speech after changing presentation." });
+    await typed.fill("The original typed draft survives inline presentation.");
+    const presentationHost = page.locator(".voice-host__body");
+    const changePresentation = mode => presentationHost.evaluate((element, value) => {
+      let host = element.__vueParentComponent;
+      while (host && !host.props.controller) host = host.parent;
+      const { controller } = host.props;
+      window.inlineVoiceSnapshot ||= {
+        controller, session: controller.state.session, binding: controller.state.binding,
+        conversationId: controller.state.binding.conversationId
+      };
+      let application = host.parent;
+      while (application && !("voicePresentation" in application.setupState)) application = application.parent;
+      application.setupState.voicePresentation = value;
+      const original = window.inlineVoiceSnapshot;
+      return controller === original.controller && controller.state.session === original.session &&
+        controller.state.binding === original.binding && controller.state.binding.conversationId === original.conversationId &&
+        controller.state.session.pendingTranscript.value?.messageId === "review-message" &&
+        controller.state.session.voice.captureState.value === "listening" &&
+        controller.state.session.voice.activeSpeechTurnId.value === "geometry-speech";
+    }, mode);
+    try {
+      for (const mode of ["inline", "dialog", "inline"]) {
+        if (mode === "dialog") await page.evaluate(() => window.inlineVoiceSnapshot.controller.reveal());
+        assert.equal(await changePresentation(mode), true, "Presentation preserves the original controller, target, capture, active output and recording UUID");
+        const surface = mode === "inline"
+          ? page.getByRole("region", { name: "Planning conversation", exact: true }) : dialog;
+        await expect(surface).toBeVisible();
+        await expect(surface.getByRole("button", { name: "Voice settings", exact: true })).toBeVisible();
+        if (mode === "inline") {
+          await expect(surface.locator(".conversation-dialog__title")).toHaveCount(0);
+          await expect(surface.locator(".assistant-conversation__avatar").getByRole("button", { name: "Voice settings", exact: true })).toBeVisible();
+        }
+        await expect(surface.getByRole("textbox", { name: "Message AI assistant", exact: true }))
+          .toHaveValue("The original typed draft survives inline presentation.");
+        await expect(surface.getByRole("textbox", { name: "Review your message", exact: true }))
+          .toHaveValue("Resolve this speech after changing presentation.");
+        await expect(surface.getByRole("button", { name: "Discard", exact: true })).toBeEnabled();
+        await expect(surface.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
+        if (mode === "inline") {
+          await expect(dialog).toHaveCount(0);
+          await expect(page.getByRole("button", { name: "Planning · Voice chat", exact: true })).toHaveCount(0);
+          await presentationHost.evaluate(element => {
+            let host = element.__vueParentComponent;
+            while (host && !host.props.controller) host = host.parent;
+            host.props.controller.minimize();
+          });
+          await expect(surface).toBeVisible();
+        }
+        assert.equal(f.socketConnections(), 1, "Presentation changes retain the original shared realtime connection");
+        assert.equal(f.requests.length, 2, "Presentation changes admit no extra messages");
+      }
+    } finally {
+      if (await presentationHost.count()) await changePresentation("dialog");
+    }
     assert.deepEqual(errors, []);
   } catch (error) {
     const mounted = page && !page.isClosed() ? await page.evaluate(() => {
       const value = input => input?.__v_isRef ? input.value : input;
       return {
         surfaceConfig: globalThis.__JSKIT_CLIENT_APP_CONFIG__?.assistantSurfaces,
-        voiceLayout: [...document.querySelectorAll(".assistant-voice-conversation > *, .assistant-voice__review, .assistant-voice-controls__tools")]
-          .map(element => ({ class: element.className, height: element.getBoundingClientRect().height, scrollHeight: element.scrollHeight })),
+        voiceLayout: [...(document.querySelector(".assistant-voice-conversation")?.querySelectorAll(
+          ".assistant-conversation > *, .assistant-prompt-input__field, .assistant-prompt-input__footer, .assistant-composer-actions > *, .assistant-voice-controls > *, .assistant-voice-controls__tools"
+        ) || [])].map(element => ({ class: element.className, height: element.getBoundingClientRect().height,
+          width: element.getBoundingClientRect().width, scrollHeight: element.scrollHeight })),
         cards: [...document.querySelectorAll(".example__card")].map(card => {
           const input = card.querySelector("textarea");
           let component = card.querySelector(".assistant-client-conversation")?.__vueParentComponent;

@@ -4,6 +4,7 @@ export { default as VoiceConversationHost } from "./VoiceConversationHost.vue";
 export { default as ConversationDialog } from "./ConversationDialog.vue";
 export { default as VoiceConversation } from "./VoiceConversation.vue";
 export { default as VoiceConversationControls } from "./VoiceConversationControls.vue";
+export { default as VoiceConversationSettings } from "./VoiceConversationSettings.vue";
 
 export { useVoiceLauncher } from "./voiceLauncher.js";
 export { useVoiceAvatar } from "./voiceAvatar.js";

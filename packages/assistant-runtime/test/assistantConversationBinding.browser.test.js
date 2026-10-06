@@ -601,12 +601,140 @@ test("canonical receipts settle a held response and uncertain delivery stays ins
   await expect(f.primary.getByText("Keep this exact uncertain request", { exact: true })).toHaveCount(0);
 });
 
-test("an explicit pre-admission rejection retains original retry identity and the newer draft", options, async t => {
+for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognised"]) {
+  test(`saved delivery preserves its actual admission fact through page reload: ${status}`, options, async t => {
+    const f = await fixture(t);
+    const messageId = `reload-${status}`;
+    const attach = async () => {
+      await f.page.evaluate(() => {
+        window.savedBinding = window.conversationFixture.acquireConversation({
+          conversationId: "chat:2", draftStorage: { storage: sessionStorage, key: "original-delivery-reload" }
+        });
+        window.conversationFixture.target("chat:2");
+      });
+      await expect.poll(() => f.page.evaluate(() => window.savedBinding.runtime.value?.available.value)).toBe(true);
+    };
+    await attach();
+    await f.command("mode", { mode: status === "accepted" ? "product-native-duplicate"
+      : status === "failed" ? "rejected" : status === "pending" ? "hold" : "uncertain" });
+    await f.page.evaluate(messageId => {
+      const runtime = window.savedBinding.runtime.value;
+      runtime.draft.value = "Keep my separate newer draft";
+      window.savedSubmission = runtime.send({ message: "Exact original saved words",
+        data: { clientId: "original-client", focus: { project: "original-project" } } }, { messageId });
+    }, messageId);
+    await expect.poll(async () => (await f.sent()).length).toBe(1);
+    if (status !== "pending") await f.page.evaluate(() => window.savedSubmission);
+    const unconfirmed = ["uncertain", "pending", "unrecognised"].includes(status);
+    await f.command("question", { id: "chat:2", text: "An unrelated completed answer.", pending: false });
+    if (unconfirmed) {
+      await f.command("history", { id: "chat:2", limit: 20, turns: [{ turnId: messageId,
+        user: { messageId, role: "user", text: "Exact original saved words", receipt: false }
+      }] });
+    }
+    await f.notify("chat:2");
+    await expect.poll(() => f.page.evaluate(() => window.savedBinding.runtime.value.snapshot.value.status)).toBe("ready");
+    if (status === "unrecognised") {
+      await f.page.evaluate(() => {
+        const saved = JSON.parse(sessionStorage.getItem("original-delivery-reload"));
+        saved.messages[0].status = "unrecognised";
+        sessionStorage.setItem("original-delivery-reload", JSON.stringify(saved));
+      });
+    }
+    let releaseInspection;
+    if (status === "uncertain") {
+      const gate = Promise.withResolvers();
+      t.after(() => gate.resolve());
+      releaseInspection = gate.resolve;
+      await f.page.route("**/deliveries/**/inspect", async route => {
+        await gate.promise;
+        await route.fulfill({ json: { status: "unknown", messageId } }).catch(() => {});
+      });
+      await f.page.evaluate(messageId => { void window.savedBinding.runtime.value.inspectDelivery(messageId); }, messageId);
+      await expect.poll(() => f.page.evaluate(() => JSON.parse(sessionStorage.getItem("original-delivery-reload")).messages[0].checking)).toBe(true);
+    }
+    const saved = await f.page.evaluate(() => JSON.parse(sessionStorage.getItem("original-delivery-reload")));
+    assert.equal(saved.messages[0].status, status);
+    await f.page.reload();
+    releaseInspection?.();
+    if (releaseInspection) await f.page.unroute("**/deliveries/**/inspect");
+    await expect(f.input).toBeEnabled();
+    await attach();
+    await expect(f.input).toHaveValue(saved.draft);
+    const restored = await f.page.evaluate(messageId => window.savedBinding.runtime.value.delivery.find(messageId), messageId);
+    assert.equal(restored.status, unconfirmed ? "uncertain" : status);
+    assert.equal(restored.checking, false, "an inspector from the old page cannot disable recovery on the new page");
+    assert.equal(restored.id, saved.messages[0].id);
+    assert.deepEqual(restored.payload, saved.messages[0].payload);
+    assert.equal((await f.sent()).length, 1, "restoration never dispatches a saved request");
+    assert.equal(await f.page.evaluate(() => window.savedBinding.runtime.value.canSubmit.value), !unconfirmed);
+    if (unconfirmed) {
+      const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+      try { await expect(check).toBeEnabled(); }
+      catch (failure) {
+        t.diagnostic(JSON.stringify(await f.page.evaluate(() => {
+          const saved = window.savedBinding.runtime.value;
+          const primary = window.conversationFixture.current();
+          return { shared: saved === primary, savedIdentity: saved.identity, primaryIdentity: primary.identity,
+            canonical: saved.turns.value, messages: saved.delivery.state.messages,
+            projected: saved.delivery.turns(saved.turns.value) };
+        })));
+        await f.page.screenshot({ path: `/tmp/jskit-saved-delivery-reload-${status}-20261006.png` });
+        throw failure;
+      }
+      for (const action of ["Retry", "Cancel", "Edit"]) {
+        await expect(f.primary.getByRole("button", { name: action, exact: true })).toHaveCount(0);
+      }
+      // The fixture's original inspector matches any same-ID row. Keep the
+      // nonreceipt projection proof above, then inspect genuine absence.
+      await f.command("history", { id: "chat:2", turns: [], limit: 20 });
+      await f.notify("chat:2");
+      await expect(check).toBeEnabled();
+      assert.equal(await f.page.evaluate(messageId => window.savedBinding.runtime.value.delivery.find(messageId).status, messageId), "uncertain",
+        "removing a nonreceipt row is not evidence of rejection or admission");
+      await check.click();
+      await expect(check).toBeEnabled();
+      assert.equal(await f.page.evaluate(messageId => window.savedBinding.runtime.value.delivery.find(messageId).status, messageId), "uncertain");
+      assert.equal((await f.sent()).length, 1, "unknown inspection cannot resend or acknowledge");
+      if (status === "pending") await f.command("accept");
+      else await f.command("confirm", { id: "chat:2" });
+      await f.notify("chat:2");
+      await expect(check).toHaveCount(0);
+      assert.equal((await f.sent()).length, 1, "only the actual canonical receipt settles the original identity");
+    } else {
+      await expect(f.primary.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(0);
+      await expect(f.primary.getByRole("button", { name: "Retry", exact: true })).toHaveCount(status === "failed" ? 1 : 0);
+    }
+  });
+}
+
+for (const code of ["ACTION_VALIDATION_FAILED", "conversation_not_steerable"]) {
+test(`an explicit pre-admission rejection retains original retry identity and the newer draft: ${code}`, options, async t => {
   const f = await fixture(t);
   await f.command("mode", { mode: "rejected" });
+  if (code === "conversation_not_steerable") {
+    await f.command("steering", { id: "chat:1", enabled: true });
+    await f.command("question", { id: "chat:1", text: "An earlier answer is still finishing.", pending: true });
+    await f.notify("chat:1");
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+    await f.page.route("**/messages", async route => {
+      const response = await route.fetch();
+      await route.fulfill(response.status() === 400
+        ? { response, status: 409, json: { error: "The message was rejected before admission.", code } }
+        : { response });
+    });
+  }
   await f.input.fill("Retry only this original message");
   await f.input.press("Enter");
   await expect(f.primary.getByText("Failed: The message was rejected before admission.", { exact: true })).toBeVisible();
+  const [rejected] = await f.sent();
+  assert.equal((await f.sent()).length, 1, "a definite rejection never silently resubmits steering as new work");
+  assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status, rejected.input.messageId), "failed");
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().canSubmit.value), true);
+  await expect(f.primary.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(0);
+  if (code === "conversation_not_steerable") {
+    assert.equal(rejected.input.steer, true);
+  }
   await f.input.fill("My newer draft");
   await f.command("mode", { mode: "accepted" });
   await f.primary.getByRole("button", { name: "Retry", exact: true }).click();
@@ -619,7 +747,118 @@ test("an explicit pre-admission rejection retains original retry identity and th
   await f.primary.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(f.primary.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
   assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1);
+  if (code === "conversation_not_steerable") {
+    await f.command("mode", { mode: "rejected" });
+    for (const action of ["Cancel", "Edit"]) {
+      await f.command("question", { id: "chat:1", text: "An earlier answer is still finishing.", pending: true });
+      await f.notify("chat:1");
+      await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+      const text = `Known rejected steer for ${action}`;
+      await f.input.fill(text);
+      await f.input.press("Enter");
+      await expect(f.primary.getByText("Failed: The message was rejected before admission.", { exact: true })).toBeVisible();
+      const request = (await f.sent()).at(-1);
+      assert.equal(request.input.steer, true);
+      await f.input.fill("Keep my newer draft");
+      await f.primary.getByRole("button", { name: action, exact: true }).click();
+      await expect(f.primary.getByText("Failed: The message was rejected before admission.", { exact: true })).toHaveCount(0);
+      assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id), request.input.messageId), null);
+      await expect(f.input).toHaveValue(action === "Edit" ? `${text}\n\nKeep my newer draft` : "Keep my newer draft");
+    }
+    assert.equal((await f.sent()).length, 4, "Cancel and Edit do not dispatch another prompt");
+    assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, 1, "failed-message recovery does not stop agent work");
+  }
 });
+}
+
+test("opted-in nonsteerable follow-ups use the original serial queue and dispatch only after ready", options, async t => {
+  const f = await fixture(t);
+  await f.page.evaluate(() => {
+    window.deferredBinding = window.conversationFixture.acquireConversation({
+      conversationId: "chat:2", deferWhileWorking: true, queueWhileSending: true
+    });
+    window.conversationFixture.target("chat:2");
+  });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+  await expect(f.input).toBeEnabled();
+  await f.input.fill("Original nonsteerable request");
+  await f.input.press("Enter");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.status)).toBe("working");
+  await f.page.evaluate(() => window.conversationFixture.data({ clientId: "typed", focus: { project: "captured" } }));
+  await f.input.fill("Typed follow-up while answering");
+  await f.input.press("Enter");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages.length)).toBe(1);
+  const [typed] = await f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages);
+  await f.page.evaluate(() => {
+    window.conversationFixture.retainVoice();
+    window.queuedSpeech = window.conversationFixture.sendVoice("Spoken follow-up while answering", {
+      clientId: "voice", focus: { project: "voice-captured" }
+    });
+    window.conversationFixture.changeFocus({ project: "later" });
+  });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages.length)).toBe(2);
+  const [, spoken] = await f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages);
+  await expect(f.primary.getByText(typed.text, { exact: true })).toHaveCount(1);
+  await expect(f.primary.getByText(spoken.text, { exact: true })).toHaveCount(1);
+  await expect(f.input).toBeEnabled();
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().canSubmit.value), true);
+  assert.equal((await f.sent()).length, 1, "both authored follow-ups wait locally without HTTP");
+  await f.command("finish", { id: "chat:2" });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(2);
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.status)).toBe("working");
+  assert.deepEqual((await f.sent())[1].input, {
+    messageId: typed.id, text: typed.text, data: { clientId: "typed", focus: { project: "captured" } }
+  });
+  assert.equal((await f.sent()).length, 2, "the next follower waits for the first follow-up's real turn");
+  await f.command("finish", { id: "chat:2" });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(3);
+  assert.deepEqual((await f.sent())[2].input, {
+    messageId: spoken.id, text: spoken.text, data: { clientId: "voice", focus: { project: "voice-captured" } }
+  });
+  assert.equal((await f.page.evaluate(() => window.queuedSpeech)).status, "accepted");
+  assert.equal((await f.state()).requests.some(request => request.suffix === "/cancel"), false,
+    "ordinary follow-ups never stop the original turn or output owner");
+  await f.command("steering", { id: "chat:2", enabled: true });
+  await f.notify("chat:2");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+  assert.equal((await f.page.evaluate(() => window.conversationFixture.sendVoice("Native steering remains immediate"))).status, "accepted");
+  assert.equal((await f.sent()).at(-1).input.steer, true);
+});
+
+for (const action of ["stop", "actor", "denied"]) {
+  test(`opted-in local followers cannot dispatch after ${action}`, options, async t => {
+    const f = await fixture(t);
+    await f.page.evaluate(() => {
+      window.deferredBinding = window.conversationFixture.acquireConversation({
+        conversationId: "chat:2", deferWhileWorking: true, queueWhileSending: true
+      });
+      window.conversationFixture.target("chat:2");
+    });
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+    await f.command("mode", { mode: "hold" });
+    await f.page.evaluate(() => {
+      window.firstDeferred = window.deferredBinding.runtime.value.send({ message: "First in-flight request" }, { messageId: "first-held" });
+    });
+    await expect.poll(async () => (await f.state()).held).toBe(1);
+    await f.page.evaluate(() => {
+      window.followerDeferred = window.deferredBinding.runtime.value.send({ message: "Local follower only" }, { messageId: "local-follower" });
+    });
+    assert.equal((await f.sent()).length, 1);
+    if (action === "stop") await f.page.evaluate(() => window.deferredBinding.runtime.value.cancel());
+    else if (action === "actor") await f.page.evaluate(() => window.conversationFixture.actor("different-actor"));
+    else {
+      await f.command("deny", { denied: true });
+      await f.notify("chat:2");
+      await expect.poll(() => f.page.evaluate(() => window.deferredBinding.runtime.value.available.value)).toBe(false);
+    }
+    await f.command("accept");
+    assert.equal(await f.page.evaluate(() => window.followerDeferred), false);
+    assert.equal((await f.sent()).length, 1, "a canceled local follower never reaches HTTP behind the original serial predecessor");
+    assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, action === "stop" ? 1 : 0);
+  });
+}
 
 test("authored application data stays captured across retry, a lost receipt and changed focus", options, async t => {
   const f = await fixture(t);

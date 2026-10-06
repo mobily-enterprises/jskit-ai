@@ -15,6 +15,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   const heldReview = ref(false);
   const holding = ref(false);
   const sending = ref(false);
+  const takingTranscript = ref(false);
   const live = ref(false);
   const starting = ref(false);
   const callMode = ref(binding.defaults?.mode === "hands-free" ? "hands-free" : "push-to-talk");
@@ -263,6 +264,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     startupAbort?.abort();
     startupAbort = null;
     starting.value = false;
+    releaseEditCapturePause();
     recording = null;
     await voice.cancelListening();
   }
@@ -273,10 +275,20 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     await cancelRecording();
   }
   function dismissTranscript() {
+    releaseEditCapturePause();
     pendingTranscript.value = null;
     heldReview.value = false;
     holding.value = false;
     error.value = "";
+  }
+  function releaseEditCapturePause() {
+    const pending = pendingTranscript.value;
+    const captureId = pending?.editPausedCaptureId;
+    if (!captureId) return;
+    delete pending.editPausedCaptureId;
+    if (recording?.messageId === captureId && !disposed && live.value && callMode.value === "hands-free") {
+      voice.setMicrophoneMuted(false);
+    }
   }
   async function talk() {
     error.value = "";
@@ -302,6 +314,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     } catch (cause) { if (recording === next) { recording = null; error.value = cause.message; } }
   }
   async function toggleMicrophoneMuted() {
+    // A person's explicit microphone choice supersedes an Edit-owned pause.
+    if (pendingTranscript.value) delete pendingTranscript.value.editPausedCaptureId;
     voice.setMicrophoneMuted(!microphoneMuted.value);
     clearTimeout(stopTimer);
     if (microphoneMuted.value && starting.value) await cancelRecording();
@@ -351,7 +365,12 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     await cancelRecording();
   }
   async function toggleHandsFree() {
-    if (disposed || pushHolding.value || pendingTranscript.value || sending.value || committing) return;
+    if (disposed || pushHolding.value) return;
+    if (live.value && callMode.value === "hands-free" && voice.listening.value && (pendingTranscript.value || sending.value || committing)) {
+      await toggleMicrophoneMuted();
+      return;
+    }
+    if (pendingTranscript.value || sending.value || committing) return;
     if (starting.value) { await cancelRecording(); return; }
     if (capturing.value && !voice.listening.value) return;
     if (live.value && callMode.value === "hands-free") {
@@ -415,7 +434,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   }
   function decideTurn() {
     const candidate = voice.endpoint.value;
-    if (!live.value || callMode.value !== "hands-free" || !voice.listening.value || microphoneMuted.value || pendingTranscript.value || sending.value || !candidate) return;
+    if (takingTranscript.value || !live.value || callMode.value !== "hands-free" || !voice.listening.value || microphoneMuted.value || pendingTranscript.value || sending.value || !candidate) return;
     const key = `${candidate.turnId}:${candidate.revision}`;
     if (decidedCandidate === key) return;
     decidedCandidate = key;
@@ -441,6 +460,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       }
       committing = { ...captured, turnId: candidate.turnId, revision: candidate.revision };
       if (!voice.finishUtterance(candidate)) { committing = null; return; }
+      publishTranscript();
       // The daemon rechecks the endpoint revision before returning final text.
       // Ordinary steering leaves the current answer and queued audio intact.
     } catch (cause) {
@@ -451,7 +471,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       }
     }
   }
-  watch([voice.endpoint, pendingTranscript, sending], decideTurn);
+  watch([voice.endpoint, pendingTranscript, sending, takingTranscript], decideTurn);
   watch(voice.completedUtterance, (utterance) => {
     if (!utterance || !live.value || !committing || committing.turnId !== utterance.turnId || committing.revision !== utterance.revision) return;
     pendingTranscript.value = { ...committing, text: utterance.text };
@@ -524,10 +544,12 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     text: binding.state.streamingReply?.text }), ({ messages = [], reply }) => {
     if (!binding.id) return;
     // Reconcile an uncertain send by identity, never by equal transcript text.
-    if (pendingTranscript.value && messages.some((message) => message.role === "user" && message.id === pendingTranscript.value.messageId)) {
+    if (pendingTranscript.value && messages.some((message) => message.role === "user" && message.id === pendingTranscript.value.messageId && message.receipt !== false)) {
       dismissTranscript();
     }
     for (const message of messages) {
+      // Unadmitted local records do not acknowledge a request or lift speech silence.
+      if (message.role === "user" && message.receipt === false) continue;
       if (seen.has(message.id)) continue;
       if (message.role === "user" && message.id === speechInvitation) {
         speechSuppressed = false;
@@ -559,13 +581,69 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   watch(voice.error, (message) => { if (message) cancelSpeech("playback-error", "failed"); });
   watch(() => error.value || voice.error.value, (message) => { if (message) binding.onError?.(message); });
   watch([voice.activeSpeechTurnId, voice.canAppendSpeech], () => { void drainSpeech(); });
-  watch([pendingTranscript, voice.captureState, voice.partialTranscript], () => {
+  function currentTranscript() {
     const pending = pendingTranscript.value;
-    const transcript = pending ? { id: pending.messageId, text: pending.text }
-      : recording && ["listening", "transcribing"].includes(voice.captureState.value) && voice.partialTranscript.value
-        ? { id: recording.messageId, text: voice.partialTranscript.value } : null;
-    binding.onTranscript?.(transcript);
-  }, { immediate: true });
+    const currentWords = recording && ["listening", "transcribing"].includes(voice.captureState.value)
+      && voice.partialTranscript.value && recording.messageId !== pending?.messageId;
+    return currentWords ? { id: recording.messageId, text: voice.partialTranscript.value }
+      : pending ? { id: pending.messageId, text: pending.text } : null;
+  }
+  function canTakeTranscript(messageId) {
+    return !disposed && !starting.value && !sending.value && !committing && !takingTranscript.value
+      && (pendingTranscript.value?.messageId === messageId || currentTranscript()?.id === messageId)
+      && !binding.state.messages?.some(message => message.role === "user" && message.id === messageId && message.receipt !== false);
+  }
+  async function beginTranscriptEdit(messageId) {
+    if (!canTakeTranscript(messageId)) return false;
+    const pending = pendingTranscript.value;
+    if (pending && pending.messageId !== messageId) return false;
+    const selected = pending ? { id: pending.messageId, text: pending.text } : currentTranscript();
+    const capture = recording;
+    takingTranscript.value = true;
+    try {
+      // Retain the selected words and destination before cancelling capture.
+      // The existing pending-clear watcher resumes hands-free after resolution.
+      pendingTranscript.value = {
+        ...(pending?.messageId === messageId ? pending : capture),
+        messageId, text: selected.text, reviewBeforeSend: true, editing: true
+      };
+      if (capture) {
+        if (capture.messageId !== messageId && live.value && callMode.value === "hands-free") {
+          // Newer continuous words retain their recording identity and endpoint.
+          if (!microphoneMuted.value) {
+            pendingTranscript.value.editPausedCaptureId = capture.messageId;
+            voice.setMicrophoneMuted(true);
+          }
+        } else if (pushHolding.value) await cancelPushToTalk();
+        else await cancelRecording();
+      }
+      return true;
+    } finally { takingTranscript.value = false; }
+  }
+  async function takeTranscript(messageId, transfer) {
+    if (!canTakeTranscript(messageId)) return false;
+    const pending = pendingTranscript.value;
+    const selected = pending?.messageId === messageId ? { id: messageId, text: pending.text } : currentTranscript();
+    takingTranscript.value = true;
+    try {
+      // The host rechecks its draft and transfers synchronously before cancellation.
+      if (transfer && transfer(selected.text) !== true) return false;
+      if (pendingTranscript.value?.messageId === messageId) dismissTranscript();
+      else if (recording?.messageId === messageId) {
+        if (pushHolding.value) await cancelPushToTalk();
+        else await cancelRecording();
+        if (!disposed && live.value && callMode.value === "hands-free" && !microphoneMuted.value) {
+          await startRecording(false, true);
+        }
+      }
+      return true;
+    } finally { takingTranscript.value = false; }
+  }
+  function publishTranscript() {
+    const transcript = currentTranscript();
+    binding.onTranscript?.(transcript, { canTake: Boolean(transcript && canTakeTranscript(transcript.id)) });
+  }
+  watch([pendingTranscript, voice.captureState, voice.partialTranscript, voice.endpoint, sending, starting, takingTranscript], publishTranscript, { immediate: true });
   watch(avatarVisual, (visual) => binding.onVisual?.(visual), { immediate: true });
   const page = globalThis.window || globalThis;
   const cancelStartup = () => { if (starting.value) void discardRecording(); else void cancelPushToTalk(); };
@@ -589,9 +667,12 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     stopSpeech();
     await voice.close();
   }
-  function editTranscript(text) {
-    if (pendingTranscript.value && !sending.value) pendingTranscript.value = { ...pendingTranscript.value, text: String(text) };
+  function editTranscript(text, messageId = pendingTranscript.value?.messageId) {
+    if (pendingTranscript.value && pendingTranscript.value.messageId === messageId && !sending.value) pendingTranscript.value = { ...pendingTranscript.value, text: String(text) };
   }
+  const composerBlocked = computed(() => starting.value ||
+    (!live.value || callMode.value !== "hands-free") &&
+      (sending.value || Boolean(pendingTranscript.value) || capturing.value));
   const hasUnsentSpeech = computed(() => capturing.value || starting.value || sending.value || Boolean(pendingTranscript.value));
   return {
     oneOffTalkMode, targetLabel, voice, readAloud, error, pendingTranscript, heldReview, holding, sending,
@@ -601,6 +682,6 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     stopSpeech, inviteSpeech, toggleReadAloud, enableSound, soundPreparing, deliverTranscript, cancelRecording,
     discardRecording, dismissTranscript, talk, toggleMicrophoneMuted, changeCallMode,
     startPushToTalk, finishPushToTalk, cancelPushToTalk, toggleLive, toggleHandsFree, startHeldRecording,
-    finishHeldRecording, discardHeldRecording, close, editTranscript, hasUnsentSpeech
+    finishHeldRecording, discardHeldRecording, close, editTranscript, canTakeTranscript, beginTranscriptEdit, takeTranscript, hasUnsentSpeech, composerBlocked
   };
 }
