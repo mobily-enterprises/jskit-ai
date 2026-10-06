@@ -18,6 +18,7 @@
     "examples"
   ],
   "dependencies": {
+    "@jskit-ai/assistant-core": "0.1.202",
     "@mdi/js": "^7.4.47",
     "ws": "^8.20.1"
   },

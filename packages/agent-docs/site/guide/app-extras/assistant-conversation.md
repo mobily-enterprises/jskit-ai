@@ -325,6 +325,14 @@ notification; it does not suppress that completed notification. The projector
 stores no history and owns no subscription or playback queue. Application
 progress acknowledgements remain an explicit presentation policy.
 
+The voice binding's optional `adapter` getter supplies this same retained core
+adapter for its transcript and typed composer. The voice state projection remains
+the playback owner's view of accepted outputs; it does not reconstruct the
+displayed transcript. A voice-held reader acquired with
+`useAssistantConversationFactory()` shares the original runtime, subscription and
+draft after the text screen closes. See [Voice conversations](./assistant-voice.md)
+for the retained presentation and host body slot.
+
 An application can supply a selected transient `interimReply` through its
 authorized conversation read and events. The standard binding displays it only
 on its exact `turnId`, without changing saved messages or acknowledging pending
