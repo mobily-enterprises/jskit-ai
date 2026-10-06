@@ -156,7 +156,8 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
 
   const completion = (async () => {
     try {
-      for await (const frame of readClaudeJsonFrames(stream)) {
+      // Teardown belongs to this client after queued events finish, not the iterator.
+      for await (const frame of readClaudeJsonFrames(stream.iterator({ destroyOnReturn: false }))) {
         if (frame.type === "control_response") {
           const response = frame.response;
           const pending = requests.get(response?.request_id);

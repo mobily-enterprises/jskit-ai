@@ -79,6 +79,47 @@ test("Claude control replies bypass slow event persistence while events remain o
   }
 });
 
+test("normal Claude EOF drains held events before closing the half-open stream", async () => {
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const ended = Promise.withResolvers();
+  const observed = [];
+  const failures = [];
+  const stream = fakeStream(() => {});
+  stream.once("end", ended.resolve);
+  const client = createClaudeJsonClient({
+    stream,
+    async onEvent(frame) {
+      if (frame.number === 1) {
+        entered.resolve();
+        await release.promise;
+      }
+      observed.push(frame.number);
+    },
+    onFailure(error) { failures.push(error); }
+  });
+  try {
+    stream.push('{"type":"event","number":1}\n{"type":"event","number":2}\n');
+    stream.push(null);
+    await entered.promise;
+    await ended.promise;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(stream.writableEnded, false, "EOF does not close the original writable side");
+    assert.equal(stream.destroyed, false, "The stream survives while event persistence is held");
+    assert.deepEqual(observed, []);
+    assert.deepEqual(failures, []);
+    release.resolve();
+    await client.completion;
+    assert.deepEqual(observed, [1, 2]);
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].code, "assistant_claude_observation_lost");
+    assert.equal(stream.destroyed, true, "The original client still owns final teardown");
+  } finally {
+    release.resolve();
+    client.close();
+  }
+});
+
 test("Claude interrupt uses the common 30-second control deadline", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const client = createClaudeJsonClient({ stream: fakeStream(() => {}) });
