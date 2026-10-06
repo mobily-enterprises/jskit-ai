@@ -522,9 +522,11 @@ test("optional goals show running and paused lights, count only active time, and
   try {
     const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
     await page.clock.install();
+    await page.clock.pauseAt(new Date());
     await page.goto(`${vite.baseURL}/?conversation=1&goal=1`);
     const input = page.getByRole("textbox", { name: "Message AI assistant" });
     await page.getByRole("button", { name: "Set goal", exact: true }).click();
+    await page.clock.runFor(250);
     await page.getByRole("textbox", { name: "Goal objective" }).fill("Complete the shared assistant.");
     await page.getByRole("spinbutton", { name: "Token budget (optional)" }).fill("10000");
     await page.getByRole("button", { name: "Start goal", exact: true }).click();
@@ -541,6 +543,7 @@ test("optional goals show running and paused lights, count only active time, and
     await expect(input).toBeFocused();
     assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
     await page.getByRole("button", { name: "Goal running", exact: true }).click();
+    await page.clock.runFor(250);
     await page.getByRole("button", { name: "Pause goal", exact: true }).click();
     await expect(light).toHaveCSS("background-color", "rgb(239, 108, 0)");
     await expect(light).toHaveCSS("animation-name", "none");
@@ -558,6 +561,7 @@ test("optional goals show running and paused lights, count only active time, and
     await expect(elapsed).toBeHidden();
     await expect(light).toBeVisible();
     await page.getByRole("button", { name: "Goal running", exact: true }).click();
+    await page.clock.runFor(250);
     await expect(page.getByText("Running time: 1:10", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Toggle goals" }).evaluate(element => element.click());
     await expect(page.locator(".assistant-goal")).toHaveCount(0);
@@ -612,6 +616,106 @@ test("shared model choices and file delivery preserve a responsive composer", {
     await expect(page.getByText("AI choices are view-only while the assistant is working.", { exact: true })).toBeVisible();
     await input.fill("The next message stays editable");
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+test("an optional avatar clamps in a short conversation without consuming its preference or draft", {
+  skip: !RUN_BROWSER_TEST, timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${vite.baseURL}/?conversation=1&avatar=1&capabilities=1`);
+      const panel = page.locator(".fixture");
+      const input = page.getByRole("textbox", { name: "Message AI assistant" });
+      const body = page.locator(".assistant-transcript__body");
+      const artwork = page.locator(".assistant-conversation__avatar-visual");
+      const sizeControl = page.getByRole("button", { name: "Avatar size", exact: true });
+      const selectSize = async name => {
+        await sizeControl.focus();
+        await sizeControl.press("Enter");
+        await page.getByRole("menuitem", { name, exact: true }).click();
+        await expect(page.getByRole("menu", { name: "Avatar size", exact: true })).toBeHidden();
+        await expect(page.getByText(`Avatar requested: ${name.toLowerCase()}`, { exact: true })).toBeVisible();
+      };
+      const assertComposerFits = async () => {
+        const bounds = await panel.boundingBox();
+        const send = await page.getByRole("button", { name: "Send", exact: true }).boundingBox();
+        const feedback = await page.getByText("Describe what you want to change.", { exact: true }).boundingBox();
+        const avatarButton = await sizeControl.boundingBox();
+        assert.ok(send.y + send.height <= bounds.y + bounds.height + 1, "Send stays inside the supplied container");
+        assert.ok(feedback.y + feedback.height <= bounds.y + bounds.height + 1, "Feedback stays inside the supplied container");
+        assert.ok((await input.boundingBox()).height >= 40);
+        assert.ok(avatarButton.width >= 48 && avatarButton.height >= 48, "Avatar sizing retains a reachable touch target");
+        await expect.poll(async () => (await body.boundingBox()).height, { message: "The short container retains readable history" }).toBeGreaterThanOrEqual(100);
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      };
+      assert.equal(Math.round((await panel.boundingBox()).width), 320);
+      assert.equal(Math.round((await panel.boundingBox()).height), 420);
+      await expect(artwork).toHaveCSS("height", "64px");
+      await expect(page.locator('[data-message-role="assistant"]')).toHaveCount(20);
+      await page.evaluate(() => {
+        window.avatarElements = [document.querySelector(".assistant-conversation"), document.querySelector("textarea"), document.querySelector(".assistant-transcript__body")];
+      });
+      await input.fill("Keep my typed support question.");
+      await input.evaluate(element => element.setSelectionRange(5, 9));
+      await body.evaluate(element => { element.scrollTop = 100; });
+      const before = await body.evaluate(element => element.scrollTop);
+      await selectSize("Large");
+      await expect.poll(async () => (await artwork.boundingBox()).height).toBeLessThan(176);
+      await assertComposerFits();
+      assert.equal(await body.evaluate(element => element.scrollTop), before, "Avatar resizing leaves a scrolled-up reader in place");
+      await selectSize("Hidden");
+      await expect(artwork).toHaveCount(0);
+      await expect(sizeControl).toBeVisible();
+      await selectSize("Standard");
+      await expect.poll(async () => (await artwork.boundingBox()).height).toBeGreaterThan(0);
+      await selectSize("Large");
+      await input.focus();
+      await input.evaluate(element => element.setSelectionRange(5, 9));
+      await expect(input).toBeFocused();
+      const resize = () => page.getByRole("button", { name: "Resize height", exact: true }).evaluate(element => element.click());
+      await resize();
+      await expect(artwork).toHaveCSS("height", "176px");
+      await resize();
+      await expect.poll(async () => (await artwork.boundingBox()).height).toBeLessThan(176);
+      await expect(input).toBeFocused();
+      await expect(input).toHaveValue("Keep my typed support question.");
+      assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
+      await expect(page.getByText("Avatar requested: large", { exact: true })).toBeVisible();
+      assert.equal(await body.evaluate(element => element.scrollTop), before);
+      await page.getByRole("button", { name: "Toggle questions", exact: true }).evaluate(element => element.click());
+      const answer = page.getByRole("textbox", { name: "[1] What should happen next?", exact: true });
+      await expect(answer).toBeVisible();
+      await answer.fill("Recover my account.");
+      await assertComposerFits();
+      await page.getByRole("button", { name: "Answer normally instead", exact: true }).click();
+      await expect(answer).toHaveCount(0);
+      await input.fill("Keep my typed support question.");
+      await page.locator('input[type="file"]').setInputFiles({ name: "account.txt", mimeType: "text/plain", buffer: Buffer.from("Account recovery notes") });
+      await page.getByRole("button", { name: "Finish uploads", exact: true }).click();
+      await expect(page.getByText("1 of 1 ready", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "Show attachment error", exact: true }).click();
+      await expect(page.getByText("An upload failed. Retry or remove it.", { exact: true })).toBeVisible();
+      await assertComposerFits();
+      await expect(input).toHaveValue("Keep my typed support question.");
+      await page.getByRole("button", { name: "Remove account.txt", exact: true }).click();
+      await page.getByRole("button", { name: "Toggle avatar slot", exact: true }).evaluate(element => element.click());
+      await expect(sizeControl).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "Conversation avatar", exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "Toggle avatar slot", exact: true }).evaluate(element => element.click());
+      await expect(sizeControl).toBeVisible();
+      await expect(page.getByText("Avatar requested: large", { exact: true })).toBeVisible();
+      assert.equal(await page.evaluate(() => window.avatarElements.every(element => element.isConnected)), true, "Sizing and slot changes retain the same conversation, input and transcript nodes");
+      await expect(page.locator('[data-message-role="assistant"]')).toHaveCount(20);
+      await expect(page.getByText("idle; submitted 0", { exact: true })).toBeVisible();
+      await page.close();
+    }
   } finally {
     await browser.close();
     await stopProcess(vite);
