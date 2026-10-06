@@ -14,6 +14,8 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 - [agent-docs](/packages/agent-docs/reference/autogen/packages/agent-docs.md)
 - [assistant-core](/packages/agent-docs/reference/autogen/packages/assistant-core.md)
 - [assistant-runtime](/packages/agent-docs/reference/autogen/packages/assistant-runtime.md)
+- [assistant-voice](/packages/agent-docs/reference/autogen/packages/assistant-voice.md)
+- [assistant-voice-sherpa](/packages/agent-docs/reference/autogen/packages/assistant-voice-sherpa.md)
 - [auth-core](/packages/agent-docs/reference/autogen/packages/auth-core.md)
 - [auth-provider-local-core](/packages/agent-docs/reference/autogen/packages/auth-provider-local-core.md)
 - [auth-provider-local-db-core](/packages/agent-docs/reference/autogen/packages/auth-provider-local-db-core.md)

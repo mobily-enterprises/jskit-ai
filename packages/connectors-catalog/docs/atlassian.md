@@ -5,7 +5,7 @@ Import `atlassianProvider` and `registerAtlassianClient` from
 the assistant owner's account to Rovo MCP v2. It uses `tools.list` and explicit
 `tools.call` through the existing OAuth/file runtime and official MCP SDK.
 
-## Vibe64 setup
+## Connection setup
 
 Open **Integrations → Add Atlassian**. Choose permissions, set the owning
 application's **Suggested callback URL**, and select **Register client and connect**.
@@ -25,7 +25,7 @@ is configured on Deploy; copying configuration alone does not copy secrets.
    HTTP request. The reviewed metadata establishes dynamic registration; these
    instructions do not assume a developer-console form for creating an MCP v2
    client. A Jira REST OAuth client or an old MCP v1 client is not interchangeable.
-3. In Vibe64, open **Integrations → Add Atlassian → Credentials**. Enter the
+3. Add an Atlassian connection and open its credentials settings. Enter the
    returned **Client ID**. Store the returned secret and callback URL through
    Env; enter their names as **Client secret reference** and **Callback URL
    reference**, for example `env:ATLASSIAN_CLIENT_SECRET` and
@@ -81,7 +81,7 @@ never on file save, startup or every Connect action.
 
 For manual registration, use an HTTP client on your own machine:
 
-In Vibe64, expand **Set up Atlassian → OAuth client registration**. Set the
+In the connection editor, expand **Set up Atlassian → OAuth client registration**. Set the
 permissions and **Suggested callback URL** first. **Copy registration endpoint**
 and **Copy registration request** supply this project's values before a Client
 ID exists. Copying sends no request. CLI users can prepare the example below
@@ -92,9 +92,9 @@ with their own framework tools.
    This is the registration endpoint, not the `/v2/mcp` tool endpoint.
 2. Set `Content-Type: application/json` and select a raw JSON body. Replace
    the example name and callback below with the owning application's name and
-   exact callback shown in Vibe64. Implement that route in the application
+   exact callback shown in the connection editor. Implement that route in the application
    before attempting user consent.
-3. Set the space-delimited `scope` to the permissions selected in Vibe64.
+3. Set the space-delimited `scope` to the permissions selected in the connection editor.
    The example below matches the screen's default profile/account, refresh,
    Jira read/search and Confluence read/search permissions. Remove products
    you do not need from both places.
@@ -213,10 +213,10 @@ consent, provider tool use or generated application is included.
 
 ## LIMITATIONS
 
-Vibe64's coding assistants do not yet receive these tools automatically. For
-example, connecting Jira here does not let the editor's Codex/OpenCode chat
-retrieve DOG-42. An application-owned assistant can call the runtime's tools
-with its own authorization policy; this bridge to editor chat is deferred.
+An assistant host must explicitly attach and authorize these tools. For
+example, saving a Jira connection alone does not give chat access to DOG-42.
+An application-owned assistant can call the runtime's tools under its own
+authorization policy.
 
 The runtime preserves Jira issue and Confluence page content supplied by tools,
 but the application owns how it presents, summarizes or acts on that content.

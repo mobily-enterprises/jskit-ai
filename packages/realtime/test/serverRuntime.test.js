@@ -51,6 +51,41 @@ test("createSocketIoServer uses provided http server and fixed socket path", () 
   });
 });
 
+test("createSocketIoServer hands only its own Fastify WebSocket upgrades to Socket.IO", async () => {
+  const server = {};
+  const events = [];
+  let handoff;
+  const fastify = {
+    server,
+    addHook(name, handler) {
+      assert.equal(name, "onRequest");
+      handoff = handler;
+      events.push("handoff");
+    }
+  };
+  class FakeServer {
+    constructor(httpServer) {
+      assert.equal(httpServer, server);
+      events.push("socket.io");
+    }
+  }
+  createSocketIoServer({ fastify, ServerCtor: FakeServer });
+  assert.deepEqual(events, ["handoff", "socket.io"]);
+  for (const [request, expected] of [
+    [{ ws: true, raw: { url: "/socket.io/?EIO=4&transport=websocket" } }, true],
+    [{ ws: true, url: "/socket.io" }, true],
+    [{ ws: false, raw: { url: "/socket.io/" } }, false],
+    [{ raw: { url: "/socket.io/" } }, false],
+    [{ ws: true, raw: { url: "/socket.io-other" } }, false],
+    [{ ws: true, raw: { url: "/api/conversations/planning/voice" }, url: "/socket.io" }, false],
+    [{ ws: true }, false]
+  ]) {
+    let hijacked = false;
+    await handoff(request, { hijack() { hijacked = true; } });
+    assert.equal(hijacked, expected, JSON.stringify(request));
+  }
+});
+
 test("realtime leaves slow application upgrades and access denials to their route owner", { timeout: 5_000 }, async (t) => {
   const server = createServer();
   const sockets = new Set();

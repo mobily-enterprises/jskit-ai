@@ -7,6 +7,8 @@ import knex from "knex";
 import migration from "../migrations/assistant_turn_requests.cjs";
 import { createRepository } from "../src/server/repositories/turnRequestsRepository.js";
 import { createChatService } from "../src/server/services/chatService.js";
+import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
+import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
 
 async function database(t) {
   const dir = await mkdtemp(path.join(tmpdir(), "assistant-requests-"));
@@ -45,7 +47,7 @@ test("migration preserves existing claims and database uniqueness arbitrates ind
 });
 
 function service(repository, { provider, transcript = [] } = {}) {
-  return createChatService({
+  const dependencies = {
     turnRequests: repository,
     aiClientFactory: { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "test", createChatCompletionStream: provider }) },
     transcriptService: {
@@ -53,13 +55,19 @@ function service(repository, { provider, transcript = [] } = {}) {
       async appendMessage(_surface, _id, message) { transcript.push(message); },
       async completeConversation() {}
     },
-    serviceToolCatalog: { resolveToolSet: () => ({ tools: [] }) },
+    serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
+      toOpenAiToolSchema: tool => ({ type: "function", function: tool }) },
     assistantConfigService: { resolveSystemPrompt: async () => "Answer." },
     appConfig: {
       surfaceDefinitions: { assistant: { id: "assistant", enabled: true, requiresWorkspace: false, accessPolicyId: "public" } },
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } }
     }
+  };
+  const conversationRuntime = createAssistantConversationRuntime({
+    ...createMemoryAssistantRows({ id: "100", messages: transcript }),
+    aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog
   });
+  return createChatService({ ...dependencies, conversationRuntime });
 }
 
 function run(chat, input = request, { events = [], disconnectAfterCompletion = false } = {}) {
@@ -82,6 +90,7 @@ test("concurrent submissions, lost completion responses and a fresh service repl
     started.resolve();
     await waiting.promise;
     yield { choices: [{ delta: { content: "Completed once." } }] };
+    yield { choices: [{ delta: {}, finish_reason: "stop" }] };
   };
   const first = service(createRepository(db), { provider, transcript });
   const pending = run(first, request, { disconnectAfterCompletion: true });

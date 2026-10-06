@@ -64,8 +64,8 @@ a winning experiment. Do not fabricate a shipping recommendation or recalculate
 provider statistics from a summary. Other frameworks can connect their native
 MCP clients to the same endpoint with their own OAuth/grant storage.
 
-**LIMITATIONS:** Vibe64 coding-assistant attachment is deferred. For example,
-saving this connection does not make Vibe64 chat explain an A/B result; an
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. For example,
+saving this connection does not authorize an assistant to explain an A/B result; an
 explicitly wired assistant host can retrieve it. Confidence owns statistical
 analysis, metric/event ingestion and experiment execution. This adapter transports
 its tools and results, not a new experimentation engine. Controlled fixtures

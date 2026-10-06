@@ -24,7 +24,7 @@ start runs, create schedules or spend compute credits.
 4. Store the token outside application source as `APIFY_TOKEN`. Set the
    configuration slot's provider to `apify`, mode to `shared` or `assistant`,
    scopes to `[]`, and authentication to `api-key` with reference
-   `env:APIFY_TOKEN`. In Vibe64, enter that value in **API key reference**, save,
+   `env:APIFY_TOKEN`. In the connection editor, enter that value in **API key reference**, save,
    then use **Set credential in Env** to save the token as `APIFY_TOKEN`.
    This mode has no callback/client registration.
 5. Save and choose **Connect account**, or **Verify again** for a connected
@@ -153,9 +153,9 @@ No live Actor or paid account operation was performed.
 
 ## Limitations
 
-Vibe64 coding-assistant attachment is deferred. For example, the generated app
+Assistant tool attachment requires explicit host integration. For example, the generated app
 can start an authorized scraper, show run progress and read the resulting dataset,
-but asking Vibe64's Codex/OpenCode assistant to scrape a site does not grant it
+but asking an assistant to scrape a site does not grant it
 access to this connection. The app composes its own input screen, bounded status
 polling and output presentation. This connector does not create Actors or schedules.
 Records over 8 MiB use the framework's native streaming client. Live token issuance,

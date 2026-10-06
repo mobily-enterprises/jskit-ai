@@ -2,22 +2,137 @@
 
 # Assistant
 
-`@jskit-ai/assistant-runtime` supplies a reusable assistant runtime, client
-elements, actions, persistence, and settings behavior. The application decides
-where an assistant belongs and composes its pages directly.
+JSKIT provides one conversation runtime and a supplied browser integration.
+`@jskit-ai/assistant-core` owns conversation execution and storage contracts;
+`@jskit-ai/assistant-runtime` exposes that runtime through authorized HTTP
+operations, shared realtime subscriptions and a Vue/Vuetify conversation component.
+File storage requires no database, Knex or database migrations. File and
+application-owned adapters retain their own persisted-state upgrade policy.
+
+## The ordinary API
+
+The standard setup uses five entrypoints from three modules. Native engines use
+this same setup; they do not add engine-specific imports.
+
+| Entrypoint | Module | Use |
+| --- | --- | --- |
+| `createConversationRuntime` | `@jskit-ai/assistant-core/server/conversation` | Create the authorized conversation owner. Headless tasks call its handles directly. |
+| `createFileConversationStorage` | `@jskit-ai/assistant-core/server/conversation` | Use the supplied single-writer file store, or supply the application's transactional store. |
+| `registerFastifyConversations` | `@jskit-ai/assistant-runtime/server` | Host the supplied transport on plain Fastify. An existing JSKIT host instead supplies `assistant.conversations` to its discovered `AssistantFeature`. |
+| `AssistantConversationClientElement` | `@jskit-ai/assistant-runtime/client` | Render the standard conversation with its retained draft, delivery and subscription owner. |
+| `useAssistantConversation` | `@jskit-ai/assistant-runtime/client` | Optional custom layout or retained text/voice access to that same owner. The standard element already calls it. |
+
+Start with those entrypoints. [Optional UI primitives](./assistant-conversation.md#client-contract)
+serve custom presentation; [advanced host facilities](./assistant-conversation.md#advanced-host-facilities)
+serve an application that already owns execution, credential homes or native
+history preservation. [Testing entries](./assistant-conversation.md#testing-entrypoints)
+exercise isolated storage and native-host contracts. These are separate uses,
+not extra setup steps for an ordinary conversation.
+
+## Standard integration
+
+1. Create `createConversationRuntime` with your conversation storage, instructions,
+   selected engine/connections and application authorization. Initialize each
+   conversation with its own ID and server-owned configuration. The application
+   controls which authenticated actors may read or operate each conversation.
+2. Supply that runtime as the `assistant.conversations` capability on your JSKIT
+   host. Package discovery registers `AssistantFeature` once; it uses the host's
+   existing HTTP, action and realtime services. Multiple conversations share the
+   connection, with separate authorization, subscriptions and controls.
+3. Render `AssistantConversationClientElement` for each conversation. The supplied
+   binding handles its draft, delivery receipts, streaming, reconnect and controls.
+   Supply presentation props and any optional capabilities the application needs.
+
+```vue
+<script setup>
+import { AssistantConversationClientElement } from "@jskit-ai/assistant-runtime/client";
+
+defineProps({ conversationId: { type: String, required: true } });
+</script>
+
+<template>
+  <AssistantConversationClientElement :conversation-id="conversationId" />
+</template>
+```
+
+The current configured surface determines the endpoint and placement. An app with
+one surface can use `defineAssistantSurface("home")` from
+`@jskit-ai/assistant-runtime/shared` in its application configuration instead of
+writing both surface maps. This explicitly declares that surface; authentication
+and conversation access remain application policy. `surface-id`, `endpoint`,
+`hostSurfaceId` and `workspaceSlug` are explicit overrides for an existing host's
+mapping. An authenticated request supplies the actor; browser fields never grant
+access. Opening the same conversation in another view does not create another
+server runtime or transcript.
+
+The standard binding uses the host's authenticated placement identity and HTTP
+client. An application with its own bootstrap subject or request policy can call
+`configureAssistantConversations(app, { actorKey, request })` from the same client
+entry once, before mounting. `actorKey` may be a reactive value or getter; changing
+or clearing it retires the previous actor's browser state. Standard cards inherit
+those settings while retaining explicit per-card overrides. See
+[client defaults](./assistant-conversation.md#supplied-client-integration) for the
+complete example. This does not change server authentication or create another
+realtime connection.
+
+For a plain Fastify app, call `registerFastifyConversations(app, { runtime, config,
+authenticate, bootstrap, env })` once. This is configurable shorthand for that
+same hosting assembly. Runtime/storage selection, trusted authentication,
+application configuration and shutdown remain explicit; custom hosts retain the
+lower-level registration facilities. See the complete
+[server integration and Fastify example](./assistant-conversation.md#supplied-server-integration).
+
+Use the [supplied client binding](./assistant-conversation.md#supplied-client-integration)
+for custom layouts or retained text/voice readers. It produces the element's
+adapter; an ordinary application does not implement its own generic adapter,
+routes or reconnect loop. A lost acknowledgement offers delivery inspection;
+reconnect does not silently resend uncertain work.
+
+For an executable setup, use the five-chat example in
+`@jskit-ai/assistant-voice/examples/conversation`. It uses file storage, the same
+supplied integration and one shared realtime connection. Its separately addressed
+headless task calls the runtime directly. Speech is optional; model credentials,
+authentication and speech setup remain explicit application configuration.
+
+## Configuration and customization
+
+- [Runtime and storage](./assistant-conversation.md#application-conversation-operations):
+  configure an API or native engine and use file, memory or application-owned
+  storage. Preserve one transcript owner for each conversation.
+- [Optional controls](./assistant-conversation.md#optional-shared-capabilities):
+  enable attachments, model choices, suggestions, questions and goals only when
+  supported. Applications keep upload storage, model-selection policy and product
+  actions; unused adapter areas need no implementation.
+- [Application tools](./assistant-conversation.md#application-tools): supply actions
+  and tool policy to the runtime. The common runtime owns the inference/tool loop;
+  the application authorizes each action and owns its effects.
+- [Voice](./assistant-voice.md): add push-to-talk and hands-free interaction to the
+  same retained conversation binding. Mounting or closing a text view does not
+  change the active voice target.
+
+The operation and host-facility reference follows the standard setup in
+[Conversation integration](./assistant-conversation.md). Native engine internals
+are not required for ordinary application setup.
+
+## Optional database-backed surface
+
+The existing SQL integration is an optional storage and application surface over
+the same common runtime. It retains database conversation selection, settings,
+actions and its existing request-streaming contract. Choose it when those SQL
+contracts are required; custom or file storage uses the standard integration
+above. This section documents that existing surface's behavior and migration
+constraints, not a second engine/tool implementation.
 
 ```bash
 npm install @jskit-ai/assistant-runtime
 npm run db:migrate
 ```
 
-Use the `assistant/assistant-surface` pattern. There is no assistant generator.
+These migration instructions apply only to an application selecting the database
+integration. Its `assistant/assistant-surface` pattern composes the SQL surface;
+there is no assistant generator.
 
-For an app-owned backend or custom conversation storage, use the
-[embeddable conversation element and backend contracts](./assistant-conversation.md).
-The package includes a standalone application template.
-
-## Product decisions
+### Database surface decisions
 
 Choose:
 
@@ -31,18 +146,54 @@ The application selects an AI integration ID in server configuration. Credential
 come from that integration's authorized shared or per-user account. Existing
 environment-prefix configurations remain supported.
 
-## Composition
+### Database surface composition
 
 Use `AssistantSurfaceClientElement` and
 `AssistantSettingsClientElement` from `@jskit-ai/assistant-runtime/client`.
 Configure public surface behavior and server settings in ordinary app-owned
 config, then register routes and placements like any other feature.
 
+For an application-supplied `assistant.conversations` common runtime, use
+`AssistantConversationClientElement` or `useAssistantConversation` from that
+same client entry. This path shares the existing HTTP/action and realtime owners
+and accepts file/custom storage without database repositories or migrations.
+See [supplied client integration](./assistant-conversation.md#supplied-client-integration)
+for captured conversation identity, optional controls and retained readers.
+
 Workspace scope is valid only when both the runtime and its settings surface
 are workspace-aware. Requests must retain the selected workspace through the
 server action boundary.
 
-## AI integration: the short setup path
+### Existing SQL conversations
+
+The optional database integration uses the common conversation runtime for
+inference, cancellation and application tools. Its existing settings, actions,
+NDJSON routes, conversation IDs, message rows and request-claim table remain the
+integration boundary. A tool reservation is committed to its original
+`tool_call` row before execution; the matching `tool_result` row retains the
+verified result. No second transcript is stored in conversation metadata.
+
+The surface's bounded, client-selected history remains request context. It is
+authorized for attachments and sent to the API model without being inserted into
+saved conversation history. Existing environment clients and the surface's
+cached tool exclusions retain their existing owners.
+
+Before adopting historical SQL rows, the storage owner checks their turn and
+tool associations without rewriting them. Unambiguous history stays readable in
+place. If historical output has no clear authored owner, or a tool call has no
+confirmed result, Send fails with `assistant_history_inspection_required` and
+row IDs in the error details. Previous history remains available through
+**Conversations**. Use **Start new conversation** to continue separately, or ask
+the application operator to inspect the reported rows and any affected action
+target. Do not delete a request claim or infer that an action with no result did
+nothing. Repairs require the application's offline upgrade procedure and a
+database backup; requests and startup never backfill these rows.
+
+New runtime metadata uses the existing JSON fields, so this ownership move adds
+no database schema migration. Stop old assistant requests before switching
+server versions; keep applying the package's existing migrations normally.
+
+### Database surface AI integration
 
 1. Configure an `ai` integration using JSKIT's existing integration editor or
    portable `integrations.json`. Its provider/model, account mode and credential
@@ -52,7 +203,9 @@ server action boundary.
    from `@jskit-ai/connectors-catalog/server/ai`. `authorize` derives the trusted
    `{ applicationId, subjectId }` from the authenticated request. Use the normal
    environment reference resolver for shared keys and your account resolver for
-   per-user keys. Never return credentials to the browser.
+   per-user keys. The resolved connection also supplies `modelLimits` from the
+   catalogue for native engines that need an explicit model definition. Never
+   return credentials to the browser.
 3. Select it in server config:
 
 ```js
@@ -121,7 +274,16 @@ event. It retains failed uploads and permits typing while uploads are pending.
 Supply the controller with an upload scope that changes with user, workspace and
 conversation ownership. The server must enforce those boundaries independently.
 
-## Action tools
+The supplied canonical client accepts `useAssistantAttachments()` and
+`useAssistantSuggestions()` results directly. It clears only captured attachment
+IDs after HTTP, canonical history or explicit **Check delivery** confirms
+acceptance; newer uploads remain in the composer. Its suggestion owner binds to
+the canonical draft and complete target identity, while the host supplies a
+separate authorized generator and its configuration. Selecting a suggestion
+edits the draft and never sends it. These controls reuse the same shared
+[attachment and suggestion contracts](./assistant-conversation.md#optional-shared-capabilities).
+
+### Database surface action tools
 
 The assistant reads automation-capable actions from `runtime.actions`. It keeps
 the typing user's actor, permissions, target surface, and workspace context,
@@ -274,12 +436,13 @@ the three discovery tools. Permission, surface, channel, actor, and trusted
 workspace enforcement remain unchanged. Other actions still require contract
 lookup before discovery-mode execution.
 
-## Conversation lifecycle
+### Database surface conversation lifecycle
 
 The client receives answer text incrementally and shows working status before
 text arrives. Tool calls produce timeline events. Internal reasoning tags and raw
 tool arguments do not become visible answer text. A tool/recovery round replaces
-its provisional answer; only the completed answer is persisted. Progress-only
+its provisional answer; completed answers occupy the existing chat rows.
+Common runtime commentary is retained separately from those chat rows. Progress-only
 responses such as “Let me query…” may appear provisionally while streaming but
 are retried internally and never stored or replayed as final chat history.
 
@@ -333,6 +496,11 @@ a request automatically: a tool may already have changed application data.
 This protects against duplicate execution; it cannot guarantee completion after
 a process crash. The browser does not automatically resubmit ambiguous work.
 
+An application action whose outcome cannot be verified stops inference and
+keeps its durable reservation. Inspect the action's target before requesting a
+new execution; ordinary model retry and failure recovery cannot turn an unknown
+outcome into permission to repeat the action.
+
 Request records contain the submitted text/history and the replay response.
 They survive conversation removal so an old request cannot become executable
 again, and are deleted when their actor is deleted. Application retention or
@@ -340,13 +508,14 @@ privacy jobs must account for this table and must not remove active request
 identities. Custom transports using only `assistant-core` still own equivalent
 server-side protection; the UI controller alone cannot prevent duplicate work.
 
-## Shared conversation UI
+### Database surface client behavior
 
 `AssistantSurfaceClientElement` connects `useAssistantRuntime` to
 `AssistantConversationElement`. There is one maintained conversation renderer
-and composer. Applications that own a separate conversation operation use the
-[embeddable element](./assistant-conversation.md) directly through their own
-adapter; they do not need the generic assistant's database or tool loop.
+and composer. Applications supplying a conversation runtime use
+`AssistantConversationClientElement` and its supplied binding, described above.
+A hand-written adapter is an advanced presentation integration, not a prerequisite
+for custom storage or native engines.
 
 The runtime owns the draft, requests, saved conversations, history selection,
 provider settings, authorization scope and action tools. Its adapter maps
@@ -428,7 +597,7 @@ classes or pass the retired renderer's `variant`, `features`, `ui`, or `copy`
 objects. `AssistantClientElement` and its Markdown/keyboard helpers have been
 removed; there is no forwarding alias.
 
-## Verification
+### Database surface verification
 
 Run migrations, load assistant and settings pages through normal navigation,
 test missing credentials without exposing values, exercise one successful and

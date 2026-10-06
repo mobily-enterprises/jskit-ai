@@ -1,16 +1,103 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { once } from "node:events";
 import test from "node:test";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { CLIENT_APP_CONFIG_GLOBAL_KEY, setClientAppConfig } from "../../kernel/client/appConfig.js";
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
 import { RealtimeProvider } from "../src/server/RealtimeProvider.js";
+import { createSocketIoClient } from "../src/client/runtime.js";
 import { registerSocketAudienceBootstrap } from "../src/server/realtimeAudience.js";
 import { createRealtimeDelivery } from "../src/server/realtimeDelivery.js";
 import { attachDeferredAuthService, createDeferredAuthService } from "../../auth-core/src/server/deferredAuthService.js";
 
 const logger = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
+
+async function connectionRequestFixture(t, authService = null) {
+  const http = createServer();
+  const connections = [];
+  const clients = [];
+  let realtime;
+  const probe = defineProvider({ id: "test.connection.request", requires: { realtime: "runtime.realtime" },
+    setup(dependencies) { realtime = dependencies.realtime; return {}; } });
+  const runtime = createCapabilityRuntime({ providers: [EventProvider, RealtimeProvider, probe], inputs: {
+    "runtime.config": {}, "runtime.env": {}, "runtime.fastify": { server: http }, "runtime.logger": logger,
+    ...(authService ? { "auth.service": authService } : {})
+  } });
+  await runtime.start();
+  const release = realtime.onConnection(connection => { connections.push(connection); });
+  t.after(async () => {
+    for (const client of clients) client.disconnect();
+    release();
+    await runtime.shutdown();
+  });
+  http.listen(0, "127.0.0.1");
+  await once(http, "listening");
+  const url = `http://127.0.0.1:${http.address().port}`;
+  return {
+    url,
+    async connect() {
+      const client = createSocketIoClient({ url, options: { transports: ["websocket"], autoConnect: false,
+        reconnection: false, extraHeaders: { Cookie: "session=fixture-session", Origin: url } } });
+      clients.push(client);
+      const connected = once(client, "connect", { signal: AbortSignal.timeout(5_000) });
+      client.connect();
+      await connected;
+      return { client, connection: connections.at(-1) };
+    }
+  };
+}
+
+test("connection request access preserves the local handshake without weakening authenticate", async t => {
+  const f = await connectionRequestFixture(t);
+  const { client, connection } = await f.connect();
+  const request = await connection.readRequest();
+  assert.deepEqual(request.cookies, { session: "fixture-session" });
+  assert.equal(request.headers.host, new URL(f.url).host);
+  assert.equal(request.headers.origin, f.url);
+  assert.equal(request.socket.remoteAddress, "127.0.0.1");
+  assert.equal(Object.hasOwn(request, "user"), false);
+  await assert.rejects(connection.authenticate(), { statusCode: 401 });
+  assert.equal(client.connected, true, "The host may still authorize a local request itself");
+  request.headers.origin = "https://forged.invalid";
+  request.cookies.session = "forged";
+  request.user = { id: "42" };
+  const next = await connection.readRequest();
+  assert.equal(next.headers.origin, f.url);
+  assert.equal(next.cookies.session, "fixture-session");
+  assert.equal(Object.hasOwn(next, "user"), false);
+  const disconnected = once(connection.socket, "disconnect", { signal: AbortSignal.timeout(5_000) });
+  client.disconnect();
+  await disconnected;
+  await assert.rejects(connection.readRequest(), { statusCode: 401 });
+});
+
+test("connection request access revalidates required hosted sessions and retires changed actors", async t => {
+  const sessions = new Map();
+  const reads = [];
+  const f = await connectionRequestFixture(t, {
+    realtime: { requireAuthentication: true },
+    async authenticateRequest(request) {
+      reads.push(request.cookies.session);
+      const actor = sessions.get(request.cookies.session);
+      return { authenticated: Boolean(actor), actor };
+    }
+  });
+  for (const nextActor of [null, { id: "43" }]) {
+    sessions.set("fixture-session", { id: "42", label: "Current actor" });
+    const { client, connection } = await f.connect();
+    assert.deepEqual((await connection.readRequest()).user, { id: "42", label: "Current actor" });
+    assert.equal((await connection.authenticate()).user.id, "42");
+    sessions.set("fixture-session", nextActor);
+    const disconnected = once(client, "disconnect", { signal: AbortSignal.timeout(5_000) });
+    await assert.rejects(connection.readRequest(), { statusCode: 401 });
+    await disconnected;
+    assert.equal(connection.socket.connected, false);
+  }
+  assert.ok(reads.length >= 8, "Every request facility call rechecks the current session");
+  assert.ok(reads.every(value => value === "fixture-session"));
+});
 
 test("RealtimeProvider waits for authentication boot before accessing the auth service", async () => {
   const authService = createDeferredAuthService();

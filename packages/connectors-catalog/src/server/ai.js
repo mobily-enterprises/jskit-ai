@@ -38,6 +38,7 @@ function createAiConnectionResolver({ configuration, authorize, resolveReference
     // Never expose this result through a browser API or include it in logs.
     // Missing baseURL means use the named provider SDK's own default endpoint.
     return Object.freeze({ providerId: provider.id, model: model.id, sdkPackage: model.sdkPackage,
+      modelLimits: Object.freeze({ ...model.limit }),
       ...(provider.baseURL ? { baseURL: provider.baseURL } : {}), apiKey, access: model.access });
   }
   return Object.freeze({ resolve });

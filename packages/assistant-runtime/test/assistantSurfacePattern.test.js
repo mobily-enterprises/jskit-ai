@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { createAssistantAiClientFactory } from "../src/server/AssistantProvider.js";
+import { createAssistantAiClientFactory } from "../src/server/createAssistantRuntime.js";
 import { parse as parseSfc } from "@vue/compiler-sfc";
 
 const exampleRoot = new URL("../patterns/assistant-surface/example/", import.meta.url);

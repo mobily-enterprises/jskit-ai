@@ -11,7 +11,7 @@ Browser maps may use a separate public-token reference in the same configuration
    Copy a secret token immediately: Mapbox shows it only once.
    Select only the scopes needed by the intended APIs. Geocoding accepts a
    public token; secret scopes produce a private token that stays on the server.
-3. Store the backend token as `MAPBOX_BACKEND_TOKEN`. In Vibe64, enter
+3. Store the backend token as `MAPBOX_BACKEND_TOKEN`. In the connection editor, enter
    `env:MAPBOX_BACKEND_TOKEN` in **Backend access token reference**.
 4. For browser maps, create a separate public token with the map scopes the
    chosen SDK requires, including `styles:read` and `fonts:read` for styled maps. Add its allowed application URLs and store it as
@@ -143,7 +143,7 @@ expose it as deliberate browser configuration. Do not copy all Env values.
 
 The app installs Mapbox GL JS using its framework package workflow, imports
 `mapbox-gl/dist/mapbox-gl.css`, and supplies a visible container with a height.
-The following goes in its existing mount/unmount lifecycle, not in Vibe64:
+The following goes in its existing mount/unmount lifecycle, not in the connection editor:
 
 ```js
 const map = new mapboxgl.Map({ container: mapElement,

@@ -5,7 +5,7 @@ Import `sentryProvider` and `registerSentryClient` from
 
 The connector uses Sentry's hosted MCP service for an explicitly composed
 assistant. It does not configure SDK event ingestion, a DSN or application login.
-Vibe64 coding-assistant attachment remains deferred. Saving this configuration
+Assistant tool attachment requires explicit host integration. Saving this configuration
 alone does not give editor chat access to Sentry.
 
 ## Configure access
@@ -14,7 +14,7 @@ alone does not give editor chat access to Sentry.
    open Project Settings and copy the project slug if restricting to one project.
    Use slugs, not display names or numeric IDs. Organization selection is required;
    project selection is recommended.
-2. Make the assistant host serve its own HTTPS OAuth callback. In Vibe64, enter
+2. Make the assistant host serve its own HTTPS OAuth callback. In the connection editor, enter
    it in **Suggested callback URL**, then choose **Register client and connect**.
    From a trusted backend or CLI instead, call `registerSentryClient` with `clientName`, `callbackUrl`
    and `scopes` (start with `org:read`). It registers at

@@ -11,8 +11,8 @@ coding-agent runtime, or automatic paid fallback.
 | --- | --- |
 | JSKIT `connectors-catalog` | Static provider/model data, settings schema, free-access classification and Node credential resolver |
 | JSKIT `connectors-web` | Reusable Vue configuration fields, including searchable model selection |
-| Vibe64 | Edit the project's portable `integrations.json`; manage administrator secrets through its existing Env system |
-| Vibe64 Online | Supply the same editor and Env facilities; it supplies no AI credit or shared commercial AI identity |
+| Connection editor host | Edit the project's portable `integrations.json`; manage administrator secrets through its existing Env system |
+| Hosted application | Supply the same editor and Env facilities; it supplies no AI credit or shared commercial AI identity |
 | Generated application | Authenticate and authorize its users, own credentials and individual connection screens, choose its AI SDK, execute requests and handle provider failures |
 | Other frameworks | Read the same configuration or map it into their native configuration; use their own libraries and private credential storage |
 
@@ -33,6 +33,16 @@ no runtime fetch, synchronization job, subprocess or OpenCode dependency.
 The raw-source hashes and source URLs are in the bundled `ai-models.json`;
 [upstream MIT notices](ai-upstream-notices.md) accompany it. Updates require
 deliberate review and a new package release.
+
+The 2 October review adds the exact `deepseek/deepseek-flash` identity for
+DeepSeek V4.1 Flash and removes its two retired direct-provider Flash entries
+from the bundled data. They are absent even when requesting deprecated models.
+Existing configuration using a removed name must explicitly select a current
+model; JSKIT does not translate it. The source hashes identify the original
+extraction, before this reviewed update. The new entry declares paid access without a fixed price because the
+provider has peak and off-peak rates. See the
+[provider update](https://api-docs.deepseek.com/updates/) and
+[model details](https://api-docs.deepseek.com/quick_start/pricing/).
 
 `listAiModels()` hides deprecated entries and sorts free choices first, with
 `opencode/big-pickle` first. `includeDeprecated: true` exposes retained upstream
@@ -91,7 +101,7 @@ This is enough to select the no-setup default:
 
 For an administrator-funded model, select `authentication.method: "api-key"`
 and `authentication.secretRef: "env:APP_AI_API_KEY"`. Store the **value** in the
-existing Env screen or the application's normal private environment. Vibe64's
+existing Env screen or the application's normal private environment. The host's
 existing launch/deployment environment mechanism supplies it to the backend;
 this integration adds no token delivery service. Do not use `VITE_` or another
 browser-exposed environment prefix. The JSON and source control contain only
@@ -186,7 +196,7 @@ account creation or generated-application execution.
 
 A static, attributed September 10 provider/model catalogue, searchable free/paid model configuration and a backend-only authorized credential/SDK-parameter resolver. The default is the snapshot's Zen Big Pickle no-account route; administrator keys resolve through Env, and individual keys through an app-supplied user/provider-scoped reference resolver.
 
-No inference engine, streaming, tools, conversation storage, provider OAuth/login screens, account/key provisioning, live credential verification, usage metering, billing, token resale or Vibe64 AI gateway. No automatic SDK installation, catalogue updates, model replacement or paid fallback. Only the 13 explicitly supported direct-key routes are configurable; other catalogue entries are framework metadata, not implemented cloud/coding-subscription authentication. Model availability, pricing/free classification and endpoint operation are dated source information, not live proof; even no-setup choices can be unavailable or capacity-limited. Detailed provider-specific personal-key entry, verification, encrypted storage, rotation/disconnect and authorization remain application work; the resolver only consumes those bindings. The app/framework owns SDK installation, protocol selection, requests, errors and UI. Generic key-creation guidance and linked provider documentation are supplied; bespoke audited login/key-creation screens for every catalogue provider are not. To extend: deliberately refresh the static snapshot, improve selected provider-specific instructions, and wire any desired app-native key-entry/inference features. This intentionally differs from Lovable managed AI; Vibe64 coding-agent credentials and runtime remain separate.
+No inference engine, streaming, tools, conversation storage, provider OAuth/login screens, account/key provisioning, live credential verification, usage metering, billing, token resale or Vibe64 AI gateway. No automatic SDK installation, catalogue updates, model replacement or paid fallback. Only the 13 explicitly supported direct-key routes are configurable; other catalogue entries are framework metadata, not implemented cloud/coding-subscription authentication. Model availability, pricing/free classification and endpoint operation are dated source information, not live proof; even no-setup choices can be unavailable or capacity-limited. Detailed provider-specific personal-key entry, verification, encrypted storage, rotation/disconnect and authorization remain application work; the resolver only consumes those bindings. The app/framework owns SDK installation, protocol selection, requests, errors and UI. Generic key-creation guidance and linked provider documentation are supplied; bespoke audited login/key-creation screens for every catalogue provider are not. To extend: deliberately refresh the static snapshot, improve selected provider-specific instructions, and wire any desired app-native key-entry/inference features. This intentionally differs from Lovable managed AI; coding-agent credentials and runtimes remain separate from direct-provider API authentication.
 
 10 source and 10 installed-package tests passed on September 13, proving snapshot/default selection, rejected unsupported modes, no-network public parameters, authorized Env and individual references, rotation/deletion, redaction and SDK handoff. Historical September 10 compact/medium/expanded UI evidence is retained; no fresh browser, live inference, provider account, generated-app execution or release was performed.
 

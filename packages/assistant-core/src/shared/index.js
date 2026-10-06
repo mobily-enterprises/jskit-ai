@@ -54,3 +54,5 @@ export {
 
 export { parseJsonObject } from "./support/jsonObject.js";
 export { toPositiveInteger } from "./support/positiveInteger.js";
+
+export { isAssistantProgressOnlyText } from "./assistantResponseText.js";

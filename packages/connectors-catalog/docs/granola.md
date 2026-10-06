@@ -12,7 +12,7 @@ For a personal key:
 1. Open the Granola desktop app, then **Settings → Connectors → API keys**.
 2. Choose **Create new key**. Select the note access scopes, then **Generate
    API Key**. Store the returned `grn_` value in `GRANOLA_API_KEY` outside source.
-3. In Vibe64 select **Granola** and enter `env:GRANOLA_API_KEY` as the API key
+3. In the connection editor select **Granola** and enter `env:GRANOLA_API_KEY` as the API key
    reference. Choose the intended owner and **Save configuration**. Use
    **Set credential in Env** to save the key as `GRANOLA_API_KEY`, then return
    and choose **Connect account**. CLI users write the JSON below.
@@ -131,7 +131,7 @@ For the MCP assistant connection:
    `offline_access` selected. Free accounts have limited personal-note access;
    workspace settings and subscription determine the available tools.
 2. Confirm the suggested callback is the exact route served by the assistant
-   host. In Vibe64 choose **Register client and connect**: the existing project
+   host. In the connection editor choose **Register client and connect**: the existing project
    registration action stores the client ID in configuration and secret, callback
    and recovery ID in development Env, then invokes the app-owned setup command.
    Existing Env values are not replaced; inspect Env after uncertain registration.
@@ -171,8 +171,8 @@ No live keys, meetings, provider registrations, generated apps or deployments ar
 used. The MCP fixture covers PKCE, verification, restart/refresh, replay rejection and credential-mode isolation. The controlled dual-mode browser journey and rendered setup instructions passed review. No live OAuth client or provider account was used. Webhooks, REST mutations and enterprise-managed authorization are not implemented.
 
 **LIMITATIONS:** The app/assistant host must authorize and attach MCP tools itself.
-Vibe64 coding-assistant attachment is deferred: configuring Granola does not make
-Codex or OpenCode able to answer questions about meetings. For example a generated
+Configuring Granola alone does not authorize an assistant to answer questions
+about meetings. For example a generated
 app can read a processed meeting transcript with the API key, but this editor will
 not automatically use it as chat context. No REST note creation, recording engine,
 webhook receiver or enterprise-managed OAuth is installed.

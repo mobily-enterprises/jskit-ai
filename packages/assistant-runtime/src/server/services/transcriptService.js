@@ -152,43 +152,45 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     const context = normalizeObject(options.context);
     const actorUserId = normalizeRecordId(source.actorUserId, { fallback: null }) || resolveActorUserId(context.actor);
     const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);
-    const conversation = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
-      workspaceId,
-      actorUserId,
-      surfaceId: resolvedAssistantSurface.targetSurfaceId
-    });
-    if (!conversation) {
-      throw new AppError(404, "Conversation not found.");
-    }
-
-    const createdMessage = await messagesRepository.create({
-      conversationId: normalizedConversationId,
-      workspaceId: conversation.workspaceId,
-      role: normalizeText(source.role).toLowerCase(),
-      kind: normalizeText(source.kind).toLowerCase() || "chat",
-      clientMessageSid: normalizeText(source.clientMessageSid),
-      actorUserId,
-      contentText: source.contentText == null ? null : String(source.contentText),
-      metadata: normalizeObject(source.metadata)
-    });
-
-    await conversationsRepository.incrementMessageCount(normalizedConversationId, 1);
-
-    const messageRole = normalizeText(source.role).toLowerCase();
-    const messageKind = normalizeText(source.kind).toLowerCase() || "chat";
-    if (messageRole === "user" && messageKind === "chat" && isDefaultConversationTitle(conversation.title)) {
-      const derivedTitle = deriveConversationTitleFromMessage(source.contentText);
-      if (derivedTitle) {
-        await conversationsRepository.updateById(normalizedConversationId, {
-          title: derivedTitle
-        });
+    return conversationsRepository.transaction(async trx => {
+      const conversation = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
+        workspaceId,
+        actorUserId,
+        surfaceId: resolvedAssistantSurface.targetSurfaceId
+      }, { trx, forUpdate: true });
+      if (!conversation) {
+        throw new AppError(404, "Conversation not found.");
       }
-    }
 
-    return {
-      conversationId: normalizedConversationId,
-      message: createdMessage
-    };
+      const createdMessage = await messagesRepository.create({
+        conversationId: normalizedConversationId,
+        workspaceId: conversation.workspaceId,
+        role: normalizeText(source.role).toLowerCase(),
+        kind: normalizeText(source.kind).toLowerCase() || "chat",
+        clientMessageSid: normalizeText(source.clientMessageSid),
+        actorUserId,
+        contentText: source.contentText == null ? null : String(source.contentText),
+        metadata: normalizeObject(source.metadata)
+      }, { trx });
+
+      await conversationsRepository.updateById(normalizedConversationId, { messageCount: conversation.messageCount + 1 }, { trx });
+
+      const messageRole = normalizeText(source.role).toLowerCase();
+      const messageKind = normalizeText(source.kind).toLowerCase() || "chat";
+      if (messageRole === "user" && messageKind === "chat" && isDefaultConversationTitle(conversation.title)) {
+        const derivedTitle = deriveConversationTitleFromMessage(source.contentText);
+        if (derivedTitle) {
+          await conversationsRepository.updateById(normalizedConversationId, {
+            title: derivedTitle
+          }, { trx });
+        }
+      }
+
+      return {
+        conversationId: normalizedConversationId,
+        message: createdMessage
+      };
+    });
   }
 
   async function completeConversation(assistantSurface, conversationId, payload = {}, options = {}) {
@@ -204,24 +206,26 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       required: true
     });
     const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);
-    const existing = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
-      workspaceId,
-      actorUserId,
-      surfaceId: resolvedAssistantSurface.targetSurfaceId
-    });
-    if (!existing) {
-      throw new AppError(404, "Conversation not found.");
-    }
-
-    return conversationsRepository.updateById(normalizedConversationId, {
-      status: normalizeConversationStatus(source.status, {
-        fallback: "completed"
-      }),
-      endedAt: source.endedAt || new Date(),
-      metadata: {
-        ...normalizeObject(existing.metadata),
-        ...normalizeObject(source.metadata)
+    return conversationsRepository.transaction(async trx => {
+      const existing = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
+        workspaceId,
+        actorUserId,
+        surfaceId: resolvedAssistantSurface.targetSurfaceId
+      }, { trx, forUpdate: true });
+      if (!existing) {
+        throw new AppError(404, "Conversation not found.");
       }
+
+      return conversationsRepository.updateById(normalizedConversationId, {
+        status: normalizeConversationStatus(source.status, {
+          fallback: "completed"
+        }),
+        endedAt: source.endedAt || new Date(),
+        metadata: {
+          ...normalizeObject(existing.metadata),
+          ...normalizeObject(source.metadata)
+        }
+      }, { trx });
     });
   }
 
@@ -326,4 +330,4 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
   });
 }
 
-export { createTranscriptService };
+export { createTranscriptService, deriveConversationTitleFromMessage, isDefaultConversationTitle };

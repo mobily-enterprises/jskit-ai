@@ -1,0 +1,62 @@
+{
+  "name": "@jskit-ai/assistant-voice-sherpa",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Optional native Sherpa speech engine and explicit model preparation for assistant voice.",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./models": "./src/voiceModelContract.js",
+    "./cli": "./src/cli.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "bin",
+    "models",
+    "tooling"
+  ],
+  "dependencies": {
+    "@jskit-ai/assistant-voice": "0.1.1",
+    "sherpa-onnx-node": "1.13.6"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "client": {
+        "providers": []
+      },
+      "server": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": ".",
+            "summary": "Native Sherpa recognition and synthesis with operator configuration and a named voice catalogue."
+          },
+          {
+            "subpath": "./models",
+            "summary": "Prepared model integrity manifests, construction and verification."
+          },
+          {
+            "subpath": "./cli",
+            "summary": "Portable prepare, verify, token and serve commands with an optional host-owned daemon factory."
+          }
+        ],
+        "capabilities": []
+      }
+    }
+  },
+  "bin": {
+    "jskit-assistant-voice": "./bin/jskit-assistant-voice.js"
+  }
+}

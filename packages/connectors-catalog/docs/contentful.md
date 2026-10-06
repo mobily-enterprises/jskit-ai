@@ -113,7 +113,7 @@ page limits, private file-store restart, token rotation, isolation, disconnect
 and provider failures. No live Contentful account or generated app was used.
 
 
-**LIMITATIONS:** Vibe64 chat attachment is deferred: the app can display published
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration: the app can display published
 articles and images, but saving this connection does not let the coding assistant
 browse the space. This connector does not author/publish content or render a CMS
 interface. For example, publish the article and hero asset in Contentful first;

@@ -73,6 +73,30 @@ test("assistant tools expose only automation actions allowed for the actor and s
   );
 });
 
+test("application tool policy scopes observations and rechecks retained discovery and execution", async () => {
+  const executions = [];
+  let commandsAllowed = true;
+  const actions = createActions([action(), action({ id: "demo.books.delete", kind: "command",
+    execute: async () => { executions.push("delete"); return { ok: true }; } })]);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const catalog = createServiceToolCatalog(actions, {
+    isActionAvailable: ({ kind, context }) => kind === "query" || (!context.observation && commandsAllowed)
+  });
+  assert.deepEqual(catalog.resolveToolSet({ ...context, observation: true }).tools.map(tool => tool.actionId), ["demo.books.list"]);
+  const direct = catalog.resolveToolSet(context);
+  const discovery = catalog.resolveToolSet(context, { discoveryOnly: true });
+  const invoke = (toolName, args) => catalog.executeToolCall({ toolSet: discovery, context, toolName, argumentsText: JSON.stringify(args) });
+  assert.equal((await invoke("assistant_action_contract", { actionId: "demo.books.delete" })).ok, true);
+  commandsAllowed = false;
+  assert.deepEqual((await invoke("assistant_action_search", {})).result.items.map(item => item.actionId), ["demo.books.list"]);
+  assert.equal((await invoke("assistant_action_contract", { actionId: "demo.books.delete" })).ok, false);
+  assert.equal((await invoke("assistant_action_execute", { actionId: "demo.books.delete", input: {} })).ok, false);
+  assert.equal((await catalog.executeToolCall({ toolSet: direct, context,
+    toolName: direct.tools.find(tool => tool.actionId === "demo.books.delete").name, argumentsText: "{}" })).ok, false);
+  assert.deepEqual(executions, []);
+  assert.throws(() => createServiceToolCatalog(actions, { isActionAvailable: async () => true }).resolveToolSet(context), /return a boolean/);
+});
+
 test("assistant tools honor barred ids, prefixes, schemas, and explicit descriptions", () => {
   const actions = createActions([
     action({

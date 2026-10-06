@@ -1,4 +1,4 @@
-import { createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
+import { applyForUpdate, createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
@@ -88,9 +88,15 @@ function createRepository(knex) {
     }
 
     const client = options?.trx || knex;
-    const row = await createConversationBaseQuery(client)
-      .where("c.id", normalizedConversationId)
-      .first();
+    if (options.forUpdate === true) {
+      if (!options.trx) throw new TypeError("Locking a conversation requires its database transaction.");
+      // Acquire the write reservation before reading, including SQLite where
+      // SELECT FOR UPDATE is not supported. This does not change row contents.
+      await client(assistantRuntimeConfig.conversationsTable).where({ id: normalizedConversationId })
+        .update({ id: normalizedConversationId });
+    }
+    const query = createConversationBaseQuery(client).where("c.id", normalizedConversationId);
+    const row = await applyForUpdate(query, options).first();
 
     return row ? mapConversationRow(row) : null;
   }
@@ -108,12 +114,13 @@ function createRepository(knex) {
     }
 
     const client = options?.trx || knex;
+    if (options.forUpdate === true) await findById(normalizedConversationId, options);
     const query = createConversationBaseQuery(client)
       .where("c.id", normalizedConversationId)
       .where("c.created_by_user_id", normalizedActorUserId)
       .where("c.surface_id", normalizedSurfaceId);
     applyWorkspaceScope(query, "c.workspace_id", workspaceId);
-    const row = await query.first();
+    const row = await applyForUpdate(query, options).first();
 
     return row ? mapConversationRow(row) : null;
   }

@@ -51,7 +51,7 @@ configuration contract. Saving the file does not connect a store.
 }
 ```
 
-In Vibe64, add **Lightspeed** in **Integrations**, choose the account mode, and
+Add a Lightspeed connection, choose the account mode, and
 enter **Client ID**, **Client secret reference**, **Callback URL reference** and
 **Domain prefix**. Edit permissions, then **Save configuration**. The client
 authentication method defaults to `client_secret_post`. Use reference values,

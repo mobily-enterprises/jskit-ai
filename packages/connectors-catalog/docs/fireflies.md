@@ -13,7 +13,7 @@ The provider reads the key owner profile, meeting lists, transcript content and 
 3. Save provider `fireflies`, mode `shared` or `assistant`, `scopes: []`, and
    authentication
    `{ "method": "api-key", "secretRef": "env:FIREFLIES_API_KEY" }`.
-4. In Vibe64, enter `env:FIREFLIES_API_KEY` as **API key reference**, click
+4. In the connection editor, enter `env:FIREFLIES_API_KEY` as **API key reference**, click
    **Save configuration**, then **Set credential in Env**. Store the real key
    as `FIREFLIES_API_KEY` and return to connect. CLI applications invoke
    `connectApiKey` to verify the profile. Token replacement belongs in Env.
@@ -79,8 +79,8 @@ frameworks use their native HTTP client to POST the fixed query/variables to
 Fireflies; JSKIT and Vibe64 are optional. The app owns its digest schedules,
 cache, task tracking and CRM writes through their respective APIs.
 
-**LIMITATIONS:** editor assistant attachment remains deferred. Example: a
-published app can show a sales call's action items; the Vibe64 coding assistant
+**LIMITATIONS:** assistant tool attachment requires explicit host integration. Example: a
+published app can show a sales call's action items; an assistant
 does not gain meeting access from this configuration. Recording, transcript
 mutation, incoming webhooks and per-user OAuth are not supplied (the Lovable
 reference also describes these as excluded). Exact signed-in screen placement
@@ -91,5 +91,5 @@ Rechecked 13 September 2026 against [transcript detail](https://docs.fireflies.a
 [authorization](https://docs.fireflies.ai/fundamentals/authorization) and
 [Lovable's current fields/capabilities](https://docs.lovable.dev/integrations/fireflies).
 The latter resolves the empty original form: display name and an API key are
-required inputs for its shared connection. Vibe64 stores a private Env reference
+required inputs for its shared connection. The host stores a private Env reference
 instead of putting the key in the source file. No live meetings were read.

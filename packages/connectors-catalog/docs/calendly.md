@@ -69,7 +69,7 @@ Provider setup, checked against the official guide on 12 September 2026:
 2. Create an OAuth application. Supply its name, select **web**, and choose
    **Sandbox** for development or **Production** for production. Calendly
    recommends separate applications for those environments.
-3. Copy the generated application's exact callback URL from Vibe64 into
+3. Copy the application's exact callback URL into
    **Redirect URI**. Production requires HTTPS. Sandbox permits HTTP localhost;
    a hosted development URL should still use its actual HTTPS address.
 4. Select **users:read** for the profile check and **event_types:read** for
@@ -143,7 +143,7 @@ The application owns who can read whose invitee data, booking confirmation, time
 display, cancellations, persistence and polling. Reschedule using the invitee's returned
 `reschedule_url`; this adapter does not invent a reschedule API.
 
-**LIMITATIONS:** Public Vibe64 coding-assistant attachment is deferred. For example,
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. For example,
 connecting Calendly does not let the editor's assistant inspect tomorrow's appointments;
 the generated app's backend can use the scheduling operations above. Webhook receivers,
 organization administration and advanced location/routing/customized event-type creation

@@ -2,27 +2,487 @@
 
 # Embeddable assistant conversations
 
-`@jskit-ai/assistant-core` supplies a Vue/Vuetify conversation element, transcript
-policy, and native provider primitives. It has no dependency on an editor,
-project directory, application database, identity scheme, or avatar.
+Start with the [standard Assistant integration](./assistant.md): one common
+runtime, supplied server integration and `AssistantConversationClientElement`.
+This reference describes that setup, its configuration and optional lower-level
+contracts. Custom storage and native engines use the same supplied binding; they
+do not require private conversation routes or a hand-written element adapter.
 
-Use this contract when the application already owns its conversation endpoints
-or needs custom storage and provider execution. Applications using the complete
-JSKIT assistant surface use [Assistant](./assistant.md), which
-owns its routes, database repositories, action-tool loop, and settings.
-Both integrations render the same `AssistantConversationElement`. Choose one transcript owner for a conversation.
+`@jskit-ai/assistant-core` owns the runtime, storage contract, transcript policy
+and base `AssistantConversationElement`. `@jskit-ai/assistant-runtime` supplies
+authorized HTTP/realtime integration and the component's client binding. Database
+repositories and settings are optional. Neither ordinary file storage nor the
+browser binding requires an editor, application database or particular avatar.
+Choose one transcript owner for a conversation. The [ordinary API](./assistant.md#the-ordinary-api)
+is the starting point; [advanced hosts](#advanced-host-facilities) and
+[testing](#testing-entrypoints) are separate reference areas.
+
+### Supplied server integration
+
+`@jskit-ai/assistant-runtime/server` exports `AssistantFeature`,
+`createAssistantActions`, `registerAssistantRoutes` and
+`registerConversationSubscriptions`. The feature accepts an application-supplied
+`assistant.conversations` capability containing `createConversationRuntime()`
+or an application facade with the same authorized `open({ id, context })` contract.
+That runtime may use file storage or any adapter satisfying the storage contract.
+Its authorized operations use the existing action catalogue and HTTP router.
+Read, send, cancel and delivery inspection use the existing `createAssistantApi`
+request client, including its surface header and workspace path. Inspection is
+an authenticated POST operation because it may recover and save native receipts;
+it never dispatches another model request. Browser inputs cannot set the actor,
+native host or engine context.
+`readConversation(id, { beforeTurnId, limit, signal })` optionally requests an
+earlier or bounded page through the same authenticated GET. Its query contains
+only the supplied `beforeTurnId` and `limit`; omitting both keeps the facade's
+existing read default. The response retains current state alongside the page's
+`conversationLog` and `pagination`. The existing transcript reader selects the
+turns, caps positive limits at 100 and treats zero as unbounded. An application
+facade forwards explicit page options to that reader; it must not read all
+history and then slice the result.
+Goal read/update use that same authorized boundary. Unsupported engines return
+no current goal and reject goal commands; the runtime retains current segment,
+goal identity and budget checks. Goal attachments are authorized identifiers,
+never browser-supplied files or paths. A canonical client needs only `request`;
+`requestStream` is required only when using the older `streamChat` method.
+When the host supplies `runtime.realtime` and `runtime.events`, subscriptions
+share that connection and detach when the feature shuts down. Detaching the
+feature does not close the application-owned runtime or stop its active turns.
+
+Applications can expose their existing authorized settings, model selection and
+replacement operations through the same facade. Declare
+`conversationConfigurationSchema`, `conversationSelectionSchema` or
+`conversationReplacementSchema` on `assistant.conversations` using the existing
+`createSchema` input format. The feature registers only declared operations under
+the same surface path:
+
+| Schema | HTTP operation | Request body | Facade method |
+| --- | --- | --- | --- |
+| `conversationConfigurationSchema` | `PATCH /conversations/:conversationId/configuration` | `{ configuration: value }` | `configure(value)` |
+| `conversationSelectionSchema` | `POST /conversations/:conversationId/selection` | `{ selection: value }` | `select(value)` |
+| `conversationReplacementSchema` | `POST /conversations/:conversationId/replacement` | `{ replacement: value }` | `replace(value)` |
+
+Each schema describes the inner application choice. The facade rechecks current
+access and resolves that choice through the application's existing policy before
+using the common runtime. Schemas validate input; they do not grant access to
+models or credentials. Keep engine, host configuration and continuity briefings
+server-owned. A replacement choice should retain its original `operationId` and
+observed `expectedSegmentId`: the runtime rejects a stale predecessor and can
+identify retries of the same operation. The application still decides which
+replacement choices are permitted.
+
+Omitting a schema leaves its operation unregistered. Colleague, for example,
+exposes its existing catalogue selection action and keeps its system prompt
+server-owned. `wake()` remains server-side; this integration registers no browser
+wake operation.
+
+Use `createAssistantApi().configureConversation(id, value, { signal })`,
+`selectConversation(id, value, { signal })` or
+`replaceConversation(id, value, { signal })` from the existing picker or controls.
+These preserve the shared surface header and encoded conversation identity.
+When registering the lower-level routes/actions directly, pass the same schema
+options to both `registerAssistantRoutes` and `createAssistantActions`.
+
+Installed package discovery registers `AssistantFeature` automatically. A host
+provider should supply `assistant.conversations`; it must not also register the
+same conversation routes, actions or socket subscriptions. One feature owns those
+registrations for the application's shared realtime connection.
+
+For a plain Fastify application, `registerFastifyConversations` supplies the same
+hosting assembly as configurable shorthand:
+
+```js
+import { registerFastifyConversations } from "@jskit-ai/assistant-runtime/server";
+
+await registerFastifyConversations(app, {
+  runtime,                       // application-created common runtime and storage
+  config: appConfig,             // surfaces and HTTP/realtime configuration
+  env: process.env,
+  async authenticate(request) { // trusted HTTP or reconstructed socket request
+    return authenticateSession(request); // application context, or null to deny
+  },
+  bootstrap: ({ context }) => ({ application: { subjectId: context.subjectId } })
+});
+app.addHook("onClose", () => runtime.close());
+```
+
+An application with one surface can declare it once for both server and client:
+
+```js
+import { defineAssistantSurface } from "@jskit-ai/assistant-runtime/shared";
+
+const appConfig = {
+  ...defineAssistantSurface("home"),
+  // Other existing HTTP, realtime and application configuration.
+};
+```
+
+The required ID names that one surface; the defaults are root placement and
+global assistant settings. Options such as `pagesRoot`, `requiresWorkspace`,
+`accessPolicyId` and `enabled` retain their existing surface meanings. A workspace
+surface defaults to workspace settings. The helper expands the existing
+`surfaceDefinitions` and `assistantSurfaces` maps; it does not infer extra surfaces
+or grant access. Use those maps directly when an application needs multiple
+surfaces or a separate settings surface. Authentication and Origin/CSRF policy
+still belong to the host.
+
+`runtime`, `config` and `authenticate` are required. `env` defaults to
+`process.env`; `bootstrap` is optional and adds application bootstrap data after
+authentication. The helper does not create conversations, select a model, choose
+storage or infer authorization from browser fields. Authentication may be async;
+return a context object or throw an application error. A missing context is denied.
+Apply the application's normal session, Origin/CSRF and socket-handshake rules
+there. The returned trusted fields extend the action context; the runtime's own
+`authorize` still controls each conversation operation and subscription.
+
+The helper assembles `AssistantFeature`, the HTTP/action/bootstrap/event providers
+and one realtime provider. It closes that hosting on Fastify `preClose`. The
+supplied runtime remains application-owned: close it in `onClose`, as above.
+Register once per Fastify app; all its chats share the supplied realtime service.
+Transport paths/options remain in `config`, and the caller owns Fastify options
+and plugins. Install `@jskit-ai/realtime` when using this helper. It does not add a
+database dependency. An existing JSKIT host should use normal feature registration
+on its existing services instead. Custom hosts can still use the lower-level
+feature, route, action and subscription contracts described below.
+
+Conversation IDs are route parameters. Fastify defaults to a 100-character
+parameter limit; if the application's IDs exceed that, set a bounded
+`routerOptions.maxParamLength` when creating Fastify, for example
+`Fastify({ routerOptions: { maxParamLength: 1024 } })`. The helper accepts an
+existing server and does not change its router configuration.
+
+When an existing host uses a different request-access policy, it can supply the
+optional server capability `assistant.conversation.access`:
+
+```js
+{
+  router,             // existing router.register interface with the host's request guard
+  wrapAction,         // wraps an existing definition with the host's action-access owner
+  subscribeActionId,  // fixed server-owned product action id
+  requestPolicy: "host"
+}
+```
+
+The feature passes only canonical conversation routes through that router and
+only canonical conversation definitions through `wrapAction`. It sets the
+subscribe definition's ID before wrapping it. The host must preserve the existing
+handler, input validation and conversation authorization while applying its
+request guard and trusted action context. Settings and legacy database routes
+and definitions keep their existing authentication. An incomplete access facility
+fails startup.
+
+The default subscription policy is `authenticated`. An explicit `host` policy
+requires a distinct fixed subscribe action and uses the shared connection's
+`readRequest()`: this reconstructs the original handshake and revalidates any
+configured authentication. Required hosted authentication still rejects missing,
+revoked or changed identity. Local requests can lack an actor, so the host action
+must apply its original local request and WebSocket-origin checks. Socket rooms,
+action selection and request policy remain server-owned. Local events omit actor
+metadata; hosted events retain the real actor and existing per-event access checks.
+
+Database support is an optional peer dependency. Supplying a conversation runtime
+does not import database repositories, create the legacy chat service or read a
+host database, even if an unrelated database capability is present. An optional
+`assistant.settings` service enables the existing settings routes. Without a
+supplied conversation runtime, the existing database integration requires
+`runtime.database`; its repositories and migrations remain available. The
+database facade uses the same common runtime with its SQL conversation storage;
+that optional storage does not change the server-integration contract.
+
+### Supplied client integration
+
+Use `AssistantConversationClientElement` from `@jskit-ai/assistant-runtime/client`
+for a conversation initialized by the application-owned common runtime:
+
+```vue
+<AssistantConversationClientElement
+  ref="conversation"
+  :conversation-id="conversationId"
+  :attachments="attachments"
+  :suggestions="suggestions"
+/>
+```
+
+Only `conversation-id` is required for the standard card. The optional feature
+props above use the same binding. The element uses the current configured
+surface/workspace HTTP path and the application's
+existing authenticated realtime socket. It does not create another connection.
+`surface-id`, `endpoint`, `hostSurfaceId` and `workspaceSlug` can supply an application's
+existing placement mapping; the server still resolves and authorizes that scope.
+It exposes `focus()` and `runtime`. Its slots receive their existing scoped
+fields plus that same retained `runtime`; a `composer-tools` button can pass it
+to the voice controller without constructing another binding.
+
+Without application overrides, the binding uses the existing authenticated
+placement identity, standard HTTP client and surface path. Applications with a
+different bootstrap subject or request policy configure it once before mounting:
+
+```js
+import { configureAssistantConversations } from "@jskit-ai/assistant-runtime/client";
+
+configureAssistantConversations(app, {
+  actorKey: () => bootstrap.value.subjectId,
+  request: http.request, // the application's existing HTTP and Origin/CSRF policy
+  clearDraftOn: "accepted"
+});
+app.mount("#app");
+```
+
+These defaults belong to that Vue app. `actorKey` accepts a value, ref or getter;
+changing or clearing it retires the previous actor's retained browser state.
+The browser subject key never grants server access. Server authentication,
+conversation authorization and subscription guards remain unchanged. The voice
+starter supplies its existing local request policy here, once for all five cards.
+
+The optional per-card `actor-key` overrides the default. An omitted or undefined
+value inherits it; an explicit empty value makes the reader inactive rather than
+reusing the previous actor. `api` can supply a static client created with
+`createAssistantApi`, either once in the app defaults or as a per-card override.
+An omitted or null per-card `api` inherits the app's API or request function.
+Otherwise the standard HTTP client is used. No option creates another realtime
+connection. `clear-draft-on="accepted"` keeps typed input until acceptance;
+`"dispatch"` remains the default when neither the app nor the card changes it.
+Use consistent API and draft options for readers of the same retained target.
+
+Custom presentation can call `useAssistantConversation()` with the same
+identity/options and render `AssistantConversationElement` with its `adapter`.
+The composable exposes the same `runtime` and `error` refs; it is unnecessary for
+an application that only adds standard component slots.
+
+The composable's `presentation` option accepts a value, ref or getter. Supply transcript
+fields `assistantLabel`, `systemLabel`, `welcomeMessage`, `variant`, `visible`,
+`userMessageFormat` and `progressPreviewLimit`, and composer fields `ariaLabel`,
+`submitAriaLabel`, `submitLabel`, `placeholder` and `rows`. `layout: "compact"`
+keeps the existing compact composer. These change presentation through the
+supplied adapter; they do not replace its history, actions or delivery state.
+An empty `welcomeMessage` hides the welcome text. `previewMessage` supplies the
+single live user preview described below while the conversation is available.
+
+Text views and `runtime.retain()` readers share draft, delivery and subscription
+state for an exact actor, endpoint, surface, workspace and conversation. Release
+a retained handle with `release()`. Final view/reader release detaches browser
+observers; it does not stop server work. A lost receipt remains uncertain with
+**Check delivery** until inspection or canonical history proves acceptance.
+Reconnection reads state and does not resend the request.
+
+Applications that create nonvisual tasks after setup can capture
+`useAssistantConversationFactory(commonOptions)` once during setup, then call
+the returned `acquire(taskOptions)` function as tasks are created or restored.
+It returns the same `runtime`, `adapter` and `error` refs plus `release()`.
+Each task uses the existing retained conversation registry; another reader of
+the same identity shares its draft and delivery state. Release a task's handle
+when the application removes that task. Ending the setup scope releases its
+remaining handles, and the factory cannot acquire new handles afterward.
+Hidden tasks can keep `active: true` while only their presentation is hidden.
+
+When an application must save or create its logical conversation before Send,
+use that exact application-selected ID and keep its reader inactive until
+creation succeeds. The binding's `submitPrepared(payload, { messageId,
+prepare, onAccepted })` uses the standard composer's draft and attachment cleanup
+around the retained runtime's existing prepared submission. Supply ordinary
+message/display attachments and declared `data`; an already authored canonical
+`payload.request` is also accepted. `working` supplies the application's native
+turn eligibility when its product state also includes non-native work such as
+routing. The binding captures Send or Steer before preparation; retry keeps that
+choice and the original message identity, text, settings and files.
+
+`prepare(captured, { signal })` performs only the application's existing save,
+creation and authorization prerequisites, then returns its canonical request or
+`false` to cancel before dispatch. The optimistic entry exists before those awaits.
+Presentation metadata may reflect a newer draft. `onSubmit` runs before preparation
+for application pending-state updates; `isCurrent` preserves the application's
+additional close/lifetime guard. `clearDraft: false` leaves a user's draft untouched
+for an application-generated message. The optional attachment owner has the same
+`clearAttachments({ accepted: true, attachmentIds })` contract as the standard
+composer; acceptance removes only the submitted files, preserving later uploads.
+
+Pass `retryMessageId` for an existing failed or uncertain message. An application
+may supply its authoritative `retry` receipt projection when routing persists it
+outside the current local delivery list. Failed delivery reuses the captured
+payload; uncertain delivery only inspects the original receipt, never running
+preparation or sending again. An accepted restored receipt applies idempotent
+composer cleanup. Ordinary `runtime.submitPrepared` remains available to hosts
+that already own their composer; it requires an authored `payload.request`.
+
+Both paths use the existing API, abort and receipt owner. It rechecks the actor,
+known access denial, disposal and abort after preparation. A preparation exception
+returns a failed result with its original message/code; ambiguous failure after
+dispatch returns `{ ok: false, status: "uncertain", error, code? }`. The server's
+original admission policy still authorizes every request. Prepared submission
+does not relax ordinary `send()` readiness or capability checks, create a
+placeholder snapshot, or infer a conversation identity.
+
+After creation, an active retained handle can call `runtime.cancel()` even while
+its first read or Start response is pending. Inactive, unidentified, retired or
+access-denied targets cannot dispatch cancellation. The standard element still
+uses the loaded snapshot's Stop availability; product task controls can retain
+their original earlier Stop boundary.
+
+For a voice binding, `projectConversationVoiceState({ turns, status, interimReply })` from
+`@jskit-ai/assistant-voice/client` projects those same retained turns into the
+voice owner's `messages` and `streamingReply`. It keeps user message IDs and
+stable assistant IDs across native partial/final representations. Commentary
+and reasoning remain activity rather than spoken answers. A transient assistant
+message explicitly marked `origin: "application"` is held until its saved
+notification; it does not suppress that completed notification. The projector
+stores no history and owns no subscription or playback queue. Application
+progress acknowledgements remain an explicit presentation policy.
+
+An application can supply a selected transient `interimReply` through its
+authorized conversation read and events. The standard binding displays it only
+on its exact `turnId`, without changing saved messages or acknowledging pending
+delivery. Supply `null` when the actual answer replaces it or the operation
+ends. The voice projection uses that same descriptor. A provider's optional
+`outputId` identifies one output across its live and saved representations, so
+a spoken acknowledgement and a later answer remain distinct. Older messages
+without this field retain their existing identity; neither reads nor projections
+backfill history. This field does not replace message IDs or admission receipts.
+
+`useAssistantConversation({ clearDraftOn: "accepted", queueWhileSending: false })`
+preserves an application's existing acceptance-based composer. The typed draft
+stays visible until its exact delivery is accepted. A canonical receipt or
+explicit delivery inspection can clear it before the HTTP response arrives;
+a newer draft is kept. After a pre-admission failure, pressing Send again on the
+same trimmed draft reuses that submission's message ID and captured data. A
+different submission replaces that reference; it never selects an older matching
+failure from history. Uncertain delivery still requires **Check delivery**.
+Voice sends keep their own authored capture and do not consume the typed draft.
+
+With `queueWhileSending: false`, the composer is disabled during admission and
+overlapping typed or retained voice sends return `false` before calling the
+supplied API. A runtime that supports sending while working still permits the
+next request after admission settles; the host owns its meaning. Queuing is part
+of the initial retained conversation composition, so use consistent options for
+mirrored readers of the same identity. The default is `clearDraftOn: "dispatch"`
+and the existing queuing behavior for a runtime that advertises steering.
+
+Set `draftWhileLoading: true` when people should be able to type before the
+application resolves its conversation ID or while the first read is unavailable.
+This keeps one local input scoped to the real actor, endpoint, surface and
+workspace. It creates no conversation, receipt or placeholder identity, and Send
+still requires the existing ready, authorized conversation. An explicit submit
+before readiness returns `false`; the application can show its existing loading
+or offline feedback while the words remain in the composer.
+
+Once the actual ID resolves, the input moves into that conversation's retained
+draft. If it already has a different draft, the existing text-submission helper
+appends the new text with a newline without sending; identical text stays once.
+A known target keeps its own draft when loading or reconnecting, and changing
+targets never copies the previous target's draft. Actor or scope changes clear
+unresolved input synchronously; authorization denial still clears and disables
+the resolved composer. This option does not share unresolved input between
+separate views: shared retention begins with the actual conversation ID.
+The default is `false`.
+
+Custom presentation can supply `useAssistantConversation({ onEvent(event) {} })`
+to receive notifications such as an application's `{ type: "application" }`
+invalidation. The existing subscriber checks the event identity/order and applies
+its stream snapshot, or schedules its canonical read, before invoking the hook.
+Keep transcript rendering on `adapter`/`runtime`; the hook does not replace that
+state handling. An application can use its own invalidation to coalesce an
+authorized product-state refresh without fetching product state for every text
+chunk. Only current, active readers receive callbacks. Releasing a view removes
+its callback even when a mirrored view or `runtime.retain()` keeps the shared
+subscription alive; retaining a runtime does not retain a released view's hook.
+Hooks report their own errors. A throwing or rejected hook cannot interrupt
+other readers or shared delivery, and no additional socket connection is created.
+
+An application can supply a `data` object to the standard element, or a value,
+ref or getter to `useAssistantConversation({ data })`. A new typed submission
+captures it with the message in the existing delivery entry; a retry keeps the
+original data even if the current selection has changed. A retained voice reader
+can pass its own utterance capture with
+`runtime.send({ message: text, data: capturedData }, { messageId })`; this leaves
+the typed draft and its data untouched. The server must explicitly declare an
+allowed `conversationDataSchema`. Data stays untrusted message input and never
+supplies authenticated identity, authorization context or native configuration.
+With `AssistantFeature`, expose that `json-rest-schema` schema as
+`assistant.conversations.conversationDataSchema`; the feature forwards it to both
+existing route and action validators. Explicit library composition passes the
+same schema to `registerAssistantRoutes` and `createAssistantActions` through
+their `conversationDataSchema` option. Without a declared schema, browser data is
+not forwarded. The application still checks access to any resource identified by
+those fields before using it.
+
+`attachments` and `suggestions` accept their existing shared composable results
+directly, or reactive presentation adapters. Upload and suggestion services remain
+application-supplied, as described below. Set `questions` to `true` for the
+standard retained answer form, or supply its small configuration described below.
+Custom question and model presentation adapters remain available; model controls
+do not expose a raw engine or credential-selection endpoint. Native goal controls use the runtime's
+declared command and budget capabilities. Unsupported controls stay absent.
+
+### Existing bounded-task commands
+
+An application whose assistant already returns one final result from an
+authenticated command can use the same `useAssistantConversation` binding with
+an explicit `boundedTask`. This mode retains its browser-local request history
+and mounted lifetime. It does not acquire a canonical conversation, realtime
+subscription, delivery ledger or server transcript.
+
+```js
+const binding = useAssistantConversation({
+  boundedTask: {
+    command: existingCommand, // the actual useCommand owner: run and isRunning
+    endpoint: assistantEndpoint,
+    scope: () => selectedSessionId.value,
+    input: messages => ({ messages: messages.map(({ content, role, table }) => ({ content, role, table })) }),
+    result: response => ({ content: response.answer, role: "assistant", sql: response.sql }),
+    onResult(response, { message, scope }) {
+      // Optional application presentation, using the captured submitted record.
+      presentResult(response, { table: message.table, sessionId: scope });
+    }
+  },
+  active: helperAvailable,
+  data: () => ({ table: selectedTable.value }),
+  presentation: {
+    assistantLabel: "Copilot", variant: "task", visible: true,
+    placeholder: "Ask about this table…", submitOnEnter: false,
+    submitOnModifierEnter: true
+  }
+});
+```
+
+Pass `binding.adapter.value` to `AssistantConversationElement`, retaining product
+slots and actions. The binding owns `runtime.value.draft`, ordered `messages`,
+`submit()` and `clearHistory()`. History-only clearing preserves the draft; call
+it at the application's existing hydration boundary. The command keeps its
+normal authenticated HTTP, running state and error feedback. Required command
+and input/result mappings are validated; endpoint and scope are explicit.
+
+Submission captures `data` into the user record, appends it and clears the draft
+before invoking the command once. It maps a truthy final response only while the
+component remains mounted and the captured application scope is still current,
+then calls optional `onResult`. Scope is a local presentation fence, not request
+authority. Input mapping and the server's existing action schema determine which
+fields are sent. Command errors propagate unchanged; a failed request leaves its
+local authored row and does not create a receipt or automatic retry. Successful
+submission retains the original undefined return value.
+
+`active` gates new submissions. Changing availability or hiding the panel does
+not cancel admitted work. Disposal discards late presentation through the same
+owner; native cleanup remains with the existing server task. The bounded mode
+defaults to modifier-Enter submission and ordinary Enter for a new line. Its
+index-derived message keys are display identities, never proof of admission.
 
 ## Ownership
 
 | JSKIT owns | The application supplies |
 | --- | --- |
-| Bubbles, rich text, reasoning groups, long-message expansion, scroll following, composer, delivery controls, working status, suggestions, model and goal controls, file and question UI | Conversation selection, labels, loading/errors, current draft and action implementations |
+| Bubbles, rich text, reasoning groups, long-message expansion, scroll following, composer, delivery controls, working status, suggestions, model and goal controls, file and question UI | Conversation selection, labels, optional presentation and authorized feature services |
+| Supplied client binding: draft, loading/error state, delivery, actions, streaming and reconnect | Real conversation identity and endpoint, authenticated host context and application policy |
 | Turn grouping, message deduplication, final-answer replacement and history pagination | Storage adapter, authorized scope, transaction/locking implementation, retention, migrations and attachment bytes |
-| Codex JSON-RPC and notification classification, detached-turn completion/recovery, OpenCode HTTP/SSE | Provider process/connection, account credentials, execution environment, permissions, tools, model policy and reconnect ownership |
+| Native process/connection coordination, shared-runtime reconnect/recovery, Codex JSON-RPC and notification classification, detached-turn completion and OpenCode HTTP/SSE | Authorized connection/account facilities, existing managed execution/environment, permissions, tools and model policy |
 | Display of supplied configuration and optional editing controls | Authoritative configuration, permitted changes and server validation |
 
+`AssistantConversationClientElement` and `useAssistantConversation` construct the
+generic adapter and retain its state for the conversation. Applications using
+these supplied bindings do not implement unused optional adapter areas. A custom
+low-level `AssistantConversationElement` adapter instead supplies its own draft,
+loading/errors and action implementations through the contract below.
+
 No global store or router is installed by the element. Multiple assistants can
-coexist with separate adapters. The application mounts it in a pane with a
+coexist using the supplied binding or custom adapters. The application mounts it
+in a pane with a
 definite height and `min-height: 0`. The composer does not shrink under transcript
 pressure. Bubbles use the application's Vuetify theme colors.
 
@@ -76,6 +536,16 @@ available for an explicit retry. Clear the error when retrying succeeds.
 control the corresponding transcript presentation. `userMessageFormat` is
 `"formatted"` by default; `"plain"` preserves literal user-authored text.
 
+For live speech that has not been admitted, supply
+`adapter.conversation.previewMessage = { messageId, text }` (the original
+voice capture's `id` is also accepted). The element displays one pending user
+message after merging canonical and delivery turns. A matching canonical or
+delivery message ID suppresses that preview, so an admitted utterance appears
+once. The application owns updating or clearing its current capture. Preview
+text never enters saved history, the retained runtime's turns or receipt
+reconciliation; it cannot acknowledge a pending or uncertain send. Keep it out
+of `adapter.conversation.turns`.
+
 ### Message delivery
 
 Use `createAssistantMessageDelivery` from `/client/conversation` (or the
@@ -115,7 +585,7 @@ or generated prompts; it still uses the same delivery controller.
 
 `send(payload, options?)` inserts the message synchronously, before invoking
 `deliver`. Payloads must be JSON-compatible and are copied at submission. They
-require `message`; optional `displayMessage` and
+require nonempty `message` or `displayAttachments`; optional `displayMessage` and
 `displayAttachments` control the visible bubble. Additional fields travel to
 `deliver` unchanged. Include settings and attachment IDs in the payload so a
 retry retains the original request even if the composer settings later change. Each send creates a stable `messageId`, or
@@ -126,6 +596,17 @@ Pending label. A failed bubble has an error outline, its error and Retry action.
 Success removes the pending treatment but retains the bubble until authoritative
 history contains its `user.messageId`, so it cannot flicker away before history
 arrives. Older histories without IDs can match by text and timestamp.
+
+A host that saves an authored row before native admission must project
+`user.receipt: false` on that row until it has exact admission evidence. This
+transient read/patch qualifier keeps one visible bubble with its pending or
+uncertain delivery state; it cannot settle a receipt race or discard a restored
+request. Omission preserves the normal accepted authored-row contract. Keep the
+qualifier out of persisted history, prompt history and message fingerprints.
+An explicit successful delivery or exact receipt inspection can still accept
+the request. A failed native read remains unknown; it must never trigger replay.
+An error or unsuccessful response with `status: "uncertain"` retains the delivery
+for inspection, and `send` continues to refuse that uncertain message ID.
 
 For native-agent steering, set `composer.queueWhileSending: true` to accept more
 text messages while delivery is outstanding. Custom composers call
@@ -155,6 +636,21 @@ Rendering alone does not retire state. The queue is in memory; applications own
 any persistence needed to retain unsent messages across a browser reload.
 Transport promises should settle on admission, not after the full AI answer;
 streaming and provider execution remain separately observable application work.
+
+For canonical receipt observation, supply reactive `receiptTurns` and
+`uncertainOnError: true`. Unknown transport failures then retain an uncertain
+entry for inspection; they do not expose Retry, Edit or Cancel. Explicit
+pre-admission rejection can still return `{ ok: false, error }`. Use `accept(id)`
+only after the backend confirms admission. `restoreUncertain(request, savedTurns)`
+restores the public pending request without sending it again.
+
+The optional `send(..., { onAccepted })` callback acknowledges a captured UI
+attachment queue. HTTP acceptance, matching canonical reconciliation and explicit
+`accept(id)` notify it once. Retry retains the original callback and payload.
+The callback stays private in memory; it is absent from messages, serialized
+payloads and persisted receipts. An acknowledgement callback must report its own
+UI errors without reversing accepted delivery. A full browser reload still needs
+the application's existing saved-draft attachment state.
 
 ### Turns and messages
 
@@ -299,6 +795,37 @@ requests. Disposal cancels requests; late results are ignored. `items`, `loading
 Selection edits the draft; submission remains explicit. The standalone example
 includes a separate suggestion integration and server prompt.
 
+For the supplied client element, bind that same owner to the exposed canonical
+target. `app.suggest` below is the application's authorized suggestion operation,
+separate from ordinary conversation send:
+
+```js
+const conversation = ref(null);
+const target = computed(() => conversation.value?.runtime || null);
+const suggestions = useAssistantSuggestions({
+  active: () => target.value?.available.value === true &&
+    target.value.snapshot.value?.status === "ready",
+  requestKey: () => target.value?.identity || null,
+  draft: () => target.value?.draft.value || "",
+  configuration: () => ({ integrationId: "suggestions" }),
+  generate(input) {
+    return app.suggest({ ...input, conversationId: target.value.identity.conversationId });
+  },
+  onSelect(prompt) {
+    if (!target.value?.available.value) return false;
+    target.value.draft.value = prompt;
+    return true;
+  }
+});
+```
+
+Include the host's suggestion policy and visible-reader state in `active`.
+The complete identity in `requestKey` invalidates prior actors and targets;
+changing a suggestion model in `configuration` affects only that generator.
+The host operation derives its authenticated actor and checks the conversation
+itself. When a view closes while voice retains its draft, disable that view's
+suggestion owner; late results are discarded by the existing composable.
+
 ### Models and application configuration
 
 Use `adapter.models` for `AssistantModelControl`:
@@ -319,7 +846,18 @@ Use `adapter.models` for `AssistantModelControl`:
 
 Selections edit application draft configuration. `apply()` saves it and closes
 the chooser unless it resolves `false`. The app handles errors and sets `saving`
-and `changesDisabled`. More than six model choices get searchable selection.
+and `changesDisabled`, and includes its admission rules in `canSave`. More than
+six model choices get searchable selection.
+The canonical element's `models` prop and `useAssistantConversation({ models })`
+accept the same owner with plain fields, refs or computed fields. Its controls
+are shown only while the canonical target is available. The application keeps
+the actor-scoped catalogue, draft selection and authorized apply/reload callbacks;
+the binding does not copy those settings or send native configuration.
+
+An application with its own existing model dialog can put its launcher in
+`composer-tools` and keep that dialog's selection and save callback. This preserves
+the standard composer and delivery controls while retaining application-specific
+catalogue and access policy.
 The standalone component additionally provides `before-choices`, `model-note`,
 `provider-controls`, and `footer` slots for account-specific controls. The
 aggregate's `configurationMode` applies to its separate custom configuration
@@ -351,9 +889,31 @@ accumulated **active running time**, and `sampledAt` is its sample time in epoch
 **milliseconds**. The UI adds time only while active. Omit elapsed time if the
 backend cannot supply it truthfully. The clock hides in a narrow conversation
 pane; the light stays visible and details retain the time. Reduced motion uses
-a steady red light. Pausing prevents future automatic turns and does not interrupt
-the current turn; Stop is separate. Omit `goal` or use `enabled: false` for agents
-without goals, including OpenCode.
+a steady red light. Pause follows the command's declared behavior:
+`pauseInterruptsTurn: true` means it stops the current turn and keeps the goal;
+otherwise it prevents further automatic turns while Stop interrupts current work.
+Likewise, `cancelInterruptsTurn` determines whether Cancel stops current work while
+clearing the goal. The supplied client binding derives these fields and supported
+callbacks from runtime capabilities; applications using it need no custom goal
+adapter. For a low-level adapter, omit `goal` or use `enabled: false` when goals
+are unsupported. The supplied binding hides unsupported controls automatically.
+
+The supplied binding owns goal reads, command state and message receipts. It
+refreshes on goal events, reconnect and window focus, with a 30-second passive
+read deadline and no goal poll. Passive failures remain local to the control.
+An explicit `goal: true` option also enables reads when an application's retained
+goal may belong to a different target from its visible conversation. Such an
+authorized facade can return `{ status, goal, target: { segmentId, capabilities },
+routing? }` from its existing goal read. The target and declared goal capabilities
+must come from that same native read; the client does not infer an engine or
+reconstruct native expectations. Standalone goal reads still return a goal or
+null. An object-valued `goal` presentation adapter remains supported.
+
+Custom product presentation can use the retained runtime's `goalView`,
+`goalState`, `goalLoadError`, `changeGoal` and `refreshGoal` instead of creating
+another remote resource. New commands capture that view's target and goal ID.
+A failed message command keeps its original UUID and request for explicit retry;
+unknown delivery is inspected, never automatically resent.
 
 ### Files
 
@@ -386,6 +946,20 @@ the app's deletion endpoint must preserve files already accepted by a message,
 including when a browser loses the acknowledgement. Never infer acceptance from
 an HTTP request merely starting.
 
+The supplied canonical client captures the attachment owner and submitted IDs.
+It acknowledges only those IDs when HTTP, canonical history or explicit delivery
+inspection confirms acceptance, preserving newer ready and uploading files.
+Uncertain delivery retains its selected receipts until confirmation. Only IDs
+are sent to the conversation API; attachment-only requests preserve empty
+authored text. The runtime's attachment capability and unresolved upload state
+gate submission. A disabled Send leaves ordinary textarea editing, including
+newlines, available.
+
+Upload scopes must track authenticated user, workspace and conversation changes.
+Use the application's saved-draft retention when uploaded files must survive a
+view closing or a browser reload. The binding's acknowledgement never calls
+delete or abandon; those remain the upload owner's explicit policy.
+
 The shared `AssistantAttachmentQueue`, `AssistantMessageAttachments` and
 `AssistantAttachmentPreview` provide queue, sent-file list and preview UI.
 Set `adapter.attachments.open(receipt)` for queue preview. Sent-file rendering
@@ -398,14 +972,65 @@ picker, screenshot producer or project file browser remains an application tool.
 
 ### Questions
 
+Set `questions` on `AssistantConversationClientElement`, or pass
+`questions: true` to `useAssistantConversation`, to enable ordinary chat answer
+fields. The retained conversation selects the latest authorized completed reply,
+ignores an in-progress reply and stops at a subsequent user message. It owns the
+answers, choice, dismissal and submitted-form state; no application selector or
+reset watcher is needed.
+
+```vue
+<AssistantConversationClientElement :conversation-id="conversationId" questions />
+```
+
+The standard form requires all numbered answers, appends optional composer
+context and sends one ordinary message through the same delivery entry. Choosing
+a suggested-answer chip waits for Send and uses that choice's submitted value.
+**Answer normally instead** keeps the draft. Submitted forms hide while delivery
+is pending; retries keep the original formatted answer, and uncertain delivery
+uses **Check delivery**.
+
+Mirrored standard elements for the same target share the form. Answers and
+dismissal survive a text panel closing while voice retains that conversation.
+A different target or authenticated actor has separate state, even when the
+question text is identical. Loss of authorized availability clears the form.
+
+An optional `extraChoice` adds a product-specific fallback option to each select;
+matching values are not duplicated. No extra option is added by default:
+
+```vue
+<AssistantConversationClientElement
+  :conversation-id="conversationId"
+  :questions="{ extraChoice: { label: 'I am not sure', value: 'I am not sure' } }"
+/>
+```
+
+Use the same question configuration for mirrored views. The first active
+standard reader supplies the shared optional choice policy. Setting `questions`
+to `false` or omitting it hides that view's question controls.
+
+For custom presentation, the same prop accepts an explicit question owner or the
+existing question adapter. `useAssistantQuestions` from
+`/client/conversation-questions` supplies the extracted answer state to a custom
+composer. Supply its authorized completed message and optional `extraChoice`;
+`latestAssistantMessageAwaitingUserReply` from `/shared/conversation` implements
+the standard message selection. A custom owner remains responsible for its
+message source and scope resets.
+
 `AssistantQuestionInputs` renders numbered question fields and suggested-answer
 chips. Pass `questions`, optional `selectItems` keyed by question name, `choices`,
 `v-model:answers`, and `v-model:choice`; handle `dismiss`. Questions contain
 `{ name, number, label, choices }`; choices use `{ value, label, selectLabel }`.
 The aggregate accepts the same fields under `adapter.questions`, with
 `setAnswers`, `setChoice`, and `dismiss` callbacks. Existing question parsers and
-submission formatters are exported from `/shared/conversation`. The app decides
-which message is awaiting a reply and submits answers through its normal action.
+submission formatters are exported from `/shared/conversation`.
+
+For a custom composer, `capture(draft)` returns `{ message, questionText }` without
+changing state. Keep the existing complete-answer and application admission
+checks, then call `markSubmitted(questionText)` at local submission and deliver
+the captured message through the normal action. `reset()` clears local question
+state. Native permission prompts and tool responses retain their separate
+authorized owners; these prose fields introduce no answer endpoint.
 
 ### Incremental answers
 
@@ -427,9 +1052,33 @@ await transcript.writeConversationUserMessage(scope, { messageId: requestId, tex
 const { conversationLog, pagination } = await transcript.readConversationLogPage(scope, { limit: 20 });
 ```
 
-The memory adapter is explicitly transient. Applications may supply SQL,
-filesystem, document-store, or other storage. JSKIT neither chooses a directory
-nor creates database tables. The storage object implements:
+The memory adapter is explicitly transient. For a single-process application,
+use the supplied file adapter with an application-owned private directory:
+
+```js
+import { createFileConversationStorage } from "@jskit-ai/assistant-core/server/conversation";
+
+const storage = createFileConversationStorage({ directory: "/var/lib/my-app/conversations" });
+const transcript = createConversationTranscript({ storage });
+```
+
+Share one adapter instance across the application's conversations. It serializes
+writes per scope, flushes a replacement file before publishing it atomically,
+and retains messages across application restarts. Saved files use mode `0600`;
+a newly created directory uses `0700`. Existing directory permissions remain
+the operator's responsibility. Scopes are hashed into filenames and checked
+against each saved document. JSON-compatible message metadata and attachment
+descriptors are stored; attachment bytes remain application-owned.
+
+Damaged JSON or an unsupported format causes an explicit error and is never
+silently replaced with an empty conversation. Back up this directory with the
+application's attachment data. This adapter is for one writer process: use an
+application database or another adapter with cross-process transactions when
+multiple servers write the same conversations.
+
+Applications may supply SQL, filesystem, document-store, or other storage.
+JSKIT does not choose the directory or create database tables. The storage
+object implements:
 
 ```js
 {
@@ -444,7 +1093,8 @@ client-supplied scope directly into storage. Apply the same authorization to
 history, sends, stops, deletion and attachment reads. The memory reference
 adapter requires a nonempty string; other adapters may use structured scopes.
 
-Each callback receives these asynchronous operations:
+Each callback receives these asynchronous operations. The first six serve the
+transcript service. All nine are mandatory for `createConversationRuntime()`:
 
 | Transaction operation | Contract |
 | --- | --- |
@@ -452,15 +1102,20 @@ Each callback receives these asynchronous operations:
 | `readTurn(id)` | Detached turn snapshot in the client model above, or null if absent. |
 | `nextTurnId()` | Allocate an ID after the current tail under the write lock. |
 | `hasMessage(messageId)` | Check uniqueness across the whole scoped conversation. |
-| `appendMessage(turnId, message)` | Save `{ role, text, messageId, at }`; user messages also carry `attachments` and `turnMetadata`. |
+| `appendMessage(turnId, message)` | Save `{ role, text, messageId, at }` and any supplied `attachments`, `origin` and `turnMetadata`; user or application messages may start turns. |
 | `replaceAssistant(turnId, message)` | Idempotently replace the final answer for that exact turn, preserving its existing timestamp/identity. |
+| `readMetadata()` | Detached conversation metadata object; return `{}` for an empty scope. |
+| `writeMetadata(value)` | Replace conversation metadata within this transaction, committing atomically with its turn/message changes. |
+| `updateTurnMetadata(turnId, patch)` | Shallow-merge a detached patch into an existing turn's metadata; preserve unrelated keys and reject absent turns. |
 
 `write` serializes mutations for the same scope, including duplicate checks and
 ID allocation. A successful return means the write is durable for that adapter.
 Database adapters should use a transaction; filesystem adapters must publish
 the message only after its attachment references and metadata are recoverable.
 Errors reject the operation and must remain visible to the caller. Do not
-acknowledge a failed save. Reads must not expose mutable backing objects.
+acknowledge a failed save. A failed runtime transaction must leave both transcript
+and metadata unchanged; serializing independently durable file writes is insufficient.
+Reads must not expose mutable backing objects.
 Use storage-level locks or transactions when several processes share storage;
 an in-process promise queue alone does not provide that guarantee.
 
@@ -489,28 +1144,1463 @@ Run the reusable adapter checks against an isolated fixture:
 
 ```js
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
-await verifyConversationStorageContract(storage);
+await verifyConversationStorageContract(storage, { runtime: true });
 ```
 
 Those checks cover scoped isolation, concurrent duplicate writes, stable
 ordering, pagination, final replacement, attachments and detached reads. An
-app must additionally test its authentication, crash/reopen behavior,
+adapter selected with `runtime: true` also checks all metadata operations, scope
+isolation, patch preservation and combined transcript/metadata rollback. Use a
+fresh isolated fixture for each invocation; omit the option only for transcript-only
+adapters. An app must additionally test its authentication, crash/reopen behavior,
 multi-process writes, failed commits and attachment cleanup.
 
 ## Provider contract
 
+### Application conversation operations
+
+`createConversationRuntime()` currently supplies direct API inference and basic
+Claude, Codex and OpenCode conversations through the same application operations. The API path uses
+the existing AI connection resolver and an application-owned storage choice. It
+requires no native CLI or engine lifecycle callbacks:
+
+```js
+import { createAiConnectionResolver } from "@jskit-ai/connectors-catalog/server/ai";
+import { createConversationRuntime, createFileConversationStorage } from "@jskit-ai/assistant-core/server/conversation";
+
+const connections = createAiConnectionResolver({
+  configuration: integrationConfiguration,
+  authorize: authorizeModelConnection
+});
+const runtime = createConversationRuntime({
+  engine: "api",
+  connections,
+  defaultIntegrationId: "assistant",
+  storage: createFileConversationStorage({ directory: privateConversationDirectory }),
+  authorize: ({ context, conversationId, operation }) => canAccessConversation(context, conversationId, operation)
+});
+const conversation = await runtime.open({
+  id: applicationConversationId,
+  context: authenticatedContext,
+  configuration: { systemPrompt: "Answer concisely." }
+});
+const unsubscribe = await conversation.subscribe(event => publishToAuthorizedClient(event));
+const receipt = await conversation.send({ messageId: applicationMessageId, text: "Hello" });
+const snapshot = await conversation.read();
+await conversation.wait(); // optional: wait for current work, without polling
+await conversation.configure({ systemPrompt: "Use the updated instructions." });
+// await conversation.cancel(); // stop current model work
+unsubscribe();
+await runtime.close(); // application shutdown
+```
+
+Authorization belongs to the application and is checked on each operation and
+before subscription output. The existing connection resolver separately checks
+model-account access before every request. Secrets stay in its server-side result.
+`context` is never written into conversation storage.
+
+`open({ id, context })` resumes saved configuration. Supplying different initial
+configuration to an existing conversation is rejected; change it explicitly with
+`configure()` while the conversation is idle. Closing the runtime or disposing a
+conversation stops its current inference and releases observers, retaining history.
+
+`engine` and `host` on the runtime are defaults. `open({ id, context, engine, host,
+configuration })` may choose them per conversation. A saved conversation resumes
+its saved engine when `engine` is omitted, even when the runtime default differs.
+The host is a server-side facility, never browser input: it supplies the worktree,
+credential environment and execution owner for that conversation. Different
+conversations in one runtime can use different hosts. An open handle rejects a
+second, conflicting host; native bindings also validate their saved worktree and
+credential scope on reopen. Environment values are not persisted.
+
+An existing application using the extracted Codex owner can supply
+`host.conversation({ id, context })` to bind its original transcript, native
+identity, delivery journal and lifecycle facilities. That bound path uses those
+existing records; it does not create a second runtime record or backfill history.
+This is an advanced host integration, not required for ordinary file/custom
+transaction storage.
+
+Such a server integration may open a handle with `representation: "native"` when
+its existing command contract requires the original result. The option belongs
+to that handle and each invocation, not the cached conversation or saved state.
+Send/Cancel preserve the original result and its captured session when supplied;
+raw goal controls retain their exact native expectations. Canonical handles still
+share the same queue, native owner and receipts, and receive the ordinary canonical
+projection. HTTP actions do not accept this option, and canonical events never
+include the raw native result. A known native ID alone does not prove successful
+admission; the original bound sender must confirm delivery.
+
+### Bounded native structured output
+
+Claude, Codex and OpenCode report `capabilities.structuredOutput: true`. A server
+may supply `configuration.outputSchema` when opening a conversation, or change it
+with `configure()` while idle. The schema resumes with the existing saved
+configuration. It is not a browser-authored message field or a permission grant.
+
+```js
+await conversation.configure({
+  outputSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: { answer: { type: "string", maxLength: 1_200 } },
+    required: ["answer"]
+  }
+});
+```
+
+The original bounded schema validator rejects unsupported or unbounded schemas
+before dispatch. Objects require every declared property and reject additional
+properties; strings need a finite `maxLength` or string enum, and arrays need a
+finite `maxItems`. Boolean and null values are also supported. Below the root,
+`anyOf` may contain up to 64 closed object alternatives. The largest alternative
+counts toward the response bound; their sizes are not added together. Alternatives
+count toward the existing nesting limit. The other limits remain 64 KiB of schema,
+eight nesting levels, and 64 properties or enum values.
+The worst-case JSON response, including escaped string characters, must fit the
+driver's `limits.maxOutputCharacters` (64,000 by default).
+
+Claude uses its native schema flag and restarts the owned process when the schema
+changes, retaining the conversation. Codex uses its native turn schema setting.
+OpenCode uses the existing schema instruction and removes a single JSON fence
+from the completed answer; raw output remains subject to the output bound, and
+the schema instruction counts toward `limits.maxInputCharacters`. Applications
+still validate the returned result before applying product behavior. Setting
+`outputSchema: undefined` restores ordinary output. The API driver reports this
+capability as false and rejects the option before resolving an account or sending.
+
+### Engine selection and native conversation replacement
+
+`select()` changes the engine or model while retaining native histories. Supply
+the current segment and a stable operation ID, just as for an ordinary accepted
+application operation:
+
+```js
+await conversation.select({
+  operationId: selectionOperationId,
+  expectedSegmentId: (await conversation.read()).segmentId,
+  engine: "codex",
+  configuration: { systemPrompt: instructions, model: "gpt-6.1-sol" }
+});
+```
+
+Selecting a native engine used earlier restores its latest retained binding.
+Changing a model on the current engine retains that native conversation. Before
+the next request, JSKIT supplies missed messages, corrections and removed message
+identities as quoted history. Unchanged messages are not injected again. All
+corrections are included, even outside the recent-history window; if they exceed
+`maxContinuityCharacters`, delivery fails with an instruction to renew the context
+with a briefing. Nothing is silently dropped. The application remains responsible
+for authorizing edits to its transcript.
+
+Selection requires idle work and confirmed process cleanup. An uncertain receipt
+may remain with another selected engine, but the same message ID cannot be sent
+there again. Return to its original engine and use `inspectDelivery()` to resolve
+it. Selection never resends the pending request. The API driver has no native
+thread to restore and starts a new context with the recorded continuity when
+selected from a different engine.
+
+One application conversation can retain its transcript across several native
+conversations. To deliberately start a successor, read its current `segmentId`
+and supply a stable operation ID:
+
+```js
+const before = await conversation.read();
+await conversation.replace({
+  operationId: applicationOperationId,
+  expectedSegmentId: before.segmentId,
+  reason: "engine-change", // or model-change, renewal
+  engine: "codex",
+  configuration: { systemPrompt: "Continue the agreed work.", model: "gpt-6.1-sol" },
+  briefing: savedWorkSummary
+});
+await conversation.send({ messageId: nextMessageId, text: "Continue." });
+```
+
+Replacement performs no inference. It saves the operation, confirms predecessor
+cleanup, retains the predecessor's native binding and installs the successor.
+The first native submission carries the saved briefing and bounded recent written
+history; later native turns do not repeat that history. The API driver supplies
+the same continuity with its subsequent request history. Visible user messages
+remain exactly the submitted text. Carry-over includes up to 30 recent messages,
+with each text bounded to 2,000 characters and truncation/omission marked. The
+combined budget is `limits.maxContinuityCharacters` (128,000 by default); an
+oversized supplied briefing fails before changing the binding.
+
+The operation requires idle work and resolved delivery. A failed cleanup or commit
+leaves the saved replacement pending, blocking new sends and configuration changes.
+Retry exactly the same operation ID and arguments after fixing the problem,
+including after application restart. A completed retry returns the prior receipt.
+No previous request is replayed. `configure()` still supports compatible settings
+changes on the current native history; it does not silently replace that history.
+
+Conversation Undo/rewind is not exposed. Completed historical branch markers
+remain readable, and their admission receipts remain reserved. An unfinished
+historical Undo blocks opening or replacing the conversation and fails offline
+preflight without changing its saved state. Complete that operation with the
+previous release before upgrading; the runtime does not guess a new boundary.
+Application checkpoints and file restoration remain separate application actions.
+
+The unreleased common runtime now validates its versioned metadata. Earlier local
+development records with an older runtime version fail with an explicit export/restart
+message; normal startup does not rewrite them. Consumer migration of published
+application records requires that application's explicit upgrade process.
+
+### Admission and recovery
+
+`send()` returns after admission; generation continues independently of its HTTP
+request. The application supplies a stable ID and reuses it for uncertain retries.
+Repeated IDs return their saved receipt; reusing an ID with different content is
+rejected. An accepted receipt confirms application admission, not model completion.
+`read()` returns `conversationLog`, `streaming`, `status`, `phase`, `error`, `configuration`
+and `capabilities`. Events include `accepted`, `message` snapshots and `settled`,
+plus common `phase` updates and `error` when an owned process cannot be cleaned up.
+A `transcript` event carries a saved `upsert-turn` patch from the existing transcript
+owner. The supplied binding merges it directly and preserves patches received
+while a history read is in flight. A later independent canonical read remains
+authoritative; applications do not need their own patch queue or parser.
+Every driver uses the same phases: `preparing` before dispatch, `working` after
+admission, `compacting` during observed context compaction, and `retrying` during
+a native retry. An empty string clears the phase after work settles, including
+failure or cancellation. Not every engine reports every intermediate phase.
+Native busy/idle flags and status sentences are not application phase values;
+the runtime's `status` and `settled` event determine completion.
+
+Treat message IDs as opaque. Some engines retain an ID from streaming through
+storage; Claude's temporary stream blocks and saved native snapshots have
+different IDs. `message-complete` retires the temporary block. The runtime's
+`streaming` state contains live output, while `conversationLog` contains saved
+messages. Do not save temporary blocks or assume that every answer in a turn
+has the same ID. Native snapshot identities match recovered history.
+
+All engines accept the same configuration fields: required `systemPrompt`, plus
+optional `integrationId`, `model` and `effort`. API and OpenCode require an
+authorized integration; Claude and Codex can instead use their native login.
+With an integration, an explicit `model` must match its exact resolved model.
+Omit `effort` for the provider default. API passes standard effort levels
+(`none`, `minimal`, `low`, `medium`, `high`, `xhigh`) through its installed SDK;
+Claude validates its CLI levels (`low`, `medium`, `high`, `xhigh`, `max`), and
+OpenCode validates the chosen effort against that exact native model's variants.
+Codex validates its native levels and the selected external model's allowed
+efforts. Unsupported choices fail instead of being silently replaced.
+
+Pass those common fields directly to the runtime. It normalizes new configuration
+inputs for the conversation's actual engine. Set an application-selected default
+connection once when constructing the runtime:
+
+```js
+const runtime = createConversationRuntime({
+  engine, connections, storage, authorize,
+  defaultIntegrationId: "assistant"
+});
+await runtime.open({
+  id: conversationId, context, engine,
+  configuration: {
+    systemPrompt: instructions,
+    integrationId: selectedIntegrationId,
+    model: selectedModel,
+    effort: selectedEffort
+  }
+});
+```
+
+The default ID is an explicit application choice. It applies only when API or
+OpenCode requires a connection and no ID was supplied. Claude and Codex keep
+native login when the ID is absent; an explicit ID is honored by every engine.
+New inputs to `open`, `configure`, selection and replacement use the same
+normalization; existing saved configuration is not rewritten on resume.
+`normalizeConversationConfiguration` remains available from the same
+`/server/conversation` entry for applications that need to normalize an object
+before passing it on, but ordinary callers do not need a separate helper call.
+Normalization omits undefined optional fields so the configuration survives a JSON
+round trip, but preserves exact values and invalid input for existing validation.
+It does not resolve credentials, select a substitute model or change engine
+capabilities. An empty integration catalogue can support an API read-only starter;
+missing connections or credentials still fail when Send resolves them. Changing
+settings on an existing conversation uses `configure()` or authorized selection,
+not a rewritten configuration at startup. No saved data is migrated by normalization.
+
+`wake({ messageId, text })` starts an application-initiated turn, such as an update
+from a watched session. It uses the same admission, cancellation and duplicate
+receipt rules but authorizes `operation: "wake"` separately before dispatch.
+The turn records `origin: "application"` and a `system` transcript message, not a
+user message. Native/API input identifies the observation as data within existing
+authority; it is never promoted to model system instructions. The application
+still owns its watch/assignment policy and action permissions. A public chat
+endpoint must not expose wake authority merely because its user can send text.
+
+Both `send()` and `wake()` accept optional `data`, a JSON object containing
+application observations or the request's captured UI focus. JSKIT saves it with
+the accepted message and includes it as application data in model input, without
+changing the stable system prompt or visible user text. Text and serialized data
+share the configured input-size limit. A retry must retain the same data as well
+as the same message ID and text. Supply trusted authorization separately through
+the conversation context; this data never grants permissions.
+
+Saved turns distinguish complete, failed, cancelled and interrupted work. Error
+messages are not assistant replies. After restart, accepted work is marked
+interrupted and is never replayed. API reservations interrupted before admission
+were never dispatched; only another explicit send can start them. Storage failure
+retains unsaved output in the current handle and prevents new submissions through
+that handle. Repair storage and call `retrySave()` to save the retained result;
+this never reruns inference. Disposal and shutdown also retry that pending save
+and report failure without discarding it. Do not blindly resend the message.
+
+Native acknowledgement can be lost after the engine received a message.
+`inspectDelivery({ messageId })` checks its native history and returns an accepted
+receipt only when that message is found. It also recovers output for an already
+accepted message interrupted by restart. Output remains interrupted unless the
+adapter can prove native completion; Codex checks the native turn's saved status.
+Completed application turns, cancellation/failure status and saved application-tool
+receipts are retained. Repeated inspection does not duplicate messages or execute
+tools. An application tool without a verified result keeps the turn interrupted,
+even if native history reports completion; inspect that operation's target before
+requesting another execution. API connections have no native history to inspect and keep their saved
+receipt without claiming recovery.
+
+Recovery commits output and receipts together. If storage fails, restore access
+and retry the inspection; native work is not repeated. An unknown result leaves
+the submission unresolved. A message in another segment must be inspected after
+selecting that segment's engine; recovery never revives a rewound turn. Neither
+inspection nor reopening sends the message again. If native process cleanup fails,
+the handle reports unavailable and rejects new work; `cancel()` retries that exact
+owned cleanup rather than starting another process.
+An optional `limits.timeoutMs` deadline aborts work and waits for owned cleanup;
+a failed cleanup is still reported as unavailable rather than as a successful stop.
+
+The supplied memory and file adapters also provide `readMetadata()`,
+`writeMetadata(value)` and `updateTurnMetadata(turnId, patch)` inside the existing
+storage transactions. Runtime state occupies `metadata.runtime` at conversation
+and turn level. Custom adapters must commit that state with accepted messages in
+the same transaction. The file adapter remains one-writer storage.
+
+`createConversationStorage({ readRecord, writeRecord, deleteRecord })` is exported
+for custom single-writer record stores. Each record contains `{ turns: Map,
+metadata: object }`; a missing record uses an empty map and metadata object. Its
+copy-on-write transaction methods match the supplied memory/file adapters. It
+calls `writeRecord(id, draft, transaction)` to commit a successful transaction.
+Record formats that store the canonical transcript can use `transaction.readTurn()`
+while serializing, without copying the transcript's ordering and role logic.
+Publish the new in-memory record only after its durable write succeeds. The adapter
+serializes writes through one instance, not across processes. A database-backed
+application with concurrent writers must implement `read`/`write` using its own
+database transaction or hold that transaction across record loading and commit.
+
+The current API driver supports application action tools and authorized attachments.
+It reports steering and native goals as unsupported. Limits can bound input, output and history characters, output
+tokens and request duration. Oversized history fails explicitly; it is not silently
+truncated or presented as native compaction. These capabilities will be extended
+as their shared integrations are migrated.
+
+API replies use the shared streaming completion parser. Internal reasoning and
+provider tool markup stay out of visible replies, including tags split across
+chunks. Structured and text-encoded application calls use the same authorized
+execution and saved receipts. A completed response is required before executing
+a call; interrupted streams do not imply permission to execute or retry it.
+Output limits count raw provider text, including hidden blocks. Code indentation
+and blank lines remain intact in ordinary API answers.
+
+The API driver uses the existing assistant tool-loop policy: up to sixteen tool
+rounds, then three recovery passes with tools disabled. Progress-only narration
+is retained as commentary rather than accepted as the final answer. An available
+clock action marked `current-time` runs before inference for time questions only
+when it requires no parameters, after connection authorization and turn admission.
+Uncertain application effects stop the turn; recovery never silently retries them.
+The legacy database service delegates to the same loop through its transactional
+adapter over the existing conversation, message and request-claim rows.
+
+### Authorized attachments
+
+Upload storage, file access and retention belong to the application. Pass an
+`attachments` resolver to `createConversationRuntime()` and send opaque IDs:
+
+```js
+const runtime = createConversationRuntime({
+  storage, authorize, connections,
+  attachments: {
+    async resolve({ attachmentIds, context, conversationId, signal }) {
+      // Check access to each ID for this actor and conversation before reading.
+      const files = await uploads.readAuthorized({ attachmentIds, context, conversationId, signal });
+      return {
+        attachments: files.map(file => ({
+          attachmentId: file.id, fileName: file.name, size: file.bytes.length
+        })),
+        content: files.map(file => ({
+          type: "image", image: file.bytes, mediaType: file.mediaType
+        }))
+      };
+    }
+  }
+});
+await conversation.send({ messageId, text: "Describe this image", attachmentIds: [uploadId] });
+```
+
+The resolver returns receipts in the requested order and AI SDK content parts.
+All four engines accept extracted `{ type: "text", text }` and
+`{ type: "image", image: Uint8Array, mediaType }` parts. Supported image media
+types are PNG, JPEG, WebP and GIF; the selected model must also support image
+input. The API driver additionally accepts `{ type: "file", data: Uint8Array,
+mediaType, filename? }` when supported by its provider. Native drivers reject
+other binary files explicitly; extract their text or supported page images in
+the application's resolver. JSKIT does not fetch attachment URLs or open
+caller-supplied paths.
+
+The native Codex owner maps already authorized local image descriptors to native
+input internally. The host retains upload authorization, leases and storage;
+applications do not assemble a separate native image-input mapper. This does not
+change the common resolver's byte-content contract.
+
+A send accepts at most ten distinct IDs and may contain an empty `text` when it
+has attachments. The resolver must return one receipt per ID with `attachmentId`,
+`fileName` and nonnegative integer `size`; an optional `reference` labels it in
+the transcript. Extra receipt fields are discarded. Transcript and delivery
+receipts never store file bytes. Native engines may retain their own input in
+native history. Retain authorized uploads according to the application's policy.
+
+`limits.maxAttachmentBytes` defaults to 8 MiB for all file content used in a
+dispatch, including history. API history re-resolves saved files before each
+request. Conversation replacement re-resolves attachments included in its
+retained briefing; returning to native history supplies files in changed
+messages. Unavailable files or denied access fail before dispatch, rather than
+silently dropping content. Identical accepted retries return their saved receipt
+without rereading or resending files. Attachment capability is enabled only when
+the application supplies a resolver.
+
+### Application tools
+
+Pass the application's existing JSKIT action catalogue as `actions` to
+`createConversationRuntime()`. The common runtime uses `createServiceToolCatalog`
+for authorized discovery, input/output contracts and execution through the
+`automation` channel. It does not create another action registry or bypass action
+permissions. The conversation's `authorize` callback is checked again with
+`operation: "tool"` before executing a requested action. The action receives the
+turn's abort `signal` in its trusted execution context.
+
+Applications with narrower rules for particular turns may supply
+`toolPolicy({ actionId, kind, context })`, returning a boolean. For example, an
+application notification can allow only `kind === "query"`. This policy filters
+discovery and is checked again at execution, including calls using a previously
+loaded contract. It supplements action permissions; it cannot grant an action
+that the actor otherwise cannot use. The lower-level `createServiceToolCatalog`
+accepts the same callback as `isActionAvailable`.
+
+The API adapter sends these tool schemas using the selected provider's supported
+protocol and continues after receiving each result. It resolves the same
+authorized connection again before every inference. No reply-or-tool JSON
+envelope is required in application instructions. Codex carries calls through its
+native dynamic-tool protocol. Its search, contract and execute entry points stay
+fixed for the native thread while action availability and permissions are checked
+through the current catalogue. Claude uses the same fixed discovery tools through
+its SDK MCP control connection. JSKIT matches each request to its admitted native
+tool identity and arguments before shared execution. OpenCode's native plugin
+uses a private authenticated loopback connection owned by its adapter. Each call
+must match a native tool part in the currently admitted turn before shared
+execution. Neither path requires a separately configured tool service.
+
+Calls and results are committed in the accepted turn's
+`metadata.applicationTools`. A reservation is saved before execution, and a result
+is saved before inference continues. Repeated call IDs within that admitted turn
+return their recorded result; conflicting arguments are rejected. A later user
+or application turn owns separate call identities, even if the model reuses an
+ID. An interrupted reservation without a
+result or a server failure after execution stops the turn with an unknown-outcome
+error instead of executing again. Applications
+still own action-level idempotency and inspection of uncertain external effects.
+The runtime cannot infer whether two different call IDs mean the same mutation.
+
+Events with `type: "tool"` carry the call's `id`, `name`, `arguments`, `status` and,
+after completion, `result`. The saved result distinguishes action success from
+failure. If a result cannot be saved, `retrySave()` persists the retained result
+without rerunning the action. Cancellation waits for an already invoked action to
+settle; actions must honor their signal where cancellation is supported.
+
+`limits.maxToolCalls` defaults to 32 per turn, including repeat requests.
+`maxToolArgumentBytes` and `maxToolResultBytes` use the service catalogue's existing
+defaults (32 KiB and 48 KiB). These bounds also apply during streaming and before
+call reservation; discovery switches to bounded catalogue entry points using the
+existing `maxDirectTools` and `discoveryPageSize` settings.
+
+### Steering an active native turn
+
+Codex, Claude and OpenCode report `capabilities.steering: true`. Send a distinct
+message ID with `steer: true` while the conversation is working:
+
+```js
+await conversation.send({
+  messageId: newMessageId,
+  text: "Keep the existing layout and change only the colours.",
+  steer: true
+});
+```
+
+The runtime checks authorization with `operation: "steer"`, resolves any supplied
+`attachmentIds`, and records a separate application turn only after native
+admission. Earlier displayed output retains its identity. Application actions
+already in flight keep their original actor and saved result. A repeated accepted
+message returns its receipt without resending.
+
+Codex uses its active-turn steering operation. Claude interrupts the current
+generation, waits for the native interruption barrier, and sends the instruction
+through the same process. OpenCode admits the instruction in the same session
+and follows the new input through completion. No adapter recreates the native
+conversation to imitate steering.
+
+Steering an idle conversation fails; submit a normal message instead. A rejected
+instruction does not become an accepted history entry. A lost acknowledgement
+remains uncertain until `inspectDelivery()` finds native proof. `cancel()` stops
+the whole active run, including steering and pending native work. A configured
+request deadline applies to the whole run; steering does not extend it. API
+connections report steering as unsupported.
+
+### Native goals
+
+Codex and Claude expose `capabilities.goals`; only Codex exposes
+`capabilities.goalBudgets`. API and OpenCode conversations report goals as
+unsupported. These operations belong
+to the server runtime; an application calls them through its authorized transport.
+
+```js
+const state = await conversation.read();
+await conversation.updateGoal({
+  action: "set",
+  messageId: goalCommandId, // Required when goalCommands.set.delivery is "message".
+  expectedSegmentId: state.segmentId,
+  objective: "Implement and verify the requested change.",
+  tokenBudget: 40_000 // Optional; only when goalBudgets is supported.
+});
+
+const goal = await conversation.readGoal();
+await conversation.updateGoal({
+  action: "pause",
+  expectedSegmentId: (await conversation.read()).segmentId,
+  expectedGoalId: goal.id
+});
+```
+
+Commands whose `goalCommands[action].delivery` is `"message"` require a stable
+`messageId`. Resume, pause and cancel require the current `expectedGoalId` and
+`expectedSegmentId`, preventing controls from acting on another native
+conversation or goal.
+Commands are authorized with `operation: "goal"`; inspection uses `readGoal`.
+
+A host-bound native conversation can report `segmentId: null` before its first
+thread exists. Pass that explicit value from the latest read; do not invent an
+ID or omit the expected identity. The original native owner allows only the
+initial Set to prepare a thread from that state. Later controls use the actual
+thread and current goal identity. A stopped or replaced thread does not become
+an unstarted conversation; its existing recovery and replacement checks still
+apply. The supplied client binding preserves the value automatically.
+
+Claude uses its original native `/goal` commands through ordinary message
+admission. Set and resume require idle work; an unfinished goal must be cleared
+before another is set. Pause stops the current work while retaining the goal.
+Cancel proves the current work has stopped before sending `/goal clear`, so it
+also requires a stable `messageId`. Failed cleanup blocks clear and leaves cleanup
+retryable through `cancel()`. These commands accept neither attachments nor a token
+budget. After replacement or engine change, an ordinary Send must deliver the
+pending continuity briefing before a goal can start.
+
+Codex uses native goal controls and may attach a goal to ordinary active work.
+Starting another goal after completion requires the completed goal's ID. These
+controls accept neither attachments nor authored message receipts. They return
+the native goal state; clearing returns `null`. Codex pause/clear prevents future
+automatic continuations but does not interrupt an already running turn;
+`cancel()` stops that work.
+
+Claude Set, Resume and Clear return the same admission receipt as `send()`.
+Reusing an accepted command's `messageId` returns its receipt without executing
+it again. A lost acknowledgement stays uncertain until `inspectDelivery()` finds
+native proof. Codex controls use the existing native goal identity checks;
+refresh `readGoal()` after a failed control before choosing another action.
+Older Codex goal-message records remain inspection-only and require offline
+inspection; native goal state cannot prove an authored message receipt.
+
+Codex schedules its own continuations. The native turn owner preserves its
+transcript grouping and saved output. When an admitted request continues, JSKIT
+checks access again and retains that request's actor, tool budget and effect
+receipts. A goal control alone grants no application-tool authority. A terminal
+goal notification does not settle the run until its final native turn and
+persistence callbacks have finished. The configured request deadline covers the
+admitted request, including its continuations. `read()` includes the last observed
+`goal`; `readGoal()` queries native state without pausing or resuming it, including
+work started by another native client. Reopening does not resume unobserved goal
+work automatically.
+
+After restart, call `inspectDelivery({ messageId })` for an actual authored Send
+or steering message. Codex checks that exact native receipt and recovers output
+through the original native turn owner when the saved thread and run establish
+ownership. Saved cancellation, failure and application-tool receipts remain
+authoritative. An older binding without the original run record, or a run owned
+by a different request, reports a `recoveryLimitation` and preserves stored
+history. Inspection never sends the message again. Use `readGoal()` to inspect
+native goal controls; they have no authored message receipt to reconstruct.
+
+### Native coding tools
+
+The native drivers disable built-in tools by default. An application that intends
+to run coding agents can explicitly grant them in its server-side host:
+
+```js
+host: { workdir: applicationWorkdir, nativeTools: true }
+```
+
+`conversation.capabilities.nativeTools` reports this grant. Codex can execute
+commands and edit files; Claude enables its built-in command, file and notebook
+tools; OpenCode enables its command, file and task-list tools. The application
+still controls the execution account, working directory and environment. This
+grant uses that account's filesystem permissions and adds no OS sandbox. A
+multi-user host must supply its managed execution facility and appropriate
+isolation. User messages and model configuration cannot enable these tools.
+
+Ambient hooks, MCP integrations and skills remain disabled. Native subagents and
+interactive permission questions are not enabled by this grant. Application
+`actions` continue through the authorized, durable tool executor above. The API
+driver does not provide native coding tools.
+
+Hosts that require a session command wrapper can also supply its absolute
+executable path:
+
+```js
+host: {
+  workdir: applicationWorkdir,
+  nativeTools: true,
+  commandWrapper: sessionCommandExecutable
+}
+```
+
+The executable receives the original shell command as one argument and runs under
+the configured host identity and environment. It owns the application's command
+policy and execution. JSKIT owns the Codex hook, Claude SDK callback and OpenCode
+tool interception that deliver the command. It quotes both the executable and
+command without evaluating the command first. A missing or invalid wrapper is
+an error; there is no unwrapped fallback.
+
+Codex installs and trusts only this exact hook in its thread configuration; it
+does not write the shared CLI account configuration. Claude retains safe mode
+while registering the explicit SDK callback. Other ambient hooks stay disabled.
+The wrapper applies to shell commands, not native file-editing tools; the managed
+execution identity remains the filesystem boundary for those tools.
+
+### Supplied Claude integration
+
+Install Claude Code and log in with `claude auth login` under the application's
+server identity. The ordinary single-user host uses that account and owned POSIX
+process groups. It requires no Vibe64, Genesis or application-specific startup
+callbacks:
+
+```js
+const runtime = createConversationRuntime({
+  engine: "claude",
+  host: { workdir: applicationWorkdir },
+  storage: createFileConversationStorage({ directory: privateConversationDirectory }),
+  authorize: ({ context, conversationId, operation }) => canAccessConversation(context, conversationId, operation)
+});
+const conversation = await runtime.open({
+  id: applicationConversationId,
+  context: authenticatedContext,
+  configuration: { systemPrompt: "Answer concisely.", model: "haiku", effort: "low" }
+});
+await conversation.send({ messageId: applicationMessageId, text: "Hello" });
+await conversation.wait();
+await runtime.close();
+```
+
+The native identity, working directory and credential-home binding remain in
+server-side runtime metadata. Prompt changes replace the process while preserving
+native history; compatible model/effort changes use native controls. Account changes
+cannot silently continue the previous account's conversation. Application access
+is checked again after native preparation and before dispatch. Built-in tools are
+disabled unless the server grants `host.nativeTools`. Optional application `actions` use the shared
+executor and authorized attachments use the common resolver above. Steering uses
+the shared operation described above. Goals use the extracted native commands
+through the same admission and delivery path; see Native goals above.
+The application-tool transport was verified with Claude Code 2.1.287.
+
+Native login checks use the extracted production status reader. Concurrent reads
+share a query; public account details may be reused for 30 seconds while native
+credential-file metadata is unchanged. File changes invalidate the result,
+failed reads are retryable, and signed-out JSON is distinct from a failed query.
+On macOS, only concurrent reads are shared because native credentials may live
+in the keychain. JSKIT does not parse credential contents for this cache.
+The extracted native account guard prevents a different signed-in Claude account
+from resuming owned history. Authorized external-provider connections can rotate
+their API keys while retaining the native conversation; application authorization
+still decides which connection the caller may use.
+Compatible connection/key changes use the production flag-then-model control
+sequence on the existing process. Selected connection credentials and model
+overrides are installed after initialization, rather than in process arguments
+or its startup environment. Returning to the native connection clears those
+overrides and restores any explicit standalone host routing. Changed system
+instructions still require a confirmed stop and resume of the same native history.
+
+An authorized API connection can use the same `connections` resolver and
+`{ systemPrompt, integrationId, effort }` configuration as Codex. JSKIT configures
+the selected provider's endpoint, exact model, background models and compaction
+window. The native `[1m]` context flag is added where required; it does not rename
+the model. No native subscription login is required for this connection. Use
+`select()` with a complete configuration to change provider or return to the
+native account while retaining the Claude conversation. An explicit `model` must
+match the connection. The connection resolver authorizes the current key before
+dispatch; rotating an authorized external-provider key preserves the conversation.
+
+Advanced hosts may supply `host.execution` with `start`/`stop`, `host.env`,
+`host.commands.claude` and `host.limits`. The common execution request carries the
+executable, arguments, directory, environment, stream requirement and resource
+limits. The supplied local facility rejects unenforceable resource limits. It
+does not recover ownership of an unknown process after a hard application crash;
+that requires operator cleanup or a host with durable execution ownership. Clean
+runtime shutdown drains its owned processes and preserves native history for resume.
+
+Advanced execution hosts can use `createConversationProcessIdentity()` from
+`/server/conversation` for the extracted Linux process-group ownership checks.
+Supply the environment variable names carrying the runtime token and command
+hash. `capture()` records the leader's start time; `inspect()` checks the leader
+and marked descendant groups; `stop()` rechecks ownership before signalling and
+escalation. Ambiguous or unreadable ownership does not authorize signalling.
+The caller must validate its persisted metadata contract before requesting these
+operations and must retain managed-execution authority where one exists. This
+facility leaves native server sharing and conversation lifetime to their owners.
+
+### Supplied Codex integration
+
+Use the same operations, storage and authorization with `engine: "codex"` after
+installing Codex and running `codex login` as the server identity. Configuration
+takes `systemPrompt` and optional `model` and `effort`; omit the latter two to use
+the CLI defaults. `host.commands.codex` can select the executable. The host must
+support POSIX process ownership and private Unix sockets. Codex must support
+paginated thread history; the shared-driver check used Codex 0.160.0.
+
+The common driver uses the extracted `createCodexAppServerRuntime()` and
+`CodexAppServerAgentProvider`. Conversations own separate native threads and
+observer connections on a shared server per account/runtime scope. Stopping or
+closing one conversation leaves other consumers' work and shared server intact. The
+former process-per-conversation launcher has been removed.
+
+The existing owner preserves per-directory startup serialization, waiter
+revalidation, compatibility and liveness checks, verified retirement, helper
+preparation and startup/publication cleanup. Execution and credential facilities
+supply host policy; native threads remain independent.
+The extracted `runCodexAppServerProcess()` leader already owns startup catalogue
+preparation and the combined Codex/history-adapter lifetime. Its caller supplies
+the command, runtime directory, runtime token and offered model definitions;
+the shared runtime coordinates reuse and recovery around this leader.
+
+The existing native connection/thread owner has also moved into
+`CodexAppServerAgentProvider` under `/server/codex-provider`. It consumes that shared
+runtime with execution and credential-state facilities. Its native behavior includes
+helper token activation/refresh, bounded inventories, control recovery, goals,
+hook trust, exact command interruption and history export. The existing
+native consumer now supplies only its host policy and application callbacks. The common
+driver uses this backend. Ordinary applications use the common conversation API
+with its supplied execution and credential defaults.
+
+Changed instructions use the existing thread-control restoration and verification
+before sending new work; they do not replace the shared process. Ordinary turns
+preserve the instruction binding. Native compaction remains the engine's job.
+JSKIT owns the local history adapter used for model-provider changes. It keeps
+native history intact and translates only outgoing requests. For qualified
+DeepSeek and GLM models, an OpenAI encrypted compaction is supplemented with the
+exact readable records from its saved native boundary. Recovery is bounded and
+fails explicitly for unsupported or ambiguous history, including native Undo or
+fork records. It never silently truncates, retries inference or rewrites a rollout.
+
+For a supported external provider, supply the existing `connections` resolver and
+select `{ systemPrompt, integrationId, effort }`. For example, an integration
+configured as `deepseek/deepseek-flash` uses that exact model and its private
+credential. The driver supplies the native catalogue, Responses configuration and
+history route. No CLI OpenAI login is needed for that external connection. Use
+`select()` with a complete configuration when changing connection/provider; it
+retains the Codex thread. `configure()` patches the current configuration. An
+explicit `model` must agree with the authorized integration. Changing a provider's
+account requires restoring that account or opening a new conversation.
+
+The supplied host uses a stable private account/runtime directory, independent
+of the conversation's workdir. `host.runtimeDirectory` can select an absolute
+application-owned base directory. Runtime metadata, locks, the history adapter
+and the Unix socket belong to this shared scope. Closing one conversation retains
+the service while another conversation uses it. Closing the last consumer stops
+the service and preserves native history. Runtime retirement requires the existing
+execution or persisted native process-identity proof.
+
+The same owner coordinates provider acquisition, account invalidation and lost
+observation across consumers. Recovery first attempts to stop the affected native
+thread. If that cannot be confirmed, it records every affected consumer's admission
+barrier before stopping the shared service. A failed storage write does not leave
+native work running; failed stop or final persistence remains retryable. Recovery
+uses the recorded native owner after reopening and never replays the request.
+Applications using the common runtime do not supply Codex recovery callbacks.
+
+A custom Codex execution facility supplies `run()` for capture/detached requests
+and `stop()` with confirmed scope cleanup. The supplied local facility supports
+both. An existing managed native integration may supply `host.codex({ providerId })`
+with its prepared runtime, parameters, credential-state and execution facilities,
+configuration and native options. This is a host-policy seam for existing managed
+integrations; it supplies no alternative native process or protocol algorithm.
+The public editor uses it to retain its account/login owner, resource profiles,
+runtime packs and managed stop authority while its Main conversation uses the
+same common runtime and original native owner.
+
+Codex's native `turn/start` response is the admission receipt. A lost response
+keeps the request uncertain; `inspectDelivery({ messageId })` searches the latest
+20 native turns for its exact client message ID. If it cannot find proof, delivery
+remains uncertain and the runtime does not resend. The basic driver disables
+native tools unless the server grants `host.nativeTools`; hooks and ambient MCP integrations stay disabled through the shared policy
+used by isolated assistants. Application tools use the shared executor described
+above, as do authorized attachments, steering and the native goal operations
+described above.
+
+### Supplied OpenCode integration
+
+Install OpenCode 1.18.31 and use `engine: "opencode"` with the same `connections`
+resolver and `{ systemPrompt, integrationId }` configuration as the API driver.
+The selected integration supplies the authorized provider, model, context/output
+limits and API key. The native configuration includes that exact model definition,
+so OpenCode's own catalogue need not contain the same entry;
+there is no second account configuration. `host.commands.opencode` can select
+the installed executable. The supplied host requires POSIX process ownership.
+
+The host starts a shared authenticated loopback server on first use. Conversations
+on the same account and runtime directory acquire that owner and retain separate
+native session IDs. Its private
+credential home contains only the selected account; ordinary project plugins,
+configuration and external skills are disabled. Native history is kept under
+`host.stateDirectory`, defaulting to `.assistant/native/opencode` beneath the
+working directory, in the shared account directory's `opencode.db`. Keep this directory alongside application conversation storage
+across restarts. The private process directory is removed only after confirmed
+cleanup. The local host has the hard-crash ownership limitation described above.
+
+Instructions are installed through the native system transformation hook before
+each inference, including after automatic compaction. Updating instructions keeps
+the same process and native conversation without appending a user message. Each
+turn selects its configured native model and tool permissions independently of
+other conversations. A selected model must be available in that server's native
+catalogue; unavailable definitions fail before dispatch.
+A different account requires a new conversation or restoration of the original
+connection. Built-in tools require the server's `host.nativeTools` grant; optional
+application `actions` use the shared executor. Attachments and steering use the
+shared operations above. Native goals are not supported by this driver.
+
+With the registered execution guard, tool-free agents retain native tool definitions
+behind approval so included providers can accept the request. This does not grant
+file or command access: the plugin rejects every ungranted native call before
+execution, including child sessions, and fails closed if its binding is missing
+or unreadable. Without that registry, native tools remain denied. Application
+tools still require the current authorized catalog and shared executor.
+
+The native prompt response acknowledges admission. Lost acknowledgement remains
+uncertain; inspection searches the latest 100 native messages for the exact
+submitted ID and never resends. Event observation is established before dispatch;
+losing it uses the original native interrupt/idle check for that exact session.
+If session stopping cannot be confirmed, the shared owner stops that exact server
+and fails its affected peers. Closing an ordinary conversation releases its own
+binding; the final user releases the server. A saved process reference alone does
+not authorize an unopened conversation to stop the shared service.
+The shared native turn observer follows automatic compaction continuations and
+waits for a stable completed answer and native idle state, including after tool
+rounds. If a successful response contains only reasoning, it requests the missing
+final answer once within the same admitted application turn. A second empty
+response fails explicitly; the original request is not submitted again.
+Native event filtering excludes errors from older turns or another conversation.
+
+Managed applications that already own an OpenCode service can supply
+`host.opencode({ connection, context })`. It returns the existing shared `runtime`,
+absolute `runtimeDirectory`, `registryPath` and `databasePath`, the authorized
+`selected` connection identity, and lazy `prepareServer()` application preparation.
+The common driver passes that preparation to the same runtime's
+`startPreparedProcess`; native acquisition and startup stay inside the shared
+owner. The host retains execution policy, credential resolution and durable
+restart/stop proof. Ordinary apps use the supplied facility without writing one.
+Existing development bindings from the earlier private `history.db` implementation
+are rejected before inference; changing the stored path does not migrate native
+history. Their offline conversion remains unfinished.
+Managed consumers retain their application-specific error presentation.
+
+## Advanced host facilities
+
+Ordinary applications use the [five entrypoints](./assistant.md#the-ordinary-api)
+and the supplied runtime's engine defaults. The following modules support hosts
+that already own one of the facilities in this table. They share the runtime's
+native implementations; they are not separate conversation integration recipes.
+Keep authorization, credentials, storage and verified cleanup with their named
+owners. A custom host does not create another sender, monitor or receipt journal.
+
+| Core subpath | Existing host responsibility |
+| --- | --- |
+| `/server/codex-configuration` | Account configuration, offered-model policy and authorized Helper isolation. |
+| `/server/codex-process` | Managed execution, credential-home/runtime scope and native process-leader launch. |
+| `/server/codex-provider` | Compose the original provider owner with host account, execution and history-preservation facilities. |
+| `/server/codex-turn` | Compose the original run owner with the application's admitted transcript, checkpoint and publication effects. |
+| `/server/codex-events` | Project authorized native event identities and history facts into product status. |
+| `/server/claude-process` | Managed process launch and authorized account/model/usage inspection. |
+| `/server/claude-turn` | Compose the original retained conversation owner with application admission, persistence and result effects. |
+| `/server/claude-history` | Inventory and preserve authorized native history for explicit retirement. |
+| `/server/opencode-process` | Managed shared-service execution, account setup and native instruction/environment plugin configuration. |
+| `/server/opencode-turn` | Bounded renewal and authorized prompt/result projection for an existing native host. |
+| `/server/opencode-client` | Preserve and retire authorized native history through the existing shared client. |
+| `/shared/native-providers` | Native provider/model facts; the application still chooses its offerings and permissions. |
+
+The advanced storage, transcript, hook and process-identity helpers already
+exported by `/server/conversation` support an application's existing storage or
+execution boundary. They are not required beside `createConversationRuntime`
+and a supplied storage adapter. The sections below explain their contracts.
+No additional host aggregator or engine-specific entrypoint is needed for normal
+API, Codex, Claude or OpenCode conversations.
+
+### Testing entrypoints
+
+These entries require disposable fixtures and explicit cleanup. They never grant
+account access and are not an application startup path.
+
+| Core subpath | Fixture purpose |
+| --- | --- |
+| `/testing/conversation-storage` | Exercise a custom adapter's transcript, scope, atomicity and rollback contract. |
+| `/testing/native-codex` | Drive the original native protocol/history/catalogue probes against an isolated executable or endpoint. |
+| `/testing/native-opencode` | Drive the original loopback client against an isolated host fixture. |
+| `/server/native-history` | Retain the shared retirement-contract entry used by existing archive/deletion fixtures. Engine integrations use their engine-specific retirement operations. |
+
+### Existing scoped native hosts
+
+An application with an existing admitted scoped-operation owner can use the same
+created runtime's `runScopedTurn({ operations, scope, input, context,
+executionProfile })`. Supply that owner, whose existing methods are
+`createEphemeralConversation`, `startEphemeralConversationTurn`,
+`waitForEphemeralConversationTurn` and `stopEphemeralConversation`; each receives
+`(scope, input, context)`. The operations retain their current account, profile
+and access checks. Their native execution uses the same runtime instance. This
+is a server-only host facility with no HTTP or socket command.
+
+When an existing host must create a native identity before opening a retained
+handle, its admitted server operation can call
+`runtime.createNativeConversation({ id, context, input })`. Here `id` is the
+existing parent session or Helper scope, not a placeholder native identity. The
+runtime checks access with operation `create`, then calls only its configured
+`host.conversation({ id, context, input, operation: "create" })`. This host branch
+must return its prepared `{ sessionId: id, engine, native, input, context }` using
+the same native owner and authorized application configuration. It must not build
+a Main binding or open another conversation. The existing driver performs Create;
+the original native owner allocates and records the real identity. The application
+still owns profile validation, parent receipts and failed-creation cleanup.
+This advanced host operation has no HTTP, socket or client counterpart and accepts
+no caller-supplied engine, native descriptor or host override. Ordinary standalone
+applications keep using `open()` and their existing storage contract.
+
+The same advanced host can prepare native readiness before retaining a handle
+with `runtime.ensureNativeConversation({ id, context })`. Authorization uses
+operation `ensure`; only the configured host supplies the prepared
+`{ sessionId: id, engine, native, context }`. The existing driver and native owner
+perform readiness. This operation creates no placeholder identity or additional
+retained runtime handle. Closure during host preparation prevents acquisition.
+
+`runtime.inspectNativeTemporaryActivity({ id, context })` authorizes
+`inspectTemporaryActivity` and reads the selected owner's existing temporary-work
+inventory. Its configured host supplies `{ sessionId: id, engine, native, context }`.
+It opens no Main conversation and remains available during cleanup after runtime
+closure. Native restoration and activity exclusions are those of the same owner;
+there is no additional cache. This advanced server operation has no browser route
+or caller-supplied owner/engine override.
+
+An existing application's renewal transaction can invoke
+`runtime.generateNativeRenewalHandover({ id, context, input })` and
+`runtime.seedNativeRenewalHandover({ id, context, input })`. The runtime authorizes
+`generateRenewalHandover` or `seedRenewalHandover` and obtains
+`{ sessionId: id, engine, native, context, input }` only from its configured host.
+The driver uses the same native owner and application configuration/storage
+effects. Neither operation opens a retained handle or replaces the application's
+hidden-successor transaction. These advanced server operations have no browser
+transport and accept no caller-selected engine, native owner or host. Applications
+retain approved handover, private access, leases and ACK/commit policy.
+
+An application's already-authorized renewal cleanup can release its predecessor
+or successor evidence with
+`runtime.releaseNativeRenewalPredecessorProcessExitProof({ id, context, input })`
+and `runtime.releaseNativeRenewalSuccessorProcessExitProof({ id, context, input })`.
+These trusted server operations obtain matching `{ sessionId: id, engine, native,
+context, input }` synchronously from the configured host. They open no conversation,
+admit no inference and remain retryable after runtime closure. They have no browser
+endpoint and accept no caller-selected owner or engine. The host must preserve
+its existing renewal authorization before native cleanup.
+
+The same native owners preserve their original contracts: Codex validates
+application renewal authority before its lifecycle queue, then reads saved runtime
+facts inside that queue and releases persisted proof only after shared-peer checks;
+Claude closes through its existing entry/terminal cleanup; OpenCode predecessor
+cleanup awaits close before consuming proof, while successor cleanup only consumes
+proof. OpenCode retains its original distinction between a resolved failed close
+(which still consumes proof) and rejected close (which leaves proof retryable).
+Applications retain result projection and successful binding retirement.
+
+`runtime.disposeNative({ namespace, sessionId, context, options })` also supports
+cleanup when no ready retained handle exists. It authorizes operation `dispose`
+and requests `{ id: sessionId, context, input: options, operation: "dispose" }`
+from its configured host. The response must carry the matching `sessionId` and
+`namespace`, plus `engine`, `native`, `context` and `options`. The same driver
+performs native cleanup through the existing owner. A failed cleanup remains
+retryable, including after runtime closure; no Main record is opened. Ready
+retained handles keep their existing queue and retire only after native and
+awaited application completion succeed. An unready local handle retains its
+existing early-retirement fence before falling back to the configured owner.
+These server-only operations accept no caller-selected owner or engine and add
+no browser endpoints. Ordinary applications still use their conversation handle.
+
+Historical native records can predate an application's retained scope identity.
+An advanced host can clean up those exact records through
+`runtime.interruptNativeDetachedConversation({ id, context, input })` or
+`runtime.deleteNativeDetachedConversation({ id, context, input })`. Authorization
+uses `interruptDetachedConversation` or `deleteDetachedConversation`; the configured
+host returns `{ sessionId: id, engine, native, context, input }`. The same drivers
+invoke the original native control owners without constructing a scope, opening
+Main or acquiring a retained queue. Native identity, profile and shutdown checks
+remain with those owners. Cleanup still checks caller authority after runtime
+closure; the runtime does not add a new closed-state veto to an existing retry.
+
+Saved-history maintenance uses
+`runtime.listNativeConversationStorage({ id, context, binding })` and
+`runtime.retireNativeConversationHistory({ id, context, binding })`. These are
+trusted server storage operations: the host must already authorize the inventory
+or archive transaction, preserve its idle/writer exclusion rules and provide the
+retirement preservation effect. The configured host receives operations
+`listNativeConversationStorage` or `retireConversationHistory` and returns
+`{ sessionId: id, engine, native, context, binding }`. `engine` must match the
+same saved `binding.engineId`; current conversation selection is not consulted.
+The existing native owners enumerate, export and delete history. These calls add
+no inference authorization or runtime-closure rule to the original storage policy.
+All four operations are server-only, accept no caller-supplied native owner or
+host, and have no HTTP, socket or client route. Ordinary applications continue
+using their conversation handles.
+
+`runtime.closeNativeProject({ context, input })` is trusted server lifecycle
+cleanup, like `runtime.close()`. The application must already authorize the
+project operation; it does not use conversation authorization or expose a browser
+operation. The configured host receives `{ context, input, operation: "closeProject" }`
+and synchronously returns `{ engine, native, context, input }` with its existing
+native owner and application preparation. Codex, Claude and OpenCode support this
+advanced operation. It opens no conversation or retained handle and remains
+retryable after runtime closure, including when credentials have been revoked.
+
+`runtime.invalidateNativeRuntimes({ context, input })` uses the same trusted
+server boundary for account changes and shutdown. Its configured host receives
+operation `"invalidateRuntimes"` and supplies the existing native owner
+synchronously. The runtime returns the native operation directly: shutdown
+fences and synchronous errors are not deferred behind another await. The host
+retains account policy and result presentation; the native owner retains its
+original cleanup sequence and retryable failures. No conversation is opened,
+and failed cleanup can be retried after runtime closure. This is not a browser
+operation or a way to submit a caller-selected native owner.
+
+`runtime.reconcileNativeSessions({ context, sessions, options })` restores an
+application's saved session collection through those same configured native
+owners. The host synchronously supplies `{ engine, native, context, sessions,
+options }` for operation `"reconcileSessions"`. The application retains its
+session inventory, authorization and storage codecs. Codex retains its original
+concurrent recovery and prune coordination; OpenCode retains per-session failure
+results and continues; Claude retains sequential, fail-fast restoration.
+
+`runtime.unsubscribeNativeSessions({ context, sessions })` supplies startup
+subscription reset for Codex through operation `"unsubscribeSessions"` and a
+synchronous `{ engine, native, context, sessions }` descriptor. It does not select
+or stop every engine. These trusted server lifecycle calls open no conversation,
+create no admission receipt and replay no submission. They return the original
+owner operation directly, preserving its error and retry behavior. They are not
+browser operations; ordinary applications continue using conversation handles.
+
+The original coordinator creates a native conversation only when `input` has no
+`conversationId` or `threadId`. It awaits `context.onEvent` for the native thread
+before Start and for the native turn before waiting. Keep durable task ownership
+in those awaited host writes, rather than a presentation subscription. Abort
+stops the exact native turn and waits for the existing Stop proof; a Stop failure
+retains precedence over the earlier wait or abort error. Parent-write failures
+propagate to the application's existing cleanup owner.
+
+Repeated calls retain the supplied conversation ID and return the current native
+`threadId` and `turnId`. The coordinator creates no transcript, placeholder ID or
+receipt registry, and does not delete the conversation between responses. The
+optional `executionProfile` argument is an already-validated audit snapshot copied
+only into the final result; it grants no authority and does not alter early
+failure envelopes. The application retains native deletion, durable cleanup
+receipts and retry policy. Ordinary standalone conversations continue using
+`open`, `send`, `wait` and `cancel`.
+
+An existing bounded structured-response workflow can compose those same native
+turns with `runBoundedAssistantToolLoop` from `@jskit-ai/assistant-core/server`.
+Supply the application instructions as `prompt`, a final-only `outputSchema`,
+the existing `toolCatalog` and trusted `toolContext`, `signal`, and the response
+policy. The shared owner derives a closed final-or-tool schema from the catalogue,
+parses the reply, executes one selected action through `createConversationTools`,
+and constructs the next untrusted-result prompt. The application supplies no
+reply parser, action selector or next-prompt callback.
+
+`policy.maximumResponses` counts completed responses. The existing
+`complete(prompt, { timeoutMs, outputSchema })` facility runs one admitted native
+turn and returns its `{ ok, text }` result; the loop returns the parsed final value.
+`policy.timeoutMs` applies to each response, not the intervening application
+operation. An operation requested by the last allowed response still completes
+before `limitError` is thrown. There is no extra inference or recovery pass.
+`invalidResponseError` and `failureError` may supply application error defaults;
+provider failure messages/codes and thrown host errors retain their existing path.
+
+Catalogue descriptors are resolved before each response to construct its bounded
+schema, including a final response; no action executes for a final result. The
+shared owner creates call IDs and permits one application operation per response.
+This structured transport does not register native tools or grant new native
+permissions. Keep application access checks, schema validation and result bounds
+in the action definitions, and retain the existing scoped turn's native isolation.
+
+This bounded path explicitly uses transient call ownership: it serializes the
+operation and retains its result in memory for that response, without claiming
+durable replay or creating an authored turn. A host exception is rethrown as the
+same exception after safe result classification, ending the loop before another
+native response; it is never put in a tool result or context. Applications retain
+their existing parent cleanup receipt and restart policy. Canonical conversation
+tool execution still requires its authorization, durable reservation/result
+writer and event facilities.
+Use this bounded operation for a task with an existing completed-response budget,
+transient results and immediate failure policy. Ordinary conversations use the
+runtime's durable tool calls. Disabling built-in native tools alone is not a reason
+to select the bounded protocol: both paths can execute supplied application actions
+through the same catalogue and execution owner.
+
+### Native instruction lifecycle
+
+The created conversation runtime owns instruction installation and refresh.
+Ordinary applications supply their current system prompt and authorized host
+facilities through that runtime; they do not construct separate instruction
+adapters. Native history remains intact, and instructions do not become authored
+user messages. None of the native owners imports an application or a
+project-guidance compiler.
+
+| Native owner | Host supplies | Owner retains |
+| --- | --- | --- |
+| Claude turn | Current prompt/configuration and the existing process facility | Serialized preparation, compatible native settings updates, replacement against the same history and installation invalidation |
+| Codex provider | Current instructions and its existing execution/environment/history facilities | Developer instruction installation, per-thread control serialization and verified recovery |
+| OpenCode plugin | Registered conversation bindings and optional host prompt composition | Native/host transformer selection, instruction contributions and compaction/deletion invalidation |
+
+Claude's retained conversation owner owns instruction preparation and the
+ordered turn receiver. Managed hosts use `createClaudeConversationOwner` from
+`/server/claude-turn`; ordinary applications use the common runtime. Neither
+assembles a second turn receiver or supplies a parallel stop implementation.
+Its activity query restores saved entries through the existing storage/acquisition
+facilities before inspecting its own native state. Its history-idle query reads
+that same state; the host separately checks durable process receipts and actual
+terminal activity. No second activity cache or restoration loop is required.
+
+The owner serializes preparation with native controls and preserves the original
+control-interrupt followed by mandatory process drain. A failed drain stays an
+error. The host retains execution policy, durable cleanup and publication at
+their existing boundaries.
+
+Preparation uses the current system prompt, context identity, instruction mode,
+settings and model. Complete dedicated contexts replace native instructions;
+append mode retains native coding defaults. Compatible live updates install
+native flag settings before selecting a model. Failed controls retire the
+process; active incompatible updates are rejected without invalidating ordinary
+steering. Lost instruction installations are invalidated before new work.
+
+The same owner prepares instruction flags for an explicitly opened native
+terminal. The flags disable Claude's native system-prompt snapshot so resumed
+history receives the current prompt before compaction. A host launches the
+prepared terminal arguments unchanged and proves cleanup before replacement.
+
+Codex's existing provider distinguishes a socket reconnect, native process loss
+and a different native conversation. It serializes controls per thread,
+pauses/resumes an active goal only when still authorized, verifies the owned
+shell environment after reload and never retries the caller's operation.
+Changed instructions or an unknown installation update native configuration and
+add one explicit developer-context revision before new work. Acknowledged ordinary
+turns and socket reconnects do not repeat it. Compaction rebuilds context with the
+current configuration; restricted consumers retain their own execution environment.
+The same provider owner selects and replaces cached providers, constructs native
+connections, acquires the shared runtime and retries an unconfirmed observation
+stop before reconnecting. It retains the original command-control subscription and
+native project-hook trust refresh before resume. A host supplies authorized account,
+context, settings and managed execution preparation at their existing read points.
+The existing run owner coordinates native readiness and Send preparation as well.
+Managed readiness acquires its provider before entering the supplied startup gate;
+Send acquisition stays inside that gate. Hosts supply authorized configuration,
+identity storage and application health effects. Native preparation, observation,
+managed registration and abandoned-start recovery retain their original order.
+The same owner selects the first available managed provider matching the existing
+session, workdir and thread. It reads its existing shared provider maps; a host
+does not scan or duplicate that native inventory.
+Ordinary Send uses the same preparation with its tool settings and durable binding.
+The same native provider owner coordinates retained-thread release, drains its
+existing notification queue and selects cached, shared or persisted-runtime
+cleanup before classifying exit proof. The host supplies current identity values
+and configured managed execution; application admission, renewal policy and
+terminal/attachment cleanup remain outside that native release sequence.
+The same provider owner releases preserved process-exit proof only after its
+original shared-peer and persisted-runtime checks. It reuses the existing
+disk-locked stop and post-stop existence evidence; authorized lifecycle policy,
+metadata-to-host preparation and application result/error projection stay with
+the host.
+For supplied provider sessions, output preparation returns identity and lazy runtime
+options; the run owner performs acquisition through its existing provider selector.
+The provider owner also performs managed-thread registration, recovery scheduling
+and the before-resume observation guard using that same run owner. The host supplies
+the authorized current run record and its original execution context.
+For an advanced interactive terminal, the same run owner exposes full thread
+readiness and visible-terminal runtime attachment as separate native operations.
+The host keeps application admission and authorized PTY preparation between them:
+readiness precedes source/account checks, and runtime attachment follows the
+startup gate's current session/environment read. Both operations use the existing
+shared provider inventory; they do not create a second terminal-native owner.
+Interactive-terminal attachment grants also use this owner
+(`allowTerminalAttachments`): it selects the existing retained native session
+and issues the original grant before the host writes to the PTY. The host keeps
+attachment admission, Git policy and the PTY namespace.
+The same owner also retains native-target terminal attachment bookkeeping. It
+reuses the host's existing terminal snapshot before attaching, records the
+returned terminal ID on that target, and clears matching IDs after the host's
+existing PTY close resolves. The host supplies only its original read, close
+and namespace functions; a thrown close keeps the native attachment retryable.
+Project cleanup restores the same Helper records, closes the scoped native
+conversations and selects their providers through these existing owners.
+Conversation preparation also applies Helper restoration or ordinary-thread
+ledger exclusion before admission. Native activity and plan-usage queries read
+the same owned maps; hosts retain authorization and result presentation.
+
+`createOpenCodeConversationPlugin` from `/server/opencode-process` owns the native
+system hook and event invalidation. An existing host that composes its own
+instructions may supply `resolveHostInstructions(id)`, returning
+`{ conversation, instructions }`. `conversation` is the selected registry row's
+native conversation binding; `instructions` is the original host descriptor
+`{ identity, read, placement }` or `null` for an unowned prompt. Prompt composition
+and its errors remain host-owned.
+
+The plugin resolves the host selection first, then lets the selected native or
+host instruction owner resolve its current input again. Its native registry path
+remains the path captured at plugin creation; the host resolver retains its own
+lookup policy. The two existing caches stay separate, and events invalidate host
+then native state. Do not add application event/system-hook fanout around this
+plugin.
+
+Omit a host descriptor's `identity` to read current text before every inference.
+Supply one only when it covers every source of prompt content; unchanged identities
+share a pending or completed read. Changed identity, compaction or deletion forces
+a fresh read. Failed reads remain retryable, and an invalidated pending read cannot
+install stale text. `placement: "append"` preserves native defaults;
+`"replace"` supplies the complete system context. A conversation ID or project
+path alone is not a content revision.
+
+`createConversationHookBridge({ resolveConversation, readInstructions })` connects
+an existing native hook to the same ownership boundary. An absent binding returns
+`{ kind: "unclaimed" }`; `{ delivery: "native" }` returns
+`{ kind: "delivery", text: "" }`, yielding to the engine's native system field.
+`{ delivery: "hook" }` reads the complete current instructions on every invocation
+and returns `{ kind: "delivery", text }`. The host must propagate lookup and
+instruction failures. `readInstructions` is required only for hook delivery.
+Independent native IDs sharing a directory do not share
+ownership. Keep bindings through browser closure and resolve native ancestry
+through a trusted engine API before inheriting a parent's binding. The bridge
+owns no durable registry and never imports a project compiler.
+
+`createConversationSystemPrompt()` remains the low-level installation primitive
+for adapters and custom transports. `ensure({ systemPrompt, contextIdentity,
+install, retained })` acknowledges only successful installation, serializes updates
+and rejects invalidation during installation. `isCurrent()` checks the acknowledged
+binding; it is not a provider health check. `retained: false` supports protocols
+requiring a system field on every request without adding history entries.
+
+Instruction updates grant no permissions. Keep discovery bounded, authorize every
+tool execution against current application state, and preserve ordinary message
+text. These adapters do not own credentials, application tools, durable storage,
+process admission or UI. Native integration changes belong here; applications
+continue to own their content and resource facilities. Model caching, token
+accounting and the engine's own compaction remain native behavior.
+
 API-model apps can use `createAiConnectionClient` with an authorized AI integration resolver (see [Assistant](./assistant.md)), or `createAiClient` for existing environment-based configurations, and the tool-catalog helpers
 from `@jskit-ai/assistant-core/server`, or the complete assistant runtime.
-Native-agent hosts can import:
+Ordinary native conversations use `createConversationRuntime` and the supplied
+server/client integration described above. The native facilities below support
+hosts that already own managed execution, credential homes, authorized native
+history or archive preservation. Each host supplies those existing facilities
+while JSKIT retains the native protocol and lifecycle implementation. The common
+runtime supplies its own defaults, so ordinary applications need no engine-specific
+assembly. Native server entry points expose only the operations required by
+these hosts; implementation helpers remain private. Isolated host tests obtain
+the original Codex client, history-adapter, event and catalogue probes from
+`/testing/native-codex`, or the original OpenCode client from
+`/testing/native-opencode`. Tests own their executable or endpoint,
+authorization and cleanup; these entries do not supply another conversation
+runtime.
 
-- `CodexAppServerJsonRpcClient` from `/server/codex-client`;
-- notification classifiers from `/server/codex-events`;
-- `createCodexAppServerDetachedTurnWatcher` from `/server/codex-turn`;
-- `createOpenCodeServerClient` from `/server/opencode-client`.
+Claude's JSON control client is internal to the shared native implementation.
+Use the common runtime for conversations and the documented process host facility
+when supplying execution. Native admission, ordered events, bounded frames and
+control deadlines remain owned by JSKIT; applications do not assemble that
+protocol themselves.
+The ordinary Claude driver uses the same retained-entry owner for process launch,
+Send, steering, completion and verified Stop. Its binding storage and application
+tools retain their admission and cleanup order. Confirmed disposal retires only
+that entry; unconfirmed cleanup remains available for retry before reopening.
+The retained owner also handles process readiness, scoped Start, saved-execution
+recovery and verified native-history deletion. A managed host retains account
+and profile authorization and removes its saved receipt at the original point
+after native deletion succeeds.
+The owner classifies native goal and usage updates after raw observer forwarding,
+prepares native history/resume and terminal arguments, and stops selected entries
+from its existing live inventory. A managed host supplies authorized terminal
+configuration and performs its own PTY launch; account, storage and publication
+effects retain their original awaited positions.
+Managed Main and scoped conversations acquire this same owner through the common
+Claude driver; they do not supply native Send/read/wait/Stop operation dictionaries.
+The existing authorized acquisition and broad application cleanup facilities
+remain explicit. One shared command lifetime follows the actual admitted
+completion, preserving duplicate delivery, steering, cleanup retry and tool drains.
 
-These are real execution primitives, also consumed by applications with their
-own process and permission owners. They do not spawn an agent, select a user
-account, grant filesystem access or install tools.
+`/server/claude-turn` supplies the retained owner used by the common Claude
+driver and managed native bindings. Its internal turn receiver owns native
+acknowledgement, stream blocks, nested-event exclusion, background-task
+completion and the interruption barrier for steering. Normalized owner events
+let the host persist admissions and publish application state; receiver
+completion alone does not prove process exit. `claudeNativeMessageId()`
+retains the same stable native message IDs used by the Vibe64 adapter.
+The turn owner preserves the production receiver's block lifecycle: deltas are
+temporary, block-stop removes them, and completed snapshots use their native
+UUIDs. It does not group distinct history snapshots into a synthetic reply.
+The retained owner's `createAccountQueries({ accountIdentity, createProcess })`
+composes the existing native model/usage query owner with its own process inventory
+and closing state. A managed host supplies its authorized identity reader and
+account-process factory. The original query caches, pending-query sharing and
+retryable cleanup remain unchanged; account queries share already-owned processes
+and the same conversation shutdown boundary. Matching owned processes
+are reused; temporary query processes must prove cleanup. Failed stops remain
+owned and are retried before another native query. `invalidate()` drains pending
+queries, clears both caches and retries retained cleanup while new work is
+blocked. For managed bindings, the existing retained conversation owner also
+owns the original project and account cleanup sequence: it groups retained
+contexts, drains queries before full account cleanup and retains the synchronous
+closing fence. The host supplies current storage facts, authorized context,
+terminal cleanup and product error conversion. These trusted server lifecycle
+operations use the configured common runtime and are not browser actions.
+The account owner's usage normalization retains only native windows whose values and reset times
+are valid; it does not invent refreshed allowance. Product model offerings and
+account visibility remain application configuration. The same subpath supplies
+`claudeCatalogueModels(initialization)` for the original native model and effort
+projection, retaining native IDs, display-name fallbacks and effort labels.
+It performs no query and does not change the account owner's cached result;
+hosts still choose their offerings, defaults and visibility.
+
+The configured Claude owner also acquires retained entries itself. Application
+preparation supplies authorized context, original open options and fixed product
+postconditions; native open and saved-entry restoration stay in the same owner.
+Account binding, verified Stop and identity persistence run between the original
+application configuration guards and settings preparation. The owner applies its
+native closing checks after the application's replacement and PTY guards; an
+optional application session-closing fact remains lazy. Passive retained-turn
+projection reads the same entry and saved receipt without opening a native session.
+Credential selection, storage and actual terminal access remain host facilities.
+The same owner reads its closing state and retained turn snapshot; application
+preparation supplies the current authorized session-closing fact, saved receipt
+and PTY state at the original read points. Configured history retirement applies
+its native busy check before the existing history-preservation operation, while
+the application retains saved execution and terminal writer facts.
+
+The retained owner handles the extracted native goal commands and status
+interpretation using its history, activity, interrupt and ordinary Send operations. Pause interrupts the
+work and retains the goal; Cancel interrupts and sends `/goal clear`. Revision
+checks use the native conversation, creation time and objective. This native
+facility is shared by managed native bindings and the common runtime. The runtime
+supplies its existing serialized stop and Send operations, so clearing a goal
+cannot bypass admission, authorization, delivery inspection or cleanup proof.
+
+`/server/claude-history` supplies `readClaudeHistory`; native identity validation
+and message-block mapping stay inside the owner. Pass an authorized
+`configRoot`, `workdir` and native `conversationId` to the reader; these
+operations do not authorize an account or conversation.
+Reads preserve the selected rewind branch and tolerate only an unfinished final
+line in a growing transcript. `listClaudeConversationStorage` enumerates the
+specified binding's native conversations. Export and deletion policy remain with
+the host application. After confirming its temporary conversation has stopped,
+the retained owner removes that conversation's active native transcript.
+The host removes its ownership receipt only after the awaited operation succeeds.
+The owner's internal deletion retains the original missing-file behavior and
+propagates lookup and removal failures; native path lookup stays private. It does
+not perform archival preservation or remove other native history files.
+`retireClaudeConversationHistory({ configRoot, binding, beforeDelete, requireIdle,
+signal })` provides the extracted native inventory, branch export and safe removal.
+The host supplies authorization, preservation and writer exclusion; `requireIdle`
+must reject any active writer. It works with archived source directories and
+leaves shared settings and unrelated native conversations intact.
+
+Hosts with an existing execution gateway or credential-home policy use
+`/server/claude-process` for
+`createClaudeCodeProcess`, `claudeCodeArguments`, `claudeFlagSettings` and
+`claudeModelConfiguration`. `claudeFlagSettings({ effort, providerEnv, commandHook })`
+assembles the extracted native settings. A managed host supplies an authorized
+`commandHook: { command, timeout }`; JSKIT formats the native command-tool hook.
+Advanced hosts can still supply explicit `hooks` when no `commandHook` is selected.
+Install these settings before selecting the model through the existing
+native turn owner's instruction lifecycle.
+`verifyClaudeProviderKey(provider, apiKey, fetchImpl)` on the same subpath
+performs the original single Messages compatibility request for an authorized
+external provider's `claudeBaseUrl` and first model ID. It uses the supplied
+fetch operation and preserves the 30-second deadline, redirect rejection,
+64-token output bound, failure-body cancellation and exact Messages validation.
+It returns no upstream body or credential and does not save keys. The host keeps
+selected/optional engine-check order, account authorization and key replacement
+policy. Both compatibility probes retain their sanitized connection errors;
+neither operation is a conversation or an account store.
+`readClaudeCodeAuthStatus` uses a supplied capture runner for native account
+inspection. Hosts select the executable and credential home and retain their
+execution policy; the reader returns only public account fields. The ordinary
+runtime supplies this integration automatically.
+The retained owner stops its native process or recovers its durable execution
+identity through the supplied host. Its internal stop operation preserves the
+original stop-proof contract and throws `claude_stop_unconfirmed` when cleanup
+cannot be confirmed. Process and execution identity remain owned until cleanup
+succeeds; application persistence and run-state publication happen afterwards.
+`bindClaudeConversationAccount` applies the same native-account guard to an
+existing binding, with the owner's stop and persistence operations. Existing
+managed integrations retain their binding storage and credential resolution.
+The configuration helper accepts `{ providerId, model }` and the authorized
+connection's `{ apiKey, baseUrl }`, returning native model flags and environment.
+Applications choose permitted connections; JSKIT owns the provider rules.
+The retained turn owner's existing `prepareTerminal` result also carries the
+native updater-disable setting in its `env`, after the authorized terminal
+environment. Hosts keep managed PTY launch, credential policy and their earlier
+environment layers; they do not reconstruct that native setting themselves.
+Its same conversation owner performs `stopForTerminal`: native active-turn and
+closing checks, the existing authorized account binding, then verified Stop.
+The host supplies its application closing fact and retains subsequent Git,
+environment and managed PTY preparation.
+Startup uses an execution
+facility with `start({ command, args, cwd, env, stream })` and `stop(id)`;
+`start` returns `{ id, stdin, stdout }` for duplex protocols, and a successful
+stop must return `{ scopeEmpty: true }`. Engine flags, environment normalization
+and the JSON initialization handshake stay inside JSKIT.
+
+Without a replacement execution facility, Claude startup uses the supplied local
+POSIX process-group implementation. This is a trusted single-user host, not a
+sandbox or resource limiter. It does not grant a permission bypass by default.
+The native executable and its account login must already exist. Call `stop()`
+and await its proof on shutdown; closing the protocol stream alone does not
+prove that native work stopped. Failed cleanup remains an error or an unconfirmed
+proof, and the owning application must retain its stop handle. Managed applications
+such as Vibe64 replace execution to enforce identity, resources and scope cleanup.
+
+For native history retirement, `nativeConversationStoragePolicy(engineId)` from
+`/server/conversation` describes the engine's writer requirements. Codex's native
+deletion transaction owns writer locking. Claude and OpenCode require host writer
+exclusion; their policy supplies `matchesProcess({ executable, commandLine })`,
+where `commandLine` contains NUL-separated arguments. OpenCode permits a managed
+server exception only after the host independently verifies that server's identity.
+The host still authorizes retirement, inventories processes, verifies ownership
+and holds its exclusion lock until the operation finishes. Matching a command
+name alone never establishes a managed identity.
+`retireNativeConversation` from `/server/native-history` owns the shared retirement
+sequence used by all three native integrations. Its existing `beforeDelete`
+contract requires `{ preserved: true, exclusive: true }` after exporting every
+inspected conversation. It rechecks exact export revisions and inventory before
+removal, then verifies absence. A failed proof, changed history or unconfirmed
+deletion remains an error; application retention and archive publication stay
+outside this operation.
+
+`retireCodexConversationHistory(provider, binding, { toolHomeSource, beforeDelete,
+signal, errorPrefix })` from `/server/codex-provider` composes that sequence for
+an already authorized Codex provider. It checks the complete idle family, exact
+saved directory, paginated history and safe native rollout files before exporting
+and deleting. The host supplies its authorized native home and preservation
+callback; it still owns provider acquisition, archive publication and retirement
+policy.
 
 ### Live native-provider text
 
@@ -520,14 +2610,16 @@ call `update(scope, { turnId, messageId, role, delta })` for incremental text or
 `update(scope, { turnId, messageId, text })` for a provider snapshot. Deltas retain
 all whitespace; snapshots replace text. A changed update returns
 `{ revision, messages }`; an unchanged snapshot or a completed item returns `null`.
-Messages carry `status: "inProgress"`. Supply the same message ID to live output
-and its eventual durable writer.
+Messages carry `status: "inProgress"`. Preserve the provider's message IDs. If
+the provider proves that different live and saved IDs represent one output,
+carry that same `outputId` in both representations to retain stable output
+identity. It does not replace either message ID or an admission receipt.
 
-The Codex classifier exposes `assistant_started` (including assistant/commentary
-role) and `assistant_delta` (including raw `delta`). Start the stream item before
-its deltas to retain its role. `openCodeAssistantMessageText(message)` from
-`/server/opencode-client` reads text from the client's normalized message rows,
-preserving whitespace at the partial-text boundary.
+The Codex run owner interprets `assistant_started` (including assistant/commentary
+role) and `assistant_delta` (including raw `delta`), starting each stream item before
+its deltas to retain its role. OpenCode's shared runtime reads text from its
+normalized native message rows, preserving whitespace at the partial-text
+boundary; applications do not parse those rows for live output.
 
 Send snapshots over the application's existing transport and include `read(scope)`
 in its authorized history read for reconnects. On the client,
@@ -536,16 +2628,18 @@ overlays live messages without mutating saved turns. Saved message IDs win over
 matching live messages. Consumers such as final-answer speech and answer actions
 must wait until the message no longer has `status: "inProgress"`.
 
-After successfully saving an item, call `complete(scope, messageId)` and publish
-the returned snapshot with the saved turn. Completed items reject late chunks
-until the next native turn. Call `clear(scope)` when work stops or the scope is
+After successfully saving an item, call `complete(scope, messageId)` with the
+live item's message ID and publish the returned snapshot with the saved turn.
+Completed items reject late chunks until the next native turn. Call `clear(scope)`
+when work stops or the scope is
 retired. Applications must reject stale provider events before updating a stream;
 the buffer does not authorize events or determine which native turn is current.
 The buffer survives browser reconnects while its server process remains alive.
 Provider history and application persistence remain responsible for process-restart
 recovery; partial text is never persisted as a completed answer by this API.
 
-The Codex client takes `{ endpoint, maxMessageBytes, requestTimeoutMs,
+For isolated host tests, the original Codex client in `/testing/native-codex`
+takes `{ endpoint, maxMessageBytes, requestTimeoutMs,
 WebSocketImpl }`. It connects to a WebSocket or `unix://` endpoint, then
 `initialize({ clientInfo, capabilities })` performs the native handshake.
 `request(method, params, { signal })`, `subscribe(callback)`,
@@ -555,19 +2649,215 @@ Set transport limits appropriate to the host; the default payload limit is
 unbounded. A request abort retires the local request; interrupt a running native
 turn with `turn/interrupt` when cancellation must stop provider work.
 
-The detached watcher takes `(provider, threadId, { includeThreadHistory,
-onEvent, timeoutMs })`. `provider.subscribe` delivers native notifications;
-`provider.readThread` supplies authoritative history when enabled. Call `wait()`
-**before** starting the turn, then `setTurnId()` when startup acknowledges it.
-This preserves completion/failure notifications that arrive before the start
-response. `completeNow`, `failNow`, and `failAfterDetailGrace` handle authoritative
-startup statuses. `onEvent` is a synchronous, nonthrowing observer; enqueue
-asynchronous persistence in the application. The completion result contains
-`{ status, text, threadId, turnId, usage }`. A zero timeout requires provider
-`isAvailable()` and `currentConnectionGeneration()` for connection-loss checks.
-Always await or handle the wait promise and retire it on startup failure.
+Managed Codex hosts use `createCodexAppServerRunOwner` from
+`/server/codex-turn`. It constructs the native notification queue from the
+supplied request-context and logging facilities and its own shutdown fence.
+The same original owner coordinates receipts, observation, goals, steering, interruption,
+scoped turns and private renewal execution against the supplied application
+store and publication policy. Detached waiting and run-transition helpers stay
+inside that owner; hosts do not compose another observer or delivery journal.
 
-The OpenCode client accepts a loopback HTTP `baseUrl`, `directory`, credentials,
+This advanced constructor adapts an existing managed host's retained run store
+and application effects. Ordinary applications use `createConversationRuntime`
+with their chosen conversation storage; they do not configure the following
+run-owner facilities themselves.
+
+| Existing run-owner input | Host supplies | Shared owner retains |
+| --- | --- | --- |
+| `createRuntime`, `createStore`, `namespace`, `normalizeRunState`, `deliveryStateMetadataKey` | Existing store access, identity and persisted-schema adapters; bounded reads stay separate from full runtime hydration | Native run transitions, receipt ordering and recovery |
+| `providerSessions` | The shared provider `owner`, authorized `context`, `keyFields` and `connectionPolicy` | Managed registrations, provider acquisition, reuse, native identity checks and shared recovery; application closure/current-record fences surround the original native connection checks |
+| `conversationPreparation.context` and `.scope` | Authorized session or scope, workdir, account/profile policy and settings | Native acquisition and isolation verification |
+| `conversationPreparation.execution` and `.control` | Validated input/output limits, application admission, settings and result projection | Turn dispatch, stable-account checks, current-turn guards, stop and completion state |
+| `conversationPreparation.response`, `.expired`, `.failure` | Existing product result/error contracts | Native outcome and cleanup evidence |
+| `messageMetadata`, `checkpoint`, `publish`, notices | Authenticated authorship, application metadata, checkpoints and publication | When each original effect runs relative to native delivery and completion |
+| `serverClosingError` | Existing application error message, code and retryable value | The managed lifecycle shutdown assertion and its invocation points; error construction occurs only after the native closing fence |
+| `captureContext`, `runInContext`, `debugLog`, `debugError` | Request-context isolation and application logging | Notification queue, shutdown fence and recovery coordination |
+
+Managed observation supplies the provider key and application error presentation;
+the run owner chooses retirement through its existing provider lifecycle. A
+presenter can read the current managed record without allocating another map.
+The ordinary driver's existing native close path remains internal to JSKIT.
+
+`conversationPreparation.admissionError` reports application admission policy.
+Supply the already-configured shared isolation owner once as
+`conversationPreparation.isolation`; the run owner uses that same instance for
+compatibility checks and scoped create/resume/turn execution. The execution
+projection does not return another isolation reference. These preparation
+functions supply policy and application effects, not alternate native algorithms. The optional `helperThreads` ledger is described below and
+is not required for ordinary conversations or stable-account checks.
+
+For a bound Codex conversation, the application's existing `prepareInput`
+projects its final authorized actor into `actorContext`. The driver passes that
+same value to receipt attribution and turn preparation; it does not interpret
+application-specific user fields. Derive this value from the authenticated
+application context, not a browser-supplied identity.
+
+Its `checkManagedConnection` and `restoreLoadedThread` operations also own
+native status/control checks, loaded-thread pagination, observation before resume
+and exact run reconciliation. The existing host supplies current-session
+admission and closure checks, lazy resume settings, managed registration and
+ready-state persistence at their original sequence points. The same run owner
+selects the active provider for Stop and the retained failed-observation owner.
+Observation recovery acquires its shared provider directly without taking an
+active-turn shortcut. Its original reconciliation map and prune waiter retain
+the full loaded-thread attempt and readiness fallback, including application
+health/error handling and result projection. The host wraps that same native
+readiness operation with authorization and persistence; it does not dispatch a
+separate native fallback. The same run owner's private lifecycle facet owns
+the original wellbeing timers, closing fence, generation, session-closure and
+reconciliation-task collections. Shutdown retains its cached two-sweep operation:
+start invalidation before draining existing work, preserve original error
+priority, then complete the second sweep. The host supplies project inventory,
+authorized preparation and result policy. Its private reconciliation facet owns
+the original batch restoration, concurrent Helper inventory, stale-generation
+pruning and startup unsubscribe/retirement. It uses that same task/generation
+state. Session and receipt reads, source-write leases and result presentation
+remain supplied by the host; no second native recovery loop is created.
+The run owner's `outputProvider` keeps active-provider reuse ahead of lazy host
+configuration. Its `runtimeForVisibleTerminal` retains the existing authorized
+provider choice, persisted project hook trust and tracked runtime acquisition;
+the host still prepares and launches its terminal. These paths intentionally
+retain their distinct configuration timing.
+The existing goal owner also selects first-goal readiness before native acquisition;
+later goal controls retain their authorized pinned command context. The host
+supplies readiness health/storage policy and the stored-goal/result projection.
+The provider-selection facet restores Helper ownership before model discovery or
+account description, retaining supplied-provider reuse, lifecycle gating and the
+original per-connection catalog cache. Authorized scope/account preparation,
+deadlines and result policy remain with the host.
+Legacy detached host operations use that same owner's `acquireDetachedThread`,
+`detachedThreadId` and `dispatchDetachedTurn`. The ID projection accepts the
+original native response shapes and requested-thread fallback after either
+ordinary acquisition or retained Helper preparation. Applications retain
+account/profile policy, bounds and result policy around those operations. The run owner's optional
+`helperThreads` facility owns durable native-thread identity, mutation/start and
+cleanup coordination, provider retirement, queued restart restoration and
+isolated Helper inventory. Restoration revalidates the same ledger revision and
+native identity before attachment; failed retirement retains retryable records.
+A managed host supplies its
+codec-bound ledger owner and retains its authorized storage root and selection
+policy; it does not implement another ledger or retirement algorithm.
+The ledger owner supplies `matchesExecutionProfile(recorded, expected)` using its
+canonical profile snapshot. A host can retain its existing shorthand-profile
+policy through that named method. Native control checks ownership,
+lifecycle, provider, workdir and turn identity before invoking that policy.
+The host retains admission/frozen-state projection. Native conversation commands
+call the same Helper owner directly for thread lookup and retirement, without a
+host inspection callback. A returned retirement promise retains the original
+admission-release order; native dispatch remains awaited.
+It also rejects ordinary access to a retained Helper thread and aggregates
+restoration failures without changing their retryability. The host decides when
+successful restoration is required and supplies its authorized storage root.
+Stable-account capture and completion validation also belong to the shared run
+owner, independently of the optional retained Helper ledger. They preserve the
+account check after native resume, and the exact current-turn guard before
+completion changes state. Hosts supply profile/output policy and synchronous
+application result projection; they do not mutate native completion state.
+
+Internally the retained run owner composes its original journal, message and
+conversation commands, delivery, output, reasoning, notification observation,
+readiness, result settlement, recovery and control operations. Each responsibility
+retains its original collections; dependent operations receive those same owner
+instances. The shared prompt-delivery marker remains in the coordinator because
+both recovery and message admission use it. No second observer, provider,
+transcript or dispatch implementation is introduced. Existing host imports remain
+unchanged. Progress length, finalization grace, snapshot-recovery bounds and
+native outcome names remain private native defaults, rather than host tuning
+options.
+`codexContextUsageFromNotification` from the existing `/server/codex-events`
+host facility interprets native token-usage updates and validates their counts
+and context window. Applications retain current-conversation checks, storage
+and renewal presentation around the returned usage facts.
+
+`createCodexHelperThreadLedgerOwner({ executionProfile, snapshotExecutionProfile,
+errorPrefix })` from `/server/codex-turn` binds the host's strict persisted-profile
+codec. The optional snapshot codec defaults to that codec; use the existing
+normalizer when accepted inputs need normalization before strict persistence.
+The returned `createCodexHelperThreadLedger({ projectRuntimeRoot })` retains the
+original versioned record shape, immutable native identity, revision comparisons,
+atomic writes, file locks and retryable cleanup. Moving this owner does not
+migrate or reinterpret existing records. It uses the shared kernel's
+`tryAcquireExclusiveFileLock` from `/server/support`; `errorCode` retains a host's
+existing failure contract where required. These are advanced host facilities;
+ordinary persistent conversations use the supplied runtime and storage.
+For that advanced integration, `/server/codex-turn` also exposes
+`sendPreparedCodexAppServerHelperTurn(provider, prepared, helperIsolation)`.
+The host first validates its policy and supplies `prepared` with `threadId`,
+`input`, `executionProfile` and `turnSettings(cwd)`. The shared operation obtains
+the existing isolation facility's execution context, sends the native turn and
+returns the frozen `{ executionProfile, input, turn }` result. Scoped runtime
+work uses the same native statement. Ordinary applications use the conversation
+runtime and do not need this host facility.
+The same run owner recovers an abandoned starting claim before native turn
+selection: it retains the original 15-second grace, requires both native IDs to
+be absent and checks that no prompt delivery is active. Managed hosts may supply
+`admissionTaskFinished(session, run)` for their existing task-completion policy;
+they do not supply the claim classifier or its failed-run persistence sequence.
+`/server/codex-events` retains only the event identities, thread-history
+projections and context-refresh facts used by existing host policy. The native
+renewal owner resumes the exact predecessor or creates/adopts the successor,
+then inspects its snapshot for the original operation, missing turns, unreadable
+predecessor history or unrelated successor history. The host supplies lazy
+settings and authorized identity/receipt storage, retaining renewal approval,
+metadata names, user-facing errors and retry policy. Hidden successor preparation
+does not open or publish an ordinary Main conversation. The snapshot classifier
+is now internal to that native owner.
+
+`/server/codex-provider` supplies the original provider, shared acquisition and
+thread-selection operations. Its existing provider owner also selects cached or
+uncached verified shutdown. `stopProvider` uses the supplied host `stopRuntime`
+facility when no retained provider exists; `stopThreadBeforeRelease` preserves
+the original shared-peer check before allowing process shutdown as the fallback
+for an unconfirmed thread stop. The host retains its application cleanup and
+must still obtain the existing exit proof. `/server/codex-process` supplies the shared runtime
+and process-leader operations for an existing execution host.
+`/server/codex-configuration` supplies model/account configuration and the
+verified Helper isolation facility. Its `codexCatalogRows` reads the original
+array or native `data` response without copying its rows; an optional lazy error
+factory preserves a managed host's existing failure type. `codexCatalogModels`
+and `codexCatalogReasoningEfforts` retain native IDs, display-name fallbacks and
+reasoning-option order. Hosts choose offerings, defaults, connection visibility
+and product labels; they may use the original row fields `model`, `hidden`,
+`isDefault` and `defaultReasoningEffort` for that policy.
+`codexProviderFileConfiguration(provider, key, codexHome)` formats the original
+private `config.toml` text from the host's authorized provider record and key.
+The record supplies `id`, `label`, `baseUrl`, `webSearch` and the selected first
+model's `id` and `defaultThinking`; the native catalogue path remains
+`<codexHome>/models.json`. The formatter does not read or write credentials.
+`verifyCodexProviderKey(provider, apiKey, fetchImpl = fetch)` performs the original
+single Responses compatibility request using that first model. It retains the
+30-second deadline, redirect rejection, 64-token output bound, failure-body
+cancellation and exact successful-response validation. It returns no provider
+response or credential. Hosts authorize the provider record and key before
+verification and preserve their existing connection until verification and
+required runtime invalidation succeed; they own private file writes and account
+publication. The formatter's returned text contains the key and must stay in
+private server storage.
+`codexConfiguredModelCatalog` formats a host-selected model and effort without
+querying a provider. The host decides whether to include that configured row. Its ordinary thread/turn formatters and
+`codexInteractiveArguments` serialize native request and CLI shapes from the
+host's authorized settings; they do not choose sandbox, approval or managed
+execution policy. A host that already provides the execution sandbox can select
+`externalSandbox: true` in `codexAppServerTurnSettings`; the codec supplies the
+native external-sandbox/network fields. The default grants no such policy.
+The isolation owner's `threadStartSettings(settings, threadSource)` only adds
+native start metadata, so retained conversations can reuse it with their own
+source label without applying Helper policy.
+`normalizeCodexThreadId` retains the native UUID grammar used
+for interactive resume and saved native identities. A host that has selected a
+restricted, read-only scope can apply `codexAppServerReadOnlyThreadSettings`
+to its prepared thread settings: it overlays the original empty native facility
+lists and read-only sandbox. The host retains selection and preparation of the
+tool-free configuration; this formatter does not replace isolation verification.
+Ordinary conversations use the common runtime; Helper isolation is not a
+substitute policy for a retained conversation.
+The same isolation owner formats authorized Helper start, resume and turn
+settings after profile validation. It preserves the verified configuration object
+and the distinct start/resume field sets; hosts retain their permission and
+output-bound policy.
+
+For isolated host tests, `createOpenCodeServerClient` from
+`/testing/native-opencode` accepts a loopback HTTP `baseUrl`, `directory`, credentials,
 and optional `fetchImpl`. It exposes native sessions, prompt, interruption,
 messages, status, events, model/agent catalogues and account operations. Response
 and event reads are bounded. `allowAttachmentDirectories` defaults to false;
@@ -575,11 +2865,253 @@ enabling it grants the native conversation access to parent directories of
 supplied attachments. Only the host can make that permission decision after
 resolving and authorizing each file descriptor.
 
+Its `readConversationStorage`, `readConversationStoragePage`,
+`listConversationChildren` and `listConversationsForDirectory` operations read
+native persisted records without initializing a live project directory. Inventories
+reject incomplete results; page reads preserve the native continuation cursor and
+support cancellation. `allowConversationAttachments` updates only that native
+conversation's retained file permissions. These operations do not authorize the
+caller or implement retention policy.
+
+`/server/opencode-client` supplies
+`retireOpenCodeConversationHistory(storageClient, controlClient, binding,
+{ beforeDelete, signal })`. A managed host supplies its authorized shared storage
+client, control client scoped to the exact saved directory, saved binding and
+durable preservation callback. The operation owns native family inspection,
+bounded export and deletion through the existing preserve/recheck/remove/verify
+sequence. Its private inspection rejects busy or foreign-directory children;
+export retains native records and text projections, checks message and cursor
+identity, and bounds pages, duration and output. Incomplete exports never
+authorize deletion. Process acquisition, access policy and archive persistence
+remain with the host.
+
+`/server/opencode-turn` also owns `runOpenCodeConversationTurn` for an approved,
+bounded native request. It first checks the exact input's history, dispatches
+only when that result is absent, and rechecks admission if waiting fails. Hosts
+supply the authorized native input/model/agent, deadline and optional diagnostic
+or error-construction hooks. It does not choose renewal policy or create another
+conversation store.
+
+An existing renewal host may pass a fourth argument containing
+`{ expectedThreadId, forbiddenThreadId, requireFreshHistory, completeResult, close }`.
+The owner checks native identity and optional bounded freshness before reading a
+lazily supplied `input.prompt`, then keeps its separate receipt-history read.
+For seeding, `completeResult(result)` awaits the host's acknowledgement validation
+and durable metadata; only success invokes its original `close()` facility.
+Native failure or failed result projection does not add automatic cleanup.
+The result includes the original freshness fact and exit proof. Prompt grammar,
+authorization and private successor storage stay with the host. Ordinary chats
+use the common runtime's existing operations.
+
+`/server/opencode-turn` exposes `openCodeRowsForInput` for the existing host's
+presentation of authorized native history. Its `openCodeMessageError(message)`
+extracts the original native error text; a host can apply its application-specific
+diagnostics afterward without decoding another native error envelope.
+Managed turn control and completion stay in `createOpenCodeSharedRuntime`;
+the host supplies its existing `readError(message)` diagnostic projection to that
+owner. Native history interpretation and observation loss remain internal.
+The same owner answers temporary activity from its original conversation map,
+excluding cosmetic reasoning-summary work. The host validates its session ID and
+keeps application preparation gates; it does not scan native entries itself.
+The shared runtime's internal observer retains production readiness, failure
+propagation and awaited closure; waiting for readiness preserves native event
+order. Its internal admission inspection uses the bounded native user-message lookup: a missing or unreadable receipt is
+unknown, never permission to resend. The shared runtime owns admitted-turn
+steering and the original one-attempt missing-answer recovery. Its existing
+monitor projection preserves completed reasoning before recovery advances the
+native input boundary. Applications retain their authorization and durable
+delivery receipts. The shared runtime's internal dispatch preserves event readiness before
+the application's admission hook, then records the attempted native send and
+submits the original resumed prompt. Delivery defaults to queue; a host steering
+through its existing connected observer supplies `input.delivery: "steer"` and
+omits the new-observer wait. The owner reads `options.signal` after readiness, so
+a retained host can resolve its current turn's cancellation signal at that same
+boundary. The host keeps its durable acceptance policy: an authored row and its
+publication may precede advancing the observed input ID. Main, managed temporary
+and standalone consumers use this same dispatch operation.
+For a retained target that can refresh during readiness or admission, the
+existing options object can supply `client` and `conversationId` getters. The
+owner reads them, then the prompt envelope, after the admission hook completes.
+The shared runtime retains native completion, interruption and verified failure
+cleanup. Its projection and after-close notifications preserve application output
+validation and checkpoint ordering without moving product policy into the native
+layer. Unconfirmed cleanup retains the active native record for retry. The common
+driver uses that same sender, native admission gate, monitor and Stop owner. Its
+connection, local execution, tool, attachment and structured-output facilities
+adapt to that owner. Tool effects await the exact authored delivery receipt;
+rejected steering preserves the previous active request. `/server/opencode-process` exports
+`createOpenCodeServerProcess`
+for advanced managed integration. The common driver's internal configuration
+uses that same server startup, authentication, version, observation and cleanup
+implementation. `openCodeProcessEnvironment(baseEnv, { cacheRoot, dbPath,
+inlineConfig, outputTokenMax, password })` assembles native flags, cache,
+loopback proxy bypass and supplied inline configuration. A managed host supplies
+its isolated environment, credential roots, approved plugin configuration and
+application command hooks around those native values. That boundary preserves
+the host's existing permission and process policies while using the same native
+startup, cleanup and acquisition owner.
+The same owner selects retained scoped targets, projects persistent native
+status and admission, reconciles restored turns, and reads final native output
+before application validation. A retained host binding supplies its existing
+owner with authorized configuration and application effects; the common driver
+invokes that owner directly for Main and scoped conversations. It does not route
+native operations back through an application controller. Process acquisition
+and native event observation stay with the shared owner, using the original
+managed-execution, storage and publication facilities. Managed hosts retain their
+existing storage transactions, saved-run fences, authorized profile limits and
+publication. This internal binding adaptation is not a second application
+integration API; ordinary applications use the common conversation runtime.
+The lower-level operation takes an owned `execution` facility, private environment,
+absolute `workdir` and `privateRoot`, and authorized `{ providerId, apiKey }`
+connections. It removes the private root only after confirmed host cleanup.
+Readiness keeps the production 30-second deadline, bounded health probes, strict
+`healthy: true` response and exact trimmed version check. Startup timeout errors
+retain the last health failure as their cause. Authentication follows readiness
+once per provider; it uses the caller's cancellation signal, not the readiness
+deadline. A successful stop retains its complete proof for repeated calls; an
+unconfirmed or rejected stop remains retryable. The execution facility receives
+the native stop reason and three-second termination grace period.
+The application still owns its database path and retention. Startup errors retain
+the execution ID and cleanup proof; optional host `readLogs()` supplies bounded
+diagnostics. If cleanup is unconfirmed, the error also retains `retryCleanup`,
+the same native stop operation. The shared owner holds that operation until exit
+is verified and blocks replacement startup while cleanup remains unconfirmed.
+Its `cleanupPending` flag lets a managed host retry cleanup during project close
+or shutdown even when acquisition never returned a server. An unconfirmed stop
+leaves state intact for host recovery. Ordinary
+applications use `createConversationRuntime()` rather than assembling these
+native setup options.
+
+For an advanced host's connection-setup flow, the same subpath provides
+`readOpenCodeCatalog({ privateRoot, workdir, createServerProcess })`. It writes
+OpenCode's non-secret public catalogue identity, calls the supplied server factory
+with `{ dbPath, privateRoot, providerConnections: [], workdir }`, reads providers
+and agents, and awaits confirmed Stop before returning. A cleanup failure takes
+precedence over a captured read error. The host retains managed execution,
+catalogue caching and model eligibility. `readOpenCodeZenModelIds({ fetchImpl,
+timeoutMs })` reads the bounded credential-free public model list without
+borrowing an account key.
+
+`verifyOpenCodeApiKey({ apiKey, agentId, modelId, modelProviderId, privateRoot,
+workdir, prepareCommand })` owns the original isolated auth-file write, one pure
+native request, result classification and credential cleanup. Its synchronous
+`prepareCommand({ providerId, modelId, privateRoot, workdir, outputTokenMax })`
+returns the host's existing command operation. The owner calls that operation
+once with `{ args, maxBuffer, mode, timeout }`; the host supplies approved
+execution identity, credential-home policy and environment. Preparation runs
+after the auth write, outside the command-failure sanitization boundary and
+inside the credential-cleanup `finally`. This preserves setup errors separately
+from sanitized invocation failures. The request keeps its 16-token output limit,
+256-KiB capture bound and 30-second deadline. The host supplies an isolated
+tool-free agent configuration; `agentId` defaults to the existing common
+`jskit-assistant` agent name. Hosts may translate the shared `assistant_opencode_*`
+error categories to their existing public errors without copying native logic.
+These operations support host account setup; ordinary conversation consumers
+continue to use the common runtime.
+
+The same subpath exposes the extracted `createOpenCodeSharedRuntime` for hosts
+whose managed service is shared by several conversation consumers. It owns server
+reuse, pending acquisition, verified final release and exact-server recovery.
+Its retained Main turn and monitor maps also back the original
+`interruptTurn(key, target, { threadId, writeRun })` operation. The host selects
+the authorized target, supplies a saved identity only when no target exists, and
+binds its existing run writer. Ordinary Stop retains the five-second native
+acknowledgement, retryable failure flags, admission release and current-monitor
+wait. It does not add an idle query. The existing observation-loss branch keeps
+its stronger native-stop or exact-process-exit proof. `turnSnapshot` supplies the
+same result fields to host readers.
+The bound OpenCode driver uses the same owner's `readSessionState` for canonical
+and native reads. Application context, saved identity and terminal-state facilities
+retain their original read order. Passive reads do not prepare or start a native
+server; ordinary consumers use the common conversation read API.
+The same native host subpath supplies `openCodeModel(selection, executionProfile)`
+for the existing selected-model shape. It retains the original model fallback,
+profile effort override and native `{ id, providerID, variant? }` formatting.
+Hosts authorize the account and validate their execution profile before calling;
+the formatter does not select a workload or grant tools. Ordinary applications
+continue to pass common configuration to `createConversationRuntime`.
+Before native identity selection or publication, `ensureOpenCodeSession` and
+the shared scoped create/select operations await the actual directory's startup.
+The scoped client's `prepareDirectory` uses the authenticated, read-only native
+`GET /path` operation with the normal 30-second initialization bound. Global
+health and v2 session reads alone do not initialize the directory used by native
+prompt and Stop. Preparation performs no inference, preserves the saved native
+identity on failure, and is retried through the existing acquisition operation.
+There is no permanent readiness cache or change to Stop's five-second deadline.
+`inspectSessionReadiness(target)` retains the original health/session read and
+captured server facts. The host revalidates its session, selection and closure
+before accepting that result. Inside its existing write admission,
+`recoverSessionReadiness(target, recovery, prepare)` stops only the captured
+unhealthy process still owned by this runtime, clears a missing native session
+only on the same target, and invokes the host's existing preparation. A lazy
+`recovery.key` preserves a key read after the awaited stop. The separate
+`recoverObservation(target, threadId, commit)` confirms that exact thread is idle
+before the host's existing saved-run comparison and commit. Its synchronous
+`needsObservationRecovery(key, run)` predicate uses the same owned monitor map;
+an existing host checks it before write admission and again after refreshing its
+saved run inside that admission. The host's full current-run comparison remains
+inside its storage transaction. Recovery does not interrupt or start native work.
+Healthy inspection does not require write admission.
+The same owner's `beginMonitor(key, target, turn, options)` retains the original
+Main admission, native completion, compaction phase and failure-cleanup sequence.
+It uses the host's already-prepared run record and existing observation adapter.
+The three application effects are `writeRun`, `projectMessages` and
+`completeResult`: run persistence, transcript projection and final notices.
+The owner's history projection supplies ordered reasoning facts (`messageId`,
+`partId`, unmodified `text`, `createdAt` and `complete`) to its reasoning presenter,
+with separate message-level `complete` and `flush` options. Native part selection
+and end-marker decoding stay inside JSKIT. The host keeps saved-message identity,
+headline policy, first-write timestamp formatting and publication.
+Final-response inputs are read after admission and the Active write. Observer
+closure precedes notices and the final write. The existing `onRetired` resource
+continuation starts only after identity-safe monitor removal; its original
+fire-and-forget cleanup does not become an awaited native shutdown step.
+The same temporary records also back `createConversation`, `selectConversation`,
+`runConversationTurn`, `readConversation`, `readPersistentConversation` and
+`waitForConversationTurn`. These methods retain native creation and model/agent
+selection, active-turn steering, admission, completion and history-read ordering.
+Scoped completion also uses the owner's existing native row and structured-result
+codecs. Applications receive normalized messages for publication and retain their
+raw-output bounds and result metadata; native structured unwrapping follows that
+bound at its original late read point.
+The host supplies authorized targets, profile policy and native message-ID mapping;
+its existing observation presenter, registry write, bounded result projection,
+publication and checkpoint effects run at their original positions. Selection
+awaits registry publication after recording the native identity. Turn admission
+attaches completion notices before returning; bounded Helper waits retain the
+saved completion even when a caller supplies another timeout. Ordinary consumers
+continue to use `createConversationRuntime()`.
+`releaseTarget` drains the exact active native threads and retained completions
+before the existing shared release. The host keeps prior PTY/resource cleanup
+and its registry-removal notification. The same temporary records back native
+`stopConversation` and `deleteConversation`: persistent Stop retains its separate
+idle confirmation, and deletion precedes observer retirement and awaited
+registry removal. Hosts retain access checks, Helper scope release and durable
+parent cleanup receipts; those are not replaced by process disposal.
+For an existing scoped binding, explicit deletion calls
+`preparation.existing(input, context, { operation: "delete" })`. The host resolves
+its scope/persistence policy from that current context. Read, wait and Stop use
+the same preparation without the deletion descriptor; closing the handle still
+uses its supplied close operation. The driver does not interpret application
+scope fields to choose deletion policy.
+A host supplies authorized startup and its application removal notification.
+`openCodeServerForDirectory` keeps each consumer's native client scoped to its
+working directory. `openCodeEnvironmentForDirectory` and
+`openCodeEnvironmentForSession` use supplied private bindings, choosing the most
+specific directory or following at most 32 native parents. Hosts retain the
+binding values and application authorization. `writeBindings(path, scope, rows)`
+publishes each consumer's contribution through one private atomic registry;
+updating or removing one scope retains the others. `readOpenCodeEnvironments`
+reads that registry for native plugin lookup. The common driver uses this same
+acquisition layer. Its plugin resolves the current instructions, environment,
+command wrapper and application-tool bridge by the registered native session.
+Changing one conversation's grant does not change another's permissions.
+
 ## Companions and templates
 
 A companion can receive an app-selected layer containing conversation state and
 `submitText`, rather than searching the DOM. `createAssistantTextSubmission`
-from `/client/conversation-submit` builds that action from
+from `/client/conversation` builds that action from
 `{ getState, setDraft, submit, afterDraftChange }`. State is
 `{ id, active, draft, canSend, turnActive }`. It preserves existing drafts,
 supports `{ sendImmediately: false }`, waits briefly for send readiness, and
@@ -587,23 +3119,27 @@ checks draft/ownership again before using the canonical submit action.
 Pass an `AbortSignal` and abort it when selection, visibility or ownership
 changes, including switching away and back to the same retained conversation.
 
-The published package contains `examples/conversation`, a standalone Vue app
-with a Node backend and no editor dependency. Copy it as an application template
-or use the component directly. It runs without credentials using a labelled demo
+The `assistant-core/examples/conversation` directory demonstrates lower-level
+UI, delivery and HTTP primitives. For a new conversation application, start with
+`assistant-voice/examples/conversation`: speech is optional, and its text cards
+and headless task use the supplied runtime, transport and browser binding.
+The lower-level example has a Node backend and no editor dependency. It runs without credentials using a labelled demo
 provider; an explicit integration configuration enables real AI inference.
 Its backend validates configuration independently of the UI and accepts a
 replacement storage module. See its README for commands and scope limits.
 
 ## Observation loss and composer responsiveness
 
-`CodexAppServerJsonRpcClient({ endpoint, onDisconnect(error) })` reports an
-unexpected close, socket error, or unreadable message once for the current
-connection. An explicit `close()` does not call the callback. Obsolete socket
-events cannot settle current requests or reach subscribers. The application
-owns handling callback failures, verified cancellation, reconnection and any
-policy requiring an explicit Resume or Send. A transport disconnect is not
-proof that native execution stopped. OpenCode's SSE iterator ending is likewise
-not proof that the native session is idle; its consumer owns that decision.
+For isolated host tests, `CodexAppServerJsonRpcClient({ endpoint,
+onDisconnect(error) })` from `/testing/native-codex` reports an unexpected close,
+socket error, or unreadable message once for the current connection. An explicit
+`close()` does not call the callback. Obsolete socket events cannot settle current
+requests or reach subscribers. A test harness using this low-level transport owns
+callback failures, verified cancellation and reconnection. Ordinary applications
+use `createConversationRuntime()` for that native coordination and retain their
+admission and presentation policy. A transport disconnect is not proof that native
+execution stopped. OpenCode's SSE iterator ending likewise does not prove that
+the native session is idle; the shared native owner establishes that separately.
 
 Update `draft` synchronously in `setDraft`. Keep the composer mounted during
 external state changes, and change `canSend`, `canStop`, `stopPending` and labels

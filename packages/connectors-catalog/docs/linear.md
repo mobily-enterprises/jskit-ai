@@ -1,7 +1,7 @@
 # Linear
 
 Import `linearProvider` from `@jskit-ai/connectors-catalog/server/linear`.
-This adapter supports a personal API key or project-owned OAuth, with GraphQL reads and Linear MCP tools. Vibe64 edits the project configuration; the generated application owns its runtime and credentials.
+This adapter supports a personal API key or project-owned OAuth, with GraphQL reads and Linear MCP tools. The connection editor edits the project configuration; the generated application owns its runtime and credentials.
 
 ## Configure access
 
@@ -130,8 +130,7 @@ retry an uncertain create. CLI apps use the same library/configuration/Env; othe
 frameworks compose their native MCP client and authorization with those values.
 
 **LIMITATIONS:** No maintained tool catalogue, project-management UI or automatic
-Vibe64 Codex/OpenCode attachment. Example: an app can explicitly run an approved
-issue update, but saving a Linear connection alone does not teach Vibe64's coding
-chat to update that issue. Provider permissions and available tools determine what
+assistant tool attachment. Example: an app can explicitly run an approved
+issue update, but saving a Linear connection alone does not authorize assistant chat to update that issue. Provider permissions and available tools determine what
 can run. Fixture workflows prove argument/result transport and local denial, not
 actual Linear tool schemas or live execution.

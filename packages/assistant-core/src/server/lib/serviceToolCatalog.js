@@ -634,6 +634,7 @@ function resolveActionToolEntries(
 function createServiceToolCatalog(
   actions,
   {
+    isActionAvailable,
     barredActionIds = [],
     skipActionPrefixes = [],
     maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS,
@@ -644,6 +645,9 @@ function createServiceToolCatalog(
 ) {
   if (!actions || typeof actions.listDefinitions !== "function" || typeof actions.execute !== "function") {
     throw new TypeError("createServiceToolCatalog requires runtime.actions.");
+  }
+  if (isActionAvailable !== undefined && typeof isActionAvailable !== "function") {
+    throw new TypeError("isActionAvailable must be a synchronous action policy.");
   }
 
   const normalizedSkipPrefixes = (Array.isArray(skipActionPrefixes) ? skipActionPrefixes : [skipActionPrefixes])
@@ -674,13 +678,18 @@ function createServiceToolCatalog(
     return methodEntries;
   }
 
+  function actionAvailable(entry, context) {
+    if (!canUseToolOnSurface(entry, context) || !canInvokeMethod(entry.permission, context)) return false;
+    if (!isActionAvailable) return true;
+    const allowed = isActionAvailable({ actionId: entry.descriptor.actionId, kind: entry.kind, context });
+    if (typeof allowed !== "boolean") throw new TypeError("isActionAvailable must return a boolean.");
+    return allowed;
+  }
+
   function resolveAuthorizedEntries(context = {}) {
     const entries = [];
     for (const entry of resolveOrCreateMethodEntries()) {
-      if (!canUseToolOnSurface(entry, context)) {
-        continue;
-      }
-      if (!canInvokeMethod(entry.permission, context)) {
+      if (!actionAvailable(entry, context)) {
         continue;
       }
 
@@ -696,10 +705,10 @@ function createServiceToolCatalog(
     return Object.freeze(entries.sort((left, right) => left.descriptor.actionId.localeCompare(right.descriptor.actionId)));
   }
 
-  function resolveToolSet(context = {}) {
+  function resolveToolSet(context = {}, { discoveryOnly = false } = {}) {
     const actionEntries = resolveAuthorizedEntries(context);
-    const useDiscovery = actionEntries.length > maxDirectTools;
-    const alwaysAvailableEntries = useDiscovery
+    const useDiscovery = discoveryOnly || actionEntries.length > maxDirectTools;
+    const alwaysAvailableEntries = useDiscovery && !discoveryOnly
       ? actionEntries
           .filter((entry) => entry.descriptor.alwaysAvailable === true)
           .filter((entry) => !Object.values(DISCOVERY_TOOL_NAMES).includes(entry.descriptor.name))
@@ -825,6 +834,7 @@ function createServiceToolCatalog(
   }
 
   async function executeActionEntry(entry, input = {}, context = {}) {
+    if (!actionAvailable(entry, context)) throw createToolError(404, "assistant_action_unknown", "Action is not available.");
     const actionInput = createActionInput(entry, input, context);
     const executionContext = {
       ...context,
@@ -890,11 +900,11 @@ function createServiceToolCatalog(
     };
   }
 
-  async function executeToolCall({ toolName = "", argumentsText = "", context = {}, toolSet = null } = {}) {
+  async function executeToolCall({ toolName = "", argumentsText = "", context = {}, toolSet = null, onFailure } = {}) {
     const normalizedToolName = normalizeText(toolName);
     const suppliedState = toolSet && typeof toolSet === "object" ? toolSetStates.get(toolSet) : null;
     const resolvedToolSet = suppliedState ? toolSet : resolveToolSet(context);
-    const state = suppliedState || toolSetStates.get(resolvedToolSet);
+    let state = suppliedState || toolSetStates.get(resolvedToolSet);
     const descriptor = normalizedToolName ? resolvedToolSet.byName.get(normalizedToolName) : null;
 
     if (!descriptor) {
@@ -911,6 +921,9 @@ function createServiceToolCatalog(
       ensureToolArgumentsSize(argumentsText, maxToolArgumentBytes);
       const payload = parseToolPayload(argumentsText);
       if (state.mode === "discovery") {
+        const actionEntries = state.actionEntries.filter(entry => actionAvailable(entry, context));
+        state = { ...state, actionEntries,
+          actionEntriesById: new Map(actionEntries.map(entry => [entry.descriptor.actionId.toLowerCase(), entry])) };
         if (normalizedToolName === DISCOVERY_TOOL_NAMES.search) {
           return { ok: true, result: searchActionEntries(state, payload) };
         }
@@ -932,15 +945,17 @@ function createServiceToolCatalog(
         result
       };
     } catch (error) {
+      onFailure?.(error);
       return resolveToolFailure(error);
     }
   }
 
   return Object.freeze({
+    limits: Object.freeze({ maxToolArgumentBytes, maxToolResultBytes }),
     resolveToolSet,
     toOpenAiToolSchema,
     executeToolCall
   });
 }
 
-export { createServiceToolCatalog };
+export { createServiceToolCatalog, DISCOVERY_TOOL_DESCRIPTORS };

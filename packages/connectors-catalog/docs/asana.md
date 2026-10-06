@@ -14,7 +14,7 @@ and tasks through a personal access token.
    local prefix/length assumption about Asana's token format.
 4. Save provider `asana`, mode `shared` or `assistant`, `scopes: []`, and
    authentication `{ "method": "api-key", "secretRef": "env:ASANA_TOKEN" }`.
-5. In Vibe64 use **Set credential in Env** to save the token, then
+5. In the connection editor use **Set credential in Env** to save the token, then
    **Connect account** or **Verify again**. **Check connection** only reads
    status. CLI applications verify with `connectApiKey`. Manage/deauthorize personal tokens from the
    developer console. Organization policy can limit personal-token access.
@@ -118,9 +118,8 @@ Sources: [projects](https://developers.asana.com/reference/getprojects),
 
 ## Limitations
 
-Editor coding-assistant attachment is deferred. For example, a generated app can
-create a release project, assign a task and mark it complete, but asking Vibe64's
-coding assistant to inspect your Asana backlog does not give it this connection.
+Assistant tool attachment requires explicit host integration. For example, a generated app can
+create a release project, assign a task and mark it complete, but asking an assistant to inspect your Asana backlog does not give it this connection.
 The app owns its work-tracking screens and resource permissions. OAuth user consent,
 attachments, comments, custom fields, task moves and destructive deletion are not
 implemented here. Live Asana access and generated-app execution were not exercised.

@@ -73,7 +73,7 @@ native Google Docs client or HTTP. No JSKIT requirement or Vibe64 service applie
 **Limitations:** no visual editor, Google Picker component, sharing/Drive exports,
 comment/suggestion review UI, autonomous editing agent or editor chat attachment.
 For example, an app can create a booking report and format its text, but saving
-this connector does not let Vibe64's coding assistant edit the report. Fixtures
+this connector does not authorize an assistant to edit the report. Fixtures
 prove request flow, not Google's live document rendering or approval.
 
 References: [create](https://developers.google.com/workspace/docs/api/reference/rest/v1/documents/create),

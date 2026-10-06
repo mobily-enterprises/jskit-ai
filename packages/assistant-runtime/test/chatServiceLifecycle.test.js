@@ -2,6 +2,8 @@ import { createMemoryTurnRequests } from "./support/memoryTurnRequests.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createChatService } from "../src/server/services/chatService.js";
+import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
+import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
 
 const APP_CONFIG = Object.freeze({
   surfaceDefinitions: {
@@ -68,6 +70,7 @@ async function* completionStream(completion = {}) {
       ]
     };
   }
+  yield { choices: [{ delta: {}, finish_reason: completion.toolCall ? "tool_calls" : "stop" }] };
 }
 
 function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true } = {}) {
@@ -89,7 +92,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
         }
       }));
 
-  const chatService = createChatService({
+  const dependencies = {
     turnRequests: createMemoryTurnRequests(),
     attachments,
     aiClientFactory: {
@@ -127,6 +130,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
       }
     },
     serviceToolCatalog: {
+      limits: { maxToolArgumentBytes: 64 * 1024 },
       resolveToolSet() {
         return { tools };
       },
@@ -159,7 +163,12 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
       }
     },
     appConfig: APP_CONFIG
+  };
+  const conversationRuntime = createAssistantConversationRuntime({
+    ...createMemoryAssistantRows({ messages: transcriptMessages }),
+    aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog, attachments
   });
+  const chatService = createChatService({ ...dependencies, conversationRuntime });
 
   const streamWriter = {};
   for (const method of [
@@ -476,6 +485,7 @@ test("answer text reaches the client before the provider finishes, then persists
     firstChunk.resolve();
     await continueResponse.promise;
     yield { choices: [{ delta: { content: " The second sentence." } }] };
+    yield { choices: [{ delta: {}, finish_reason: "stop" }] };
   }
   const harness = createHarness([response()]);
   const running = harness.run();
@@ -498,6 +508,7 @@ test("split internal tags and tool arguments never become answer deltas", async 
     for (const content of ["<th", "ink>private reasoning", "</thi", "nk>", "<｜DSML｜function_", "calls><｜DSML｜invoke name=\"action_search\">", '{"secret":"private arguments"}', "</｜DSML｜invoke></｜DSML｜function_calls>"]) {
       yield { choices: [{ delta: { content } }] };
     }
+    yield { choices: [{ delta: {}, finish_reason: "stop" }] };
   }
   const harness = createHarness([response(), textCompletion("The search is complete.")]);
   await harness.run();

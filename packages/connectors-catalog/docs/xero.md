@@ -418,8 +418,8 @@ that surface:
   invoice sharing. Larger files and other record types need native integration.
 - Native application composition: the framework owns routes, UI, authorization,
   business validations and operation calls. Installing the provider or saving the
-  editor form does not generate an accounting application. Editor coding-agent
-  tool attachment remains deferred under the shared milestone decision.
+  editor form does not generate an accounting application. Assistant tool
+  attachment requires explicit host integration.
 - Verification: controlled fixtures establish request/response and local lifecycle
   behavior. Live OAuth, actual Xero organisations, provider tiers, production
   permissions, accounting outcomes and generated-app execution are unverified.

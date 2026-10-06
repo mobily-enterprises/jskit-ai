@@ -97,3 +97,47 @@ test("assistant settings update keeps patch nested under one schema definition",
     patch: { systemPrompt: "Be concise." }
   });
 });
+
+test("host access wraps only canonical conversation definitions and receives the fixed subscription id", async () => {
+  const wrapped = [];
+  const subscribeActionId = "test.host.conversation.subscribe";
+  const conversation = { read: () => ({ id: "retained-conversation" }) };
+  const conversationAccess = {
+    subscribeActionId,
+    wrapAction(definition) {
+      wrapped.push(definition);
+      return { ...definition, permission: { require: "none" }, extensions: { hostAccess: true } };
+    }
+  };
+  const definitions = createAssistantActions({
+    config: CONFIG,
+    conversationRuntime: { open: async () => conversation },
+    conversationAccess,
+    assistantConfigService: {}
+  });
+  assert.deepEqual(wrapped.map(({ id }) => id), [
+    actionIds.conversationRead, actionIds.conversationSend, actionIds.conversationCancel, subscribeActionId,
+    actionIds.conversationInspectDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate
+  ]);
+  assert.equal(findDefinition(definitions, actionIds.conversationSubscribe), undefined);
+  assert.equal(findDefinition(definitions, subscribeActionId).audit.actionName, subscribeActionId);
+  for (const definition of wrapped) {
+    const adapted = findDefinition(definitions, definition.id);
+    assert.equal(adapted.input, definition.input);
+    assert.equal(adapted.execute, definition.execute);
+    assert.deepEqual(adapted.surfaces, ["home", "admin"]);
+  }
+  for (const id of [actionIds.settingsRead, actionIds.settingsUpdate]) {
+    const settings = findDefinition(definitions, id);
+    assert.equal(settings.permission.require, "authenticated");
+    assert.equal(settings.extensions.hostAccess, undefined);
+    assert.deepEqual(settings.surfaces, ["console", "admin"]);
+  }
+  assert.deepEqual(await findDefinition(definitions, actionIds.conversationRead).execute({
+    targetSurfaceId: "home", conversationId: "retained-conversation"
+  }, {}), { id: "retained-conversation" });
+  const legacy = createAssistantActions({ config: CONFIG, chatService: {}, assistantConfigService: {},
+    conversationAccess: { wrapAction() { assert.fail("Legacy definitions must retain their own access policy."); } } });
+  assert.deepEqual(legacy.map(({ id }) => id), createDefinitions().map(({ id }) => id));
+  assert.ok(legacy.every(definition => definition.permission.require === "authenticated"));
+});

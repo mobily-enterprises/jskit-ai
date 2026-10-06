@@ -17,7 +17,7 @@ Connection verification reads credit/currency without sending. Explicit applicat
    `gatewayapi.com` and `gatewayapi.eu`. The EU platform uses a different host;
    changing hosts requires verification again.
    [Platform routing](https://gatewayapi.com/docs/apis/legacy/rest/).
-4. In Vibe64 enter `env:GATEWAYAPI_TOKEN` as **API key reference**, click
+4. In the connection editor enter `env:GATEWAYAPI_TOKEN` as **API key reference**, click
    **Save configuration**, then **Set credential in Env**. Store the real token
    as `GATEWAYAPI_TOKEN` and return to connect. CLI apps call `connectApiKey`.
    Requests use `Authorization: Token <token>`.

@@ -713,6 +713,7 @@ Exports
 Exports
 - `createCapabilityHttpRuntime`
 - `HttpProvider`
+- `attachDirectRequestActionExecutor`
 - `createCachedResponseSerializerFactory`
 
 ### `server/http/lib/controller.js`
@@ -1049,6 +1050,14 @@ Local functions
 Exports
 - `defaultMissingHandler(_request, reply)`
 
+### `server/support/fileLock.js`
+Exports
+- `FILE_LOCK_ERROR_CODE`
+- `tryAcquireExclusiveFileLock(lockPath = "", { cwd = "", errorCode = FILE_LOCK_ERROR_CODE } = {})`
+Local functions
+- `fileLockError(message = "", code = FILE_LOCK_ERROR_CODE)`
+- `normalizedAbsolutePath(value = "", label = "path", errorCode = FILE_LOCK_ERROR_CODE)`
+
 ### `server/support/importFreshModuleFromAbsolutePath.js`
 Exports
 - `importFreshModuleFromAbsolutePath(absolutePath)`
@@ -1086,6 +1095,7 @@ Exports
 - `discoverShellOutletTargetsFromApp`
 - `resolveSemanticPlacementTargetFromApp`
 - `resolveShellOutletPlacementTargetFromApp`
+- `tryAcquireExclusiveFileLock`
 
 ### `server/support/pageTargets.js`
 Exports

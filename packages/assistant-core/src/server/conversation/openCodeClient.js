@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { Buffer } from "node:buffer";
 import path from "node:path";
+import { createNativeHistoryExport, retireNativeConversation } from "./nativeHistoryExport.js";
 
 const OPENCODE_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
 const OPENCODE_CATALOG_LIMIT_BYTES = 32 * 1024 * 1024;
@@ -210,14 +211,21 @@ function stablePromptBody(input = {}) {
   const modelID = text(model.modelID || model.id);
   const providerID = text(model.providerID);
   const prompt = typeof input?.prompt?.text === "string" ? input.prompt.text : "";
-  if (!prompt.trim()) {
-    throw new TypeError("OpenCode prompt requests require text.");
+  const content = (input.prompt?.content || []).map(part => {
+    if (part.type === "text" && typeof part.text === "string") return { type: "text", text: part.text };
+    if (part.type === "image" && part.image instanceof Uint8Array && ["image/png", "image/jpeg", "image/webp", "image/gif"].includes(part.mediaType)) {
+      return { type: "file", mime: part.mediaType, url: `data:${part.mediaType};base64,${Buffer.from(part.image).toString("base64")}` };
+    }
+    throw new TypeError("OpenCode prompt content must contain text or authorized image bytes.");
+  });
+  if (!prompt.trim() && !content.length) {
+    throw new TypeError("OpenCode prompt requests require text or attachment content.");
   }
   return {
     ...(text(input.agent) ? { agent: text(input.agent) } : {}),
     ...(text(input.id) ? { messageID: text(input.id) } : {}),
     ...(modelID && providerID ? { model: { modelID, providerID } } : {}),
-    parts: [{ text: prompt, type: "text" }, ...(input.attachments || [])
+    parts: [...(prompt ? [{ text: prompt, type: "text" }] : []), ...content, ...(input.attachments || [])
       .filter((attachment) => attachment.contentType?.startsWith("image/"))
       .map((attachment) => ({
         type: "file", mime: attachment.contentType, filename: attachment.fileName,
@@ -266,39 +274,67 @@ function createOpenCodeServerClient({
   const authorization = `Basic ${Buffer.from(`${text(username) || "opencode"}:${String(password)}`).toString("base64")}`;
   const scopedDirectory = text(directory);
 
-  function requestHeaders(accept = "application/json", body = undefined) {
+  function requestHeaders(accept = "application/json", body = undefined, directory = scopedDirectory) {
     return {
       accept,
       authorization,
-      ...(scopedDirectory ? { "x-opencode-directory": scopedDirectory } : {}),
+      ...(directory ? { "x-opencode-directory": directory } : {}),
       ...(body === undefined ? {} : { "content-type": "application/json" })
     };
   }
 
-  async function request(method = "GET", requestPath = "/", {
+  async function requestResponse(method = "GET", requestPath = "/", {
     body,
+    directory = scopedDirectory,
     limitBytes = OPENCODE_RESPONSE_LIMIT_BYTES,
     signal
   } = {}) {
     const response = await fetchImpl(new URL(requestPath, origin), {
       body: body === undefined ? undefined : JSON.stringify(body),
-      headers: requestHeaders("application/json", body),
+      headers: requestHeaders("application/json", body, directory),
       method,
       signal
     });
-    const source = response.status === 204
-      ? ""
-      : await readBoundedResponse(response, limitBytes);
-    const payload = parsedJson(source);
-    if (!response.ok) {
-      throw openCodeServerError(responseErrorMessage(payload), {
-        body: payload,
-        method,
-        path: requestPath,
-        status: response.status
-      });
+    try {
+      const source = response.status === 204 ? "" : await readBoundedResponse(response, limitBytes);
+      if (!response.ok) {
+        const payload = parsedJson(source);
+        throw openCodeServerError(responseErrorMessage(payload), {
+          body: payload, method, path: requestPath, status: response.status
+        });
+      }
+      return { source, headers: response.headers };
+    } finally { await response.body?.cancel().catch(() => {}); }
+  }
+
+  async function request(method, requestPath, options) {
+    return parsedJson((await requestResponse(method, requestPath, options)).source);
+  }
+
+  async function requestStorageResponse(route, { signal, maxBytes = 4 * 1024 * 1024, body } = {}) {
+    // The first storage request can initialize the saved directory after the
+    // global health endpoint is ready. Allow the normal startup deadline.
+    const deadline = AbortSignal.timeout(30_000);
+    const boundedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+    boundedSignal.throwIfAborted();
+    const { source, headers } = await requestResponse(body === undefined ? "GET" : "PATCH", route, {
+      body, signal: boundedSignal, limitBytes: maxBytes, directory: ""
+    });
+    boundedSignal.throwIfAborted();
+    return { data: source ? JSON.parse(source) : null, headers };
+  }
+
+  async function storageInventory(route, options) {
+    const { data: rows } = await requestStorageResponse(route, options);
+    if (!Array.isArray(rows) || rows.length > 1000 || rows.some((row) => !/^ses_[a-zA-Z0-9]+$/u.test(row?.id))) {
+      throw new Error("OpenCode returned an incomplete or invalid storage inventory.");
     }
-    return payload;
+    return rows;
+  }
+
+  function storageConversationPath(conversationId) {
+    if (!/^ses_[a-zA-Z0-9]+$/u.test(conversationId)) throw new TypeError("Invalid OpenCode conversation id.");
+    return `/session/${encodeURIComponent(conversationId)}`;
   }
 
   async function *events(sessionId = "", { onReady = null, signal } = {}) {
@@ -394,6 +430,58 @@ function createOpenCodeServerClient({
   }
 
   return Object.freeze({
+    async allowConversationAttachments(conversationId, attachments) {
+      const route = storageConversationPath(conversationId);
+      const { data: session } = await requestStorageResponse(route);
+      if (session?.id !== conversationId) throw new Error("OpenCode returned another conversation.");
+      const permission = [...(session.permission || [])];
+      const previousLength = permission.length;
+      for (const attachment of attachments) {
+        const pattern = path.join(path.dirname(attachment.path), "*").replaceAll("\\", "/");
+        const rule = permission.findLast((item) => item.permission === "external_directory" && item.pattern === pattern);
+        if (rule?.action !== "allow") permission.push({ permission: "external_directory", pattern, action: "allow" });
+      }
+      if (permission.length !== previousLength) {
+        await requestStorageResponse(route, { body: { permission } });
+      }
+    },
+    async listConversationChildren(conversationId, { signal } = {}) {
+      const children = await storageInventory(`${storageConversationPath(conversationId)}/children`, { signal });
+      if (children.some((child) => child.parentID !== conversationId)) {
+        throw new Error("OpenCode returned an incomplete or invalid child inventory.");
+      }
+      return children;
+    },
+    async listConversationsForDirectory(directory, { signal } = {}) {
+      if (!path.isAbsolute(directory || "")) throw new TypeError("OpenCode inventory requires an absolute native directory.");
+      // Use the global persisted inventory: the project-scoped /session
+      // listing loses its Git project identity once archived source is gone.
+      // Request one beyond our limit to detect a truncated inventory.
+      const rows = await storageInventory(`/experimental/session?${new URLSearchParams({ directory, limit: "1001" })}`, { signal });
+      if (rows.some((row) => typeof row.directory !== "string")) throw new Error("OpenCode inventory has no native directory.");
+      return rows.filter((row) => row.directory === directory);
+    },
+    async readConversationStorage(conversationId, { signal } = {}) {
+      // The native storage record does not resolve a live source workspace.
+      const { data } = await requestStorageResponse(storageConversationPath(conversationId), { signal });
+      if (data?.id !== conversationId || !path.isAbsolute(data.directory || "")) {
+        throw new Error("OpenCode returned an invalid native conversation record.");
+      }
+      return data;
+    },
+    async readConversationStoragePage(conversationId, { before = "", signal } = {}) {
+      const route = `${storageConversationPath(conversationId)}/message`;
+      if (typeof before !== "string" || before.length > 8192) throw new TypeError("Invalid OpenCode storage cursor.");
+      const query = new URLSearchParams({ limit: "1", ...(before ? { before } : {}) });
+      const { data, headers } = await requestStorageResponse(`${route}?${query}`, {
+        signal, maxBytes: 64 * 1024 * 1024
+      });
+      const nextCursor = headers.get("x-next-cursor");
+      if (!nextCursor && /rel="next"/u.test(headers.get("link") || "")) {
+        throw new Error("OpenCode omitted its native history continuation cursor.");
+      }
+      return { data, nextCursor };
+    },
     async agents({ directory = "", signal } = {}) {
       return request("GET", `/agent${queryString({ directory })}`, {
         limitBytes: OPENCODE_CATALOG_LIMIT_BYTES,
@@ -437,6 +525,21 @@ function createOpenCodeServerClient({
     },
     async health({ signal } = {}) {
       return request("GET", "/global/health", { signal });
+    },
+    async prepareDirectory({ signal } = {}) {
+      // Global health and the v2 session routes do not initialize the directory
+      // used by prompt/abort. Complete that native startup before exposing a
+      // conversation whose first Stop would otherwise wait for plugin installs.
+      const deadline = AbortSignal.timeout(30_000);
+      const boundedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+      boundedSignal.throwIfAborted();
+      const result = await request("GET", "/path", { signal: boundedSignal });
+      boundedSignal.throwIfAborted();
+      if (!text(result?.directory)) {
+        throw openCodeServerError("OpenCode did not confirm its conversation directory is ready.", {
+          code: "assistant_opencode_directory_unavailable", method: "GET", path: "/path"
+        });
+      }
     },
     async interrupt(sessionId = "", { signal } = {}) {
       return request("POST", stableSessionPath(sessionId, "/abort"), { signal });
@@ -520,7 +623,94 @@ function openCodeAssistantMessageText(message = {}) {
   return [...new Set(values)].join("\n\n");
 }
 
+// Native preservation uses the storage API independently of the saved worktree.
+// Status still comes from the exact directory-scoped control client.
+async function inspectOpenCodeConversationFamily(storageClient, controlClient, binding, { signal } = {}) {
+  const queue = [binding.conversationId];
+  const seen = new Set();
+  const records = [];
+  for (let index = 0; index < queue.length; index += 1) {
+    signal?.throwIfAborted();
+    const conversationId = queue[index];
+    if (seen.has(conversationId) || queue.length > 1000) throw new Error("OpenCode native family is cyclic or exceeds its inventory limit.");
+    seen.add(conversationId);
+    let native;
+    try { native = await storageClient.readConversationStorage(conversationId, { signal }); }
+    catch (error) { if (error.statusCode === 404 && index === 0) return []; throw error; }
+    if (native?.id !== conversationId || native?.directory !== binding.workdir ||
+        (await controlClient.sessionStatus(conversationId, { signal })).type !== "idle") {
+      throw new Error("OpenCode retirement requires an idle native family in the exact saved directory.");
+    }
+    records.push({ conversationId, workdir: native.directory,
+      ...(Number.isFinite(native.time?.created) ? { createdAt: new Date(native.time.created).toISOString() } : {}),
+      ...(Number.isFinite(native.time?.updated) ? { updatedAt: new Date(native.time.updated).toISOString() } : {}) });
+    const children = await storageClient.listConversationChildren(conversationId, { signal });
+    for (const child of children) {
+      if (child.directory !== binding.workdir) throw new Error("OpenCode child directory differs from its saved owner.");
+      queue.push(child.id);
+    }
+  }
+  return records.sort((left, right) => left.conversationId.localeCompare(right.conversationId));
+}
+
+async function exportOpenCodeNativeHistory(storageClient, controlClient, id, onRecord, { signal: inputSignal } = {}) {
+  const deadline = AbortSignal.timeout(300_000);
+  const signal = inputSignal ? AbortSignal.any([inputSignal, deadline]) : deadline;
+  const output = createNativeHistoryExport(onRecord, { signal });
+  const info = await storageClient.readConversationStorage(id, { signal });
+  if (info?.id !== id || (await controlClient.sessionStatus(id, { signal })).type !== "idle") {
+    throw new Error("OpenCode native export requires the exact idle conversation.");
+  }
+  await output.emit({ type: "thread", thread: info, text: [] });
+  const messageIds = new Set();
+  const cursors = new Set();
+  let before = "";
+  let pages = 0;
+  while (true) {
+    signal.throwIfAborted();
+    if (++pages > 20_000) throw new Error("OpenCode native export exceeded its page limit; history was not retired.");
+    const response = await storageClient.readConversationStoragePage(id, { before, signal });
+    if (!Array.isArray(response?.data) || response.data.length > 1 ||
+        (response.nextCursor !== null && (typeof response.nextCursor !== "string" || !response.nextCursor || response.nextCursor.length > 8192)) ||
+        (response.data.length === 0 && response.nextCursor !== null)) {
+      throw new Error("OpenCode returned an incomplete or invalid native message page.");
+    }
+    for (const message of response.data) {
+      const info = message?.info;
+      if (!/^msg_[a-zA-Z0-9_]{1,256}$/u.test(info?.id) || info.sessionID !== id ||
+          !["user", "assistant"].includes(info.role) || !Array.isArray(message.parts) || messageIds.has(info.id)) {
+        throw new Error("OpenCode returned an invalid or duplicate native message.");
+      }
+      messageIds.add(info.id);
+      const content = openCodeAssistantMessageText({ content: message.parts });
+      await output.emit({ type: "message", message, text: content ? [{ role: info.role, text: content,
+        branchId: id, messageId: info.id,
+        ...(info.parentID ? { parentMessageId: info.parentID } : {}),
+        ...(Number.isFinite(info.time?.created) ? { createdAt: new Date(info.time.created).toISOString() } : {}),
+        ...(Number.isFinite(info.time?.completed) ? { completedAt: new Date(info.time.completed).toISOString() } : {}),
+        ...(info.modelID || info.model?.modelID ? { modelId: info.modelID || info.model.modelID } : {}),
+        ...(info.providerID || info.model?.providerID ? { modelProviderId: info.providerID || info.model.providerID } : {}),
+        ...(info.agent ? { agent: info.agent } : {}) }] : [] });
+    }
+    if (response.nextCursor === null) break;
+    if (cursors.has(response.nextCursor)) throw new Error("OpenCode repeated a native history cursor.");
+    cursors.add(response.nextCursor);
+    before = response.nextCursor;
+  }
+  return output.complete();
+}
+
+/** Retire the exact native family after the host's durable preservation. */
+async function retireOpenCodeConversationHistory(storageClient, controlClient, binding, options = {}) {
+  const inspect = () => inspectOpenCodeConversationFamily(storageClient, controlClient, binding, { signal: options.signal });
+  return retireNativeConversation({ binding, inspect, beforeDelete: options.beforeDelete,
+    readConversation: async (id) => ({ info: await storageClient.readConversationStorage(id), messages: (await controlClient.messages(id)).data }),
+    exportConversation: (id, onRecord) => exportOpenCodeNativeHistory(storageClient, controlClient, id, onRecord, { signal: options.signal }),
+    remove: () => controlClient.deleteSession(binding.conversationId) });
+}
+
 export {
+  retireOpenCodeConversationHistory,
   openCodeAssistantMessageText,
   OPENCODE_RESPONSE_LIMIT_BYTES,
   createOpenCodeServerClient,

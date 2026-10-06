@@ -3,8 +3,10 @@ import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLo
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRealtimeDelivery } from "./realtimeDelivery.js";
 import {
+  createSocketRequest,
   realtimeAuthenticationRequired,
-  registerSocketAudienceBootstrap
+  registerSocketAudienceBootstrap,
+  revalidateSocket
 } from "./realtimeAudience.js";
 import {
   closeSocketIoRedisConnections,
@@ -32,6 +34,64 @@ function debugEnabled(config, env) {
 
 function createRealtimeCapability({ io }) {
   const capability = Object.freeze({
+    onConnection(listener) {
+      if (typeof listener !== "function") throw new TypeError("Realtime connection listener must be a function.");
+      const state = stateByCapability.get(capability);
+      if (!state) throw new Error("Realtime runtime state is unavailable.");
+      const releases = new Map();
+      function attach(socket) {
+        if (releases.has(socket)) return;
+        let detach;
+        async function readRequest() {
+          const request = createSocketRequest(socket);
+          const actor = await revalidateSocket({
+            socket, request, authService: state.authService, workspaces: state.workspaces
+          });
+          if (!socket.connected || (!actor && realtimeAuthenticationRequired(state.authService))) {
+            throw Object.assign(new Error("Authentication required."), { statusCode: 401 });
+          }
+          if (actor) request.user = actor;
+          return request;
+        }
+        function release() {
+          socket.off("disconnect", release);
+          releases.delete(socket);
+          try { detach?.(); }
+          catch (error) {
+            state.providerLogger.warn({ error: String(error?.message || error) }, "Realtime connection cleanup failed.");
+          }
+        }
+        try {
+          detach = listener({
+            socket,
+            // Hosts authorize this real connection request through their own
+            // action boundary. Reading it alone does not grant local access.
+            readRequest,
+            async authenticate() {
+              const request = await readRequest();
+              if (!request.user) throw Object.assign(new Error("Authentication required."), { statusCode: 401 });
+              return request;
+            }
+          });
+          if (detach != null && typeof detach !== "function") {
+            throw new TypeError("Realtime connection listeners must return a cleanup function or undefined.");
+          }
+          releases.set(socket, release);
+          socket.on("disconnect", release);
+        } catch (error) {
+          state.providerLogger.warn({ error: String(error?.message || error) }, "Realtime connection listener failed.");
+        }
+      }
+      function stop() {
+        io.off("connection", attach);
+        for (const release of [...releases.values()]) release();
+        state.connectionListeners.delete(stop);
+      }
+      state.connectionListeners.add(stop);
+      io.on("connection", attach);
+      for (const socket of io.sockets.sockets.values()) attach(socket);
+      return stop;
+    },
     diagnostics() {
       const state = stateByCapability.get(capability);
       return Object.freeze({
@@ -69,6 +129,9 @@ const RealtimeProvider = defineProvider({
     const realtime = createRealtimeCapability({ io });
     stateByCapability.set(realtime, {
       authenticationRequired: false,
+      authService: null,
+      workspaces: null,
+      connectionListeners: new Set(),
       delivery: null,
       io,
       providerLogger,
@@ -79,6 +142,8 @@ const RealtimeProvider = defineProvider({
   async boot({ authService, database, env, events, workspaces }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");
+    state.authService = authService;
+    state.workspaces = workspaces;
     state.delivery = createRealtimeDelivery({
       io: state.io, database, logger: state.providerLogger, authService, workspaces
     });
@@ -104,6 +169,7 @@ const RealtimeProvider = defineProvider({
   async shutdown(_dependencies, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) return;
+    for (const release of [...state.connectionListeners]) release();
     state.delivery?.stop();
     await closeSocketIoServer(state.io);
     await closeSocketIoRedisConnections(state.redisConnection || {});

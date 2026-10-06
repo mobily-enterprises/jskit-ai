@@ -4,6 +4,7 @@
       v-bind="conversation" :working="working" class="assistant-conversation__transcript"
       @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
       @resend-turn="resend($event)" @cancel-turn="cancel($event)"
+      @check-delivery="adapter.actions?.checkDelivery?.($event)"
       @edit-turn="edit($event)" @link-click="adapter.actions?.openLink?.($event)"
     >
       <template v-for="name in transcriptSlots" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
@@ -117,11 +118,33 @@ const delivery = ref(null);
 const statusId = `assistant-status-${useId()}`;
 const conversation = computed(() => {
   const saved = props.adapter.conversation;
-  if (!props.adapter.delivery) return saved;
-  const turns = props.adapter.delivery.turns(saved.turns || []);
-  return { ...saved, turns, welcomeMessage: turns.length ? "" : saved.welcomeMessage };
+  if (!props.adapter.delivery && !saved.previewMessage && !saved.interimReply) return saved;
+  const { previewMessage, interimReply, ...display } = saved;
+  let turns = props.adapter.delivery ? props.adapter.delivery.turns(saved.turns || []) : saved.turns || [];
+  if (interimReply?.text && interimReply.turnId) {
+    const assistant = { ...interimReply, messageId: interimReply.id, role: "assistant" };
+    turns = turns.map(turn => turn.turnId !== interimReply.turnId ? turn : {
+      ...turn, assistant,
+      commentary: (turn.commentary || []).filter(message =>
+        (message.outputId || message.messageId) !== (interimReply.outputId || interimReply.id)),
+      ...(Array.isArray(turn.messages) ? { messages: turn.messages.filter(message =>
+        message.role !== "assistant" &&
+        (message.outputId || message.messageId) !== (interimReply.outputId || interimReply.id)).concat(assistant) } : {})
+    });
+  }
+  const messageId = String(previewMessage?.messageId || previewMessage?.id || "").trim();
+  const alreadyShown = messageId && (props.adapter.delivery?.find?.(messageId) || turns.some(turn => [
+    turn.system, turn.user, turn.assistant, ...(turn.thinking || []), ...(turn.commentary || []), ...(turn.messages || [])
+  ].some(message => String(message?.messageId || message?.id || "") === messageId)));
+  if (messageId && previewMessage?.text && !alreadyShown) {
+    const user = { messageId, role: "user", text: String(previewMessage.text) };
+    turns = [...turns, { turnId: messageId, user, messages: [user], optimistic: { id: messageId, status: "pending" } }];
+  }
+  // Transcription and interim replies are display only. The receipt watcher
+  // receives canonical turns, never these presentation or delivery overlays.
+  return { ...display, turns, welcomeMessage: turns.length ? "" : saved.welcomeMessage };
 });
-watch(() => [props.adapter.delivery, props.adapter.conversation.turns], ([controller, turns]) => {
+watch([() => props.adapter.delivery, () => props.adapter.conversation.turns], ([controller, turns]) => {
   controller?.reconcile(turns || []);
 }, { immediate: true });
 const pending = computed(() => Boolean(props.adapter.delivery?.state.sending || props.adapter.composer?.pending));

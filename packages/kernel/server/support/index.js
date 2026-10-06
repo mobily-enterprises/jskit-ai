@@ -28,3 +28,4 @@ export {
   resolveSemanticPlacementTargetFromApp,
   resolveShellOutletPlacementTargetFromApp
 } from "./shellOutlets.js";
+export { tryAcquireExclusiveFileLock } from "./fileLock.js";

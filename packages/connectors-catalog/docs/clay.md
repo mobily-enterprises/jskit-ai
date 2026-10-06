@@ -11,7 +11,7 @@ runs enrichment routines, reads results and queries Enterprise tables. It uses a
    [direct API-key settings link](https://app.clay.com/workspaces/~/settings/account?accountTab=api-keys-beta).
 2. Create a Public API key. Copy the newly issued value
    into the backend environment as `CLAY_PUBLIC_API_KEY`.
-3. In Vibe64, open **Integrations → Add Clay**. Enter a display name and
+3. Add a Clay connection. Enter a display name and
    `env:CLAY_PUBLIC_API_KEY` in **Public API key reference**. Choose shared
    application access or assistant access for the intended owner, then save.
 4. The host explicitly calls `connectApiKey`. Its `GET /public/v0/me` check
@@ -55,7 +55,7 @@ API access with Clay before configuring this connector.
 Compose this file with `providers: [clayProvider]`, an authorization policy and
 the encrypted file connection store as in the
 [API-key pattern](../patterns/api-key-connection/PATTERN.md). A CLI uses these
-same library methods. Vibe64 writes the same source file and supplies no separate
+same library methods. The connection editor writes the same source file and supplies no separate
 database requirement.
 
 ```js
@@ -183,8 +183,8 @@ Public API key label, raw-secret rejection, reference persistence, function API
 enablement, Enterprise prerequisite and local-disconnect explanation.
 No live provider calls or generated applications are part of this proof.
 
-**LIMITATIONS:** Automatic Vibe64 coding-assistant attachment is deferred. For
-example, saving Clay here does not let you ask the Vibe64 chat to enrich leads;
+**LIMITATIONS:** Assistant tool attachment requires explicit host integration. For
+example, saving Clay here does not let you ask an assistant to enrich leads;
 the generated app or explicitly wired assistant host can invoke these operations.
 Clay's workflow/function authoring UI, large JSONL batch uploads, webhook
 provisioning/verification and automatic key issuance remain provider/native app

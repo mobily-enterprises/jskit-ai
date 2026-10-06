@@ -1,0 +1,200 @@
+{
+  "schema": "vibe64.voice-model-sources.v1",
+  "packRevision": 2,
+  "models": [
+    {
+      "id": "streaming-zipformer-en-2023-06-26",
+      "kind": "stt",
+      "archive": "sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "archiveSha256": "639e25b578e9e997131402199419c13a941f8e4e198e2da1ce57dbf5cf401282",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "files": {
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/encoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/decoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/joiner.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/tokens.txt": "stt/tokens.txt",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/README.md": "stt/SOURCE.md"
+      }
+    },
+    {
+      "id": "piper-en_GB-cori-medium",
+      "kind": "tts",
+      "archive": "vits-piper-en_GB-cori-medium.tar.bz2",
+      "archiveSha256": "49c9a5361bbdd95d7ca9687c4de11e5908481f65e7c7c368960df79949fdac2b",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-cori-medium.tar.bz2",
+      "license": "MIT model package; public-domain source recordings",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/b15880f5cbc33fcfc97938b1f72411dc770e5bc4/en/en_GB/cori/medium",
+      "files": {
+        "vits-piper-en_GB-cori-medium/en_GB-cori-medium.onnx": "tts/model.onnx",
+        "vits-piper-en_GB-cori-medium/en_GB-cori-medium.onnx.json": "tts/model.onnx.json",
+        "vits-piper-en_GB-cori-medium/tokens.txt": "tts/tokens.txt",
+        "vits-piper-en_GB-cori-medium/MODEL_CARD": "tts/SOURCE.md",
+        "vits-piper-en_GB-cori-medium/espeak-ng-data": "tts/espeak-ng-data"
+      }
+    },
+    {
+      "id": "piper-en_GB-alba-medium",
+      "kind": "tts",
+      "archive": "vits-piper-en_GB-alba-medium.tar.bz2",
+      "archiveSha256": "fcd45962906933eec4431d3688f7d74aaac8713c87c6717f91fd3b23463aa1a1",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-alba-medium.tar.bz2",
+      "license": "CC-BY-4.0 source recordings: Valentini-Botinhao, Cassia; Yamagishi, Junichi (2019), Alba speech corpus, University of Edinburgh, doi:10.7488/ds/2506",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_GB/alba/medium",
+      "files": {
+        "vits-piper-en_GB-alba-medium/en_GB-alba-medium.onnx": "tts/alba/model.onnx",
+        "vits-piper-en_GB-alba-medium/en_GB-alba-medium.onnx.json": "tts/alba/model.onnx.json",
+        "vits-piper-en_GB-alba-medium/tokens.txt": "tts/alba/tokens.txt",
+        "vits-piper-en_GB-alba-medium/MODEL_CARD": "tts/alba/SOURCE.md"
+      }
+    },
+    {
+      "id": "piper-en_US-joe-medium",
+      "kind": "tts",
+      "archive": "vits-piper-en_US-joe-medium.tar.bz2",
+      "archiveSha256": "261b903a1fb2ce621e2b5b14233cd41223c3b9f9590f896c11daee4df22d9bd3",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-joe-medium.tar.bz2",
+      "license": "CC0 source recordings",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/joe/medium",
+      "files": {
+        "vits-piper-en_US-joe-medium/en_US-joe-medium.onnx": "tts/joe/model.onnx",
+        "vits-piper-en_US-joe-medium/en_US-joe-medium.onnx.json": "tts/joe/model.onnx.json",
+        "vits-piper-en_US-joe-medium/tokens.txt": "tts/joe/tokens.txt",
+        "vits-piper-en_US-joe-medium/MODEL_CARD": "tts/joe/SOURCE.md"
+      }
+    },
+    {
+      "id": "piper-en_US-bryce-medium",
+      "kind": "tts",
+      "archive": "vits-piper-en_US-bryce-medium.tar.bz2",
+      "archiveSha256": "f35bb77ddecdf229798e850d1c77ded839d4179879be8b90da5f82e7beb538f2",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-bryce-medium.tar.bz2",
+      "license": "Public-domain source recordings",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/bryce/medium",
+      "files": {
+        "vits-piper-en_US-bryce-medium/en_US-bryce-medium.onnx": "tts/bryce/model.onnx",
+        "vits-piper-en_US-bryce-medium/en_US-bryce-medium.onnx.json": "tts/bryce/model.onnx.json",
+        "vits-piper-en_US-bryce-medium/tokens.txt": "tts/bryce/tokens.txt",
+        "vits-piper-en_US-bryce-medium/MODEL_CARD": "tts/bryce/SOURCE.md"
+      }
+    },
+    {
+      "id": "piper-en_GB-northern_english_male-medium",
+      "kind": "tts",
+      "archive": "vits-piper-en_GB-northern_english_male-medium.tar.bz2",
+      "archiveSha256": "2bb2c1e709f58c11f17c693b3b38f500e110e7f54f2651774ec48b8d41f12c55",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_GB-northern_english_male-medium.tar.bz2",
+      "license": "CC-BY-SA-4.0 source recordings: OpenSLR 83, UK English regional accents",
+      "source": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_GB/northern_english_male/medium",
+      "files": {
+        "vits-piper-en_GB-northern_english_male-medium/en_GB-northern_english_male-medium.onnx": "tts/northern_english_male/model.onnx",
+        "vits-piper-en_GB-northern_english_male-medium/en_GB-northern_english_male-medium.onnx.json": "tts/northern_english_male/model.onnx.json",
+        "vits-piper-en_GB-northern_english_male-medium/tokens.txt": "tts/northern_english_male/tokens.txt",
+        "vits-piper-en_GB-northern_english_male-medium/MODEL_CARD": "tts/northern_english_male/SOURCE.md"
+      }
+    }
+  ],
+  "configuration": {
+    "voices": [
+      {
+        "id": "cori",
+        "label": "Cori · female · British English",
+        "speakerId": 0,
+        "language": "en-GB",
+        "modelId": "cori"
+      },
+      {
+        "id": "alba",
+        "label": "Alba · female · Scottish English",
+        "speakerId": 0,
+        "language": "en-GB",
+        "modelId": "alba"
+      },
+      {
+        "id": "joe",
+        "label": "Joe · male · American English",
+        "speakerId": 0,
+        "language": "en-US",
+        "modelId": "joe"
+      },
+      {
+        "id": "bryce",
+        "label": "Bryce · male · American English",
+        "speakerId": 0,
+        "language": "en-US",
+        "modelId": "bryce"
+      },
+      {
+        "id": "northern_english_male",
+        "label": "Northern English · male · British English",
+        "speakerId": 0,
+        "language": "en-GB",
+        "modelId": "northern_english_male"
+      }
+    ],
+    "defaultVoice": "cori",
+    "synthesizers": {
+      "cori": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "vits": {
+            "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+            "model": "${MODELS_ROOT}/tts/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/tokens.txt"
+          }
+        }
+      },
+      "alba": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "vits": {
+            "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+            "model": "${MODELS_ROOT}/tts/alba/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/alba/tokens.txt"
+          }
+        }
+      },
+      "joe": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "vits": {
+            "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+            "model": "${MODELS_ROOT}/tts/joe/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/joe/tokens.txt"
+          }
+        }
+      },
+      "bryce": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "vits": {
+            "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+            "model": "${MODELS_ROOT}/tts/bryce/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/bryce/tokens.txt"
+          }
+        }
+      },
+      "northern_english_male": {
+        "maxNumSentences": 1,
+        "model": {
+          "numThreads": 1,
+          "provider": "cpu",
+          "vits": {
+            "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+            "model": "${MODELS_ROOT}/tts/northern_english_male/model.onnx",
+            "tokens": "${MODELS_ROOT}/tts/northern_english_male/tokens.txt"
+          }
+        }
+      }
+    }
+  }
+}

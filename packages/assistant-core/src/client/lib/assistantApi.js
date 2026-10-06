@@ -77,12 +77,82 @@ function resolveRequiredBasePath(resolveBasePath) {
 }
 
 function createAssistantApi({ request, requestStream, resolveBasePath, resolveSurfaceId = null } = {}) {
-  if (typeof request !== "function" || typeof requestStream !== "function") {
-    throw new Error("createAssistantApi requires request() and requestStream().");
+  if (typeof request !== "function") {
+    throw new Error("createAssistantApi requires request().");
+  }
+
+  function requestConversation(conversationId, suffix, options) {
+    const basePath = resolveRequiredBasePath(resolveBasePath);
+    const encodedId = encodeURIComponent(String(conversationId || "").trim());
+    const headers = resolveAssistantRequestHeaders(resolveSurfaceId);
+    return request(`${basePath}/conversations/${encodedId}${suffix}`, {
+      ...options,
+      ...(headers ? { headers } : {})
+    });
   }
 
   return Object.freeze({
+    readConversation(conversationId, { signal, beforeTurnId, limit } = {}) {
+      const params = new URLSearchParams();
+      appendQueryParam(params, "beforeTurnId", beforeTurnId);
+      appendQueryParam(params, "limit", limit);
+      return requestConversation(conversationId, params.size ? `?${params}` : "", { method: "GET", signal });
+    },
+
+    sendConversationMessage(conversationId, payload, { signal } = {}) {
+      return requestConversation(conversationId, "/messages", {
+        method: "POST", signal,
+        body: {
+          messageId: payload.messageId,
+          text: payload.text,
+          ...(Object.hasOwn(payload, "data") ? { data: payload.data } : {}),
+          ...(Object.hasOwn(payload, "attachmentIds") ? { attachmentIds: payload.attachmentIds } : {}),
+          ...(Object.hasOwn(payload, "steer") ? { steer: payload.steer } : {})
+        }
+      });
+    },
+
+    cancelConversation(conversationId, { signal } = {}) {
+      return requestConversation(conversationId, "/cancel", { method: "POST", signal });
+    },
+
+    inspectConversationDelivery(conversationId, messageId, { signal } = {}) {
+      const encodedMessageId = encodeURIComponent(String(messageId || "").trim());
+      return requestConversation(conversationId, `/deliveries/${encodedMessageId}/inspect`, { method: "POST", signal });
+    },
+
+    readConversationGoal(conversationId, { signal } = {}) {
+      return requestConversation(conversationId, "/goal", { method: "GET", signal });
+    },
+
+    updateConversationGoal(conversationId, payload, { signal } = {}) {
+      const body = {};
+      for (const key of ["action", "expectedSegmentId", "expectedGoalId", "messageId", "objective", "tokenBudget", "attachmentIds"]) {
+        if (Object.hasOwn(payload, key)) body[key] = payload[key];
+      }
+      return requestConversation(conversationId, "/goal", { method: "POST", signal, body });
+    },
+
+    configureConversation(conversationId, configuration, { signal } = {}) {
+      return requestConversation(conversationId, "/configuration", {
+        method: "PATCH", signal, body: { configuration }
+      });
+    },
+
+    selectConversation(conversationId, selection, { signal } = {}) {
+      return requestConversation(conversationId, "/selection", {
+        method: "POST", signal, body: { selection }
+      });
+    },
+
+    replaceConversation(conversationId, replacement, { signal } = {}) {
+      return requestConversation(conversationId, "/replacement", {
+        method: "POST", signal, body: { replacement }
+      });
+    },
+
     async streamChat(payload, { signal, onEvent, onMalformedLine, rejectOnErrorEvent = true } = {}) {
+      if (typeof requestStream !== "function") throw new TypeError("streamChat requires requestStream().");
       const basePath = resolveRequiredBasePath(resolveBasePath);
       let streamEventError = null;
       const requestHeaders = resolveAssistantRequestHeaders(resolveSurfaceId);

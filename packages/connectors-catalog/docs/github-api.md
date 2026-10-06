@@ -52,7 +52,7 @@ headers, paging, restart, rotation, disconnect and owner isolation.
 ## OAuth setup
 
 Open GitHub Settings > Developer settings > OAuth Apps > New OAuth App. Set the
-name and application homepage, and copy Vibe64's Suggested callback URL into
+name and application homepage, and copy the application's Suggested callback URL into
 Authorization callback URL. Register the app, copy Client ID, and generate a
 client secret. Save configuration and follow the Env links for client secret
 and callback references. The application owns the callback route and grants.

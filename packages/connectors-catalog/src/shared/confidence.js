@@ -17,7 +17,7 @@ function definition(id, name, description) {
         ? "Flag creation, variants, schema changes and targeting rules require explicit host approval of the exact change. Inspect the resulting flag and use testResolveFlag for the intended test entity. This configures management access, not production flag evaluation; wire the native Confidence/OpenFeature client separately."
         : "Retrieve experiment details and results through the host's approved tools. Preserve confidence intervals, sample sizes, significance and status messages: a positive effect estimate alone is not a winning experiment. Confidence performs the statistical analysis.",
       "Flags and experiments keep separate configured connections even though they share an OAuth service. Do not reuse a grant by changing its provider ID.",
-      "If client_secret_expires_at is returned, plan replacement before expiry. A failed or interrupted registration is not proof that no client was created; investigate before retrying. Saving alone does not register a client or attach tools. Automatic Vibe64 coding-assistant attachment is deferred; an explicitly wired host can use these tools. Disconnect removes the local grant; it does not undo flag changes or revoke all provider access."
+      "If client_secret_expires_at is returned, plan replacement before expiry. A failed or interrupted registration is not proof that no client was created; investigate before retrying. Saving alone does not register a client or attach tools. An explicitly wired assistant host can use these tools. Disconnect removes the local grant; it does not undo flag changes or revoke all provider access."
     ] }
   });
 }

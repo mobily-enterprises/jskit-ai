@@ -14,14 +14,28 @@ const request = { context: actor, integrationId: "suggestions" };
 const authorize = async (context) => context?.applicationId === actor.applicationId ? context : null;
 const validate = (config) => validateIntegrationConfiguration(config, { providers: [aiDefinition] });
 
-test("AI preserves the upstream snapshot, exposes every provider and separates deprecated models", () => {
+test("AI retains the attributed snapshot with reviewed current identities and explicit deprecations", () => {
   assert.equal(aiCatalogue.extractedAt, "2026-09-10");
   assert.equal(aiCatalogue.providers.length, 213);
-  assert.equal(listAiModels({ includeDeprecated: true }).length, 7614);
+  assert.equal(listAiModels({ includeDeprecated: true }).length, 7613);
   assert.match(aiCatalogue.sourceSha256, /^[a-f0-9]{64}$/u);
   assert.equal(getAiModel("opencode/grok-code").status, "deprecated");
   assert.equal(listAiModels().some((model) => model.key === "opencode/grok-code"), false);
   assert.equal(aiCatalogue.providers.find((provider) => provider.id === "amazon-bedrock").connection, "framework");
+});
+
+test("DeepSeek uses its current exact Flash identity and rejects retired provider aliases", async () => {
+  const current = "deepseek/deepseek-flash";
+  assert.equal(getAiModel(current).name, "DeepSeek V4.1 Flash");
+  assert.deepEqual(getAiModel(current).modalities.input, ["text", "image"]);
+  const config = configuration({ settings: { model: current }, authentication: { method: "api-key", secretRef: "env:KEY" } });
+  const resolver = createAiConnectionResolver({ configuration: config, authorize, resolveReference: () => "test-key" });
+  assert.equal((await resolver.resolve(request)).model, "deepseek-flash");
+  for (const model of ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash-vision-exp"]) {
+    assert.equal(getAiModel(model), undefined);
+    assert.equal(listAiModels({ providerId: "deepseek", includeDeprecated: true }).some(entry => entry.key === model), false);
+    assert.throws(() => validate(configuration({ ...config.integrations.suggestions, settings: { model } })), { code: "integration_configuration_invalid" });
+  }
 });
 
 test("AI lists every active Zen public model first and uses Big Pickle as the explicit default", () => {
@@ -67,6 +81,7 @@ test("AI resolves no-account SDK parameters without environment, network or an O
   const resolver = createAiConnectionResolver({ configuration: configuration(), authorize,
     resolveReference: () => { throw new Error("Free mode must not resolve credentials."); } });
   assert.deepEqual(await resolver.resolve(request), { providerId: "opencode", model: "big-pickle",
+    modelLimits: getAiModel(DEFAULT_AI_MODEL).limit,
     sdkPackage: "@ai-sdk/openai-compatible", baseURL: "https://opencode.ai/zen/v1", apiKey: "public", access: "free-no-setup" });
   assert.equal(globalThis.fetch.mock.callCount(), 0);
   assert.equal(Object.hasOwn(resolver, "invoke"), false);

@@ -3,6 +3,61 @@ import {
   normalizeText
 } from "./normalize.js";
 
+const CODEX_TOKEN_USAGE_METHOD = "thread/tokenUsage/updated";
+
+function nonNegativeInteger(value) {
+  if (value === null || value === undefined || String(value).trim() === "") {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+
+function codexContextUsageFromNotification(notification = {}) {
+  if (normalizeText(notification?.method) !== CODEX_TOKEN_USAGE_METHOD) {
+    return null;
+  }
+  const params = notification?.params && typeof notification.params === "object"
+    ? notification.params
+    : {};
+  const tokenUsage = params.tokenUsage && typeof params.tokenUsage === "object"
+    ? params.tokenUsage
+    : {};
+  const last = tokenUsage.last && typeof tokenUsage.last === "object"
+    ? tokenUsage.last
+    : {};
+  const total = tokenUsage.total && typeof tokenUsage.total === "object"
+    ? tokenUsage.total
+    : {};
+  const usedTokens = nonNegativeInteger(last.totalTokens);
+  const inputTokens = nonNegativeInteger(last.inputTokens);
+  const cumulativeTokens = nonNegativeInteger(total.totalTokens);
+  const windowTokens = nonNegativeInteger(tokenUsage.modelContextWindow);
+  const threadId = normalizeText(params.threadId);
+  const turnId = normalizeText(params.turnId);
+  if (
+    !threadId ||
+    !turnId ||
+    usedTokens === null ||
+    inputTokens === null ||
+    cumulativeTokens === null ||
+    !windowTokens ||
+    usedTokens > windowTokens ||
+    inputTokens > usedTokens ||
+    cumulativeTokens < usedTokens
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    cumulativeTokens,
+    inputTokens,
+    threadId,
+    turnId,
+    usedTokens,
+    windowTokens
+  });
+}
+
 const CODEX_APP_SERVER_CONTEXT_COMPACTION_SIGNALS = new Set(
   [
     "contextcompaction",
@@ -346,6 +401,11 @@ function classifyCodexAppServerEvent(notification = {}) {
     threadId: codexAppServerNotificationThreadId(notification),
     turnId: codexAppServerNotificationTurnId(notification)
   };
+  if (itemType === "contextCompaction" && (method === "item/started" || method === "item/completed")) {
+    base.phase = method === "item/started" ? "compacting" : "working";
+  } else if (method === "error" && codexAppServerNotificationParams(notification).willRetry === true) {
+    base.phase = "retrying";
+  }
 
   if (method === "item/agentMessage/delta") {
     const { delta } = codexAppServerNotificationParams(notification);
@@ -376,6 +436,7 @@ function classifyCodexAppServerEvent(notification = {}) {
     return {
       ...base,
       kind: "reasoning_summary",
+      delta: codexAppServerContentText(codexAppServerNotificationParams(notification).delta),
       text: normalizeText(codexAppServerContentText(codexAppServerNotificationParams(notification).delta))
     };
   }
@@ -462,6 +523,7 @@ function classifyCodexAppServerEvent(notification = {}) {
     return {
       ...base,
       kind: "status",
+      ...(codexAppServerNotificationTurnStatus(notification) === "inProgress" ? { phase: "working" } : {}),
       text: codexAppServerNotificationTurnStatus(notification)
     };
   }
@@ -544,7 +606,7 @@ function codexAppServerProviderThread(value = {}) {
 }
 
 function codexAppServerProviderTurnId(turn = {}) {
-  return normalizeText(turn.id || turn.turnId || turn.turn_id || turn.turn?.id);
+  return normalizeText(turn.id || turn.turnId || turn.turn_id || turn.turn?.id || "");
 }
 
 function codexAppServerProviderTurnItems(turn = {}) {
@@ -623,8 +685,139 @@ function codexAppServerOutputOwnerTurnId({
     : normalizeText(notificationTurnId);
 }
 
+function codexAppServerThreadRawValue(thread = {}) {
+  if (isPlainObject(thread.raw)) {
+    return thread.raw;
+  }
+  if (isPlainObject(thread.response?.thread)) {
+    return thread.response.thread;
+  }
+  return isPlainObject(thread) ? thread : {};
+}
+
+function codexAppServerThreadTurnId(thread = {}) {
+  const observedTurnId = normalizeText(thread.observedTurn?.id || "");
+  if (observedTurnId) {
+    return observedTurnId;
+  }
+  const rawThread = codexAppServerThreadRawValue(thread);
+  const status = isPlainObject(rawThread.status) ? rawThread.status : {};
+  return normalizeText(
+    thread.turnId ||
+    thread.turn_id ||
+    thread.turn?.id ||
+    rawThread.turnId ||
+    rawThread.turn_id ||
+    rawThread.turn?.id ||
+    rawThread.currentTurnId ||
+    rawThread.current_turn_id ||
+    rawThread.activeTurnId ||
+    rawThread.active_turn_id ||
+    status.turnId ||
+    status.turn_id ||
+    status.turn?.id ||
+    status.currentTurnId ||
+    status.current_turn_id ||
+    status.activeTurnId ||
+    status.active_turn_id ||
+    ""
+  );
+}
+
+function codexAppServerThreadError(thread = {}) {
+  const rawThread = codexAppServerThreadRawValue(thread);
+  const status = isPlainObject(rawThread.status) ? rawThread.status : {};
+  return codexAppServerErrorText(rawThread.error || status.error);
+}
+
+function codexAppServerProviderThreadTurns(thread = null) {
+  const rawThread = codexAppServerThreadRawValue(thread || {});
+  return (Array.isArray(rawThread.turns) ? rawThread.turns : [])
+    .filter((turn) => isPlainObject(turn));
+}
+
+function codexAppServerProviderTurnStatus(turn = {}) {
+  return codexAppServerStatusFromValue(turn.status || turn.state);
+}
+
+function codexAppServerProviderTurnClientIds(turn = {}) {
+  return codexAppServerProviderTurnItems(turn)
+    .map((item) => normalizeText(
+      item.clientId ||
+      item.client_id ||
+      item.clientUserMessageId ||
+      item.client_user_message_id ||
+      ""
+    ))
+    .filter(Boolean);
+}
+
+function codexAppServerProviderTurnForOperation(thread = null, {
+  clientMessageId = "",
+  turnId = ""
+} = {}) {
+  const normalizedTurnId = normalizeText(turnId || "");
+  const normalizedClientMessageId = normalizeText(clientMessageId || "");
+  const turns = codexAppServerProviderThreadTurns(thread);
+  if (normalizedTurnId) {
+    return turns.find((turn) => (
+      codexAppServerProviderTurnId(turn) === normalizedTurnId
+    )) || null;
+  }
+  if (!normalizedClientMessageId) {
+    return null;
+  }
+  return [...turns].reverse().find((turn) => (
+    codexAppServerProviderTurnClientIds(turn).includes(normalizedClientMessageId)
+  )) || null;
+}
+
+// Native snapshot matching from the original renewal handover/seed paths.
+// The application projects these classifications into its approval/error policy.
+function inspectCodexAppServerRenewalThread(thread = null, {
+  clientMessageId = "",
+  turnId: expectedTurnId = "",
+  requireFresh = false
+} = {}) {
+  const snapshotTurns = codexAppServerProviderThreadTurns(thread);
+  const targetTurn = codexAppServerProviderTurnForOperation(thread, {
+    clientMessageId,
+    turnId: expectedTurnId
+  });
+  if (expectedTurnId && !targetTurn) return { targetTurn, failure: "turn_missing" };
+  if (!requireFresh && !targetTurn && snapshotTurns.length === 0) return { targetTurn, failure: "history_missing" };
+  if (requireFresh && snapshotTurns.some((turn) => (
+    !targetTurn || codexAppServerProviderTurnId(turn) !== codexAppServerProviderTurnId(targetTurn)
+  ))) return { targetTurn, failure: "unrelated_history" };
+  return { targetTurn, failure: "" };
+}
+
+function codexAppServerProviderTurnText(thread = null, turnId = "") {
+  return codexAppServerProviderThreadAssistantSegments(thread || {}, turnId)
+    .map((segment) => segment.text)
+    .join("\n\n")
+    .trim();
+}
+
+function codexAppServerProviderTurnError(turn = {}) {
+  return codexAppServerErrorText(turn.error || turn.status?.error || turn.state?.error);
+}
+
 export {
+  codexContextUsageFromNotification,
   classifyCodexAppServerEvent,
+  codexAppServerThreadRawValue,
+  codexAppServerThreadTurnId,
+  codexAppServerThreadError,
+  codexAppServerProviderThreadTurns,
+  codexAppServerProviderTurnId,
+  codexAppServerProviderTurnStatus,
+  codexAppServerProviderTurnItems,
+  codexAppServerProviderTurnClientIds,
+  codexAppServerProviderTurnForOperation,
+  inspectCodexAppServerRenewalThread,
+  codexAppServerProviderTurnText,
+  codexAppServerProviderTurnError,
   codexAppServerAssistantItemText,
   codexAppServerContentText,
   codexAppServerContextRefreshReason,

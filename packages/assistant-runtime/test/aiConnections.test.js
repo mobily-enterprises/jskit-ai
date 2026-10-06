@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createAiConnectionResolver } from "../../connectors-catalog/src/server/ai.js";
-import { createAssistantAiClientFactory } from "../src/server/AssistantProvider.js";
+import { createAssistantAiClientFactory } from "../src/server/createAssistantRuntime.js";
 
 test("assistant connections authorize each request and resolve rotated and individual credentials afresh", async t => {
   const keys = { alice: "alice-first", bob: "bob-only" };

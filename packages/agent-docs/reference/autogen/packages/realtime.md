@@ -48,8 +48,9 @@ Exports
 
 ### `src/server/realtimeAudience.js`
 Exports
+- `createSocketRequest(socket)`
 - `realtimeAuthenticationRequired(authService = null)`
-- `revalidateSocket({ socket, authService, workspaces = null })`
+- `revalidateSocket({ socket, authService, workspaces = null, request })`
 - `registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null })`
 - `resolveAudienceTargets(audience, event, { database = null, logger })`
 Local functions
@@ -64,7 +65,7 @@ Local functions
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
 - `parseCookieHeader(value = "")`
-- `resolveSocketActor(authService, socket)`
+- `resolveSocketActor(authService, socket, request = createSocketRequest(socket))`
 - `authenticationRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
 - `registerRequiredSocketAuthentication({ io, logger, authService })`
@@ -94,6 +95,8 @@ Exports
 - `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger = console, createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient } = {})`
 - `closeSocketIoRedisConnections({ pubClient = null, subClient = null } = {})`
 Local functions
+- `toRequestPathname(urlValue)`
+- `registerSocketIoUpgradeHandoff(fastify)`
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
 - `buildSocketIoRedisAdapterKey(redisNamespace = "")`
 

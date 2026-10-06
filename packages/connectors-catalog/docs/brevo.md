@@ -15,7 +15,7 @@ marketing campaigns, sender/domain setup and automation events.
 5. In `integrations.json`, choose provider `brevo`, mode `shared` or `assistant`,
    empty `scopes`, and `authentication: { "method": "api-key", "secretRef":
    "env:BREVO_API_KEY" }`. This slot needs no OAuth registration.
-6. In Vibe64 save configuration, choose **Set credential in Env**, save the key,
+6. In the connection editor save configuration, choose **Set credential in Env**, save the key,
    return and choose **Connect account** or **Verify again**. **Check connection**
    reloads status only. CLI apps call `connectApiKey`. Manage/revoke keys through
    the same console; disconnect only removes the local runtime grant.
@@ -109,8 +109,8 @@ No ambiguous send or creation request is automatically retried.
 
 ## LIMITATIONS
 
-Editor coding-assistant attachment is deferred. For example, the app can send a
-booking email and show its bounce status, but Vibe64's Codex/OpenCode cannot inspect
+Assistant tool attachment requires explicit host integration. For example, the app can send a
+booking email and show its bounce status, but an assistant cannot inspect
 Brevo merely because this connector is configured. The app owns message content,
 recipient authorization and scheduling. This does not supply a template/automation
 visual designer, webhook receiver, SMTP service, WhatsApp integration or account

@@ -30,6 +30,7 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Mobile Capacitor](/guide/app-extras/mobile-capacitor)
 - [Realtime](/guide/app-extras/realtime)
 - [Assistant](/guide/app-extras/assistant)
+- [Voice conversations](/guide/app-extras/assistant-voice)
 
 ## How to use the guide
 

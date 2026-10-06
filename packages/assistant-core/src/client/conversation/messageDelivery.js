@@ -1,26 +1,29 @@
-import { reactive } from "vue";
+import { reactive, toRaw, toValue, watch } from "vue";
 
 const messageText = value => String(value || "").trim();
 
 function turnMatchesOptimisticMessage(turn = {}, optimistic = {}) {
-  const canonicalMessageId = messageText(turn?.user?.messageId);
+  const authored = optimistic.origin === "application" ? turn.system : turn.user;
+  const canonicalMessageId = messageText(authored?.messageId);
   const optimisticMessageId = messageText(optimistic.id);
   if (canonicalMessageId && optimisticMessageId) {
     return canonicalMessageId === optimisticMessageId;
   }
-  if (messageText(turn?.user?.text) !== optimistic.text) {
+  if (messageText(authored?.text) !== optimistic.text) {
     return false;
   }
-  const userAtMs = Date.parse(String(turn?.user?.at || ""));
+  const userAtMs = Date.parse(String(authored?.at || ""));
   return Number.isFinite(userAtMs) && userAtMs >= optimistic.createdAtMs - 5000;
 }
 
-function unmatchedOptimisticMessages(turns = [], optimisticMessages = []) {
+function unmatchedOptimisticMessages(turns = [], optimisticMessages = [], { receiptsOnly = false } = {}) {
   const conversationTurns = Array.isArray(turns) ? turns : [];
   const matchedTurnIndexes = new Set();
   return (Array.isArray(optimisticMessages) ? optimisticMessages : []).filter((message) => {
     const turnIndex = conversationTurns.findIndex((turn, index) => (
-      !matchedTurnIndexes.has(index) && turnMatchesOptimisticMessage(turn, message)
+      !matchedTurnIndexes.has(index) && turnMatchesOptimisticMessage(turn, message) &&
+      (!receiptsOnly || message.status === "accepted" ||
+        (message.origin === "application" ? turn.system : turn.user)?.receipt !== false)
     ));
     if (turnIndex < 0) {
       return true;
@@ -31,9 +34,10 @@ function unmatchedOptimisticMessages(turns = [], optimisticMessages = []) {
 }
 
 // One delivery state per conversation. The caller owns transport and receipts;
-// the shared assistant element renders these pending and failed turns.
+// the shared assistant element renders pending, failed and uncertain turns.
 function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   const state = reactive({ messages: [], sending: false });
+  const acceptanceCallbacks = new WeakMap();
   let deliveryTail = null;
   let pendingSends = new Map();
 
@@ -46,35 +50,64 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   }
 
   function reconcile(turns) {
-    state.messages = unmatchedOptimisticMessages(turns, state.messages);
+    const unmatched = unmatchedOptimisticMessages(turns, state.messages, { receiptsOnly: true });
+    const retained = new Set(unmatched.map(message => message.id));
+    for (const message of state.messages) {
+      if (!retained.has(message.id)) accept(message.id);
+    }
+    state.messages = unmatched;
   }
 
   function turns(savedTurns = []) {
     return [
-      ...savedTurns,
-      ...unmatchedOptimisticMessages(savedTurns, state.messages).map((message) => ({
-        optimistic: { error: message.error, id: message.id, status: message.status },
-        turnId: message.id,
-        user: {
-          attachments: message.attachments,
-          at: message.createdAt,
-          messageId: message.id,
-          role: "user",
-          text: message.text
-        }
-      }))
+      ...savedTurns.map(turn => {
+        const message = state.messages.find(message => message.status !== "accepted" &&
+          turnMatchesOptimisticMessage(turn, message) &&
+          (message.origin === "application" ? turn.system : turn.user)?.receipt === false);
+        if (!message) return turn;
+        const pending = optimisticTurn(message);
+        return { ...turn, optimistic: pending.optimistic, ...(pending.system ? { system: pending.system } : {}) };
+      }),
+      ...unmatchedOptimisticMessages(savedTurns, state.messages).map(optimisticTurn)
     ];
+  }
+
+  function optimisticTurn(message) {
+    const role = message.origin === "application" ? "system" : "user";
+    const authored = {
+      attachments: message.attachments,
+      at: message.createdAt,
+      messageId: message.id,
+      role,
+      text: message.text
+    };
+    const status = message.status === "uncertain" ? {
+      role: "system", text: "Message delivery is not confirmed.",
+      delivery: { messageId: message.id, error: message.error, checking: message.checking === true }
+    } : null;
+    return {
+      optimistic: { error: message.error, id: message.id, status: message.status },
+      turnId: message.id,
+      [role]: authored,
+      ...(status ? { system: role === "system" ? { ...authored, ...status, text: `${authored.text}\n\n${status.text}` } : status } : {})
+    };
   }
 
   async function send(payload, {
     messageId = crypto.randomUUID(),
     deliver = defaultDeliver,
     isCurrent = () => true,
+    receiptTurns = null,
+    onAccepted,
+    uncertainOnError = false,
     queue = false
   } = {}) {
-    if ((state.sending && !queue) || pendingSends.has(messageId) || !messageText(payload?.message)) return false;
+    if ((state.sending && !queue) || pendingSends.has(messageId) || find(messageId)?.status === "uncertain" ||
+        (!messageText(payload?.message) && !payload?.displayAttachments?.length)) return false;
     if (typeof deliver !== "function") throw new TypeError("Message delivery requires a deliver function.");
     const snapshot = JSON.parse(JSON.stringify(payload));
+    const previous = find(messageId);
+    const acknowledge = previous && acceptanceCallbacks.get(toRaw(previous)) || onAccepted;
     const ownerPendingSends = pendingSends;
     const current = () => pendingSends === ownerPendingSends && isCurrent();
     const predecessor = deliveryTail;
@@ -90,27 +123,44 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       id: messageId,
       payload: snapshot,
       status: "pending",
-      text: String(snapshot.displayMessage || snapshot.message).trim()
+      text: String(snapshot.displayMessage || snapshot.message || "").trim()
     };
+    if (typeof acknowledge === "function") acceptanceCallbacks.set(message, acknowledge);
     state.messages = [...state.messages.filter((entry) => entry.id !== messageId), message];
     state.sending = true;
+    let stopReceipt;
     try {
       if (predecessor) await predecessor;
       if (!current()) return false;
-      const response = await deliver({ ...snapshot, messageId });
+      if (uncertainOnError && state.messages.some(entry => entry.id !== messageId && entry.status === "uncertain")) {
+        fail(messageId, "Check the previous message's delivery before sending again.");
+        return false;
+      }
+      let receipt;
+      if (receiptTurns !== null) {
+        receipt = Promise.withResolvers();
+        settled.receipt = receipt;
+        stopReceipt = watch([current, () => toValue(receiptTurns)], ([isCurrent, turns]) => {
+          if (!isCurrent) receipt.resolve(false);
+          else if (turns?.some(turn => turn.user?.messageId === messageId && turn.user.receipt !== false)) receipt.resolve({ ok: true });
+        }, { immediate: true });
+      }
+      const submitted = deliver({ ...snapshot, messageId });
+      const response = await (receipt ? Promise.race([submitted, receipt.promise]) : submitted);
       if (!current()) return false;
       if (response === false || response?.ok === false) {
-        fail(messageId, response?.error || "Message could not be sent.");
+        fail(messageId, response?.error || "Message could not be sent.", response?.status === "uncertain" ? "uncertain" : "failed");
       } else {
-        const acceptedMessage = find(messageId);
-        if (acceptedMessage) acceptedMessage.status = "accepted";
+        accept(messageId);
       }
       return response;
     } catch (error) {
       if (!current()) return false;
-      fail(messageId, error);
+      if (find(messageId)?.status === "accepted") return { ok: true };
+      fail(messageId, error, uncertainOnError || error?.status === "uncertain" ? "uncertain" : "failed");
       throw error;
     } finally {
+      stopReceipt?.();
       ownerPendingSends.delete(messageId);
       if (pendingSends === ownerPendingSends) {
         state.sending = ownerPendingSends.size > 0;
@@ -120,12 +170,41 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     }
   }
 
-  function fail(messageId, error) {
+  function fail(messageId, error, status = "failed") {
     const message = find(messageId);
-    if (message) {
+    if (message && message.status !== "accepted") {
       message.error = String(error?.message || error || "Message could not be sent.").trim();
-      message.status = "failed";
+      message.status = status;
     }
+  }
+
+  function accept(messageId) {
+    const message = find(messageId);
+    if (message) { message.status = "accepted"; message.error = ""; }
+    pendingSends.get(messageId)?.receipt?.resolve({ ok: true });
+    if (message) {
+      const entry = toRaw(message);
+      const acknowledge = acceptanceCallbacks.get(entry);
+      acceptanceCallbacks.delete(entry);
+      acknowledge?.();
+    }
+  }
+
+  function restoreUncertain(request, savedTurns = []) {
+    const messageId = messageText(request?.messageId);
+    if (!messageId || savedTurns.some(turn => (turn.user || turn.system)?.messageId === messageId &&
+        (turn.user || turn.system).receipt !== false) ||
+        find(messageId)?.status === "accepted") return false;
+    if (!find(messageId)) {
+      const payload = JSON.parse(JSON.stringify({ message: request.text || "", displayAttachments: request.attachments || [] }));
+      const createdAt = request.at || new Date().toISOString();
+      state.messages = [...state.messages, { id: messageId, payload, text: payload.message, origin: request.origin,
+        attachments: payload.displayAttachments, createdAt, createdAtMs: Date.parse(createdAt),
+        status: "uncertain", error: "" }];
+    }
+    fail(messageId, request.error || "Delivery could not be confirmed.", "uncertain");
+    pendingSends.get(messageId)?.receipt?.resolve({ ok: false, status: "uncertain", error: request.error });
+    return true;
   }
 
   function cancel(messageId) {
@@ -148,13 +227,17 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
 
   function reset() {
     deliveryTail = null;
-    for (const pending of pendingSends.values()) pending.resolve();
+    for (const pending of pendingSends.values()) {
+      pending.receipt?.resolve(false);
+      pending.resolve();
+    }
     pendingSends = new Map();
     state.messages = [];
     state.sending = false;
   }
 
-  return { cancel, edit, find, reconcile, remove, resend, reset, send, state, turns };
+  return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, send, state, turns };
 }
 
 export { createAssistantMessageDelivery, unmatchedOptimisticMessages };
+export { retainAssistantConversation } from "./retainedConversation.js";

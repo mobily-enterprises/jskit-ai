@@ -174,5 +174,5 @@ provider app sync, workflow dashboard, run cancellation or self-hosted endpoint
 mode. Example: an app can submit a report event, but a report only runs after
 its own SDK function is deployed and synced. Schedule execution and SDK business
 functions are native application composition, not tested live or through a
-generated app here. Editor-assistant attachment is deferred. The connector's
+generated app here. Assistant tool attachment requires explicit host integration. The connector's
 metadata check does not prove the Event Key or function availability.

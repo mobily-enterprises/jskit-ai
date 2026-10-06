@@ -270,6 +270,22 @@ test("conversation scrolling preserves history anchors and resets expansion on s
     await page.getByRole("button", { name: "Change conversation", exact: true }).click();
     await expect(page.getByRole("button", { name: "Show less", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Read more", exact: true })).toBeAttached();
+    await expect(body).toBeVisible();
+    await expect(page.locator(".assistant-transcript__settling")).toHaveCount(0);
+    await page.evaluate(() => {
+      window.revealPlaceholders = 0;
+      new MutationObserver(records => {
+        for (const record of records) for (const node of record.addedNodes) {
+          if (node.nodeType === 1 && node.matches(".assistant-transcript__settling")) window.revealPlaceholders += 1;
+        }
+      }).observe(document.querySelector(".assistant-transcript"), { childList: true, subtree: true });
+    });
+    await page.getByRole("button", { name: "Toggle visibility", exact: true }).click();
+    await page.getByRole("button", { name: "Append reply", exact: true }).click();
+    await page.getByRole("button", { name: "Toggle visibility", exact: true }).click();
+    await expect(body).toBeVisible();
+    await expect.poll(() => body.evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThan(2);
+    assert.equal(await page.evaluate(() => window.revealPlaceholders), 0, "reopening loaded text does not flash a loading placeholder");
   } finally {
     await browser.close();
     await stopProcess(vite);

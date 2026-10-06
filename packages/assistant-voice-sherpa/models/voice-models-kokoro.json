@@ -1,0 +1,102 @@
+{
+  "schema": "vibe64.voice-model-sources.v1",
+  "packRevision": 3,
+  "models": [
+    {
+      "id": "streaming-zipformer-en-2023-06-26",
+      "kind": "stt",
+      "archive": "sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "archiveSha256": "639e25b578e9e997131402199419c13a941f8e4e198e2da1ce57dbf5cf401282",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "files": {
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/encoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/decoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/joiner.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/tokens.txt": "stt/tokens.txt",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/README.md": "stt/SOURCE.md"
+      }
+    },
+    {
+      "id": "kokoro-multi-lang-v1_0",
+      "kind": "tts",
+      "archive": "kokoro-multi-lang-v1_0.tar.bz2",
+      "archiveSha256": "c5f7e2d2caf082bc1d20fb70334a61d99d20b484500aad32e7cf84c128ea3298",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/hexgrad/Kokoro-82M",
+      "files": {
+        "kokoro-multi-lang-v1_0/model.onnx": "tts/model.onnx",
+        "kokoro-multi-lang-v1_0/tokens.txt": "tts/tokens.txt",
+        "kokoro-multi-lang-v1_0/voices.bin": "tts/voices.bin",
+        "kokoro-multi-lang-v1_0/espeak-ng-data": "tts/espeak-ng-data",
+        "kokoro-multi-lang-v1_0/lexicon-us-en.txt": "tts/lexicon-us-en.txt",
+        "kokoro-multi-lang-v1_0/lexicon-gb-en.txt": "tts/lexicon-gb-en.txt",
+        "kokoro-multi-lang-v1_0/LICENSE": "tts/LICENSE",
+        "kokoro-multi-lang-v1_0/README.md": "tts/README.md"
+      }
+    }
+  ],
+  "configuration": {
+    "synthesizer": {
+      "maxNumSentences": 1,
+      "model": {
+        "numThreads": 1,
+        "provider": "cpu",
+        "kokoro": {
+          "model": "${MODELS_ROOT}/tts/model.onnx",
+          "tokens": "${MODELS_ROOT}/tts/tokens.txt",
+          "voices": "${MODELS_ROOT}/tts/voices.bin",
+          "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
+          "lexicon": "${MODELS_ROOT}/tts/lexicon-us-en.txt"
+        }
+      }
+    },
+    "defaultVoice": "af_heart",
+    "voices": [
+      {
+        "id": "af_heart",
+        "label": "Heart \u00b7 female \u00b7 American English",
+        "language": "en-US",
+        "speakerId": 3
+      },
+      {
+        "id": "af_bella",
+        "label": "Bella \u00b7 female \u00b7 American English",
+        "language": "en-US",
+        "speakerId": 2
+      },
+      {
+        "id": "am_michael",
+        "label": "Michael \u00b7 male \u00b7 American English",
+        "language": "en-US",
+        "speakerId": 16
+      },
+      {
+        "id": "am_adam",
+        "label": "Adam \u00b7 male \u00b7 American English",
+        "language": "en-US",
+        "speakerId": 11
+      },
+      {
+        "id": "bf_emma",
+        "label": "Emma \u00b7 female \u00b7 British English",
+        "language": "en-GB",
+        "speakerId": 21
+      },
+      {
+        "id": "bm_george",
+        "label": "George \u00b7 male \u00b7 British English",
+        "language": "en-GB",
+        "speakerId": 26
+      },
+      {
+        "id": "bm_daniel",
+        "label": "Daniel \u00b7 male \u00b7 British English",
+        "language": "en-GB",
+        "speakerId": 24
+      }
+    ]
+  }
+}

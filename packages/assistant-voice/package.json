@@ -1,0 +1,69 @@
+{
+  "name": "@jskit-ai/assistant-voice",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Duplex voice conversations with application-owned targets, authorization and speech services.",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "exports": {
+    "./client": "./src/client/index.js",
+    "./server": "./src/server/index.js",
+    "./shared/protocol": "./src/shared/protocol.js",
+    "./shared/visemes": "./src/shared/visemes.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "examples"
+  ],
+  "dependencies": {
+    "@mdi/js": "^7.4.47",
+    "ws": "^8.20.1"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [],
+      "requires": []
+    },
+    "runtime": {
+      "client": {
+        "providers": []
+      },
+      "server": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./client",
+            "summary": "One application voice controller and Vue modal, with push-to-talk, hands-free capture, playback, review and avatar presentation."
+          },
+          {
+            "subpath": "./server",
+            "summary": "Authorized WebSocket proxy, bounded speech daemon, access tokens and service configuration."
+          },
+          {
+            "subpath": "./shared/protocol",
+            "summary": "Voice control validation, PCM frame limits and streamed speech text segmentation."
+          },
+          {
+            "subpath": "./shared/visemes",
+            "summary": "Shared mouth poses and pronunciation timing for voice avatars."
+          }
+        ],
+        "capabilities": []
+      }
+    }
+  },
+  "peerDependencies": {
+    "vue": "^3.5.13",
+    "vuetify": "^4.0.0"
+  },
+  "devDependencies": {
+    "@fastify/websocket": "^11.3.2"
+  }
+}

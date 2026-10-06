@@ -2,10 +2,31 @@ import { Server as SocketIoServer } from "socket.io";
 import { createAdapter as createSocketIoRedisAdapter } from "@socket.io/redis-adapter";
 import { createClient as createRedisClient } from "redis";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 const SOCKET_IO_PATH = "/socket.io";
 const REDIS_URL_ENV_KEY = "REDIS_URL";
 const REDIS_NAMESPACE_ENV_KEY = "REDIS_NAMESPACE";
+
+function toRequestPathname(urlValue) {
+  const rawUrl = String(urlValue || "").trim() || "/";
+  try {
+    return normalizePathname(new URL(rawUrl, "http://localhost").pathname || "/");
+  } catch {
+    return normalizePathname(rawUrl.split("?")[0] || "/");
+  }
+}
+
+function registerSocketIoUpgradeHandoff(fastify) {
+  if (typeof fastify?.addHook !== "function") return;
+  fastify.addHook("onRequest", async (request, reply) => {
+    if (request?.ws !== true) return;
+    if (toRequestPathname(request?.raw?.url || request?.url) !== SOCKET_IO_PATH) return;
+    // The WebSocket plugin also routes this upgrade through Fastify. Leave it
+    // to Socket.IO instead of letting Fastify's missing-route response close it.
+    reply.hijack();
+  });
+}
 
 function resolveHttpServer({ httpServer = null, fastify = null } = {}) {
   if (httpServer && typeof httpServer === "object") {
@@ -38,6 +59,7 @@ function createSocketIoServer({
     ...source,
     path: SOCKET_IO_PATH
   };
+  registerSocketIoUpgradeHandoff(fastify);
   return new ServerCtor(server, normalizedOptions);
 }
 

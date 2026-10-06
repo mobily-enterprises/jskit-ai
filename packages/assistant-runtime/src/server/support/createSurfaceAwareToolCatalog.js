@@ -42,9 +42,13 @@ function createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConf
   }
 
   return Object.freeze({
-    resolveToolSet(context = {}) {
+    get limits() {
+      if (!schemaCatalog) schemaCatalog = createCatalog(actions, buildCatalogOptions(resolveCurrentAppConfig(), ""));
+      return schemaCatalog.limits;
+    },
+    resolveToolSet(context = {}, options) {
       const surfaceId = requireContextSurfaceId(context);
-      return resolveCatalog(surfaceId).resolveToolSet(context);
+      return resolveCatalog(surfaceId).resolveToolSet(context, options);
     },
     toOpenAiToolSchema(tool) {
       if (!schemaCatalog) {

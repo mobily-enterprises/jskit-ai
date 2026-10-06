@@ -14,7 +14,7 @@ session replay and automatic event batching are not implemented here.
    creation controls shown for your organization.
 2. Open that project's settings from the switcher or sidebar. Copy its numeric
    **Project ID** and public **Project token** beginning with `phc_`.
-3. In Vibe64, add PostHog. Set the display name, select **Region**, and paste the
+3. In the connection editor, add PostHog. Set the display name, select **Region**, and paste the
    ID into **Project ID**. The form defaults to Europe; choose United States
    for a US project.
 4. Store the token under `POSTHOG_PROJECT_TOKEN` in the application environment.
@@ -204,7 +204,7 @@ Nine controlled source tests and nine installed-package tests pass. Existing
 phone/desktop configuration evidence is retained; no new browser run was made
 for this closeout and no runtime/form behavior changed.
 
-Limitations and deferred work:
+Limitations:
 
 - No private analytics querying, dashboards, project provisioning, personal API
   credentials, OAuth, MCP or self-hosted/custom ingestion domains.
@@ -220,8 +220,8 @@ Limitations and deferred work:
 - Flag quota or partial-evaluation failures are errors, with no automatic
   fallback value. The backend supplies no visitor IP forwarding.
 - Disconnect removes local state only; rotate the token in PostHog when needed.
-  Editor coding-agent tool attachment is deferred. No live token, tracking,
+  Assistant tool attachment requires explicit host integration. No live token, tracking,
   ingestion, provider quota behavior or generated application was exercised.
 
-The broader browser lifecycle/analytics backlog stays deferred under the user's
-existing-capability milestone; this closeout does not claim full Lovable parity.
+The application must compose the browser lifecycle and analytics features
+it needs; this connector does not supply a complete analytics product.

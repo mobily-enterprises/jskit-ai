@@ -16,7 +16,7 @@ cursor/incremental sync, and supports candidate/application hiring workflows.
    confidential jobs/private fields and other extra permissions off unless needed.
    Choose **Save and Continue**. Copy the key before closing the wizard.
 3. Copy the issued key into the backend environment as `ASHBY_API_KEY`.
-   In Vibe64, add Ashby and enter `env:ASHBY_API_KEY` in **API key reference**.
+   In the connection editor, add Ashby and enter `env:ASHBY_API_KEY` in **API key reference**.
    Save, choose **Set credential in Env** to enter the key, then **Connect account**
    or **Verify again**. **Check connection** reads status only. CLI uses the same
    file and `connectApiKey`. To revoke, open the key by name and choose **Disable**;
@@ -180,9 +180,9 @@ Sources: [candidates](https://developers.ashbyhq.com/reference/candidatelist),
 
 ## Limitations
 
-Editor coding-assistant attachment is deferred. For example, a generated hiring
+Assistant tool attachment requires explicit host integration. For example, a generated hiring
 app can display candidates and advance a recruiter-selected application, but
-asking Vibe64's assistant to inspect your candidates does not give it access.
+asking an assistant to inspect your candidates does not give it access.
 The app owns its hiring screens and policies. Public careers forms, scheduling,
 offer management, file upload, messages and custom fields are not supplied here.
 Live hiring changes, real credentials and generated-app execution were not tested.

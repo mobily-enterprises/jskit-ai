@@ -140,6 +140,17 @@ function createRepository(knex) {
     return Number.isFinite(total) && total > 0 ? total : 0;
   }
 
+  async function updateById(messageId, patch = {}, options = {}) {
+    const id = normalizeInputRecordId(messageId);
+    if (!id) return null;
+    const client = options?.trx || knex;
+    const update = {};
+    if (Object.hasOwn(patch, "contentText")) update.content_text = patch.contentText == null ? null : String(patch.contentText);
+    if (Object.hasOwn(patch, "metadata")) update.metadata_json = stringifyJsonObject(patch.metadata);
+    if (Object.keys(update).length) await client(assistantRuntimeConfig.messagesTable).where({ id }).update(update);
+    return findById(id, { trx: client });
+  }
+
   async function listByConversationScope(conversationId, { workspaceId = null } = {}, pagination = {}, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
     if (!normalizedConversationId) {
@@ -171,6 +182,7 @@ function createRepository(knex) {
     withTransaction,
     findById,
     create,
+    updateById,
     countByConversationScope,
     listByConversationScope,
     transaction

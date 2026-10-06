@@ -2,7 +2,7 @@
 
 Import `awsS3Provider` from `@jskit-ai/connectors-catalog/server/aws-s3` and use
 `createConnectionService` or the ordinary JSKIT connector Feature. The shared
-catalogue definition drives Vibe64's form. Runtime state can use encrypted JSON
+catalogue definition drives the connection editor. Runtime state can use encrypted JSON
 files; no database or generated application is required.
 
 ## Portable configuration

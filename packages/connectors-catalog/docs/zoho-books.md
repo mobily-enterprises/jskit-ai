@@ -16,7 +16,7 @@ Saving configuration does not connect an account.
 3. Open the client's **Client Secret** section. Copy its **Client ID** into
    the registration. Store its secret in `ZOHO_BOOKS_CLIENT_SECRET`, and the
    registered callback URL in `ZOHO_BOOKS_CALLBACK_URL`.
-4. Select the matching **Data center** in Vibe64 or `settings.region` in JSON.
+4. Select the matching **Data center** in the connection editor or `settings.region` in JSON.
    For accounts in other regions, open the client's **Settings**, enable
    **Multi DC**, and enable each required region. Use that region's secret;
    do not assume all enabled regions share one secret.
@@ -209,6 +209,5 @@ Organisation discovery does not prove contact/invoice permissions; an unconfigur
 integration requires an explicit organisation per operation. The host must enforce
 its own organisation/user policy in addition to provider permissions. Callback
 routes, business/end-user connection UI and native framework wiring belong to the
-application. Disconnect is local. Editor coding-agent attachment, live regional
-consent/permissions/accounting outcomes and generated-app execution remain deferred
-or unverified. The original broader accounting packet remains backlog.
+application. Disconnect is local. Assistant tool attachment requires explicit host integration. Live regional
+consent/permissions/accounting outcomes and generated-app execution remain unverified.

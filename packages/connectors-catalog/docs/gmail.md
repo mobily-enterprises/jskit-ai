@@ -126,7 +126,7 @@ Vibe64 running. There is no shared Vibe64 mailbox or Google registration.
 
 **LIMITATIONS:** no background/history sync, push watch service, mail-client UI,
 permanent message deletion or mailbox-settings administration. MIME composition
-and rendering belong to the framework; editor assistant attachment is deferred.
+and rendering belong to the framework; assistant tool attachment requires explicit host integration.
 Example: a booking app can read a customer's message, draft a reply, explicitly
 send it and archive the thread's selected message; installing the connector does
 not build the inbox UI or keep a local mailbox synchronized. Google approval,

@@ -61,7 +61,7 @@ and [app credential details](https://docs.slack.dev/authentication/using-token-r
 
 ## Portable configuration
 
-The same `integrations.json` is usable by CLI code and Vibe64's form. Replace
+The same `integrations.json` is usable by CLI code and the connection editor. Replace
 the Client ID placeholder and supply the two referenced environment values.
 No client secret, access token or refresh token belongs in this file.
 
@@ -193,8 +193,8 @@ part of this proof. Current controlled source and installed-package suites each 
 Current-source compact and expanded editor cases pass separately, including
 actor/scope persistence, signing-secret reference, inline guidance, per-user
 connection instructions and shared connect/cancel/disconnect controls. Registration
-provisioning remains an operator action; editor coding-assistant attachment is
-deferred.
+provisioning remains an operator action; assistant tool attachment requires
+explicit host integration.
 
 
 ## Message operations
