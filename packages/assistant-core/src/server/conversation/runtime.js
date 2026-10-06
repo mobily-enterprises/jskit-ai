@@ -217,7 +217,14 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       entry.nativePhase = nativeTurn.active
         ? ["preparing", "compacting", "retrying"].includes(nativeTurn.phase) ? nativeTurn.phase : "working"
         : "";
-      if (!entry.active || entry.active.request.accepted) await setPhase(entry, entry.nativePhase, entry.active?.request.turnId);
+      const request = entry.active?.request;
+      if (!entry.active || request.accepted) {
+        if (request?.deliveryCommitted) {
+          try { await request.deliveryCommitted; }
+          catch { return; } // Admission owns this failure; native cleanup must still settle.
+        }
+        await setPhase(entry, entry.nativePhase, request?.turnId);
+      }
     }
   }
 
@@ -689,6 +696,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         const admitted = Promise.withResolvers();
         committed = Promise.withResolvers();
         committed.promise.catch(() => {});
+        request.deliveryCommitted = committed.promise;
         completion = Promise.resolve().then(() => dispatch({
           context: request.context,
           input: { ...request.input, authoredInput: { ...request.input, at: request.at },
