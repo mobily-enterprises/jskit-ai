@@ -3,7 +3,8 @@ import { mdiCog, mdiHeadset, mdiStop } from "@mdi/js";
 import ConversationDialog from "./ConversationDialog.vue";
 import VoiceConversation from "./VoiceConversation.vue";
 
-const props = defineProps({ controller: { type: Object, required: true }, activator: { type: Object, default: null } });
+const props = defineProps({ controller: { type: Object, required: true }, activator: { type: Object, default: null }, avatarSize: { type: String, default: "compact" } });
+defineEmits(["update:avatarSize"]);
 const state = props.controller.state;
 async function invoke(operation) {
   try { await operation(); }
@@ -53,12 +54,14 @@ async function openText() {
       </div>
     </v-alert>
     <div class="voice-host__body">
-      <VoiceConversation :key="state.binding.id" :session="state.session" :disabled="state.busy">
+      <slot name="conversation" :binding="state.binding" :session="state.session" :disabled="state.busy">
+      <VoiceConversation :key="state.binding.id" :session="state.session" :disabled="state.busy" :adapter="state.binding.adapter || null" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
         <template v-if="$slots.avatar" #avatar="visual"><slot name="avatar" v-bind="visual" :binding="state.binding" /></template>
         <template #work-control>
           <v-btn v-if="state.binding.cancelWork && state.binding.state.status === 'working'" :disabled="state.busy" :icon="mdiStop" variant="text" aria-label="Stop agent work" title="Stop agent work" @click="invoke(state.binding.cancelWork)" />
         </template>
       </VoiceConversation>
+      </slot>
     </div>
   </ConversationDialog>
   <template v-if="state.session && !state.visible">

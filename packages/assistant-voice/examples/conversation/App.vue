@@ -2,12 +2,15 @@
 import { inject, nextTick, onScopeDispose, ref } from "vue";
 import { createVoiceConversationController, projectConversationVoiceState, VoiceConversationHost } from "@jskit-ai/assistant-voice/client";
 import { ShellErrorHost } from "@jskit-ai/shell-web/client";
+import { useAssistantConversationFactory } from "@jskit-ai/assistant-runtime/client";
 import Conversation from "./Conversation.vue";
 
 const example = inject("example.application");
 const closed = ref([]);
 const views = new Map();
 const error = ref("");
+const avatarSize = ref("compact");
+const acquireConversation = useAssistantConversationFactory();
 const controller = createVoiceConversationController({ connectSpeech: binding => binding.socketUrl });
 async function openText(id) {
   closed.value = closed.value.filter(value => value !== id);
@@ -18,12 +21,22 @@ function voiceBinding(runtime, label) {
   const identity = runtime.identity;
   let retained;
   return {
-    id: JSON.stringify([identity.actorKey, identity.conversationId]), label,
+    id: JSON.stringify([identity.actorKey, identity.conversationId]), conversationId: identity.conversationId, label,
+    get adapter() { return retained?.adapter.value; },
     socketUrl: `/api/conversations/${encodeURIComponent(identity.conversationId)}/voice`,
     get state() { return projectConversationVoiceState({ turns: runtime.turns.value, status: runtime.snapshot.value?.status }); },
     get available() { return runtime.available.value; },
     captureContext: () => ({ ...identity }),
-    retain() { retained = runtime.retain(); runtime = retained.runtime; },
+    retain() {
+      retained = acquireConversation({ conversationId: identity.conversationId, endpoint: identity.endpoint,
+        surfaceId: identity.targetSurfaceId, hostSurfaceId: identity.hostSurfaceId,
+        actorKey: identity.actorKey, workspaceSlug: identity.workspaceSlug,
+        presentation: { assistantLabel: label, layout: "compact" } });
+      if (retained.runtime.value !== runtime) {
+        retained.release(); retained = null;
+        throw new Error("Voice must retain the original conversation runtime.");
+      }
+    },
     release() { retained?.release(); retained = null; },
     submitText(text, { messageId, context } = {}) {
       if (context?.actorKey !== identity.actorKey || context?.conversationId !== identity.conversationId) {
@@ -78,7 +91,7 @@ onScopeDispose(() => { void controller.dispose(); });
         </section>
       </div>
     </main>
-    <VoiceConversationHost :controller="controller" />
+    <VoiceConversationHost v-model:avatar-size="avatarSize" :controller="controller" />
     <ShellErrorHost />
   </v-app>
 </template>

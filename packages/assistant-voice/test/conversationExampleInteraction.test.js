@@ -337,9 +337,9 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await card("Planning").getByRole("button", { name: "Voice chat with Planning", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Planning conversation", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("region", { name: "Recognized words", exact: true }))
+    await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning question from the mounted starter.");
-    await expect(dialog.getByRole("region", { name: "Planning latest answer", exact: true }))
+    await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning answer is streaming.");
     await dialog.getByRole("button", { name: "Minimize conversation", exact: true }).click();
     await card("Planning").getByRole("button", { name: "Close Planning text view", exact: true }).click();
@@ -349,7 +349,7 @@ test("the mounted voice starter shares five standard cards and retains its origi
     f.requests[0].finish();
     await page.getByRole("button", { name: "Planning · Voice chat", exact: true }).click();
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("region", { name: "Planning latest answer", exact: true }))
+    await expect(dialog.getByRole("region", { name: "Conversation history", exact: true }))
       .toContainText("Planning answer is streaming. Complete while its text view is closed.");
     await expect(dialog).not.toContainText("Notes remains a different target.");
     await dialog.getByRole("tab", { name: "Text", exact: true }).click();
@@ -373,11 +373,92 @@ test("the mounted voice starter shares five standard cards and retains its origi
     assert.equal(f.socketConnections(), 1, "Five cards, voice retention and text remount share the original realtime connection");
     assert.equal(f.requests.length, 1, "Changing views never submits another inference");
     assert.deepEqual(errors, []);
+
+    // Exercise the actual retained core presentation after the original starter
+    // assertions. Capture/review operations themselves retain voiceReview's tests.
+    await card("Planning").getByRole("button", { name: "Voice chat with Planning", exact: true }).click();
+    await expect(dialog).toBeVisible();
+    const panel = dialog.locator(".voice-host__body");
+    const canonical = dialog.locator(".assistant-voice-conversation");
+    const typed = canonical.getByRole("textbox", { name: "Message AI assistant" });
+    const history = canonical.locator(".assistant-transcript__body");
+    const projectSpeech = state => panel.evaluate((element, value) => {
+      let component = element.__vueParentComponent;
+      while (component && !component.props.controller) component = component.parent;
+      const controllerState = component.props.controller.state;
+      const { session, binding } = controllerState;
+      if (value.busy !== undefined) controllerState.busy = value.busy;
+      session.voice.captureState.value = value.partial ? "listening" : "idle";
+      session.voice.partialTranscript.value = value.partial || "";
+      if (value.review) {
+        session.pendingTranscript.value = { messageId: "review-message", text: value.review,
+          focus: binding.captureContext(), reviewBeforeSend: true };
+        session.heldReview.value = true;
+        session.error.value = "Delivery was not confirmed. Retry or discard.";
+      }
+      return session.pendingTranscript.value?.messageId;
+    }, state);
+    for (const width of [390, 800, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await panel.evaluate(element => {
+        Object.assign(element.style, { width: "320px", height: "420px", flex: "0 0 auto" });
+      });
+      await expect(typed).toHaveValue("Planning draft survives closing its text view.");
+      await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(1);
+      await expect(canonical.locator('[data-message-role="assistant"]')).toHaveCount(1);
+      await projectSpeech({ partial: "These captured words are not sent." });
+      await expect(canonical.getByRole("status", { name: "Recognized words", exact: true }))
+        .toHaveText("Not sent · These captured words are not sent.");
+      await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(1);
+      await projectSpeech({ review: "Review this recording independently." });
+      const review = canonical.getByRole("region", { name: "Review voice message", exact: true });
+      const recorded = review.getByRole("textbox", { name: "Review your message", exact: true });
+      await recorded.fill("Edited speech stays separate.");
+      assert.equal(await projectSpeech({}), "review-message", "Review edits retain the recording UUID");
+      await expect(typed).toHaveValue("Planning draft survives closing its text view.");
+      await expect(recorded).toHaveValue("Edited speech stays separate.");
+      await projectSpeech({ busy: true });
+      await expect(typed).toBeDisabled();
+      await expect(recorded).toBeDisabled();
+      await projectSpeech({ busy: false });
+      await expect(typed).toBeEnabled();
+      await expect(recorded).toBeEnabled();
+      await expect(review.getByRole("button", { name: "Send", exact: true })).toBeEnabled();
+      await expect.poll(async () => (await history.boundingBox()).height).toBeGreaterThanOrEqual(100);
+      const bounds = await panel.boundingBox();
+      for (const control of [typed, recorded, review.getByRole("button", { name: "Discard", exact: true }), review.getByRole("button", { name: "Send", exact: true })]) {
+        const box = await control.boundingBox();
+        assert.ok(box.y >= bounds.y && box.y + box.height <= bounds.y + bounds.height + 1,
+          "Typed input and recording recovery remain inside the short supplied container");
+      }
+      if (process.env.JSKIT_ASSISTANT_VOICE_BROWSER_ARTIFACTS) {
+        await panel.screenshot({ path: join(process.env.JSKIT_ASSISTANT_VOICE_BROWSER_ARTIFACTS, `review-${width}.png`) });
+      }
+      await review.getByRole("button", { name: "Discard", exact: true }).click();
+      await expect(review).toHaveCount(0);
+      await expect(typed).toHaveValue("Planning draft survives closing its text view.");
+      await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(1);
+      assert.equal(f.requests.length, 1, "Provisional capture, review edits and discard never submit a canonical message");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    }
+    await typed.fill("Render the full answer in this same conversation.");
+    await typed.press("Enter");
+    await f.until(() => f.requests.length === 2, "canonical voice view's existing text submission");
+    f.requests[1].text("A **formatted** answer with [help](https://example.com/help).");
+    f.requests[1].finish();
+    await expect(history.locator("strong").getByText("formatted", { exact: true })).toBeVisible();
+    await expect(history.getByRole("link", { name: "help", exact: true })).toHaveAttribute("href", "https://example.com/help");
+    await expect(canonical.locator(".assistant-transcript__message-row--user")).toHaveCount(2);
+    await expect(canonical.locator('[data-message-role="assistant"]')).toHaveCount(2);
+    assert.equal(f.socketConnections(), 1, "The canonical view retains the existing runtime and realtime connection");
+    assert.deepEqual(errors, []);
   } catch (error) {
     const mounted = page && !page.isClosed() ? await page.evaluate(() => {
       const value = input => input?.__v_isRef ? input.value : input;
       return {
         surfaceConfig: globalThis.__JSKIT_CLIENT_APP_CONFIG__?.assistantSurfaces,
+        voiceLayout: [...document.querySelectorAll(".assistant-voice-conversation > *, .assistant-voice__review, .assistant-voice-controls__tools")]
+          .map(element => ({ class: element.className, height: element.getBoundingClientRect().height, scrollHeight: element.scrollHeight })),
         cards: [...document.querySelectorAll(".example__card")].map(card => {
           const input = card.querySelector("textarea");
           let component = card.querySelector(".assistant-client-conversation")?.__vueParentComponent;

@@ -50,6 +50,10 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
 
   async function captureAccountStatus({ command, args, cwd, baseEnv, signal, timeout, maxBuffer }) {
     signal.throwIfAborted();
+    if (typeof host.execution?.run === "function") {
+      return host.execution.run({ command, args, cwd, baseEnv, signal, timeout, maxBuffer,
+        mode: "capture", limits: host.limits });
+    }
     const native = await execution.start({ command, args, cwd, env: baseEnv, stream: true, limits: host.limits });
     const cancelled = Promise.withResolvers();
     const abort = () => cancelled.reject(signal.reason);

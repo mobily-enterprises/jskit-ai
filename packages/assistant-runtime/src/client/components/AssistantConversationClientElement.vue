@@ -22,8 +22,10 @@ const props = defineProps({
   suggestions: { type: Object, default: null },
   models: { type: Object, default: null },
   questions: { type: [Boolean, Object], default: null },
-  goal: { type: [Boolean, Object], default: null }
+  goal: { type: [Boolean, Object], default: null },
+  avatarSize: { type: String, default: "compact", validator: (value) => ["hidden", "compact", "standard", "large"].includes(value) }
 });
+const emit = defineEmits(["update:avatarSize"]);
 const binding = useAssistantConversation({
   conversationId: toRef(props, "conversationId"), endpoint: toRef(props, "endpoint"),
   surfaceId: toRef(props, "surfaceId"), hostSurfaceId: toRef(props, "hostSurfaceId"),
@@ -40,7 +42,10 @@ defineExpose({ focus: () => conversation.value?.focus(), runtime: binding.runtim
 </script>
 
 <template>
-  <AssistantConversationElement ref="conversation" :adapter="binding.adapter.value" :label="assistantLabel" class="assistant-client-conversation">
+  <AssistantConversationElement
+    ref="conversation" :adapter="binding.adapter.value" :label="assistantLabel" :avatar-size="avatarSize"
+    class="assistant-client-conversation" @update:avatar-size="emit('update:avatarSize', $event)"
+  >
     <template v-for="name in Object.keys($slots).filter(name => name !== 'composer-feedback')" #[name]="scope">
       <slot :name="name" v-bind="scope" :runtime="binding.runtime.value" />
     </template>

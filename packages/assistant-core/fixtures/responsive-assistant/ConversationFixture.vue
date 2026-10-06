@@ -4,12 +4,22 @@ import AssistantConversationElement from "../../src/client/conversation/Assistan
 import { useAssistantAttachments } from "../../src/client/conversation/useAssistantAttachments.js";
 import { useAssistantSuggestions } from "../../src/client/conversation/useAssistantSuggestions.js";
 const phase = ref("idle");
+const avatarFixture = new URLSearchParams(location.search).has("avatar");
+const showAvatar = ref(avatarFixture);
+const avatarSize = ref("compact");
+const short = ref(avatarFixture);
+const showQuestions = ref(false);
+const questionState = reactive({
+  questions: [{ name: "next", number: 1, label: "What should happen next?", choices: [] }], answers: {},
+  setAnswers(value) { questionState.answers = value; },
+  dismiss() { showQuestions.value = false; }
+});
 const attribution = new URLSearchParams(location.search).has("attribution");
 const assistantLabel = ref("Current assistant");
 const draft = ref("");
 const narrow = ref(false);
 const submissions = ref(0);
-const feedback = ref(false);
+const feedback = ref(avatarFixture);
 const supportEnabled = new URLSearchParams(location.search).has("support");
 const suggestionModel = ref("small-model");
 const customActivity = ref(false);
@@ -61,13 +71,17 @@ const adapter = reactive({
       { turnId: "two", assistantLabel: "Second assistant", assistantDetails: "Second model",
         assistant: { role: "assistant", text: "Second answer", assistantLabel: "Message assistant", assistantDetails: "Message model" } },
       { turnId: "three", assistant: { role: "assistant", text: "Unattributed answer" } }
-    ] : [],
+    ] : avatarFixture ? Array.from({ length: 20 }, (_, index) => ({
+      turnId: `help-${index}`, user: { messageId: `question-${index}`, text: `Support question ${index + 1}: How can I recover my account?` },
+      assistant: { messageId: `answer-${index}`, outputId: `output-${index}`, role: "assistant",
+        text: `Support answer ${index + 1}: Keep your recovery email available.\n\nRead the **account instructions** and follow the [recovery link](https://example.com/help). A long message wraps inside this narrow conversation without taking space from the composer.` }
+    })) : [],
     visible: true, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture"
   },
   composer: {
     draft,
     rows: 2,
-    density: computed(() => narrow.value ? "compact" : "default"),
+    density: computed(() => narrow.value || avatarFixture ? "compact" : "default"),
     submitOnEnter: true,
     canSend: computed(() => Boolean(draft.value.trim()) && ["idle", "active", "stopped"].includes(phase.value)),
     canStop: computed(() => ["active", "stopping"].includes(phase.value)),
@@ -77,6 +91,7 @@ const adapter = reactive({
   suggestions, goal: goalState,
   attachments: capabilitiesEnabled ? attachments : undefined,
   models: capabilitiesEnabled ? models : undefined,
+  questions: computed(() => showQuestions.value ? questionState : undefined),
   actions: {
     setDraft(value) { draft.value = value; },
     submit(payload) { attachmentReceipts.value = payload.attachments; attachments.clearAttachments(); submissions.value += 1; draft.value = ""; phase.value = "active"; },
@@ -96,11 +111,19 @@ const adapter = reactive({
         <button v-if="supportEnabled" @click="customActivity = !customActivity">Custom activity</button>
         <button v-if="capabilitiesEnabled" @click="finishUploads">Finish uploads</button>
         <button @click="goalEnabled = !goalEnabled">Toggle goals</button>
+        <template v-if="avatarFixture">
+          <button @click="showAvatar = !showAvatar">Toggle avatar slot</button>
+          <button @click="short = !short">Resize height</button>
+          <button @click="showQuestions = !showQuestions">Toggle questions</button>
+          <button @click="attachments.status.value = 'An upload failed. Retry or remove it.'">Show attachment error</button>
+          <output>Avatar requested: {{ avatarSize }}</output>
+        </template>
         <output>{{ phase }}; submitted {{ submissions }}</output>
         <output v-if="capabilitiesEnabled">Model: {{ appliedModel }}; sent files: {{ attachmentReceipts.map(item => item.fileName).join(', ') }}</output>
       </div>
-      <main class="fixture" :class="{ narrow }">
-        <AssistantConversationElement :adapter="adapter">
+      <main class="fixture" :class="{ narrow, 'fixture--avatar': avatarFixture, 'fixture--short': short }">
+        <AssistantConversationElement v-model:avatar-size="avatarSize" :adapter="adapter">
+          <template v-if="showAvatar" #avatar><svg viewBox="0 0 100 100" role="img" aria-label="Support assistant avatar"><circle cx="50" cy="50" r="45" fill="#6750a4" /><path d="M30 62Q50 80 70 62M35 40h1m28 0h1" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" /></svg></template>
           <template v-if="customActivity" #activity="{ activity }"><strong>Custom activity: {{ activity.label }}</strong></template>
           <template #composer-feedback><p v-if="feedback" class="feedback" role="status">Describe what you want to change.</p></template>
         </AssistantConversationElement>
@@ -113,5 +136,7 @@ const adapter = reactive({
 .controls button { border: 1px solid; padding: 4px; }
 .fixture { height: 70vh; width: min(900px, 100%); margin: auto; }
 .fixture.narrow { width: min(320px, 100%); }
+.fixture--avatar { width: min(320px, 100%); }
+.fixture--short { height: 420px; }
 .feedback { flex: 1 1 24rem; min-width: 0; margin: 0; }
 </style>

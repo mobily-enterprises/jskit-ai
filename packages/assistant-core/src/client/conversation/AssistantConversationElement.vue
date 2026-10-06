@@ -1,5 +1,24 @@
 <template>
-  <section class="assistant-conversation" :aria-label="label">
+  <section ref="container" class="assistant-conversation" :aria-label="label">
+    <section v-if="$slots.avatar" class="assistant-conversation__avatar" aria-label="Conversation avatar">
+      <div v-if="$slots.composer || !adapter.composer" ref="avatarControls" class="assistant-conversation__avatar-controls">
+        <v-btn
+          ref="avatarControl" class="assistant-conversation__avatar-size" aria-label="Avatar size" :title="`Avatar size: ${avatarSize}`"
+          aria-haspopup="menu" :aria-expanded="avatarMenuOpen" :icon="mdiAccountCircleOutline" size="small" variant="text"
+        />
+      </div>
+      <v-menu v-model="avatarMenuOpen" :activator="avatarControl?.$el">
+        <v-list role="menu" aria-label="Avatar size">
+          <v-list-item
+            v-for="size in avatarSizes" :key="size.value" role="menuitem" :title="size.title"
+            :active="size.value === avatarSize" @click="$emit('update:avatarSize', size.value)"
+          />
+        </v-list>
+      </v-menu>
+      <div v-if="avatarSize !== 'hidden'" class="assistant-conversation__avatar-visual" :style="{ height: `${avatarHeight}px` }">
+        <slot name="avatar" :size="avatarSize" :height="avatarHeight" />
+      </div>
+    </section>
     <AssistantTranscript
       v-bind="conversation" :working="working" class="assistant-conversation__transcript"
       @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
@@ -80,6 +99,10 @@
                 @update:model-value="updateConfiguration({ ...configuration, [field.name]: $event })"
               />
             </slot>
+            <v-btn
+              v-if="$slots.avatar" ref="avatarControl" class="assistant-conversation__avatar-size" aria-label="Avatar size" :title="`Avatar size: ${avatarSize}`"
+              aria-haspopup="menu" :aria-expanded="avatarMenuOpen" :icon="mdiAccountCircleOutline" size="small" variant="text"
+            />
             <slot name="composer-tools" :adapter="adapter" />
             <template #feedback>
               <p v-if="attachmentsEnabled && adapter.attachments.status" role="alert" class="assistant-conversation__attachment-error">{{ adapter.attachments.status }}</p>
@@ -92,8 +115,8 @@
   </section>
 </template>
 <script setup>
-import { computed, ref, useId, useSlots, watch } from "vue";
-import { mdiPaperclip } from "@mdi/js";
+import { computed, onBeforeUnmount, onMounted, onUpdated, ref, useId, useSlots, watch } from "vue";
+import { mdiAccountCircleOutline, mdiPaperclip } from "@mdi/js";
 import AssistantTranscript from "./AssistantTranscript.vue";
 import AssistantPromptInput from "./AssistantPromptInput.vue";
 import AssistantComposerActions from "./AssistantComposerActions.vue";
@@ -104,12 +127,69 @@ import AssistantQuestionInputs from "./AssistantQuestionInputs.vue";
 import AssistantModelControl from "./AssistantModelControl.vue";
 const props = defineProps({
   adapter: { type: Object, required: true },
+  avatarSize: { type: String, default: "compact", validator: (value) => ["hidden", "compact", "standard", "large"].includes(value) },
   label: { type: String, default: "Assistant conversation" },
   configuration: { type: Object, default: () => ({}) },
   configurationFields: { type: Array, default: () => [] },
   configurationMode: { type: String, default: "hidden", validator: (value) => ["hidden", "readonly", "editable"].includes(value) }
 });
+defineEmits(["update:avatarSize"]);
 const slots = useSlots();
+const container = ref(null);
+const avatarControls = ref(null);
+const avatarControl = ref(null);
+const avatarMenuOpen = ref(false);
+const avatarSizes = [
+  { title: "Hidden", value: "hidden", height: 0 },
+  { title: "Compact", value: "compact", height: 64 },
+  { title: "Standard", value: "standard", height: 112 },
+  { title: "Large", value: "large", height: 176 }
+];
+const avatarSpace = ref(0);
+const avatarHeight = computed(() => Math.min(avatarSpace.value, avatarSizes.find(size => size.value === props.avatarSize).height));
+let avatarObserver;
+const observedAvatarElements = new Set();
+function measureAvatarSpace() {
+  const root = container.value;
+  if (!root || !slots.avatar) return;
+  const rootStyle = getComputedStyle(root);
+  let occupied = parseFloat(rootStyle.paddingTop) + parseFloat(rootStyle.paddingBottom);
+  for (const element of observedAvatarElements) {
+    if (element === root) continue;
+    const style = getComputedStyle(element);
+    occupied += element.getBoundingClientRect().height + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+  }
+  // Shrink artwork before the composer, feedback, or the readable transcript.
+  avatarSpace.value = Math.max(0, root.clientHeight - occupied - 120);
+}
+function observeAvatarSpace() {
+  if (!container.value || !slots.avatar) {
+    avatarObserver?.disconnect();
+    observedAvatarElements.clear();
+    return;
+  }
+  avatarObserver ||= new ResizeObserver(measureAvatarSpace);
+  const fixedElements = Array.from(container.value.children).filter(element =>
+    !element.classList.contains("assistant-conversation__avatar") && !element.classList.contains("assistant-conversation__transcript"));
+  const elements = new Set([container.value, ...fixedElements]);
+  if (avatarControls.value) elements.add(avatarControls.value);
+  for (const element of observedAvatarElements) {
+    if (!elements.has(element)) {
+      avatarObserver.unobserve(element);
+      observedAvatarElements.delete(element);
+    }
+  }
+  for (const element of elements) {
+    if (!observedAvatarElements.has(element)) {
+      avatarObserver.observe(element);
+      observedAvatarElements.add(element);
+    }
+  }
+  measureAvatarSpace();
+}
+onMounted(observeAvatarSpace);
+onUpdated(observeAvatarSpace);
+onBeforeUnmount(() => avatarObserver?.disconnect());
 const transcriptSlots = computed(() => ["welcome", "attachments", "system-message", "message-actions"].filter((name) => slots[name]));
 const input = ref(null);
 const fileInput = ref(null);
@@ -248,6 +328,11 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 </script>
 <style scoped>
 .assistant-conversation { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; container: assistant-conversation / inline-size; }
+.assistant-conversation__avatar { flex: 0 0 auto; min-width: 0; }
+.assistant-conversation__avatar-controls { display: flex; align-items: center; justify-content: flex-end; min-height: 48px; }
+.assistant-conversation__avatar-size { min-width: 48px; min-height: 48px; }
+.assistant-conversation__avatar-visual { display: flex; justify-content: center; min-height: 0; overflow: hidden; }
+.assistant-conversation__avatar-visual :deep(> *) { max-width: 100%; max-height: 100%; }
 .assistant-conversation__goal { display: flex; justify-content: flex-end; flex: 0 0 auto; }
 .assistant-conversation__transcript { flex: 1 1 auto; min-height: 0; }
 .assistant-conversation__composer { flex: 0 0 auto; }

@@ -325,6 +325,14 @@ notification; it does not suppress that completed notification. The projector
 stores no history and owns no subscription or playback queue. Application
 progress acknowledgements remain an explicit presentation policy.
 
+The voice binding's optional `adapter` getter supplies this same retained core
+adapter for its transcript and typed composer. The voice state projection remains
+the playback owner's view of accepted outputs; it does not reconstruct the
+displayed transcript. A voice-held reader acquired with
+`useAssistantConversationFactory()` shares the original runtime, subscription and
+draft after the text screen closes. See [Voice conversations](./assistant-voice.md)
+for the retained presentation and host body slot.
+
 An application can supply a selected transient `interimReply` through its
 authorized conversation read and events. The standard binding displays it only
 on its exact `turnId`, without changing saved messages or acknowledging pending
@@ -737,6 +745,7 @@ stream or state update. Closing the element does not cancel work by itself;
 the adapter owner must decide whether to cancel, retain, or detach its operation.
 For an editor-owned proposal with no cancellation endpoint, omit `canStop`. Keep
 `disabled: false` while running and make `canSend` reflect actual availability.
+
 An application may leave `canSend` true for an empty draft when its submit action
 needs to show prerequisite guidance beside the button; validation remains owned
 by that action. Keep domain validation or proposal controls in the documented
@@ -751,6 +760,43 @@ drafts or app-managed uploads. `AssistantPromptInput` accepts `attachmentState`
 and an `attachments` slot; it never uploads or deletes files. Its exposed methods
 are `focus()`, `preserveHeightForNextModelValue()` and `queueResizeTextarea()`;
 `inputElement` exposes the textarea for app-owned editing operations.
+
+### Optional avatar
+
+Supply the `avatar` slot to add artwork above the existing transcript. With no
+slot, the text-only layout has no avatar region or size control and requires no
+voice package or speech service. The application supplies artwork and any
+animation; the element does not acquire audio or another conversation.
+
+```vue
+<AssistantConversationElement :adapter="adapter" v-model:avatar-size="avatarSize">
+  <template #avatar><SupportAvatar /></template>
+</AssistantConversationElement>
+```
+
+`avatarSize` is a controlled preference: `hidden`, `compact`, `standard`, or
+`large`, requesting 0, 64, 112, or 176 CSS pixels of artwork. Its default is
+`compact`. The Avatar size button opens the four-preset menu and emits
+`update:avatarSize`; keep that value in the application's existing preference
+owner if it should be remembered. The button uses the default composer toolbar.
+A custom or transcript-only composer uses a separate row above the transcript.
+Hidden leaves the button available so the person can show the avatar again.
+
+The effective artwork height uses the conversation container's actual remaining
+space after its composer, feedback, support and other controls, leaving a target
+of 120 pixels for the transcript. Artwork shrinks before the input is displaced.
+An unusually short container or a large custom composer still needs sufficient
+host-provided height for its essential controls. Temporary clamping never emits
+a preference change; enlarging the container restores the requested size.
+The slot receives `{ size, height }`, where `size` is the requested preset and
+`height` is the effective artwork height. Size artwork to fit that region.
+
+`AssistantConversationClientElement` accepts the same slot and
+`v-model:avatar-size`. Its slot also receives the existing retained `runtime`.
+Changing the preference does not acquire a new runtime, change the transcript,
+clear the draft, or deliberately move focus. The transcript retains its normal
+scroll-following behavior; application visibility and focus policies remain
+separate concerns.
 
 ## Optional shared capabilities
 
@@ -1847,6 +1893,14 @@ limits. The supplied local facility rejects unenforceable resource limits. It
 does not recover ownership of an unknown process after a hard application crash;
 that requires operator cleanup or a host with durable execution ownership. Clean
 runtime shutdown drains its owned processes and preserves native history for resume.
+
+For account inspection, an explicitly supplied `host.execution.run` receives
+the native status command with `mode: "capture"`, `cwd`, `baseEnv`, `signal`,
+`timeout`, `maxBuffer` and resource limits. This lets a managed host apply its
+finite account-check policy independently of the conversation service policy;
+the status command runs in the credential home. Hosts without this operation
+retain the supplied streaming capture and cleanup path. Applications still use
+the same conversation API.
 
 Advanced execution hosts can use `createConversationProcessIdentity()` from
 `/server/conversation` for the extracted Linux process-group ownership checks.

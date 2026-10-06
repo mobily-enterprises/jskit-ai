@@ -59,6 +59,8 @@ Exports
 Exports
 - None
 Local functions
+- `measureAvatarSpace()`
+- `observeAvatarSpace()`
 - `resend(id)`
 - `cancel(id)`
 - `edit(id)`
