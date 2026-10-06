@@ -630,17 +630,21 @@ test("an optional avatar clamps in a short conversation without consuming its pr
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
-      await page.goto(`${vite.baseURL}/?conversation=1&avatar=1&capabilities=1`);
+      await page.goto(`${vite.baseURL}/?conversation=1&avatar=1&avatarTools=1&capabilities=1`);
       const panel = page.locator(".fixture");
       const input = page.getByRole("textbox", { name: "Message AI assistant" });
       const body = page.locator(".assistant-transcript__body");
       const artwork = page.locator(".assistant-conversation__avatar-visual");
-      const sizeControl = page.getByRole("button", { name: "Avatar size", exact: true });
+      const sizeControl = page.getByRole("button", { name: /^(Show|Minimise) avatar$/u });
+      await expect(page.getByRole("button", { name: "Avatar size", exact: true })).toHaveCount(0);
+      const avatarTool = page.getByRole("button", { name: "Avatar tool", exact: true, includeHidden: true });
+      await expect(sizeControl).toHaveCount(1);
+      assert.equal(await sizeControl.evaluate(element => Boolean(element.closest(".assistant-conversation__composer"))), false,
+        "Avatar visibility stays outside the original composer");
+      assert.equal(await avatarTool.evaluate(element => Boolean(element.closest(".assistant-conversation__avatar"))), true,
+        "Avatar tools share the artwork region outside the composer");
       const selectSize = async name => {
-        await sizeControl.focus();
-        await sizeControl.press("Enter");
-        await page.getByRole("menuitem", { name, exact: true }).click();
-        await expect(page.getByRole("menu", { name: "Avatar size", exact: true })).toBeHidden();
+        await page.getByRole("combobox", { name: "Avatar preference", exact: true }).selectOption(name.toLowerCase());
         await expect(page.getByText(`Avatar requested: ${name.toLowerCase()}`, { exact: true })).toBeVisible();
       };
       const assertComposerFits = async () => {
@@ -648,23 +652,51 @@ test("an optional avatar clamps in a short conversation without consuming its pr
         const send = await page.getByRole("button", { name: "Send", exact: true }).boundingBox();
         const feedback = await page.getByText("Describe what you want to change.", { exact: true }).boundingBox();
         const avatarButton = await sizeControl.boundingBox();
+        const toolBounds = await avatarTool.boundingBox();
         assert.ok(send.y + send.height <= bounds.y + bounds.height + 1, "Send stays inside the supplied container");
         assert.ok(feedback.y + feedback.height <= bounds.y + bounds.height + 1, "Feedback stays inside the supplied container");
         assert.ok((await input.boundingBox()).height >= 40);
-        assert.ok(avatarButton.width >= 48 && avatarButton.height >= 48, "Avatar sizing retains a reachable touch target");
+        const avatarExpanded = await sizeControl.getAttribute("aria-expanded") === "true";
+        assert.equal(avatarButton.width, avatarExpanded ? 40 : 44, "Expanded minimise is compact; collapsed Show retains its wider target");
+        assert.ok(avatarButton.height >= 44, "Avatar visibility retains its original target height");
+        assert.ok(toolBounds.width >= 48 && toolBounds.height >= 48, "Avatar tools retain a reachable touch target");
         await expect.poll(async () => (await body.boundingBox()).height, { message: "The short container retains readable history" }).toBeGreaterThanOrEqual(100);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       };
       assert.equal(Math.round((await panel.boundingBox()).width), 320);
       assert.equal(Math.round((await panel.boundingBox()).height), 420);
-      await expect(artwork).toHaveCSS("height", "64px");
+      await expect.poll(async () => (await artwork.boundingBox()).height).toBeGreaterThan(64);
+      assert.ok((await artwork.boundingBox()).height <= 96, "Compact artwork preserves the existing short-container clamp");
+      await page.getByRole("button", { name: "Resize height", exact: true }).evaluate(element => element.click());
+      await expect(artwork).toHaveCSS("height", "96px");
+      await page.getByRole("button", { name: "Resize height", exact: true }).evaluate(element => element.click());
+      await expect.poll(async () => (await panel.boundingBox()).height).toBe(420);
+      await expect(page.locator(".assistant-conversation__avatar")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      const chatBounds = await page.locator(".assistant-conversation").boundingBox();
+      const faceBounds = await artwork.boundingBox();
+      const hideBounds = await sizeControl.boundingBox();
+      assert.equal(faceBounds.y, chatBounds.y, "The face starts at the top of the chat without a controls row above it");
+      const avatarToolBounds = await avatarTool.boundingBox();
+      assert.ok(Math.abs(hideBounds.y + hideBounds.height / 2 - avatarToolBounds.y - avatarToolBounds.height / 2) < 1,
+        "The round minimise control shares the tools row below the face");
+      assert.equal(hideBounds.x, avatarToolBounds.x + avatarToolBounds.width, "Minimise directly follows the supplied tools without a gap");
+      await expect(sizeControl).toHaveText("");
+      await expect(sizeControl.locator('.assistant-conversation__avatar-size-disc')).toHaveCSS('border-radius', '50%');
       await expect(page.locator('[data-message-role="assistant"]')).toHaveCount(20);
       await page.evaluate(() => {
         window.avatarElements = [document.querySelector(".assistant-conversation"), document.querySelector("textarea"), document.querySelector(".assistant-transcript__body")];
+        window.avatarTool = document.querySelector(".assistant-conversation__avatar-presentation .fixture-avatar-tool");
       });
       await input.fill("Keep my typed support question.");
       await input.evaluate(element => element.setSelectionRange(5, 9));
+      const compactAvatarBounds = await artwork.boundingBox();
+      const composerBounds = [await input.boundingBox(), await page.getByRole("button", { name: "Send", exact: true }).boundingBox()];
+      const fixtureLayout = await panel.evaluate(element => ({
+        panel: element.getBoundingClientRect().toJSON(),
+        controls: document.querySelector(".controls").getBoundingClientRect().toJSON()
+      }));
       await body.evaluate(element => { element.scrollTop = 100; });
+      assert.deepEqual(await artwork.boundingBox(), compactAvatarBounds, "The avatar stays fixed within the chat while messages scroll behind it");
       const before = await body.evaluate(element => element.scrollTop);
       await selectSize("Large");
       await expect.poll(async () => (await artwork.boundingBox()).height).toBeLessThan(176);
@@ -673,7 +705,35 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       await selectSize("Hidden");
       await expect(artwork).toHaveCount(0);
       await expect(sizeControl).toBeVisible();
+      const showBounds = await sizeControl.boundingBox();
+      assert.equal(showBounds.width, 44, "Collapsed Show retains its original wider target");
+      assert.ok(showBounds.height >= 44);
+      const collapsedControls = await page.locator(".assistant-conversation__avatar-controls").boundingBox();
+      assert.equal(collapsedControls.y, chatBounds.y, "The collapsed controls stay at the chat top");
+      assert.equal(showBounds.y + showBounds.height / 2, collapsedControls.y + collapsedControls.height / 2,
+        "Show aligns with the existing taller host control in the top row");
+      assert.equal(showBounds.x + showBounds.width, chatBounds.x + chatBounds.width, "Show stays at the chat right edge");
+      await expect(avatarTool).toHaveCount(1);
+      await expect(avatarTool).toBeHidden();
+      await expect(page.getByRole("button", { name: "Retained avatar control", exact: true })).toBeVisible();
+      assert.equal(await page.evaluate(() => window.avatarTool.isConnected), true, "Hiding retains the local tools target");
+      if (process.env.JSKIT_ASSISTANT_CORE_BROWSER_ARTIFACTS) {
+        await page.screenshot({ path: path.join(process.env.JSKIT_ASSISTANT_CORE_BROWSER_ARTIFACTS, `hidden-${width}.png`) });
+      }
+      assert.deepEqual([await input.boundingBox(), await page.getByRole("button", { name: "Send", exact: true }).boundingBox()], composerBounds,
+        `Collapsing changes no original input or Send rectangle: ${JSON.stringify({ before: fixtureLayout, after: await panel.evaluate(element => ({
+          panel: element.getBoundingClientRect().toJSON(), controls: document.querySelector(".controls").getBoundingClientRect().toJSON()
+        })) })}`);
+      await page.getByRole("button", { name: "Show avatar", exact: true }).click();
+      await expect(page.getByText("Avatar requested: large", { exact: true })).toBeVisible();
+      await expect(avatarTool).toBeVisible();
+      assert.deepEqual([await input.boundingBox(), await page.getByRole("button", { name: "Send", exact: true }).boundingBox()], composerBounds,
+        "Showing the last visible size changes no original input or Send rectangle");
+      await page.getByRole("button", { name: "Minimise avatar", exact: true }).click();
       await selectSize("Standard");
+      await expect(avatarTool).toBeVisible();
+      await expect(avatarTool).toHaveAttribute("data-size", "standard");
+      assert.equal(await avatarTool.evaluate(element => element === window.avatarTool), true, "Showing reuses the original tools node");
       await expect.poll(async () => (await artwork.boundingBox()).height).toBeGreaterThan(0);
       await selectSize("Large");
       await input.focus();
@@ -715,6 +775,120 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       await expect(page.locator('[data-message-role="assistant"]')).toHaveCount(20);
       await expect(page.getByText("idle; submitted 0", { exact: true })).toBeVisible();
       await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+
+test("unsent preview edits stay in their bubble and disappear for the canonical message", {
+  skip: !RUN_BROWSER_TEST, timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const page = await browser.newPage({ viewport: { width: 320, height: 844 } });
+    await page.goto(`${vite.baseURL}/?conversation=1&preview=1`);
+    const input = page.getByRole("textbox", { name: "Message AI assistant" });
+    const discard = page.getByRole("button", { name: "Discard unsent message", exact: true });
+    const edit = page.getByRole("button", { name: "Edit unsent message", exact: true });
+    await page.getByRole("button", { name: "External active", exact: true }).click();
+    await input.fill("Keep this typed draft");
+    await page.getByRole("button", { name: "Add temporary message", exact: true }).click();
+    const bubble = page.locator(".assistant-transcript__message--user");
+    await expect(bubble).toContainText("Exact temporary words");
+    await expect(bubble.getByRole("button", { name: "Discard unsent message" })).toBeVisible();
+    await expect(edit).toBeEnabled();
+    await expect(discard).toBeEnabled();
+    await page.getByRole("button", { name: "Toggle preview eligibility" }).click();
+    await expect(discard).toBeDisabled();
+    await page.getByRole("button", { name: "Toggle preview eligibility" }).click();
+    await discard.click();
+    await expect(bubble).toHaveCount(0);
+    await expect(input).toHaveValue("Keep this typed draft");
+    await page.getByRole("button", { name: "Add temporary message", exact: true }).click();
+    await page.getByRole("button", { name: "Reject preview", exact: true }).click();
+    await expect(bubble).toHaveCount(1);
+    await expect(bubble).toContainText("No active turn; explicit Edit may author a new message.");
+    await expect(bubble.locator(".assistant-transcript__optimistic-actions")).toHaveCount(0);
+    await expect(bubble.locator(".assistant-conversation__preview-actions")).toHaveCount(1);
+    await expect(edit).toBeEnabled();
+    await edit.click();
+    await expect(bubble).not.toContainText("No active turn; explicit Edit may author a new message.");
+    const editor = bubble.getByRole("textbox", { name: "Review your message" });
+    const send = bubble.getByRole("button", { name: "Send", exact: true });
+    await expect(editor).toHaveValue("Exact temporary words");
+    await expect(input).toHaveValue("Keep this typed draft");
+    await expect(page.getByRole("textbox")).toHaveCount(2);
+    await expect(bubble.locator(".assistant-conversation__preview-actions")).toHaveCount(1);
+    await editor.fill("");
+    await expect(editor).toHaveValue("");
+    await expect(bubble).toHaveCount(1);
+    await expect(send).toBeDisabled();
+    await editor.fill("Corrected speech\nwith a second line");
+    await expect(send).toBeEnabled();
+    await expect(input).toHaveValue("Keep this typed draft");
+    await send.click();
+    await expect(bubble).toContainText("Corrected speech");
+    await expect(editor).toHaveCount(0);
+    await expect(discard).toHaveCount(0);
+    await expect(input).toHaveValue("Keep this typed draft");
+    await page.reload();
+    await input.fill("Keep this typed draft");
+    await page.getByRole("button", { name: "External active", exact: true }).click();
+    await page.getByRole("button", { name: "Add temporary message", exact: true }).click();
+    await page.getByRole("button", { name: "Unadmitted preview" }).click();
+    await expect(bubble).toHaveCount(1);
+    await edit.click();
+    await expect(bubble.getByRole("textbox", { name: "Review your message" })).toHaveValue("Exact temporary words");
+    await expect(input).toHaveValue("Keep this typed draft");
+    await page.getByRole("button", { name: "Accept preview" }).click();
+    await expect(bubble).toHaveCount(1);
+    await expect(bubble).toContainText("Exact temporary words");
+    await expect(discard).toHaveCount(0);
+    await expect(edit).toHaveCount(0);
+    await expect(input).toHaveValue("Keep this typed draft");
+    await expect(page.locator("output").last()).toHaveText("active; submitted 0");
+    for (const recovery of ["edit", "discard"]) {
+      await page.reload();
+      await input.fill("Keep this typed draft");
+      await page.getByRole("button", { name: "External active", exact: true }).click();
+      await page.getByRole("button", { name: "Add temporary message", exact: true }).click();
+      await page.getByRole("button", { name: "Reject preview", exact: true }).click();
+      await page.getByRole("button", { name: "Add newer temporary message", exact: true }).click();
+      await expect(bubble).toHaveCount(2);
+      const retained = bubble.first();
+      const newer = bubble.last();
+      await expect(retained).toContainText("No active turn; explicit Edit may author a new message.");
+      await expect(retained.locator(".assistant-transcript__optimistic-actions")).toHaveCount(0);
+      await expect(newer).toContainText("Keep newer live words");
+      await expect(newer.getByRole("button", { name: "Edit unsent message", exact: true })).toBeDisabled();
+      await expect(newer.getByRole("button", { name: "Discard unsent message", exact: true })).toBeEnabled();
+      if (recovery === "edit") {
+        await retained.getByRole("button", { name: "Edit unsent message", exact: true }).click();
+        await expect(newer).toContainText("Keep newer live words");
+        const retainedEditor = retained.getByRole("textbox", { name: "Review your message" });
+        await expect(retainedEditor).toHaveValue("Exact temporary words");
+        await retainedEditor.fill("Edited retained words");
+        await expect(input).toHaveValue("Keep this typed draft");
+        await retained.getByRole("button", { name: "Send", exact: true }).click();
+        await expect(retained).toContainText("Edited retained words");
+        await expect(retained.getByRole("button", { name: "Edit unsent message", exact: true })).toHaveCount(0);
+        await expect(bubble).toHaveCount(2);
+        await expect(newer).toContainText("Keep newer live words");
+      } else {
+        await retained.getByRole("button", { name: "Discard unsent message", exact: true }).click();
+        await expect(bubble).toHaveCount(1);
+        await expect(bubble).toContainText("Keep newer live words");
+      }
+      const current = bubble.last();
+      await expect(current.getByRole("button", { name: "Edit unsent message", exact: true })).toBeEnabled();
+      await expect(input).toHaveValue("Keep this typed draft");
+      await current.getByRole("button", { name: "Discard unsent message", exact: true }).click();
+      await expect(bubble).toHaveCount(recovery === "edit" ? 1 : 0);
+      await expect(input).toHaveValue("Keep this typed draft");
     }
   } finally {
     await browser.close();

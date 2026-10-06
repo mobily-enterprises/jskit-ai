@@ -43,6 +43,7 @@ Exports
 - `ConversationDialog`
 - `VoiceConversation`
 - `VoiceConversationControls`
+- `VoiceConversationSettings`
 - `useVoiceLauncher`
 - `useVoiceAvatar`
 - `VoiceAvatar`
@@ -79,6 +80,13 @@ Exports
 Local functions
 - `invoke(operation)`
 - `openText()`
+
+### `src/client/VoiceConversationSettings.vue`
+Exports
+- None
+Local functions
+- `selectVoice(value)`
+- `openSettings(open)`
 
 ### `src/client/voiceLauncher.js`
 Exports

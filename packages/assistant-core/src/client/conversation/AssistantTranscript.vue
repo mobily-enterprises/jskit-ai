@@ -136,7 +136,13 @@
             <div
               class="assistant-transcript__user-content"
             >
-              <p v-if="userMessageFormat === 'plain'" class="assistant-transcript__plain-user">{{ userMessageExpanded(entry.turn) ? entry.message.text : userMessagePreviewText(entry.message.text) || entry.message.text }}</p>
+              <v-textarea
+                v-if="entry.turn.preview && previewForTurn(entry.turn)?.actions?.editing"
+                class="assistant-transcript__preview-editor" :model-value="previewForTurn(entry.turn).text" label="Review your message"
+                :disabled="!previewForTurn(entry.turn).actions.canEdit" density="compact" :rows="1" :max-rows="2"
+                auto-grow hide-details @update:model-value="previewForTurn(entry.turn).actions.update(entry.turn.turnId, $event)"
+              />
+              <p v-else-if="userMessageFormat === 'plain'" class="assistant-transcript__plain-user">{{ userMessageExpanded(entry.turn) ? entry.message.text : userMessagePreviewText(entry.message.text) || entry.message.text }}</p>
               <LongTextPreviewBlocks
                 v-else
                 :blocks="userMessageExpanded(entry.turn) ? entry.message.blocks : (entry.message.previewBlocks || entry.message.blocks)"
@@ -160,12 +166,13 @@
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
               <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">Pending</span>
             </div>
+            <slot name="user-message-actions" :message="entry.message" :turn="entry.turn" />
             <div
               v-if="entry.turn.optimistic?.status === 'failed'"
               class="assistant-transcript__optimistic-failure"
             >
               <span role="status">Failed: {{ entry.turn.optimistic.error || "Message could not be sent." }}</span>
-              <div class="assistant-transcript__optimistic-actions">
+              <div v-if="!entry.turn.preview" class="assistant-transcript__optimistic-actions">
                 <v-btn
                   class="assistant-transcript__delivery-action"
                   color="primary"
@@ -311,8 +318,14 @@ import {
   normalizeThinkingMessageText
 } from "../../shared/conversation/thinkingText.js";
 
+function previewForTurn(turn) {
+  const preview = turn.previewMessage || props.previewMessage;
+  return (preview?.messageId || preview?.id) === turn.turnId ? preview : null;
+}
+
 const props = defineProps({
   systemLabel: { type: String, default: "Status" },
+  previewMessage: { type: Object, default: null },
   working: { type: Boolean, default: undefined },
   progressPreviewLimit: { type: Number, default: 2 },
   userMessageFormat: { type: String, default: "formatted", validator: (value) => ["plain", "formatted"].includes(value) },

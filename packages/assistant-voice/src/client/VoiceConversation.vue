@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import VoiceAvatar from "./VoiceAvatar.vue";
 import VoiceConversationControls from "./VoiceConversationControls.vue";
+import { mdiMicrophone, mdiVolumeHigh } from "@mdi/js";
 
 const props = defineProps({
   session: { type: Object, required: true }, disabled: { type: Boolean, default: false },
@@ -15,7 +16,7 @@ const { targetLabel, voice, microphoneMuted, heldTranscript, pendingTranscript, 
   avatarVisual, callAudioLevel, voiceWords, voiceAnswer } = props.session;
 const presentationAdapter = computed(() => props.adapter && ({
   ...props.adapter,
-  composer: { ...props.adapter.composer, canSend: props.adapter.composer?.canSend && !props.session.hasUnsentSpeech.value }
+  composer: { ...props.adapter.composer, canSend: props.adapter.composer?.canSend && !props.session.composerBlocked.value }
 }));
 const toolsTarget = ref(null);
 const voiceWordsTarget = ref(null);
@@ -38,10 +39,21 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
           <VoiceAvatar v-bind="avatarVisual" />
         </slot>
       </template>
-      <template #composer-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
+      <template v-if="showAvatar" #avatar-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
+      <template #avatar-control="scope">
+        <slot name="avatar-control" v-bind="scope">
+          <span v-if="scope.size === 'hidden' && voice.listening.value && !microphoneMuted" role="img" aria-label="Listening" title="Listening">
+            <v-icon :icon="mdiMicrophone" size="20" aria-hidden="true" />
+          </span>
+          <span v-if="scope.size === 'hidden' && voice.speaking.value" role="img" aria-label="Speaking" title="Speaking">
+            <v-icon :icon="mdiVolumeHigh" size="20" aria-hidden="true" />
+          </span>
+        </slot>
+      </template>
       <template #composer-feedback>
-        <VoiceConversationControls :session="session" :disabled="disabled" compact :tools-target="toolsTarget">
+        <VoiceConversationControls :session="session" :disabled="disabled" compact :icon-only="showAvatar" :tools-target="toolsTarget" :review-in-transcript="Boolean(presentationAdapter?.conversation?.previewMessage)">
           <template #work-control><slot name="work-control" /></template>
+          <template #settings-control><slot name="settings-control" /></template>
         </VoiceConversationControls>
       </template>
     </AssistantConversationElement>
@@ -66,7 +78,10 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
           <p class="assistant-voice__caption-text text-body-medium">{{ voiceAnswer }}</p>
         </section>
       </div>
-      <VoiceConversationControls :session="session" :disabled="disabled"><template #work-control><slot name="work-control" /></template></VoiceConversationControls>
+      <VoiceConversationControls :session="session" :disabled="disabled">
+        <template #work-control><slot name="work-control" /></template>
+        <template #settings-control><slot name="settings-control" /></template>
+      </VoiceConversationControls>
     </section>
   </fieldset>
 </template>

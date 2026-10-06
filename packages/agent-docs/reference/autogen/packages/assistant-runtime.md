@@ -44,10 +44,10 @@ Local functions
 - `text(value)`
 - `isQuestionConfiguration(value)`
 - `draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "")`
-- `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, draftStorage, application, goalReadEnabled })`
+- `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, draftStorage, application, goalReadEnabled })`
 - `useBoundedTask({ command, endpoint, scope, input, result, onResult }, { active, data, presentation })`
 - `conversationBindingSetup({ socket, boundedTask = null } = {})`
-- `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, draftWhileLoading = false, draftStorage = null, application = null, boundedTask = null, data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup)`
+- `createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug, actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent, clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, draftWhileLoading = false, draftStorage = null, application = null, boundedTask = null, data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup)`
 
 ### `src/client/composables/useAssistantRuntime.js`
 Exports

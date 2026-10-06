@@ -355,6 +355,22 @@ different submission replaces that reference; it never selects an older matching
 failure from history. Uncertain delivery still requires **Check delivery**.
 Voice sends keep their own authored capture and do not consume the typed draft.
 
+`conversation_not_steerable` is a definite pre-admission rejection: its original
+request remains failed, with the same message ID and captured steering intent.
+It does not become uncertain or silently restart as new work. Hosts should use
+this code only when the original turn is absent or finished before dispatch.
+Transport and provider failures without that proof remain uncertain and require
+receipt inspection; an HTTP 409 alone is not proof of rejection.
+
+When `draftStorage` restores a page, known failed deliveries remain failed and
+accepted receipts remain accepted. Saved uncertain, pending or unrecognised
+delivery states stay uncertain with the exact original ID, payload and draft;
+closing a page during HTTP is not proof of rejection. Only the transient
+inspection flag is reset so **Check delivery** is reachable again. A matching
+canonical row marked `receipt: false` cannot settle delivery. Unknown inspection
+never retries; an actual accepted receipt is required to acknowledge the request.
+The existing storage shape is unchanged and reads perform no historical repair.
+
 With `queueWhileSending: false`, the composer is disabled during admission and
 overlapping typed or retained voice sends return `false` before calling the
 supplied API. A runtime that supports sending while working still permits the
@@ -362,6 +378,20 @@ next request after admission settles; the host owns its meaning. Queuing is part
 of the initial retained conversation composition, so use consistent options for
 mirrored readers of the same identity. The default is `clearDraftOn: "dispatch"`
 and the existing queuing behavior for a runtime that advertises steering.
+
+Applications may opt into `deferWhileWorking: true` with
+`queueWhileSending: true` for a conversation that cannot steer its active turn.
+Typed and retained voice submissions become pending in the original serial
+queue with their exact message ID, text, attachments and captured data. The
+existing subscription must report ready before each ordinary request reaches
+the API; normal server permissions still apply at dispatch. Show **Send** and
+the existing pending status, not **Steer**, when the runtime cannot steer.
+Native steering and explicit retries keep their captured intent. Stop aborts
+these local pre-dispatch followers before stopping the original turn; actor
+retirement and lost access cannot dispatch them later. This option defaults to
+false and belongs to the initial retained conversation composition. It adds no
+server queue or persisted queue recovery; genuine uncertainty still blocks new
+submissions and requires receipt inspection.
 
 Set `draftWhileLoading: true` when people should be able to type before the
 application resolves its conversation ID or while the first read is unavailable.
@@ -547,12 +577,39 @@ control the corresponding transcript presentation. `userMessageFormat` is
 For live speech that has not been admitted, supply
 `adapter.conversation.previewMessage = { messageId, text }` (the original
 voice capture's `id` is also accepted). The element displays one pending user
-message after merging canonical and delivery turns. A matching canonical or
+message after merging canonical and delivery turns. A matching admitted canonical or
 delivery message ID suppresses that preview, so an admitted utterance appears
-once. The application owns updating or clearing its current capture. Preview
+once. An exact unadmitted canonical user (`receipt: false`) or known failed local
+delivery may retain the same bubble as an editable preview; its real status and
+error remain unchanged until the host performs an explicit action. The application owns updating or clearing its current capture. Preview
 text never enters saved history, the retained runtime's turns or receipt
 reconciliation; it cannot acknowledge a pending or uncertain send. Keep it out
 of `adapter.conversation.turns`.
+
+An optional `previewMessage.actions` supplies `discard(messageId)` and
+`edit(messageId)` with explicit `canDiscard` and `canEdit` booleans. The element
+shows X and pencil actions only on its unsent preview bubble; accepted messages
+never receive them. Add `editing`, `update(messageId, text)`, `send(messageId)`,
+`canSend` and `sending` to reuse the original review textarea inside that same
+bubble and its existing action row for Send. An empty editor remains visible.
+The host owns identity, admission and current-target guards; the typed draft need
+not change. For a known failed voice delivery, explicit Edit may cancel only that
+exact failed local entry through the original delivery owner before authoring a
+fresh request. Plain Retry preserves its original text and intent. The preview
+row replaces the generic failed-action row without concealing the real error.
+`user-message-actions` receives `{ message, turn }` inside the existing user
+bubble; the assistant's `message-actions` slot remains separate.
+
+A host with both an existing pending utterance and a newer live capture can
+project `adapter.conversation.previewMessages` as a read-only, identity-deduplicated
+list of those existing descriptors. The singular `previewMessage` contract stays
+available; a supplied list owns the displayed previews. Each row binds only its
+matching descriptor, so the retained failed bubble keeps its actual error and
+recovery controls while newer words stay visible. This list never queues,
+submits or stores transcripts. The host disables the newer capture's Edit while
+its existing pending editor is occupied, preserving its independent Discard.
+Existing runtime presentation options that forward only `previewMessage` do not
+implicitly forward this list; supply it on the host's final adapter conversation.
 
 ### Message delivery
 
@@ -765,8 +822,10 @@ are `focus()`, `preserveHeightForNextModelValue()` and `queueResizeTextarea()`;
 
 ### Optional avatar
 
-Supply the `avatar` slot to add artwork above the existing transcript. With no
-slot, the text-only layout has no avatar region or size control and requires no
+Supply the `avatar` slot to add artwork fixed at the chat's upper right. It stays
+outside the transcript's scroll container; chat text scrolls behind the artwork
+and controls. It creates no side gutter or text wrapping. With no
+slot, the text-only layout has no avatar region or visibility control and requires no
 voice package or speech service. The application supplies artwork and any
 animation; the element does not acquire audio or another conversation.
 
@@ -777,12 +836,30 @@ animation; the element does not acquire audio or another conversation.
 ```
 
 `avatarSize` is a controlled preference: `hidden`, `compact`, `standard`, or
-`large`, requesting 0, 64, 112, or 176 CSS pixels of artwork. Its default is
-`compact`. The Avatar size button opens the four-preset menu and emits
-`update:avatarSize`; keep that value in the application's existing preference
-owner if it should be remembered. The button uses the default composer toolbar.
-A custom or transcript-only composer uses a separate row above the transcript.
-Hidden leaves the button available so the person can show the avatar again.
+`large`, requesting 0, 96, 112, or 176 CSS pixels of artwork. Its default is
+`compact`. The anonymous avatar icon at the chat's upper right shows the avatar;
+the expanded round minus icon at the end of the avatar controls row hides it
+(accessible label **Minimise avatar**). The collapsed **Show avatar** icon remains
+at the chat's upper right and remains clickable above the transcript's reload
+control. Both controls emit
+`update:avatarSize`; keep that
+value in the application's existing preference owner if it should be remembered.
+Show restores the last visible size, or Compact if none has been selected.
+There is no size menu. Hosts can still supply any supported controlled preset.
+The overlay is transparent, so transcript text shows behind the supplied artwork
+rather than an opaque panel.
+Changing visibility does not change the input or composer button layout.
+
+The optional `avatar-tools` slot receives the same `{ size, height }` scope and
+places application-supplied controls below the artwork, outside the composer,
+immediately before the element's round minimise control in the same compact row.
+Its content stays mounted while Hidden conceals the presentation with `v-show`,
+so a local controls target can retain its identity. Keep required review,
+recovery and active-capture controls visible outside the hidden presentation.
+The always-visible `avatar-control` slot receives `{ size, height }` beside
+Show/Hide. An application can use it for a collapsed active-mic
+indicator or control without placing voice state in the conversation element.
+The element supplies no audio session or control actions.
 
 The effective artwork height uses the conversation container's actual remaining
 space after its composer, feedback, support and other controls, leaving a target
@@ -793,8 +870,8 @@ a preference change; enlarging the container restores the requested size.
 The slot receives `{ size, height }`, where `size` is the requested preset and
 `height` is the effective artwork height. Size artwork to fit that region.
 
-`AssistantConversationClientElement` accepts the same slot and
-`v-model:avatar-size`. Its slot also receives the existing retained `runtime`.
+`AssistantConversationClientElement` forwards all three avatar slots and
+`v-model:avatar-size`. Its slots also receive the existing retained `runtime`.
 Changing the preference does not acquire a new runtime, change the transcript,
 clear the draft, or deliberately move focus. The transcript retains its normal
 scroll-following behavior; application visibility and focus policies remain

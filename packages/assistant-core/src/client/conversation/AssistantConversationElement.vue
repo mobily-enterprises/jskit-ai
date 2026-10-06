@@ -1,32 +1,74 @@
 <template>
   <section ref="container" class="assistant-conversation" :aria-label="label">
-    <section v-if="$slots.avatar" class="assistant-conversation__avatar" aria-label="Conversation avatar">
-      <div v-if="$slots.composer || !adapter.composer" ref="avatarControls" class="assistant-conversation__avatar-controls">
+    <section
+      v-if="$slots.avatar" class="assistant-conversation__avatar"
+      :class="{ 'assistant-conversation__avatar--hidden': avatarSize === 'hidden' }" aria-label="Conversation avatar"
+    >
+      <div v-show="avatarSize === 'hidden'" ref="avatarControls" class="assistant-conversation__avatar-controls">
+        <slot name="avatar-control" :size="avatarSize" :height="avatarHeight" />
         <v-btn
-          ref="avatarControl" class="assistant-conversation__avatar-size" aria-label="Avatar size" :title="`Avatar size: ${avatarSize}`"
-          aria-haspopup="menu" :aria-expanded="avatarMenuOpen" :icon="mdiAccountCircleOutline" size="small" variant="text"
-        />
+          :icon="mdiAccountCircleOutline" size="small"
+          variant="text" :width="44" :min-width="44" :min-height="44"
+          class="assistant-conversation__avatar-size"
+          aria-label="Show avatar" title="Show avatar"
+          :aria-expanded="avatarSize !== 'hidden'" @click="toggleAvatar"
+        >
+          <span class="assistant-conversation__avatar-size-disc">
+            <v-icon size="20" :icon="mdiAccountCircleOutline" />
+          </span>
+        </v-btn>
       </div>
-      <v-menu v-model="avatarMenuOpen" :activator="avatarControl?.$el">
-        <v-list role="menu" aria-label="Avatar size">
-          <v-list-item
-            v-for="size in avatarSizes" :key="size.value" role="menuitem" :title="size.title"
-            :active="size.value === avatarSize" @click="$emit('update:avatarSize', size.value)"
-          />
-        </v-list>
-      </v-menu>
-      <div v-if="avatarSize !== 'hidden'" class="assistant-conversation__avatar-visual" :style="{ height: `${avatarHeight}px` }">
-        <slot name="avatar" :size="avatarSize" :height="avatarHeight" />
+      <div v-show="avatarSize !== 'hidden'" class="assistant-conversation__avatar-presentation">
+        <div v-if="avatarSize !== 'hidden'" class="assistant-conversation__avatar-visual" :style="{ height: `${avatarHeight}px`, width: `${avatarHeight}px` }">
+          <slot name="avatar" :size="avatarSize" :height="avatarHeight" />
+        </div>
+        <div class="assistant-conversation__avatar-tools">
+          <slot name="avatar-tools" :size="avatarSize" :height="avatarHeight" />
+          <v-btn
+            :icon="mdiMinus" size="small" variant="text" color="primary"
+            :width="40" :min-width="40" :min-height="44" class="assistant-conversation__avatar-size"
+            aria-label="Minimise avatar" title="Minimise avatar" :aria-expanded="true"
+            @click="toggleAvatar"
+          >
+            <span class="assistant-conversation__avatar-size-disc assistant-conversation__avatar-size-disc--minimise">
+              <v-icon size="20" :icon="mdiMinus" />
+            </span>
+          </v-btn>
+        </div>
       </div>
     </section>
     <AssistantTranscript
-      v-bind="conversation" :working="working" class="assistant-conversation__transcript"
+      v-bind="conversation" :preview-message="adapter.conversation.previewMessage || null" :working="working" class="assistant-conversation__transcript"
       @load-more="adapter.actions?.loadMore?.($event)" @reload="adapter.actions?.reload?.()"
       @resend-turn="resend($event)" @cancel-turn="cancel($event)"
       @check-delivery="adapter.actions?.checkDelivery?.($event)"
       @edit-turn="edit($event)" @link-click="adapter.actions?.openLink?.($event)"
     >
       <template v-for="name in transcriptSlots" #[name]="scope"><slot :name="name" v-bind="scope" /></template>
+      <template #user-message-actions="scope">
+        <div v-if="scope.turn.preview && scope.turn.previewMessage?.actions" class="assistant-conversation__preview-actions">
+          <v-btn
+            v-if="scope.turn.previewMessage.actions.discard" :icon="mdiClose" size="small" variant="text"
+            aria-label="Discard unsent message" title="Discard unsent message"
+            :disabled="!scope.turn.previewMessage.actions.canDiscard"
+            @click="scope.turn.previewMessage.actions.discard(scope.turn.turnId)"
+          />
+          <v-btn
+            v-if="scope.turn.previewMessage.actions.edit" :icon="mdiPencil" size="small" variant="text"
+            aria-label="Edit unsent message" title="Edit unsent message"
+            :disabled="!scope.turn.previewMessage.actions.canEdit"
+            @click="scope.turn.previewMessage.actions.edit(scope.turn.turnId)"
+          />
+          <v-btn
+            v-if="scope.turn.previewMessage.actions.send" size="small" color="primary"
+            :disabled="!scope.turn.previewMessage.actions.canSend"
+            @click="scope.turn.previewMessage.actions.send(scope.turn.turnId)"
+          >
+            {{ scope.turn.previewMessage.actions.sending ? 'Sending…' : 'Send' }}
+          </v-btn>
+        </div>
+        <slot name="user-message-actions" v-bind="scope" />
+      </template>
     </AssistantTranscript>
     <div v-if="adapter.goal && adapter.goal.enabled !== false" class="assistant-conversation__goal">
       <AssistantGoalControl :state="adapter.goal" />
@@ -99,10 +141,6 @@
                 @update:model-value="updateConfiguration({ ...configuration, [field.name]: $event })"
               />
             </slot>
-            <v-btn
-              v-if="$slots.avatar" ref="avatarControl" class="assistant-conversation__avatar-size" aria-label="Avatar size" :title="`Avatar size: ${avatarSize}`"
-              aria-haspopup="menu" :aria-expanded="avatarMenuOpen" :icon="mdiAccountCircleOutline" size="small" variant="text"
-            />
             <slot name="composer-tools" :adapter="adapter" />
             <template #feedback>
               <p v-if="attachmentsEnabled && adapter.attachments.status" role="alert" class="assistant-conversation__attachment-error">{{ adapter.attachments.status }}</p>
@@ -116,7 +154,7 @@
 </template>
 <script setup>
 import { computed, onBeforeUnmount, onMounted, onUpdated, ref, useId, useSlots, watch } from "vue";
-import { mdiAccountCircleOutline, mdiPaperclip } from "@mdi/js";
+import { mdiAccountCircleOutline, mdiClose, mdiMinus, mdiPaperclip, mdiPencil } from "@mdi/js";
 import AssistantTranscript from "./AssistantTranscript.vue";
 import AssistantPromptInput from "./AssistantPromptInput.vue";
 import AssistantComposerActions from "./AssistantComposerActions.vue";
@@ -133,17 +171,22 @@ const props = defineProps({
   configurationFields: { type: Array, default: () => [] },
   configurationMode: { type: String, default: "hidden", validator: (value) => ["hidden", "readonly", "editable"].includes(value) }
 });
-defineEmits(["update:avatarSize"]);
+const emit = defineEmits(["update:avatarSize"]);
 const slots = useSlots();
 const container = ref(null);
 const avatarControls = ref(null);
-const avatarControl = ref(null);
-const avatarMenuOpen = ref(false);
+const visibleAvatarSize = ref("compact");
+watch(() => props.avatarSize, (size) => {
+  if (size !== "hidden") visibleAvatarSize.value = size;
+}, { immediate: true });
+function toggleAvatar() {
+  emit("update:avatarSize", props.avatarSize === "hidden" ? visibleAvatarSize.value : "hidden");
+}
 const avatarSizes = [
-  { title: "Hidden", value: "hidden", height: 0 },
-  { title: "Compact", value: "compact", height: 64 },
-  { title: "Standard", value: "standard", height: 112 },
-  { title: "Large", value: "large", height: 176 }
+  { value: "hidden", height: 0 },
+  { value: "compact", height: 96 },
+  { value: "standard", height: 112 },
+  { value: "large", height: 176 }
 ];
 const avatarSpace = ref(0);
 const avatarHeight = computed(() => Math.min(avatarSpace.value, avatarSizes.find(size => size.value === props.avatarSize).height));
@@ -198,8 +241,8 @@ const delivery = ref(null);
 const statusId = `assistant-status-${useId()}`;
 const conversation = computed(() => {
   const saved = props.adapter.conversation;
-  if (!props.adapter.delivery && !saved.previewMessage && !saved.interimReply) return saved;
-  const { previewMessage, interimReply, ...display } = saved;
+  if (!props.adapter.delivery && !saved.previewMessage && !saved.previewMessages?.length && !saved.interimReply) return saved;
+  const { previewMessage, previewMessages, interimReply, ...display } = saved;
   let turns = props.adapter.delivery ? props.adapter.delivery.turns(saved.turns || []) : saved.turns || [];
   if (interimReply?.text && interimReply.turnId) {
     const assistant = { ...interimReply, messageId: interimReply.id, role: "assistant" };
@@ -212,13 +255,30 @@ const conversation = computed(() => {
         (message.outputId || message.messageId) !== (interimReply.outputId || interimReply.id)).concat(assistant) } : {})
     });
   }
-  const messageId = String(previewMessage?.messageId || previewMessage?.id || "").trim();
-  const alreadyShown = messageId && (props.adapter.delivery?.find?.(messageId) || turns.some(turn => [
-    turn.system, turn.user, turn.assistant, ...(turn.thinking || []), ...(turn.commentary || []), ...(turn.messages || [])
-  ].some(message => String(message?.messageId || message?.id || "") === messageId)));
-  if (messageId && previewMessage?.text && !alreadyShown) {
-    const user = { messageId, role: "user", text: String(previewMessage.text) };
-    turns = [...turns, { turnId: messageId, user, messages: [user], optimistic: { id: messageId, status: "pending" } }];
+  // This list projects existing capture/pending owners; it never queues delivery.
+  const previews = Array.isArray(previewMessages) ? previewMessages : previewMessage ? [previewMessage] : [];
+  for (const preview of previews) {
+    const messageId = String(preview?.messageId || preview?.id || "").trim();
+    const localDelivery = messageId && props.adapter.delivery?.find?.(messageId);
+    if ((!localDelivery || localDelivery.status === "failed") && preview?.actions?.send) {
+      // Keep one unadmitted bubble and its real status until explicit Edit/discard.
+      // A receipt:false user row is not acknowledgement of the pending words.
+      turns = turns.map(turn => {
+        const failed = turn.optimistic?.id === messageId && turn.optimistic.status === "failed";
+        const unadmitted = turn.user?.receipt === false && String(turn.user.messageId || turn.user.id || "") === messageId;
+        if (!failed && !unadmitted) return turn;
+        return { ...turn, preview: true, previewMessage: preview, user: { ...turn.user, text: String(preview.text || "") } };
+      });
+    }
+    const alreadyShown = messageId && (localDelivery || turns.some(turn => [
+      turn.system, turn.user, turn.assistant, ...(turn.thinking || []), ...(turn.commentary || []), ...(turn.messages || [])
+    ].some(message => String(message?.messageId || message?.id || "") === messageId &&
+      (message.receipt !== false || turn.preview))));
+    if (messageId && (preview?.text || preview?.actions?.editing) && !alreadyShown) {
+      const user = { messageId, role: "user", text: String(preview.text || "") };
+      turns = [...turns, { turnId: messageId, user, messages: [user], preview: true, previewMessage: preview,
+        optimistic: { id: messageId, status: "pending" } }];
+    }
   }
   // Transcription and interim replies are display only. The receipt watcher
   // receives canonical turns, never these presentation or delivery overlays.
@@ -327,10 +387,16 @@ function updateConfiguration(value) {
 defineExpose({ focus: () => input.value?.focus(), submit, stop });
 </script>
 <style scoped>
-.assistant-conversation { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; container: assistant-conversation / inline-size; }
-.assistant-conversation__avatar { flex: 0 0 auto; min-width: 0; }
-.assistant-conversation__avatar-controls { display: flex; align-items: center; justify-content: flex-end; min-height: 48px; }
-.assistant-conversation__avatar-size { min-width: 48px; min-height: 48px; }
+.assistant-conversation__preview-actions { display: flex; justify-content: flex-end; }
+.assistant-conversation { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; container: assistant-conversation / inline-size; }
+.assistant-conversation__avatar { position: absolute; top: 0; right: 0; z-index: 3; max-width: 100%; min-width: 0; }
+.assistant-conversation__avatar-controls { position: absolute; top: 0; right: 100%; display: flex; align-items: center; justify-content: flex-end; min-height: 44px; }
+.assistant-conversation__avatar--hidden .assistant-conversation__avatar-controls { right: 0; }
+.assistant-conversation__avatar-size { min-width: 44px; min-height: 44px; }
+.assistant-conversation__avatar-size-disc { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(var(--v-theme-on-surface), .08); }
+.assistant-conversation__avatar-size-disc--minimise { background: rgba(var(--v-theme-primary), .12); }
+.assistant-conversation__avatar-presentation { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.assistant-conversation__avatar-tools { display: flex; align-items: center; gap: 0; }
 .assistant-conversation__avatar-visual { display: flex; justify-content: center; min-height: 0; overflow: hidden; }
 .assistant-conversation__avatar-visual :deep(> *) { max-width: 100%; max-height: 100%; }
 .assistant-conversation__goal { display: flex; justify-content: flex-end; flex: 0 0 auto; }

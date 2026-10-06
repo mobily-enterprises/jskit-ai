@@ -116,7 +116,7 @@ navigation action without replacing the retained voice session.
 
 `VoiceConversation` accepts `adapter`, `session`, `disabled`, and controlled
 `avatarSize`, and emits `update:avatarSize`. `VoiceConversationHost` forwards that
-preference and event. Supply `v-model:avatar-size` from the application's existing
+preference and event; its default is `hidden`. Supply `v-model:avatar-size` from the application's existing
 preference owner. Its avatar slot receives the original visual state plus the
 core slot's requested `size` and effective `height`; temporary clamping preserves
 the preference.
@@ -125,25 +125,80 @@ the preference.
 Set `binding.showAvatar: false` when using `VoiceConversationHost` to omit the
 portrait entirely. Caption-only views then give that space to the existing
 captions and controls; adapter-backed views omit the core avatar slot and its
-sizing control. This presentation choice does not change the retained session,
+visibility control. This presentation choice does not change the retained session,
 typed draft, capture, review or playback operations.
 
 `VoiceConversationControls` reuses the session's original Talk/Pause gesture,
-speaker, Stop speaking, error and recording review operations. `compact` places
-48px voice actions beside the ordinary composer tools and bounds the independent
-review textarea. Captured words stay explicitly Not sent until normal admission;
-review edits do not replace the typed draft. While capture, transcription or review
-needs resolving, the canonical typed composer stays editable and its Send is
-disabled. Finish the recording, then send or discard its reviewed words before
-sending the typed draft. This presentation guard keeps the original adapter's
+speaker, Stop speaking, error and recording review operations. `compact` uses
+48px voice actions. Optional `iconOnly`, default `false`, replaces the Talk label
+with its microphone icon while retaining the full state label in `aria-label`,
+the gesture hint and the original pointer/keyboard handlers. The microphone
+tooltip reads “click or long press to talk”.
+Stop speaking keeps a 48px target. Icon-only Talk, speaker and the compact
+settings cog use 32px visible circles inside transparent targets 40px wide and
+44px tall, with no gap between targets and 8px between visible circles. The
+expanded avatar's minimise button uses the same compact target; collapsed Show
+avatar keeps its 44px square target. All voice controls remain visible while idle. Stop speaking sits beside that pair without changing its position.
+The adapter-backed voice view places these icons below the fixed upper-right
+avatar, outside the composer. Hidden preserves the tools target. Its default
+collapsed presentation shows passive Listening and Speaking icons only while
+those states are active; Show avatar restores the ordinary controls. An idle or
+muted microphone has no Listening indicator. Icon-only presentation omits the
+routine Listening footer; errors, provisional words, review and sound recovery
+remain visible.
+Its `avatar-control` slot forwards the core scope for an always-visible control
+supplied by the application. Hiding is presentation only; it does not pause
+capture, cancel speech or end the session. Compact review keeps its
+independent editable textarea beside the 48px Discard and Send actions, with up
+to two rows and scrolling. Errors keep their full text in small body typography
+to preserve readable history in short containers. Compact Talk keeps one bounded track across Talk, Pause,
+Connecting and held-recording labels. In the labelled compact layout, space for Stop speaking and the normal
+status line remains allocated while idle; an unavailable Stop speaking action
+is absent from keyboard and accessibility navigation. These reservations keep
+capture and playback state changes from moving Talk. Captured words stay
+explicitly Not sent until normal admission;
+review edits do not replace the typed draft. An open hands-free microphone
+does not block typed steering. `session.composerBlocked` gates Send during startup and non-live or
+non-hands-free capture, admission or review. Live hands-free keeps typed Send
+available while spoken requests await admission;
+`session.hasUnsentSpeech` independently protects target switching. The latest
+recognized words remain observable through `binding.onTranscript`, including
+while an earlier request awaits admission. Pause remains usable during that wait
+and does not discard either recording or stop playback. This presentation guard keeps the original adapter's
 actions, attachments and questions. Send retries keep the recording's
 UUID and captured destination; Discard uses the original cleanup operation.
 
+`onTranscript(transcript, { canTake })` preserves the original `{ id, text }` or
+null projection and supplies eligibility for unsent-preview controls.
+`session.takeTranscript(messageId, transfer?)` refuses wrong, admitted,
+committing or sending messages. An optional synchronous `transfer(text)` must
+recheck the host's empty typed draft, set it through its original setter, and
+return true; false leaves speech untouched. Taking an active partial uses the
+original capture cancellation and guarded hands-free restart, preserving the
+session and playback. Taking a pending review clears only that review. Hosts
+also gate these controls while their canonical delivery has uncertain admission.
+
 For custom compositions, its optional `toolsTarget` is a DOM element belonging
-to the local composer-tools slot. One controls instance moves its buttons there
-with Vue Teleport, while review and errors remain in composer-feedback. Keep
-that target mounted with the composer; there is no global portal or second
+to the local host, such as an `avatar-tools` target. One controls instance moves
+its buttons there with Vue Teleport, while review and errors stay in the host's
+visible feedback region. Optional `feedbackTarget` moves those existing
+feedback controls into a local composer element without creating another
+controller or replacing its typed draft. Keep these targets mounted, including while the avatar
+is hidden; there is no global portal or second
 gesture/session owner. With no target, the controls render together in place.
+
+`VoiceConversationHost` accepts `presentation: 'dialog' | 'inline'`, defaulting
+to `dialog`. Inline replaces the modal wrapper with an in-flow section using
+the same settings, error, target-switch recovery and conversation slot. It omits
+the separate window title, settings and close-button header. Its settings control
+sits with the avatar tools when using the built-in conversation. It has
+no scrim, activator, focus trap, floating reopen button or modal sizing. Its body
+remains mounted for the retained session even when the controller is minimized.
+The application chooses inline only while its existing conversation host is
+present and chooses dialog for fallback; changing presentation does not end or
+replace the controller/session. The `conversation` slot still receives
+`{ binding, session, disabled }`, and the existing `settings` slot receives
+`{ voice }` in either presentation.
 
 The host's optional `conversation` slot receives `{ binding, session, disabled }`
 and replaces its primary body. Settings, target-switch guards, minimizing,
@@ -193,7 +248,11 @@ Bindings may supply `defaults.mode` (`push-to-talk` or `hands-free`),
 `reviewBeforeSend`. The Talk/Pause microphone icon and speaker toggle show their states. The
 Voice settings cog loads the service's installed voices without recording.
 Pause finalizes the current utterance before muting, including buffered audio,
-and applies the recording's review preference. Resume starts a fresh recording.
+and applies the recording's review preference. If an earlier request is pending,
+Pause finishes the newer recording after that request settles. Resume keeps an
+unfinished recording open or starts a fresh recording after it ends. Talk and
+hold remain available during pending delivery, while transcribing and committing
+retain their original guards.
 The review panel stays hidden during automatic admission; failed admission keeps
 the words and message identity available for review and retry.
 The retained-adapter view scrolls the shared full history while its composer and
@@ -363,3 +422,21 @@ through an application-authorized route; credentials stay on the server. The
 result contains `voices` (IDs, labels and optional languages) and `defaultVoice`,
 matching the WebSocket greeting. Listing voices does not synthesize or load
 additional voice models.
+
+`VoiceConversationSettings` from `/client` extracts that same menu for hosts
+which supply their own conversation body. Pass the existing `voice` object and
+use its default slot for application-owned avatar and voice preferences. The
+slot receives `{ voice }`; saved identity, scope, permissions and defaults remain
+the application's responsibility. With no slot, opening connects the existing
+voice object and lists installed voices, without recording. `compact` gives the
+cog the same small visual circle and 48-pixel target as the avatar voice tools.
+Use `VoiceConversationControls`'s `settings-control` slot to put it after the
+microphone and speaker controls. A custom conversation body owns placement of
+its extracted settings menu.
+
+When Pause occurs while an earlier message is awaiting admission, the original
+recording retains its words, ID and captured destination. Pause immediately mutes
+input; once that earlier admission settles, the existing capture owner finalizes
+and sends the retained utterance exactly once. Resuming before admission settles
+keeps that recording open. Cancellation retires the requested finish; genuinely
+unknown delivery remains unresolved until the person uses existing recovery.

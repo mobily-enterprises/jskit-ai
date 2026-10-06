@@ -1,10 +1,21 @@
 <script setup>
 import { computed, reactive, ref } from "vue";
+import { createAssistantMessageDelivery } from "../../src/client/conversation/messageDelivery.js";
 import AssistantConversationElement from "../../src/client/conversation/AssistantConversationElement.vue";
 import { useAssistantAttachments } from "../../src/client/conversation/useAssistantAttachments.js";
 import { useAssistantSuggestions } from "../../src/client/conversation/useAssistantSuggestions.js";
 const phase = ref("idle");
+const previewFixture = new URLSearchParams(location.search).has("preview");
+const temporaryWords = ref("");
+const temporaryPresent = ref(false);
+const temporaryEditing = ref(false);
+const newerWords = ref("");
+const newerPresent = ref(false);
+const newerEditing = ref(false);
+const previewCanTake = ref(true);
+const previewDelivery = createAssistantMessageDelivery();
 const avatarFixture = new URLSearchParams(location.search).has("avatar");
+const avatarToolsFixture = new URLSearchParams(location.search).has("avatarTools");
 const showAvatar = ref(avatarFixture);
 const avatarSize = ref("compact");
 const short = ref(avatarFixture);
@@ -63,8 +74,57 @@ const goalState = reactive({
   resume() { goal.value = { ...goal.value, status: "active", sampledAt: Date.now() }; }
 });
 const adapter = reactive({
+  delivery: previewFixture ? previewDelivery : undefined,
   conversation: {
     assistantLabel,
+    previewMessages: computed(() => {
+      const pending = adapter.conversation.previewMessage;
+      const previews = pending ? [pending] : [];
+      if (newerPresent.value) previews.push({ id: "newer", text: newerWords.value, actions: {
+        canDiscard: previewCanTake.value,
+        canEdit: previewCanTake.value && !temporaryPresent.value,
+        editing: newerEditing.value,
+        discard: id => { if (id === "newer" && previewCanTake.value) newerPresent.value = false; },
+        edit: id => { if (id === "newer" && previewCanTake.value && !temporaryPresent.value) newerEditing.value = true; },
+        update: (id, text) => { if (id === "newer" && newerEditing.value) newerWords.value = text; },
+        send: newerEditing.value ? id => {
+          if (id !== "newer" || !previewCanTake.value || !newerWords.value.trim()) return;
+          adapter.conversation.turns = [...adapter.conversation.turns, { turnId: id,
+            user: { messageId: id, role: "user", text: newerWords.value } }];
+          newerPresent.value = false;
+        } : null,
+        canSend: previewCanTake.value && Boolean(newerWords.value.trim()), sending: false
+      } });
+      return previews;
+    }),
+    previewMessage: computed(() => temporaryPresent.value ? {
+      id: "temporary", text: temporaryWords.value,
+      actions: {
+        canDiscard: previewCanTake.value,
+        canEdit: previewCanTake.value,
+        editing: temporaryEditing.value,
+        canSend: previewCanTake.value && Boolean(temporaryWords.value.trim()),
+        sending: false,
+        discard(id) {
+          if (id !== "temporary" || !previewCanTake.value) return;
+          temporaryPresent.value = false;
+          if (previewDelivery.find(id)?.status === "failed") previewDelivery.cancel(id);
+        },
+        edit(id) {
+          if (id !== "temporary" || !previewCanTake.value) return;
+          temporaryEditing.value = true;
+          if (previewDelivery.find(id)?.status === "failed") previewDelivery.cancel(id);
+        },
+        update(id, text) {
+          if (id === "temporary" && previewCanTake.value) temporaryWords.value = text;
+        },
+        send(id) {
+          if (id !== "temporary" || !previewCanTake.value || !temporaryWords.value.trim()) return;
+          adapter.conversation.turns = [{ turnId: id, user: { messageId: id, role: "user", text: temporaryWords.value } }];
+          temporaryPresent.value = false;
+        }
+      }
+    } : null),
     turns: attribution ? [
       { turnId: "one", assistantLabel: "First assistant", assistantDetails: "First model",
         assistant: { role: "assistant", text: "First answer" } },
@@ -76,7 +136,7 @@ const adapter = reactive({
       assistant: { messageId: `answer-${index}`, outputId: `output-${index}`, role: "assistant",
         text: `Support answer ${index + 1}: Keep your recovery email available.\n\nRead the **account instructions** and follow the [recovery link](https://example.com/help). A long message wraps inside this narrow conversation without taking space from the composer.` }
     })) : [],
-    visible: true, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture"
+    visible: true, reloadable: avatarFixture, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture"
   },
   composer: {
     draft,
@@ -111,12 +171,21 @@ const adapter = reactive({
         <button v-if="supportEnabled" @click="customActivity = !customActivity">Custom activity</button>
         <button v-if="capabilitiesEnabled" @click="finishUploads">Finish uploads</button>
         <button @click="goalEnabled = !goalEnabled">Toggle goals</button>
+        <template v-if="previewFixture">
+          <button @click="temporaryWords = 'Exact temporary words'; temporaryPresent = true; temporaryEditing = false">Add temporary message</button>
+          <button @click="newerWords = 'Keep newer live words'; newerPresent = true; newerEditing = false">Add newer temporary message</button>
+          <button @click="previewCanTake = !previewCanTake">Toggle preview eligibility</button>
+          <button @click="previewDelivery.send({ message: temporaryWords, request: { text: temporaryWords, steer: true } }, { messageId: 'temporary', deliver: async () => ({ ok: false, error: 'No active turn; explicit Edit may author a new message.' }) })">Reject preview</button>
+          <button @click="adapter.conversation.turns = [{ turnId: 'temporary', user: { messageId: 'temporary', role: 'user', text: temporaryWords } }]">Accept preview</button>
+          <button @click="adapter.conversation.turns = [{ turnId: 'temporary', user: { messageId: 'temporary', role: 'user', text: temporaryWords, receipt: false } }]">Unadmitted preview</button>
+        </template>
         <template v-if="avatarFixture">
           <button @click="showAvatar = !showAvatar">Toggle avatar slot</button>
           <button @click="short = !short">Resize height</button>
           <button @click="showQuestions = !showQuestions">Toggle questions</button>
           <button @click="attachments.status.value = 'An upload failed. Retry or remove it.'">Show attachment error</button>
-          <output>Avatar requested: {{ avatarSize }}</output>
+          <select v-model="avatarSize" aria-label="Avatar preference"><option v-for="size in ['hidden', 'compact', 'standard', 'large']" :key="size" :value="size">{{ size }}</option></select>
+          <output class="avatar-preference">Avatar requested: {{ avatarSize }}</output>
         </template>
         <output>{{ phase }}; submitted {{ submissions }}</output>
         <output v-if="capabilitiesEnabled">Model: {{ appliedModel }}; sent files: {{ attachmentReceipts.map(item => item.fileName).join(', ') }}</output>
@@ -124,6 +193,12 @@ const adapter = reactive({
       <main class="fixture" :class="{ narrow, 'fixture--avatar': avatarFixture, 'fixture--short': short }">
         <AssistantConversationElement v-model:avatar-size="avatarSize" :adapter="adapter">
           <template v-if="showAvatar" #avatar><svg viewBox="0 0 100 100" role="img" aria-label="Support assistant avatar"><circle cx="50" cy="50" r="45" fill="#6750a4" /><path d="M30 62Q50 80 70 62M35 40h1m28 0h1" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" /></svg></template>
+          <template v-if="avatarToolsFixture" #avatar-tools="scope">
+            <button class="fixture-avatar-tool" aria-label="Avatar tool" :data-size="scope.size" :data-height="scope.height">Tool</button>
+          </template>
+          <template v-if="avatarToolsFixture" #avatar-control="scope">
+            <button class="fixture-avatar-tool" aria-label="Retained avatar control" :data-size="scope.size">Mic</button>
+          </template>
           <template v-if="customActivity" #activity="{ activity }"><strong>Custom activity: {{ activity.label }}</strong></template>
           <template #composer-feedback><p v-if="feedback" class="feedback" role="status">Describe what you want to change.</p></template>
         </AssistantConversationElement>
@@ -134,9 +209,11 @@ const adapter = reactive({
 <style scoped>
 .controls { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px; }
 .controls button { border: 1px solid; padding: 4px; }
+.avatar-preference { flex: 0 0 14rem; }
 .fixture { height: 70vh; width: min(900px, 100%); margin: auto; }
 .fixture.narrow { width: min(320px, 100%); }
 .fixture--avatar { width: min(320px, 100%); }
+.fixture-avatar-tool { flex: 0 0 48px; min-width: 48px; min-height: 48px; }
 .fixture--short { height: 420px; }
 .feedback { flex: 1 1 24rem; min-width: 0; margin: 0; }
 </style>

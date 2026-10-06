@@ -59,6 +59,7 @@ Exports
 Exports
 - None
 Local functions
+- `toggleAvatar()`
 - `measureAvatarSpace()`
 - `observeAvatarSpace()`
 - `resend(id)`
@@ -124,6 +125,7 @@ Exports
 Exports
 - None
 Local functions
+- `previewForTurn(turn)`
 - `displayTime(value = "")`
 - `userMessagePreviewText(value = "")`
 - `displayMessage(message = null, { allowNumberedQuestions = false, preserveParagraphLineBreaks = false, previewUserMessage = false } = {}, cacheKey = "")`

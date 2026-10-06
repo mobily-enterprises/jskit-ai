@@ -83,9 +83,45 @@ The host's `avatar` slot receives state, mouthLevel, mouthPose, avatar and bindi
 Opening a target does not start capture. Tap Talk for hands-free, or hold it for
 push-to-talk and release to send; connection setup is automatic.
 Pause finishes the current utterance, flushing the audio tail before muting.
-Completed words follow the captured review policy; resume opens a fresh recording.
+Completed words follow the captured review policy. Pending delivery does not disable
+the microphone: tap can resume the existing continuous capture or start another
+one while preserving the prior pending transcript. A busy Pause or hold release
+mutes newer capture and finishes it through the original owner after that prior
+admission settles. Resuming first keeps the capture open. No pending words are
+replaced or appended. The icon reflects actual unmuted capture, not readiness.
 Automatic sends keep the call layout fixed. A failed send exposes the retained
-transcript for review and retry with the same message identity. Captions,
+transcript for review and retry with the same message identity. An application
+can call `beginTranscriptEdit(messageId)` for its exact unsent preview; this
+retains the existing pending transcript and capture destination before cancelling
+only capture. `editTranscript(text, messageId)` updates that pending identity and
+`deliverTranscript()` keeps the original send/retry owner. Hands-free resumes
+through the existing pending-clear watcher after send/discard, not during editing.
+An adapter's `previewMessage.actions` may project `editing`, `update(id, text)`,
+`send(id)`, `canSend` and `sending` alongside its original ×/edit actions. The
+standard transcript uses the same review textarea inside that preview bubble,
+including an empty editor, and reuses its existing action row for pending Send.
+A matching canonical user with `receipt: false` is still unadmitted: it does not
+clear pending words, forbid Edit or acknowledge a speech invitation. Confirmed
+readback (an absent flag or `receipt: true`) retains the original identity-based
+acknowledgement. For a known failed local delivery, a host can cancel that exact
+entry through the original delivery owner only upon explicit Edit, then author
+fresh edited text and intent on Send. Plain Retry retains its original payload;
+uncertain, accepted and sending entries remain fenced.
+When continuous recognition has newer words while an earlier pending send fails,
+both identities remain in their original pending/recording owners. Hosts can
+project these two existing snapshots through `previewMessages`, deduplicated by
+ID, while retaining the singular `previewMessage` contract. `canTakeTranscript(id)`
+checks either exact existing identity with the original admission guards. The
+newer capture is discardable, but cannot replace the occupied pending editor.
+Editing the earlier transcript pauses the newer recording through the original
+mute owner, retaining its words, ID, focus and endpoint. Transient
+`editPausedCaptureId` on the pending transcript owns only this pause; an explicit
+microphone choice supersedes it. Original pending resolution releases only the
+matching Edit-owned pause, and the existing endpoint watcher handles newer words.
+No additional transcript queue, playback owner or capture process is created.
+The app must retain current-target and uncertain-admission guards. Controls use
+`reviewInTranscript` only while that preview is projected, suppressing a duplicate
+inline review; standalone voice retains its original review fallback. Captions,
 review, explicit microphone/sound controls and bounded reconnection share one
 session. Opening the same ID reveals it. Switching targets releases the previous
 audio first; unfinished words require completion or explicit discard. A pending
