@@ -55,12 +55,12 @@ async function openText() {
     </v-alert>
     <div class="voice-host__body">
       <slot name="conversation" :binding="state.binding" :session="state.session" :disabled="state.busy">
-      <VoiceConversation :key="state.binding.id" :session="state.session" :disabled="state.busy" :adapter="state.binding.adapter || null" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
-        <template v-if="$slots.avatar" #avatar="visual"><slot name="avatar" v-bind="visual" :binding="state.binding" /></template>
-        <template #work-control>
-          <v-btn v-if="state.binding.cancelWork && state.binding.state.status === 'working'" :disabled="state.busy" :icon="mdiStop" variant="text" aria-label="Stop agent work" title="Stop agent work" @click="invoke(state.binding.cancelWork)" />
-        </template>
-      </VoiceConversation>
+        <VoiceConversation :key="state.binding.id" :session="state.session" :disabled="state.busy" :adapter="state.binding.adapter || null" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
+          <template v-if="$slots.avatar" #avatar="visual"><slot name="avatar" v-bind="visual" :binding="state.binding" /></template>
+          <template #work-control>
+            <v-btn v-if="state.binding.cancelWork && state.binding.state.status === 'working'" :disabled="state.busy" :icon="mdiStop" variant="text" aria-label="Stop agent work" title="Stop agent work" @click="invoke(state.binding.cancelWork)" />
+          </template>
+        </VoiceConversation>
       </slot>
     </div>
   </ConversationDialog>

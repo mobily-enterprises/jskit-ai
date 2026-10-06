@@ -3,7 +3,12 @@ import { computed, useId } from "vue";
 import { mdiMicrophone, mdiMicrophoneOff, mdiStop, mdiVolumeHigh, mdiVolumeOff } from "@mdi/js";
 import { useVoiceLauncher } from "./voiceLauncher.js";
 
-const props = defineProps({ session: { type: Object, required: true }, disabled: { type: Boolean, default: false }, compact: { type: Boolean, default: false }, toolsTarget: { type: Object, default: null } });
+const props = defineProps({
+  session: { type: Object, required: true },
+  disabled: { type: Boolean, default: false },
+  compact: { type: Boolean, default: false },
+  toolsTarget: { type: Object, default: null }
+});
 const {
   targetLabel, voice, error, microphoneMuted, live, starting, callMode,
   callStatus, speechActive, heldTranscript,
@@ -29,35 +34,39 @@ const gesture = useVoiceLauncher({
     <p v-if="error || voice.error.value" class="assistant-voice__error" role="alert">{{ error || voice.error.value }}</p>
     <p v-if="callStatus" class="assistant-voice-controls__status text-body-small" role="status">{{ callStatus }}</p>
     <p v-if="compact && heldTranscript && !pendingTranscript" class="assistant-voice-controls__provisional" role="status" aria-label="Recognized words">Not sent · {{ heldTranscript }}</p>
-      <section v-if="pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
-        <v-textarea :model-value="pendingTranscript.text" label="Review your message" :disabled="sending" :density="compact ? 'compact' : 'default'" :rows="compact ? 1 : 2" :max-rows="compact ? 2 : 3" auto-grow hide-details @update:model-value="editTranscript" />
-        <div class="assistant-voice__review-actions">
-          <v-btn :disabled="sending" min-height="48" @click="discardHeldRecording">Discard</v-btn>
-          <v-btn :disabled="sending || !pendingTranscript.text.trim()" min-height="48" color="primary" @click="deliverTranscript">{{ sending ? 'Sending…' : 'Send' }}</v-btn>
-        </div>
-      </section>
+    <section v-if="pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
+      <v-textarea
+        :model-value="pendingTranscript.text" label="Review your message" :disabled="sending"
+        :density="compact ? 'compact' : 'default'" :rows="compact ? 1 : 2" :max-rows="compact ? 2 : 3"
+        auto-grow hide-details @update:model-value="editTranscript"
+      />
+      <div class="assistant-voice__review-actions">
+        <v-btn :disabled="sending" min-height="48" @click="discardHeldRecording">Discard</v-btn>
+        <v-btn :disabled="sending || !pendingTranscript.text.trim()" min-height="48" color="primary" @click="deliverTranscript">{{ sending ? 'Sending…' : 'Send' }}</v-btn>
+      </div>
+    </section>
     <Teleport :to="toolsTarget" :disabled="!toolsTarget">
       <fieldset class="assistant-voice-controls__tools" :class="{ 'assistant-voice-controls__tools--compact': compact }" :disabled="disabled" :aria-label="`${targetLabel} voice chat controls`">
-          <v-btn v-if="speechActive" :icon="mdiStop" variant="text" min-width="48" min-height="48" :aria-label="`Stop ${targetLabel} speaking`" title="Stop speaking" @click="stopSpeech" />
-          <slot name="work-control" />
-      <div class="assistant-voice__talk-action">
-        <v-btn
-          class="assistant-voice__talk" color="primary" :variant="handsFreeListening ? 'tonal' : 'flat'" :min-height="compact ? 48 : 64" rounded="xl"
-          :prepend-icon="voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff" :aria-pressed="handsFreeListening || pushHolding" :aria-describedby="gestureHint"
-          :disabled="!canTalk"
-          @pointerdown="gesture.pointerDown" @pointerup="gesture.pointerUp" @pointercancel="gesture.cancel" @lostpointercapture="gesture.cancel"
-          @keydown.space.prevent="gesture.keyDown" @keyup.space.prevent="gesture.keyUp"
-          @keydown.enter.prevent="gesture.keyDown" @keyup.enter.prevent="gesture.keyUp" @blur="gesture.cancel" @contextmenu.prevent @click="gesture.click"
-        >
-          {{ talkLabel }}
-        </v-btn>
-        <v-btn
-          :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" variant="tonal" :min-height="compact ? 48 : 64" :min-width="compact ? 48 : 64" rounded="xl"
-          :aria-label="readAloud ? `Turn ${targetLabel} read-aloud off` : `Read ${targetLabel} answers aloud`"
-          :title="readAloud ? 'Spoken replies on' : 'Spoken replies off'" @click="toggleReadAloud"
-        />
-        <p :id="gestureHint" class="text-body-small text-medium-emphasis">{{ handsFreeListening ? 'Tap to pause · hold to speak' : 'Tap for hands-free · hold to speak' }}</p>
-      </div>
+        <v-btn v-if="speechActive" :icon="mdiStop" variant="text" min-width="48" min-height="48" :aria-label="`Stop ${targetLabel} speaking`" title="Stop speaking" @click="stopSpeech" />
+        <slot name="work-control" />
+        <div class="assistant-voice__talk-action">
+          <v-btn
+            class="assistant-voice__talk" color="primary" :variant="handsFreeListening ? 'tonal' : 'flat'" :min-height="compact ? 48 : 64" rounded="xl"
+            :prepend-icon="voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff" :aria-pressed="handsFreeListening || pushHolding" :aria-describedby="gestureHint"
+            :disabled="!canTalk"
+            @pointerdown="gesture.pointerDown" @pointerup="gesture.pointerUp" @pointercancel="gesture.cancel" @lostpointercapture="gesture.cancel"
+            @keydown.space.prevent="gesture.keyDown" @keyup.space.prevent="gesture.keyUp"
+            @keydown.enter.prevent="gesture.keyDown" @keyup.enter.prevent="gesture.keyUp" @blur="gesture.cancel" @contextmenu.prevent @click="gesture.click"
+          >
+            {{ talkLabel }}
+          </v-btn>
+          <v-btn
+            :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" variant="tonal" :min-height="compact ? 48 : 64" :min-width="compact ? 48 : 64" rounded="xl"
+            :aria-label="readAloud ? `Turn ${targetLabel} read-aloud off` : `Read ${targetLabel} answers aloud`"
+            :title="readAloud ? 'Spoken replies on' : 'Spoken replies off'" @click="toggleReadAloud"
+          />
+          <p :id="gestureHint" class="text-body-small text-medium-emphasis">{{ handsFreeListening ? 'Tap to pause · hold to speak' : 'Tap for hands-free · hold to speak' }}</p>
+        </div>
       </fieldset>
     </Teleport>
   </fieldset>

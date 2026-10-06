@@ -27,15 +27,15 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
 
 <template>
   <fieldset v-if="adapter" class="assistant-voice-conversation" :disabled="disabled">
-  <AssistantConversationElement :adapter="adapter" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
-    <template #avatar="size"><slot name="avatar" v-bind="avatarVisual" :size="size.size" :height="size.height"><VoiceAvatar v-bind="avatarVisual" /></slot></template>
-    <template #composer-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
-    <template #composer-feedback>
-      <VoiceConversationControls :session="session" :disabled="disabled" compact :tools-target="toolsTarget">
-        <template #work-control><slot name="work-control" /></template>
-      </VoiceConversationControls>
-    </template>
-  </AssistantConversationElement>
+    <AssistantConversationElement :adapter="adapter" :avatar-size="avatarSize" @update:avatar-size="$emit('update:avatarSize', $event)">
+      <template #avatar="size"><slot name="avatar" v-bind="avatarVisual" :size="size.size" :height="size.height"><VoiceAvatar v-bind="avatarVisual" /></slot></template>
+      <template #composer-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
+      <template #composer-feedback>
+        <VoiceConversationControls :session="session" :disabled="disabled" compact :tools-target="toolsTarget">
+          <template #work-control><slot name="work-control" /></template>
+        </VoiceConversationControls>
+      </template>
+    </AssistantConversationElement>
   </fieldset>
   <fieldset v-else class="assistant-voice" :disabled="disabled">
     <section class="assistant-voice__call" :aria-label="`${targetLabel} voice chat controls`">
@@ -68,8 +68,6 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
 .assistant-voice__call-portrait { position: relative; height: min(240px, calc(100% - 64px)); aspect-ratio: 1; max-width: 100%; margin: 8px auto; isolation: isolate; }
 .assistant-voice__call-portrait::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; background: rgba(var(--v-theme-primary), .12); transform: scale(var(--call-audio-scale)); transition: transform 80ms linear; z-index: -1; }
 .assistant-voice__call-portrait :deep(svg) { width: 100%; height: 100%; }
-.assistant-voice__call-status-row { display: flex; flex: 0 0 48px; justify-content: center; align-items: center; gap: 8px; height: 48px; }
-.assistant-voice__call-status-row p { margin: 0; max-height: 48px; overflow: hidden; }
 .assistant-voice__captions { min-height: 0; display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 16px; }
 .assistant-voice__caption { min-height: 0; padding: 8px 12px; border-radius: 12px; background: rgba(var(--v-theme-on-surface), .04); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; touch-action: pan-y; }
 .assistant-voice__caption > strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
