@@ -42,6 +42,8 @@ export function createCodexTurnRecovery({
   runInContext,
   activeReconcileMs,
   finalizingGraceAfterHistoryRead,
+  failureDetailGraceMs,
+  notificationQueue,
   hasRuntime,
   recoverAdmission,
   turnOutcomes,
@@ -79,6 +81,7 @@ export function createCodexTurnRecovery({
     adoptSuccessorTurn: adoptCodexAppServerSuccessorTurn
   } = settlement;
   const codexAppServerPromptDeliveries = promptDeliveries;
+  const retainFinalizingTimer = finalizingGraceAfterHistoryRead || failureDetailGraceMs > 0;
 
   function scheduleCodexAppServerActiveRecovery(sessionId = "", delayMs = activeReconcileMs) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
@@ -101,7 +104,8 @@ export function createCodexTurnRecovery({
   function scheduleCodexAppServerFinalizingRecovery(sessionId = "", threadId = "", turnId = "", {
     completedAt = "",
     status = "completed",
-    updatedAt = ""
+    updatedAt = "",
+    failureDetail = null
   } = {}) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     const normalizedThreadId = normalizeCodexRunText(threadId);
@@ -116,14 +120,26 @@ export function createCodexTurnRecovery({
       normalizedTurnId
     );
     const projectContext = captureContext();
-    const delayMs = codexAppServerFinalizingRemainingMs({
-      completedAt,
-      state: "finalizing",
-      updatedAt
-    });
+    const delayMs = failureDetail
+      ? Math.max(0, failureDetail.expiresAt - Date.now())
+      : codexAppServerFinalizingRemainingMs({ completedAt, state: "finalizing", updatedAt });
     const timer = setTimeout(() => {
+      if (failureDetail) {
+        notificationQueue.run({ projectContext, provider: failureDetail.provider, sessionId: normalizedSessionId }, async () => {
+          if (codexAppServerFinalizingTimers.get(key) !== timer) return;
+          try {
+            return await stopCodexAppServerTurnWithProviderFailure(normalizedSessionId, normalizedThreadId, normalizedTurnId,
+              { ...failureDetail, failureDetailReady: true });
+          } finally {
+            if (codexAppServerFinalizingTimers.get(key) === timer) {
+              clearCodexAppServerFinalizingTimer(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+            }
+          }
+        });
+        return;
+      }
       // The post-read policy keeps its first clock while expiry rereads history.
-      if (!finalizingGraceAfterHistoryRead) codexAppServerFinalizingTimers.delete(key);
+      if (!retainFinalizingTimer) codexAppServerFinalizingTimers.delete(key);
       const recovery = runInContext(
         projectContext,
         () => recoverCodexAppServerFinalizingTurn(
@@ -133,7 +149,7 @@ export function createCodexTurnRecovery({
           { status, timerRecovery: finalizingGraceAfterHistoryRead }
         )
       );
-      if (finalizingGraceAfterHistoryRead) {
+      if (retainFinalizingTimer) {
         timer.finalizingRecovery = recovery;
         void recovery.then(
           () => { if (timer.finalizingRecovery === recovery) delete timer.finalizingRecovery; },
@@ -149,14 +165,17 @@ export function createCodexTurnRecovery({
         void recovery;
       }
     }, delayMs);
-    if (finalizingGraceAfterHistoryRead) timer.finalizingStartedAt = completedAt;
+    if (failureDetailGraceMs > 0) timer.finalizingExpiresAt = Date.now() + delayMs;
+    if (failureDetail) timer.failureDetail = failureDetail;
+    else if (finalizingGraceAfterHistoryRead) timer.finalizingStartedAt = completedAt;
     timer.unref?.();
     codexAppServerFinalizingTimers.set(key, timer);
   }
 
   async function reconcileCodexAppServerActiveTurn(session = {}, {
     provider: suppliedProvider = null,
-    runtime = null
+    runtime = null,
+    providerError = null
   } = {}) {
     const sessionId = normalizeCodexRunText(session.sessionId);
     const trackedTurn = turnState(session);
@@ -325,8 +344,10 @@ export function createCodexTurnRecovery({
       turnId: completedTurnId
     });
     if (codexAppServerTurnStatusIsProviderFailure(status)) {
+      const exactError = providerError?.threadId === currentTurn.threadId && providerError?.turnId === completedTurnId;
       await stopCodexAppServerTurnWithProviderFailure(sessionId, currentTurn.threadId, completedTurnId, {
-        error: codexAppServerThreadError(thread),
+        error: exactError ? providerError.error : codexAppServerThreadError(thread),
+        failureDetailReady: exactError,
         provider,
         status
       });
@@ -580,7 +601,7 @@ export function createCodexTurnRecovery({
     const normalizedThreadId = normalizeCodexRunText(threadId);
     const normalizedTurnId = normalizeCodexRunText(turnId);
     const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
-    const priorTimer = finalizingGraceAfterHistoryRead ? codexAppServerFinalizingTimers.get(key) : null;
+    const priorTimer = retainFinalizingTimer ? codexAppServerFinalizingTimers.get(key) : null;
     if (!timerRecovery && priorTimer?.finalizingRecovery) return priorTimer.finalizingRecovery;
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
@@ -609,10 +630,17 @@ export function createCodexTurnRecovery({
     if (result?.processed) {
       return result;
     }
+    // A later failure owns the same first deadline, even when this successful
+    // history read was already in flight under the completion-based clock.
+    const currentTimer = codexAppServerFinalizingTimers.get(key);
+    if (currentTimer?.failureDetail) return result;
+    if (retainFinalizingTimer && priorTimer && !currentTimer) return result;
     let graceTurn = turn;
     if (finalizingGraceAfterHistoryRead) {
       const readReturnedAt = new Date().toISOString();
       const currentTurn = turnState(await runtime.getSession(normalizedSessionId));
+      const timer = codexAppServerFinalizingTimers.get(key);
+      if (timer?.failureDetail || (priorTimer && !timer)) return result;
       if (currentTurn.state !== "finalizing" || currentTurn.threadId !== normalizedThreadId ||
           currentTurn.turnId !== normalizedTurnId) {
         clearCodexAppServerFinalizingTimer(normalizedSessionId, normalizedThreadId, normalizedTurnId);
@@ -622,8 +650,6 @@ export function createCodexTurnRecovery({
         clearCodexAppServerFinalizingTimer(normalizedSessionId, normalizedThreadId, normalizedTurnId);
         return { ok: true, processed: false, reason: "goal_continuation_pending" };
       }
-      const timer = codexAppServerFinalizingTimers.get(key);
-      if (priorTimer && !timer) return result;
       if (!timerRecovery && timer?.finalizingRecovery) return timer.finalizingRecovery;
       // This local clock never changes the native completion timestamp.
       graceTurn = { ...currentTurn, completedAt: timer?.finalizingStartedAt || readReturnedAt };
@@ -651,7 +677,8 @@ export function createCodexTurnRecovery({
   async function recoverCodexAppServerActiveTurn(sessionId = "", {
     provider = null,
     retryOnError = true,
-    runtime: suppliedRuntime = null
+    runtime: suppliedRuntime = null,
+    providerError = null
   } = {}) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     if (!normalizedSessionId) {
@@ -679,7 +706,8 @@ export function createCodexTurnRecovery({
       }
       const reconciledSession = await reconcileCodexAppServerActiveTurn(session, {
         provider,
-        runtime
+        runtime,
+        providerError
       });
       const currentTurn = turnState(reconciledSession);
       if (currentTurn.state === "starting" && currentTurn.threadId) {
@@ -871,8 +899,11 @@ export function createCodexTurnRecovery({
     provider = null,
     status = "failed",
     usageLimitExceeded = false,
-    verifyInactive = true
+    verifyInactive = true,
+    deferFailureDetails = false,
+    failureDetailReady = false
   } = {}) {
+    const observedAt = Date.now();
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     const normalizedThreadId = normalizeCodexRunText(threadId);
     const normalizedTurnId = normalizeCodexRunText(turnId);
@@ -906,6 +937,21 @@ export function createCodexTurnRecovery({
         processed: false,
         reason: "stale_turn_state"
       };
+    }
+    const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+    const pendingTimer = codexAppServerFinalizingTimers.get(key);
+    const pendingDetail = pendingTimer?.failureDetail;
+    if (failureDetailGraceMs > 0 && !failureDetailReady && (deferFailureDetails || pendingDetail) &&
+        ![turnOutcomes.USER_CANCELLED, turnOutcomes.CONTROL_RECONFIGURATION].includes(resolvedOutcome)) {
+      if (!pendingDetail) {
+        scheduleCodexAppServerFinalizingRecovery(normalizedSessionId, normalizedThreadId, normalizedTurnId, {
+          failureDetail: { error, ok, outcome: resolvedOutcome, provider, status: normalizedStatus,
+            usageLimitExceeded, verifyInactive,
+            expiresAt: Math.min(observedAt + failureDetailGraceMs,
+              pendingTimer?.finalizingExpiresAt ?? Infinity) }
+        });
+      }
+      return { ok: true, processed: false, reason: "failure_detail_pending", status: normalizedStatus };
     }
     const recovered = await recoverCodexAppServerFinalResponseBeforeOutcome(
       normalizedSessionId,

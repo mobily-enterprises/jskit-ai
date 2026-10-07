@@ -400,7 +400,8 @@ export function createCodexNotificationObserver({
               error: codexAppServerNotificationError(notification),
               provider,
               status,
-              usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification)
+              usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification),
+              deferFailureDetails: true
             });
           });
           return;
@@ -441,7 +442,8 @@ export function createCodexNotificationObserver({
               error: codexAppServerNotificationError(notification),
               provider,
               status,
-              usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification)
+              usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification),
+              deferFailureDetails: true
             });
           });
           return;

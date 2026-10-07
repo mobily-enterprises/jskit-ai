@@ -112,6 +112,7 @@ export function createCodexAppServerRunOwner({
   activeReconcileMs = 2000,
   finalizingGraceMs = 10000,
   finalizingGraceAfterHistoryRead = false,
+  failureDetailGraceMs = 0,
   steerFailedCode = "codex_turn_steer_failed",
   interruptFailedCode = "codex_turn_interrupt_failed",
   errorPrefix = ""
@@ -121,6 +122,9 @@ export function createCodexAppServerRunOwner({
   }
   if (typeof finalizingGraceAfterHistoryRead !== "boolean") {
     throw new TypeError("Invalid Codex finalizing grace clock.");
+  }
+  if (!Number.isSafeInteger(failureDetailGraceMs) || failureDetailGraceMs < 0) {
+    throw new TypeError("Invalid Codex failure detail grace.");
   }
   if (providerSessions && (serverClosingError || !providerSessions.managed)) {
     providerSessions = { ...providerSessions, managed: providerSessions.managed || new Map() };
@@ -293,6 +297,8 @@ export function createCodexAppServerRunOwner({
     runInContext,
     activeReconcileMs,
     finalizingGraceAfterHistoryRead,
+    failureDetailGraceMs,
+    notificationQueue: codexAppServerNotificationQueue,
     hasRuntime,
     recoverAdmission,
     turnOutcomes,

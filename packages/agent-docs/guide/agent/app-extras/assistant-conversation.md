@@ -1445,6 +1445,20 @@ is joined rather than starting another interval. The existing timer is cleared
 when the exact turn settles, stops or is superseded. Native completion timestamps
 and persisted metadata are unchanged. A supplied owner keeps its own policy.
 
+Server-owned `limits.codexFailureDetailGraceMs` optionally retains failed or
+interrupted status notifications for a later exact provider error. It is a
+nonnegative safe integer in milliseconds; the default is 0 (immediate failure).
+Advanced owners use `failureDetailGraceMs` on the same run owner. The status task
+returns immediately so the existing notification queue can process a following
+nonretrying error; that error supplies its detail and settles without waiting.
+Repeated status preserves the first deadline. When a successful-final wait is
+already pending, failure detail uses that first deadline, including after a held
+history read. Already-failed initial history, user cancellation and control
+reconfiguration remain immediate. Exact turn, successor, Stop and cleanup fences
+remain in force; no message is resent. A host-supplied owner retains its own
+policy. This is a server coordination option, not a client field or recording
+limit.
+
 Claude uses its native schema flag and restarts the owned process when the schema
 changes, retaining the conversation. Codex uses its native turn schema setting.
 OpenCode uses the existing schema instruction and removes a single JSON fence

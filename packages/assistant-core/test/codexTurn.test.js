@@ -2604,3 +2604,173 @@ test("native after-history grace retries a rejected expiry read without granting
   assert.equal(owner.finalizingTimers.size, 0);
   assert.deepEqual(await f.replies(), []);
 });
+
+for (const status of ["failed", "interrupted"]) {
+  test(`original detached ${status} notification retains the late exact provider detail`, async t => {
+    const f = fixture([turn("turn-1", "inProgress")]);
+    const pending = waitForCodexAppServerTurn(f.provider, "thread-1", turn("turn-1"), { timeoutMs: 2000 });
+    const rejected = assert.rejects(pending, { message: "Exact later native failure detail." });
+    // Finish the original initial history reread before terminal notification.
+    await Promise.resolve();
+    const emit = notification => { for (const listener of f.listeners) listener(notification); };
+    emit({ method: "turn/completed", params: { threadId: "thread-1", turn: { id: "turn-1", status } } });
+    assert.equal(f.listeners.size, 1, "The original 500ms detail wait retains observation");
+    const detail = setTimeout(() => emit({ method: "error", params: {
+      threadId: "thread-1", turnId: "turn-1", error: { message: "Exact later native failure detail." }, willRetry: false
+    } }), 100);
+    t.after(() => clearTimeout(detail));
+    await rejected;
+    assert.equal(f.listeners.size, 0);
+    assert.equal(f.operations.filter(operation => operation === "unsubscribe").length, 1);
+  });
+}
+
+test("native failure detail grace rejects invalid duration", () => {
+  for (const failureDetailGraceMs of [-1, 0.5, NaN, Infinity, "500", null]) {
+    assert.throws(() => createCodexAppServerRunOwner({ failureDetailGraceMs }), /Invalid Codex failure detail grace/);
+  }
+});
+
+for (const change of ["detail", "expiry", "repeat", "cleanup", "successor", "foreign-error", "user-stop"]) {
+  test(`native failure detail grace preserves the existing notification owner for ${change}`, { timeout: 2000 }, async t => {
+    const settled = Promise.withResolvers();
+    const notices = [];
+    const f = await receiptFixture({ failureDetailGraceMs: 30,
+      checkpoint: async (_id, input) => { f.checkpoints.push(input); settled.resolve(); },
+      outcomeNotice: async (_runtime, _id, _threadId, _turnId, _outcome, error) => { notices.push(error); }
+    });
+    t.after(() => f.owner.clearSessionRecoveryTimers(f.sessionId));
+    f.run.providerStatus = change === "user-stop" ? "interrupted" : "failed";
+    f.history = [turn(f.turnId, f.run.providerStatus)];
+    if (change === "user-stop") f.provider.interruptionOutcome = () => "user_cancelled";
+    f.observe();
+    const notification = { method: "turn/completed", params: { threadId: f.threadId,
+      turn: { id: f.turnId, status: f.run.providerStatus }, error: { message: "Original failure status." } } };
+    f.emit(notification);
+    await f.drain();
+    if (change === "user-stop") {
+      assert.equal(f.owner.finalizingTimers.size, 0);
+      assert.equal(f.run.state, "interrupted");
+      assert.equal(f.checkpoints.length, 1, "Explicit user cancellation never waits for provider detail");
+      return;
+    }
+    assert.equal(f.owner.finalizingTimers.size, 1);
+    assert.equal(f.run.state, "active", "Waiting for detail does not fabricate native completion");
+    assert.equal(notices.length, 0, "The failure task returns so the following error can be processed");
+    const timer = [...f.owner.finalizingTimers.values()][0];
+    if (change === "repeat") {
+      f.emit(notification); await f.drain();
+      assert.equal([...f.owner.finalizingTimers.values()][0], timer, "Repeated status preserves the first deadline");
+    }
+    if (change === "foreign-error") {
+      await f.owner.recoverActiveTurn(f.sessionId, { provider: f.provider, retryOnError: false,
+        providerError: { threadId: f.threadId, turnId: "another-turn", error: "Foreign detail." } });
+      assert.equal(f.owner.finalizingTimers.size, 1);
+      assert.deepEqual(notices, []);
+    }
+    if (change === "cleanup") f.owner.clearSessionRecoveryTimers(f.sessionId);
+    if (change === "successor") f.run = { ...f.run, providerTurnId: "successor", providerStatus: "inProgress" };
+    if (["cleanup", "successor"].includes(change)) {
+      await new Promise(resolve => setTimeout(resolve, 60));
+      await f.drain();
+      assert.equal(f.owner.finalizingTimers.size, 0);
+      assert.deepEqual(f.checkpoints, []);
+      assert.deepEqual(notices, []);
+      return;
+    }
+    if (["detail", "foreign-error"].includes(change)) {
+      await f.owner.recoverActiveTurn(f.sessionId, { provider: f.provider, retryOnError: false,
+        providerError: { threadId: f.threadId, turnId: f.turnId, error: "Exact provider detail." } });
+    } else await settled.promise;
+    await f.drain();
+    assert.equal(f.owner.finalizingTimers.size, 0);
+    assert.equal(f.run.state, "failed");
+    assert.equal(f.checkpoints.length, 1);
+    assert.deepEqual(notices, [["detail", "foreign-error"].includes(change) ? "Exact provider detail." : "Original failure status."]);
+    assert.deepEqual(await f.replies(), []);
+  });
+}
+
+for (const finalizingGraceAfterHistoryRead of [false, true]) for (const finalizingGraceMs of [500, 200]) for (const heldExpiry of [false, true]) {
+  test(`native failure detail grace retains the first successful-final ${finalizingGraceMs}ms deadline with held expiry ${heldExpiry} and post-read clock ${finalizingGraceAfterHistoryRead}`, { timeout: 2000 }, async t => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-08T00:00:00Z") });
+    const notices = [];
+    const settled = Promise.withResolvers();
+    const f = await receiptFixture({ finalizingGraceMs, finalizingGraceAfterHistoryRead,
+      failureDetailGraceMs: 500,
+      checkpoint: async (_id, input) => { f.checkpoints.push(input); settled.resolve(); },
+      outcomeNotice: async (_runtime, _id, _thread, _turn, _outcome, error) => notices.push(error)
+    });
+    t.after(() => f.owner.clearSessionRecoveryTimers(f.sessionId));
+    f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+    f.history = [turn(f.turnId, "completed")];
+    await f.owner.completeTurn(f.sessionId, f.threadId, f.turnId, { verifyInactive: false });
+    assert.equal(f.owner.finalizingTimers.size, 1);
+    const reading = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    const list = f.provider.listThreadTurns;
+    let recovery;
+    if (heldExpiry) {
+      f.provider.listThreadTurns = async (...args) => { const snapshot = await list(...args); reading.resolve(); await release.promise; return snapshot; };
+      recovery = f.owner.completeTurn(f.sessionId, f.threadId, f.turnId, { verifyInactive: false });
+      await reading.promise;
+      f.provider.listThreadTurns = list;
+    }
+    t.mock.timers.tick(finalizingGraceMs - 1);
+    f.run.providerStatus = "failed";
+    f.history = [turn(f.turnId, "failed")];
+    f.observe();
+    f.emit({ method: "turn/completed", params: { threadId: f.threadId,
+      turn: { id: f.turnId, status: "failed" }, error: { message: "First failure detail." } } });
+    await f.drain();
+    if (heldExpiry) { release.resolve(); await recovery; }
+    await new Promise(resolve => { const timer = setTimeout(resolve, 60); t.after(() => clearTimeout(timer)); });
+    await f.drain();
+    assert.equal(f.run.state, "failed", "Failed status must not grant another 500ms or revive successful-final recovery");
+    await settled.promise;
+    assert.equal(f.owner.finalizingTimers.size, 0);
+    assert.deepEqual(notices, ["First failure detail."]);
+    assert.equal(f.checkpoints.length, 1);
+    assert.deepEqual(await f.replies(), []);
+  });
+}
+
+for (const finalizingGraceMs of [500, 200]) {
+  test(`native failure detail survives a held post-history state read with ${finalizingGraceMs}ms first deadline`, { timeout: 2000 }, async t => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-08T00:00:00Z") });
+    const notices = [];
+    const f = await receiptFixture({ finalizingGraceMs, finalizingGraceAfterHistoryRead: true,
+      failureDetailGraceMs: 500,
+      outcomeNotice: async (_runtime, _id, _thread, _turn, _outcome, error) => notices.push(error)
+    });
+    t.after(() => f.owner.clearSessionRecoveryTimers(f.sessionId));
+    f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+    f.history = [turn(f.turnId, "completed")];
+    await f.owner.completeTurn(f.sessionId, f.threadId, f.turnId, { verifyInactive: false });
+    const reading = Promise.withResolvers(); const release = Promise.withResolvers();
+    const list = f.provider.listThreadTurns; const getSession = f.runtime.getSession;
+    let holdState = false;
+    f.provider.listThreadTurns = async (...args) => { const snapshot = await list(...args); holdState = true; return snapshot; };
+    f.runtime.getSession = async (...args) => {
+      const snapshot = await getSession(...args);
+      if (holdState) { holdState = false; reading.resolve(); await release.promise; }
+      return snapshot;
+    };
+    const recovery = f.owner.completeTurn(f.sessionId, f.threadId, f.turnId, { verifyInactive: false });
+    await reading.promise;
+    f.provider.listThreadTurns = list;
+    t.mock.timers.tick(finalizingGraceMs - 1);
+    f.run.providerStatus = "failed"; f.history = [turn(f.turnId, "failed")];
+    f.observe();
+    f.emit({ method: "turn/completed", params: { threadId: f.threadId,
+      turn: { id: f.turnId, status: "failed" }, error: { message: "Failure during canonical read." } } });
+    await f.drain();
+    release.resolve(); await recovery;
+    await new Promise(resolve => { const timer = setTimeout(resolve, 60); t.after(() => clearTimeout(timer)); });
+    await f.drain();
+    assert.equal(f.run.state, "failed", "The resumed canonical read must not overwrite the pending failure operation");
+    assert.equal(f.owner.finalizingTimers.size, 0);
+    assert.deepEqual(notices, ["Failure during canonical read."]);
+    assert.deepEqual(await f.replies(), []);
+  });
+}
