@@ -99,35 +99,35 @@
     "voices": [
       {
         "id": "cori",
-        "label": "Cori · female · British English",
+        "label": "Cori · female · British English · Piper",
         "speakerId": 0,
         "language": "en-GB",
         "modelId": "cori"
       },
       {
         "id": "alba",
-        "label": "Alba · female · Scottish English",
+        "label": "Alba · female · Scottish English · Piper",
         "speakerId": 0,
         "language": "en-GB",
         "modelId": "alba"
       },
       {
         "id": "joe",
-        "label": "Joe · male · American English",
+        "label": "Joe · male · American English · Piper",
         "speakerId": 0,
         "language": "en-US",
         "modelId": "joe"
       },
       {
         "id": "bryce",
-        "label": "Bryce · male · American English",
+        "label": "Bryce · male · American English · Piper",
         "speakerId": 0,
         "language": "en-US",
         "modelId": "bryce"
       },
       {
         "id": "northern_english_male",
-        "label": "Northern English · male · British English",
+        "label": "Northern English · male · British English · Piper",
         "speakerId": 0,
         "language": "en-GB",
         "modelId": "northern_english_male"
