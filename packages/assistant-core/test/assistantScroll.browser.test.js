@@ -405,7 +405,10 @@ test("upward scrolling loads older history once and preserves retry and selectio
       await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
       await expect(requests).toHaveText("History requests: 3");
       await external("Exhaust history");
-      await body.focus();
+      await expect.poll(async () => {
+        await body.focus();
+        return body.evaluate(element => document.activeElement === element);
+      }).toBe(true);
       await body.press("Home");
       await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
       await expect(requests).toHaveText("History requests: 3");
