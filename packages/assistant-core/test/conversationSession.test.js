@@ -1217,3 +1217,22 @@ test("a failed answer commit preserves output for review and cannot start anothe
   assert.equal((await reopened.send(input)).duplicate, true);
   assert.equal(f.requests.length, 1);
 });
+
+test("final reply limit rejects invalid configured limits without changing transport defaults", () => {
+  for (const maxFinalReplyCharacters of [0, -1, 0.5, "3", Infinity, null]) {
+    assert.throws(() => createConversationRuntime({ storage: createMemoryConversationStorage(), authorize: () => true,
+      limits: { maxFinalReplyCharacters } }), /Invalid conversation final reply limit/);
+  }
+});
+
+for (const text of ["abc", "abcd"]) {
+  test(`decoded final reply limit preserves the complete boundary for ${text.length} characters`, async t => {
+    const f = await fixture(t, { limits: { maxOutputCharacters: 32, maxFinalReplyCharacters: 3 }, fetch: () => response(text) });
+    await f.conversation.send(input);
+    const result = await f.conversation.wait();
+    assert.equal(result.conversationLog[0].metadata.runtime.status, text.length === 3 ? "complete" : "failed");
+    assert.equal(result.conversationLog[0].assistant?.text, text.length === 3 ? text : undefined);
+    assert.equal(f.requests.length, 1);
+    if (text.length > 3) assert.match(result.error, /final reply limit/);
+  });
+}

@@ -994,3 +994,61 @@ test("returning to OpenCode restores only a retained binding with the selected i
     "Returning to the same integration restores native identity after verified process cleanup");
   assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 2);
 });
+
+for (const maxFinalReplyCharacters of [13, 12]) {
+  test("Opencode recovered reply enforces configured final limit of " + maxFinalReplyCharacters, async t => {
+    const limits = { maxFinalReplyCharacters: 13 };
+    const f = await fixture(t, { limits });
+    await f.conversation.send(input);
+    assert.equal((await f.conversation.wait()).conversationLog[0].assistant.text, "Answer: Hello");
+    await f.first.close();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn("000001");
+      await tx.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime, status: "running" } });
+      await tx.replaceAssistant(turn.turnId, { ...turn.assistant, text: "" });
+    });
+    limits.maxFinalReplyCharacters = maxFinalReplyCharacters;
+    const reopened = await f.runtime().open({ id: "conversation" });
+    const receipt = await reopened.inspectDelivery({ messageId: input.messageId });
+    assert.equal(receipt.status, "accepted", "A reply rejection must retain the proven user admission");
+    assert.equal(receipt.recovered, true);
+    const state = await reopened.read();
+    const turn = state.conversationLog[0];
+    assert.equal(turn.user.text, input.text);
+    assert.equal(turn.metadata.runtime.status, maxFinalReplyCharacters === 13 ? "interrupted" : "failed");
+    assert.equal(turn.assistant?.text, maxFinalReplyCharacters === 13 ? "Answer: Hello" : "");
+    if (maxFinalReplyCharacters === 12) assert.match(state.error, /final reply limit/);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1, "Recovery cannot repeat inference");
+  });
+}
+
+for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]) {
+  test("Opencode oversized recovery preserves " + savedStatus + " evidence", async t => {
+    const limits = { maxFinalReplyCharacters: 13 };
+    const f = await fixture(t, { limits });
+    await f.conversation.send(input);
+    assert.equal((await f.conversation.wait()).conversationLog[0].assistant.text, "Answer: Hello");
+    await f.first.close();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn("000001");
+      await tx.replaceAssistant(turn.turnId, { ...turn.assistant, text: "" });
+      await tx.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime,
+        status: savedStatus === "unknown-tool" ? "interrupted" : savedStatus,
+        error: savedStatus === "unknown-tool" ? "" : "Exact prior " + savedStatus + " cause." },
+        ...(savedStatus === "unknown-tool" ? { applicationTools: [{ id: "unresolved-tool", status: "unknown" }] } : {}) });
+    });
+    limits.maxFinalReplyCharacters = 11;
+    const reopened = await f.runtime().open({ id: "conversation" });
+    const receipt = await reopened.inspectDelivery({ messageId: input.messageId });
+    assert.equal(receipt.status, "accepted");
+    const state = await reopened.read();
+    assert.equal(state.conversationLog[0].metadata.runtime.status, ["unknown-tool", "interrupted"].includes(savedStatus) ? "failed" : savedStatus);
+    assert.notEqual(state.conversationLog[0].assistant?.text, "Answer: Hello");
+    if (savedStatus === "unknown-tool") {
+      assert.match(state.error, /application tool has no verified result.*Inspect its target/);
+      assert.deepEqual(state.conversationLog[0].metadata.applicationTools, [{ id: "unresolved-tool", status: "unknown" }]);
+    } else if (savedStatus === "interrupted") assert.match(state.error, /final reply limit/);
+    else assert.equal(state.error, "Exact prior " + savedStatus + " cause.");
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+  });
+}

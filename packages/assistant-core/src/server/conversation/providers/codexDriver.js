@@ -46,6 +46,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
   }
   const nativeTools = host.nativeTools === true;
   const maximumOutput = limits.maxOutputCharacters ?? 64_000;
+  const maximumFinalReply = limits.maxFinalReplyCharacters ?? maximumOutput;
+  if (!Number.isSafeInteger(maximumFinalReply) || maximumFinalReply < 1) throw new TypeError("Invalid Codex final reply limit.");
   if (!Number.isSafeInteger(maximumOutput) || maximumOutput < 1) throw new TypeError("Invalid Codex output limit.");
 
   async function accountRecord() {
@@ -276,7 +278,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       const sessionId = conversation.sessionId;
       const nativeStore = conversation.runtime.store;
       const boundedWriter = name => (id, input) => {
-        const limit = name === "writeConversationThinkingMessage" ? 4 * 1024 * 1024 : maximumOutput;
+        const limit = name === "writeConversationThinkingMessage" ? 4 * 1024 * 1024
+          : name.includes("AssistantMessage") ? Math.min(maximumOutput, maximumFinalReply) : maximumOutput;
         if ((input.text?.length || 0) > limit) throw new Error("Codex output exceeded the configured limit.");
         return nativeStore[name](id, input);
       };

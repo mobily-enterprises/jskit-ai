@@ -1712,6 +1712,18 @@ a call; interrupted streams do not imply permission to execute or retry it.
 Output limits count raw provider text, including hidden blocks. Code indentation
 and blank lines remain intact in ordinary API answers.
 
+An application can additionally set server-owned `limits.maxFinalReplyCharacters`
+to a positive safe integer. This bounds completed, decoded assistant replies in
+JavaScript string characters, independently of raw transport and application-tool
+argument limits. An oversized reply fails the turn rather than truncating or
+saving it as an accepted answer; the accepted user request remains. Omit the
+option to retain the driver's existing output policy. The common runtime checks
+normalized completed messages; its generic Codex adapter also guards canonical
+assistant writes before native output enters application storage. Claude and
+OpenCode delivery recovery applies the bound to the joined decoded native reply
+while retaining the proven user admission and avoiding another inference. An advanced
+host supplying its own native runtime retains that runtime's writer policy.
+
 The API driver uses the existing assistant tool-loop policy: up to sixteen tool
 rounds, then three recovery passes with tools disabled. Progress-only narration
 is retained as commentary rather than accepted as the final answer. An available

@@ -50,6 +50,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   if (!Number.isSafeInteger(maximumToolCalls) || maximumToolCalls < 1) throw new TypeError("Invalid application tool-call limit.");
   const maximumInput = limits.maxInputCharacters ?? 32_000;
   if (!Number.isSafeInteger(maximumInput) || maximumInput < 1) throw new TypeError("Invalid conversation input limit.");
+  const maximumFinalReply = limits.maxFinalReplyCharacters ?? Infinity;
+  if (limits.maxFinalReplyCharacters !== undefined && (!Number.isSafeInteger(maximumFinalReply) || maximumFinalReply < 1)) {
+    throw new TypeError("Invalid conversation final reply limit.");
+  }
   const maximumContinuity = limits.maxContinuityCharacters ?? 128_000;
   if (!Number.isSafeInteger(maximumContinuity) || maximumContinuity < 1) throw new TypeError("Invalid conversation continuity limit.");
   const maximumAttachmentBytes = limits.maxAttachmentBytes ?? 8 * 1024 * 1024;
@@ -612,6 +616,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await setPhase(entry, "working", request.turnId);
       if (request.sealed) return;
       const messageId = `${request.turnId}:${message.id}`;
+      if (message.role === "assistant" && message.complete && message.text.length > maximumFinalReply) {
+        if (request.answer?.messageId === messageId) request.answer = null;
+        throw new Error("The assistant exceeded the configured final reply limit.");
+      }
       const previous = request.answer?.messageId === messageId ? request.answer : request.progress.get(messageId);
       const outputOwner = message.outputId && messageOwners.get(message.outputId) || request;
       const outputId = previous?.outputId || (message.outputId ? `${outputOwner.turnId}:${message.outputId}` : "");
@@ -1422,13 +1430,17 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         }
         const nativeReplies = (native.messages || []).filter(message => message.role === "assistant");
         const outputId = nativeReplies.length === 1 && nativeReplies[0].outputId;
-        if (replies.length) await transaction.replaceAssistant(turn.turnId, { messageId: turn.assistant?.messageId || `${turn.turnId}:assistant`,
+        const replyText = replies.join("\n\n");
+        const oversizedReply = replyText.length > maximumFinalReply;
+        if (replies.length && !oversizedReply) await transaction.replaceAssistant(turn.turnId, { messageId: turn.assistant?.messageId || `${turn.turnId}:assistant`,
           ...(!turn.assistant?.outputId && outputId ? { outputId: `${turn.turnId}:${outputId}` } : {}),
-          role: "assistant", text: replies.join("\n\n"), at: submittedMessage(turn).at });
+          role: "assistant", text: replyText, at: submittedMessage(turn).at });
         const unknownTool = turn.metadata.applicationTools?.some(call => !call.result || call.status === "unknown");
-        const status = ["cancelled", "failed"].includes(runtime.status) ? runtime.status : unknownTool ? "interrupted" : native.status || "interrupted";
+        const retainedFailure = ["cancelled", "failed"].includes(runtime.status);
+        const status = retainedFailure ? runtime.status : oversizedReply ? "failed" : unknownTool ? "interrupted" : native.status || "interrupted";
         const { error: previousError, ...saved } = runtime;
         const error = unknownTool ? "Native output was recovered, but an application tool has no verified result. Inspect its target before requesting another execution."
+          : oversizedReply ? retainedFailure && (previousError || native.error) || "The assistant exceeded the configured final reply limit."
           : status === "complete" ? "" : previousError || native.error || "Delivery was confirmed from native history. Completion was not confirmed; this request was not replayed.";
         await transaction.updateTurnMetadata(turn.turnId, { runtime: { ...saved, status,
           ...(request.goal || goalRequest ? { goalMessageId: messageId } : {}),
