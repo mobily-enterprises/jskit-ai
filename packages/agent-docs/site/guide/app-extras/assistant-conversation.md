@@ -556,7 +556,7 @@ composer is present, and `stop` when `canStop` can become true.
 | `setDraft(text)` | Update the application draft synchronously. |
 | `submit({ configuration, attachments })` | Send or steer through the app's normal admission, attachment and delivery path. Use the delivery controller below for pending messages and failures; retain accepted-draft clearing and application admission. The element checks `canSend` before calling. |
 | `stop()` | Request cancellation through the backend owner. Report pending state, errors, and what actually stopped; the element checks stop availability. |
-| `loadMore({ complete })` | Prepend older turns, then call `complete({ changed })` after updating reactive state. Call it on failures too; this releases the scroll anchor. |
+| `loadMore({ complete })` | Prepend older turns, then call `complete({ changed })` synchronously after updating reactive state, before yielding to rendering. Call it on failures too; this releases the scroll anchor. Pending reader movement stays tracked if new replies change the transcript height before completion. |
 | `reload()` | Refresh authoritative history. |
 | `resend(id)`, `cancel(id)`, `edit(id)` | Optional overrides of the shared delivery actions. Keep the stable message identity when retrying. |
 | `openLink({ event, href, text })` | Optionally handle app-owned links and call `event.preventDefault()`. Otherwise a validated ordinary link keeps normal browser behavior. |
