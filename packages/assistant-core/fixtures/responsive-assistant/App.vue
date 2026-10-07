@@ -4,6 +4,8 @@ import AssistantConversationElement from "../../src/client/conversation/Assistan
 import { conversationTurnsFromMessages } from "../../src/shared/conversation/turns.js";
 import { mergeConversationStream } from "../../src/shared/conversation/streaming.js";
 const draft = ref("");
+const error = ref("");
+const reloads = ref(0);
 const query = new URLSearchParams(location.search);
 const visible = ref(!query.has("initial-hidden"));
 const retainWhenHidden = query.has("retain-hidden");
@@ -55,12 +57,15 @@ const adapter = computed(() => ({
   conversation: {
     visible: visible.value,
     retainWhenHidden,
+    error: error.value,
+    errorReloadable: true,
     turns: mergeConversationStream(conversationTurnsFromMessages(messages.value), { messages: [liveMessage.value] }), scrollKey: scope.value,
     hasMoreBefore: hasMoreBefore.value, loadingMore: loadingMore.value, loadMoreError: loadMoreError.value
   },
   composer: { draft: draft.value, canSend: Boolean(draft.value.trim()), rows: 2 },
   actions: {
     setDraft(value) { draft.value = value; },
+    reload() { reloads.value += 1; error.value = ""; },
     submit() { draft.value = ""; },
     loadMore({ complete }) {
       historyRequests.value += 1;
@@ -84,6 +89,7 @@ const adapter = computed(() => ({
           <button @click="visible = !visible">Toggle visibility</button>
           <button @click="scope = scope === 'one' ? 'two' : 'one'">Change conversation</button>
           <button @click="messages.push({ id: `added-${messages.length}`, role: 'assistant', text: 'New reply. '.repeat(30), status: 'completed' })">Append reply</button>
+          <button v-if="query.has('update-errors')" @click="error = 'Conversation updates are temporarily unavailable. Reload to reconnect; the assistant may still be working.'">Show update error</button>
           <button v-if="retainWhenHidden" @click="mounted = !mounted">Toggle mount</button>
         </nav>
         <nav v-if="deferredHistory">
@@ -92,7 +98,7 @@ const adapter = computed(() => ({
           <button @click="hasMoreBefore = false">Exhaust history</button>
           <output>History requests: {{ historyRequests }}</output>
         </nav>
-        <AssistantConversationElement v-if="mounted" v-show="visible" :adapter="adapter" class="assistant-responsive-fixture__conversation" />
+        <AssistantConversationElement v-if="mounted" v-show="visible" :adapter="adapter" :data-error-reloads="reloads" class="assistant-responsive-fixture__conversation" />
       </main>
     </v-main>
   </v-app>

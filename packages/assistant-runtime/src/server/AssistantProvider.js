@@ -15,6 +15,7 @@ const AssistantFeature = defineFeature({
     http: "runtime.http"
   },
   optional: {
+    logger: "runtime.logger",
     conversationRuntime: "assistant.conversations",
     conversationAccess: "assistant.conversation.access",
     assistantConfigService: "assistant.settings",
@@ -97,11 +98,11 @@ const AssistantFeature = defineFeature({
       config
     });
   },
-  boot({ conversationRuntime, conversationAccess, realtime, events, config, workspaces }, { outputs }) {
+  boot({ conversationRuntime, conversationAccess, realtime, events, config, workspaces, logger }, { outputs }) {
     if (!conversationRuntime || !realtime) return;
     const state = subscriptionLifecycle.get(outputs.assistant);
     state.release = registerConversationSubscriptions({
-      realtime, events, actions: state.actions, config, workspaceScopeSupport: workspaces?.scope || null,
+      realtime, events, actions: state.actions, config, logger, workspaceScopeSupport: workspaces?.scope || null,
       ...(conversationAccess ? {
         subscribeActionId: conversationAccess.subscribeActionId,
         requestPolicy: conversationAccess.requestPolicy

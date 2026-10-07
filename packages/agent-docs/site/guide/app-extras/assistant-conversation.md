@@ -580,6 +580,33 @@ Only one request runs at a time, and prepending preserves the reading position.
 Initial positioning and conversation selection do not fetch older pages.
 `loadMoreError` pauses automatic loading; the older-messages button remains
 available for an explicit retry. Clear the error when retrying succeeds.
+A transcript `error` appears in a compact, content-sized warning above the loaded
+messages. It does not replace history, remount the message body, clear a draft or
+reset an older-history reader. A failure to receive updates does not establish
+that the assistant stopped. While updates are unavailable, the supplied binding
+hides its stale working hint without disabling the existing Stop action; a fresh
+update restores the hint. `errorReloadable: true` offers **Reload chat** only
+inside that warning when the permanent `reloadable` control is off; it emits the
+same `reload` action and respects `reloading`. Enable it only when the current
+actor may recover that conversation. The supplied runtime binding derives this
+from its existing access-denial state; a 401/403 still clears private history and
+drafts and offers no error-only Reload. Restore access or sign in through the
+application before reopening. A subscription transport failure says **Chat
+updates could not reconnect. Reload chat to try again.** and retains its original
+error as `cause`; provider errors keep their own wording.
+
+When `runtime.logger` is supplied, subscriptions emit structured
+`assistant.conversation.subscription` records containing `stage`, `previousStage`,
+`durationMs`, `elapsedMs`, and the server-generated `subscriptionEpoch`. The
+conversation identity is included only after opening and authorization succeed;
+raw client subscription IDs and rejected conversation inputs are not logged. Stages cover
+authentication, action admission, conversation opening, observer attachment,
+snapshot reading and acknowledgement. The acknowledgement stage includes
+`snapshotTurns` and `snapshotLimit` when available, without message content.
+`acknowledgement-sent` records server dispatch, not client receipt. Diagnose the
+measured slow stage before changing the existing ten-second acknowledgement
+deadline.
+
 `reloadable`, `reloading`, `welcomeMessage`, and `variant: "main" | "task"`
 control the corresponding transcript presentation. `userMessageFormat` is
 `"formatted"` by default; `"plain"` preserves literal user-authored text.
@@ -2048,8 +2075,13 @@ driver uses this backend. Ordinary applications use the common conversation API
 with its supplied execution and credential defaults.
 
 Changed instructions use the existing thread-control restoration and verification
-before sending new work; they do not replace the shared process. Ordinary turns
-preserve the instruction binding. Native compaction remains the engine's job.
+before sending new work; they do not replace the shared process. A healthy active
+turn retains its installed instruction snapshot even if the source changes or is
+temporarily unavailable. The next idle admission rereads the latest instructions;
+if native work starts during that refresh, instruction-only recovery defers
+without explicitly interrupting it.
+Real account, environment, socket and provider recovery still runs normally.
+Native compaction remains the engine's job.
 JSKIT owns the local history adapter used for model-provider changes. It keeps
 native history intact and translates only outgoing requests. For qualified
 DeepSeek and GLM models, an OpenAI encrypted compaction is supplemented with the
@@ -2472,7 +2504,9 @@ pauses/resumes an active goal only when still authorized, verifies the owned
 shell environment after reload and never retries the caller's operation.
 Changed instructions or an unknown installation update native configuration and
 add one explicit developer-context revision before new work. Acknowledged ordinary
-turns and socket reconnects do not repeat it. Compaction rebuilds context with the
+active turns keep their installed instructions rather than interrupting for a
+source-only change. Idle admission rereads the source, and socket reconnects with
+unchanged acknowledged instructions do not repeat the revision. Compaction rebuilds context with the
 current configuration; restricted consumers retain their own execution environment.
 The same provider owner selects and replaces cached providers, constructs native
 connections, acquires the shared runtime and retries an unconfirmed observation

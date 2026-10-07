@@ -118,7 +118,14 @@ export function createCodexAppServerRunOwner({
     providerSessions = { ...providerSessions, managed: providerSessions.managed || new Map() };
   }
   const liveProgressMaxLength = 320;
-  const turnOutcomes = { PROVIDER_FAILURE: "provider_failure", RESPONSE_DELIVERY_FAILURE: "response_delivery_failure", SERVICE_RESTART: "service_restart", USER_CANCELLED: "user_cancelled" };
+  const turnOutcomes = {
+    PROVIDER_FAILURE: "provider_failure",
+    RESPONSE_DELIVERY_FAILURE: "response_delivery_failure",
+    SERVICE_RESTART: "service_restart",
+    USER_CANCELLED: "user_cancelled",
+    CONTROL_RECONFIGURATION: "control_reconfiguration",
+    INTERRUPTED: "interrupted"
+  };
   const finalizingGraceMs = 10000;
   const snapshotRecoveryItemLimit = 25;
   const helperOwnershipError = createCodexHelperOwnershipError({ errorPrefix });

@@ -2105,3 +2105,70 @@ test("acceptance settles a voice-retained conversation after its text view retar
   await expect(f.input).toHaveValue("The next conversation's draft stays.");
   assert.equal((await f.sent()).length, 1);
 });
+
+test("transient subscription errors keep loaded history and recover through the banner while denial clears private content", options, async t => {
+  const f = await fixture(t, 390, { acceptedDraft: true });
+  await f.input.fill("Start a controlled ongoing answer.");
+  await f.input.press("Enter");
+  const stop = f.primary.getByRole("button", { name: "Stop", exact: true });
+  await expect(stop).toBeVisible();
+  const sentBeforeRecovery = (await f.sent()).length;
+  assert.equal(sentBeforeRecovery, 1);
+  const workingHint = f.primary.locator(".assistant-composer-support__assistant-status");
+  await expect(workingHint).toHaveText("Assistant is working…");
+  const turns = Array.from({ length: 30 }, (_, index) => ({
+    turnId: `saved-${index}`,
+    user: { messageId: `question-${index}`, role: "user", text: `Private saved question ${index}. ` + "Keep the original discussion. ".repeat(8) },
+    assistant: { messageId: `answer-${index}`, role: "assistant", text: `Private saved answer ${index}. ` + "Read the saved answer without losing your place. ".repeat(8) }
+  }));
+  await f.command("history", { id: "chat:1", turns, limit: 30 });
+  await f.notify("chat:1");
+  const body = f.primary.locator(".assistant-transcript__body");
+  await expect(body.locator(".assistant-transcript__turn")).toHaveCount(turns.length * 2);
+  await expect(f.primary.locator(".assistant-transcript__settling")).toHaveCount(0);
+  await f.input.fill("Keep my newer private draft.");
+  await body.hover();
+  await f.page.mouse.wheel(0, -1000);
+  await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
+  await body.evaluate(element => { element.scrollTop = 420; window.loadedUpdateBody = element; });
+  await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+  await f.input.evaluate(element => { element.focus({ preventScroll: true }); element.setSelectionRange(2, 7); });
+  const reads = "**/api/assistant/home/conversations/*";
+  await f.page.route(reads, route => route.fulfill({ status: 503, json: { error: "Chat updates are temporarily unavailable." } }));
+  await f.page.evaluate(() => window.conversationFixture.current().reload());
+  const banner = f.primary.locator(".assistant-transcript__error");
+  await expect(banner).toContainText("Chat updates are temporarily unavailable.");
+  await expect(workingHint).toHaveCount(0);
+  await expect(stop).toBeVisible();
+  await expect(f.primary.getByText("Chat updates are temporarily unavailable.", { exact: true })).toHaveCount(1);
+  await expect(body.locator(".assistant-transcript__turn")).toHaveCount(turns.length * 2);
+  assert.equal(await body.evaluate(element => element === window.loadedUpdateBody), true);
+  await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+  await expect(f.input).toBeFocused();
+  assert.deepEqual(await f.input.evaluate(element => [element.selectionStart, element.selectionEnd]), [2, 7]);
+  await expect(f.input).toHaveValue("Keep my newer private draft.");
+  await f.page.evaluate(() => window.conversationFixture.socket.reconnect());
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.socket.inspect().active)).toBe(0);
+  await expect(body.locator(".assistant-transcript__turn")).toHaveCount(turns.length * 2);
+  await f.page.unroute(reads);
+  await banner.getByRole("button", { name: "Reload chat", exact: true }).click();
+  await expect(banner).toHaveCount(0);
+  await expect(workingHint).toHaveText("Assistant is working…");
+  await expect(stop).toBeVisible();
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.socket.inspect().active)).toBe(1);
+  assert.equal(await body.evaluate(element => element === window.loadedUpdateBody), true);
+  await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+  await expect(f.input).toHaveValue("Keep my newer private draft.");
+  await expect(body.locator(".assistant-transcript__turn")).toHaveCount(turns.length * 2);
+  assert.equal((await f.sent()).length, sentBeforeRecovery, "Subscription recovery never sends the retained draft");
+  await f.command("deny", { denied: true });
+  await f.page.evaluate(() => window.conversationFixture.current().reload());
+  await expect(banner).toContainText("Access denied.");
+  await expect(banner.getByRole("button", { name: "Reload chat", exact: true })).toHaveCount(0);
+  await expect(body.locator(".assistant-transcript__turn")).toHaveCount(0);
+  await expect(f.input).toHaveValue("");
+  await expect(f.input).toBeDisabled();
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.socket.inspect().active)).toBe(1);
+  assert.equal((await f.sent()).length, sentBeforeRecovery);
+  assert.ok(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+});
