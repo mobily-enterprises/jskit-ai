@@ -199,8 +199,12 @@ test("X cancellation and timeout do not replay reads or discard a valid connecti
   await service.connectApiKey(verification); state.wait = true;
   const controller = new AbortController();
   const operation = { ...input, operation: "users.lookup", input: { username: "example" } };
-  const pending = service.invoke({ ...operation, signal: controller.signal });
-  setTimeout(() => controller.abort(), 15);
+  const cancellableService = createConnectionService({ ...options, fetchImpl: (address, init) => {
+    const request = options.fetchImpl(address, init);
+    controller.abort();
+    return request;
+  } });
+  const pending = cancellableService.invoke({ ...operation, signal: controller.signal });
   await assert.rejects(pending, { code: "connector_cancelled" });
   const timeoutService = createConnectionService({ ...options, providers: [{ ...xTwitterProvider, requestTimeoutMs: 20 }] });
   const keepAlive = setTimeout(() => {}, 1000);

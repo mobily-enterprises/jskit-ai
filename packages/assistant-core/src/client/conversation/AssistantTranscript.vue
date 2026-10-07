@@ -3,7 +3,7 @@
     v-if="visible || retainWhenHidden"
     v-show="visible"
     class="assistant-transcript"
-    :class="`assistant-transcript--${variant}`"
+    :class="[`assistant-transcript--${variant}`, { 'assistant-transcript--retained': retainWhenHidden }]"
     aria-label="Conversation history"
   >
     <v-btn
@@ -1169,6 +1169,11 @@ watch(() => props.visible, (visible) => {
   gap: 0.65rem;
   min-height: 0;
   min-width: 0;
+}
+
+.assistant-transcript--retained .assistant-transcript__turn {
+  /* Late offscreen height estimates cannot move a restored reader anchor. */
+  content-visibility: visible;
 }
 
 .assistant-transcript__message-row {

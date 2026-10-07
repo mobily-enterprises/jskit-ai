@@ -570,7 +570,10 @@ before hiding and restores that turn's offset after reopening layout settles;
 readers following the latest message still follow new replies. An older-history
 load completed while hidden restores its original anchor after reopening. First
 open and a changed `scrollKey` still position the conversation at its latest
-message. The default is false and retains the existing remove-and-follow behavior.
+message. Retained transcripts lay out their message rows without offscreen height
+estimates so later materialization cannot move the restored anchor; this opt-in
+uses more layout work for long histories. The default is false and retains the
+existing remove-and-follow behavior and offscreen layout optimization.
 Scrolling upward within 160 CSS pixels of the transcript's top requests older
 history through `loadMore`, including touch, wheel and keyboard scrolling.
 Only one request runs at a time, and prepending preserves the reading position.
