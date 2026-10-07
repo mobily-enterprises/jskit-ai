@@ -250,12 +250,17 @@ Bindings may supply `defaults.mode` (`push-to-talk` or `hands-free`),
 `startHeldRecording()` require review; the modal's push-to-talk gesture uses
 `reviewBeforeSend`. The Talk/Pause microphone icon and speaker toggle show their states. The
 Voice settings cog loads the service's installed voices without recording.
-Pause finalizes the current utterance before muting, including buffered audio,
-and applies the recording's review preference. If an earlier request is pending,
-Pause finishes the newer recording after that request settles. Resume keeps an
-unfinished recording open or starts a fresh recording after it ends. Talk and
+Pause stops new microphone input immediately, preserves buffered audio for the
+original final flush, and applies the recording's review preference. If an earlier
+request is pending, Pause finishes the newer recording after that request settles.
+Resume retains the unfinished recording and its audio tail, or starts a fresh
+recording after it ends. Talk and
 hold remain available during pending delivery, while transcribing and committing
 retain their original guards.
+The transport exposes genuine `transcript.stale` acknowledgements through
+`utteranceStale`, retaining the rejected turn ID and revision. The controller
+clears only the matching commit so a waiting Pause can finish the same recording.
+An obsolete acknowledgement neither releases a newer commit nor supplies final words.
 The review panel stays hidden during automatic admission; failed admission keeps
 the words and message identity available for review and retry.
 The retained-adapter view scrolls the shared full history while its composer and
@@ -450,8 +455,9 @@ its extracted settings menu.
 
 When Pause occurs while an earlier message is awaiting admission, the original
 recording retains its words, ID and captured destination. Pause immediately mutes
-input; once that earlier admission settles, the existing capture owner finalizes
-and sends the retained utterance exactly once. Resuming before admission settles
+input without discarding the already captured tail; once that earlier admission
+settles, the existing capture owner finalizes and sends the retained utterance
+exactly once. Resuming before admission settles
 keeps that recording open. Cancellation retires the requested finish; genuinely
 unknown delivery remains unresolved until the person uses existing recovery.
 

@@ -326,3 +326,72 @@ test("voice narrates streamed commentary once after its canonical message is sav
   assert.deepEqual(tracker.observe([turn], options), [{ kind: "commentary", text: "Checking the code." }]);
   assert.deepEqual(tracker.observe([turn], options), []);
 });
+
+
+for (const pause of ["finish", "mute", "resume"]) {
+  test(`native capture worklet ${pause} preserves the intended audio boundary`, async t => {
+    const { runInNewContext } = await import("node:vm");
+    const original = ["window", "navigator", "AudioWorkletNode"].map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]);
+    t.after(() => {
+      for (const [name, descriptor] of original) {
+        if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+        else delete globalThis[name];
+      }
+    });
+    const pcm = [];
+    const track = { enabled: true, stopped: false, stop() { this.stopped = true; } };
+    const node = () => ({ connect() {}, disconnect() {} });
+    let Processor;
+    let processor;
+    let clientPort;
+    class NativeWorkletContext {
+      constructor(options) {
+        this.sampleRate = options.sampleRate;
+        this.destination = {};
+        this.audioWorklet = { async addModule(url) {
+          const source = await (await fetch(url)).text();
+          runInNewContext(source, {
+            Float32Array,
+            AudioWorkletProcessor: class {
+              constructor() { this.port = { postMessage(data) { queueMicrotask(() => clientPort.onmessage?.({ data })); } }; }
+            },
+            registerProcessor(_name, Class) { Processor = Class; }
+          });
+        } };
+      }
+      async resume() {}
+      async close() {}
+      createMediaStreamSource() { return node(); }
+      createGain() { return { ...node(), gain: { value: 1 } }; }
+    }
+    Object.defineProperty(globalThis, "window", { configurable: true, value: { AudioContext: NativeWorkletContext } });
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: { mediaDevices: {
+      async getUserMedia() { return { getTracks: () => [track] }; }
+    } } });
+    Object.defineProperty(globalThis, "AudioWorkletNode", { configurable: true, value: class {
+      constructor() {
+        processor = new Processor();
+        this.port = clientPort = { onmessage: null, postMessage(data) { processor.port.onmessage({ data }); } };
+      }
+      connect() {}
+      disconnect() {}
+    } });
+    const capture = await createMicrophoneCapture({ onPcm(frame) { pcm.push([...new Int16Array(frame)]); } });
+    processor.process([[new Float32Array([-1, 1])]]);
+    capture.setMuted(true, { preserveBuffered: pause !== "mute" });
+    assert.equal(track.enabled, false, "Pause stops new input before waiting for a final flush");
+    processor.process([[new Float32Array([.25, .25])]]);
+    if (pause === "resume") {
+      capture.setMuted(false);
+      processor.process([[new Float32Array([-.5, .5])]]);
+    }
+    const closing = capture.close();
+    assert.equal(track.stopped, false, "the existing close owner waits for its worklet acknowledgement");
+    await closing;
+    assert.deepEqual(pcm, pause === "finish" ? [[-32768, 32767]] : pause === "resume" ? [[-32768, 32767, -16384, 16383]] : [],
+      "Pause retains its tail through finalization or resume, ordinary Mute drops it, and paused sound is excluded");
+    assert.equal(track.stopped, true);
+    await capture.close();
+    assert.equal(pcm.length, pause === "mute" ? 0 : 1, "repeated close cannot repeat the tail");
+  });
+}
