@@ -36,6 +36,54 @@ async function fixture(t, width = 1280, { acceptedDraft = false, draftWhileLoadi
   return { page, primary, input, command, state, sent, notify };
 }
 
+test("inspecting a restored no-admission request releases Send while preserving newer draft and uploads", options, async t => {
+  const f = await fixture(t, 390);
+  const attach = async () => {
+    await f.page.evaluate(() => {
+      window.savedBinding = window.conversationFixture.acquireConversation({
+        conversationId: "chat:2", draftStorage: { storage: sessionStorage, key: "not-sent-recovery" }
+      });
+      window.conversationFixture.target("chat:2");
+    });
+    await expect.poll(() => f.page.evaluate(() => window.savedBinding.runtime.value?.available.value)).toBe(true);
+  };
+  await attach();
+  await f.command("mode", { mode: "uncertain" });
+  await f.input.fill("Original unadmitted words");
+  await f.input.press("Enter");
+  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  await expect(check).toBeVisible();
+  const [original] = await f.sent();
+  await f.input.fill("A separate newer draft");
+  await f.command("question", { id: "chat:2", text: "An unrelated completed answer.", pending: false });
+  await f.notify("chat:2");
+  await f.page.reload();
+  await expect(f.input).toBeEnabled();
+  await attach();
+  await expect(f.input).toHaveValue("A separate newer draft");
+  const send = f.primary.getByRole("button", { name: "Send message", exact: true });
+  await expect(send).toBeDisabled();
+  await f.page.evaluate(() => window.conversationFixture.attachments(true));
+  await f.primary.locator("input[type=file]").setInputFiles({ name: "newer.txt", mimeType: "text/plain", buffer: Buffer.from("Keep this upload") });
+  const uploads = () => f.page.evaluate(() => window.conversationFixture.attachmentState());
+  await expect.poll(async () => (await uploads()).ready.length).toBe(1);
+  await f.command("mode", { mode: "not-sent" });
+  await check.click();
+  await expect(check).toHaveCount(0);
+  await expect(send).toBeEnabled();
+  await expect(f.input).toHaveValue("A separate newer draft");
+  assert.equal((await f.sent()).length, 1, "Inspection never resends the old request or submits the new draft");
+  assert.deepEqual((await uploads()).acknowledged, []);
+  assert.deepEqual((await uploads()).deleted, []);
+  assert.equal((await uploads()).ready[0].fileName, "newer.txt");
+  await f.command("mode", { mode: "product-accepted" });
+  await send.click();
+  await expect.poll(async () => (await f.sent()).length).toBe(2);
+  const next = (await f.sent())[1];
+  assert.notEqual(next.input.messageId, original.input.messageId);
+  assert.equal(next.input.text, "A separate newer draft");
+});
+
 test("the canonical standard element keeps draft/focus/layout while applying the shared stream snapshot", options, async t => {
   const f = await fixture(t, 390);
   await expect(f.primary.getByRole("button", { name: "Set goal", exact: true })).toHaveCount(0);

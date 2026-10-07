@@ -190,6 +190,12 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     }
   }
 
+  function rejectUnsent(messageId, error) {
+    if (find(messageId)?.status !== "uncertain") return false;
+    fail(messageId, error);
+    return true;
+  }
+
   function restoreUncertain(request, savedTurns = []) {
     const messageId = messageText(request?.messageId);
     if (!messageId || savedTurns.some(turn => (turn.user || turn.system)?.messageId === messageId &&
@@ -236,7 +242,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     state.sending = false;
   }
 
-  return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, send, state, turns };
+  return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, rejectUnsent, send, state, turns };
 }
 
 export { createAssistantMessageDelivery, unmatchedOptimisticMessages };

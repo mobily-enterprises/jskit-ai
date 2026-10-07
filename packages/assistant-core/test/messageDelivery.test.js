@@ -4,6 +4,24 @@ import { nextTick, ref } from "vue";
 import { createAssistantMessageDelivery, unmatchedOptimisticMessages } from "../src/client/conversation/messageDelivery.js";
 import { normalizeConversationTurn } from "../src/shared/conversation/patches.js";
 
+test("proven no-admission releases only the exact uncertain message without accepting or losing its payload", async () => {
+  let accepted = 0;
+  const delivery = createAssistantMessageDelivery({ deliver: async () => { throw new Error("Connection lost"); } });
+  const payload = { message: "Keep these words", displayAttachments: [{ attachmentId: "keep-file" }] };
+  await assert.rejects(delivery.send(payload, { messageId: "not-sent", uncertainOnError: true, onAccepted: () => accepted++ }));
+  delivery.restoreUncertain({ messageId: "still-unknown", text: "An attempted message" });
+  assert.equal(delivery.rejectUnsent("different-id", "Not sent"), false);
+  assert.equal(delivery.rejectUnsent("not-sent", "Not sent"), true);
+  assert.equal(delivery.find("not-sent").status, "failed");
+  assert.deepEqual(delivery.find("not-sent").payload, payload);
+  assert.equal(delivery.find("still-unknown").status, "uncertain");
+  assert.equal(accepted, 0);
+  delivery.accept("not-sent");
+  assert.equal(delivery.rejectUnsent("not-sent", "Not sent"), false);
+  assert.equal(delivery.find("not-sent").status, "accepted");
+  assert.equal(accepted, 1);
+});
+
 test("sending immediately renders the message and reconciles only its authoritative receipt", async () => {
   const request = Promise.withResolvers();
   const delivery = createAssistantMessageDelivery({ deliver: () => request.promise });

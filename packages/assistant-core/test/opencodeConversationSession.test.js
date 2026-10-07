@@ -654,6 +654,9 @@ test("native rejection and an admitted model failure retain different admission 
   const f = await fixture(t);
   await assert.rejects(f.conversation.send({ messageId: "bad", text: "rejected" }), /Native request rejected/);
   assert.equal((await f.conversation.read()).status, "ready");
+  assert.equal((await f.conversation.inspectDelivery({ messageId: "bad" })).status, "not-sent");
+  assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
+  assert.equal((await f.conversation.read()).conversationLog.length, 0);
   await f.conversation.send({ messageId: "failed", text: "failed" });
   const state = await f.conversation.wait();
   assert.equal(state.conversationLog.length, 1);
@@ -667,6 +670,8 @@ test("OpenCode refuses a different resolved account before dispatch", async t =>
   await f.conversation.wait();
   f.setKey("another-account");
   await assert.rejects(f.conversation.send({ messageId: "second", text: "Again" }), /another OpenCode account/);
+  assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
+  assert.equal((await f.conversation.inspectDelivery({ messageId: "second" })).status, "not-sent");
   assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
 });
 
@@ -906,6 +911,8 @@ test("OpenCode explicit selection recovers an older mismatched configuration wit
     engine: "opencode", configuration: { ...configuration, integrationId: "flash" } };
   await f.conversation.select(switchToFlash);
   assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+  assert.equal((await f.conversation.inspectDelivery({ messageId: rejected.messageId })).status, "not-sent");
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
   await f.conversation.send({ messageId: "new-authored-message", text: "Continue the same conversation" });
   const after = await f.conversation.wait();
   assert.equal(after.id, original.id);
@@ -933,6 +940,7 @@ test("OpenCode provider selection retains an uncertain predecessor without resen
     engine: "opencode", configuration: { ...configuration, integrationId: "flash" } });
   const saved = await f.storage.read("conversation", tx => tx.readMetadata());
   assert.deepEqual(saved.runtime.predecessors.at(-1).request, metadata.runtime.request);
+  assert.deepEqual(await f.conversation.inspectDelivery({ messageId: "unknown-old-id" }), { status: "unknown", messageId: "unknown-old-id" });
   await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }),
     /pending.*another|another.*pending|another native|uncertain/i);
   assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);

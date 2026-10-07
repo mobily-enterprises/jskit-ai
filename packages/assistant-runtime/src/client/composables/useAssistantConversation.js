@@ -571,6 +571,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       const receipt = await api.inspectConversationDelivery(identity.conversationId, messageId);
       if (!current.value) return false;
       if (receipt.status === "accepted") delivery.accept(messageId);
+      else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, receipt.error);
       subscription?.reload();
       return receipt;
     } catch (failure) { receiveError(failure); return false; }

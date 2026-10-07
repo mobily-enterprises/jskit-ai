@@ -1342,6 +1342,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     const metadata = { runtime: await readState(entry) };
     if (metadata.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending");
+    const savedRequests = [...metadata.runtime.predecessors, metadata.runtime].filter(segment => segment.request?.messageId === messageId);
+    if (!existing && savedRequests.length && savedRequests.every(segment =>
+      ["codex", "claude", "opencode"].includes(segment.engine) && segment.request.attempted === false && !segment.request.inspectionOnly &&
+      isDeepStrictEqual(segment.request, savedRequests[0].request))) {
+      await access(context, entry.id, "inspectDelivery", entry);
+      return { status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message." };
+    }
     const request = existing ? submittedMessage(existing) : metadata.runtime.request;
     if (!request || request.messageId !== messageId || !entry.provider.inspectAdmission) return receipt || { status: "unknown", messageId };
     const pending = metadata.runtime.request?.messageId === messageId ? metadata.runtime.request : null;

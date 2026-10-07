@@ -169,6 +169,7 @@ export default defineConfig({
         if (match[2].startsWith("/deliveries/") && match[2].endsWith("/inspect")) {
           const messageId = decodeURIComponent(match[2].split("/")[2]);
           const receipt = state.conversationLog.find(turn => turn.user?.messageId === messageId);
+          if (!receipt && mode === "not-sent") return json({ status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message." });
           return json(receipt ? { status: "accepted", messageId, turnId: receipt.turnId } : { status: "unknown", messageId });
         }
         return json({ error: "Unknown fixture operation" }, 404);
