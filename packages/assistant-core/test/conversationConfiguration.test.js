@@ -172,3 +172,30 @@ test("file-backed pending replacement keeps its admitted configuration across a 
   assert.deepEqual((await resumed.read()).configuration, { systemPrompt: "Replacement instructions.", integrationId: "assistant" });
   assert.equal((await resumed.replace(input)).duplicate, true);
 });
+
+
+test("file-backed OpenCode selections keep compatible bindings and reserve a fresh provider binding without inference", async t => {
+  const f = await fixture(t, { file: true });
+  const first = f.runtime();
+  const conversation = await first.open({ id: "open-code", engine: "opencode",
+    configuration: { systemPrompt: "Keep the discussion.", integrationId: "included" } });
+  const initial = await conversation.read();
+  const old = await f.storage.read("open-code", tx => tx.readMetadata());
+  await conversation.select({ operationId: "effort-only", expectedSegmentId: initial.segmentId,
+    engine: "opencode", configuration: { ...initial.configuration, effort: "low" } });
+  assert.deepEqual((await f.storage.read("open-code", tx => tx.readMetadata())).runtime.binding, old.runtime.binding);
+  const selection = { operationId: "connect-flash", expectedSegmentId: initial.segmentId,
+    engine: "opencode", configuration: { ...initial.configuration, integrationId: "flash", effort: "low" } };
+  const selected = await conversation.select(selection);
+  assert.notEqual(selected.segmentId, initial.segmentId);
+  const saved = await f.storage.read("open-code", tx => tx.readMetadata());
+  assert.notEqual(saved.runtime.binding.directory, old.runtime.binding.directory);
+  assert.equal(saved.runtime.binding.sessionId, "");
+  assert.deepEqual(saved.runtime.predecessors.at(-1).binding, old.runtime.binding);
+  await first.close();
+  const reopened = await f.runtime().open({ id: "open-code" });
+  assert.equal((await reopened.select(selection)).duplicate, true);
+  assert.deepEqual(await f.storage.read("open-code", tx => tx.readMetadata()), saved);
+  await assert.rejects(reopened.select({ ...selection, configuration: { ...selection.configuration, integrationId: "different" } }),
+    { code: "conversation_replacement_conflict" });
+});

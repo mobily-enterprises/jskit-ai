@@ -59,6 +59,7 @@ function subscribeAssistantConversation({
     publishState({ ...options, canonical: true });
   }
   function reload() {
+    if (!listening) return subscribe();
     if (reloadInFlight) {
       reloadQueued = true;
       return reloadInFlight;

@@ -196,8 +196,11 @@ export function createCodexProviderSelection({
       restoration.projectRuntimeRoot, restoration.context
     ));
     const providerOptions = await preparation.providerOptions;
-    const provider = await providerSessions.owner.withLifecycle(() =>
-      providerSessions.owner.providerForSession(providerSessions.context(sessionId, providerOptions))
+    const context = providerSessions.context(sessionId, providerOptions);
+    const provider = await providerSessions.owner.withLifecycle(
+      () => providerSessions.owner.providerForSession(context),
+      context.providerKey,
+      providerOptions
     );
     return readCodexAppServerAccountIdentity(provider, helperOwnershipError);
   }

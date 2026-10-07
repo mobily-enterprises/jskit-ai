@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.205",
+  "version": "0.1.206",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -32,7 +32,9 @@
     "./server/codex-provider": "./src/server/hosts/codexProvider.js",
     "./server/native-history": "./src/server/hosts/nativeHistory.js",
     "./testing/native-codex": "./src/testing/nativeCodex.js",
-    "./testing/native-opencode": "./src/testing/nativeOpenCode.js"
+    "./testing/native-opencode": "./src/testing/nativeOpenCode.js",
+    "./server/codex-client": "./src/server/conversation/codexClient.js",
+    "./client/conversation-submit": "./src/client/conversation/submitText.js"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.53",
@@ -45,8 +47,8 @@
     "@ai-sdk/perplexity": "^4.0.43",
     "@ai-sdk/togetherai": "^3.0.49",
     "@ai-sdk/xai": "^4.0.58",
-    "@jskit-ai/resource-core": "0.1.169",
-    "@jskit-ai/resource-crud-core": "0.1.169",
+    "@jskit-ai/resource-core": "0.1.170",
+    "@jskit-ai/resource-crud-core": "0.1.170",
     "@mdi/js": "^7.4.47",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.101",
@@ -55,8 +57,8 @@
     "ws": "^8.20.1"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.1.225",
-    "@jskit-ai/kernel": "0.1.227",
+    "@jskit-ai/http-runtime": "0.1.226",
+    "@jskit-ai/kernel": "0.1.228",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },
@@ -126,15 +128,15 @@
           },
           {
             "subpath": "./server/codex-events",
-            "summary": "Advanced native host: Codex event identities, thread-history projections and context-refresh facts for native hosts."
+            "summary": "Advanced native host: Original Codex event classification, text, status and identity helpers, thread-history projections and context-refresh facts."
           },
           {
             "subpath": "./server/codex-turn",
-            "summary": "Advanced native host: Original Codex run, receipt, observation, goal, steering, control, scoped-turn and renewal coordination."
+            "summary": "Advanced native host: Original detached-turn watcher and status predicates, plus Codex run, receipt, observation, goal, steering, control, scoped-turn and renewal coordination."
           },
           {
             "subpath": "./server/opencode-client",
-            "summary": "Advanced native host: OpenCode native history retirement for existing hosts."
+            "summary": "Advanced native host: Original OpenCode loopback client, bounded response and assistant text helpers, plus native history retirement."
           },
           {
             "subpath": "./server/claude-history",
@@ -187,6 +189,14 @@
           {
             "subpath": "./testing/native-opencode",
             "summary": "Testing: Original OpenCode loopback client for isolated host integration tests; tests own endpoints, authorization and cleanup."
+          },
+          {
+            "subpath": "./server/codex-client",
+            "summary": "Advanced native host: Original Codex JSON-RPC client and endpoint socket-path helper; hosts retain authorization, transport limits and native lifecycle coordination."
+          },
+          {
+            "subpath": "./client/conversation-submit",
+            "summary": "Optional UI: Original text submission helper forwards companion text through the application draft and canonical send action; also exported by ./client/conversation."
           }
         ],
         "capabilities": []

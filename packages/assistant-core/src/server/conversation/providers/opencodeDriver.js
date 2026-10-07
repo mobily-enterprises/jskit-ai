@@ -109,6 +109,9 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
     async createConversation({ native, input, context }) {
       return native.owner.createPreparedConversation(await native.preparation.creation(input, context));
     },
+    async runDetachedConversation({ native, input, options }) {
+      return native.owner.runPreparedConversationTurn(await native.preparation.turn(input, options));
+    },
     async createBinding() {
       const directory = path.join(stateDirectory, randomUUID());
       await mkdir(directory, { recursive: true, mode: 0o700 });

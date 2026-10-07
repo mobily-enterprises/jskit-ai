@@ -1,12 +1,14 @@
 import { computed, onScopeDispose, ref, watch } from "vue";
 import { useVoiceTransport } from "./voiceTransport.js";
 import { takeStreamingSpeech } from "../shared/protocol.js";
+import { createConversationNarrationTracker } from "./conversationNarration.js";
 
 /** Created inside the controller's effect scope, independent of a mounted screen. */
 export function useVoiceConversation(binding, { socketUrl, createTransport = useVoiceTransport } = {}) {
   const oneOffTalkMode = computed(() => binding.defaults?.talkMode === "hold" ? "hold" : "tap");
   const targetLabel = computed(() => binding.label || "Assistant");
   const readAloud = ref(binding.defaults?.readAloud === true);
+  const readAloudChangePending = computed(() => binding.readAloudChangePending === true);
   const soundPreparing = ref(false);
   let soundRevision = 0;
   const conversationId = binding.conversationId || binding.id;
@@ -110,6 +112,72 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   let requestedMessageId = "";
   let speechInvitation = "";
   let lastStreamingId = "";
+  const narrationTracker = createConversationNarrationTracker();
+  const narrationPageVisible = ref(globalThis.document?.visibilityState !== "hidden");
+  const hiddenNarrationPage = computed(() => Boolean(binding.narration) && !narrationPageVisible.value);
+  let narrationSettleTimer;
+  let thinkingMurmurTimer;
+  let narrationEpoch = 0;
+
+  function clearNarrationTimers() {
+    ++narrationEpoch;
+    clearTimeout(narrationSettleTimer);
+    clearTimeout(thinkingMurmurTimer);
+  }
+  function retireNarration(selected = () => true) {
+    for (let index = speechQueue.length - 1; index >= 0; --index) {
+      const reply = speechQueue[index];
+      if (!reply.narrationKind || !selected(reply.narrationKind)) continue;
+      cancelReply(reply, "narration-retired");
+      speechQueue.splice(index, 1);
+      if (reply.turnId && voice.activeSpeechTurnId.value === reply.turnId) voice.stopSpeaking("narration-retired");
+    }
+  }
+  function narrationEnabled() {
+    const narration = binding.narration;
+    return Boolean(narration && narration.eligible && !narration.loading && readAloud.value
+      && binding.state.available !== false && narrationPageVisible.value && !capturing.value
+      && !starting.value && !speechSuppressed && !disposed);
+  }
+  function queueNarration(kind, text) {
+    // Optional activity uses the original queue but never impersonates a canonical output.
+    if (!narrationEnabled() || speechQueue.some(reply => !reply.narrationKind)
+      || speechActive.value && !speechQueue.some(reply => reply.narrationKind && reply.turnId === voice.activeSpeechTurnId.value)) return;
+    speechQueue.push({ narrationKind: kind, raw: text, consumed: 0, final: true, started: false });
+    void drainSpeech();
+  }
+  function observeNarration(settled = false, enabled = narrationEnabled()) {
+    const narration = binding.narration;
+    if (!narration) return;
+    const entries = narrationTracker.observe(narration.turns, {
+      includeFinals: false, settled, enabled,
+      vocalizeThinking: narration.vocalizeThinking,
+      vocalizeInterimTurns: narration.vocalizeInterimTurns
+    });
+    for (const entry of entries) queueNarration(entry.kind, entry.text);
+  }
+  function scheduleThinkingMurmur(epoch) {
+    const narration = binding.narration;
+    if (!narrationEnabled() || !narration.working || !narration.thinkingSounds) return;
+    thinkingMurmurTimer = setTimeout(() => {
+      if (epoch !== narrationEpoch || !narrationEnabled() || !binding.narration?.working || !binding.narration.thinkingSounds) return;
+      if (!speechQueue.length && !draining && !speechActive.value && voice.state.value === "idle") queueNarration("murmur", "Hmm...");
+      scheduleThinkingMurmur(epoch);
+    }, 20_000);
+  }
+  function refreshNarration(settled = false) {
+    clearNarrationTimers();
+    observeNarration(settled);
+    const narration = binding.narration;
+    if (!narrationEnabled() || !narration.working) return;
+    const epoch = narrationEpoch;
+    if (narration.vocalizeThinking || narration.vocalizeInterimTurns) {
+      narrationSettleTimer = setTimeout(() => {
+        if (epoch === narrationEpoch && narrationEnabled()) observeNarration(true);
+      }, 700);
+    }
+    scheduleThinkingMurmur(epoch);
+  }
 
   function observe(callback, value) {
     try {
@@ -122,16 +190,18 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (reply.terminal || (phase === "started" && reply.audible)) return;
     if (phase === "started") reply.audible = true;
     else reply.terminal = true;
+    if (reply.narrationKind) return;
     observe(binding.onPlayback, {
       conversationId, outputId: reply.outputId, phase, ...(reason ? { reason } : {})
     });
   }
   function receivePlayback(event) {
-    const reply = [...replies.values()].find(reply => reply.turnId === event.turnId);
+    const reply = [...replies.values()].find(reply => reply.turnId === event.turnId)
+      || speechQueue.find(reply => reply.narrationKind && reply.turnId === event.turnId);
     if (!reply) return;
     if (event.phase === "completed") {
       reply.drained = true;
-      if (reply.canonicalFinal) emitReply(reply, "completed");
+      if (reply.canonicalFinal || reply.narrationKind) emitReply(reply, "completed");
     } else emitReply(reply, event.phase, event.reason);
   }
   function cancelReply(reply, reason = "cancelled", phase = "interrupted") {
@@ -140,6 +210,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   }
   function stopSpeech() { cancelSpeech(); }
   function cancelSpeech(reason = "cancelled", phase = "interrupted") {
+    clearNarrationTimers();
+    retireNarration();
     for (const reply of replies.values()) {
       if (!reply.terminal) cancelReply(reply, reason, phase);
     }
@@ -181,7 +253,11 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
           reply.started = true;
           reply.turnId = crypto.randomUUID();
           const accepted = await voice.speak(chunk.text, reply.turnId, { stream: true });
-          if (reply.cancelled || disposed) return;
+          if (disposed) return;
+          if (reply.cancelled) {
+            if (reply.narrationKind) continue;
+            return;
+          }
           if (accepted === false) {
             cancelReply(reply, "no-audio");
             continue;
@@ -196,6 +272,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     let reply = replies.get(message.id);
     if (!reply) {
       if (!primed || !readAloud.value || speechSuppressed || seen.has(message.id) || (!final && message.autonomous)) return;
+      retireNarration();
       reply = {
         id: message.id, outputId: message.outputId || message.id, streamId: message.streamId,
         raw: "", consumed: 0, final: false, canonicalFinal: false, started: false
@@ -204,6 +281,14 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       speechQueue.push(reply);
     }
     if (reply.cancelled) return;
+    if (hiddenNarrationPage.value && !reply.canonicalFinal && (final || !reply.raw)) {
+      // Consume hidden outputs without replay; a streaming answer cannot claim
+      // completion when its first canonical final was not admitted for speech.
+      cancelReply(reply, "page-hidden");
+      if (reply.turnId && voice.activeSpeechTurnId.value === reply.turnId) voice.stopSpeaking("page-hidden");
+      return;
+    }
+    if (final) retireNarration();
     const text = String(message.text || "").slice(0, 4000);
     const spokenPrefix = reply.raw.slice(0, reply.consumed);
     if (!text.startsWith(spokenPrefix) && !(final && text.trimEnd() === spokenPrefix.trimEnd())) {
@@ -234,9 +319,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     }
   }
   async function toggleReadAloud() {
+    if (readAloudChangePending.value) return;
     error.value = "";
     readAloud.value = !readAloud.value;
     observe(binding.onReadAloudChange, readAloud.value);
+    await applyReadAloud();
+  }
+  async function applyReadAloud() {
     if (!readAloud.value) {
       ++soundRevision;
       soundPreparing.value = false;
@@ -246,7 +335,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     speechSuppressed = false;
     speechInvitation = "";
     await enableSound();
+    if (!disposed) refreshNarration();
   }
+  watch(() => binding.defaults?.readAloud, (value) => {
+    if (disposed || typeof value !== "boolean" || value === readAloud.value) return;
+    readAloud.value = value;
+    void applyReadAloud();
+  });
   async function deliverTranscript() {
     const pending = pendingTranscript.value;
     if (!pending || sending.value) return;
@@ -300,7 +395,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     } catch (cause) { recording = null; error.value = cause.message; }
   }
   async function startRecording(reviewBeforeSend, continuous = false) {
-    if (disposed || starting.value || microphoneMuted.value || capturing.value || committing ||
+    if (disposed || hiddenNarrationPage.value || starting.value || microphoneMuted.value || capturing.value || committing ||
         (pendingTranscript.value || sending.value) && !(continuous && live.value && (callMode.value === "hands-free" || pushHolding.value))) return;
     error.value = "";
     reviewBeforeSend ||= binding.defaults?.reviewBeforeSend === true;
@@ -333,7 +428,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     } finally { changingCallMode.value = false; }
   }
   async function startPushToTalk(event) {
-    if (event?.repeat || event?.isPrimary === false || event?.button !== undefined && event.button !== 0 || pushHolding.value || disposed || starting.value
+    if (event?.repeat || event?.isPrimary === false || event?.button !== undefined && event.button !== 0 || pushHolding.value
+      || disposed || hiddenNarrationPage.value || starting.value
       || capturing.value && !voice.listening.value || committing) return;
     if (event?.pointerId !== undefined) event.currentTarget.setPointerCapture(event.pointerId);
     pushInput = event?.pointerId ?? event?.key ?? null;
@@ -373,7 +469,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     await cancelRecording();
   }
   async function toggleHandsFree() {
-    if (disposed || pushHolding.value) return;
+    if (disposed || hiddenNarrationPage.value || pushHolding.value) return;
     if (live.value && callMode.value === "hands-free" && voice.listening.value && (pendingTranscript.value || sending.value || committing)) {
       // Pause must finish the newer recording after the existing admission,
       // without replacing the one pending transcript or stopping output.
@@ -415,7 +511,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       await cancelRecording();
       return;
     }
-    if (disposed || microphoneMuted.value || capturing.value || committing ||
+    if (disposed || hiddenNarrationPage.value || microphoneMuted.value || capturing.value || committing ||
         (pendingTranscript.value || sending.value) && callMode.value !== "hands-free" && !pushHolding.value) return;
     const controller = new AbortController();
     startupAbort = controller;
@@ -575,6 +671,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (pendingTranscript.value && messages.some((message) => message.role === "user" && message.id === pendingTranscript.value.messageId && message.receipt !== false)) {
       dismissTranscript();
     }
+    let invited = false;
     for (const message of messages) {
       // Unadmitted local records do not acknowledge a request or lift speech silence.
       if (message.role === "user" && message.receipt === false) continue;
@@ -582,6 +679,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (message.role === "user" && message.id === speechInvitation) {
         speechSuppressed = false;
         speechInvitation = "";
+        invited = true;
       }
       if (message.role === "assistant") queueReply(message, true);
       seen.add(message.id);
@@ -596,7 +694,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     lastStreamingId = reply?.id || "";
     if (reply?.text) {
       queueReply(reply, reply.status === "completed");
-      if (!readAloud.value || !primed || reply.autonomous) seen.add(reply.id);
+      if (!readAloud.value || !primed || reply.autonomous || hiddenNarrationPage.value) seen.add(reply.id);
     }
     // Keep only the visible history plus active playback receipts in memory.
     const retained = new Set([...messages.map((message) => message.id), reply?.id, ...speechQueue.map((item) => item.id),
@@ -604,8 +702,31 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     for (const id of seen) if (!retained.has(id)) seen.delete(id);
     for (const id of replies.keys()) if (!retained.has(id)) replies.delete(id);
     primed = true;
+    if (invited) refreshNarration();
     void drainSpeech();
   }, { immediate: true });
+  watch(() => {
+    const narration = binding.narration;
+    return {
+      id: binding.id, conversationId: binding.conversationId, narration,
+      loading: narration?.loading, eligible: narration?.eligible, working: narration?.working,
+      thinking: narration?.vocalizeThinking, interim: narration?.vocalizeInterimTurns,
+      sounds: narration?.thinkingSounds, turns: narration?.turns, enabled: narrationEnabled()
+    };
+  }, (current, previous) => {
+    clearNarrationTimers();
+    if (!current.narration || current.loading || current.id !== previous?.id || current.conversationId !== previous?.conversationId) {
+      narrationTracker.reset();
+      retireNarration();
+      if (!current.narration || current.loading) return;
+    }
+    if (!current.enabled) retireNarration();
+    else retireNarration(kind => kind === "thinking" ? !current.thinking
+      : kind === "commentary" ? !current.interim : !current.sounds || !current.working);
+    // Retire disabled tails before enabling a flag; settings are not a request to replay history.
+    if (previous && (current.enabled !== previous.enabled || current.thinking !== previous.thinking || current.interim !== previous.interim)) observeNarration(true, false);
+    refreshNarration(!current.enabled);
+  }, { immediate: true, deep: true });
   watch(voice.error, (message) => { if (message) cancelSpeech("playback-error", "failed"); });
   watch(() => error.value || voice.error.value, (message) => { if (message) binding.onError?.(message); });
   watch([voice.activeSpeechTurnId, voice.canAppendSpeech], () => { void drainSpeech(); });
@@ -674,10 +795,26 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   watch([pendingTranscript, voice.captureState, voice.partialTranscript, voice.endpoint, sending, starting, takingTranscript], publishTranscript, { immediate: true });
   watch(avatarVisual, (visual) => binding.onVisual?.(visual), { immediate: true });
   const page = globalThis.window || globalThis;
+  const updateNarrationVisibility = () => {
+    narrationPageVisible.value = globalThis.document?.visibilityState !== "hidden";
+    if (disposed || !hiddenNarrationPage.value || !(recording || starting.value || committing || capturing.value)) return;
+    // This is the original document-hidden capture boundary, not avatar/body
+    // visibility. Retire B before cancellation; A's delivery stays untouched.
+    pushHolding.value = false;
+    pushInput = null;
+    if (!pendingTranscript.value) {
+      holding.value = false;
+      heldReview.value = false;
+    }
+    void discardRecording();
+    voice.stopSpeaking("page-hidden");
+  };
+  globalThis.document?.addEventListener?.("visibilitychange", updateNarrationVisibility);
   const cancelStartup = () => { if (starting.value) void discardRecording(); else void cancelPushToTalk(); };
   page.addEventListener?.("pagehide", cancelStartup);
   page.addEventListener?.("blur", cancelPushToTalk);
   onScopeDispose(() => {
+    globalThis.document?.removeEventListener?.("visibilitychange", updateNarrationVisibility);
     page.removeEventListener?.("pagehide", cancelStartup);
     page.removeEventListener?.("blur", cancelPushToTalk);
     startupAbort?.abort(); startupAbort = null;
@@ -703,7 +840,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       (sending.value || Boolean(pendingTranscript.value) || capturing.value));
   const hasUnsentSpeech = computed(() => capturing.value || starting.value || sending.value || Boolean(pendingTranscript.value));
   return {
-    oneOffTalkMode, targetLabel, voice, readAloud, error, pendingTranscript, heldReview, holding, sending,
+    oneOffTalkMode, targetLabel, voice, readAloud, readAloudChangePending, error, pendingTranscript, heldReview, holding, sending,
     live, starting, callMode, changingCallMode, pushHolding, microphoneMuted, capturing,
     speechActive, talkLabel, liveLabel, callConnection, callStatus, callDetail, callModeBusy,
     microphoneStatus, avatarVisual, callAudioLevel, status, heldTranscript, voiceWords, voiceAnswer,

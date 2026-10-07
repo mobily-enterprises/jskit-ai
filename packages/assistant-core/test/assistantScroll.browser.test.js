@@ -420,6 +420,139 @@ test("upward scrolling loads older history once and preserves retry and selectio
   }
 });
 
+test("retained hidden transcripts preserve readers and follow only at the latest message", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${vite.baseURL}/?controls=1&history=1&retain-hidden=1&initial-hidden=1`);
+      const body = page.locator(".assistant-transcript__body");
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      await expect(body).toBeAttached();
+      await expect(body).toBeHidden();
+      await external("Toggle visibility");
+      await expect(body).toBeVisible();
+      await expect(page.locator(".assistant-transcript__settling")).toHaveCount(0);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      const draft = page.getByRole("textbox", { name: "Message AI assistant", exact: true });
+      await draft.fill("Keep my typed draft");
+      await body.hover();
+      await page.mouse.wheel(0, -1000);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
+      await body.evaluate(element => { element.scrollTop = 420; });
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await body.evaluate(element => {
+        window.retainedBody = element;
+        const top = element.getBoundingClientRect().top;
+        const anchor = [...element.querySelectorAll(".assistant-transcript__turn")].find(turn => turn.getBoundingClientRect().bottom > top);
+        window.retainedAnchor = { element: anchor, offset: anchor.getBoundingClientRect().top - top };
+      });
+      await external("Toggle visibility");
+      await expect(body).toBeHidden();
+      await external("Append reply");
+      // Hidden zero-geometry events must not change following or fetch history.
+      await body.evaluate(element => element.dispatchEvent(new Event("scroll")));
+      await expect(page.locator("output")).toHaveText("History requests: 0");
+      await external("Toggle visibility");
+      await expect(body).toBeVisible();
+      assert.equal(await body.evaluate(element => element === window.retainedBody), true);
+      await expect.poll(() => body.evaluate(element => Math.abs(window.retainedAnchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top - window.retainedAnchor.offset))).toBeLessThan(2);
+      await expect(draft).toHaveValue("Keep my typed draft");
+      await body.hover();
+      await page.mouse.wheel(0, 100_000);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await external("Toggle visibility");
+      await external("Append reply");
+      await external("Toggle visibility");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await body.hover();
+      await page.mouse.wheel(0, -1000);
+      await external("Toggle visibility");
+      await external("Change conversation");
+      await external("Toggle visibility");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await expect(page.locator(".assistant-transcript__settling")).toHaveCount(0);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+test("retained hidden history loads restore their original anchor and invalidate retired requests", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const body = page.locator(".assistant-transcript__body");
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      const load = async () => {
+        await page.goto(`${vite.baseURL}/?controls=1&history=1&paged-history=1&retain-hidden=1`);
+        await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+        await body.evaluate(element => {
+          element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: -1000 }));
+          element.scrollTop = 0;
+          element.dispatchEvent(new Event("scroll", { bubbles: true }));
+        });
+        await expect(page.getByRole("button", { name: "Loading older messages…", exact: true })).toBeDisabled();
+      };
+      await load();
+      const anchor = page.getByText("user message 21.", { exact: false });
+      const before = (await anchor.boundingBox()).y;
+      await body.evaluate(element => { window.retainedBody = element; });
+      await external("Toggle visibility");
+      await external("Complete history load");
+      await expect(page.getByText("user message 1.", { exact: false })).toHaveCount(1);
+      await expect(body).toBeHidden();
+      await external("Toggle visibility");
+      assert.equal(await body.evaluate(element => element === window.retainedBody), true);
+      await expect(body).toBeVisible();
+      await expect.poll(async () => Math.abs((await anchor.boundingBox()).y - before)).toBeLessThan(2);
+      await expect(page.locator("output")).toHaveText("History requests: 1");
+
+      await load();
+      const errorScrollTop = await body.evaluate(element => element.scrollTop);
+      await external("Toggle visibility");
+      await external("Fail history load");
+      await external("Toggle visibility");
+      await expect(page.getByText("History unavailable", { exact: true })).toBeVisible();
+      assert.equal(await body.evaluate(element => element.scrollTop), errorScrollTop, "unchanged/error completion preserves the original scrollTop while showing recovery");
+      await page.getByRole("button", { name: "Load older messages", exact: true }).evaluate(element => element.click());
+      await expect(page.locator("output")).toHaveText("History requests: 2");
+      await external("Toggle visibility");
+      await external("Change conversation");
+      await external("Complete history load");
+      await external("Toggle visibility");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+
+      await load();
+      await body.evaluate(element => { window.retiredBody = element; });
+      await external("Toggle visibility");
+      await external("Toggle mount");
+      await external("Complete history load");
+      await external("Toggle mount");
+      await external("Toggle visibility");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      assert.equal(await body.evaluate(element => element === window.retiredBody), false);
+      await expect(page.locator("output")).toHaveText("History requests: 1");
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("conversation composer preserves typing and reacts to external state and pane resizing", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000

@@ -1,4 +1,4 @@
-import { generateText, jsonSchema, streamText } from "ai";
+import { generateText, jsonSchema, NoSuchToolError, streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -47,7 +47,7 @@ function sdkMessages(messages) {
 }
 
 /** Accept only the server-side result of an authorized AI connection resolver. */
-export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort } = {}) {
+export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort, reportUnavailableToolCalls = false } = {}) {
   if (!connection?.apiKey || !connection.model || !Object.hasOwn(providers, connection.sdkPackage)) {
     throw new TypeError("An authorized AI connection with a supported SDK and model is required.");
   }
@@ -75,23 +75,21 @@ export function createAiConnectionClient(connection, { fetch, timeoutMs = 120_00
     async *createChatCompletionStream(input) {
       const result = streamText({ ...options(input), onError() {} });
       let toolIndex = 0;
-      let failure;
       for await (const part of result.fullStream) {
-        // Let the SDK settle its stream before reporting a rejected tool call.
-        // Cancelling this iterator mid-step leaves its completion unresolved.
-        if (part.type === "error" || (part.type === "tool-call" && part.invalid)) {
-          failure ||= part.error || new Error("The model returned an invalid tool call.");
-        }
-        if (part.type === "abort") failure ||= input?.signal?.reason || new Error("Assistant request was aborted.");
-        if (failure) continue;
+        if (part.type === "error") throw part.error;
+        if (part.type === "abort") throw input?.signal?.reason || new Error("Assistant request was aborted.");
         if (part.type === "text-delta") yield { choices: [{ delta: { content: part.text } }] };
         if (part.type === "finish") yield { choices: [{ delta: {}, finish_reason: part.finishReason }], usage: part.totalUsage };
         if (part.type === "tool-call") {
+          // Only the application catalogue can reject an unavailable action
+          // and persist its no-effect receipt. Other invalid calls stay errors.
+          const unavailable = reportUnavailableToolCalls === true && NoSuchToolError.isInstance(part.error) &&
+            !part.providerExecuted && part.input !== null && typeof part.input === "object" && !Array.isArray(part.input);
+          if (part.invalid && !unavailable) throw part.error;
           yield { choices: [{ delta: { tool_calls: [{ index: toolIndex++, id: part.toolCallId,
             function: { name: part.toolName, arguments: JSON.stringify(part.input) } }] } }] };
         }
       }
-      if (failure) throw failure;
     }
   });
 }

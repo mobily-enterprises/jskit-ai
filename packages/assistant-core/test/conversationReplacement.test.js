@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
 import { createAiConnectionResolver } from "../../connectors-catalog/src/server/ai.js";
 
@@ -27,7 +30,7 @@ async function fixture(t, options = {}) {
   }) };
   function runtime() {
     const value = createConversationRuntime({ storage: failingStorage, connections,
-      authorize: () => state.allowed, limits: options.limits,
+      authorize: () => state.allowed, limits: options.limits, host: options.host,
       fetch: async (_url, init) => {
         const body = JSON.parse(init.body); requests.push(body);
         if (options.fetch) return options.fetch(body, init);
@@ -169,4 +172,76 @@ test("host scope belongs to a conversation and cannot be changed through another
   await two.send({ messageId: "two", text: "Two" });
   assert.equal((await one.wait()).conversationLog.length, 1);
   assert.equal((await two.wait()).conversationLog.length, 1);
+});
+
+
+test("interrupted OpenCode integration selection retries the original fresh binding transaction without inference", async t => {
+  const directory = await mkdtemp(join(tmpdir(), "opencode-selection-replacement-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const f = await fixture(t, { host: { workdir: directory, execution: {
+    start() { assert.fail("Selection must not start a native process or submit a prompt."); },
+    stop() { assert.fail("An inert binding has no process to stop."); }
+  } } });
+  const initial = await f.conversation.read();
+  await f.conversation.select({ operationId: "enter-open-code", expectedSegmentId: initial.segmentId,
+    engine: "opencode", configuration });
+  const original = await f.conversation.read();
+  const operation = { operationId: "switch-integration", expectedSegmentId: original.segmentId,
+    engine: "opencode", configuration: { ...configuration, integrationId: "flash" } };
+  const metadata = await f.storage.read("one", tx => tx.readMetadata());
+  f.state.failCommit = true;
+  await assert.rejects(f.conversation.select(operation), /Storage offline during replacement commit/);
+  const pending = await f.storage.read("one", tx => tx.readMetadata());
+  assert.deepEqual(pending.runtime.replacement.request, { ...operation, operation: "select" });
+  assert.notEqual(pending.runtime.replacement.binding.directory, metadata.runtime.binding.directory);
+  assert.equal((await f.conversation.read()).status, "replacement-pending");
+  await assert.rejects(f.conversation.send({ messageId: "premature", text: "Too early" }),
+    { code: "conversation_replacement_pending" });
+  await f.first.close();
+  f.state.failCommit = false;
+  const reopened = await f.runtime().open({ id: "one" });
+  const result = await reopened.select(operation);
+  assert.equal(result.segmentId, pending.runtime.replacement.segmentId);
+  const saved = await f.storage.read("one", tx => tx.readMetadata());
+  assert.deepEqual(saved.runtime.binding, pending.runtime.replacement.binding);
+  assert.deepEqual(saved.runtime.predecessors.at(-1).binding, metadata.runtime.binding);
+  assert.equal(saved.runtime.replacement, undefined);
+  assert.equal((await reopened.select(operation)).duplicate, true);
+  assert.deepEqual(await f.storage.read("one", tx => tx.readMetadata()), saved);
+  assert.equal(f.requests.length, 0);
+});
+
+test("interrupted fresh native selection retains its consumer policy and successor on restart", async t => {
+  const directory = await mkdtemp(join(tmpdir(), "opencode-fresh-selection-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const f = await fixture(t, { host: { workdir: directory, execution: {
+    start() { assert.fail("Selection cannot start native work."); },
+    stop() { assert.fail("An inert binding has no process to stop."); }
+  } } });
+  await f.conversation.select({ operationId: "enter-open-code", expectedSegmentId: (await f.conversation.read()).segmentId,
+    engine: "opencode", configuration });
+  const original = await f.storage.read("one", tx => tx.readMetadata());
+  const operation = { operationId: "fresh-model", expectedSegmentId: original.runtime.segmentId,
+    engine: "opencode", configuration: { ...configuration, effort: "high" }, retireNative: true };
+  f.state.failCommit = true;
+  await assert.rejects(f.conversation.select(operation), /Storage offline during replacement commit/);
+  const pending = await f.storage.read("one", tx => tx.readMetadata());
+  assert.deepEqual(pending.runtime.replacement.request, { ...operation, operation: "select" });
+  assert.notEqual(pending.runtime.replacement.binding.directory, original.runtime.binding.directory);
+  assert.equal((await f.conversation.read()).status, "replacement-pending");
+  await assert.rejects(f.conversation.send({ messageId: "too-early", text: "Wait for the change" }),
+    { code: "conversation_replacement_pending" });
+  await f.first.close();
+  f.state.failCommit = false;
+  const reopened = await f.runtime().open({ id: "one" });
+  const result = await reopened.select(operation);
+  const saved = await f.storage.read("one", tx => tx.readMetadata());
+  assert.equal(result.segmentId, pending.runtime.replacement.segmentId);
+  assert.deepEqual(saved.runtime.binding, pending.runtime.replacement.binding);
+  assert.deepEqual(saved.runtime.predecessors.at(-1).binding, original.runtime.binding);
+  assert.deepEqual(saved.runtime.predecessors.at(-1).replacement, { ...operation, operation: "select" });
+  assert.equal(saved.runtime.replacement, undefined);
+  assert.equal((await reopened.select(operation)).duplicate, true);
+  assert.deepEqual(await f.storage.read("one", tx => tx.readMetadata()), saved);
+  assert.equal(f.requests.length, 0);
 });

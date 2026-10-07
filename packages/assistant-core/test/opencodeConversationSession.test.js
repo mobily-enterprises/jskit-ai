@@ -111,7 +111,7 @@ async function fixture(t, options = {}) {
       if (req.url.startsWith("/auth/")) return reply(true);
       if (req.url === "/path") return reply({ directory: req.headers["x-opencode-directory"] });
       if (req.url === "/provider") return reply({ all: Object.entries(configuration.provider).map(([id, provider]) => ({
-        id, models: Object.fromEntries(Object.entries(provider.models || { "test-model": {} }).map(([id, model]) => [id, { ...model, id, variants: { low: {}, high: {} } }]))
+        id, models: Object.fromEntries(Object.entries({ ...(provider.models || { "test-model": {} }), ...${JSON.stringify(options.modelDefinitions || {})} }).map(([id, model]) => [id, { ...model, id, variants: { low: {}, high: {} } }]))
       })) });
       if (req.url === "/api/session" && req.method === "POST") {
         if (!body.model?.id || body.location?.directory !== process.cwd()) return reply({ message: "Invalid native session parameters" }, 422);
@@ -786,4 +786,203 @@ test("OpenCode common dispatch preserves original local image input and exact co
   await f.conversation.send({ ...request, messageId: "local-again" });
   await f.conversation.wait();
   assert.equal((await f.trace()).filter(row => row.method === "PATCH" && row.url === `/session/${sessionId}`).length, 1);
+});
+
+
+test("OpenCode provider selection rotates only the incompatible binding and retains canonical history", async t => {
+  let model = "test-model";
+  const f = await fixture(t, { modelDefinitions: { "other-model": {} }, resolve: async ({ integrationId }) => ({
+    providerId: integrationId, model, sdkPackage: "@ai-sdk/openai-compatible",
+    modelLimits: { context: 32000, output: 4000 }, apiKey: `key-${integrationId}`
+  }) });
+  await f.conversation.send(input);
+  const before = await f.conversation.wait();
+  const original = await f.binding();
+  model = "other-model";
+  await f.conversation.select({ operationId: "same-provider-model", expectedSegmentId: before.segmentId,
+    engine: "opencode", configuration: { ...configuration, model, effort: "low" } });
+  assert.deepEqual(await f.binding(), original, "A model change within the same provider retains its native session and account");
+  assert.equal((await f.conversation.read()).segmentId, before.segmentId);
+  await f.conversation.send({ messageId: "second", text: "Same account" });
+  const current = await f.conversation.wait();
+  const selection = { operationId: "different-provider", expectedSegmentId: current.segmentId,
+    engine: "opencode", configuration: { ...configuration, integrationId: "flash", model, effort: "low" } };
+  const selected = await f.conversation.select(selection);
+  assert.notEqual(selected.segmentId, current.segmentId);
+  const inert = await f.binding();
+  assert.notEqual(inert.directory, original.directory);
+  assert.equal(inert.sessionId, "");
+  assert.equal(inert.accountIdentity, undefined);
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 2,
+    "Selecting another provider must not run inference");
+  assert.deepEqual((await f.conversation.read()).conversationLog, current.conversationLog);
+  assert.equal((await f.conversation.select(selection)).duplicate, true);
+  await f.conversation.send({ messageId: "third", text: "Continue with Flash" });
+  const after = await f.conversation.wait();
+  assert.equal(after.id, current.id);
+  assert.equal(after.error, "");
+  assert.deepEqual(after.conversationLog.slice(0, 2), current.conversationLog);
+  const fresh = await f.binding();
+  assert.notEqual(fresh.sessionId, original.sessionId);
+  assert.notEqual(fresh.accountIdentity, original.accountIdentity);
+  const prompts = (await f.trace()).filter(row => row.url?.endsWith("/prompt_async"));
+  assert.equal(prompts.length, 3);
+  assert.match(prompts[2].body.parts[0].text, /Hello/);
+  assert.match(prompts[2].body.parts[0].text, /Same account/);
+  assert.match(prompts[2].body.parts[0].text, /Continue with Flash/);
+  await f.first.close();
+  const reopened = await f.runtime().open({ id: "conversation" });
+  assert.equal((await reopened.select(selection)).duplicate, true);
+  assert.deepEqual(await f.binding(), { ...fresh, executionId: "", processDirectory: "" });
+  assert.deepEqual((await reopened.read()).conversationLog, after.conversationLog);
+});
+
+for (const change of ["model", "effort"]) {
+  test(`OpenCode selection honors a consumer's fresh native policy for ${change} changes without losing written history`, async t => {
+    let model = "test-model";
+    const f = await fixture(t, { modelDefinitions: { "other-model": {} }, resolve: async () => ({
+      providerId: "test", model, sdkPackage: "@ai-sdk/openai-compatible", apiKey: "same-account"
+    }) });
+    await f.conversation.send(input);
+    const before = await f.conversation.wait();
+    const original = await f.binding();
+    if (change === "model") model = "other-model";
+    const selection = { operationId: `fresh-${change}`, expectedSegmentId: before.segmentId, engine: "opencode",
+      configuration: { ...configuration, model, effort: change === "effort" ? "high" : "low" }, retireNative: true };
+    await assert.rejects(f.conversation.select({ ...selection, retireNative: "yes" }), { code: "conversation_invalid_replacement" });
+    assert.deepEqual(await f.binding(), original);
+    const selected = await f.conversation.select(selection);
+    assert.notEqual(selected.segmentId, before.segmentId);
+    const inert = await f.binding();
+    assert.notEqual(inert.directory, original.directory);
+    assert.equal(inert.sessionId, "");
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1,
+      "Changing the selection cannot submit another authored request");
+    assert.deepEqual((await f.conversation.read()).conversationLog, before.conversationLog);
+    assert.equal((await f.conversation.select(selection)).duplicate, true);
+    await f.conversation.send({ messageId: "after-change", text: "Continue our discussion" });
+    const after = await f.conversation.wait();
+    assert.equal(after.error, "");
+    assert.equal(after.id, before.id);
+    assert.notEqual((await f.binding()).sessionId, original.sessionId);
+    assert.equal((await f.binding()).accountIdentity, original.accountIdentity);
+    assert.deepEqual(after.conversationLog[0], before.conversationLog[0]);
+    const prompts = (await f.trace()).filter(row => row.url?.endsWith("/prompt_async"));
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[1].body.parts[0].text, /Hello/);
+    assert.match(prompts[1].body.parts[0].text, /Continue our discussion/);
+    assert.deepEqual(prompts[1].body.model, { providerID: "test", modelID: model });
+    assert.equal(prompts[1].body.variant, change === "effort" ? "high" : "low");
+    await f.first.close();
+    const reopened = await f.runtime().open({ id: "conversation" });
+    assert.equal((await reopened.select(selection)).duplicate, true);
+    assert.deepEqual((await reopened.read()).conversationLog, after.conversationLog);
+  });
+}
+
+test("OpenCode explicit selection recovers an older mismatched configuration without replaying its rejected request", async t => {
+  const f = await fixture(t, { resolve: async ({ integrationId }) => ({
+    providerId: integrationId, model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
+    modelLimits: { context: 32000, output: 4000 }, apiKey: `key-${integrationId}`
+  }) });
+  await f.conversation.send(input);
+  const original = await f.conversation.wait();
+  const oldBinding = await f.binding();
+  // Earlier same-engine selection wrote the new configuration but kept this
+  // binding. Configure reproduces those exact persisted facts without replacing
+  // the original identity guard or running an alternative sender.
+  await f.conversation.configure({ integrationId: "flash" });
+  await assert.rejects(f.conversation.send({ messageId: "rejected-greeting", text: "Do not replay this greeting" }),
+    /another OpenCode account/);
+  await f.conversation.wait();
+  const rejected = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.request);
+  assert.equal(rejected.messageId, "rejected-greeting");
+  assert.equal(rejected.attempted, false);
+  assert.deepEqual(await f.binding(), { ...oldBinding, executionId: "", processDirectory: "" });
+  const restoring = { operationId: "restore-original-provider", expectedSegmentId: original.segmentId,
+    engine: "opencode", configuration };
+  const restored = await f.conversation.select(restoring);
+  const switchToFlash = { operationId: "select-flash-after-restore", expectedSegmentId: restored.segmentId,
+    engine: "opencode", configuration: { ...configuration, integrationId: "flash" } };
+  await f.conversation.select(switchToFlash);
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+  await f.conversation.send({ messageId: "new-authored-message", text: "Continue the same conversation" });
+  const after = await f.conversation.wait();
+  assert.equal(after.id, original.id);
+  assert.equal(after.error, "");
+  assert.deepEqual(after.conversationLog[0], original.conversationLog[0]);
+  const saved = await f.storage.read("conversation", tx => tx.readMetadata());
+  assert.deepEqual(saved.runtime.predecessors.find(segment => segment.request?.messageId === rejected.messageId).request, rejected,
+    "The original rejected request remains with its predecessor, not a new dispatch");
+  const prompts = (await f.trace()).filter(row => row.url?.endsWith("/prompt_async"));
+  assert.equal(prompts.length, 2);
+  assert.doesNotMatch(prompts[1].body.parts[0].text, /Do not replay this greeting|rejected-greeting/);
+  assert.match(prompts[1].body.parts[0].text, /Hello/);
+});
+
+test("OpenCode provider selection retains an uncertain predecessor without resending its authored ID", async t => {
+  const f = await fixture(t, { unobservedInput: true, resolve: async ({ integrationId }) => ({
+    providerId: integrationId, model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
+    modelLimits: { context: 32000, output: 4000 }, apiKey: `key-${integrationId}`
+  }) });
+  await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }));
+  const before = await f.conversation.wait();
+  const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+  assert.equal(metadata.runtime.request.attempted, true);
+  await f.conversation.select({ operationId: "switch-with-unknown", expectedSegmentId: before.segmentId,
+    engine: "opencode", configuration: { ...configuration, integrationId: "flash" } });
+  const saved = await f.storage.read("conversation", tx => tx.readMetadata());
+  assert.deepEqual(saved.runtime.predecessors.at(-1).request, metadata.runtime.request);
+  await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }),
+    /pending.*another|another.*pending|another native|uncertain/i);
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+});
+
+
+test("OpenCode fresh native selection retains an uncertain predecessor without resending its authored ID", async t => {
+  const f = await fixture(t, { unobservedInput: true });
+  await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }));
+  const before = await f.conversation.wait();
+  const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+  assert.equal(metadata.runtime.request.attempted, true);
+  await f.conversation.select({ operationId: "fresh-with-unknown", expectedSegmentId: before.segmentId,
+    engine: "opencode", configuration: { ...configuration, effort: "high" }, retireNative: true });
+  const saved = await f.storage.read("conversation", tx => tx.readMetadata());
+  assert.deepEqual(saved.runtime.predecessors.at(-1).request, metadata.runtime.request);
+  assert.notEqual(saved.runtime.binding.directory, metadata.runtime.binding.directory);
+  assert.equal(saved.runtime.binding.sessionId, "");
+  await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }),
+    /pending.*another|another.*pending|another native|uncertain/i);
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+});
+
+test("returning to OpenCode restores only a retained binding with the selected integration", async t => {
+  const f = await fixture(t, { resolve: async ({ integrationId }) => ({
+    providerId: integrationId, model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
+    modelLimits: { context: 32000, output: 4000 }, apiKey: `key-${integrationId}`
+  }) });
+  await f.conversation.send(input);
+  const before = await f.conversation.wait();
+  const original = await f.binding();
+  const otherEngine = await f.conversation.select({ operationId: "api-between", expectedSegmentId: before.segmentId,
+    engine: "api", configuration });
+  const selected = await f.conversation.select({ operationId: "return-to-flash", expectedSegmentId: otherEngine.segmentId,
+    engine: "opencode", configuration: { ...configuration, integrationId: "flash" } });
+  assert.notEqual(selected.segmentId, before.segmentId);
+  assert.notEqual((await f.binding()).directory, original.directory);
+  assert.equal((await f.binding()).sessionId, "");
+  await f.conversation.send({ messageId: "after-api", text: "The same discussion on Flash" });
+  const after = await f.conversation.wait();
+  assert.equal(after.error, "");
+  assert.equal(after.id, before.id);
+  assert.deepEqual(after.conversationLog[0], before.conversationLog[0]);
+  const flash = await f.binding();
+  const apiAgain = await f.conversation.select({ operationId: "api-again", expectedSegmentId: after.segmentId,
+    engine: "api", configuration });
+  const restored = await f.conversation.select({ operationId: "restore-flash", expectedSegmentId: apiAgain.segmentId,
+    engine: "opencode", configuration: { ...configuration, integrationId: "flash" } });
+  assert.equal(restored.segmentId, selected.segmentId);
+  assert.deepEqual(await f.binding(), { ...flash, executionId: "", processDirectory: "" },
+    "Returning to the same integration restores native identity after verified process cleanup");
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 2);
 });

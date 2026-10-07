@@ -6,6 +6,7 @@ import { useVoiceLauncher } from "./voiceLauncher.js";
 const props = defineProps({
   session: { type: Object, required: true },
   disabled: { type: Boolean, default: false },
+  speakerDisabled: { type: Boolean, default: false },
   compact: { type: Boolean, default: false },
   iconOnly: { type: Boolean, default: false },
   reviewInTranscript: { type: Boolean, default: false },
@@ -90,7 +91,8 @@ const gesture = useVoiceLauncher({
           <v-btn
             :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" :variant="iconOnly ? 'text' : 'tonal'" :color="iconOnly ? 'primary' : undefined" :min-height="iconOnly ? 44 : compact ? 48 : 64" :width="iconOnly ? 40 : undefined" :min-width="iconOnly ? 40 : compact ? 48 : 64" rounded="xl"
             :aria-label="readAloud ? `Turn ${targetLabel} read-aloud off` : `Read ${targetLabel} answers aloud`"
-            :title="readAloud ? 'Spoken replies on' : 'Spoken replies off'" @click="toggleReadAloud"
+            :title="readAloud ? 'Spoken replies on' : 'Spoken replies off'"
+            :disabled="speakerDisabled || session.readAloudChangePending?.value === true" @click="toggleReadAloud"
           >
             <template v-if="iconOnly" #default>
               <span class="assistant-voice-controls__icon-disc"><v-icon size="20" :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" /></span>

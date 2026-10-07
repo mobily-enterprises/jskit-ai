@@ -229,8 +229,13 @@ target interrupts it.
 The speaker button changes the requested preference. Its optional
 `binding.onReadAloudChange(value)` callback runs only for that explicit change,
 never for preference hydration, microphone actions or navigation. The application
-owns storing it for the correct authenticated user. `defaults.readAloud` initializes
-a new session; it is not a second preference store. Sound on applies to future
+owns storing it for the correct authenticated user. A live optional
+`binding.readAloudChangePending: true` fences the next explicit preference change
+before the local toggle. The session exposes that computed flag; controls disable
+only the speaker choice (or an explicit `speakerDisabled` prop), leaving
+**Enable sound**, microphone capture and typing available. `defaults.readAloud` initializes
+a new session and hydrates a live boolean preference without emitting the callback;
+it is not a second preference store. Sound on applies to future
 outputs and does not replay history. If browser playback is blocked, the speaker
 choice stays on and **Enable sound** retries unlocking it. Microphone permission
 and capture continue independently, including while sound unlock is pending.
@@ -438,3 +443,48 @@ input; once that earlier admission settles, the existing capture owner finalizes
 and sends the retained utterance exactly once. Resuming before admission settles
 keeps that recording open. Cancellation retires the requested finish; genuinely
 unknown delivery remains unresolved until the person uses existing recovery.
+
+
+### Optional activity narration
+
+A host can supply a live `binding.narration` object with `turns`, `loading`,
+`working`, `eligible`, `vocalizeThinking`, `vocalizeInterimTurns` and
+`thinkingSounds`. Without it, the existing canonical-answer behavior is unchanged.
+The host owns these preferences and eligibility; JSKIT does not persist them or
+change the shared default for read aloud.
+
+The retained narration tracker observes thinking/commentary once, retires old or
+disabled content, and settles an unchanged trailing phrase after 700ms while work
+continues. The tracker retains the full activity history, so later short deltas can continue
+beyond 4000 cumulative characters. The original splitter caps each newly observed
+delta at 4000 characters before producing activity chunks of at most 300
+characters; a larger single burst can lose its remaining tail. With thinking sounds
+selected, an idle working conversation may say “Hmm...” after 20 seconds; it does
+not overlap existing audio.
+
+Optional activity joins the original speech queue. Canonical answers take priority
+and keep their existing output IDs and playback callbacks. Activity and thinking
+sounds have no canonical output identity and emit no `onPlayback` receipt; they
+cannot satisfy lesson audio completion. Optional speech yields to microphone
+startup, capture and transcription. Canonical answers retain full duplex playback.
+Hiding the avatar is presentation only and does not disable either facility.
+
+Stop speaking, speaker-off hydration, target retirement, loading, hidden pages and
+close retire the applicable optional speech and timers. Returning or enabling a
+flag does not replay old activity. An explicit new request or speaker choice can
+lift the existing Stop-speaking silence policy; preference hydration never writes
+back through `onReadAloudChange`.
+
+For a binding that opts into narration, hiding the browser tab consumes newly
+observed canonical outputs without speaking or replaying them on return. A
+streamed output first finalized while hidden is interrupted with its existing
+output ID, never reported as completed. Completed answers already queued while
+visible may finish playing when no capture is active.
+
+Hiding that tab cancels microphone startup and unfinished capture. These current
+words are discarded under the original Main capture policy; an earlier pending,
+admitted or unresolved delivery retains its text, ID and destination. Returning
+does not restart capture; use Talk explicitly. This document-hidden boundary is
+independent of avatar collapse or chat minimization, which preserve the session
+and ordinary full duplex. Bindings without narration retain their existing tab
+behavior; page suspension still uses the original transport recovery.

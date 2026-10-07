@@ -298,6 +298,99 @@ export function createCodexConversationCommands({
     });
   }
 
+  async function runDetachedCodexAppServerConversation(sessionId, input = {}, options = {}) {
+    const preparation = conversationPreparation.detached(sessionId, input);
+    const { admission } = preparation;
+    if (admission.ok === false) return admission;
+    try {
+      return await codexAppServerConversationResult(async () => {
+        const unavailable = preparation.result;
+        if (unavailable) return unavailable;
+        const prompt = preparation.prompt;
+        const context = await codexAppServerConversationContext(sessionId, input, options);
+        if (context.ok === false) return context;
+        const { provider, runtime, workdir } = context;
+        const executionProfile = input.executionProfile && typeof input.executionProfile === "object" &&
+          !Array.isArray(input.executionProfile) ? input.executionProfile : null;
+        const helperTurn = Boolean(executionProfile);
+        const emitDetachedEvent = event => {
+          if (typeof options.onEvent === "function") options.onEvent(event);
+        };
+        const onRetired = ({ threadId }) => emitDetachedEvent({ threadId, type: "thread-retired" });
+        if (helperTurn) {
+          await assertCodexAppServerHelperAccountIdentity(provider, input.expectedAccountIdentitySignature, helperOwnershipError);
+        }
+        const execution = preparation.execution(context);
+        const threadSettings = helperTurn ? null : await prepareCodexAppServerConversationThread(
+          provider, execution.threadPreparation, conversationPreparation.isolation
+        );
+        const requestedThreadId = normalizeCodexRunText(input.threadId || input.codexSessionId);
+        let helper = null;
+        let thread;
+        if (helperTurn) {
+          const scope = { executionProfile, onRetired, projectRuntimeRoot: normalizeCodexRunText(runtime?.stateRoot),
+            projectContextRoot: normalizeCodexRunText(runtime?.projectContextRoot), provider, sessionId, requestedThreadId, workdir,
+            ...(requestedThreadId ? { record: helperLifecycle.threadForOperation({ executionProfile,
+              projectRuntimeRoot: normalizeCodexRunText(runtime?.stateRoot), provider, sessionId,
+              threadId: requestedThreadId, workdir }) } : {}) };
+          helper = await helperLifecycle.prepareDetached(scope, execution.helperPreparation);
+          thread = helper.thread;
+        } else {
+          thread = await acquireCodexAppServerDetachedThread(provider, requestedThreadId, threadSettings, input);
+        }
+        const threadId = codexAppServerDetachedThreadId(thread, requestedThreadId);
+        emitDetachedEvent({ threadId, type: "thread" });
+        const requestedTimeoutMs = Number(input.timeoutMs || 0);
+        const profileTimeoutMs = Number(executionProfile?.limits?.timeoutMs || 0);
+        let turnId = "";
+        const result = await runDetachedCodexAppServerTurn({
+          provider, threadId, onEvent: emitDetachedEvent,
+          timeoutMs: helperTurn
+            ? Math.min(requestedTimeoutMs > 0 ? requestedTimeoutMs : profileTimeoutMs, profileTimeoutMs)
+            : requestedTimeoutMs > 0 ? requestedTimeoutMs : CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS,
+          async onFailure(error, status) {
+            await helper?.discard();
+            return execution.failure(error, status);
+          }
+        }, async failDispatch => {
+          let dispatched;
+          if (helperTurn) {
+            dispatched = await helper.dispatch(threadId, failDispatch);
+          } else {
+            try {
+              dispatched = await dispatchCodexAppServerDetachedTurn({ provider, prompt, threadId }, execution.authorized);
+            } catch (error) {
+              await failDispatch(error);
+            }
+          }
+          turnId = dispatched.turnId;
+          return dispatched;
+        });
+        if (helperTurn) {
+          try {
+            await assertCodexAppServerHelperAccountIdentity(provider, input.expectedAccountIdentitySignature, helperOwnershipError);
+          } catch (error) {
+            await helper.discard();
+            throw error;
+          }
+          try {
+            execution.validateOutput(result.text);
+          } catch (error) {
+            await helper.discard();
+            throw error;
+          }
+          await helper.complete();
+        }
+        emitDetachedEvent({ status: result.status || "completed", text: result.text,
+          threadId, turnId: result.turnId || turnId, type: "completed" });
+        return { ok: true, text: result.text, threadId, turnId: result.turnId || turnId,
+          ...(helperTurn ? { inputCharacters: prompt.length, outputCharacters: result.text.length, usage: result.usage || null } : {}) };
+      });
+    } finally {
+      admission.release();
+    }
+  }
+
   async function startCodexAppServerConversationTurn(sessionId, input = {}, options = {}) {
     const messageId = normalizeCodexRunText(input.messageId);
     return withCodexAppServerConversationTurnStart(sessionId, input, () => codexAppServerConversationResult(async () => {
@@ -1063,6 +1156,7 @@ export function createCodexConversationCommands({
     codexAppServerConversationContext,
     codexAppServerEphemeralScopeContext,
     createCodexAppServerConversation,
+    runDetachedCodexAppServerConversation,
     startCodexAppServerConversationTurn,
     readCodexAppServerConversation,
     waitForCodexAppServerConversationTurn,

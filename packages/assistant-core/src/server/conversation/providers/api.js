@@ -69,6 +69,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
           const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
           validateConnectionModel(configuration, connection);
           client = createAiConnectionClient(connection, { fetch, effort: configuration.effort,
+            reportUnavailableToolCalls: Boolean(tools),
             maxOutputTokens: limits.maxOutputTokens, timeoutMs: limits.timeoutMs });
         }
         signal.throwIfAborted();

@@ -667,3 +667,34 @@ test("catalogue retains unrestricted matching for externally supplied empty surf
     assert.equal(catalog.resolveToolSet({ surface }).tools.length, 0);
   }
 });
+
+test("synchronous failure observers preserve thrown identity and exclude unknown descriptors", async () => {
+  const originalFailure = Object.assign(new Error("Private database failure"), { statusCode: 500, code: "DATABASE_FAILED" });
+  const observerFailure = new Error("Observer stopped this tool call");
+  let executions = 0;
+  const actions = createActions([action({
+    execute: async () => { executions++; throw originalFailure; }
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  const failures = [];
+  const onFailure = error => { failures.push(error); throw observerFailure; };
+  assert.deepEqual(await catalog.executeToolCall({ toolName: "missing", context, toolSet, onFailure }), {
+    ok: false,
+    error: { code: "assistant_tool_unknown", message: "Unknown tool." }
+  });
+  assert.deepEqual(failures, [], "unknown exposed descriptors return before the failure observer");
+  assert.equal(executions, 0);
+  await assert.rejects(catalog.executeToolCall({ toolName: toolSet.tools[0].name, context, toolSet, onFailure }),
+    error => error === observerFailure);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0], originalFailure, "the callback receives the exact caught application error");
+  assert.equal(executions, 1);
+  assert.deepEqual(await catalog.executeToolCall({ toolName: toolSet.tools[0].name, context, toolSet }), {
+    ok: false,
+    error: { code: "DATABASE_FAILED", message: "Tool call failed.", status: 500 }
+  });
+  assert.equal(executions, 2);
+  assert.equal(failures.length, 1, "no-callback safe failure conversion keeps its original behavior");
+});

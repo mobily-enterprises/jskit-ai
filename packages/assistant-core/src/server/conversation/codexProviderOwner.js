@@ -8,7 +8,7 @@ import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 // inspect the complete inventory by native runtime identity.
 const codexAppServerProviders = new Map();
 const codexAppServerOwnedRuntimes = new Map();
-let codexAppServerProviderLifecycle = Promise.resolve();
+const codexAppServerRuntimeLifecycles = new Map();
 const normalizeText = value => String(value || "").trim();
 
 export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {}) {
@@ -16,6 +16,18 @@ export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions 
   return runtimeDir
     ? `runtime:${path.resolve(runtimeDir)}`
     : `provider:${normalizeText(providerKey)}`;
+}
+
+function withRuntimeLifecycle(runtimeKey, operation) {
+  const previous = codexAppServerRuntimeLifecycles.get(runtimeKey) || Promise.resolve();
+  const run = previous.catch(() => null).then(operation);
+  const tail = run.catch(() => null).finally(() => {
+    if (codexAppServerRuntimeLifecycles.get(runtimeKey) === tail) {
+      codexAppServerRuntimeLifecycles.delete(runtimeKey);
+    }
+  });
+  codexAppServerRuntimeLifecycles.set(runtimeKey, tail);
+  return run;
 }
 
 export function codexAppServerRuntimeStopWasVerified(result = {}) {
@@ -57,6 +69,7 @@ export function createCodexAppServerProviderOwner({
   const records = new Map();
   const lifecycleTasks = new Set();
   const runtimeAcquisitions = new Set();
+  let codexAppServerProviderLifecycle = Promise.resolve();
   let closing = false;
   let runtimeLifecycle = null;
   let codexAppServerChatModelCatalog = null;
@@ -99,8 +112,12 @@ export function createCodexAppServerProviderOwner({
     return relative === "" || !relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative);
   }
 
-  function withLifecycle(operation) {
-    const run = codexAppServerProviderLifecycle.catch(() => null).then(operation);
+  function withLifecycle(operation, providerKey = "", providerOptions = null) {
+    const run = codexAppServerProviderLifecycle.catch(() => null).then(() => {
+      if (!providerKey && !providerOptions) return operation();
+      const options = providerOptions || records.get(normalizeText(providerKey))?.providerOptions;
+      return withRuntimeLifecycle(codexAppServerOwnedRuntimeKey(providerKey, options), operation);
+    });
     const tracked = run.catch(() => null).finally(() => {
       lifecycleTasks.delete(tracked);
     });
@@ -259,12 +276,12 @@ export function createCodexAppServerProviderOwner({
   async function ensureSession(context, mainThreadId = "") {
     const sessionId = context.sessionId;
     const providerOptions = context.providerOptions;
-    let provider = await withLifecycle(() => providerForSession(context));
+    const providerKey = context.providerKey;
+    let provider = await withLifecycle(() => providerForSession(context), providerKey, providerOptions);
     if (provider.observationFailure) {
       await provider.failObservation(provider.observationFailure);
-      provider = await withLifecycle(() => providerForSession(context));
+      provider = await withLifecycle(() => providerForSession(context), providerKey, providerOptions);
     }
-    const providerKey = context.providerKey;
     if (mainThreadId) {
       const fields = context.keyFields(providerKey);
       context.runOwner.runtimeLifecycle.rememberManagedSession(providerKey, {
@@ -425,7 +442,8 @@ export function createCodexAppServerProviderOwner({
 
   function stopCachedProvider(providerKey = "", options = {}) {
     return withLifecycle(
-      () => stopCachedProviderUnlocked(providerKey, options)
+      () => stopCachedProviderUnlocked(providerKey, options),
+      normalizeText(providerKey)
     );
   }
 
@@ -496,47 +514,50 @@ export function createCodexAppServerProviderOwner({
       assertOpen();
       signal?.throwIfAborted();
       const providerOptions = await prepareProviderOptions();
-      const existing = codexAppServerOwnedRuntimes.get(
-        codexAppServerOwnedRuntimeKey("", providerOptions)
-      );
-      const provider = existing?.provider || providerFactory(providerOptions);
-      let runtime = null;
-      let catalog = null;
-      let identity = "";
-      try {
-        identity = JSON.stringify(await provider.currentRuntimeInfo());
-        signal?.throwIfAborted();
-        if (codexAppServerChatModelCatalog?.identity === identity &&
-            codexAppServerChatModelCatalog.expiresAt > Date.now()) {
-          return codexAppServerChatModelCatalog.value;
-        }
-        if (!existing?.provider) {
-          runtime = await acquireRuntime({
-            operation: () => provider.ensureRuntime(),
-            provider,
-            providerOptions
-          });
-        }
-        catalog = await provider.listModels({ includeHidden: false, limit: 100 }, { signal });
-      } finally {
-        if (!existing?.provider) {
-          try {
-            if ((runtime || provider.runtime)?.reused === false) {
-              await stopOwnedRuntime({ provider, resources });
-            } else {
-              forgetOwnedRuntime(provider);
+      return withRuntimeLifecycle(codexAppServerOwnedRuntimeKey("", providerOptions), async () => {
+        const existing = codexAppServerOwnedRuntimes.get(
+          codexAppServerOwnedRuntimeKey("", providerOptions)
+        );
+        const provider = existing?.provider || providerFactory(providerOptions);
+        let runtime = null;
+        let catalog = null;
+        let identity = "";
+        try {
+          assertOpen();
+          identity = JSON.stringify(await provider.currentRuntimeInfo());
+          signal?.throwIfAborted();
+          if (codexAppServerChatModelCatalog?.identity === identity &&
+              codexAppServerChatModelCatalog.expiresAt > Date.now()) {
+            return codexAppServerChatModelCatalog.value;
+          }
+          if (!existing?.provider) {
+            runtime = await acquireRuntime({
+              operation: () => provider.ensureRuntime(),
+              provider,
+              providerOptions
+            });
+          }
+          catalog = await provider.listModels({ includeHidden: false, limit: 100 }, { signal });
+        } finally {
+          if (!existing?.provider) {
+            try {
+              if ((runtime || provider.runtime)?.reused === false) {
+                await stopOwnedRuntime({ provider, resources });
+              } else {
+                forgetOwnedRuntime(provider);
+              }
+            } finally {
+              provider.close();
             }
-          } finally {
-            provider.close();
           }
         }
-      }
-      codexAppServerChatModelCatalog = {
-        expiresAt: Date.now() + cacheMs,
-        identity,
-        value: catalog
-      };
-      return catalog;
+        codexAppServerChatModelCatalog = {
+          expiresAt: Date.now() + cacheMs,
+          identity,
+          value: catalog
+        };
+        return catalog;
+      });
     });
   }
 
@@ -939,8 +960,10 @@ export function createCodexAppServerProviderOwner({
     return withLifecycle(async () => {
       const prepared = preparation.read();
       if (Object.hasOwn(prepared, "value")) return prepared.value;
-      const evidence = await releasePersistedRuntimeProof(prepared.runtimeOptions, prepared);
-      return prepared.complete(evidence);
+      return withRuntimeLifecycle(codexAppServerOwnedRuntimeKey("", prepared.runtimeOptions), async () => {
+        const evidence = await releasePersistedRuntimeProof(prepared.runtimeOptions, prepared);
+        return prepared.complete(evidence);
+      });
     });
   }
 

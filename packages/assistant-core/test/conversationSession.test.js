@@ -304,6 +304,145 @@ test("native creation authorizes its parent scope and uses only the configured o
   assert.equal(saves.length, 2);
 });
 
+test("native detached execution separates admitted context from host-approved original options", async t => {
+  const id = "detached-parent";
+  const input = { prompt: "Original detached request" };
+  const nativeOptions = { runtime: { stateRoot: "/authorized/state" }, session: { sessionId: id }, onEvent: undefined };
+  const submittedOptions = { privateProjection: true };
+  const result = { ok: true, text: "Completed", threadId: "native-thread", turnId: "native-turn" };
+  const calls = [];
+  let permitted = false, wrongIdentity = false, preparing = null, entered = null;
+  const runtime = createConversationRuntime({
+    authorize(request) {
+      calls.push("authorize");
+      assert.deepEqual(request, { context, conversationId: id, operation: "runDetachedConversation" });
+      return permitted;
+    },
+    storage: { read() { assert.fail("Detached execution does not hydrate Main."); },
+      write() { assert.fail("Detached execution does not write canonical conversation history."); } },
+    host: { async conversation(request) {
+      calls.push("host");
+      assert.deepEqual(request, { id, context, input, options: submittedOptions, operation: "runDetachedConversation" });
+      entered?.resolve();
+      await preparing?.promise;
+      return { sessionId: wrongIdentity ? "other-parent" : id, engine: "codex", context, input, options: nativeOptions,
+        native: { runOwner: { runDetachedConversation(parent, authored, options) {
+          calls.push("native");
+          assert.equal(parent, id);
+          assert.equal(authored, input);
+          assert.equal(options, nativeOptions);
+          assert.equal(Object.hasOwn(options, "onEvent"), true);
+          assert.equal(Object.hasOwn(options, "signal"), false);
+          return result;
+        } } } };
+    } }
+  });
+  t.after(() => runtime.close());
+  const request = { id, context, input, options: submittedOptions,
+    get native() { return assert.fail("The caller cannot inject a native owner."); },
+    get engine() { return assert.fail("The caller cannot select another engine."); },
+    get host() { return assert.fail("The caller cannot override the configured host."); }
+  };
+  await assert.rejects(runtime.runNativeDetachedConversation(request), { code: "conversation_forbidden" });
+  assert.deepEqual(calls, ["authorize"]);
+  permitted = true;
+  wrongIdentity = true;
+  await assert.rejects(runtime.runNativeDetachedConversation(request), /authorized host preparation/);
+  assert.deepEqual(calls, ["authorize", "authorize", "host"]);
+  wrongIdentity = false;
+  assert.equal(await runtime.runNativeDetachedConversation(request), result);
+  assert.deepEqual(calls.slice(3), ["authorize", "host", "native"]);
+  preparing = Promise.withResolvers();
+  entered = Promise.withResolvers();
+  const pending = runtime.runNativeDetachedConversation(request);
+  await entered.promise;
+  await runtime.close();
+  preparing.resolve();
+  await assert.rejects(pending, { code: "conversation_closed" });
+  assert.deepEqual(calls.slice(6), ["authorize", "host"]);
+  await assert.rejects(runtime.runNativeDetachedConversation(request), { code: "conversation_closed" });
+  assert.equal(calls.length, 8);
+});
+
+test("Claude detached joining preserves acquire-before-audit and awaited event-before-start", async t => {
+  for (const rejected of [false, true]) await t.test(rejected ? "event rejection" : "completed turn", async t => {
+    const calls = [];
+    const eventEntered = Promise.withResolvers();
+    const eventRelease = Promise.withResolvers();
+    const executionProfile = { model: "selected-helper", limits: { timeoutMs: 500 } };
+    const signal = new AbortController().signal;
+    const nativeContext = { ...context, assistantScope: { id: "helper-parent" }, signal,
+      async onEvent(event) {
+        calls.push("profile-event");
+        assert.deepEqual(event, { type: "execution-profile", executionProfile });
+        eventEntered.resolve();
+        await eventRelease.promise;
+      }
+    };
+    const input = { prompt: "Original prompt", executionProfile };
+    const entry = { id: "", profile: null };
+    const result = { ok: true, text: "Original answer", threadId: "native-id", turnId: "native-turn" };
+    const owner = {
+      async acquire(actor, id, options) {
+        assert.equal(actor, nativeContext);
+        if (!entry.id) {
+          assert.match(id, /^[a-f0-9-]{36}$/u);
+          assert.deepEqual(options, { create: true });
+          entry.id = id;
+          calls.push("acquire");
+        } else {
+          assert.equal(id, entry.id);
+          calls.push(options ? "start-check" : "wait-acquire");
+          if (options) assert.deepEqual(options, { operation: "start", input: { ...input, conversationId: entry.id } });
+        }
+        return entry;
+      },
+      async startTurn(current, request) {
+        assert.equal(current, entry);
+        assert.deepEqual(request, { ...input, conversationId: entry.id });
+        assert.equal(entry.profile, executionProfile);
+        calls.push("start");
+      },
+      async wait(current, request, options) {
+        assert.equal(current, entry);
+        assert.deepEqual(request, { ...input, conversationId: entry.id });
+        assert.equal(options.context, nativeContext);
+        assert.equal(options.context.signal, signal);
+        assert.equal(options.acquire, owner.acquire);
+        calls.push("wait");
+        return result;
+      }
+    };
+    const runtime = createConversationRuntime({ authorize: () => true, host: { conversation() {
+      return { sessionId: "helper-parent", engine: "claude", context: nativeContext, input, options: {}, native: {
+        owner,
+        get executionProfile() {
+          assert.deepEqual(calls, ["acquire"]);
+          calls.push("audit");
+          return executionProfile;
+        }
+      } };
+    } } });
+    t.after(() => runtime.close());
+    const pending = runtime.runNativeDetachedConversation({ id: "helper-parent", context, input });
+    void pending.catch(() => {});
+    await eventEntered.promise;
+    assert.deepEqual(calls, ["acquire", "audit", "profile-event"]);
+    assert.equal(entry.profile, executionProfile);
+    if (rejected) {
+      const failure = new Error("Original observer rejected");
+      eventRelease.reject(failure);
+      await assert.rejects(pending, error => error === failure);
+      assert.deepEqual(calls, ["acquire", "audit", "profile-event"]);
+      assert.ok(entry.id, "The original acquired entry is not silently deleted when its event rejects.");
+    } else {
+      eventRelease.resolve();
+      assert.deepEqual(await pending, { ...result, executionProfile });
+      assert.deepEqual(calls, ["acquire", "audit", "profile-event", "start-check", "start", "wait-acquire", "wait"]);
+    }
+  });
+});
+
 test("native readiness authorizes its configured owner and rejects closure during host preparation", async t => {
   const nativeContext = { ...context, key: "readiness-scope", workdir: "/unused-native-workdir" };
   let allowed = false, hostCalls = 0, acquisitions = 0, accounts = 0, saves = 0;

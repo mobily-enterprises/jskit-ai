@@ -50,7 +50,8 @@ export function createCodexRuntimeLifecycle({
 
   function retireAndCloseCodexAppServerProvider(providerKey = "", options = {}) {
     return providerSessions.owner.withLifecycle(
-      () => retireAndCloseCodexAppServerProviderUnlocked(providerKey, options)
+      () => retireAndCloseCodexAppServerProviderUnlocked(providerKey, options),
+      normalizeText(providerKey)
     );
   }
 

@@ -247,7 +247,7 @@ The composable exposes the same `runtime` and `error` refs; it is unnecessary fo
 an application that only adds standard component slots.
 
 The composable's `presentation` option accepts a value, ref or getter. Supply transcript
-fields `assistantLabel`, `systemLabel`, `welcomeMessage`, `variant`, `visible`,
+fields `assistantLabel`, `systemLabel`, `welcomeMessage`, `variant`, `visible`, `retainWhenHidden`,
 `userMessageFormat` and `progressPreviewLimit`, and composer fields `ariaLabel`,
 `submitAriaLabel`, `submitLabel`, `placeholder` and `rows`. `layout: "compact"`
 keeps the existing compact composer. These change presentation through the
@@ -260,7 +260,9 @@ state for an exact actor, endpoint, surface, workspace and conversation. Release
 a retained handle with `release()`. Final view/reader release detaches browser
 observers; it does not stop server work. A lost receipt remains uncertain with
 **Check delivery** until inspection or canonical history proves acceptance.
-Reconnection reads state and does not resend the request.
+Reconnection reads state and does not resend the request. After an initial
+subscription failure or timeout, **Reload** retries that exact subscription on
+the connected socket with fresh authorization; it does not resend a message.
 
 Applications that create nonvisual tasks after setup can capture
 `useAssistantConversationFactory(commonOptions)` once during setup, then call
@@ -562,6 +564,13 @@ composer is present, and `stop` when `canStop` can become true.
 
 `scrollKey` changes when conversation ownership changes, resetting scroll and
 expansion state. `followLatestKey` requests following the newest message.
+`retainWhenHidden: true` keeps the original transcript scroll node while `visible`
+is false and suspends hidden scroll work. It captures a reader's visible turn
+before hiding and restores that turn's offset after reopening layout settles;
+readers following the latest message still follow new replies. An older-history
+load completed while hidden restores its original anchor after reopening. First
+open and a changed `scrollKey` still position the conversation at its latest
+message. The default is false and retains the existing remove-and-follow behavior.
 Scrolling upward within 160 CSS pixels of the transcript's top requests older
 history through `loadMore`, including touch, wheel and keyboard scrolling.
 Only one request runs at a time, and prepending preserves the reading position.
@@ -1405,13 +1414,26 @@ await conversation.select({
 ```
 
 Selecting a native engine used earlier restores its latest retained binding.
-Changing a model on the current engine retains that native conversation. Before
+Changing a model on the current engine retains that native conversation. OpenCode
+retains it only within the same `integrationId`: selecting a different integration
+reserves a fresh native binding while preserving the application conversation and
+history. Returning to OpenCode restores only a binding for that integration; an
+unselected account change still fails its identity guard. Selection never submits
+a prompt or replays a retained failed or uncertain request. Before
 the next request, JSKIT supplies missed messages, corrections and removed message
 identities as quoted history. Unchanged messages are not injected again. All
 corrections are included, even outside the recent-history window; if they exceed
 `maxContinuityCharacters`, delivery fails with an instruction to renew the context
 with a briefing. Nothing is silently dropped. The application remains responsible
 for authorizing edits to its transcript.
+
+An application whose established selection policy creates a fresh native
+conversation can pass `retireNative: true` to `select()`. This uses the same
+selection transaction and allocates a new binding even for a compatible model
+or effort change; it does not restore an earlier retained binding. Written
+history and predecessor receipts remain, and the next request receives the
+retained discussion through the existing history handoff. The operation does
+not submit a prompt. Omit this option for the native reuse policy above.
 
 Selection requires idle work and confirmed process cleanup. An uncertain receipt
 may remain with another selected engine, but the same message ID cannot be sent
@@ -2212,6 +2234,19 @@ This advanced host operation has no HTTP, socket or client counterpart and accep
 no caller-supplied engine, native descriptor or host override. Ordinary standalone
 applications keep using `open()` and their existing storage contract.
 
+Existing detached run/stream facades can call
+`runtime.runNativeDetachedConversation({ id, context, input, options })` on that
+same runtime. Authorization uses `runDetachedConversation`. Its configured host
+returns `{ sessionId: id, engine, native, input, context, options }`, with the
+admitted context separate from the original engine options. Optional submitted
+`options` go only to that host; they never select a native owner or override the
+host. The driver uses the existing native execution and cleanup owners without
+opening Main, creating a retained handle or writing canonical message history.
+The application retains profile approval, write leases and original event/result
+codecs. Codex/OpenCode facade profile events remain unawaited;
+Claude acquires its entry before the profile event and awaits that event before
+starting work. This operation has no browser, HTTP or socket counterpart.
+
 The same advanced host can prepare native readiness before retaining a handle
 with `runtime.ensureNativeConversation({ id, context })`. Authorization uses
 operation `ensure`; only the configured host supplies the prepared
@@ -2537,6 +2572,19 @@ accounting and the engine's own compaction remain native behavior.
 
 API-model apps can use `createAiConnectionClient` with an authorized AI integration resolver (see [Assistant](./assistant.md)), or `createAiClient` for existing environment-based configurations, and the tool-catalog helpers
 from `@jskit-ai/assistant-core/server`, or the complete assistant runtime.
+`createAiConnectionClient` preserves immediate rejection for a provider error,
+cancellation or invalid tool call. It does not wait for transport EOF to report
+that failure. Later text, tool calls, completion frames or transport errors cannot
+replace the reported failure or become another yielded chunk. The original signal
+reason remains the cancellation error. This does not retry the request or execute
+later tool calls.
+The common API conversation enables `reportUnavailableToolCalls` only for its
+application catalogue. A well-formed object call rejected specifically as an
+unavailable tool reaches that existing catalogue, which records a no-effect
+refusal and supplies it to the same bounded model/tool loop. This grants no tool
+access. Provider-executed calls, malformed or non-object arguments and every
+other validation error remain rejected. Direct SDK clients retain strict
+validation by default.
 Ordinary native conversations use `createConversationRuntime` and the supplied
 server/client integration described above. The native facilities below support
 hosts that already own managed execution, credential homes, authorized native
@@ -2582,6 +2630,10 @@ completion and the interruption barrier for steering. Normalized owner events
 let the host persist admissions and publish application state; receiver
 completion alone does not prove process exit. `claudeNativeMessageId()`
 retains the same stable native message IDs used by the Vibe64 adapter.
+An exact native acknowledgement ends its ACK deadline before the admission
+writer runs; a slow write remains awaited, and a rejected write rejects admission.
+A missing acknowledgement remains uncertain. Native failure-result text stays
+in the turn's error rather than becoming an assistant answer.
 The turn owner preserves the production receiver's block lifecycle: deltas are
 temporary, block-stop removes them, and completed snapshots use their native
 UUIDs. It does not group distinct history snapshots into a synthetic reply.
@@ -2778,6 +2830,19 @@ Set transport limits appropriate to the host; the default payload limit is
 unbounded. A request abort retires the local request; interrupt a running native
 turn with `turn/interrupt` when cancellation must stop provider work.
 
+The original public import contracts remain available alongside these host and
+testing surfaces. `/server/codex-client` exports `CodexAppServerJsonRpcClient`
+and `socketPathFromCodexAppServerEndpoint`; `/server/codex-events` retains its
+original event classification, text and notification helpers; `/server/codex-turn`
+retains `createCodexAppServerDetachedTurnWatcher` and the original turn-status
+predicates. `/server/opencode-client` retains `createOpenCodeServerClient`,
+`readBoundedResponse`, `OPENCODE_RESPONSE_LIMIT_BYTES` and
+`openCodeAssistantMessageText`. These exports forward to the same native owners;
+using a low-level client does not supply application authorization, account
+isolation or native cancellation. `/client/conversation-submit` retains
+`createAssistantTextSubmission`, also exported by `/client/conversation`.
+The newer host exports remain available.
+
 Managed Codex hosts use `createCodexAppServerRunOwner` from
 `/server/codex-turn`. It constructs the native notification queue from the
 supplied request-context and logging facilities and its own shutdown fence.
@@ -2854,6 +2919,13 @@ The provider-selection facet restores Helper ownership before model discovery or
 account description, retaining supplied-provider reuse, lifecycle gating and the
 original per-connection catalog cache. Authorized scope/account preparation,
 deadlines and result policy remain with the host.
+Provider lifecycle work retains its owner-local FIFO and shutdown task tracking.
+Its shared critical sections serialize only the same native runtime directory;
+a held catalogue in a different owner and runtime does not delay cached Stop or
+provider creation. Work in the same owner still follows its FIFO across runtime
+directories. Catalogue preparation remains tracked before its directory is known.
+Rejected work leaves both queues usable, and a settled runtime tail cannot remove
+newer queued work. Peer inventory, exit proof and recovery barriers are unchanged.
 Legacy detached host operations use that same owner's `acquireDetachedThread`,
 `detachedThreadId` and `dispatchDetachedTurn`. The ID projection accepts the
 original native response shapes and requested-thread fallback after either
