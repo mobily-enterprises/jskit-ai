@@ -377,7 +377,13 @@ releases the previous worker and its native caches before loading the next, whil
 recognition and the connection stay running. The first reply after a change
 includes loading time. Extra choices require disk space, not resident model RAM.
 `kokoro` supplies Heart, Bella,
-Emma, Michael, Adam, George and Daniel. All presets use the English streaming
+Emma, Michael, Adam, George and Daniel. `kokoro-q8f16` offers all 28 English
+Kokoro voices using the exact pinned `model_q8f16.onnx` (86 MB). Its preparation
+adds only required ONNX metadata to the unchanged graph/weight bytes and ships a
+CPU configuration disabling the crashing `NchwcTransformer` optimizer. It reuses
+the same Sherpa worker and 24,000 Hz output; benchmark CPU latency before choosing
+it as a default. The original full-size `kokoro` preset remains available.
+All presets use the English streaming
 Zipformer recognizer. Operators can supply
 `prepare --sources-file FILE` for pinned model archives and `serve --config FILE`
 for native recognition/synthesis settings, voice IDs, labels and speaker IDs.

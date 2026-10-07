@@ -58,9 +58,11 @@ read_model_field() {
     const fs = require("node:fs");
     const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
     const model = manifest.models.find((entry) => entry.id === process.argv[2]);
-    if (!model || !model[process.argv[3]]) process.exit(2);
-    process.stdout.write(String(model[process.argv[3]]));
-  ' "$source_manifest" "$model_id" "$field"
+    if (!model) process.exit(2);
+    const value = model[process.argv[3]] ?? process.argv[4];
+    if (!value) process.exit(2);
+    process.stdout.write(String(value));
+  ' "$source_manifest" "$model_id" "$field" "${3:-}"
 }
 
 model_ids="$("$node_bin" -e 'console.log(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).models.map(model => model.id).join("\n"))' "$source_manifest")"
@@ -125,7 +127,11 @@ archives=()
 while IFS= read -r model_id; do
   archive="$(fetch_archive "$model_id")"
   archives+=("$archive")
-  tar --no-same-owner -xjf "$archive" -C "$extract_root"
+  case "$(read_model_field "$model_id" format tar.bz2)" in
+    tar.bz2) tar --no-same-owner -xjf "$archive" -C "$extract_root" ;;
+    file) cp -- "$archive" "$extract_root/$(basename -- "$archive")" ;;
+    *) echo "[assistant-voice] Unsupported model source format for $model_id" >&2; exit 1 ;;
+  esac
 done <<< "$model_ids"
 
 "$node_bin" "$script_dir/stage-voice-models.mjs" "$source_manifest" "$extract_root" "$stage_root"

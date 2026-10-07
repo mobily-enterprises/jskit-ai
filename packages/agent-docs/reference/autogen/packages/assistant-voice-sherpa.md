@@ -76,6 +76,7 @@ Exports
 - None
 Local functions
 - `contained(root, relative)`
+- `protobufField(number, bytes)`
 
 ### `tooling/verify-voice-models.mjs`
 Exports
