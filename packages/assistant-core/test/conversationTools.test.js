@@ -181,9 +181,23 @@ test("the runtime applies application tool policy to schemas and an unsolicited 
   const result = await f.conversation.wait();
   assert.equal((f.observed.requests[0].tools || []).length, 0);
   assert.equal(f.observed.executions.length, 0);
-  assert.equal(f.observed.requests.length, 1);
-  assert.equal(result.conversationLog[0].metadata.runtime.status, "failed");
-  assert.match(result.error, /unavailable tool|No such tool/i);
+  assert.equal(f.observed.requests.length, 2);
+  assert.equal((f.observed.requests[1].tools || []).length, 0);
+  assert.equal(result.conversationLog[0].metadata.runtime.status, "complete");
+  assert.equal(result.error, "");
+  assert.equal(result.conversationLog[0].assistant.text, "The total is five.");
+  const refusal = { ok: false, error: { code: "assistant_tool_unknown", message: "Unknown tool." } };
+  const recorded = result.conversationLog[0].metadata.applicationTools[0];
+  assert.equal(result.conversationLog[0].metadata.applicationTools.length, 1);
+  assert.equal(recorded.id, call.id);
+  assert.equal(recorded.name, f.name);
+  assert.equal(recorded.arguments, call.arguments);
+  assert.equal(recorded.status, "complete");
+  assert.deepEqual(recorded.result, refusal);
+  const feedback = f.observed.requests[1].messages.filter(message => message.role === "tool");
+  assert.equal(feedback.length, 1);
+  assert.equal(feedback[0].tool_call_id, call.id);
+  assert.deepEqual(JSON.parse(feedback[0].content), { error: refusal.error });
 });
 
 test("incomplete model tool streams cannot execute application actions", async t => {

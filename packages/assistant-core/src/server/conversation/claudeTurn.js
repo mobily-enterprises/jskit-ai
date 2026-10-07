@@ -903,9 +903,17 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (frame.state === "queued" || frame.type === "user") {
         const pending = admissions.get(uuid);
         if (pending) {
-          await pending.accept();
-          admissions.delete(uuid);
-          pending.resolve();
+          // Once acknowledged, storage owns the admission decision. Its write
+          // must not race a native-ack timeout and a second submission.
+          clearTimeout(pending.timer);
+          try {
+            await pending.accept();
+            admissions.delete(uuid);
+            pending.resolve();
+          } catch (error) {
+            pending.reject(error);
+            throw error;
+          }
         }
         await publish({ type: "admitted", messageId: uuid, userEcho: frame.type === "user" });
       }
@@ -959,10 +967,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         await publishMessage(block);
       }
     } else if (frame.type === "result") {
-      result = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
-      checkOutput(result);
+      const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
+      checkOutput(output);
       const failed = frame.is_error || frame.subtype !== "success";
-      const message = failed ? (frame.errors || []).join("; ") || result || frame.subtype : "";
+      const message = failed ? (frame.errors || []).join("; ") || output || frame.subtype : "";
+      result = failed ? "" : output;
       if (result && ![...messages.values()].some((block) => block.complete && block.role === "assistant" && block.text === result)) {
         await publishMessage({ id: `claude_${frame.uuid || turnId}_result`, role: "assistant", text: result, complete: true });
       }
@@ -1038,12 +1047,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (!uuid || typeof accept !== "function" || admissions.has(uuid)) throw new TypeError("A distinct message id and admission writer are required.");
       const admitted = Promise.withResolvers();
       void admitted.promise.catch(() => {});
-      admissions.set(uuid, { ...admitted, accept });
       inFlight.add(uuid);
       const timer = setTimeout(() => admitted.reject(Object.assign(
         failure("Claude has not acknowledged this prompt. Its delivery is uncertain.", "assistant_claude_admission_unknown"),
         { delivery: "uncertain" }
       )), timeoutMs);
+      admissions.set(uuid, { ...admitted, accept, timer });
       try {
         await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId }), admitted.promise]);
       } finally {

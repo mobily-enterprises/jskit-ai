@@ -1497,11 +1497,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       return entry.conversation.commands.select(input, context);
     }
     if (entry.conversation?.native?.scoped) throw failure("This scoped conversation retains its original selected profile.", "conversation_unsupported");
-    const keys = selection ? ["operationId", "expectedSegmentId", "engine", "configuration"]
+    const keys = selection ? ["operationId", "expectedSegmentId", "engine", "configuration", "retireNative"]
       : ["operationId", "expectedSegmentId", "reason", "engine", "configuration", "briefing"];
     if (!input || !/^[\w-]{1,128}$/u.test(input.operationId || "") || typeof input.expectedSegmentId !== "string" ||
         !input.expectedSegmentId || (selection ? typeof input.engine !== "string" : !["engine-change", "model-change", "renewal"].includes(input.reason)) ||
         input.briefing !== undefined && typeof input.briefing !== "string" ||
+        input.retireNative !== undefined && typeof input.retireNative !== "boolean" ||
         Object.keys(input).some(key => !keys.includes(key))) {
       throw failure("Replacement needs an operationId, exact predecessor segment, and an engine-change, model-change or renewal reason.", "conversation_invalid_replacement", 400);
     }
@@ -1569,7 +1570,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const predecessorId = nativeIdentity(state);
     const nativeReplacement = !selection && state.engine !== "api" && predecessorId &&
       (state.engine !== "claude" || state.binding.sent);
-    if (selection && engine !== "api" && engine === state.engine && !pending) {
+    const retainNativeBinding = input.retireNative !== true && engine === state.engine &&
+      (engine !== "opencode" || configuration.integrationId === state.configuration.integrationId);
+    if (selection && engine !== "api" && retainNativeBinding && !pending) {
       // The production native owners apply compatible settings to the running
       // conversation themselves. Selecting a model is not process retirement.
       await storage.write(entry.id, async transaction => {
@@ -1587,8 +1590,14 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     if (!pending) {
       const history = (await readTranscript(entry)).filter(turn => !turn.metadata?.runtime?.supersededBy);
-      const destination = selection ? state.engine === engine ? state
-        : driver.createBinding ? retainedSegments(state).findLast(segment => segment.engine === engine) : null : null;
+      let destination = null;
+      if (selection) {
+        if (retainNativeBinding) destination = state;
+        else if (input.retireNative !== true && engine !== state.engine && driver.createBinding) {
+          destination = retainedSegments(state).findLast(segment => segment.engine === engine &&
+            (engine !== "opencode" || segment.configuration.integrationId === configuration.integrationId));
+        }
+      }
       if (engine !== "api" && (input.briefing || "").length > maximumContinuity) throw new Error("The continuity briefing exceeds the configured history budget.");
       const continuity = destination ? { text: destination.continuity, attachments: destination.continuityAttachments || [] }
         : engine === "api" ? conversationContinuity({ history, briefing: input.briefing, maximumCharacters: maximumContinuity })
@@ -1660,7 +1669,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               if (value) {
                 if (engine !== "api") state.seen = value.engines[engine].seen;
                 state.lastEngine = value.lastEngine;
-              } else if (!selection && engine !== "api") state.lastEngine = "";
+              } else if (engine !== "api" &&
+                  (!selection || input.retireNative === true || engine === "opencode" && !pending.binding.sessionId)) {
+                state.lastEngine = "";
+              }
               delete state.replacement;
               await transaction.writeMetadata(metadata);
             }
@@ -1880,6 +1892,21 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw new TypeError("Native conversation creation requires its authorized host preparation.");
       }
       return createDriver(prepared.engine, defaultHost).createConversation(prepared);
+    },
+    async runNativeDetachedConversation({ id, context, input = {}, options } = {}) {
+      if (typeof id !== "string" || !id.trim()) throw new TypeError("A parent conversation or scope id is required.");
+      await access(context, id, "runDetachedConversation");
+      if (typeof defaultHost?.conversation !== "function") {
+        throw new TypeError("Native detached execution requires a configured conversation host.");
+      }
+      const prepared = await defaultHost.conversation({ id, context, input,
+        ...(options === undefined ? {} : { options }), operation: "runDetachedConversation" });
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed");
+      if (prepared?.sessionId !== id || !["codex", "claude", "opencode"].includes(prepared.engine) || !prepared.native ||
+          !Object.hasOwn(prepared, "input") || !Object.hasOwn(prepared, "context") || !Object.hasOwn(prepared, "options")) {
+        throw new TypeError("Native detached execution requires its authorized host preparation.");
+      }
+      return createDriver(prepared.engine, defaultHost).runDetachedConversation(prepared);
     },
     async open({ id, context, configuration, engine, host, representation = "canonical" } = {}) {
       if (typeof id !== "string" || !id.trim()) throw new TypeError("A conversation id is required.");

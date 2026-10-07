@@ -4,6 +4,7 @@ import * as vue from "vue";
 import { useVoiceTransport } from "../src/client/voiceTransport.js";
 import { useVoiceConversation } from "../src/client/voiceConversation.js";
 import { projectConversationVoiceState } from "../src/client/conversationVoiceState.js";
+import { splitSpeechText } from "../src/shared/protocol.js";
 
 function mountSetup(setup, router) {
   let value;
@@ -201,6 +202,8 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
     if (colleague) {
       const state = useVoiceConversation({ id: "conversation", label: "Assistant", state: colleagueProps.conversation,
         get defaults() { return colleagueProps.defaults; },
+        get narration() { return colleagueProps.narration; },
+        get readAloudChangePending() { return colleagueProps.readAloudChangePending; },
         captureContext: () => ({ ...colleagueProps.focus }),
         submitText: (text, { messageId, context }) => colleagueProps.submit(text, { messageId, focus: context }),
         onError: message => notices.push({ message, intent: "action-feedback" }),
@@ -3158,3 +3161,525 @@ for (const capture of ["new capture", "existing continuous capture"]) {
     assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === speechId), false);
   });
 }
+
+
+test("optional narration settles an unchanged activity tail after 700ms without replay or canonical receipts", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  view.colleagueProps.narration = { turns: [], eligible: true, working: true, vocalizeThinking: true };
+  await flushVue();
+  view.colleagueProps.narration.turns = [{ turnId: "activity", messages: [{ role: "thinking", messageId: "title", text: "Checking authorization" }] }];
+  await flushVue();
+  assert.equal(view.sockets.length, 0);
+  t.mock.timers.tick(699); await flushVue();
+  assert.equal(view.sockets.length, 0);
+  t.mock.timers.tick(1); await flushVue();
+  const socket = view.sockets[0];
+  assert.equal(controls(socket).find(control => control.type === "speak.start").text, "Checking authorization");
+  view.colleagueProps.narration.turns = [...view.colleagueProps.narration.turns];
+  await flushVue(); t.mock.timers.tick(700); await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+  const turnId = view.voice.activeSpeechTurnId.value;
+  socket.receive({ type: "speech.start", turnId });
+  socket.receive(new Int16Array(22050).buffer);
+  socket.receive({ type: "speech.chunk.end", turnId }); await flushVue();
+  view.advancePlayback(view.sources[0].startedAt);
+  socket.receive({ type: "speech.end", turnId }); await flushVue();
+  view.sources[0].finish(); await flushVue();
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback"), [], "activity never claims a canonical output identity");
+});
+
+test("optional thinking sounds wait 20 seconds and yield to real speech and capture", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  view.colleagueProps.narration = { turns: [], eligible: true, working: true, thinkingSounds: true };
+  await flushVue();
+  t.mock.timers.tick(19_999); await flushVue();
+  assert.equal(view.sockets.length, 0);
+  t.mock.timers.tick(1); await flushVue();
+  const socket = view.sockets[0];
+  const murmur = controls(socket).find(control => control.type === "speak.start");
+  assert.equal(murmur.text, "Hmm...");
+  t.mock.timers.tick(20_000); await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1, "no overlapping murmur");
+  const starting = view.colleague.toggleHandsFree(); await flushVue();
+  assert.ok(controls(socket).some(control => control.type === "cancel" && control.turnId === murmur.turnId));
+  view.media[0].resolve(); await starting; await flushVue();
+  assert.equal(view.voice.listening.value, true);
+  t.mock.timers.tick(20_000); await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+  view.colleagueProps.conversation.messages = [{ id: "answer", outputId: "actual-answer", role: "assistant", text: "The canonical answer remains full duplex." }];
+  await flushVue();
+  assert.equal(view.voice.listening.value, true);
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2);
+  assert.equal(view.emitted.some(([kind, event]) => kind === "playback" && event.outputId !== "actual-answer"), false);
+});
+
+test("canonical replies supersede only optional narration in the original queue", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  view.colleagueProps.narration = { turns: [], eligible: true, working: true, vocalizeInterimTurns: true };
+  await flushVue();
+  view.colleagueProps.narration.turns = [{ turnId: "work", messages: [{ role: "commentary", messageId: "progress", text: "Checking the project." }] }];
+  await flushVue();
+  const socket = view.sockets[0];
+  const activity = controls(socket).find(control => control.type === "speak.start");
+  view.colleagueProps.conversation.streamingReply = { id: "answer", role: "assistant", text: "A canonical streamed answer. ", status: "inProgress" };
+  await flushVue();
+  const answer = controls(socket).filter(control => control.type === "speak.start").at(-1);
+  assert.notEqual(answer.turnId, activity.turnId);
+  assert.ok(controls(socket).some(control => control.type === "cancel" && control.turnId === activity.turnId));
+  view.colleagueProps.narration.turns[0].messages.push({ role: "commentary", messageId: "late", text: "Do not interrupt the answer." });
+  await flushVue();
+  assert.equal(view.voice.activeSpeechTurnId.value, answer.turnId);
+  assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === answer.turnId), false);
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2);
+});
+
+test("optional narration tracks cumulative activity beyond 4000 while preserving the original observed-delta cap", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  view.colleagueProps.narration = { turns: [], eligible: true, working: true, vocalizeThinking: true };
+  await flushVue();
+  const sentence = "A distinct activity sentence. ";
+  const text = sentence.repeat(180);
+  assert.ok(text.length > 4000);
+  assert.equal(splitSpeechText(text, 300).join(" "), text.slice(0, 4000).trim(), "the original splitter caps one observed delta before chunking");
+  view.colleagueProps.narration.turns = [{ turnId: "long-work", messages: [{ role: "thinking", messageId: "long", text: "" }] }];
+  await flushVue();
+  const thought = view.colleagueProps.narration.turns[0].messages[0];
+  for (let batch = 1; batch <= 3; ++batch) {
+    thought.text = sentence.repeat(batch * 60);
+    await flushVue();
+    const socket = view.sockets[0];
+    const activityChunks = splitSpeechText(sentence.repeat(60), 300);
+    for (let index = 0; index < activityChunks.length && view.voice.activeSpeechTurnId.value; ++index) {
+      const turnId = view.voice.activeSpeechTurnId.value;
+      socket.receive({ type: "speech.start", turnId });
+      socket.receive(new Int16Array(22050).buffer);
+      for (let chunk = 0; chunk < 6; ++chunk) { socket.receive({ type: "speech.chunk.end", turnId }); await flushVue(); }
+      socket.receive({ type: "speech.end", turnId }); await flushVue();
+      view.sources.at(-1).finish(); await flushVue();
+    }
+    assert.equal(view.voice.activeSpeechTurnId.value, "", "each observed activity delta actually drains");
+  }
+  const spoken = controls(view.sockets[0]).filter(control => ["speak.start", "speak.append"].includes(control.type));
+  assert.equal(spoken.map(control => control.text).join(" "), text.trim());
+  assert.ok(spoken.every(control => control.text.length <= 300));
+  assert.equal(view.voice.activeSpeechTurnId.value, "");
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback"), []);
+});
+
+test("narration flags, loading, Stop and close retire timers without replaying old activity", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  view.colleagueProps.narration = { turns: [], eligible: true, working: true, vocalizeThinking: false, thinkingSounds: true };
+  const narration = view.colleagueProps.narration;
+  await flushVue();
+  narration.turns = [{ turnId: "work", messages: [{ role: "thinking", messageId: "old", text: "An old unpunctuated title" }] }];
+  await flushVue();
+  narration.vocalizeThinking = true; await flushVue();
+  t.mock.timers.tick(700); await flushVue();
+  assert.equal(view.sockets.length, 0, "enabling a flag does not replay its old tail");
+  narration.loading = true; await flushVue();
+  t.mock.timers.tick(20_000); await flushVue();
+  assert.equal(view.sockets.length, 0);
+  narration.loading = false; await flushVue();
+  t.mock.timers.tick(700); await flushVue();
+  assert.equal(view.sockets.length, 0, "history is primed after loading");
+  view.colleague.stopSpeech();
+  t.mock.timers.tick(20_000); await flushVue();
+  assert.equal(view.sockets.length, 0, "Stop cancels the armed murmur");
+  await view.colleague.close();
+  narration.turns[0].messages.push({ role: "thinking", messageId: "closed", text: "Never speak after close." });
+  await flushVue(); t.mock.timers.tick(20_000); await flushVue();
+  assert.equal(view.sockets.length, 0);
+});
+
+test("live speaker preference hydration uses original sound effects without observer echo or history replay", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: false } });
+  view.colleagueProps.conversation.messages = [{ id: "history", role: "assistant", text: "Do not replay history." }];
+  await flushVue();
+  view.colleagueProps.defaults.readAloud = true; await flushVue();
+  assert.equal(view.colleague.readAloud.value, true);
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), []);
+  assert.equal(view.sockets.length, 0);
+  view.colleagueProps.conversation.messages.push({ id: "future", role: "assistant", text: "A future canonical answer." });
+  view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages]; await flushVue();
+  const socket = view.sockets[0];
+  const turnId = view.voice.activeSpeechTurnId.value;
+  view.colleagueProps.defaults.readAloud = false; await flushVue();
+  assert.equal(view.colleague.readAloud.value, false);
+  assert.ok(controls(socket).some(control => control.type === "cancel" && control.turnId === turnId));
+  view.colleagueProps.defaults.readAloud = true; await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), []);
+  await view.colleague.toggleReadAloud();
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), [["readAloud", false]]);
+});
+
+
+test("optional narration retires hidden-page and disabled-kind activity without replay on return", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const document = new EventTarget();
+  document.visibilityState = "visible";
+  const restore = installGlobals({ document });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  t.after(restore);
+  view.colleagueProps.narration = { turns: [], eligible: true, working: true, vocalizeInterimTurns: true, thinkingSounds: true };
+  await flushVue();
+  const narration = view.colleagueProps.narration;
+  narration.turns = [{ turnId: "work", messages: [{ role: "commentary", messageId: "first", text: "First activity." }] }];
+  await flushVue();
+  const socket = view.sockets[0];
+  const first = view.voice.activeSpeechTurnId.value;
+  narration.vocalizeInterimTurns = false; await flushVue();
+  assert.ok(controls(socket).some(control => control.type === "cancel" && control.turnId === first));
+  document.visibilityState = "hidden";
+  document.dispatchEvent(new Event("visibilitychange"));
+  narration.turns[0].messages.push({ role: "commentary", messageId: "hidden", text: "Hidden page activity" });
+  await flushVue(); t.mock.timers.tick(20_000); await flushVue();
+  document.visibilityState = "visible";
+  document.dispatchEvent(new Event("visibilitychange"));
+  narration.vocalizeInterimTurns = true;
+  await flushVue(); t.mock.timers.tick(700); await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+  view.unmount();
+  t.mock.timers.tick(20_000); await flushVue();
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1, "disposed timers cannot speak later");
+});
+
+
+test("pending preference save fences only speaker changes while capture and sound recovery remain available", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  view.colleagueProps.readAloudChangePending = true; await flushVue();
+  assert.equal(view.colleague.readAloudChangePending.value, true);
+  await view.colleague.toggleReadAloud();
+  assert.equal(view.colleague.readAloud.value, true, "no optimistic second preference change while the first is saving");
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), []);
+  await view.colleague.enableSound();
+  assert.equal(view.colleague.soundPreparing.value, false, "sound recovery is independent of preference writes");
+  const starting = view.colleague.toggleHandsFree(); await flushVue();
+  view.media[0].resolve(); await starting; await flushVue();
+  assert.equal(view.voice.listening.value, true, "a speaker save does not disable the microphone");
+  const socket = view.sockets[0];
+  const listenId = controls(socket).find(control => control.type === "listen.start").turnId;
+  view.colleagueProps.readAloudChangePending = false; await flushVue();
+  assert.equal(view.colleague.readAloudChangePending.value, false);
+  await view.colleague.toggleReadAloud();
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "readAloud"), [["readAloud", false]]);
+  assert.equal(view.voice.listening.value, true);
+  assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === listenId), false);
+});
+
+
+test("Main narration consumes hidden canonical outputs without playback or replay on return", async t => {
+  const document = new EventTarget();
+  document.visibilityState = "visible";
+  const restore = installGlobals({ document });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  t.after(restore);
+  view.colleagueProps.narration = { turns: [], eligible: true };
+  await flushVue();
+  document.visibilityState = "hidden";
+  document.dispatchEvent(new Event("visibilitychange"));
+  view.colleagueProps.conversation.messages = [{ id: "hidden-final", outputId: "canonical-hidden", role: "assistant", text: "A completed answer observed in another tab." }];
+  view.colleagueProps.conversation.streamingReply = { id: "hidden-stream", outputId: "canonical-stream", text: "A new streaming answer while hidden." };
+  await flushVue();
+  assert.equal(view.sockets.length, 0);
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+    { conversationId: "logical-conversation", outputId: "canonical-hidden", phase: "interrupted", reason: "page-hidden" },
+    { conversationId: "logical-conversation", outputId: "canonical-stream", phase: "interrupted", reason: "page-hidden" }
+  ]);
+  document.visibilityState = "visible";
+  document.dispatchEvent(new Event("visibilitychange"));
+  view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages];
+  view.colleagueProps.conversation.streamingReply = { ...view.colleagueProps.conversation.streamingReply, status: "completed" };
+  await flushVue();
+  assert.equal(view.sockets.length, 0, "returning does not replay a hidden final or stream");
+  assert.equal(view.emitted.filter(([kind]) => kind === "playback").length, 2);
+  view.colleagueProps.conversation.streamingReply = null;
+  view.colleagueProps.conversation.messages.push({ id: "visible-next", role: "assistant", text: "A new visible answer." });
+  view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages];
+  await flushVue();
+  assert.equal(controls(view.sockets[0]).find(control => control.type === "speak.start").text, "A new visible answer.");
+});
+
+
+test("Main streaming output first finalized hidden is interrupted once with its original canonical identity", async t => {
+  const document = new EventTarget();
+  document.visibilityState = "visible";
+  const restore = installGlobals({ document });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  t.after(restore);
+  view.colleagueProps.narration = { turns: [], eligible: true };
+  view.colleagueProps.conversation.streamingReply = { id: "stream", outputId: "native-output", text: "This explanation begins in the visible tab. " };
+  await flushVue();
+  const socket = view.sockets[0];
+  const turnId = view.voice.activeSpeechTurnId.value;
+  socket.receive({ type: "speech.start", turnId });
+  socket.receive(new Int16Array(22050).buffer);
+  await flushVue();
+  view.advancePlayback(view.sources[0].startedAt);
+  document.visibilityState = "hidden";
+  document.dispatchEvent(new Event("visibilitychange"));
+  await flushVue();
+  assert.equal(view.sources[0].stopped, false, "hiding without capture does not cancel already admitted audio");
+  view.colleagueProps.conversation.streamingReply = { id: "stream", outputId: "native-output", status: "completed", text: "This explanation begins in the visible tab. Its final arrives while hidden." };
+  await flushVue();
+  assert.equal(view.sources[0].stopped, true);
+  assert.equal(controls(socket).filter(control => control.type === "cancel" && control.turnId === turnId).length, 1);
+  socket.receive({ type: "speech.end", turnId });
+  view.sources[0].finish();
+  document.visibilityState = "visible";
+  document.dispatchEvent(new Event("visibilitychange"));
+  view.colleagueProps.conversation.messages = [{ id: "stream", outputId: "native-output", role: "assistant", text: view.colleagueProps.conversation.streamingReply.text }];
+  view.colleagueProps.conversation.streamingReply = null;
+  await flushVue();
+  assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+    { conversationId: "logical-conversation", outputId: "native-output", phase: "started" },
+    { conversationId: "logical-conversation", outputId: "native-output", phase: "interrupted", reason: "page-hidden" }
+  ]);
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+});
+
+
+test("Main completed audio already queued while visible drains in a hidden tab without capture", async t => {
+  const document = new EventTarget();
+  document.visibilityState = "visible";
+  const restore = installGlobals({ document });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  t.after(restore);
+  view.colleagueProps.narration = { turns: [], eligible: true };
+  view.colleagueProps.conversation.messages = [
+    { id: "first", outputId: "first-output", role: "assistant", text: "The first completed answer." },
+    { id: "queued", outputId: "queued-output", role: "assistant", text: "The already queued completed answer." }
+  ];
+  await flushVue();
+  const socket = view.sockets[0];
+  for (const [index, outputId] of ["first-output", "queued-output"].entries()) {
+    const turnId = view.voice.activeSpeechTurnId.value;
+    socket.receive({ type: "speech.start", turnId });
+    socket.receive(new Int16Array(22050).buffer);
+    await flushVue();
+    view.advancePlayback(view.sources[index].startedAt);
+    if (index === 0) {
+      document.visibilityState = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushVue();
+      assert.equal(view.sources[0].stopped, false);
+    }
+    socket.receive({ type: "speech.end", turnId });
+    view.sources[index].finish();
+    await flushVue();
+    assert.deepEqual(view.emitted.filter(([kind, event]) => kind === "playback" && event.outputId === outputId).map(([, event]) => event.phase), ["started", "completed"]);
+  }
+  assert.equal(controls(socket).some(control => control.type === "cancel"), false);
+  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2);
+});
+
+
+for (const capture of ["connection", "permission"]) {
+  test(`Main hidden tab cancels ${capture} startup and ignores its late completion`, async t => {
+    const document = new EventTarget();
+    document.visibilityState = "visible";
+    const restore = installGlobals({ document });
+    const view = mountVoice(t, { colleague: true, autoReady: capture !== "connection" });
+    t.after(restore);
+    view.colleagueProps.narration = { turns: [], eligible: true };
+    await flushVue();
+    const starting = view.colleague.toggleHandsFree();
+    await flushVue();
+    assert.equal(capture === "connection" ? view.colleague.starting.value : view.voice.captureState.value === "opening", true);
+    document.visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushVue();
+    if (capture === "connection") view.sockets[0].ready();
+    else view.media[0].resolve();
+    await starting;
+    await flushVue();
+    assert.equal(view.colleague.starting.value, false);
+    assert.equal(view.colleague.live.value, false);
+    assert.equal(view.voice.listening.value, false);
+    assert.equal(view.colleague.pendingTranscript.value, null);
+    if (capture === "connection") assert.equal(view.media.length, 0);
+    else assert.equal(view.media[0].stops, 1);
+    document.visibilityState = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushVue();
+    assert.equal(view.media.length, capture === "connection" ? 0 : 1, "visible alone cannot restart permission");
+    view.unmount();
+    document.visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    assert.equal(view.colleague.live.value, false);
+  });
+}
+
+
+for (const stage of ["continuous", "committing", "transcribing"]) {
+  test(`Main hidden tab retires ${stage} capture without submission and explicit return starts a new identity`, async t => {
+    const document = new EventTarget();
+    document.visibilityState = "visible";
+    const restore = installGlobals({ document });
+    const view = mountVoice(t, { colleague: true });
+    t.after(restore);
+    view.colleagueProps.narration = { turns: [], eligible: true };
+    const deliveries = [];
+    view.colleagueProps.submit = async (text, options) => { deliveries.push({ text, ...options }); return { ok: true }; };
+    await flushVue();
+    const starting = view.colleague.toggleHandsFree();
+    await flushVue(); view.media[0].resolve(); await starting;
+    const socket = view.sockets[0];
+    const turnId = view.voice.activeListenTurnId.value;
+    socket.receive({ type: "transcript.partial", turnId, text: "Unfinished original words", revision: 1 });
+    await flushVue();
+    const previous = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+    if (stage === "committing") {
+      socket.receive({ type: "transcript.endpoint", turnId, text: previous.text, revision: 1 });
+      await flushVue();
+      assert.equal(controls(socket).filter(control => control.type === "listen.commit").length, 1);
+    } else if (stage === "transcribing") {
+      await view.voice.stopListening();
+      assert.equal(view.voice.captureState.value, "transcribing");
+    }
+    document.visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    socket.receive({ type: "transcript.final", turnId, text: "Late cancelled final", revision: 1, continuous: stage !== "transcribing" });
+    socket.receive({ type: "transcript.reset", turnId, revision: 2 });
+    await flushVue();
+    assert.equal(view.media[0].stops, 1);
+    assert.equal(view.voice.listening.value, false);
+    assert.equal(view.colleague.live.value, false);
+    assert.equal(view.colleague.pendingTranscript.value, null);
+    assert.deepEqual(deliveries, []);
+    assert.equal(controls(socket).filter(control => control.type === "cancel" && control.turnId === turnId).length, 1);
+    document.visibilityState = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushVue();
+    assert.equal(view.media.length, 1);
+    view.colleagueProps.focus = { projectSlug: "returned", sessionId: "new-capture" };
+    const resumed = view.colleague.toggleHandsFree();
+    await flushVue(); view.media[1].resolve(); await resumed;
+    const nextTurn = view.voice.activeListenTurnId.value;
+    assert.notEqual(nextTurn, turnId);
+    socket.receive({ type: "transcript.partial", turnId: nextTurn, text: "Fresh explicit direction", revision: 1 });
+    socket.receive({ type: "transcript.endpoint", turnId: nextTurn, text: "Fresh explicit direction", revision: 1 });
+    await flushVue();
+    const next = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+    assert.notEqual(next.id, previous.id);
+    socket.receive({ type: "transcript.final", turnId: nextTurn, text: "Fresh explicit direction", revision: 1, continuous: true });
+    await flushVue();
+    assert.deepEqual(deliveries, [{ text: "Fresh explicit direction", messageId: next.id, focus: { projectSlug: "returned", sessionId: "new-capture" } }]);
+  });
+}
+
+
+for (const admission of ["accepted", "unknown"]) {
+  test(`Main hidden capture cancels B while keeping A's ${admission} delivery identity`, async t => {
+    const document = new EventTarget();
+    document.visibilityState = "visible";
+    const restore = installGlobals({ document });
+    const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+    t.after(restore);
+    view.colleagueProps.narration = { turns: [], eligible: true };
+    const receipt = Promise.withResolvers();
+    t.after(() => receipt.resolve({ ok: true }));
+    const deliveries = [];
+    view.colleagueProps.submit = (text, options) => { deliveries.push({ text, ...options }); return receipt.promise; };
+    await flushVue();
+    const starting = view.colleague.toggleHandsFree();
+    await flushVue(); view.media[0].resolve(); await starting;
+    const socket = view.sockets[0];
+    const turnId = view.voice.activeListenTurnId.value;
+    socket.receive({ type: "transcript.partial", turnId, text: "First admitted direction", revision: 1 });
+    socket.receive({ type: "transcript.endpoint", turnId, text: "First admitted direction", revision: 1 });
+    await flushVue();
+    socket.receive({ type: "transcript.final", turnId, text: "First admitted direction", revision: 1, continuous: true });
+    socket.receive({ type: "transcript.reset", turnId, revision: 2 });
+    await flushVue();
+    const pending = view.colleague.pendingTranscript.value;
+    const authored = { text: pending.text, messageId: pending.messageId, focus: { ...pending.focus } };
+    assert.deepEqual(deliveries, [authored]);
+    view.colleagueProps.focus = { projectSlug: "next", sessionId: "next" };
+    socket.receive({ type: "transcript.partial", turnId, text: "Newer unsubmitted B", revision: 3 });
+    await flushVue();
+    const preview = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+    assert.notEqual(preview.id, pending.messageId);
+    view.colleagueProps.conversation.messages = [{ id: "answer", outputId: "native-playing", role: "assistant", text: "The exact current answer." }];
+    await flushVue();
+    const speechId = view.voice.activeSpeechTurnId.value;
+    assert.ok(speechId);
+    document.visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushVue();
+    assert.equal(view.colleague.pendingTranscript.value, pending);
+    assert.equal(view.colleague.sending.value, true);
+    assert.equal(view.media[0].stops, 1);
+    assert.equal(view.colleague.live.value, false);
+    assert.equal(view.voice.activeSpeechTurnId.value, "");
+    assert.equal(controls(socket).filter(control => control.type === "cancel" && control.turnId === speechId).length, 1);
+    assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+      { conversationId: "logical-conversation", outputId: "native-playing", phase: "interrupted", reason: "page-hidden" }
+    ]);
+    socket.receive({ type: "transcript.final", turnId, text: "Cancelled B cannot replace A", revision: 3, continuous: true });
+    socket.receive({ type: "transcript.reset", turnId, revision: 4 });
+    document.visibilityState = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    if (admission === "accepted") receipt.resolve({ ok: true });
+    else receipt.reject(new Error("Native receipt remains unknown; inspect before retry."));
+    await flushVue();
+    assert.deepEqual(deliveries, [authored], "B neither overwrites nor resubmits A");
+    assert.equal(view.colleague.sending.value, false);
+    assert.equal(view.media.length, 1, "settling A and returning cannot restart B");
+    if (admission === "accepted") assert.equal(view.colleague.pendingTranscript.value, null);
+    else {
+      assert.equal(view.colleague.pendingTranscript.value, pending);
+      assert.deepEqual({ text: pending.text, messageId: pending.messageId, focus: pending.focus }, authored);
+      assert.match(view.colleague.error.value, /receipt remains unknown/);
+    }
+  });
+}
+
+
+test("Main hidden-page policy does not equate ineligible presentation with document hiding", async t => {
+  const document = new EventTarget();
+  document.visibilityState = "visible";
+  const restore = installGlobals({ document });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  t.after(restore);
+  view.colleagueProps.narration = { turns: [], eligible: true };
+  await flushVue();
+  const starting = view.colleague.toggleHandsFree();
+  await flushVue(); view.media[0].resolve(); await starting;
+  const turnId = view.voice.activeListenTurnId.value;
+  view.colleagueProps.conversation.messages = [{ id: "reply", role: "assistant", text: "Continue this visible explanation." }];
+  await flushVue();
+  const speechId = view.voice.activeSpeechTurnId.value;
+  view.colleagueProps.narration.eligible = false;
+  document.dispatchEvent(new Event("visibilitychange"));
+  await flushVue();
+  assert.equal(view.colleague.live.value, true);
+  assert.equal(view.voice.activeListenTurnId.value, turnId);
+  assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+  assert.equal(view.media[0].stops, 0);
+  assert.equal(controls(view.sockets[0]).some(control => control.type === "cancel" && [turnId, speechId].includes(control.turnId)), false);
+});
+
+
+test("Colleague without narration opt-in preserves its original hidden-tab capture and canonical playback", async t => {
+  const document = new EventTarget();
+  document.visibilityState = "visible";
+  const restore = installGlobals({ document });
+  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+  t.after(restore);
+  const starting = view.colleague.toggleHandsFree();
+  await flushVue(); view.media[0].resolve(); await starting;
+  const turnId = view.voice.activeListenTurnId.value;
+  document.visibilityState = "hidden";
+  document.dispatchEvent(new Event("visibilitychange"));
+  view.colleagueProps.conversation.messages = [{ id: "background", role: "assistant", text: "Existing background Colleague behavior." }];
+  await flushVue();
+  assert.equal(view.colleague.live.value, true);
+  assert.equal(view.voice.listening.value, true);
+  assert.equal(view.voice.activeListenTurnId.value, turnId);
+  assert.equal(view.media[0].stops, 0);
+  assert.equal(controls(view.sockets[0]).find(control => control.type === "speak.start").text, "Existing background Colleague behavior.");
+});

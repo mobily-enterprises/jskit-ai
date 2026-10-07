@@ -214,6 +214,9 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     async createConversation({ sessionId, native, input, context }) {
       return native.runOwner.createConversation(sessionId, input, context);
     },
+    async runDetachedConversation({ sessionId, native, input, options }) {
+      return native.runOwner.runDetachedConversation(sessionId, input, options);
+    },
     async createBinding() {
       return { threadId: "", workdir: await realpath(workdir), configRoot, executionId: "" };
     },
@@ -452,7 +455,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             },
             complete: completeObservation
           }
-        }));
+        }), providerKey, providerOptions);
       }
 
       async function stop() {

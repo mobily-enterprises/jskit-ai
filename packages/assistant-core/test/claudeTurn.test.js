@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { createClaudeConversationTurn, claudeNativeMessageId, runClaudeRenewalTurn,
   waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
 
@@ -80,6 +81,13 @@ test("lost acknowledgement stays uncertain and stop rejects pending admission", 
   assert.equal(turn.read().text, "");
 });
 
+test("storage failure rejects admission and a slow acknowledged write is not a native timeout", async () => {
+  const { turn, send } = fixture();
+  await send("slow", { timeoutMs: 5, accept: async () => delay(15) });
+  await assert.rejects(send("failed", { accept: async () => { throw new Error("Storage offline"); } }), /Storage offline/);
+  turn.stop();
+});
+
 test("native session identity and helper output bounds are enforced without truncating answers", async () => {
   const { turn, send } = fixture();
   await assert.rejects(turn.receive({ type: "user", session_id: "another-session" }), /different conversation id/);
@@ -90,6 +98,16 @@ test("native session identity and helper output bounds are enforced without trun
   await assert.rejects(turn.receive({ type: "assistant", uuid: "answer", message: { content: [{ type: "text", text: "Too long" }] } }), /size limit/);
   await assert.rejects(turn.receive({ type: "result", subtype: "success", structured_output: { text: "Too long" } }), /size limit/);
   turn.stop();
+});
+
+test("a native error result is failure information rather than an assistant answer", async () => {
+  const { turn, send, events } = fixture();
+  await send();
+  await turn.receive({ type: "result", subtype: "error_during_execution", is_error: true, result: "The model connection failed." });
+  assert.equal(turn.read().status, "failed");
+  assert.equal(turn.read().error, "The model connection failed.");
+  assert.equal(turn.read().text, "");
+  assert.equal(events.some(event => event.type === "message"), false);
 });
 
 function renewalFixture() {

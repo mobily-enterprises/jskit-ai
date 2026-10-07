@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { createMemoryConversationStorage } from "../src/server/conversation/memoryStorage.js";
 import { createConversationTranscript } from "../src/server/conversation/transcript.js";
 import { createConversationStreams } from "../src/server/conversation/streams.js";
 import { sendCodexAppServerPrompt } from "../src/server/conversation/codexProvider.js";
+import { createCodexHelperThreadLedgerOwner } from "../src/server/conversation/codexHelperThreadLedger.js";
 import {
   waitForCodexAppServerTurn,
   createCodexAppServerRunOwner,
@@ -59,6 +62,119 @@ function fixture(turns = []) {
   };
   return { provider, listeners, operations };
 }
+
+// Joining fixture for the original detached coordinator. Native observation is
+// the same provider/watcher fixture above; the host only prepares its policy.
+async function detachedFixture(t, { refused = false, unavailable = null, contextError = null, dispatchError = null } = {}) {
+  const f = fixture([turn("turn-1", "completed", "Original detached answer.")]);
+  const stateRoot = await mkdtemp(join(tmpdir(), "codex-detached-"));
+  t.after(() => rm(stateRoot, { recursive: true, force: true }));
+  const runtime = { stateRoot };
+  const session = { sessionId: "session-1" };
+  const threadSettings = { model: "selected-model", cwd: "/authorized/workdir" };
+  const turnSettings = { model: "selected-model", effort: "high", cwd: "/authorized/workdir" };
+  f.events = [];
+  f.releases = 0;
+  Object.assign(f.provider, {
+    async resumeThread(id, settings) {
+      assert.equal(id, "thread-1");
+      assert.equal(settings, threadSettings);
+      f.operations.push("resume");
+      return { id };
+    },
+    async startThread(settings) {
+      assert.deepEqual(settings, { ...threadSettings, ephemeral: true });
+      f.operations.push("create");
+      return { response: { thread: { id: "thread-1" } } };
+    },
+    async sendTurn(id, input, settings) {
+      assert.equal(id, "thread-1");
+      assert.deepEqual(input, ["Original prompt"]);
+      assert.deepEqual(settings, turnSettings);
+      f.operations.push("dispatch");
+      if (dispatchError) throw dispatchError;
+      return turn("turn-1", "completed");
+    }
+  });
+  const conversationPreparation = {
+    detached(id) {
+      assert.equal(id, "session-1");
+      f.operations.push("admission");
+      return {
+        admission: refused ? { ok: false, code: "original_closing" } : { ok: true, release() { f.releases++; f.operations.push("release"); } },
+        get result() { f.operations.push("input"); return unavailable; },
+        get prompt() { return "Original prompt"; },
+        execution(context) {
+          assert.equal(context.provider, f.provider);
+          return { threadPreparation: { settings: () => threadSettings }, authorized: { turnSettings },
+            failure(error, status) { assert.equal(status, ""); return error; } };
+        }
+      };
+    },
+    context(id, input, options) {
+      f.operations.push("context");
+      assert.equal(id, "session-1");
+      assert.equal(options, f.options);
+      if (contextError) throw contextError;
+      return { context: { session }, helperTurn: false, projectRuntimeRoot: stateRoot, providerOptions: {},
+        project: provider => ({ provider, runtime, session, workdir: "/authorized/workdir", ok: true }) };
+    },
+    admissionError() { return null; },
+    failure(error) { return { ok: false, error: error.message, code: error.code }; }
+  };
+  f.options = { runtime, session, onEvent(event) {
+    f.events.push(event);
+    f.operations.push(`event:${event.type}`);
+    return f.onEvent?.(event);
+  } };
+  f.owner = createCodexAppServerRunOwner({ conversationPreparation,
+    helperThreads: { ledgerOwner: createCodexHelperThreadLedgerOwner({ executionProfile: value => structuredClone(value) }) },
+    providerSessions: { owner: { providers: new Map(), ensureSession: async () => f.provider }, context: () => ({}) }
+  });
+  return f;
+}
+
+test("original detached run coordinator joins ordinary create/resume, events and native completion without awaiting observers", async t => {
+  for (const resume of [false, true]) await t.test(resume ? "resume" : "create", { timeout: 2_000 }, async t => {
+    const f = await detachedFixture(t);
+    const neverAwaited = Promise.withResolvers();
+    f.onEvent = () => neverAwaited.promise;
+    const result = await f.owner.runDetachedConversation("session-1", {
+      prompt: "Original prompt", ...(resume ? { codexSessionId: "thread-1" } : { ephemeral: true })
+    }, f.options);
+    assert.deepEqual(result, { ok: true, text: "Original detached answer.", threadId: "thread-1", turnId: "turn-1" });
+    assert.deepEqual(f.events, [
+      { type: "thread", threadId: "thread-1" },
+      { type: "turn", status: "completed", threadId: "thread-1", turnId: "turn-1" },
+      { type: "completed", status: "completed", text: "Original detached answer.", threadId: "thread-1", turnId: "turn-1" }
+    ]);
+    assert.deepEqual(f.operations, ["admission", "input", "context", resume ? "resume" : "create",
+      "event:thread", "subscribe", "dispatch", "event:turn", "read", "unsubscribe", "event:completed", "release"]);
+    assert.equal(f.releases, 1);
+    assert.equal(f.listeners.size, 0);
+    assert.equal(f.owner.conversations.size, 0, "Detached execution does not retain a Main/scoped conversation.");
+  });
+});
+
+test("original detached admission/result boundary releases every early or dispatched failure", async t => {
+  const failure = Object.assign(new Error("Original native failure"), { code: "original_native_failure" });
+  for (const scenario of ["refused", "disabled", "empty", "context", "thread-event", "dispatch"]) await t.test(scenario, async t => {
+    const unavailable = scenario === "disabled" ? { ok: false, code: "original_disabled" }
+      : scenario === "empty" ? { ok: false, code: "original_empty" } : null;
+    const f = await detachedFixture(t, { refused: scenario === "refused", unavailable,
+      contextError: scenario === "context" ? failure : null, dispatchError: scenario === "dispatch" ? failure : null });
+    if (scenario === "thread-event") f.onEvent = () => { throw failure; };
+    const result = await f.owner.runDetachedConversation("session-1", { prompt: "Original prompt", ephemeral: true }, f.options);
+    assert.deepEqual(result, scenario === "refused" ? { ok: false, code: "original_closing" }
+      : unavailable || { ok: false, error: failure.message, code: failure.code });
+    assert.equal(f.releases, scenario === "refused" ? 0 : 1);
+    assert.equal(f.listeners.size, 0);
+    assert.equal(f.owner.conversations.size, 0);
+    if (["refused", "disabled", "empty"].includes(scenario)) assert.equal(f.operations.includes("context"), false);
+    if (scenario !== "dispatch") assert.equal(f.operations.includes("dispatch"), false);
+    if (scenario === "dispatch") assert.equal(f.operations.includes("unsubscribe"), true);
+  });
+});
 
 test("an already completed exact turn returns its saved answer without subscribing or rereading", async () => {
   const f = fixture();

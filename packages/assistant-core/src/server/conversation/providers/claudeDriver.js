@@ -271,6 +271,19 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
     async createConversation({ native, input, context }) {
       return native.owner.createConversation(input, { context, acquire: native.owner.acquire });
     },
+    async runDetachedConversation({ native, input, context }) {
+      const conversationId = input.conversationId || input.threadId || randomUUID();
+      const created = !input.conversationId && !input.threadId;
+      const { owner } = native;
+      const entry = await owner.acquire(context, conversationId, { create: created });
+      const executionProfile = native.executionProfile;
+      if (created && context.assistantScope) entry.profile = executionProfile;
+      if (executionProfile) await context.onEvent?.({ type: "execution-profile", executionProfile });
+      const request = { ...input, conversationId };
+      await owner.startTurn(await owner.acquire(context, conversationId, { operation: "start", input: request }), request);
+      const result = await owner.wait(await owner.acquire(context, conversationId), request, { context, acquire: owner.acquire });
+      return executionProfile ? { ...result, executionProfile } : result;
+    },
     async createBinding() {
       return { conversationId: randomUUID(), workdir: await realpath(workdir), configRoot, executionId: "", sent: false };
     },

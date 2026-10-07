@@ -2126,3 +2126,321 @@ test("Codex goal controls reject local attachments before native work", async t 
   assert.equal((await f.conversation.read()).conversationLog.length, 0);
   await assert.rejects(readFile(path.join(f.directory, "trace.jsonl")), { code: "ENOENT" });
 });
+
+
+for (const change of ["model", "effort"]) test(`Codex honors a consumer's fresh native policy for ${change} changes without retiring its shared peer`, async t => {
+  const f = await fixture(t);
+  const binding = (id = "conversation") => f.storage.read(id, async tx => (await tx.readMetadata()).runtime.binding);
+  const peer = await f.first.open({ id: "peer", configuration });
+  await peer.send({ messageId: "peer-first", text: "Peer history" });
+  await peer.wait();
+  const peerBinding = await binding("peer");
+  await f.conversation.send(input);
+  const original = await f.conversation.wait();
+  const previous = await binding();
+  const beforeSelection = await f.trace();
+  const oldHistory = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8")).threads.find(thread => thread.id === previous.threadId);
+  const selected = { ...configuration, [change]: change === "model" ? "another-model" : "low" };
+  const request = { operationId: `fresh-${change}`, expectedSegmentId: original.segmentId,
+    engine: "codex", configuration: selected, retireNative: true };
+  const receipt = await f.conversation.select(request);
+  assert.notEqual(receipt.segmentId, original.segmentId);
+  const inert = await binding();
+  assert.equal(inert.threadId, "");
+  assert.equal(inert.configRoot, previous.configRoot);
+  assert.equal(inert.workdir, previous.workdir);
+  const predecessor = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.predecessors.find(segment => segment.segmentId === original.segmentId));
+  assert.equal(predecessor.binding.threadId, previous.threadId);
+  const selectedTrace = await f.trace();
+  assert.deepEqual(selectedTrace.filter(row => row.args || ["thread/start", "turn/start"].includes(row.method)),
+    beforeSelection.filter(row => row.args || ["thread/start", "turn/start"].includes(row.method)),
+    "Selecting inspects readiness without creating a thread, process or inference");
+  const retained = await f.conversation.read();
+  assert.equal(retained.id, original.id);
+  assert.deepEqual(retained.conversationLog, original.conversationLog);
+  assert.equal((await f.conversation.select(request)).duplicate, true);
+  await f.conversation.send({ messageId: "changed", text: "Continue after the change" });
+  assert.equal((await f.conversation.wait()).conversationLog.at(-1).metadata.runtime.status, "complete");
+  const fresh = await binding();
+  assert.ok(fresh.threadId);
+  assert.notEqual(fresh.threadId, previous.threadId);
+  assert.equal(fresh.accountIdentity, previous.accountIdentity);
+  assert.deepEqual(JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8")).threads.find(thread => thread.id === previous.threadId), oldHistory);
+  let trace = await f.trace();
+  assert.equal(trace.filter(row => row.args).length, 1, "A peer retains the original shared account service");
+  assert.equal(trace.filter(row => row.method === "thread/start").length, 3);
+  const calls = trace.filter(row => row.method === "turn/start");
+  assert.equal(calls.length, 3);
+  assert.equal(calls[2].params.threadId, fresh.threadId);
+  assert.equal(calls[2].params.model, selected.model);
+  assert.equal(calls[2].params.effort, selected.effort);
+  const handedHistory = JSON.parse(calls[2].params.input[0].text.split("\n").find(line => line.startsWith('{"messages":')));
+  assert.deepEqual(handedHistory.messages.map(({ role, text }) => [role, text]), [["user", "Hello"], ["assistant", "Answer: Hello"]]);
+  assert.deepEqual(handedHistory.removedMessageIds, []);
+  assert.equal(calls[2].params.input[0].text.split("User's message:\n")[1], "Continue after the change");
+  assert.match(calls[2].params.input[0].text, /Hello/);
+  assert.match(calls[2].params.input[0].text, /Answer: Hello/);
+  assert.match(calls[2].params.input[0].text, /Continue after the change/);
+  assert.doesNotMatch(calls[2].params.input[0].text, /Peer history/);
+  await peer.send({ messageId: "peer-next", text: "Peer continues" });
+  assert.equal((await peer.wait()).conversationLog.length, 2);
+  assert.equal((await binding("peer")).threadId, peerBinding.threadId);
+  trace = await f.trace();
+  assert.equal(trace.filter(row => row.args).length, 1);
+  assert.equal(trace.filter(row => row.method === "turn/start").at(-1).params.input[0].text, "Peer continues");
+  await f.first.close();
+  const resumed = await f.runtime().open({ id: "conversation" });
+  assert.equal((await resumed.select(request)).duplicate, true);
+  assert.equal((await resumed.send(input)).duplicate, true);
+  assert.equal((await binding()).threadId, fresh.threadId);
+  await resumed.send({ messageId: "after-restart", text: "Continue after restart" });
+  assert.equal((await resumed.wait()).conversationLog.length, 3);
+  trace = await f.trace();
+  assert.equal(trace.filter(row => row.args).length, 2);
+  assert.equal(trace.filter(row => row.method === "thread/start").length, 3);
+  assert.equal(trace.filter(row => row.method === "thread/resume").at(-1).params.threadId, fresh.threadId);
+  assert.equal(trace.filter(row => row.method === "turn/start").at(-1).params.input[0].text, "Continue after restart");
+  const returned = await resumed.select({ operationId: `restore-${change}`, expectedSegmentId: (await resumed.read()).segmentId,
+    engine: "codex", configuration, retireNative: true });
+  assert.notEqual(returned.segmentId, original.segmentId, "The consumer policy cannot restore an older retained segment");
+  assert.notEqual(returned.segmentId, receipt.segmentId);
+  await resumed.send({ messageId: "returned", text: "Back to the original settings" });
+  assert.equal((await resumed.wait()).conversationLog.length, 4);
+  const restored = await binding();
+  assert.notEqual(restored.threadId, previous.threadId);
+  assert.notEqual(restored.threadId, fresh.threadId);
+  assert.equal(restored.accountIdentity, previous.accountIdentity);
+  const restoredPrompt = (await f.trace()).filter(row => row.method === "turn/start").at(-1).params.input[0].text;
+  assert.match(restoredPrompt, /Hello/);
+  assert.match(restoredPrompt, /Continue after the change/);
+  assert.match(restoredPrompt, /Continue after restart/);
+});
+
+test("held lifecycle catalogue work does not block another owner's runtime stop or acquisition", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-codex-lifecycle-"));
+  const first = createCodexAppServerProviderOwner({ runtimeRoot: path.join(root, "a") });
+  const other = createCodexAppServerProviderOwner({ runtimeRoot: path.join(root, "b") });
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const events = [];
+  const firstOptions = { runtimeDir: path.join(root, "a", "runtime") };
+  const stopOptions = { runtimeDir: path.join(root, "b", "stop") };
+  const acquireOptions = { runtimeDir: path.join(root, "b", "acquire") };
+  t.after(async () => {
+    for (const owner of [first, other]) await owner.invalidateRuntimes({ includeOwned: true, stopOwnedRuntimes: true });
+    await rm(root, { recursive: true, force: true });
+  });
+  const firstProvider = first.createProvider({ providerKey: "a", providerOptions: firstOptions, create: () => ({
+    async currentRuntimeInfo() { return { runtimeDir: firstOptions.runtimeDir }; },
+    async listModels() { entered.resolve(); await release.promise; events.push("a-catalogue-finished"); return { data: [] }; },
+    async stopRuntime() { events.push("a-stop"); return { stopped: true }; },
+    close() {}
+  }) });
+  await first.acquireRuntime({ providerKey: "a", providerOptions: firstOptions, provider: firstProvider, operation: async () => {} });
+  other.createProvider({ providerKey: "b-stop", providerOptions: stopOptions, create: () => ({
+    async stopRuntime() { events.push("b-stop"); return { stopped: true }; }, close() {}
+  }) });
+  const acquiredProvider = other.createProvider({ providerKey: "b-acquire", providerOptions: acquireOptions, create: () => ({
+    async ensureRuntime() { events.push("b-acquire"); return {}; },
+    async stopRuntime() { return { stopped: true }; }, close() {}
+  }) });
+  const catalogue = first.readModelCatalog({ prepareProviderOptions: async () => firstOptions,
+    providerFactory() { throw new Error("The existing provider must be reused."); } });
+  await entered.promise;
+  const stopping = other.stopCachedProvider("b-stop", { requireStopped: true });
+  const acquiring = other.ensureSession({ sessionId: "b", providerKey: "b-acquire", providerOptions: acquireOptions,
+    assertAdmission() {} });
+  let deadline;
+  try {
+    const [stopped, acquired] = await Promise.race([
+      Promise.all([stopping, acquiring]),
+      new Promise((_, reject) => { deadline = setTimeout(() => reject(new Error("An unrelated runtime waited for the held catalogue.")), 2000); })
+    ]);
+    assert.equal(stopped.stopped, true);
+    assert.equal(acquired, acquiredProvider);
+    assert.deepEqual(events, ["b-stop", "b-acquire"]);
+    assert.equal(first.providers.get("a"), firstProvider);
+  } finally {
+    clearTimeout(deadline);
+    release.resolve();
+    await Promise.allSettled([catalogue, stopping, acquiring]);
+  }
+});
+
+test("held lifecycle catalogue work preserves same-runtime peer ordering and the final participant stop", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-codex-lifecycle-peer-"));
+  const first = createCodexAppServerProviderOwner({ runtimeRoot: root });
+  const peer = createCodexAppServerProviderOwner({ runtimeRoot: root });
+  const providerOptions = { runtimeDir: path.join(root, "runtime") };
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const events = [];
+  t.after(async () => {
+    for (const owner of [first, peer]) await owner.invalidateRuntimes({ includeOwned: true, stopOwnedRuntimes: true });
+    await rm(root, { recursive: true, force: true });
+  });
+  const provider = first.createProvider({ providerKey: "first", providerOptions, create: () => ({
+    async currentRuntimeInfo() { return { runtimeDir: providerOptions.runtimeDir }; },
+    async listModels() { entered.resolve(); await release.promise; events.push("catalogue"); return { data: [] }; },
+    async stopRuntime() { events.push("first-stop"); return { stopped: true }; }, close() {}
+  }) });
+  await first.acquireRuntime({ providerKey: "first", providerOptions, provider, operation: async () => {} });
+  peer.createProvider({ providerKey: "peer", providerOptions, create: () => ({
+    async stopRuntime() { events.push("peer-stop"); return { stopped: true }; },
+    close() { events.push("peer-close"); }
+  }) });
+  const catalogue = first.readModelCatalog({ prepareProviderOptions: async () => providerOptions,
+    providerFactory() { throw new Error("The existing provider must be reused."); } });
+  await entered.promise;
+  let finished = false;
+  const stopping = peer.stopCachedProvider("peer", { requireStopped: true }).then(value => { finished = true; return value; });
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(finished, false);
+    assert.deepEqual(events, []);
+  } finally {
+    release.resolve();
+    await catalogue;
+  }
+  const stopped = await stopping;
+  assert.equal(stopped.sharedProcessRetained, true);
+  assert.equal(stopped.stopped, false);
+  assert.equal(first.providers.get("first"), provider);
+  assert.equal(peer.providers.get("peer"), undefined);
+  assert.deepEqual(events, ["catalogue", "peer-close"]);
+  assert.equal((await first.stopCachedProvider("first", { requireStopped: true })).stopped, true);
+  assert.deepEqual(events, ["catalogue", "peer-close", "first-stop"]);
+});
+
+test("held lifecycle catalogue work preserves one owner's FIFO across different runtimes", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-codex-lifecycle-fifo-"));
+  const owner = createCodexAppServerProviderOwner({ runtimeRoot: root });
+  const providerOptions = { runtimeDir: path.join(root, "catalogue") };
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const events = [];
+  t.after(async () => {
+    await owner.invalidateRuntimes({ includeOwned: true, stopOwnedRuntimes: true });
+    await rm(root, { recursive: true, force: true });
+  });
+  const provider = owner.createProvider({ providerKey: "catalogue", providerOptions, create: () => ({
+    async currentRuntimeInfo() { return { runtimeDir: providerOptions.runtimeDir }; },
+    async listModels() { entered.resolve(); await release.promise; events.push("catalogue"); return { data: [] }; },
+    async stopRuntime() { return { stopped: true }; }, close() {}
+  }) });
+  await owner.acquireRuntime({ providerKey: "catalogue", providerOptions, provider, operation: async () => {} });
+  owner.createProvider({ providerKey: "other", providerOptions: { runtimeDir: path.join(root, "other") }, create: () => ({
+    async stopRuntime() { events.push("other-stop"); return { stopped: true }; }, close() {}
+  }) });
+  const catalogue = owner.readModelCatalog({ prepareProviderOptions: async () => providerOptions,
+    providerFactory() { throw new Error("The existing provider must be reused."); } });
+  await entered.promise;
+  let finished = false;
+  const stopping = owner.stopCachedProvider("other", { requireStopped: true }).then(value => { finished = true; return value; });
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(finished, false);
+    assert.deepEqual(events, []);
+  } finally {
+    release.resolve();
+    await catalogue;
+  }
+  assert.equal((await stopping).stopped, true);
+  assert.deepEqual(events, ["catalogue", "other-stop"]);
+});
+
+test("held lifecycle catalogue preparation remains tracked through shutdown before its runtime key is known", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-codex-lifecycle-shutdown-"));
+  let closing = false;
+  const owner = createCodexAppServerProviderOwner({ runtimeRoot: root,
+    assertOpen() { if (closing) throw new Error("The application is shutting down."); } });
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const events = [];
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const catalogue = owner.readModelCatalog({
+    async prepareProviderOptions() { entered.resolve(); await release.promise; return { runtimeDir: path.join(root, "runtime") }; },
+    providerFactory() {
+      return {
+        async currentRuntimeInfo() { return {}; },
+        async ensureRuntime() { events.push("acquire"); return { reused: false }; },
+        async listModels() { events.push("catalogue"); return { data: [] }; },
+        close() { events.push("close"); }
+      };
+    }
+  });
+  await entered.promise;
+  assert.equal(owner.lifecycleTasks.size, 1);
+  closing = true;
+  owner.beginShutdown();
+  let drained = false;
+  const draining = Promise.allSettled([...owner.lifecycleTasks]).then(() => { drained = true; });
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(drained, false);
+    assert.deepEqual(events, []);
+  } finally {
+    release.resolve();
+  }
+  await assert.rejects(catalogue, /application is shutting down/);
+  await draining;
+  assert.equal(drained, true);
+  assert.equal(owner.lifecycleTasks.size, 0);
+  assert.deepEqual(events, ["close"]);
+});
+
+test("held lifecycle catalogue rejection preserves a newer same-runtime tail and later owner work", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-codex-lifecycle-rejection-"));
+  const owners = [0, 1, 2].map(() => createCodexAppServerProviderOwner({ runtimeRoot: root }));
+  const providerOptions = { runtimeDir: path.join(root, "runtime") };
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const nextEntered = Promise.withResolvers();
+  const nextRelease = Promise.withResolvers();
+  const failure = new Error("Catalogue unavailable.");
+  const catalogue = { data: [{ id: "model" }] };
+  let calls = 0;
+  t.after(async () => {
+    for (const owner of owners) await owner.invalidateRuntimes({ includeOwned: true, stopOwnedRuntimes: true });
+    await rm(root, { recursive: true, force: true });
+  });
+  const provider = owners[0].createProvider({ providerKey: "catalogue", providerOptions, create: () => ({
+    async currentRuntimeInfo() { return { runtimeDir: providerOptions.runtimeDir }; },
+    async listModels() {
+      calls += 1;
+      if (calls === 1) { entered.resolve(); await release.promise; throw failure; }
+      if (calls === 2) { nextEntered.resolve(); await nextRelease.promise; }
+      return catalogue;
+    },
+    async stopRuntime() { return { stopped: true }; }, close() {}
+  }) });
+  await owners[0].acquireRuntime({ providerKey: "catalogue", providerOptions, provider, operation: async () => {} });
+  const options = { prepareProviderOptions: async () => providerOptions,
+    providerFactory() { throw new Error("The existing provider must be reused."); } };
+  const failed = assert.rejects(owners[0].readModelCatalog(options), error => error === failure);
+  await entered.promise;
+  const next = owners[1].readModelCatalog(options);
+  let last;
+  try {
+    release.resolve();
+    await failed;
+    await nextEntered.promise;
+    let finished = false;
+    last = owners[2].readModelCatalog(options).then(value => { finished = true; return value; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(finished, false);
+    assert.equal(calls, 2, "The rejected task cannot remove the newer runtime tail.");
+    nextRelease.resolve();
+    assert.equal(await next, catalogue);
+    assert.equal(await last, catalogue);
+    assert.equal(calls, 3);
+    assert.equal(await owners[0].readModelCatalog(options), catalogue);
+    assert.equal(calls, 4, "The original owner's queue also continues after rejection.");
+    await Promise.all(owners.flatMap(owner => [...owner.lifecycleTasks]));
+    assert.deepEqual(owners.map(owner => owner.lifecycleTasks.size), [0, 0, 0]);
+  } finally {
+    release.resolve();
+    nextRelease.resolve();
+    await Promise.allSettled([failed, next, last]);
+  }
+});

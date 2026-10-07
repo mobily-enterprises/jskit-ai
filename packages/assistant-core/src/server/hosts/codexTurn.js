@@ -1,4 +1,9 @@
 export {
+  codexAppServerTurnStatusIsActive,
+  codexAppServerTurnStatusIsComplete,
+  codexAppServerTurnStatusIsProviderFailure,
+  codexAppServerTurnStatusIsSuccessfulComplete,
+  createCodexAppServerDetachedTurnWatcher,
   codexAppServerAgentRun,
   codexAppServerConversationTurnIsActive,
   codexAppServerFrozenTurnInterruptResponse,

@@ -159,3 +159,212 @@ test("authorized image bytes use the selected provider protocol", async () => {
   ] }] }));
   assert.equal(chunks[0].choices[0].delta.content, "An image");
 });
+
+test("SDK streaming rejects its first provider failure before EOF without exposing later output", { timeout: 5000 }, async t => {
+  const source = new TransformStream();
+  const writer = source.writable.getWriter();
+  t.after(() => writer.abort().catch(() => {}));
+  let requests = 0;
+  const client = createAiConnectionClient(await publicConnection(), {
+    async fetch(url, options) {
+      requests++;
+      assert.equal(String(url), "https://opencode.ai/zen/v1/chat/completions");
+      assert.equal(new Headers(options.headers).get("authorization"), "Bearer public");
+      assert.equal(JSON.parse(options.body).tools[0].function.name, "lookup");
+      return new Response(source.readable, { headers: { "content-type": "text/event-stream" } });
+    }
+  });
+  const tools = [{ type: "function", function: { name: "lookup", parameters: {
+    type: "object", properties: { query: { type: "string" } }, required: ["query"]
+  } } }];
+  const iterator = client.createChatCompletionStream({ messages: [{ role: "user", content: "Find records" }], tools });
+  const send = data => writer.write(new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`));
+  const first = iterator.next();
+  await send({ choices: [{ index: 0, delta: { content: "Before failure" } }] });
+  assert.deepEqual((await first).value, { choices: [{ delta: { content: "Before failure" } }] });
+  let settled = false;
+  const ending = iterator.next().then(
+    result => { settled = true; return { result }; },
+    error => { settled = true; return { error }; }
+  );
+  const firstFailure = { message: "First provider failure", code: "FIRST_FAILURE" };
+  await send({ error: firstFailure });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, true, "the original provider failure rejects before any late output or transport EOF");
+  await send({ choices: [{ index: 0, delta: { content: "Must not be exposed" } }] });
+  await send({ choices: [{ index: 0, delta: { tool_calls: [
+    { index: 0, id: "late_call", type: "function", function: { name: "lookup", arguments: '{"query":"records"}' } }
+  ] } }] });
+  await send({ error: { message: "Later provider failure", code: "LATER_FAILURE" } });
+  await send({ choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+    usage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, true, "the original provider failure rejects before transport EOF");
+  await writer.close();
+  const outcome = await ending;
+  assert.equal(outcome.error?.name, "AI_StreamProviderError");
+  assert.equal(outcome.error.message, firstFailure.message);
+  assert.equal(outcome.error.code, firstFailure.code);
+  assert.deepEqual(outcome.error.data, firstFailure, "a later provider error must not replace the first failure");
+  assert.equal(outcome.result, undefined, "late text, tool calls, finish and usage never become a yielded chunk");
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(requests, 1, "draining a failed stream must not retry or start a tool round");
+});
+
+test("SDK streaming rejects the first invalid tool input without yielding later calls or completion", { timeout: 5000 }, async t => {
+  const source = new TransformStream();
+  const writer = source.writable.getWriter();
+  t.after(() => writer.abort().catch(() => {}));
+  let requests = 0;
+  const client = createAiConnectionClient(await publicConnection(), {
+    async fetch() {
+      requests++;
+      return new Response(source.readable, { headers: { "content-type": "text/event-stream" } });
+    }
+  });
+  const tools = [{ type: "function", function: { name: "lookup", parameters: {
+    type: "object", properties: { query: { type: "string" } }, required: ["query"]
+  } } }];
+  const iterator = client.createChatCompletionStream({ messages: [{ role: "user", content: "Find records" }], tools });
+  const send = data => writer.write(new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`));
+  const first = iterator.next();
+  await send({ choices: [{ index: 0, delta: { content: "Before tool validation" } }] });
+  assert.equal((await first).value.choices[0].delta.content, "Before tool validation");
+  const ending = iterator.next().then(result => ({ result }), error => ({ error }));
+  // The compatible adapter flushes these calls at EOF; malformed JSON reaches
+  // the SDK's invalid-input branch rather than relying on schema validation.
+  await send({ choices: [{ index: 0, delta: { tool_calls: [
+    { index: 0, id: "invalid_first", type: "function", function: { name: "lookup", arguments: '{"query":}' } },
+    { index: 1, id: "invalid_later", type: "function", function: { name: "lookup", arguments: '{"later":}' } },
+    { index: 2, id: "valid_later", type: "function", function: { name: "lookup", arguments: '{"query":"records"}' } }
+  ] }, finish_reason: "tool_calls" }], usage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 } });
+  await writer.close();
+  const outcome = await ending;
+  assert.equal(outcome.error?.name, "AI_InvalidToolInputError");
+  assert.equal(outcome.error.toolName, "lookup");
+  assert.equal(outcome.error.toolInput, '{"query":}', "the second invalid call cannot replace the first error");
+  assert.equal(outcome.result, undefined, "invalid and later valid calls, finish and usage remain unexposed");
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(requests, 1);
+});
+
+test("SDK cancellation after its first text retains the original reason and suppresses later output", { timeout: 5000 }, async t => {
+  const source = new TransformStream();
+  const writer = source.writable.getWriter();
+  t.after(() => writer.abort().catch(() => {}));
+  const abort = new AbortController();
+  const reason = new Error("Stopped after the first text");
+  let requestSignal;
+  let requests = 0;
+  const client = createAiConnectionClient(await publicConnection(), {
+    async fetch(_url, options) {
+      requests++;
+      requestSignal = options.signal;
+      return new Response(source.readable, { headers: { "content-type": "text/event-stream" } });
+    }
+  });
+  const iterator = client.createChatCompletionStream({ messages: [{ role: "user", content: "Hello" }], signal: abort.signal });
+  const send = data => writer.write(new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`));
+  const first = iterator.next();
+  await send({ choices: [{ index: 0, delta: { content: "First text" } }] });
+  assert.equal((await first).value.choices[0].delta.content, "First text");
+  const ending = iterator.next().then(result => ({ result }), error => ({ error }));
+  abort.abort(reason);
+  assert.equal(requestSignal.aborted, true);
+  assert.equal(requestSignal.reason, reason);
+  // Fetch remains controlled: let the real SDK observe abort while consuming
+  // the response, then finish the transport instead of replacing its runner.
+  await send({ choices: [{ index: 0, delta: { content: "Late text" } }] });
+  await send({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+    usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 } });
+  await writer.close();
+  const outcome = await ending;
+  assert.equal(outcome.error, reason);
+  assert.equal(outcome.result, undefined, "abort after text cannot publish later text, finish or usage");
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(requests, 1);
+});
+
+test("SDK streaming retains its immediate provider failure when the later transport fails", { timeout: 5000 }, async t => {
+  const source = new TransformStream();
+  const writer = source.writable.getWriter();
+  t.after(() => writer.abort().catch(() => {}));
+  let requests = 0;
+  const client = createAiConnectionClient(await publicConnection(), {
+    async fetch() {
+      requests++;
+      return new Response(source.readable, { headers: { "content-type": "text/event-stream" } });
+    }
+  });
+  const iterator = client.createChatCompletionStream({ messages: [{ role: "user", content: "Hello" }] });
+  const send = data => writer.write(new TextEncoder().encode(`data: ${JSON.stringify(data)}\n\n`));
+  const first = iterator.next();
+  await send({ choices: [{ index: 0, delta: { content: "Before failure" } }] });
+  assert.equal((await first).value.choices[0].delta.content, "Before failure");
+  let settled = false;
+  const ending = iterator.next().then(
+    result => { settled = true; return { result }; },
+    error => { settled = true; return { error }; }
+  );
+  const firstFailure = { message: "First provider failure", code: "FIRST_FAILURE" };
+  await send({ error: firstFailure });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, true, "the first failure rejects before the later transport error");
+  await send({ choices: [{ index: 0, delta: { content: "Late text after rejection" } }] });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, true, "the original provider failure rejects without waiting for later transport failure");
+  const lateTransportError = new Error("Late transport drain failure");
+  await writer.abort(lateTransportError);
+  const outcome = await ending;
+  assert.notEqual(outcome.error, lateTransportError, "transport drain failure must not replace the observed provider failure");
+  assert.equal(outcome.error?.name, "AI_StreamProviderError");
+  assert.equal(outcome.error.message, firstFailure.message);
+  assert.equal(outcome.error.code, firstFailure.code);
+  assert.deepEqual(outcome.error.data, firstFailure);
+  assert.equal(outcome.result, undefined, "late text and transport failure do not publish another chunk");
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(requests, 1);
+});
+
+
+test("only explicit application-catalogue mode reports well-formed unavailable tool calls", async () => {
+  const toolCall = argumentsText => ({ choices: [{ index: 0, delta: { tool_calls: [
+    { index: 0, id: "unavailable-call", type: "function", function: { name: "unavailable_action", arguments: argumentsText } }
+  ] }, finish_reason: "tool_calls" }] });
+  const connection = await publicConnection();
+  for (const [reportUnavailableToolCalls, argumentsText] of [
+    [false, '{"value":"must not execute"}'], [true, '{"value":}'], [true, 'null'], [true, '[]'], [true, '"text"']
+  ]) {
+    let requests = 0;
+    const client = createAiConnectionClient(connection, { reportUnavailableToolCalls,
+      async fetch() { requests++; return eventsResponse([toolCall(argumentsText)]); }
+    });
+    await assert.rejects(Array.fromAsync(client.createChatCompletionStream({
+      messages: [{ role: "user", content: "Check without changing anything" }], tools: []
+    })), error => error.name === "AI_NoSuchToolError" && error.toolName === "unavailable_action");
+    assert.equal(requests, 1, "unavailable validation must not trigger an inference retry");
+  }
+  const invalidKnown = createAiConnectionClient(connection, { reportUnavailableToolCalls: true,
+    async fetch() { return eventsResponse([{ choices: [{ index: 0, delta: { tool_calls: [
+      { index: 0, id: "invalid-known", type: "function", function: { name: "lookup", arguments: '{"query":}' } }
+    ] }, finish_reason: "tool_calls" }] }]); }
+  });
+  await assert.rejects(Array.fromAsync(invalidKnown.createChatCompletionStream({
+    messages: [{ role: "user", content: "Find records" }],
+    tools: [{ type: "function", function: { name: "lookup", parameters: {
+      type: "object", properties: { query: { type: "string" } }, required: ["query"]
+    } } }]
+  })), error => error.name === "AI_InvalidToolInputError" && error.toolName === "lookup");
+  let requests = 0;
+  const client = createAiConnectionClient(connection, { reportUnavailableToolCalls: true,
+    async fetch() { requests++; return eventsResponse([toolCall('{"value":"must not execute"}')]); }
+  });
+  const chunks = await Array.fromAsync(client.createChatCompletionStream({
+    messages: [{ role: "user", content: "Check without changing anything" }], tools: []
+  }));
+  assert.deepEqual(chunks.flatMap(chunk => chunk.choices[0].delta.tool_calls || []), [{
+    index: 0, id: "unavailable-call", function: { name: "unavailable_action", arguments: '{"value":"must not execute"}' }
+  }]);
+  assert.equal(chunks.at(-1).choices[0].finish_reason, "tool-calls");
+  assert.equal(requests, 1, "reporting the attempted call neither executes an action nor starts another request");
+});

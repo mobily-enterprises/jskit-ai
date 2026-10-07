@@ -994,7 +994,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       currentTurn.state = "interrupted";
       await application.writeRun(currentTurn, "interrupted", currentTurn.observationError);
     }
-    const currentMonitor = monitors.get(key);
+    let currentMonitor = monitors.get(key);
     let currentThreadId = input.threadId;
     const ownershipMatchesTurn = Boolean(
       currentMonitor &&
@@ -1030,6 +1030,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     let target = null;
     let admission = null;
     let dispatchTurn = null;
+    let dispatchMonitor = null;
+    let previousInputMessageId = null;
+    let previousAdmission;
     try {
       const preparation = await application.prepare({ overwrite: !currentMonitor, threadId: currentThreadId });
       const preparedTarget = preparation.process ? await acquirePrepared(preparation.process) : preparation.target;
@@ -1039,15 +1042,33 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         startingTurn.threadId = currentThreadId;
       }
       const prompt = await application.prompt();
+      // Preparation can outlive the preceding turn's final projection. Do not
+      // attach a new input to a monitor that has already claimed retirement.
+      currentMonitor = monitors.get(key);
+      if (currentMonitor && !turns.get(key)?.active) {
+        await currentMonitor;
+        currentMonitor = monitors.get(key);
+      }
+      admission = Promise.withResolvers();
+      // The observer may be between polls when dispatch or persistence fails.
+      // Keep the raw promise rejectable without an unhandled rejection.
+      void admission.promise.catch(() => {});
       let eventReady = null;
-      if (!currentMonitor) {
-        admission = Promise.withResolvers();
+      if (currentMonitor) {
+        dispatchTurn = turns.get(key);
+        previousInputMessageId = dispatchTurn.inputMessageId;
+        previousAdmission = dispatchTurn.admission;
+        dispatchTurn.admission = admission;
+        dispatchTurn.inputMessageId = providerMessageId;
+        dispatchTurn.updatedAt = new Date().toISOString();
+        dispatchMonitor = currentMonitor;
+      } else {
         eventReady = Promise.withResolvers();
-        beginMessageMonitor(key, target, { id: providerMessageId, eventStartedAt, startedAt }, {
+        dispatchMonitor = beginMessageMonitor(key, target, { id: providerMessageId, eventStartedAt, startedAt }, {
           ...options, admission, eventReady
         }, application.monitor);
+        dispatchTurn = turns.get(key);
       }
-      dispatchTurn = turns.get(key);
       admitted = await dispatchOpenCodeTurn(null, null, dispatchTurn, {
         get agent() { return prompt.agent; },
         delivery: currentMonitor ? "steer" : "queue",
@@ -1070,11 +1091,23 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         authorizeAttachments: prompt.authorizeAttachments
       });
     } catch (error) {
-      if (error?.statusCode >= 400 && error.statusCode < 500 && error.statusCode !== 408) {
-        await input.onPromptRejected?.();
+      const rejected = error?.statusCode >= 400 && error.statusCode < 500 && error.statusCode !== 408;
+      const retainPreviousInput = previousInputMessageId !== null &&
+        (dispatchTurn?.promptAttempted !== true || rejected);
+      if (retainPreviousInput) {
+        if (dispatchTurn.admission === admission && dispatchTurn.inputMessageId === providerMessageId) {
+          dispatchTurn.inputMessageId = previousInputMessageId;
+          dispatchTurn.admission = previousAdmission;
+        }
+        admission.resolve();
+      } else {
+        // Attempted unknown admission must retain the new input and use the
+        // same observer's original Stop/error recovery, never roll back to A.
+        admission?.reject(error);
+        dispatchTurn?.abortController?.abort(error);
       }
-      admission?.reject(error);
-      if (admission) await monitors.get(key);
+      if (rejected) await input.onPromptRejected?.();
+      if (admission && !retainPreviousInput) await dispatchMonitor;
       if (startingTurn && !admission && !monitors.has(key)) {
         startingTurn.active = false;
         startingTurn.error = text(error?.message) || "OpenCode prompt delivery failed.";
@@ -1089,26 +1122,21 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       return { failure: { error, attempted: dispatchTurn?.promptAttempted === true, threadId: currentThreadId,
         turn: openCodeTurnSnapshot(turns.get(key) || startingTurn, currentThreadId) } };
     }
+    if (dispatchTurn.admission === admission && dispatchTurn.inputMessageId === providerMessageId) {
+      dispatchTurn.inputMessageId = text(admitted.id);
+      dispatchTurn.updatedAt = new Date().toISOString();
+    }
     let conversationTurn;
     try {
       conversationTurn = await application.commit(admitted);
     } catch (error) {
-      admission?.reject(error);
+      admission.reject(error);
+      dispatchTurn.abortController.abort(error);
+      // Preserve the persistence error while joining the original recovery.
+      await dispatchMonitor.catch(() => null);
       throw error;
     }
-    const activeMonitor = monitors.get(key);
-    if (activeMonitor) {
-      const activeTurn = turns.get(key);
-      activeTurn.inputMessageId = text(admitted.id);
-      activeTurn.updatedAt = new Date().toISOString();
-    } else {
-      beginMessageMonitor(key, target, {
-        ...admitted,
-        eventStartedAt,
-        startedAt
-      }, options, application.monitor);
-    }
-    admission?.resolve();
+    admission.resolve();
     const turn = openCodeTurnSnapshot(turns.get(key), target.upstreamSessionId);
     return {
       conversationTurn,
@@ -1218,47 +1246,60 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         signal.throwIfAborted();
         turn.state = "active";
         await writeRun(turn, "active");
-        const completion = await waitForOpenCodeFinalResponse(
-          target.server.client,
-          target.upstreamSessionId,
-          turn,
-          {
-            ...finalResponse,
-            // Preserve the reasoning-only completion before the native recovery
-            // input replaces the projection boundary. Replayed writes are no-ops.
-            beforeRecovery: async completion => {
-              await projectMessages(completion.messages, { inputMessageId: turn.inputMessageId });
-              await finalResponse.beforeRecovery?.(completion);
-            },
-            onMessages: async (messages, inputMessageId) => {
-              const latest = openCodeLastAssistantResult(messages, { readError: finalResponse.readError }).message;
-              const phase = latest?.summary === true && Number(latest.time?.created) >= turn.eventStartedAt &&
-                !latest.time?.completed && !latest.finish && !latest.error ? "compacting" : "";
-              if (turn.active && !signal.aborted && text(turn.phase) !== phase) {
-                turn.phase = phase;
-                turn.updatedAt = new Date().toISOString();
-                await writeRun(turn, turn.state);
-              }
-              return projectMessages(messages, { inputMessageId, streaming: true });
-            },
-            readFailure: events.readFailure,
-            signal
+        for (;;) {
+          const completion = await waitForOpenCodeFinalResponse(
+            target.server.client,
+            target.upstreamSessionId,
+            turn,
+            {
+              ...finalResponse,
+              // Preserve the reasoning-only completion before the native recovery
+              // input replaces the projection boundary. Replayed writes are no-ops.
+              beforeRecovery: async completion => {
+                await projectMessages(completion.messages, { inputMessageId: completion.inputMessageId });
+                await finalResponse.beforeRecovery?.(completion);
+              },
+              onMessages: async (messages, inputMessageId) => {
+                const latest = openCodeLastAssistantResult(messages, { readError: finalResponse.readError }).message;
+                const phase = latest?.summary === true && Number(latest.time?.created) >= turn.eventStartedAt &&
+                  !latest.time?.completed && !latest.finish && !latest.error ? "compacting" : "";
+                if (turn.active && !signal.aborted && text(turn.phase) !== phase) {
+                  turn.phase = phase;
+                  turn.updatedAt = new Date().toISOString();
+                  await writeRun(turn, turn.state);
+                }
+                return projectMessages(messages, { inputMessageId, streaming: true });
+              },
+              readFailure: events.readFailure,
+              signal
+            }
+          );
+          const admission = turn.admission;
+          await admission?.promise;
+          signal.throwIfAborted();
+          if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+            continue;
           }
-        );
-        const projection = await projectMessages(completion.messages, {
-          inputMessageId: turn.inputMessageId
-        });
-        signal.throwIfAborted();
-        failure = projection.failure || text(events.readFailure()?.message);
-        providerApiFailure = projection.providerApiFailure || openCodeProviderApiFailure(events.readFailure());
-        if (!failure && !turn.interruptRequested && !text(completion.result?.text)) {
-          failure = "OpenCode finished without a user-facing final response. Please send your message again.";
-          finalState = "failed";
-        } else if (failure) {
-          credentialFailure = openCodeCredentialFailure(failure);
-          finalState = "failed";
-        } else if (turn.interruptRequested) {
-          finalState = "interrupted";
+          const projection = await projectMessages(completion.messages, {
+            inputMessageId: completion.inputMessageId
+          });
+          await turn.admission?.promise;
+          signal.throwIfAborted();
+          if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+            continue;
+          }
+          failure = projection.failure || text(events.readFailure()?.message);
+          providerApiFailure = projection.providerApiFailure || openCodeProviderApiFailure(events.readFailure());
+          if (!failure && !turn.interruptRequested && !text(completion.result?.text)) {
+            failure = "OpenCode finished without a user-facing final response. Please send your message again.";
+            finalState = "failed";
+          } else if (failure) {
+            credentialFailure = openCodeCredentialFailure(failure);
+            finalState = "failed";
+          } else if (turn.interruptRequested) {
+            finalState = "interrupted";
+          }
+          break;
         }
       } catch (error) {
         if (turn.interruptAcknowledged) {
@@ -1287,11 +1328,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
           }
         }
       } finally {
+        // Claim retirement before awaited cleanup/checkpointing. A new Send
+        // joins this monitor's cleanup instead of steering an unobserved turn.
+        turn.active = finalState === "active";
         await events.close();
         if (credentialFailure || finalState === "failed") {
           failure = await completeResult(turn, { credentialFailure, providerApiFailure, finalState, failure });
         }
-        turn.active = finalState === "active";
         turn.error = failure;
         turn.state = finalState;
         turn.updatedAt = new Date().toISOString();

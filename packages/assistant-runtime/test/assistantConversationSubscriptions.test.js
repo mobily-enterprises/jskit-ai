@@ -237,6 +237,95 @@ test("five chats share one authenticated socket and release independently withou
   assert.ok(views.every(view => view.errors.length === 0));
 });
 
+test("Reload recovers a failed initial subscription on the same connected socket without repeating native work", { timeout: 20_000 }, async t => {
+  const f = await fixture(t);
+  const socket = await f.connect();
+  const socketId = socket.id;
+  const barrier = f.holdNextRead(f.ids[0]);
+  const view = f.view(socket, f.ids[0]);
+  await until(f.changes, () => barrier.started);
+  barrier.reject(new Error("The initial history read failed."));
+  await until(f.changes, () => view.errors.length === 1 && f.active() === 0);
+  assert.equal(socket.connected, true);
+  assert.equal(view.states.length, 0);
+
+  await f.conversations.get(f.ids[0]).send({ messageId: "accepted-once", text: "Keep this admitted turn" });
+  await until(f.changes, () => f.fetches.length === 1);
+  f.revoked.add(f.ids[0]);
+  const authBeforeRetry = f.authRequests.length;
+  view.dispose.reload();
+  await until(f.changes, () => view.errors.length === 2);
+  assert.equal(view.errors.at(-1).statusCode, 403, "Reload must authorize again rather than reuse failed subscription authority");
+  assert.ok(f.authRequests.length > authBeforeRetry);
+  assert.equal(f.active(), 0);
+  assert.equal(view.states.length, 0);
+  assert.equal(socket.id, socketId);
+
+  f.revoked.delete(f.ids[0]);
+  view.dispose.reload();
+  await until(f.changes, () => view.states.length === 1 && f.active() === 1);
+  assert.equal(view.states[0].conversationLog[0].user.messageId, "accepted-once");
+  assert.equal(socket.id, socketId, "Recovery does not need a reconnect or replacement socket");
+  assert.equal(socket.listeners(ASSISTANT_CONVERSATION_EVENT).length, 1);
+  assert.equal([...f.serverSockets][0].listenerCount(ASSISTANT_CONVERSATION_SUBSCRIBE), 1);
+  await view.dispose.reload();
+  assert.equal(f.active(), 1, "A healthy Reload reads without adding another observer");
+  f.fetches[0].text("Output continues after recovery.");
+  await until(f.changes, () => view.received.some(event => event.text?.includes("after recovery")));
+  assert.equal(f.fetches.length, 1, "Reload never repeats the accepted model request");
+  assert.equal(f.fetches[0].signal.aborted, false);
+  view.dispose();
+  await until(f.changes, () => f.active() === 0);
+  view.dispose.reload();
+  assert.equal(socket.listeners(ASSISTANT_CONVERSATION_EVENT).length, 0);
+  assert.equal(f.fetches[0].signal.aborted, false, "Disposing presentation does not stop admitted work");
+});
+
+for (const failure of ["rejection", "timeout"]) {
+  test(`Reload after initial ${failure} retains subscription identity and ignores stale or disposed acknowledgements`, () => {
+    const socket = new EventEmitter();
+    socket.connected = true;
+    const requests = [], states = [], errors = [];
+    let reads = 0;
+    socket.timeout = timeout => ({ emit(name, input, acknowledge) {
+      assert.equal(timeout, 10_000);
+      assert.equal(name, ASSISTANT_CONVERSATION_SUBSCRIBE);
+      requests.push({ input, acknowledge });
+    } });
+    const dispose = subscribeAssistantConversation({ socket, conversationId: "exact-chat", targetSurfaceId: "target", hostSurfaceId: "host",
+      workspaceSlug: "workspace", read() { reads += 1; }, onState: state => states.push(state), onError: error => errors.push(error) });
+    requests[0].acknowledge(failure === "timeout" ? new Error("operation has timed out") : null,
+      { ok: false, error: "Temporary subscription failure.", status: 500 });
+    assert.equal(errors.length, 1);
+    dispose.reload();
+    dispose.reload();
+    assert.equal(requests.length, 2, "An acknowledgement already pending is not another subscription");
+    assert.deepEqual(requests[1].input, requests[0].input);
+    assert.deepEqual(requests[1].input, { subscriptionId: requests[0].input.subscriptionId, conversationId: "exact-chat",
+      targetSurfaceId: "target", hostSurfaceId: "host", workspaceSlug: "workspace" });
+    const state = { id: "exact-chat", conversationLog: [], streaming: { revision: 0, messages: [] } };
+    requests[0].acknowledge(null, { ok: true, streamEpoch: "old", state });
+    assert.equal(states.length, 0, "The earlier generation cannot replace a pending recovery");
+    socket.connected = false;
+    socket.emit("disconnect");
+    dispose.reload();
+    assert.equal(requests.length, 2, "Disconnected Reload cannot create a subscription");
+    requests[1].acknowledge(null, { ok: true, streamEpoch: "late", state });
+    assert.equal(states.length, 0);
+    socket.connected = true;
+    dispose.reload();
+    assert.equal(requests.length, 3);
+    dispose();
+    requests[2].acknowledge(null, { ok: true, streamEpoch: "disposed", state });
+    dispose.reload();
+    assert.equal(requests.length, 3);
+    assert.equal(states.length, 0);
+    assert.equal(errors.length, 1);
+    assert.equal(reads, 0, "Recovery subscribes rather than reading under missing subscription authority");
+    for (const event of [ASSISTANT_CONVERSATION_EVENT, "connect", "disconnect"]) assert.equal(socket.listenerCount(event), 0);
+  });
+}
+
 test("reconnect reauthorizes and reads current state without repeating an admitted submission", { timeout: 20_000 }, async t => {
   const f = await fixture(t);
   const socket = await f.connect("owner-session", { recovery: true });

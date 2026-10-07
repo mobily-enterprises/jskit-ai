@@ -411,6 +411,7 @@ let liveScrollFrame = 0;
 let userScrollIntentTimer = null;
 let initialScrollVersion = 0;
 let loadMoreScrollSnapshot = null;
+let retainedReaderScrollSnapshot = null;
 let loadMoreRequestVersion = 0;
 let pendingTailFollow = false;
 let previousScrollTop = 0;
@@ -703,6 +704,7 @@ function resumePendingTailFollow() {
 }
 
 function markUserScrollIntent() {
+  retainedReaderScrollSnapshot = null;
   userScrollIntent.value = true;
   clearLiveBottomScroll();
   clearScheduledScrolls();
@@ -740,6 +742,7 @@ function scrollToLatestMessageAfterLayout({
   force = false
 } = {}) {
   if (force) {
+    retainedReaderScrollSnapshot = null;
     followingLatest.value = true;
     clearUserScrollIntent();
   }
@@ -773,6 +776,7 @@ function queueLiveBottomScroll({
     return;
   }
   if (force) {
+    retainedReaderScrollSnapshot = null;
     pendingTailFollow = false;
     followingLatest.value = true;
     clearUserScrollIntent();
@@ -809,6 +813,10 @@ function updateLatestFollowFromScroll(event = {}) {
     return;
   }
   const target = event?.currentTarget || bodyElement.value;
+  if (retainedReaderScrollSnapshot?.restoring) {
+    previousScrollTop = target?.scrollTop || 0;
+    return;
+  }
   const scrollTop = target?.scrollTop || 0;
   const scrolledUp = scrollTop < previousScrollTop;
   previousScrollTop = scrollTop;
@@ -848,6 +856,40 @@ function visibleHistoryAnchor(element) {
     }
   }
   return null;
+}
+
+async function restoreRetainedReaderScroll() {
+  const snapshot = retainedReaderScrollSnapshot;
+  snapshot.restoring = true;
+  await nextTick();
+  for (let pass = 0; pass < 2; pass += 1) {
+    const element = bodyElement.value;
+    if (
+      retainedReaderScrollSnapshot !== snapshot ||
+      element !== snapshot.body ||
+      snapshot.scrollKey !== props.scrollKey ||
+      !props.retainWhenHidden ||
+      !props.visible ||
+      followingLatest.value ||
+      loadMoreScrollSnapshot
+    ) {
+      if (retainedReaderScrollSnapshot === snapshot) retainedReaderScrollSnapshot = null;
+      return;
+    }
+    const anchor = snapshot.anchor;
+    if (anchor && element.contains(anchor.element)) {
+      // Materialize the retained row before reading the browser's adjusted scrollTop.
+      const offset = anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top;
+      previousScrollTop = element.scrollTop + offset - anchor.offset;
+    } else {
+      previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+    }
+    element.scrollTop = previousScrollTop;
+    if (pass === 0 && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    }
+  }
+  if (retainedReaderScrollSnapshot === snapshot) retainedReaderScrollSnapshot = null;
 }
 
 function requestLoadMore() {
@@ -909,9 +951,12 @@ async function completeLoadMoreRequest(version, changed) {
       // Offscreen turns use estimated heights. Preserve the visible turn instead
       // of moving by the total height difference, which can change during layout.
       const anchor = snapshot.anchor;
-      previousScrollTop = anchor && element.contains(anchor.element)
-        ? element.scrollTop + anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset
-        : snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+      if (anchor && element.contains(anchor.element)) {
+        const offset = anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top;
+        previousScrollTop = element.scrollTop + offset - anchor.offset;
+      } else {
+        previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+      }
       element.scrollTop = previousScrollTop;
     }
     if (pass + 1 < passes && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
@@ -923,6 +968,7 @@ async function completeLoadMoreRequest(version, changed) {
 }
 
 onBeforeUnmount(() => {
+  retainedReaderScrollSnapshot = null;
   clearLiveBottomScroll();
   clearUserScrollIntent();
   clearLoadMoreScrollSnapshot();
@@ -965,12 +1011,35 @@ watch(() => [
 });
 
 watch(timelineScrollTrigger, () => {
+  retainedReaderScrollSnapshot = null;
   clearLoadMoreScrollSnapshot();
   queueInitialBottomScroll();
 }, {
   flush: "post",
   immediate: true
 });
+
+// Capture before this transcript or its parent's v-show removes its geometry.
+watch(() => props.visible, (visible) => {
+  if (visible) return;
+  retainedReaderScrollSnapshot = null;
+  const element = bodyElement.value;
+  if (
+    props.retainWhenHidden &&
+    initialScrollSettled.value &&
+    !followingLatest.value &&
+    !loadMoreScrollSnapshot &&
+    element?.clientHeight > 0
+  ) {
+    retainedReaderScrollSnapshot = {
+      anchor: visibleHistoryAnchor(element),
+      body: element,
+      scrollHeight: element.scrollHeight,
+      scrollKey: props.scrollKey,
+      scrollTop: element.scrollTop
+    };
+  }
+}, { flush: "sync" });
 
 watch(() => props.visible, (visible) => {
   if (props.retainWhenHidden) {
@@ -983,6 +1052,8 @@ watch(() => props.visible, (visible) => {
       void completeLoadMoreRequest(loadMoreScrollSnapshot.version, true);
     } else if (!initialScrollSettled.value) {
       queueInitialBottomScroll();
+    } else if (retainedReaderScrollSnapshot) {
+      void restoreRetainedReaderScroll();
     } else {
       queueLiveBottomScroll();
     }

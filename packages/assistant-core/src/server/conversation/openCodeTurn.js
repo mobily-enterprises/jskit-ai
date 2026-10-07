@@ -340,7 +340,7 @@ export async function waitForOpenCodeMessages(client, conversationId = "", input
     if (result?.complete && (await client.sessionStatus(conversationId, { signal })).type === "idle" &&
         expectedInputMessageId === text(resolveInputMessageId())) {
       if (completedInputMessageId === expectedInputMessageId) {
-        return { messages, result };
+        return { messages, result, inputMessageId: expectedInputMessageId };
       }
       completedInputMessageId = expectedInputMessageId;
     } else {
@@ -353,18 +353,34 @@ export async function waitForOpenCodeMessages(client, conversationId = "", input
 export async function waitForOpenCodeFinalResponse(client, conversationId, turn, {
   agent, model, recoveryMessageId, beforeRecovery = null, ...options
 } = {}) {
-  const waitForCompletion = () => waitForOpenCodeMessages(
-    client, conversationId, () => turn.inputMessageId, options
-  );
-  let completion = await waitForCompletion();
-  // Work around https://github.com/anomalyco/opencode/issues/37073. Some
-  // reasoning models finish successfully without emitting a text part.
-  if (
-    !turn.interruptRequested &&
-    !completion.result?.error &&
-    !text(completion.result?.text)
-  ) {
+  const waitForCompletion = async () => {
+    for (;;) {
+      const completion = await waitForOpenCodeMessages(
+        client, conversationId, () => turn.inputMessageId, options
+      );
+      // Keep native polling/progress live while an admitted input's local
+      // commit is pending, but do not accept its terminal result yet.
+      const admission = turn.admission;
+      await admission?.promise;
+      options.signal?.throwIfAborted();
+      if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+        continue;
+      }
+      return completion;
+    }
+  };
+  for (;;) {
+    const completion = await waitForCompletion();
+    // Work around https://github.com/anomalyco/opencode/issues/37073. Some
+    // reasoning models complete successfully without a user-facing text part.
+    if (turn.interruptRequested || completion.result?.error || text(completion.result?.text)) return completion;
     await beforeRecovery?.(completion);
+    const admission = turn.admission;
+    await admission?.promise;
+    options.signal?.throwIfAborted();
+    if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
+      continue;
+    }
     const admitted = await client.prompt(conversationId, {
       agent,
       delivery: "queue",
@@ -375,11 +391,12 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
       },
       resume: true
     }, { signal: options.signal });
-    turn.inputMessageId = text(admitted?.id) || recoveryMessageId;
-    turn.updatedAt = new Date().toISOString();
-    completion = await waitForCompletion();
+    if (admission === turn.admission && completion.inputMessageId === text(turn.inputMessageId)) {
+      turn.inputMessageId = text(admitted?.id) || recoveryMessageId;
+      turn.updatedAt = new Date().toISOString();
+    }
+    return waitForCompletion();
   }
-  return completion;
 }
 
 // Production detached-turn lifetime. Applications project the completed native

@@ -148,6 +148,7 @@ Local functions
 - `clearLiveBottomScroll()`
 - `updateLatestFollowFromScroll(event = {})`
 - `visibleHistoryAnchor(element)`
+- `restoreRetainedReaderScroll()`
 - `requestLoadMore()`
 - `clearLoadMoreScrollSnapshot()`
 - `completeLoadMoreRequest(version, changed)`
@@ -632,6 +633,7 @@ Exports
 - `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed." } = {})`
 Local functions
 - `normalizeText(value)`
+- `withRuntimeLifecycle(runtimeKey, operation)`
 - `directoryExists(filePath = "")`
 
 ### `src/server/conversation/codexProviderSelection.js`
@@ -1137,6 +1139,21 @@ Exports
 
 ### `src/server/hosts/codexEvents.js`
 Exports
+- `classifyCodexAppServerEvent`
+- `codexAppServerAssistantItemText`
+- `codexAppServerContentText`
+- `codexAppServerErrorText`
+- `codexAppServerNotificationError`
+- `codexAppServerNotificationEventPayload`
+- `codexAppServerNotificationEventType`
+- `codexAppServerNotificationItem`
+- `codexAppServerNotificationParams`
+- `codexAppServerNotificationThreadId`
+- `codexAppServerNotificationTurnStatus`
+- `codexAppServerNotificationUsageLimitExceeded`
+- `codexAppServerOutputOwnerTurnId`
+- `codexAppServerStatusFromValue`
+- `codexAppServerUserMessageText`
 - `codexContextUsageFromNotification`
 - `codexAppServerContextRefreshReason`
 - `codexAppServerNotificationEvent`
@@ -1188,6 +1205,11 @@ Exports
 
 ### `src/server/hosts/codexTurn.js`
 Exports
+- `codexAppServerTurnStatusIsActive`
+- `codexAppServerTurnStatusIsComplete`
+- `codexAppServerTurnStatusIsProviderFailure`
+- `codexAppServerTurnStatusIsSuccessfulComplete`
+- `createCodexAppServerDetachedTurnWatcher`
 - `codexAppServerAgentRun`
 - `codexAppServerConversationTurnIsActive`
 - `codexAppServerFrozenTurnInterruptResponse`
@@ -1210,6 +1232,10 @@ Exports
 
 ### `src/server/hosts/openCodeClient.js`
 Exports
+- `OPENCODE_RESPONSE_LIMIT_BYTES`
+- `createOpenCodeServerClient`
+- `openCodeAssistantMessageText`
+- `readBoundedResponse`
 - `retireOpenCodeConversationHistory`
 
 ### `src/server/hosts/openCodeProcess.js`
@@ -1273,7 +1299,7 @@ Exports
 
 ### `src/server/lib/aiConnectionClient.js`
 Exports
-- `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort } = {})`
+- `createAiConnectionClient(connection, { fetch, timeoutMs = 120_000, maxOutputTokens, effort, reportUnavailableToolCalls = false } = {})`
 Local functions
 - `sdkMessages(messages)`
 
