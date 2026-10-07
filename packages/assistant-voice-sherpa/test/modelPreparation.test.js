@@ -217,13 +217,13 @@ test("Kokoro q8f16 preset pins the exact model and exposes English speaker IDs t
   assert.equal(model.format, "file");
   assert.equal(model.archiveSha256, "04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0");
   assert.match(model.url, /1939ad2a8e416c0acfeecc08a694d14ef25f2231\/onnx\/model_q8f16\.onnx$/u);
-  assert.equal(manifest.configuration.synthesizer.model.kokoro.model, "${MODELS_ROOT}/tts/model_q8f16.onnx");
-  assert.equal(manifest.configuration.synthesizer.model.provider, "cpu:${MODELS_ROOT}/tts/kokoro-cpu.conf");
-  assert.match(manifest.textFiles["tts/kokoro-cpu.conf"], /^SessionConfig\.optimization\.disable_specified_optimizers=NchwcTransformer\n$/u);
+  assert.equal(manifest.configuration.synthesizer.model.kokoro.model, "${MODELS_ROOT}/tts/kokoro-q8f16/model_q8f16.onnx");
+  assert.equal(manifest.configuration.synthesizer.model.provider, "cpu:${MODELS_ROOT}/tts/kokoro-q8f16/kokoro-cpu.conf");
+  assert.match(manifest.textFiles["tts/kokoro-q8f16/kokoro-cpu.conf"], /^SessionConfig\.optimization\.disable_specified_optimizers=NchwcTransformer\n$/u);
   assert.equal(manifest.configuration.voices.length, 28);
   assert.equal(manifest.configuration.voices.find(voice => voice.id === "am_michael").speakerId, 16);
   assert.equal(manifest.configuration.voices.find(voice => voice.id === "bf_emma").speakerId, 21);
-  assert.ok(manifest.configuration.voices.every(voice => voice.speakerId < Number(manifest.onnxMetadata["tts/model_q8f16.onnx"].n_speakers)));
+  assert.ok(manifest.configuration.voices.every(voice => voice.speakerId < Number(manifest.onnxMetadata["tts/kokoro-q8f16/model_q8f16.onnx"].n_speakers)));
 });
 
 test("model staging rejects unsafe metadata/configuration paths and never creates an absent ONNX model", async context => {
@@ -286,4 +286,38 @@ test("ONNX metadata rejects copied symlinks and symlinked parents without modify
   }
   await assert.rejects(stat(path.join(external, "cpu.conf")), { code: "ENOENT" });
   await assert.rejects(stat(path.join(external, "new-directory")), { code: "ENOENT" });
+});
+
+test("combined preset reuses the original Piper and Kitten catalogue and adds namespaced Kokoro without changing defaults", async context => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-all-voices-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const piper = JSON.parse(await readFile(path.join(repoRoot, "models/voice-models-piper.json"), "utf8"));
+  const kitten = JSON.parse(await readFile(path.join(repoRoot, "models/voice-models-kitten.json"), "utf8"));
+  const kokoro = JSON.parse(await readFile(path.join(repoRoot, "models/voice-models-kokoro-q8f16.json"), "utf8"));
+  const expected = { ...piper, models: [...piper.models, ...kitten.models.filter(model => model.kind === "tts"), ...kokoro.models.filter(model => model.kind === "tts")],
+    configuration: { ...piper.configuration, voices: [...kitten.configuration.voices, ...piper.configuration.voices,
+      ...kokoro.configuration.voices.map(voice => ({ ...voice, modelId: "kokoro" }))],
+    synthesizers: { ...piper.configuration.synthesizers, ...kitten.configuration.synthesizers, kokoro: kokoro.configuration.synthesizer }, outputSampleRate: 22050 },
+    onnxMetadata: kokoro.onnxMetadata, textFiles: kokoro.textFiles };
+  const destinations = expected.models.flatMap(model => Object.values(model.files));
+  assert.equal(new Set(destinations).size, destinations.length, "model families never overwrite each other's source files");
+  assert.equal(expected.configuration.voices.length, 41);
+  assert.equal(new Set(expected.configuration.voices.map(voice => voice.id)).size, 41);
+  assert.equal(expected.configuration.defaultVoice, "cori");
+  assert.equal(expected.configuration.voices.find(voice => voice.id === "kitten_bella").speed, 1.15);
+  assert.equal(expected.configuration.voices.find(voice => voice.id === "kitten_jasper").modelId, "kitten");
+  await mkdir(path.join(root, "stt"));
+  const bytes = Buffer.from("token\n");
+  await writeFile(path.join(root, "stt/tokens.txt"), bytes);
+  await writeFile(path.join(root, "stt/hotwords.txt"), await readFile(recognizerHotwords));
+  await writeFile(path.join(root, "stt/bpe.vocab"), await readFile(recognizerBpeVocab));
+  await writeFile(path.join(root, "sources.json"), JSON.stringify(expected, null, 2) + "\n");
+  await writeFile(path.join(root, "voice-models.json"), JSON.stringify({ schema: "vibe64.voice-models.v1",
+    files: [{ bytes: bytes.length, path: "stt/tokens.txt", sha256: crypto.createHash("sha256").update(bytes).digest("hex") }] }));
+  const result = spawnSync(process.execPath, [voiceCli, "prepare", "--models-root", root, "--pack", "piper-kitten-kokoro-q8f16"], {
+    encoding: "utf8", env: { ...process.env, JSKIT_VOICE_DOWNLOAD_CACHE: path.join(root, "downloads"), JSKIT_VOICE_SOURCES_FILE: "" }
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Reusing verified voice models/u);
+  assert.deepEqual(JSON.parse(await readFile(path.join(root, "sources.json"), "utf8")), expected);
 });

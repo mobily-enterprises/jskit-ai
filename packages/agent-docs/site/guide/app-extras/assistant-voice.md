@@ -381,6 +381,11 @@ adds only required ONNX metadata to the unchanged graph/weight bytes and ships a
 CPU configuration disabling the crashing `NchwcTransformer` optimizer. It reuses
 the same Sherpa worker and 24,000 Hz output; benchmark CPU latency before choosing
 it as a default. The original full-size `kokoro` preset remains available.
+`piper-kitten-kokoro-q8f16` retains Piper's five voices/default Cori and Kitten's
+eight unchanged IDs/speeds, adding the 28 Kokoro choices (41 total). Kokoro files
+are namespaced separately. Existing single-worker model switching releases the
+previous native model, and the original combined-pack resampler keeps 22,050 Hz
+output. Saved Piper/Kitten voice choices remain valid.
 All presets use the English streaming
 Zipformer recognizer. Operators can supply
 `prepare --sources-file FILE` for pinned model archives and `serve --config FILE`

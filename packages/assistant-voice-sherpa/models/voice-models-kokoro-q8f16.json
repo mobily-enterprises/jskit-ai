@@ -27,13 +27,13 @@
       "license": "Apache-2.0",
       "source": "https://huggingface.co/hexgrad/Kokoro-82M",
       "files": {
-        "kokoro-multi-lang-v1_0/tokens.txt": "tts/tokens.txt",
-        "kokoro-multi-lang-v1_0/voices.bin": "tts/voices.bin",
-        "kokoro-multi-lang-v1_0/espeak-ng-data": "tts/espeak-ng-data",
-        "kokoro-multi-lang-v1_0/lexicon-us-en.txt": "tts/lexicon-us-en.txt",
-        "kokoro-multi-lang-v1_0/lexicon-gb-en.txt": "tts/lexicon-gb-en.txt",
-        "kokoro-multi-lang-v1_0/LICENSE": "tts/LICENSE",
-        "kokoro-multi-lang-v1_0/README.md": "tts/README.md"
+        "kokoro-multi-lang-v1_0/tokens.txt": "tts/kokoro-q8f16/tokens.txt",
+        "kokoro-multi-lang-v1_0/voices.bin": "tts/kokoro-q8f16/voices.bin",
+        "kokoro-multi-lang-v1_0/espeak-ng-data": "tts/kokoro-q8f16/espeak-ng-data",
+        "kokoro-multi-lang-v1_0/lexicon-us-en.txt": "tts/kokoro-q8f16/lexicon-us-en.txt",
+        "kokoro-multi-lang-v1_0/lexicon-gb-en.txt": "tts/kokoro-q8f16/lexicon-gb-en.txt",
+        "kokoro-multi-lang-v1_0/LICENSE": "tts/kokoro-q8f16/LICENSE",
+        "kokoro-multi-lang-v1_0/README.md": "tts/kokoro-q8f16/README.md"
       }
     },
     {
@@ -46,7 +46,7 @@
       "license": "Apache-2.0",
       "source": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX",
       "files": {
-        "model_q8f16.onnx": "tts/model_q8f16.onnx"
+        "model_q8f16.onnx": "tts/kokoro-q8f16/model_q8f16.onnx"
       }
     }
   ],
@@ -55,13 +55,13 @@
       "maxNumSentences": 1,
       "model": {
         "numThreads": 1,
-        "provider": "cpu:${MODELS_ROOT}/tts/kokoro-cpu.conf",
+        "provider": "cpu:${MODELS_ROOT}/tts/kokoro-q8f16/kokoro-cpu.conf",
         "kokoro": {
-          "model": "${MODELS_ROOT}/tts/model_q8f16.onnx",
-          "tokens": "${MODELS_ROOT}/tts/tokens.txt",
-          "voices": "${MODELS_ROOT}/tts/voices.bin",
-          "dataDir": "${MODELS_ROOT}/tts/espeak-ng-data",
-          "lexicon": "${MODELS_ROOT}/tts/lexicon-us-en.txt"
+          "model": "${MODELS_ROOT}/tts/kokoro-q8f16/model_q8f16.onnx",
+          "tokens": "${MODELS_ROOT}/tts/kokoro-q8f16/tokens.txt",
+          "voices": "${MODELS_ROOT}/tts/kokoro-q8f16/voices.bin",
+          "dataDir": "${MODELS_ROOT}/tts/kokoro-q8f16/espeak-ng-data",
+          "lexicon": "${MODELS_ROOT}/tts/kokoro-q8f16/lexicon-us-en.txt"
         }
       }
     },
@@ -238,7 +238,7 @@
     ]
   },
   "onnxMetadata": {
-    "tts/model_q8f16.onnx": {
+    "tts/kokoro-q8f16/model_q8f16.onnx": {
       "model_type": "kokoro",
       "sample_rate": "24000",
       "version": "2",
@@ -249,6 +249,6 @@
     }
   },
   "textFiles": {
-    "tts/kokoro-cpu.conf": "SessionConfig.optimization.disable_specified_optimizers=NchwcTransformer\n"
+    "tts/kokoro-q8f16/kokoro-cpu.conf": "SessionConfig.optimization.disable_specified_optimizers=NchwcTransformer\n"
   }
 }
