@@ -69,169 +69,169 @@
     "voices": [
       {
         "id": "af_alloy",
-        "label": "Alloy · female · American English",
+        "label": "Alloy · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 0
       },
       {
         "id": "af_aoede",
-        "label": "Aoede · female · American English",
+        "label": "Aoede · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 1
       },
       {
         "id": "af_bella",
-        "label": "Bella · female · American English",
+        "label": "Bella · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 2
       },
       {
         "id": "af_heart",
-        "label": "Heart · female · American English",
+        "label": "Heart · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 3
       },
       {
         "id": "af_jessica",
-        "label": "Jessica · female · American English",
+        "label": "Jessica · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 4
       },
       {
         "id": "af_kore",
-        "label": "Kore · female · American English",
+        "label": "Kore · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 5
       },
       {
         "id": "af_nicole",
-        "label": "Nicole · female · American English",
+        "label": "Nicole · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 6
       },
       {
         "id": "af_nova",
-        "label": "Nova · female · American English",
+        "label": "Nova · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 7
       },
       {
         "id": "af_river",
-        "label": "River · female · American English",
+        "label": "River · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 8
       },
       {
         "id": "af_sarah",
-        "label": "Sarah · female · American English",
+        "label": "Sarah · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 9
       },
       {
         "id": "af_sky",
-        "label": "Sky · female · American English",
+        "label": "Sky · female · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 10
       },
       {
         "id": "am_adam",
-        "label": "Adam · male · American English",
+        "label": "Adam · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 11
       },
       {
         "id": "am_echo",
-        "label": "Echo · male · American English",
+        "label": "Echo · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 12
       },
       {
         "id": "am_eric",
-        "label": "Eric · male · American English",
+        "label": "Eric · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 13
       },
       {
         "id": "am_fenrir",
-        "label": "Fenrir · male · American English",
+        "label": "Fenrir · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 14
       },
       {
         "id": "am_liam",
-        "label": "Liam · male · American English",
+        "label": "Liam · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 15
       },
       {
         "id": "am_michael",
-        "label": "Michael · male · American English",
+        "label": "Michael · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 16
       },
       {
         "id": "am_onyx",
-        "label": "Onyx · male · American English",
+        "label": "Onyx · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 17
       },
       {
         "id": "am_puck",
-        "label": "Puck · male · American English",
+        "label": "Puck · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 18
       },
       {
         "id": "am_santa",
-        "label": "Santa · male · American English",
+        "label": "Santa · male · American English · Kokoro q8f16",
         "language": "en-US",
         "speakerId": 19
       },
       {
         "id": "bf_alice",
-        "label": "Alice · female · British English",
+        "label": "Alice · female · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 20
       },
       {
         "id": "bf_emma",
-        "label": "Emma · female · British English",
+        "label": "Emma · female · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 21
       },
       {
         "id": "bf_isabella",
-        "label": "Isabella · female · British English",
+        "label": "Isabella · female · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 22
       },
       {
         "id": "bf_lily",
-        "label": "Lily · female · British English",
+        "label": "Lily · female · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 23
       },
       {
         "id": "bm_daniel",
-        "label": "Daniel · male · British English",
+        "label": "Daniel · male · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 24
       },
       {
         "id": "bm_fable",
-        "label": "Fable · male · British English",
+        "label": "Fable · male · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 25
       },
       {
         "id": "bm_george",
-        "label": "George · male · British English",
+        "label": "George · male · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 26
       },
       {
         "id": "bm_lewis",
-        "label": "Lewis · male · British English",
+        "label": "Lewis · male · British English · Kokoro q8f16",
         "language": "en-GB",
         "speakerId": 27
       }

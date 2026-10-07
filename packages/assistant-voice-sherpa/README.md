@@ -73,6 +73,8 @@ unfinished native synthesis; the next request recreates that worker if needed.
 `--pack kokoro` uses Kokoro 1.0 with named female
 Heart, Bella and Emma voices, and male Michael, Adam, George and Daniel voices.
 The service advertises these IDs/labels; the browser selects a speaker per reply.
+Built-in voice labels include their model family: Piper, Kitten, Kokoro or Kokoro
+q8f16. Voice IDs and speaker choices remain stable when labels change.
 Model weights are not included in the npm artifact.
 
 `--pack kokoro-q8f16` offers all 28 American/British English Kokoro voices with
@@ -99,6 +101,11 @@ Piper's Cori default, existing voice IDs and Kitten Bella's 1.15× speed. Kokoro
 files and CPU configuration live beneath `tts/kokoro-q8f16`; Piper and Kitten
 files are never overwritten. The existing single synthesis process switches
 models between replies and releases the previous model before loading another.
+The last-used synthesis worker stays loaded while idle. Replies selecting that
+same model reuse it, including another speaker in the same Kitten/Kokoro model.
+Cancellation terminates the worker immediately; the next reply loads a new one.
+This saves model startup time but does not reduce the inference required to
+generate speech. Only one model remains resident.
 Output keeps the existing combined pack's 22,050 Hz rate through the same
 resampler. The standalone presets remain available.
 
