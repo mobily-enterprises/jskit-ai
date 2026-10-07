@@ -304,7 +304,24 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         acquireProvider: async () => native,
         hasRuntime: () => Boolean(binding.threadId),
         publish: (_id, event) => publishNative(event),
-        checkpoint: (_id, input) => conversation.checkpoint(input)
+        checkpoint: (_id, input) => conversation.checkpoint(input),
+        async onNotificationSignal(kind, { threadId, turnId, provider, error }) {
+          const active = current;
+          if (kind !== "provider_error" || !active?.dispatched || active.finished || provider !== native ||
+              threadId !== binding.threadId || !turnId || active.turnId && active.turnId !== turnId) return;
+          const tracked = codexAppServerTurnState(await runtime.getSession(sessionId));
+          if (tracked.threadId !== threadId || tracked.turnId !== turnId) return;
+          // The original detached waiter recovered only this admitted turn.
+          // Keep native activity truthful; run's existing cleanup owns Stop.
+          await owner.recoverActiveTurn(sessionId, { provider, retryOnError: false });
+          if (current !== active || active.finished || active.turnId !== turnId ||
+              provider !== native || threadId !== binding.threadId) return;
+          const result = await owner.stopTurnWithProviderFailure(sessionId, threadId, turnId, { provider, error });
+          if (current === active && active.turnId === turnId && provider === native &&
+              threadId === binding.threadId && result.reason === "provider_still_active") {
+            active.completion.reject(Object.assign(new Error(error), { status: "failed" }));
+          }
+        }
       });
       async function publishNative(event) {
         if (supplied) binding.threadId = await conversation.identity.read();

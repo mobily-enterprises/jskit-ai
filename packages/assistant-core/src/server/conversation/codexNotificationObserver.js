@@ -250,6 +250,17 @@ export function createCodexNotificationObserver({
         });
       }
       const classification = classifyCodexAppServerEvent(notification);
+      if (classification.kind === "provider_error" && classification.text &&
+          codexAppServerNotificationParams(notification).willRetry !== true) {
+        runCodexAppServerNotificationTask(notificationContext, async () => {
+          return onNotificationSignal("provider_error", {
+            sessionId: normalizedSessionId, threadId: normalizedThreadId, provider,
+            turnId: await resolveCodexAppServerTurnId(normalizedSessionId, normalizedThreadId,
+              codexAppServerNotificationTurnId(notification)),
+            error: classification.text
+          });
+        });
+      }
       if (classification.kind === "hook_prompt") {
         codexAppServerAutomaticHookThreads.add(normalizedThreadId);
         return;
