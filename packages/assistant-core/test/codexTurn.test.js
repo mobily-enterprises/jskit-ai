@@ -2357,3 +2357,59 @@ test("user Stop records its exact cause before queued native completion while th
   }
   assert.equal(notices.length, 1);
 });
+
+test("native finalizing grace rejects invalid owner configuration", () => {
+  for (const finalizingGraceMs of [0, -1, 0.5, NaN, Infinity, "500"]) {
+    assert.throws(() => createCodexAppServerRunOwner({ finalizingGraceMs }), /Invalid Codex finalizing grace/);
+  }
+});
+
+for (const policy of ["short-late-final", "short-expired", "default-late-final"]) {
+  test(`native finalizing grace preserves exact recovery for ${policy}`, async t => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-07T00:00:00Z") });
+    const f = await settlementFixture();
+    const { sessionId, threadId, turnId } = f;
+    const owner = createCodexAppServerRunOwner({
+      ...(policy === "default-late-final" ? {} : { finalizingGraceMs: 500 }),
+      createRuntime: async () => ({ store: f.store, getSession: async () => ({ sessionId, agentRuns: [structuredClone(f.run)] }) }),
+      createStore: async () => f.store,
+      acquireProvider: async () => f.provider,
+      checkpoint: async (id, input) => { f.checkpoints.push({ sessionId: id, ...input }); }
+    });
+    t.after(() => owner.clearSessionRecoveryTimers(sessionId));
+    f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+    f.history = [turn(turnId, "completed")];
+    t.mock.timers.tick(499);
+    assert.equal((await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false })).processed, false);
+    assert.equal(f.run.state, "finalizing");
+    assert.equal(owner.finalizingTimers.size, 1);
+    assert.deepEqual(await f.replies(), []);
+    if (policy === "short-late-final") {
+      f.history = [turn(turnId, "completed", "Exact late reply.")];
+      assert.equal((await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false })).processed, true);
+    } else {
+      t.mock.timers.tick(1);
+      await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+      if (policy === "short-expired") {
+        assert.deepEqual(f.checkpoints, [{ sessionId, threadId, turnId,
+          status: "completed", turnOutcome: "response_delivery_failure" }]);
+        assert.equal(f.run.state, "completed");
+        assert.deepEqual(await f.replies(), []);
+        f.history = [turn(turnId, "completed", "Too late to revive this waiter.")];
+        assert.equal((await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false })).processed, false);
+        assert.deepEqual(await f.replies(), []);
+      } else {
+        assert.equal(f.run.state, "finalizing");
+        assert.equal(owner.finalizingTimers.size, 1);
+        t.mock.timers.tick(501);
+        f.history = [turn(turnId, "completed", "Exact late reply.")];
+        assert.equal((await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false })).processed, true);
+      }
+    }
+    assert.equal(f.run.providerThreadId, threadId);
+    assert.equal(f.run.providerTurnId, turnId);
+    assert.equal(owner.finalizingTimers.size, 0);
+    assert.deepEqual((await f.replies()).map(row => row.assistant.text),
+      policy === "short-expired" ? [] : ["Exact late reply."]);
+  });
+}

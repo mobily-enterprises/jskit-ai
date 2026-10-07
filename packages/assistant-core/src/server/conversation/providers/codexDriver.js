@@ -299,12 +299,14 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         }
       } };
       const owner = supplied?.runOwner || createCodexAppServerRunOwner({
+        finalizingGraceMs: limits.codexFinalizingGraceMs,
         createRuntime: async () => runtime,
         createStore: async () => runtime.store,
         acquireProvider: async () => native,
         hasRuntime: () => Boolean(binding.threadId),
         publish: (_id, event) => publishNative(event),
-        checkpoint: (_id, input) => conversation.checkpoint(input),
+        checkpoint: (_id, input) => conversation.checkpoint({ ...input,
+          status: input.turnOutcome === "response_delivery_failure" ? "failed" : input.status }),
         async onNotificationSignal(kind, { threadId, turnId, provider, error }) {
           const active = current;
           if (kind !== "provider_error" || !active?.dispatched || active.finished || provider !== native ||
@@ -347,8 +349,9 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         }
         if (!turn.active && event.reason === "codex-app-server-turn-idle") {
           current.finished = true;
-          if (["failed", "interrupted"].includes(turn.status) && !current.signal.aborted) {
-            current.completion.reject(Object.assign(new Error(turn.error || `Codex turn ${turn.status}.`), { status: turn.status }));
+          if ((["failed", "interrupted"].includes(turn.status) || !supplied && turn.error) && !current.signal.aborted) {
+            current.completion.reject(Object.assign(new Error(turn.error || `Codex turn ${turn.status}.`), {
+              status: turn.status === "completed" ? "failed" : turn.status }));
           } else current.completion.resolve();
         }
       }

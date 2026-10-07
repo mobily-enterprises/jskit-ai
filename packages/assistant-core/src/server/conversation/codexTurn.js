@@ -110,10 +110,14 @@ export function createCodexAppServerRunOwner({
   runInContext = (_context, operation) => operation(),
   notificationQueue = null,
   activeReconcileMs = 2000,
+  finalizingGraceMs = 10000,
   steerFailedCode = "codex_turn_steer_failed",
   interruptFailedCode = "codex_turn_interrupt_failed",
   errorPrefix = ""
 } = {}) {
+  if (!Number.isSafeInteger(finalizingGraceMs) || finalizingGraceMs < 1) {
+    throw new TypeError("Invalid Codex finalizing grace.");
+  }
   if (providerSessions && (serverClosingError || !providerSessions.managed)) {
     providerSessions = { ...providerSessions, managed: providerSessions.managed || new Map() };
   }
@@ -126,7 +130,6 @@ export function createCodexAppServerRunOwner({
     CONTROL_RECONFIGURATION: "control_reconfiguration",
     INTERRUPTED: "interrupted"
   };
-  const finalizingGraceMs = 10000;
   const snapshotRecoveryItemLimit = 25;
   const helperOwnershipError = createCodexHelperOwnershipError({ errorPrefix });
   const helperLifecycle = helperThreads ? createCodexHelperThreadLifecycle({

@@ -1428,6 +1428,15 @@ eight nesting levels, and 64 properties or enum values.
 The worst-case JSON response, including escaped string characters, must fit the
 driver's `limits.maxOutputCharacters` (64,000 by default).
 
+For a generic Codex conversation, server-owned `limits.codexFinalizingGraceMs`
+sets the existing owner's grace for missing final text after native completion.
+It must be a positive safe integer in milliseconds; the default is 10,000.
+The owner rereads the exact native turn during this interval and reports missing
+output at expiry without resending the request. A host-supplied `runOwner`
+retains its own policy. Advanced native owners can set the same duration through
+`createCodexAppServerRunOwner({ finalizingGraceMs })`; this is not a client field
+or a whole-request timeout.
+
 Claude uses its native schema flag and restarts the owned process when the schema
 changes, retaining the conversation. Codex uses its native turn schema setting.
 OpenCode uses the existing schema instruction and removes a single JSON fence
@@ -3016,7 +3025,7 @@ retains its original collections; dependent operations receive those same owner
 instances. The shared prompt-delivery marker remains in the coordinator because
 both recovery and message admission use it. No second observer, provider,
 transcript or dispatch implementation is introduced. Existing host imports remain
-unchanged. Progress length, finalization grace, snapshot-recovery bounds and
+unchanged. Progress length, snapshot-recovery bounds and
 native outcome names remain private native defaults, rather than host tuning
 options.
 `codexContextUsageFromNotification` from the existing `/server/codex-events`
