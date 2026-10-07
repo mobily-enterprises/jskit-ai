@@ -300,6 +300,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       } };
       const owner = supplied?.runOwner || createCodexAppServerRunOwner({
         finalizingGraceMs: limits.codexFinalizingGraceMs,
+        finalizingGraceAfterHistoryRead: limits.codexFinalizingGraceAfterHistoryRead,
         createRuntime: async () => runtime,
         createStore: async () => runtime.store,
         acquireProvider: async () => native,

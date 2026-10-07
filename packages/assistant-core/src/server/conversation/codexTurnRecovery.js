@@ -41,6 +41,7 @@ export function createCodexTurnRecovery({
   captureContext,
   runInContext,
   activeReconcileMs,
+  finalizingGraceAfterHistoryRead,
   hasRuntime,
   recoverAdmission,
   turnOutcomes,
@@ -121,17 +122,34 @@ export function createCodexTurnRecovery({
       updatedAt
     });
     const timer = setTimeout(() => {
-      codexAppServerFinalizingTimers.delete(key);
-      void runInContext(
+      // The post-read policy keeps its first clock while expiry rereads history.
+      if (!finalizingGraceAfterHistoryRead) codexAppServerFinalizingTimers.delete(key);
+      const recovery = runInContext(
         projectContext,
         () => recoverCodexAppServerFinalizingTurn(
           normalizedSessionId,
           normalizedThreadId,
           normalizedTurnId,
-          { status }
+          { status, timerRecovery: finalizingGraceAfterHistoryRead }
         )
       );
+      if (finalizingGraceAfterHistoryRead) {
+        timer.finalizingRecovery = recovery;
+        void recovery.then(
+          () => { if (timer.finalizingRecovery === recovery) delete timer.finalizingRecovery; },
+          error => {
+            if (timer.finalizingRecovery === recovery) delete timer.finalizingRecovery;
+            debugLog("appServerFinalizingRecovery.error", {
+              error: debugError(error), sessionId: normalizedSessionId,
+              threadId: normalizedThreadId, turnId: normalizedTurnId
+            });
+          }
+        );
+      } else {
+        void recovery;
+      }
     }, delayMs);
+    if (finalizingGraceAfterHistoryRead) timer.finalizingStartedAt = completedAt;
     timer.unref?.();
     codexAppServerFinalizingTimers.set(key, timer);
   }
@@ -556,11 +574,14 @@ export function createCodexTurnRecovery({
   }
 
   async function recoverCodexAppServerFinalizingTurn(sessionId = "", threadId = "", turnId = "", {
-    status = "completed"
+    status = "completed", timerRecovery = false
   } = {}) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     const normalizedThreadId = normalizeCodexRunText(threadId);
     const normalizedTurnId = normalizeCodexRunText(turnId);
+    const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+    const priorTimer = finalizingGraceAfterHistoryRead ? codexAppServerFinalizingTimers.get(key) : null;
+    if (!timerRecovery && priorTimer?.finalizingRecovery) return priorTimer.finalizingRecovery;
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
     const turn = turnState(session);
@@ -588,11 +609,30 @@ export function createCodexTurnRecovery({
     if (result?.processed) {
       return result;
     }
-    if (!codexAppServerFinalizingExpired(turn)) {
+    let graceTurn = turn;
+    if (finalizingGraceAfterHistoryRead) {
+      const readReturnedAt = new Date().toISOString();
+      const currentTurn = turnState(await runtime.getSession(normalizedSessionId));
+      if (currentTurn.state !== "finalizing" || currentTurn.threadId !== normalizedThreadId ||
+          currentTurn.turnId !== normalizedTurnId) {
+        clearCodexAppServerFinalizingTimer(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+        return { ...result, reason: "stale_turn_state" };
+      }
+      if (codexAppServerTurnOwnsActiveGoal(currentTurn, normalizedThreadId)) {
+        clearCodexAppServerFinalizingTimer(normalizedSessionId, normalizedThreadId, normalizedTurnId);
+        return { ok: true, processed: false, reason: "goal_continuation_pending" };
+      }
+      const timer = codexAppServerFinalizingTimers.get(key);
+      if (priorTimer && !timer) return result;
+      if (!timerRecovery && timer?.finalizingRecovery) return timer.finalizingRecovery;
+      // This local clock never changes the native completion timestamp.
+      graceTurn = { ...currentTurn, completedAt: timer?.finalizingStartedAt || readReturnedAt };
+    }
+    if (!codexAppServerFinalizingExpired(graceTurn)) {
       scheduleCodexAppServerFinalizingRecovery(normalizedSessionId, normalizedThreadId, normalizedTurnId, {
-        completedAt: turn.completedAt,
+        completedAt: graceTurn.completedAt,
         status,
-        updatedAt: turn.updatedAt
+        updatedAt: graceTurn.updatedAt
       });
       return result;
     }

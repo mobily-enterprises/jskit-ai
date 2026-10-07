@@ -1436,6 +1436,14 @@ output at expiry without resending the request. A host-supplied `runOwner`
 retains its own policy. Advanced native owners can set the same duration through
 `createCodexAppServerRunOwner({ finalizingGraceMs })`; this is not a client field
 or a whole-request timeout.
+Server-owned `limits.codexFinalizingGraceAfterHistoryRead: true` starts that
+interval after the first exact native history read returns without a final.
+The default is false, preserving the completion-based clock. Advanced native
+owners use `finalizingGraceAfterHistoryRead` with `finalizingGraceMs` on the
+same run owner. Repeated reads keep the first deadline; a held expiry recovery
+is joined rather than starting another interval. The existing timer is cleared
+when the exact turn settles, stops or is superseded. Native completion timestamps
+and persisted metadata are unchanged. A supplied owner keeps its own policy.
 
 Claude uses its native schema flag and restarts the owned process when the schema
 changes, retaining the conversation. Codex uses its native turn schema setting.

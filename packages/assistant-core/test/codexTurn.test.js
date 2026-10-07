@@ -2413,3 +2413,194 @@ for (const policy of ["short-late-final", "short-expired", "default-late-final"]
       policy === "short-expired" ? [] : ["Exact late reply."]);
   });
 }
+
+
+test("native after-history grace rejects nonboolean owner policy", () => {
+  for (const finalizingGraceAfterHistoryRead of [0, 1, "true", null]) {
+    assert.throws(() => createCodexAppServerRunOwner({ finalizingGraceAfterHistoryRead }), /Invalid Codex finalizing grace clock/);
+  }
+});
+
+for (const policy of ["late-final", "expiry", "read-error", "default-expiry"]) {
+  test(`native after-history grace starts after the first held read for ${policy}`, async t => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-07T00:00:00Z") });
+    const f = await settlementFixture();
+    const { sessionId, threadId, turnId } = f;
+    const owner = createCodexAppServerRunOwner({
+      ...(policy === "default-expiry" ? {} : { finalizingGraceMs: 500, finalizingGraceAfterHistoryRead: true }),
+      createRuntime: async () => ({ store: f.store, getSession: async () => ({ sessionId, agentRuns: [structuredClone(f.run)] }) }),
+      createStore: async () => f.store,
+      acquireProvider: async () => f.provider,
+      checkpoint: async (id, input) => { f.checkpoints.push({ sessionId: id, ...input }); }
+    });
+    t.after(() => owner.clearSessionRecoveryTimers(sessionId));
+    const completedAt = new Date().toISOString();
+    f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: completedAt };
+    f.history = [turn(turnId, "completed")];
+    const reading = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    const list = f.provider.listThreadTurns;
+    let first = true;
+    f.provider.listThreadTurns = async (...args) => {
+      const snapshot = await list(...args);
+      if (first) {
+        first = false; reading.resolve(); await release.promise;
+        if (policy === "read-error") throw new Error("Controlled first history read failure");
+      }
+      return snapshot;
+    };
+    const pending = owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+    await reading.promise;
+    t.mock.timers.tick(20_000);
+    release.resolve();
+    await pending;
+    if (policy === "default-expiry") {
+      assert.equal(f.run.state, "completed", "Main/default retains the completion-based clock");
+      assert.equal(f.checkpoints.length, 1);
+      assert.equal(f.checkpoints[0].turnOutcome, "response_delivery_failure");
+      assert.equal(owner.finalizingTimers.size, 0);
+      return;
+    }
+    assert.equal(f.run.state, "finalizing", "The held read must not consume Colleague's late-final grace");
+    assert.equal(f.run.finishedAt, completedAt, "Do not rewrite native completion to start a local timer");
+    assert.equal(owner.finalizingTimers.size, 1);
+    assert.deepEqual(f.checkpoints, []);
+    t.mock.timers.tick(499);
+    await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+    assert.equal(f.run.state, "finalizing", "A repeated read must retain the first deadline");
+    assert.deepEqual(f.checkpoints, []);
+    if (policy === "late-final" || policy === "read-error") {
+      f.history = [turn(turnId, "completed", "Late after the held history read.")];
+      assert.equal((await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false })).processed, true);
+      assert.deepEqual((await f.replies()).map(row => row.assistant.text), ["Late after the held history read."]);
+    } else {
+      t.mock.timers.tick(1);
+      await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+      assert.equal(f.run.state, "completed");
+      assert.equal(f.checkpoints.length, 1);
+      assert.equal(f.checkpoints[0].turnOutcome, "response_delivery_failure");
+      f.history = [turn(turnId, "completed", "Too late to revive the old waiter.")];
+      assert.equal((await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false })).processed, false);
+      assert.deepEqual(await f.replies(), []);
+    }
+    assert.equal(owner.finalizingTimers.size, 0);
+    assert.equal(f.checkpoints.length, 1);
+    assert.equal(f.run.providerThreadId, threadId);
+    assert.equal(f.run.providerTurnId, turnId);
+  });
+}
+
+for (const change of ["stop", "successor", "goal"]) {
+  test(`native after-history grace does not arm after ${change} during the first read`, async t => {
+    const f = await settlementFixture();
+    const { sessionId, threadId, turnId } = f;
+    const owner = createCodexAppServerRunOwner({ finalizingGraceMs: 500, finalizingGraceAfterHistoryRead: true,
+      createRuntime: async () => ({ store: f.store, getSession: async () => ({ sessionId, agentRuns: [structuredClone(f.run)] }) }),
+      createStore: async () => f.store, acquireProvider: async () => f.provider,
+      checkpoint: async (id, input) => { f.checkpoints.push({ sessionId: id, ...input }); }
+    });
+    t.after(() => owner.clearSessionRecoveryTimers(sessionId));
+    f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+    f.history = [turn(turnId, "completed")];
+    const reading = Promise.withResolvers(); const release = Promise.withResolvers();
+    const list = f.provider.listThreadTurns;
+    f.provider.listThreadTurns = async (...args) => { const snapshot = await list(...args); reading.resolve(); await release.promise; return snapshot; };
+    const pending = owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+    await reading.promise;
+    if (change === "stop") f.run = { ...f.run, state: "interrupted", providerStatus: "interrupted" };
+    if (change === "successor") f.run = { ...f.run, state: "active", providerStatus: "inProgress", providerTurnId: "successor" };
+    if (change === "goal") f.run = { ...f.run, providerGoalStatus: "active", providerGoalThreadId: threadId };
+    const protectedRun = structuredClone(f.run);
+    release.resolve(); await pending;
+    assert.equal(owner.finalizingTimers.size, 0, "The old read cannot arm recovery for obsolete or goal-owned work");
+    assert.deepEqual(f.run, protectedRun);
+    assert.deepEqual(f.checkpoints, []);
+    assert.deepEqual(await f.replies(), []);
+  });
+}
+
+
+for (const change of ["concurrent", "cleanup", "successor"]) {
+  test(`native after-history grace keeps the fired expiry while its read is held for ${change}`, async t => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-07T00:00:00Z") });
+    const f = await settlementFixture();
+    const { sessionId, threadId, turnId } = f;
+    const owner = createCodexAppServerRunOwner({ finalizingGraceMs: 20, finalizingGraceAfterHistoryRead: true,
+      createRuntime: async () => ({ store: f.store, getSession: async () => ({ sessionId, agentRuns: [structuredClone(f.run)] }) }),
+      createStore: async () => f.store, acquireProvider: async () => f.provider,
+      checkpoint: async (id, input) => { f.checkpoints.push({ sessionId: id, ...input }); }
+    });
+    t.after(() => owner.clearSessionRecoveryTimers(sessionId));
+    f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+    f.history = [turn(turnId, "completed")];
+    await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+    const reading = Promise.withResolvers(); const release = Promise.withResolvers();
+    const list = f.provider.listThreadTurns;
+    f.provider.listThreadTurns = async (...args) => { const snapshot = await list(...args); reading.resolve(); await release.promise; return snapshot; };
+    t.mock.timers.tick(20);
+    await reading.promise;
+    assert.equal(owner.finalizingTimers.size, 1, "Firing does not discard the first post-read clock");
+    const expiry = [...owner.finalizingTimers.values()][0].finalizingRecovery;
+    assert.ok(expiry instanceof Promise);
+    let pending;
+    if (change === "concurrent") pending = owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+    if (change === "cleanup") owner.clearSessionRecoveryTimers(sessionId);
+    if (change === "successor") f.run = { ...f.run, providerTurnId: "successor", state: "active", providerStatus: "inProgress" };
+    t.mock.timers.tick(1000);
+    release.resolve();
+    await expiry;
+    await pending;
+    assert.equal(owner.finalizingTimers.size, 0, "A held expiry read cannot grant another interval or leave a predecessor timer");
+    assert.deepEqual(await f.replies(), []);
+    assert.equal(f.checkpoints.length, change === "concurrent" ? 1 : 0);
+    if (change === "successor") assert.equal(f.run.providerTurnId, "successor");
+  });
+}
+
+
+test("native after-history grace retries a rejected expiry read without granting another interval", async t => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-07T00:00:00Z") });
+  const f = await settlementFixture();
+  const { sessionId, threadId, turnId } = f;
+  const failedRead = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let rejectNextRead = false;
+  const errors = [];
+  const owner = createCodexAppServerRunOwner({ finalizingGraceMs: 20, finalizingGraceAfterHistoryRead: true,
+    createRuntime: async () => ({ store: f.store, getSession: async () => {
+      if (rejectNextRead) {
+        rejectNextRead = false;
+        failedRead.resolve();
+        await release.promise;
+        throw new Error("Controlled transient session read failure");
+      }
+      return { sessionId, agentRuns: [structuredClone(f.run)] };
+    } }),
+    createStore: async () => f.store, acquireProvider: async () => f.provider,
+    debugLog: (event, input) => { if (event === "appServerFinalizingRecovery.error") errors.push(input); },
+    checkpoint: async (id, input) => { f.checkpoints.push({ sessionId: id, ...input }); }
+  });
+  t.after(() => owner.clearSessionRecoveryTimers(sessionId));
+  f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+  f.history = [turn(turnId, "completed")];
+  await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+  rejectNextRead = true;
+  t.mock.timers.tick(20);
+  await failedRead.promise;
+  const timer = [...owner.finalizingTimers.values()][0];
+  const expiry = timer.finalizingRecovery;
+  const rejected = assert.rejects(expiry, /Controlled transient session read failure/);
+  release.resolve();
+  await rejected;
+  assert.equal(owner.finalizingTimers.size, 1, "A rejected attempt retains the original expired deadline");
+  assert.deepEqual(f.checkpoints, []);
+  assert.deepEqual(await f.replies(), []);
+  t.mock.timers.tick(1000);
+  await owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+  assert.equal(f.run.state, "completed", "A fresh read settles against the original expired clock");
+  assert.equal(errors.length, 1, "The recovery error remains observable");
+  assert.equal(f.checkpoints.length, 1);
+  assert.equal(f.checkpoints[0].turnOutcome, "response_delivery_failure");
+  assert.equal(owner.finalizingTimers.size, 0);
+  assert.deepEqual(await f.replies(), []);
+});
