@@ -83,7 +83,24 @@ function subscribeAssistantConversation({
       for (const [id, entry] of completed) if (settled.has(entry.turnId)) completed.delete(id);
       receiveState(snapshot);
     }).catch(error => {
-      if (current()) onError(error);
+      if (current()) {
+        if ([401, 403].includes(Number(error.status || error.statusCode))) {
+          if (epoch === null) {
+            disconnected();
+            if (socket.connected) socket.emit(ASSISTANT_CONVERSATION_UNSUBSCRIBE, { subscriptionId });
+          } else {
+            // Retain invalidation notifications for a fresh authorized read, not cached content.
+            generation += 1;
+            reloadInFlight = null;
+            reloadQueued = false;
+          }
+          state = null;
+          streaming = null;
+          completed.clear();
+          settledTurns.clear();
+        }
+        onError(error);
+      }
     }).finally(() => {
       pendingReads.delete(pendingRead);
       if (reloadInFlight !== job) return;
@@ -101,6 +118,10 @@ function subscribeAssistantConversation({
     if (payload.streamEpoch !== epoch || !Number.isSafeInteger(payload.streamRevision) || payload.streamRevision <= revision) return;
     revision = payload.streamRevision;
     const event = payload.event;
+    if (!state) {
+      if (SNAPSHOT_EVENTS.has(event.type)) reload();
+      return;
+    }
     let changedPresentation = Object.hasOwn(event, "interimReply");
     if (changedPresentation && state) state = { ...state, interimReply: event.interimReply };
     if (event.type === "transcript") {
@@ -165,7 +186,9 @@ function subscribeAssistantConversation({
         listening = false;
         pending = [];
         if (socket.connected) socket.emit(ASSISTANT_CONVERSATION_UNSUBSCRIBE, { subscriptionId });
-        onError(error || Object.assign(new Error(response?.error || "Conversation subscription failed."), {
+        onError(error ? Object.assign(new Error("Chat updates could not reconnect. Reload chat to try again.", { cause: error }), {
+          code: "assistant_subscription_transport_failed"
+        }) : Object.assign(new Error(response?.error || "Conversation subscription failed."), {
           code: response?.code, statusCode: response?.status
         }));
         return;

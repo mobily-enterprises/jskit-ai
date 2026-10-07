@@ -41,8 +41,13 @@ export function createCodexConversationAdapter(host) {
     const previous = tasks.get(threadId) || Promise.resolve();
     const task = previous.catch(() => null).then(() => host.runRequest(async () => {
       const client = await host.client();
-      params = await prepareInstructions(params, threadId);
       const generation = contextGeneration;
+      const bound = bindings.get(threadId);
+      const requestedParams = params;
+      const retainInstalledInstructions = bound?.params.developerInstructions != null && !params.ephemeral && !bound.params.ephemeral;
+      params = await prepareInstructions(retainInstalledInstructions
+        ? { ...params, systemPrompt: undefined, developerInstructions: bound.params.developerInstructions }
+        : params, threadId);
       const signal = AbortSignal.timeout(host.timeoutMs || 10_000);
       const assertRecoveryOpen = () => {
         signal.throwIfAborted();
@@ -54,7 +59,6 @@ export function createCodexConversationAdapter(host) {
         assertRecoveryOpen();
         return client.request(method, input, { signal });
       };
-      const bound = bindings.get(threadId);
       const fixedPolicy = params.config?.shell_environment_policy ||
         (bound?.managed === false ? bound.params.config.shell_environment_policy : null);
       if (fixedPolicy && (params.developerInstructions == null || params.ephemeral || bound?.params.ephemeral)) {
@@ -63,7 +67,7 @@ export function createCodexConversationAdapter(host) {
         }
         return operation(threadParameters({ ...bound?.params, ...params }, {}));
       }
-      const environment = instructionEnvironment(params, fixedPolicy?.set || await host.prepareEnvironment(
+      let environment = instructionEnvironment(params, fixedPolicy?.set || await host.prepareEnvironment(
         bound?.params?.config?.shell_environment_policy?.set || host.environment || {}
       ));
       const previousConfig = { ...bound?.params?.config };
@@ -94,7 +98,7 @@ export function createCodexConversationAdapter(host) {
         nativeHistoryPath = thread?.path || "";
         return typeof thread?.status === "string" ? thread.status : thread?.status?.type;
       };
-      const nativeStatus = await readStatus();
+      let nativeStatus = await readStatus();
       if (!bound && !requestParams.modelProvider && nativeModelProvider) {
         // A restored observer has no saved request parameters. Recover the
         // native thread's provider configuration before resuming its controls.
@@ -122,14 +126,29 @@ export function createCodexConversationAdapter(host) {
           processChanged: Boolean(bound?.executionId)
         }) || requestParams;
       }
-      const bindingMatches = !providerChanged && bound?.client === client &&
+      let bindingMatches = !providerChanged && bound?.client === client &&
         bound.params.developerInstructions === requestParams.developerInstructions &&
         bound.params.config.openai_base_url === requestParams.config.openai_base_url &&
         JSON.stringify(bound.params.config.model_providers) === JSON.stringify(requestParams.config.model_providers) &&
         Object.keys(requestParams.config).filter((key) => key.startsWith("model_providers.")).every((key) =>
           JSON.stringify(bound.params.config[key]) === JSON.stringify(requestParams.config[key])) &&
         JSON.stringify(bound.params.config.shell_environment_policy) === JSON.stringify(requestParams.config.shell_environment_policy);
-      const instructionsChanged = requestParams.developerInstructions != null &&
+      const controlBindingMatches = bindingMatches;
+      const installedRequestParams = requestParams;
+      if (retainInstalledInstructions && (!bindingMatches || nativeStatus !== "active")) {
+        // An active healthy turn keeps its installed prompt. Real control
+        // recovery and the next idle admission still read current instructions.
+        params = await prepareInstructions(requestedParams, threadId);
+        environment = instructionEnvironment(params, environment);
+        requestParams = { ...requestParams,
+          ...(Object.hasOwn(params, "developerInstructions") ? { developerInstructions: params.developerInstructions } : {}),
+          config: { ...requestParams.config, shell_environment_policy: { ...requestParams.config.shell_environment_policy, set: environment } }
+        };
+        bindingMatches = bindingMatches && bound.params.developerInstructions === requestParams.developerInstructions &&
+          JSON.stringify(bound.params.config.shell_environment_policy) === JSON.stringify(requestParams.config.shell_environment_policy);
+      }
+      const instructionOnly = retainInstalledInstructions && controlBindingMatches && !bindingMatches;
+      let instructionsChanged = requestParams.developerInstructions != null &&
         instructionPrompts.get(threadId) !== requestParams.developerInstructions;
       let pausedGoal = null;
       let resumed = null;
@@ -138,6 +157,16 @@ export function createCodexConversationAdapter(host) {
         goal.createdAt === original.createdAt && goal.objective === original.objective;
       const log = (event, fields = {}) => host.log?.(event, fields, { threadId, environment });
       try {
+        if (instructionOnly) {
+          // A native goal can start work while the host reads its prompt.
+          nativeStatus = await readStatus();
+          if (nativeStatus === "active") {
+            requestParams = installedRequestParams;
+            environment = requestParams.config.shell_environment_policy.set;
+            bindingMatches = true;
+            instructionsChanged = false;
+          }
+        }
         if (!bindingMatches || nativeStatus === "notLoaded") {
           log("reload_started", { reason: bound ? "control-environment-changed" : "unverified-thread-binding", nativeStatus });
           if (nativeStatus !== "notLoaded") {
@@ -150,57 +179,71 @@ export function createCodexConversationAdapter(host) {
               }
             }
             if (await readStatus() !== "idle") {
-              const page = await request("thread/turns/list", { threadId, limit: 1, sortDirection: "desc", itemsView: "summary" });
-              const turnId = page.data?.[0]?.id;
-              if (!turnId) throw new Error("Codex's running turn could not be identified for control recovery.");
-              await request("turn/interrupt", { threadId, turnId });
-              while (await readStatus() !== "idle") {
-                signal.throwIfAborted();
-                await new Promise((resolve) => setTimeout(resolve, 25));
+              if (instructionOnly) {
+                // Never interrupt work solely to refresh its instructions.
+                requestParams = installedRequestParams;
+                environment = requestParams.config.shell_environment_policy.set;
+                bindingMatches = true;
+                instructionsChanged = false;
+              } else {
+                const page = await request("thread/turns/list", { threadId, limit: 1, sortDirection: "desc", itemsView: "summary" });
+                const turnId = page.data?.[0]?.id;
+                if (!turnId) throw new Error("Codex's running turn could not be identified for control recovery.");
+                assertRecoveryOpen();
+                host.recordInterruption?.(threadId, turnId);
+                await request("turn/interrupt", { threadId, turnId });
+                while (await readStatus() !== "idle") {
+                  signal.throwIfAborted();
+                  await new Promise((resolve) => setTimeout(resolve, 25));
+                }
               }
             }
             if (pausedGoal) {
               const { goal } = await request("thread/goal/get", { threadId });
               pausedGoal = isSamePausedGoal(goal, pausedGoal) ? goal : null;
             }
-            const detached = await request("thread/unsubscribe", { threadId });
-            if (!["unsubscribed", "notSubscribed", "notLoaded"].includes(detached?.status)) {
-              throw new Error("Codex did not confirm detachment before control recovery.");
+            if (!bindingMatches) {
+              const detached = await request("thread/unsubscribe", { threadId });
+              if (!["unsubscribed", "notSubscribed", "notLoaded"].includes(detached?.status)) {
+                throw new Error("Codex did not confirm detachment before control recovery.");
+              }
             }
           }
-          bindings.delete(threadId);
-          await host.beforeResume?.(threadId);
-          resumed = await request("thread/resume", { excludeTurns: true, ...requestParams, threadId });
-          if (requestParams.modelProvider && resumed.modelProvider !== requestParams.modelProvider) {
-            throw Object.assign(new Error("Another native subscriber retained the previous model provider. Close the native assistant terminal and retry."), {
-              code: "assistant_codex_provider_binding_retained"
-            });
-          }
-          if (!["idle", "active"].includes(await readStatus())) throw new Error("Codex did not confirm the thread loaded.");
-          if (nativeStatus !== "notLoaded") {
-            await host.verifyEnvironment(threadId, environment, request, signal, {
-              requiredKeys: requestParams.developerInstructions == null ? [] : [INSTRUCTION_REVISION_ENV]
-            });
-          }
-          const checked = fixedPolicy ? environment : instructionEnvironment(params, await host.prepareEnvironment(environment));
-          if (JSON.stringify(checked) !== JSON.stringify(environment)) {
-            throw new Error("Managed controls changed again during thread recovery.");
-          }
-          if (instructionsChanged) {
-            // Resume config supplies the next compacted context, but existing
-            // history retains its original developer message. A revision in
-            // the developer lane makes this change effective before new work.
-            // An unknown binding also needs restoration; ordinary turns and
-            // socket reconnects with an acknowledged binding do not repeat it.
-            await request("thread/inject_items", { threadId, items: [{ type: "message", role: "developer", content: [{
-              type: "input_text", text: "These are the current application instructions. They replace earlier application instructions; other instructions remain in effect.\n\n" + requestParams.developerInstructions
-            }] }] });
+          if (!bindingMatches || nativeStatus === "notLoaded") {
+            bindings.delete(threadId);
+            await host.beforeResume?.(threadId);
+            resumed = await request("thread/resume", { excludeTurns: true, ...requestParams, threadId });
+            if (requestParams.modelProvider && resumed.modelProvider !== requestParams.modelProvider) {
+              throw Object.assign(new Error("Another native subscriber retained the previous model provider. Close the native assistant terminal and retry."), {
+                code: "assistant_codex_provider_binding_retained"
+              });
+            }
+            if (!["idle", "active"].includes(await readStatus())) throw new Error("Codex did not confirm the thread loaded.");
+            if (nativeStatus !== "notLoaded") {
+              await host.verifyEnvironment(threadId, environment, request, signal, {
+                requiredKeys: requestParams.developerInstructions == null ? [] : [INSTRUCTION_REVISION_ENV]
+              });
+            }
+            const checked = fixedPolicy ? environment : instructionEnvironment(params, await host.prepareEnvironment(environment));
+            if (JSON.stringify(checked) !== JSON.stringify(environment)) {
+              throw new Error("Managed controls changed again during thread recovery.");
+            }
+            if (instructionsChanged) {
+              // Resume config supplies the next compacted context, but existing
+              // history retains its original developer message. A revision in
+              // the developer lane makes this change effective before new work.
+              // An unknown binding also needs restoration; ordinary turns and
+              // socket reconnects with an acknowledged binding do not repeat it.
+              await request("thread/inject_items", { threadId, items: [{ type: "message", role: "developer", content: [{
+                type: "input_text", text: "These are the current application instructions. They replace earlier application instructions; other instructions remain in effect.\n\n" + requestParams.developerInstructions
+              }] }] });
+              assertRecoveryOpen();
+              instructionPrompts.set(threadId, requestParams.developerInstructions);
+            }
             assertRecoveryOpen();
-            instructionPrompts.set(threadId, requestParams.developerInstructions);
+            bindings.set(threadId, { client, executionId, params: requestParams, managed: !fixedPolicy });
+            log("ready");
           }
-          assertRecoveryOpen();
-          bindings.set(threadId, { client, executionId, params: requestParams, managed: !fixedPolicy });
-          log("ready");
         }
       } catch (cause) {
         host.onRecoveryFailure?.(threadId);

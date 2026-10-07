@@ -52,6 +52,7 @@ async function fixture(t) {
   const fetches = [];
   const runtimeEvents = [];
   const authRequests = [];
+  const subscriptionTimings = [];
   const nextReadBarriers = new Map();
   const clientSessions = new WeakMap();
   const context = { actor: { id: "42" }, surface: "home", channel: "internal" };
@@ -140,7 +141,8 @@ async function fixture(t) {
     serverSockets.add(socket);
     return () => { serverSockets.delete(socket); notify(); };
   });
-  const stopSubscriptions = registerConversationSubscriptions({ realtime, events, actions, config });
+  const stopSubscriptions = registerConversationSubscriptions({ realtime, events, actions, config,
+    logger: { info(record) { subscriptionTimings.push(record); notify(); } } });
   const published = [];
   events.register({ id: "test.assistant.published", handle(event) { published.push(event); notify(); } });
   http.listen(0, "127.0.0.1");
@@ -201,8 +203,112 @@ async function fixture(t) {
     return barrier;
   }
   return { ids, connect, view, changes, sessions, revoked, fetches, conversations, runtimeEvents,
-    realtime, transport, serverSockets, published, events, stopSubscriptions, authRequests, holdNextRead, active: () => active };
+    realtime, transport, serverSockets, published, events, stopSubscriptions, authRequests, subscriptionTimings,
+    holdNextRead, active: () => active };
 }
+
+test("subscription timings identify a blocked snapshot and abandoned observation without stopping work", { timeout: 20_000 }, async t => {
+  const f = await fixture(t);
+  const socket = await f.connect();
+  const id = f.ids[0];
+  await f.conversations.get(id).send({ messageId: "measured-once", text: "Continue while history is being read" });
+  await until(f.changes, () => f.fetches.length === 1);
+  const barrier = f.holdNextRead(id);
+  const view = f.view(socket, id);
+  await until(f.changes, () => barrier.started);
+  assert.deepEqual(f.subscriptionTimings.map(record => record.stage), [
+    "authentication", "action-admission", "conversation-open", "observer-attach", "snapshot-read"
+  ]);
+  assert.equal(f.active(), 1);
+  assert.equal(view.states.length, 0);
+  view.dispose();
+  await until(f.changes, () => f.active() === 0);
+  barrier.resolve();
+  await until(f.changes, () => f.subscriptionTimings.at(-1)?.stage === "abandoned");
+  const abandoned = f.subscriptionTimings.at(-1);
+  assert.equal(abandoned.previousStage, "snapshot-read");
+  assert.equal(abandoned.conversationId, id);
+  assert.equal(f.fetches[0].signal.aborted, false);
+  assert.equal(f.fetches.length, 1);
+  assert.equal(view.states.length, 0, "An abandoned read never acknowledges stale conversation content");
+
+  const recovered = f.view(socket, id);
+  await until(f.changes, () => recovered.states.length === 1);
+  const records = f.subscriptionTimings.filter(record => record.subscriptionEpoch !== abandoned.subscriptionEpoch);
+  assert.deepEqual(records.map(record => record.stage), ["authentication", "action-admission", "conversation-open",
+    "observer-attach", "snapshot-read", "acknowledgement", "acknowledgement-sent"]);
+  assert.ok(records.every(record => record.event === "assistant.conversation.subscription" &&
+    Number.isFinite(record.durationMs) && record.durationMs >= 0 &&
+    Number.isFinite(record.elapsedMs) && record.elapsedMs >= record.durationMs));
+  assert.ok(records.slice(1).every((record, index) => record.elapsedMs >= records[index].elapsedMs));
+  assert.ok(records.slice(0, 3).every(record => !Object.hasOwn(record, "conversationId")),
+    "Unvalidated request identity is never copied into diagnostics");
+  assert.ok(records.slice(3).every(record => record.conversationId === id));
+  assert.ok(records.every(record => !Object.hasOwn(record, "subscriptionId")),
+    "Correlation uses the server epoch rather than arbitrary client subscription text");
+  assert.equal(records.find(record => record.stage === "acknowledgement").snapshotTurns, 1);
+  assert.equal(recovered.states[0].conversationLog[0].user.messageId, "measured-once");
+  assert.equal(f.active(), 1);
+  assert.equal(f.fetches.length, 1);
+  assert.equal(f.fetches[0].signal.aborted, false);
+  recovered.dispose();
+  await until(f.changes, () => f.active() === 0);
+});
+
+test("the real ten-second subscription deadline releases its late observer and Reload never repeats work", { timeout: 25_000 }, async t => {
+  const f = await fixture(t);
+  const socket = await f.connect();
+  const socketId = socket.id;
+  const id = f.ids[0];
+  await f.conversations.get(id).send({ messageId: "survives-timeout", text: "Keep working through a slow snapshot" });
+  await until(f.changes, () => f.fetches.length === 1);
+  const barrier = f.holdNextRead(id);
+  const view = f.view(socket, id);
+  await until(f.changes, () => barrier.started);
+  const firstSubscriptionEpoch = f.subscriptionTimings.at(-1).subscriptionEpoch;
+  while (!view.errors.length || f.active() !== 0) {
+    await once(f.changes, "change", { signal: AbortSignal.timeout(12_000) });
+  }
+  assert.equal(view.errors[0].message, "Chat updates could not reconnect. Reload chat to try again.");
+  assert.equal(view.errors[0].cause.message, "operation has timed out");
+  assert.equal(socket.id, socketId);
+  assert.equal(socket.connected, true);
+  assert.equal(view.states.length, 0);
+  assert.equal(f.fetches[0].signal.aborted, false);
+  view.dispose.reload();
+  await until(f.changes, () => view.states.length === 1 && f.active() === 1);
+  assert.equal(view.states[0].conversationLog[0].user.messageId, "survives-timeout");
+  const statesBeforeLateRead = view.states.length;
+  barrier.resolve();
+  await until(f.changes, () => f.subscriptionTimings.some(record =>
+    record.subscriptionEpoch === firstSubscriptionEpoch && record.stage === "abandoned"));
+  assert.equal(view.states.length, statesBeforeLateRead, "The obsolete server read never acknowledges into the recovered view");
+  assert.equal(f.active(), 1, "The late read cannot release the recovered observer");
+  assert.equal(f.fetches.length, 1);
+  assert.equal(f.fetches[0].signal.aborted, false);
+  assert.equal(socket.listeners(ASSISTANT_CONVERSATION_EVENT).length, 1);
+  f.fetches[0].text("Still running after the timed-out observation.");
+  await until(f.changes, () => view.received.some(event => event.text?.includes("timed-out observation")));
+  view.dispose();
+  await until(f.changes, () => f.active() === 0);
+});
+
+test("subscription diagnostics never serialize unvalidated client identifiers", async t => {
+  const f = await fixture(t);
+  const socket = await f.connect();
+  const privateText = "unvalidated-client-content-must-not-enter-logs";
+  const result = await requestSubscription(socket, {
+    subscriptionId: privateText, conversationId: { text: privateText }, targetSurfaceId: "home", hostSurfaceId: "home"
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 400);
+  assert.equal(f.active(), 0);
+  assert.equal(f.subscriptionTimings.at(-1).stage, "failed");
+  assert.ok(f.subscriptionTimings.every(record => /^[0-9a-f-]{36}$/.test(record.subscriptionEpoch)));
+  assert.ok(f.subscriptionTimings.every(record => !Object.hasOwn(record, "conversationId") &&
+    !Object.hasOwn(record, "subscriptionId")));
+  assert.equal(JSON.stringify(f.subscriptionTimings).includes(privateText), false);
+});
 
 test("five chats share one authenticated socket and release independently without stopping turns", { timeout: 20_000 }, async t => {
   const f = await fixture(t);
@@ -778,4 +884,109 @@ test("host subscription policy retains authenticated actor metadata and per-even
   assert.deepEqual(packets.map(packet => packet.event.phase), ["working"]);
   assert.ok(cookies.length >= 5);
   assert.ok(cookies.every(value => value === "host-session"));
+});
+
+for (const status of [401, 403, 503]) {
+  test(`subscription read failure ${status} fences denied updates but retains transient history`, async t => {
+    const changes = new EventEmitter();
+    const socket = new EventEmitter();
+    socket.connected = true;
+    const requests = [], states = [], errors = [], unsubscribed = [], events = [];
+    socket.on(ASSISTANT_CONVERSATION_UNSUBSCRIBE, input => unsubscribed.push(input));
+    socket.timeout = () => ({ emit(name, input, acknowledge) {
+      assert.equal(name, ASSISTANT_CONVERSATION_SUBSCRIBE);
+      requests.push({ input, acknowledge });
+    } });
+    const user = { messageId: "question", role: "user", text: "Private saved question" };
+    const initial = { id: "chat", status: "working", conversationLog: [{ turnId: "turn", user }],
+      streaming: { revision: 0, messages: [] } };
+    const recovered = { id: "chat", status: "ready", conversationLog: [], streaming: { revision: 0, messages: [] } };
+    const failure = Object.assign(new Error(status === 503 ? "Updates unavailable." : "Access denied."), { statusCode: status });
+    let reads = 0;
+    let denied = true;
+    const dispose = subscribeAssistantConversation({ socket, conversationId: "chat", targetSurfaceId: "home", hostSurfaceId: "home",
+      read() { reads += 1; if (denied) throw failure; return recovered; },
+      onState(state) { states.push(state); changes.emit("change"); },
+      onError(error) { errors.push(error); changes.emit("change"); }, onEvent: event => events.push(event) });
+    t.after(dispose);
+    requests[0].acknowledge(null, { ok: true, streamEpoch: "old", state: initial });
+    const subscriptionId = requests[0].input.subscriptionId;
+    await dispose.reload();
+    assert.deepEqual(errors, [failure]);
+    assert.equal(reads, 1);
+    assert.equal(states.length, 1, "A failed read cannot replace the loaded snapshot");
+    function deliver(event, revision) {
+      socket.emit(ASSISTANT_CONVERSATION_EVENT, { subscriptionId, conversationId: "chat", streamEpoch: "old",
+        streamRevision: revision, event });
+    }
+    const message = { messageId: "answer", turnId: "turn", role: "assistant", status: "inProgress", text: "Late private output" };
+    deliver({ type: "message", ...message, streaming: { revision: 1, messages: [message] } }, 1);
+    assert.equal(unsubscribed.length, 0, "The original notification observer remains available for authorized recovery");
+    if (status === 503) {
+      assert.equal(states.length, 2);
+      assert.equal(states.at(-1).turns[0].user.text, user.text);
+      assert.equal(states.at(-1).turns[0].assistant.text, message.text);
+      assert.equal(events.length, 1);
+      return;
+    }
+    assert.equal(states.length, 1, "Late events cannot restore content cleared by the denied access owner");
+    deliver({ type: "transcript", patch: { type: "upsert-turn", turn: { turnId: "turn", user } } }, 2);
+    assert.equal(states.length, 1, "A late patch cannot create another denied snapshot");
+    assert.deepEqual(events, [], "Denied presentation hooks are not forwarded before a fresh authorized read");
+    requests[0].acknowledge(null, { ok: true, streamEpoch: "old", state: initial });
+    assert.equal(states.length, 1, "An obsolete acknowledgement cannot restore the denied snapshot");
+    denied = false;
+    deliver({ type: "settled", turnId: "turn" }, 3);
+    await until(changes, () => states.length === 2);
+    assert.deepEqual(states.at(-1).turns, [], "Fresh canonical state excludes old buffered output");
+    assert.equal(requests.length, 1, "Recovery uses the original observer and authoritative read");
+    assert.equal(reads, 2);
+    deliver({ type: "message", ...message, text: "Authorized new output",
+      streaming: { revision: 2, messages: [{ ...message, text: "Authorized new output" }] } }, 4);
+    assert.equal(states.length, 3);
+    assert.equal(states.at(-1).turns[0].assistant.text, "Authorized new output");
+    assert.equal(events.length, 1);
+    assert.deepEqual(errors, [failure]);
+    assert.equal(reads, 2, "Presentation after recovery does not issue another read or resend");
+  });
+}
+
+test("denied Reload before the initial acknowledgement retires only that pending observer and recovers on the same socket", async t => {
+  const socket = new EventEmitter();
+  socket.connected = true;
+  const requests = [], states = [], errors = [], unsubscribed = [];
+  socket.on(ASSISTANT_CONVERSATION_UNSUBSCRIBE, input => unsubscribed.push(input));
+  socket.timeout = () => ({ emit(name, input, acknowledge) {
+    assert.equal(name, ASSISTANT_CONVERSATION_SUBSCRIBE);
+    requests.push({ input, acknowledge });
+  } });
+  const failure = Object.assign(new Error("Access denied."), { statusCode: 401 });
+  let reads = 0;
+  const dispose = subscribeAssistantConversation({ socket, conversationId: "chat", targetSurfaceId: "home", hostSurfaceId: "home",
+    read() { reads += 1; throw failure; }, onState: state => states.push(state), onError: error => errors.push(error) });
+  t.after(dispose);
+  const subscriptionId = requests[0].input.subscriptionId;
+  await dispose.reload();
+  assert.deepEqual(errors, [failure]);
+  assert.deepEqual(unsubscribed, [{ subscriptionId }]);
+  assert.equal(reads, 1);
+  assert.equal(socket.connected, true, "Denied admission retires only this observer, not the shared socket");
+  const privateState = { id: "chat", status: "ready", conversationLog: [{ turnId: "private",
+    user: { messageId: "private-question", role: "user", text: "Old private history" } }], streaming: { revision: 0, messages: [] } };
+  requests[0].acknowledge(null, { ok: true, streamEpoch: "old", state: privateState });
+  socket.emit(ASSISTANT_CONVERSATION_EVENT, { subscriptionId, conversationId: "chat", streamEpoch: "old",
+    streamRevision: 1, event: { type: "settled", turnId: "private" } });
+  assert.deepEqual(states, [], "Late old acknowledgements and notifications cannot restore private content");
+  assert.equal(reads, 1);
+  dispose.reload();
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1].input, requests[0].input);
+  requests[0].acknowledge(null, { ok: true, streamEpoch: "old", state: privateState });
+  assert.deepEqual(states, []);
+  const recovered = { id: "chat", status: "ready", conversationLog: [], streaming: { revision: 0, messages: [] } };
+  requests[1].acknowledge(null, { ok: true, streamEpoch: "fresh", state: recovered });
+  assert.equal(states.length, 1);
+  assert.deepEqual(states[0].turns, []);
+  assert.equal(reads, 1, "Recovery uses fresh subscription admission rather than repeating the old read or inference");
+  assert.deepEqual(errors, [failure]);
 });

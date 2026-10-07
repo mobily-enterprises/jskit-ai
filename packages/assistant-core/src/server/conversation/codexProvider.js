@@ -1279,6 +1279,10 @@ export class CodexAppServerAgentProvider {
       prepareHistory: (params, client, context) => this.withHistoryAdapter(params, client, context),
       threadParameters: codexAppServerThreadRequestParams,
       verifyEnvironment: (...args) => this.#verifyThreadEnvironment(...args),
+      recordInterruption: (threadId, turnId) => {
+        const key = JSON.stringify([threadId, turnId]);
+        this.interruptedTurns.set(key, this.interruptedTurns.get(key) || "control_reconfiguration");
+      },
       onRecoveryFailure: (id) => {
         const probe = this.threadControlProbes.get(id);
         if (probe && !probe.verified) {
@@ -1292,7 +1296,7 @@ export class CodexAppServerAgentProvider {
     });
     this.threadControlProbes = new Map();
     this.commandExecutions = new Map();
-    this.interruptedTurns = new Set();
+    this.interruptedTurns = new Map();
     this.commandStopFailure = null;
   }
 
@@ -2574,16 +2578,22 @@ export class CodexAppServerAgentProvider {
     };
   }
 
-  async interruptTurn(threadId = "", turnId = "") {
+  interruptionOutcome(threadId = "", turnId = "") {
+    const key = JSON.stringify([normalizeAgentText(threadId), normalizeAgentText(turnId)]);
+    return this.interruptedTurns.get(key) || "";
+  }
+
+  async interruptTurn(threadId = "", turnId = "", { outcome = "" } = {}) {
     const client = await this.activeClient();
     return this.runRequest(
-      () => this.#interruptTurn(client, normalizeAgentText(threadId), normalizeAgentText(turnId)),
+      () => this.#interruptTurn(client, normalizeAgentText(threadId), normalizeAgentText(turnId), undefined, outcome),
       "codex-app-server-turn-interrupt"
     );
   }
 
-  async #interruptTurn(client, threadId, turnId, signal) {
-    this.interruptedTurns.add(JSON.stringify([threadId, turnId]));
+  async #interruptTurn(client, threadId, turnId, signal, outcome = "") {
+    const key = JSON.stringify([threadId, turnId]);
+    this.interruptedTurns.set(key, outcome || this.interruptedTurns.get(key) || "");
     const result = await client.request("turn/interrupt", { threadId, turnId }, { signal });
     await Promise.all([...this.commandExecutions.values()]
       .filter((command) => command.threadId === threadId && command.turnId === turnId)

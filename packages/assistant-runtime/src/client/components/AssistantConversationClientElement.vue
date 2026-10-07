@@ -50,7 +50,6 @@ defineExpose({ focus: () => conversation.value?.focus(), runtime: binding.runtim
       <slot :name="name" v-bind="scope" :runtime="binding.runtime.value" />
     </template>
     <template #composer-feedback>
-      <p v-if="binding.error.value" role="status" class="assistant-client-conversation__error">{{ binding.error.value }}</p>
       <slot name="composer-feedback" :runtime="binding.runtime.value" />
     </template>
   </AssistantConversationElement>
@@ -58,5 +57,4 @@ defineExpose({ focus: () => conversation.value?.focus(), runtime: binding.runtim
 
 <style scoped>
 .assistant-client-conversation { flex: 1 1 auto; height: 100%; min-height: 0; min-width: 0; }
-.assistant-client-conversation__error { color: rgb(var(--v-theme-error)); font-size: .85rem; margin: .25rem 0; overflow-wrap: anywhere; }
 </style>

@@ -201,10 +201,13 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         if (typeof deps?.onEvent !== "function" || typeof deps?.onRelease !== "function") {
           throw new TypeError("Conversation subscriptions require their server-owned event and cleanup callbacks.");
         }
+        deps.onStage?.("conversation-open");
         const conversation = await openConversation(input, context);
+        deps.onStage?.("observer-attach");
         const release = await conversation.subscribe(deps.onEvent);
         try {
           deps.onRelease(release);
+          deps.onStage?.("snapshot-read");
           return await conversation.read();
         } catch (error) {
           release();

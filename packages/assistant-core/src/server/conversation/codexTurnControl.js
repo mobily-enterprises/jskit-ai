@@ -185,7 +185,7 @@ export function createCodexTurnControl({
         return { value: codexAppServerFrozenTurnInterruptResponse({ threadId, turnId }) };
       }
       try {
-        result = await provider.interruptTurn(threadId, turnId);
+        result = await provider.interruptTurn(threadId, turnId, { outcome: turnOutcomes.USER_CANCELLED });
       } catch (error) {
         if (error?.code === `${provider?.errorPrefix ?? errorPrefix}codex_command_stop_unconfirmed`) throw error;
         requestError = error;

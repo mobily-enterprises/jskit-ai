@@ -812,11 +812,14 @@ export function createCodexTurnRecovery({
     );
   }
 
-  function codexAppServerStoppedTurnMessage(status = "", error = "") {
+  function codexAppServerStoppedTurnMessage(status = "", error = "", outcome = "") {
     const normalizedStatus = normalizeCodexRunText(status);
-    const base = normalizedStatus === "interrupted"
-      ? "Codex app-server was interrupted before completing this turn."
-      : "Codex app-server failed before completing this turn.";
+    let base = "Codex app-server failed before completing this turn.";
+    if (normalizedStatus === "interrupted") {
+      base = outcome === turnOutcomes.CONTROL_RECONFIGURATION
+        ? "Codex app-server was interrupted while its controls were restored."
+        : "Codex app-server was interrupted before completing this turn.";
+    }
     const normalizedError = normalizeCodexRunText(error);
     return normalizedError ? `${base} ${normalizedError}` : base;
   }
@@ -824,7 +827,7 @@ export function createCodexTurnRecovery({
   async function stopCodexAppServerTurnWithProviderFailure(sessionId = "", threadId = "", turnId = "", {
     error = "",
     ok = false,
-    outcome = turnOutcomes.PROVIDER_FAILURE,
+    outcome = "",
     provider = null,
     status = "failed",
     usageLimitExceeded = false,
@@ -834,6 +837,16 @@ export function createCodexTurnRecovery({
     const normalizedThreadId = normalizeCodexRunText(threadId);
     const normalizedTurnId = normalizeCodexRunText(turnId);
     const normalizedStatus = normalizeCodexRunText(status) || "failed";
+    let resolvedOutcome = normalizeCodexRunText(outcome);
+    if (!resolvedOutcome) {
+      if (normalizedStatus === "interrupted") {
+        const recorded = provider?.interruptionOutcome?.(normalizedThreadId, normalizedTurnId);
+        resolvedOutcome = [turnOutcomes.USER_CANCELLED, turnOutcomes.CONTROL_RECONFIGURATION].includes(recorded)
+          ? recorded : turnOutcomes.INTERRUPTED;
+      } else {
+        resolvedOutcome = turnOutcomes.PROVIDER_FAILURE;
+      }
+    }
     const runtime = await createRuntime();
     const session = await runtime.getSession(normalizedSessionId);
     const turn = turnState(session);
@@ -875,13 +888,13 @@ export function createCodexTurnRecovery({
         status: "inProgress"
       };
     }
-    const message = codexAppServerStoppedTurnMessage(normalizedStatus, error);
+    const message = codexAppServerStoppedTurnMessage(normalizedStatus, error, resolvedOutcome);
     await outcomeNotice(
       runtime,
       normalizedSessionId,
       normalizedThreadId,
       normalizedTurnId,
-      outcome,
+      resolvedOutcome,
       error,
       { usageLimitExceeded }
     );
@@ -890,7 +903,7 @@ export function createCodexTurnRecovery({
       status: normalizedStatus,
       threadId: normalizedThreadId,
       turnId: normalizedTurnId,
-      turnOutcome: outcome
+      turnOutcome: resolvedOutcome
     });
     cleanupCodexAppServerUntrackedTurn(normalizedThreadId, normalizedTurnId);
     return {

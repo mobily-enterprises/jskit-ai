@@ -405,7 +405,10 @@ test("upward scrolling loads older history once and preserves retry and selectio
       await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
       await expect(requests).toHaveText("History requests: 3");
       await external("Exhaust history");
-      await body.focus();
+      await expect.poll(async () => {
+        await body.focus();
+        return body.evaluate(element => document.activeElement === element);
+      }).toBe(true);
       await body.press("Home");
       await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
       await expect(requests).toHaveText("History requests: 3");
@@ -477,6 +480,73 @@ test("retained hidden transcripts preserve readers and follow only at the latest
       await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
       await expect(page.locator(".assistant-transcript__settling")).toHaveCount(0);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
+test("transient update errors keep the loaded transcript, reader, draft and focus in a compact banner", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 800, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.goto(`${vite.baseURL}/?controls=1&history=1&update-errors=1`);
+      const body = page.locator(".assistant-transcript__body");
+      const draft = page.getByRole("textbox", { name: "Message AI assistant", exact: true });
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      await expect(page.locator(".assistant-transcript__settling")).toHaveCount(0);
+      await draft.fill("Keep my draft while updates reconnect.");
+      await body.hover();
+      await page.mouse.wheel(0, -1000);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
+      await body.evaluate(element => { element.scrollTop = 420; window.updateErrorBody = element; });
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await draft.evaluate(element => {
+        element.focus({ preventScroll: true });
+        element.setSelectionRange(2, 7);
+        window.updateErrorDraft = element;
+      });
+      const rows = await body.locator(".assistant-transcript__turn").count();
+      await external("Show update error");
+      const banner = page.locator(".assistant-transcript__error");
+      await expect(banner).toContainText("Conversation updates are temporarily unavailable. Reload to reconnect; the assistant may still be working.");
+      await expect(banner.getByRole("button", { name: "Reload chat", exact: true })).toBeVisible();
+      await expect(body).toBeVisible();
+      assert.equal(await body.evaluate(element => element === window.updateErrorBody), true);
+      await expect(body.locator(".assistant-transcript__turn")).toHaveCount(rows);
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await expect(draft).toHaveValue("Keep my draft while updates reconnect.");
+      await expect(draft).toBeFocused();
+      assert.deepEqual(await draft.evaluate(element => [element === window.updateErrorDraft, element.selectionStart, element.selectionEnd]), [true, 2, 7]);
+      const transcriptBox = await page.locator(".assistant-transcript").boundingBox();
+      const bannerBox = await banner.boundingBox();
+      const bodyBox = await body.boundingBox();
+      assert.ok(bannerBox.height < transcriptBox.height / 3);
+      assert.ok(bodyBox.height > transcriptBox.height / 2);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await banner.getByRole("button", { name: "Reload chat", exact: true }).click();
+      await expect(banner).toHaveCount(0);
+      await expect(page.locator(".assistant-conversation")).toHaveAttribute("data-error-reloads", "1");
+      assert.equal(await body.evaluate(element => element === window.updateErrorBody), true);
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await expect(draft).toHaveValue("Keep my draft while updates reconnect.");
+      await expect(page.locator("output")).toHaveText("History requests: 0");
+      await body.hover();
+      await page.mouse.wheel(0, 100_000);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await external("Show update error");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await banner.getByRole("button", { name: "Reload chat", exact: true }).click();
+      await expect(banner).toHaveCount(0);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await expect(page.locator(".assistant-conversation")).toHaveAttribute("data-error-reloads", "2");
       await page.close();
     }
   } finally {

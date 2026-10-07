@@ -3,7 +3,7 @@
     v-if="visible || retainWhenHidden"
     v-show="visible"
     class="assistant-transcript"
-    :class="`assistant-transcript--${variant}`"
+    :class="[`assistant-transcript--${variant}`, { 'assistant-transcript--retained': retainWhenHidden, 'assistant-transcript--error': error }]"
     aria-label="Conversation history"
   >
     <v-btn
@@ -40,15 +40,23 @@
 
     <v-alert
       v-if="error"
+      class="assistant-transcript__error"
       density="compact"
       type="warning"
       variant="tonal"
     >
-      {{ error }}
+      <div class="assistant-transcript__error-content">
+        <span>{{ error }}</span>
+        <v-btn
+          v-if="errorReloadable && !reloadable" :disabled="reloading" :min-height="48" size="small"
+          type="button" variant="text" @click="emit('reload')"
+        >
+          Reload chat
+        </v-btn>
+      </div>
     </v-alert>
 
     <div
-      v-else
       ref="bodyElement"
       aria-label="Conversation messages"
       class="assistant-transcript__body"
@@ -337,6 +345,10 @@ const props = defineProps({
   error: {
     default: "",
     type: String
+  },
+  errorReloadable: {
+    default: false,
+    type: Boolean
   },
   followLatestKey: {
     default: 0,
@@ -655,7 +667,6 @@ function messageScrollKey(message = null) {
 }
 
 const timelineScrollTrigger = computed(() => [
-  props.error ? "error" : "body",
   loadingIndicatorVisible.value ? "loading" : "ready",
   displayEntries.value.length ? "has-messages" : "empty",
   props.scrollKey
@@ -1019,6 +1030,10 @@ watch(timelineScrollTrigger, () => {
   immediate: true
 });
 
+watch(() => props.error, () => {
+  if (followingLatest.value) queueLiveBottomScroll();
+}, { flush: "post" });
+
 // Capture before this transcript or its parent's v-show removes its geometry.
 watch(() => props.visible, (visible) => {
   if (visible) return;
@@ -1084,6 +1099,31 @@ watch(() => props.visible, (visible) => {
   overflow: hidden;
   position: absolute;
   z-index: 1;
+}
+
+.assistant-transcript--error {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.assistant-transcript__error {
+  font-size: 0.85rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.assistant-transcript__error-content {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.assistant-transcript__error-content > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.assistant-transcript__error-content > .v-btn {
+  flex: 0 0 auto;
 }
 
 .assistant-transcript__settling {
@@ -1169,6 +1209,11 @@ watch(() => props.visible, (visible) => {
   gap: 0.65rem;
   min-height: 0;
   min-width: 0;
+}
+
+.assistant-transcript--retained .assistant-transcript__turn {
+  /* Late offscreen height estimates cannot move a restored reader anchor. */
+  content-visibility: visible;
 }
 
 .assistant-transcript__message-row {

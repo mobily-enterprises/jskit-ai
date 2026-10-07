@@ -579,7 +579,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
 
   const runtime = { identity, current, active, editable, available, canSubmit, steerable, queueWhileSending: queueing,
     snapshot, draft, draftMessageId, draftAttachments, draftRetry, draftRetryMatches, settleDraftRetry,
-    error, loading, stopping, delivery, turns,
+    error, accessDenied, loading, stopping, delivery, turns,
     hasMoreBefore, loadingMore, loadMoreError, loadMore,
     send, submitPrepared, submitDraft, cancel, cancelMessage, inspectDelivery, changeGoal, refreshGoal, goalState, goalView, goalLoadError, questions,
     reload() { const job = subscription?.reload(); void refreshGoal(); return job; } };
@@ -862,10 +862,11 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       models: current?.available.value ? modelOwner.value : null, questions: prompts,
       goal: (toValue(goal) === true ? null : toValue(goal)) || current?.goalState.value || null,
       conversation: { turns: current?.turns.value || [], interimReply: state?.interimReply || null,
+        error: current?.error.value || state?.error || "", errorReloadable: Boolean(current) && !current.accessDenied.value,
         scrollKey: JSON.stringify(identity.value),
         hasMoreBefore: current?.hasMoreBefore.value || false,
         loadingMore: current?.loadingMore.value || false, loadMoreError: current?.loadMoreError.value || "",
-        loading: current?.loading.value || false, working: state?.status === "working" && !current.delivery.state.sending,
+        loading: current?.loading.value || false, working: !current?.error.value && state?.status === "working" && !current.delivery.state.sending,
         assistantLabel: display.assistantLabel || "Assistant", welcomeMessage: display.welcomeMessage ?? "What would you like to do?",
         systemLabel: display.systemLabel, variant: display.variant, visible: display.visible, retainWhenHidden: display.retainWhenHidden,
         userMessageFormat: display.userMessageFormat, progressPreviewLimit: display.progressPreviewLimit,

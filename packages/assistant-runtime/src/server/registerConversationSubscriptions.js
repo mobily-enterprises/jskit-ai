@@ -30,7 +30,7 @@ function subscriptionError(error) {
 // Register one conversation subscription owner per shared realtime runtime.
 // A host may select its fixed action/request policy at composition; clients
 // never choose either. The selected action remains the authorization boundary.
-function registerConversationSubscriptions({ realtime, events, actions, config = {}, workspaceScopeSupport = null,
+function registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = null, workspaceScopeSupport = null,
   subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated" } = {}) {
   if (typeof realtime?.onConnection !== "function" || typeof events?.publish !== "function") {
     throw new TypeError("Conversation subscriptions require the shared realtime connection and event runtime.");
@@ -63,14 +63,34 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       if (typeof acknowledge !== "function" || closed) return;
       let subscription;
       let subscriptionId;
+      const startedAt = performance.now();
+      let stageStartedAt = startedAt;
+      let stage = "request-admission";
+      let observedConversationId;
+      function onStage(next, fields = {}) {
+        const now = performance.now();
+        // Only a successfully opened, authorized conversation may enter diagnostics.
+        if (next === "observer-attach") observedConversationId = input.conversationId;
+        try {
+          logger?.info?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
+            ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
+            stage: next, previousStage: stage,
+            durationMs: now - stageStartedAt, elapsedMs: now - startedAt, ...fields },
+          "Assistant conversation subscription stage");
+        } catch { /* Diagnostics must not change conversation admission or cleanup. */ }
+        stage = next;
+        stageStartedAt = now;
+      }
       try {
         subscriptionId = requireSubscriptionId(input);
         release(subscriptionId);
         subscription = { pending: new Map(), revision: 0, epoch: randomUUID(), queue: Promise.resolve() };
         subscriptions.set(subscriptionId, subscription);
         const current = () => !closed && socket.connected && subscriptions.get(subscriptionId) === subscription;
+        onStage("authentication");
         const request = await (requestPolicy === "host" ? readRequest() : authenticate());
-        if (!current()) return;
+        if (!current()) { onStage("abandoned"); return; }
+        onStage("action-admission");
         const assistantSurface = resolveAssistantSurfaceConfig(config, input.targetSurfaceId);
         if (!assistantSurface) throw new AppError(404, "Assistant not found.");
         const requiresWorkspace = assistantSurface.runtimeSurfaceRequiresWorkspace;
@@ -127,15 +147,24 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
           input: { ...routeState.actionInput, conversationId: input.conversationId },
           deps: {
             onEvent,
+            onStage,
             onRelease(detach) {
               if (!current()) detach();
               else subscription.release = detach;
             }
           }
         });
-        if (!current()) return;
+        if (!current()) { onStage("abandoned"); return; }
+        onStage("acknowledgement", {
+          ...(Array.isArray(state?.conversationLog) ? { snapshotTurns: state.conversationLog.length } : {}),
+          ...(Number.isSafeInteger(state?.pagination?.limit) ? { snapshotLimit: state.pagination.limit } : {})
+        });
         acknowledge({ ok: true, subscriptionId, streamEpoch: subscription.epoch, state });
+        // Sending an acknowledgement does not prove that a timed-out client received it.
+        onStage("acknowledgement-sent");
       } catch (error) {
+        onStage("failed", { code: String(error?.code || "assistant_subscription_failed"),
+          status: Number(error?.status || error?.statusCode || 500) });
         if (subscriptions.get(subscriptionId) === subscription) release(subscriptionId);
         if (!closed && socket.connected) acknowledge(subscriptionError(error));
       }

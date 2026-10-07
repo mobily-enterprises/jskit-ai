@@ -6,7 +6,7 @@ import test from "node:test";
 import { createMemoryConversationStorage } from "../src/server/conversation/memoryStorage.js";
 import { createConversationTranscript } from "../src/server/conversation/transcript.js";
 import { createConversationStreams } from "../src/server/conversation/streams.js";
-import { sendCodexAppServerPrompt } from "../src/server/conversation/codexProvider.js";
+import { sendCodexAppServerPrompt, CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
 import { createCodexHelperThreadLedgerOwner } from "../src/server/conversation/codexHelperThreadLedger.js";
 import {
   waitForCodexAppServerTurn,
@@ -2271,4 +2271,89 @@ test("original live observation completion preserves a changed main run and read
     assert.equal(f.provider.observationFailure, null);
     assert.equal(f.publications.some(event => event.reason === "codex-observation-stopped"), false);
   }
+});
+
+for (const [status, cause, explicit, expected] of [
+  ["interrupted", "", "", "interrupted"],
+  ["interrupted", "control_reconfiguration", "", "control_reconfiguration"],
+  ["interrupted", "user_cancelled", "", "user_cancelled"],
+  ["failed", "control_reconfiguration", "", "provider_failure"],
+  ["interrupted", "control_reconfiguration", "service_restart", "service_restart"]
+]) {
+  test(`native ${status} preserves ${expected} outcome without inferring its cause`, async () => {
+    const notices = [];
+    const checkpoints = [];
+    const f = await receiptFixture({
+      outcomeNotice(_runtime, sessionId, threadId, turnId, outcome) { notices.push({ sessionId, threadId, turnId, outcome }); },
+      checkpoint(sessionId, value) { checkpoints.push({ sessionId, ...value }); }
+    });
+    const provider = new CodexAppServerAgentProvider({}, { credentials: { assertCurrent() {} } });
+    provider.client = { isOpen: () => true, close() {}, async request(method, input) {
+      assert.equal(method, "turn/interrupt");
+      assert.deepEqual(input, { threadId: f.threadId, turnId: f.turnId });
+      assert.equal(provider.interruptionOutcome(f.threadId, f.turnId), cause, "Cause precedes the actual native request");
+      return {};
+    } };
+    try {
+      if (cause) await provider.interruptTurn(f.threadId, f.turnId, { outcome: cause });
+      f.provider.interruptionOutcome = provider.interruptionOutcome.bind(provider);
+      assert.equal(provider.interruptionOutcome("another-thread", f.turnId), "");
+      assert.equal(provider.interruptionOutcome(f.threadId, "another-turn"), "");
+      const result = await f.owner.stopTurnWithProviderFailure(f.sessionId, f.threadId, f.turnId, {
+        status, provider: f.provider, verifyInactive: false, ...(explicit ? { outcome: explicit } : {})
+      });
+      assert.equal(result.status, status);
+      if (expected === "control_reconfiguration") assert.match(result.error, /while its controls were restored/u);
+      if (status === "interrupted") assert.doesNotMatch(result.error, /provider failed|app-server failed/u);
+      assert.deepEqual(notices, [{ sessionId: f.sessionId, threadId: f.threadId, turnId: f.turnId, outcome: expected }]);
+      assert.deepEqual(checkpoints, [{ sessionId: f.sessionId, status, turnOutcome: expected, threadId: f.threadId, turnId: f.turnId }]);
+      assert.equal(f.run.providerStatus, status);
+      assert.equal(f.run.providerThreadId, f.threadId);
+      assert.equal(f.run.providerTurnId, f.turnId);
+    } finally {
+      provider.close();
+      assert.equal(provider.interruptionOutcome(f.threadId, f.turnId), "");
+      f.owner.clearSessionRecoveryTimers(f.sessionId);
+    }
+  });
+}
+
+test("user Stop records its exact cause before queued native completion while the interrupt reply is held", async () => {
+  const notices = [];
+  const f = await receiptFixture({ outcomeNotice(_runtime, sessionId, threadId, turnId, outcome) {
+    notices.push({ sessionId, threadId, turnId, outcome });
+  } });
+  const issued = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const provider = new CodexAppServerAgentProvider({}, { credentials: { assertCurrent() {} } });
+  provider.client = { isOpen: () => true, close() {}, async request(method, input) {
+    assert.equal(method, "turn/interrupt");
+    assert.deepEqual(input, { threadId: f.threadId, turnId: f.turnId });
+    assert.equal(provider.interruptionOutcome(f.threadId, f.turnId), "user_cancelled");
+    f.run.providerStatus = "interrupted";
+    f.emit({ method: "turn/completed", params: { threadId: f.threadId, turn: { id: f.turnId, status: "interrupted" } } });
+    issued.resolve();
+    await release.promise;
+    return {};
+  } };
+  f.provider.interruptTurn = provider.interruptTurn.bind(provider);
+  f.provider.interruptionOutcome = provider.interruptionOutcome.bind(provider);
+  f.observe();
+  const stopped = f.owner.interruptTurn(f.sessionId, {}, controlContext(f));
+  stopped.catch(() => {});
+  try {
+    await issued.promise;
+    await f.drain();
+    assert.deepEqual(notices, [{ sessionId: f.sessionId, threadId: f.threadId, turnId: f.turnId, outcome: "user_cancelled" }],
+      "The queued completion cannot write a provider-failure or unknown-interruption notice first");
+    assert.equal(f.run.state, "interrupted");
+    assert.equal(f.run.providerThreadId, f.threadId);
+    assert.equal(f.run.providerTurnId, f.turnId);
+  } finally {
+    release.resolve();
+    await stopped;
+    provider.close();
+    f.owner.clearSessionRecoveryTimers(f.sessionId);
+  }
+  assert.equal(notices.length, 1);
 });
