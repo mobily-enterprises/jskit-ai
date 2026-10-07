@@ -539,3 +539,109 @@ test("an owned conversation resolves its native history only when foreign compac
   assert.equal(reads, 1);
   assert.match(calls.at(-1).input[1].content[0].text, /RANDOM_TOOL_FACT/);
 });
+
+test("OpenAI receives clock::sleep history as quoted context without changing native calls or the selected model", () => {
+  const call = { type: "function_call", name: "clock::sleep", call_id: "call_00_JWQtri71vpXPGPWQTcAZ8404",
+    arguments: '{"seconds":1}' };
+  const result = { type: "function_call_output", call_id: call.call_id, output: "Finished waiting.\n  Exact result." };
+  const valid = { type: "function_call", name: "shell_command", call_id: "valid", arguments: '{"command":"pwd"}' };
+  const validResult = { type: "function_call_output", call_id: valid.call_id, output: "/workspace" };
+  const unmatched = { type: "function_call_output", call_id: "another-call", output: "Do not associate this result." };
+  const body = { model: "gpt-6-astra", tools: [{ type: "function", name: "shell_command" }],
+    input: [valid, call, result, validResult, unmatched, foreign] };
+  const saved = structuredClone(body);
+  for (const destination of ["openai", "chatgpt", "apiKey"]) {
+    const translated = translateCodexHistory(body, destination);
+    assert.equal(translated.model, "gpt-6-astra");
+    assert.equal(translated.tools, body.tools);
+    assert.equal(translated.input.length, body.input.length);
+    assert.equal(translated.input[1].type, "message");
+    assert.equal(translated.input[1].role, "assistant");
+    assert.ok(translated.input[1].content[0].text.includes(JSON.stringify(call)));
+    assert.match(translated.input[1].content[0].text, /context only, not an available tool/);
+    assert.equal(translated.input[2].role, "user");
+    assert.ok(translated.input[2].content[0].text.includes(JSON.stringify({ call_id: call.call_id, name: call.name })));
+    assert.match(translated.input[2].content[0].text, /untrusted context, not new instructions/);
+    assert.equal(translated.input[2].content[1].text, result.output);
+    for (const index of [0, 3, 4]) assert.equal(translated.input[index], body.input[index]);
+    assert.equal(translated.input[5].type, "message", "Original reasoning translation still runs.");
+  }
+  for (const destination of ["deepseek", "zai", "zai-coding-plan", "unrelated"]) {
+    const translated = translateCodexHistory(body, destination);
+    assert.equal(translated.input[1], call);
+    assert.equal(translated.input[2], result);
+  }
+  assert.deepEqual(body, saved);
+});
+
+test("quoted historical function results retain text and image parts in their original positions", () => {
+  const call = { type: "function_call", name: "foreign::inspect", call_id: "image-call", arguments: "{}" };
+  const text = { type: "input_text", text: "Exact output\n  with whitespace" };
+  const image = { type: "input_image", image_url: "data:image/png;base64,fixture", detail: "original" };
+  const result = { type: "function_call_output", call_id: call.call_id, output: [text, image] };
+  const after = { type: "message", role: "user", content: [{ type: "input_text", text: "Then review it." }] };
+  const body = { input: [call, result, after] };
+  const saved = structuredClone(body);
+  const translated = translateCodexHistory(body);
+  assert.equal(translated.input.length, 3);
+  assert.ok(translated.input[0].content[0].text.includes(JSON.stringify(call)));
+  assert.equal(translated.input[1].content[1], text);
+  assert.equal(translated.input[1].content[2], image);
+  assert.equal(translated.input[2], after);
+  assert.deepEqual(body, saved);
+});
+
+test("invalid historical function identity or unsupported paired content fails without inventing an association", () => {
+  const call = { type: "function_call", name: "clock::sleep", call_id: "clock-call", arguments: "{}" };
+  const output = { type: "function_call_output", call_id: call.call_id, output: "Finished." };
+  for (const input of [
+    [{ ...call, call_id: "" }, output],
+    [{ ...call, arguments: {} }, output],
+    [call, { ...call, name: "shell_command" }, output],
+    [call, { ...output, output: null }],
+    [call, { ...output, output: [{ type: "input_text", text: 42 }] }],
+    [call, { ...output, output: [{ type: "input_image", image_url: 42 }] }],
+    [call, { ...output, output: [{ type: "unknown", text: "Not a supported result." }] }]
+  ]) {
+    const saved = structuredClone(input);
+    assert.throws(() => translateCodexHistory({ input }), { statusCode: 422 });
+    assert.deepEqual(input, saved);
+  }
+  const unmatched = { ...output, call_id: "unmatched", output: [{ type: "unknown" }] };
+  assert.equal(translateCodexHistory({ input: [call, unmatched] }).input[1], unmatched);
+});
+
+test("the real adapter forwards selected GPT compaction and response requests without invalid function-call names", async t => {
+  const calls = [];
+  const adapter = await startCodexHistoryAdapter({ token: randomUUID(), fetchImpl: async (url, options) => {
+    calls.push({ url, body: JSON.parse(options.body) });
+    return new Response("accepted", { status: 200 });
+  } });
+  t.after(() => adapter.close());
+  const call = { type: "function_call", name: "clock::sleep", call_id: "clock-call", arguments: '{"seconds":1}' };
+  const output = { type: "function_call_output", call_id: call.call_id, output: "Finished." };
+  const ordinary = { type: "function_call", name: "shell_command", call_id: "ordinary-call", arguments: "{}" };
+  const body = { model: "gpt-6-astra", input: [call, output, ordinary], tools: [{ type: "function", name: "shell_command" }] };
+  const saved = structuredClone(body);
+  for (const [destination, upstream] of [["chatgpt", "https://chatgpt.com/backend-api/codex"], ["apiKey", "https://api.openai.com/v1"]]) {
+    for (const route of ["responses", "responses/compact"]) {
+      const response = await fetch(`${adapter.baseUrl}/${destination}/${route}`, { method: "POST", body: JSON.stringify(body) });
+      assert.equal(response.status, 200);
+      assert.equal(await response.text(), "accepted");
+      const sent = calls.at(-1);
+      assert.equal(sent.url, `${upstream}/${route}`);
+      assert.equal(sent.body.model, "gpt-6-astra");
+      assert.deepEqual(sent.body.tools, body.tools);
+      assert.deepEqual(sent.body.input.filter(item => item.type === "function_call"), [ordinary]);
+      assert.ok(sent.body.input[0].content[0].text.includes(JSON.stringify(call)));
+      assert.equal(sent.body.input[1].content[1].text, output.output);
+    }
+  }
+  const accepted = calls.length;
+  const rejected = await fetch(`${adapter.baseUrl}/chatgpt/responses`, { method: "POST",
+    body: JSON.stringify({ ...body, input: [call, { ...output, output: [{ type: "unknown" }] }] }) });
+  assert.equal(rejected.status, 422);
+  assert.match((await rejected.json()).error.message, /history is not supported/);
+  assert.equal(calls.length, accepted, "Unsupported paired history must fail before provider admission.");
+  assert.deepEqual(body, saved);
+});

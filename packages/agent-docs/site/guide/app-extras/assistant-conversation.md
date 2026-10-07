@@ -2088,6 +2088,14 @@ DeepSeek and GLM models, an OpenAI encrypted compaction is supplemented with the
 exact readable records from its saved native boundary. Recovery is bounded and
 fails explicitly for unsupported or ambiguous history, including native Undo or
 fork records. It never silently truncates, retries inference or rewrites a rollout.
+For outgoing OpenAI history, a nonempty historical function-call name outside
+`^[a-zA-Z0-9_-]+$` is quoted as assistant context with its exact call identity,
+name and arguments. Its paired result stays in its original position as labeled
+untrusted history, preserving supported text and images. Valid calls and unmatched
+results stay unchanged; ambiguous identities or unsupported paired content fail
+before the provider request. This does not rename tools, replay them or change the
+selected model. Native previous-model compaction and its fallback remain Codex's
+responsibility; this translation alone does not prove live compaction succeeds.
 
 For a supported external provider, supply the existing `connections` resolver and
 select `{ systemPrompt, integrationId, effort }`. For example, an integration
