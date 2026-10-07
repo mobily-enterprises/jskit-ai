@@ -262,6 +262,13 @@ state for an exact actor, endpoint, surface, workspace and conversation. Release
 a retained handle with `release()`. Final view/reader release detaches browser
 observers; it does not stop server work. A lost receipt remains uncertain with
 **Check delivery** until inspection or canonical history proves acceptance.
+The same inspection operation may return `{ status: "not-sent", messageId, error }`
+when a settled native request has explicit durable no-admission proof. The client
+marks only that exact uncertain message failed, preserving its payload, the draft
+and other uncertain messages. Inspection never submits or accepts it. Missing
+markers, attempted requests, incomplete cleanup and API-model requests remain
+conservative. A retired native request cannot be retried against its successor
+with the old ID; edit its words into a new authored message instead.
 Reconnection reads state and does not resend the request. After an initial
 subscription failure or timeout, **Reload** retries that exact subscription on
 the connected socket with fresh authorization; it does not resend a message.
