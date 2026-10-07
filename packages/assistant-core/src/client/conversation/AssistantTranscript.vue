@@ -832,9 +832,10 @@ function updateLatestFollowFromScroll(event = {}) {
   const scrolledUp = scrollTop < previousScrollTop;
   previousScrollTop = scrollTop;
   // Keep following the reader while the request is pending, before rows prepend.
-  if (loadMoreScrollSnapshot && target.scrollHeight === loadMoreScrollSnapshot.scrollHeight) {
+  if (loadMoreScrollSnapshot && !loadMoreScrollSnapshot.completed) {
     loadMoreScrollSnapshot.scrollTop = scrollTop;
     loadMoreScrollSnapshot.anchor = visibleHistoryAnchor(target);
+    loadMoreScrollSnapshot.scrollHeight = target.scrollHeight;
   }
   const shouldFollow = scrollElementNearBottom(target);
   if (!shouldFollow && !userScrollIntent.value && followingLatest.value) {

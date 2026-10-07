@@ -1098,3 +1098,54 @@ test("unsent preview edits stay in their bubble and disappear for the canonical 
     await stopProcess(vite);
   }
 });
+
+
+test("pending history keeps following the reader when a new reply changes transcript height", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const errors = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.goto(`${vite.baseURL}/?controls=1&history=1`);
+      const body = page.locator(".assistant-transcript__body");
+      const requests = page.locator("output");
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
+      await body.hover();
+      await page.mouse.wheel(0, -100);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
+      await body.evaluate(element => { element.scrollTop = 420; });
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await page.mouse.wheel(0, -324);
+      const pending = page.getByRole("button", { name: "Loading older messages…", exact: true });
+      await expect(pending).toBeDisabled();
+      await expect(requests).toHaveText("History requests: 1");
+      const height = await body.evaluate(element => element.scrollHeight);
+      await external("Append reply");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight)).toBeGreaterThan(height);
+      await expect.poll(async () => {
+        await body.focus();
+        return body.evaluate(element => document.activeElement === element);
+      }).toBe(true);
+      await body.press("Home");
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
+      const original = page.getByText("Conversation line 1:", { exact: false }).first();
+      const originalTop = (await original.boundingBox()).y;
+      await external("Complete history load");
+      await expect(pending).toHaveCount(0);
+      await expect.poll(async () => Math.abs((await original.boundingBox()).y - originalTop)).toBeLessThan(2);
+      await expect(requests).toHaveText("History requests: 1");
+      assert.deepEqual(errors, []);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
