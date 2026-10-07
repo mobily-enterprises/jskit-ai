@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-web",
-  "version": "0.1.208",
+  "version": "0.1.209",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -14,16 +14,16 @@
     "./client/composables/useWorkspaceRouteContext": "./src/client/composables/useWorkspaceRouteContext.js"
   },
   "dependencies": {
-    "@jskit-ai/users-core": "0.1.242",
-    "@jskit-ai/workspaces-core": "0.1.207",
+    "@jskit-ai/users-core": "0.1.243",
+    "@jskit-ai/workspaces-core": "0.1.208",
     "@mdi/js": "^7.4.47"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-web": "0.1.229",
-    "@jskit-ai/http-web": "0.1.74",
-    "@jskit-ai/kernel": "0.1.229",
-    "@jskit-ai/shell-web": "0.1.233",
-    "@jskit-ai/users-web": "0.1.247",
+    "@jskit-ai/auth-web": "0.1.230",
+    "@jskit-ai/http-web": "0.1.75",
+    "@jskit-ai/kernel": "0.1.230",
+    "@jskit-ai/shell-web": "0.1.234",
+    "@jskit-ai/users-web": "0.1.248",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",

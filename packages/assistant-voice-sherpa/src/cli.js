@@ -50,7 +50,7 @@ function usage() {
     "",
     "Commands:",
     "  serve --models-root PATH --key-file PATH [--host ADDRESS] [--port NUMBER] [--config FILE]",
-    "  prepare --models-root PATH [--pack cori|piper|kitten|piper-kitten|kokoro] [--sources-file FILE] [--download-cache PATH] [--hotwords-file PATH]",
+    "  prepare --models-root PATH [--pack cori|piper|kitten|piper-kitten|kokoro|kokoro-q8f16|piper-kitten-kokoro-q8f16] [--sources-file FILE] [--download-cache PATH] [--hotwords-file PATH]",
     "  verify --models-root PATH",
     "  token --key-file PATH --tenant NAME"
   ].join("\n");
@@ -77,17 +77,25 @@ async function runVoiceCli(argv = process.argv.slice(2), { createDaemon = create
       "retain-downloads": "RETAIN_DOWNLOADS", "hotwords-file": "HOTWORDS_FILE"
     })) if (options[option]) env[`JSKIT_VOICE_${variable}`] = options[option];
     const pack = options.pack || process.env.JSKIT_VOICE_PACK || "cori";
-    const manifests = { cori: "voice-models.json", piper: "voice-models-piper.json", kitten: "voice-models-kitten.json", kokoro: "voice-models-kokoro.json" };
-    if (pack !== "piper-kitten" && !Object.hasOwn(manifests, pack)) throw new Error("Choose --pack cori, piper, kitten, piper-kitten or kokoro, or supply --sources-file for your own model pack.");
+    const manifests = { cori: "voice-models.json", piper: "voice-models-piper.json", kitten: "voice-models-kitten.json", kokoro: "voice-models-kokoro.json", "kokoro-q8f16": "voice-models-kokoro-q8f16.json" };
+    if (pack !== "piper-kitten" && pack !== "piper-kitten-kokoro-q8f16" && !Object.hasOwn(manifests, pack)) throw new Error("Choose --pack cori, piper, kitten, piper-kitten, kokoro, kokoro-q8f16 or piper-kitten-kokoro-q8f16, or supply --sources-file for your own model pack.");
     let temporary;
     try {
       env.JSKIT_VOICE_SOURCES_FILE = options["sources-file"] || process.env.JSKIT_VOICE_SOURCES_FILE;
-      if (!env.JSKIT_VOICE_SOURCES_FILE && pack === "piper-kitten") {
+      if (!env.JSKIT_VOICE_SOURCES_FILE && (pack === "piper-kitten" || pack === "piper-kitten-kokoro-q8f16")) {
         const piper = JSON.parse(await readFile(new URL("../models/voice-models-piper.json", import.meta.url), "utf8"));
         const kitten = JSON.parse(await readFile(new URL("../models/voice-models-kitten.json", import.meta.url), "utf8"));
         piper.models.push(...kitten.models.filter(model => model.kind === "tts"));
         piper.configuration.voices.unshift(...kitten.configuration.voices);
         Object.assign(piper.configuration.synthesizers, kitten.configuration.synthesizers);
+        if (pack === "piper-kitten-kokoro-q8f16") {
+          const kokoro = JSON.parse(await readFile(new URL("../models/voice-models-kokoro-q8f16.json", import.meta.url), "utf8"));
+          piper.models.push(...kokoro.models.filter(model => model.kind === "tts"));
+          piper.configuration.voices.push(...kokoro.configuration.voices.map(voice => ({ ...voice, modelId: "kokoro" })));
+          piper.configuration.synthesizers.kokoro = kokoro.configuration.synthesizer;
+          piper.onnxMetadata = kokoro.onnxMetadata;
+          piper.textFiles = kokoro.textFiles;
+        }
         piper.configuration.outputSampleRate = 22050;
         temporary = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-sources-"));
         env.JSKIT_VOICE_SOURCES_FILE = path.join(temporary, "sources.json");

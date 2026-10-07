@@ -1,0 +1,254 @@
+{
+  "schema": "vibe64.voice-model-sources.v1",
+  "packRevision": 1,
+  "models": [
+    {
+      "id": "streaming-zipformer-en-2023-06-26",
+      "kind": "stt",
+      "archive": "sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "archiveSha256": "639e25b578e9e997131402199419c13a941f8e4e198e2da1ce57dbf5cf401282",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "files": {
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/encoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/decoder.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx": "stt/joiner.int8.onnx",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/tokens.txt": "stt/tokens.txt",
+        "sherpa-onnx-streaming-zipformer-en-2023-06-26/README.md": "stt/SOURCE.md"
+      }
+    },
+    {
+      "id": "kokoro-multi-lang-v1_0",
+      "kind": "tts",
+      "archive": "kokoro-multi-lang-v1_0.tar.bz2",
+      "archiveSha256": "c5f7e2d2caf082bc1d20fb70334a61d99d20b484500aad32e7cf84c128ea3298",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/hexgrad/Kokoro-82M",
+      "files": {
+        "kokoro-multi-lang-v1_0/tokens.txt": "tts/kokoro-q8f16/tokens.txt",
+        "kokoro-multi-lang-v1_0/voices.bin": "tts/kokoro-q8f16/voices.bin",
+        "kokoro-multi-lang-v1_0/espeak-ng-data": "tts/kokoro-q8f16/espeak-ng-data",
+        "kokoro-multi-lang-v1_0/lexicon-us-en.txt": "tts/kokoro-q8f16/lexicon-us-en.txt",
+        "kokoro-multi-lang-v1_0/lexicon-gb-en.txt": "tts/kokoro-q8f16/lexicon-gb-en.txt",
+        "kokoro-multi-lang-v1_0/LICENSE": "tts/kokoro-q8f16/LICENSE",
+        "kokoro-multi-lang-v1_0/README.md": "tts/kokoro-q8f16/README.md"
+      }
+    },
+    {
+      "id": "kokoro-v1_0-q8f16",
+      "kind": "tts",
+      "format": "file",
+      "archive": "model_q8f16.onnx",
+      "archiveSha256": "04c658aec1b6008857c2ad10f8c589d4180d0ec427e7e6118ceb487e215c3cd0",
+      "url": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/resolve/1939ad2a8e416c0acfeecc08a694d14ef25f2231/onnx/model_q8f16.onnx",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX",
+      "files": {
+        "model_q8f16.onnx": "tts/kokoro-q8f16/model_q8f16.onnx"
+      }
+    }
+  ],
+  "configuration": {
+    "synthesizer": {
+      "maxNumSentences": 1,
+      "model": {
+        "numThreads": 1,
+        "provider": "cpu:${MODELS_ROOT}/tts/kokoro-q8f16/kokoro-cpu.conf",
+        "kokoro": {
+          "model": "${MODELS_ROOT}/tts/kokoro-q8f16/model_q8f16.onnx",
+          "tokens": "${MODELS_ROOT}/tts/kokoro-q8f16/tokens.txt",
+          "voices": "${MODELS_ROOT}/tts/kokoro-q8f16/voices.bin",
+          "dataDir": "${MODELS_ROOT}/tts/kokoro-q8f16/espeak-ng-data",
+          "lexicon": "${MODELS_ROOT}/tts/kokoro-q8f16/lexicon-us-en.txt"
+        }
+      }
+    },
+    "defaultVoice": "af_heart",
+    "voices": [
+      {
+        "id": "af_alloy",
+        "label": "Alloy · female · American English",
+        "language": "en-US",
+        "speakerId": 0
+      },
+      {
+        "id": "af_aoede",
+        "label": "Aoede · female · American English",
+        "language": "en-US",
+        "speakerId": 1
+      },
+      {
+        "id": "af_bella",
+        "label": "Bella · female · American English",
+        "language": "en-US",
+        "speakerId": 2
+      },
+      {
+        "id": "af_heart",
+        "label": "Heart · female · American English",
+        "language": "en-US",
+        "speakerId": 3
+      },
+      {
+        "id": "af_jessica",
+        "label": "Jessica · female · American English",
+        "language": "en-US",
+        "speakerId": 4
+      },
+      {
+        "id": "af_kore",
+        "label": "Kore · female · American English",
+        "language": "en-US",
+        "speakerId": 5
+      },
+      {
+        "id": "af_nicole",
+        "label": "Nicole · female · American English",
+        "language": "en-US",
+        "speakerId": 6
+      },
+      {
+        "id": "af_nova",
+        "label": "Nova · female · American English",
+        "language": "en-US",
+        "speakerId": 7
+      },
+      {
+        "id": "af_river",
+        "label": "River · female · American English",
+        "language": "en-US",
+        "speakerId": 8
+      },
+      {
+        "id": "af_sarah",
+        "label": "Sarah · female · American English",
+        "language": "en-US",
+        "speakerId": 9
+      },
+      {
+        "id": "af_sky",
+        "label": "Sky · female · American English",
+        "language": "en-US",
+        "speakerId": 10
+      },
+      {
+        "id": "am_adam",
+        "label": "Adam · male · American English",
+        "language": "en-US",
+        "speakerId": 11
+      },
+      {
+        "id": "am_echo",
+        "label": "Echo · male · American English",
+        "language": "en-US",
+        "speakerId": 12
+      },
+      {
+        "id": "am_eric",
+        "label": "Eric · male · American English",
+        "language": "en-US",
+        "speakerId": 13
+      },
+      {
+        "id": "am_fenrir",
+        "label": "Fenrir · male · American English",
+        "language": "en-US",
+        "speakerId": 14
+      },
+      {
+        "id": "am_liam",
+        "label": "Liam · male · American English",
+        "language": "en-US",
+        "speakerId": 15
+      },
+      {
+        "id": "am_michael",
+        "label": "Michael · male · American English",
+        "language": "en-US",
+        "speakerId": 16
+      },
+      {
+        "id": "am_onyx",
+        "label": "Onyx · male · American English",
+        "language": "en-US",
+        "speakerId": 17
+      },
+      {
+        "id": "am_puck",
+        "label": "Puck · male · American English",
+        "language": "en-US",
+        "speakerId": 18
+      },
+      {
+        "id": "am_santa",
+        "label": "Santa · male · American English",
+        "language": "en-US",
+        "speakerId": 19
+      },
+      {
+        "id": "bf_alice",
+        "label": "Alice · female · British English",
+        "language": "en-GB",
+        "speakerId": 20
+      },
+      {
+        "id": "bf_emma",
+        "label": "Emma · female · British English",
+        "language": "en-GB",
+        "speakerId": 21
+      },
+      {
+        "id": "bf_isabella",
+        "label": "Isabella · female · British English",
+        "language": "en-GB",
+        "speakerId": 22
+      },
+      {
+        "id": "bf_lily",
+        "label": "Lily · female · British English",
+        "language": "en-GB",
+        "speakerId": 23
+      },
+      {
+        "id": "bm_daniel",
+        "label": "Daniel · male · British English",
+        "language": "en-GB",
+        "speakerId": 24
+      },
+      {
+        "id": "bm_fable",
+        "label": "Fable · male · British English",
+        "language": "en-GB",
+        "speakerId": 25
+      },
+      {
+        "id": "bm_george",
+        "label": "George · male · British English",
+        "language": "en-GB",
+        "speakerId": 26
+      },
+      {
+        "id": "bm_lewis",
+        "label": "Lewis · male · British English",
+        "language": "en-GB",
+        "speakerId": 27
+      }
+    ]
+  },
+  "onnxMetadata": {
+    "tts/kokoro-q8f16/model_q8f16.onnx": {
+      "model_type": "kokoro",
+      "sample_rate": "24000",
+      "version": "2",
+      "n_speakers": "54",
+      "has_espeak": "1",
+      "voice": "en-us",
+      "style_dim": "510,1,256"
+    }
+  },
+  "textFiles": {
+    "tts/kokoro-q8f16/kokoro-cpu.conf": "SessionConfig.optimization.disable_specified_optimizers=NchwcTransformer\n"
+  }
+}

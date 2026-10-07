@@ -75,6 +75,33 @@ Heart, Bella and Emma voices, and male Michael, Adam, George and Daniel voices.
 The service advertises these IDs/labels; the browser selects a speaker per reply.
 Model weights are not included in the npm artifact.
 
+`--pack kokoro-q8f16` offers all 28 American/British English Kokoro voices with
+`model_q8f16.onnx` from the pinned Kokoro 1.0 ONNX Community revision. The 86 MB
+mixed int8/fp16 file is SHA-256 checked before staging. Preparation appends only
+Sherpa's required ONNX metadata; every original graph/weight byte remains intact.
+The installed file keeps its `model_q8f16.onnx` name and its prepared hash is
+recorded in the existing integrity manifest. The pack retains Sherpa's pinned
+voice table, tokenizer, lexicons, eSpeak data and licenses. It does not load the
+full-size Kokoro model. All these English voices share one synthesis worker at
+24,000 Hz; voice selection uses the same settings catalogue and per-reply ID.
+
+The preset ships a CPU provider configuration disabling only ONNX Runtime's
+`NchwcTransformer`, which crashes while loading this mixed-precision graph on
+x64 with the pinned native runtime. Other graph optimizations remain enabled.
+Do not remove this configuration when supplying a custom `serve --config` file.
+Measure latency on your server: smaller weights do not guarantee faster CPU
+inference or real-time speech. Capture, duplex admission, playback and cancellation
+continue through the existing controller and synthesis process.
+
+`--pack piper-kitten-kokoro-q8f16` keeps all five Piper voices and eight Kitten
+voices, then adds those 28 Kokoro voices to one catalogue (41 choices). It retains
+Piper's Cori default, existing voice IDs and Kitten Bella's 1.15× speed. Kokoro's
+files and CPU configuration live beneath `tts/kokoro-q8f16`; Piper and Kitten
+files are never overwritten. The existing single synthesis process switches
+models between replies and releases the previous model before loading another.
+Output keeps the existing combined pack's 22,050 Hz rate through the same
+resampler. The standalone presets remain available.
+
 `--pack kitten` offers **Bella, Luna, Rosie and Kiki** (female) and
 **Jasper, Bruno, Hugo and Leo** (male) from Kitten TTS Micro 0.8. All eight share
 one model and retain its native 24,000 Hz output. Bella uses a 1.15× speech speed;
@@ -137,6 +164,13 @@ voice does not redirect an in-flight reply or another conversation.
 For other models, `prepare --sources-file FILE` accepts the source manifest shape
 shown in `models/voice-models-piper.json`: recognition and synthesis archives, pinned
 SHA-256 values, explicit source/destination file mappings and native configuration.
+A source entry's optional `format: "file"` stages its pinned download without
+archive extraction; the default is `tar.bz2`. `archive`/`archiveSha256` still name
+and authenticate that download. The optional `onnxMetadata` object maps staged
+`.onnx` paths to string metadata entries, appended after the unchanged source
+bytes. `textFiles` maps staged paths to literal native configuration text;
+it cannot overwrite a mapped source file. These outputs are covered by the
+same prepared-file integrity manifest and atomic replacement as archived models.
 Paths in mappings must stay inside their extracted/staged roots. Model compatibility
 still needs native inference validation; a matching hash is only integrity proof.
 
