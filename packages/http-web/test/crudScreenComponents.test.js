@@ -59,7 +59,8 @@ test("every CRUD list create action retains its configured label and destination
       await router.push("/books");
       app.use(router);
       app.component("VBtn", defineComponent({
-        props: ["to"], setup: (props, { slots }) => () => h("a", { href: props.to }, slots.default?.())
+        props: { to: { type: [String, Object], default: undefined } },
+        setup: (props, { slots }) => () => h("a", { href: props.to }, slots.default?.())
       }));
       for (const name of ["VSheet", "VTable", "VTextField", "VSkeletonLoader", "VCheckboxBtn"]) {
         app.component(name, defineComponent({ setup: (_props, { slots }) => () => h("div", slots.default?.()) }));
