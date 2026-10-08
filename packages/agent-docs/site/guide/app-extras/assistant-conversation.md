@@ -2204,7 +2204,15 @@ JSKIT owns the local history adapter used for model-provider changes. It keeps
 native history intact and translates only outgoing requests. For qualified
 DeepSeek and GLM models, an OpenAI encrypted compaction is supplemented with the
 exact readable records from its saved native boundary. Recovery is bounded and
-fails explicitly for unsupported or ambiguous history, including native Undo or
+excludes only exact user-message copies retained by that same native boundary
+and still present before it in the outgoing request, counting each occurrence.
+Unmatched messages, tool results and images retain their original archive order.
+The byte bound is not a destination-model token estimate. An explicit DeepSeek
+HTTP 400 context-limit rejection with its established numeric error format is
+forwarded as `context_length_exceeded` for native recovery; other errors retain
+their original body and status. This classification does not retry inference or
+guarantee that restored foreign history fits the model's token budget.
+Recovery fails explicitly for unsupported or ambiguous history, including native Undo or
 fork records. It never silently truncates, retries inference or rewrites a rollout.
 For outgoing OpenAI history, a nonempty historical function-call name outside
 `^[a-zA-Z0-9_-]+$` is quoted as assistant context with its exact call identity,

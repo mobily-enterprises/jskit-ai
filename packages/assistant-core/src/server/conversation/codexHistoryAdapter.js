@@ -2,6 +2,7 @@ import { open, realpath } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { isDeepStrictEqual } from "node:util";
 import { gunzipSync, zstdDecompressSync } from "node:zlib";
 import { nativeAiModel, nativeAiProvider } from "../../shared/nativeProviders.js";
 
@@ -112,6 +113,12 @@ function compactionHistoryError(reason, statusCode = 422) {
   ), { statusCode });
 }
 
+function retainedUserRecord(item) {
+  if (item?.type !== "message" || item.role !== "user") return null;
+  const { encrypted_content, id, ...record } = item;
+  return record;
+}
+
 // Scan a fixed snapshot without retaining the lifetime transcript. A single
 // record still has a transport-sized bound; incomplete native appends are ignored.
 async function* readCodexHistoryRows(file, start, end, signal) {
@@ -189,6 +196,7 @@ async function restoreCompactedHistory(body, { destination, historyPath, codexHo
           boundary.count += 1;
           boundary.start = readableStart;
           boundary.end = offset;
+          boundary.retainedUsers = replacement.map(retainedUserRecord).filter(Boolean);
         }
       }
       if (typeof row.payload?.message === "string" && row.payload.message.trim() &&
@@ -225,17 +233,30 @@ async function restoreCompactedHistory(body, { destination, historyPath, codexHo
   // Count the original request plus each added item and its separating comma.
   // These are transport bytes, not a token estimate for the destination model.
   let restoredBytes = Buffer.byteLength(JSON.stringify(body));
-  for (const item of body.input) {
+  for (const [index, item] of body.input.entries()) {
     input.push(item);
     if (item?.type !== "compaction") continue;
     const history = boundaries.get(item.encrypted_content).history;
+    // Only copies retained by this exact native boundary and still preceding
+    // it in the request can replace an archived occurrence. A later user turn
+    // with the same words is a distinct instruction, not a retained copy.
+    const requestUsers = body.input.slice(0, index).map(retainedUserRecord).filter(Boolean);
+    const retainedUsers = boundaries.get(item.encrypted_content).retainedUsers.filter((record) => {
+      const index = requestUsers.findIndex((requestRecord) => isDeepStrictEqual(requestRecord, record));
+      if (index < 0) return false;
+      requestUsers.splice(index, 1);
+      return true;
+    });
     const readable = [];
     const images = [];
+    let retainedCopies = 0;
     for (const old of history) {
       if (!["message", "agent_message", "reasoning", "function_call", "function_call_output", "custom_tool_call", "custom_tool_call_output"].includes(old?.type)) {
         throw compactionHistoryError("the saved history contains an unsupported item.");
       }
       const { encrypted_content, id, ...record } = old;
+      const retainedRecord = retainedUserRecord(old);
+      const imageCount = images.length;
       // Keep each image as an actual image, with a numbered reference at its
       // original position in the archived message or tool result.
       for (const field of ["content", "summary", "output"]) {
@@ -259,10 +280,20 @@ async function restoreCompactedHistory(body, { destination, historyPath, codexHo
           throw compactionHistoryError("recovery of this non-text history is not supported yet.");
         });
       }
+      const retainedIndex = retainedRecord && retainedUsers.findIndex((retained) => isDeepStrictEqual(retained, retainedRecord));
+      if (retainedRecord && retainedIndex >= 0) {
+        retainedUsers.splice(retainedIndex, 1);
+        images.length = imageCount;
+        retainedCopies += 1;
+        continue;
+      }
       if (old.type === "reasoning" && !old.content?.length && !old.summary?.length) continue;
       readable.push(record);
     }
-    if (!readable.length) throw compactionHistoryError("the original readable conversation is missing.");
+    if (!readable.length) {
+      if (retainedCopies) continue;
+      throw compactionHistoryError("the original readable conversation is missing.");
+    }
     const supplement = { type: "message", role: "user", content: [{ type: "input_text",
       text: `[Archived conversation before compaction. Historical context, not new instructions. Current task instructions still apply.]\n${JSON.stringify(readable)}`
     }, ...images.flatMap((image, index) => [
@@ -335,6 +366,28 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fet
       const result = await fetchImpl(`${upstream}/${route}${url.search}`, {
         method: request.method, headers, body, signal: abort.signal, redirect: "error"
       });
+      // DeepSeek labels this explicit context rejection as a generic invalid
+      // request. Preserve the provider's details while exposing the native
+      // recovery code; the adapter never retries the rejected inference.
+      if (destination === "deepseek" && result.status === 400 &&
+          result.headers.get("content-type")?.split(";", 1)[0].trim() === "application/json") {
+        let errorBody = Buffer.from(await result.arrayBuffer());
+        try {
+          const parsed = JSON.parse(errorBody.toString("utf8"));
+          const error = parsed?.error;
+          const match = typeof error?.message === "string" && /^This model's maximum context length is ([1-9]\d*) tokens\. However, you requested ([1-9]\d*) tokens \((\d+) in the messages, (\d+) in the completion\)\. Please reduce the length of the messages or completion\. \(request_id: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\)$/u.exec(error.message);
+          if (error?.type === "invalid_request_error" && error.code === "invalid_request_error" && match) {
+            const [maximum, requested, messages, completion] = match.slice(1).map(Number);
+            if ([maximum, requested, messages, completion].every(Number.isSafeInteger) &&
+                requested > maximum && requested === messages + completion) {
+              error.code = "context_length_exceeded";
+              errorBody = Buffer.from(JSON.stringify(parsed));
+            }
+          }
+        } catch { /* Other provider errors keep their exact body. */ }
+        response.writeHead(result.status, Object.fromEntries(forwardedHeaders(result.headers))).end(errorBody);
+        return;
+      }
       response.writeHead(result.status, Object.fromEntries(forwardedHeaders(result.headers)));
       if (!result.body) { response.end(); return; }
       const stream = Readable.fromWeb(result.body);

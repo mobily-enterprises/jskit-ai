@@ -645,3 +645,106 @@ test("the real adapter forwards selected GPT compaction and response requests wi
   assert.equal(calls.length, accepted, "Unsupported paired history must fail before provider admission.");
   assert.deepEqual(body, saved);
 });
+
+test("recovery excludes only exact native retained user copies with occurrence multiplicity", async t => {
+  const fixture = await compactedFixture(t);
+  const message = (text, id) => ({ type: "message", role: "user", id, content: [{ type: "input_text", text }] });
+  const repeated = message("Exact repeated words.\n  Keep spacing.", "old-one");
+  const second = { ...repeated, id: "old-two", encrypted_content: "native-only" };
+  const third = { ...repeated, id: "old-three" };
+  const changed = message("Exact repeated words.\n Keep spacing.", "changed");
+  const tool = { type: "function_call_output", call_id: "fact", output: "PRESERVE_TOOL_FACT" };
+  await fixture.save([fixture.records[0], ...[repeated, tool, second, third, changed].map(payload => ({ type: "response_item", payload })),
+    { type: "compacted", payload: { replacement_history: [repeated, second, fixture.compacted] } }]);
+  const native = await readFile(fixture.historyPath);
+  const retained = { content: repeated.content, role: "user", type: "message", id: "wire-copy" };
+  const after = { ...repeated, id: "new-turn" };
+  for (const copies of [1, 2]) {
+    const body = { model: "deepseek-flash", input: [...Array.from({ length: copies }, () => retained), fixture.compacted, after] };
+    const saved = structuredClone(body);
+    assert.equal(await (await fixture.send(body)).text(), "accepted");
+    const input = fixture.calls.at(-1).body.input;
+    const content = input[copies + 1].content[0].text;
+    const archived = JSON.parse(content.slice(content.indexOf("\n") + 1));
+    const normalized = ({ id, encrypted_content, ...record }) => record;
+    const expected = [repeated, tool, second, third, changed].filter((record, index) => index !== 0 && !(copies === 2 && index === 2)).map(normalized);
+    assert.deepEqual(archived, expected);
+    assert.deepEqual(input.slice(0, copies + 1), body.input.slice(0, copies + 1));
+    assert.deepEqual(input.at(-1), after);
+    assert.deepEqual(body, saved);
+  }
+  assert.deepEqual(await readFile(fixture.historyPath), native);
+  assert.equal(fixture.calls.length, 2);
+});
+
+test("recovery retains altered user images and unmatched content without duplicating retained screenshots", async t => {
+  const fixture = await compactedFixture(t);
+  const image = { type: "input_image", image_url: "data:image/png;base64,original", detail: "original" };
+  const user = { type: "message", role: "user", content: [{ type: "input_text", text: "Inspect this." }, image] };
+  const altered = { ...user, content: [user.content[0], { ...image, detail: "high" }] };
+  const assistant = { type: "message", role: "assistant", content: [{ type: "output_text", text: "Inspect this." }] };
+  await fixture.save([fixture.records[0], ...[user, altered, assistant].map(payload => ({ type: "response_item", payload })),
+    { type: "compacted", payload: { replacement_history: [user, fixture.compacted] } }]);
+  const native = await readFile(fixture.historyPath);
+  assert.equal(await (await fixture.send({ model: "deepseek-flash", input: [user, fixture.compacted] })).text(), "accepted");
+  const content = fixture.calls[0].body.input[2].content;
+  const archived = JSON.parse(content[0].text.slice(content[0].text.indexOf("\n") + 1));
+  assert.deepEqual(archived, [{ ...altered, content: [user.content[0], { type: "input_image", archived_image: 1 }] }, assistant]);
+  assert.deepEqual(content.filter(part => part.type === "input_image"), [altered.content[1]]);
+  assert.deepEqual(fixture.calls[0].body.input[0], user);
+  assert.deepEqual(await readFile(fixture.historyPath), native);
+});
+
+test("fully retained readable history omits the supplement while later matching words remain a new turn", async t => {
+  const fixture = await compactedFixture(t);
+  const user = { type: "message", role: "user", content: [{ type: "input_text", text: "Do the approved work." }] };
+  await fixture.save([fixture.records[0], { type: "response_item", payload: user },
+    { type: "compacted", payload: { replacement_history: [user, fixture.compacted] } }]);
+  const native = await readFile(fixture.historyPath);
+  const body = { model: "deepseek-flash", input: [user, fixture.compacted] };
+  assert.equal(await (await fixture.send(body)).text(), "accepted");
+  assert.deepEqual(fixture.calls[0].body, body);
+  assert.equal(await (await fixture.send({ ...body, input: [fixture.compacted, user] })).text(), "accepted");
+  assert.match(fixture.calls[1].body.input[1].content[0].text, /Do the approved work/);
+  assert.deepEqual(fixture.calls[1].body.input.at(-1), user);
+  assert.deepEqual(await readFile(fixture.historyPath), native);
+});
+
+test("DeepSeek exact numeric context rejection exposes native recovery code without retry or other error changes", async t => {
+  const message = "This model's maximum context length is 1048576 tokens. However, you requested 1084989 tokens (1084989 in the messages, 0 in the completion). Please reduce the length of the messages or completion. (request_id: a7d102f7-6c5f-4125-b76c-de721745dff7)";
+  const error = { message, type: "invalid_request_error", param: null, code: "invalid_request_error" };
+  let upstreamBody;
+  let upstreamStatus = 400;
+  let attempts = 0;
+  const adapter = await startCodexHistoryAdapter({ token: randomUUID(), fetchImpl: async () => {
+    attempts += 1;
+    return new Response(upstreamBody, { status: upstreamStatus, headers: { "content-type": "application/json", "x-request-id": "original-id" } });
+  } });
+  t.after(() => adapter.close());
+  for (const route of ["responses", "responses/compact"]) {
+    upstreamBody = JSON.stringify({ error, detail: "preserved" });
+    const response = await fetch(`${adapter.baseUrl}/deepseek/${route}`, { method: "POST", body: '{"input":[]}' });
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("x-request-id"), "original-id");
+    assert.deepEqual(await response.json(), { error: { ...error, code: "context_length_exceeded" }, detail: "preserved" });
+  }
+  const cases = [
+    ["chatgpt", error, 400], ["zai", error, 400], ["deepseek", error, 429],
+    ["deepseek", { ...error, code: "other_error" }, 400],
+    ["deepseek", { ...error, type: "other_error" }, 400],
+    ["deepseek", { ...error, message: message.replace("1084989 in", "1084988 in") }, 400],
+    ["deepseek", { ...error, message: message.replace("1048576 tokens", "2084989 tokens") }, 400],
+    ["deepseek", { ...error, message: message + " additional detail" }, 400],
+    ["deepseek", { ...error, message: "Context invalid for a different reason." }, 400]
+  ];
+  for (const [destination, detail, status] of cases) {
+    upstreamStatus = status;
+    upstreamBody = ` { "error": ${JSON.stringify(detail)} }\n`;
+    const before = attempts;
+    const response = await fetch(`${adapter.baseUrl}/${destination}/responses`, { method: "POST", body: '{"input":[]}' });
+    assert.equal(response.status, status);
+    assert.equal(await response.text(), upstreamBody);
+    assert.equal(attempts, before + 1);
+  }
+  assert.equal(attempts, cases.length + 2, "exactly one upstream admission per request");
+});
