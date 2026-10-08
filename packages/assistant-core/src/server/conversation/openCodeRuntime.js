@@ -908,13 +908,17 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
 
   async function writeConversationProjection(sessionId, messages = null, {
     inputMessageId = "",
-    streaming = false
+    streaming = false,
+    captureFinalAssistantResult = false
   } = {}, projection) {
     let failure = "";
+    let finalAssistantResult = null;
     let providerApiFailure = false;
     const rows = (inputMessageId
       ? openCodeRowsForInput(messages, inputMessageId)
       : openCodeMessageRows(messages)).filter((message) => message?.type === "assistant");
+    const finalNativeMessage = captureFinalAssistantResult && !streaming
+      ? openCodeLastAssistantResult(rows, { readError: projection.readError }).message : null;
     for (const [index, message] of rows.entries()) {
       failure ||= projection.readError(message);
       providerApiFailure ||= openCodeProviderApiFailure(message.error);
@@ -967,9 +971,31 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         });
         projection.store.completeConversationStreamMessage(sessionId, messageId);
         await projection.publishTurn(turn);
+        if (message === finalNativeMessage && !projection.readError(message) &&
+            (message.time?.completed || message.finish) && turn) {
+          finalAssistantResult = { inputMessageId: text(inputMessageId), itemId: text(message.id),
+            text: assistantText, conversationTurn: turn };
+        }
       }
     }
-    return { failure, providerApiFailure };
+    return { failure, providerApiFailure, ...(captureFinalAssistantResult ? { finalAssistantResult } : {}) };
+  }
+
+  // Evidence belongs to the exact retained native turn. This read never creates,
+  // observes, resumes or projects a native conversation.
+  function readFinalAssistantResult(key, threadId = "", turnId = "") {
+    const turn = turns.get(key);
+    const result = turn?.finalAssistantResult;
+    const target = turn?.finalAssistantResultTarget;
+    if (!target || processes.get(key) !== target || target.abortController.signal.aborted ||
+        !turn.finalAssistantResultProcess || sharedProcess !== turn.finalAssistantResultProcess ||
+        target.upstreamSessionId !== turn.threadId) return null;
+    if (!text(threadId) || !text(turnId) || !result || turn.active || turn.state !== "completed" ||
+        turn.error || turn.observationError || turn.interruptRequested || turn.interruptAcknowledged ||
+        turn.threadId !== text(threadId) || turn.id !== text(turnId) ||
+        result.threadId !== text(threadId) || result.turnId !== text(turnId) ||
+        result.inputMessageId !== text(turn.inputMessageId) || !result.conversationTurn) return null;
+    return structuredClone(result);
   }
 
   async function sendMessage(key, input, options, application) {
@@ -1232,6 +1258,10 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     observe, observation, eventReady, readiness, finalResponse,
     writeRun, projectMessages, completeResult, onRetired
   }) {
+    delete turn.finalAssistantResult;
+    delete turn.finalAssistantResultTarget;
+    delete turn.finalAssistantResultProcess;
+    const finalAssistantResultProcess = sharedProcess;
     turns.set(key, turn);
     const signal = AbortSignal.any([target.abortController.signal, turn.abortController.signal]);
     const monitor = Promise.resolve().then(async () => {
@@ -1243,6 +1273,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       }
       let finalState = "completed";
       let failure = "";
+      let finalAssistantResult = null;
       let credentialFailure = false;
       let providerApiFailure = false;
       try {
@@ -1285,7 +1316,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
             continue;
           }
           const projection = await projectMessages(completion.messages, {
-            inputMessageId: completion.inputMessageId
+            inputMessageId: completion.inputMessageId,
+            captureFinalAssistantResult: true
           });
           await turn.admission?.promise;
           signal.throwIfAborted();
@@ -1302,6 +1334,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
             finalState = "failed";
           } else if (turn.interruptRequested) {
             finalState = "interrupted";
+          }
+          const published = projection.finalAssistantResult;
+          if (finalState === "completed" && !failure && published &&
+              published.inputMessageId === completion.inputMessageId &&
+              published.itemId === completion.result?.turnId &&
+              text(published.text) === text(completion.result?.text)) {
+            finalAssistantResult = { ...published, threadId: turn.threadId, turnId: turn.id };
           }
           break;
         }
@@ -1341,6 +1380,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         }
         turn.error = failure;
         turn.state = finalState;
+        turn.finalAssistantResult = finalState === "completed" && !failure ? finalAssistantResult : null;
+        turn.finalAssistantResultTarget = turn.finalAssistantResult ? target : null;
+        turn.finalAssistantResultProcess = turn.finalAssistantResult ? finalAssistantResultProcess : null;
         turn.updatedAt = new Date().toISOString();
         await writeRun(turn, finalState, failure).catch(() => null);
       }
@@ -1615,7 +1657,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     ensurePreparedSessionReadiness, inspectSessionReadiness, recoverSessionReadiness, needsObservationRecovery, recoverObservation,
     createConversation, selectConversation, existingConversation, runConversationTurn, readConversation, readPersistentConversation, waitForConversationTurn,
     stopConversation, deleteConversation, sendMessage, hasActiveTemporaryConversation, reconcileSessions, reconcilePreparedSession, recordStoppedObservation, beginMessageMonitor, beginMonitor, writeBindings,
-    writeConversationProjection,
+    writeConversationProjection, readFinalAssistantResult,
     projectConversationMessages: projectOpenCodeConversationMessages,
     readSessionState, startPreparedTerminal, attachTerminal, closeTerminal, allowTerminalAttachments,
     turnSnapshot: openCodeTurnSnapshot, providerApiFailure: openCodeProviderApiFailure
