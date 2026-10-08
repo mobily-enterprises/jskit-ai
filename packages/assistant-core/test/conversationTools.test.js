@@ -726,3 +726,56 @@ test("bound admission guard preserves the original Stop cancellation reason", as
   assert.equal(command.signal.reason.message, "Work stopped.");
   assert.equal(f.observed.executions.length, 0, "Stop and its authority guard must not execute an application effect");
 });
+
+
+test("an invoked bound effect failing after accepted steering retains its error without failing the successor", async t => {
+  const entered = Promise.withResolvers(), effect = Promise.withResolvers();
+  const f = await boundToolFixture(t, { execute: async (_input, actual) => {
+    entered.resolve(actual);
+    return effect.promise;
+  } });
+  const events = [];
+  f.conversation.subscribe(event => events.push(event));
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  const executing = f.tools().execute(f.nativeCall);
+  void executing.catch(() => {});
+  const origin = await entered.promise;
+  await f.conversation.send({ messageId: "late-effect-successor", text: "Continue with this current instruction.", steer: true });
+  await f.currentCommand(1);
+  effect.reject(Object.assign(new Error("Old effect acknowledgement failed"), { code: "old_effect_failure", statusCode: 503 }));
+  await assert.rejects(executing, { code: "conversation_tool_outcome_unknown" });
+  f.finish.resolve();
+  const result = await f.conversation.wait();
+  assert.equal(events.findLast(event => event.type === "settled").status, "complete");
+  assert.equal(result.error, "");
+  const old = result.conversationLog.find(turn => turn.turnId === origin.boundAdmission.turnId);
+  const successor = result.conversationLog.find(turn => turn.messages.some(message => message.messageId === "late-effect-successor"));
+  const receipt = old.metadata.applicationTools.find(call => call.id === f.nativeCall.id);
+  assert.equal(receipt.status, "unknown");
+  assert.equal(receipt.result.error.code, "old_effect_failure");
+  assert.equal(successor.metadata.applicationTools, undefined, "The earlier effect error stays on its originating receipt");
+  assert.equal(origin.boundAdmission.messageId, message.messageId);
+  assert.equal(f.observed.executions.length, 1, "Neither steering nor failed acknowledgement repeats the admitted effect");
+});
+
+test("a current bound effect failure still fails its own run and retains its original error receipt", async t => {
+  const f = await boundToolFixture(t, { execute: async () => {
+    throw Object.assign(new Error("Current effect acknowledgement failed"), { code: "current_effect_failure", statusCode: 503 });
+  } });
+  const events = [];
+  f.conversation.subscribe(event => events.push(event));
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  await assert.rejects(f.tools().execute(f.nativeCall), { code: "conversation_tool_outcome_unknown" });
+  f.finish.resolve();
+  const result = await f.conversation.wait();
+  assert.equal(events.findLast(event => event.type === "settled").status, "failed");
+  assert.match(result.error, /Inspect its target/);
+  const receipt = result.conversationLog[0].metadata.applicationTools.find(call => call.id === f.nativeCall.id);
+  assert.equal(receipt.status, "unknown");
+  assert.equal(receipt.result.error.code, "current_effect_failure");
+  assert.equal(f.observed.executions.length, 1);
+});

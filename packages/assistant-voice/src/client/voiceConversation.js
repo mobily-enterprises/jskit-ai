@@ -552,7 +552,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     const key = `${candidate.turnId}:${candidate.revision}`;
     if (decidedCandidate === key) return;
     decidedCandidate = key;
-    const captured = { focus: { ...(recording?.focus || (binding.captureContext?.() || {})) }, messageId: recording?.messageId || crypto.randomUUID(), text: candidate.text };
+    const captured = { focus: { ...(recording?.focus || (binding.captureContext?.() || {})) }, messageId: recording?.messageId || crypto.randomUUID(), text: candidate.text,
+      ...(recording?.reviewBeforeSend ? { reviewBeforeSend: true } : {}) };
     try {
       const text = candidate.text.trim();
       const spoken = currentSpokenText();
@@ -590,13 +591,15 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (!utterance || !live.value || !committing || committing.turnId !== utterance.turnId || committing.revision !== utterance.revision) return;
     pendingTranscript.value = { ...committing, text: utterance.text };
     committing = null;
-    void deliverTranscript();
+    if (!pendingTranscript.value.reviewBeforeSend) void deliverTranscript();
+    else holding.value = false;
   });
   watch(voice.utteranceReset, (reset) => {
     // A discard can lose a race with resumed speech. Keep this utterance's
     // identity and destination until the daemon acknowledges the boundary.
     if (reset?.turnId !== voice.activeListenTurnId.value || !live.value || !recording) return;
     recording = { focus: { ...(binding.captureContext?.() || {}) }, messageId: crypto.randomUUID(), started: true, continuous: true,
+      ...(recording.reviewBeforeSend ? { reviewBeforeSend: true } : {}),
       ...(recording.finishAfterPending ? { finishAfterPending: true } : {}) };
   });
   watch(voice.partialTranscript, (text, previous) => {

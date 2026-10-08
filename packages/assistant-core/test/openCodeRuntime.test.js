@@ -349,3 +349,297 @@ test("native output identity is opt-in for every existing OpenCode projection wr
     assert.deepEqual(native, unchanged, "The original native history is never rewritten.");
   }
 });
+
+
+// Same original native owner and controlled wire fixture. These receipts are
+// supplied by the original projection writer, not fabricated by its getter.
+async function finalReaderMonitorFixture(t, { publication, checkpoint, recovery = false } = {}) {
+  const f = fixture();
+  const target = await f.acquire("final-owner");
+  target.upstreamSessionId = "native-final-thread";
+  const turn = { id: "accepted-input", inputMessageId: "accepted-input", threadId: target.upstreamSessionId,
+    active: true, state: "active", eventStartedAt: 1, abortController: new AbortController() };
+  const rows = [{ id: turn.id, type: "user", time: { created: 1 } }, {
+    id: recovery ? "reasoning-only" : "actual-final", type: "assistant",
+    text: recovery ? "" : "Exact accepted final.", time: { created: 2, completed: 3 }
+  }];
+  const reads = [], writes = [], publications = [], checkpoints = [], prompts = [];
+  target.server.client.messages = async (...args) => { reads.push(args); return rows; };
+  target.server.client.prompt = async (_id, input) => {
+    prompts.push(input);
+    rows.push({ id: input.id, type: "user", time: { created: 4 } }, {
+      id: "recovered-final", type: "assistant", text: "Exact recovered final.", time: { created: 5, completed: 6 }
+    });
+    return { id: input.id };
+  };
+  const projection = {
+    messageId: (id, role) => `${id}:${role}`, outputId: (id, role) => `${id}:${role}`,
+    readError: () => "", reasoning: async () => {},
+    store: {
+      async writeConversationAssistantMessage(sessionId, message) {
+        const written = { turnId: "original-authored-turn", assistant: { ...message, role: "assistant" },
+          messages: [{ ...message, role: "assistant" }] };
+        writes.push({ sessionId, message, written }); return written;
+      },
+      updateConversationStream() {}, completeConversationStreamMessage() {}
+    },
+    async publishTurn(written) { await publication?.(written); publications.push(written); },
+    publishStream: async () => {}
+  };
+  const observation = { readFailure: () => null, close: async () => {} };
+  const start = () => f.runtime.beginMonitor("final-owner", target, turn, {
+    observe: () => observation,
+    finalResponse: { agent: "selected-agent", model: { providerID: "selected-provider", id: "selected-model" },
+      recoveryMessageId: "exact-recovery-input", readError: () => "" },
+    projectMessages: (messages, options) => f.runtime.writeConversationProjection("application-session", messages, options, projection),
+    async writeRun(current, state) { checkpoints.push({ current, state }); await checkpoint?.(current, state, f.runtime); },
+    completeResult: async (_turn, { failure }) => failure,
+    onRetired() {}
+  });
+  t.after(async () => { await f.runtime.release(target); });
+  return { ...f, target, turn, rows, reads, writes, publications, checkpoints, prompts, start };
+}
+
+test("native final projection opt-in returns only its original published receipt without changing default fields", async () => {
+  const runtime = createOpenCodeSharedRuntime();
+  const originalTurn = { turnId: "authored", assistant: { messageId: "real-final:assistant",
+    outputId: "real-final:assistant", role: "assistant", text: "Actual final." } };
+  const rows = [{ id: "accepted", type: "user", time: { created: 1 } },
+    { id: "real-final", type: "assistant", text: "Actual final.", time: { created: 2, completed: 3 } },
+    { id: "later-user", type: "user", time: { created: 4 } },
+    { id: "foreign-final", type: "assistant", text: "Unrelated.", time: { created: 5, completed: 6 } }];
+  const nativeBefore = structuredClone(rows);
+  const publications = [];
+  const projection = { messageId: (id, role) => `${id}:${role}`, outputId: (id, role) => `${id}:${role}`,
+    readError: () => "", reasoning: async () => {}, store: {
+      async writeConversationAssistantMessage(_id, message) {
+        assert.equal(message.messageId, "real-final:assistant"); return originalTurn;
+      }, completeConversationStreamMessage() {}, updateConversationStream() {}
+    }, publishTurn: async turn => { publications.push(turn); }, publishStream: async () => {} };
+  assert.deepEqual(await runtime.writeConversationProjection("application", rows, { inputMessageId: "accepted" }, projection),
+    { failure: "", providerApiFailure: false });
+  const result = await runtime.writeConversationProjection("application", rows,
+    { inputMessageId: "accepted", captureFinalAssistantResult: true }, projection);
+  assert.deepEqual(result.finalAssistantResult, { inputMessageId: "accepted", itemId: "real-final",
+    text: "Actual final.", conversationTurn: originalTurn });
+  assert.equal(result.finalAssistantResult.conversationTurn, publications.at(-1));
+  assert.deepEqual(rows, nativeBefore, "The original native rows are never rewritten.");
+  const streaming = await runtime.writeConversationProjection("application", rows,
+    { inputMessageId: "accepted", streaming: true, captureFinalAssistantResult: true }, projection);
+  assert.equal(streaming.finalAssistantResult, null, "A partial projection never claims a native final receipt.");
+});
+
+test("retained final reader is exact, readonly and available at the original completed checkpoint after publication", async t => {
+  const publishing = Promise.withResolvers(), release = Promise.withResolvers();
+  let checkpointResult;
+  const f = await finalReaderMonitorFixture(t, {
+    async publication() { publishing.resolve(); await release.promise; },
+    checkpoint(turn, state, owner) {
+      if (state === "completed") checkpointResult = owner.readFinalAssistantResult("final-owner", turn.threadId, turn.id);
+    }
+  });
+  const monitor = f.start();
+  await publishing.promise;
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null);
+  release.resolve(); await monitor;
+  assert.equal(checkpointResult.threadId, f.turn.threadId);
+  assert.equal(checkpointResult.turnId, "accepted-input");
+  assert.equal(checkpointResult.itemId, "actual-final");
+  assert.deepEqual(checkpointResult.conversationTurn, f.writes.at(-1).written);
+  assert.equal(f.publications.length, 1);
+  assert.equal(f.runtime.readFinalAssistantResult("foreign-owner", f.turn.threadId, f.turn.id), null);
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", "foreign-thread", f.turn.id), null);
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, "actual-final"), null);
+  const count = f.reads.length;
+  checkpointResult.conversationTurn.assistant.text = "Caller mutation";
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id).text, "Exact accepted final.");
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id).conversationTurn.assistant.text, "Exact accepted final.");
+  assert.equal(f.reads.length, count, "Getter performs no history read, observer or model work.");
+  f.runtime.turns.delete("final-owner");
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null);
+});
+
+for (const boundary of ["publication-failure", "confirmed-stop"]) {
+  test(`retained final evidence stays unavailable after ${boundary}`, async t => {
+    const publishing = Promise.withResolvers(), release = Promise.withResolvers();
+    const f = await finalReaderMonitorFixture(t, { async publication() {
+      publishing.resolve(); await release.promise;
+      if (boundary === "publication-failure") throw new Error("Original publication failed.");
+    } });
+    const monitor = f.start(); await publishing.promise;
+    let stopping;
+    if (boundary === "confirmed-stop") {
+      stopping = f.runtime.interruptTurn("final-owner", f.target, { writeRun: async () => {} });
+      for (let index = 0; index < 10 && !f.turn.interruptAcknowledged; index += 1) await Promise.resolve();
+      assert.equal(f.turn.interruptAcknowledged, true);
+    }
+    release.resolve(); await monitor; await stopping;
+    assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null);
+    assert.equal(f.turn.state, boundary === "confirmed-stop" ? "interrupted" : "failed");
+    assert.equal(f.prompts.length, 0, "Failure and Stop do not dispatch recovery or repeat native work.");
+  });
+}
+
+test("empty-answer recovery final retains the accepted outer turn and exact recovered native carrier", async t => {
+  const f = await finalReaderMonitorFixture(t, { recovery: true });
+  await f.start();
+  const result = f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, "accepted-input");
+  assert.equal(f.prompts.length, 1);
+  assert.equal(f.prompts[0].id, "exact-recovery-input");
+  assert.equal(result.turnId, "accepted-input");
+  assert.equal(result.inputMessageId, "exact-recovery-input");
+  assert.equal(result.itemId, "recovered-final");
+  assert.equal(result.text, "Exact recovered final.");
+  assert.deepEqual(result.conversationTurn, f.writes.at(-1).written);
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, "exact-recovery-input"), null);
+});
+
+
+test("final reader follows the original post-publication admission and current-input fence", async t => {
+  const publishing = Promise.withResolvers(), release = Promise.withResolvers();
+  let first = true;
+  const f = await finalReaderMonitorFixture(t, { async publication() {
+    if (first) { first = false; publishing.resolve(); await release.promise; }
+  } });
+  const monitor = f.start(); await publishing.promise;
+  const admission = Promise.withResolvers();
+  f.turn.admission = admission;
+  f.turn.inputMessageId = "latest-accepted-input";
+  f.rows.push({ id: "latest-accepted-input", type: "user", time: { created: 4 } },
+    { id: "latest-native-final", type: "assistant", text: "Latest admitted final.", time: { created: 5, completed: 6 } });
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null);
+  admission.resolve(); release.resolve(); await monitor;
+  const result = f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, "accepted-input");
+  assert.equal(result.inputMessageId, "latest-accepted-input");
+  assert.equal(result.itemId, "latest-native-final");
+  assert.equal(result.text, "Latest admitted final.");
+  assert.deepEqual(result.conversationTurn, f.writes.at(-1).written);
+  assert.equal(f.prompts.length, 0, "Following an admitted input never resends it or creates a recovery prompt.");
+  f.turn.inputMessageId = "another-input";
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null,
+    "A retained receipt cannot stand for a different current input.");
+});
+
+
+test("original release and same-key reacquisition cannot reattach a retained final receipt", async t => {
+  const f = await finalReaderMonitorFixture(t);
+  await f.start();
+  assert.ok(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id));
+  const peer = await f.acquire("final-peer");
+  await f.runtime.release(f.target, { retainSharedProcess: true });
+  assert.equal(f.runtime.turns.get("final-owner"), f.turn,
+    "Original release retains the completed turn; getter must enforce the actual target owner.");
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null);
+  const replacement = await f.acquire("final-owner");
+  replacement.upstreamSessionId = f.turn.threadId;
+  t.after(async () => { await f.runtime.release(replacement); await f.runtime.release(peer); });
+  assert.notEqual(replacement, f.target);
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null,
+    "Even an identical key and native thread cannot reuse the released target's receipt.");
+  assert.equal(f.starts.length, 1, "The independent peer and replacement share the original process.");
+  assert.equal(f.stops.length, 0);
+  assert.equal(peer.abortController.signal.aborted, false);
+  assert.equal(f.prompts.length, 0, "Getter performs no model work after release or reacquisition.");
+});
+
+test("original shared-server replacement cannot retag the retained target's final receipt", async t => {
+  const f = await finalReaderMonitorFixture(t);
+  await f.start();
+  const result = f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id);
+  assert.ok(result);
+  assert.equal(Object.hasOwn(result, "target"), false);
+  assert.equal(Object.hasOwn(result, "server"), false);
+  const count = f.reads.length;
+  const peer = await f.acquire("final-peer", { selected: { ...f.connection, fingerprint: "replacement-account" } });
+  t.after(async () => { await f.runtime.release(peer); });
+  assert.equal(f.runtime.processes.get("final-owner"), f.target,
+    "Original ensure replaces the server while retaining target identity.");
+  assert.equal(f.target.upstreamSessionId, f.turn.threadId);
+  assert.equal(f.target.abortController.signal.aborted, false);
+  assert.equal(f.starts.length, 2);
+  assert.equal(f.stops.length, 1);
+  assert.equal(f.runtime.readFinalAssistantResult("final-owner", f.turn.threadId, f.turn.id), null);
+  assert.equal(f.reads.length, count, "A refused read cannot recover history from the replacement process.");
+  assert.equal(f.prompts.length, 0);
+});
+
+
+test("original message monitor clone retains only its registered target's final receipt", async t => {
+  const f = fixture();
+  const owned = [];
+  t.after(async () => { for (const target of owned) await f.runtime.release(target); });
+  let expectedTarget = await f.acquire("cloned-final-owner");
+  owned.push(expectedTarget);
+  expectedTarget.upstreamSessionId = "cloned-native-thread";
+  const originalTarget = expectedTarget;
+  const snapshots = [], writes = [], errors = [];
+  let modelPrompts = 0;
+  function prepareMessages(target, inputId, itemId, text) {
+    target.server.client.messages = async () => [{ id: inputId, type: "user", time: { created: 1 } },
+      { id: itemId, type: "assistant", text, time: { created: 2, completed: 3 } }];
+    target.server.client.prompt = async () => { modelPrompts += 1; assert.fail("An admitted final read cannot submit model work."); };
+  }
+  const projection = {
+    prepare() { return { fields: {} }; },
+    create(snapshot, turn) {
+      snapshots.push(snapshot);
+      assert.notEqual(snapshot, expectedTarget, "Preserve the ORIGINAL shallow monitor snapshot.");
+      assert.equal(snapshot.abortController, expectedTarget.abortController);
+      assert.equal(snapshot.server, expectedTarget.server);
+      assert.equal(snapshot.upstreamSessionId, expectedTarget.upstreamSessionId);
+      return {
+        observe: () => ({ readFailure: () => null, close: async () => {} }),
+        finalResponse: { readError: () => "" },
+        projectMessages: (messages, options) => f.runtime.writeConversationProjection("saved-session", messages, options, {
+          messageId: (id, role) => `${id}:${role}`, outputId: (id, role) => `${id}:${role}`,
+          readError: () => "", reasoning: async () => {}, store: {
+            async writeConversationAssistantMessage(_id, message) {
+              const written = { turnId: turn.id, assistant: { ...message, role: "assistant" } };
+              writes.push(written); return written;
+            }, updateConversationStream() {}, completeConversationStreamMessage() {}
+          }, publishTurn: async () => {}, publishStream: async () => {}
+        }),
+        writeRun: async () => {}, completeResult: async (_turn, { failure }) => failure, onRetired() {}
+      };
+    },
+    onError(error) { errors.push(error); }
+  };
+  prepareMessages(expectedTarget, "clone-input", "clone-final", "Exact cloned monitor final.");
+  await f.runtime.beginMessageMonitor("cloned-final-owner", expectedTarget,
+    { id: "clone-input", eventStartedAt: 1 }, {}, projection);
+  const result = f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input");
+  assert.ok(result, "Original beginMessageMonitor must expose the actual published receipt despite its target snapshot.");
+  assert.deepEqual(result.conversationTurn, writes.at(-1));
+  assert.equal(f.runtime.turns.get("cloned-final-owner").finalAssistantResultTarget, originalTarget);
+  assert.notEqual(f.runtime.turns.get("cloned-final-owner").finalAssistantResultTarget, snapshots[0]);
+  assert.equal(Object.hasOwn(result, "finalAssistantResultTarget"), false);
+  assert.equal(Object.hasOwn(f.runtime.turnSnapshot(f.runtime.turns.get("cloned-final-owner")), "finalAssistantResultTarget"), false);
+  const peer = await f.acquire("cloned-final-peer"); owned.push(peer);
+  await f.runtime.release(originalTarget, { retainSharedProcess: true });
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input"), null);
+  expectedTarget = await f.acquire("cloned-final-owner"); owned.push(expectedTarget);
+  expectedTarget.upstreamSessionId = "cloned-native-thread";
+  assert.notEqual(expectedTarget, originalTarget);
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input"), null);
+  assert.equal(peer.abortController.signal.aborted, false);
+  assert.equal(f.starts.length, 1);
+  assert.equal(f.stops.length, 0);
+  prepareMessages(expectedTarget, "fresh-clone-input", "fresh-clone-final", "Exact new owner final.");
+  await f.runtime.beginMessageMonitor("cloned-final-owner", expectedTarget,
+    { id: "fresh-clone-input", eventStartedAt: 1 }, {}, projection);
+  const current = f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "fresh-clone-input");
+  assert.ok(current, "A newly admitted original cloned monitor uses only its own registered owner.");
+  assert.equal(current.itemId, "fresh-clone-final");
+  assert.equal(current.text, "Exact new owner final.");
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input"), null);
+  const refreshPeer = await f.acquire("cloned-refresh-peer", { selected: { ...f.connection, fingerprint: "refreshed-account" } });
+  owned.push(refreshPeer);
+  assert.equal(f.runtime.processes.get("cloned-final-owner"), expectedTarget);
+  assert.equal(expectedTarget.abortController.signal.aborted, false);
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "fresh-clone-input"), null,
+    "Original shared process replacement cannot reattach the cloned monitor's receipt.");
+  assert.equal(f.starts.length, 2);
+  assert.equal(f.stops.length, 1);
+  assert.equal(modelPrompts, 0);
+  assert.deepEqual(errors, []);
+});

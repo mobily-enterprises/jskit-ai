@@ -130,6 +130,79 @@ are declared. Verify create, list, blank-name rejection and reload persistence
 without signing in for this public variant; owner-scoped variants additionally
 need cross-owner denial tests.
 
+## Save navigation
+
+`useCrudAddEditScreen()` accepts `saveSuccess` at the top level. After saving,
+the default behaviour invalidates `saveSuccess.invalidateQueryKey`, navigates
+to a configured record-view URL when one resolves, and otherwise falls back to
+the list URL. For a create-and-list app, use `navigateToView: false` and the
+configured `listUrlTemplate`, as in the public example above. The list URL may
+also come from `addEditOptions.listUrlTemplate`.
+
+To keep the saved form open, set both `saveSuccess.navigateToView` and
+`saveSuccess.navigateToList` to `false`. `addEditOptions.onSaveSuccess` replaces
+the default success handling, including query invalidation and navigation;
+reserve it for custom success behaviour. Returning to the list needs only the
+documented `saveSuccess` options, not a custom router callback or inspection of
+the shared form implementation.
+
+## Browser routes and responsive lists
+
+`newUrlTemplate`, `viewUrlTemplate`, `editUrlTemplate`, `listUrlTemplate`, and
+`cancelTo` describe browser routes, not surface-relative API suffixes. Include
+the configured surface prefix: if a public library lives at `/library`, its new
+page is `/library/new` and its list is `/library`, not `/new` and `/`. For links
+without record placeholders, `paths.page()` can resolve the configured surface;
+for record placeholders use the current CRUD runtime's `resolveParams()`.
+Request-scope inference does not add missing prefixes to browser links.
+
+`CrudListScreen` uses `createLabel` for its toolbar, empty-state and compact
+create actions. Its card and table layouts coexist in the DOM, with CSS choosing
+the visible layout. Browser assertions on record text must select the visible
+match, for example `page.getByText(title, { exact: true }).filter({ visible: true })`.
+When the same create action appears in more than one visible location, choose
+one visible action deliberately; do not relax the expected label to accept an
+unrelated fallback.
+
+## Direct API tests use JSON:API documents
+
+JSKIT's CRUD screens and HTTP client apply the resource's JSON:API transport
+automatically. Direct Playwright `request` calls and other raw HTTP clients must
+supply that transport themselves. An ordinary JSON body such as `{ title }`
+with `Content-Type: application/json` does not test field validation on a
+JSON:API route; it is rejected as an unsupported media type (HTTP 415).
+
+Use the application's actual API base and scope, not its page URL. For the
+public Books resource above, with API base `/api` and transport type `books`:
+
+```js
+const headers = {
+  "Content-Type": "application/vnd.api+json",
+  Accept: "application/vnd.api+json"
+};
+const response = await request.post("/api/books", {
+  headers,
+  data: {
+    data: {
+      type: "books",
+      attributes: { title: "Kindred" }
+    }
+  }
+});
+expect(response.status()).toBe(201);
+const document = await response.json();
+expect(document.data.attributes.title).toBe("Kindred");
+```
+
+Keep the same headers and `data.type/attributes` envelope when testing invalid
+field values; for this contract, an empty `title` or one over 255 characters
+should return HTTP 400. Raw responses contain fields under `data.attributes`,
+while the shared client simplifies resource responses. A collection response
+has an array in `data`. Match `data.type` to the configured resource transport;
+retain the application's existing identity and CSRF fixture for protected APIs.
+Prefer the shared resource client for application requests rather than copying
+this raw test encoding into page code.
+
 ## Record deletion
 
 Deletion requires an explicit shared `DELETE` operation and confirmation

@@ -57,6 +57,15 @@ composables. JSKIT has no general authoring CLI: inspect current source and
 installed packages directly, edit app-owned files deliberately, and use npm
 for dependency installation.
 
+Finish a dependency installation before inspecting the installed package or
+changing the same manifest/lockfile; do not overlap npm operations on one app. Import
+subpaths are package `exports` aliases, not physical file paths: a package may
+map `client/...` to `src/client/...` and keep shared code outside `src`. If source
+inspection is still needed, resolve the import with the installed `package.json`
+`exports` or `import.meta.resolve()`, or locate the file with `rg --files` before
+opening it. Do not guess a package's directory layout. Use the documented option
+when the guide or pattern already explains the required behaviour.
+
 ## Implement a change
 
 Read the matching pattern and reference, then implement the smallest complete

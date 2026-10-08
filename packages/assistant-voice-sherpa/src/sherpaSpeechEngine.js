@@ -126,16 +126,19 @@ async function createSherpaSpeechEngine({
   let busy = false;
   let closed = false;
   let replacement = null;
-  async function selectModel(modelId) {
+  async function selectModel(modelId, signal = null) {
     if (closed) throw new Error("Speech engine is closed.");
+    signal?.throwIfAborted();
     if (selectedModel === modelId && synthesizer?.running) return synthesizer;
     await synthesizer?.close();
     synthesizer = null;
     if (closed) throw new Error("Speech engine is closed.");
-    replacement = createSynthesizer(modelConfigurations[modelId], { outputSampleRate });
+    signal?.throwIfAborted();
+    replacement = createSynthesizer(modelConfigurations[modelId], { outputSampleRate, ...(signal ? { signal } : {}) });
     let model;
     try {
       model = await replacement;
+      signal?.throwIfAborted();
       if (closed) throw new Error("Speech engine is closed.");
       if (voices.some(voice => (voice.modelId || "default") === modelId && voice.speakerId >= model.numSpeakers)) {
         throw new TypeError("Configure unique voice IDs, names and valid model speaker IDs.");
@@ -249,7 +252,13 @@ async function createSherpaSpeechEngine({
     if (signal?.aborted) return { cancelled: true, sampleRate, samples: 0 };
     busy = true;
     try {
-      const model = await selectModel(voice.modelId || "default");
+      let model;
+      try {
+        model = await selectModel(voice.modelId || "default", signal);
+      } catch (error) {
+        if (!signal?.aborted) throw error;
+        return { cancelled: true, sampleRate, samples: 0 };
+      }
       return await model.synthesize(String(text || ""), { speakerId: voice.speakerId, speed: voice.speed ?? 1, onAudio, signal });
     } finally { busy = false; }
   }

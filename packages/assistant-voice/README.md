@@ -209,3 +209,12 @@ through an application-authorized route; credentials stay on the server. The
 result contains `voices` (IDs, labels and optional languages) and `defaultVoice`,
 matching the WebSocket greeting. Listing voices does not synthesize or load
 additional voice models.
+
+
+`binding.defaults.reviewBeforeSend` is captured when each recording starts. An
+explicit true value holds completed speech for the existing review/Send flow on
+both manual finalization and automatic hands-free endpoint completion. A daemon
+reset within the same continuous capture retains that choice while creating a
+separate message identity; it does not append words to an earlier queued message.
+Fresh capture reads fresh defaults. Missing/false retains automatic completed
+speech delivery. This flag does not change playback or input ownership.

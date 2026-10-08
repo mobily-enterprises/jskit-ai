@@ -3913,3 +3913,127 @@ for (const finalWords of ["", "Give me an update in the meantime"]) {
     assert.equal(outputGain.context.state, "running");
   });
 }
+
+
+for (const boundary of ["endpoint", "Pause"]) {
+  test(`captured saved review policy holds the ${boundary} final while preserving playback, UUID, destination and failed retry`, async t => {
+    const view = mountVoice(t, { colleague: true, defaults: { readAloud: true, reviewBeforeSend: true } });
+    const deliveries = []; let failed = true;
+    view.colleagueProps.submit = async (text, details) => {
+      deliveries.push({ text, ...details });
+      if (failed) throw new Error("Admitted destination unavailable");
+      return { ok: true };
+    };
+    const starting = view.colleague.toggleLive();
+    await flushVue(); view.media[0].resolve(); await starting;
+    const call = view.colleague, socket = view.sockets[0], turnId = view.voice.activeListenTurnId.value;
+    view.colleagueProps.conversation.messages = [{ id: "playing-review", role: "assistant", text: "Keep the original answer playing." }];
+    await flushVue();
+    const speechId = view.voice.activeSpeechTurnId.value;
+    socket.receive({ type: "speech.start", turnId: speechId });
+    socket.receive(new Int16Array(22050).buffer); await flushVue();
+    const playback = view.sources.at(-1); assert.ok(playback);
+    socket.receive({ type: "transcript.partial", turnId, text: "Review my complete direction", revision: 1 });
+    await flushVue();
+    const authored = view.emitted.filter(([name]) => name === "transcript").at(-1)[1];
+    view.colleagueProps.defaults = { readAloud: true, reviewBeforeSend: false };
+    view.colleagueProps.focus = { projectSlug: "later", sessionId: "later" };
+    if (boundary === "endpoint") {
+      socket.receive({ type: "transcript.endpoint", turnId, text: authored.text, revision: 1 });
+      await flushVue();
+      socket.receive({ type: "transcript.final", turnId, text: authored.text, revision: 1, continuous: true });
+      socket.receive({ type: "transcript.reset", turnId, revision: 2 });
+    } else {
+      await call.toggleHandsFree();
+      socket.receive({ type: "transcript.final", turnId, text: authored.text });
+    }
+    await flushVue();
+    const pending = call.pendingTranscript.value;
+    assert.ok(pending); assert.equal(pending.reviewBeforeSend, true);
+    assert.equal(pending.messageId, authored.id);
+    assert.deepEqual(pending.focus, { projectSlug: "example", sessionId: "session-a" });
+    assert.deepEqual(deliveries, [], "saved edit policy never admits automatic completed words");
+    assert.equal(call.holding.value, false); assert.equal(call.sending.value, false);
+    assert.equal(playback.stopped, false); assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+    assert.equal(controls(socket).some(message => message.type === "cancel" && message.turnId === speechId), false);
+    call.editTranscript("Edited exact direction", authored.id);
+    await call.deliverTranscript();
+    assert.equal(call.pendingTranscript.value.messageId, authored.id);
+    failed = false; await call.deliverTranscript(); await flushVue();
+    assert.deepEqual(deliveries, [
+      { text: "Edited exact direction", messageId: authored.id, focus: { projectSlug: "example", sessionId: "session-a" } },
+      { text: "Edited exact direction", messageId: authored.id, focus: { projectSlug: "example", sessionId: "session-a" } }
+    ]);
+    assert.equal(call.pendingTranscript.value, null);
+  });
+}
+
+test("continuous daemon reset retains the captured review policy without merging later utterances or policy changes", async t => {
+  const view = mountVoice(t, { colleague: true, defaults: { reviewBeforeSend: true } });
+  const delivered = [];
+  view.colleagueProps.submit = async (text, details) => { delivered.push({ text, ...details }); return { ok: true }; };
+  const starting = view.colleague.toggleLive(); await flushVue(); view.media[0].resolve(); await starting;
+  const call = view.colleague, socket = view.sockets[0], turnId = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId, text: "First review", revision: 1 });
+  socket.receive({ type: "transcript.endpoint", turnId, text: "First review", revision: 1 }); await flushVue();
+  const first = view.emitted.filter(([name]) => name === "transcript").at(-1)[1];
+  view.colleagueProps.defaults = { reviewBeforeSend: false };
+  socket.receive({ type: "transcript.final", turnId, text: first.text, revision: 1, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId, revision: 2 }); await flushVue();
+  assert.equal(call.pendingTranscript.value.reviewBeforeSend, true); assert.deepEqual(delivered, []);
+  await call.deliverTranscript(); await flushVue();
+  socket.receive({ type: "transcript.partial", turnId, text: "Second separate review", revision: 3 });
+  socket.receive({ type: "transcript.endpoint", turnId, text: "Second separate review", revision: 3 }); await flushVue();
+  const second = view.emitted.filter(([name]) => name === "transcript").at(-1)[1];
+  socket.receive({ type: "transcript.final", turnId, text: second.text, revision: 3, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId, revision: 4 }); await flushVue();
+  assert.notEqual(second.id, first.id); assert.equal(call.pendingTranscript.value.messageId, second.id);
+  assert.equal(call.pendingTranscript.value.text, "Second separate review");
+  assert.equal(call.pendingTranscript.value.reviewBeforeSend, true); assert.equal(delivered.length, 1);
+  await call.close();
+  socket.receive({ type: "transcript.final", turnId, text: "Retired words", revision: 3, continuous: true });
+  await flushVue(); assert.equal(delivered.length, 1, "retired endpoint completion cannot admit words");
+});
+
+
+for (const failedReader of ["global", "coding", "colleague"]) {
+  test(`active Pause and fresh restart retain explicit cached saved review through ${failedReader} refetch failure without disabling input or changing immediate defaults`, async t => {
+    // The preceding actual reader/Host case proves this same explicit profile survives
+    // refetch error. This original microphone fixture proves its fresh-capture use.
+    const profile = vue.reactive({ sendMode: "edit", readers: { global: true, coding: true, colleague: true } });
+    const view = mountVoice(t, { colleague: true, defaults: {
+      get reviewBeforeSend() { return profile.sendMode === "edit"; }
+    } });
+    const deliveries = [];
+    view.colleagueProps.submit = async (text, details) => { deliveries.push({ text, ...details }); return { ok: true }; };
+    const call = view.colleague;
+    const start = call.toggleLive(); await flushVue(); view.media[0].resolve(); await start;
+    const socket = view.sockets[0], originalListen = view.voice.activeListenTurnId.value;
+    profile.readers[failedReader] = false; // Original reader/Host proof retains this explicit cached sendMode without inventing review.
+    await call.toggleHandsFree();
+    assert.equal(call.microphoneMuted.value, true);
+    socket.receive({ type: "transcript.final", turnId: originalListen, text: "" }); await flushVue();
+    assert.equal(call.pendingTranscript.value, null);
+    const restarting = call.toggleHandsFree(); await flushVue();
+    assert.equal(view.media.length, 2, "the original active microphone can restart; no readiness gate or disabled input");
+    view.media[1].resolve(); await restarting;
+    const restarted = view.voice.activeListenTurnId.value;
+    assert.notEqual(restarted, originalListen);
+    socket.receive({ type: "transcript.partial", turnId: restarted, text: "Review after refetch failure", revision: 1 });
+    socket.receive({ type: "transcript.endpoint", turnId: restarted, text: "Review after refetch failure", revision: 1 }); await flushVue();
+    socket.receive({ type: "transcript.final", turnId: restarted, text: "Review after refetch failure", revision: 1, continuous: true });
+    socket.receive({ type: "transcript.reset", turnId: restarted, revision: 2 }); await flushVue();
+    assert.equal(call.pendingTranscript.value.reviewBeforeSend, true); assert.deepEqual(deliveries, []);
+    await call.deliverTranscript(); await flushVue(); assert.equal(deliveries.length, 1);
+    await call.cancelRecording(); profile.sendMode = "immediately";
+    const fresh = call.toggleHandsFree(); await flushVue();
+    assert.equal(view.media.length, 3); view.media[2].resolve(); await fresh;
+    const immediate = view.voice.activeListenTurnId.value;
+    socket.receive({ type: "transcript.partial", turnId: immediate, text: "Explicit immediate direction", revision: 1 });
+    socket.receive({ type: "transcript.endpoint", turnId: immediate, text: "Explicit immediate direction", revision: 1 }); await flushVue();
+    socket.receive({ type: "transcript.final", turnId: immediate, text: "Explicit immediate direction", revision: 1, continuous: true });
+    socket.receive({ type: "transcript.reset", turnId: immediate, revision: 2 }); await flushVue();
+    assert.equal(deliveries.length, 2, "the existing immediate default still automatically delivers completed words");
+    assert.equal(deliveries[1].text, "Explicit immediate direction");
+  });
+}

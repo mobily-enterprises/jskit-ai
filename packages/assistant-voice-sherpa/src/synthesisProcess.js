@@ -4,8 +4,10 @@ import { fork } from "node:child_process";
 // the model and ONNX's native arenas before another voice is loaded.
 export async function createSynthesisProcess(configuration, {
   outputSampleRate,
+  signal = null,
   workerUrl = new URL("./synthesisWorker.js", import.meta.url)
 } = {}) {
+  signal?.throwIfAborted();
   const child = fork(workerUrl, [], { execArgv: [], serialization: "advanced", stdio: ["ignore", "ignore", "inherit", "ipc"] });
   let pending = null;
   let stopped = false;
@@ -50,8 +52,12 @@ export async function createSynthesisProcess(configuration, {
     });
   }
 
+  const abortLoad = () => { void close(); };
+  signal?.addEventListener("abort", abortLoad, { once: true });
   try {
+    signal?.throwIfAborted();
     const metadata = await request("load", { configuration, outputSampleRate });
+    signal?.throwIfAborted();
     return Object.freeze({
       ...metadata,
       get running() { return !stopped; },
@@ -76,6 +82,9 @@ export async function createSynthesisProcess(configuration, {
     });
   } catch (error) {
     await close();
+    signal?.throwIfAborted();
     throw error;
+  } finally {
+    signal?.removeEventListener("abort", abortLoad);
   }
 }

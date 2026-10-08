@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.1.212",
+  "version": "0.1.213",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -18,11 +18,11 @@
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.234",
-    "@jskit-ai/json-rest-api-core": "0.1.178",
-    "@jskit-ai/resource-core": "0.1.176",
-    "@jskit-ai/resource-crud-core": "0.1.176",
-    "@jskit-ai/users-core": "0.1.247",
+    "@jskit-ai/database-runtime": "0.1.235",
+    "@jskit-ai/json-rest-api-core": "0.1.179",
+    "@jskit-ai/resource-core": "0.1.177",
+    "@jskit-ai/resource-crud-core": "0.1.177",
+    "@jskit-ai/users-core": "0.1.248",
     "json-rest-schema": "^1.0.17"
   },
   "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
@@ -169,8 +169,8 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.1.232",
-    "@jskit-ai/http-runtime": "0.1.232",
-    "@jskit-ai/kernel": "0.1.234"
+    "@jskit-ai/auth-core": "0.1.233",
+    "@jskit-ai/http-runtime": "0.1.233",
+    "@jskit-ai/kernel": "0.1.235"
   }
 }

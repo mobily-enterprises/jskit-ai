@@ -246,3 +246,66 @@ test("closing while a replacement loads waits for its native owner to exit", asy
   await Promise.all([switching, closing]);
   assert.equal(resident, 0);
 });
+
+
+test("aborting replacement loading releases its native worker and the existing shared queue", { timeout: 5_000 }, async t => {
+  const { readFile, rm } = await import("node:fs/promises");
+  const { createSynthesisProcess } = await import("../src/synthesisProcess.js");
+  const { createBoundedSerialQueue } = await import("../../assistant-voice/src/server/voiceDaemon.js");
+  const root = await mkdtemp(path.join(os.tmpdir(), "speech-load-abort-"));
+  const pidFile = path.join(root, "loading.pid");
+  const controller = new AbortController();
+  const queue = createBoundedSerialQueue({ maximumQueued: 1 });
+  let holdNext = false;
+  let heldSignal;
+  let engine;
+  let pid;
+  t.after(async () => {
+    controller.abort();
+    if (pid) {
+      try { process.kill(pid, "SIGKILL"); } catch (error) { if (error.code !== "ESRCH") throw error; }
+    }
+    queue.close();
+    await engine?.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  engine = await createSherpaSpeechEngine({ configuration: {
+    synthesizers: { a: { id: "a" }, b: { id: "b" } },
+    voices: ["a", "b"].map(id => ({ id, label: id, modelId: id, speakerId: 0 })),
+    defaultVoice: "a"
+  }, sherpa: { OnlineRecognizer: class {} }, createSynthesizer: (config, options) => {
+    if (holdNext && config.id === "b") {
+      holdNext = false;
+      heldSignal = options.signal;
+      config = { ...config, holdLoadPidFile: pidFile };
+    }
+    return createSynthesisProcess(config, {
+      ...options, workerUrl: new URL("./fixtures/synthesisWorker.js", import.meta.url)
+    });
+  } });
+  holdNext = true;
+  const cancelledAudio = [];
+  const switching = queue.run(() => engine.synthesize("Cancelled request.", {
+    voiceId: "b", signal: controller.signal, onAudio: frame => cancelledAudio.push(frame)
+  }));
+  for (let tries = 0; tries < 200; tries += 1) {
+    try { pid = Number(await readFile(pidFile, "utf8")); break; }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+  assert.ok(Number.isSafeInteger(pid) && pid > 0, "the actual replacement child reached its held load");
+  assert.equal(heldSignal, controller.signal, "only the admitted loading request owns this abort signal");
+  const nextAudio = [];
+  const next = queue.run(() => {
+    assert.throws(() => process.kill(pid, 0), { code: "ESRCH" }, "the prior worker exited before the next owner runs");
+    return engine.synthesize("Independent next request.", { voiceId: "a", onAudio: frame => nextAudio.push(frame) });
+  });
+  assert.equal(queue.depth, 2, "one held request and one independent queued request");
+  controller.abort();
+  assert.deepEqual(await switching, { cancelled: true, sampleRate: 22050, samples: 0 });
+  assert.deepEqual(cancelledAudio, [], "loading cancellation cannot generate or deliver audio");
+  assert.deepEqual(await next, { cancelled: false, sampleRate: 22050, samples: 2 });
+  assert.deepEqual(nextAudio, [Buffer.from([1, 0, 2, 0])]);
+  assert.equal(queue.depth, 0);
+  assert.equal((await engine.synthesize("Reuse the next owner's warm worker.", { voiceId: "a" })).cancelled, false);
+});

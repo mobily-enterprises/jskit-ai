@@ -41,6 +41,13 @@ questionnaire.
 - Resource-load errors stay inside the screen with retry. Command success and
   failure use JSKIT's shared toast/snackbar feedback path.
 - URLs are route templates or route objects resolved through the screen runtime.
+- Browser URL templates include the configured surface prefix; unlike API
+  suffixes, `/new` and `/` are absolute browser paths. Use the complete route or
+  `paths.page()` for a link without record placeholders, and the owning CRUD
+  runtime's `resolveParams()` for record placeholders.
+- `CrudListScreen` applies `createLabel` to all create actions. Its responsive
+  card and table layouts both remain in the DOM; Playwright text assertions
+  should filter to visible matches rather than match a hidden layout too.
 - Product field components are ordinary application source.
 - Query keys and placement sources describe the resource, not an authoring tool.
 - No generated-file markers, overwrite contracts, receipts, or provenance remain.
@@ -67,6 +74,14 @@ filters and actions explicit without adding empty screen machinery elsewhere.
 id (or a distinct new-record marker) so form cache entries stay separate.
 The New/Edit examples supply it; list/view screen wrappers derive their
 standard keys from `resourceNamespace`.
+
+Save navigation is configured in the top-level `saveSuccess` object. The default
+prefers a configured record-view URL, then the list. A create-and-list variation
+sets `navigateToView: false` and `listUrlTemplate` to its list route. Set both
+`navigateToView` and `navigateToList` to `false` to stay on the form. A custom
+`addEditOptions.onSaveSuccess` replaces default invalidation and navigation;
+it is unnecessary for ordinary list navigation. The generic CRUD guide explains
+this contract under **Save navigation**.
 
 Ownership and permission-bootstrap mode are different options. For a public
 resource on a public surface, use `ownershipFilter: "public"` in form options
@@ -104,6 +119,6 @@ when the wire contract genuinely is not CRUD.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/http-web@0.1.79`
+- Owner: `@jskit-ai/http-web@0.1.80`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/http-web/patterns/crud-screen-set/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/http-web/patterns/crud-screen-set/example)

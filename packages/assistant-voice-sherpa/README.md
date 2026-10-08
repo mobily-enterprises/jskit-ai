@@ -68,7 +68,11 @@ also require a model change.
 For embedded use, `await createSherpaSpeechEngine(options)` validates the models
 and returns the engine. Call `await engine.close()` when its owner shuts down.
 The supplied CLI handles both startup failure and shutdown. Cancellation kills
-unfinished native synthesis; the next request recreates that worker if needed.
+unfinished native synthesis, including a replacement model still loading, and
+waits for its process to exit before releasing the shared queue. A completed
+load no longer observes its requesting signal, so a later cancellation cannot
+close a warm worker reused by another request. The next request recreates a
+cancelled worker if needed.
 
 `--pack kokoro` uses Kokoro 1.0 with named female
 Heart, Bella and Emma voices, and male Michael, Adam, George and Daniel voices.

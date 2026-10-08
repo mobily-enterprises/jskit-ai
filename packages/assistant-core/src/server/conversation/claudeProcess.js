@@ -147,6 +147,10 @@ export function claudeCodeArguments({
     } : {} }));
     if (!applicationTools) args.push("--disallowedTools", "mcp__*");
     if (!toolFree) args.push("--tools", "Bash,Read,Edit,Write,Glob,Grep,NotebookEdit");
+  } else if (applicationTools) {
+    args.push("--mcp-config", JSON.stringify({ mcpServers: {
+      [CLAUDE_APPLICATION_TOOL_SERVER]: { type: "sdk", name: CLAUDE_APPLICATION_TOOL_SERVER }
+    } }));
   }
   if (outputSchema) args.push("--json-schema", JSON.stringify(outputSchema));
   return args;
@@ -318,8 +322,14 @@ export async function createClaudeCodeProcess({
     } } : {});
     return { client, initialization, executionId: native.id, stop };
   } catch (error) {
-    const proof = await stop();
-    error.stopProof = proof;
+    // A rejected start may already own an execution and its cleanup proof.
+    // Only a returned native handle transfers that cleanup to this owner.
+    if (native) {
+      error.executionId = native.id;
+      try { error.stopProof = await stop(); }
+      catch (cleanupError) { error.cleanupError = cleanupError; error.stopProof = { scopeEmpty: false }; }
+      if (error.stopProof?.scopeEmpty !== true) error.cleanupFailed = true;
+    }
     throw error;
   } finally {
     signal?.removeEventListener("abort", abort);

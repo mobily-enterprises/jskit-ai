@@ -145,6 +145,11 @@ const BookingsFeature = defineCrudJsonApiFeature({
   when both drivers are supported by the application.
 - Validate representative accepted and rejected resource values.
 - Exercise every enabled route and JSON API document shape.
+- Direct HTTP tests send `Content-Type` and `Accept` as
+  `application/vnd.api+json`, with `data.type` and `data.attributes`; raw
+  response fields remain in `data.attributes`. Use the configured API route,
+  transport type and existing identity/CSRF fixture. The generic CRUD guide's
+  **Direct API tests use JSON:API documents** section has a complete example.
 - Prove positive owner access and negative cross-owner access.
 - Verify public routes require neither identity nor CSRF only when explicitly
   declared public.
