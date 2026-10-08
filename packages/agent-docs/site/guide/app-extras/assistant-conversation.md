@@ -1498,8 +1498,11 @@ supplied-owner checks at the same executor boundary refuse retired input before
 execution and report only a still-current owned executor failure through the
 original Stop/drain path. Already invoked old work cannot fail a later accepted
 input. The common ordered tool-work catch attributes a failure only to its
-still-current request; prior action error receipts and once-only execution remain
-unchanged. The original retained-turn reader's opt-in current mode requires the exact
+still-current Claude request; prior action error receipts and once-only execution remain
+unchanged. This successor-query exception is specific to Claude. Codex retains
+its active-turn failure guard across steering: an unconfirmed application effect
+cannot be reported as a successful turn, even if an answer has arrived.
+The original retained-turn reader's opt-in current mode requires the exact
 live process, account, command and native tuple; its default retained/history
 projection is unchanged. Stop and completion join existing tool work; clearing custody leaves the original supplied
 process/storage lifecycle intact. Unconfigured supplied conversations keep their

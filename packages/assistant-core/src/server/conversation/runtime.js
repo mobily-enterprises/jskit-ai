@@ -911,9 +911,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           // mutations ordered across steering as well as within each request.
           const work = toolWork.then(() => request.tools.execute(input, options));
           toolWork = work.catch(error => {
-            // An invoked effect retains its own receipt across steering. Only
-            // failure of the still-current request can fail the current run.
-            if (current === request) toolFailure ||= error;
+            // Claude accepts a separate successor query; its predecessor's
+            // effect cannot fail that query. Other engines retain the original
+            // active-turn failure guard across steering.
+            if (engine !== "claude" || current === request) toolFailure ||= error;
           });
           return work;
         }
