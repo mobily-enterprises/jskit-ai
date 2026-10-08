@@ -88,6 +88,7 @@ test("the human guide's public create/list configuration works without bootstrap
     form.formState.title = "Public book";
     await form.addEdit.submit();
     assert.deepEqual(writes, [{ title: "Public book" }]);
+    assert.equal(router.currentRoute.value.path, "/books");
     await list.records.reload();
     assert.deepEqual(list.records.items, [{ id: "1", title: "Public book" }]);
     assert.deepEqual(Object.keys(resource.operations), ["list", "view", "create"]);

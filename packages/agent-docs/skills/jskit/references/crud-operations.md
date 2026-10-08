@@ -130,6 +130,22 @@ are declared. Verify create, list, blank-name rejection and reload persistence
 without signing in for this public variant; owner-scoped variants additionally
 need cross-owner denial tests.
 
+## Save navigation
+
+`useCrudAddEditScreen()` accepts `saveSuccess` at the top level. After saving,
+the default behaviour invalidates `saveSuccess.invalidateQueryKey`, navigates
+to a configured record-view URL when one resolves, and otherwise falls back to
+the list URL. For a create-and-list app, use `navigateToView: false` and the
+configured `listUrlTemplate`, as in the public example above. The list URL may
+also come from `addEditOptions.listUrlTemplate`.
+
+To keep the saved form open, set both `saveSuccess.navigateToView` and
+`saveSuccess.navigateToList` to `false`. `addEditOptions.onSaveSuccess` replaces
+the default success handling, including query invalidation and navigation;
+reserve it for custom success behaviour. Returning to the list needs only the
+documented `saveSuccess` options, not a custom router callback or inspection of
+the shared form implementation.
+
 ## Direct API tests use JSON:API documents
 
 JSKIT's CRUD screens and HTTP client apply the resource's JSON:API transport

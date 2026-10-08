@@ -68,6 +68,14 @@ id (or a distinct new-record marker) so form cache entries stay separate.
 The New/Edit examples supply it; list/view screen wrappers derive their
 standard keys from `resourceNamespace`.
 
+Save navigation is configured in the top-level `saveSuccess` object. The default
+prefers a configured record-view URL, then the list. A create-and-list variation
+sets `navigateToView: false` and `listUrlTemplate` to its list route. Set both
+`navigateToView` and `navigateToList` to `false` to stay on the form. A custom
+`addEditOptions.onSaveSuccess` replaces default invalidation and navigation;
+it is unnecessary for ordinary list navigation. The generic CRUD guide explains
+this contract under **Save navigation**.
+
 Ownership and permission-bootstrap mode are different options. For a public
 resource on a public surface, use `ownershipFilter: "public"` in form options
 or lower-level request composables. List/view screen wrappers derive request

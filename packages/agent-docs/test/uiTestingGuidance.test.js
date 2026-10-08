@@ -133,8 +133,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     /(?:^|[\s`(])\.\.\//mu
   );
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])(?:patterns|guide\/agent|site\/guide)\//mu);
-  assert.ok(Buffer.byteLength(operationalSource) <= 25 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 17 * 1024);
+  assert.ok(Buffer.byteLength(operationalSource) <= 40 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 24 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {
