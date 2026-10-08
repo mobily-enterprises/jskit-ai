@@ -168,6 +168,42 @@ When the same create action appears in more than one visible location, choose
 one visible action deliberately; do not relax the expected label to accept an
 unrelated fallback.
 
+## Browser tests verify validation and persistence
+
+Exercise rejected and accepted input through the same form. Check the rendered
+validation message and that rejection keeps the form open; then save an accepted
+value and prove it appears in the list after reloading. Use the resource's
+configured messages, the screen's `saveLabel`, and its actual browser routes.
+Do not infer an `aria-invalid` attribute from the fact that validation exists:
+the chosen field must actually implement that attribute contract before a test
+can assert it.
+
+For the public title-only Books variant above, using the pattern's
+`saveLabel: "Save book"`, default minimum-length message, and a root public
+surface:
+
+```ts
+await page.goto("/books/new");
+const title = page.getByRole("textbox", { name: "Title", exact: true });
+const save = page.getByRole("button", { name: "Save book", exact: true });
+await title.fill("");
+await save.click();
+await expect(page.getByText("Length must be at least 1 characters.", { exact: true })).toBeVisible();
+await expect(page).toHaveURL(/\/books\/new$/);
+
+await title.fill("A saved book");
+await save.click();
+await expect(page).toHaveURL(/\/books$/);
+await expect(page.getByText("A saved book", { exact: true }).filter({ visible: true })).toBeVisible();
+await page.reload();
+await expect(page.getByText("A saved book", { exact: true }).filter({ visible: true })).toBeVisible();
+```
+
+Keep the application's existing browser configuration and isolated fixtures.
+Adapt the route, labels and configured error message to that application's
+contract, and retain compact, medium and expanded layout coverage. Direct API
+checks additionally prove rejected input is not persisted.
+
 ## Direct API tests use JSON:API documents
 
 JSKIT's CRUD screens and HTTP client apply the resource's JSON:API transport

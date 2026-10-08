@@ -28,6 +28,10 @@ Rules:
   Keep the expected text and persistence assertion. If repeated create controls
   perform the same action, select one visible control deliberately rather than
   accepting a different label to make a test pass.
+- For CRUD validation, follow the generic CRUD guide's **Browser tests verify
+  validation and persistence** example: assert the visible configured error,
+  retained form, accepted save and reload persistence. Assert `aria-invalid`
+  only when the selected field implements that contract.
 
 ## Keep startup incremental
 
