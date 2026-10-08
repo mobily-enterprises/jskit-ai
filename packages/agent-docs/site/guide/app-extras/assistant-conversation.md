@@ -1466,7 +1466,25 @@ original precedence.
 The host still owns exact write authorization, readiness composition and native
 identity persistence. This shared prerequisite does not establish a particular
 application's integration, installed acceptance or real native acceptance.
-Bound Claude and OpenCode application-tool dispatch remain unavailable.
+An opted-in bound OpenCode conversation uses the same original private tool
+bridge and native-use validator as standalone OpenCode. The supplied preparation
+receives `applicationTools` containing that bridge's configuration and exact
+schemas before native dispatch. Publish it through the existing private native
+session binding, and supply the same schemas at early host readiness. The native
+plugin definitions alone do not authorize a call. Each call must match the
+actual native session, assistant message, call ID, name and arguments, and the
+originating authored message's durable admission before the common executor.
+Reasoning-only recovery retains that originating message association. The bound
+branch preserves the host's original Send/steering, shared server and native
+monitor; it neither selects standalone lifecycle nor releases a peer's target.
+Foreign, retired or superseded-input native calls refuse without interrupting
+healthy work. An already invoked old effect failing after newer input admission
+does not abort that newer input. Owned executor failure stops its still-current
+native turn; Stop and disposal drain and close
+only its private bridge under the original owner. Unconfigured bound and scoped
+conversations retain their original behavior. These source tests do not establish
+an application's composition or installed/native acceptance. Bound Claude
+application-tool dispatch remains unavailable.
 
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
