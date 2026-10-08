@@ -5,6 +5,15 @@ import {
   ASSISTANT_CONVERSATION_UNSUBSCRIBE
 } from "../../shared/conversationRealtime.js";
 
+// Private to the original client history/subscription coordination. Symbols
+// survive local snapshot spreads but never enter the conversation wire format.
+const refreshedHistoryPages = Symbol("assistant.refreshedHistoryPages");
+
+function patchLoadedHistoryPages(pages = [], patch) {
+  return pages.map(page => page.conversationLog.some(turn => turn.turnId === patch?.turn?.turnId)
+    ? applyConversationLogPatch(page, patch, { limit: page.pagination?.limit }) || page : page);
+}
+
 const SNAPSHOT_EVENTS = new Set(["accepted", "settled", "configuration", "phase", "error", "replaced", "goal"]);
 
 function subscribeAssistantConversation({
@@ -72,13 +81,16 @@ function subscribeAssistantConversation({
     const job = Promise.resolve().then(() => {
       if (!current()) return null;
       pendingReads.add(pendingRead);
-      return read();
+      return read({ current });
     }).then(snapshot => {
       if (!current()) return;
       // Ported from the original history reader: retain only delivered updates
       // received while this request was in flight before replacing its cache.
       for (const patch of pendingRead.patches) {
         snapshot = applyConversationLogPatch(snapshot, patch, { limit: snapshot.pagination?.limit });
+        if (snapshot[refreshedHistoryPages]) {
+          snapshot[refreshedHistoryPages] = patchLoadedHistoryPages(snapshot[refreshedHistoryPages], patch);
+        }
       }
       for (const [id, entry] of completed) if (settled.has(entry.turnId)) completed.delete(id);
       receiveState(snapshot);
@@ -226,4 +238,4 @@ function subscribeAssistantConversation({
   return Object.assign(release, { reload });
 }
 
-export { subscribeAssistantConversation };
+export { subscribeAssistantConversation, refreshedHistoryPages, patchLoadedHistoryPages };

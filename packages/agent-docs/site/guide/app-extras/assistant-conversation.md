@@ -267,6 +267,16 @@ and other uncertain messages. Inspection never submits or accepts it. Missing
 markers, attempted requests, incomplete cleanup and API-model requests remain
 conservative. A retired native request cannot be retried against its successor
 with the old ID; edit its words into a new authored message instead.
+
+Incoming saved-state updates refresh the history already loaded with **Load older
+messages**, using the same authorized page reader. The loaded messages remain
+visible until that refresh succeeds; fresh history reflects removed or rewound
+saved turns instead of reviving cached rows. Delivered updates received during
+that read also update their matching loaded saved row. Live speech/message
+overlays use the loaded saved row as their base, retaining its authored question
+and progress without becoming saved history. Reconnection starts again with the
+latest bounded page; **Load older messages** is available again where older history exists.
+
 Reconnection reads state and does not resend the request. After an initial
 subscription failure or timeout, **Reload** retries that exact subscription on
 the connected socket with fresh authorization; it does not resend a message.
