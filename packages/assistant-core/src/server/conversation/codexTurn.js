@@ -176,7 +176,7 @@ export function createCodexAppServerRunOwner({
   } = codexProviderSelection;
   const acquireOutputProvider = providerSessions?.outputContext
     ? async ({ sessionId, runtime, session }) => {
-      const prepared = providerSessions.outputContext({ sessionId, runtime, session });
+      const prepared = await providerSessions.outputContext({ sessionId, runtime, session });
       if (!prepared) return null;
       return acquireCodexAppServerOutputProvider(
         sessionId, session, prepared.managedIdentity, prepared.providerOptions

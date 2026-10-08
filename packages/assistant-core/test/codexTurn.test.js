@@ -2774,3 +2774,44 @@ for (const finalizingGraceMs of [500, 200]) {
     assert.deepEqual(await f.replies(), []);
   });
 }
+
+for (const asynchronous of [false, true]) {
+  test(`output acquisition validates host context before provider reuse (async ${asynchronous})`, async () => {
+    const f = await outputFixture();
+    const runtime = { store: f.store, getSession: async id => ({ sessionId: id, agentRuns: [structuredClone(f.run)] }) };
+    const entered = Promise.withResolvers(); const release = Promise.withResolvers(); const order = [];
+    const options = { threadExecutionRoot: "/trusted/private/native", threadWorkdir: "/trusted/private/native" };
+    const prepared = { managedIdentity: { executionRoot: options.threadExecutionRoot, workdir: options.threadWorkdir },
+      providerOptions: async () => { order.push("options"); return options; } };
+    const owner = createCodexAppServerRunOwner({ createRuntime: async () => runtime, createStore: async () => f.store,
+      providerSessions: { managed: new Map(), owner: { providers: new Map(), ensureSession: async context => {
+        assert.deepEqual(context, { sessionId: f.sessionId, options }); order.push("provider"); return f.provider;
+      } }, context: (sessionId, options) => ({ sessionId, options }), outputContext(context) {
+        assert.equal(context.runtime, runtime); assert.equal(context.sessionId, f.sessionId); assert.equal(context.session.sessionId, f.sessionId);
+        order.push("context"); entered.resolve();
+        return asynchronous ? release.promise.then(() => { order.push("validated"); return prepared; }) : prepared;
+      } }
+    });
+    const reading = owner.submitAssistantResult(f.sessionId, f.threadId, f.turnId, { recoverFromProvider: true });
+    await entered.promise;
+    if (asynchronous) {
+      assert.deepEqual(order, ["context"]); assert.equal(f.pages.length, 0, "No native history read precedes trusted context validation"); release.resolve();
+    }
+    assert.equal((await reading).reason, "empty");
+    assert.deepEqual(order, asynchronous ? ["context", "validated", "options", "provider"] : ["context", "options", "provider"]);
+    assert.equal(f.pages.length, 1);
+  });
+}
+
+test("a rejected async output context does not acquire a provider or read native history", async () => {
+  const f = await outputFixture();
+  const runtime = { store: f.store, getSession: async () => ({ sessionId: f.sessionId, agentRuns: [f.run] }) };
+  let acquired = false;
+  const owner = createCodexAppServerRunOwner({ createRuntime: async () => runtime, createStore: async () => f.store,
+    providerSessions: { managed: new Map(), owner: { providers: new Map(), ensureSession() { acquired = true; throw new Error("Unexpected acquisition"); } },
+      context: () => ({}), outputContext: async () => { throw new Error("The learning scope is no longer active"); } }
+  });
+  const result = await owner.submitAssistantResult(f.sessionId, f.threadId, f.turnId, { recoverFromProvider: true });
+  assert.equal(result.reason, "error"); assert.match(result.error, /learning scope is no longer active/u);
+  assert.equal(acquired, false); assert.equal(f.pages.length, 0);
+});
