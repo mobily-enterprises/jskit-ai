@@ -48,7 +48,7 @@ test("ordinary reads get a finite default deadline while streams keep their expl
 });
 
 for (const phase of ["headers", "body", "CSRF session"]) {
-  test(`read deadline closes a real HTTP connection stalled during ${phase}`, async (t) => {
+  test(`read deadline closes a real HTTP connection stalled during ${phase}`, { timeout: 5000 }, async (t) => {
     let received;
     let closed;
     const requestReceived = new Promise((resolve) => { received = resolve; });
@@ -72,7 +72,7 @@ for (const phase of ["headers", "body", "CSRF session"]) {
       ? { method: "POST", body: { value: 1 } }
       : {});
     const rejected = assert.rejects(pending, (error) => error.name === "TimeoutError");
-    await requestReceived;
+    await Promise.race([requestReceived, pending]);
     await rejected;
     await responseClosed;
   });
