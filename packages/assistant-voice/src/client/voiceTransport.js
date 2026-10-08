@@ -41,6 +41,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   const endpoint = ref(null);
   const completedUtterance = ref(null);
   const utteranceReset = ref(null);
+  const utteranceStale = ref(null);
   const partialTranscript = ref("");
   const muted = ref(false);
   const microphoneMuted = ref(false);
@@ -63,6 +64,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   let lastPongAt = 0;
   let lastSpeechProgressAt = 0;
   let microphone = null;
+  let preserveBufferedMicrophone = false;
   const openingMicrophones = new Set();
   let microphoneClaim = null;
   const speechClaim = Symbol("voice playback");
@@ -444,6 +446,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
         utteranceReset.value = { turnId: message.turnId, revision: message.revision };
         transcript.value = "";
         partialTranscript.value = "";
+      } else {
+        utteranceStale.value = { turnId: message.turnId, revision: message.revision };
       }
       return;
     }
@@ -629,6 +633,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     }
     microphoneClaim = Symbol("voice microphone");
     microphoneOwner = microphoneClaim;
+    preserveBufferedMicrophone = false;
     const turnId = voiceTurnId("listen");
     pendingListenTurnId = turnId;
     if (interruptSpeechOnListen) stopSpeaking();
@@ -647,7 +652,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
             }
           },
           onPcm(frame) {
-            if (!microphoneMuted.value && socket?.readyState === WEBSOCKET_OPEN && activeListenTurnId.value === turnId) {
+            if ((!microphoneMuted.value || preserveBufferedMicrophone) && socket?.readyState === WEBSOCKET_OPEN && activeListenTurnId.value === turnId) {
               if (socket.bufferedAmount > 32 * 1024) {
                 connectionLost("The microphone connection fell behind. Review the unfinished recording before sending.");
                 return;
@@ -843,9 +848,10 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     muted.value = !muted.value;
   }
 
-  function setMicrophoneMuted(value) {
+  function setMicrophoneMuted(value, { preserveBuffered = false } = {}) {
     microphoneMuted.value = Boolean(value);
-    microphone?.setMuted(microphoneMuted.value);
+    preserveBufferedMicrophone = microphoneMuted.value && preserveBuffered;
+    microphone?.setMuted(microphoneMuted.value, { preserveBuffered });
     if (microphoneMuted.value) inputLevel.value = 0;
   }
 
@@ -900,6 +906,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     captureState,
     completedUtterance,
     utteranceReset,
+    utteranceStale,
     endpoint,
     finishUtterance,
     finishCurrentPhrase,

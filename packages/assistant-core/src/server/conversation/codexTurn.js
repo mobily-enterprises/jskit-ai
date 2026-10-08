@@ -110,10 +110,22 @@ export function createCodexAppServerRunOwner({
   runInContext = (_context, operation) => operation(),
   notificationQueue = null,
   activeReconcileMs = 2000,
+  finalizingGraceMs = 10000,
+  finalizingGraceAfterHistoryRead = false,
+  failureDetailGraceMs = 0,
   steerFailedCode = "codex_turn_steer_failed",
   interruptFailedCode = "codex_turn_interrupt_failed",
   errorPrefix = ""
 } = {}) {
+  if (!Number.isSafeInteger(finalizingGraceMs) || finalizingGraceMs < 1) {
+    throw new TypeError("Invalid Codex finalizing grace.");
+  }
+  if (typeof finalizingGraceAfterHistoryRead !== "boolean") {
+    throw new TypeError("Invalid Codex finalizing grace clock.");
+  }
+  if (!Number.isSafeInteger(failureDetailGraceMs) || failureDetailGraceMs < 0) {
+    throw new TypeError("Invalid Codex failure detail grace.");
+  }
   if (providerSessions && (serverClosingError || !providerSessions.managed)) {
     providerSessions = { ...providerSessions, managed: providerSessions.managed || new Map() };
   }
@@ -126,7 +138,6 @@ export function createCodexAppServerRunOwner({
     CONTROL_RECONFIGURATION: "control_reconfiguration",
     INTERRUPTED: "interrupted"
   };
-  const finalizingGraceMs = 10000;
   const snapshotRecoveryItemLimit = 25;
   const helperOwnershipError = createCodexHelperOwnershipError({ errorPrefix });
   const helperLifecycle = helperThreads ? createCodexHelperThreadLifecycle({
@@ -165,7 +176,7 @@ export function createCodexAppServerRunOwner({
   } = codexProviderSelection;
   const acquireOutputProvider = providerSessions?.outputContext
     ? async ({ sessionId, runtime, session }) => {
-      const prepared = providerSessions.outputContext({ sessionId, runtime, session });
+      const prepared = await providerSessions.outputContext({ sessionId, runtime, session });
       if (!prepared) return null;
       return acquireCodexAppServerOutputProvider(
         sessionId, session, prepared.managedIdentity, prepared.providerOptions
@@ -285,6 +296,9 @@ export function createCodexAppServerRunOwner({
     captureContext,
     runInContext,
     activeReconcileMs,
+    finalizingGraceAfterHistoryRead,
+    failureDetailGraceMs,
+    notificationQueue: codexAppServerNotificationQueue,
     hasRuntime,
     recoverAdmission,
     turnOutcomes,

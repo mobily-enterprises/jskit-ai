@@ -1277,3 +1277,52 @@ for (const change of ["model", "effort"]) test(`Claude honors a consumer's fresh
   assert.match(restoredPrompt, /Continue after the change/);
   assert.match(restoredPrompt, /Continue after restart/);
 });
+
+for (const maxFinalReplyCharacters of [12, 11]) {
+  test("Claude recovered reply enforces configured final limit of " + maxFinalReplyCharacters, async t => {
+    const f = await fixture(t, { limits: { maxFinalReplyCharacters } });
+    await assert.rejects(f.conversation.send({ messageId: "bounded-lost", text: "lost" }));
+    assert.equal((await f.conversation.read()).status, "unconfirmed");
+    const receipt = await f.conversation.inspectDelivery({ messageId: "bounded-lost" });
+    assert.equal(receipt.status, "accepted", "A reply rejection must retain the proven user admission");
+    assert.equal(receipt.recovered, true);
+    const state = await f.conversation.read();
+    const turn = state.conversationLog[0];
+    assert.equal(turn.user.text, "lost");
+    assert.equal(turn.metadata.runtime.status, maxFinalReplyCharacters === 12 ? "interrupted" : "failed");
+    assert.equal(turn.assistant?.text, maxFinalReplyCharacters === 12 ? "Answer: lost" : undefined);
+    if (maxFinalReplyCharacters === 11) assert.match(state.error, /final reply limit/);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1, "Recovery cannot repeat inference");
+  });
+}
+
+for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]) {
+  test("Claude oversized recovery preserves " + savedStatus + " evidence", async t => {
+    const limits = { maxFinalReplyCharacters: 13 };
+    const f = await fixture(t, { limits });
+    await f.conversation.send(input);
+    assert.equal((await f.conversation.wait()).conversationLog[0].assistant.text, "Answer: Hello");
+    await f.first.close();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn("000001");
+      await tx.replaceAssistant(turn.turnId, { ...turn.assistant, text: "" });
+      await tx.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime,
+        status: savedStatus === "unknown-tool" ? "interrupted" : savedStatus,
+        error: savedStatus === "unknown-tool" ? "" : "Exact prior " + savedStatus + " cause." },
+        ...(savedStatus === "unknown-tool" ? { applicationTools: [{ id: "unresolved-tool", status: "unknown" }] } : {}) });
+    });
+    limits.maxFinalReplyCharacters = 11;
+    const reopened = await f.runtime().open({ id: "conversation" });
+    const receipt = await reopened.inspectDelivery({ messageId: input.messageId });
+    assert.equal(receipt.status, "accepted");
+    const state = await reopened.read();
+    assert.equal(state.conversationLog[0].metadata.runtime.status, ["unknown-tool", "interrupted"].includes(savedStatus) ? "failed" : savedStatus);
+    assert.notEqual(state.conversationLog[0].assistant?.text, "Answer: Hello");
+    if (savedStatus === "unknown-tool") {
+      assert.match(state.error, /application tool has no verified result.*Inspect its target/);
+      assert.deepEqual(state.conversationLog[0].metadata.applicationTools, [{ id: "unresolved-tool", status: "unknown" }]);
+    } else if (savedStatus === "interrupted") assert.match(state.error, /final reply limit/);
+    else assert.equal(state.error, "Exact prior " + savedStatus + " cause.");
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  });
+}

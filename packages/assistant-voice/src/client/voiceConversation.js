@@ -409,10 +409,10 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (recording === next) { next.started = started; if (!started) recording = null; }
     } catch (cause) { if (recording === next) { recording = null; error.value = cause.message; } }
   }
-  async function toggleMicrophoneMuted() {
+  async function toggleMicrophoneMuted({ preserveBuffered = false } = {}) {
     // A person's explicit microphone choice supersedes an Edit-owned pause.
     if (pendingTranscript.value) delete pendingTranscript.value.editPausedCaptureId;
-    voice.setMicrophoneMuted(!microphoneMuted.value);
+    voice.setMicrophoneMuted(!microphoneMuted.value, { preserveBuffered });
     if (!microphoneMuted.value && recording) delete recording.finishAfterPending;
     clearTimeout(stopTimer);
     if (microphoneMuted.value && starting.value) await cancelRecording();
@@ -455,7 +455,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     try {
       if (voice.listening.value && (pendingTranscript.value || sending.value || committing)) {
         if (recording) recording.finishAfterPending = true;
-        voice.setMicrophoneMuted(true);
+        voice.setMicrophoneMuted(true, { preserveBuffered: true });
         return;
       }
       if (voice.listening.value) await voice.stopListening();
@@ -474,7 +474,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       // Pause must finish the newer recording after the existing admission,
       // without replacing the one pending transcript or stopping output.
       if (!microphoneMuted.value && recording) recording.finishAfterPending = true;
-      await toggleMicrophoneMuted();
+      await toggleMicrophoneMuted({ preserveBuffered: true });
       return;
     }
     if (committing) return;
@@ -482,10 +482,10 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (capturing.value && !voice.listening.value) return;
     if (live.value && callMode.value === "hands-free") {
       if (!microphoneMuted.value && voice.listening.value) {
-        // Pause is an explicit utterance boundary. Flush before muting so the
-        // final sound is included; resuming starts a fresh recording.
+        // Stop new input immediately, retaining the captured tail for the
+        // original Stop drain. Resuming starts a fresh recording.
+        voice.setMicrophoneMuted(true, { preserveBuffered: true });
         await voice.stopListening();
-        voice.setMicrophoneMuted(true);
       } else if (microphoneMuted.value) await toggleMicrophoneMuted();
       else await startRecording(false, true);
       return;
@@ -608,7 +608,11 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (live.value && !microphoneMuted.value && voice.partialTranscript.value === text) stopSpeech();
     }, 120);
   });
-  watch([pendingTranscript, sending, voice.utteranceReset], () => {
+  watch([pendingTranscript, sending, voice.utteranceReset, voice.utteranceStale], () => {
+    const stale = voice.utteranceStale.value;
+    if (committing && stale?.turnId === committing.turnId && stale.revision === committing.revision) {
+      committing = null;
+    }
     if (!disposed && live.value && !pushHolding.value && !changingCallMode.value &&
         !pendingTranscript.value && !sending.value && !committing && microphoneMuted.value &&
         recording?.finishAfterPending && voice.listening.value) {

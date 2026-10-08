@@ -50,6 +50,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   if (!Number.isSafeInteger(maximumToolCalls) || maximumToolCalls < 1) throw new TypeError("Invalid application tool-call limit.");
   const maximumInput = limits.maxInputCharacters ?? 32_000;
   if (!Number.isSafeInteger(maximumInput) || maximumInput < 1) throw new TypeError("Invalid conversation input limit.");
+  const maximumFinalReply = limits.maxFinalReplyCharacters ?? Infinity;
+  if (limits.maxFinalReplyCharacters !== undefined && (!Number.isSafeInteger(maximumFinalReply) || maximumFinalReply < 1)) {
+    throw new TypeError("Invalid conversation final reply limit.");
+  }
   const maximumContinuity = limits.maxContinuityCharacters ?? 128_000;
   if (!Number.isSafeInteger(maximumContinuity) || maximumContinuity < 1) throw new TypeError("Invalid conversation continuity limit.");
   const maximumAttachmentBytes = limits.maxAttachmentBytes ?? 8 * 1024 * 1024;
@@ -371,6 +375,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function initialize(entry, configuration, requestedEngine) {
     if (entry.conversation) {
+      entry.applicationTools = boundApplicationTools(entry.conversation);
       entry.engine = entry.conversation.engine;
       if (requestedEngine && requestedEngine !== entry.engine) throw failure("The selected native engine changed.", "conversation_engine_mismatch");
       entry.driver = createDriver(entry.engine, entry.host);
@@ -434,6 +439,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     entry.provider = await openProvider(entry, entry.driver, binding, entry.segmentId);
   }
 
+  function boundApplicationTools(conversation) {
+    const facilities = conversation.applicationTools;
+    if (facilities === undefined) return null;
+    if (!catalog || conversation.commands || conversation.native?.scoped || typeof facilities?.prepareContext !== "function") {
+      throw new TypeError("Bound application tools require a catalogue, an admitted conversation and a server-owned context mapper.");
+    }
+    return { storage: createReentrantConversationStorage(facilities.storage), prepareContext: facilities.prepareContext };
+  }
+
   async function perform(entry, active, configuration) {
     const { driver, engine, segmentId } = entry;
     const initial = active.request;
@@ -445,15 +459,39 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const rejectionSaves = new Map();
     let toolWork = Promise.resolve();
     let toolFailure;
+    const applicationTools = entry.applicationTools;
+    const toolStorage = applicationTools?.storage || storage;
+
+    async function saveTools(transaction, request, calls) {
+      if (entry.conversation) {
+        const saved = await transaction.readTurn(request.turnId);
+        if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
+          throw new Error("The application tool receipt does not belong to this authored request.");
+        }
+      }
+      await transaction.updateTurnMetadata(request.turnId, { applicationTools: calls });
+    }
 
     function prepareTools(request) {
-      if (!catalog || entry.conversation) return;
+      if (!catalog || entry.conversation && !applicationTools) return;
       request.tools = createConversationTools({ catalog, context: request.context, signal: active.controller.signal,
+        ...(applicationTools ? { prepareContext() {
+          if (!request.accepted) throw new Error("The application tool does not belong to an admitted message.");
+          return applicationTools.prepareContext(request.context, Object.freeze({ conversationId: entry.id,
+            turnId: request.turnId, messageId: request.input.messageId, nativeTurnId: request.nativeTurnId,
+            nativeThreadId: request.nativeThreadId, origin: request.input.origin,
+            assertCurrent() {
+              active.controller.signal.throwIfAborted();
+              if (entry.active !== active || current !== request || !request.accepted || request.finished) {
+                throw failure("This application tool's admitted message is no longer current.", "conversation_tool_request_retired");
+              }
+            } }));
+        } } : {}),
         maximumCalls: maximumToolCalls, discoveryOnly: driver.toolDiscovery === true,
         authorize: () => access(request.context, entry.id, "tool", entry),
         save: calls => {
           if (!request.accepted) throw new Error("The engine requested an application tool before admitting the message.");
-          return storage.write(entry.id, transaction => transaction.updateTurnMetadata(request.turnId, { applicationTools: calls }));
+          return toolStorage.write(entry.id, transaction => saveTools(transaction, request, calls));
         },
         emit: event => emit(entry, { ...event, turnId: request.turnId })
       });
@@ -612,6 +650,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await setPhase(entry, "working", request.turnId);
       if (request.sealed) return;
       const messageId = `${request.turnId}:${message.id}`;
+      if (message.role === "assistant" && message.complete && message.text.length > maximumFinalReply) {
+        if (request.answer?.messageId === messageId) request.answer = null;
+        throw new Error("The assistant exceeded the configured final reply limit.");
+      }
       const previous = request.answer?.messageId === messageId ? request.answer : request.progress.get(messageId);
       const outputOwner = message.outputId && messageOwners.get(message.outputId) || request;
       const outputId = previous?.outputId || (message.outputId ? `${outputOwner.turnId}:${message.outputId}` : "");
@@ -715,6 +757,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           async accept(native) {
             if (entry.conversation) nativeResult = native.nativeResult;
             if (native?.nativeTurnId) active.nativeTurnId = native.nativeTurnId;
+            request.nativeThreadId = threadId;
             await admit(request, undefined, { nativeDelivery: true, conversationTurn: native?.conversationTurn });
             admitted.resolve(entry.conversation ? nativeResult.value
               : { ok: true, delivered: true, messageId: request.input.messageId, threadId });
@@ -970,8 +1013,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       : status === "cancelled" ? "Work stopped." : problem?.message || active.steerError || initial.recovered?.error || "");
     entry.saveProgress = async () => {
       if (entry.conversation) {
-        // Native output, checkpoints and receipt durability are already owned
-        // by the original run owner and sender; do not annotate old rows.
+        if (applicationTools) await toolStorage.write(entry.id, async transaction => {
+          for (const request of active.requests.values()) {
+            if (request.accepted && request.tools?.records().length) await saveTools(transaction, request, request.tools.records());
+          }
+        });
+        // Only opted-in application receipts are saved above. Native output,
+        // checkpoints and status remain with the original run owner and sender.
         entry.error = error;
         entry.storageFailure = null;
         entry.saveProgress = null;
@@ -1342,6 +1390,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     const metadata = { runtime: await readState(entry) };
     if (metadata.runtime.replacement) throw failure("Finish the native replacement before recovering output.", "conversation_replacement_pending");
+    const savedRequests = [...metadata.runtime.predecessors, metadata.runtime].filter(segment => segment.request?.messageId === messageId);
+    if (!existing && savedRequests.length && savedRequests.every(segment =>
+      ["codex", "claude", "opencode"].includes(segment.engine) && segment.request.attempted === false && !segment.request.inspectionOnly &&
+      isDeepStrictEqual(segment.request, savedRequests[0].request))) {
+      await access(context, entry.id, "inspectDelivery", entry);
+      return { status: "not-sent", messageId, error: "This message was not sent. Review it before sending a new message." };
+    }
     const request = existing ? submittedMessage(existing) : metadata.runtime.request;
     if (!request || request.messageId !== messageId || !entry.provider.inspectAdmission) return receipt || { status: "unknown", messageId };
     const pending = metadata.runtime.request?.messageId === messageId ? metadata.runtime.request : null;
@@ -1415,13 +1470,17 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         }
         const nativeReplies = (native.messages || []).filter(message => message.role === "assistant");
         const outputId = nativeReplies.length === 1 && nativeReplies[0].outputId;
-        if (replies.length) await transaction.replaceAssistant(turn.turnId, { messageId: turn.assistant?.messageId || `${turn.turnId}:assistant`,
+        const replyText = replies.join("\n\n");
+        const oversizedReply = replyText.length > maximumFinalReply;
+        if (replies.length && !oversizedReply) await transaction.replaceAssistant(turn.turnId, { messageId: turn.assistant?.messageId || `${turn.turnId}:assistant`,
           ...(!turn.assistant?.outputId && outputId ? { outputId: `${turn.turnId}:${outputId}` } : {}),
-          role: "assistant", text: replies.join("\n\n"), at: submittedMessage(turn).at });
+          role: "assistant", text: replyText, at: submittedMessage(turn).at });
         const unknownTool = turn.metadata.applicationTools?.some(call => !call.result || call.status === "unknown");
-        const status = ["cancelled", "failed"].includes(runtime.status) ? runtime.status : unknownTool ? "interrupted" : native.status || "interrupted";
+        const retainedFailure = ["cancelled", "failed"].includes(runtime.status);
+        const status = retainedFailure ? runtime.status : oversizedReply ? "failed" : unknownTool ? "interrupted" : native.status || "interrupted";
         const { error: previousError, ...saved } = runtime;
         const error = unknownTool ? "Native output was recovered, but an application tool has no verified result. Inspect its target before requesting another execution."
+          : oversizedReply ? retainedFailure && (previousError || native.error) || "The assistant exceeded the configured final reply limit."
           : status === "complete" ? "" : previousError || native.error || "Delivery was confirmed from native history. Completion was not confirmed; this request was not replayed.";
         await transaction.updateTurnMetadata(turn.turnId, { runtime: { ...saved, status,
           ...(request.goal || goalRequest ? { goalMessageId: messageId } : {}),
@@ -1531,6 +1590,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       const next = await entry.host.conversation({ id: entry.id, context });
       entry.conversation = next;
+      entry.applicationTools = boundApplicationTools(next);
       entry.engine = next.engine;
       entry.driver = createDriver(entry.engine, entry.host);
       const current = await readState(entry);

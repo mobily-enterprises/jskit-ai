@@ -82,13 +82,18 @@ The host's `avatar` slot receives state, mouthLevel, mouthPose, avatar and bindi
 
 Opening a target does not start capture. Tap Talk for hands-free, or hold it for
 push-to-talk and release to send; connection setup is automatic.
-Pause finishes the current utterance, flushing the audio tail before muting.
+Pause stops new microphone input immediately and retains its buffered audio for
+the original final flush before recognition finishes the current utterance.
 Completed words follow the captured review policy. Pending delivery does not disable
 the microphone: tap can resume the existing continuous capture or start another
 one while preserving the prior pending transcript. A busy Pause or hold release
-mutes newer capture and finishes it through the original owner after that prior
-admission settles. Resuming first keeps the capture open. No pending words are
+mutes newer capture without discarding its buffered tail and finishes it through
+the original owner after that prior admission settles. Resuming first keeps the
+capture and its retained tail open. No pending words are
 replaced or appended. The icon reflects actual unmuted capture, not readiness.
+When the daemon rejects a stale endpoint commit, its exact turn and revision
+release only that commit. A waiting Pause can then finalize the same recording;
+an obsolete acknowledgement cannot release a newer commit or submit provisional words.
 Automatic sends keep the call layout fixed. A failed send exposes the retained
 transcript for review and retry with the same message identity. An application
 can call `beginTranscriptEdit(messageId)` for its exact unsent preview; this

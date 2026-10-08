@@ -921,6 +921,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       if (message.summary === true) continue;
       const assistantText = assistantMessageText(message);
       const messageId = assistantText ? projection.messageId(message.id, "assistant") : "";
+      const outputId = assistantText ? projection.outputId?.(message.id, "assistant") : "";
       const inFlight = streaming && index === rows.length - 1;
       const reasoning = (message.content || []).filter((part) => part.type === "reasoning" && text(part.text))
         .map((part) => ({
@@ -939,6 +940,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         // superseded narration never evaporates from the transcript.
         const turn = await projection.store.writeConversationAssistantMessage(sessionId, {
           messageId,
+          ...(outputId ? { outputId } : {}),
           text: assistantText
         });
         projection.store.completeConversationStreamMessage(sessionId, messageId);
@@ -949,6 +951,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         const conversationStream = projection.store.updateConversationStream(sessionId, {
           turnId: inputMessageId,
           messageId,
+          ...(outputId ? { outputId } : {}),
           text: assistantText
         });
         if (conversationStream) {
@@ -959,6 +962,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       if (assistantText && !streaming) {
         const turn = await projection.store.writeConversationAssistantMessage(sessionId, {
           messageId,
+          ...(outputId ? { outputId } : {}),
           text: assistantText
         });
         projection.store.completeConversationStreamMessage(sessionId, messageId);

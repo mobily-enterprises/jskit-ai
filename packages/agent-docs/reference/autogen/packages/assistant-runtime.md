@@ -42,6 +42,7 @@ Exports
 - `useAssistantConversationFactory(options = {})`
 Local functions
 - `text(value)`
+- `compareTurnIds(left, right)`
 - `isQuestionConfiguration(value)`
 - `draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "")`
 - `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, draftStorage, application, goalReadEnabled })`
@@ -97,6 +98,8 @@ Local functions
 ### `src/client/support/subscribeAssistantConversation.js`
 Exports
 - `subscribeAssistantConversation({ socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug, read, onState, onEvent = () => {}, onError = () => {} } = {})`
+- `refreshedHistoryPages`
+- `patchLoadedHistoryPages(pages = [], patch)`
 
 ### `src/client/support/workspaceScopeSupport.js`
 Exports

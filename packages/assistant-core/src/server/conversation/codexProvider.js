@@ -233,6 +233,19 @@ async function deleteCodexAppServerHelperThread({ provider, threadId, turnId = "
   }
 }
 
+function codexApplicationToolConfiguration(tools) {
+  const dynamicTools = (tools?.schemas || []).map(({ function: tool }) => ({
+    type: "function", name: tool.name, description: tool.description, inputSchema: tool.parameters
+  }));
+  return { dynamicTools, toolSchemaIdentity: createHash("sha256").update(JSON.stringify(dynamicTools)).digest("hex") };
+}
+
+function assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity, toolSchemaIdentity) {
+  if (threadId && (savedIdentity || codexApplicationToolConfiguration().toolSchemaIdentity) !== toolSchemaIdentity) {
+    throw new Error("This Codex conversation was created with different application tool entry points. Start a new conversation to enable or remove application tools.");
+  }
+}
+
 /** Retained thread selection keeps observation ahead of a resume that can start work. */
 async function ensureCodexAppServerThread({
   observeThread,
@@ -240,6 +253,8 @@ async function ensureCodexAppServerThread({
   settings,
   projectHooks = false,
   identity,
+  applicationTools,
+  providerReady,
   workdir = "",
   onStage = () => {}
 } = {}) {
@@ -254,13 +269,23 @@ async function ensureCodexAppServerThread({
   const appServerRuntime = availability?.runtime || await provider.ensureRuntime();
   onStage({ durationMs: Date.now() - stageStartedAt, stage: "runtime" });
   const existingThreadId = identity.read(normalizedWorkdir);
+  const toolConfiguration = applicationTools ? codexApplicationToolConfiguration(applicationTools) : null;
+  if (toolConfiguration) {
+    if (typeof identity.readToolSchemaIdentity !== "function") throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
+    assertCodexApplicationToolSchemaIdentity(existingThreadId, await identity.readToolSchemaIdentity(normalizedWorkdir), toolConfiguration.toolSchemaIdentity);
+  }
   let config = null;
   if (projectHooks) {
     stageStartedAt = Date.now();
     config = await codexAppServerProjectHookTrustConfig(provider, normalizedWorkdir);
     onStage({ durationMs: Date.now() - stageStartedAt, stage: "hook-config" });
   }
-  const { threadSettings, threadStartSettings } = await settings(normalizedWorkdir, config);
+  let { threadSettings, threadStartSettings } = await settings(normalizedWorkdir, config);
+  if (toolConfiguration) {
+    threadSettings = { ...threadSettings, dynamicTools: toolConfiguration.dynamicTools };
+    threadStartSettings = { ...threadStartSettings, dynamicTools: toolConfiguration.dynamicTools };
+  }
+  if (providerReady) await providerReady({ provider, threadId: existingThreadId });
   let thread = null;
   stageStartedAt = Date.now();
   if (existingThreadId) {
@@ -283,7 +308,9 @@ async function ensureCodexAppServerThread({
     throw new Error("Codex app-server did not return a thread id.");
   }
   stageStartedAt = Date.now();
-  await identity.write({ appServerRuntime, threadId, workdir: normalizedWorkdir });
+  await identity.write({ appServerRuntime, threadId, workdir: normalizedWorkdir,
+    ...(toolConfiguration ? { toolSchemaIdentity: toolConfiguration.toolSchemaIdentity } : {}) });
+  if (providerReady) await providerReady({ provider, threadId });
   onStage({ durationMs: Date.now() - stageStartedAt, stage: "identity-metadata" });
   return {
     appServerRuntime,
@@ -1265,6 +1292,7 @@ export class CodexAppServerAgentProvider {
     this.runtimeStopOwner = null;
     this.runtimePromise = null;
     this.serverRequestHandler = null;
+    this.threadRequestHandlers = new Map();
     this.conversationRuntime = createCodexConversationAdapter({
       readInstructions: (params, threadId) => this.options.readInstructions?.(params, threadId),
       client: () => this.activeClient(),
@@ -1427,7 +1455,7 @@ export class CodexAppServerAgentProvider {
     };
   }
 
-  async handleServerRequest(request = {}) {
+  async handleServerRequest(request = {}, sourceClient = this.client) {
     if (
       this.isHelperProvider() &&
       request.method === CODEX_APP_SERVER_CHATGPT_REFRESH_METHOD
@@ -1438,6 +1466,15 @@ export class CodexAppServerAgentProvider {
       const error = new Error("Codex isolated helper execution does not accept server requests.");
       error.code = -32601;
       throw error;
+    }
+    const threadHandler = request.method === "item/tool/call" && this.threadRequestHandlers.get(request.params?.threadId);
+    if (threadHandler) {
+      if (sourceClient !== this.client) {
+        const error = new Error("This retired Codex connection does not authorize that native tool request.");
+        error.code = -32601;
+        throw error;
+      }
+      return threadHandler.handler(request);
     }
     if (typeof this.serverRequestHandler === "function") {
       return this.serverRequestHandler(request);
@@ -1643,7 +1680,7 @@ export class CodexAppServerAgentProvider {
       requestTimeoutMs: this.options.requestTimeoutMs,
       WebSocketImpl: this.options.WebSocketImpl
     });
-    client.setRequestHandler((request) => this.handleServerRequest(request));
+    client.setRequestHandler((request) => this.handleServerRequest(request, client));
     let initializeResult = null;
     try {
       await client.connect();
@@ -1972,13 +2009,32 @@ export class CodexAppServerAgentProvider {
   setServerRequestHandler(callback) {
     const handler = typeof callback === "function" ? callback : null;
     this.serverRequestHandler = handler;
-    this.client?.setRequestHandler?.((request) => this.handleServerRequest(request));
+    const client = this.client;
+    client?.setRequestHandler?.((request) => this.handleServerRequest(request, client));
     return () => {
       if (this.serverRequestHandler === handler) {
         this.serverRequestHandler = null;
-        this.client?.setRequestHandler?.((request) => this.handleServerRequest(request));
+        const client = this.client;
+        client?.setRequestHandler?.((request) => this.handleServerRequest(request, client));
       }
     };
+  }
+
+  registerThreadRequestHandler(threadId, handler) {
+    if (typeof threadId !== "string" || !threadId.trim() || typeof handler !== "function") {
+      throw new TypeError("Codex tool dispatch requires its exact thread and handler.");
+    }
+    if (this.threadRequestHandlers.has(threadId)) throw new Error("This Codex thread already has an application tool owner.");
+    const registration = { handler };
+    this.threadRequestHandlers.set(threadId, registration);
+    const client = this.client;
+    client?.setRequestHandler?.(request => this.handleServerRequest(request, client));
+    return Object.freeze({
+      isCurrent: () => this.threadRequestHandlers.get(threadId) === registration,
+      release: () => {
+        if (this.threadRequestHandlers.get(threadId) === registration) this.threadRequestHandlers.delete(threadId);
+      }
+    });
   }
 
   async startThread({ hostContext, ...params } = {}) {
@@ -2666,6 +2722,7 @@ export class CodexAppServerAgentProvider {
     this.planUsage = null;
     this.planUsagePending = null;
     this.notificationSubscribers.clear();
+    this.threadRequestHandlers.clear();
     this.client?.close();
     this.client = null;
     this.initializeResult = null;
@@ -2704,7 +2761,7 @@ export class CodexAppServerAgentProvider {
 export {
   CODEX_APP_SERVER_INVALID_REQUEST_CODE, assertCodexAuthPreflightReady,
   createCodexAppServerModelCatalogCache, codexAppServerProviderConnectionGeneration,
-  ensureCodexAppServerThread, sendCodexAppServerPrompt,
+  ensureCodexAppServerThread, codexApplicationToolConfiguration, assertCodexApplicationToolSchemaIdentity, sendCodexAppServerPrompt,
   resumeExactCodexAppServerThread, startFreshCodexAppServerThread,
   defineCodexRenewalThreadIds, codexRenewalThreadError,
   codexAppServerEndpointForTarget, codexAppServerRequestIsInvalid, codexAppServerThreadIsMissing,

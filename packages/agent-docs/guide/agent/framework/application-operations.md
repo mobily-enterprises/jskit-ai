@@ -45,15 +45,16 @@ receipts, generator provenance, completion ledgers, or hidden operation state.
 
 ## Install and compose capabilities
 
-Plan capabilities using the catalogue and package-owned patterns: required
-packages, configuration, resources and APIs. Install one planned dependency
-closure of explicitly selected top-level packages in a single npm invocation:
+Install selected capabilities together at the exact versions in the matching
+pattern example manifests:
 
 ```bash
-npm install --save-exact @jskit-ai/<selected-package>@latest [...]
+npm install --save-exact @jskit-ai/<selected-package>@<pattern-version> [...]
 ```
 
-Review the resulting `package.json` and lockfile as ordinary source changes.
+Use installed patterns for existing apps; [upgrade the graph](/guide/app-setup/upgrading-jskit)
+before using newer patterns. Never mix individual `@latest` packages with older
+runtime pins. Review manifest and lockfile changes.
 The installed package graph supplies runtime providers, migrations, patterns,
 and public APIs directly; no JSKIT synchronization or mutation command follows
 the npm installation.

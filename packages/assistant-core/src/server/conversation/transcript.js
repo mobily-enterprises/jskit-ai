@@ -44,7 +44,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     return ids.length ? transaction.readTurn(ids.at(-1)) : null;
   }
 
-  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], turnMetadata = null, requireOpenTurn = false, outputId = "" } = {}) {
+  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], data, turnMetadata = null, requireOpenTurn = false, outputId = "" } = {}) {
     const messageText = normalizeText(text);
     const id = normalizeText(messageId);
     if (!messageText && !(role === "user" && Array.isArray(attachments) && attachments.length)) return null;
@@ -61,7 +61,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
       await transaction.appendMessage(turnId, {
         role, text: messageText, messageId: id, at: createdAt.toISOString(),
         ...(["assistant", "commentary", "thinking"].includes(role) && normalizeText(outputId) ? { outputId: normalizeText(outputId) } : {}),
-        ...(role === "user" ? { attachments, turnMetadata } : {})
+        ...(role === "user" ? { attachments, turnMetadata, ...(data !== undefined ? { data: structuredClone(data) } : {}) } : {})
       });
       return transaction.readTurn(turnId);
     });

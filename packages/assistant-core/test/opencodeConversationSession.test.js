@@ -654,6 +654,9 @@ test("native rejection and an admitted model failure retain different admission 
   const f = await fixture(t);
   await assert.rejects(f.conversation.send({ messageId: "bad", text: "rejected" }), /Native request rejected/);
   assert.equal((await f.conversation.read()).status, "ready");
+  assert.equal((await f.conversation.inspectDelivery({ messageId: "bad" })).status, "not-sent");
+  assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
+  assert.equal((await f.conversation.read()).conversationLog.length, 0);
   await f.conversation.send({ messageId: "failed", text: "failed" });
   const state = await f.conversation.wait();
   assert.equal(state.conversationLog.length, 1);
@@ -667,6 +670,8 @@ test("OpenCode refuses a different resolved account before dispatch", async t =>
   await f.conversation.wait();
   f.setKey("another-account");
   await assert.rejects(f.conversation.send({ messageId: "second", text: "Again" }), /another OpenCode account/);
+  assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
+  assert.equal((await f.conversation.inspectDelivery({ messageId: "second" })).status, "not-sent");
   assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
 });
 
@@ -906,6 +911,8 @@ test("OpenCode explicit selection recovers an older mismatched configuration wit
     engine: "opencode", configuration: { ...configuration, integrationId: "flash" } };
   await f.conversation.select(switchToFlash);
   assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+  assert.equal((await f.conversation.inspectDelivery({ messageId: rejected.messageId })).status, "not-sent");
+  assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
   await f.conversation.send({ messageId: "new-authored-message", text: "Continue the same conversation" });
   const after = await f.conversation.wait();
   assert.equal(after.id, original.id);
@@ -933,6 +940,7 @@ test("OpenCode provider selection retains an uncertain predecessor without resen
     engine: "opencode", configuration: { ...configuration, integrationId: "flash" } });
   const saved = await f.storage.read("conversation", tx => tx.readMetadata());
   assert.deepEqual(saved.runtime.predecessors.at(-1).request, metadata.runtime.request);
+  assert.deepEqual(await f.conversation.inspectDelivery({ messageId: "unknown-old-id" }), { status: "unknown", messageId: "unknown-old-id" });
   await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }),
     /pending.*another|another.*pending|another native|uncertain/i);
   assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
@@ -985,4 +993,350 @@ test("returning to OpenCode restores only a retained binding with the selected i
   assert.deepEqual(await f.binding(), { ...flash, executionId: "", processDirectory: "" },
     "Returning to the same integration restores native identity after verified process cleanup");
   assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 2);
+});
+
+for (const maxFinalReplyCharacters of [13, 12]) {
+  test("Opencode recovered reply enforces configured final limit of " + maxFinalReplyCharacters, async t => {
+    const limits = { maxFinalReplyCharacters: 13 };
+    const f = await fixture(t, { limits });
+    await f.conversation.send(input);
+    assert.equal((await f.conversation.wait()).conversationLog[0].assistant.text, "Answer: Hello");
+    await f.first.close();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn("000001");
+      await tx.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime, status: "running" } });
+      await tx.replaceAssistant(turn.turnId, { ...turn.assistant, text: "" });
+    });
+    limits.maxFinalReplyCharacters = maxFinalReplyCharacters;
+    const reopened = await f.runtime().open({ id: "conversation" });
+    const receipt = await reopened.inspectDelivery({ messageId: input.messageId });
+    assert.equal(receipt.status, "accepted", "A reply rejection must retain the proven user admission");
+    assert.equal(receipt.recovered, true);
+    const state = await reopened.read();
+    const turn = state.conversationLog[0];
+    assert.equal(turn.user.text, input.text);
+    assert.equal(turn.metadata.runtime.status, maxFinalReplyCharacters === 13 ? "interrupted" : "failed");
+    assert.equal(turn.assistant?.text, maxFinalReplyCharacters === 13 ? "Answer: Hello" : "");
+    if (maxFinalReplyCharacters === 12) assert.match(state.error, /final reply limit/);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1, "Recovery cannot repeat inference");
+  });
+}
+
+for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]) {
+  test("Opencode oversized recovery preserves " + savedStatus + " evidence", async t => {
+    const limits = { maxFinalReplyCharacters: 13 };
+    const f = await fixture(t, { limits });
+    await f.conversation.send(input);
+    assert.equal((await f.conversation.wait()).conversationLog[0].assistant.text, "Answer: Hello");
+    await f.first.close();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn("000001");
+      await tx.replaceAssistant(turn.turnId, { ...turn.assistant, text: "" });
+      await tx.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime,
+        status: savedStatus === "unknown-tool" ? "interrupted" : savedStatus,
+        error: savedStatus === "unknown-tool" ? "" : "Exact prior " + savedStatus + " cause." },
+        ...(savedStatus === "unknown-tool" ? { applicationTools: [{ id: "unresolved-tool", status: "unknown" }] } : {}) });
+    });
+    limits.maxFinalReplyCharacters = 11;
+    const reopened = await f.runtime().open({ id: "conversation" });
+    const receipt = await reopened.inspectDelivery({ messageId: input.messageId });
+    assert.equal(receipt.status, "accepted");
+    const state = await reopened.read();
+    assert.equal(state.conversationLog[0].metadata.runtime.status, ["unknown-tool", "interrupted"].includes(savedStatus) ? "failed" : savedStatus);
+    assert.notEqual(state.conversationLog[0].assistant?.text, "Answer: Hello");
+    if (savedStatus === "unknown-tool") {
+      assert.match(state.error, /application tool has no verified result.*Inspect its target/);
+      assert.deepEqual(state.conversationLog[0].metadata.applicationTools, [{ id: "unresolved-tool", status: "unknown" }]);
+    } else if (savedStatus === "interrupted") assert.match(state.error, /final reply limit/);
+    else assert.equal(state.error, "Exact prior " + savedStatus + " cause.");
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+  });
+}
+
+
+// Opt-in bound host uses the same native server, registry and Send/monitor owner.
+// The original standalone fixture above remains byte-for-byte unchanged.
+async function boundToolFixture(t) {
+  const { createOpenCodeConversationServer, openCodeApplicationToolSchemas } = await import("../src/server/conversation/openCodeProcess.js");
+  const { createOpenCodeSharedRuntime, ensureOpenCodeSession } = await import("../src/server/conversation/openCodeRuntime.js");
+  const { observeOpenCodeEvents } = await import("../src/server/conversation/openCodeTurn.js");
+  let owner;
+  const handles = [];
+  t.after(async () => {
+    try { for (const handle of handles) await handle.dispose(); }
+    finally { await owner?.stop("bound-fixture-close"); }
+  });
+  const f = await fixture(t);
+  await f.first.close();
+  const registryPath = path.join(f.directory, "bound-environments.json");
+  owner = createOpenCodeSharedRuntime({ scope: f.directory });
+  const connection = await f.driverOptions.connections.resolve({});
+  const selected = { modelProviderId: connection.providerId, fingerprint: "bound-account" };
+  const environments = new Map();
+  async function open(id, execute) {
+    const key = path.join(f.directory, id);
+    let threadId = "";
+    let lastConfiguration;
+    const receipts = [];
+    const start = async () => ({ connections: [selected], server: await createOpenCodeConversationServer({
+      command: f.driverOptions.host.commands.opencode, workdir: f.directory, stateDirectory: f.directory,
+      databasePath: path.join(f.directory, "bound-native.json"), sessionEnvironmentRegistry: registryPath,
+      connection, env: f.driverOptions.host.env
+    }) });
+    const driver = createOpenCodeConversationDriver(f.driverOptions);
+    const handle = await driver.open({ onFailure() {}, conversation: {
+      publish() {}, native: { owner,
+        acquire: async context => ({ key, options: context || {} }),
+        preparation: {
+          cleanup: () => ({ sessionId: id, options: {}, application: {
+            closeTerminals: async () => ({ ok: true }), beforeRelease: async () => {},
+            afterRelease: async () => {}, failure: error => { throw error; }, onRemoved: async () => { environments.delete(key); await owner.writeBindings(registryPath, key, []); }
+          } }),
+          interruption: async () => ({ key, threadId, async writeRun() {}, failure: error => { throw error; } }),
+          async message(input, options) {
+            const nativeId = `msg_bound_${input.messageId}`;
+            lastConfiguration = options.applicationTools;
+            return { key, input: { id: nativeId, threadId, workdir: f.directory }, application: {
+              async writeRun() {},
+              async prepare() {
+                const target = owner.processes.get(key) || await owner.acquire(key, async () => {
+                  const shared = await owner.ensure(selected, start);
+                  return { key, sessionId: id, workdir: f.directory, upstreamSessionId: threadId, abortController: new AbortController(), server: shared.server };
+                });
+                const session = { selection: { agentId: "jskit-assistant-actions", modelId: "test-model", modelProviderId: "test" },
+                  model: { id: "test-model", providerID: "test" }, workdir: f.directory,
+                  invalidIdentity: () => new Error("Missing native identity"), identity: {
+                    write: async id => { threadId = id; },
+                    publish: async id => {
+                      environments.set(key, { upstreamSessionId: id, workdir: f.directory, modelProviderId: "test",
+                        conversation: { systemPrompt: "Bound original instructions", nativeTools: false, tools: options.applicationTools } });
+                      await owner.writeBindings(registryPath, environments, [...environments.values()]);
+                    }
+                  } };
+                await ensureOpenCodeSession(target, session);
+                return { target, session };
+              },
+              prompt: () => ({ agent: "jskit-assistant-actions", model: { id: "test-model", providerID: "test" },
+                prompt: { text: input.message }, beforeDispatch: threadId => input.onPromptSending({ threadId }) }),
+              commit: async admitted => { const turn = { turnId: input.messageId, messages: [{ role: "user", messageId: input.messageId, text: input.message }] }; receipts.push({ admitted, turn }); return turn; },
+              monitor: {
+                prepare: () => ({ fields: {} }),
+                create(target, turn, _metadata, options) { return {
+                  observe: (_turn, signal) => observeOpenCodeEvents(target.server.client, target.upstreamSessionId,
+                    { signal, abortController: turn.abortController, eventStartedAt: turn.eventStartedAt }),
+                  eventReady: options.eventReady, finalResponse: { agent: "jskit-assistant-actions", model: { id: "test-model", providerID: "test" }, recoveryMessageId: `msg_recovery_${nativeId}` },
+                  async writeRun() {}, projectMessages: () => ({ failure: "", providerApiFailure: false }), completeResult: (_turn, result) => result.failure, onRetired() {}
+                }; }
+              }
+            }, project: value => value };
+          }
+        }
+      }
+    } });
+    handles.push(handle);
+    function send(messageId, message, tools = true, steering = false) {
+      const accepted = Promise.withResolvers(), committed = Promise.withResolvers();
+      const command = { input: { messageId, nativeMessage: { messageId, message } }, context: {},
+        signal: new AbortController().signal, deliveryCommitted: committed.promise,
+        beforeDispatch: async identity => { assert.equal(identity.threadId, threadId); assert.ok(threadId); },
+        accept: async value => { assert.equal(value.conversationTurn.turnId, messageId); accepted.resolve(value); committed.resolve(); },
+        ...(tools ? { tools: { schemas: openCodeApplicationToolSchemas, maximumArgumentBytes: 32000,
+          execute: async (call, options) => { assert.equal(options.messageId, messageId); return execute(call, options); } } } : {}) };
+      const completion = steering ? handle.steer(command) : handle.run(command);
+      return { completion, accepted: accepted.promise };
+    }
+    return { key, handle, send, steer: (messageId, message) => send(messageId, message, true, true), receipts, get threadId() { return threadId; }, get configuration() { return lastConfiguration; } };
+  }
+  return { ...f, owner, open };
+}
+
+test("opted bound OpenCode reuses native tool identity and authored commit with independent shared peers", async t => {
+  const f = await boundToolFixture(t);
+  const calls = [];
+  const a = await f.open("main-a", async (call, options) => { calls.push({ call, messageId: options.messageId }); return { result: { result: { value: 42 } } }; });
+  const b = await f.open("main-b", async () => assert.fail("A peer must not receive another session's tools"));
+  const peer = b.send("peer-wait", "wait", false);
+  await peer.accepted;
+  const first = a.send("original-words", "tools");
+  await first.accepted;
+  await first.completion;
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map(value => value.messageId), ["original-words", "original-words", "original-words"]);
+  assert.deepEqual(calls.map(value => value.call.name), ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"]);
+  assert.equal(a.receipts.length, 1);
+  assert.equal(a.receipts[0].turn.messages[0].text, "tools");
+  assert.notEqual(a.threadId, b.threadId);
+  assert.equal(f.owner.processes.size, 2);
+  assert.equal(f.owner.turns.get(b.key).active, true);
+  await assert.rejects(fetch(a.configuration.url, { method: "POST" }));
+  await b.handle.cancel();
+  await peer.completion;
+  assert.equal((await f.trace()).filter(value => value.configuration).length, 1);
+});
+
+test("opted bound OpenCode refuses foreign and retired tool callbacks without interrupting the current owner", async t => {
+  const f = await boundToolFixture(t);
+  let calls = 0;
+  const main = await f.open("main", async () => { calls++; return {}; });
+  const active = main.send("active-words", "wait");
+  await active.accepted;
+  const configuration = main.configuration;
+  async function invoke(patch) {
+    const response = await fetch(configuration.url, { method: "POST", headers: {
+      authorization: `Bearer ${configuration.token}`, "content-type": "application/json" },
+      body: JSON.stringify({ sessionId: main.threadId, messageId: "retired-assistant", id: "retired-call", name: "assistant_action_execute", input: {}, ...patch }) });
+    assert.equal(response.status, 400);
+  }
+  await invoke({ sessionId: "foreign-session" });
+  await invoke({});
+  assert.equal(calls, 0);
+  assert.equal(f.owner.turns.get(main.key).active, true);
+  assert.equal(f.owner.turns.get(main.key).abortController.signal.aborted, false);
+  await main.handle.cancel();
+  await active.completion;
+});
+
+
+test("opted bound OpenCode owned tool failure stops its native turn and preserves the shared peer", async t => {
+  const f = await boundToolFixture(t);
+  const main = await f.open("failed-main", async () => { throw new Error("Owned application effect failed"); });
+  const peer = await f.open("healthy-peer", async () => assert.fail("Foreign effect"));
+  const waiting = peer.send("peer-active", "wait", false);
+  await waiting.accepted;
+  const failing = main.send("failed-effect", "tools");
+  await failing.accepted;
+  await assert.rejects(failing.completion, /Owned application effect failed/);
+  assert.equal(f.owner.turns.get(main.key).active, false);
+  assert.equal(f.owner.turns.get(peer.key).active, true);
+  assert.equal(f.owner.turns.get(peer.key).abortController.signal.aborted, false);
+  assert.equal(f.owner.processes.size, 2);
+  await peer.handle.cancel();
+  await waiting.completion;
+});
+
+test("opted bound OpenCode Stop drains its invoked application action through the original native owner", async t => {
+  const f = await boundToolFixture(t);
+  const entered = Promise.withResolvers(), complete = Promise.withResolvers();
+  t.after(() => complete.resolve({}));
+  const main = await f.open("draining-main", async (_call, options) => {
+    entered.resolve(options.signal);
+    return complete.promise;
+  });
+  const running = main.send("drain-effect", "tools");
+  await running.accepted;
+  const signal = await entered.promise;
+  let stopped = false;
+  const stopping = main.handle.cancel().then(() => { stopped = true; });
+  await delay(50);
+  assert.equal(stopped, false);
+  assert.equal(signal.aborted, true);
+  complete.resolve({});
+  await stopping;
+  await running.completion;
+  assert.equal(f.owner.turns.get(main.key).active, false);
+  await assert.rejects(fetch(main.configuration.url, { method: "POST" }));
+});
+
+
+async function boundNativeToolRequest(f, main) {
+  const target = f.owner.processes.get(main.key);
+  const messages = (await target.server.client.messages(main.threadId)).data;
+  const message = messages.find(row => row.type === "assistant" && row.content.some(part => part.type === "tool"));
+  assert.ok(message, "The callback must match an actual retained native assistant tool row");
+  const tool = message.content.find(part => part.type === "tool");
+  return { target, invoke: () => fetch(main.configuration.url, { method: "POST", headers: {
+    authorization: `Bearer ${main.configuration.token}`, "content-type": "application/json" },
+    body: JSON.stringify({ sessionId: main.threadId, messageId: message.id, id: tool.callID,
+      name: tool.tool, input: tool.state.input }) }) };
+}
+
+test("opted bound OpenCode refuses an old input callback held across steering in the same active native turn", async t => {
+  const f = await boundToolFixture(t);
+  const effectEntered = Promise.withResolvers(), effectComplete = Promise.withResolvers();
+  const readEntered = Promise.withResolvers(), readComplete = Promise.withResolvers();
+  let calls = 0;
+  const main = await f.open("steered-main", async () => { if (++calls === 1) { effectEntered.resolve(); return effectComplete.promise; } return {}; });
+  const peer = await f.open("steered-peer", async () => assert.fail("Foreign effect"));
+  const waiting = peer.send("peer-active", "wait", false);
+  await waiting.accepted;
+  const running = main.send("input-a", "tools");
+  await running.accepted;
+  await effectEntered.promise;
+  const originalTurn = f.owner.turns.get(main.key);
+  const { target, invoke } = await boundNativeToolRequest(f, main);
+  const messages = target.server.client.messages;
+  let held = false;
+  try {
+    target.server = { ...target.server, client: { ...target.server.client, async messages(...args) {
+      const result = await messages(...args);
+      if (args[1]?.limit === 100 && args[1].order === undefined && !held) {
+        held = true; readEntered.resolve(); await readComplete.promise;
+      }
+      return result;
+    } } };
+    const callback = invoke();
+    await readEntered.promise;
+    const steered = main.steer("input-b", "wait");
+    await steered.accepted;
+    await steered.completion;
+    assert.equal(f.owner.turns.get(main.key), originalTurn);
+    assert.equal(f.owner.processes.get(main.key), target);
+    assert.equal(originalTurn.inputMessageId, "msg_bound_input-b");
+    readComplete.resolve();
+    const response = await callback;
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /retired native turn/);
+    assert.equal(calls, 1, "A stale callback must not reach the common executor");
+    assert.equal(originalTurn.active, true);
+    assert.equal(originalTurn.abortController.signal.aborted, false);
+    assert.equal(f.owner.turns.get(peer.key).abortController.signal.aborted, false);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/abort")).length, 0);
+  } finally {
+    readComplete.resolve(); effectComplete.resolve({});
+    await main.handle.cancel(); await running.completion;
+    await peer.handle.cancel(); await waiting.completion;
+  }
+});
+
+test("opted bound OpenCode does not abort newer same-turn input when an already invoked old effect fails", async t => {
+  const f = await boundToolFixture(t);
+  const firstEntered = Promise.withResolvers(), firstComplete = Promise.withResolvers();
+  const secondEntered = Promise.withResolvers(), secondComplete = Promise.withResolvers();
+  let calls = 0;
+  const main = await f.open("effect-steered-main", async (_call, options) => {
+    assert.equal(options.messageId, "input-a");
+    if (++calls === 1) { firstEntered.resolve(); return firstComplete.promise; }
+    secondEntered.resolve(); return secondComplete.promise;
+  });
+  const peer = await f.open("effect-steered-peer", async () => assert.fail("Foreign effect"));
+  const waiting = peer.send("peer-active", "wait", false);
+  await waiting.accepted;
+  const running = main.send("input-a", "tools");
+  await running.accepted;
+  await firstEntered.promise;
+  const originalTurn = f.owner.turns.get(main.key);
+  const { target, invoke } = await boundNativeToolRequest(f, main);
+  try {
+    const callback = invoke();
+    await secondEntered.promise;
+    const steered = main.steer("input-b", "wait");
+    await steered.accepted;
+    await steered.completion;
+    assert.equal(f.owner.turns.get(main.key), originalTurn);
+    assert.equal(f.owner.processes.get(main.key), target);
+    assert.equal(originalTurn.inputMessageId, "msg_bound_input-b");
+    secondComplete.reject(new Error("Old invoked effect failed after newer accepted input"));
+    const response = await callback;
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /Old invoked effect failed/);
+    assert.equal(calls, 2);
+    assert.equal(originalTurn.active, true);
+    assert.equal(originalTurn.abortController.signal.aborted, false);
+    assert.equal(f.owner.turns.get(peer.key).abortController.signal.aborted, false);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/abort")).length, 0);
+  } finally {
+    secondComplete.resolve({}); firstComplete.resolve({});
+    await main.handle.cancel(); await running.completion;
+    await peer.handle.cancel(); await waiting.completion;
+  }
 });

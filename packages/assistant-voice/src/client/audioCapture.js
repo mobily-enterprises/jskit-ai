@@ -12,8 +12,10 @@ class AssistantVoiceCapture extends AudioWorkletProcessor {
     this.port.onmessage = (event) => {
       if (event.data?.type === "mute") {
         this.muted = event.data.muted;
-        this.frames = [];
-        this.length = 0;
+        if (!event.data.preserveBuffered) {
+          this.frames = [];
+          this.length = 0;
+        }
         return;
       }
       if (event.data?.type !== "flush") return;
@@ -108,12 +110,13 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
     silence.gain.value = 0;
     let finishFlush = null;
     let muted = false;
+    let preserveBuffered = false;
     capture.port.onmessage = (event) => {
       if (event.data?.type === "flushed") {
         finishFlush?.();
         return;
       }
-      if (muted) return;
+      if (muted && !preserveBuffered) return;
       const samples = event.data instanceof Float32Array
         ? event.data
         : new Float32Array(event.data);
@@ -154,11 +157,14 @@ async function createMicrophoneCapture({ onLevel, onPcm, targetSampleRate = 16_0
       }
     });
     return Object.freeze({
-      setMuted(value) {
-        if (muted === Boolean(value)) return;
+      setMuted(value, { preserveBuffered: retainTail = false } = {}) {
+        const nextPreserveBuffered = Boolean(value) && retainTail;
+        if (muted === Boolean(value) && preserveBuffered === nextPreserveBuffered) return;
+        const keepBuffered = nextPreserveBuffered || (!value && preserveBuffered);
         muted = Boolean(value);
+        preserveBuffered = nextPreserveBuffered;
         for (const track of stream.getTracks()) track.enabled = !muted;
-        capture.port.postMessage({ type: "mute", muted });
+        capture.port.postMessage({ type: "mute", muted, ...(keepBuffered ? { preserveBuffered: true } : {}) });
         if (muted) onLevel?.(0);
       },
       close() {

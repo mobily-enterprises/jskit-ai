@@ -6,18 +6,19 @@ import { useAssistantQuestions } from "@jskit-ai/assistant-core/client/conversat
 import { assistantHttpClient, createAssistantApi } from "@jskit-ai/assistant-core/client";
 import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import {
-  conversationTurnsFromMessages, latestAssistantMessageAwaitingUserReply, mergeConversationLogPages,
+  conversationTurnsFromMessages, latestAssistantMessageAwaitingUserReply, mergeConversationLogPages, mergeConversationStream,
   normalizeConversationLogPage, normalizeConversationLogPagination
 } from "@jskit-ai/assistant-core/shared/conversation";
 import { useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
-import { subscribeAssistantConversation } from "../support/subscribeAssistantConversation.js";
+import { subscribeAssistantConversation, refreshedHistoryPages, patchLoadedHistoryPages } from "../support/subscribeAssistantConversation.js";
 
 const text = value => String(toValue(value) ?? "").trim();
 // Keep the injection key stable across optimized package and raw Vue imports.
 const conversationDefaultsKey = Symbol.for("jskit.assistant-runtime.conversation.defaults");
+const compareTurnIds = (left, right) => String(left).localeCompare(String(right), undefined, { numeric: true });
 
 /** Configure this Vue application's existing conversation binding before mounting. */
 function configureAssistantConversations(app, { actorKey, api = null, request, clearDraftOn = "dispatch" } = {}) {
@@ -80,11 +81,21 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const delivery = createAssistantMessageDelivery();
   const pendingMessages = new Map();
   const olderPages = ref([]);
+  let historyRevision = 0;
+  let deniedHistoryRevision = 0;
   const loadingMore = ref(false);
   const loadMoreError = ref("");
-  const turns = computed(() => mergeConversationLogPages([
-    ...olderPages.value, { conversationLog: snapshot.value?.turns || [] }
-  ]).conversationLog);
+  const turns = computed(() => {
+    const saved = mergeConversationLogPages([
+      ...olderPages.value, { conversationLog: snapshot.value?.conversationLog || [] }
+    ]).conversationLog;
+    // Use the original overlay against the full loaded saved span. A synthetic
+    // live older turn must not replace its authored request or saved progress.
+    const messages = (snapshot.value?.turns || []).flatMap(turn => turn.messages || [
+      turn.system, turn.user, ...(turn.thinking || []), ...(turn.commentary || []), turn.assistant
+    ].filter(Boolean));
+    return mergeConversationStream(saved, { messages });
+  });
   const oldestLoadedPage = computed(() => olderPages.value[0] || snapshot.value);
   const hasMoreBefore = computed(() => normalizeConversationLogPagination(oldestLoadedPage.value?.pagination).hasMoreBefore);
   const editable = computed(() => active.value && !accessDenied.value);
@@ -173,8 +184,18 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       previous?.capabilities?.goalCommands, previous?.capabilities?.goalBudgets]) !==
       JSON.stringify([state.goal, state.capabilities?.goals, state.capabilities?.goalCommands, state.capabilities?.goalBudgets]);
     if (canonical) {
-      olderPages.value = [];
+      historyRevision += 1;
+      olderPages.value = initial ? [] : state[refreshedHistoryPages] || [];
       loadMoreError.value = "";
+    } else if (olderPages.value.length) {
+      // Transcript patches may evict the head of the bounded live page before
+      // its canonical read completes. Retain saved rows, never display overlays.
+      const first = state.conversationLog?.[0]?.turnId;
+      const evicted = first ? (previous?.conversationLog || []).filter(turn => compareTurnIds(turn.turnId, first) < 0) : [];
+      if (evicted.length) {
+        historyRevision += 1;
+        olderPages.value = [...olderPages.value, normalizeConversationLogPage({ conversationLog: evicted })];
+      }
     }
     snapshot.value = state;
     loading.value = false;
@@ -196,7 +217,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     error.value = failure.message;
     accessDenied.value = [401, 403].includes(Number(failure.status || failure.statusCode));
     if (accessDenied.value) {
+      deniedHistoryRevision += 1;
       snapshot.value = null;
+      historyRevision += 1;
       olderPages.value = [];
       draft.value = "";
       draftMessageId.value = "";
@@ -210,6 +233,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     }
   }
   function receiveEvent(event) {
+    if (event.type === "transcript" && olderPages.value.some(page =>
+      page.conversationLog.some(turn => turn.turnId === event.patch?.turn?.turnId))) {
+      historyRevision += 1;
+      olderPages.value = patchLoadedHistoryPages(olderPages.value, event.patch);
+    }
     if (event.type === "goal") void refreshGoal();
     for (const [token, reader] of [...readers]) {
       if (!current.value) return;
@@ -220,15 +248,54 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       catch {}
     }
   }
+  async function readLoadedHistory({ current: subscriptionCurrent }) {
+    const denial = deniedHistoryRevision;
+    const valid = () => {
+      if (denial !== deniedHistoryRevision) throw Object.assign(new Error("Access denied."), { status: 403 });
+      return current.value && active.value && subscriptionCurrent();
+    };
+    // A concurrent Load older operation extends the desired span. Retry one
+    // refresh in this same read, rather than dropping that newly loaded page.
+    while (valid()) {
+      const revision = historyRevision;
+      const oldest = olderPages.value[0]?.conversationLog?.[0]?.turnId;
+      const latest = await api.readConversation(identity.conversationId);
+      if (!valid()) return latest;
+      const pages = [];
+      let page = normalizeConversationLogPage(latest);
+      const cursors = new Set();
+      while (oldest && page.pagination.hasMoreBefore) {
+        const cursor = page.pagination.nextBeforeTurnId || page.pagination.oldestTurnId;
+        if (cursor && compareTurnIds(cursor, oldest) <= 0) break;
+        if (!cursor || cursors.has(cursor)) throw new Error("Older conversation history could not be refreshed. Reload chat to try again.");
+        cursors.add(cursor);
+        page = normalizeConversationLogPage(await api.readConversation(identity.conversationId, {
+          beforeTurnId: cursor, limit: latest.pagination.limit
+        }));
+        if (!valid()) return latest;
+        // A removed oldest row can make this page reach farther back than the
+        // reader loaded. Keep the original visible boundary and page metadata.
+        const saved = page.conversationLog.filter(turn => compareTurnIds(turn.turnId, oldest) >= 0);
+        pages.unshift(normalizeConversationLogPage({ ...page, conversationLog: saved, pagination: {
+          ...page.pagination, count: saved.length, oldestTurnId: saved[0]?.turnId || "",
+          hasMoreBefore: page.pagination.hasMoreBefore || saved.length < page.conversationLog.length
+        } }));
+      }
+      if (revision !== historyRevision) continue;
+      return { ...latest, [refreshedHistoryPages]: pages.filter(page => page.conversationLog.length) };
+    }
+    return null;
+  }
   watch(active, enabled => {
     subscription?.();
     subscription = null;
+    historyRevision += 1;
     if (!enabled) return;
     loading.value = true;
     subscription = subscribeAssistantConversation({ socket, conversationId: identity.conversationId,
       targetSurfaceId: identity.targetSurfaceId, hostSurfaceId: identity.hostSurfaceId,
       ...(identity.workspaceSlug ? { workspaceSlug: identity.workspaceSlug } : {}),
-      read: () => api.readConversation(identity.conversationId), onState: receiveState,
+      read: readLoadedHistory, onState: receiveState,
       onError: receiveError, onEvent: receiveEvent
     });
   }, { immediate: true, flush: "sync" });
@@ -237,6 +304,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     for (const pending of pendingMessages.values()) if (!pending.dispatched) pending.controller.abort();
     delivery.reset();
     snapshot.value = null;
+    historyRevision += 1;
     olderPages.value = [];
     draft.value = "";
     draftMessageId.value = "";
@@ -416,17 +484,19 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       finish({ changed: false, loaded: false });
       return false;
     }
+    const revision = historyRevision;
     loadingMore.value = true;
     loadMoreError.value = "";
     try {
       const page = await api.readConversation(identity.conversationId, {
         beforeTurnId, limit: snapshot.value.pagination.limit
       });
-      if (!available.value) {
+      if (!available.value || revision !== historyRevision) {
         finish({ changed: false, loaded: false });
         return false;
       }
       const previousOldestTurnId = String(turns.value[0]?.turnId || "").trim();
+      historyRevision += 1;
       olderPages.value = [normalizeConversationLogPage(page), ...olderPages.value];
       const nextOldestTurnId = String(turns.value[0]?.turnId || "").trim();
       const changed = Boolean(nextOldestTurnId && nextOldestTurnId !== previousOldestTurnId);
@@ -571,6 +641,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       const receipt = await api.inspectConversationDelivery(identity.conversationId, messageId);
       if (!current.value) return false;
       if (receipt.status === "accepted") delivery.accept(messageId);
+      else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, receipt.error);
       subscription?.reload();
       return receipt;
     } catch (failure) { receiveError(failure); return false; }

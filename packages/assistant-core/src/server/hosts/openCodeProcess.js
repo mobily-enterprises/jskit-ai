@@ -9,6 +9,7 @@ export {
   ensureOpenCodeSession,
   limitOpenCodeModelOutput,
   openCodeApplicationToolSchemas,
+  openCodeConversationAgent,
   openCodeConversationAgents,
   openCodeEnvironmentForDirectory,
   openCodeEnvironmentForSession,

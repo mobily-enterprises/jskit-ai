@@ -17,25 +17,36 @@ const validate = (config) => validateIntegrationConfiguration(config, { provider
 test("AI retains the attributed snapshot with reviewed current identities and explicit deprecations", () => {
   assert.equal(aiCatalogue.extractedAt, "2026-09-10");
   assert.equal(aiCatalogue.providers.length, 213);
-  assert.equal(listAiModels({ includeDeprecated: true }).length, 7613);
+  assert.equal(listAiModels({ includeDeprecated: true }).length, 7615);
   assert.match(aiCatalogue.sourceSha256, /^[a-f0-9]{64}$/u);
   assert.equal(getAiModel("opencode/grok-code").status, "deprecated");
   assert.equal(listAiModels().some((model) => model.key === "opencode/grok-code"), false);
   assert.equal(aiCatalogue.providers.find((provider) => provider.id === "amazon-bedrock").connection, "framework");
 });
 
-test("DeepSeek uses its current exact Flash identity and rejects retired provider aliases", async () => {
+test("DeepSeek retains provider-supported saved aliases and exact current model limits", async () => {
   const current = "deepseek/deepseek-flash";
   assert.equal(getAiModel(current).name, "DeepSeek V4.1 Flash");
   assert.deepEqual(getAiModel(current).modalities.input, ["text", "image"]);
   const config = configuration({ settings: { model: current }, authentication: { method: "api-key", secretRef: "env:KEY" } });
   const resolver = createAiConnectionResolver({ configuration: config, authorize, resolveReference: () => "test-key" });
   assert.equal((await resolver.resolve(request)).model, "deepseek-flash");
+  assert.deepEqual((await resolver.resolve(request)).modelLimits, { context: 1048576, output: 393216 });
   for (const model of ["deepseek/deepseek-v4-flash", "deepseek/deepseek-v4-flash-vision-exp"]) {
-    assert.equal(getAiModel(model), undefined);
-    assert.equal(listAiModels({ providerId: "deepseek", includeDeprecated: true }).some(entry => entry.key === model), false);
-    assert.throws(() => validate(configuration({ ...config.integrations.suggestions, settings: { model } })), { code: "integration_configuration_invalid" });
+    assert.equal(getAiModel(model).id, model.slice("deepseek/".length));
+    assert.deepEqual(getAiModel(model).modalities.input, ["text", "image"]);
+    assert.equal(listAiModels({ providerId: "deepseek" }).some(entry => entry.key === model), true);
+    const saved = validate(configuration({ ...config.integrations.suggestions, settings: { model } }));
+    assert.equal(saved.integrations.suggestions.settings.model, model);
+    const aliasResolver = createAiConnectionResolver({ configuration: saved, authorize, resolveReference: () => "test-key" });
+    const connection = await aliasResolver.resolve(request);
+    assert.equal(connection.providerId, "deepseek");
+    assert.equal(connection.model, model.slice("deepseek/".length));
+    assert.deepEqual(connection.modelLimits, { context: 1048576, output: 393216 });
   }
+  const pro = getAiModel("deepseek/deepseek-v4-pro");
+  assert.deepEqual(pro.limit, { context: 1048576, output: 393216 });
+  assert.deepEqual(pro.modalities.input, ["text"]);
 });
 
 test("AI lists every active Zen public model first and uses Big Pickle as the explicit default", () => {

@@ -14,6 +14,43 @@ import { validateConversationConfiguration, validateConnectionModel } from "../c
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const nativeMessageId = id => `msg_jskit_${hash(id).slice(0, 40)}`;
 
+// Original standalone native-use validation and authored admission, shared by
+// explicitly supplied bound tools without transferring native process ownership.
+async function executeOpenCodeApplicationTool({ active, turn, target, sessionId, assertCurrent }, input, signal) {
+  if (!active?.tools || input.sessionId !== sessionId ||
+      [input.id, input.name, input.messageId].some(value => typeof value !== "string" || !value || value.length > 256)) {
+    throw new Error("This OpenCode tool call does not belong to the active conversation.");
+  }
+  if (!turn?.abortController) {
+    throw new Error("This OpenCode tool call does not belong to an admitted conversation.");
+  }
+  assertCurrent?.();
+  const observed = AbortSignal.any([signal, turn.abortController.signal]);
+  await turn.admission?.promise;
+  observed.throwIfAborted();
+  const messages = await target.server.client.messages(sessionId, { limit: 100 }, { signal: observed });
+  let message;
+  let owner;
+  for (const [nativeId, authored] of active.messageIds) {
+    message = openCodeRowsForInput(messages, nativeId).find(message => message.id === input.messageId && message.type === "assistant");
+    if (message) { owner = authored; break; }
+  }
+  const tool = message?.content.find(part => part.type === "tool" && part.callID === input.id);
+  if (!tool || tool.tool !== input.name || !isDeepStrictEqual(tool.state?.input, input.input)) {
+    throw new Error("OpenCode's application call does not match an admitted native tool use.");
+  }
+  if (!owner.committed) throw new Error("This OpenCode tool call has no durable authored admission.");
+  await owner.committed;
+  observed.throwIfAborted();
+  assertCurrent?.(true, owner);
+  try {
+    return await active.tools.execute({ id: input.id, name: input.name, arguments: JSON.stringify(input.input) }, { signal: observed, messageId: owner.messageId });
+  } catch (error) {
+    if (!assertCurrent || assertCurrent(false, owner)) turn.abortController.abort(error);
+    throw error;
+  }
+}
+
 /** Uses the application's authorized API connection; native state stays server-side. */
 export function createOpenCodeConversationDriver({ connections, host = {}, limits = {} } = {}) {
   if (!host.conversation && typeof connections?.resolve !== "function") throw new TypeError("OpenCode conversations require an authorized AI connection resolver.");
@@ -167,10 +204,12 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
         let current;
         let disposed = false;
         let cleanupFailure;
+        let toolBridge;
         async function interrupt(context) {
           try {
             const acquired = await supplied.acquire(context || current?.context);
             const value = await supplied.owner.interruptPreparedTurn(await supplied.preparation.interruption(acquired.options));
+            if (toolBridge) { await toolBridge.close(); toolBridge = null; }
             if (cleanupFailure) {
               await reportFailure(cleanupFailure, { recovered: true });
               cleanupFailure = null;
@@ -184,16 +223,61 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
             throw error;
           }
         }
-        async function send({ input, context, signal, beforeDispatch, accept }) {
+        async function send(command) {
+          const { input, context, signal, beforeDispatch, accept } = command;
           signal.throwIfAborted();
           const acquired = await supplied.acquire(context);
-          const prepared = await supplied.preparation.message({ ...input.nativeMessage, onPromptSending: beforeDispatch }, acquired.options);
-          const value = await supplied.owner.sendPreparedMessage(prepared, acquired.options);
+          const active = current;
+          if (active?.tools) signal.throwIfAborted();
+          if (active?.tools && !toolBridge) {
+            toolBridge = await createOpenCodeToolBridge({ schemas: active.tools.schemas,
+              maxArgumentBytes: active.tools.maximumArgumentBytes, execute(input, signal) {
+                const turn = supplied.owner.turns.get(acquired.key);
+                const target = supplied.owner.processes.get(acquired.key);
+                return executeOpenCodeApplicationTool({ active: current, turn, target,
+                  sessionId: target?.upstreamSessionId,
+                  assertCurrent(throwFailure = true, authored) {
+                    const owned = !disposed && current === active && active.turn === turn && turn?.active &&
+                      (!authored || active.messageIds.get(turn.inputMessageId) === authored) &&
+                      supplied.owner.turns.get(acquired.key) === turn && supplied.owner.processes.get(acquired.key) === target;
+                    if (!owned && throwFailure) throw new Error("This OpenCode tool call belongs to a retired native turn.");
+                    return owned;
+                  }
+                }, input, signal);
+              }
+            });
+          }
+          const options = active?.tools ? { ...acquired.options, applicationTools: toolBridge.configuration } : acquired.options;
+          let prepared;
+          const dispatch = active?.tools ? async identity => {
+            await beforeDispatch(identity);
+            signal.throwIfAborted();
+            active.turn = supplied.owner.turns.get(acquired.key);
+            active.messageIds.set(prepared.input.id, { messageId: input.messageId, committed: command.deliveryCommitted });
+          } : beforeDispatch;
+          prepared = await supplied.preparation.message({ ...input.nativeMessage, onPromptSending: dispatch }, options);
+          if (active?.tools && prepared.application?.monitor) {
+            const monitor = prepared.application.monitor;
+            const create = monitor.create;
+            prepared.application = { ...prepared.application, monitor: { ...monitor,
+              create(...args) {
+                const projection = create(...args);
+                const finalResponse = projection.finalResponse;
+                return { ...projection, finalResponse: { ...finalResponse,
+                  async beforeRecovery(completion) {
+                    active.messageIds.set(finalResponse.recoveryMessageId, active.messageIds.get(completion.inputMessageId));
+                    await finalResponse.beforeRecovery?.(completion);
+                  }
+                } };
+              }
+            } };
+          }
+          const value = await supplied.owner.sendPreparedMessage(prepared, options);
           const delivered = { value, completion: value.conversationTurn ? supplied.owner.monitors.get(acquired.key) : null };
           if (value.delivered === true && value.conversationTurn) {
             if (current) current.delivery = delivered;
             await accept({ nativeResult: { value }, conversationTurn: value.conversationTurn, nativeTurnId: value.turn?.id });
-          }
+          } else if (active?.tools) active.messageIds.delete(prepared.input.id);
           return delivered;
         }
         return Object.freeze({
@@ -205,7 +289,8 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
           },
           async run(command) {
             if (disposed || current) throw new Error("This OpenCode conversation is closed or already working.");
-            const active = { context: command.context, failure: Promise.withResolvers() };
+            const active = { context: command.context, failure: Promise.withResolvers(),
+              ...(command.tools ? { tools: command.tools, messageIds: new Map() } : {}) };
             let failure;
             active.failure.promise.catch(error => { failure = error; });
             current = active;
@@ -248,6 +333,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
             } finally {
               command.signal.removeEventListener("abort", abort);
               await cancellation?.catch(() => {});
+              if (toolBridge) { await toolBridge.close(); toolBridge = null; }
               if (current === active) current = null;
             }
           },
@@ -260,6 +346,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
             try {
               const result = await disposeNative({ native: supplied, options });
               if (result?.ok === false) throw Object.assign(new Error(result.error || "OpenCode cleanup could not be confirmed."), result);
+              if (toolBridge) { await toolBridge.close(); toolBridge = null; }
               disposed = true;
               return result;
             } catch (error) {
@@ -388,38 +475,8 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
           toolBridge = await createOpenCodeToolBridge({
             schemas: current.tools.schemas, maxArgumentBytes: current.tools.maximumArgumentBytes,
             async execute(input, signal) {
-              const active = current;
-              if (!active?.tools || input.sessionId !== binding.sessionId ||
-                  [input.id, input.name, input.messageId].some(value => typeof value !== "string" || !value || value.length > 256)) {
-                throw new Error("This OpenCode tool call does not belong to the active conversation.");
-              }
-              const turn = facilities.runtime.turns.get(binding.directory);
-              if (!turn?.abortController) {
-                throw new Error("This OpenCode tool call does not belong to an admitted conversation.");
-              }
-              const observed = AbortSignal.any([signal, turn.abortController.signal]);
-              await turn.admission?.promise;
-              observed.throwIfAborted();
-              const messages = await native.server.client.messages(binding.sessionId, { limit: 100 }, { signal: observed });
-              let message;
-              let owner;
-              for (const [nativeId, authored] of active.messageIds) {
-                message = openCodeRowsForInput(messages, nativeId).find(message => message.id === input.messageId && message.type === "assistant");
-                if (message) { owner = authored; break; }
-              }
-              const tool = message?.content.find(part => part.type === "tool" && part.callID === input.id);
-              if (!tool || tool.tool !== input.name || !isDeepStrictEqual(tool.state?.input, input.input)) {
-                throw new Error("OpenCode's application call does not match an admitted native tool use.");
-              }
-              if (!owner.committed) throw new Error("This OpenCode tool call has no durable authored admission.");
-              await owner.committed;
-              observed.throwIfAborted();
-              try {
-                return await active.tools.execute({ id: input.id, name: input.name, arguments: JSON.stringify(input.input) }, { signal: observed, messageId: owner.messageId });
-              } catch (error) {
-                turn.abortController.abort(error);
-                throw error;
-              }
+              return executeOpenCodeApplicationTool({ active: current,
+                turn: facilities.runtime.turns.get(binding.directory), target: native, sessionId: binding.sessionId }, input, signal);
             }
           });
         }

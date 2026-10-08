@@ -2444,3 +2444,349 @@ test("held lifecycle catalogue rejection preserves a newer same-runtime tail and
     await Promise.allSettled([failed, next, last]);
   }
 });
+
+// Bound-host contract additions retain the original native app-server fixture,
+// schemas, tool-call framing, transcript store and run owner. Public Main's
+// identity/authority/readiness composition is a separate adoption prerequisite.
+import { createCodexAppServerRunOwner, codexAppServerTurnState } from "../src/server/conversation/codexTurn.js";
+import { codexApplicationToolConfiguration, ensureCodexAppServerThread } from "../src/server/conversation/codexProvider.js";
+import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
+
+async function boundCodexToolsFixture(t, options = {}) {
+  let sharedProvider;
+  const startThread = CodexAppServerAgentProvider.prototype.startThread;
+  t.mock.method(CodexAppServerAgentProvider.prototype, "startThread", async function (...args) {
+    sharedProvider ||= this;
+    return startThread.apply(this, args);
+  });
+  const cleanups = [];
+  let boundRuntime, owner;
+  t.after(async () => {
+    try { await boundRuntime?.close(); }
+    finally {
+      if (owner) {
+        for (const id of ["bound-one", "bound-two"]) owner.clearSessionRecoveryTimers(id);
+        for (const key of [...owner.eventSubscriptions.keys()]) owner.unsubscribeEventSubscription(key);
+      }
+      for (const cleanup of cleanups) await cleanup();
+    }
+  });
+  const f = await fixture({ after: callback => cleanups.push(callback) });
+  await f.conversation.send({ messageId: "original-process-seed", text: "Hello" });
+  await f.conversation.wait();
+  assert.ok(sharedProvider);
+  const initialParams = (await f.trace()).find(row => row.method === "thread/start").params;
+  const storage = createReentrantConversationStorage(f.storage);
+  const transcript = createConversationTranscript({ storage });
+  const streams = createConversationStreams();
+  const runtimes = new Map(), bindings = new Map();
+  const effects = [], mappings = [];
+  const actor = { actor: { id: "bound-owner" }, surface: "app", permissions: ["numbers.read"] };
+  const actions = applicationActions(async (_input, actual) => {
+    effects.push(actual.boundAdmission);
+    return options.execute ? options.execute(actual) : { value: 7 };
+  });
+  const catalog = createServiceToolCatalog(actions);
+  const hostRuntime = {
+    getSession: id => runtimes.get(id).getSession(id),
+    store: new Proxy({}, { get(_target, key) {
+      const originalStore = runtimes.values().next().value?.store;
+      if (typeof originalStore?.[key] !== "function") return originalStore?.[key];
+      return (id, ...args) => runtimes.get(id).store[key](id, ...args);
+    } })
+  };
+  owner = createCodexAppServerRunOwner({
+    createRuntime: async () => hostRuntime, createStore: async id => runtimes.get(id).store,
+    acquireProvider: async () => sharedProvider,
+    publish: (id, event) => boundRuntime?.publishNative({ namespace: `main-${id}`, sessionId: id, event }),
+    hasRuntime: () => true
+  });
+  // The fixture's host owns shared-provider retention and scoped cleanup. It
+  // supplies the same direct control context used by the original standalone
+  // owner, and never closes the process held by the original fixture/peer.
+  t.mock.method(owner, "controlContext", (_id, prepared) => prepared);
+  t.mock.method(owner, "closeSession", async id => {
+    for (const [key, subscription] of owner.eventSubscriptions) {
+      if (subscription.sessionId === id) owner.unsubscribeEventSubscription(key);
+    }
+    owner.clearSessionRecoveryTimers(id);
+    return { ok: true };
+  });
+  for (const id of ["bound-one", "bound-two"]) {
+    const segmentId = `original-host-${id}`;
+    await storage.write(id, async transaction => transaction.writeMetadata({ runtime: {
+      engine: "codex", segmentId, configuration, binding: { threadId: "" }
+    } }));
+    const store = createCodexConversationStore({ storage, scope: id, segmentId, isCurrent: () => true, transcript, streams });
+    const runtime = { store, getSession: store.getSession };
+    runtimes.set(id, runtime);
+    const readBinding = () => storage.read(id, async transaction => (await transaction.readMetadata()).runtime.binding);
+    const identity = { read: async () => (await readBinding()).threadId,
+      readToolSchemaIdentity: async () => (await readBinding()).toolSchemaIdentity };
+    const messagePreparation = {
+      async readContext() {
+        const binding = await readBinding();
+        return { runtime, session: await runtime.getSession(id), workdir: f.directory, binding,
+          selection: { runtime, session: await runtime.getSession(id), threadId: () => binding.threadId,
+            acquireProvider: async () => ({ provider: sharedProvider, reused: true }) } };
+      },
+      threadPreparation(_input, prepared) {
+        return { provider: async () => ({ provider: sharedProvider, workdir: f.directory, observerOptions: { providerKey: "bound-shared-original-provider" },
+          preparation: { settings: () => ({ threadSettings: initialParams, threadStartSettings: initialParams }),
+            identity: { read: () => prepared.binding.threadId,
+              readToolSchemaIdentity: () => prepared.binding.toolSchemaIdentity,
+              async write({ threadId, toolSchemaIdentity }) {
+                await storage.write(id, async transaction => {
+                  const metadata = await transaction.readMetadata();
+                  metadata.runtime.binding = { ...metadata.runtime.binding, threadId, toolSchemaIdentity };
+                  await transaction.writeMetadata(metadata);
+                });
+              } } } }) };
+      },
+      async prepareMessage(input, _prepared, { starting }) {
+        if (options.prepareMessage) await options.prepareMessage(input, { starting });
+        return starting ? { renderedPrompt: input.message, turnSettings: { cwd: f.directory, model: "test-model" } } : null;
+      },
+      finishMessage(_input, _prepared, outcome) { if (outcome.error) throw outcome.error; }
+    };
+    bindings.set(id, { sessionId: id, namespace: `main-${id}`, engine: "codex", runtime, identity,
+      admission() {}, prepareInput: async input => input,
+      applicationTools: { storage, prepareContext(context, admission) {
+        mappings.push({ context, admission });
+        return { ...context, boundAdmission: admission };
+      } },
+      read: async () => { const binding = await readBinding(); return { threadId: binding.threadId, configuration,
+        run: binding.codexAppServerRun }; },
+      readStream: () => Promise.resolve(streams.read(id)),
+      state: { read: () => storage.read(id, transaction => transaction.readMetadata()).then(metadata => metadata.delivery),
+        write: delivery => storage.write(id, async transaction => {
+          const metadata = await transaction.readMetadata(); metadata.delivery = delivery; await transaction.writeMetadata(metadata);
+        }) },
+      transcript: { history: async () => [], readConversationLog: () => transcript.readConversationLog(id),
+        hasMessage: messageId => transcript.conversationMessageIdExists(id, messageId),
+        writeUserMessage: input => store.writeConversationUserMessage(id, input) },
+      native: { runOwner: owner, providerOwner: {}, messagePreparation,
+        admission: () => ({ ok: true, release() {} }),
+        controlPreparation: async () => {
+          const binding = await readBinding();
+          return { runtime, session: await runtime.getSession(id), admissionError: () => null,
+            threadId: () => binding.threadId, acquireProvider: async () => sharedProvider };
+        },
+        preparation: { cleanup: () => ({}) } }
+    });
+  }
+  const runtime = createConversationRuntime({ engine: "codex", toolCatalog: catalog, authorize: () => true,
+    host: { ...f.driverOptions.host, conversation: ({ id }) => bindings.get(id) } });
+  boundRuntime = runtime;
+  const one = await runtime.open({ id: "bound-one", context: actor });
+  const two = await runtime.open({ id: "bound-two", context: actor });
+  return { ...f, one, two, boundRuntime: runtime, sharedProvider, owner, effects, mappings, bindings, storage, catalog };
+}
+
+test("two bound Codex tool threads share the original provider and retain exact receipts through independent Stop", async t => {
+  const entered = Promise.withResolvers(), effect = Promise.withResolvers();
+  let hold = true;
+  const f = await boundCodexToolsFixture(t, { execute: async () => {
+    if (hold) { entered.resolve(); return effect.promise; }
+    return { value: 7 };
+  } });
+  await f.one.send({ messageId: "bound-operation-one", text: "tools" });
+  await entered.promise;
+  assert.equal(f.sharedProvider.threadRequestHandlers.size, 1);
+  await f.two.send({ messageId: "bound-peer-wait", text: "wait" });
+  assert.equal(f.sharedProvider.threadRequestHandlers.size, 2);
+  let stopped = false;
+  const stopping = f.one.cancel().then(() => { stopped = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stopped, false);
+  effect.resolve({ value: 7 });
+  await stopping;
+  assert.equal((await f.two.read()).status, "working", "Stopping one exact thread retains its peer");
+  assert.equal(f.sharedProvider.threadRequestHandlers.size, 1);
+  await f.two.send({ messageId: "bound-peer-steer", text: "Continue", steer: true });
+  await f.two.wait();
+  assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
+  hold = false;
+  await f.two.send({ messageId: "bound-operation-two", text: "tools" });
+  const second = await f.two.wait();
+  const first = await f.one.wait();
+  assert.equal(f.effects.length, 2);
+  assert.deepEqual(f.effects.map(admission => admission.conversationId), ["bound-one", "bound-two"]);
+  assert.deepEqual(f.effects.map(admission => admission.messageId), ["bound-operation-one", "bound-operation-two"]);
+  assert.equal(first.conversationLog[0].metadata.applicationTools.length, 3);
+  assert.equal(second.conversationLog.at(-1).metadata.applicationTools.length, 3);
+  assert.equal(second.conversationLog.at(-1).metadata.applicationTools.at(-1).result.result.result.value, 7);
+  const starts = (await f.trace()).filter(row => row.method === "thread/start");
+  assert.equal(starts.length, 3, "Only the original seed and two actual native bound threads were created");
+  assert.deepEqual(starts[1].params.dynamicTools, codexApplicationToolConfiguration({
+    schemas: f.catalog.resolveToolSet({ actor: { id: "bound-owner" }, surface: "app", permissions: ["numbers.read"] }, { discoveryOnly: true }).tools.map(f.catalog.toOpenAiToolSchema)
+  }).dynamicTools);
+  assert.deepEqual(starts[2].params.dynamicTools, starts[1].params.dynamicTools);
+  assert.equal((await f.trace()).filter(row => row.args).length, 1, "All threads retain the original account-shared app-server process");
+});
+
+test("bound Codex refuses stale turns, foreign threads and retired handlers without executing their calls", async t => {
+  const f = await boundCodexToolsFixture(t);
+  await f.one.send({ messageId: "bound-old", text: "Hello" });
+  await f.one.wait();
+  const oldTurn = codexAppServerTurnState(await f.bindings.get("bound-one").runtime.getSession("bound-one"));
+  await f.one.send({ messageId: "bound-current", text: "wait" });
+  await f.two.send({ messageId: "bound-peer", text: "wait" });
+  const threadId = await f.bindings.get("bound-one").identity.read();
+  const handler = f.sharedProvider.threadRequestHandlers.get(threadId).handler;
+  const request = { method: "item/tool/call", params: { threadId, turnId: oldTurn.turnId, callId: "stale-call",
+    tool: "assistant_action_search", arguments: { query: "numbers" } } };
+  f.sharedProvider.observationFailure = { cause: new Error("Unrelated retained observation failure") };
+  try { await assert.rejects(handler(request), /another turn/); }
+  finally { f.sharedProvider.observationFailure = null; }
+  const peerTurn = codexAppServerTurnState(await f.bindings.get("bound-two").runtime.getSession("bound-two"));
+  await assert.rejects(handler({ ...request, params: { ...request.params, turnId: peerTurn.turnId } }), /another turn/);
+  await assert.rejects(handler({ ...request, params: { ...request.params, namespace: "unsupported" } }), /does not authorize/);
+  const currentTurn = codexAppServerTurnState(await f.bindings.get("bound-one").runtime.getSession("bound-one"));
+  const originalClient = f.sharedProvider.client;
+  f.sharedProvider.client = {};
+  try {
+    await assert.rejects(handler({ ...request, params: { ...request.params, turnId: currentTurn.turnId } }), /does not authorize/);
+  } finally { f.sharedProvider.client = originalClient; }
+  assert.equal((await f.one.read()).status, "working");
+  assert.equal((await f.two.read()).status, "working");
+  assert.equal((await f.trace()).filter(row => row.method === "turn/interrupt").length, 0);
+  await f.one.send({ messageId: "healthy-current", text: "Continue", steer: true });
+  await f.two.send({ messageId: "healthy-peer", text: "Continue", steer: true });
+  await f.one.wait();
+  await f.two.wait();
+  assert.equal(f.effects.length, 0);
+  assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
+  await assert.rejects(handler(request), /does not authorize/);
+  await assert.rejects(f.sharedProvider.handleServerRequest({ ...request, params: { ...request.params, threadId: "foreign-thread" } }), /not supported/);
+  assert.equal(f.effects.length, 0);
+});
+
+test("shared Codex thread registrations retain ownership tokens and Helper request precedence", async t => {
+  const provider = new CodexAppServerAgentProvider();
+  const calls = [];
+  let originalClientRequest;
+  provider.client = { setRequestHandler(callback) { originalClientRequest = callback; }, close() {} };
+  provider.setServerRequestHandler(async request => { calls.push("fallback"); return request.method; });
+  const first = provider.registerThreadRequestHandler("first-thread", async () => "first");
+  const peer = provider.registerThreadRequestHandler("peer-thread", async () => "peer");
+  const request = threadId => ({ method: "item/tool/call", params: { threadId } });
+  assert.equal(await provider.handleServerRequest(request("first-thread")), "first");
+  assert.equal(await provider.handleServerRequest(request("peer-thread")), "peer");
+  assert.equal(await provider.handleServerRequest({ method: "other", params: { threadId: "peer-thread" } }), "other");
+  assert.throws(() => provider.registerThreadRequestHandler("peer-thread", () => {}), /already has/);
+  first.release();
+  const oldClientRequest = originalClientRequest;
+  let replacementClientRequest;
+  provider.client = { setRequestHandler(callback) { replacementClientRequest = callback; }, close() {} };
+  const replacement = provider.registerThreadRequestHandler("first-thread", async () => "replacement");
+  await assert.rejects(oldClientRequest(request("first-thread")), /retired Codex connection/);
+  assert.equal(await replacementClientRequest(request("first-thread")), "replacement");
+  assert.equal(await replacementClientRequest(request("peer-thread")), "peer");
+  first.release();
+  assert.equal(replacement.isCurrent(), true);
+  assert.equal(peer.isCurrent(), true);
+  t.mock.method(provider, "isHelperProvider", () => true);
+  t.mock.method(provider, "refreshHelperChatgptAuth", async params => ({ refreshed: params }));
+  await assert.rejects(provider.handleServerRequest(request("peer-thread")), /isolated helper/);
+  assert.deepEqual(await provider.handleServerRequest({ method: "account/chatgptAuthTokens/refresh", params: { original: true } }), { refreshed: { original: true } });
+  assert.deepEqual(await oldClientRequest({ method: "account/chatgptAuthTokens/refresh", params: { oldClient: true } }), { refreshed: { oldClient: true } });
+  await assert.rejects(oldClientRequest(request("first-thread")), /isolated helper/);
+  assert.deepEqual(calls, ["fallback"]);
+  provider.close();
+  assert.equal(replacement.isCurrent(), false);
+  assert.equal(peer.isCurrent(), false);
+  const newer = provider.registerThreadRequestHandler("first-thread", () => "newer");
+  replacement.release();
+  assert.equal(newer.isCurrent(), true);
+  newer.release();
+});
+
+test("bound Codex readiness publishes exact schemas before start/resume and rejects retained mismatches", async () => {
+  const tools = { schemas: [{ type: "function", function: { name: "stable-tool", description: "Stable", parameters: { type: "object", properties: {} } } }] };
+  const configuration = codexApplicationToolConfiguration(tools);
+  let threadId = "", schemaIdentity, resumed = 0, started = 0;
+  const events = [];
+  const provider = { ensureAvailable: async () => ({ runtime: {} }),
+    startThread: async params => { started++; assert.deepEqual(params.dynamicTools, configuration.dynamicTools); return { id: "exact-thread" }; },
+    resumeThread: async (id, params) => { resumed++; assert.equal(id, threadId); assert.deepEqual(params.dynamicTools, configuration.dynamicTools); return { id }; } };
+  const preparation = { provider, workdir: "/original", applicationTools: tools,
+    settings: () => ({ threadSettings: { model: "original-model" }, threadStartSettings: { model: "original-model" } }),
+    observeThread: id => events.push(["observe", id]), providerReady: value => events.push(["provider", value.threadId]),
+    identity: { read: () => threadId, readToolSchemaIdentity: () => schemaIdentity,
+      write: value => { threadId = value.threadId; schemaIdentity = value.toolSchemaIdentity; events.push(["write", threadId]); } } };
+  await ensureCodexAppServerThread(preparation);
+  assert.equal(schemaIdentity, configuration.toolSchemaIdentity);
+  assert.deepEqual(events, [["provider", ""], ["write", "exact-thread"], ["provider", "exact-thread"]]);
+  events.length = 0;
+  await ensureCodexAppServerThread(preparation);
+  assert.deepEqual(events, [["provider", "exact-thread"], ["observe", "exact-thread"], ["write", "exact-thread"], ["provider", "exact-thread"]]);
+  schemaIdentity = "different-saved-schema";
+  await assert.rejects(ensureCodexAppServerThread(preparation), /different application tool entry points/);
+  assert.equal(resumed, 1);
+  assert.equal(started, 1);
+  assert.equal(threadId, "exact-thread");
+  assert.equal(schemaIdentity, "different-saved-schema");
+  delete preparation.identity.readToolSchemaIdentity;
+  await assert.rejects(ensureCodexAppServerThread(preparation), /original schema identity/);
+  assert.equal(resumed, 1);
+});
+
+test("an owned bound tool failure interrupts only its native thread and preserves the peer", async t => {
+  const f = await boundCodexToolsFixture(t, { execute: async () => { throw new Error("Owned action result unavailable"); } });
+  await f.two.send({ messageId: "owned-failure-peer", text: "wait" });
+  const peerThread = await f.bindings.get("bound-two").identity.read();
+  await f.one.send({ messageId: "owned-failure", text: "tools" });
+  const failed = await f.one.wait();
+  const native = codexAppServerTurnState(await f.bindings.get("bound-one").runtime.getSession("bound-one"));
+  assert.equal(native.active, false);
+  assert.equal(f.effects.length, 1);
+  assert.equal(failed.conversationLog[0].metadata.applicationTools.at(-1).status, "unknown");
+  assert.equal((await f.two.read()).status, "working");
+  assert.equal(f.sharedProvider.threadRequestHandlers.has(peerThread), true);
+  const interrupts = (await f.trace()).filter(row => row.method === "turn/interrupt");
+  assert.equal(interrupts.length, 1, "An owned executor failure must stop its admitted native turn");
+  assert.equal(interrupts[0].params.threadId, await f.bindings.get("bound-one").identity.read());
+  assert.notEqual(interrupts[0].params.threadId, peerThread);
+  await f.two.send({ messageId: "owned-failure-peer-finish", text: "Continue", steer: true });
+  await f.two.wait();
+});
+
+
+test("closing a bound native owner refuses tool callbacks before and after input readiness and drains cleanup", async t => {
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const f = await boundCodexToolsFixture(t, { prepareMessage: async (_input, { starting }) => {
+    if (!starting) { entered.resolve(); await release.promise; throw new Error("Held steering refused"); }
+  } });
+  await f.one.send({ messageId: "closing-owned", text: "wait" });
+  await f.two.send({ messageId: "closing-peer", text: "wait" });
+  // This direct-provider host has no providerSessions lifecycle. Supply only
+  // its controlled shutdown flag, read by the ORIGINAL notification queue.
+  let closing = false;
+  f.owner.runtimeLifecycle = { get closing() { return closing; } };
+  const native = codexAppServerTurnState(await f.bindings.get("bound-one").runtime.getSession("bound-one"));
+  const handler = f.sharedProvider.threadRequestHandlers.get(native.threadId).handler;
+  const request = { method: "item/tool/call", params: { threadId: native.threadId, turnId: native.turnId,
+    callId: "closing-call", tool: "assistant_action_search", arguments: { query: "numbers" } } };
+  closing = true;
+  try { await assert.rejects(handler(request), /does not authorize/); }
+  finally { closing = false; }
+  const steering = assert.rejects(f.one.send({ messageId: "closing-held-steer", text: "Continue", steer: true }), /Held steering refused/);
+  await entered.promise;
+  const heldTool = assert.rejects(handler(request), /does not authorize/);
+  await new Promise(resolve => setImmediate(resolve));
+  closing = true;
+  try {
+    release.resolve();
+    await steering;
+    await heldTool;
+  } finally { closing = false; release.resolve(); }
+  assert.equal(f.effects.length, 0);
+  assert.equal((await f.one.read()).status, "working");
+  assert.equal((await f.two.read()).status, "working");
+  await f.one.cancel();
+  await f.two.cancel();
+  await f.owner.notificationQueue.drain("bound-one");
+  await f.owner.notificationQueue.drain("bound-two");
+  assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
+});

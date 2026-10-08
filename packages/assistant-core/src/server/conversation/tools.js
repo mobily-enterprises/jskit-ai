@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 const unknownOutcome = "The application operation did not return a verified result. Inspect its target before requesting another execution.";
 
 /** One turn's application calls. Native/API adapters only transport these calls. */
-export function createConversationTools({ catalog, context, signal: turnSignal, previousCalls = [], authorize, save, emit,
+export function createConversationTools({ catalog, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit,
   maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false }) {
   if (transient !== true && [authorize, save, emit].some(hook => typeof hook !== "function")) {
     throw new TypeError("Conversation tools require authorization, durable save and event facilities.");
@@ -11,6 +11,7 @@ export function createConversationTools({ catalog, context, signal: turnSignal, 
   if (transient === true && previousCalls.length) {
     throw new TypeError("Transient application tools cannot restore a previous execution.");
   }
+  if (prepareContext !== undefined && typeof prepareContext !== "function") throw new TypeError("Application tool context requires a server-owned mapper.");
   const toolSet = catalog.resolveToolSet(context, { discoveryOnly });
   const calls = new Map(structuredClone(previousCalls).map(call => [call.id, call]));
   let pending = Promise.resolve();
@@ -27,6 +28,7 @@ export function createConversationTools({ catalog, context, signal: turnSignal, 
 
   async function run({ id, name, arguments: argumentsText }, signal) {
     await authorize?.();
+    let executionContext = prepareContext ? await prepareContext() : context;
     signal.throwIfAborted();
     if (typeof id !== "string" || !id || id.length > 256 || typeof name !== "string" || !name || name.length > 256 ||
         typeof argumentsText !== "string") throw new TypeError("An application tool requires its call id, name and JSON arguments.");
@@ -52,6 +54,7 @@ export function createConversationTools({ catalog, context, signal: turnSignal, 
     await emit?.({ type: "tool", call: structuredClone(call) });
     try {
       await authorize?.();
+      if (prepareContext) executionContext = await prepareContext();
       signal.throwIfAborted();
     } catch (error) {
       call.status = "not-executed";
@@ -61,7 +64,7 @@ export function createConversationTools({ catalog, context, signal: turnSignal, 
     }
     let failed = false;
     let failure;
-    call.result = await catalog.executeToolCall({ toolName: name, argumentsText, toolSet, context: { ...context, signal },
+    call.result = await catalog.executeToolCall({ toolName: name, argumentsText, toolSet, context: { ...executionContext, signal },
       ...(propagateErrors ? { onFailure(error) { failed = true; failure = error; } } : {}) });
     call.status = !call.result.ok && call.result.error?.status >= 500 ? "unknown" : "complete";
     // Keep the result in memory as well: retrySave can persist it after a failed
