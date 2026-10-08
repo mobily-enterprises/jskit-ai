@@ -34,15 +34,20 @@ The raw-source hashes and source URLs are in the bundled `ai-models.json`;
 [upstream MIT notices](ai-upstream-notices.md) accompany it. Updates require
 deliberate review and a new package release.
 
-The 2 October review adds the exact `deepseek/deepseek-flash` identity for
-DeepSeek V4.1 Flash and removes its two retired direct-provider Flash entries
-from the bundled data. They are absent even when requesting deprecated models.
-Existing configuration using a removed name must explicitly select a current
-model; JSKIT does not translate it. The source hashes identify the original
-extraction, before this reviewed update. The new entry declares paid access without a fixed price because the
-provider has peak and off-peak rates. See the
+The reviewed catalogue adds the exact `deepseek/deepseek-flash` identity for
+DeepSeek V4.1 Flash. It retains `deepseek/deepseek-v4-flash` and
+`deepseek/deepseek-v4-flash-vision-exp` for saved selections: DeepSeek still
+accepts these names and serves their requests with V4.1 Flash. JSKIT sends the
+selected ID unchanged and does not rewrite configuration. All three Flash
+entries accept text and images. They and `deepseek/deepseek-v4-pro` declare
+the provider's exact 1,048,576-token context and 393,216-token output limits;
+Pro accepts text only. The bundled catalogue now has 7,615 model records.
+The source hashes identify the original 7,614-record extraction, before this
+reviewed update. Flash entries declare paid access without a fixed price because
+the provider has peak and off-peak rates. See the
 [provider update](https://api-docs.deepseek.com/updates/) and
-[model details](https://api-docs.deepseek.com/quick_start/pricing/).
+[model details](https://api-docs.deepseek.com/quick_start/pricing/), including
+[exact model metadata](https://api-docs.deepseek.com/api/list-models/).
 
 `listAiModels()` hides deprecated entries and sorts free choices first, with
 `opencode/big-pickle` first. `includeDeprecated: true` exposes retained upstream
