@@ -34,6 +34,7 @@ const invitationResolveOutputSchema = createSchema({
   email: { type: "string", required: true },
   maskedEmail: { type: "string", required: true },
   roleSid: { type: "string", required: true },
+  roleLabel: { type: "string", required: false },
   expiresAt: { type: "string", required: false, nullable: true, minLength: 1 },
   workspace: {
     type: "object",
@@ -53,6 +54,7 @@ const pendingInvitationsListOutputSchema = createSchema({
       workspaceName: { type: "string", required: true, minLength: 1, maxLength: 160 },
       workspaceAvatarUrl: { type: "string", required: true },
       roleSid: { type: "string", required: true, minLength: 1, maxLength: 64 },
+      roleLabel: { type: "string", required: false },
       status: { type: "string", required: true, minLength: 1, maxLength: 64 },
       expiresAt: { type: "string", required: false, nullable: true, minLength: 1 },
       token: { type: "string", required: true, minLength: 1 }

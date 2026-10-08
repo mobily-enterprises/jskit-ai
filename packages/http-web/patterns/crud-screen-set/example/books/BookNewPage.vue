@@ -15,6 +15,7 @@ const screen = useCrudAddEditScreen({
   addEditOptions: {
     apiSuffix: "/books",
     placementSource: "crud.books.new",
+    queryKeyFactory: (surfaceId = "", scope = "") => ["crud", "books", surfaceId, scope, "new"],
     readEnabled: false,
     writeMethod: "POST",
     recordIdParam: "bookId",

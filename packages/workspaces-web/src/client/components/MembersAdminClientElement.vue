@@ -140,7 +140,9 @@
                           class="member-role-select"
                           :disabled="showMembersRefreshingIndicator || isMemberRoleLocked(member)"
                           @update:model-value="(value) => onMemberRoleUpdate(member, value)"
-                        />
+                        >
+                          <template #selection="{ internalItem }">{{ formatRole(internalItem.value, internalItem.title) }}</template>
+                        </v-select>
                         <v-btn
                           variant="text"
                           color="error"
@@ -164,7 +166,7 @@
                       {{ invite.email }}
                     </template>
                     <template #subtitle>
-                      Role: {{ invite.roleSid }} • expires {{ formatDateTime(invite.expiresAt) }}
+                      Role: {{ formatRole(invite.roleSid) }} • expires {{ formatDateTime(invite.expiresAt) }}
                     </template>
                     <template #append>
                       <v-btn
@@ -372,6 +374,10 @@ const inviteLinkStatusText = computed(() => {
 
   return "Copy this link to share the invite.";
 });
+
+function formatRole(roleSid, fallback = roleSid) {
+  return typeof options.value.formatRole === "function" ? options.value.formatRole(roleSid, fallback) : fallback;
+}
 
 function formatDateTime(value) {
   if (typeof options.value.formatDateTime === "function") {

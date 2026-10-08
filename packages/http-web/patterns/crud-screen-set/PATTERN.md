@@ -63,6 +63,21 @@ filters and actions explicit without adding empty screen machinery elsewhere.
 
 ## Variation points
 
+`useCrudAddEditScreen()` requires `addEditOptions.queryKeyFactory` even when
+`readEnabled` is false. Include the resource, surface, route scope and record
+id (or a distinct new-record marker) so form cache entries stay separate.
+The New/Edit examples supply it; list/view screen wrappers derive their
+standard keys from `resourceNamespace`.
+
+Ownership and permission-bootstrap mode are different options. For a public
+resource on a public surface, use `ownershipFilter: "public"` in form options
+or lower-level request composables. List/view screen wrappers derive request
+scope from the configured surface and do not expose this option. Keep the
+default `access: "auto"` when there are no permission
+requirements. `access` accepts only `auto`, `always`, or `never`; `public` is
+not an access mode. `always` requires bootstrap permissions even when there
+are no permission requirements. Do not add accounts to satisfy that override.
+
 Change routes, labels, visible fields, field components, filters, query params,
 realtime events, delete availability, and action definitions. Use the screen
 slots for domain-specific content. Use a lower-level request composable only

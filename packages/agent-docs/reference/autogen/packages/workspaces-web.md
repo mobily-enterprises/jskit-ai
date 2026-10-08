@@ -32,6 +32,7 @@ Exports
 Exports
 - None
 Local functions
+- `formatRole(roleSid, fallback = roleSid)`
 - `formatDateTime(value)`
 - `showOwnerChip(member)`
 - `isMemberRoleLocked(member)`
@@ -298,6 +299,16 @@ Exports
 ### `src/shared/toolsOutletContracts.js`
 Exports
 - `ADMIN_COG_OUTLET`
+
+### fixtures
+
+### `fixtures/role-labels/main.js`
+Exports
+- None
+
+### `fixtures/role-labels/vite.config.mjs`
+Exports
+- None
 
 ### patterns
 

@@ -65,6 +65,10 @@ const forms = reactive({
 const options = reactive({
   inviteRoleOptions: [],
   memberRoleOptions: [],
+  roleLabels: Object.create(null),
+  formatRole(roleSid, fallback = roleSid) {
+    return options.roleLabels[roleSid] || fallback;
+  },
   formatDateTime(value) {
     return formatDateTime(value);
   }
@@ -156,6 +160,7 @@ function resetMessages() {
 function clearRoleOptions() {
   options.inviteRoleOptions = [];
   options.memberRoleOptions = [];
+  options.roleLabels = Object.create(null);
 }
 
 function resetViewState() {
@@ -206,8 +211,16 @@ function normalizeRoleCatalog(payload = {}) {
   }
 
   const uniqueRoleIds = Array.from(new Set(assignableRoleIds));
+  const roleLabels = Object.create(null);
+  for (const role of roles) {
+    const id = String(role?.id || "").trim().toLowerCase();
+    const label = typeof role?.label === "string" ? role.label.trim() : "";
+    if (id && label) {
+      roleLabels[id] = label;
+    }
+  }
   const roleOptions = uniqueRoleIds.map((roleSid) => ({
-    title: toRoleTitle(roleSid),
+    title: roleLabels[roleSid] || toRoleTitle(roleSid),
     value: roleSid
   }));
 
@@ -217,12 +230,14 @@ function normalizeRoleCatalog(payload = {}) {
 
   return {
     roleOptions,
+    roleLabels,
     defaultInviteRole
   };
 }
 
 function applyRoleCatalog(payload = {}) {
   const normalizedCatalog = normalizeRoleCatalog(payload);
+  options.roleLabels = normalizedCatalog.roleLabels;
   options.inviteRoleOptions = [...normalizedCatalog.roleOptions];
   options.memberRoleOptions = [...normalizedCatalog.roleOptions];
 

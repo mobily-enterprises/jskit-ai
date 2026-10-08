@@ -33,6 +33,7 @@ const workspaceListItemSchema = createSchema({
   name: { type: "string", required: true, minLength: 1, maxLength: 160 },
   avatarUrl: { type: "string", required: true },
   roleSid: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  roleLabel: { type: "string", required: false },
   isAccessible: { type: "boolean", required: true }
 });
 

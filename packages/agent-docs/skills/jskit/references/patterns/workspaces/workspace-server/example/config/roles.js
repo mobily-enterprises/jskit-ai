@@ -8,6 +8,7 @@ export const roleCatalog = {
       permissions: ["*"]
     },
     admin: {
+      label: "Administrator",
       assignable: true,
       inherits: "member",
       permissions: [
@@ -20,6 +21,7 @@ export const roleCatalog = {
       ]
     },
     member: {
+      label: "Team member",
       assignable: true,
       permissions: ["workspace.settings.view"]
     }

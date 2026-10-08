@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 
 const workspaceRoleDescriptorSchema = createSchema({
   id: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  label: { type: "string", required: false },
   assignable: { type: "boolean", required: true },
   permissions: {
     type: "array",

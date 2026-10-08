@@ -105,7 +105,8 @@ function createWorkspacesRuntime({ config, env, jsonRestApi } = {}) {
   });
   const workspacePendingInvitationsService = createWorkspacePendingInvitationsService({
     workspaceInvitesRepository,
-    workspaceMembershipsRepository
+    workspaceMembershipsRepository,
+    roleCatalog
   });
   const workspaceMembersService = createWorkspaceMembersService({
     workspaceMembershipsRepository,

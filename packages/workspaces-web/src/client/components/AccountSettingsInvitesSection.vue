@@ -28,7 +28,7 @@ const invites = useAccountSettingsInvitesSectionRuntime();
             v-for="invite in invites.items.value"
             :key="invite.id"
             :title="invite.workspaceName"
-            :subtitle="`/${invite.workspaceSlug} • role: ${invite.roleSid}`"
+            :subtitle="`/${invite.workspaceSlug} • role: ${invite.roleLabel || invite.roleSid}`"
             class="px-0"
           >
             <template #prepend>

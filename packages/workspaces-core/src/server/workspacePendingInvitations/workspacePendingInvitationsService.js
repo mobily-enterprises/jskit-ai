@@ -6,7 +6,8 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createService({
   workspaceInvitesRepository,
-  workspaceMembershipsRepository
+  workspaceMembershipsRepository,
+  roleCatalog = null
 } = {}) {
   if (!workspaceInvitesRepository || !workspaceMembershipsRepository) {
     throw new Error("workspacePendingInvitationsService requires invite and membership repositories.");
@@ -14,6 +15,12 @@ function createService({
 
   let acceptanceParticipant = null;
   let registrationClosed = false;
+
+  function roleLabelMetadata(roleSid) {
+    const role = roleCatalog?.roles?.find((entry) => entry.id === (normalizeLowerText(roleSid || "member") || "member"));
+    const label = typeof role?.label === "string" ? role.label.trim() : "";
+    return label ? { roleLabel: label } : {};
+  }
 
   function registerAcceptanceParticipant(participant) {
     if (typeof participant !== "function") {
@@ -123,6 +130,7 @@ function createService({
       email: normalizeLowerText(invite.email),
       maskedEmail: maskInviteEmail(invite.email),
       roleSid: normalizeLowerText(invite.roleSid || "member") || "member",
+      ...roleLabelMetadata(invite.roleSid),
       expiresAt: invite.expiresAt || null,
       workspace: {
         id: normalizeRecordId(invite.workspaceId, { fallback: "" }),
@@ -149,6 +157,7 @@ function createService({
       workspaceName: normalizeText(invite.workspaceName || invite.workspaceSlug),
       workspaceAvatarUrl: normalizeText(invite.workspaceAvatarUrl),
       roleSid: normalizeLowerText(invite.roleSid || "member") || "member",
+      ...roleLabelMetadata(invite.roleSid),
       status: normalizeLowerText(invite.status || "pending") || "pending",
       expiresAt: invite.expiresAt || null,
       token: encodeInviteTokenHash(tokenHash)

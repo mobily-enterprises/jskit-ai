@@ -39,6 +39,35 @@ before an operation discloses records or record existence.
 membership semantics exactly; do not synthesize memberships to compensate for
 a policy/runtime mismatch.
 
+## Role display labels
+
+Set optional `label` strings in the existing `roleCatalog.roles` definitions,
+usually exported by `config/roles.js` and composed into application config.
+For example, the package-owned `workspaces/workspace-server` example labels
+`admin` as **Administrator** and `member` as **Team member**. Any application
+role id can have its own label.
+
+Labels are trimmed; missing, blank or non-string labels use the previous
+display fallback. Labels do not inherit. They survive catalogue creation,
+cloning and descriptor listing, and the Members, Invitations and Workspace
+Settings API response schemas preserve them. Descriptors have optional
+`label`; pending/resolved invitation and workspace-list records have optional
+`roleLabel` beside `roleSid`.
+
+On **Members**, both the invitation **Role** selector and each member's role
+selector display configured labels. Choose a label, enter the invite email
+and select **Send invite**, or choose a member's new role. Requests and stored
+memberships still use role ids. Reloading shows the selected role's label.
+Pending invitation captions, workspace role captions and the default
+invitation email use configured labels too. Custom email renderers receive
+optional `roleLabel` in addition to `roleSid`.
+
+Add labels without changing existing permissions, inheritance, assignability
+or `workspace.defaultInviteRole`. This supports application-specific and
+Training roles without renaming them. `owner` is never assignable. An
+application whose default invitation role is `worker` keeps that default even
+if its display label is **Member**. No database migration is needed.
+
 ## Transactional invitation participation
 
 Use `workspaces.core` to connect application records during the built-in

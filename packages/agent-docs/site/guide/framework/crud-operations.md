@@ -45,6 +45,95 @@ Add resource service methods with `decorateService`; expose commands such as
 services and hooks orchestrate. Use a transactional outbox for durable
 external work.
 
+## Choose ownership, API access and client access independently
+
+These controls answer different questions:
+
+| Control | Purpose | Public records | Owner-scoped records |
+| --- | --- | --- | --- |
+| Resource `autofilter` | Which rows belong to the request scope | `"public"`; no ownership column | `"user"`; real non-null `userId` column |
+| Resource `apiAccess` | Who may call the API | `"public"` | `"authenticated"` |
+| Feature `ownershipFilter` | Server route/action ownership scope | `"public"` | `"user"` |
+| Client `access` | Whether to require bootstrap permissions | Default `"auto"` with no permission requirements | Default `"auto"`; declare permissions when required |
+
+`access` accepts `auto`, `always`, or `never`, not `public`. With `auto`, a
+screen with no permission requirements does not require a permissions bootstrap.
+`always` does require it. Do not add authentication or workspace machinery to
+compensate for an unnecessary `always` override. Server access and ownership
+remain authoritative.
+
+The Books source patterns demonstrate user ownership. For an intentionally
+public create/list resource, use the same patterns with this resource contract:
+
+```js
+const bookResource = defineCrudResource({
+  namespace: "books",
+  tableName: "books",
+  apiAccess: "public",
+  autofilter: "public",
+  crudOperations: ["list", "view", "create"],
+  schema: {
+    title: {
+      type: "string",
+      required: true,
+      minLength: 1,
+      maxLength: 255,
+      operations: {
+        output: { required: true },
+        create: { required: true }
+      }
+    }
+  }
+});
+```
+
+Import `defineCrudResource` from
+`@jskit-ai/resource-crud-core/shared/crudResource`. Its app-owned migration
+creates `books` with an integer primary key `id` and non-null `title`; omit
+`userId` and its foreign key for this public variant. `list` requires `view`
+in the shared resource contract, even when the UI has no detail page. A create
+response uses the resource output contract. Keep operation names such as
+`list`, `view` and `create`; do not invent output-operation aliases.
+
+Bind `defineCrudJsonApiFeature()` with this resource, `ownershipFilter:
+"public"`, `relativePath: "/books"` and the application's configured public
+surface. Keep the existing package/provider and migration registration from
+`crud/json-api-resource-package`.
+
+For the list, keep `BookListPage.vue` thin: use `resourceNamespace: "books"`
+in `useCrudListScreen()` on the configured public surface, remove unsupported
+edit/delete actions and optional author/notes filters, and point **New** to
+the create route. For the new page, use the title field only and set:
+
+```js
+addEditOptions: {
+  apiSuffix: "/books",
+  ownershipFilter: "public",
+  queryKeyFactory: (surfaceId = "") => ["crud", "books", surfaceId, "new"],
+  readEnabled: false,
+  writeMethod: "POST",
+  listUrlTemplate: "/books"
+},
+saveSuccess: {
+  invalidateQueryKey: ["crud", "books"],
+  navigateToView: false,
+  listUrlTemplate: "/books"
+}
+```
+
+List/view screen wrappers derive request scope from the configured surface;
+they do not expose an `ownershipFilter` option. Use a surface without workspace
+route parameters for this public example. Form options and lower-level request
+composables accept `ownershipFilter` explicitly.
+
+New/Edit form runtimes require `queryKeyFactory` even with reads disabled.
+For editing, include the reactive record id; for workspace-scoped resources,
+include the route scope too. List/view screen wrappers derive standard keys
+from `resourceNamespace`. Leave `access` at its default when no permissions
+are declared. Verify create, list, blank-name rejection and reload persistence
+without signing in for this public variant; owner-scoped variants additionally
+need cross-owner denial tests.
+
 ## Record deletion
 
 Deletion requires an explicit shared `DELETE` operation and confirmation

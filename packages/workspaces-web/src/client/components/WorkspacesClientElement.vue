@@ -44,6 +44,7 @@ function normalizePendingInvite(entry) {
     workspaceName: String(entry.workspaceName || workspaceSlug).trim() || workspaceSlug,
     workspaceAvatarUrl: String(entry.workspaceAvatarUrl || "").trim(),
     roleSid: String(entry.roleSid || "member").trim().toLowerCase() || "member",
+    roleLabel: typeof entry.roleLabel === "string" ? entry.roleLabel.trim() : "",
     status: String(entry.status || "pending").trim().toLowerCase() || "pending",
     expiresAt: String(entry.expiresAt || "").trim()
   };
@@ -469,7 +470,7 @@ watch(
                       :title="workspace.name"
                       :subtitle="
                         workspace.isAccessible
-                          ? `/${workspace.slug} • role: ${workspace.roleSid || 'member'}`
+                          ? `/${workspace.slug} • role: ${workspace.roleLabel || workspace.roleSid || 'member'}`
                           : `/${workspace.slug} • unavailable on this surface`
                       "
                       class="px-0"
@@ -514,7 +515,7 @@ watch(
                       v-for="invite in pendingInvites"
                       :key="invite.id"
                       :title="invite.workspaceName"
-                      :subtitle="`Role: ${invite.roleSid}`"
+                      :subtitle="`Role: ${invite.roleLabel || invite.roleSid}`"
                       class="px-0"
                     >
                       <template #prepend>
