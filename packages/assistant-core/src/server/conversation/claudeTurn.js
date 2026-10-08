@@ -149,8 +149,20 @@ export function createClaudeConversationOwner({
       phase: entry.turn.active && !entry.observationError ? text(entry.turn.phase) : "" } : null;
   }
 
+  function currentApplicationCommand(entry, command, owner = command?.nativeOwner) {
+    const native = entry?.nativeTurn.read();
+    return Boolean(owner && entry && !closing && !closingSessions.has(entry.context.key) &&
+      entries.get(entry.key) === entry && entry.command === command && command.entry === entry &&
+      command.admitted && !command.signal.aborted && !command.toolFailure &&
+      !entry.disposed && !entry.stopping && !entry.stopPending && !entry.observationError &&
+      entry.process === owner.process && entry.executionId === owner.executionId &&
+      entry.accountIdentity === owner.accountIdentity && entry.id === owner.threadId &&
+      entry.turn?.id === owner.turnId && entry.turn.active && native.turnId === owner.turnId && native.active);
+  }
+
   function readRetainedTurn(contextKey, conversationId, state) {
     const entry = entries.get(`${contextKey}\0${conversationId}`);
+    if (state.current) return currentApplicationCommand(entry, entry?.command) ? snapshot(entry) : null;
     const saved = state.saved;
     return state.nativeResult?.turn || (entry ? snapshot(entry) : saved?.turnId ? {
       id: saved.turnId, threadId: conversationId, state: saved.state,
@@ -320,10 +332,27 @@ export function createClaudeConversationOwner({
         }
         await entry.nativeTurn.receive(frame);
       },
-      ...(store.releaseExecution ? {
+      ...(store.releaseExecution || entry.command?.tools ? {
         async onControlRequest(request, { signal }) {
           const active = entry.command;
-          const work = claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], turn: active, signal });
+          const suppliedTools = !store.releaseExecution && active?.tools;
+          const owner = active?.nativeOwner;
+          const work = claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], turn: active, signal,
+            ...(suppliedTools ? {
+              assertCurrent(native) {
+                if (!currentApplicationCommand(entry, active, owner) || active.nativeOwner !== owner ||
+                    native.messageId !== active.messageId) throw new Error("Claude's application call belongs to a retired input.");
+              },
+              onExecutionFailure(error, native) {
+                // Already-invoked old work retains its original result. Only
+                // this still-current authored input can fail this native run.
+                if (currentApplicationCommand(entry, active, owner) && active.nativeOwner === owner &&
+                    native.messageId === active.messageId) {
+                  active.toolFailure = error;
+                  active.failure.reject(error);
+                }
+              }
+            } : {}) });
           active?.toolWork.add(work);
           try { return await work; }
           finally { active?.toolWork.delete(work); }
@@ -347,7 +376,7 @@ export function createClaudeConversationOwner({
     return entry.process;
   }
 
-  async function send(entry, input = {}, { renewal = false, command } = {}) {
+  async function send(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
     const message = command ? input.text : text(input.message || input.prompt);
     if (!command && !message) throw createError("Enter a message for Claude.");
     const context = entry.context;
@@ -396,8 +425,17 @@ export function createClaudeConversationOwner({
     entry.onEvent = context.onEvent;
     entry.lastMessageId = uuid;
     const actorMetadata = command ? undefined : await onEvent(entry, { type: "message-metadata", input, context });
+    const nativeOwner = applicationCommand ? { process: native, executionId: entry.executionId,
+      accountIdentity: entry.accountIdentity, threadId: entry.id, turnId: entry.turn.id } : null;
     let conversationTurn;
+    function deliveryResult() {
+      return { ok: true, delivered: true, deliveryMode: steering ? "steer" : "new_turn",
+        thread: { id: entry.id }, turn: snapshot(entry), workdir: context.workdir, conversationTurn };
+    }
     async function accept() {
+      // The new native ACK retires old effect custody while its canonical
+      // admission/commit is awaited; it cannot retag a delayed old failure.
+      if (applicationCommand) applicationCommand.active.nativeOwner = null;
       if (command) {
         if (!steering) await onEvent(entry, { type: "binding-admitted" });
         await command.accept();
@@ -411,6 +449,22 @@ export function createClaudeConversationOwner({
         if (admission) conversationTurn = await admission;
       }
       if (!command) await entry.nativeTurn.updateState("active");
+      if (applicationCommand && conversationTurn) {
+        const value = deliveryResult();
+        applicationCommand.active.delivery = { value, completion: entry.completion?.promise };
+        // The original canonical admission and publication precede Core's same
+        // accepted-request gate; native tools cannot race an unaccepted user.
+        await applicationCommand.accept({ nativeResult: { value }, conversationTurn, nativeTurnId: entry.turn?.id });
+        if (entry.process !== nativeOwner.process || entry.executionId !== nativeOwner.executionId ||
+            entry.accountIdentity !== nativeOwner.accountIdentity || entry.id !== nativeOwner.threadId ||
+            entry.turn?.id !== nativeOwner.turnId || entry.disposed || entry.stopping || entry.stopPending) {
+          throw new Error("Claude's admitted tools no longer belong to this native process.");
+        }
+        applicationCommand.active.nativeOwner = nativeOwner;
+        applicationCommand.active.messageId = messageId;
+        if (steering) applicationCommand.active.nativeToolCount = 0;
+        applicationCommand.active.admitted = true;
+      }
     }
     try {
       if (command) command.attempted = true;
@@ -421,8 +475,7 @@ export function createClaudeConversationOwner({
       if (!command) await entry.nativeTurn.stopProcess(error.message);
       throw error;
     }
-    return { ok: true, delivered: true, deliveryMode: steering ? "steer" : "new_turn",
-      thread: { id: entry.id }, turn: snapshot(entry), workdir: context.workdir, conversationTurn };
+    return deliveryResult();
   }
 
   async function startTurn(entry, input = {}) {
@@ -651,10 +704,19 @@ export function createClaudeConversationOwner({
     }
     command.signal.throwIfAborted();
     const entry = await acquire(command.context);
-    const value = await send(entry, { ...command.input.nativeMessage, onPromptSending: command.beforeDispatch });
+    const active = control.current;
+    const applicationCommand = active?.tools ? { active, accept: command.accept } : null;
+    if (applicationCommand) {
+      if (entry.disposed || entry.command && entry.command !== active) throw new Error("This Claude conversation is closed or already working.");
+      if (active.entry && active.entry !== entry) throw new Error("Claude's application tools belong to another native conversation.");
+      active.entry = entry;
+      entry.command = active;
+      entry.toolSchemas = active.tools.schemas;
+    }
+    const value = await send(entry, { ...command.input.nativeMessage, onPromptSending: command.beforeDispatch }, { applicationCommand });
     const completion = value.conversationTurn ? entry.completion?.promise : null;
     const delivered = { value, completion };
-    if (value.delivered === true && value.conversationTurn) {
+    if (!applicationCommand && value.delivered === true && value.conversationTurn) {
       if (control.current) control.current.delivery = delivered;
       await command.accept({ nativeResult: { value }, conversationTurn: value.conversationTurn, nativeTurnId: value.turn?.id });
     }
@@ -749,7 +811,18 @@ export function createClaudeConversationOwner({
         await Promise.allSettled([...active.toolWork]);
         if (entry?.command === active) entry.command = null;
       }
-    } else await cancellation?.catch(() => {});
+    } else {
+      await cancellation?.catch(() => {});
+      if (tools && active.entry) {
+        try {
+          if (problem || signal.aborted) await active.entry.nativeTurn.stopProcess(problem?.message || "Work stopped.");
+        } catch (error) { problem = error; }
+        finally {
+          await Promise.allSettled([...active.toolWork]);
+          if (active.entry.command === active) active.entry.command = null;
+        }
+      }
+    }
     if (control.current === active) control.current = null;
     if (problem) {
       if (binding && nativeDispatch.attempted && !nativeDispatch.admitted) problem.delivery = "uncertain";
@@ -758,7 +831,7 @@ export function createClaudeConversationOwner({
     if (!binding) return { value: delivered.value };
   }
 
-  return Object.freeze({ entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, stopForTerminal, prepareTerminal, send, startTurn,
+  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, stopForTerminal, prepareTerminal, send, startTurn,
     interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }
@@ -803,7 +876,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     return Boolean(entry && owner && inputOwner === owner && acceptedInput === owner &&
       owner.commandId === currentCommandId && entry.process && entry.process === owner.process &&
       entry.executionId === owner.executionId && entry.accountIdentity === owner.accountIdentity &&
-      entry.turn?.id === turnId && !entry.stopping && !entry.stopPending && !entry.disposed && !entry.observationError);
+      entry.turn?.id === turnId && !entry.stopping && !entry.stopPending && !entry.disposed &&
+      !entry.observationError && !entry.command?.toolWork.size && !entry.command?.toolFailure);
   }
 
   function readFinalAssistantResult(threadId, expectedTurnId) {

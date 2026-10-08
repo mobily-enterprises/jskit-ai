@@ -278,7 +278,7 @@ import path from "node:path";
 
 // Exercise the original supplied-store Send/process/event owner, without the
 // standalone execution-release capability or application-tool branch.
-async function publishedClaudeFixture(t, { publication = true, providerId = "anthropic", releaseExecution } = {}) {
+async function publishedClaudeFixture(t, { publication = true, providerId = "anthropic", releaseExecution, canonicalAdmission = false } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), "claude-final-receipt-"));
   const context = { key: root, workdir: root };
   const saved = new Map();
@@ -319,6 +319,10 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
     },
     async onEvent(entry, event) {
       if (event.type === "before-state") await beforeState?.(entry, event);
+      if (event.type === "admit-message" && canonicalAdmission) {
+        await behavior.beforeAdmit?.();
+        return { turnId: `authored-${event.messageId}`, messages: [{ role: "user", messageId: event.messageId, text: event.message }] };
+      }
       if (event.type === "message" && event.message.complete && event.message.role === "assistant") {
         await behavior.beforePublish?.();
         const turn = { id: `host-${messages.length}`, messages: [{ messageId: event.message.id,
@@ -511,4 +515,192 @@ test("Claude failed generic native exit cannot revive a completed receipt and or
   assert.equal(f.entry.process, null);
   assert.equal(f.entry.stopPending, null);
   assert.equal(f.final(), null);
+});
+
+
+async function claudeSuppliedToolFixture(t) {
+  const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
+  const control = { current: null, disposed: false };
+  const signal = new AbortController();
+  const accepted = [];
+  const effects = [];
+  const schemas = [{ type: "function", function: { name: "inspect_lesson", description: "Inspect the admitted lesson",
+    parameters: { type: "object", properties: { attemptId: { type: "string" } }, additionalProperties: false } } }];
+  const tools = { schemas, async execute(input, options) {
+    assert.ok(accepted.some(value => value.messageId === options.messageId), "The same Core accept callback precedes effects");
+    effects.push({ input, messageId: options.messageId });
+    await f.behavior.toolWait;
+    if (f.behavior.toolError) throw f.behavior.toolError;
+    return { ok: true, result: { lesson: "current" } };
+  } };
+  function command(messageId) {
+    return { context: f.context, input: { messageId, nativeMessage: { messageId, message: "Teach this lesson" } },
+      signal: signal.signal, tools,
+      async beforeDispatch(native) { assert.equal(native.threadId, f.conversationId); },
+      async accept(value) {
+        assert.equal(value.conversationTurn.turnId, `authored-${messageId}`);
+        assert.equal(value.nativeTurnId, f.entry.turn.id);
+        accepted.push({ messageId, value });
+      } };
+  }
+  const acquire = async () => f.entry;
+  const options = { acquire, reportFailure: async () => {}, maximumToolCalls: 2 };
+  function call(id, name = "inspect_lesson", input = { attemptId: "saved-attempt" }) {
+    return f.entry.process.options.onControlRequest({ subtype: "mcp_message", server_name: "application",
+      message: { jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: input,
+        _meta: { "claudecode/toolUseId": id } } } }, { signal: signal.signal });
+  }
+  async function nativeTool(id, input = { attemptId: "saved-attempt" }) {
+    await f.frame({ type: "assistant", uuid: `native-${id}`, message: { content: [
+      { type: "tool_use", id, name: "mcp__application__inspect_lesson", input }
+    ] } });
+  }
+  return { ...f, get entry() { return f.entry; }, control, signal, accepted, effects, tools, command, options, call, nativeTool };
+}
+
+test("Claude supplied store adopts the actual canonical ACK before existing native application tools", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const admitted = Promise.withResolvers();
+  f.behavior.beforeAdmit = async () => { admitted.resolve(); await f.behavior.admissionWait; };
+  const hold = Promise.withResolvers();
+  f.behavior.admissionWait = hold.promise;
+  const running = f.owner.run(f.control, f.command("tools-request"), f.options);
+  void running.catch(() => {});
+  await admitted.promise;
+  assert.equal(f.entry.command.admitted, false);
+  assert.equal(f.accepted.length, 0);
+  await f.nativeTool("early-call");
+  await assert.rejects(f.call("early-call"), /admitted native tool use/);
+  assert.equal(f.effects.length, 0);
+  hold.resolve();
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  const native = f.entry.process;
+  assert.equal(typeof native.options.onControlRequest, "function");
+  assert.equal(f.owner.applicationToolsSupported, true);
+  await f.nativeTool("current-call");
+  const response = await f.call("current-call");
+  assert.equal(JSON.parse(response.mcp_response.result.content[0].text).ok, true);
+  assert.equal(f.effects[0].messageId, "tools-request");
+  await assert.rejects(f.call("forged-call"), /admitted native tool use/);
+  await assert.rejects(f.call("current-call", "inspect_lesson", { attemptId: "foreign" }), /admitted native tool use/);
+  await f.frame({ type: "result", subtype: "success", result: "Current lesson" });
+  await running;
+  assert.equal(f.entry.command, null);
+  assert.equal(f.entry.process, native, "Original supplied-store completion retains its process");
+  assert.equal(f.entry.turn.state, "completed");
+});
+
+test("Claude supplied tools retain the originating tool message while steering adopts its own canonical ACK", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const running = f.owner.run(f.control, f.command("first-tool-request"), f.options);
+  void running.catch(() => {});
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  await f.nativeTool("first-owned-call");
+  await f.owner.steer(f.control, f.command("steered-tool-request"), f.options);
+  await f.nativeTool("steered-owned-call");
+  await assert.rejects(f.call("first-owned-call"), /retired input/);
+  await f.call("steered-owned-call");
+  assert.deepEqual(f.effects.map(value => value.messageId), ["steered-tool-request"]);
+  assert.deepEqual(f.accepted.map(value => value.messageId), ["first-tool-request", "steered-tool-request"]);
+  await f.frame({ type: "result", subtype: "success", result: "Steered lesson" });
+  await running;
+  assert.equal(f.entry.command, null);
+});
+
+test("Claude supplied run joins existing native tool work before dropping its command custody", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const running = f.owner.run(f.control, f.command("held-tool-request"), f.options);
+  void running.catch(() => {});
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  const finishTool = Promise.withResolvers();
+  f.behavior.toolWait = finishTool.promise;
+  await f.nativeTool("held-native-call");
+  const tool = f.call("held-native-call");
+  while (!f.effects.length) await new Promise(resolve => setImmediate(resolve));
+  let finished = false;
+  const finishedRun = running.then(() => { finished = true; });
+  await f.frame({ type: "result", subtype: "success", result: "Cannot overtake tool work" });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(finished, false);
+  assert.ok(f.entry.command);
+  assert.equal(f.final(), null, "A result observed before its original tool work finishes has no usable final proof");
+  finishTool.resolve();
+  await tool;
+  await finishedRun;
+  assert.equal(f.entry.command, null);
+});
+
+
+test("Claude current supplied turn reader refuses restored/process/account/closing stand-ins", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const read = () => f.owner.readRetainedTurn(f.context.key, f.conversationId, { saved: { turnId: "saved", state: "active" }, current: true });
+  assert.equal(read(), null);
+  const running = f.owner.run(f.control, f.command("live-reader-request"), f.options);
+  void running.catch(() => {});
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(read().id, f.entry.turn.id);
+  const native = f.entry.process;
+  f.entry.process = null;
+  assert.equal(read(), null);
+  f.entry.process = native;
+  const account = f.entry.accountIdentity;
+  f.entry.accountIdentity = "different-account";
+  assert.equal(read(), null);
+  f.entry.accountIdentity = account;
+  f.entry.stopping = true;
+  assert.equal(read(), null);
+  f.entry.stopping = false;
+  assert.equal(read().active, true);
+  await f.frame({ type: "result", subtype: "success", result: "Complete live turn" });
+  await running;
+  assert.equal(read(), null, "A retained completed turn cannot admit a new effect");
+  assert.equal(f.owner.readRetainedTurn(f.context.key, f.conversationId, { saved: null }).state, "completed",
+    "Original read-only retained presentation remains unchanged");
+});
+
+test("Claude supplied current executor failure uses original Stop and command drain", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const running = f.owner.run(f.control, f.command("current-effect-failure"), f.options);
+  void running.catch(() => {});
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  const native = f.entry.process;
+  let stops = 0;
+  const stop = native.stop;
+  native.stop = async () => { stops++; return stop.call(native); };
+  f.behavior.toolError = new Error("Actual supplied executor failure");
+  await f.nativeTool("owned-failure");
+  await assert.rejects(f.call("owned-failure"), /Actual supplied executor failure/);
+  await assert.rejects(running, /Actual supplied executor failure/);
+  assert.equal(stops, 1);
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.command, null);
+  assert.equal(f.final(), null);
+});
+
+test("Claude admitted old executor failure cannot stop its accepted steering successor", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const running = f.owner.run(f.control, f.command("old-held-effect"), f.options);
+  void running.catch(() => {});
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  const native = f.entry.process;
+  let stops = 0;
+  const stop = native.stop;
+  native.stop = async () => { stops++; return stop.call(native); };
+  const held = Promise.withResolvers();
+  f.behavior.toolWait = held.promise;
+  await f.nativeTool("old-held-call");
+  const old = f.call("old-held-call");
+  void old.catch(() => {});
+  while (!f.effects.length) await new Promise(resolve => setImmediate(resolve));
+  await f.owner.steer(f.control, f.command("accepted-successor"), f.options);
+  held.reject(new Error("Old admitted effect failed late"));
+  await assert.rejects(old, /Old admitted effect failed late/);
+  assert.equal(f.entry.command.messageId, "accepted-successor");
+  assert.equal(f.entry.command.toolFailure, undefined);
+  assert.equal(stops, 0);
+  f.behavior.toolWait = undefined;
+  await f.frame({ type: "result", subtype: "success", result: "Successor completed" });
+  await running;
+  assert.equal(stops, 0);
+  assert.equal(f.entry.process, native);
 });

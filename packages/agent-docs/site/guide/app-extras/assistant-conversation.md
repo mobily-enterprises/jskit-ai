@@ -1483,8 +1483,34 @@ does not abort that newer input. Owned executor failure stops its still-current
 native turn; Stop and disposal drain and close
 only its private bridge under the original owner. Unconfigured bound and scoped
 conversations retain their original behavior. These source tests do not establish
-an application's composition or installed/native acceptance. Bound Claude
-application-tool dispatch remains unavailable.
+an application's composition or installed/native acceptance.
+
+An opted-in supplied Claude conversation uses its original retained owner/store
+and SDK MCP control pipe. The owner exposes `applicationToolsSupported: true`;
+that capability does not authorize an application action. Its configured command
+is attached before native process configuration. The host must expose the same
+application SDK declaration through `process.configure` using the owner's tool
+schemas, without selecting standalone execution-release or isolated policy.
+Original native ACK, canonical admission/publication and the common accepted
+request callback precede tool effects. Each call matches the exact recorded
+native tool-use ID, name, arguments and originating accepted message. Optional
+supplied-owner checks at the same executor boundary refuse retired input before
+execution and report only a still-current owned executor failure through the
+original Stop/drain path. Already invoked old work cannot fail a later accepted
+input. The common ordered tool-work catch attributes a failure only to its
+still-current request; prior action error receipts and once-only execution remain
+unchanged. The original retained-turn reader's opt-in current mode requires the exact
+live process, account, command and native tuple; its default retained/history
+projection is unchanged. Stop and completion join existing tool work; clearing custody leaves the original supplied
+process/storage lifecycle intact. Unconfigured supplied conversations keep their
+original behavior.
+
+`claudeCodeArguments({ applicationTools: true })` adds the existing SDK MCP config
+also for normal Claude execution. It does not change native source tools or
+permission defaults; existing tool-free and isolated branches are unchanged.
+Applications still supply exact action authorization, native instruction/account
+configuration and checkpoints. Source/component proofs do not establish a host's
+installed or real CLI/application acceptance.
 
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs

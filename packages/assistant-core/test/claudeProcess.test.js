@@ -202,3 +202,17 @@ test("Claude plan usage retains real windows and never invents an allowance afte
     { id: "five_hour", remainingPercent: 75 }, { id: "seven_day", remainingPercent: 0 }
   ]);
 });
+
+
+test("normal Claude application MCP declaration preserves native source tools and permission defaults", () => {
+  const ordinary = claudeCodeArguments({ sessionId: "native", model: "sonnet" });
+  const configured = claudeCodeArguments({ sessionId: "native", model: "sonnet", applicationTools: true });
+  const position = configured.indexOf("--mcp-config");
+  assert.ok(position >= 0);
+  assert.deepEqual(JSON.parse(configured[position + 1]), { mcpServers: { application: { type: "sdk", name: "application" } } });
+  assert.deepEqual(configured.filter((_value, index) => index !== position && index !== position + 1), ordinary);
+  for (const flag of ["--safe-mode", "--strict-mcp-config", "--restricted", "--tools", "--permission-mode", "--allowedTools", "--disallowedTools"]) {
+    assert.equal(configured.includes(flag), ordinary.includes(flag), flag);
+  }
+  assert.equal(configured.includes("bypassPermissions"), false);
+});

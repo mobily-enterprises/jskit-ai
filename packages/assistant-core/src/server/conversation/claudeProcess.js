@@ -147,6 +147,10 @@ export function claudeCodeArguments({
     } : {} }));
     if (!applicationTools) args.push("--disallowedTools", "mcp__*");
     if (!toolFree) args.push("--tools", "Bash,Read,Edit,Write,Glob,Grep,NotebookEdit");
+  } else if (applicationTools) {
+    args.push("--mcp-config", JSON.stringify({ mcpServers: {
+      [CLAUDE_APPLICATION_TOOL_SERVER]: { type: "sdk", name: CLAUDE_APPLICATION_TOOL_SERVER }
+    } }));
   }
   if (outputSchema) args.push("--json-schema", JSON.stringify(outputSchema));
   return args;
