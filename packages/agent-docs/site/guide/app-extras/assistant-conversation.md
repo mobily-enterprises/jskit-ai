@@ -1397,6 +1397,15 @@ existing records; it does not create a second runtime record or backfill history
 This is an advanced host integration, not required for ordinary file/custom
 transaction storage.
 
+The original canonical transcript also retains optional user-message `data`
+when the admitting application supplies it. Codex keeps that same data with the
+authored pending request and publishes it with its actual native receipt,
+including receipt recovery after restart. Recovery never obtains data from a
+newer request or recreates absent historical associations. The application owns
+validation and authorization of these facts; data does not supply tool authority,
+actor identity or a delivery receipt. Unconfigured messages retain their existing
+record shape.
+
 A server-owned bound conversation can opt into common application-tool setup
 with `applicationTools: { storage, prepareContext }`, alongside the runtime's
 existing `actions`/`toolPolicy` or `toolCatalog`. `storage` must be the original

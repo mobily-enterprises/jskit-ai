@@ -934,7 +934,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           const request = JSON.parse(await runtime.store.readMetadataValue(sessionId, "assistant_delivery")).engines.codex.pending;
           if (request?.messageId === messageId) await owner.writeDeliveredUserMessage(runtime, sessionId,
             request.displayMessage, messageId, request.turnMetadata, request.displayAttachments,
-            { threadId: binding.threadId, turnId: acceptedTurn?.id || "" });
+            { threadId: binding.threadId, turnId: acceptedTurn?.id || "" }, request.data);
           let recoveryLimitation;
           if (!stored.agentRuns.length) {
             recoveryLimitation = "Delivery is confirmed, but this older binding has no original native run record. Stored history is preserved; output recovery cannot be proven.";

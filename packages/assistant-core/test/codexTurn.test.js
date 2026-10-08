@@ -2815,3 +2815,87 @@ test("a rejected async output context does not acquire a provider or read native
   assert.equal(result.reason, "error"); assert.match(result.error, /learning scope is no longer active/u);
   assert.equal(acquired, false); assert.equal(f.pages.length, 0);
 });
+
+test("native receipt keeps admitted application data with the original authored message", async () => {
+  const f = await receiptFixture();
+  const messageId = "application-data-live";
+  const data = { association: { reference: "issued-reference", delivery: { turnId: "question-turn" } } };
+  f.run = { ...f.run, state: "starting", providerTurnId: "", pendingUserMessageClientIds: [messageId] };
+  const receipt = Promise.withResolvers();
+  f.owner.pendingUserMessages.set(`project:${f.sessionId}\0${messageId}`, {
+    text: "These are my actual words.", attachments: [], authoredInput: { messageId, data }, receipt
+  });
+  f.observe();
+  f.emit(f.receipt(messageId, "Prepared model context must not replace authored words"));
+  await f.drain();
+  await receipt.promise;
+  const turns = (await f.store.readConversationLog(f.sessionId)).filter(row => row.user?.messageId === messageId);
+  assert.equal(turns.length, 1);
+  assert.equal(turns[0].user.messageId, messageId);
+  assert.equal(turns[0].user.text, "These are my actual words.");
+  assert.deepEqual(turns[0].user.data, data);
+  assert.ok(f.operations.indexOf("authored-message") < f.operations.indexOf("event:codex-app-server-user-message-consumed"));
+  data.association.reference = "later-mutated-reference";
+  assert.equal((await f.store.readConversationLog(f.sessionId)).find(row => row.user?.messageId === messageId).user.data.association.reference, "issued-reference");
+});
+
+test("native receipt recovery keeps saved application data without recapture or duplication", async () => {
+  const f = await receiptFixture();
+  const messageId = "application-data-restart";
+  const data = { association: { reference: "original-saved-reference" } };
+  f.run = { ...f.run, state: "starting", providerTurnId: "", pendingUserMessageClientIds: [] };
+  f.metadata.set("authorized-delivery", JSON.stringify({ engines: { codex: { pending: {
+    messageId, threadId: f.threadId, message: "Private prepared prompt", displayMessage: "My retained answer.",
+    displayAttachments: [], data
+  } } } }));
+  f.observe();
+  f.emit(f.receipt(messageId));
+  await f.drain();
+  f.emit(f.receipt(messageId));
+  await f.drain();
+  const rows = (await f.store.readConversationLog(f.sessionId)).filter(row => row.user?.messageId === messageId);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].user.text, "My retained answer.");
+  assert.deepEqual(rows[0].user.data, data);
+  assert.equal(f.operations.filter(value => value === "authored-message").length, 1);
+  assert.equal(JSON.stringify(rows).includes("Private prepared prompt"), false);
+});
+
+test("native receipt does not borrow application data from another authored identity", async () => {
+  const f = await receiptFixture();
+  const messageId = "application-data-matching";
+  f.run = { ...f.run, state: "starting", providerTurnId: "", pendingUserMessageClientIds: [messageId] };
+  const receipt = Promise.withResolvers();
+  f.owner.pendingUserMessages.set(`project:${f.sessionId}\0${messageId}`, {
+    text: "Unassociated actual words.", attachments: [],
+    authoredInput: { messageId: "other-message", data: { association: "foreign" } }, receipt
+  });
+  f.observe();
+  f.emit(f.receipt(messageId));
+  await f.drain();
+  await receipt.promise;
+  const rows = (await f.store.readConversationLog(f.sessionId)).filter(row => row.user?.messageId === messageId);
+  assert.equal(rows.length, 1);
+  assert.equal(Object.hasOwn(rows[0].user, "data"), false);
+});
+
+test("native changeover retries retain original application data including its absence", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  for (const data of [undefined, { association: "original" }]) {
+    const pending = { messageId: "retained-request", message: "Prepared original prompt", displayMessage: "Actual original words.",
+      displayAttachments: [], attachmentIds: [], seen: {}, attempted: false,
+      ...(data !== undefined ? { data } : {}) };
+    let sent;
+    const changeover = createConversationChangeover({
+      state: { async read() { return { lastEngine: "codex", engines: { codex: { seen: {}, pending } } }; }, async write() {} },
+      transcript: { async hasMessage() { return false; } },
+      agent: { async sendMessage(input) { sent = input; return { ok: false, delivered: false }; } }
+    });
+    await changeover.send({ engineId: "codex", messages: [], input: {
+      messageId: pending.messageId, message: "Actual original words.", data: { association: "newer-reference" }
+    } });
+    assert.equal(sent.message, pending.message);
+    assert.equal(sent.displayMessage, pending.displayMessage);
+    assert.deepEqual(sent.data, data);
+  }
+});

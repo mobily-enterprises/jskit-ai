@@ -142,6 +142,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
       await transcript.writeUserMessage({
         text: pending.displayMessage, messageId: pending.messageId,
         attachments: pending.displayAttachments,
+        ...(pending.data !== undefined ? { data: pending.data } : {}),
         turnMetadata: { ...pending.turnMetadata, ...turnMetadata }
       });
       await markDelivered(pending.seen);
@@ -198,6 +199,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         displayMessage: String(input.displayMessage || input.message || ""),
         displayAttachments: input.displayAttachments || input.attachments || [],
         attachmentIds: input.attachmentIds || [],
+        ...(input.data !== undefined ? { data: structuredClone(input.data) } : {}),
         seen: snapshot, attempted: false,
         ...(captureContext ? {
           contextText: preamble.slice(0, preamble.length - String(input.message || "").length - "\n\nUser's message:\n".length),
@@ -213,6 +215,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
     const delivered = await agent.sendMessage(pending ? {
       ...input, message: pending.message, displayMessage: pending.displayMessage,
       displayAttachments: pending.displayAttachments, attachmentIds: pending.attachmentIds,
+      data: pending.data,
       ...(captureContext ? { contextText: pending.contextText, contextAttachments: pending.contextAttachments } : {}),
       onPromptSending: async ({ threadId, displayAttachments, turnMetadata }) => {
         const replacement = value.replacement;

@@ -61,7 +61,8 @@ export function createCodexAppServerMessageDelivery({
     messageId = "",
     turnMetadata = null,
     attachments = [],
-    nativeIdentity = null
+    nativeIdentity = null,
+    data
   ) {
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     const message = normalizeCodexRunText(text);
@@ -78,12 +79,15 @@ export function createCodexAppServerMessageDelivery({
     if (pendingMessage?.recording) {
       return pendingMessage.recording;
     }
+    const authored = pendingMessage?.authoredInput;
+    const applicationData = authored?.messageId === normalizeCodexRunText(messageId) ? authored.data : data;
     const recording = (async () => {
       const written = await runtime.store.writeConversationUserMessage(normalizedSessionId, {
         attachments,
         nativeIdentity,
         messageId: normalizeCodexRunText(messageId),
         text: message,
+        ...(applicationData !== undefined ? { data: structuredClone(applicationData) } : {}),
         turnMetadata: messageMetadata.delivered
           ? await messageMetadata.delivered(runtime.store, normalizedSessionId, turnMetadata)
           : turnMetadata
@@ -157,7 +161,8 @@ export function createCodexAppServerMessageDelivery({
         await writeCodexAppServerDeliveredUserMessage(
           { store }, normalizedSessionId, recoveredMessage.displayMessage, receiptId,
           recoveredMessage.turnMetadata, recoveredMessage.displayAttachments,
-          { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) }
+          { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) },
+          recoveredMessage.data
         );
       }
       const turn = turnStateFromAgentRun(run || {});
