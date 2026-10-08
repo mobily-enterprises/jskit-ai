@@ -3343,8 +3343,10 @@ driver uses that same sender, native admission gate, monitor and Stop owner. Its
 connection, local execution, tool, attachment and structured-output facilities
 adapt to that owner. Tool effects await the exact authored delivery receipt;
 rejected steering preserves the previous active request. `/server/opencode-process` exports
-`createOpenCodeServerProcess`
-for advanced managed integration. The common driver's internal configuration
+`createOpenCodeServerProcess` and the existing `openCodeConversationAgent`
+selector for advanced managed integration. The selector returns the matching
+original native agent identity for explicit native-tool and application-tool
+capabilities; it does not change a saved model or launch inference. The common driver's internal configuration
 uses that same server startup, authentication, version, observation and cleanup
 implementation. `openCodeProcessEnvironment(baseEnv, { cacheRoot, dbPath,
 inlineConfig, outputTokenMax, password })` assembles native flags, cache,
@@ -3465,6 +3467,10 @@ The owner's history projection supplies ordered reasoning facts (`messageId`,
 with separate message-level `complete` and `flush` options. Native part selection
 and end-marker decoding stay inside JSKIT. The host keeps saved-message identity,
 headline policy, first-write timestamp formatting and publication.
+An explicitly supplied `outputId(nativeId, role)` projection forwards that actual
+native identity mapping to the same stream and persisted-message writers.
+Omitting it preserves their original payloads; this carries no completion or
+application policy and rewrites no retained history.
 Final-response inputs are read after admission and the Active write. Observer
 closure precedes notices and the final write. The existing `onRetired` resource
 continuation starts only after identity-safe monitor removal; its original

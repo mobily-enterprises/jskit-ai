@@ -320,3 +320,32 @@ test("OpenCode bindings share atomic publication without overwriting another con
   assert.throws(() => runtime.writeBindings(path.join(root, "another.json"), "foreign", []), /one absolute private binding registry/);
   assert.deepEqual(await readOpenCodeEnvironments(""), []);
 });
+
+
+test("native output identity is opt-in for every existing OpenCode projection writer", async () => {
+  const runtime = createOpenCodeSharedRuntime();
+  for (const configured of [false, true]) {
+    const writes = [];
+    const streams = [];
+    const native = { id: "native-final", type: "assistant", text: "Exact native final words.", time: { created: 1_000 } };
+    const unchanged = structuredClone(native);
+    const projection = {
+      messageId: (id, role) => `${id}:${role}`,
+      ...(configured ? { outputId: (id, role) => `${id}:${role}` } : {}),
+      readError: () => "", reasoning: async () => {},
+      store: {
+        async writeConversationAssistantMessage(id, message) { writes.push({ id, message }); return { id, message }; },
+        updateConversationStream(id, message) { streams.push({ id, message }); return { id, message }; },
+        completeConversationStreamMessage() {}
+      },
+      publishTurn: async () => {}, publishStream: async () => {}
+    };
+    await runtime.writeConversationProjection("conversation", [native], { inputMessageId: "", streaming: false }, projection);
+    await runtime.writeConversationProjection("conversation", [native], { inputMessageId: "", streaming: true }, projection);
+    await runtime.writeConversationProjection("conversation", [native, { id: "next", type: "assistant", text: "", time: { created: 2_000 } }], { streaming: true }, projection);
+    const message = { messageId: "native-final:assistant", ...(configured ? { outputId: "native-final:assistant" } : {}), text: native.text };
+    assert.deepEqual(writes, [{ id: "conversation", message }, { id: "conversation", message }]);
+    assert.deepEqual(streams, [{ id: "conversation", message: { turnId: "", ...message } }]);
+    assert.deepEqual(native, unchanged, "The original native history is never rewritten.");
+  }
+});
