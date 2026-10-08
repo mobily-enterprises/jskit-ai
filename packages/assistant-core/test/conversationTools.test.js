@@ -528,7 +528,8 @@ test("bound tools use exact accepted host rows and fresh server context without 
   assert.deepEqual(result, { ok: true, result: { actionId: "numbers.add", version: 1, result: { total: 5 } } });
   assert.equal(f.observed.mappings.length, 2);
   assert.deepEqual(f.observed.mappings[1].admission, { conversationId: "one", turnId: before.turnId,
-    messageId: message.messageId, nativeTurnId: "native-turn", origin: "user" });
+    messageId: message.messageId, nativeTurnId: "native-turn", nativeThreadId: "native-thread", origin: "user",
+    assertCurrent: f.observed.mappings[1].admission.assertCurrent });
   assert.equal(f.observed.mappings[0].actual, context);
   assert.deepEqual(f.observed.contexts[0].boundAdmission, f.observed.mappings[1].admission);
   await f.tools().execute(f.nativeCall);
@@ -650,4 +651,61 @@ test("an invoked bound tool retains its originating actor and receipt across ste
   assert.equal(saved[1].metadata.applicationTools, undefined);
   assert.equal(f.observed.mappings.every(({ actual }) => actual === context), true);
   assert.equal(f.observed.executions.length, 1);
+});
+
+
+test("bound native identity comes from the accepted owner rather than authored data", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send({ ...message, data: { nativeThreadId: "forged-thread", nativeTurnId: "forged-turn" } });
+  await f.currentCommand();
+  await f.loadContract();
+  await f.tools().execute(f.nativeCall);
+  await f.tools().execute(f.nativeCall);
+  assert.equal(f.observed.executions.length, 1, "Replaying the receipt must not repeat its effect");
+  assert.equal(f.observed.mappings.length, 3, "Receipt replay still refreshes its admitted identity");
+  for (const { admission } of f.observed.mappings) {
+    assert.equal(Object.isFrozen(admission), true);
+    assert.equal(admission.nativeThreadId, "native-thread");
+    assert.equal(admission.nativeTurnId, "native-turn");
+    assert.equal(admission.messageId, message.messageId);
+  }
+  const first = f.observed.mappings[0].admission;
+  await f.conversation.send({ messageId: "thread-steer", text: "Keep going.", steer: true, data: { nativeThreadId: "another-forgery" } });
+  await f.currentCommand(1);
+  await f.tools().execute({ id: "steer-contract", name: "assistant_action_contract",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) });
+  const latest = f.observed.mappings.at(-1).admission;
+  assert.equal(latest.nativeThreadId, "native-thread");
+  assert.equal(latest.messageId, "thread-steer");
+  assert.equal(first.messageId, message.messageId, "Later steering must not retarget an earlier tool receipt");
+  assert.equal(first.nativeThreadId, "native-thread");
+});
+
+
+test("bound admission current guard fences a held host effect after steering or completion", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  await f.tools().execute(f.nativeCall);
+  const original = f.observed.mappings[0].admission;
+  assert.equal(typeof original.assertCurrent, "function");
+  original.assertCurrent();
+  assert.equal(JSON.parse(JSON.stringify(original)).assertCurrent, undefined, "The guard is server-owned, not serialized authority");
+  const boundary = Promise.withResolvers();
+  const held = Promise.resolve().then(async () => { await boundary.promise; original.assertCurrent(); });
+  held.catch(() => {});
+  await f.conversation.send({ messageId: "guard-steer", text: "A new instruction.", steer: true });
+  await f.currentCommand(1);
+  boundary.resolve();
+  await assert.rejects(held, { code: "conversation_tool_request_retired" });
+  await f.tools().execute({ id: "guard-contract", name: "assistant_action_contract",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) });
+  const current = f.observed.mappings.at(-1).admission;
+  current.assertCurrent();
+  assert.equal(current.messageId, "guard-steer");
+  f.finish.resolve();
+  await f.conversation.wait();
+  assert.throws(() => current.assertCurrent(), { code: "conversation_tool_request_retired" });
+  assert.equal(f.observed.executions.length, 1, "Inspecting current authority must not dispatch or repeat work");
 });

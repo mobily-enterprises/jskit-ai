@@ -1428,6 +1428,19 @@ effect. A call keeps its originating context and admission across steering;
 saved-result retry verifies that same original turn/message. Hosts retain their
 own exact resource/version fences and action policy. Bound conversations without
 this explicit facility keep their existing common-runtime behavior.
+The frozen admission also exposes `nativeThreadId`, captured from the native
+owner's pre-dispatch identity when that request is accepted. It is not taken
+from authored input or application data. Check both `nativeThreadId` and
+`nativeTurnId` against the current native owner when an application effect
+requires that exact native conversation. Earlier admitted tool calls keep their
+original identities when later messages steer the conversation.
+The same server-only admission exposes `assertCurrent()`. A host that requires
+the latest admitted message calls it after its final awaited authority or native
+read and immediately before its effect. It throws after steering retires that
+request, after completion, or on cancellation. It does not replace the host's
+actor/resource checks or native thread check, and it is not serialized. Hosts
+choose this check explicitly; the generic runtime still preserves originating
+contexts for already invoked actions and saved-result recovery.
 
 For an opted-in bound Codex conversation, the common driver installs the same
 application-tool schemas and executor used by its standalone path. The original

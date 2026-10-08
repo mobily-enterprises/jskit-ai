@@ -479,7 +479,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           if (!request.accepted) throw new Error("The application tool does not belong to an admitted message.");
           return applicationTools.prepareContext(request.context, Object.freeze({ conversationId: entry.id,
             turnId: request.turnId, messageId: request.input.messageId, nativeTurnId: request.nativeTurnId,
-            origin: request.input.origin }));
+            nativeThreadId: request.nativeThreadId, origin: request.input.origin,
+            assertCurrent() {
+              active.controller.signal.throwIfAborted();
+              if (entry.active !== active || current !== request || !request.accepted || request.finished) {
+                throw failure("This application tool's admitted message is no longer current.", "conversation_tool_request_retired");
+              }
+            } }));
         } } : {}),
         maximumCalls: maximumToolCalls, discoveryOnly: driver.toolDiscovery === true,
         authorize: () => access(request.context, entry.id, "tool", entry),
@@ -751,6 +757,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           async accept(native) {
             if (entry.conversation) nativeResult = native.nativeResult;
             if (native?.nativeTurnId) active.nativeTurnId = native.nativeTurnId;
+            request.nativeThreadId = threadId;
             await admit(request, undefined, { nativeDelivery: true, conversationTurn: native?.conversationTurn });
             admitted.resolve(entry.conversation ? nativeResult.value
               : { ok: true, delivered: true, messageId: request.input.messageId, threadId });
