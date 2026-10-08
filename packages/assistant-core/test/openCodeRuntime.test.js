@@ -562,3 +562,84 @@ test("original shared-server replacement cannot retag the retained target's fina
   assert.equal(f.reads.length, count, "A refused read cannot recover history from the replacement process.");
   assert.equal(f.prompts.length, 0);
 });
+
+
+test("original message monitor clone retains only its registered target's final receipt", async t => {
+  const f = fixture();
+  const owned = [];
+  t.after(async () => { for (const target of owned) await f.runtime.release(target); });
+  let expectedTarget = await f.acquire("cloned-final-owner");
+  owned.push(expectedTarget);
+  expectedTarget.upstreamSessionId = "cloned-native-thread";
+  const originalTarget = expectedTarget;
+  const snapshots = [], writes = [], errors = [];
+  let modelPrompts = 0;
+  function prepareMessages(target, inputId, itemId, text) {
+    target.server.client.messages = async () => [{ id: inputId, type: "user", time: { created: 1 } },
+      { id: itemId, type: "assistant", text, time: { created: 2, completed: 3 } }];
+    target.server.client.prompt = async () => { modelPrompts += 1; assert.fail("An admitted final read cannot submit model work."); };
+  }
+  const projection = {
+    prepare() { return { fields: {} }; },
+    create(snapshot, turn) {
+      snapshots.push(snapshot);
+      assert.notEqual(snapshot, expectedTarget, "Preserve the ORIGINAL shallow monitor snapshot.");
+      assert.equal(snapshot.abortController, expectedTarget.abortController);
+      assert.equal(snapshot.server, expectedTarget.server);
+      assert.equal(snapshot.upstreamSessionId, expectedTarget.upstreamSessionId);
+      return {
+        observe: () => ({ readFailure: () => null, close: async () => {} }),
+        finalResponse: { readError: () => "" },
+        projectMessages: (messages, options) => f.runtime.writeConversationProjection("saved-session", messages, options, {
+          messageId: (id, role) => `${id}:${role}`, outputId: (id, role) => `${id}:${role}`,
+          readError: () => "", reasoning: async () => {}, store: {
+            async writeConversationAssistantMessage(_id, message) {
+              const written = { turnId: turn.id, assistant: { ...message, role: "assistant" } };
+              writes.push(written); return written;
+            }, updateConversationStream() {}, completeConversationStreamMessage() {}
+          }, publishTurn: async () => {}, publishStream: async () => {}
+        }),
+        writeRun: async () => {}, completeResult: async (_turn, { failure }) => failure, onRetired() {}
+      };
+    },
+    onError(error) { errors.push(error); }
+  };
+  prepareMessages(expectedTarget, "clone-input", "clone-final", "Exact cloned monitor final.");
+  await f.runtime.beginMessageMonitor("cloned-final-owner", expectedTarget,
+    { id: "clone-input", eventStartedAt: 1 }, {}, projection);
+  const result = f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input");
+  assert.ok(result, "Original beginMessageMonitor must expose the actual published receipt despite its target snapshot.");
+  assert.deepEqual(result.conversationTurn, writes.at(-1));
+  assert.equal(f.runtime.turns.get("cloned-final-owner").finalAssistantResultTarget, originalTarget);
+  assert.notEqual(f.runtime.turns.get("cloned-final-owner").finalAssistantResultTarget, snapshots[0]);
+  assert.equal(Object.hasOwn(result, "finalAssistantResultTarget"), false);
+  assert.equal(Object.hasOwn(f.runtime.turnSnapshot(f.runtime.turns.get("cloned-final-owner")), "finalAssistantResultTarget"), false);
+  const peer = await f.acquire("cloned-final-peer"); owned.push(peer);
+  await f.runtime.release(originalTarget, { retainSharedProcess: true });
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input"), null);
+  expectedTarget = await f.acquire("cloned-final-owner"); owned.push(expectedTarget);
+  expectedTarget.upstreamSessionId = "cloned-native-thread";
+  assert.notEqual(expectedTarget, originalTarget);
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input"), null);
+  assert.equal(peer.abortController.signal.aborted, false);
+  assert.equal(f.starts.length, 1);
+  assert.equal(f.stops.length, 0);
+  prepareMessages(expectedTarget, "fresh-clone-input", "fresh-clone-final", "Exact new owner final.");
+  await f.runtime.beginMessageMonitor("cloned-final-owner", expectedTarget,
+    { id: "fresh-clone-input", eventStartedAt: 1 }, {}, projection);
+  const current = f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "fresh-clone-input");
+  assert.ok(current, "A newly admitted original cloned monitor uses only its own registered owner.");
+  assert.equal(current.itemId, "fresh-clone-final");
+  assert.equal(current.text, "Exact new owner final.");
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "clone-input"), null);
+  const refreshPeer = await f.acquire("cloned-refresh-peer", { selected: { ...f.connection, fingerprint: "refreshed-account" } });
+  owned.push(refreshPeer);
+  assert.equal(f.runtime.processes.get("cloned-final-owner"), expectedTarget);
+  assert.equal(expectedTarget.abortController.signal.aborted, false);
+  assert.equal(f.runtime.readFinalAssistantResult("cloned-final-owner", "cloned-native-thread", "fresh-clone-input"), null,
+    "Original shared process replacement cannot reattach the cloned monitor's receipt.");
+  assert.equal(f.starts.length, 2);
+  assert.equal(f.stops.length, 1);
+  assert.equal(modelPrompts, 0);
+  assert.deepEqual(errors, []);
+});

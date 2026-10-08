@@ -1261,7 +1261,12 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     delete turn.finalAssistantResult;
     delete turn.finalAssistantResultTarget;
     delete turn.finalAssistantResultProcess;
-    const finalAssistantResultProcess = sharedProcess;
+    const registeredTarget = processes.get(key);
+    const finalAssistantResultTarget = registeredTarget &&
+      registeredTarget.abortController === target.abortController &&
+      registeredTarget.server === target.server &&
+      registeredTarget.upstreamSessionId === target.upstreamSessionId ? registeredTarget : null;
+    const finalAssistantResultProcess = finalAssistantResultTarget ? sharedProcess : null;
     turns.set(key, turn);
     const signal = AbortSignal.any([target.abortController.signal, turn.abortController.signal]);
     const monitor = Promise.resolve().then(async () => {
@@ -1381,7 +1386,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         turn.error = failure;
         turn.state = finalState;
         turn.finalAssistantResult = finalState === "completed" && !failure ? finalAssistantResult : null;
-        turn.finalAssistantResultTarget = turn.finalAssistantResult ? target : null;
+        turn.finalAssistantResultTarget = turn.finalAssistantResult ? finalAssistantResultTarget : null;
         turn.finalAssistantResultProcess = turn.finalAssistantResult ? finalAssistantResultProcess : null;
         turn.updatedAt = new Date().toISOString();
         await writeRun(turn, finalState, failure).catch(() => null);
