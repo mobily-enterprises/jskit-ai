@@ -165,6 +165,6 @@ const BookingsFeature = defineCrudJsonApiFeature({
 
 ## Packaged source
 
-- Owner: `@jskit-ai/crud-core@0.1.245`
+- Owner: `@jskit-ai/crud-core@0.1.246`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/crud-core/patterns/json-api-resource-package/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/crud-core/patterns/json-api-resource-package/example)
