@@ -136,6 +136,45 @@ are declared. Verify create, list, blank-name rejection and reload persistence
 without signing in for this public variant; owner-scoped variants additionally
 need cross-owner denial tests.
 
+## Direct API tests use JSON:API documents
+
+JSKIT's CRUD screens and HTTP client apply the resource's JSON:API transport
+automatically. Direct Playwright `request` calls and other raw HTTP clients must
+supply that transport themselves. An ordinary JSON body such as `{ title }`
+with `Content-Type: application/json` does not test field validation on a
+JSON:API route; it is rejected as an unsupported media type (HTTP 415).
+
+Use the application's actual API base and scope, not its page URL. For the
+public Books resource above, with API base `/api` and transport type `books`:
+
+```js
+const headers = {
+  "Content-Type": "application/vnd.api+json",
+  Accept: "application/vnd.api+json"
+};
+const response = await request.post("/api/books", {
+  headers,
+  data: {
+    data: {
+      type: "books",
+      attributes: { title: "Kindred" }
+    }
+  }
+});
+expect(response.status()).toBe(201);
+const document = await response.json();
+expect(document.data.attributes.title).toBe("Kindred");
+```
+
+Keep the same headers and `data.type/attributes` envelope when testing invalid
+field values; for this contract, an empty `title` or one over 255 characters
+should return HTTP 400. Raw responses contain fields under `data.attributes`,
+while the shared client simplifies resource responses. A collection response
+has an array in `data`. Match `data.type` to the configured resource transport;
+retain the application's existing identity and CSRF fixture for protected APIs.
+Prefer the shared resource client for application requests rather than copying
+this raw test encoding into page code.
+
 ## Record deletion
 
 Deletion requires an explicit shared `DELETE` operation and confirmation
