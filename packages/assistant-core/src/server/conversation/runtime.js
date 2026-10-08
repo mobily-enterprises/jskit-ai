@@ -375,6 +375,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function initialize(entry, configuration, requestedEngine) {
     if (entry.conversation) {
+      entry.applicationTools = boundApplicationTools(entry.conversation);
       entry.engine = entry.conversation.engine;
       if (requestedEngine && requestedEngine !== entry.engine) throw failure("The selected native engine changed.", "conversation_engine_mismatch");
       entry.driver = createDriver(entry.engine, entry.host);
@@ -438,6 +439,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     entry.provider = await openProvider(entry, entry.driver, binding, entry.segmentId);
   }
 
+  function boundApplicationTools(conversation) {
+    const facilities = conversation.applicationTools;
+    if (facilities === undefined) return null;
+    if (!catalog || conversation.commands || conversation.native?.scoped || typeof facilities?.prepareContext !== "function") {
+      throw new TypeError("Bound application tools require a catalogue, an admitted conversation and a server-owned context mapper.");
+    }
+    return { storage: createReentrantConversationStorage(facilities.storage), prepareContext: facilities.prepareContext };
+  }
+
   async function perform(entry, active, configuration) {
     const { driver, engine, segmentId } = entry;
     const initial = active.request;
@@ -449,15 +459,33 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const rejectionSaves = new Map();
     let toolWork = Promise.resolve();
     let toolFailure;
+    const applicationTools = entry.applicationTools;
+    const toolStorage = applicationTools?.storage || storage;
+
+    async function saveTools(transaction, request, calls) {
+      if (entry.conversation) {
+        const saved = await transaction.readTurn(request.turnId);
+        if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
+          throw new Error("The application tool receipt does not belong to this authored request.");
+        }
+      }
+      await transaction.updateTurnMetadata(request.turnId, { applicationTools: calls });
+    }
 
     function prepareTools(request) {
-      if (!catalog || entry.conversation) return;
+      if (!catalog || entry.conversation && !applicationTools) return;
       request.tools = createConversationTools({ catalog, context: request.context, signal: active.controller.signal,
+        ...(applicationTools ? { prepareContext() {
+          if (!request.accepted) throw new Error("The application tool does not belong to an admitted message.");
+          return applicationTools.prepareContext(request.context, Object.freeze({ conversationId: entry.id,
+            turnId: request.turnId, messageId: request.input.messageId, nativeTurnId: request.nativeTurnId,
+            origin: request.input.origin }));
+        } } : {}),
         maximumCalls: maximumToolCalls, discoveryOnly: driver.toolDiscovery === true,
         authorize: () => access(request.context, entry.id, "tool", entry),
         save: calls => {
           if (!request.accepted) throw new Error("The engine requested an application tool before admitting the message.");
-          return storage.write(entry.id, transaction => transaction.updateTurnMetadata(request.turnId, { applicationTools: calls }));
+          return toolStorage.write(entry.id, transaction => saveTools(transaction, request, calls));
         },
         emit: event => emit(entry, { ...event, turnId: request.turnId })
       });
@@ -978,8 +1006,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       : status === "cancelled" ? "Work stopped." : problem?.message || active.steerError || initial.recovered?.error || "");
     entry.saveProgress = async () => {
       if (entry.conversation) {
-        // Native output, checkpoints and receipt durability are already owned
-        // by the original run owner and sender; do not annotate old rows.
+        if (applicationTools) await toolStorage.write(entry.id, async transaction => {
+          for (const request of active.requests.values()) {
+            if (request.accepted && request.tools?.records().length) await saveTools(transaction, request, request.tools.records());
+          }
+        });
+        // Only opted-in application receipts are saved above. Native output,
+        // checkpoints and status remain with the original run owner and sender.
         entry.error = error;
         entry.storageFailure = null;
         entry.saveProgress = null;
@@ -1550,6 +1583,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       const next = await entry.host.conversation({ id: entry.id, context });
       entry.conversation = next;
+      entry.applicationTools = boundApplicationTools(next);
       entry.engine = next.engine;
       entry.driver = createDriver(entry.engine, entry.host);
       const current = await readState(entry);

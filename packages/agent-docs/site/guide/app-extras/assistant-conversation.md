@@ -1397,6 +1397,35 @@ existing records; it does not create a second runtime record or backfill history
 This is an advanced host integration, not required for ordinary file/custom
 transaction storage.
 
+A server-owned bound conversation can opt into common application-tool setup
+with `applicationTools: { storage, prepareContext }`, alongside the runtime's
+existing `actions`/`toolPolicy` or `toolCatalog`. `storage` must be the original
+native owner's transcript adapter, implementing `read(scope, callback)` and
+`write(scope, callback)` with its original transaction and lock. The runtime
+uses the bound conversation ID as scope. Every receipt write reads the accepted
+turn and verifies its authored message ID before updating only
+`metadata.applicationTools`; native output, status, identity and checkpoints
+remain with the original owner. Failed result writes use the existing
+`retrySave()` facility without repeating inference or the application effect.
+
+`prepareContext(context, admission)` is an asynchronous or synchronous
+server-owned mapper that must freshly check the exact bound write authority and
+return the action execution context. The frozen `admission` contains
+`conversationId`, canonical `turnId`, authored `messageId`, `nativeTurnId` when
+reported by the native owner, and `origin`. These facts come from accepted
+admission, never tool arguments or message `data`. The mapper runs before a
+receipt replay or reservation and again after reservation before executing the
+effect. A call keeps its originating context and admission across steering;
+saved-result retry verifies that same original turn/message. Hosts retain their
+own exact resource/version fences and action policy. Bound conversations without
+this explicit facility keep their existing common-runtime behavior.
+
+This facility is a setup/storage/context prerequisite. It does not install
+bound Codex, Claude or OpenCode tool dispatch, native schemas or host-specific
+authorization. Those must be connected through the original native owner before
+application tools can be called from a bound native conversation; this facility
+alone does not establish native or installed integration acceptance.
+
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
 to that handle and each invocation, not the cached conversation or saved state.

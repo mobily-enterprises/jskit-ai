@@ -428,3 +428,226 @@ test("strict application calls settle safe receipts before rethrowing the exact 
     }
   }
 });
+
+// Bound-host contract coverage: the original Claude driver carries its run
+// command, while the host owns admission/output. Native tool dispatch is not
+// supplied by this fixture and remains a separate integration prerequisite.
+import { createConversationTranscript } from "../src/server/conversation/transcript.js";
+
+async function boundToolFixture(t, options = {}) {
+  const memory = createMemoryConversationStorage();
+  const observed = { executions: [], contexts: [], mappings: [], commands: [], denied: false, failResults: false };
+  const storage = { read: memory.read, write: (scope, callback) => memory.write(observed.receiptScope || scope, async transaction => {
+    const result = await callback(transaction);
+    if (options.revokeAfterReservation) for (const id of await transaction.listTurnIds()) {
+      if ((await transaction.readTurn(id)).metadata.applicationTools?.some(call => call.id === "bound-call" && call.status === "running")) observed.denied = true;
+    }
+    if (observed.failResults) for (const id of await transaction.listTurnIds()) {
+      if ((await transaction.readTurn(id)).metadata.applicationTools?.some(call => call.id === "bound-call" && call.result)) throw new Error("Receipt disk unavailable");
+    }
+    return result;
+  }) };
+  const transcript = createConversationTranscript({ storage: memory });
+  const catalog = createServiceToolCatalog(actionCatalog(async (input, actual) => {
+    observed.executions.push(input);
+    observed.contexts.push(actual);
+    return options.execute ? options.execute(input, actual) : { total: input.left + input.right };
+  }));
+  let delivery;
+  let active = false;
+  let command;
+  const finish = Promise.withResolvers();
+  async function admit(current) {
+    await current.beforeDispatch({ threadId: "native-thread" });
+    const conversationTurn = await transcript.writeConversationUserMessage("one", { text: current.input.text,
+      messageId: current.input.messageId, turnMetadata: { nativeSentinel: "host-owned" } });
+    await current.accept({ conversationTurn, nativeTurnId: "native-turn", nativeResult: { value: { ok: true, delivered: true } } });
+    observed.commands.push(current);
+  }
+  const owner = {
+    acquire: async () => ({ id: "native-thread", context: { workdir: "/bound" } }),
+    snapshot: () => ({ active }),
+    async run(_control, current) {
+      command = current;
+      active = true;
+      await admit(current);
+      const abort = () => finish.resolve();
+      current.signal.addEventListener("abort", abort, { once: true });
+      if (current.signal.aborted) abort();
+      try { await finish.promise; }
+      finally { current.signal.removeEventListener("abort", abort); active = false; }
+    },
+    async steer(_control, current) { await admit(current); return { value: { ok: true, delivered: true } }; },
+    closeSession: async () => ({ ok: true }),
+    cancel: async () => { finish.resolve(); return { ok: true }; }
+  };
+  const binding = { sessionId: "one", namespace: "bound-one", engine: "claude",
+    runtime: { store: {} }, native: { owner, preparation: { cleanup: () => ({ context, application: {} }) } },
+    admission() {}, prepareInput: async input => input,
+    read: async () => ({ threadId: "native-thread", configuration: { model: "native" }, turn: { active }, delivery }),
+    readStream: async () => ({ messages: [] }),
+    state: { read: async () => delivery, write: async value => { delivery = structuredClone(value); } },
+    transcript: {
+      history: async () => [], readConversationLog: () => transcript.readConversationLog("one"),
+      hasMessage: id => transcript.conversationMessageIdExists("one", id),
+      writeUserMessage: input => transcript.writeConversationUserMessage("one", input)
+    },
+    ...(options.unconfigured ? {} : { applicationTools: { storage, prepareContext(actual, admission) {
+      observed.mappings.push({ actual, admission });
+      assert.equal(Object.isFrozen(admission), true);
+      if (observed.denied) throw new Error("Bound write authority revoked");
+      return { ...actual, boundAdmission: admission, fresh: observed.mappings.length };
+    } } })
+  };
+  const runtime = createConversationRuntime({ toolCatalog: catalog, authorize: () => true,
+    host: { conversation: () => binding } });
+  t.after(async () => { finish.resolve(); await runtime.close(); });
+  const conversation = await runtime.open({ id: "one", context });
+  async function currentCommand(index = 0) {
+    while (!observed.commands[index]) await new Promise(resolve => setImmediate(resolve));
+    return observed.commands[index];
+  }
+  const nativeCall = { id: "bound-call", name: "assistant_action_execute", arguments: JSON.stringify({ actionId: "numbers.add", input: { left: 2, right: 3 } }) };
+  return { runtime, conversation, storage, memory, observed, binding, finish, currentCommand, nativeCall,
+    tools: () => command.tools,
+    async loadContract() {
+      const result = await command.tools.execute({ id: "bound-contract", name: "assistant_action_contract",
+        arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) });
+      assert.equal(result.ok, true);
+      observed.mappings.length = 0;
+    } };
+}
+
+test("bound tools use exact accepted host rows and fresh server context without writing native output or status", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send({ ...message, data: { turnId: "caller-forgery", nativeTurnId: "caller-forgery" } });
+  await f.currentCommand();
+  await f.loadContract();
+  const before = (await f.conversation.read()).conversationLog[0];
+  const result = await f.tools().execute(f.nativeCall);
+  assert.deepEqual(result, { ok: true, result: { actionId: "numbers.add", version: 1, result: { total: 5 } } });
+  assert.equal(f.observed.mappings.length, 2);
+  assert.deepEqual(f.observed.mappings[1].admission, { conversationId: "one", turnId: before.turnId,
+    messageId: message.messageId, nativeTurnId: "native-turn", origin: "user" });
+  assert.equal(f.observed.mappings[0].actual, context);
+  assert.deepEqual(f.observed.contexts[0].boundAdmission, f.observed.mappings[1].admission);
+  await f.tools().execute(f.nativeCall);
+  assert.equal(f.observed.mappings.length, 3, "Receipt replay still checks fresh bound authority");
+  assert.equal(f.observed.executions.length, 1);
+  f.observed.denied = true;
+  await assert.rejects(f.tools().execute(f.nativeCall), /write authority revoked/);
+  f.finish.resolve();
+  const saved = (await f.conversation.wait()).conversationLog[0];
+  const { applicationTools, ...metadata } = saved.metadata;
+  const { applicationTools: previousTools, ...previousMetadata } = before.metadata;
+  assert.deepEqual(metadata, previousMetadata);
+  assert.equal(saved.assistant, before.assistant);
+  assert.deepEqual(applicationTools[0], previousTools[0]);
+  assert.equal(applicationTools.length, 2);
+  assert.equal(applicationTools[1].status, "complete");
+});
+
+test("bound tool result-save retry uses its original accepted request after steering without repeating the effect", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  // The existing reservation is durable; simulate only result commits failing.
+  f.observed.failResults = true;
+  const firstCall = f.tools().execute(f.nativeCall);
+  await assert.rejects(firstCall, /Receipt disk unavailable/);
+  assert.equal(f.observed.executions.length, 1);
+  await f.conversation.send({ messageId: "steered", text: "Keep the original operation.", steer: true });
+  await f.currentCommand(1);
+  f.finish.resolve();
+  const unavailable = await f.conversation.wait();
+  assert.equal(unavailable.status, "unavailable");
+  assert.equal(unavailable.conversationLog[0].metadata.applicationTools[1].status, "running");
+  assert.equal(unavailable.conversationLog[1].metadata.applicationTools, undefined);
+  await assert.rejects(f.conversation.send({ messageId: "blocked", text: "Another operation" }), { code: "conversation_storage_unavailable" });
+  f.observed.failResults = false;
+  assert.deepEqual(await f.conversation.retrySave(), { saved: true });
+  const saved = (await f.conversation.read()).conversationLog;
+  assert.equal(saved[0].metadata.applicationTools[1].status, "complete");
+  assert.equal(saved[1].metadata.applicationTools, undefined);
+  assert.equal(f.observed.executions.length, 1);
+  assert.equal(f.observed.mappings.every(({ admission }) => admission.messageId === message.messageId), true);
+});
+
+test("bound receipt transaction refuses a mismatched authored message before effects", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  const turn = (await f.conversation.read()).conversationLog[0];
+  await f.memory.write("other", async transaction => {
+    await transaction.appendMessage(turn.turnId, { role: "user", messageId: "other-author", text: "Other", at: new Date().toISOString() });
+  });
+  f.observed.receiptScope = "other";
+  await assert.rejects(f.tools().execute(f.nativeCall), /receipt does not belong/);
+  assert.equal(f.observed.executions.length, 0);
+  assert.equal((await f.conversation.read()).conversationLog[0].metadata.applicationTools.some(call => call.id === f.nativeCall.id), false);
+  f.finish.resolve();
+  assert.equal((await f.conversation.wait()).status, "unavailable");
+  f.observed.receiptScope = "";
+  await f.conversation.retrySave();
+});
+
+test("an unconfigured bound host keeps its original tool-free common-runtime branch", async t => {
+  const f = await boundToolFixture(t, { unconfigured: true });
+  await f.conversation.send(message);
+  await f.currentCommand();
+  assert.equal(f.tools(), undefined);
+  f.finish.resolve();
+  const saved = (await f.conversation.wait()).conversationLog[0];
+  assert.deepEqual(saved.metadata, { nativeSentinel: "host-owned" });
+  assert.equal(f.observed.mappings.length, 0);
+});
+
+test("fresh bound authority revoked after reservation saves a not-executed receipt", async t => {
+  const f = await boundToolFixture(t, { revokeAfterReservation: true });
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  await assert.rejects(f.tools().execute(f.nativeCall), /write authority revoked/);
+  assert.equal(f.observed.mappings.length, 2);
+  assert.equal(f.observed.executions.length, 0);
+  f.finish.resolve();
+  const saved = (await f.conversation.wait()).conversationLog[0];
+  assert.equal(saved.metadata.applicationTools[1].status, "not-executed");
+  assert.equal(saved.metadata.applicationTools[1].result.error.code, "conversation_tool_not_executed");
+  assert.equal(saved.metadata.runtime, undefined);
+});
+
+test("an invoked bound tool retains its originating actor and receipt across steering and Stop drains it", async t => {
+  const entered = Promise.withResolvers(), effect = Promise.withResolvers();
+  const f = await boundToolFixture(t, { execute: async (_input, actual) => {
+    entered.resolve(actual);
+    return effect.promise;
+  } });
+  await f.conversation.send(message);
+  await f.currentCommand();
+  await f.loadContract();
+  const executing = f.tools().execute(f.nativeCall);
+  const actual = await entered.promise;
+  const originalTurnId = actual.boundAdmission.turnId;
+  const nextActor = { ...context, actor: { id: "other-authorized-actor" } };
+  const otherHandle = await f.runtime.open({ id: "one", context: nextActor });
+  await otherHandle.send({ messageId: "another-steer", text: "Keep going.", steer: true });
+  await f.currentCommand(1);
+  let stopped = false;
+  const stopping = otherHandle.cancel().then(() => { stopped = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(stopped, false, "Original Stop must join an already invoked action");
+  effect.resolve({ total: 5 });
+  await executing;
+  await stopping;
+  const saved = (await f.conversation.wait()).conversationLog;
+  assert.equal(actual.actor.id, context.actor.id);
+  assert.equal(actual.boundAdmission.messageId, message.messageId);
+  assert.equal(saved[0].turnId, originalTurnId);
+  assert.equal(saved[0].metadata.applicationTools[1].status, "complete");
+  assert.equal(saved[1].metadata.applicationTools, undefined);
+  assert.equal(f.observed.mappings.every(({ actual }) => actual === context), true);
+  assert.equal(f.observed.executions.length, 1);
+});
