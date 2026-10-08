@@ -146,6 +146,24 @@ reserve it for custom success behaviour. Returning to the list needs only the
 documented `saveSuccess` options, not a custom router callback or inspection of
 the shared form implementation.
 
+## Browser routes and responsive lists
+
+`newUrlTemplate`, `viewUrlTemplate`, `editUrlTemplate`, `listUrlTemplate`, and
+`cancelTo` describe browser routes, not surface-relative API suffixes. Include
+the configured surface prefix: if a public library lives at `/library`, its new
+page is `/library/new` and its list is `/library`, not `/new` and `/`. For links
+without record placeholders, `paths.page()` can resolve the configured surface;
+for record placeholders use the current CRUD runtime's `resolveParams()`.
+Request-scope inference does not add missing prefixes to browser links.
+
+`CrudListScreen` uses `createLabel` for its toolbar, empty-state and compact
+create actions. Its card and table layouts coexist in the DOM, with CSS choosing
+the visible layout. Browser assertions on record text must select the visible
+match, for example `page.getByText(title, { exact: true }).filter({ visible: true })`.
+When the same create action appears in more than one visible location, choose
+one visible action deliberately; do not relax the expected label to accept an
+unrelated fallback.
+
 ## Direct API tests use JSON:API documents
 
 JSKIT's CRUD screens and HTTP client apply the resource's JSON:API transport

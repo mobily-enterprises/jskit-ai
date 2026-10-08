@@ -3,6 +3,12 @@ import path from "node:path";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
+import { compileScript, parse } from "@vue/compiler-sfc";
+import { createSSRApp, defineComponent, h } from "vue";
+import { renderToString } from "vue/server-renderer";
+import { createMemoryHistory, createRouter } from "vue-router";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
@@ -14,6 +20,57 @@ async function readComponent(name) {
 async function readClientFile(...parts) {
   return readFile(path.join(PACKAGE_DIR, "src", "client", ...parts), "utf8");
 }
+
+test("every CRUD list create action retains its configured label and destination", async () => {
+  const componentUrl = new URL("../src/client/components/CrudListScreen.vue", import.meta.url).href;
+  const hooks = registerHooks({
+    load(url, context, nextLoad) {
+      if (!url.endsWith(".vue")) return nextLoad(url, context);
+      if (url !== componentUrl) {
+        return { format: "module", shortCircuit: true, source: "export default { render: () => null };" };
+      }
+      const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
+      return {
+        format: "module", shortCircuit: true,
+        source: compileScript(descriptor, { id: "crud-list-create-label", inlineTemplate: true }).content
+      };
+    }
+  });
+  let CrudListScreen;
+  try {
+    ({ default: CrudListScreen } = await import(componentUrl));
+  } finally {
+    hooks.deregister();
+  }
+
+  for (const populated of [false, true]) {
+    for (const createLabel of [undefined, "Add book"]) {
+      const screen = {
+        records: {}, listPrimaryAction: "/books/new",
+        displayRows: populated ? [{ key: "1", recordKey: "1", record: { title: "Kindred" } }] : [],
+        resolveRecordTitle: (record) => record.title
+      };
+      const app = createSSRApp({ render: () => h(CrudListScreen, {
+        screen, ...(createLabel === undefined ? {} : { createLabel })
+      }) });
+      const router = createRouter({
+        history: createMemoryHistory(), routes: [{ path: "/books", component: { render: () => null } }]
+      });
+      await router.push("/books");
+      app.use(router);
+      app.component("VBtn", defineComponent({
+        props: ["to"], setup: (props, { slots }) => () => h("a", { href: props.to }, slots.default?.())
+      }));
+      for (const name of ["VSheet", "VTable", "VTextField", "VSkeletonLoader", "VCheckboxBtn"]) {
+        app.component(name, defineComponent({ setup: (_props, { slots }) => () => h("div", slots.default?.()) }));
+      }
+      const html = await renderToString(app);
+      const labels = [...html.matchAll(/<a[^>]*href="\/books\/new"[^>]*>(.*?)<\/a>/gs)]
+        .map((match) => match[1].trim());
+      assert.deepEqual(labels, Array(populated ? 2 : 3).fill(createLabel ?? "New record"));
+    }
+  }
+});
 
 test("CRUD screen components own list/view/form chrome centrally", async () => {
   const listSource = await readComponent("CrudListScreen.vue");

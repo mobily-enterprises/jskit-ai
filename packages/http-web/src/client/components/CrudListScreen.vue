@@ -314,7 +314,7 @@ function setSelectableRowsSelected(selected = true) {
       variant="flat"
       :to="listPrimaryAction"
     >
-      New
+      {{ createLabel }}
     </v-btn>
   </section>
 </template>

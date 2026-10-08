@@ -21,6 +21,13 @@ Rules:
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
+- Shared CRUD lists retain both card and table markup and hide the inactive
+  layout with CSS. Select visible record text with
+  `page.getByText(title, { exact: true }).filter({ visible: true })`; asserting on
+  an unfiltered text locator can fail with a strict-mode duplicate after saving.
+  Keep the expected text and persistence assertion. If repeated create controls
+  perform the same action, select one visible control deliberately rather than
+  accepting a different label to make a test pass.
 
 ## Keep startup incremental
 
