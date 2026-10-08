@@ -3833,3 +3833,83 @@ for (const boundary of ["tap Pause", "hold release"]) {
     assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === speechId), false);
   });
 }
+
+for (const finalWords of ["", "Give me an update in the meantime"]) {
+  test(`compact microphone Pause preserves active PCM gain through ${finalWords ? "ordinary" : "empty"} final words`, async t => {
+    const view = mountVoice(t, { colleague: true, callMode: null, defaults: { readAloud: true } });
+    // Observe the original fixture's actual gain nodes without changing its
+    // implementation or exposing a production-only test API.
+    const audioPrototype = window.AudioContext.prototype;
+    const originalCreateGain = audioPrototype.createGain;
+    const gains = [];
+    audioPrototype.createGain = function () {
+      const node = originalCreateGain.call(this);
+      gains.push({ context: this, node });
+      return node;
+    };
+    t.after(() => { audioPrototype.createGain = originalCreateGain; });
+    const deliveries = [];
+    view.colleagueProps.submit = async (text, details) => { deliveries.push({ text, ...details }); return { ok: true }; };
+    const starting = view.colleague.toggleHandsFree();
+    await flushVue(); view.media[0].resolve(); await starting;
+    const captureContext = view.worklets[0].context;
+    const socket = view.sockets[0];
+    const listenId = view.voice.activeListenTurnId.value;
+    const outputId = "pause-gain-output";
+    view.colleagueProps.conversation.messages = [{ id: outputId, role: "assistant", text: "Keep this answer speaking." }];
+    await flushVue();
+    const speechId = view.voice.activeSpeechTurnId.value;
+    socket.receive({ type: "speech.start", turnId: speechId });
+    socket.receive(new Int16Array(22050).buffer);
+    await flushVue();
+    const playback = view.sources.at(-1);
+    assert.ok(playback, "the test must have real fixture PCM scheduled before Pause");
+    const outputGain = gains.find(({ context }) => context !== captureContext);
+    assert.ok(outputGain);
+    assert.notEqual(outputGain.context, captureContext);
+    assert.equal(outputGain.node.gain.value, 1);
+    assert.equal(outputGain.context.state, "running");
+    if (finalWords) {
+      socket.receive({ type: "transcript.partial", turnId: listenId, text: "Give me an update in the mean", revision: 1 });
+      await flushVue();
+    }
+    view.worklets[0].holdFlush = true;
+    const pausing = view.colleague.toggleHandsFree();
+    assert.equal(view.colleague.microphoneMuted.value, true, "input-off is immediate before the buffered tail drains");
+    assert.equal(view.media[0].track.enabled, false);
+    await flushVue();
+    assert.equal(view.worklets[0].flushRequested, true);
+    assert.equal(view.media[0].stops, 0);
+    assert.equal(controls(socket).some(control => control.type === "listen.stop"), false);
+    assert.equal(outputGain.node.gain.value, 1);
+    assert.equal(outputGain.context.state, "running");
+    assert.equal(playback.stopped, false);
+    assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+    view.worklets[0].finishFlush(new Float32Array([.4, -.4]));
+    await pausing;
+    assert.equal(captureContext.state, "closed", "Pause closes only its drained capture context");
+    assert.equal(view.media[0].stops, 1);
+    assert.deepEqual(controls(socket).filter(control => control.type === "listen.stop"), [{ type: "listen.stop", turnId: listenId }]);
+    socket.receive({ type: "transcript.final", turnId: listenId, text: finalWords });
+    await flushVue();
+    assert.equal(deliveries.length, finalWords ? 1 : 0);
+    if (finalWords) assert.equal(deliveries[0].text, finalWords, "only the full final words are sent");
+    assert.equal(view.colleague.pendingTranscript.value, null);
+    assert.equal(view.media.length, 1, "final words do not reopen a paused microphone");
+    assert.equal(view.colleague.readAloud.value, true);
+    assert.equal(outputGain.node.gain.value, 1);
+    assert.equal(outputGain.context.state, "running");
+    assert.equal(playback.stopped, false);
+    assert.equal(view.voice.activeSpeechTurnId.value, speechId);
+    assert.equal(controls(socket).some(control => ["cancel", "speak.stop-after"].includes(control.type) && control.turnId === speechId), false);
+    socket.receive({ type: "speech.end", turnId: speechId });
+    await flushVue();
+    assert.equal(view.voice.activeSpeechTurnId.value, speechId, "server speech.end waits for scheduled PCM to drain");
+    playback.finish();
+    await flushVue();
+    assert.equal(view.voice.activeSpeechTurnId.value, "");
+    assert.deepEqual(view.emitted.filter(([kind, event]) => kind === "playback" && event.outputId === outputId).map(([, event]) => event.phase), ["started", "completed"]);
+    assert.equal(outputGain.node.gain.value, 1);
+    assert.equal(outputGain.context.state, "running");
+  });
+}
