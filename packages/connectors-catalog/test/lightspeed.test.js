@@ -47,6 +47,7 @@ async function fixture(t, domainPrefix = "fixture-store", selectedScopes = scope
       assert.equal(new Headers(init.headers).get("authorization"), `Bearer fixture-access-${state.count}`);
       assert.equal(url.searchParams.has("access_token"), false);
       if (state.hang) return new Promise((_, reject) => {
+        state.requestStarted?.();
         const timer = setTimeout(() => reject(new Error("Missing abort")), 1000);
         const abort = () => { clearTimeout(timer); reject(init.signal.reason); };
         if (init.signal.aborted) abort(); else init.signal.addEventListener("abort", abort, { once: true });
@@ -199,8 +200,9 @@ test("Lightspeed invalid refresh tokens require reconnect without returning prov
 
 test("Lightspeed delivers cancellation and timeout without retry", async (t) => {
   const f = await fixture(t); await f.connect(); f.state.hang = true;
+  const started = Promise.withResolvers(); f.state.requestStarted = started.resolve;
   const abort = new AbortController(); const result = f.service.invoke({ ...args, operation: "customers.list", signal: abort.signal });
-  setTimeout(() => abort.abort(), 10); await assert.rejects(result, { code: "connector_cancelled" });
+  await Promise.race([started.promise, result]); abort.abort(); await assert.rejects(result, { code: "connector_cancelled" });
   await assert.rejects(f.service.invoke({ ...args, operation: "customers.list" }), { code: "connector_provider_timeout" });
   assert.equal(f.requests.length, 4);
 });
