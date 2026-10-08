@@ -485,6 +485,7 @@ Exports
 - `prepareCodexHistory(params, client, { baseUrl, modelProviderId, ...options } = {})`
 Local functions
 - `compactionHistoryError(reason, statusCode = 422)`
+- `retainedUserRecord(item)`
 - `restoreCompactedHistory(body, { destination, historyPath, codexHome, signal, maxRequestBytes })`
 - `forwardedHeaders(input)`
 
@@ -578,7 +579,9 @@ Exports
 - `assertCodexAuthPreflightReady(options = {}, { reason = "codex-auth-preflight", execution, credentials } = {})`
 - `createCodexAppServerModelCatalogCache({ cacheMs = 30_000, errorPrefix = "" } = {})`
 - `codexAppServerProviderConnectionGeneration(provider = null)`
-- `ensureCodexAppServerThread({ observeThread, provider, settings, projectHooks = false, identity, workdir = "", onStage = () => {} } = {})`
+- `ensureCodexAppServerThread({ observeThread, provider, settings, projectHooks = false, identity, applicationTools, providerReady, workdir = "", onStage = () => {} } = {})`
+- `codexApplicationToolConfiguration(tools)`
+- `assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity, toolSchemaIdentity)`
 - `sendCodexAppServerPrompt({ attachments = [], clientUserMessageId = "", outputSchema = null, provider, prompt = "", threadId = "", readOnly = false } = {}, authorized = {})`
 - `resumeExactCodexAppServerThread({ expectedThreadId = "", provider, settings, projectHooks = false, workdir = "", errorCode = "codex_renewal_thread_unreadable" } = {})`
 - `startFreshCodexAppServerThread({ provider, settings, projectHooks = false, identity, resumableThreadId = "", forbiddenThreadId = "", operationId = "", workdir = "", errorCode = "codex_renewal_fresh_thread_required", applicationName = "The application" } = {})`
@@ -1018,6 +1021,7 @@ Exports
 Local functions
 - `hash(value)`
 - `nativeMessageId(id)`
+- `executeOpenCodeApplicationTool({ active, turn, target, sessionId, assertCurrent }, input, signal)`
 
 ### `src/server/conversation/providers/scoped.js`
 Exports
@@ -1085,7 +1089,7 @@ Exports
 
 ### `src/server/conversation/tools.js`
 Exports
-- `createConversationTools({ catalog, context, signal: turnSignal, previousCalls = [], authorize, save, emit, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
+- `createConversationTools({ catalog, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
 
 ### `src/server/conversation/transcript.js`
 Exports
@@ -1250,6 +1254,7 @@ Exports
 - `ensureOpenCodeSession`
 - `limitOpenCodeModelOutput`
 - `openCodeApplicationToolSchemas`
+- `openCodeConversationAgent`
 - `openCodeConversationAgents`
 - `openCodeEnvironmentForDirectory`
 - `openCodeEnvironmentForSession`

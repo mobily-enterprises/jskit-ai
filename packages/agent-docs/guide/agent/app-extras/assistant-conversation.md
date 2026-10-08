@@ -269,6 +269,16 @@ and other uncertain messages. Inspection never submits or accepts it. Missing
 markers, attempted requests, incomplete cleanup and API-model requests remain
 conservative. A retired native request cannot be retried against its successor
 with the old ID; edit its words into a new authored message instead.
+
+Incoming saved-state updates refresh the history already loaded with **Load older
+messages**, using the same authorized page reader. The loaded messages remain
+visible until that refresh succeeds; fresh history reflects removed or rewound
+saved turns instead of reviving cached rows. Delivered updates received during
+that read also update their matching loaded saved row. Live speech/message
+overlays use the loaded saved row as their base, retaining its authored question
+and progress without becoming saved history. Reconnection starts again with the
+latest bounded page; **Load older messages** is available again where older history exists.
+
 Reconnection reads state and does not resend the request. After an initial
 subscription failure or timeout, **Reload** retries that exact subscription on
 the connected socket with fresh authorization; it does not resend a message.
@@ -1389,6 +1399,95 @@ existing records; it does not create a second runtime record or backfill history
 This is an advanced host integration, not required for ordinary file/custom
 transaction storage.
 
+The original canonical transcript also retains optional user-message `data`
+when the admitting application supplies it. Codex keeps that same data with the
+authored pending request and publishes it with its actual native receipt,
+including receipt recovery after restart. Recovery never obtains data from a
+newer request or recreates absent historical associations. The application owns
+validation and authorization of these facts; data does not supply tool authority,
+actor identity or a delivery receipt. Unconfigured messages retain their existing
+record shape.
+
+A server-owned bound conversation can opt into common application-tool setup
+with `applicationTools: { storage, prepareContext }`, alongside the runtime's
+existing `actions`/`toolPolicy` or `toolCatalog`. `storage` must be the original
+native owner's transcript adapter, implementing `read(scope, callback)` and
+`write(scope, callback)` with its original transaction and lock. The runtime
+uses the bound conversation ID as scope. Every receipt write reads the accepted
+turn and verifies its authored message ID before updating only
+`metadata.applicationTools`; native output, status, identity and checkpoints
+remain with the original owner. Failed result writes use the existing
+`retrySave()` facility without repeating inference or the application effect.
+
+`prepareContext(context, admission)` is an asynchronous or synchronous
+server-owned mapper that must freshly check the exact bound write authority and
+return the action execution context. The frozen `admission` contains
+`conversationId`, canonical `turnId`, authored `messageId`, `nativeTurnId` when
+reported by the native owner, and `origin`. These facts come from accepted
+admission, never tool arguments or message `data`. The mapper runs before a
+receipt replay or reservation and again after reservation before executing the
+effect. A call keeps its originating context and admission across steering;
+saved-result retry verifies that same original turn/message. Hosts retain their
+own exact resource/version fences and action policy. Bound conversations without
+this explicit facility keep their existing common-runtime behavior.
+The frozen admission also exposes `nativeThreadId`, captured from the native
+owner's pre-dispatch identity when that request is accepted. It is not taken
+from authored input or application data. Check both `nativeThreadId` and
+`nativeTurnId` against the current native owner when an application effect
+requires that exact native conversation. Earlier admitted tool calls keep their
+original identities when later messages steer the conversation.
+The same server-only admission exposes `assertCurrent()`. A host that requires
+the latest admitted message calls it after its final awaited authority or native
+read and immediately before its effect. It throws after steering retires that
+request, after completion, or on cancellation. It does not replace the host's
+actor/resource checks or native thread check, and it is not serialized. Hosts
+choose this check explicitly; the generic runtime still preserves originating
+contexts for already invoked actions and saved-result recovery.
+
+For an opted-in bound Codex conversation, the common driver installs the same
+application-tool schemas and executor used by its standalone path. The original
+message preparation passes them to `ensureCodexAppServerThread()` before native
+start or resume. Its existing `identity` must supply
+`readToolSchemaIdentity(workdir)` and persist the supplied `toolSchemaIdentity`
+in `identity.write()` with the original native thread identity. The bound
+conversation's `identity.readToolSchemaIdentity()` must read that same saved
+value. A retained schema mismatch fails explicitly; it does not replace the
+thread or replay its history. A host that prepares the native thread before Send
+must supply the same `applicationTools.schemas` at that original readiness step.
+
+The account-shared provider registers each exact thread with
+`registerThreadRequestHandler(threadId, handler)`. Its returned `isCurrent()` and
+`release()` are scoped to that registration; a retired release cannot remove a
+replacement. The common driver retains the original admitted-turn notification
+gate and originating message's executor across steering. Foreign, stale and
+retired calls are refused without interrupting a current turn or peer. An owned
+executor or observation failure uses the original thread's interrupt and drain.
+Helper authentication refresh and isolated Helper request refusal retain their
+original precedence.
+
+The host still owns exact write authorization, readiness composition and native
+identity persistence. This shared prerequisite does not establish a particular
+application's integration, installed acceptance or real native acceptance.
+An opted-in bound OpenCode conversation uses the same original private tool
+bridge and native-use validator as standalone OpenCode. The supplied preparation
+receives `applicationTools` containing that bridge's configuration and exact
+schemas before native dispatch. Publish it through the existing private native
+session binding, and supply the same schemas at early host readiness. The native
+plugin definitions alone do not authorize a call. Each call must match the
+actual native session, assistant message, call ID, name and arguments, and the
+originating authored message's durable admission before the common executor.
+Reasoning-only recovery retains that originating message association. The bound
+branch preserves the host's original Send/steering, shared server and native
+monitor; it neither selects standalone lifecycle nor releases a peer's target.
+Foreign, retired or superseded-input native calls refuse without interrupting
+healthy work. An already invoked old effect failing after newer input admission
+does not abort that newer input. Owned executor failure stops its still-current
+native turn; Stop and disposal drain and close
+only its private bridge under the original owner. Unconfigured bound and scoped
+conversations retain their original behavior. These source tests do not establish
+an application's composition or installed/native acceptance. Bound Claude
+application-tool dispatch remains unavailable.
+
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
 to that handle and each invocation, not the cached conversation or saved state.
@@ -2138,7 +2237,15 @@ JSKIT owns the local history adapter used for model-provider changes. It keeps
 native history intact and translates only outgoing requests. For qualified
 DeepSeek and GLM models, an OpenAI encrypted compaction is supplemented with the
 exact readable records from its saved native boundary. Recovery is bounded and
-fails explicitly for unsupported or ambiguous history, including native Undo or
+excludes only exact user-message copies retained by that same native boundary
+and still present before it in the outgoing request, counting each occurrence.
+Unmatched messages, tool results and images retain their original archive order.
+The byte bound is not a destination-model token estimate. An explicit DeepSeek
+HTTP 400 context-limit rejection with its established numeric error format is
+forwarded as `context_length_exceeded` for native recovery; other errors retain
+their original body and status. This classification does not retry inference or
+guarantee that restored foreign history fits the model's token budget.
+Recovery fails explicitly for unsupported or ambiguous history, including native Undo or
 fork records. It never silently truncates, retries inference or rewrites a rollout.
 For outgoing OpenAI history, a nonempty historical function-call name outside
 `^[a-zA-Z0-9_-]+$` is quoted as assistant context with its exact call identity,
@@ -3238,8 +3345,10 @@ driver uses that same sender, native admission gate, monitor and Stop owner. Its
 connection, local execution, tool, attachment and structured-output facilities
 adapt to that owner. Tool effects await the exact authored delivery receipt;
 rejected steering preserves the previous active request. `/server/opencode-process` exports
-`createOpenCodeServerProcess`
-for advanced managed integration. The common driver's internal configuration
+`createOpenCodeServerProcess` and the existing `openCodeConversationAgent`
+selector for advanced managed integration. The selector returns the matching
+original native agent identity for explicit native-tool and application-tool
+capabilities; it does not change a saved model or launch inference. The common driver's internal configuration
 uses that same server startup, authentication, version, observation and cleanup
 implementation. `openCodeProcessEnvironment(baseEnv, { cacheRoot, dbPath,
 inlineConfig, outputTokenMax, password })` assembles native flags, cache,
@@ -3360,6 +3469,10 @@ The owner's history projection supplies ordered reasoning facts (`messageId`,
 with separate message-level `complete` and `flush` options. Native part selection
 and end-marker decoding stay inside JSKIT. The host keeps saved-message identity,
 headline policy, first-write timestamp formatting and publication.
+An explicitly supplied `outputId(nativeId, role)` projection forwards that actual
+native identity mapping to the same stream and persisted-message writers.
+Omitting it preserves their original payloads; this carries no completion or
+application policy and rewrites no retained history.
 Final-response inputs are read after admission and the Active write. Observer
 closure precedes notices and the final write. The existing `onRetired` resource
 continuation starts only after identity-safe monitor removal; its original

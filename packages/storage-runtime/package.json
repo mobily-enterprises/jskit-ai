@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/storage-runtime",
-  "version": "0.1.229",
+  "version": "0.1.230",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -51,6 +51,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.232"
+    "@jskit-ai/kernel": "0.1.233"
   }
 }
