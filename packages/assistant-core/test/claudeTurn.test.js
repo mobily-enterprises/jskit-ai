@@ -269,3 +269,246 @@ test("Claude output identity is absent without unique live proof or with a confl
     else assert.equal(Object.hasOwn(message, "outputId"), false, mode);
   }
 });
+
+
+import { createClaudeConversationOwner } from "../src/server/conversation/claudeTurn.js";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+// Exercise the original supplied-store Send/process/event owner, without the
+// standalone execution-release capability or application-tool branch.
+async function publishedClaudeFixture(t, { publication = true, providerId = "anthropic", releaseExecution } = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-final-receipt-"));
+  const context = { key: root, workdir: root };
+  const saved = new Map();
+  const messages = [];
+  const processes = [];
+  const behavior = { account: "account-a", publication };
+  let beforeState;
+  const owner = createClaudeConversationOwner({ configRoot: root,
+    store: {
+      ...(releaseExecution ? { releaseExecution } : {}),
+      select() {}, read: (_context, id) => saved.get(id),
+      async save(entry) { saved.set(entry.id, JSON.stringify({ turnId: entry.turn?.id,
+        state: entry.turn?.state, accountIdentity: entry.accountIdentity })); },
+      async hasMessage() { return false; }
+    },
+    preparation: {
+      check() {}, account: () => ({ identity: behavior.account, providerId }),
+      async configuration() { return { systemPrompt: "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
+      async message(_entry, _input, { message }) { return message; }
+    },
+    process: {
+      configure() { return {}; },
+      async create(options) {
+        const native = { executionId: `execution-${processes.length}`, options,
+          async stop() { return { scopeEmpty: true, exited: true }; },
+          client: { async request() { return {}; },
+            async send(_message, input) {
+              await options.onEvent({ type: "user", uuid: input.messageId, session_id: options.sessionId });
+            },
+            async interrupt() {
+              await options.onEvent({ type: "result", subtype: "success", result: "", terminal_reason: "aborted_streaming" });
+            } }
+        };
+        processes.push(native);
+        await options.onStarted(native.executionId);
+        return native;
+      }
+    },
+    async onEvent(entry, event) {
+      if (event.type === "before-state") await beforeState?.(entry, event);
+      if (event.type === "message" && event.message.complete && event.message.role === "assistant") {
+        await behavior.beforePublish?.();
+        const turn = { id: `host-${messages.length}`, messages: [{ messageId: event.message.id,
+          outputId: event.message.outputId || event.message.id, role: "assistant", text: event.message.text }] };
+        messages.push(turn);
+        return behavior.publication ? turn : undefined;
+      }
+    }
+  });
+  const conversationId = "12345678-1234-4234-8234-123456789abc";
+  let entry = await owner.open(context, { mainId: conversationId });
+  t.after(async () => { for (const retained of owner.entries.values()) await owner.close(retained);
+    await rm(root, { recursive: true, force: true }); });
+  const send = (id = "request") => owner.send(entry, { message: "Explain", messageId: id });
+  const frame = input => entry.process.options.onEvent({ session_id: conversationId, ...input });
+  const final = () => owner.readFinalAssistantResult(context.key, conversationId, entry.turn?.id || "");
+  return { owner, context, conversationId, messages, processes, behavior, send, frame, final,
+    get entry() { return entry; }, setBeforeState(callback) { beforeState = callback; },
+    async reopen() { entry = await owner.open(context, { mainId: conversationId }); return entry; } };
+}
+
+test("Claude final receipt uses the original supplied-store publication and is available before retained idle checkpoint", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  assert.equal(f.final(), null);
+  let atCheckpoint;
+  f.setBeforeState((entry, event) => {
+    if (event.state === "completed") {
+      assert.equal(entry.turn.active, true, "Original checkpoint precedes retained idle mutation");
+      assert.equal(entry.nativeTurn.read().active, false, "Original native settlement already completed");
+      atCheckpoint = f.final();
+    }
+  });
+  await f.frame({ type: "result", subtype: "success", result: "The answer", uuid: "result-native-id" });
+  const result = f.final();
+  assert.deepEqual(result, atCheckpoint);
+  assert.equal(result.threadId, f.conversationId);
+  assert.equal(result.turnId, claudeNativeMessageId("request"));
+  assert.equal(result.inputMessageId, claudeNativeMessageId("request"));
+  assert.equal(result.itemId, "claude_result-native-id_result");
+  assert.equal(result.outputId, result.itemId);
+  assert.deepEqual(result.conversationTurn, f.messages[0]);
+  result.conversationTurn.messages[0].text = "Mutated caller copy";
+  assert.equal(f.final().conversationTurn.messages[0].text, "The answer");
+  assert.equal(f.owner.readFinalAssistantResult("foreign-context", f.conversationId, result.turnId), null);
+  assert.equal(f.owner.readFinalAssistantResult(f.context.key, "foreign-thread", result.turnId), null);
+  assert.equal(f.owner.readFinalAssistantResult(f.context.key, f.conversationId, "foreign-turn"), null);
+});
+
+test("Claude final receipt waits for original background settlement and preserves saved split output identity", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  await f.frame({ type: "system", subtype: "task_started", task_type: "local_agent", task_id: "background" });
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "api-answer" } } });
+  await f.frame({ type: "stream_event", event: { type: "content_block_start", index: 3,
+    content_block: { type: "text", text: "" } } });
+  await f.frame({ type: "stream_event", event: { type: "content_block_delta", index: 3, delta: { text: "The answer" } } });
+  await f.frame({ type: "assistant", uuid: "saved-answer", message: { id: "api-answer",
+    content: [{ type: "text", text: "The answer" }] } });
+  await f.frame({ type: "result", subtype: "success", result: "The answer" });
+  assert.equal(f.final(), null);
+  assert.equal(f.entry.nativeTurn.read().active, true);
+  await f.frame({ type: "system", subtype: "task_notification", task_id: "background", status: "completed" });
+  assert.equal(f.final().itemId, "claude_saved-answer_0");
+  assert.equal(f.final().outputId, "claude_api-answer_3");
+  assert.equal(f.messages.length, 1, "Original duplicate result adds no synthetic assistant carrier");
+});
+
+test("Claude default sink and failed publication cannot supply a canonical final receipt", async t => {
+  const f = await publishedClaudeFixture(t, { publication: false });
+  await f.send();
+  await f.frame({ type: "result", subtype: "success", result: "No host receipt" });
+  assert.equal(f.final(), null);
+  f.behavior.publication = true;
+  await f.send("publication-failure");
+  f.behavior.beforePublish = async () => { throw new Error("Host publication failed"); };
+  await assert.rejects(f.frame({ type: "result", subtype: "success", result: "Not published" }), /Host publication failed/);
+  assert.equal(f.final(), null);
+  await f.owner.interrupt(f.entry);
+  f.behavior.beforePublish = undefined;
+  await f.send("checkpoint-failure");
+  f.setBeforeState((_entry, event) => { if (event.state === "completed") throw new Error("Checkpoint failed"); });
+  await assert.rejects(f.frame({ type: "result", subtype: "success", result: "Written but not settled" }), /Checkpoint failed/);
+  assert.equal(f.final(), null);
+  await f.owner.interrupt(f.entry);
+});
+
+test("Claude receipt refuses Stop, account/process replacement and closed restored entries", async t => {
+  const f = await publishedClaudeFixture(t, { providerId: "deepseek" });
+  await f.send();
+  await f.frame({ type: "result", subtype: "success", result: "The answer" });
+  const originalProcess = f.entry.process;
+  f.entry.process = { ...originalProcess };
+  assert.equal(f.final(), null);
+  f.entry.process = originalProcess;
+  f.entry.executionId = "replacement-execution";
+  assert.equal(f.final(), null);
+  f.entry.executionId = originalProcess.executionId;
+  assert.ok(f.final());
+  f.behavior.account = "account-b";
+  await f.owner.ensureProcess(f.entry);
+  assert.equal(f.final(), null);
+  f.behavior.account = "account-a";
+  await f.owner.ensureProcess(f.entry);
+  assert.equal(f.final(), null, "Original account change-back cannot revive the old receipt");
+  await f.owner.close(f.entry);
+  assert.equal(f.final(), null);
+  await f.reopen();
+  assert.equal(f.entry.turn.state, "completed", "Existing retained metadata may still describe completion");
+  assert.equal(f.final(), null, "Saved completion cannot reconstruct native receipt proof");
+  await f.send("next-input");
+  await f.owner.interrupt(f.entry);
+  assert.equal(f.final(), null);
+});
+
+test("Claude steering never adopts an older same-text carrier and current accepted input can publish its own final", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  await f.frame({ type: "assistant", uuid: "first-answer", message: { content: [{ type: "text", text: "Same words" }] } });
+  await f.send("steer");
+  await f.frame({ type: "result", subtype: "success", result: "Same words" });
+  assert.equal(f.final(), null, "Original result deduplication is not evidence for a newer admitted command");
+  assert.equal(f.messages.length, 1);
+  await f.send("current");
+  await f.frame({ type: "result", subtype: "success", result: "Current answer" });
+  assert.equal(f.final().inputMessageId, claudeNativeMessageId("current"));
+  assert.equal(f.final().text, "Current answer");
+});
+
+
+test("Claude final receipt refuses original generic execution release while native exit is pending", async t => {
+  let releases = 0;
+  const f = await publishedClaudeFixture(t, { releaseExecution: async () => { releases++; } });
+  await f.send();
+  await f.frame({ type: "result", subtype: "success", result: "Completed before exit" });
+  assert.ok(f.final());
+  const exit = Promise.withResolvers();
+  const entered = Promise.withResolvers();
+  f.entry.process.stop = async () => { entered.resolve(); return exit.promise; };
+  const stopping = f.entry.nativeTurn.stopProcess("Closing generic execution");
+  try {
+    await entered.promise;
+    assert.equal(f.entry.stopping, false, "Original generic release does not set retained-host stopping");
+    assert.ok(f.entry.stopPending, "The original pending-stop owner is visible before exit proof");
+    assert.equal(f.final(), null, "Completed receipt cannot be used during native cleanup");
+    assert.equal(releases, 0, "Original execution release still waits for the native exit proof");
+  } finally {
+    exit.resolve({ exited: true, scopeEmpty: true });
+    await stopping;
+  }
+  assert.equal(releases, 1);
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.stopPending, null);
+  assert.equal(f.final(), null);
+});
+
+
+test("Claude failed generic native exit cannot revive a completed receipt and original cleanup retries", async t => {
+  let releases = 0;
+  const f = await publishedClaudeFixture(t, { releaseExecution: async () => { releases++; } });
+  await f.send();
+  await f.frame({ type: "result", subtype: "success", result: "Completed before failed exit" });
+  assert.ok(f.final());
+  const native = f.entry.process;
+  const exit = Promise.withResolvers();
+  const entered = Promise.withResolvers();
+  const problem = new Error("Native exit unavailable");
+  native.stop = async () => { entered.resolve(); return exit.promise; };
+  const stopping = f.entry.nativeTurn.stopProcess("Closing generic execution");
+  const failed = assert.rejects(stopping, error => error === problem);
+  try {
+    await entered.promise;
+    assert.equal(f.entry.stopping, false);
+    assert.ok(f.entry.stopPending);
+    assert.equal(f.final(), null);
+    assert.equal(releases, 0);
+    exit.reject(problem);
+    await failed;
+    assert.equal(f.entry.stopPending, null, "Original failed-stop finally clears its pending handle");
+    assert.equal(f.entry.process, native, "Original failed-exit ownership remains available for retry");
+    assert.equal(f.final(), null, "Failed native exit cannot revive the old completed receipt");
+    assert.equal(releases, 0, "Failed exit must not release execution ownership");
+  } finally {
+    exit.reject(problem);
+    await failed;
+    native.stop = async () => ({ exited: true, scopeEmpty: true });
+  }
+  await f.entry.nativeTurn.stopProcess("Retry original native cleanup");
+  assert.equal(releases, 1);
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.stopPending, null);
+  assert.equal(f.final(), null);
+});

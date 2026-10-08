@@ -158,6 +158,15 @@ export function createClaudeConversationOwner({
     } : null);
   }
 
+  // This lookup uses only the existing current entry and native receipt owner.
+  function readFinalAssistantResult(contextKey, conversationId = "", turnId = "") {
+    if (!text(contextKey) || !text(conversationId) || !text(turnId) || closing || closingSessions.has(contextKey)) return null;
+    const entry = entries.get(`${contextKey}\0${conversationId}`);
+    if (!entry || entry.disposed || entry.stopping || entry.observationError ||
+        entry.id !== conversationId || entry.context.key !== contextKey || entry.turn?.id !== turnId) return null;
+    return entry.nativeTurn.readFinalAssistantResult(conversationId, turnId);
+  }
+
   function readHistory(entry) {
     return readClaudeHistory({ configRoot, workdir: entry.nativeWorkdir, conversationId: entry.id });
   }
@@ -231,6 +240,7 @@ export function createClaudeConversationOwner({
     const account = preparation.account(entry);
     const identity = await account.identity;
     const providerId = account.providerId;
+    if (entry.accountIdentity !== identity) entry.nativeTurn.invalidateFinalAssistantResult();
     try {
       await bindClaudeConversationAccount(entry, { identity, providerId,
         stop: (entry, reason) => entry.nativeTurn.stopProcess(reason), save: saveAccount });
@@ -748,7 +758,7 @@ export function createClaudeConversationOwner({
     if (!binding) return { value: delivered.value };
   }
 
-  return Object.freeze({ entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readHistory, ensureReady, ensureProcess, stopForTerminal, prepareTerminal, send, startTurn,
+  return Object.freeze({ entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, stopForTerminal, prepareTerminal, send, startTurn,
     interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }
@@ -773,6 +783,35 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   let cancelling = false;
   let steering;
   let maximumOutput = 4 * 1024 * 1024;
+  let inputOwner = null;
+  let acceptedInput = null;
+  let publishedAssistant = null;
+  let finalAssistantResult = null;
+
+  function clearFinalAssistantResult() {
+    publishedAssistant = null;
+    finalAssistantResult = null;
+  }
+
+  function invalidateFinalAssistantResult() {
+    inputOwner = null;
+    acceptedInput = null;
+    clearFinalAssistantResult();
+  }
+
+  function currentReceiptOwner(owner) {
+    return Boolean(entry && owner && inputOwner === owner && acceptedInput === owner &&
+      owner.commandId === currentCommandId && entry.process && entry.process === owner.process &&
+      entry.executionId === owner.executionId && entry.accountIdentity === owner.accountIdentity &&
+      entry.turn?.id === turnId && !entry.stopping && !entry.stopPending && !entry.disposed && !entry.observationError);
+  }
+
+  function readFinalAssistantResult(threadId, expectedTurnId) {
+    if (threadId !== conversationId || expectedTurnId !== turnId || !finalAssistantResult ||
+        active || stopped || cancelling || outcome?.status !== "completed" || outcome.error ||
+        inFlight.size || tasks.size || admissions.size || !currentReceiptOwner(acceptedInput)) return null;
+    return structuredClone(finalAssistantResult);
+  }
 
   function read() {
     return { turnId, active, text: result, phase, status: active ? "inProgress" : outcome?.status || "ready",
@@ -810,6 +849,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   }
 
   async function stopProcess(reason = "") {
+    invalidateFinalAssistantResult();
     // Runtime bindings commit execution release before dropping the handle.
     // Retained host entries keep their original post-proof checkpoint order.
     const binding = Boolean(process.releaseExecution);
@@ -864,7 +904,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (binding) setState(state, event.error);
       else await updateState(state, event.error);
     }
-    await onEvent(event);
+    const published = await onEvent(event);
     if (event.type === "provider-event") {
       const frame = event.event;
       const change = frame.type === "active_goal" ? "goal" : frame.type === "rate_limit_event" ? "usage" : "";
@@ -874,6 +914,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (event.source === "result") await onEvent({ type: "provider-update", change: "goal" });
       entry.completion?.resolve(binding ? event : readResult());
     }
+    return published;
   }
 
   function checkOutput(value, role = "assistant") {
@@ -884,7 +925,16 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
 
   async function publishMessage(message) {
     messages.set(message.id, message);
-    await publish({ type: "message", message });
+    const owner = acceptedInput;
+    const completeAssistant = message.complete && message.role === "assistant";
+    if (completeAssistant) clearFinalAssistantResult();
+    const conversationTurn = await publish({ type: "message", message });
+    if (completeAssistant && message.text && currentReceiptOwner(owner) && !stopped && !cancelling &&
+        conversationTurn && typeof conversationTurn === "object" && !Array.isArray(conversationTurn)) {
+      publishedAssistant = { owner, itemId: message.id, outputId: message.outputId || message.id,
+        text: message.text, conversationTurn: structuredClone(conversationTurn) };
+    }
+    return conversationTurn;
   }
 
   async function receive(frame) {
@@ -908,9 +958,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
           clearTimeout(pending.timer);
           try {
             await pending.accept();
+            if (inputOwner === pending.receiptOwner && !stopped && !cancelling) acceptedInput = pending.receiptOwner;
             admissions.delete(uuid);
             pending.resolve();
           } catch (error) {
+            acceptedInput = null;
+            clearFinalAssistantResult();
             pending.reject(error);
             throw error;
           }
@@ -988,12 +1041,22 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         outcome && inFlight.size === 0 && tasks.size === 0) {
       active = false;
       phase = "";
-      await publish({ type: "settled", ...read(), source: frame.type });
+      const candidate = publishedAssistant;
+      finalAssistantResult = outcome.status === "completed" && !outcome.error && !stopped && !cancelling &&
+        admissions.size === 0 && candidate && currentReceiptOwner(candidate.owner) && candidate.text === result
+        ? { threadId: conversationId, turnId, inputMessageId: candidate.owner.commandId,
+          itemId: candidate.itemId, outputId: candidate.outputId, text: candidate.text,
+          conversationTurn: candidate.conversationTurn } : null;
+      try { await publish({ type: "settled", ...read(), source: frame.type }); }
+      catch (error) { clearFinalAssistantResult(); throw error; }
     }
   }
 
   function stop(reason = "Claude stopped before acknowledging the prompt.") {
     stopped = true;
+    inputOwner = null;
+    acceptedInput = null;
+    clearFinalAssistantResult();
     for (const pending of admissions.values()) {
       pending.reject(failure(reason));
     }
@@ -1008,12 +1071,13 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
 
   async function interrupt(client) {
     cancelling = true;
+    clearFinalAssistantResult();
     if (client) await client.interrupt();
     // The process host still must drain its owned scope and call stop().
   }
 
   return Object.freeze({
-    receive, read, stop, interrupt,
+    receive, read, stop, interrupt, readFinalAssistantResult, invalidateFinalAssistantResult,
     ...(entry ? { readResult, updateState, stopProcess } : {}),
     ...(instructions ? {
       prepare: instructions.prepare,
@@ -1024,6 +1088,9 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     begin({ id, maxOutputCharacters = 4 * 1024 * 1024 } = {}) {
       if (active) throw failure("This Claude turn is still working.");
       if (!id || !Number.isSafeInteger(maxOutputCharacters) || maxOutputCharacters < 1) throw new TypeError("Invalid Claude turn configuration.");
+      inputOwner = null;
+      acceptedInput = null;
+      clearFinalAssistantResult();
       turnId = id;
       maximumOutput = maxOutputCharacters;
       messages.clear();
@@ -1041,10 +1108,18 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       messages.clear();
       result = "";
       outcome = null;
+      inputOwner = null;
+      acceptedInput = null;
+      clearFinalAssistantResult();
     },
     async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000 } = {}) {
       if (!active || stopped || cancelling) throw failure("Claude has no active turn for this message.");
       if (!uuid || typeof accept !== "function" || admissions.has(uuid)) throw new TypeError("A distinct message id and admission writer are required.");
+      clearFinalAssistantResult();
+      acceptedInput = null;
+      inputOwner = entry ? { commandId: uuid, process: entry.process, executionId: entry.executionId,
+        accountIdentity: entry.accountIdentity } : null;
+      const receiptOwner = inputOwner;
       const admitted = Promise.withResolvers();
       void admitted.promise.catch(() => {});
       inFlight.add(uuid);
@@ -1052,9 +1127,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         failure("Claude has not acknowledged this prompt. Its delivery is uncertain.", "assistant_claude_admission_unknown"),
         { delivery: "uncertain" }
       )), timeoutMs);
-      admissions.set(uuid, { ...admitted, accept, timer });
+      admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });
       try {
         await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId }), admitted.promise]);
+      } catch (error) {
+        if (inputOwner === receiptOwner) invalidateFinalAssistantResult();
+        throw error;
       } finally {
         clearTimeout(timer);
       }
@@ -1064,6 +1142,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       // Streaming user input otherwise queues behind the entire running turn.
       // Claude's supported steering path interrupts generation, then continues
       // the same native history with the new instruction.
+      acceptedInput = null;
+      clearFinalAssistantResult();
       steering = Promise.withResolvers();
       let timer;
       try {

@@ -2836,6 +2836,19 @@ An exact native acknowledgement ends its ACK deadline before the admission
 writer runs; a slow write remains awaited, and a rejected write rejects admission.
 A missing acknowledgement remains uncertain. Native failure-result text stays
 in the turn's error rather than becoming an assistant answer.
+The retained owner also exposes
+`readFinalAssistantResult(contextKey, conversationId, turnId)` for a trusted host
+that returns its canonical turn from a successful complete-message publication.
+This synchronous lookup clones the current native receipt; it does not acquire
+a conversation, read history, resume, or resend work. It requires the exact
+current context, conversation, turn, accepted input, process, execution and account,
+and successful native settlement after pending commands and background tasks.
+The receipt becomes readable before the original before-state checkpoint; a
+failed publication or checkpoint invalidates it. Default event sinks and saved
+completion metadata cannot supply this proof. New input, steering, account
+changes, interruption and cleanup invalidate it. Pending or failed native Stop
+cannot revive an older receipt. This optional getter preserves existing storage,
+checkpoint and cleanup behavior; the host still owns question or grading policy.
 The turn owner preserves the production receiver's block lifecycle: deltas are
 temporary, block-stop removes them, and completed snapshots use their native
 UUIDs. It does not group distinct history snapshots into a synthetic reply.
