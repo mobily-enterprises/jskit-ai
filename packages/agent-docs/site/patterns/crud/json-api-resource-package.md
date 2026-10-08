@@ -48,6 +48,23 @@ contracts, access policy, and HTTP routes.
 ## Example files
 
 `example/` contains a complete books package plus a source-controlled migration.
+Paths below are relative to this pattern directory:
+
+```text
+example/migrations/20260815000000_books.cjs
+example/packages/books/package.json
+example/packages/books/src/server/BooksFeature.js
+example/packages/books/src/shared/bookResource.js
+example/packages/books/src/shared/index.js
+```
+
+The example's migration belongs to the application root (`example/migrations/`)
+and is a `.cjs` file. The books package does not declare a migration directory.
+For a package-owned migration instead, declare its actual directory in
+`package.json#jskit.migrations.directories`, as described in the database-layer
+guide. Use the listed paths when reading this example; for other patterns,
+inspect their example tree before assuming a file location or extension.
+
 `BooksFeature.js` is deliberately tiny: it binds the readable resource contract
 to the framework module and exports the resulting provider.
 
