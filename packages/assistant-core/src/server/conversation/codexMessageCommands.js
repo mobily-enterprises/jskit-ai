@@ -214,6 +214,7 @@ export function createCodexMessageCommands({
       const observerOptions = source.observerOptions || codexAppServerSessionObserverOptions(sessionId, source.providerOptions);
       const thread = await ensureCodexAppServerThread({
         ...(source.preparation || facility.preparation(currentSession)),
+        ...(preparation.applicationTools ? { applicationTools: preparation.applicationTools, providerReady: preparation.providerReady } : {}),
         observeThread: threadId => subscribeCodexAppServerEvents(sessionId, provider, threadId, observerOptions),
         provider,
         workdir: source.workdir ?? workdir
@@ -390,6 +391,7 @@ export function createCodexMessageCommands({
     const selected = await selectCodexAppServerMessageTurn(sessionId, { messageId, startedAt }, context.selection);
     if (Object.hasOwn(selected, "value")) return selected;
     const { provider, threadId, turnId } = selected;
+    if (prepare.providerReady) await prepare.providerReady({ provider, threadId });
     const prepared = { ...context, turnOwnership, messageId, actorContext };
     const policy = await prepare.prepareMessage(input, prepared, { starting: false, selected });
     if (policy) return policy;

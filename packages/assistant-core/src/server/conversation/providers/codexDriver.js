@@ -3,7 +3,8 @@ import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { open, realpath } from "node:fs/promises";
 import { createCodexAppServerRuntime } from "../codexProcess.js";
-import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServerThread, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
+import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServerThread, codexApplicationToolConfiguration,
+  assertCodexApplicationToolSchemaIdentity, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
 import { createCodexAppServerProviderOwner } from "../codexProviderOwner.js";
 import { codexAuthOutputRequiresReconnect, codexProviderConfiguration, codexToolFreeConfiguration } from "../codexConfiguration.js";
 import { nativeAiProvider, nativeAiModel } from "../../../shared/nativeProviders.js";
@@ -573,13 +574,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       }
 
       async function prepareConfiguration(configuration, context, signal, tools) {
-        const dynamicTools = (tools?.schemas || []).map(({ function: tool }) => ({
-          type: "function", name: tool.name, description: tool.description, inputSchema: tool.parameters
-        }));
-        const toolSchemaIdentity = hash(dynamicTools);
-        if (binding.threadId && (binding.toolSchemaIdentity || hash([])) !== toolSchemaIdentity) {
-          throw new Error("This Codex conversation was created with different application tool entry points. Start a new conversation to enable or remove application tools.");
-        }
+        const { dynamicTools, toolSchemaIdentity } = codexApplicationToolConfiguration(tools);
+        assertCodexApplicationToolSchemaIdentity(binding.threadId, binding.toolSchemaIdentity, toolSchemaIdentity);
         const selected = await selection(configuration, context, signal);
         await connect(signal, selected);
         const [configResult, hookResult] = await Promise.all([
@@ -673,7 +669,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       }
 
       function messagePreparation(configuration, context, signal, tools) {
-        if (supplied) return supplied.messagePreparation;
+        if (supplied) return tools ? { ...supplied.messagePreparation, applicationTools: tools,
+          providerReady: current.providerReady } : supplied.messagePreparation;
         return {
           async readContext() {
             const session = await runtime.getSession(sessionId);
@@ -981,6 +978,72 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           let waitForTurn = false;
           let executingProvider;
           const toolCalls = new Set();
+          const toolRegistrations = new Map();
+          function toolHandler(provider, threadId, isRegistered = () => true) {
+            return async ({ method, params }) => {
+              if (method !== "item/tool/call" || !tools || params?.threadId !== (threadId || binding.threadId) || params.namespace ||
+                  supplied && (disposed || current !== active || active.finished || signal.aborted || owner.runtimeLifecycle?.closing === true || !isRegistered())) {
+                throw new Error("This conversation does not authorize that native tool request.");
+              }
+              let owned = !supplied;
+              const operation = (async () => {
+                await active.inputReady;
+                if (supplied && owner.runtimeLifecycle?.closing === true) {
+                  throw new Error("This conversation does not authorize that native tool request.");
+                }
+                const ownership = Promise.withResolvers();
+                owner.notificationQueue.run({ sessionId, provider }, () => {
+                  if (supplied && (params.turnId !== active.turnId || disposed || current !== active || active.finished ||
+                      signal.aborted || !isRegistered())) {
+                    ownership.resolve(false);
+                    return;
+                  }
+                  owned = true;
+                  const failure = provider.observationFailure;
+                  if (failure) ownership.reject(failure.cause || failure);
+                  else ownership.resolve(params.turnId === active.turnId);
+                });
+                if (!await ownership.promise || supplied && (disposed || current !== active || active.finished || signal.aborted || !isRegistered())) {
+                  owned = false;
+                  throw new Error("This application tool call belongs to another turn.");
+                }
+                const result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
+                return { success: result.ok, contentItems: [{ type: "inputText", text: JSON.stringify(result) }] };
+              })();
+              toolCalls.add(operation);
+              try { return await operation; }
+              catch (error) {
+                if (!supplied || owned && current === active && params.turnId === active.turnId && isRegistered()) {
+                  if (supplied) active.toolFailure = error;
+                  active.completion.reject(error);
+                }
+                throw error;
+              }
+              finally { toolCalls.delete(operation); }
+            };
+          }
+          active.providerReady = async ({ provider, threadId }) => {
+            signal.throwIfAborted();
+            if (!threadId) return;
+            if (typeof conversation.identity?.readToolSchemaIdentity !== "function") {
+              throw new TypeError("Bound Codex application tools require the original schema identity reader and writer.");
+            }
+            if (await conversation.identity.read() !== threadId) throw new Error("The native application tool thread changed before dispatch.");
+            assertCodexApplicationToolSchemaIdentity(threadId, await conversation.identity.readToolSchemaIdentity(),
+              codexApplicationToolConfiguration(tools).toolSchemaIdentity);
+            signal.throwIfAborted();
+            if (disposed || current !== active) throw new Error("This conversation handle is closed.");
+            for (const [previous, owned] of toolRegistrations) {
+              if (previous === provider && owned.threadId === threadId && owned.client === provider.client && owned.registration.isCurrent()) return;
+              owned.registration.release();
+              toolRegistrations.delete(previous);
+            }
+            const client = provider.client;
+            let registration;
+            registration = provider.registerThreadRequestHandler(threadId, toolHandler(provider, threadId,
+              () => registration?.isCurrent() === true && provider.client === client));
+            toolRegistrations.set(provider, { threadId, client, registration });
+          };
           function abort() {
             if (cancellation) return;
             cancellation = interrupt();
@@ -1006,27 +1069,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
               await connect(signal, selected);
               executingProvider = native;
             }
-            if (!supplied) native.setServerRequestHandler(async ({ method, params }) => {
-              if (method !== "item/tool/call" || !tools || params?.threadId !== binding.threadId || params.namespace) {
-                throw new Error("This conversation does not authorize that native tool request.");
-              }
-              const operation = (async () => {
-                await active.inputReady;
-                const ownership = Promise.withResolvers();
-                owner.notificationQueue.run({ sessionId, provider: executingProvider }, () => {
-                  const failure = executingProvider.observationFailure;
-                  if (failure) ownership.reject(failure.cause || failure);
-                  else ownership.resolve(params.turnId === active.turnId);
-                });
-                if (!await ownership.promise) throw new Error("This application tool call belongs to another turn.");
-                const result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
-                return { success: result.ok, contentItems: [{ type: "inputText", text: JSON.stringify(result) }] };
-              })();
-              toolCalls.add(operation);
-              try { return await operation; }
-              catch (error) { active.completion.reject(error); throw error; }
-              finally { toolCalls.delete(operation); }
-            });
+            if (!supplied) native.setServerRequestHandler(toolHandler(executingProvider));
             const command = { input, beforeDispatch, accept };
             delivered = await sendMessage(command, configuration, context, signal, tools);
             waitForTurn = !supplied || delivered.value?.delivered === true;
@@ -1057,7 +1100,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           try {
             // Account invalidation already owns this stop attempt. Its failed
             // proof stays available for explicit cleanup through the same owner.
-            if ((!supplied && problem || signal.aborted) && problem?.code !== "codex_runtime_invalidated") {
+            if ((!supplied && problem || supplied && active.toolFailure || signal.aborted) && problem?.code !== "codex_runtime_invalidated") {
               await (cancellation || interrupt());
             }
           } catch (error) { problem = error; }
@@ -1068,6 +1111,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             if (!supplied) await providerOwner.pendingRecovery(providerKey, executingProvider);
           } catch (error) { problem = error; }
           finally {
+            for (const owned of toolRegistrations.values()) owned.registration.release();
+            toolRegistrations.clear();
             await Promise.allSettled([...toolCalls]);
             if (!supplied) {
               native?.setServerRequestHandler(null);

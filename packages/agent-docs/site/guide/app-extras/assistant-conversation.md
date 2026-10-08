@@ -1420,11 +1420,31 @@ saved-result retry verifies that same original turn/message. Hosts retain their
 own exact resource/version fences and action policy. Bound conversations without
 this explicit facility keep their existing common-runtime behavior.
 
-This facility is a setup/storage/context prerequisite. It does not install
-bound Codex, Claude or OpenCode tool dispatch, native schemas or host-specific
-authorization. Those must be connected through the original native owner before
-application tools can be called from a bound native conversation; this facility
-alone does not establish native or installed integration acceptance.
+For an opted-in bound Codex conversation, the common driver installs the same
+application-tool schemas and executor used by its standalone path. The original
+message preparation passes them to `ensureCodexAppServerThread()` before native
+start or resume. Its existing `identity` must supply
+`readToolSchemaIdentity(workdir)` and persist the supplied `toolSchemaIdentity`
+in `identity.write()` with the original native thread identity. The bound
+conversation's `identity.readToolSchemaIdentity()` must read that same saved
+value. A retained schema mismatch fails explicitly; it does not replace the
+thread or replay its history. A host that prepares the native thread before Send
+must supply the same `applicationTools.schemas` at that original readiness step.
+
+The account-shared provider registers each exact thread with
+`registerThreadRequestHandler(threadId, handler)`. Its returned `isCurrent()` and
+`release()` are scoped to that registration; a retired release cannot remove a
+replacement. The common driver retains the original admitted-turn notification
+gate and originating message's executor across steering. Foreign, stale and
+retired calls are refused without interrupting a current turn or peer. An owned
+executor or observation failure uses the original thread's interrupt and drain.
+Helper authentication refresh and isolated Helper request refusal retain their
+original precedence.
+
+The host still owns exact write authorization, readiness composition and native
+identity persistence. This shared prerequisite does not establish a particular
+application's integration, installed acceptance or real native acceptance.
+Bound Claude and OpenCode application-tool dispatch remain unavailable.
 
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
