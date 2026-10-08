@@ -23,6 +23,7 @@ function normalizeWorkspaceEntry(entry = null) {
     name,
     avatarUrl: normalizeText(entry.avatarUrl),
     roleSid: normalizeLowerText(entry.roleSid || "member") || "member",
+    ...(typeof entry.roleLabel === "string" && entry.roleLabel.trim() ? { roleLabel: entry.roleLabel.trim() } : {}),
     isAccessible: entry.isAccessible !== false
   });
 }

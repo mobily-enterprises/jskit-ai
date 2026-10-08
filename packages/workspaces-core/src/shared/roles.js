@@ -47,11 +47,13 @@ function resolveInheritedRolePermissions(roleSid, configuredRoles = {}, seenRole
 
 function createRoleDescriptor(roleSid, configuredDefinition, configuredRoles = {}) {
   const source = asRecord(configuredDefinition);
+  const label = typeof source.label === "string" ? source.label.trim() : "";
   const assignable = roleSid === OWNER_ROLE_ID ? false : source.assignable === true;
   const permissions = resolveInheritedRolePermissions(roleSid, configuredRoles);
 
   return Object.freeze({
     id: roleSid,
+    ...(label ? { label } : {}),
     assignable,
     permissions: Object.freeze([...permissions])
   });
@@ -99,6 +101,7 @@ function createWorkspaceRoleCatalog(appConfig = {}) {
       roles.map((role) =>
         Object.freeze({
           id: role.id,
+          ...(role.label ? { label: role.label } : {}),
           assignable: role.assignable,
           permissions: Object.freeze([...role.permissions])
         })
@@ -117,6 +120,7 @@ function cloneWorkspaceRoleCatalog(roleCatalog = null) {
     roles: Array.isArray(source.roles)
       ? source.roles.map((role) => ({
           id: normalizeRoleId(role?.id),
+          ...(typeof role?.label === "string" && role.label.trim() ? { label: role.label.trim() } : {}),
           assignable: role?.assignable === true,
           permissions: Array.isArray(role?.permissions) ? [...role.permissions] : []
         }))
@@ -129,6 +133,7 @@ function listRoleDescriptors(appConfig = {}) {
   const roleCatalog = createWorkspaceRoleCatalog(appConfig);
   return roleCatalog.roles.map((role) => ({
     id: role.id,
+    ...(role.label ? { label: role.label } : {}),
     assignable: role.assignable,
     permissions: [...role.permissions]
   }));

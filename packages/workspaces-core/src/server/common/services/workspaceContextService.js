@@ -5,7 +5,8 @@ import {
   resolveTenancyProfile
 } from "../../../shared/tenancyProfile.js";
 import {
-  resolveRolePermissions
+  resolveRolePermissions,
+  createWorkspaceRoleCatalog
 } from "../../../shared/roles.js";
 import {
   mapWorkspaceSummary
@@ -144,8 +145,13 @@ function createService({
     }
 
     const list = await workspacesRepository.listForUserId(normalizedUserId, options);
+    const roleCatalog = createWorkspaceRoleCatalog(appConfig);
     const accessible = list
-      .map((entry) => mapWorkspaceSummary(entry, { roleSid: entry.roleSid, status: entry.membershipStatus }))
+      .map((entry) => mapWorkspaceSummary(
+        entry,
+        { roleSid: entry.roleSid, status: entry.membershipStatus },
+        roleCatalog
+      ))
       .filter((entry) => entry.isAccessible);
 
     return accessible;

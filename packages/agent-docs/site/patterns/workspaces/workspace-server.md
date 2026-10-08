@@ -27,6 +27,26 @@ member permissions, personal-workspace behavior, and surface access rules.
 Use workspace routes, resources, scope helpers, tenancy profiles, and settings
 contracts exported by `@jskit-ai/workspaces-core`.
 
+## Role display labels
+
+Each `roleCatalog.roles[roleId]` definition may include an optional string
+`label`. JSKIT trims it and preserves nonempty labels in role descriptors,
+catalogue clones and Members/Workspace Settings responses. Labels are display
+metadata; they do not inherit from a parent role. Missing, blank or non-string
+labels keep the existing role-title fallback.
+
+Shared Members invitation and member-role selectors show the label but submit
+the role id. Pending invitation captions, workspace role captions and the
+default invitation email use the same configured labels. Pending invitation
+responses expose optional `roleLabel` alongside the unchanged `roleSid`.
+Applications with their own invitation renderer may use its optional
+`roleLabel` input; `roleSid` remains the stored role id.
+
+Keep existing permissions, inheritance, assignability and
+`workspace.defaultInviteRole` when adding a label. `owner` remains
+nonassignable. Custom roles, including specialised Training roles, are ordinary
+catalogue entries. Updating labels requires no database migration.
+
 ## Transactional invitation participation
 
 Through `workspaces.core`, register one callback during feature setup with

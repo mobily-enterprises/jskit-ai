@@ -34,7 +34,7 @@ Local functions
 Exports
 - `mapMembershipSummary(membership, workspace)`
 - `mapWorkspaceSettingsPublic(workspaceSettings, { workspaceInvitationsEnabled = true } = {})`
-- `mapWorkspaceSummary(workspace, membership)`
+- `mapWorkspaceSummary(workspace, membership, roleCatalog = null)`
 
 ### `src/server/common/repositories/repositoryUtils.js`
 Exports
@@ -172,7 +172,7 @@ Local functions
 
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
-- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", expiresAt = "" } = {})`
+- `renderDefaultWorkspaceInviteEmail({ inviteUrl = "", workspace = {}, inviter = null, roleSid = "member", roleLabel = "", expiresAt = "" } = {})`
 Local functions
 - `escapeHtml(value = "")`
 
@@ -207,7 +207,7 @@ Exports
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
-- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository } = {})`
+- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog = null } = {})`
 
 ### `src/server/workspaceSettings/bootWorkspaceSettings.js`
 Exports

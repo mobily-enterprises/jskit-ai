@@ -12,11 +12,12 @@ function renderDefaultWorkspaceInviteEmail({
   workspace = {},
   inviter = null,
   roleSid = "member",
+  roleLabel = "",
   expiresAt = ""
 } = {}) {
   const workspaceName = String(workspace?.name || workspace?.slug || "the workspace").trim() || "the workspace";
   const inviterName = String(inviter?.displayName || inviter?.email || "").trim();
-  const roleName = String(roleSid || "member").trim() || "member";
+  const roleName = (typeof roleLabel === "string" ? roleLabel.trim() : "") || String(roleSid || "member").trim() || "member";
   const expiryText = expiresAt ? `This invitation expires at ${expiresAt}.` : "";
   const intro = inviterName
     ? `${inviterName} invited you to join ${workspaceName} as ${roleName}.`

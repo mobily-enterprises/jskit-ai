@@ -2,13 +2,16 @@ import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
-function mapWorkspaceSummary(workspace, membership) {
+function mapWorkspaceSummary(workspace, membership, roleCatalog = null) {
+  const roleSid = normalizeLowerText(membership?.roleSid || "member") || "member";
+  const roleLabel = roleCatalog?.roles?.find((role) => role.id === roleSid)?.label;
   return {
     id: normalizeRecordId(workspace.id, { fallback: "" }),
     slug: normalizeText(workspace.slug),
     name: normalizeText(workspace.name),
     avatarUrl: normalizeText(workspace.avatarUrl),
-    roleSid: normalizeLowerText(membership?.roleSid || "member") || "member",
+    roleSid,
+    ...(roleLabel ? { roleLabel } : {}),
     isAccessible: normalizeLowerText(membership?.status || "active") === "active"
   };
 }

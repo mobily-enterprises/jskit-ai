@@ -110,12 +110,14 @@ function createService({
     }
 
     try {
+      const roleLabel = resolvedRoleCatalog.roles?.find((role) => role.id === invite.roleSid)?.label;
       const message = await resolvedWorkspaceInviteEmailTemplate({
         email: invite.email,
         inviteUrl,
         workspace: mapWorkspaceSummary(workspace),
         inviter: user || null,
         roleSid: invite.roleSid,
+        ...(roleLabel ? { roleLabel } : {}),
         expiresAt: invite.expiresAt
       });
       const result = await resolvedWorkspaceInviteMailer.sendWorkspaceInvite({
