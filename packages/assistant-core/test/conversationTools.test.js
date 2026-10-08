@@ -709,3 +709,20 @@ test("bound admission current guard fences a held host effect after steering or 
   assert.throws(() => current.assertCurrent(), { code: "conversation_tool_request_retired" });
   assert.equal(f.observed.executions.length, 1, "Inspecting current authority must not dispatch or repeat work");
 });
+
+
+test("bound admission guard preserves the original Stop cancellation reason", async t => {
+  const f = await boundToolFixture(t);
+  await f.conversation.send(message);
+  const command = await f.currentCommand();
+  await f.loadContract();
+  await f.tools().execute({ id: "stop-contract", name: "assistant_action_contract",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) });
+  const admission = f.observed.mappings.at(-1).admission;
+  admission.assertCurrent();
+  await f.conversation.cancel();
+  assert.equal(command.signal.aborted, true);
+  assert.throws(() => admission.assertCurrent(), error => error === command.signal.reason);
+  assert.equal(command.signal.reason.message, "Work stopped.");
+  assert.equal(f.observed.executions.length, 0, "Stop and its authority guard must not execute an application effect");
+});
