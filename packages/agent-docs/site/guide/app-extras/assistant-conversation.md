@@ -1800,6 +1800,13 @@ selecting that segment's engine; recovery never revives a rewound turn. Neither
 inspection nor reopening sends the message again. If native process cleanup fails,
 the handle reports unavailable and rejects new work; `cancel()` retries that exact
 owned cleanup rather than starting another process.
+Claude streaming startup can fail after the host admits an execution but before
+it returns a stream. The adapter preserves that execution identity and the host's
+actual cleanup proof; a rejected startup never supplies a successful stop proof.
+Unconfirmed cleanup retains the identity through the existing native binding for
+Stop/recovery. If binding publication also fails, the original startup failure and
+in-memory custody remain, with the persistence error in `bindingError`; durable
+restart recovery is not established until that binding can be saved.
 An optional `limits.timeoutMs` deadline aborts work and waits for owned cleanup;
 a failed cleanup is still reported as unavailable rather than as a successful stop.
 

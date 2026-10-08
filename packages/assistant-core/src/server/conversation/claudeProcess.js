@@ -322,8 +322,14 @@ export async function createClaudeCodeProcess({
     } } : {});
     return { client, initialization, executionId: native.id, stop };
   } catch (error) {
-    const proof = await stop();
-    error.stopProof = proof;
+    // A rejected start may already own an execution and its cleanup proof.
+    // Only a returned native handle transfers that cleanup to this owner.
+    if (native) {
+      error.executionId = native.id;
+      try { error.stopProof = await stop(); }
+      catch (cleanupError) { error.cleanupError = cleanupError; error.stopProof = { scopeEmpty: false }; }
+      if (error.stopProof?.scopeEmpty !== true) error.cleanupFailed = true;
+    }
     throw error;
   } finally {
     signal?.removeEventListener("abort", abort);

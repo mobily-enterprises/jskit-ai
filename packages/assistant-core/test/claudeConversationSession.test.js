@@ -1326,3 +1326,91 @@ for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]
     assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
   });
 }
+
+for (const saveFails of [false, true]) test(`Claude retains failed-start custody when binding save ${saveFails ? "fails" : "succeeds"}`, async t => {
+  const local = createLocalConversationExecution();
+  const executionId = "failed-owned-execution";
+  const bindingError = new Error("Binding publication failed");
+  const failure = Object.assign(new Error("Managed stream socket did not open"), {
+    executionId, stopProof: { scopeEmpty: false }, cleanupFailed: true
+  });
+  let failStart = true;
+  let allowStop = false;
+  const stops = [];
+  const f = await fixture(t, { execution: {
+    start(options) {
+      if (failStart && options.args.includes("--print")) throw failure;
+      return local.start(options);
+    },
+    stop(id, options) {
+      if (id !== executionId) return local.stop(id, options);
+      stops.push(id);
+      return Promise.resolve({ scopeEmpty: allowStop });
+    }
+  } });
+  await f.first.close();
+  const driver = createClaudeConversationDriver(f.driverOptions);
+  const readBinding = () => f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  let rejectSave = saveFails;
+  const open = async () => driver.open({ binding: await readBinding(),
+    async writeBinding(binding) {
+      if (rejectSave && binding.executionId === executionId) throw bindingError;
+      await f.storage.write("conversation", async tx => {
+        const metadata = await tx.readMetadata();
+        metadata.runtime.binding = binding;
+        await tx.writeMetadata(metadata);
+      });
+    },
+    onFailure() {}
+  });
+  const provider = await open();
+  let reopened;
+  const run = (owner, messageId, text) => owner.run({ configuration,
+    input: { messageId, text }, signal: new AbortController().signal,
+    beforeDispatch() {}, accept() {}, onEvent() {}, onMessage() {}
+  });
+  try {
+    await assert.rejects(run(provider, "failed-start", "Never sent"), error => {
+      assert.equal(error.code, "claude_stop_unconfirmed");
+      assert.equal(error.cause, failure);
+      assert.equal(error.cause.executionId, executionId);
+      assert.equal(error.stopProof.scopeEmpty, false);
+      assert.equal(error.cleanupFailed, true);
+      if (saveFails) assert.equal(error.cause.bindingError, bindingError);
+      return true;
+    });
+    assert.equal((await readBinding()).executionId, saveFails ? "" : executionId);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 0);
+    assert.deepEqual(stops, [executionId]);
+    if (!saveFails) {
+      const restarted = createClaudeConversationDriver(f.driverOptions);
+      await assert.rejects(restarted.open({ binding: await readBinding(),
+        writeBinding() { assert.fail("Unconfirmed cleanup cannot release the saved binding."); },
+        onFailure() {}
+      }), /cleanup could not be confirmed/);
+      assert.deepEqual(stops, [executionId, executionId]);
+      assert.equal((await readBinding()).executionId, executionId);
+    }
+    const expectedStops = stops.length;
+    await assert.rejects(provider.dispose(), /cleanup could not be confirmed/);
+    assert.equal(stops.length, expectedStops + 1);
+    assert.ok(stops.every(id => id === executionId));
+    assert.equal((await readBinding()).executionId, saveFails ? "" : executionId);
+    allowStop = true;
+    rejectSave = false;
+    await provider.dispose();
+    assert.equal(stops.length, expectedStops + 2);
+    assert.ok(stops.every(id => id === executionId));
+    assert.equal((await readBinding()).executionId, "");
+    failStart = false;
+    reopened = await open();
+    await run(reopened, "fresh-after-cleanup", "After cleanup");
+    assert.deepEqual((await f.trace()).filter(row => row.frame?.type === "user").map(row => row.frame.message.content), ["After cleanup"]);
+  } finally {
+    allowStop = true;
+    rejectSave = false;
+    await provider.dispose();
+    await reopened?.dispose();
+    await local.close();
+  }
+});

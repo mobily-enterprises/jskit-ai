@@ -39,7 +39,7 @@ Exports
 
 ### `src/synthesisProcess.js`
 Exports
-- `createSynthesisProcess(configuration, { outputSampleRate, workerUrl = new URL("./synthesisWorker.js", import.meta.url) } = {})`
+- `createSynthesisProcess(configuration, { outputSampleRate, signal = null, workerUrl = new URL("./synthesisWorker.js", import.meta.url) } = {})`
 
 ### `src/synthesisWorker.js`
 Exports

@@ -4,6 +4,7 @@ import os, { tmpdir } from "node:os";
 import path, { join } from "node:path";
 import { test } from "node:test";
 import { claudePlanUsage, claudeCodeArguments, claudeModelConfiguration, createClaudeCodeProcess, readClaudeCodeAuthStatus, stopClaudeCodeProcess } from "../src/server/conversation/claudeProcess.js";
+import { createLocalConversationExecution } from "../src/server/conversation/localExecution.js";
 
 test("native command construction preserves tool-free constraints without granting permissions by default", () => {
   const args = claudeCodeArguments({ sessionId: "session", resume: true, model: "sonnet", effort: "high", toolFree: true });
@@ -215,4 +216,63 @@ test("normal Claude application MCP declaration preserves native source tools an
     assert.equal(configured.includes(flag), ordinary.includes(flag), flag);
   }
   assert.equal(configured.includes("bypassPermissions"), false);
+});
+
+test("Claude preserves the execution host's failed-start identity and cleanup proof", async () => {
+  for (const scopeEmpty of [false, true]) {
+    const cleanupError = new Error("Managed cleanup was unavailable");
+    const failure = Object.assign(new Error("Managed stream socket did not open"), {
+      executionId: "admitted-execution", stopProof: { scopeEmpty },
+      ...(!scopeEmpty ? { cleanupError, cleanupFailed: true } : {})
+    });
+    const stopProof = failure.stopProof;
+    let stops = 0;
+    const execution = {
+      async start() { throw failure; },
+      async stop() { stops += 1; return { scopeEmpty: true }; }
+    };
+    await assert.rejects(createClaudeCodeProcess({ execution }), error => {
+      assert.equal(error, failure);
+      assert.equal(error.executionId, "admitted-execution");
+      assert.equal(error.stopProof, stopProof);
+      assert.equal(error.stopProof.scopeEmpty, scopeEmpty);
+      if (!scopeEmpty) {
+        assert.equal(error.cleanupError, cleanupError);
+        assert.equal(error.cleanupFailed, true);
+      }
+      return true;
+    });
+    assert.equal(stops, 0);
+  }
+});
+
+test("Claude handshake failure retains acquired execution custody when cleanup is unconfirmed", { skip: process.platform === "win32" }, async t => {
+  for (const throws of [false, true]) {
+    const setup = await fixture(t, 'process.stdin.once("data", () => process.stdout.write("invalid frame\\n"));');
+    const local = createLocalConversationExecution();
+    let executionId;
+    const cleanupError = new Error("Managed stop acknowledgement was unavailable");
+    const execution = {
+      async start(input) {
+        const native = await local.start(input);
+        executionId = native.id;
+        return native;
+      },
+      async stop(id) {
+        assert.equal(id, executionId);
+        await local.stop(id);
+        if (throws) throw cleanupError;
+        return { scopeEmpty: false };
+      }
+    };
+    t.after(() => local.close());
+    await assert.rejects(createClaudeCodeProcess({ ...setup, execution }), error => {
+      assert.match(error.message, /invalid UTF-8 or JSON/);
+      assert.equal(error.executionId, executionId);
+      assert.equal(error.stopProof.scopeEmpty, false);
+      assert.equal(error.cleanupFailed, true);
+      if (throws) assert.equal(error.cleanupError, cleanupError);
+      return true;
+    });
+  }
 });

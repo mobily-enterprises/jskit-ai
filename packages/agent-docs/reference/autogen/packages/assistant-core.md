@@ -331,7 +331,7 @@ Local functions
 
 ### `src/server/conversation/claudeTools.js`
 Exports
-- `claudeApplicationToolResponse(request, { schemas, turn, signal })`
+- `claudeApplicationToolResponse(request, { schemas, turn, signal, assertCurrent, onExecutionFailure })`
 - `CLAUDE_APPLICATION_TOOL_SERVER`
 
 ### `src/server/conversation/claudeTurn.js`

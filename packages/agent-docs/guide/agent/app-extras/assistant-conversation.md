@@ -1485,8 +1485,34 @@ does not abort that newer input. Owned executor failure stops its still-current
 native turn; Stop and disposal drain and close
 only its private bridge under the original owner. Unconfigured bound and scoped
 conversations retain their original behavior. These source tests do not establish
-an application's composition or installed/native acceptance. Bound Claude
-application-tool dispatch remains unavailable.
+an application's composition or installed/native acceptance.
+
+An opted-in supplied Claude conversation uses its original retained owner/store
+and SDK MCP control pipe. The owner exposes `applicationToolsSupported: true`;
+that capability does not authorize an application action. Its configured command
+is attached before native process configuration. The host must expose the same
+application SDK declaration through `process.configure` using the owner's tool
+schemas, without selecting standalone execution-release or isolated policy.
+Original native ACK, canonical admission/publication and the common accepted
+request callback precede tool effects. Each call matches the exact recorded
+native tool-use ID, name, arguments and originating accepted message. Optional
+supplied-owner checks at the same executor boundary refuse retired input before
+execution and report only a still-current owned executor failure through the
+original Stop/drain path. Already invoked old work cannot fail a later accepted
+input. The common ordered tool-work catch attributes a failure only to its
+still-current request; prior action error receipts and once-only execution remain
+unchanged. The original retained-turn reader's opt-in current mode requires the exact
+live process, account, command and native tuple; its default retained/history
+projection is unchanged. Stop and completion join existing tool work; clearing custody leaves the original supplied
+process/storage lifecycle intact. Unconfigured supplied conversations keep their
+original behavior.
+
+`claudeCodeArguments({ applicationTools: true })` adds the existing SDK MCP config
+also for normal Claude execution. It does not change native source tools or
+permission defaults; existing tool-free and isolated branches are unchanged.
+Applications still supply exact action authorization, native instruction/account
+configuration and checkpoints. Source/component proofs do not establish a host's
+installed or real CLI/application acceptance.
 
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
@@ -1776,6 +1802,13 @@ selecting that segment's engine; recovery never revives a rewound turn. Neither
 inspection nor reopening sends the message again. If native process cleanup fails,
 the handle reports unavailable and rejects new work; `cancel()` retries that exact
 owned cleanup rather than starting another process.
+Claude streaming startup can fail after the host admits an execution but before
+it returns a stream. The adapter preserves that execution identity and the host's
+actual cleanup proof; a rejected startup never supplies a successful stop proof.
+Unconfirmed cleanup retains the identity through the existing native binding for
+Stop/recovery. If binding publication also fails, the original startup failure and
+in-memory custody remain, with the persistence error in `bindingError`; durable
+restart recovery is not established until that binding can be saved.
 An optional `limits.timeoutMs` deadline aborts work and waits for owned cleanup;
 a failed cleanup is still reported as unavailable rather than as a successful stop.
 
@@ -2838,6 +2871,19 @@ An exact native acknowledgement ends its ACK deadline before the admission
 writer runs; a slow write remains awaited, and a rejected write rejects admission.
 A missing acknowledgement remains uncertain. Native failure-result text stays
 in the turn's error rather than becoming an assistant answer.
+The retained owner also exposes
+`readFinalAssistantResult(contextKey, conversationId, turnId)` for a trusted host
+that returns its canonical turn from a successful complete-message publication.
+This synchronous lookup clones the current native receipt; it does not acquire
+a conversation, read history, resume, or resend work. It requires the exact
+current context, conversation, turn, accepted input, process, execution and account,
+and successful native settlement after pending commands and background tasks.
+The receipt becomes readable before the original before-state checkpoint; a
+failed publication or checkpoint invalidates it. Default event sinks and saved
+completion metadata cannot supply this proof. New input, steering, account
+changes, interruption and cleanup invalidate it. Pending or failed native Stop
+cannot revive an older receipt. This optional getter preserves existing storage,
+checkpoint and cleanup behavior; the host still owns question or grading policy.
 The turn owner preserves the production receiver's block lifecycle: deltas are
 temporary, block-stop removes them, and completed snapshots use their native
 UUIDs. It does not group distinct history snapshots into a synthetic reply.

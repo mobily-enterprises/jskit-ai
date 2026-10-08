@@ -370,6 +370,16 @@ export function createClaudeConversationOwner({
         await entry.nativeTurn.stopProcess(error.message);
       }
     }); } catch (error) {
+      if (error.executionId && error.stopProof?.scopeEmpty !== true && !entry.executionId) {
+        // Streaming startup can fail after host admission, before onStarted.
+        // Retain that custody through the same binding owner for Stop recovery.
+        error.cleanupFailed = true;
+        entry.executionId = error.executionId;
+        try {
+          await store.save(entry, { execution: true });
+          await onEvent(entry, { type: "execution", context, executionId: entry.executionId });
+        } catch (bindingError) { error.bindingError = bindingError; }
+      }
       if (store.releaseExecution && error.stopProof?.scopeEmpty) await store.releaseExecution(entry);
       throw error;
     }
@@ -806,7 +816,10 @@ export function createClaudeConversationOwner({
     if (binding) {
       try {
         if (problem || signal.aborted) await (cancellation || entry.nativeTurn.stopProcess(problem?.message || "Work stopped."));
-      } catch (error) { problem = error; }
+      } catch (error) {
+        if (problem && error !== problem) error.cause ||= problem;
+        problem = error;
+      }
       finally {
         await Promise.allSettled([...active.toolWork]);
         if (entry?.command === active) entry.command = null;
@@ -816,7 +829,10 @@ export function createClaudeConversationOwner({
       if (tools && active.entry) {
         try {
           if (problem || signal.aborted) await active.entry.nativeTurn.stopProcess(problem?.message || "Work stopped.");
-        } catch (error) { problem = error; }
+        } catch (error) {
+          if (problem && error !== problem) error.cause ||= problem;
+          problem = error;
+        }
         finally {
           await Promise.allSettled([...active.toolWork]);
           if (active.entry.command === active) active.entry.command = null;
