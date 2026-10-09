@@ -34,8 +34,9 @@ const sameRequest = (left, right) => left.text === right.text && (left.origin ||
 
 /** One application conversation API. Storage and authorization remain host facilities. */
 export function createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory,
-  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, limits = {} } = {}) {
+  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, limits = {} } = {}) {
   if (typeof authorize !== "function") throw new TypeError("Conversation access requires an authorize function.");
+  if (typeof persistCommentary !== "boolean") throw new TypeError("Conversation commentary persistence requires an explicit server-side boolean.");
   if (apiHistory !== undefined && typeof apiHistory !== "function") throw new TypeError("API request history requires a server-owned selector.");
   if (toolCatalog && (actions || toolPolicy)) throw new TypeError("Supply the existing tool catalog or actions and toolPolicy, not both.");
   storage = (storage || !defaultHost?.conversation) ? createReentrantConversationStorage(storage) : null;
@@ -240,6 +241,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       conversation = {
         ...entry.conversation,
         sessionId: entry.id,
+        persistCommentary,
         runtime: entry.conversation?.runtime || { store, getSession: store.getSession },
         publish: event => isCurrent() ? publish(entry, event) : undefined,
         checkpoint: entry.conversation?.checkpoint || (input => isCurrent() ? entry.active?.nativeCheckpoint?.(input) : null)
@@ -508,6 +510,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       if (request.tools) await transaction.updateTurnMetadata(request.turnId, { applicationTools: request.tools.records() });
       if (!driver.canonicalTranscript) {
         for (const message of request.progress.values()) {
+          if (!persistCommentary && message.role === "commentary") continue;
           if (!await transaction.hasMessage(message.messageId)) await transaction.appendMessage(request.turnId, message);
         }
         if (request.answer?.text.trim()) await transaction.replaceAssistant(request.turnId, request.answer);
@@ -1472,6 +1475,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         if (runtime.nativeTurnId && native.nativeTurnId && runtime.nativeTurnId !== native.nativeTurnId) throw new Error("Native history changed the accepted turn's identity.");
         const replies = [];
         for (const message of native.messages || []) {
+          if (!persistCommentary && message.role === "commentary") continue;
           if (message.role === "assistant") replies.push(message.text);
           else {
             const messageId = `${turn.turnId}:${message.id}`;
@@ -1985,6 +1989,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await access(context, id, "open");
       const selectedHost = host || defaultHost;
       const conversation = selectedHost?.conversation ? await selectedHost.conversation({ id, context }) : null;
+      if (conversation && !persistCommentary) {
+        throw new TypeError("Transient commentary requires a runtime-owned transcript; supplied conversations retain their host's policy.");
+      }
       const scoped = conversation?.native?.scoped;
       const commands = conversation?.commands;
       const invalidClaudeOwner = conversation?.engine === "claude" && (!conversation.native?.owner ||

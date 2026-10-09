@@ -558,7 +558,7 @@ test("closing prevents new native notification batches while previously admitted
 // Native output assertions are carried from the original public lifecycle cases.
 // The existing shared transcript/stream implementations replace only the public
 // filesystem fixture; public tests retain subscription, Stop and restart coverage.
-async function outputFixture() {
+async function outputFixture({ persistCommentary } = {}) {
   const sessionId = "session-1";
   const threadId = "thread-1";
   const turnId = "turn-1";
@@ -610,6 +610,7 @@ async function outputFixture() {
   f.store = store;
   f.provider = provider;
   f.createOwner = () => createCodexAppServerRunOwner({
+    persistCommentary,
     createRuntime: async () => { f.hydrations += 1; return runtime; },
     createStore: async id => { assert.equal(id, sessionId); return store; },
     async acquireProvider(input) {
@@ -2951,4 +2952,36 @@ test("initial native seed options refuse invalid limits before delivery", async 
       assert.throws(() => createConversationChangeover({ [name]: value }), /non-negative message limit and a positive text limit/);
     }
   }
+});
+
+// Original Colleague first-progress test261 requires transient intent even
+// while the application effect waits. Other consumers keep default persistence.
+test("original output owner can publish transient commentary without losing native deduplication", async () => {
+  const f = await outputFixture({ persistCommentary: false });
+  const { owner, sessionId, threadId, turnId, store } = f;
+  const progress = "Checking the source.";
+  await owner.writeStream(sessionId, { threadId, turnId, itemId: "transient-progress", role: "commentary", delta: progress });
+  const complete = itemId => owner.writeLiveProgress(sessionId, threadId, { method: "item/completed", params: {
+    threadId, turnId, item: outputItem(itemId, progress, "commentary")
+  } });
+  await complete("transient-progress");
+  assert.deepEqual((await store.readConversationLog(sessionId)).flatMap(row => row.commentary || []), []);
+  assert.deepEqual(store.readConversationStream(sessionId).messages, []);
+  assert.equal(f.publications.at(-1).reason, "codex-app-server-commentary");
+  assert.ok(f.publications.at(-1).payload.conversationStream);
+  assert.equal(f.publications.at(-1).payload.conversationLogPatch, undefined);
+  assert.equal(owner.liveProgressItems.size, 1);
+  assert.equal(owner.liveProgressFingerprints.size, 1);
+  await complete("transient-progress");
+  await complete("same-progress-another-item");
+  assert.equal(owner.liveProgressItems.size, 1, "repeated completed item and matching text do not lose their native deduplication");
+  assert.equal(owner.liveProgressFingerprints.size, 1);
+  assert.deepEqual((await store.readConversationLog(sessionId)).flatMap(row => row.commentary || []), []);
+  f.history = [{ id: turnId, status: "completed", items: [
+    outputItem("transient-progress", progress, "commentary"), outputItem("final-answer", "Checked.")
+  ] }];
+  await f.final("final-answer", "Checked.");
+  assert.deepEqual((await f.replies()).map(row => row.assistant.text), ["Checked."]);
+  assert.deepEqual((await store.readConversationLog(sessionId)).flatMap(row => row.commentary || []), []);
+  assert.equal(f.history[0].items[0].text, progress, "canonical policy does not change native history");
 });

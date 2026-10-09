@@ -305,6 +305,9 @@ async function fixture(t, options = {}) {
         const invoke = async (name, input) => {
           const toolId = frame.uuid + "-tool-" + (++sequence);
           const use = { type: "assistant", uuid: toolId, message: { content: [{ type: "tool_use", id: toolId, name: "mcp__application__" + name, input }] } };
+          if (sequence === 1 && ${JSON.stringify(options.toolProgress || "")}) {
+            use.message.content.unshift({ type: "text", text: ${JSON.stringify(options.toolProgress || "")} });
+          }
           record(use); emit(use);
           return request({ subtype: "mcp_message", server_name: "application", message: {
             jsonrpc: "2.0", id: sequence, method: "tools/call",
@@ -343,7 +346,7 @@ async function fixture(t, options = {}) {
     CLAUDE_CONFIG_DIR: path.join(directory, "claude"), TEST_TRACE: trace, TEST_ACCOUNT: account, ...options.environment };
   function runtime() {
     const value = createConversationRuntime({ engine: "claude", storage, authorize: options.authorize || (() => true), actions: options.actions,
-      connections: options.connections, attachments: options.attachments,
+      connections: options.connections, attachments: options.attachments, persistCommentary: options.persistCommentary,
       host: { workdir: directory, env, commands: { claude: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
       limits: { admissionTimeoutMs: 150, ...options.limits } });
     runtimes.push(value);
@@ -1497,3 +1500,39 @@ test("original scoped Claude history resumes from the authorized credential home
   assert.equal((await f.trace()).filter(row => row.args?.includes("--print")).length, 2);
   assert.equal((await readBinding()).accountIdentity, receipt.accountIdentity);
 });
+
+// Original accepted-output restart recovery must honor the same transient
+// transcript policy without changing native history, receipts or inference.
+for (const restoredPolicy of [undefined, false]) {
+  test("Claude recovered commentary uses " + (restoredPolicy === false ? "transient" : "default") + " transcript policy", async t => {
+    let executions = 0;
+    const progress = "Checking the current number.";
+    const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+    const options = { context, actions: applicationActions(async () => { executions++; return { value: 42 }; }),
+      persistCommentary: false, toolProgress: progress };
+    const f = await fixture(t, options);
+    await f.conversation.send({ messageId: "recover-progress", text: "tools" });
+    const finished = await f.conversation.wait();
+    assert.deepEqual(finished.conversationLog[0].commentary, []);
+    assert.equal(finished.conversationLog[0].metadata.applicationTools.length, 3);
+    assert.equal(executions, 1);
+    await f.first.close();
+    await f.storage.write("conversation", async transaction => {
+      const turn = await transaction.readTurn("000001");
+      await transaction.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime, status: "running" } });
+      await transaction.replaceAssistant(turn.turnId, { ...turn.assistant, text: "Partial reply" });
+    });
+    options.persistCommentary = restoredPolicy;
+    const reopened = await f.runtime().open({ id: "conversation", context });
+    assert.equal((await reopened.inspectDelivery({ messageId: "recover-progress" })).recovered, true);
+    const state = await reopened.read();
+    assert.equal(state.conversationLog[0].assistant.text, finished.conversationLog[0].assistant.text);
+    assert.deepEqual(state.conversationLog[0].commentary.map(message => message.text), restoredPolicy === false ? [] : [progress]);
+    assert.equal(state.conversationLog[0].metadata.runtime.status, "interrupted");
+    assert.deepEqual(state.conversationLog[0].metadata.applicationTools, finished.conversationLog[0].metadata.applicationTools);
+    await reopened.inspectDelivery({ messageId: "recover-progress" });
+    assert.deepEqual((await reopened.read()).conversationLog, state.conversationLog);
+    assert.equal(executions, 1);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  });
+}

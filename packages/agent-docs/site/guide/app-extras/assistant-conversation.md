@@ -1855,6 +1855,19 @@ Unconfirmed cleanup retains the identity through the existing native binding for
 Stop/recovery. If binding publication also fails, the original startup failure and
 in-memory custody remain, with the persistence error in `bindingError`; durable
 restart recovery is not established until that binding can be saved.
+Runtime-owned transcripts persist completed commentary by default. A server can
+supply `persistCommentary: false` to `createConversationRuntime()` when its product
+requires progress to remain transient. Live streams still publish and complete;
+only commentary is excluded from subsequent canonical writes, including native
+output recovery. Assistant answers, reasoning, tool receipts and native provider
+history are unchanged. The existing Codex output owner retains item/fingerprint
+deduplication without writing a commentary row. Existing saved rows are never
+removed or repaired. Supplied native owners retain their own transcript policy;
+`open()` refuses a supplied conversation with this opt-out rather than silently
+persisting commentary or changing the host's owner.
+This storage option does not establish native progress/tool association or a
+pre-effect progress bound.
+
 An optional `limits.timeoutMs` deadline aborts work and waits for owned cleanup;
 a failed cleanup is still reported as unavailable rather than as a successful stop.
 

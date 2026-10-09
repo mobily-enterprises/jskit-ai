@@ -303,6 +303,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         }
       } };
       const owner = supplied?.runOwner || createCodexAppServerRunOwner({
+        persistCommentary: conversation.persistCommentary,
         finalizingGraceMs: limits.codexFinalizingGraceMs,
         finalizingGraceAfterHistoryRead: limits.codexFinalizingGraceAfterHistoryRead,
         failureDetailGraceMs: limits.codexFailureDetailGraceMs,

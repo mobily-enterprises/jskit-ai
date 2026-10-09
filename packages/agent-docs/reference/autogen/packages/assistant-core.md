@@ -517,7 +517,7 @@ Exports
 
 ### `src/server/conversation/codexOutput.js`
 Exports
-- `createCodexAppServerOutput({ namespace, createRuntime, createStore, publish, acquireProvider, turnState, turnStateFromAgentRun, debugLog, debugError, liveProgressMaxLength, storeReadError, messageMetadata, snapshotRecoveryItemLimit })`
+- `createCodexAppServerOutput({ namespace, createRuntime, createStore, publish, acquireProvider, turnState, turnStateFromAgentRun, debugLog, debugError, liveProgressMaxLength, persistCommentary = true, storeReadError, messageMetadata, snapshotRecoveryItemLimit })`
 
 ### `src/server/conversation/codexProcess.js`
 Exports
@@ -681,7 +681,7 @@ Exports
 
 ### `src/server/conversation/codexTurn.js`
 Exports
-- `createCodexAppServerRunOwner({ namespace = normalizeCodexRunText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = () => {}, debugError = error => normalizeCodexRunText(error?.message || error), createRuntime, createStore, publish = async () => null, acquireProvider = async () => null, providerSessions = null, serverClosingError = null, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation = null, storeReadError = "The session store does not support agent-run reads.", sessionIdRequiredError = "A session ID is required.", turnClaimsUnsupportedError = "The session runtime does not support Codex turn claims.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload = null, checkpoint = async () => null, messageMetadata = {}, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission = null, admissionTaskFinished = () => false, outcomeNotice = async () => null, resultDeliveryFailureMessage = ({ error = "" } = {}) => { const detail = normalizeCodexRunText(error); if (!detail) return "Codex app-server finished this turn, but the assistant result text was not received."; const punctuation = [".", "!", "?"].some(character => detail.endsWith(character)) ? "" : "."; return "Codex completed, but its response could not be processed: " + detail + punctuation; }, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = async () => null, captureContext = () => null, runInContext = (_context, operation) => operation(), notificationQueue = null, activeReconcileMs = 2000, finalizingGraceMs = 10000, finalizingGraceAfterHistoryRead = false, failureDetailGraceMs = 0, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" } = {})`
+- `createCodexAppServerRunOwner({ namespace = normalizeCodexRunText, normalizeRunState = normalizeCodexAppServerRunState, debugLog = () => {}, debugError = error => normalizeCodexRunText(error?.message || error), createRuntime, createStore, publish = async () => null, acquireProvider = async () => null, providerSessions = null, serverClosingError = null, helperThreads = null, modelCatalogCacheMs = 30_000, conversationPreparation = null, storeReadError = "The session store does not support agent-run reads.", sessionIdRequiredError = "A session ID is required.", turnClaimsUnsupportedError = "The session runtime does not support Codex turn claims.", turnAlreadyRunningError = "Codex is already working on this session.", messageIdPrefix = "codex:", idlePublishPayload = null, checkpoint = async () => null, messageMetadata = {}, persistCommentary = true, deliveryStateMetadataKey = "assistant_delivery", hasRuntime = () => true, recoverAdmission = null, admissionTaskFinished = () => false, outcomeNotice = async () => null, resultDeliveryFailureMessage = ({ error = "" } = {}) => { const detail = normalizeCodexRunText(error); if (!detail) return "Codex app-server finished this turn, but the assistant result text was not received."; const punctuation = [".", "!", "?"].some(character => detail.endsWith(character)) ? "" : "."; return "Codex completed, but its response could not be processed: " + detail + punctuation; }, orphanedPromptMessage = "The application restarted before Codex confirmed the message. Your message is safe; retry it.", onNotificationSignal = async () => null, captureContext = () => null, runInContext = (_context, operation) => operation(), notificationQueue = null, activeReconcileMs = 2000, finalizingGraceMs = 10000, finalizingGraceAfterHistoryRead = false, failureDetailGraceMs = 0, steerFailedCode = "codex_turn_steer_failed", interruptFailedCode = "codex_turn_interrupt_failed", errorPrefix = "" } = {})`
 - `CODEX_APP_SERVER_RUN_STATE`
 - `normalizeCodexAppServerRunState`
 - `codexAppServerRunStateIsActive`
@@ -1042,7 +1042,7 @@ Local functions
 
 ### `src/server/conversation/runtime.js`
 Exports
-- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, limits = {} } = {})`
+- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, limits = {} } = {})`
 Local functions
 - `failure(message, code, statusCode = 409)`
 - `submittedMessage(turn)`

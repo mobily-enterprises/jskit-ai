@@ -2790,3 +2790,26 @@ test("closing a bound native owner refuses tool callbacks before and after input
   await f.owner.notificationQueue.drain("bound-two");
   assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
 });
+
+// The original supplied Main owner keeps its own canonical policy. A runtime
+// cannot opt that shared owner out of persistence or replace its process.
+test("supplied Codex commentary remains host-owned and refuses a runtime opt-out before opening", async t => {
+  const f = await boundCodexToolsFixture(t);
+  await f.one.send({ messageId: "host-policy-default", text: "blocks" });
+  const first = await f.one.wait();
+  assert.deepEqual(first.conversationLog.flatMap(turn => turn.commentary || []).map(message => message.text), ["Checking the numbers."]);
+  const nativeThreadId = await f.bindings.get("bound-one").identity.read();
+  const before = await f.trace();
+  const originalOwner = f.bindings.get("bound-one").native.runOwner;
+  const refused = createConversationRuntime({ engine: "codex", authorize: () => true, persistCommentary: false,
+    host: { ...f.driverOptions.host, conversation: ({ id }) => f.bindings.get(id) } });
+  t.after(() => refused.close());
+  await assert.rejects(refused.open({ id: "bound-one" }), /runtime-owned transcript/);
+  assert.deepEqual(await f.trace(), before, "refusal opens no native thread and issues no request or interrupt");
+  assert.equal(f.bindings.get("bound-one").native.runOwner, originalOwner);
+  await f.one.send({ messageId: "host-policy-continue", text: "Continue" });
+  const continued = await f.one.wait();
+  assert.equal(continued.conversationLog.at(-1).assistant.text, "Answer: Continue");
+  assert.equal(await f.bindings.get("bound-one").identity.read(), nativeThreadId);
+  assert.deepEqual(f.effects, []);
+});
