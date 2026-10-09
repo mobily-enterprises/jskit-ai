@@ -4,7 +4,7 @@ import * as vue from "vue";
 import { useVoiceTransport } from "../src/client/voiceTransport.js";
 import { useVoiceConversation } from "../src/client/voiceConversation.js";
 import { projectConversationVoiceState } from "../src/client/conversationVoiceState.js";
-import { splitSpeechText } from "../src/shared/protocol.js";
+import { speechTextFromAssistant, splitSpeechText } from "../src/shared/protocol.js";
 
 function mountSetup(setup, router) {
   let value;
@@ -2357,6 +2357,9 @@ test("speech cap drains without claiming completion before canonical final", asy
   await flushVue();
   // The bounded projection can need several synthesis append acknowledgements.
   for (let i = 0; i < 40; i++) { socket.receive({ type: "speech.chunk.end", turnId: start.turnId }); await flushVue(); }
+  const phrases = controls(socket).filter(control => ["speak.start", "speak.append"].includes(control.type));
+  assert.equal(phrases.map(control => control.text).join(" "), speechTextFromAssistant(output.text),
+    "the original normalized cap includes spaces between streamed phrases");
   assert.ok(controls(socket).some(control => control.type === "speak.end"));
   socket.receive({ type: "speech.end", turnId: start.turnId });
   await flushVue(); view.sources[0].finish(); await flushVue();
@@ -2364,6 +2367,62 @@ test("speech cap drains without claiming completion before canonical final", asy
   assert.deepEqual(events(), ["started"]);
   view.colleagueProps.conversation.streamingReply = { ...output, status: "completed" }; await flushVue();
   assert.deepEqual(events(), ["started", "completed"]);
+});
+
+for (const streamed of [false, true]) {
+  test(`the original raw window keeps the answer after a long code block (${streamed ? "streamed" : "completed"})`, async t => {
+    const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
+    const code = `\`\`\`sql\n${"select secret_field from private_table;\n".repeat(130)}`;
+    assert.ok(code.length > 4000 && code.length < 8000);
+    const output = { id: "long-code", outputId: "canonical-long-code", role: "assistant", text: `${code}\`\`\`\nThe answer is forty-two.` };
+    if (streamed) {
+      view.colleagueProps.conversation.streamingReply = { ...output, text: code, status: "inProgress" };
+      await flushVue();
+      assert.equal(view.sockets[0] ? controls(view.sockets[0]).filter(control => control.type === "speak.start").length : 0, 0,
+        "an unfinished code fence cannot exhaust the spoken budget");
+      view.colleagueProps.conversation.streamingReply = { ...output, status: "completed" };
+    } else view.colleagueProps.conversation.messages = [output];
+    await flushVue();
+    const socket = view.sockets[0];
+    const start = controls(socket).find(control => control.type === "speak.start");
+    assert.ok(start);
+    socket.receive({ type: "speech.start", turnId: start.turnId });
+    socket.receive(new Int16Array(22050).buffer);
+    socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+    await flushVue();
+    const spoken = controls(socket).filter(control => ["speak.start", "speak.append"].includes(control.type)).map(control => control.text).join("");
+    assert.equal(spoken, speechTextFromAssistant(output.text));
+    assert.match(spoken, /SQL on screen/u);
+    assert.match(spoken, /The answer is forty-two\./u);
+    assert.doesNotMatch(spoken, /select secret_field|private_table/u);
+    socket.receive({ type: "speech.end", turnId: start.turnId });
+    await flushVue();
+    view.sources[0].finish();
+    await flushVue();
+    assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+      { conversationId: "logical-conversation", outputId: "canonical-long-code", phase: "started" },
+      { conversationId: "logical-conversation", outputId: "canonical-long-code", phase: "completed" }
+    ]);
+  });
+}
+
+test("canonical speech retains the original bounded raw normalization window", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const code = `\`\`\`sql\n${"x".repeat(7970)}\n\`\`\`\n`;
+  const text = code + "Kept." + " ".repeat(8000 - code.length - 5) + "Outside the raw window.";
+  view.colleagueProps.conversation.messages = [{ id: "raw-window", role: "assistant", text }];
+  await flushVue();
+  const socket = view.sockets[0];
+  const start = controls(socket).find(control => control.type === "speak.start");
+  socket.receive({ type: "speech.start", turnId: start.turnId });
+  socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+  await flushVue();
+  const spoken = controls(socket).filter(control => ["speak.start", "speak.append"].includes(control.type)).map(control => control.text).join("");
+  assert.equal(spoken, speechTextFromAssistant(text));
+  assert.match(spoken, /Kept\./u);
+  assert.doesNotMatch(spoken, /Outside the raw window/u);
 });
 
 test("Stop interrupts queued outputs once without fictional starts or stale completion", async t => {
