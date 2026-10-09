@@ -538,12 +538,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           run.providerThreadId !== binding.threadId || run.providerTurnId !== saved.nativeTurnId || run.active || run.state !== "completed")) {
         throw failure("The completed response has no exact native turn receipt.", "conversation_completed_response_unavailable");
       }
+      if (engine === "claude" && typeof saved.nativeToolAttempt !== "boolean") {
+        throw failure("The completed Claude response has no native tool-attempt evidence.", "conversation_completed_response_unavailable");
+      }
       const calls = turn.metadata.applicationTools || [];
       if (!Array.isArray(calls) || calls.length > 1 || calls.some(call => call.id !== toolCallId)) {
         throw failure("This response already belongs to a different application operation.", "conversation_tool_receipt_conflict");
       }
       const identity = { configuration: runtime.configuration, binding, assistant: turn.assistant,
-        nativeTurnId: saved.nativeTurnId };
+        nativeTurnId: saved.nativeTurnId, ...(engine === "claude" ? { nativeToolAttempt: saved.nativeToolAttempt } : {}) };
       if (captured && !isDeepStrictEqual(captured, identity)) {
         throw failure("The completed response identity changed.", "conversation_tool_request_retired");
       }
@@ -571,6 +574,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
     const response = await inspect();
     return { text: response.turn.assistant.text, toolCallId,
+      ...(engine === "claude" ? { nativeToolAttempt: response.turn.metadata.runtime.nativeToolAttempt } : {}),
       tools: { execute(input, options = {}) {
         return serial(entry, async () => {
           if (input?.id !== toolCallId) throw failure("The operation has a different completed response identity.", "conversation_tool_receipt_conflict");
@@ -675,6 +679,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const saved = driver.canonicalTranscript ? await transaction.readTurn(request.turnId) : null;
       await transaction.updateTurnMetadata(request.turnId, { runtime: { ...saved?.metadata?.runtime, status, engine, segmentId, origin: request.input.origin,
         ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+        ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
         ...(request.nativeTurnId ? { nativeTurnId: request.nativeTurnId } : {}),
         ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
         ...(request.continuedBy ? { continuedBy: request.continuedBy } : {}), ...extra, ...(error ? { error } : {}) } });
@@ -744,6 +749,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           await transaction.appendMessage(id, { role: request.input.origin === "application" ? "system" : "user", ...request.input, at: new Date().toISOString(),
             turnMetadata: { runtime: { status: "running", engine, segmentId, origin: request.input.origin,
               ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+              ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
               ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
               ...(nativeTurnId ? { nativeTurnId } : {}) } } });
         }
@@ -920,7 +926,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           }
           metadata.runtime.request = { ...(pending?.messageId === request.input.messageId ? pending
             : { ...request.input, at: request.at, attempted: false,
-              ...(request.completedEnvelope ? { completedEnvelope: true } : {}) }), attachmentManifest };
+              ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+              ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) }), attachmentManifest };
           await transaction.writeMetadata(metadata);
         });
         const admitted = Promise.withResolvers();
@@ -941,7 +948,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             if (!threadId) throw new Error("Native admission requires the saved conversation identity.");
             await input.onPromptSending(entry.conversation ? native : { threadId, displayAttachments: files.attachments,
               turnMetadata: { runtime: { engine, segmentId, origin: request.input.origin,
-                ...(request.completedEnvelope ? { completedEnvelope: true } : {}) } } });
+                ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+                ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) } } });
           },
           async accept(native) {
             if (entry.conversation) nativeResult = native.nativeResult;
@@ -991,6 +999,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               if (pending && pending.messageId !== request.input.messageId && (pending.attempted || pending.inspectionOnly)) throw new Error("The pending conversation instruction changed.");
               metadata.runtime.request = { ...request.input, at: request.at,
                 ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+                ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
                 message: rendered.message, displayMessage: rendered.displayMessage,
                 displayAttachments, attachmentIds: rendered.attachmentIds,
                 attachmentManifest,
@@ -1109,7 +1118,35 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           return work;
         }
       };
+      const completedToolSet = engine === "claude" && initial.completedEnvelope && typeof initial.nativeToolAttempt === "boolean"
+        ? catalog.resolveToolSet(initial.context) : null;
       const providerInput = { configuration, context: initial.context, tools,
+        ...(completedToolSet ? {
+          async onNativeToolUse({ messageId, threadId, name }) {
+            await initial.deliveryCommitted;
+            active.controller.signal.throwIfAborted();
+            if (entry.disposed || entry.active !== active || current !== initial || !initial.accepted || initial.finished || initial.sealed ||
+                entry.bindingOwner !== bindingOwner || entry.segmentId !== segmentId ||
+                messageId !== initial.input.messageId || threadId !== initial.nativeThreadId) {
+              throw failure("The native tool observation belongs to a retired response.", "conversation_tool_request_retired");
+            }
+            if (!completedToolSet.byName.has(name)) return;
+            await storage.write(entry.id, async transaction => {
+              const metadata = await transaction.readMetadata();
+              const turn = await transaction.readTurn(initial.turnId);
+              const saved = turn?.metadata?.runtime;
+              if (metadata.runtime.engine !== engine || metadata.runtime.segmentId !== segmentId ||
+                  nativeIdentity(metadata.runtime) !== threadId || submittedMessage(turn || {})?.messageId !== messageId ||
+                  saved?.engine !== engine || saved.segmentId !== segmentId || saved.completedEnvelope !== true ||
+                  typeof saved.nativeToolAttempt !== "boolean" || saved.status !== "running" || saved.supersededBy ||
+                  entry.active !== active || current !== initial || initial.finished || initial.sealed || active.controller.signal.aborted) {
+                throw failure("The native tool observation lost its exact admitted receipt.", "conversation_tool_request_retired");
+              }
+              await transaction.updateTurnMetadata(initial.turnId, { runtime: { ...saved, nativeToolAttempt: true } });
+            });
+            initial.nativeToolAttempt = true;
+          }
+        } : {}),
         ...(engine === "opencode" || entry.conversation && ["codex", "claude"].includes(engine) ? {
           async finishIfCurrent(isCurrent) {
             // A reserved Send may still be preparing when the native turn ends.
@@ -1342,6 +1379,11 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     const nativeSteering = !working && (nativeState.nativeTurn?.active || entry.driver.canonicalTranscript && nativeState.binding?.codexAppServerRun &&
       codexAppServerTurnStateFromAgentRun(nativeState.binding.codexAppServerRun).active);
+    if (completedEnvelope && entry.engine === "claude" &&
+        (working?.request.completedEnvelope || nativePending?.completedEnvelope === true || origin === "application" && !goal) &&
+        (working || input.steer || nativeSteering)) {
+      throw failure("Completed Claude responses cannot share a native steering turn. Wait for the response or stop it.", "conversation_not_steerable");
+    }
     if (working && !input.steer && !goal && !entry.conversation) throw failure("Wait for this answer or use steer to send another instruction.", "conversation_busy");
     if (input.steer && (!working && !nativeSteering || working?.finishing) && !(nativePending?.attempted || nativePending?.inspectionOnly)) throw failure("There is no active native turn to steer. Send a new message.", "conversation_not_steerable");
     if (goal && working?.finishing) throw failure("Wait for the current turn to finish saving before starting the goal.", "conversation_busy");
@@ -1354,6 +1396,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     };
     let configuration;
     let markedResponse = false;
+    let nativeToolAttempt;
     let requestAt = new Date().toISOString();
     try { configuration = entry.conversation ? (await readState(entry)).configuration : await storage.write(entry.id, async transaction => {
       const metadata = await transaction.readMetadata();
@@ -1368,15 +1411,18 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           requestAt = metadata.runtime.request.at;
         }
       } else metadata.runtime.request = { ...message, at: requestAt,
-        ...(completedEnvelope && origin === "application" && !goal ? { completedEnvelope: true } : {}),
+        ...(completedEnvelope && origin === "application" && !goal ? { completedEnvelope: true,
+          ...(entry.engine === "claude" ? { nativeToolAttempt: false } : {}) } : {}),
         ...(entry.engine !== "api" ? { attempted: false } : {}), ...(input.steer ? { steering: true } : {}) };
       markedResponse = origin === "application" && !goal && metadata.runtime.request?.messageId === message.messageId &&
         metadata.runtime.request.completedEnvelope === true;
+      if (entry.engine === "claude" && markedResponse && typeof metadata.runtime.request.nativeToolAttempt === "boolean") nativeToolAttempt = metadata.runtime.request.nativeToolAttempt;
       await transaction.writeMetadata(metadata);
       return metadata.runtime.configuration;
     }); } catch (error) { release(); throw error; }
     const request = { input: message, originalInput, operation, context, at: requestAt,
-      ...(markedResponse ? { completedEnvelope: true } : {}), steering: Boolean(working || input.steer && nativeSteering),
+      ...(markedResponse ? { completedEnvelope: true } : {}),
+      ...(typeof nativeToolAttempt === "boolean" ? { nativeToolAttempt } : {}), steering: Boolean(working || input.steer && nativeSteering),
       admission: Promise.withResolvers(), progress: new Map() };
     request.admission.promise.catch(() => {});
     if (working) {
@@ -1653,7 +1699,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             messageId: id, text: input.text, attachments: input.attachments, at: input.at,
             ...(input.data !== undefined ? { data: input.data } : {}), ...(input.goal ? { goal: input.goal } : {}),
             turnMetadata: { runtime: { engine: entry.engine, segmentId: entry.segmentId, origin: input.origin || "user",
-              ...(input.completedEnvelope === true ? { completedEnvelope: true } : {}) } } });
+              ...(input.completedEnvelope === true ? { completedEnvelope: true } : {}),
+              ...(typeof input.nativeToolAttempt === "boolean" ? { nativeToolAttempt: input.nativeToolAttempt } : {}) } } });
           turn = await transaction.readTurn(turnId);
           history.push(turn);
         }

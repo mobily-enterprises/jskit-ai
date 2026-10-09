@@ -1853,11 +1853,35 @@ Only a newly reserved application `wake()` receives the internal turn marker.
 Ordinary user messages, goals, caller data and historical unmarked requests cannot
 acquire it through reopening, retry or inspection. Marked responses omit native
 application-tool registration; unmarked requests retain their existing tools.
+Codex preserves its native thread tool schema: changing between those two tool
+shapes on the same thread refuses before dispatch, without replacing the binding.
 Preparation requires the exact saved successful assistant response, current native
 binding and saved account fingerprint. Native input inspection verifies that
 association; it does not establish completion or rewrite an absent account identity.
 Claude structured output can coexist with separate native commentary, so its final
 canonical receipt is checked without requiring equal projected native text.
+
+New marked Claude requests also record `nativeToolAttempt` through their original
+command owner. Its typed observation carries only the bounded logical tool name
+and actual authored-message/thread IDs; arguments and provider frames are neither
+published nor added to canonical metadata. The initial authorized catalogue uses
+its ordinary direct/discovery policy. Exact catalogue names and the Claude
+`mcp__application__` alias count; `StructuredOutput`, unrelated native tools and
+nested-agent frames do not. The receipt write is awaited before completion can
+be prepared. Callback write failures retain the original native interruption and
+error cause, rather than becoming presentation-only errors; an interrupted receipt
+cannot prepare an application effect.
+
+Claude preparation returns that verified boolean as `nativeToolAttempt`, which
+the shared completed-response loop uses for its existing reply-only correction
+rule. An old marked reservation or response without boolean evidence refuses;
+reopening and delivery inspection do not infer a historical false value. The
+flag is part of the immutable prepared identity. Marked Claude responses cannot
+share a native steering turn with another marked response, an ordinary request
+or a goal message. This refusal applies before successor reservation, including
+a retained marked unconfirmed delivery. Ordinary-to-ordinary steering and other
+native owners retain their existing policies. Applications still own the pending
+queue needed to supersede completed responses without native steering.
 
 The result contains `{ text, toolCallId, tools }`. Use that exact stable call ID
 with `tools.execute()` after validating the response. Execution rechecks authority
@@ -1872,8 +1896,8 @@ The application owns its worker generation and revocation through fresh `tool`
 authorization and the supplied signal. Generic `cancel()` drains the existing
 queue; it does not independently revoke every still-authorized prepared handle.
 Already invoked actions retain their original receipt while Stop drains them.
-This operation does not supply product queue policy, native-tool mistake tracking
-or human transcript/continuity projection. Complete those owners before enabling
+This operation does not supply product queue policy or human transcript/continuity
+projection. Complete those owners before enabling
 it in a consumer; never manufacture historical markers or completion receipts.
 
 Saved turns distinguish complete, failed, cancelled and interrupted work. Error

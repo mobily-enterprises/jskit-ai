@@ -6,6 +6,7 @@ import path from "node:path";
 import { createConversationRuntime, createFileConversationStorage, upgradeConversationRuntimeState } from "../src/server/conversation/index.js";
 import { createLocalConversationExecution } from "../src/server/conversation/localExecution.js";
 import { createClaudeConversationDriver } from "../src/server/conversation/providers/claudeDriver.js";
+import { conversationRequestText } from "../src/server/conversation/continuity.js";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createSchema } from "json-rest-schema";
 
@@ -231,6 +232,8 @@ async function fixture(t, options = {}) {
     import path from "node:path";
     const args = process.argv.slice(2);
     const structuredResponse = ${JSON.stringify(options.structuredResponse || null)};
+    const nativeToolUse = ${JSON.stringify(options.nativeToolUse || null)};
+    const applicationEventBehavior = ${JSON.stringify(options.applicationEventBehavior || null)};
     const option = name => args[args.indexOf(name) + 1];
     const log = value => appendFileSync(process.env.TEST_TRACE, JSON.stringify(value) + "\\n");
     const emit = value => process.stdout.write(JSON.stringify(value) + "\\n");
@@ -273,7 +276,7 @@ async function fixture(t, options = {}) {
         : frame.message.content.filter(part => part.type === "text").map(part => part.text).join(" ");
       let answer = { type: "assistant", uuid: frame.uuid + "-answer", message: { content: [{ type: "text", text: "Answer: " + text }] } };
       if (structuredResponse) answer.message.content[0].text = JSON.stringify(structuredResponse);
-      if (text === "lost") { record(answer); return; }
+      if (text === "lost" || text === applicationEventBehavior?.lost) { record(answer); return; }
       if (text.startsWith("/goal ")) {
         const condition = text.slice(6);
         record({ type: "attachment", timestamp: new Date().toISOString(),
@@ -284,7 +287,14 @@ async function fixture(t, options = {}) {
         return;
       }
       emit(frame);
-      if (text === "wait") return;
+      if (nativeToolUse) {
+        const use = { type: "assistant", session_id: id, uuid: frame.uuid + "-native-tool",
+          ...(nativeToolUse.parentToolUseId ? { parent_tool_use_id: nativeToolUse.parentToolUseId } : {}), message: { content: [
+          { type: "tool_use", id: frame.uuid + "-native-tool", name: nativeToolUse.name, input: nativeToolUse.input }
+        ] } };
+        record(use); emit(use);
+      }
+      if (text === "wait" || text === applicationEventBehavior?.wait) return;
       if (text === "steering") {
         answer.message.content[0].text = "Initial progress";
         answer.message.id = frame.uuid + "-before";
@@ -1971,5 +1981,212 @@ test("completed Claude saved running application custody refuses an unconfirmed 
     await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_tool_outcome_unknown");
     assert.equal(f.effects(), 0);
     assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools[0].status, "running");
+  } finally { await f.close(); }
+});
+
+
+for (const name of ["numbers_read", "mcp__application__numbers_read", "StructuredOutput", "unrelated_native_tool"]) {
+  test(`completed Claude native-tool tracking classifies the authorized name ${name} without publishing its arguments`, async t => {
+    const privateArgument = "native-tool-private-argument-must-not-leak";
+    const f = await completedEnvelopeFixture(t, { nativeToolUse: { name, input: { privateArgument } } });
+    const events = [];
+    await f.conversation.subscribe(event => events.push(event));
+    try {
+      const receipt = await f.complete();
+      const expected = name === "numbers_read" || name === "mcp__application__numbers_read";
+      assert.equal((await f.prepare(receipt)).nativeToolAttempt, expected);
+      const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(saved.metadata.runtime.nativeToolAttempt, expected);
+      assert.equal(saved.metadata.applicationTools, undefined, "Observing a native attempt does not execute an application action");
+      assert.equal(f.effects(), 0);
+      assert.equal(events.some(event => event.type === "provider-event"), false);
+      assert.equal(JSON.stringify(events).includes(privateArgument), false);
+      assert.equal(JSON.stringify(saved).includes(privateArgument), false);
+      await f.reopen();
+      assert.equal((await f.prepare(receipt)).nativeToolAttempt, expected, "A restart retains actual tracking evidence");
+      assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    } finally { await f.close(); }
+  });
+}
+
+test("completed Claude native-tool tracking refuses an older marked reservation with unknown evidence", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "old-marked-unknown", text: "Read a number", origin: "application",
+        attachments: [], at: new Date().toISOString(), attempted: false, completedEnvelope: true };
+      await tx.writeMetadata(metadata);
+    });
+    const receipt = await f.complete("old-marked-unknown");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.nativeToolAttempt, undefined);
+    await assert.rejects(f.prepare(receipt), /no native tool-attempt evidence/);
+    await f.reopen();
+    await assert.rejects(f.prepare(receipt), /no native tool-attempt evidence/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.runtime.nativeToolAttempt, undefined);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking refuses lost evidence on an already completed receipt", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(receipt.turnId);
+      delete turn.metadata.runtime.nativeToolAttempt;
+      await tx.updateTurnMetadata(receipt.turnId, { runtime: turn.metadata.runtime });
+    });
+    await assert.rejects(f.prepare(receipt), /no native tool-attempt evidence/);
+    await assert.rejects(executeCompletedEnvelope(prepared), /no native tool-attempt evidence/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking refuses marked and mixed steering before reserving a successor", async t => {
+  const waitEvent = conversationRequestText({ text: "wait", origin: "application" });
+  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { wait: waitEvent } });
+  try {
+    const marked = await f.conversation.wake({ messageId: "marked-working", text: "wait" });
+    assert.equal((await f.conversation.read()).status, "working", "The exact application wait frame genuinely holds the native turn");
+    const markedTurn = await f.storage.read("conversation", tx => tx.readTurn(marked.turnId));
+    assert.equal(markedTurn.metadata.runtime.status, "running");
+    assert.equal(markedTurn.assistant, null);
+    assert.equal((await f.trace()).find(row => row.frame?.type === "user").frame.message.content, waitEvent);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.conversation.send({ messageId: "ordinary-steer", text: "Different instruction", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    await assert.rejects(f.conversation.wake({ messageId: "marked-steer", text: "Different application instruction", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    const after = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(after.runtime.request, before.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal((await f.trace()).filter(row => row.frame?.request?.subtype === "interrupt").length, 0);
+    await f.conversation.cancel();
+    const ordinaryReceipt = await f.conversation.send({ messageId: "ordinary-working", text: "wait" });
+    assert.equal((await f.conversation.read()).status, "working");
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(ordinaryReceipt.turnId))).metadata.runtime.status, "running");
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").at(-1).frame.message.content, "wait");
+    const ordinary = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.conversation.wake({ messageId: "mixed-marked", text: "New application response", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, ordinary.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 2);
+    assert.equal(f.effects(), 0);
+    await f.conversation.cancel();
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking refuses steering a retained marked unconfirmed delivery", async t => {
+  const lostEvent = conversationRequestText({ text: "lost", origin: "application" });
+  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { lost: lostEvent } });
+  try {
+    await assert.rejects(f.conversation.wake({ messageId: "retained-marked", text: "lost" }), /not acknowledged/);
+    assert.equal((await f.conversation.wait()).status, "unconfirmed");
+    assert.equal((await f.trace()).find(row => row.frame?.type === "user").frame.message.content, lostEvent);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(before.runtime.request.completedEnvelope, true);
+    assert.equal(before.runtime.request.attempted, true);
+    await assert.rejects(f.conversation.send({ messageId: "retained-mixed-steer", text: "New instruction", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, before.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking preserves ordinary native steering in the opted runtime", async t => {
+  const f = await completedEnvelopeFixture(t);
+  const progress = Promise.withResolvers();
+  await f.conversation.subscribe(event => {
+    if (event.type === "message" && event.text === "Initial progress") progress.resolve();
+  });
+  try {
+    await f.conversation.send({ messageId: "ordinary-before", text: "steering" });
+    await progress.promise;
+    await f.conversation.send({ messageId: "ordinary-after", text: "Continue differently", steer: true });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "");
+    assert.equal(state.conversationLog.length, 2);
+    assert.equal(state.conversationLog[0].assistant.text, "Initial progress");
+    assert.equal(state.conversationLog[1].assistant.text, JSON.stringify(completedEnvelopeValue));
+    for (const turn of state.conversationLog) {
+      assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+      assert.equal(turn.metadata.runtime.nativeToolAttempt, undefined);
+    }
+    const trace = await f.trace();
+    assert.equal(trace.filter(row => row.args?.includes("--print")).length, 1);
+    assert.equal(trace.filter(row => row.frame?.type === "user").length, 2);
+    assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Claude native-tool tracking excludes nested-agent frames at the original receive owner", async t => {
+  const privateArgument = "nested-tool-argument-must-not-leak";
+  const f = await completedEnvelopeFixture(t, { nativeToolUse: { name: "mcp__application__numbers_read",
+    input: { privateArgument }, parentToolUseId: "parent-native-tool" } });
+  const events = [];
+  await f.conversation.subscribe(event => events.push(event));
+  try {
+    const receipt = await f.complete();
+    assert.equal((await f.prepare(receipt)).nativeToolAttempt, false);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.nativeToolAttempt, false);
+    assert.equal(JSON.stringify(events).includes(privateArgument), false);
+    assert.equal(JSON.stringify(saved).includes(privateArgument), false);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking propagates its receipt write failure before effect preparation", async t => {
+  let attempts = 0;
+  const f = await completedEnvelopeFixture(t, { nativeToolUse: { name: "numbers_read", input: {} },
+    wrapStorage: storage => ({ ...storage, write: (id, callback) => storage.write(id, transaction => callback({ ...transaction,
+      async updateTurnMetadata(turnId, metadata) {
+        if (metadata.runtime?.nativeToolAttempt === true) {
+          attempts++;
+          throw new Error("Native attempt persistence failed");
+        }
+        return transaction.updateTurnMetadata(turnId, metadata);
+      }
+    })) }) });
+  const events = [];
+  await f.conversation.subscribe(event => events.push(event));
+  try {
+    const receipt = await f.conversation.wake({ messageId: "native-attempt-write-failure", text: "Read a number" });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "Native attempt persistence failed");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.status, "interrupted", "Original native failure cleanup stops the admitted turn before rejecting completion");
+    assert.equal(saved.metadata.runtime.error, "Native attempt persistence failed");
+    assert.equal(saved.assistant, null);
+    const settled = events.filter(event => event.type === "settled").at(-1);
+    assert.equal(settled.status, "interrupted");
+    assert.equal(settled.error, "Native attempt persistence failed");
+    assert.equal((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.binding.executionId, "");
+    assert.equal(saved.metadata.runtime.nativeToolAttempt, false);
+    assert.equal(attempts, 1, "The awaited native callback does not swallow or repeat a failed receipt write");
+    await assert.rejects(f.prepare({ messageId: receipt.messageId, turnId: receipt.turnId }),
+      error => error.code === "conversation_completed_response_unavailable");
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking is part of the prepared immutable response identity", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    assert.equal(prepared.nativeToolAttempt, false);
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(receipt.turnId);
+      await tx.updateTurnMetadata(receipt.turnId, { runtime: { ...turn.metadata.runtime, nativeToolAttempt: true } });
+    });
+    await assert.rejects(executeCompletedEnvelope(prepared), /completed response identity changed/);
+    assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });

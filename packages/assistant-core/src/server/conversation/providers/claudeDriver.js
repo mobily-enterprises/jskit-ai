@@ -6,6 +6,7 @@ import { bindClaudeConversationAccount, claudeFlagSettings, claudeModelConfigura
 import { nativeAiModel, nativeAiProvider } from "../../../shared/nativeProviders.js";
 import { requireClaudeSessionId, listClaudeConversationStorage } from "../claudeHistory.js";
 import { createClaudeConversationOwner, claudeNativeMessageId } from "../claudeTurn.js";
+import { CLAUDE_APPLICATION_TOOL_SERVER } from "../claudeTools.js";
 import { createLocalConversationExecution } from "../localExecution.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
 
@@ -145,6 +146,20 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
         }
         const current = entry.command;
         if (!current) return;
+        if (event.type === "provider-event" && typeof current.onNativeToolUse === "function" && event.event.type === "assistant") {
+          const prefix = `mcp__${CLAUDE_APPLICATION_TOOL_SERVER}__`;
+          for (const block of event.event.message?.content || []) {
+            if (block.type !== "tool_use" || block.name === "StructuredOutput") continue;
+            if (typeof block.name !== "string" || block.name.length > 256 + prefix.length) continue;
+            if (entry.command !== current || current.entry !== entry || !current.admitted || current.signal.aborted) {
+              throw new Error("The native Claude tool observation has no current admitted command.");
+            }
+            const name = block.name.startsWith(prefix) ? block.name.slice(prefix.length) : block.name;
+            if (!name || name.length > 256) continue;
+            await current.onNativeToolUse({ messageId: current.messageId, threadId: entry.id, name });
+          }
+          return;
+        }
         if (event.type === "message") await current.onMessage({ ...event.message, transient: !event.message.complete });
         else if (event.type === "message-complete") await current.onEvent(event);
         else if ((event.type === "admitted" && current.goal) || event.type === "settled") {

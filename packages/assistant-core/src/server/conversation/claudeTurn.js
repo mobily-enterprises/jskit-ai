@@ -747,10 +747,10 @@ export function createClaudeConversationOwner({
   async function run(control, command, { acquire, reportFailure, entry: selectedEntry, maximumOutput, maximumToolCalls = 32, timeoutMs } = {}) {
     if (control.disposed || control.current) throw new Error("This Claude conversation is closed or already working.");
     const binding = Boolean(store.releaseExecution);
-    const { configuration, context, input, tools, signal, beforeDispatch, accept, onMessage, onEvent } = command;
+    const { configuration, context, input, tools, signal, beforeDispatch, accept, onMessage, onEvent, onNativeToolUse } = command;
     const completion = Promise.withResolvers();
     completion.promise.catch(() => {});
-    const active = { completion, onMessage, onEvent, signal, tools, admitted: false, nativeTools: new Map(),
+    const active = { completion, onMessage, onEvent, onNativeToolUse, signal, tools, admitted: false, nativeTools: new Map(),
       messageId: input.messageId, goal: input.goal, nativeToolCount: 0, toolWork: new Set(), maximumToolCalls,
       context, failure: Promise.withResolvers() };
     let failure;
