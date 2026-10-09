@@ -13,10 +13,11 @@ import { codexAppServerTurnStateFromAgentRun } from "./codexTurn.js";
 import { hasUnfinishedConversationRewind } from "./runtimeStateUpgrade.js";
 import { createServiceToolCatalog } from "../lib/serviceToolCatalog.js";
 import { createConversationTools } from "./tools.js";
+import { readAssistantResponseEnvelope } from "../lib/assistantToolLoop.js";
 import { conversationAttachmentIds, createConversationAttachmentReader } from "./attachments.js";
 import { conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
 import { createConversationChangeover, conversationContinuity, conversationHistoryVersions,
-  conversationNativeMessages, conversationRequestText } from "./continuity.js";
+  conversationMessageIdentity, conversationMessageVersion, conversationNativeMessages, conversationRequestText } from "./continuity.js";
 
 function failure(message, code, statusCode = 409) {
   return Object.assign(new Error(message), { code, statusCode });
@@ -595,10 +596,60 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const response = await inspect();
     return { text: response.turn.assistant.text, toolCallId,
       ...(engine === "claude" ? { nativeToolAttempt: response.turn.metadata.runtime.nativeToolAttempt } : {}),
+      publishReply(input) {
+        return serial(entry, async () => {
+          if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => key !== "turnId") ||
+              typeof input.turnId !== "string" || !input.turnId || input.turnId !== input.turnId.trim() || input.turnId.length > 128) {
+            throw new TypeError("Reply publication requires only its exact existing plain turn id.");
+          }
+          await inspect();
+          return storage.write(entry.id, async transaction => {
+            const saved = await exact(transaction);
+            signal.throwIfAborted();
+            const decoded = readAssistantResponseEnvelope(saved.turn.assistant.text);
+            if (decoded.kind !== "reply" || saved.turn.metadata.runtime.nativeToolAttempt === true || saved.calls.length) {
+              throw failure("This completed response does not own a plain reply.", "conversation_tool_receipt_conflict");
+            }
+            const text = decoded.text.trim();
+            const target = await transaction.readTurn(input.turnId);
+            if (!text || input.turnId === turnId || !target || isCompletedEnvelopeTurn(target) ||
+                target.metadata?.runtime?.engine || !(target.user || target.system) || saved.runtime.lastEngine !== engine ||
+                !saved.runtime.seen || typeof saved.runtime.seen !== "object" || Array.isArray(saved.runtime.seen)) {
+              throw failure("The completed reply has no current plain authored target.", "conversation_tool_receipt_conflict");
+            }
+            const assistantId = conversationMessageIdentity(input.turnId, { role: "assistant" });
+            const published = saved.turn.metadata.runtime.publishedReplyTurnId;
+            if (published !== undefined) {
+              if (published !== input.turnId || !target.assistant || target.assistant.text !== text ||
+                  saved.runtime.seen[assistantId] !== conversationMessageVersion(target.assistant, { includeData: true })) {
+                throw failure("The published reply target or text changed.", "conversation_tool_receipt_conflict");
+              }
+              signal.throwIfAborted();
+              return target;
+            }
+            if (target.assistant || Object.hasOwn(saved.runtime.seen, assistantId)) {
+              throw failure("This plain reply target already has unassociated content or consumption.", "conversation_tool_receipt_conflict");
+            }
+            // The runtime transcript uses this same reentrant wrapper: its
+            // original upsert joins this draft rather than starting a second write.
+            const plain = await transcript.upsertConversationAssistantMessage(entry.id, { turnId: input.turnId, text });
+            saved.runtime.seen[assistantId] = conversationMessageVersion(plain.assistant, { includeData: true });
+            await transaction.updateTurnMetadata(turnId, { runtime: { ...saved.turn.metadata.runtime, publishedReplyTurnId: input.turnId } });
+            const metadata = await transaction.readMetadata();
+            await transaction.writeMetadata({ ...metadata, runtime: saved.runtime });
+            await exact(transaction);
+            signal.throwIfAborted();
+            return plain;
+          });
+        });
+      },
       tools: { execute(input, options = {}) {
         return serial(entry, async () => {
           if (input?.id !== toolCallId) throw failure("The operation has a different completed response identity.", "conversation_tool_receipt_conflict");
           const saved = await inspect();
+          if (saved.turn.metadata.runtime.publishedReplyTurnId !== undefined) {
+            throw failure("This completed response already published its plain reply.", "conversation_tool_receipt_conflict");
+          }
           const workerSignal = options.signal && options.signal !== signal ? AbortSignal.any([signal, options.signal]) : signal;
           workerSignal.throwIfAborted();
           const request = { turnId, input: { messageId } };

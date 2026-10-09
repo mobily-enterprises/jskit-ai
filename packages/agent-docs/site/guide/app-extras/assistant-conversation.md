@@ -1892,6 +1892,25 @@ A failed result write retains the actual result for `retrySave()` without repeat
 inference or the action. Native completion remains distinct from an application's
 unconfirmed effect.
 
+The prepared result also provides `publishReply({ turnId })` for a validated
+plain reply. Supply only the existing plain user/system turn ID selected by the
+application worker; caller text, credentials and acknowledgement fields are not
+accepted. The runtime decodes the exact saved response and rechecks current
+authority, native association, account and signal before publication. A tool
+envelope, Claude native application-tool misroute or existing action receipt
+cannot publish a reply.
+
+The existing reentrant transcript transaction saves the decoded assistant
+message, its exact consumed assistant fingerprint and the internal receipt's
+`publishedReplyTurnId` together. It does not acknowledge the authored user turn
+or change its data. Independent handles and restart may reuse that same target
+and unchanged saved final; changed targets, edited/cleared text or unrelated
+existing content refuse. A failed write rolls back all three records and may
+retry without inference. Publication and application effects are mutually
+exclusive for the same receipt. This applies to future marked responses, with
+no historical backfill. The application retains queue, target selection and
+worker revocation ownership.
+
 The existing transcript readers accept explicit server-side `{ presentation: true }`
 to omit newly marked internal application turns. Raw reads remain the default for
 receipt inspection and native preservation. Presentation pagination filters before
@@ -1930,9 +1949,9 @@ The application owns its worker generation and revocation through fresh `tool`
 authorization and the supplied signal. Generic `cancel()` drains the existing
 queue; it does not independently revoke every still-authorized prepared handle.
 Already invoked actions retain their original receipt while Stop drains them.
-This operation does not supply product queue policy or human transcript/continuity
-projection. Complete those owners before enabling
-it in a consumer; never manufacture historical markers or completion receipts.
+This operation does not supply product queue policy or the browser observation
+adapter. Complete those application owners before enabling it in a consumer;
+never manufacture historical markers or completion receipts.
 
 Saved turns distinguish complete, failed, cancelled and interrupted work. Error
 messages are not assistant replies. After restart, accepted work is marked
