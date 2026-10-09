@@ -1396,6 +1396,15 @@ conversations in one runtime can use different hosts. An open handle rejects a
 second, conflicting host; native bindings also validate their saved worktree and
 credential scope on reopen. Environment values are not persisted.
 
+Claude's original scoped native history may live in the authorized credential
+HOME while its logical conversation belongs to a private host workdir. Such a
+server-owned binding retains the physical path in `workdir` and the logical path
+in `scopeWorkdir`. Reopening validates both against the current host's real paths,
+and retains the same native UUID and account checks. Ordinary bindings without
+`scopeWorkdir` keep their existing workdir validation. This does not import legacy
+records, change account fingerprints or authorize a browser-supplied native path;
+historical conversion belongs to the application's stopped state-upgrade owner.
+
 An existing application using the extracted Codex owner can supply
 `host.conversation({ id, context })` to bind its original transcript, native
 identity, delivery journal and lifecycle facilities. That bound path uses those

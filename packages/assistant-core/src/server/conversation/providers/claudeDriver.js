@@ -294,11 +294,17 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       let entry;
       if (!supplied) {
         requireClaudeSessionId(binding?.conversationId);
-        if (binding.workdir !== await realpath(workdir) || binding.configRoot !== configRoot) {
+        const scopeWorkdir = await realpath(workdir);
+        // Original scoped conversations keep native history in the credential
+        // home. Both paths must still come from the current authorized host.
+        const nativeWorkdir = Object.hasOwn(binding, "scopeWorkdir")
+          ? await realpath(env.HOME || homedir()) : scopeWorkdir;
+        if (binding.workdir !== nativeWorkdir || binding.configRoot !== configRoot ||
+          (Object.hasOwn(binding, "scopeWorkdir") && binding.scopeWorkdir !== scopeWorkdir)) {
           throw new Error("This Claude conversation belongs to another working directory or credential home. Restore its original host configuration.");
         }
         owner = standaloneOwner();
-        const context = { key: binding.workdir, workdir: binding.workdir, binding, reportFailure,
+        const context = { key: scopeWorkdir, workdir: binding.workdir, binding, reportFailure,
           async updateBinding(patch) {
             const next = { ...context.binding, ...patch };
             await writeBinding(next);

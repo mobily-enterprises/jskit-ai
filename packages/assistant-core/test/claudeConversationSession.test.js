@@ -1414,3 +1414,86 @@ for (const saveFails of [false, true]) test(`Claude retains failed-start custody
     await local.close();
   }
 });
+
+test("original scoped Claude history resumes from the authorized credential home while retaining its private scope", async t => {
+  const f = await fixture(t);
+  await f.first.close();
+  const { realpath } = await import("node:fs/promises");
+  const { createHash } = await import("node:crypto");
+  const home = path.join(f.directory, "credential-home");
+  const foreignHome = path.join(f.directory, "foreign-home");
+  await mkdir(home);
+  await mkdir(foreignHome);
+  const env = { ...f.driverOptions.host.env, HOME: home };
+  const scopeWorkdir = await realpath(f.directory);
+  const readBinding = () => f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  const writeBinding = binding => f.storage.write("conversation", async tx => {
+    const metadata = await tx.readMetadata();
+    metadata.runtime.binding = binding;
+    await tx.writeMetadata(metadata);
+  });
+  const original = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, workdir: home, env } });
+  await writeBinding(await original.createBinding());
+  const run = (provider, messageId, text) => provider.run({ configuration,
+    input: { messageId, text }, signal: new AbortController().signal,
+    beforeDispatch() {}, accept() {}, onMessage() {}, onEvent() {}
+  });
+  const first = await original.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await run(first, "original", "Original scoped words"); }
+  finally { await first.dispose(); }
+  const receipt = await readBinding();
+  assert.equal(receipt.workdir, await realpath(home));
+  assert.equal(receipt.executionId, "");
+  assert.equal(receipt.sent, true);
+  // The original native-OAuth identity has the same exact tuple; only its
+  // explicit hash label differs. API/connection tuples are not converted here.
+  const originalAccount = "sha256:" + createHash("sha256")
+    .update(JSON.stringify([receipt.configRoot, "claude.ai", "owner@example.test"])).digest("hex");
+  assert.equal(originalAccount, "sha256:" + receipt.accountIdentity);
+  const historyPath = path.join(receipt.configRoot, "projects", home.replace(/[^a-zA-Z0-9]/gu, "-"), receipt.conversationId + ".jsonl");
+  const originalHistory = await readFile(historyPath, "utf8");
+  assert.match(originalHistory, /Original scoped words/);
+  const scoped = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, env } });
+  await assert.rejects(scoped.open({ binding: receipt, writeBinding, onFailure() {} }), /another working directory or credential home/);
+  const binding = { ...receipt, scopeWorkdir };
+  for (const wrong of [{ ...binding, scopeWorkdir: await realpath(foreignHome) },
+    { ...binding, scopeWorkdir: "" }, { ...binding, workdir: await realpath(foreignHome) },
+    { ...binding, configRoot: foreignHome }]) {
+    await assert.rejects(scoped.open({ binding: wrong, writeBinding, onFailure() {} }), /another working directory or credential home/);
+  }
+  const differentHome = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, env: { ...env, HOME: foreignHome } } });
+  await assert.rejects(differentHome.open({ binding, writeBinding, onFailure() {} }), /another working directory or credential home/);
+  assert.equal((await f.trace()).filter(row => row.args?.includes("--print")).length, 1);
+  assert.equal(await readFile(historyPath, "utf8"), originalHistory);
+  await writeBinding(binding);
+  const resumed = await scoped.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await run(resumed, "resumed", "Continue original scope"); }
+  finally { await resumed.dispose(); }
+  const saved = await readBinding();
+  assert.equal(saved.conversationId, receipt.conversationId);
+  assert.equal(saved.scopeWorkdir, scopeWorkdir);
+  assert.equal(saved.workdir, receipt.workdir);
+  assert.equal(saved.accountIdentity, receipt.accountIdentity);
+  assert.equal(saved.executionId, "");
+  const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+  assert.equal(starts.length, 2);
+  assert.equal(starts[1].args[starts[1].args.indexOf("--resume") + 1], receipt.conversationId);
+  assert.equal((await readFile(historyPath, "utf8")).startsWith(originalHistory), true);
+  assert.deepEqual((await f.trace()).filter(row => row.frame?.type === "user").map(row => row.frame.message.content),
+    ["Original scoped words", "Continue original scope"]);
+  await writeFile(f.account, "another@example.test");
+  const changed = await scoped.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await assert.rejects(run(changed, "foreign-account", "Must not send"), /another Claude account/); }
+  finally { await changed.dispose(); }
+  const api = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, env: { ...env, ANTHROPIC_AUTH_TOKEN: "different-api-identity" } } });
+  const changedApi = await api.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await assert.rejects(run(changedApi, "foreign-api", "Must not send"), /another Claude account/); }
+  finally { await changedApi.dispose(); }
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 2);
+  assert.equal((await f.trace()).filter(row => row.args?.includes("--print")).length, 2);
+  assert.equal((await readBinding()).accountIdentity, receipt.accountIdentity);
+});
