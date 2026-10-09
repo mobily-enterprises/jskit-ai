@@ -1340,3 +1340,288 @@ test("opted bound OpenCode does not abort newer same-turn input when an already 
     await peer.handle.cancel(); await waiting.completion;
   }
 });
+
+// Observe the original standalone HTTP/plugin fixture and its canonical writer.
+// Completed rows always come from the native prompt handler, never a seeded turn.
+const completedOpenCodeValue = { kind: "tool", text: "Checking.", toolName: "numbers_read", arguments: "{}" };
+const completedOpenCodeSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"],
+  properties: { kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 64 },
+    toolName: { type: "string", maxLength: 64 }, arguments: { type: "string", maxLength: 64 } } };
+async function completedOpenCodeFixture(t, options = {}) {
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  let effects = 0;
+  let accountResolutions = 0;
+  const appendedRows = [];
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const f = await fixture(t, { ...options, context, actions,
+    assistantResponses: options.assistantResponses || [{ text: JSON.stringify(completedOpenCodeValue) }],
+    configuration: { ...configuration, outputSchema: completedOpenCodeSchema, ...options.configuration } });
+  await f.first.close();
+  const storage = { ...f.storage,
+    write: (id, callback) => f.storage.write(id, transaction => callback({ ...transaction,
+      async appendMessage(turnId, message) {
+        await transaction.appendMessage(turnId, message);
+        if (message.role === "system" && message.origin === "application") {
+          appendedRows.push(structuredClone(await transaction.readTurn(turnId)));
+        }
+      }
+    })) };
+  let runtime;
+  let conversation;
+  async function close() {
+    if (runtime) { await runtime.close(); runtime = null; }
+  }
+  async function reopen() {
+    await close();
+    runtime = createConversationRuntime({ engine: "opencode", storage, actions, authorize: () => true,
+      completedEnvelope: true, ...f.driverOptions,
+      connections: { resolve: async input => { accountResolutions++; return f.driverOptions.connections.resolve(input); } } });
+    try { conversation = await runtime.open({ id: "conversation", context }); }
+    catch (error) { await close(); throw error; }
+    return conversation;
+  }
+  await reopen();
+  const controller = new AbortController();
+  return { ...f, context, controller, appendedRows, actions, close, reopen,
+    effects: () => effects, accountResolutions: () => accountResolutions,
+    get conversation() { return conversation; },
+    async complete(messageId = "completed-opencode-response") {
+      const receipt = await conversation.wake({ messageId, text: "Read a number" });
+      const state = await conversation.wait();
+      const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(turn.metadata.runtime.status, "complete", state.error);
+      assert.equal(turn.metadata.runtime.completedEnvelope, true);
+      assert.equal(turn.assistant.text, JSON.stringify(completedOpenCodeValue));
+      return { messageId, turnId: receipt.turnId };
+    },
+    prepare: receipt => conversation.prepareCompletedResponse(receipt, { signal: controller.signal }) };
+}
+const executeCompletedOpenCode = (prepared, argumentsText = "{}") => prepared.tools.execute({
+  id: prepared.toolCallId, name: "numbers_read", arguments: argumentsText
+});
+
+test("completed OpenCode canonical admission preserves its trusted marker and actual native association", async t => {
+  const f = await completedOpenCodeFixture(t);
+  try {
+    const receipt = await f.complete();
+    assert.equal(f.appendedRows.length, 1);
+    const admitted = f.appendedRows[0];
+    assert.equal(admitted.turnId, receipt.turnId);
+    assert.equal(admitted.system.messageId, receipt.messageId);
+    assert.equal(admitted.system.origin, "application");
+    assert.equal(admitted.user, null);
+    assert.equal(admitted.metadata.runtime.completedEnvelope, true);
+    assert.equal(admitted.metadata.runtime.status, "running");
+    const canonical = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(canonical.system.messageId, admitted.system.messageId);
+    assert.equal(canonical.metadata.runtime.segmentId, admitted.metadata.runtime.segmentId);
+    assert.equal(canonical.metadata.runtime.engine, "opencode");
+    assert.equal(canonical.metadata.runtime.status, "complete");
+    assert.equal(canonical.metadata.runtime.completedEnvelope, true);
+    const binding = await f.binding();
+    assert.match(binding.sessionId, /^ses_/);
+    assert.equal(typeof binding.accountIdentity, "string");
+    assert.ok(binding.accountIdentity);
+    const trace = await f.trace();
+    const prompts = trace.filter(row => row.url?.endsWith("/prompt_async"));
+    assert.equal(prompts.length, 1);
+    assert.equal(prompts[0].url, `/session/${binding.sessionId}/prompt_async`);
+    assert.equal(prompts[0].body.agent, "jskit-assistant");
+    assert.equal(prompts[0].body.model.modelID, "test-model");
+    assert.match(prompts[0].body.parts[0].text, /Return only one JSON value matching this JSON Schema/);
+    const sessions = JSON.parse(await readFile(binding.databasePath, "utf8"));
+    const native = sessions.find(row => row.id === binding.sessionId);
+    assert.ok(native);
+    const authored = native.messages.find(row => row.info.role === "user" && row.info.id === prompts[0].body.messageID);
+    assert.ok(authored, "The native owner recorded the actual admitted prompt ID");
+    const answer = native.messages.find(row => row.info.role === "assistant" && row.info.parentID === authored.info.id);
+    assert.ok(answer);
+    assert.equal(answer.info.finish, "stop");
+    assert.equal(answer.parts[0].text, JSON.stringify(completedOpenCodeValue));
+    assert.equal(canonical.assistant.messageId, `${receipt.turnId}:${answer.info.id}:assistant`);
+    const prepared = await f.prepare(receipt);
+    assert.equal(prepared.text, canonical.assistant.text);
+    assert.equal(prepared.toolCallId, `${receipt.messageId}:operation`);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.url === "/api/session").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode prepared handles and reopen retain one durable effect without native replay", async t => {
+  const f = await completedOpenCodeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const originalBinding = await f.binding();
+    const readsBefore = (await f.trace()).filter(row => row.url?.includes("/message")).length;
+    const one = await f.prepare(receipt), two = await f.prepare(receipt);
+    assert.equal(one.text, JSON.stringify(completedOpenCodeValue));
+    assert.equal(one.toolCallId, `${receipt.messageId}:operation`);
+    assert.equal(two.toolCallId, one.toolCallId);
+    const [first, second] = await Promise.all([executeCompletedOpenCode(one), executeCompletedOpenCode(two)]);
+    assert.equal(first.ok, true);
+    assert.deepEqual(second, first);
+    assert.equal(f.effects(), 1);
+    await assert.rejects(executeCompletedOpenCode(two, '{"changed":true}'), /different arguments/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools.length, 1);
+    assert.equal(saved.metadata.applicationTools[0].id, one.toolCallId);
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    await f.reopen();
+    assert.deepEqual(await executeCompletedOpenCode(await f.prepare(receipt)), first);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), saved);
+    const restored = await f.binding();
+    for (const key of ["sessionId", "accountIdentity", "workdir", "directory", "databasePath", "runtimeDirectory"]) {
+      assert.equal(restored[key], originalBinding[key]);
+    }
+    assert.equal(f.effects(), 1);
+    const trace = await f.trace();
+    assert.ok(trace.filter(row => row.url?.includes("/message")).length >= readsBefore + 4,
+      "Both prepared handles and the cold owner inspect the real native input history");
+    assert.equal(trace.filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+    assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode cached bindings cannot mask missing or changed persisted native fingerprints", async t => {
+  const f = await completedOpenCodeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (const missing of [true, false]) {
+      const changed = structuredClone(before);
+      if (missing) delete changed.runtime.binding.accountIdentity;
+      else changed.runtime.binding.accountIdentity = "different-persisted-fixture-identity";
+      await f.storage.write("conversation", tx => tx.writeMetadata(changed));
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          await assert.rejects(f.prepare(receipt), missing ? /no saved account fingerprint/ : /different account binding/);
+          await assert.rejects(executeCompletedOpenCode(prepared), /identity changed|no saved account fingerprint|different account binding/);
+          assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), changed);
+        }
+      } finally { await f.storage.write("conversation", tx => tx.writeMetadata(before)); }
+    }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+    assert.equal((await f.trace()).filter(row => row.url === "/api/session").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode freshly resolved accounts cannot inherit cached completion authority", async t => {
+  const f = await completedOpenCodeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const resolutions = f.accountResolutions();
+    f.setKey("changed-opencode-fixture-account");
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await assert.rejects(f.prepare(receipt), /different account binding/);
+        await assert.rejects(executeCompletedOpenCode(prepared), /different account binding/);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+      }
+      assert.ok(f.accountResolutions() >= resolutions + 4, "Every preparation and effect checks the original fresh connection resolver");
+      assert.equal(f.effects(), 0);
+      assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+      assert.equal((await f.trace()).filter(row => row.url === "/api/session").length, 1);
+    } finally { f.setKey("test-key"); }
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode requires its actual admitted native input on cold inspection", async t => {
+  const f = await completedOpenCodeFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.prepare(receipt);
+    const canonical = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const binding = await f.binding();
+    const prompt = (await f.trace()).find(row => row.url?.endsWith("/prompt_async"));
+    await f.close();
+    const nativeSource = await readFile(binding.databasePath, "utf8");
+    const sessions = JSON.parse(nativeSource);
+    const session = sessions.find(row => row.id === binding.sessionId);
+    const accepted = session.messages.filter(row => row.info.role === "user" && row.info.id === prompt.body.messageID);
+    assert.equal(accepted.length, 1, "Remove only evidence that the original native prompt handler actually wrote");
+    session.messages = session.messages.filter(row => row !== accepted[0]);
+    await writeFile(binding.databasePath, JSON.stringify(sessions));
+    try {
+      const readsBefore = (await f.trace()).filter(row => row.url?.includes("/message")).length;
+      // If the original cold owner refuses before inspection, keep that real
+      // failure visible; do not seed or replace a native/canonical completion.
+      await f.reopen();
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await assert.rejects(f.prepare(receipt), /could not verify this response association/);
+      }
+      assert.ok((await f.trace()).filter(row => row.url?.includes("/message")).length >= readsBefore + 2);
+      assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), canonical);
+      assert.equal(f.effects(), 0);
+      assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+      assert.equal((await f.trace()).filter(row => row.url === "/api/session").length, 1);
+    } finally { await f.close(); await writeFile(binding.databasePath, nativeSource); }
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode response custody refuses foreign native conversation and host scope before effects", async t => {
+  const f = await completedOpenCodeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const canonical = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    for (const [key, value] of [
+      ["sessionId", "ses_foreign_fixture_session"], ["workdir", "/different-fixture-workdir"],
+      ["directory", "/different-fixture-directory"], ["databasePath", "/different-fixture-history"],
+      ["runtimeDirectory", "/different-fixture-runtime"]
+    ]) {
+      const changed = structuredClone(before);
+      changed.runtime.binding[key] = value;
+      await f.storage.write("conversation", tx => tx.writeMetadata(changed));
+      try {
+        await assert.rejects(f.prepare(receipt), /different native conversation or host scope/);
+        await assert.rejects(executeCompletedOpenCode(prepared), /identity changed|different native conversation or host scope/);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), changed);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), canonical);
+      } finally { await f.storage.write("conversation", tx => tx.writeMetadata(before)); }
+    }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+    assert.equal((await f.trace()).filter(row => row.url === "/api/session").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode caller markers preserve ordinary native discovery without completion authority", async t => {
+  const f = await completedOpenCodeFixture(t, { assistantResponses: [], configuration: { outputSchema: undefined } });
+  try {
+    const receipt = await f.conversation.send({ messageId: "ordinary-opencode", text: "tools", data: { completedEnvelope: true } });
+    const state = await f.conversation.wait();
+    const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(turn.metadata.runtime.status, "complete", state.error);
+    assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(f.effects(), 0, "Caller data is not a completed-envelope effect authorization");
+    const initialTrace = await f.trace();
+    const ordinaryPrompt = initialTrace.find(row => row.url?.endsWith("/prompt_async"));
+    assert.equal(ordinaryPrompt.body.agent, "jskit-assistant-actions");
+    assert.match(ordinaryPrompt.body.parts[0].text, /\[Application data\]/);
+    assert.deepEqual(initialTrace[0].configuration.agent[ordinaryPrompt.body.agent].permission, {
+      "*": "ask", assistant_action_search: "allow", assistant_action_contract: "allow", assistant_action_execute: "allow"
+    });
+    await assert.rejects(f.prepare({ messageId: "ordinary-opencode", turnId: receipt.turnId }), /no current verified receipt/);
+    // The original native fixture invokes discovery only for exact plain tools.
+    const toolReceipt = await f.conversation.send({ messageId: "ordinary-opencode-tools", text: "tools" });
+    const toolsState = await f.conversation.wait();
+    const toolsTurn = await f.storage.read("conversation", tx => tx.readTurn(toolReceipt.turnId));
+    assert.equal(toolsTurn.metadata.runtime.status, "complete", toolsState.error);
+    assert.equal(toolsTurn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(toolsTurn.metadata.applicationTools.length, 3);
+    assert.equal(f.effects(), 1);
+    assert.equal(JSON.parse(toolsTurn.assistant.text).result.result.value, 42);
+    await assert.rejects(f.prepare({ messageId: "ordinary-opencode-tools", turnId: toolReceipt.turnId }), /no current verified receipt/);
+    const trace = await f.trace();
+    const prompts = trace.filter(row => row.url?.endsWith("/prompt_async"));
+    assert.equal(prompts.length, 2);
+    assert.equal(prompts[1].body.parts[0].text, "tools");
+    assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
+  } finally { await f.close(); }
+});
