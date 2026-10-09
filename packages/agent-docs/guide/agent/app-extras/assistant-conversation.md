@@ -427,6 +427,18 @@ false and belongs to the initial retained conversation composition. It adds no
 server queue or persisted queue recovery; genuine uncertainty still blocks new
 submissions and requires receipt inspection.
 
+An application that already owns a queue accepting messages during active work
+may instead set `admitWhileWorking: true`. Ordinary nonsteerable typed and retained
+voice messages then reach that application's API while the conversation reports
+working. The existing serial delivery queue waits for each real admission receipt,
+not for a ready snapshot. Message IDs and captured data remain distinct; this
+option neither cancels active work nor supplies a server queue or native steering.
+Stop, actor retirement, denied access and uncertain-delivery guards still apply.
+It defaults to false, belongs to the initial retained composition, and cannot be
+combined with `deferWhileWorking: true`. The application must authorize and save
+each request before returning acceptance; enabling this option alone is not a
+backend queue implementation.
+
 Set `draftWhileLoading: true` when people should be able to type before the
 application resolves its conversation ID or while the first read is unavailable.
 This keeps one local input scoped to the real actor, endpoint, surface and

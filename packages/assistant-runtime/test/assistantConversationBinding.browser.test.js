@@ -2544,3 +2544,134 @@ for (const kind of ["mismatched-id", "malformed-status", "missing-marker", "post
     assert.equal((await f.sent()).length, 1, "missing native/canonical history never proves not-sent or resubmits");
   });
 }
+
+for (const width of [390, 768, 1280]) {
+  test(`application admission accepts typed and spoken follow-ups during nonsteerable work at ${width}px`, options, async t => {
+    const f = await fixture(t, width);
+    await f.page.evaluate(() => {
+      window.admissionBinding = window.conversationFixture.acquireConversation({
+        conversationId: "chat:2", admitWhileWorking: true, queueWhileSending: true
+      });
+      window.conversationFixture.target("chat:2");
+    });
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+    await f.input.fill("Initial request remains working");
+    await f.input.press("Enter");
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.status)).toBe("working");
+    assert.equal(await f.page.evaluate(() => window.conversationFixture.current().steerable.value), false);
+    await f.command("mode", { mode: "hold" });
+    await f.page.evaluate(() => window.conversationFixture.data({ clientId: "typed", focus: { project: "captured" } }));
+    await f.input.fill("Typed clarification while answering");
+    await f.input.press("Enter");
+    await expect.poll(async () => (await f.state()).held).toBe(1);
+    const typed = (await f.sent())[1].input;
+    await f.page.evaluate(() => {
+      window.conversationFixture.retainVoice();
+      window.admittedSpeech = window.conversationFixture.sendVoice("Spoken clarification while answering", {
+        clientId: "voice", focus: { project: "voice-captured" }
+      });
+      window.conversationFixture.changeFocus({ project: "later" });
+    });
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages.length)).toBe(2);
+    const spoken = (await f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages))[1];
+    assert.equal((await f.sent()).length, 2, "the voice follower waits for the preceding admission receipt");
+    await f.input.fill("Keep this newer draft");
+    await f.command("mode", { mode: "accepted" });
+    await f.command("accept", { holdResponse: true });
+    await f.notify("chat:2");
+    await expect.poll(async () => (await f.sent()).length).toBe(3);
+    assert.deepEqual(typed, {
+      messageId: typed.messageId, text: "Typed clarification while answering",
+      data: { clientId: "typed", focus: { project: "captured" } }
+    });
+    assert.deepEqual((await f.sent())[2].input, {
+      messageId: spoken.id, text: spoken.text, data: { clientId: "voice", focus: { project: "voice-captured" } }
+    });
+    assert.notEqual(typed.messageId, spoken.id);
+    assert.equal((await f.page.evaluate(() => window.admittedSpeech)).status, "accepted");
+    assert.equal((await f.state()).held, 1, "a real canonical receipt releases the queue before the old HTTP response");
+    await f.command("release-response");
+    await expect(f.input).toHaveValue("Keep this newer draft");
+    assert.equal((await f.state()).states["chat:2"].status, "working", "no ready transition is needed for app admission");
+    assert.equal((await f.state()).requests.some(request => request.suffix === "/cancel"), false);
+    assert.equal((await f.sent()).some(request => Object.hasOwn(request.input, "steer")), false);
+    const layout = await f.primary.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { right: rect.right, width: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    assert.ok(layout.right <= layout.width + 1);
+    assert.equal(layout.overflow, false);
+  });
+}
+
+for (const action of ["stop", "actor", "denied"]) {
+  test(`application admission retains local-follower fences after ${action}`, options, async t => {
+    const f = await fixture(t);
+    await f.page.evaluate(() => {
+      window.admissionBinding = window.conversationFixture.acquireConversation({
+        conversationId: "chat:2", admitWhileWorking: true, queueWhileSending: true
+      });
+      window.conversationFixture.target("chat:2");
+    });
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+    await f.command("mode", { mode: "hold" });
+    await f.page.evaluate(() => {
+      window.firstAdmission = window.admissionBinding.runtime.value.send({ message: "First held admission" }, { messageId: "first-app-held" });
+    });
+    await expect.poll(async () => (await f.state()).held).toBe(1);
+    await f.page.evaluate(() => {
+      window.localAdmission = window.admissionBinding.runtime.value.send({ message: "Undispatched follower" }, { messageId: "local-app-follower" });
+    });
+    assert.equal((await f.sent()).length, 1);
+    if (action === "stop") await f.page.evaluate(() => window.admissionBinding.runtime.value.cancel());
+    else if (action === "actor") await f.page.evaluate(() => window.conversationFixture.actor("different-actor"));
+    else {
+      await f.command("deny", { denied: true });
+      await f.notify("chat:2");
+      await expect.poll(() => f.page.evaluate(() => window.admissionBinding.runtime.value.available.value)).toBe(false);
+    }
+    await f.command("accept");
+    assert.equal(await f.page.evaluate(() => window.localAdmission), false);
+    assert.equal((await f.sent()).length, 1, "local followers never dispatch after their scope is stopped or retired");
+    assert.equal((await f.state()).requests.filter(request => request.suffix === "/cancel").length, action === "stop" ? 1 : 0);
+  });
+}
+
+test("application admission keeps unknown delivery inspection-only and rejects conflicting policies", options, async t => {
+  const f = await fixture(t);
+  const invalid = await f.page.evaluate(() => [
+    { admitWhileWorking: "yes" }, { admitWhileWorking: true, deferWhileWorking: true }
+  ].map(options => {
+    try { window.conversationFixture.acquireConversation({ conversationId: "chat:2", ...options }); }
+    catch (failure) { return { name: failure.name, message: failure.message }; }
+    return null;
+  }));
+  assert.deepEqual(invalid, [
+    { name: "TypeError", message: "admitWhileWorking must be a boolean." },
+    { name: "TypeError", message: "Choose either admitWhileWorking or deferWhileWorking." }
+  ]);
+  await f.page.evaluate(() => {
+    window.admissionBinding = window.conversationFixture.acquireConversation({
+      conversationId: "chat:2", admitWhileWorking: true, queueWhileSending: true
+    });
+    window.conversationFixture.target("chat:2");
+  });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+  await f.command("question", { id: "chat:2", text: "Still working", pending: true });
+  await f.notify("chat:2");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.status)).toBe("working");
+  await f.command("mode", { mode: "uncertain" });
+  await f.input.fill("Do not repeat unknown work");
+  await f.input.press("Enter");
+  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  await expect(check).toBeVisible();
+  const [original] = await f.sent();
+  await f.input.fill("Keep my newer draft");
+  assert.equal(await f.page.evaluate(() => window.admissionBinding.runtime.value.send({ message: "Cannot bypass uncertainty" })), false);
+  await check.click();
+  await expect.poll(() => f.page.evaluate(id => window.admissionBinding.runtime.value.delivery.find(id).checking,
+    original.input.messageId)).toBe(false);
+  assert.equal((await f.sent()).length, 1);
+  await expect(f.primary.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
+  await expect(f.input).toHaveValue("Keep my newer draft");
+});
