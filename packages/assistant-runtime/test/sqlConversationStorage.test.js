@@ -296,3 +296,129 @@ test("the SQL facade replays historical inspection failures with their exact pub
   assert.equal(effects, 0);
   assert.deepEqual(await rows(f.db), unchanged);
 });
+
+for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"]) {
+  test(`the original SQL facade retains ${shape} history and admits only an authorized fresh conversation`, async t => {
+    const f = await fixture(t);
+    const conversation = await f.conversationsRepository.create({ createdByUserId: "1", surfaceId: "assistant",
+      workspaceId: "77", metadata: { retainedHistory: shape } });
+    const fields = { conversationId: conversation.id, workspaceId: "77", actorUserId: "1", role: "assistant", kind: "chat" };
+    if (shape !== "orphan-output") {
+      await f.messagesRepository.create({ ...fields, role: "user", clientMessageSid: "legacy-question", contentText: "Existing question" });
+    }
+    const offending = await f.messagesRepository.create({ ...fields,
+      ...(shape === "orphan-output" ? { contentText: "Answer without an authored row" }
+        : { kind: shape === "orphan-tool-result" ? "tool_result" : "tool_call",
+          contentText: shape === "orphan-tool-result" ? '{"ok":true,"result":{"found":1}}' : "{}",
+          metadata: { toolCallId: "legacy-operation", tool: "inventory_lookup" } }) });
+    const issueCode = { "orphan-output": "orphan_output", "orphan-tool-result": "orphan_tool_result",
+      "unconfirmed-tool": "unconfirmed_historical_tool" }[shape];
+    const expectedDetails = { issues: [{ code: issueCode, rowIds: [offending.id] }] };
+    const unchanged = await rows(f.db);
+    const historical = await f.messagesRepository.listByConversationScope(conversation.id, { workspaceId: "77" });
+    let allowFreshInference = false;
+    const requests = [];
+    let effects = 0;
+    const aiClientFactory = { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "fixture-model",
+      async createChatCompletionStream(request) {
+        assert.equal(allowFreshInference, true, "Historical refusal and foreign admission must not start inference");
+        requests.push(structuredClone(request.messages));
+        return (async function* () {
+          yield { choices: [{ delta: { content: "Fresh answer." }, finish_reason: "stop" }] };
+        })();
+      } }) };
+    const catalog = { limits: { maxToolArgumentBytes: 4096 }, resolveToolSet: () => ({ tools: [] }),
+      toOpenAiToolSchema: tool => ({ type: "function", function: tool }),
+      executeToolCall() { effects++; assert.fail("Retained history cannot repeat an application effect"); } };
+    const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
+    t.after(() => runtime.close());
+    const turnRequests = createTurnRequestsRepository(f.db);
+    const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+      transcriptService: createTranscriptService(f), turnRequests,
+      assistantConfigService: { resolveSystemPrompt: async () => "Read only the admitted request" },
+      workspaceScopeSupport: { resolveWorkspace: context => context.requestMeta.resolvedWorkspaceContext.workspace },
+      appConfig: { surfaceDefinitions: {
+        assistant: { enabled: true, requiresWorkspace: true }, other: { enabled: true, requiresWorkspace: true }
+      }, assistantSurfaces: {
+        assistant: { settingsSurfaceId: "assistant", configScope: "workspace" },
+        other: { settingsSurfaceId: "other", configScope: "workspace" }
+      } } };
+    const events = [];
+    const options = { input: { targetSurfaceId: "assistant" },
+      context: { actor: { id: "1" }, requestMeta: { resolvedWorkspaceContext: { workspace: { id: "77" } } } },
+      streamWriter: Object.fromEntries(
+        ["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"]
+          .map(name => [name, event => events.push({ name, event })])) };
+    const input = { targetSurfaceId: "assistant", conversationId: conversation.id, messageId: "inspect-retained-history",
+      input: "Continue", history: [] };
+    const service = createChatService(dependencies);
+    await assert.rejects(service.streamChat(input, options), error => {
+      assert.equal(error instanceof AppError, true);
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "assistant_history_inspection_required");
+      assert.deepEqual(error.details, expectedDetails);
+      return true;
+    });
+    const receipt = await f.db("assistant_turn_requests").first();
+    const restarted = createChatService({ ...dependencies, turnRequests: createTurnRequestsRepository(f.db) });
+    await assert.rejects(restarted.streamChat(input, options), error => {
+      assert.equal(error.status, 409);
+      assert.equal(error.code, "assistant_history_inspection_required");
+      assert.deepEqual(error.details, expectedDetails);
+      return true;
+    });
+    assert.deepEqual(await rows(f.db), unchanged, "Refusal and replay cannot repair or discard historical rows");
+    assert.deepEqual(await f.db("assistant_turn_requests"), [receipt], "Exact-ID replay preserves the failed claim");
+    assert.deepEqual(events, []);
+    assert.equal(requests.length, 0);
+    assert.equal(effects, 0);
+    const listed = await restarted.listConversations({}, options);
+    assert.equal(listed.items.some(entry => entry.id === conversation.id), true);
+    const loaded = await restarted.getConversationMessages(conversation.id, {}, options);
+    assert.deepEqual(loaded.entries, historical, "Authorized browsing reads original rows independently of common projection");
+
+    for (const [index, foreign] of [
+      { surface: "assistant", actor: "2", workspace: "77" },
+      { surface: "other", actor: "1", workspace: "77" },
+      { surface: "assistant", actor: "1", workspace: "78" }
+    ].entries()) {
+      const deniedOptions = { ...options, input: { targetSurfaceId: foreign.surface }, context: {
+        actor: { id: foreign.actor }, requestMeta: { resolvedWorkspaceContext: { workspace: { id: foreign.workspace } } }
+      } };
+      await assert.rejects(restarted.getConversationMessages(conversation.id, {}, deniedOptions), error => {
+        assert.equal(error.status, 404);
+        assert.equal(error.details, undefined, "Foreign readers cannot inspect row IDs");
+        return true;
+      });
+      assert.equal((await restarted.listConversations({}, deniedOptions)).items.some(entry => entry.id === conversation.id), false);
+      await assert.rejects(restarted.streamChat({ ...input, targetSurfaceId: foreign.surface,
+        messageId: `foreign-history-${index}` }, deniedOptions), error => {
+        assert.equal(error.status, 404);
+        assert.equal(error.details, undefined, "Foreign sends fail before historical inspection");
+        return true;
+      });
+      await assert.rejects(runtime.open({ id: conversation.id, context: { actor: { id: foreign.actor },
+        surface: foreign.surface, assistantRequest: { conversation, workspace: { id: foreign.workspace }, history: [] } } }),
+      { code: "conversation_forbidden" });
+    }
+    assert.deepEqual(await rows(f.db), unchanged);
+    assert.deepEqual(events, []);
+    assert.equal(requests.length, 0);
+    assert.equal(effects, 0);
+
+    allowFreshInference = true;
+    const fresh = await restarted.streamChat({ targetSurfaceId: "assistant", messageId: "fresh-after-inspection",
+      input: "A new independent request", history: [] }, options);
+    assert.equal(fresh.status, "completed", JSON.stringify(events));
+    assert.notEqual(fresh.conversationId, conversation.id);
+    assert.equal(requests.length, 1, "A fresh conversation uses one admitted model response");
+    assert.equal(requests[0].some(message => message.content === "Existing question" ||
+      message.content === "Answer without an authored row"), false, "Fresh admission does not reseed ambiguous history");
+    assert.equal(effects, 0, "Fresh recovery cannot replay an unconfirmed legacy effect");
+    assert.equal(events.at(-1).name, "sendDone");
+    assert.deepEqual(await f.db("assistant_messages").where({ conversation_id: conversation.id }).orderBy("id"), unchanged.messages);
+    assert.deepEqual(await f.db("assistant_conversations").where({ id: conversation.id }).orderBy("id"), unchanged.conversations);
+    assert.deepEqual(await f.db("assistant_turn_requests").where({ id: receipt.id }), [receipt]);
+    assert.deepEqual((await restarted.getConversationMessages(conversation.id, {}, options)).entries, historical);
+  });
+}
