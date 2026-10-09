@@ -791,6 +791,7 @@ async function fixture(t, options = {}) {
     import { WebSocketServer } from ${JSON.stringify(import.meta.resolve("ws"))};
     const args = process.argv.slice(2);
     const structuredResponse = ${JSON.stringify(options.structuredResponse || null)};
+    const delayedFinal = ${JSON.stringify(options.completionBeforeDelayedFinal || null)};
     if (args.includes("debug") && args.includes("models")) {
       process.stdout.write(JSON.stringify({ models: [{ slug: "test-model", priority: 0 }] }));
       process.exit(0);
@@ -832,7 +833,7 @@ async function fixture(t, options = {}) {
       }
       const emit = (method, params) => {
         const notification = { method, params: { threadId: thread.id, ...params } };
-        if (${Boolean(options.holdAfterToolRefusal)}) log({ notification });
+        if (${Boolean(options.holdAfterToolRefusal)} || delayedFinal) log({ notification });
         ws.send(JSON.stringify(notification));
       };
       const callTool = (turn, tool, arguments_, foreign = false) => new Promise((resolve, reject) => {
@@ -906,6 +907,21 @@ async function fixture(t, options = {}) {
           eventName: "preToolUse", handlerType: "command", currentHash: "sha256:owned", enabled: true,
           trustStatus: trusted ? "trusted" : "untrusted", command: JSON.parse(flag.match(/command=(.*),timeout=30/u)[1]) });
         return reply({ data: [{ cwd: params.cwds[0], hooks, errors: [] }] });
+      }
+      if (delayedFinal && ["thread/read", "thread/turns/list"].includes(method)) {
+        const full = method === "thread/read" ? params.includeTurns !== false : params.itemsView === "full";
+        const delayMs = full ? state.completionReadDelayMs || 0 : 0;
+        if (delayMs) {
+          // Freeze the actual stale full-history result BEFORE its slow read.
+          const snapshot = structuredClone(method === "thread/read" ? { thread: { ...thread,
+            status: { type: !state.loaded ? "notLoaded" : state.runningTurn?.status === "inProgress" ? "active" : "idle" } } }
+            : { data: [...thread.turns].reverse(), nextCursor: null });
+          state.completionReadDelayMs = 0;
+          log({ historyReadHeld: { threadId: thread.id, turnId: state.runningTurn.id, delayMs } });
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          log({ historyReadReturned: { threadId: thread.id, turnId: state.runningTurn.id } });
+          return reply(snapshot);
+        }
       }
       if (method === "thread/start") {
         thread = { id: randomUUID(), historyMode: "paginated", modelProvider: params.modelProvider,
@@ -1023,6 +1039,21 @@ async function fixture(t, options = {}) {
         }
         if (text === "failed") { turn.status = "failed"; save(); emitTurn("turn/completed", { turn: { ...turn, error: { message: "Model unavailable" } } }); return; }
         if (text === "disconnect") { setTimeout(() => ws.close(), 50); return; }
+        if (delayedFinal) {
+          // The REAL query-contract request joins active.inputReady; it never
+          // invokes numbers.read or simulates native/application admission.
+          await callTool(turn, "assistant_action_contract", { actionId: "numbers.read", version: 1 });
+          state.completionReadDelayMs = delayedFinal.readDelayMs;
+          turn.status = "completed"; save();
+          emitTurn("turn/completed", { turn: { id: turn.id, status: turn.status } });
+          setTimeout(() => {
+            if (ws.readyState !== 1) return;
+            const answer = { id: "answer", type: "agentMessage", phase: "final_answer", text: delayedFinal.text };
+            turn.items.push(answer); save();
+            emitTurn("item/completed", { item: answer });
+          }, delayedFinal.delayMs);
+          return;
+        }
         let toolAnswer;
         if (text === "tools" || text === "foreign-tool") {
           const invoke = (tool, arguments_) => callTool(turn, tool, arguments_, text === "foreign-tool");
@@ -3648,3 +3679,94 @@ test("ordinary Codex oversized native arguments retain exact failed-cleanup cust
     finally { await peer.cancel(); }
   }
 });
+
+
+// Original Public R06 slow-history obligations use the ordinary native owner:
+// its real application contract can wait for active.inputReady before completion.
+for (const delayMs of [1000, 2000]) {
+  test(`ordinary Codex slow first history read preserves its post-read grace for final at ${delayMs}ms`, async t => {
+    let effects = 0;
+    const text = "Exact final after the slow read.";
+    const f = await fixture(t, {
+      actions: applicationActions(async () => { effects++; return { value: 42 }; }),
+      context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] },
+      completionBeforeDelayedFinal: { readDelayMs: 600, delayMs, text },
+      limits: { admissionTimeoutMs: 30_000, codexFinalizingGraceMs: 500,
+        codexFinalizingGraceAfterHistoryRead: true, codexFailureDetailGraceMs: 500 }
+    });
+    let firstError;
+    try {
+      const receipt = await f.conversation.send({ messageId: "user-1", text: "Keep the slow-read request." });
+      assert.equal(receipt.status, "accepted");
+      let trace;
+      for (let attempt = 0; attempt < 3000; attempt++) {
+        trace = await f.trace();
+        if (trace.some(row => row.historyReadHeld)) break;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.ok(trace.some(row => row.historyReadHeld), "Observe the actual full-history hold after native completion");
+      const held = await f.storage.read("conversation", transaction => transaction.readMetadata());
+      assert.equal(held.runtime.binding.codexAppServerRun.state, "finalizing",
+        "The delayed full-history read must follow native completion and canonical finalization");
+      const result = await f.conversation.wait();
+      // Generic controls are idle/ready after a settled failed turn; Public
+      // Colleague's separate product worker reports its request as failed.
+      assert.equal(result.status, "ready", result.error);
+      if (delayMs === 2000) assert.equal(result.error,
+        "Codex app-server finished this turn, but the assistant result text was not received.");
+      else assert.equal(result.error, "");
+      const messages = result.conversationLog.flatMap(turn => turn.messages);
+      assert.deepEqual(messages.filter(row => row.role === "user").map(row => row.text), ["Keep the slow-read request."]);
+      assert.deepEqual(messages.filter(row => row.role === "assistant").map(row => row.text), delayMs === 1000 ? [text] : []);
+      const saved = await f.storage.read("conversation", transaction => transaction.readTurn(receipt.turnId));
+      assert.equal(saved.user.messageId, "user-1");
+      assert.equal(saved.metadata.runtime.status, delayMs === 1000 ? "complete" : "failed");
+      if (delayMs === 2000) {
+        const metadata = await f.storage.read("conversation", transaction => transaction.readMetadata());
+        assert.equal(metadata.runtime.binding.codexAppServerRun.error, result.error);
+      }
+      assert.equal(saved.assistant?.text, delayMs === 1000 ? text : undefined);
+      assert.equal(effects, 0);
+      assert.equal(saved.metadata.applicationTools.length, 1, "Only the real contract query receipt exists; no numbers action ran");
+      assert.equal(saved.metadata.applicationTools[0].name, "assistant_action_contract");
+      assert.equal(saved.metadata.applicationTools[0].status, "complete");
+      assert.equal(saved.metadata.applicationTools[0].result.ok, true);
+      trace = await f.trace();
+      const turns = trace.filter(row => row.method === "turn/start");
+      assert.equal(turns.length, 1, "No repeat native request or inference");
+      assert.equal(turns[0].params.clientUserMessageId, "user-1");
+      const started = trace.find(row => row.notification?.method === "turn/started").notification.params.turn;
+      assert.equal(saved.metadata.runtime.nativeTurnId, started.id);
+      assert.deepEqual(trace.filter(row => row.historyReadHeld).map(row => row.historyReadHeld),
+        [{ threadId: turns[0].params.threadId, turnId: started.id, delayMs: 600 }]);
+      assert.equal(trace.filter(row => row.historyReadReturned).length, 1);
+      const completedAt = trace.findIndex(row => row.notification?.method === "turn/completed" && row.notification.params.turn.id === started.id);
+      assert.ok(completedAt >= 0 && completedAt < trace.findIndex(row => row.historyReadHeld));
+      assert.equal(trace.filter(row => row.toolResponse).length, 1);
+      const history = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+      assert.equal(history.id, turns[0].params.threadId);
+      assert.equal(history.turns.length, 1);
+      assert.equal(history.turns[0].id, started.id);
+      assert.equal(history.turns[0].items[0].clientId, "user-1");
+    } catch (error) {
+      firstError = error;
+      throw error;
+    } finally {
+      try {
+        const beforeStop = await f.conversation.read();
+        const cancelled = await f.conversation.cancel();
+        assert.equal(typeof cancelled.stopped, "boolean", "Original Stop reports whether it interrupted work");
+        const stopped = await f.storage.read("conversation", transaction => transaction.readMetadata());
+        assert.equal(stopped.runtime.binding.codexAppServerRun.active, false, "Actual Stop leaves no active native turn");
+        if (beforeStop.status === "ready") {
+          assert.equal(cancelled.stopped, false, "An already idle native turn truthfully reports no interrupted work");
+        }
+        assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1, "Stop does not replay the original native request");
+        assert.equal(effects, 0);
+      } catch (error) {
+        if (!firstError) throw error;
+        t.diagnostic(`R06 cleanup also failed; preserving the first assertion: ${error.stack || error.message}`);
+      }
+    }
+  });
+}
