@@ -387,6 +387,15 @@ this code only when the original turn is absent or finished before dispatch.
 Transport and provider failures without that proof remain uncertain and require
 receipt inspection; an HTTP 409 alone is not proof of rejection.
 
+At an application's known pre-admission boundary, a structured HTTP client error
+may carry `details.delivery: { status: "not-sent", messageId }`. The binding accepts
+only an exact current message ID and a 4xx HTTP error; it retains the original
+error and failed request for manual Retry with the same captured payload. Hosts
+must attach this fact before any routing/native dispatch, preserve error
+sanitization and never derive it from missing history. Mismatched metadata,
+server/transport failures and unknown inspection stay uncertain. This response
+fact cannot repair an older saved uncertain request or grant actor access.
+
 When `draftStorage` restores a page, known failed deliveries remain failed and
 accepted receipts remain accepted. Saved uncertain, pending or unrecognised
 delivery states stay uncertain with the exact original ID, payload and draft;

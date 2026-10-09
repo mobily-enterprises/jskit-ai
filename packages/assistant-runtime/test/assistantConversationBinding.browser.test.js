@@ -2479,3 +2479,68 @@ test("canonical loaded-history replay retains older completed output and its aut
   assert.equal(display.assistant.text, "Live older completed reply");
   assert.deepEqual(await f.sent(), []);
 });
+
+
+test("an exact host pre-admission receipt preserves one manual retry and actor and draft guards", options, async t => {
+  const f = await fixture(t);
+  await f.command("mode", { mode: "rejected" });
+  await f.page.route("**/messages", async route => {
+    const response = await route.fetch();
+    const input = route.request().postDataJSON();
+    await route.fulfill({ response, status: 409, json: { code: "host_capture_rejected",
+      error: "The host refused this message before native admission.",
+      details: { delivery: { status: "not-sent", messageId: input.messageId } } } });
+  });
+  await f.page.evaluate(() => window.conversationFixture.data({ originId: "captured-tab", choice: "original" }));
+  await f.input.fill("Retain this exact original request");
+  await f.input.press("Enter");
+  await expect(f.primary.getByText("Failed: The host refused this message before native admission.", { exact: true })).toBeVisible();
+  const [original] = await f.sent();
+  assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status, original.input.messageId), "failed");
+  await expect(f.primary.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(0);
+  await f.input.fill("Keep my newer draft");
+  await f.page.evaluate(() => window.conversationFixture.data({ originId: "newer-tab", choice: "newer" }));
+  assert.equal((await f.sent()).length, 1, "a rejection never retries automatically");
+  await f.page.unroute("**/messages");
+  await f.command("mode", { mode: "accepted" });
+  await f.primary.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect.poll(async () => (await f.sent()).length).toBe(2);
+  const requests = await f.sent();
+  assert.deepEqual(requests[1].input, original.input, "manual Retry retains the ID, words and captured selection/data");
+  await expect(f.input).toHaveValue("Keep my newer draft");
+  await f.page.evaluate(() => {
+    window.rejectedActorRuntime = window.conversationFixture.current();
+    window.conversationFixture.actor("another-actor");
+  });
+  assert.equal(await f.page.evaluate(() => window.rejectedActorRuntime.send({ message: "Must not dispatch" },
+    { messageId: "foreign-actor" })), false);
+  assert.equal((await f.sent()).length, 2, "receipt metadata grants no authority to a retired actor");
+});
+
+for (const kind of ["mismatched-id", "malformed-status", "missing-marker", "post-routing-failure"]) {
+  test(`unconfirmed host delivery metadata remains inspection-only: ${kind}`, options, async t => {
+    const f = await fixture(t);
+    await f.command("mode", { mode: "rejected" });
+    await f.page.route("**/messages", async route => {
+      const response = await route.fetch();
+      const input = route.request().postDataJSON();
+      await route.fulfill({ response, status: kind === "post-routing-failure" ? 500 : 409,
+        json: { code: "host_dispatch_failed", error: "Delivery cannot be confirmed.", details: { delivery: kind === "missing-marker" ? null : {
+          status: kind === "malformed-status" ? "rejected" : "not-sent",
+          messageId: kind === "mismatched-id" ? "another-message" : input.messageId
+        } } } });
+    });
+    await f.input.fill("Do not resubmit unknown work");
+    await f.input.press("Enter");
+    const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+    await expect(check).toBeVisible();
+    const [original] = await f.sent();
+    await check.click();
+    await expect.poll(() => f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).checking,
+      original.input.messageId)).toBe(false);
+    assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status,
+      original.input.messageId), "uncertain");
+    await expect(f.primary.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
+    assert.equal((await f.sent()).length, 1, "missing native/canonical history never proves not-sent or resubmits");
+  });
+}

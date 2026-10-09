@@ -447,7 +447,10 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
             if (controller.signal.aborted) return false;
             if (prepare && !pending.dispatched) return { ok: false, error: failure.message,
               ...(failure.code ? { code: failure.code } : {}) };
-            if (SEND_REJECTIONS.has(failure.code)) return { ok: false, error: failure.message,
+            const rejection = failure.details?.delivery;
+            const notSent = Number.isInteger(failure.status) && failure.status >= 400 && failure.status < 500 &&
+              rejection && !Array.isArray(rejection) && rejection.status === "not-sent" && rejection.messageId === messageId;
+            if (notSent || SEND_REJECTIONS.has(failure.code)) return { ok: false, error: failure.message,
               ...(prepare && failure.code ? { code: failure.code } : {}) };
             throw failure;
           } finally {
