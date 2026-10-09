@@ -134,7 +134,7 @@ export function createCodexConversationStore({ storage, scope, segmentId, isCurr
     assertCurrent(sessionId);
     return transcript[name](sessionId, ...args);
   };
-  async function nativeOrigin(transaction, identity) {
+  async function nativeAuthorship(transaction, identity) {
     if (!identity?.threadId || !identity.turnId) return undefined;
     const { runtime } = await transaction.readMetadata();
     const run = runtime.binding?.codexAppServerRun;
@@ -143,17 +143,21 @@ export function createCodexConversationStore({ storage, scope, segmentId, isCurr
     for (const turnId of (await transaction.listTurnIds()).reverse()) {
       const turn = await transaction.readTurn(turnId);
       if (turn?.metadata?.runtime?.segmentId !== segmentId) continue;
-      if (turn.user?.messageId === run.outerTurnId) return "user";
-      if (turn.system?.messageId === run.outerTurnId && turn.system.origin === "application") return "application";
+      if (turn.user?.messageId === run.outerTurnId) return { origin: "user", messageId: run.outerTurnId, turnId };
+      if (turn.system?.messageId === run.outerTurnId && turn.system.origin === "application") {
+        return { origin: "application", messageId: run.outerTurnId, turnId };
+      }
     }
     const request = runtime.request;
-    if (request?.messageId === run.outerTurnId && ["user", "application"].includes(request.origin)) return request.origin;
+    if (request?.messageId === run.outerTurnId && ["user", "application"].includes(request.origin)) {
+      return { origin: request.origin, messageId: request.messageId };
+    }
     return undefined;
   }
   const writer = name => (sessionId, input) => runStore.mutateSession(sessionId, async transaction => {
     const written = await transcript[name](sessionId, input);
     if (!written || written.metadata?.runtime?.segmentId) return written;
-    const origin = await nativeOrigin(transaction, input.nativeIdentity);
+    const origin = (await nativeAuthorship(transaction, input.nativeIdentity))?.origin;
     await transaction.updateTurnMetadata(written.turnId, { runtime: {
       status: "complete", engine: "codex", segmentId, ...(origin ? { origin } : {}),
       ...(input.nativeIdentity?.turnId ? { nativeTurnId: input.nativeIdentity.turnId } : {})
@@ -212,11 +216,20 @@ export function createCodexConversationStore({ storage, scope, segmentId, isCurr
       });
     },
     updateConversationStream(sessionId, input) {
-      return runStore.mutateSession(sessionId, async transaction => streams.update(sessionId, {
-        ...input, origin: await nativeOrigin(transaction, input.nativeIdentity)
-      }));
+      return runStore.mutateSession(sessionId, async transaction => {
+        const authorship = await nativeAuthorship(transaction, input.nativeIdentity);
+        return streams.update(sessionId, { ...input, origin: authorship?.origin, authorship });
+      });
     },
-    completeConversationStreamMessage(sessionId, messageId) { assertCurrent(sessionId); return streams.complete(sessionId, messageId); },
+    completeConversationStreamMessage(sessionId, messageId, options) {
+      assertCurrent(sessionId);
+      if (options?.nativeIdentity) return runStore.mutateSession(sessionId, async transaction => {
+        const authorship = await nativeAuthorship(transaction, options.nativeIdentity);
+        return streams.complete(sessionId, messageId, { ...options, authorship,
+          ...(!authorship ? { text: undefined } : {}) });
+      });
+      return streams.complete(sessionId, messageId, options);
+    },
     clearConversationStream(sessionId) { assertCurrent(sessionId); return streams.clear(sessionId); }
   });
 }

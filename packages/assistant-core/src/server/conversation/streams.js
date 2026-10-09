@@ -11,15 +11,19 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     };
   }
 
-  function update(scope, { turnId, messageId, role = "assistant", text, delta, at, origin, nativeIdentity, outputId } = {}) {
+  function update(scope, { turnId, messageId, role = "assistant", text, delta, at, origin, nativeIdentity, outputId, authorship } = {}) {
     if (!turnId || !messageId || !["assistant", "commentary"].includes(role)) return null;
     let stream = streams.get(scope);
     if (!stream || stream.turnId !== turnId) {
-      stream = { turnId, messages: new Map(), completed: new Set() };
+      stream = { turnId, messages: new Map(), completed: new Set(), authorship: new Map() };
       streams.set(scope, stream);
     }
     if (stream.completed.has(messageId)) return null;
     const previous = stream.messages.get(messageId);
+    const captured = stream.authorship.get(messageId);
+    if (authorship?.messageId && (!previous || captured?.messageId === authorship.messageId)) {
+      stream.authorship.set(messageId, captured?.turnId ? captured : { ...authorship });
+    }
     const next = {
       messageId,
       ...((previous?.outputId || outputId) ? { outputId: previous?.outputId || outputId } : {}),
@@ -38,13 +42,25 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     return read(scope);
   }
 
-  function complete(scope, messageId) {
+  function complete(scope, messageId, { text, role, authorship } = {}) {
     const stream = streams.get(scope);
     if (!stream) return read(scope);
+    const message = stream.messages.get(messageId);
+    const captured = stream.authorship.get(messageId);
+    const completedAuthorship = captured?.messageId === authorship?.messageId && captured?.origin === authorship?.origin && !captured?.turnId
+      ? { ...captured, ...(authorship?.turnId ? { turnId: authorship.turnId } : {}) } : captured;
     stream.completed.add(messageId);
     stream.messages.delete(messageId);
+    stream.authorship.delete(messageId);
     revision += 1;
-    return read(scope);
+    const snapshot = read(scope);
+    // Only the exact native completed-text path supplies a completion carrier.
+    // Cleanup, duplicate notifications and ordinary reads cannot replay it.
+    if (message && typeof text === "string" && completedAuthorship?.turnId && ["user", "application"].includes(completedAuthorship.origin)) {
+      snapshot.completedMessages = [{ ...message, turnId: completedAuthorship.turnId, origin: completedAuthorship.origin,
+        ...(["assistant", "commentary", "thinking"].includes(role) ? { role } : {}), text, status: "complete" }];
+    }
+    return snapshot;
   }
 
   function clear(scope) {

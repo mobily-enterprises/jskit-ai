@@ -2813,3 +2813,127 @@ test("supplied Codex commentary remains host-owned and refuses a runtime opt-out
   assert.equal(await f.bindings.get("bound-one").identity.read(), nativeThreadId);
   assert.deepEqual(f.effects, []);
 });
+
+
+test("default Codex commentary publishes its saved output identity rather than a second transient completion", async t => {
+  const f = await fixture(t);
+  const events = [];
+  await f.conversation.subscribe(event => events.push(event));
+  await f.conversation.send({ messageId: "default-carrier-dedup", text: "blocks" });
+  const state = await f.conversation.wait();
+  const progress = state.conversationLog.flatMap(turn => turn.commentary || []);
+  assert.equal(progress.length, 1);
+  assert.equal(progress[0].text, "Checking the numbers.");
+  assert.notEqual(progress[0].messageId, progress[0].outputId);
+  const completed = events.filter(event => event.type === "message" && event.role === "commentary" && event.status === "complete");
+  assert.ok(completed.length);
+  assert.equal(completed.every(event => event.messageId === progress[0].messageId), true,
+    "The existing canonical publication owns this exact output; its native stream must not complete a second identity");
+  assert.equal(completed.every(event => event.outputId === progress[0].outputId && event.text === progress[0].text), true);
+  assert.equal((await f.conversation.read()).streaming.completedMessages, undefined);
+  assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+});
+
+
+for (const text of ["blocks", "blocks-without-phase"]) test(`transient Codex completed ${text} waits for its exact accepted publication without replay`, async t => {
+  let runtime;
+  t.after(() => runtime?.close());
+  const f = await fixture(t);
+  await f.first.close();
+  runtime = createConversationRuntime({ engine: "codex", storage: f.storage, authorize: () => true,
+    persistCommentary: false, host: f.driverOptions.host, limits: f.driverOptions.limits });
+  const conversation = await runtime.open({ id: "conversation" });
+  const events = [];
+  await conversation.subscribe(event => events.push(event));
+  const receipt = await conversation.send({ messageId: "transient-admission-order", text });
+  const state = await conversation.wait();
+  assert.equal(state.status, "ready", state.error);
+  const accepted = events.findIndex(event => event.type === "accepted" && event.messageId === receipt.messageId);
+  assert.ok(accepted >= 0);
+  const progress = events.filter(event => event.type === "message" && event.status === "complete" &&
+    event.role === "commentary" && event.text === "Checking the numbers.");
+  assert.equal(progress.length, 1);
+  assert.ok(events.indexOf(progress[0]) > accepted, "The exact accepted event must precede this completed native carrier");
+  assert.equal(progress[0].turnId, receipt.turnId);
+  assert.equal(progress[0].origin, "user");
+  assert.deepEqual(state.conversationLog.flatMap(turn => turn.commentary || []), []);
+  assert.deepEqual(state.conversationLog.filter(turn => turn.assistant).map(turn => turn.assistant.text),
+    [`Answer: ${text}`, "The second paragraph."]);
+  const count = events.length;
+  assert.equal((await conversation.read()).streaming.completedMessages, undefined);
+  assert.equal((await conversation.read()).streaming.completedMessages, undefined);
+  assert.equal(events.length, count, "Ordinary reads cannot replay completed progress");
+  assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+});
+
+
+for (const ending of ["steer", "close"]) test(`transient native completion declines ${ending} after subscriber authorization starts`, { timeout: 10_000 }, async t => {
+  const authorization = Promise.withResolvers();
+  const releaseAuthorization = Promise.withResolvers();
+  t.after(() => releaseAuthorization.resolve());
+  let runtime;
+  t.after(() => runtime?.close());
+  const f = await fixture(t);
+  await f.first.close();
+  const command = path.join(f.directory, "codex.mjs");
+  const original = await readFile(command, "utf8");
+  const marker = 'emitTurn("item/completed", { item: progress });';
+  assert.equal(original.split(marker).length, 2, "The original generated progress completion is transformed exactly once");
+  const gated = original.replace(marker, `
+          while (!existsSync(file + ".r07-release-completion") && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+          ${marker}
+          while (!existsSync(file + ".r07-release-final") && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));`);
+  const [prefix, suffix] = original.split(marker);
+  assert.equal(gated.startsWith(prefix), true);
+  assert.equal(gated.endsWith(suffix), true, "All other original native command behavior remains unchanged");
+  await writeFile(command, gated);
+  let armed = false, claimed = false;
+  runtime = createConversationRuntime({ engine: "codex", storage: f.storage, persistCommentary: false,
+    host: f.driverOptions.host, limits: f.driverOptions.limits, async authorize({ operation }) {
+      if (operation === "subscribe" && armed && !claimed) {
+        claimed = true;
+        authorization.resolve();
+        await releaseAuthorization.promise;
+      }
+      return true;
+    } });
+  const conversation = await runtime.open({ id: "conversation" });
+  const events = [];
+  const firstDelta = Promise.withResolvers();
+  const initialWorking = Promise.withResolvers();
+  await conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "phase" && event.phase === "working") initialWorking.resolve();
+    if (event.type === "message" && event.status === "inProgress" && event.text === "Checking the numbers.") firstDelta.resolve();
+  });
+  const first = await conversation.send({ messageId: "predecessor-race", text: "blocks" });
+  await firstDelta.promise;
+  await initialWorking.promise;
+  assert.equal(events.some(event => event.type === "accepted" && event.messageId === first.messageId), true);
+  // The original accepted and working events have been published. Allow their
+  // synchronous authorization continuation to finish the delivery commit.
+  await new Promise(resolve => setImmediate(resolve));
+  armed = true;
+  await writeFile(path.join(f.directory, "history.json.r07-release-completion"), "release");
+  await authorization.promise;
+  if (ending === "steer") {
+    const successor = await conversation.send({ messageId: "successor-race", text: "Keep the successor", steer: true });
+    assert.notEqual(successor.turnId, first.turnId);
+    releaseAuthorization.resolve();
+    const state = await conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    assert.equal(events.some(event => event.type === "accepted" && event.messageId === "successor-race"), true);
+    assert.equal(events.some(event => event.type === "message" && event.status === "complete" &&
+      event.turnId === successor.turnId && event.text === "Steered: Keep the successor"), true,
+      "Declining the sealed carrier retains the legitimate successor subscription");
+    assert.equal((await f.trace()).filter(row => row.method === "turn/steer").length, 1);
+  } else {
+    const closing = runtime.close();
+    releaseAuthorization.resolve();
+    await closing;
+    await assert.rejects(conversation.read(), { code: "conversation_closed" });
+  }
+  assert.equal(events.some(event => event.type === "message" && event.status === "complete" &&
+    event.role === "commentary" && event.text === "Checking the numbers."), false,
+    "Subscriber authorization must not deliver the stale completed carrier after its owner changes");
+});

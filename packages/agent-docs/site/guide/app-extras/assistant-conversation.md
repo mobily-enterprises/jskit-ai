@@ -1874,8 +1874,22 @@ deduplication without writing a commentary row. Existing saved rows are never
 removed or repaired. Supplied native owners retain their own transcript policy;
 `open()` refuses a supplied conversation with this opt-out rather than silently
 persisting commentary or changing the host's owner.
-This storage option does not establish native progress/tool association or a
-pre-effect progress bound.
+For runtime-owned Codex streams, an exact completed native item can emit the
+existing `message` event with `status: "complete"` and its verified canonical
+authored turn. Item custody remains private and is retained across steering;
+a pending request alone does not invent a canonical row. The completed item text
+replaces partial deltas and is carried once through the existing admission owner.
+If completion precedes admission publication, its exact request's existing
+progress custody holds it until accepted has been published; completion is then
+published before the original delivery commit permits native tools. Completion
+can resolve a pending captured message only to that same admitted row, not a
+successor. Subscriber authorization rechecks the captured native owner and
+unsealed request before delivery. Ordinary stream reads, repeated completion and fingerprint cleanup do not replay
+it. A canonical patch for the same output keeps the existing saved message
+identity rather than publishing a second transient completion. A first-seen
+completion without captured authored custody does not gain it from the newest
+request. This storage/completion option does not establish native progress/tool
+same-response association or a pre-effect progress bound.
 
 An optional `limits.timeoutMs` deadline aborts work and waits for owned cleanup;
 a failed cleanup is still reported as unavailable rather than as a successful stop.

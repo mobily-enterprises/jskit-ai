@@ -87,10 +87,11 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return operation;
   }
 
-  async function emit(entry, event) {
+  async function emit(entry, event, isCurrent) {
     await Promise.all([...entry.listeners].map(async subscription => {
       try { await access(subscription.context, entry.id, "subscribe", entry); }
       catch { entry.listeners.delete(subscription); return; }
+      if (isCurrent && !isCurrent()) return;
       // Presentation failures cannot interrupt persistence or provider work.
       try { Promise.resolve(subscription.listener(structuredClone({ conversationId: entry.id, ...event }))).catch(() => {}); }
       catch { /* A failed observer does not own the conversation. */ }
@@ -183,6 +184,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function publish(entry, event) {
     if (entry.disposed) return;
+    const publicationOwner = entry.bindingOwner;
+    const publicationSegment = entry.segmentId;
+    const publicationActive = entry.active;
     if (entry.conversation?.commands && ["phase", "configuration"].includes(event.type)) {
       return emit(entry, event);
     }
@@ -212,6 +216,19 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     if (payload.conversationStream) {
       const snapshot = payload.conversationStream;
+      for (const message of snapshot.completedMessages || []) {
+        if (turn?.messages?.some(saved => saved.messageId === message.messageId ||
+          (message.outputId && saved.outputId === message.outputId))) continue;
+        const request = publicationActive && [...publicationActive.requests.values()].find(request => request.turnId === message.turnId);
+        const isCurrent = () => !entry.disposed && !request?.sealed && entry.active === publicationActive &&
+          entry.bindingOwner === publicationOwner && entry.segmentId === publicationSegment;
+        if (!request || !isCurrent()) continue;
+        if (!request.admissionPublished) {
+          request.progress.set(message.messageId, message);
+          continue;
+        }
+        await emit(entry, { type: "message", ...message, streaming: snapshot }, isCurrent);
+      }
       for (const message of snapshot.messages) {
         await emit(entry, { type: "message", ...message, streaming: snapshot });
       }
@@ -459,6 +476,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function perform(entry, active, configuration) {
     const { driver, engine, segmentId } = entry;
+    const bindingOwner = entry.bindingOwner;
     const initial = active.request;
     let current = initial;
     let goalOwner = initial.input.goal ? initial : null;
@@ -521,7 +539,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
         ...(request.continuedBy ? { continuedBy: request.continuedBy } : {}), ...extra, ...(error ? { error } : {}) } });
       return conversationHistoryVersions([{ turnId: request.turnId,
-        messages: [...request.progress.values(), ...(request.answer?.text.trim() ? [request.answer] : [])] }]);
+        messages: [...request.progress.values()].filter(message => !(message.turnId === request.turnId && message.status === "complete"))
+          .concat(request.answer?.text.trim() ? [request.answer] : []) }]);
     }
 
     async function publishAdmission(request, nativeResult) {
@@ -529,6 +548,20 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       request.admission.resolve(entry.conversation ? { receipt, nativeResult } : receipt);
       request.admissionSettled = true;
       await emit(entry, { type: "accepted", ...receipt });
+      if (driver.canonicalTranscript && !entry.conversation) {
+        // Native items can complete before common admission finishes. Their
+        // exact request already owns them; publish before tools join the
+        // existing delivery commit, without blocking the native event queue.
+        for (const [id, message] of request.progress) {
+          if (message.turnId !== request.turnId || message.status !== "complete") continue;
+          request.progress.delete(id);
+          if (request.sealed || entry.disposed || entry.active !== active ||
+              entry.bindingOwner !== bindingOwner || entry.segmentId !== segmentId) continue;
+          await emit(entry, { type: "message", ...message, streaming: streams.read(entry.id) },
+            () => !entry.disposed && !request.sealed && entry.active === active && entry.bindingOwner === bindingOwner && entry.segmentId === segmentId);
+        }
+      }
+      request.admissionPublished = true;
       await setPhase(entry, "working", request.turnId);
       if ((entry.conversation || driver.canonicalTranscript) && entry.nativePhase && entry.nativePhase !== "working") await setPhase(entry, entry.nativePhase, request.turnId);
     }

@@ -659,7 +659,9 @@ export function createCodexAppServerOutput({
         }
       }
       const payload = {
-        conversationStream: store.completeConversationStreamMessage(normalizedSessionId, streamMessageId)
+        conversationStream: await store.completeConversationStreamMessage(normalizedSessionId, streamMessageId, {
+          text, role, nativeIdentity: { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) || turn.turnId }
+        })
       };
       if (written) {
         payload.conversationLogPatch = { turn: written, type: "upsert-turn" };

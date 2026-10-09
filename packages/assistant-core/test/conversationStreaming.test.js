@@ -153,3 +153,51 @@ test("output identity survives stream revisions and saved projection without cha
   assert.equal(final[0].assistant.messageId, "native-saved");
   assert.equal(final[0].assistant.outputId, snapshot.messages[0].outputId);
 });
+
+
+test("native completed carriers retain exact final text once without exposing private custody in live reads", () => {
+  const streams = createConversationStreams();
+  const input = { nativeIdentity: { threadId: "thread", turnId: "native-turn" }, turnId: "thread:native-turn",
+    messageId: "native-item", outputId: "exact-output", role: "commentary", origin: "user",
+    authorship: { messageId: "authored-message", turnId: "000001", origin: "user" } };
+  streams.update("chat", { ...input, delta: "Partial words" });
+  const live = streams.read("chat");
+  assert.equal(Object.hasOwn(live.messages[0], "turnId"), false);
+  assert.equal(JSON.stringify(live).includes("authored-message"), false);
+  assert.equal(JSON.stringify(live).includes("nativeIdentity"), false);
+  const final = "Corrected completed sentence.\nExact ending.";
+  const completed = streams.complete("chat", input.messageId, { text: final });
+  assert.deepEqual(completed.messages, []);
+  assert.deepEqual(completed.completedMessages.map(message => ({ turnId: message.turnId, outputId: message.outputId,
+    messageId: message.messageId, origin: message.origin, role: message.role, text: message.text, status: message.status })),
+  [{ turnId: "000001", outputId: "exact-output", messageId: "native-item", origin: "user", role: "commentary",
+    text: final, status: "complete" }]);
+  completed.completedMessages[0].text = "Changed return value";
+  assert.equal(streams.read("chat").completedMessages, undefined);
+  assert.equal(streams.complete("chat", input.messageId, { text: final }).completedMessages, undefined);
+  assert.equal(streams.update("chat", { ...input, delta: "late" }), null);
+  assert.deepEqual(streams.read("chat").messages, []);
+  assert.deepEqual(input.authorship, { messageId: "authored-message", turnId: "000001", origin: "user" });
+  streams.update("chat", { ...input, messageId: "phase-less-item", role: "assistant", text: "Initially unclassified" });
+  assert.equal(streams.complete("chat", "phase-less-item", { text: "Completed progress", role: "commentary" })
+    .completedMessages[0].role, "commentary", "The completed native classification owns the role, not an initial phase-less delta");
+});
+
+test("unproven native origin and duplicate cleanup cannot produce completed authored carriers", () => {
+  const streams = createConversationStreams();
+  const input = { nativeIdentity: { threadId: "thread", turnId: "turn" }, turnId: "thread:turn",
+    messageId: "unproven", role: "commentary", origin: "application" };
+  streams.update("chat", { ...input, text: "Unproven sentence" });
+  assert.equal(streams.complete("chat", input.messageId, { text: "Unproven sentence" }).completedMessages, undefined);
+  streams.update("chat", { ...input, messageId: "duplicate", text: "Same sentence",
+    authorship: { turnId: "000001", messageId: "request", origin: "application" } });
+  assert.equal(streams.complete("chat", "duplicate").completedMessages, undefined,
+    "Fingerprint cleanup is not a completed-text publication");
+  assert.equal(streams.complete("chat", "duplicate", { text: "Same sentence" }).completedMessages, undefined);
+  assert.equal(streams.complete("other", "missing", { text: "No item" }).completedMessages, undefined);
+  streams.update("chat", { ...input, messageId: "initially-unproven", text: "Earlier unowned output" });
+  streams.update("chat", { ...input, messageId: "initially-unproven", text: "Later words",
+    authorship: { turnId: "000002", messageId: "successor-request", origin: "application" } });
+  assert.equal(streams.complete("chat", "initially-unproven", { text: "Late completed output" }).completedMessages, undefined,
+    "A later current request cannot adopt an item that had no captured authored custody");
+});
