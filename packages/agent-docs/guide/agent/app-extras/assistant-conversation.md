@@ -2786,6 +2786,45 @@ runtime's durable tool calls. Disabling built-in native tools alone is not a rea
 to select the bounded protocol: both paths can execute supplied application actions
 through the same catalogue and execution owner.
 
+#### Completed reply/tool envelopes
+
+An existing application that uses completed `reply`/`tool` JSON envelopes can
+opt into the same coordinator with `completedEnvelope: true`. This mode requires
+`policy.maximumResponses: 24` and a server-owned `settle` function. The default
+bounded workflow above retains its transient tools and existing error policy.
+
+The fixed wire object contains `kind`, `text`, `toolName` and string `arguments`.
+The moved decoder preserves limits of 16,000 characters for reply text, 256 for
+the tool name, 262,144 for decoded arguments and 280 for tool progress text.
+These are decoded string limits; the catalogue's argument byte limit remains
+separate. `readAssistantResponseEnvelope` and `readPartialAssistantReply` are
+exported from `@jskit-ai/assistant-core/server`. The partial reader exposes only
+reply text and waits for complete JSON escapes; it never displays tool payloads.
+
+`complete(prompt, { timeoutMs, outputSchema, previousResponse })` returns the
+completed text and any `nativeToolAttempt` fact. A tool response also requires
+the current durable `tools` instance and a stable `toolCallId` supplied by the
+completed-response owner. Reusing that response must reuse its call ID and saved
+records. The loop does not mint another ID during recovery. The existing tool
+executor retains authorization, reservation, result persistence, conflict and
+unknown-outcome checks. A sealed native request's old tools are not a valid
+post-completion instance. This mode does not itself implement or prove a native
+receipt bridge, application admission or history projection.
+
+Before parsing, `settle({ phase: "before-parse", result })` returns `"use"`,
+`"continue"` for a superseded response, or `"end"`. Before returning a final
+reply, `settle({ phase: "after-final", response })` returns `"continue"` or
+`"end"`; the application retains its final persistence and admission-tail check.
+Unknown decisions fail. All completed responses, including discarded ones,
+spend the same 24-response allowance. Two invalid responses permit correction;
+the third fails. Valid tools and newly pending input do not reset that allowance.
+A native application-tool attempt invalidates a reply, but a valid completed
+tool envelope remains usable. `previousResponse` carries the actual tool result
+or the invalid-response fact; product instructions and feedback stay with the
+application. In this mode only, `invalidResponseError` may also be a factory
+receiving `{ nativeToolAttempt }` from the third invalid response and returning
+an `Error`. The existing `Error` option preserves its identity.
+
 ### Native instruction lifecycle
 
 The created conversation runtime owns instruction installation and refresh.

@@ -1296,6 +1296,8 @@ Exports
 - `sanitizeAssistantMessageText`
 - `runAssistantToolLoop`
 - `runBoundedAssistantToolLoop`
+- `readAssistantResponseEnvelope`
+- `readPartialAssistantReply`
 
 ### `src/server/lib/aiClient.js`
 Exports
@@ -1320,7 +1322,9 @@ Local functions
 ### `src/server/lib/assistantToolLoop.js`
 Exports
 - `runAssistantToolLoop({ messages, input, toolSet, toToolSchema, complete, executeToolCalls, finish, preserveWhitespace = false })`
-- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = new Error("The assistant returned an invalid response."), failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext })`
+- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = new Error("The assistant returned an invalid response."), failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext, completedEnvelope = false, settle })`
+- `readAssistantResponseEnvelope(text)`
+- `readPartialAssistantReply(text)`
 Local functions
 - `requiresCurrentTime(value = "")`
 - `resolvePreflightTools(toolDescriptors = [], input = "")`
