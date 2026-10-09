@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import knex from "knex";
+import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { createConversationTranscript } from "@jskit-ai/assistant-core/server/conversation";
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
@@ -202,4 +203,96 @@ test("the SQL facade uses common inference and durable tool rows while supplied 
       context: { actor: { id: "1" }, surface: "assistant", assistantRequest: { conversation, workspace: null, history: [] }, ...change } }),
     { code: "conversation_forbidden" });
   }
+});
+
+test("the SQL facade replays historical inspection failures with their exact public code and row IDs without executing work", async t => {
+  const f = await fixture(t);
+  const conversation = await f.conversation();
+  const first = await f.messagesRepository.create({ conversationId: conversation.id, role: "user",
+    clientMessageSid: "first-legacy-question", contentText: "First" });
+  const next = await f.messagesRepository.create({ conversationId: conversation.id, role: "user",
+    clientMessageSid: "next-legacy-question", contentText: "Next" });
+  await f.messagesRepository.create({ conversationId: conversation.id, role: "assistant", contentText: "Unknown owner" });
+  const unchanged = await rows(f.db);
+  let inference = 0;
+  let effects = 0;
+  const aiClientFactory = { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "test",
+    createChatCompletionStream() { inference++; assert.fail("Historical inspection cannot invoke inference"); } }) };
+  const catalog = { resolveToolSet: () => ({ tools: [] }),
+    executeToolCall() { effects++; assert.fail("Historical inspection cannot invoke application effects"); } };
+  const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
+  t.after(() => runtime.close());
+  const turnRequests = createTurnRequestsRepository(f.db);
+  const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+    transcriptService: createTranscriptService(f), turnRequests,
+    assistantConfigService: { resolveSystemPrompt: async () => "Read the supplied context" },
+    appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },
+      assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } } } };
+  const input = { targetSurfaceId: "assistant", conversationId: conversation.id,
+    messageId: "inspect-legacy-history", input: "Continue", history: [] };
+  const events = [];
+  const options = { context: { actor: { id: "1" } }, streamWriter: Object.fromEntries(
+    ["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"]
+      .map(name => [name, event => events.push({ name, event })])) };
+  const expectedDetails = { issues: [{ code: "overlapping_historical_turns", rowIds: [first.id, next.id] }] };
+  const requireInspection = error => {
+    assert.equal(error instanceof AppError, true);
+    assert.equal(error.status, 409);
+    assert.equal(error.code, "assistant_history_inspection_required");
+    assert.deepEqual(error.details, expectedDetails);
+    return true;
+  };
+  await assert.rejects(createChatService(dependencies).streamChat(input, options), requireInspection);
+  const receipt = await f.db("assistant_turn_requests").first();
+  assert.equal(receipt.status, "failed");
+  const restarted = createChatService({ ...dependencies, turnRequests: createTurnRequestsRepository(f.db) });
+  await assert.rejects(restarted.streamChat(input, options), requireInspection);
+  assert.deepEqual(JSON.parse(receipt.response_json).failure, {
+    message: "This conversation has ambiguous historical SQL rows. Inspect the reported rows offline before using the common runtime; no history was changed.",
+    status: 409, code: "assistant_history_inspection_required", details: expectedDetails
+  });
+  assert.deepEqual(await f.db("assistant_turn_requests"), [receipt], "Replay preserves the original request claim");
+  assert.deepEqual(await rows(f.db), unchanged, "Inspection and replay leave historical rows and metadata untouched");
+  assert.deepEqual(events, [], "The refused request never starts a stream");
+  assert.equal(inference, 0);
+  assert.equal(effects, 0);
+
+  const oldFailure = { message: "Previously recorded failure", status: 409 };
+  const oldInput = { ...input, messageId: "old-failure-receipt" };
+  const oldClaim = await turnRequests.claim({ actorUserId: "1", surfaceId: "assistant", workspaceId: null },
+    { conversationId: conversation.id, messageId: oldInput.messageId, input: oldInput.input, history: [], integrationId: "" });
+  await turnRequests.update(oldClaim, { failure: oldFailure }, "failed");
+  await assert.rejects(restarted.streamChat(oldInput, options), error => {
+    assert.equal(error.status, oldFailure.status);
+    assert.equal(error.message, oldFailure.message);
+    assert.equal(error.code, "APP_ERROR");
+    assert.equal(error.details, undefined);
+    return true;
+  });
+  const oldSaved = await turnRequests.find({ actorUserId: "1", surfaceId: "assistant", workspaceId: null }, oldInput.messageId);
+  assert.deepEqual(oldSaved.response, { failure: oldFailure }, "Replay does not backfill historical failure receipts");
+
+  for (const [index, failure] of [
+    new AppError(403, "Permission denied", { code: "ACTION_PERMISSION_DENIED", details: { privateRule: "private-permission-probe" } }),
+    Object.assign(new Error("Request failed"), { status: 503, code: "PRIVATE_ENGINE_ERROR", details: { privateRule: "private-permission-probe" } })
+  ].entries()) {
+    const hiddenInput = { ...input, messageId: `private-failure-${index}` };
+    const denied = createChatService({ ...dependencies, assistantConfigService: {
+      resolveSystemPrompt() { throw failure; }
+    } });
+    await assert.rejects(denied.streamChat(hiddenInput, options), error => error === failure);
+    const saved = await turnRequests.find({ actorUserId: "1", surfaceId: "assistant", workspaceId: null }, hiddenInput.messageId);
+    assert.deepEqual(saved.response.failure, { message: failure.message, status: failure.status,
+      ...(failure instanceof AppError ? { code: "ACTION_PERMISSION_DENIED" } : {}) });
+    assert.doesNotMatch(JSON.stringify(saved.response), /private-permission-probe|PRIVATE_ENGINE_ERROR|stack/u);
+    await assert.rejects(restarted.streamChat(hiddenInput, options), error => {
+      assert.equal(error.status, failure.status);
+      assert.equal(error.code, failure instanceof AppError ? "ACTION_PERMISSION_DENIED" : "APP_ERROR");
+      assert.equal(error.details, undefined);
+      return true;
+    });
+  }
+  assert.equal(inference, 0);
+  assert.equal(effects, 0);
+  assert.deepEqual(await rows(f.db), unchanged);
 });
