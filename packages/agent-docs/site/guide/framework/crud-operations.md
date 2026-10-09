@@ -307,6 +307,13 @@ decision. Use `CrudDeleteAction` and `useCrudDeleteAction()` through the view
 actions slot; do not rebuild their confirmation, request, invalidation, and
 navigation flow.
 
+The delete action resolves its HTTP client from the resource's `apiAccess`, just
+like the list, view and form helpers. For `apiAccess: "public"`, DELETE requests
+skip session CSRF discovery; no `/api/session` endpoint or page-local client
+wiring is required. Authenticated resources retain the configured client's CSRF
+behavior. An explicit `client` override is supported and receives the same
+resource-aware public request options. This does not change server authorization.
+
 For custom form actions, see
 [record form actions](https://mobily-enterprises.github.io/jskit-ai/guide/framework/crud-form-actions).
 

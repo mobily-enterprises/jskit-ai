@@ -2,6 +2,7 @@ import { computed, proxyRefs, ref, unref } from "vue";
 import { useRouter } from "vue-router";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudJsonApiTransport } from "./crud/crudJsonApiTransportSupport.js";
+import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
 import { toQueryErrorMessage } from "./support/errorMessageHelpers.js";
 import { useCommand } from "./useCommand.js";
 
@@ -86,7 +87,7 @@ function useCrudDeleteAction({
     access,
     apiSuffix: deleteApiSuffix,
     writeMethod: deleteOperation.method,
-    client,
+    client: resolveCrudHttpClient(resource, { client }),
     transport: resolveCrudJsonApiTransport(undefined, resource, {
       mode: "delete"
     }),
