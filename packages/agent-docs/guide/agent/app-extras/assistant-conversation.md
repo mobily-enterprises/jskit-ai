@@ -2111,6 +2111,12 @@ grant uses that account's filesystem permissions and adds no OS sandbox. A
 multi-user host must supply its managed execution facility and appropriate
 isolation. User messages and model configuration cannot enable these tools.
 
+Custom-provider Codex model catalogues use the native Codex allowance of 10,000
+tokens for tool output, rather than a 10,000-byte cap. This lets ordinary source
+and guidance reads return the same amount of content as native models. Tool
+output remains bounded; this allowance is separate from the model's context
+window, response limit and provider usage quota.
+
 Ambient hooks, MCP integrations and skills remain disabled. Native subagents and
 interactive permission questions are not enabled by this grant. Application
 `actions` continue through the authorized, durable tool executor above. The API
