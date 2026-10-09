@@ -1892,6 +1892,23 @@ A failed result write retains the actual result for `retrySave()` without repeat
 inference or the action. Native completion remains distinct from an application's
 unconfirmed effect.
 
+The existing transcript readers accept explicit server-side `{ presentation: true }`
+to omit newly marked internal application turns. Raw reads remain the default for
+receipt inspection and native preservation. Presentation pagination filters before
+selecting the page, so its counts and cursors describe the visible product turns.
+Caller data or JSON-looking text cannot mark a turn as internal.
+
+Native continuity uses those same product rows for history versions and API
+briefings while retaining raw canonical envelopes in storage. An application
+coordinator can pass trusted top-level `completedEnvelope: true` and
+`excludedMessageIds` to the existing changeover `send()`: current-batch IDs are
+excluded only from rendered catch-up, after the original initial-history window
+is selected. The full product snapshot remains captured in the original pending
+record and becomes consumed only on actual native admission. An unknown delivery
+retry retains that exact snapshot and prepared input; it does not recapture a new
+batch or infer admission from caller data. Applications must still connect this
+private facility to their own queue, visible replies and observation adapter.
+
 The application owns its worker generation and revocation through fresh `tool`
 authorization and the supplied signal. Generic `cancel()` drains the existing
 queue; it does not independently revoke every still-authorized prepared handle.

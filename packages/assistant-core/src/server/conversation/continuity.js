@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isCompletedEnvelopeTurn } from "./transcript.js";
 
 // A final answer keeps its identity when an application edits its visible text.
 export function conversationMessageIdentity(turnId, message) {
@@ -106,7 +107,13 @@ export function createConversationChangeover({ state, transcript, agent, identit
       code: unconfirmedCode, messageId, threadId, error: unconfirmedMessage };
   }
 
-  async function send({ engineId, messages, input, turnMetadata }) {
+  async function send({ engineId, messages, input, turnMetadata, completedEnvelope = false, excludedMessageIds = [] }) {
+    if (typeof completedEnvelope !== "boolean" || !Array.isArray(excludedMessageIds) ||
+        excludedMessageIds.some(id => typeof id !== "string" || !id.trim() || id.length > 128) ||
+        new Set(excludedMessageIds).size !== excludedMessageIds.length || excludedMessageIds.length && !completedEnvelope) {
+      throw new TypeError("Native history exclusions require a tracked completed envelope and exact message IDs.");
+    }
+    const excluded = new Set(excludedMessageIds);
     const value = await readState({ engineId, messages });
     const binding = value.engines[engineId] ||= { seen: {} };
     rememberReplies(value, engineId, messages);
@@ -171,17 +178,19 @@ export function createConversationChangeover({ state, transcript, agent, identit
     const snapshot = Object.fromEntries(messages.map((message) => [message.id, message.version]));
     const returning = Object.keys(binding.seen).length > 0;
     const changed = messages.filter((message) => binding.seen[message.id] !== message.version);
+    const renderChanged = changed.filter(message => !excluded.has(message.messageId));
     const deleted = Object.keys(binding.seen).filter((id) => !Object.hasOwn(snapshot, id));
     const switched = value.lastEngine !== engineId;
     // A new native conversation gets the recent bubbles. A returning one gets
     // every missed/edited bubble, even if the edit is older than that window.
-    const catchup = returning ? changed : maximumInitialMessages ? messages.slice(-maximumInitialMessages) : [];
+    const catchup = (returning ? changed : maximumInitialMessages ? messages.slice(-maximumInitialMessages) : [])
+      .filter(message => !excluded.has(message.messageId));
     let pending = binding.pending;
     if (pending && pending.messageId !== input.messageId) {
       delete binding.pending;
       pending = null;
     }
-    if (!pending && (switched || changed.length || deleted.length)) {
+    if (!pending && (switched || renderChanged.length || deleted.length)) {
       const handover = value.replacement?.engineId === engineId && value.replacement.status === "ready"
         ? value.replacement.handover : "";
       const preamble = [
@@ -256,7 +265,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
 }
 
 function writtenMessages(history, native = false) {
-  return history.flatMap(turn => (turn.messages || []).filter(message => message.role !== "thinking")
+  return history.filter(turn => !isCompletedEnvelopeTurn(turn)).flatMap(turn => (turn.messages || []).filter(message => message.role !== "thinking")
     .map(message => ({ id: conversationMessageIdentity(turn.turnId, message),
       role: message.role === "system" && turn.metadata?.runtime?.origin === "application" ? "application" : message.role,
       messageId: message.messageId, text: message.text,

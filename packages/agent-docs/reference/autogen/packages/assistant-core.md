@@ -1095,6 +1095,7 @@ Exports
 ### `src/server/conversation/transcript.js`
 Exports
 - `createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {})`
+- `isCompletedEnvelopeTurn(turn)`
 Local functions
 - `hasMessages(turn)`
 

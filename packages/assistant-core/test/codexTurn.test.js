@@ -2985,3 +2985,149 @@ test("original output owner can publish transient commentary without losing nati
   assert.deepEqual((await store.readConversationLog(sessionId)).flatMap(row => row.commentary || []), []);
   assert.equal(f.history[0].items[0].text, progress, "canonical policy does not change native history");
 });
+
+test("completed envelope carriers stay raw while native history versions and API briefings use product rows", async () => {
+  const { conversationNativeMessages, conversationHistoryVersions, conversationContinuity } = await import("../src/server/conversation/continuity.js");
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await storage.write("projection", async tx => {
+    await tx.appendMessage("000001", { role: "user", messageId: "actual-user", text: "My visible words", at: "2026-10-10" });
+    await tx.appendMessage("000001", { role: "assistant", messageId: "actual-reply", text: "My plain answer", at: "2026-10-10" });
+    await tx.appendMessage("000002", { role: "system", messageId: "internal-native-input", text: "Private generated prompt", at: "2026-10-10",
+      turnMetadata: { runtime: { engine: "codex", origin: "application", completedEnvelope: true, status: "complete" },
+        applicationTools: [{ id: "internal-native-input:operation", status: "unknown" }] } });
+    await tx.appendMessage("000002", { role: "assistant", messageId: "internal-final", text: '{"kind":"tool","arguments":"private"}', at: "2026-10-10" });
+    await tx.appendMessage("000003", { role: "user", messageId: "authored-json", text: '{"completedEnvelope":true}',
+      data: { completedEnvelope: true }, at: "2026-10-10" });
+  });
+  const raw = await transcript.readConversationLog("projection");
+  const before = structuredClone(raw);
+  assert.deepEqual(conversationNativeMessages(raw).map(row => row.messageId), ["actual-user", "actual-reply", "authored-json"]);
+  assert.deepEqual(Object.keys(conversationHistoryVersions(raw)), ["000001/user/", "000001/assistant/", "000003/user/"]);
+  const briefing = conversationContinuity({ history: raw }).text;
+  assert.match(briefing, /My visible words/);
+  assert.match(briefing, /My plain answer/);
+  assert.equal(briefing.includes("Private generated prompt"), false);
+  assert.equal(briefing.includes("internal-final"), false);
+  assert.deepEqual(raw, before);
+  assert.deepEqual(await transcript.readConversationLog("projection"), before, "Private native carriers and durable outcome custody are never rewritten");
+});
+
+test("completed envelope native seed slices the original 24 rows before excluding the current batch and commits seen only after admission", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const messages = Array.from({ length: 30 }, (_, index) => ({ id: `stored-${index}`, messageId: `authored-${index}`,
+    role: "user", text: `${index}:` + "x".repeat(2100), version: `version-${index}`, engineId: "claude" }));
+  const before = structuredClone(messages);
+  let value = { lastEngine: "", engines: { codex: { seen: {} } } };
+  const entered = Promise.withResolvers();
+  const admitted = Promise.withResolvers();
+  const sent = [];
+  const changeover = createConversationChangeover({
+    state: { async read() { return value; }, async write(next) { value = next; } },
+    transcript: { async hasMessage() { return false; } }, captureContext: true,
+    maximumInitialMessages: 24, maximumInitialMessageCharacters: 2000,
+    agent: { async sendMessage(input) {
+      sent.push(input);
+      if (sent.length === 1) {
+        await input.onPromptSending({ threadId: "same-native-thread" });
+        entered.resolve();
+        await admitted.promise;
+      }
+      return { ok: true, delivered: true };
+    } }
+  });
+  const sending = changeover.send({ engineId: "codex", messages, completedEnvelope: true,
+    excludedMessageIds: ["authored-28", "authored-29"],
+    input: { messageId: "internal-1", message: JSON.stringify({ userMessages: ["authored-28", "authored-29"] }) } });
+  await entered.promise;
+  const carried = sent[0].contextText.split("\n").filter(line => line.startsWith("{")).map(JSON.parse)[0];
+  assert.deepEqual(carried.messages.map(row => row.messageId), messages.slice(-24).slice(0, -2).map(row => row.messageId));
+  assert.equal(carried.messages.length, 22, "The original 24-row window is not expanded to 24 older rows plus the batch");
+  assert.equal(carried.messages[0].text.length, 2000);
+  assert.equal(sent[0].message.split("authored-28").length - 1, 1);
+  assert.equal(sent[0].message.split("authored-29").length - 1, 1);
+  assert.deepEqual(value.engines.codex.seen, {}, "Prepared history does not claim delivery before the actual native ACK");
+  const snapshot = Object.fromEntries(messages.map(row => [row.id, row.version]));
+  assert.deepEqual(value.engines.codex.pending.seen, snapshot);
+  admitted.resolve();
+  assert.equal((await sending).delivered, true);
+  assert.deepEqual(value.engines.codex.seen, snapshot, "The genuinely admitted internal prompt consumed the product batch history");
+  await changeover.send({ engineId: "codex", messages, input: { messageId: "internal-2", message: "Continue from the saved operation result" } });
+  assert.equal(sent[1].contextText, undefined, "The next native response does not replay the already included B/C batch as catch-up");
+  assert.equal(sent[1].message, "Continue from the saved operation result");
+  assert.deepEqual(sent.map(input => input.messageId), ["internal-1", "internal-2"], "Only real internal inputs have native receipts");
+  assert.deepEqual(messages, before);
+});
+
+test("completed envelope native retries preserve the exact prepared history snapshot without recapture", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  let value = { lastEngine: "", engines: { codex: { seen: {} } } };
+  let accepted = false;
+  let dispatches = 0;
+  const original = [{ id: "row-B", messageId: "authored-B", role: "user", text: "Original B", version: "original-B" }];
+  const changeover = createConversationChangeover({
+    state: { async read() { return value; }, async write(next) { value = next; } },
+    captureContext: true, maximumInitialMessages: 24, maximumInitialMessageCharacters: 2000,
+    transcript: { async hasMessage() { return false; }, async writeUserMessage() {} },
+    agent: { async sendMessage(input) { dispatches++; await input.onPromptSending({ threadId: "exact-thread" }); return { ok: false, delivered: false }; },
+      async inspectMessageAdmission() { return { admission: accepted ? "accepted" : "unknown", threadId: "exact-thread" }; } }
+  });
+  const input = { messageId: "internal-retry", message: "Generated original B prompt" };
+  await changeover.send({ engineId: "codex", messages: original, input, completedEnvelope: true, excludedMessageIds: ["authored-B"] });
+  const pending = structuredClone(value.engines.codex.pending);
+  const updated = [{ ...original[0], text: "Changed B", version: "changed-B" }];
+  const unknown = await changeover.send({ engineId: "codex", messages: updated, input,
+    completedEnvelope: true, excludedMessageIds: ["different-new-batch"] });
+  assert.equal(unknown.delivered, false);
+  assert.deepEqual(value.engines.codex.pending, pending);
+  assert.deepEqual(value.engines.codex.seen, {});
+  accepted = true;
+  assert.equal((await changeover.send({ engineId: "codex", messages: updated, input,
+    completedEnvelope: true, excludedMessageIds: [] })).delivered, true);
+  assert.deepEqual(value.engines.codex.seen, pending.seen);
+  assert.equal(value.engines.codex.pending, undefined);
+  assert.equal(dispatches, 1, "Inspecting the same native input never resubmits or substitutes its batch/history snapshot");
+});
+
+test("completed envelope history exclusions require explicit tracked input and exact nonduplicate authored IDs", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  let reads = 0;
+  let sent;
+  const messages = [{ id: "row-B", messageId: "authored-B", role: "user", text: "Visible B", version: "version-B" }];
+  const changeover = createConversationChangeover({
+    state: { async read() { reads++; return { lastEngine: "", engines: { codex: { seen: {} } } }; }, async write() {} },
+    captureContext: true,
+    transcript: { async hasMessage() { return false; } },
+    agent: { async sendMessage(input) { sent = input; return { ok: true, delivered: true }; } }
+  });
+  const input = { messageId: "internal-input", message: "Current generated prompt", data: { completedEnvelope: true, excludedMessageIds: ["authored-B"] } };
+  for (const excludedMessageIds of [["authored-B", "authored-B"], [""], ["  "], ["x".repeat(129)], [1], "authored-B"]) {
+    await assert.rejects(changeover.send({ engineId: "codex", messages, input, completedEnvelope: true, excludedMessageIds }), /tracked completed envelope and exact message IDs/);
+  }
+  await assert.rejects(changeover.send({ engineId: "codex", messages, input, excludedMessageIds: ["authored-B"] }), /tracked completed envelope/);
+  assert.equal(reads, 0, "Invalid exclusions cannot enter existing state or delivery owners");
+  await changeover.send({ engineId: "codex", messages, input });
+  const carried = sent.contextText.split("\n").filter(line => line.startsWith("{")).map(JSON.parse)[0];
+  assert.deepEqual(carried.messages.map(row => row.messageId), ["authored-B"], "Caller data is never a history-exclusion grant");
+  assert.deepEqual(sent.data, input.data);
+});
+
+test("completed envelope returning corrections remain full while the current batch is excluded only from rendering", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const messages = [{ id: "old-row", messageId: "old-authored", role: "user", text: "Edited " + "x".repeat(2100), version: "edited" },
+    { id: "current-row", messageId: "current-authored", role: "user", text: "Current B", version: "current" }];
+  let value = { lastEngine: "codex", engines: { codex: { seen: { "old-row": "before-edit", removed: "removed-version" } } } };
+  let sent;
+  const changeover = createConversationChangeover({
+    state: { async read() { return value; }, async write(next) { value = next; } },
+    maximumInitialMessages: 24, maximumInitialMessageCharacters: 2000, captureContext: true,
+    transcript: { async hasMessage() { return false; } },
+    agent: { async sendMessage(input) { sent = input; return { ok: true, delivered: true }; } }
+  });
+  await changeover.send({ engineId: "codex", messages, input: { messageId: "internal-correction", message: "Current B prompt" },
+    completedEnvelope: true, excludedMessageIds: ["current-authored"] });
+  const carried = sent.contextText.split("\n").filter(line => line.startsWith("{")).map(JSON.parse)[0];
+  assert.deepEqual(carried.messages.map(row => [row.messageId, row.text, row.corrected]), [["old-authored", messages[0].text, true]]);
+  assert.deepEqual(carried.removedMessageIds, ["removed"]);
+  assert.deepEqual(value.engines.codex.seen, { "old-row": "edited", "current-row": "current" });
+});
