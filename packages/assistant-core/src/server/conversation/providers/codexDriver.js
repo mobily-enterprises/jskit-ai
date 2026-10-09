@@ -12,6 +12,7 @@ import { createCodexAppServerRunOwner, codexAppServerTurnState, codexAppServerFr
 import { createLocalConversationExecution } from "../localExecution.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
 import { codexCommandHookCommand } from "../commandWrapper.js";
+import { isCompletedEnvelopeTurn } from "../transcript.js";
 
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const goalValue = goal => goal ? {
@@ -281,8 +282,29 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       const boundedWriter = name => (id, input) => {
         const limit = name === "writeConversationThinkingMessage" ? 4 * 1024 * 1024
           : name.includes("AssistantMessage") ? Math.min(maximumOutput, maximumFinalReply) : maximumOutput;
-        if ((input.text?.length || 0) > limit) throw new Error("Codex output exceeded the configured limit.");
-        return nativeStore[name](id, input);
+        const length = input.text?.length || 0;
+        if (length <= limit) return nativeStore[name](id, input);
+        if (!name.includes("AssistantMessage") || length > maximumOutput) throw new Error("Codex output exceeded the configured limit.");
+        return nativeStore.mutateSession(id, async transaction => {
+          const { runtime: state } = await transaction.readMetadata();
+          const identity = input.nativeIdentity;
+          const run = state.binding?.codexAppServerRun;
+          if (identity?.threadId && identity.turnId && state.engine === "codex" &&
+              state.binding.threadId === identity.threadId && run?.providerThreadId === identity.threadId &&
+              run.providerTurnId === identity.turnId && run.outerTurnId) {
+            for (const turnId of (await transaction.listTurnIds()).reverse()) {
+              const turn = await transaction.readTurn(turnId);
+              if (turn?.system?.messageId !== run.outerTurnId) continue;
+              if (turn.system.origin === "application" && !turn.system.goal && isCompletedEnvelopeTurn(turn) &&
+                  turn.metadata.runtime.engine === "codex" && turn.metadata.runtime.segmentId === state.segmentId &&
+                  turn.metadata.runtime.nativeTurnId === identity.turnId) {
+                return nativeStore[name](id, input);
+              }
+              break;
+            }
+          }
+          throw new Error("Codex output exceeded the configured limit.");
+        });
       };
       const runtime = supplied ? conversation.runtime : { ...conversation.runtime, store: { ...nativeStore,
         writeConversationAssistantMessage: boundedWriter("writeConversationAssistantMessage"),

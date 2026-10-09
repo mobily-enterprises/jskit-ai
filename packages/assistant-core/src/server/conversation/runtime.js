@@ -58,6 +58,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   if (limits.maxFinalReplyCharacters !== undefined && (!Number.isSafeInteger(maximumFinalReply) || maximumFinalReply < 1)) {
     throw new TypeError("Invalid conversation final reply limit.");
   }
+  const maximumCompletedOutput = limits.maxOutputCharacters ?? 64_000;
+  if (completedEnvelope && (!Number.isSafeInteger(maximumCompletedOutput) || maximumCompletedOutput < 1)) {
+    throw new TypeError("Invalid completed envelope output limit.");
+  }
   const maximumContinuity = limits.maxContinuityCharacters ?? 128_000;
   if (!Number.isSafeInteger(maximumContinuity) || maximumContinuity < 1) throw new TypeError("Invalid conversation continuity limit.");
   const maximumAttachmentBytes = limits.maxAttachmentBytes ?? 8 * 1024 * 1024;
@@ -914,7 +918,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await setPhase(entry, "working", request.turnId);
       if (request.sealed) return;
       const messageId = `${request.turnId}:${message.id}`;
-      if (message.role === "assistant" && message.complete && message.text.length > maximumFinalReply) {
+      const finalReplyLimit = completedEnvelope && request.completedEnvelope && request.input.origin === "application" && !request.input.goal
+        ? maximumCompletedOutput : maximumFinalReply;
+      if (message.role === "assistant" && message.complete && message.text.length > finalReplyLimit) {
         if (request.answer?.messageId === messageId) request.answer = null;
         throw new Error("The assistant exceeded the configured final reply limit.");
       }
@@ -1816,7 +1822,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         const nativeReplies = (native.messages || []).filter(message => message.role === "assistant");
         const outputId = nativeReplies.length === 1 && nativeReplies[0].outputId;
         const replyText = replies.join("\n\n");
-        const oversizedReply = replyText.length > maximumFinalReply;
+        const finalReplyLimit = completedEnvelope && isCompletedEnvelopeTurn(turn) && !submittedMessage(turn)?.goal
+          ? maximumCompletedOutput : maximumFinalReply;
+        const oversizedReply = replyText.length > finalReplyLimit;
         if (replies.length && !oversizedReply) await transaction.replaceAssistant(turn.turnId, { messageId: turn.assistant?.messageId || `${turn.turnId}:assistant`,
           ...(!turn.assistant?.outputId && outputId ? { outputId: `${turn.turnId}:${outputId}` } : {}),
           role: "assistant", text: replyText, at: submittedMessage(turn).at });

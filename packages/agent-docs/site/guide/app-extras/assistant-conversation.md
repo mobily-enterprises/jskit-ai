@@ -1855,6 +1855,15 @@ acquire it through reopening, retry or inspection. Marked responses omit native
 application-tool registration; unmarked requests retain their existing tools.
 Codex preserves its native thread tool schema: changing between those two tool
 shapes on the same thread refuses before dispatch, without replacing the binding.
+Marked internal responses use the finite `limits.maxOutputCharacters` wire limit
+(64,000 by default) rather than the human `maxFinalReplyCharacters` limit. Set the
+wire allowance to fit the configured response schema, including JSON escaping.
+Live output and retained native recovery apply the same distinction. Codex also
+checks the exact saved marker, segment and native thread/turn before its canonical
+writer permits that allowance. Ordinary replies, goals and forged message data
+retain the human limit. The completed-envelope parser still enforces its decoded
+field bounds; this wire allowance grants neither tool nor publication authority.
+
 Preparation requires the exact saved successful assistant response, current native
 binding and saved account fingerprint. Native input inspection verifies that
 association; it does not establish completion or rewrite an absent account identity.

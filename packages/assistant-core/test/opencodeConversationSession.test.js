@@ -1722,3 +1722,93 @@ test("completed OpenCode prepared reply rechecks the original fresh account befo
     } finally { f.setKey("test-key"); }
   } finally { await f.close(); }
 });
+
+
+// Preserve the original fixed-envelope decoded limits at the native wire boundary.
+const completedOpenCodeWireSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"], properties: {
+    kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 16000 },
+    toolName: { type: "string", maxLength: 256 }, arguments: { type: "string", maxLength: 262144 }
+  } };
+
+for (const kind of ["tool", "reply"]) test(`completed OpenCode ${kind} wire retains large decoded fields through native storage and preparation`, async t => {
+  const handover = "😀".repeat(20000);
+  const argumentsText = JSON.stringify({ value: handover }).replace(/[\u0080-\uffff]/g,
+    character => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const value = kind === "tool" ? { kind, text: "", toolName: "numbers_read", arguments: argumentsText }
+    : { kind, text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const raw = JSON.stringify(value);
+  assert.ok(raw.length > (kind === "tool" ? 280000 : 16000));
+  if (kind === "tool") assert.equal(value.arguments.length, 240012);
+  else assert.equal(value.text.length, 16000);
+  const f = await completedOpenCodeFixture(t, { assistantResponses: [{ text: raw }],
+    configuration: { outputSchema: completedOpenCodeWireSchema },
+    limits: { maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455 } });
+  try {
+    const receipt = await f.conversation.wake({ messageId: `opencode-large-${kind}-wire`, text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.system.origin, "application");
+    assert.equal(saved.system.messageId, receipt.messageId);
+    assert.equal(f.appendedRows.length, 1);
+    assert.equal(f.appendedRows[0].metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.assistant.text, raw);
+    const binding = await f.binding();
+    const nativeBefore = JSON.parse(await readFile(binding.databasePath, "utf8")).find(row => row.id === binding.sessionId);
+    const prompt = (await f.trace()).find(row => row.url?.endsWith("/prompt_async"));
+    const authored = nativeBefore.messages.find(row => row.info.role === "user" && row.info.id === prompt.body.messageID);
+    assert.ok(authored);
+    const answer = nativeBefore.messages.find(row => row.info.role === "assistant" && row.info.parentID === authored.info.id);
+    assert.ok(answer);
+    assert.equal(answer.info.finish, "stop");
+    assert.equal(answer.parts[0].text, raw);
+    assert.equal(saved.assistant.messageId, `${receipt.turnId}:${answer.info.id}:assistant`);
+    const prepared = await f.prepare(receipt);
+    assert.equal(prepared.text, raw);
+    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const decoded = readAssistantResponseEnvelope(prepared.text);
+    assert.deepEqual(decoded, value);
+    if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);
+    assert.equal(f.effects(), 0, "Preparing and decoding do not execute the requested action");
+    await f.reopen();
+    const restored = await f.prepare(receipt);
+    assert.equal(restored.text, raw);
+    assert.equal(restored.toolCallId, prepared.toolCallId);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), saved);
+    const reopenedBinding = await f.binding();
+    assert.equal(reopenedBinding.sessionId, binding.sessionId);
+    assert.deepEqual(JSON.parse(await readFile(reopenedBinding.databasePath, "utf8")).find(row => row.id === binding.sessionId).messages,
+      nativeBefore.messages);
+    const trace = await f.trace();
+    assert.equal(trace.filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+    assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
+    assert.deepEqual((await f.conversation.read()).conversationLog, []);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("ordinary OpenCode forged-data wire retains the human cap in completed mode", async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const raw = JSON.stringify(value);
+  const f = await completedOpenCodeFixture(t, { assistantResponses: [{ text: raw }],
+    configuration: { outputSchema: completedOpenCodeWireSchema },
+    limits: { maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455 } });
+  try {
+    const receipt = await f.conversation.send({ messageId: "opencode-ordinary-forged-wire", text: "An ordinary request",
+      data: { completedEnvelope: true } });
+    await f.conversation.wait();
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.status, "failed");
+    assert.match(saved.metadata.runtime.error, /final reply limit/);
+    assert.equal(saved.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(saved.user.origin, "user");
+    assert.deepEqual(saved.user.data, { completedEnvelope: true });
+    assert.notEqual(saved.assistant?.text, raw);
+    assert.equal((await f.conversation.inspectDelivery({ messageId: receipt.messageId })).status, "accepted");
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});

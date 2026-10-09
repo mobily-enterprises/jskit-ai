@@ -3339,3 +3339,162 @@ test("completed Codex human presentation retains product history and private act
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });
+
+
+// The original controlled app-server owns large wire output and its native receipt.
+const completedCodexWireSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"], properties: {
+    kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 16000 },
+    toolName: { type: "string", maxLength: 256 }, arguments: { type: "string", maxLength: 262144 }
+  } };
+async function completedCodexWireFixture(t, value, options = {}) {
+  let effects = 0;
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const f = await fixture(t, { ...options, actions, context, structuredResponse: value,
+    configuration: { ...configuration, outputSchema: options.outputSchema || completedCodexWireSchema },
+    limits: { admissionTimeoutMs: 30_000, maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455, ...options.limits } });
+  await f.first.close();
+  let runtime, conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "codex", storage: f.storage, actions,
+      authorize: () => true, completedEnvelope: true, ...f.driverOptions });
+    try { conversation = await runtime.open({ id: "conversation", context }); }
+    catch (error) { await runtime.close(); throw error; }
+  }
+  await reopen();
+  return { ...f, reopen, effects: () => effects, get conversation() { return conversation; }, close: () => runtime.close() };
+}
+
+for (const kind of ["tool", "reply"]) test(`completed Codex ${kind} wire preserves large decoded fields beyond the human cap`, async t => {
+  const handover = "😀".repeat(20000);
+  const argumentsText = JSON.stringify({ value: handover }).replace(/[\u0080-\uffff]/g,
+    character => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const value = kind === "tool" ? { kind, text: "", toolName: "numbers_read", arguments: argumentsText }
+    : { kind, text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const raw = JSON.stringify(value);
+  assert.ok(raw.length > (kind === "tool" ? 280000 : 16000));
+  if (kind === "tool") assert.equal(value.arguments.length, 240012);
+  const f = await completedCodexWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.wake({ messageId: `large-codex-${kind}`, text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const run = metadata.runtime.binding.codexAppServerRun;
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.system.origin, "application");
+    assert.equal(saved.assistant.text, raw);
+    assert.equal(saved.metadata.runtime.nativeTurnId, run.providerTurnId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    const prepared = await f.conversation.prepareCompletedResponse(receipt, { signal: new AbortController().signal });
+    assert.equal(prepared.text, raw);
+    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const decoded = readAssistantResponseEnvelope(prepared.text);
+    assert.deepEqual(decoded, value);
+    if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    assert.deepEqual((await f.conversation.read()).conversationLog, []);
+  } finally { await f.close(); }
+});
+
+test("completed Codex wire overflow remains bounded before any decoded effect", async t => {
+  const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
+  assert.ok(JSON.stringify(value).length > 2000);
+  const f = await completedCodexWireFixture(t, value, { outputSchema: completedCodexSchema,
+    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 } });
+  try {
+    const receipt = await f.conversation.wake({ messageId: "codex-wire-overflow", text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "Codex observation failed. Work must be stopped before it can continue.");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "failed");
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const run = metadata.runtime.binding.codexAppServerRun;
+    assert.equal(metadata.runtime.binding.observationLoss.stopped, true);
+    assert.equal(metadata.runtime.binding.observationLoss.message, state.error);
+    assert.equal(run.state, "interrupted");
+    assert.equal(run.active, false);
+    assert.equal(run.providerStatus, "observation_lost");
+    assert.equal(run.error, "Codex observation was lost. Work is stopped; use Resume or Send to continue.");
+    assert.equal(run.providerThreadId, metadata.runtime.binding.threadId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    assert.equal(run.providerTurnId, saved.metadata.runtime.nativeTurnId);
+    assert.ok((saved.assistant?.text.length || 0) <= 2000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+  } finally { await f.close(); }
+});
+
+for (const forged of [false, true]) test(`ordinary Codex ${forged ? "forged-data" : "unmarked"} reply keeps its human cap in completed mode`, async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedCodexWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.send({ messageId: "ordinary-wire", text: "An ordinary request",
+      ...(forged ? { data: { completedEnvelope: true } } : {}) });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "Codex observation failed. Work must be stopped before it can continue.");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "failed");
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const run = metadata.runtime.binding.codexAppServerRun;
+    assert.equal(metadata.runtime.binding.observationLoss.stopped, true);
+    assert.equal(metadata.runtime.binding.observationLoss.message, state.error);
+    assert.equal(run.state, "interrupted");
+    assert.equal(run.active, false);
+    assert.equal(run.providerStatus, "observation_lost");
+    assert.equal(run.error, "Codex observation was lost. Work is stopped; use Resume or Send to continue.");
+    assert.equal(run.providerThreadId, metadata.runtime.binding.threadId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    assert.equal(run.providerTurnId, saved.metadata.runtime.nativeTurnId);
+    assert.ok((saved.assistant?.text.length || 0) <= 16000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(saved.user.origin, "user");
+    if (forged) assert.deepEqual(saved.user.data, { completedEnvelope: true });
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    await assert.rejects(f.conversation.inspectDelivery({ messageId: receipt.messageId }),
+      { message: "Codex output exceeded the configured limit." });
+    const afterInspection = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.deepEqual(afterInspection.user, saved.user);
+    assert.equal(afterInspection.metadata.runtime.completedEnvelope, undefined);
+    assert.ok((afterInspection.assistant?.text.length || 0) <= 16000);
+    assert.notEqual(afterInspection.assistant?.text, JSON.stringify(value));
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Codex marked canonical native recovery retains large output without replay", async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedCodexWireFixture(t, value, { checkpoints: true });
+  try {
+    const receipt = await f.conversation.wake({ messageId: "recover-marked-wire", text: "Read the completed envelope" });
+    assert.equal((await f.conversation.wait()).status, "ready");
+    const final = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const checkpoint = f.checkpoints.find(record => record.metadata.runtime.binding.codexAppServerRun?.outerTurnId === receipt.messageId &&
+      record.turns.some(([, turn]) => turn.metadata?.runtime?.completedEnvelope === true && turn.metadata.runtime.nativeTurnId &&
+        turn.metadata.runtime.status === "running" && !turn.messages.some(message => message.role === "assistant")));
+    assert.ok(checkpoint, "The existing canonical fixture captured real marked admission before native output");
+    await f.close();
+    await f.restore(checkpoint);
+    await f.reopen();
+    const recovered = await f.conversation.inspectDelivery({ messageId: receipt.messageId });
+    assert.equal(recovered.status, "accepted");
+    assert.equal(recovered.recovered, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.nativeTurnId, final.metadata.runtime.nativeTurnId);
+    assert.equal(saved.assistant.text, JSON.stringify(value));
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});

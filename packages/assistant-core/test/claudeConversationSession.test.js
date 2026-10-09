@@ -2592,3 +2592,151 @@ test("completed Claude prepared reply refuses a native application-tool misroute
     assert.equal(tool.effects(), 0);
   } finally { await tool.close(); }
 });
+
+
+// Wire capacity belongs to a trusted internal carrier; decoded human/tool fields
+// keep the original fixed-envelope bounds. Reuse the original native executable.
+const completedClaudeWireSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"], properties: {
+    kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 16000 },
+    toolName: { type: "string", maxLength: 256 }, arguments: { type: "string", maxLength: 262144 }
+  } };
+async function completedClaudeWireFixture(t, value, options = {}) {
+  let effects = 0;
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const f = await fixture(t, { ...options, actions, context, structuredResponse: value,
+    configuration: { ...configuration, outputSchema: options.outputSchema || completedClaudeWireSchema },
+    limits: { maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455, ...options.limits } });
+  await f.first.close();
+  let runtime, conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "claude", storage: f.storage, actions,
+      authorize: () => true, completedEnvelope: true, ...f.driverOptions });
+    try { conversation = await runtime.open({ id: "conversation", context }); }
+    catch (error) { await runtime.close(); throw error; }
+  }
+  await reopen();
+  return { ...f, reopen, effects: () => effects, get conversation() { return conversation; }, close: () => runtime.close() };
+}
+
+for (const kind of ["tool", "reply"]) test(`completed Claude ${kind} wire preserves large decoded fields beyond the human cap`, async t => {
+  const handover = "😀".repeat(20000);
+  const argumentsText = JSON.stringify({ value: handover }).replace(/[\u0080-\uffff]/g,
+    character => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const value = kind === "tool" ? { kind, text: "", toolName: "numbers_read", arguments: argumentsText }
+    : { kind, text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const raw = JSON.stringify(value);
+  assert.ok(raw.length > (kind === "tool" ? 280000 : 16000));
+  if (kind === "tool") assert.equal(value.arguments.length, 240012);
+  const f = await completedClaudeWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.wake({ messageId: `large-claude-${kind}`, text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.system.origin, "application");
+    assert.equal(saved.assistant.text, raw);
+    const prepared = await f.conversation.prepareCompletedResponse(receipt, { signal: new AbortController().signal });
+    assert.equal(prepared.text, raw);
+    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const decoded = readAssistantResponseEnvelope(prepared.text);
+    assert.deepEqual(decoded, value);
+    if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.deepEqual((await f.conversation.read()).conversationLog, []);
+  } finally { await f.close(); }
+});
+
+test("completed Claude wire overflow remains bounded before any decoded effect", async t => {
+  const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
+  assert.ok(JSON.stringify(value).length > 2000);
+  const f = await completedClaudeWireFixture(t, value, { outputSchema: completedEnvelopeSchema,
+    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 } });
+  try {
+    const receipt = await f.conversation.wake({ messageId: "claude-wire-overflow", text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", "The thread is idle after its failed admitted turn");
+    assert.match(state.error, /output exceeded.*size limit|final reply limit/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "interrupted");
+    assert.equal(saved.metadata.runtime.error, state.error);
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(metadata.runtime.binding.executionId, "", "The original verified Stop released its native execution");
+    assert.ok((saved.assistant?.text.length || 0) <= 2000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+for (const forged of [false, true]) test(`ordinary Claude ${forged ? "forged-data" : "unmarked"} reply keeps its human cap in completed mode`, async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedClaudeWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.send({ messageId: "ordinary-wire", text: "An ordinary request",
+      ...(forged ? { data: { completedEnvelope: true } } : {}) });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", "The thread is idle after its failed admitted turn");
+    assert.match(state.error, /final reply limit/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "interrupted");
+    assert.equal(saved.metadata.runtime.error, state.error);
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(metadata.runtime.binding.executionId, "", "The original verified Stop released its native execution");
+    assert.ok((saved.assistant?.text.length || 0) <= 16000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(saved.user.origin, "user");
+    if (forged) assert.deepEqual(saved.user.data, { completedEnvelope: true });
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.equal((await f.conversation.inspectDelivery({ messageId: receipt.messageId })).status, "accepted");
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude marked native recovery retains large raw output without replay", async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedClaudeWireFixture(t, value, { applicationEventBehavior: {
+    lost: conversationRequestText({ text: "lost", origin: "application" }) } });
+  try {
+    await assert.rejects(f.conversation.wake({ messageId: "lost-marked-wire", text: "lost" }), /not acknowledged/);
+    assert.equal((await f.conversation.read()).status, "unconfirmed");
+    await f.reopen();
+    const receipt = await f.conversation.inspectDelivery({ messageId: "lost-marked-wire" });
+    assert.equal(receipt.status, "accepted");
+    assert.equal(receipt.recovered, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.metadata.runtime.status, "interrupted", "An acknowledged history row is not a fabricated successful native result");
+    assert.equal(saved.assistant.text, JSON.stringify(value));
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude marked native recovery retains admission but rejects wire overflow", async t => {
+  const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
+  const f = await completedClaudeWireFixture(t, value, { outputSchema: completedEnvelopeSchema,
+    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 }, applicationEventBehavior: {
+      lost: conversationRequestText({ text: "lost", origin: "application" }) } });
+  try {
+    await assert.rejects(f.conversation.wake({ messageId: "lost-marked-overflow", text: "lost" }), /not acknowledged/);
+    await f.reopen();
+    const receipt = await f.conversation.inspectDelivery({ messageId: "lost-marked-overflow" });
+    assert.equal(receipt.status, "accepted");
+    assert.equal(receipt.recovered, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.metadata.runtime.status, "failed");
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.match((await f.conversation.read()).error, /final reply limit/);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
