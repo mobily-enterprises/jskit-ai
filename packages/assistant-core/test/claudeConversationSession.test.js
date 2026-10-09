@@ -1536,3 +1536,45 @@ for (const restoredPolicy of [undefined, false]) {
     assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
   });
 }
+
+// The original initialization-cancel case must join the process factory's
+// existing cleanup receipt, not reclaim an already-released execution by ID.
+test("Claude startup cancellation shares one cleanup receipt and keeps missing execution refusal", async t => {
+  const local = createLocalConversationExecution();
+  const started = Promise.withResolvers();
+  const stops = [];
+  let nativeExecutionId;
+  const execution = {
+    async start(options) {
+      const native = await local.start(options);
+      if (options.args.includes("--print")) {
+        nativeExecutionId = native.id;
+        started.resolve();
+      }
+      return native;
+    },
+    async stop(id, options) {
+      stops.push(id);
+      return local.stop(id, options);
+    }
+  };
+  const f = await fixture(t, { execution, environment: { TEST_STARTUP_WAIT: "1" } });
+  const sending = f.conversation.send(input);
+  sending.catch(() => {});
+  await started.promise;
+  try {
+    assert.equal(typeof nativeExecutionId, "string");
+    await f.conversation.cancel();
+    await assert.rejects(sending);
+    assert.deepEqual(stops.filter(id => id === nativeExecutionId), [nativeExecutionId],
+      "startup failure and cancellation join one verified native cleanup");
+    assert.equal((await f.conversation.wait()).conversationLog.length, 0);
+    const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    assert.equal(binding.executionId, "");
+    await assert.rejects(local.stop("unowned-execution"), /does not own the requested execution/);
+    await assert.rejects(local.stop(nativeExecutionId), /does not own the requested execution/,
+      "only the actual cleanup owner retains its receipt; an absent local record is never proof");
+  } finally {
+    await local.close();
+  }
+});

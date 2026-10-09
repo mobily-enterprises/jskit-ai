@@ -305,7 +305,7 @@ export async function createClaudeCodeProcess({
     signal?.throwIfAborted();
     native = await execution.start({ command, args: claudeCodeArguments(options), cwd: workdir,
       env: environment, stream: true, limits: executionLimits });
-    await onStarted?.(native.id);
+    await onStarted?.(native.id, stop);
     signal?.throwIfAborted();
     client = createClaudeJsonClient({ stream: Duplex.from({ readable: native.stdout, writable: native.stdin }), onEvent, onFailure,
       onControlRequest(request, context) {

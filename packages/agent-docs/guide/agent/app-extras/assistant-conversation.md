@@ -1857,6 +1857,15 @@ Unconfirmed cleanup retains the identity through the existing native binding for
 Stop/recovery. If binding publication also fails, the original startup failure and
 in-memory custody remain, with the persistence error in `bindingError`; durable
 restart recovery is not established until that binding can be saved.
+During Claude initialization, the trusted `onStarted(executionId, stop)` callback
+shares the process factory's existing private cleanup closure. The owner keeps
+that receipt in memory until initialization transfers the native handle or
+confirmed cleanup and binding release finish. Cancel and startup failure join the
+same stop promise; the client is not treated as initialized before its handshake.
+Unconfirmed cleanup or failed release retains the exact-ID receipt for Stop retry.
+Historical missing-handle recovery and local foreign/missing-ID refusal are unchanged;
+no receipt is reconstructed from mere process absence or stored in conversation data.
+
 Runtime-owned transcripts persist completed commentary by default. A server can
 supply `persistCommentary: false` to `createConversationRuntime()` when its product
 requires progress to remain transient. Live streams still publish and complete;
