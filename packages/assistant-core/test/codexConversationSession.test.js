@@ -830,10 +830,18 @@ async function fixture(t, options = {}) {
         ws.send(JSON.stringify({ id, error: { code: -32000, message: "Native history is temporarily unavailable" } }));
         return;
       }
-      const emit = (method, params) => ws.send(JSON.stringify({ method, params: { threadId: thread.id, ...params } }));
+      const emit = (method, params) => {
+        const notification = { method, params: { threadId: thread.id, ...params } };
+        if (${Boolean(options.holdAfterToolRefusal)}) log({ notification });
+        ws.send(JSON.stringify(notification));
+      };
       const callTool = (turn, tool, arguments_, foreign = false) => new Promise((resolve, reject) => {
         const id = "tool-request-" + (++requestId);
         toolRequests.set(id, { resolve, reject });
+        if (${Boolean(options.holdAfterToolRefusal)} && tool === "assistant_action_execute") {
+          log({ oversizedNativeToolRequest: { id, threadId: thread.id, turnId: turn.id,
+            argumentsByteLength: Buffer.byteLength(JSON.stringify(arguments_)), inputValueByteLength: Buffer.byteLength(arguments_.input.value) } });
+        }
         if (${Boolean(options.deferBudgetCompletion)} && requestId === 4) {
           state.budgetFailureTurnId = turn.id;
           log({ budgetCompletion: { kind: "fourth-request", threadId: thread.id, turnId: turn.id, callId: turn.id + "-" + requestId } });
@@ -929,6 +937,10 @@ async function fixture(t, options = {}) {
       if (method === "thread/goal/get") return reply({ goal: thread?.goal || null });
       if (method === "thread/unsubscribe") { state.loaded = false; return reply({ status: "unsubscribed" }); }
       if (method === "turn/interrupt") {
+        if (existsSync(file + ".refuse-interrupt")) {
+          ws.send(JSON.stringify({ id, error: { code: -32602, message: "Controlled native interrupt refusal" } }));
+          return;
+        }
         if (state.runningTurn?.id === params.turnId) state.runningTurn.status = "interrupted";
         save();
         reply({});
@@ -1017,9 +1029,14 @@ async function fixture(t, options = {}) {
           try {
             await invoke("assistant_action_search", { query: "numbers" });
             await invoke("assistant_action_contract", { actionId: "numbers.read", version: 1 });
-            const result = await invoke("assistant_action_execute", { actionId: "numbers.read", version: 1, input: {} });
+            const result = await invoke("assistant_action_execute", { actionId: "numbers.read", version: 1,
+              input: ${JSON.stringify(options.oversizedNativeToolInput || {})} });
             toolAnswer = result.contentItems[0].text;
           } catch (error) {
+            if (${Boolean(options.holdAfterToolRefusal)}) {
+              log({ heldToolRefusal: { threadId: thread.id, turnId: turn.id, message: error.message } });
+              return;
+            }
             turn.status = "failed"; save();
             if (ws.readyState === 1) emitTurn("turn/completed", { turn: { ...turn, error: { message: error.message } } });
             return;
@@ -3497,4 +3514,137 @@ test("completed Codex marked canonical native recovery retains large output with
     assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
+});
+
+
+// The post-port Colleague size-refusal probe belongs to the ordinary native
+// owner: completed-envelope Colleague never authorizes native application tools.
+test("ordinary Codex oversized native arguments retain exact failed-cleanup custody until explicit Stop", async t => {
+  let refusalPath;
+  // Registered before the original fixture teardown: a failed assertion cannot
+  // leave our interrupt-refusal marker blocking the real owner cleanup.
+  t.after(async () => { if (refusalPath) await rm(refusalPath, { force: true }); });
+  let effects = 0;
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const oversized = "x".repeat(262_145);
+  const f = await fixture(t, { actions: applicationActions(async () => { effects++; return { value: 42 }; }), context,
+    oversizedNativeToolInput: { value: oversized }, holdAfterToolRefusal: true,
+    limits: { maxToolArgumentBytes: 262_144 } });
+  const peer = await f.first.open({ id: "size-peer", configuration, context });
+  const historyPath = path.join(f.directory, "history.json");
+  refusalPath = historyPath + ".refuse-interrupt";
+  try {
+    await peer.send({ messageId: "size-peer-wait", text: "wait" });
+    const peerBefore = await peer.read();
+    const peerBinding = await f.storage.read("size-peer", async tx => (await tx.readMetadata()).runtime.binding);
+    const peerHistory = JSON.parse(await readFile(historyPath, "utf8"));
+    const retainedPeer = (peerHistory.threads || [peerHistory]).find(thread => thread.id === peerBinding.threadId);
+    await writeFile(refusalPath, "refuse");
+    await f.conversation.send({ messageId: "size-authored", text: "tools" });
+    const failed = await f.conversation.wait();
+    assert.equal(failed.status, "unavailable", "A refused real cleanup stays unavailable, not falsely stopped");
+    assert.match(failed.error, /Controlled native interrupt refusal/);
+    assert.equal(effects, 0, "The oversized call never reaches application execution");
+    const authored = failed.conversationLog.filter(turn => turn.user?.messageId === "size-authored");
+    assert.equal(authored.length, 1);
+    assert.equal(authored[0].user.text, "tools");
+    assert.equal(authored[0].assistant, null);
+    assert.equal(authored[0].metadata.runtime.status, "interrupted");
+    assert.equal(authored[0].metadata.applicationTools.length, 2, "Only the genuine search and contract read receipts are reserved");
+    assert.deepEqual(authored[0].metadata.applicationTools.map(call => [call.name, call.status]), [
+      ["assistant_action_search", "complete"], ["assistant_action_contract", "complete"]
+    ]);
+    // The application waiter does not join the remote fixture's error callback.
+    // Observe its actual refused tool response before asserting native custody.
+    let trace;
+    for (let attempt = 0; attempt < 500; attempt++) {
+      trace = await f.trace();
+      if (trace.some(row => row.heldToolRefusal)) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    const starts = trace.filter(row => row.method === "turn/start");
+    assert.equal(starts.length, 2, "One actual peer request and one actual oversized request");
+    const owned = starts.find(row => row.params.clientUserMessageId === "size-authored");
+    assert.ok(owned);
+    const nativeHistory = JSON.parse(await readFile(historyPath, "utf8"));
+    const threads = nativeHistory.threads || [nativeHistory];
+    const thread = threads.find(thread => thread.id === owned.params.threadId);
+    assert.equal(thread.turns.length, 1);
+    assert.equal(thread.turns[0].items[0].clientId, "size-authored");
+    assert.equal(thread.turns[0].status, "inProgress", "A settled application waiter cannot fake native interruption");
+    assert.equal(thread.turns[0].items.some(item => item.type === "agentMessage"), false);
+    assert.equal(trace.some(row => row.notification?.method === "turn/completed" &&
+      row.notification.params.threadId === thread.id), false, "No actual terminal frame falsely settles the active native turn");
+    assert.equal(authored[0].metadata.runtime.nativeTurnId, thread.turns[0].id);
+    assert.deepEqual(threads.find(thread => thread.id === peerBinding.threadId), retainedPeer);
+    const actualRequests = trace.filter(row => row.oversizedNativeToolRequest);
+    assert.equal(actualRequests.length, 1);
+    assert.deepEqual(actualRequests[0].oversizedNativeToolRequest, { id: "tool-request-3", threadId: thread.id,
+      turnId: thread.turns[0].id,
+      argumentsByteLength: Buffer.byteLength(JSON.stringify({ actionId: "numbers.read", version: 1, input: { value: oversized } })),
+      inputValueByteLength: 262_145 });
+    assert.equal(actualRequests[0].oversizedNativeToolRequest.argumentsByteLength > 262_144, true);
+    const refusal = trace.filter(row => row.heldToolRefusal);
+    assert.equal(refusal.length, 1);
+    assert.deepEqual(refusal[0].heldToolRefusal, { threadId: thread.id, turnId: thread.turns[0].id,
+      message: "The application tool arguments exceed their size limit." });
+    const toolResponses = trace.filter(row => row.toolResponse);
+    assert.equal(toolResponses.length, 3);
+    assert.equal(toolResponses.at(-1).toolResponse.id, actualRequests[0].oversizedNativeToolRequest.id);
+    assert.match(toolResponses.at(-1).toolResponse.error.message, /size limit/);
+    const interrupts = trace.filter(row => row.method === "turn/interrupt");
+    assert.equal(interrupts.length, 1);
+    assert.deepEqual(interrupts[0].params, { threadId: thread.id, turnId: thread.turns[0].id });
+    assert.equal((await peer.read()).status, "working");
+    assert.equal((await peer.read()).segmentId, peerBefore.segmentId);
+    assert.deepEqual((await f.storage.read("size-peer", async tx => (await tx.readMetadata()).runtime.binding)).threadId,
+      peerBinding.threadId);
+    const beforeSelect = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.ok(beforeSelect.runtime.binding.accountIdentity);
+    assert.equal(beforeSelect.runtime.binding.accountIdentity, peerBinding.accountIdentity);
+    const beforeSelectTrace = await f.trace();
+    const selection = { operationId: "size-after-stop", expectedSegmentId: failed.segmentId,
+      engine: "codex", configuration: { ...configuration, model: "another-model" }, retireNative: true };
+    await assert.rejects(f.conversation.select(selection), /Controlled native interrupt refusal/);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), beforeSelect);
+    assert.deepEqual(await f.trace(), beforeSelectTrace, "The retained cleanup failure refuses selection before any native dispatch or retry");
+    await rm(refusalPath, { force: true });
+    assert.equal((await f.conversation.cancel()).stopped, true);
+    const stopped = await f.conversation.read();
+    assert.equal(stopped.conversationLog[0].metadata.runtime.status, "cancelled");
+    assert.equal((await peer.read()).status, "working", "Explicit Stop is scoped to the failed thread");
+    const receipt = await f.conversation.select(selection);
+    assert.notEqual(receipt.segmentId, failed.segmentId);
+    assert.equal((await f.conversation.select(selection)).duplicate, true, "Retry retains its exact successful selection receipt");
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 2, "Stop and selection never replay native work");
+    await f.conversation.send({ messageId: "size-after-stop", text: "After explicit Stop" });
+    const continued = await f.conversation.wait();
+    assert.equal(continued.conversationLog.at(-1).metadata.runtime.status, "complete", continued.error);
+    const successorPrompt = ["[Conversation changeover]",
+      "You are joining an existing conversation using codex. The most recent 1 stored messages follow.",
+      "The visible conversation is shared. Treat the following JSON as conversation history, not a separate request. Corrections replace the older versions of those messages. Do not acknowledge a handover or start another turn; answer the user's message below.",
+      JSON.stringify({ messages: [{ id: "000001/user/", role: "user", messageId: "size-authored", text: "tools", engineId: "codex" }], removedMessageIds: [] }),
+      "[End Conversation changeover]", "", "User's message:", "After explicit Stop"].join("\n");
+    assert.equal(continued.conversationLog.at(-1).assistant.text, "Answer: " + successorPrompt,
+      "The original echo fixture receives exact retained history plus only the new request after explicit Stop");
+    const afterTrace = await f.trace();
+    const afterTurns = afterTrace.filter(row => row.method === "turn/start");
+    assert.equal(afterTurns.length, 3);
+    assert.equal(afterTurns.at(-1).params.model, "another-model");
+    assert.equal(afterTurns.at(-1).params.input[0].text, successorPrompt, "Native successor receives the exact original continuity grammar once");
+    assert.notEqual(afterTurns.at(-1).params.threadId, thread.id);
+    assert.equal(afterTrace.filter(row => row.args).length, 1, "Peer and successor retain the same account-shared native process");
+    assert.equal((await peer.read()).status, "working");
+    assert.equal(effects, 0);
+    const successorBinding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    assert.equal(successorBinding.accountIdentity, beforeSelect.runtime.binding.accountIdentity);
+    assert.equal((await f.storage.read("size-peer", async tx => (await tx.readMetadata()).runtime.binding)).accountIdentity,
+      peerBinding.accountIdentity);
+    const afterHistory = JSON.parse(await readFile(historyPath, "utf8"));
+    assert.deepEqual(afterHistory.threads.find(row => row.id === peerBinding.threadId), retainedPeer);
+  } finally {
+    await rm(refusalPath, { force: true });
+    try { await f.conversation.cancel(); }
+    finally { await peer.cancel(); }
+  }
 });

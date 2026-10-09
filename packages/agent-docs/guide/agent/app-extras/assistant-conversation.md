@@ -2002,6 +2002,12 @@ that handle. Repair storage and call `retrySave()` to save the retained result;
 this never reruns inference. Disposal and shutdown also retry that pending save
 and report failure without discarding it. Do not blindly resend the message.
 
+Ordinary Codex tool-failure cleanup retains both returned Stop failures and
+thrown native control errors as unconfirmed cleanup. The existing runtime keeps
+that failure unavailable and blocks Send/selection until explicit `cancel()`
+confirms the same owner's cleanup. It retains the original error and shared
+peer process/thread ownership; neither Stop retry nor selection replays work.
+
 Native acknowledgement can be lost after the engine received a message.
 `inspectDelivery({ messageId })` checks its native history and returns an accepted
 receipt only when that message is found. It also recovers output for an already

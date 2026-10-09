@@ -867,6 +867,10 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             await native.ensureAvailable();
             return native;
           }
+        }).catch(error => {
+          // A thrown control error also leaves this native owner unconfirmed.
+          error.cleanupFailed = true;
+          throw error;
         });
         if (result.value?.ok === false) throw Object.assign(new Error(result.value.error || "Codex could not confirm that work stopped."), { cleanupFailed: true });
         return result.value;
