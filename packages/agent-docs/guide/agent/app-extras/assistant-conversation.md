@@ -1407,6 +1407,14 @@ and retains the same native UUID and account checks. Ordinary bindings without
 records, change account fingerprints or authorize a browser-supplied native path;
 historical conversion belongs to the application's stopped state-upgrade owner.
 
+The existing `server/claude-history` reader accepts `allowIncompleteTail: false`
+for stopped maintenance that must reject a partial final JSON frame. Its default
+remains true for live observation. `claudeHistoryPath` and the unambiguous inventory
+are existing native-history facilities, not browser path authority. The conversation
+module exposes the existing `conversationHistoryVersions` cursor mapping so an
+application-owned offline conversion can reuse canonical identity/version rules.
+These pure/read-only facilities neither grant access nor resume or replay work.
+
 An existing application using the extracted Codex owner can supply
 `host.conversation({ id, context })` to bind its original transcript, native
 identity, delivery journal and lifecycle facilities. That bound path uses those

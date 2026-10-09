@@ -1,5 +1,5 @@
 export { createConversationTranscript } from "./transcript.js";
-export { conversationMessageIdentity, conversationMessageVersion, createConversationChangeover, conversationRequestText } from "./continuity.js";
+export { conversationMessageIdentity, conversationMessageVersion, conversationHistoryVersions, createConversationChangeover, conversationRequestText } from "./continuity.js";
 export { createMemoryConversationStorage } from "./memoryStorage.js";
 export { createConversationStorage, createReentrantConversationStorage,
   createConversationOperationLease, beginConversationOperation, finishConversationOperation } from "./storage.js";

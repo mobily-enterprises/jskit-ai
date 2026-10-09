@@ -98,9 +98,10 @@ async function readClaudeHistory(options) {
   let leafUuid = "";
   let rewound = false;
   // Snapshot the file length. A writer can be in the middle of its last frame;
-  // only this native-history read allows that unfinished tail.
+  // Live history reads allow that unfinished tail. Stopped maintenance can
+  // require the existing strict parser without changing live observation.
   for await (const frame of readClaudeJsonFrames(createReadStream(file.path, { end: file.size - 1 }), {
-    allowIncompleteTail: true
+    allowIncompleteTail: options.allowIncompleteTail ?? true
   })) {
     if (frame.isSidechain) continue;
     frames.push(frame);
@@ -155,7 +156,7 @@ export async function deleteClaudeConversationHistory({ configRoot, workdir, con
   if (file) await rm(file.path, { force: true });
 }
 
-export { claudeMessageBlocks, readClaudeHistory, requireClaudeSessionId, archivedClaudeProjectDirectory, matchingClaudeProjectDirectories };
+export { claudeHistoryPath, claudeMessageBlocks, readClaudeHistory, requireClaudeSessionId, archivedClaudeProjectDirectory, matchingClaudeProjectDirectories };
 
 const TRANSCRIPT_PATH_PATTERN = /\.jsonl(?:\.(?:superseded|orphaned)-.*)?$/u;
 
