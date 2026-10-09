@@ -417,11 +417,15 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
         }).finally(() => { stopping = null; });
         return stopping;
       }
-      async function resolvePreparation(configuration, context, signal) {
+      async function resolvePreparation(configuration, context, signal, requireBound = false, receiptBinding) {
         const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
         signal.throwIfAborted();
         validateConnectionModel(configuration, connection);
         const identity = hash([connection.providerId, connection.baseURL || "", connection.apiKey]);
+        if (requireBound && !receiptBinding?.accountIdentity) throw new Error("The completed OpenCode response has no saved account fingerprint.");
+        if (requireBound && (binding.accountIdentity !== receiptBinding.accountIdentity || identity !== receiptBinding.accountIdentity)) {
+          throw new Error("The completed OpenCode response belongs to a different account binding.");
+        }
         if (binding.accountIdentity && identity !== binding.accountIdentity) {
           throw new Error("This conversation belongs to another OpenCode account. Restore that connection or start a new conversation.");
         }
@@ -649,9 +653,14 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
       }
 
       return Object.freeze({
-        async inspectAdmission({ messageId, configuration, context }) {
+        async inspectAdmission({ messageId, threadId, configuration, context, verifyAccount = false, receiptBinding }) {
+          if (verifyAccount === true && (!receiptBinding || threadId !== binding.sessionId || receiptBinding.sessionId !== binding.sessionId ||
+              receiptBinding.workdir !== binding.workdir || receiptBinding.directory !== binding.directory ||
+              receiptBinding.databasePath !== binding.databasePath || receiptBinding.runtimeDirectory !== binding.runtimeDirectory)) {
+            throw new Error("The completed OpenCode response belongs to a different native conversation or host scope.");
+          }
           if (!binding.sessionId) return { accepted: false, messages: [] };
-          const prepared = await prepare(await resolvePreparation(configuration, context, AbortSignal.timeout(120_000)));
+          const prepared = await prepare(await resolvePreparation(configuration, context, AbortSignal.timeout(120_000), verifyAccount === true, receiptBinding));
           await ensureOpenCodeSession(prepared.target, prepared.session);
           const id = nativeMessageId(messageId);
           const { accepted = false, messages = [] } = await inspectOpenCodeMessageAdmission(native.server.client, binding.sessionId, id) || {};

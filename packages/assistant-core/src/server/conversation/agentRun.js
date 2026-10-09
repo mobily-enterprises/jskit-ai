@@ -195,6 +195,8 @@ export function createCodexConversationStore({ storage, scope, segmentId, isCurr
           ...(request.data !== undefined ? { data: request.data } : {}), ...(request.goal ? { goal: request.goal } : {}),
           turnMetadata: { ...input.turnMetadata, runtime: { ...input.turnMetadata?.runtime,
             status: "running", engine: "codex", segmentId, origin: request.origin || "user",
+            ...(metadata.runtime.request?.messageId === input.messageId && metadata.runtime.request.completedEnvelope === true
+              ? { completedEnvelope: true } : {}),
             ...(input.nativeIdentity?.turnId ? { nativeTurnId: input.nativeIdentity.turnId } : {}),
             ...(request.goal ? { goalMessageId: request.messageId } : {}) } }
         });

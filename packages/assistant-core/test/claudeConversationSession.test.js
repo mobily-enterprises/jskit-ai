@@ -1578,3 +1578,398 @@ test("Claude startup cancellation shares one cleanup receipt and keeps missing e
     await local.close();
   }
 });
+
+// Reuse the original controlled native CLI and its owned history/account roots.
+// The opt-in runtime is created only after the fixture's original runtime closes.
+const completedEnvelopeValue = { kind: "tool", text: "Checking.", toolName: "numbers_read", arguments: "{}" };
+const completedEnvelopeSchema = { type: "object", additionalProperties: false,
+  properties: { kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 64 },
+    toolName: { type: "string", maxLength: 64 }, arguments: { type: "string", maxLength: 64 } },
+  required: ["kind", "text", "toolName", "arguments"] };
+async function completedEnvelopeFixture(t, options = {}) {
+  const context = options.context || { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  let effects = 0;
+  const actions = applicationActions(async request => {
+    effects++;
+    return options.execute ? options.execute(request) : { value: 42 };
+  });
+  const f = await fixture(t, { ...options, context, actions, structuredResponse: completedEnvelopeValue,
+    configuration: { ...configuration, outputSchema: completedEnvelopeSchema, ...options.configuration } });
+  await f.first.close();
+  let runtime;
+  let conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "claude", storage: f.storage, actions,
+      authorize: options.authorize || (() => true), completedEnvelope: true, ...f.driverOptions });
+    conversation = await runtime.open({ id: "conversation", context });
+    return conversation;
+  }
+  await reopen();
+  const controller = new AbortController();
+  return { ...f, context, controller, effects: () => effects, reopen,
+    get conversation() { return conversation; }, close: () => runtime.close(),
+    async complete(messageId = "completed-response") {
+      const receipt = await conversation.wake({ messageId, text: "Read a number" });
+      const state = await conversation.wait();
+      const turn = state.conversationLog.find(row => row.turnId === receipt.turnId);
+      assert.equal(turn.metadata.runtime.status, "complete", state.error);
+      assert.equal(turn.metadata.runtime.completedEnvelope, true);
+      assert.equal(turn.assistant.text, JSON.stringify(completedEnvelopeValue));
+      return { messageId, turnId: receipt.turnId };
+    },
+    prepare: receipt => conversation.prepareCompletedResponse(receipt, { signal: controller.signal }) };
+}
+const executeCompletedEnvelope = (prepared, argumentsText = "{}") => prepared.tools.execute({
+  id: prepared.toolCallId, name: "numbers_read", arguments: argumentsText
+});
+
+test("completed Claude envelopes reuse one durable receipt across prepared handles and restart", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const one = await f.prepare(receipt);
+    const two = await f.prepare(receipt);
+    const [first, second] = await Promise.all([executeCompletedEnvelope(one), executeCompletedEnvelope(two)]);
+    assert.equal(first.ok, true);
+    assert.deepEqual(second, first);
+    assert.equal(f.effects(), 1);
+    await assert.rejects(executeCompletedEnvelope(two, '{"different":true}'), /different arguments/);
+    await assert.rejects(two.tools.execute({ id: "foreign-operation", name: "numbers_read", arguments: "{}" }), /different completed response identity/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools.length, 1);
+    assert.equal(saved.metadata.applicationTools[0].id, one.toolCallId);
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    await f.reopen();
+    assert.deepEqual(await executeCompletedEnvelope(await f.prepare(receipt)), first);
+    assert.equal(f.effects(), 1, "Restoring the completed response never repeats its action");
+    const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+    assert.equal(starts.length, 1, "Account/history inspection does not launch another native turn");
+    assert.deepEqual(JSON.parse(starts[0].args.at(starts[0].args.indexOf("--mcp-config") + 1)), { mcpServers: {} });
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude response authority comes from canonical final custody, not native commentary equality", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    const project = path.join(f.driverOptions.host.env.CLAUDE_CONFIG_DIR, "projects", f.directory.replace(/[^a-zA-Z0-9]/gu, "-"));
+    const historyPath = path.join(project, binding.conversationId + ".jsonl");
+    const history = (await readFile(historyPath, "utf8")).trim().split("\n").map(row => JSON.parse(row));
+    await writeFile(historyPath, history.filter(row => row.type !== "assistant").map(row => JSON.stringify(row)).join("\n") + "\n");
+    assert.equal((await f.prepare(receipt)).text, JSON.stringify(completedEnvelopeValue),
+      "StructuredOutput successful canonical completion can have no native assistant text");
+    const prepared = await f.prepare(receipt);
+    await f.storage.write("conversation", tx => tx.replaceAssistant(receipt.turnId, { text: "Changed final" }));
+    await assert.rejects(executeCompletedEnvelope(prepared), /identity changed/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes refuse aborted or revoked worker authority before the effect", async t => {
+  let eligible = true;
+  const f = await completedEnvelopeFixture(t, { authorize: ({ operation }) => operation !== "tool" || eligible });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    eligible = false;
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_forbidden");
+    eligible = true;
+    f.controller.abort(new Error("Original product worker stopped"));
+    await assert.rejects(executeCompletedEnvelope(prepared), /Original product worker stopped/);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools?.length || 0, 0);
+  } finally { eligible = true; await f.close(); }
+});
+
+test("completed Claude invoked effects retain their result while Stop drains and worker authority is revoked", async t => {
+  let eligible = true;
+  const entered = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  const f = await completedEnvelopeFixture(t, { authorize: ({ operation }) => operation !== "tool" || eligible,
+    async execute() { entered.resolve(); await released.promise; return { value: 73 }; } });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const effect = executeCompletedEnvelope(prepared);
+    await entered.promise;
+    eligible = false;
+    f.controller.abort(new Error("Original worker stopped after invocation"));
+    let stopped = false;
+    const stopping = f.conversation.cancel().then(result => { stopped = true; return result; });
+    await Promise.resolve();
+    assert.equal(stopped, false, "Stop joins the existing serial effect owner");
+    released.resolve();
+    const result = await effect;
+    await stopping;
+    assert.equal(result.ok, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    assert.deepEqual(saved.metadata.applicationTools[0].result, result);
+    assert.equal(f.effects(), 1, "Revoked invocation authority does not discard the original result receipt");
+  } finally { released.resolve(); eligible = true; await f.close(); }
+});
+
+function completedEnvelopeStorageFault(control) {
+  return storage => ({ ...storage, write: (id, callback) => storage.write(id, transaction => callback({ ...transaction,
+    async updateTurnMetadata(turnId, metadata) {
+      if (metadata.applicationTools?.[0]?.status === control.status && control.fail) {
+        control.fail = false;
+        throw new Error("Completed application receipt storage offline");
+      }
+      return transaction.updateTurnMetadata(turnId, metadata);
+    }
+  })) });
+}
+
+test("completed Claude reservation failure executes nothing and installs no result-save retry", async t => {
+  const fault = { status: "running", fail: true };
+  const f = await completedEnvelopeFixture(t, { wrapStorage: completedEnvelopeStorageFault(fault) });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await assert.rejects(executeCompletedEnvelope(prepared), /receipt storage offline/);
+    assert.equal(f.effects(), 0);
+    assert.deepEqual(await f.conversation.retrySave(), { saved: false });
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools?.length || 0, 0);
+    assert.equal((await executeCompletedEnvelope(prepared)).ok, true);
+    assert.equal(f.effects(), 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude result-save retry preserves the exact original result without re-execution", async t => {
+  const fault = { status: "complete", fail: true };
+  const f = await completedEnvelopeFixture(t, { wrapStorage: completedEnvelopeStorageFault(fault) });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await assert.rejects(executeCompletedEnvelope(prepared), /receipt storage offline/);
+    assert.equal(f.effects(), 1);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools[0].status, "running");
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_storage_unavailable");
+    assert.deepEqual(await f.conversation.retrySave(), { saved: true });
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    assert.deepEqual(await executeCompletedEnvelope(prepared), saved.metadata.applicationTools[0].result);
+    assert.equal(f.effects(), 1);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude external account changes refuse repeatedly without fingerprint promotion", async t => {
+  let apiKey = "completed-old-fixture-key";
+  const f = await completedEnvelopeFixture(t, { configuration: { integrationId: "foreign", model: undefined, effort: "low" },
+    connections: { resolve: async () => ({ providerId: "deepseek", model: "deepseek-flash", apiKey }) } });
+  try {
+    const receipt = await f.complete();
+    const before = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    apiKey = "completed-replaced-fixture-key";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assert.rejects(f.prepare(receipt), /different account or provider connection/);
+      assert.deepEqual(await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding), before);
+    }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.frame?.request?.subtype === "interrupt").length, 0,
+      "Completion inspection cannot stop/promote the old native binding");
+  } finally { await f.close(); }
+});
+
+test("completed Claude account inspection never creates a missing historical fingerprint", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      delete metadata.runtime.binding.accountIdentity;
+      await tx.writeMetadata(metadata);
+    });
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.prepare(receipt), /no saved native account fingerprint/);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.binding.accountIdentity = "different-persisted-fixture-fingerprint";
+      await tx.writeMetadata(metadata);
+    });
+    const mismatched = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assert.rejects(f.prepare(receipt), /no longer matches its saved account fingerprint/);
+      assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), mismatched);
+    }
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes refuse unmarked history and caller-supplied markers preserve ordinary tool policy", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(receipt.turnId);
+      const runtime = { ...turn.metadata.runtime };
+      delete runtime.completedEnvelope;
+      await tx.updateTurnMetadata(receipt.turnId, { runtime });
+    });
+    await assert.rejects(f.prepare(receipt), /no current verified receipt/);
+    const ordinary = await f.conversation.send({ messageId: "ordinary-user", text: "tools", data: { completedEnvelope: true } });
+    const state = await f.conversation.wait();
+    const turn = state.conversationLog.find(row => row.turnId === ordinary.turnId);
+    assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(turn.metadata.runtime.status, "complete", state.error);
+    assert.deepEqual(turn.user.data, { completedEnvelope: true });
+    const trace = await f.trace();
+    const forged = trace.filter(row => row.frame?.type === "user").at(-1).frame.message.content;
+    const forgedText = typeof forged === "string" ? forged : forged.filter(part => part.type === "text").map(part => part.text).join(" ");
+    assert.match(forgedText, /\[Application data\]/);
+    assert.match(forgedText, /"completedEnvelope":true/);
+    assert.equal(f.effects(), 0, "Wrapped data is not the original fixture's exact tools trigger");
+    await assert.rejects(f.prepare({ messageId: "ordinary-user", turnId: ordinary.turnId }), /no current verified receipt/);
+    const plain = await f.conversation.send({ messageId: "ordinary-tools", text: "tools" });
+    const final = await f.conversation.wait();
+    const plainTurn = final.conversationLog.find(row => row.turnId === plain.turnId);
+    assert.equal(plainTurn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(plainTurn.metadata.runtime.status, "complete", final.error);
+    assert.equal(plainTurn.metadata.applicationTools.length, 3, "Ordinary native discovery remains enabled in the opt-in runtime");
+    assert.equal(f.effects(), 1);
+    await assert.rejects(f.prepare({ messageId: "ordinary-tools", turnId: plain.turnId }), /no current verified receipt/);
+    const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+    assert.equal(starts.length, 2, "The existing comparator resumes once when application MCP availability changes");
+    assert.deepEqual(JSON.parse(starts[0].args.at(starts[0].args.indexOf("--mcp-config") + 1)), { mcpServers: {} });
+    assert.deepEqual(JSON.parse(starts[1].args.at(starts[1].args.indexOf("--mcp-config") + 1)), {
+      mcpServers: { application: { type: "sdk", name: "application" } }
+    });
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes refuse successors, active native work and foreign binding custody", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const old = await f.complete("older-response");
+    const prepared = await f.prepare(old);
+    const current = await f.complete("newer-response");
+    await assert.rejects(executeCompletedEnvelope(prepared), /newer completed response/);
+    const currentPrepared = await f.prepare(current);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await f.storage.write("conversation", tx => tx.writeMetadata({ ...before,
+      runtime: { ...before.runtime, binding: { ...before.runtime.binding, conversationId: "foreign-native-session" } } }));
+    await assert.rejects(f.prepare(current), /different native conversation or host scope/,
+      "Initial inspection cannot authorize a changed canonical conversation using a cached native entry");
+    await assert.rejects(executeCompletedEnvelope(currentPrepared));
+    await f.storage.write("conversation", tx => tx.writeMetadata(before));
+    await f.conversation.wake({ messageId: "active-response", text: "wait" });
+    await assert.rejects(f.prepare(current), error => error.code === "conversation_busy");
+    await f.conversation.cancel();
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "new-pending-response", origin: "application", text: "Pending",
+        at: new Date().toISOString(), attempted: false, completedEnvelope: true };
+      await tx.writeMetadata(metadata);
+    });
+    await assert.rejects(f.prepare(current), /no current verified receipt/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes never backfill an old unmarked application reservation", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "old-unmarked", text: "Read a number", origin: "application",
+        attachments: [], at: new Date().toISOString(), attempted: false };
+      await tx.writeMetadata(metadata);
+    });
+    const receipt = await f.conversation.wake({ messageId: "old-unmarked", text: "Read a number", data: undefined });
+    const state = await f.conversation.wait();
+    const turn = state.conversationLog.find(row => row.turnId === receipt.turnId);
+    assert.equal(turn.metadata.runtime.status, "complete", state.error);
+    assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+    await assert.rejects(f.prepare({ messageId: "old-unmarked", turnId: receipt.turnId, completedEnvelope: true }), /no current verified receipt/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude effect-boundary revocation records a verified not-executed result", async t => {
+  let eligible = true;
+  let revoke = false;
+  const f = await completedEnvelopeFixture(t, {
+    authorize: ({ operation }) => operation !== "tool" || eligible,
+    wrapStorage: storage => ({ ...storage, write: (id, callback) => storage.write(id, transaction => callback({ ...transaction,
+      async updateTurnMetadata(turnId, metadata) {
+        await transaction.updateTurnMetadata(turnId, metadata);
+        if (revoke && metadata.applicationTools?.[0]?.status === "running") eligible = false;
+      }
+    })) })
+  });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    revoke = true;
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_forbidden");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "not-executed");
+    assert.equal(saved.metadata.applicationTools[0].result.error.code, "conversation_tool_not_executed");
+    eligible = true;
+    const result = await executeCompletedEnvelope(prepared);
+    assert.deepEqual(result, saved.metadata.applicationTools[0].result);
+    assert.equal(f.effects(), 0, "A saved non-effect receipt also deduplicates without execution");
+  } finally { eligible = true; await f.close(); }
+});
+
+test("completed Claude custody retains logical binding while existing process references refresh", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await f.storage.write("conversation", tx => tx.writeMetadata({ ...before,
+      runtime: { ...before.runtime, binding: { ...before.runtime.binding, executionId: "", processDirectory: "" } } }));
+    try {
+      assert.equal((await executeCompletedEnvelope(prepared)).ok, true);
+      assert.equal(f.effects(), 1);
+      const after = await f.storage.read("conversation", tx => tx.readMetadata());
+      const persistent = ({ executionId, processDirectory, ...binding }) => binding;
+      assert.deepEqual(persistent(after.runtime.binding), persistent(before.runtime.binding));
+    } finally {
+      await f.storage.write("conversation", async tx => {
+        const current = await tx.readMetadata();
+        current.runtime.binding = before.runtime.binding;
+        await tx.writeMetadata(current);
+      });
+    }
+  } finally { await f.close(); }
+});
+
+test("completed Claude unknown application outcomes never replay after the actual action fails", async t => {
+  const f = await completedEnvelopeFixture(t, { execute() { throw new Error("Actual application operation failed"); } });
+  try {
+    const receipt = await f.complete();
+    const first = await f.prepare(receipt);
+    const second = await f.prepare(receipt);
+    await assert.rejects(executeCompletedEnvelope(first), error => error.code === "conversation_tool_outcome_unknown");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "unknown");
+    assert.equal(saved.metadata.applicationTools[0].result.ok, false);
+    assert.ok(saved.metadata.applicationTools[0].result.error.status >= 500);
+    await assert.rejects(executeCompletedEnvelope(second), error => error.code === "conversation_tool_outcome_unknown");
+    await f.reopen();
+    await assert.rejects(executeCompletedEnvelope(await f.prepare(receipt)), error => error.code === "conversation_tool_outcome_unknown");
+    assert.equal(f.effects(), 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude saved running application custody refuses an unconfirmed effect", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await f.storage.write("conversation", tx => tx.updateTurnMetadata(receipt.turnId, { applicationTools: [{
+      id: prepared.toolCallId, name: "numbers_read", arguments: "{}", status: "running", at: new Date().toISOString()
+    }] }));
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_tool_outcome_unknown");
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools[0].status, "running");
+  } finally { await f.close(); }
+});

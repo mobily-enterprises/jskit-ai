@@ -1042,7 +1042,7 @@ Local functions
 
 ### `src/server/conversation/runtime.js`
 Exports
-- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, limits = {} } = {})`
+- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, completedEnvelope = false, limits = {} } = {})`
 Local functions
 - `failure(message, code, statusCode = 409)`
 - `submittedMessage(turn)`

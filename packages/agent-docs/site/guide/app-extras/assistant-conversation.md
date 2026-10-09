@@ -1841,6 +1841,41 @@ share the configured input-size limit. A retry must retain the same data as well
 as the same message ID and text. Supply trusted authorization separately through
 the conversation context; this data never grants permissions.
 
+For an application that validates a complete native response before executing an
+action, server-owned `completedEnvelope: true` enables
+`prepareCompletedResponse({ messageId, turnId }, { signal })` on the existing
+conversation handle. This requires a tool catalogue, runtime-owned canonical
+storage and a Codex, Claude or OpenCode driver. API, supplied and scoped native
+owners are rejected. The application worker's `AbortSignal` is required; the
+authenticated context comes from `open()`, never from the response or caller data.
+
+Only a newly reserved application `wake()` receives the internal turn marker.
+Ordinary user messages, goals, caller data and historical unmarked requests cannot
+acquire it through reopening, retry or inspection. Marked responses omit native
+application-tool registration; unmarked requests retain their existing tools.
+Preparation requires the exact saved successful assistant response, current native
+binding and saved account fingerprint. Native input inspection verifies that
+association; it does not establish completion or rewrite an absent account identity.
+Claude structured output can coexist with separate native commentary, so its final
+canonical receipt is checked without requiring equal projected native text.
+
+The result contains `{ text, toolCallId, tools }`. Use that exact stable call ID
+with `tools.execute()` after validating the response. Execution rechecks authority
+and receipt ownership through the same conversation queue, then uses the existing
+catalogue and durable `applicationTools` records. Independently prepared handles
+reuse the same saved result; changed arguments conflict and unknown effects refuse.
+A failed result write retains the actual result for `retrySave()` without repeating
+inference or the action. Native completion remains distinct from an application's
+unconfirmed effect.
+
+The application owns its worker generation and revocation through fresh `tool`
+authorization and the supplied signal. Generic `cancel()` drains the existing
+queue; it does not independently revoke every still-authorized prepared handle.
+Already invoked actions retain their original receipt while Stop drains them.
+This operation does not supply product queue policy, native-tool mistake tracking
+or human transcript/continuity projection. Complete those owners before enabling
+it in a consumer; never manufacture historical markers or completion receipts.
+
 Saved turns distinguish complete, failed, cancelled and interrupted work. Error
 messages are not assistant replies. After restart, accepted work is marked
 interrupted and is never replayed. API reservations interrupted before admission

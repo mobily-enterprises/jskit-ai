@@ -155,7 +155,8 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
     return standalone;
   }
 
-  async function bindAccount(entry, configuration, context, signal = AbortSignal.timeout(30_000)) {
+  async function bindAccount(entry, configuration, context, signal = AbortSignal.timeout(30_000), requireBound = false, receiptBinding) {
+    const accountBinding = requireBound ? receiptBinding : entry.context.binding;
     let selected;
     let providerId;
     let identity;
@@ -163,6 +164,9 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
       signal.throwIfAborted();
       providerId = connection.providerId;
+      if (requireBound && !accountBinding?.connectionIdentities?.[providerId]) {
+        throw new Error("The completed Claude response has no saved provider account fingerprint.");
+      }
       const provider = nativeAiProvider(providerId);
       const model = nativeAiModel(connection.model, providerId);
       if (providerId !== "anthropic" && (!provider || !model)) throw new Error("This exact provider/model is not supported by the Claude integration. Choose a supported model without renaming it.");
@@ -173,6 +177,9 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       });
       identity = hash([configRoot, providerId, selected.env.ANTHROPIC_BASE_URL, connection.apiKey]);
     } else {
+      if (requireBound && !accountBinding?.accountIdentity) {
+        throw new Error("The completed Claude response has no saved native account fingerprint.");
+      }
       identity = await accountIdentity(signal);
       selected = claudeModelConfiguration({ providerId: "anthropic", model: configuration.model || "default" });
       // Returning to the native host clears connection overrides, while
@@ -180,7 +187,14 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       for (const name of Object.keys(selected.env)) if (Object.hasOwn(env, name)) selected.env[name] = env[name];
     }
     signal.throwIfAborted();
-    const previous = providerId ? entry.context.binding.connectionIdentities?.[providerId] : entry.context.binding.accountIdentity;
+    const previous = providerId ? accountBinding.connectionIdentities?.[providerId] : accountBinding.accountIdentity;
+    const cached = providerId ? entry.context.binding.connectionIdentities?.[providerId] : entry.context.binding.accountIdentity;
+    if (requireBound && previous !== cached) {
+      throw new Error("The completed Claude response no longer matches its saved account fingerprint.");
+    }
+    if (requireBound && identity !== previous) {
+      throw new Error("The completed Claude response belongs to a different account or provider connection.");
+    }
     await bindClaudeConversationAccount({ accountIdentity: previous,
       accountIdentities: { [providerId || "anthropic"]: previous }
     }, { identity, providerId: providerId || "anthropic",
@@ -391,12 +405,22 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
             ...(input.action !== "set" ? { createdAt: goal?.createdAt, objective: goal?.objective } : {}) }, { interrupt, send });
           return claudeGoalValue(await entry.goals.read(), entry.id);
         },
-        async inspectAdmission({ context, representation, ...input }) {
+        async inspectAdmission({ context, representation, verifyAccount = false, ...input }) {
           if (scoped) return unsupported();
           if (supplied) {
             await acquire(context);
             const result = await owner.inspectAdmission(await acquire(context), input);
             return representation === "native" ? result : { accepted: result.admission === "accepted" };
+          }
+          if (verifyAccount === true) {
+            const binding = input.receiptBinding;
+            if (input.threadId !== entry.id || binding?.conversationId !== entry.id ||
+                binding.workdir !== entry.context.binding.workdir || binding.configRoot !== configRoot ||
+                Object.hasOwn(binding, "scopeWorkdir") !== Object.hasOwn(entry.context.binding, "scopeWorkdir") ||
+                binding.scopeWorkdir !== entry.context.binding.scopeWorkdir) {
+              throw new Error("The completed Claude response belongs to a different native conversation or host scope.");
+            }
+            await bindAccount(entry, input.configuration, context, AbortSignal.timeout(30_000), true, binding);
           }
           const history = await owner.readHistory(entry);
           const nativeId = claudeNativeMessageId(input.messageId);

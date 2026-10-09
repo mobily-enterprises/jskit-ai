@@ -34,8 +34,9 @@ const sameRequest = (left, right) => left.text === right.text && (left.origin ||
 
 /** One application conversation API. Storage and authorization remain host facilities. */
 export function createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory,
-  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, limits = {} } = {}) {
+  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, completedEnvelope = false, limits = {} } = {}) {
   if (typeof authorize !== "function") throw new TypeError("Conversation access requires an authorize function.");
+  if (typeof completedEnvelope !== "boolean") throw new TypeError("Completed envelope policy requires a server-side boolean.");
   if (typeof persistCommentary !== "boolean") throw new TypeError("Conversation commentary persistence requires an explicit server-side boolean.");
   if (apiHistory !== undefined && typeof apiHistory !== "function") throw new TypeError("API request history requires a server-owned selector.");
   if (toolCatalog && (actions || toolPolicy)) throw new TypeError("Supply the existing tool catalog or actions and toolPolicy, not both.");
@@ -47,6 +48,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   const providers = createConversationProviderFactory({ connections, apiClientFactory, fetch, limits, actions, toolCatalog });
   const { createDriver } = providers;
   const catalog = toolCatalog || (actions ? createServiceToolCatalog(actions, { ...limits, isActionAvailable: toolPolicy }) : null);
+  if (completedEnvelope && !catalog) throw new TypeError("Completed envelopes require an application tool catalogue.");
   const maximumToolCalls = limits.maxToolCalls ?? 32;
   if (!Number.isSafeInteger(maximumToolCalls) || maximumToolCalls < 1) throw new TypeError("Invalid application tool-call limit.");
   const maximumInput = limits.maxInputCharacters ?? 32_000;
@@ -423,6 +425,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       const metadata = await transaction.readMetadata();
       entry.engine = metadata.runtime?.engine || requestedEngine || defaultEngine;
+      if (completedEnvelope && !["codex", "claude", "opencode"].includes(entry.engine)) {
+        throw failure("Completed envelopes require a runtime-owned native conversation.", "conversation_unsupported", 400);
+      }
       if (configuration) configuration = normalizeConversationConfiguration(configuration, { engine: entry.engine, defaultIntegrationId });
       const driver = entry.driver = createDriver(entry.engine, entry.host);
       if (metadata.runtime) {
@@ -474,6 +479,150 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return { storage: createReentrantConversationStorage(facilities.storage), prepareContext: facilities.prepareContext };
   }
 
+  async function saveTools(entry, transaction, request, calls) {
+    if (entry.conversation) {
+      const saved = await transaction.readTurn(request.turnId);
+      if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
+        throw new Error("The application tool receipt does not belong to this authored request.");
+      }
+    }
+    await transaction.updateTurnMetadata(request.turnId, { applicationTools: calls });
+  }
+
+
+  async function prepareCompletedResponse(entry, context, { messageId, turnId } = {}, { signal } = {}) {
+    if (!completedEnvelope || entry.conversation || !["codex", "claude", "opencode"].includes(entry.engine)) {
+      throw failure("This conversation does not own completed envelopes.", "conversation_unsupported", 400);
+    }
+    if (typeof messageId !== "string" || !messageId || typeof turnId !== "string" || !turnId || !(signal instanceof AbortSignal)) {
+      throw new TypeError("Completed responses require their exact receipt and the application worker signal.");
+    }
+    signal.throwIfAborted();
+    await access(context, entry.id, "tool", entry);
+    const owner = entry.bindingOwner;
+    const segmentId = entry.segmentId;
+    const engine = entry.engine;
+    const toolCallId = `${messageId}:operation`;
+    if (toolCallId.length > 256) throw new TypeError("The completed response call identity exceeds its limit.");
+    let captured;
+
+    async function exact(transaction, { retry = false } = {}) {
+      if (closed || entry.disposed || entry.bindingOwner !== owner || entry.segmentId !== segmentId || entry.engine !== engine) {
+        throw failure("The completed response owner changed.", "conversation_tool_request_retired");
+      }
+      if (entry.active) throw failure("Wait for the native response to finish.", "conversation_busy");
+      if (entry.executionFailure) throw entry.executionFailure;
+      if (entry.storageFailure && !retry) throw entry.storageFailure;
+      const { runtime } = await transaction.readMetadata();
+      const turn = await transaction.readTurn(turnId);
+      const authored = submittedMessage(turn || {});
+      const saved = turn?.metadata?.runtime;
+      if (runtime?.version !== 3 || runtime.engine !== engine || runtime.segmentId !== segmentId ||
+          runtime.replacement || runtime.request || !nativeIdentity(runtime) || authored?.messageId !== messageId ||
+          authored.origin !== "application" || saved?.completedEnvelope !== true || saved.engine !== engine ||
+          saved.segmentId !== segmentId || saved.status !== "complete" || saved.supersededBy ||
+          typeof turn.assistant?.text !== "string" || !turn.assistant.text || !turn.assistant.messageId) {
+        throw failure("The completed response has no current verified receipt.", "conversation_completed_response_unavailable");
+      }
+      const turnIds = await transaction.listTurnIds();
+      for (const id of turnIds.slice(turnIds.indexOf(turnId) + 1)) {
+        const later = await transaction.readTurn(id);
+        if (later.metadata?.runtime?.segmentId === segmentId && later.metadata.runtime.completedEnvelope === true) {
+          throw failure("A newer completed response owns this worker.", "conversation_tool_request_retired");
+        }
+      }
+      // These verified process references may refresh on cold inspection;
+      // all native conversation, path and account custody remains exact.
+      const { codexAppServerRun: run, executionId, processDirectory, ...binding } = runtime.binding;
+      if (engine === "codex" && (!saved.nativeTurnId || run?.outerTurnId !== messageId ||
+          run.providerThreadId !== binding.threadId || run.providerTurnId !== saved.nativeTurnId || run.active || run.state !== "completed")) {
+        throw failure("The completed response has no exact native turn receipt.", "conversation_completed_response_unavailable");
+      }
+      const calls = turn.metadata.applicationTools || [];
+      if (!Array.isArray(calls) || calls.length > 1 || calls.some(call => call.id !== toolCallId)) {
+        throw failure("This response already belongs to a different application operation.", "conversation_tool_receipt_conflict");
+      }
+      const identity = { configuration: runtime.configuration, binding, assistant: turn.assistant,
+        nativeTurnId: saved.nativeTurnId };
+      if (captured && !isDeepStrictEqual(captured, identity)) {
+        throw failure("The completed response identity changed.", "conversation_tool_request_retired");
+      }
+      return { runtime, turn, calls, identity };
+    }
+
+    async function inspect() {
+      signal.throwIfAborted();
+      await access(context, entry.id, "tool", entry);
+      const saved = await storage.read(entry.id, transaction => exact(transaction));
+      const observation = await entry.provider.inspectAdmission({ messageId,
+        threadId: nativeIdentity(saved.runtime), nativeTurnId: saved.turn.metadata.runtime.nativeTurnId,
+        configuration: saved.runtime.configuration, receiptBinding: saved.runtime.binding, context, verifyAccount: true });
+      signal.throwIfAborted();
+      await access(context, entry.id, "tool", entry);
+      if (!observation?.accepted || observation.recoveryLimitation || observation.conversationTurn &&
+          observation.conversationTurn.turnId !== turnId || engine === "codex" && observation.nativeTurnId !== saved.turn.metadata.runtime.nativeTurnId) {
+        throw failure("The native owner could not verify this response association.", "conversation_completed_response_unavailable");
+      }
+      // Canonical successful completion owns the exact final, including a
+      // StructuredOutput carrier whose native history may contain only commentary.
+      captured ||= structuredClone(saved.identity);
+      return storage.read(entry.id, transaction => exact(transaction));
+    }
+
+    const response = await inspect();
+    return { text: response.turn.assistant.text, toolCallId,
+      tools: { execute(input, options = {}) {
+        return serial(entry, async () => {
+          if (input?.id !== toolCallId) throw failure("The operation has a different completed response identity.", "conversation_tool_receipt_conflict");
+          const saved = await inspect();
+          const workerSignal = options.signal && options.signal !== signal ? AbortSignal.any([signal, options.signal]) : signal;
+          workerSignal.throwIfAborted();
+          const request = { turnId, input: { messageId } };
+          async function persist(calls, retry = false) {
+            await storage.write(entry.id, async transaction => {
+              const current = await exact(transaction, { retry });
+              const previous = current.calls[0];
+              const next = calls[0];
+              if (calls.length !== 1 || next?.id !== toolCallId || previous &&
+                  (previous.name !== next.name || previous.arguments !== next.arguments ||
+                    previous.status !== "running" && next.status === "running")) {
+                throw failure("The saved response operation changed.", "conversation_tool_receipt_conflict");
+              }
+              await saveTools(entry, transaction, request, calls);
+            });
+          }
+          const tools = createConversationTools({ catalog, context, signal: workerSignal, previousCalls: saved.calls,
+            maximumCalls: maximumToolCalls, discoveryOnly: false,
+            authorize: () => access(context, entry.id, "tool", entry),
+            prepareContext: async () => {
+              await storage.read(entry.id, transaction => exact(transaction));
+              return context;
+            },
+            async save(calls) {
+              try { await persist(calls); }
+              catch (error) {
+                if (calls[0]?.status !== "running") {
+                  const snapshot = structuredClone(calls);
+                  entry.error = "The application operation result could not be saved. Restore storage access and retry saving.";
+                  entry.storageFailure = failure(entry.error, "conversation_storage_unavailable", 503);
+                  entry.storageFailure.cause = error;
+                  entry.saveProgress = async () => {
+                    await persist(snapshot, true);
+                    entry.storageFailure = null;
+                    entry.saveProgress = null;
+                    entry.error = "";
+                    return { type: "tool", turnId, call: snapshot[0] };
+                  };
+                }
+                throw error;
+              }
+            },
+            emit: event => emit(entry, { ...event, turnId }) });
+          return tools.execute(input, { signal: workerSignal });
+        });
+      } } };
+  }
+
   async function perform(entry, active, configuration) {
     const { driver, engine, segmentId } = entry;
     const bindingOwner = entry.bindingOwner;
@@ -489,18 +638,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const applicationTools = entry.applicationTools;
     const toolStorage = applicationTools?.storage || storage;
 
-    async function saveTools(transaction, request, calls) {
-      if (entry.conversation) {
-        const saved = await transaction.readTurn(request.turnId);
-        if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
-          throw new Error("The application tool receipt does not belong to this authored request.");
-        }
-      }
-      await transaction.updateTurnMetadata(request.turnId, { applicationTools: calls });
-    }
-
     function prepareTools(request) {
-      if (!catalog || entry.conversation && !applicationTools) return;
+      if (request.completedEnvelope || !catalog || entry.conversation && !applicationTools) return;
       request.tools = createConversationTools({ catalog, context: request.context, signal: active.controller.signal,
         ...(applicationTools ? { prepareContext() {
           if (!request.accepted) throw new Error("The application tool does not belong to an admitted message.");
@@ -518,7 +657,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         authorize: () => access(request.context, entry.id, "tool", entry),
         save: calls => {
           if (!request.accepted) throw new Error("The engine requested an application tool before admitting the message.");
-          return toolStorage.write(entry.id, transaction => saveTools(transaction, request, calls));
+          return toolStorage.write(entry.id, transaction => saveTools(entry, transaction, request, calls));
         },
         emit: event => emit(entry, { ...event, turnId: request.turnId })
       });
@@ -535,6 +674,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       const saved = driver.canonicalTranscript ? await transaction.readTurn(request.turnId) : null;
       await transaction.updateTurnMetadata(request.turnId, { runtime: { ...saved?.metadata?.runtime, status, engine, segmentId, origin: request.input.origin,
+        ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
         ...(request.nativeTurnId ? { nativeTurnId: request.nativeTurnId } : {}),
         ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
         ...(request.continuedBy ? { continuedBy: request.continuedBy } : {}), ...extra, ...(error ? { error } : {}) } });
@@ -592,6 +732,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           if (submittedMessage(saved || {})?.messageId !== request.input.messageId || saved.metadata?.runtime?.segmentId !== segmentId) {
             throw new Error("The native receipt does not belong to this authored request.");
           }
+          if (request.completedEnvelope && saved.metadata.runtime.completedEnvelope !== true) {
+            throw new Error("The native receipt lost its completed-response marker.");
+          }
           id = saved.turnId;
           await transaction.updateTurnMetadata(id, { runtime: { ...saved.metadata.runtime,
             ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
@@ -600,6 +743,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           id = await transaction.nextTurnId();
           await transaction.appendMessage(id, { role: request.input.origin === "application" ? "system" : "user", ...request.input, at: new Date().toISOString(),
             turnMetadata: { runtime: { status: "running", engine, segmentId, origin: request.input.origin,
+              ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
               ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
               ...(nativeTurnId ? { nativeTurnId } : {}) } } });
         }
@@ -775,7 +919,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             throw failure("Authorized attachment paths changed after this instruction was prepared. Restore the original files or send a new message.", "conversation_attachment_manifest_changed");
           }
           metadata.runtime.request = { ...(pending?.messageId === request.input.messageId ? pending
-            : { ...request.input, at: request.at, attempted: false }), attachmentManifest };
+            : { ...request.input, at: request.at, attempted: false,
+              ...(request.completedEnvelope ? { completedEnvelope: true } : {}) }), attachmentManifest };
           await transaction.writeMetadata(metadata);
         });
         const admitted = Promise.withResolvers();
@@ -795,7 +940,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             threadId = native?.threadId;
             if (!threadId) throw new Error("Native admission requires the saved conversation identity.");
             await input.onPromptSending(entry.conversation ? native : { threadId, displayAttachments: files.attachments,
-              turnMetadata: { runtime: { engine, segmentId, origin: request.input.origin } } });
+              turnMetadata: { runtime: { engine, segmentId, origin: request.input.origin,
+                ...(request.completedEnvelope ? { completedEnvelope: true } : {}) } } });
           },
           async accept(native) {
             if (entry.conversation) nativeResult = native.nativeResult;
@@ -844,6 +990,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               const pending = metadata.runtime.request;
               if (pending && pending.messageId !== request.input.messageId && (pending.attempted || pending.inspectionOnly)) throw new Error("The pending conversation instruction changed.");
               metadata.runtime.request = { ...request.input, at: request.at,
+                ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
                 message: rendered.message, displayMessage: rendered.displayMessage,
                 displayAttachments, attachmentIds: rendered.attachmentIds,
                 attachmentManifest,
@@ -1063,7 +1210,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       if (entry.conversation) {
         if (applicationTools) await toolStorage.write(entry.id, async transaction => {
           for (const request of active.requests.values()) {
-            if (request.accepted && request.tools?.records().length) await saveTools(transaction, request, request.tools.records());
+            if (request.accepted && request.tools?.records().length) await saveTools(entry, transaction, request, request.tools.records());
           }
         });
         // Only opted-in application receipts are saved above. Native output,
@@ -1206,6 +1353,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       if (working && working.steering === barrier?.promise) working.steering = null;
     };
     let configuration;
+    let markedResponse = false;
     let requestAt = new Date().toISOString();
     try { configuration = entry.conversation ? (await readState(entry)).configuration : await storage.write(entry.id, async transaction => {
       const metadata = await transaction.readMetadata();
@@ -1220,11 +1368,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           requestAt = metadata.runtime.request.at;
         }
       } else metadata.runtime.request = { ...message, at: requestAt,
+        ...(completedEnvelope && origin === "application" && !goal ? { completedEnvelope: true } : {}),
         ...(entry.engine !== "api" ? { attempted: false } : {}), ...(input.steer ? { steering: true } : {}) };
+      markedResponse = origin === "application" && !goal && metadata.runtime.request?.messageId === message.messageId &&
+        metadata.runtime.request.completedEnvelope === true;
       await transaction.writeMetadata(metadata);
       return metadata.runtime.configuration;
     }); } catch (error) { release(); throw error; }
-    const request = { input: message, originalInput, operation, context, at: requestAt, steering: Boolean(working || input.steer && nativeSteering),
+    const request = { input: message, originalInput, operation, context, at: requestAt,
+      ...(markedResponse ? { completedEnvelope: true } : {}), steering: Boolean(working || input.steer && nativeSteering),
       admission: Promise.withResolvers(), progress: new Map() };
     request.admission.promise.catch(() => {});
     if (working) {
@@ -1500,7 +1652,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           await transaction.appendMessage(turnId, { role: input.origin === "application" ? "system" : "user", origin: input.origin || "user",
             messageId: id, text: input.text, attachments: input.attachments, at: input.at,
             ...(input.data !== undefined ? { data: input.data } : {}), ...(input.goal ? { goal: input.goal } : {}),
-            turnMetadata: { runtime: { engine: entry.engine, segmentId: entry.segmentId, origin: input.origin || "user" } } });
+            turnMetadata: { runtime: { engine: entry.engine, segmentId: entry.segmentId, origin: input.origin || "user",
+              ...(input.completedEnvelope === true ? { completedEnvelope: true } : {}) } } });
           turn = await transaction.readTurn(turnId);
           history.push(turn);
         }
@@ -1599,6 +1752,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function replace(entry, context, input, selection = false, representation) {
     const operation = selection ? "select" : "replace";
+    if (completedEnvelope && input?.engine === "api") throw failure("Completed envelopes require a native engine.", "conversation_unsupported", 400);
     await access(context, entry.id, operation, entry);
     if (entry.conversation?.commands) {
       if (!selection) throw failure("This conversation retains its original replacement policy.", "conversation_unsupported", 400);
@@ -2022,6 +2176,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await access(context, id, "open");
       const selectedHost = host || defaultHost;
       const conversation = selectedHost?.conversation ? await selectedHost.conversation({ id, context }) : null;
+      if (completedEnvelope && (conversation || representation !== "canonical")) {
+        throw failure("Completed envelopes require runtime-owned canonical storage.", "conversation_unsupported", 400);
+      }
       if (conversation && !persistCommentary) {
         throw new TypeError("Transient commentary requires a runtime-owned transcript; supplied conversations retain their host's policy.");
       }
@@ -2094,6 +2251,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         },
         send: input => send(entry, context, input, "user", undefined, representation),
         wake: input => send(entry, context, input, "application", undefined, representation),
+        ...(completedEnvelope ? { prepareCompletedResponse: (input, options) =>
+          serial(entry, () => prepareCompletedResponse(entry, context, input, options)) } : {}),
         readGoal: () => serial(entry, () => readGoal(entry, context, representation)),
         updateGoal: input => updateGoal(entry, context, input, representation),
         inspectDelivery({ messageId, threadId } = {}) {

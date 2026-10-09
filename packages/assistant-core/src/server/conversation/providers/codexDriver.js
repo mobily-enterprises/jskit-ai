@@ -515,8 +515,14 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         return stopping;
       }
 
-      async function selection(configuration, context, signal) {
-        if (!configuration.integrationId) return { model: configuration.model, providerId: "openai" };
+      async function selection(configuration, context, signal, requireBound = false, receiptBinding) {
+        if (!configuration.integrationId) {
+          if (requireBound && !receiptBinding?.accountIdentity) throw new Error("The completed Codex response has no saved native account fingerprint.");
+          if (requireBound && binding.accountIdentity !== receiptBinding.accountIdentity) {
+            throw new Error("The completed Codex response belongs to a different native account binding.");
+          }
+          return { model: configuration.model, providerId: "openai" };
+        }
         const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
         signal.throwIfAborted();
         const provider = nativeAiProvider(connection.providerId);
@@ -526,6 +532,11 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         if (configuration.effort && !model.variants.includes(configuration.effort)) throw new Error("The selected Codex model does not support this reasoning effort.");
         const identity = hash([provider.id, provider.baseUrl, connection.apiKey]);
         const previous = binding.connectionIdentities?.[provider.id];
+        const expected = receiptBinding?.connectionIdentities?.[provider.id];
+        if (requireBound && !expected) throw new Error("The completed Codex response has no saved provider account fingerprint.");
+        if (requireBound && (previous !== expected || identity !== expected)) {
+          throw new Error("The completed Codex response belongs to a different provider account binding.");
+        }
         if (previous && previous !== identity) throw new Error("This conversation belongs to another Codex provider account. Restore that connection or start a new conversation.");
         if (!previous) await updateBinding({ connectionIdentities: { ...binding.connectionIdentities, [provider.id]: identity } });
         return { model: model.id, providerId: provider.id, accountIdentity: identity, config: codexProviderConfiguration(provider, connection.apiKey) };
@@ -902,7 +913,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           if (result.ok === false) throw new Error(result.error);
           return goalValue(result.goal);
         },
-        async inspectAdmission({ messageId, threadId, nativeTurnId, configuration, context, goal: command, representation }) {
+        async inspectAdmission({ messageId, threadId, nativeTurnId, configuration, context, goal: command, representation, verifyAccount = false, receiptBinding }) {
           if (supplied) {
             const prepared = await supplied.inspectionPreparation({ messageId, threadId }, context);
             if (prepared.ok === false) return representation === "native" ? prepared : { accepted: false, ...prepared };
@@ -916,9 +927,13 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             // cannot certify the authored delivery invented by that adapter.
             return { accepted: false, recoveryLimitation: "This older goal-message record requires offline inspection. Its saved history and delivery evidence were preserved." };
           }
+          if (verifyAccount === true && (!receiptBinding || threadId !== binding.threadId || receiptBinding.threadId !== binding.threadId ||
+              receiptBinding.workdir !== binding.workdir || receiptBinding.configRoot !== binding.configRoot)) {
+            throw new Error("The completed Codex response belongs to a different native conversation or host scope.");
+          }
           if (!binding.threadId) return { accepted: false };
           const signal = AbortSignal.timeout(30_000);
-          await connect(signal, await selection(configuration, context, signal));
+          await connect(signal, await selection(configuration, context, signal, verifyAccount === true, receiptBinding));
           let acceptedTurn;
           let cursor;
           do {
