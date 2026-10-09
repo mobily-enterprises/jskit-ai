@@ -439,6 +439,17 @@ combined with `deferWhileWorking: true`. The application must authorize and save
 each request before returning acceptance; enabling this option alone is not a
 backend queue implementation.
 
+Both `deferWhileWorking` and `admitWhileWorking` also accept a synchronous
+predicate receiving the actual conversation snapshot, or `null` before its first
+read. Return a boolean for every snapshot, including `null`; promises and other
+results are rejected. The two resolved options must never both be true. This
+lets one retained binding choose its working policy from the actual backend,
+without changing message IDs, captured data or native steering intent. A queued
+application-admission follower rechecks the current policy at the serial delivery
+tail before dispatch; if admission is no longer enabled, it returns `false`
+without calling the API. Deferred requests still wait for ready. The existing
+Stop, actor, access and uncertain-delivery guards remain in force.
+
 Set `draftWhileLoading: true` when people should be able to type before the
 application resolves its conversation ID or while the first read is unavailable.
 This keeps one local input scoped to the real actor, endpoint, surface and

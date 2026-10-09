@@ -2675,3 +2675,132 @@ test("application admission keeps unknown delivery inspection-only and rejects c
   await expect(f.primary.getByRole("button", { name: "Retry", exact: true })).toHaveCount(0);
   await expect(f.input).toHaveValue("Keep my newer draft");
 });
+
+// Keep the original HTTP/browser fixture; its canonical read carries the real
+// engine independently of a native-looking product model-selection label.
+async function modeAwareAdmissionFixture(t) {
+  const f = await fixture(t, 390);
+  let engine;
+  await f.page.route(/\/api\/assistant\/home\/conversations\/chat%3A2(?:\?.*)?$/u, async route => {
+    const response = await route.fetch();
+    const state = await response.json();
+    await route.fulfill({ response, json: { ...state,
+      engine, assistantSelection: { engineId: "codex" } } });
+  });
+  await f.page.evaluate(() => {
+    const native = snapshot => ["codex", "claude", "opencode"].includes(snapshot?.engine);
+    window.modeBinding = window.conversationFixture.acquireConversation({ conversationId: "chat:2",
+      admitWhileWorking: native, deferWhileWorking: snapshot => !native(snapshot), queueWhileSending: true });
+    window.conversationFixture.target("chat:2");
+    window.modeRuntime = window.modeBinding.runtime.value;
+  });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.available.value)).toBe(true);
+  return { ...f, async engine(value) {
+    engine = value;
+    await f.notify("chat:2");
+    await expect.poll(() => f.page.evaluate(() => window.modeRuntime.snapshot.value?.engine || null)).toBe(value || null);
+  } };
+}
+
+test("mode-aware application admission retains typed and spoken native and API policies at one identity", options, async t => {
+  const f = await modeAwareAdmissionFixture(t);
+  await f.command("question", { id: "chat:2", text: "Unresolved backend is working", pending: true });
+  await f.notify("chat:2");
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.snapshot.value.status)).toBe("working");
+  await f.page.evaluate(() => { window.unresolvedAdmission = window.modeRuntime.send({ message: "Wait for original readiness" }); });
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.delivery.state.messages.length)).toBe(1);
+  assert.equal((await f.sent()).length, 0, "An unknown backend retains existing deferral");
+  await f.engine("codex");
+  assert.equal((await f.sent()).length, 0, "A captured deferred request is never promoted to native admission");
+  await f.command("question", { id: "chat:2", text: "Unresolved backend is working", pending: false });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(1);
+  assert.equal((await f.page.evaluate(() => window.unresolvedAdmission)).status, "accepted");
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.snapshot.value.status)).toBe("working");
+  await f.command("mode", { mode: "hold" });
+  await f.input.fill("Native typed clarification");
+  await f.input.press("Enter");
+  await expect.poll(async () => (await f.state()).held).toBe(1);
+  await f.page.evaluate(() => {
+    window.conversationFixture.retainVoice();
+    window.nativeVoiceAdmission = window.conversationFixture.sendVoice("Native spoken clarification");
+  });
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.delivery.state.messages.length)).toBe(2);
+  assert.equal((await f.sent()).length, 2, "Voice waits for the same real predecessor receipt");
+  await f.input.fill("Retain my draft across backend selection");
+  await f.command("mode", { mode: "accepted" });
+  await f.command("accept", { holdResponse: true });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(3);
+  assert.equal((await f.page.evaluate(() => window.nativeVoiceAdmission)).status, "accepted");
+  assert.equal((await f.state()).states["chat:2"].status, "working");
+  await f.command("release-response");
+  await f.command("finish", { id: "chat:2" });
+  await f.engine("api");
+  await expect(f.input).toHaveValue("Retain my draft across backend selection");
+  await f.command("question", { id: "chat:2", text: "API is still answering", pending: true });
+  await f.notify("chat:2");
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.snapshot.value.status)).toBe("working");
+  await f.input.fill("API typed clarification");
+  await f.input.press("Enter");
+  await f.page.evaluate(() => { window.apiVoiceAdmission = window.conversationFixture.sendVoice("API spoken clarification"); });
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.delivery.state.messages.length)).toBe(2);
+  assert.equal((await f.sent()).length, 3, "A native-looking label cannot bypass the real API mode's ready wait");
+  await f.command("question", { id: "chat:2", text: "API is still answering", pending: false });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(4);
+  assert.equal((await f.sent())[3].input.text, "API typed clarification");
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.snapshot.value.status)).toBe("working");
+  assert.equal((await f.sent()).length, 4, "The second API follower retains the preceding-turn barrier");
+  await f.command("finish", { id: "chat:2" });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(5);
+  assert.equal((await f.page.evaluate(() => window.apiVoiceAdmission)).status, "accepted");
+  await f.command("finish", { id: "chat:2" });
+  await f.engine("opencode");
+  await f.command("question", { id: "chat:2", text: "Native work resumes", pending: true });
+  await f.notify("chat:2");
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.snapshot.value.status)).toBe("working");
+  assert.equal((await f.page.evaluate(() => window.conversationFixture.sendVoice("Native admission after returning"))).status, "accepted");
+  assert.equal((await f.sent()).length, 6);
+  assert.equal(await f.page.evaluate(() => window.modeRuntime === window.modeBinding.runtime.value &&
+    window.modeRuntime === window.conversationFixture.current()), true);
+  assert.equal((await f.page.evaluate(() => window.conversationFixture.voiceState())).id, "chat:2");
+  assert.equal((await f.sent()).some(request => Object.hasOwn(request.input, "steer")), false);
+  assert.equal((await f.state()).requests.some(request => request.suffix === "/cancel"), false);
+});
+
+test("mode-aware application admission refuses a captured follower after the actual backend changes", options, async t => {
+  const f = await modeAwareAdmissionFixture(t);
+  await f.engine("claude");
+  await f.command("mode", { mode: "hold" });
+  await f.page.evaluate(() => { window.modeFirst = window.modeRuntime.send({ message: "Original in-flight admission" }); });
+  await expect.poll(async () => (await f.state()).held).toBe(1);
+  await f.page.evaluate(() => { window.modeFollower = window.modeRuntime.send({ message: "Local native follower" }); });
+  await expect.poll(() => f.page.evaluate(() => window.modeRuntime.delivery.state.messages.length)).toBe(2);
+  await f.engine("api");
+  await f.command("accept");
+  assert.equal(await f.page.evaluate(() => window.modeFollower), false);
+  assert.equal((await f.sent()).length, 1, "A captured native policy cannot dispatch into a changed API owner");
+  assert.equal((await f.state()).requests.some(request => request.suffix === "/cancel"), false);
+});
+
+test("mode-aware application admission rejects nonboolean asynchronous and conflicting predicates", options, async t => {
+  const f = await fixture(t);
+  const failures = await f.page.evaluate(() => [
+    { admitWhileWorking: () => "yes" },
+    { deferWhileWorking: () => Promise.resolve(true) },
+    { admitWhileWorking: () => true, deferWhileWorking: () => true }
+  ].map(policy => {
+    try { window.conversationFixture.acquireConversation({ conversationId: "chat:2", ...policy }); }
+    catch (error) { return { name: error.name, message: error.message }; }
+    return null;
+  }));
+  assert.deepEqual(failures, [
+    { name: "TypeError", message: "admitWhileWorking must return a boolean." },
+    { name: "TypeError", message: "deferWhileWorking must return a boolean." },
+    { name: "TypeError", message: "Choose either admitWhileWorking or deferWhileWorking." }
+  ]);
+  assert.deepEqual(await f.sent(), []);
+});

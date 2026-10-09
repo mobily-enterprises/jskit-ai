@@ -47,6 +47,18 @@ function draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "") {
   return submitted && current.startsWith(submitted) ? current.slice(submitted.length) : current;
 }
 
+function resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking }) {
+  const resolve = (name, option) => {
+    const value = typeof option === "function" ? option(snapshot) : option;
+    if (typeof value !== "boolean") throw new TypeError(`${name} must return a boolean.`);
+    return value;
+  };
+  const deferred = resolve("deferWhileWorking", deferWhileWorking);
+  const admitted = resolve("admitWhileWorking", admitWhileWorking);
+  if (deferred && admitted) throw new TypeError("Choose either admitWhileWorking or deferWhileWorking.");
+  return { deferWhileWorking: deferred, admitWhileWorking: admitted };
+}
+
 function createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled }) {
   const disposed = ref(false);
   const placementRevision = ref(0);
@@ -101,8 +113,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const editable = computed(() => active.value && !accessDenied.value);
   const available = computed(() => active.value && !loading.value && !accessDenied.value && Boolean(snapshot.value));
   const steerable = computed(() => snapshot.value?.status === "working" && snapshot.value?.capabilities?.steering === true);
-  const queueing = computed(() => queueWhileSending !== false && (steerable.value || deferWhileWorking || admitWhileWorking));
-  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || (deferWhileWorking || admitWhileWorking) && snapshot.value.status === "working") &&
+  const workingPolicy = computed(() => resolveWorkingPolicy(snapshot.value, { deferWhileWorking, admitWhileWorking }));
+  const queueing = computed(() => queueWhileSending !== false && (steerable.value || workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking));
+  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || (workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking) && snapshot.value.status === "working") &&
     (queueWhileSending !== false || !delivery.state.sending) &&
     !delivery.state.messages.some(message => message.status === "uncertain"));
   const savedDraft = toValue(draftStorage);
@@ -339,10 +352,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const requestedSteering = request?.steer === true;
     if (requestedSteering && snapshot.value.capabilities?.steering !== true) return false;
     const steering = requestedSteering || steerable.value;
-    const deferred = deferWhileWorking && !retry && !steering;
+    const policy = workingPolicy.value;
+    const deferred = policy.deferWhileWorking && !retry && !steering;
     // An application queue can admit ordinary messages without native steering
     // or waiting for ready. It still owns admission, permissions and receipts.
-    const appAdmission = admitWhileWorking && !steering;
+    const appAdmission = policy.admitWhileWorking && !steering;
     if ((snapshot.value.status === "working" || delivery.state.sending) && !steering && !deferred && !appAdmission) return false;
     if ((retry?.payload || payload).displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) return false;
     const captured = retry?.payload?.request ? retry.payload : { ...(retry?.payload || payload), request: payload.request || {
@@ -423,7 +437,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         async deliver(submission) {
           pending.started = true;
           try {
-            if (controller.signal.aborted || appAdmission && (!available.value || stopping.value)) return false;
+            if (controller.signal.aborted || appAdmission && (!available.value || stopping.value || !workingPolicy.value.admitWhileWorking)) return false;
             if (deferred) {
               // Refresh through the same subscription after a queued predecessor;
               // its receipt may have arrived before the working snapshot.
@@ -742,9 +756,9 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   });
   if (!["dispatch", "accepted"].includes(clearDraftOn)) throw new TypeError("clearDraftOn must be dispatch or accepted.");
   if (queueWhileSending !== undefined && typeof queueWhileSending !== "boolean") throw new TypeError("queueWhileSending must be a boolean.");
-  if (typeof deferWhileWorking !== "boolean") throw new TypeError("deferWhileWorking must be a boolean.");
-  if (typeof admitWhileWorking !== "boolean") throw new TypeError("admitWhileWorking must be a boolean.");
-  if (admitWhileWorking && deferWhileWorking) throw new TypeError("Choose either admitWhileWorking or deferWhileWorking.");
+  if (!["boolean", "function"].includes(typeof deferWhileWorking)) throw new TypeError("deferWhileWorking must be a boolean.");
+  if (!["boolean", "function"].includes(typeof admitWhileWorking)) throw new TypeError("admitWhileWorking must be a boolean.");
+  resolveWorkingPolicy(null, { deferWhileWorking, admitWhileWorking });
   if (typeof draftWhileLoading !== "boolean") throw new TypeError("draftWhileLoading must be a boolean.");
   if (application !== null && typeof application !== "function") throw new TypeError("application must be a factory.");
   if (boundedTask !== null) return useBoundedTask(boundedTask, { active, data, presentation });
