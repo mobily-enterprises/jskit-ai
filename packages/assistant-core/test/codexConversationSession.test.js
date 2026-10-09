@@ -487,11 +487,13 @@ test("automatic goal turns retain all nine application tool receipts on their au
   assert.equal(trace.some(row => row.method === "thread/inject_items" || row.method === "thread/goal/set"), false);
 });
 
-test("automatic goal turns cannot reset their authored request's application tool budget", async t => {
+for (const deferBudgetCompletion of [false, true]) test(deferBudgetCompletion
+  ? "automatic goal tool failure verifies recovery when native completion follows the saved terminal"
+  : "automatic goal turns cannot reset their authored request's application tool budget", async t => {
   const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
   let calls = 0;
   const f = await fixture(t, { actions: applicationActions(async () => ({ value: ++calls })), context,
-    nativeGoalObjective: "tools goal", limits: { maxToolCalls: 3 } });
+    nativeGoalObjective: "tools goal", limits: { maxToolCalls: 3 }, deferBudgetCompletion });
   await f.conversation.send({ messageId: "bounded-goal", text: "native-goal" });
   const state = await f.conversation.wait();
   const trace = await f.trace();
@@ -517,6 +519,22 @@ test("automatic goal turns cannot reset their authored request's application too
   assert.equal(stopped.codexAppServerRun.providerStatus, "observation_lost");
   assert.equal(stopped.codexAppServerRun.outerTurnId, "bounded-goal");
   assert.equal(trace.filter(row => row.method === "turn/start").length, 1);
+  if (deferBudgetCompletion) {
+    const fourth = trace.find(row => row.budgetCompletion?.kind === "fourth-request").budgetCompletion;
+    assert.equal(fourth.threadId, stopped.threadId);
+    assert.equal(fourth.turnId, stopped.codexAppServerRun.providerTurnId);
+    assert.equal(fourth.callId, fourth.turnId + "-4");
+    assert.equal(trace.find(row => row.budgetCompletion?.kind === "fourth-response").budgetCompletion.budgetFailure, true);
+    for (const kind of ["failed-held", "interrupted-held"]) {
+      assert.ok(trace.some(row => row.budgetCompletion?.kind === kind &&
+        row.budgetCompletion.threadId === fourth.threadId && row.budgetCompletion.turnId === fourth.turnId));
+    }
+    const release = JSON.parse(await readFile(path.join(f.directory, "history.json") + ".budget-terminal-" + fourth.turnId, "utf8"));
+    assert.deepEqual(release, { threadId: fourth.threadId, turnId: fourth.turnId, outerTurnId: "bounded-goal" });
+    const native = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+    assert.equal(native.id, fourth.threadId);
+    assert.equal(native.goal.status, "paused");
+  }
 });
 
 test("failed tracked Codex history storage stops owned work and recovers the exact result without replay", async t => {
@@ -796,6 +814,10 @@ async function fixture(t, options = {}) {
       if (!method) {
         log({ toolResponse: { id, result, error } });
         const pending = toolRequests.get(id); toolRequests.delete(id);
+        if (${Boolean(options.deferBudgetCompletion)} && id === "tool-request-4") {
+          log({ budgetCompletion: { kind: "fourth-response", requestId: id,
+            budgetFailure: !!error && /application tool-call limit/.test(error.message) } });
+        }
         if (error) pending.reject(new Error(error.message)); else pending.resolve(result);
         return;
       }
@@ -811,6 +833,10 @@ async function fixture(t, options = {}) {
       const callTool = (turn, tool, arguments_, foreign = false) => new Promise((resolve, reject) => {
         const id = "tool-request-" + (++requestId);
         toolRequests.set(id, { resolve, reject });
+        if (${Boolean(options.deferBudgetCompletion)} && requestId === 4) {
+          state.budgetFailureTurnId = turn.id;
+          log({ budgetCompletion: { kind: "fourth-request", threadId: thread.id, turnId: turn.id, callId: turn.id + "-" + requestId } });
+        }
         ws.send(JSON.stringify({ id, method: "item/tool/call", params: {
           threadId: foreign ? "another-thread" : thread.id, turnId: turn.id,
           callId: turn.id + "-" + requestId, tool, arguments: arguments_
@@ -832,7 +858,13 @@ async function fixture(t, options = {}) {
               await callTool(turn, "assistant_action_execute", { actionId: "numbers.read", version: 1, input: {} });
             } catch (error) {
               turn.status = "failed"; save();
-              if (ws.readyState === 1) emit("turn/completed", { turnId: turn.id, turn: { ...turn, error: { message: error.message } } });
+              const failedTurn = { ...turn, error: { message: error.message } };
+              if (${Boolean(options.deferBudgetCompletion)} && state.budgetFailureTurnId === turn.id && /application tool-call limit/.test(error.message)) {
+                log({ budgetCompletion: { kind: "failed-held", threadId: thread.id, turnId: turn.id } });
+                while (!existsSync(file + ".budget-terminal-" + turn.id) && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+                log({ budgetCompletion: { kind: "failed-released", threadId: thread.id, turnId: turn.id } });
+              }
+              if (ws.readyState === 1) emit("turn/completed", { turnId: turn.id, turn: failedTurn });
               return;
             }
           }
@@ -899,7 +931,15 @@ async function fixture(t, options = {}) {
         if (state.runningTurn?.id === params.turnId) state.runningTurn.status = "interrupted";
         save();
         reply({});
-        if (state.runningTurn?.id === params.turnId) emit("turn/completed", { turn: state.runningTurn });
+        if (state.runningTurn?.id === params.turnId) {
+          const interruptedTurn = { ...state.runningTurn };
+          if (${Boolean(options.deferBudgetCompletion)} && state.budgetFailureTurnId === params.turnId) {
+            log({ budgetCompletion: { kind: "interrupted-held", threadId: thread.id, turnId: params.turnId } });
+            while (!existsSync(file + ".budget-terminal-" + params.turnId) && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+            log({ budgetCompletion: { kind: "interrupted-released", threadId: thread.id, turnId: params.turnId } });
+          }
+          if (ws.readyState === 1) emit("turn/completed", { turn: interruptedTurn });
+        }
         return;
       }
       if (method === "thread/goal/clear") {
@@ -1022,7 +1062,17 @@ async function fixture(t, options = {}) {
   const disk = createFileConversationStorage({ directory: path.join(directory, "storage") });
   const storageFile = path.join(directory, "storage", `${createHash("sha256").update("conversation").digest("hex")}.json`);
   const checkpoints = [];
-  const backing = options.storage ? options.storage(disk) : disk;
+  const originalBacking = options.storage ? options.storage(disk) : disk;
+  const backing = options.deferBudgetCompletion ? { read: originalBacking.read, async write(scope, callback) {
+    const result = await originalBacking.write(scope, callback);
+    const run = (await disk.read(scope, transaction => transaction.readMetadata())).runtime?.binding?.codexAppServerRun;
+    if (scope === "conversation" && run?.outerTurnId === "bounded-goal" && run.providerThreadId && run.providerTurnId &&
+        run.active === false && ["interrupted", "failed"].includes(run.state)) {
+      await writeFile(path.join(directory, "history.json") + ".budget-terminal-" + run.providerTurnId,
+        JSON.stringify({ threadId: run.providerThreadId, turnId: run.providerTurnId, outerTurnId: run.outerTurnId }));
+    }
+    return result;
+  } } : originalBacking;
   const storage = options.checkpoints ? { read: backing.read, async write(scope, callback) {
     const result = await backing.write(scope, callback);
     checkpoints.push(JSON.parse(await readFile(storageFile, "utf8")));

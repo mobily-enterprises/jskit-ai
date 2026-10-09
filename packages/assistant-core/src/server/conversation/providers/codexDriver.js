@@ -1008,7 +1008,15 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
                   owned = false;
                   throw new Error("This application tool call belongs to another turn.");
                 }
-                const result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
+                let result;
+                try {
+                  result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
+                } catch (error) {
+                  if (!supplied && owned && current === active && !disposed && !signal.aborted &&
+                      provider === executingProvider && provider === native &&
+                      params.threadId === binding.threadId && params.turnId === active.turnId) active.toolFailure ||= error;
+                  throw error;
+                }
                 return { success: result.ok, contentItems: [{ type: "inputText", text: JSON.stringify(result) }] };
               })();
               toolCalls.add(operation);
@@ -1098,13 +1106,23 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           }
           signal.removeEventListener("abort", abort);
           admission.reject(problem || signal.reason);
+          const failureThreadId = binding.threadId;
+          const failureTurnId = active.turnId;
           try {
             // Account invalidation already owns this stop attempt. Its failed
             // proof stays available for explicit cleanup through the same owner.
             if ((!supplied && problem || supplied && active.toolFailure || signal.aborted) && problem?.code !== "codex_runtime_invalidated") {
               await (cancellation || interrupt());
             }
-          } catch (error) { problem = error; }
+          } catch (error) {
+            problem = error;
+            // A direct Stop checkpoint can throw before its native completion
+            // reaches the queue. Keep the same admitted tool failure with the
+            // original observation-stop owner until its pending recovery joins.
+            if (!supplied && error === active.toolFailure && current === active && !disposed && !signal.aborted &&
+                executingProvider && executingProvider === native && binding.threadId === failureThreadId &&
+                active.turnId === failureTurnId && error.code !== "codex_runtime_invalidated") executingProvider.failObservation(error);
+          }
           try {
             await owner.notificationQueue.drain(sessionId);
             // The original queue starts observation recovery without awaiting

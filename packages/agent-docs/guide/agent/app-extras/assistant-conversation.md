@@ -2175,6 +2175,15 @@ admitted request, including its continuations. `read()` includes the last observ
 work started by another native client. Reopening does not resume unobserved goal
 work automatically.
 
+An admitted standalone Codex application-tool failure retains the same failure
+through both native completion orders. If direct interruption reaches its saved
+terminal before the native completion notification, the existing observation-stop
+owner still pauses the same active goal, verifies native idleness and saves the
+stopped barrier before the request settles. This handoff requires the same latched
+tool error and current provider/thread/turn; user cancellation, account invalidation
+and host-supplied native ownership keep their existing policies. It does not retry
+an effect or grant goal controls application-tool authority.
+
 After restart, call `inspectDelivery({ messageId })` for an actual authored Send
 or steering message. Codex checks that exact native receipt and recovers output
 through the original native turn owner when the saved thread and run establish
