@@ -13,6 +13,7 @@ import { createLocalConversationExecution } from "../localExecution.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
 import { codexCommandHookCommand } from "../commandWrapper.js";
 import { isCompletedEnvelopeTurn } from "../transcript.js";
+import { createInertCodexConversationBinding } from "../runtimeStateUpgrade.js";
 
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const goalValue = goal => goal ? {
@@ -222,7 +223,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       return native.runOwner.runDetachedConversation(sessionId, input, options);
     },
     async createBinding() {
-      return { threadId: "", workdir: await realpath(workdir), configRoot, executionId: "" };
+      return createInertCodexConversationBinding({ workdir: await realpath(workdir), configRoot });
     },
     async open({ binding, writeBinding, onFailure: reportFailure, conversation }) {
       const supplied = conversation?.native;

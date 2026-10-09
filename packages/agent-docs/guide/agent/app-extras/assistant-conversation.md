@@ -1758,6 +1758,24 @@ preflight without changing its saved state. Complete that operation with the
 previous release before upgrading; the runtime does not guess a new boundary.
 Application checkpoints and file restoration remain separate application actions.
 
+The pure `upgradeConversationRuntimeState({ metadata, conversationLog, retirement })`
+transform can accept an explicit Codex metadata retirement. The server-owned
+`retirement` object supplies string `operationId` and `successorSegmentId`, the exact
+`expectedSegmentId`, `expectedThreadId` and `expectedToolSchemaIdentity`, and trusted
+physical `workdir` and `configRoot` paths matching the saved binding. It retains the
+old predecessor and written history, and produces the same inert binding and
+seen/last-delivered reset as live fresh selection. Omission preserves the existing
+upgrade behavior; it never automatically retires an eligible-looking binding.
+
+This is only a metadata transform. It does not stop native work, inspect goals,
+verify accounts or filesystem authorization, exclude concurrent writers, or publish
+state. The application must establish those facts through its existing owners
+before a separately approved stopped-service numbered upgrade. Pending current
+requests/replacements, mismatched identities, reused IDs and unsupported formats
+refuse without changing input. Verified BEFORE metadata and stable IDs produce
+the same output; applying the old tuple to AFTER refuses. Publication backups and
+retry remain the application's upgrade-owner responsibility, with no lazy repair.
+
 The unreleased common runtime now validates its versioned metadata. Earlier local
 development records with an older runtime version fail with an explicit export/restart
 message; normal startup does not rewrite them. Consumer migration of published

@@ -1054,13 +1054,18 @@ Local functions
 ### `src/server/conversation/runtimeStateUpgrade.js`
 Exports
 - `hasUnfinishedConversationRewind(runtime)`
-- `upgradeConversationRuntimeState({ metadata, conversationLog })`
+- `createConversationRuntimeReplacement({ request, engine, configuration, reason, segmentId, continuity, seen, destination })`
+- `releaseConversationRuntimeBinding(state, pending, request, engine)`
+- `finishConversationRuntimeReplacement(state, { engine, selection, retireNative, pending, value })`
+- `createInertCodexConversationBinding({ workdir, configRoot })`
+- `upgradeConversationRuntimeState({ metadata, conversationLog, retirement })`
 Local functions
 - `object(value)`
 - `invalid(message)`
 - `validateSegment(segment)`
 - `nativeIdentity(segment)`
 - `inspectRequest(request, segment, version, warnings)`
+- `retireCodexBinding(runtime, retirement)`
 
 ### `src/server/conversation/storage.js`
 Exports

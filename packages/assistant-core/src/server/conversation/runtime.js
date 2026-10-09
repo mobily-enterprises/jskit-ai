@@ -10,7 +10,8 @@ import { createConversationStreams } from "./streams.js";
 import { createReentrantConversationStorage } from "./storage.js";
 import { createCodexConversationStore } from "./agentRun.js";
 import { codexAppServerTurnStateFromAgentRun } from "./codexTurn.js";
-import { hasUnfinishedConversationRewind } from "./runtimeStateUpgrade.js";
+import { hasUnfinishedConversationRewind, createConversationRuntimeReplacement,
+  releaseConversationRuntimeBinding, finishConversationRuntimeReplacement } from "./runtimeStateUpgrade.js";
 import { createServiceToolCatalog } from "../lib/serviceToolCatalog.js";
 import { createConversationTools } from "./tools.js";
 import { readAssistantResponseEnvelope } from "../lib/assistantToolLoop.js";
@@ -2016,12 +2017,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const continuity = destination ? { text: destination.continuity, attachments: destination.continuityAttachments || [] }
         : engine === "api" ? conversationContinuity({ history, briefing: input.briefing, maximumCharacters: maximumContinuity })
           : { text: undefined, attachments: [] };
-      pending = { request, engine, configuration: structuredClone(configuration),
+      pending = createConversationRuntimeReplacement({ request, engine, configuration: structuredClone(configuration),
         reason: selection ? state.engine === engine ? "model-change" : "engine-change" : input.reason,
-        segmentId: destination?.segmentId || randomUUID(),
-        continuity: continuity.text, continuityAttachments: continuity.attachments,
-        seen: destination ? destination.seen : engine === "api" ? conversationHistoryVersions(history) : {},
-        ...(destination ? { binding: destination.binding || null, submission: destination.request } : {}) };
+        segmentId: destination?.segmentId || randomUUID(), continuity,
+        seen: destination ? destination.seen : engine === "api" ? conversationHistoryVersions(history) : {}, destination });
     }
 
     function saveReplacement() {
@@ -2069,25 +2068,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               if (replacement && nativeIdentity(state) !== replacement.previous.conversationId) {
                 throw failure("The native predecessor identity changed before its binding was released.", "conversation_replacement_conflict");
               }
-              state.predecessors.push({ segmentId: state.segmentId, engine: state.engine,
-                configuration: state.configuration, binding: state.binding, seen: state.seen,
-                continuity: state.continuity, continuityAttachments: state.continuityAttachments, request: state.request,
-                successorId: pending.segmentId, replacement: request,
-                ...(pending.preparedAt ? { preparedAt: pending.preparedAt } : {}) });
-              Object.assign(state, { engine, configuration: pending.configuration, binding: pending.binding,
-                segmentId: pending.segmentId, continuity: pending.continuity, continuityAttachments: pending.continuityAttachments, seen: pending.seen });
-              if (pending.submission) state.request = pending.submission;
-              else delete state.request;
+              releaseConversationRuntimeBinding(state, pending, request, engine);
             },
             async write(value) {
-              if (value) {
-                if (engine !== "api") state.seen = value.engines[engine].seen;
-                state.lastEngine = value.lastEngine;
-              } else if (engine !== "api" &&
-                  (!selection || input.retireNative === true || engine === "opencode" && !pending.binding.sessionId)) {
-                state.lastEngine = "";
-              }
-              delete state.replacement;
+              finishConversationRuntimeReplacement(state, { engine, selection, retireNative: input.retireNative, pending, value });
               await transaction.writeMetadata(metadata);
             }
           });
