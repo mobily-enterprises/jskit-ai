@@ -1625,3 +1625,100 @@ test("completed OpenCode caller markers preserve ordinary native discovery witho
     assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
   } finally { await f.close(); }
 });
+
+
+test("completed OpenCode prepared reply preserves native receipt and publishes one plain final across reopen", async t => {
+  const value = { kind: "reply", text: "  Verified OpenCode reply.  ", toolName: "", arguments: "" };
+  const f = await completedOpenCodeFixture(t, { assistantResponses: [{ text: JSON.stringify(value) }] });
+  try {
+    const { createConversationTranscript } = await import("../src/server/conversation/transcript.js");
+    const transcript = createConversationTranscript({ storage: f.storage });
+    const plain = await transcript.writeConversationUserMessage("conversation", {
+      messageId: "opencode-product-user", text: "Actual product request", data: { original: true }
+    });
+    const receipt = await f.conversation.wake({ messageId: "opencode-internal-reply", text: "Give a reply" },
+      { excludedMessageIds: [plain.user.messageId] });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(raw.metadata.runtime.status, "complete");
+    assert.equal(raw.metadata.runtime.completedEnvelope, true);
+    assert.equal(raw.assistant.text, JSON.stringify(value));
+    const binding = await f.binding();
+    const nativeBefore = JSON.parse(await readFile(binding.databasePath, "utf8")).find(row => row.id === binding.sessionId);
+    const prompt = (await f.trace()).find(row => row.url?.endsWith("/prompt_async"));
+    const authored = nativeBefore.messages.find(row => row.info.role === "user" && row.info.id === prompt.body.messageID);
+    assert.ok(authored);
+    const answer = nativeBefore.messages.find(row => row.info.role === "assistant" && row.info.parentID === authored.info.id);
+    assert.ok(answer);
+    assert.equal(answer.info.finish, "stop");
+    assert.equal(answer.parts[0].text, JSON.stringify(value));
+    assert.equal(raw.assistant.messageId, `${receipt.turnId}:${answer.info.id}:assistant`);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const first = await f.prepare(receipt), second = await f.prepare(receipt);
+    const [one, two] = await Promise.all([first.publishReply({ turnId: plain.turnId }), second.publishReply({ turnId: plain.turnId })]);
+    assert.deepEqual(two, one);
+    assert.equal(one.assistant.text, "Verified OpenCode reply.");
+    assert.deepEqual(one.user, plain.user);
+    assert.equal(one.metadata?.runtime?.engine, undefined);
+    const { conversationMessageIdentity, conversationMessageVersion } = await import("../src/server/conversation/continuity.js");
+    const assistantIdentity = conversationMessageIdentity(plain.turnId, one.assistant);
+    const after = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(after.runtime.seen, { ...before.runtime.seen,
+      [assistantIdentity]: conversationMessageVersion(one.assistant, { includeData: true }) });
+    const savedRaw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.deepEqual(savedRaw, { ...raw, metadata: { ...raw.metadata,
+      runtime: { ...raw.metadata.runtime, publishedReplyTurnId: plain.turnId } } });
+    await f.reopen();
+    assert.deepEqual(await (await f.prepare(receipt)).publishReply({ turnId: plain.turnId }), one);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), savedRaw);
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, after.runtime.seen);
+    const restored = await f.binding();
+    for (const key of ["sessionId", "accountIdentity", "workdir", "directory", "databasePath", "runtimeDirectory"]) {
+      assert.equal(restored[key], binding[key]);
+    }
+    assert.deepEqual(JSON.parse(await readFile(restored.databasePath, "utf8")).find(row => row.id === restored.sessionId).messages,
+      nativeBefore.messages, "Publication and cold replay preserve the actual native input/answer identities and history");
+    assert.deepEqual((await f.conversation.read()).conversationLog.map(turn => turn.assistant?.text), ["Verified OpenCode reply."]);
+    const trace = await f.trace();
+    assert.equal(trace.filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+    assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed OpenCode prepared reply rechecks the original fresh account before publication", async t => {
+  const value = { kind: "reply", text: "Verified OpenCode reply.", toolName: "", arguments: "" };
+  const f = await completedOpenCodeFixture(t, { assistantResponses: [{ text: JSON.stringify(value) }] });
+  try {
+    const { createConversationTranscript } = await import("../src/server/conversation/transcript.js");
+    const transcript = createConversationTranscript({ storage: f.storage });
+    const plain = await transcript.writeConversationUserMessage("conversation", {
+      messageId: "opencode-refused-product-user", text: "Actual product request"
+    });
+    const receipt = await f.conversation.wake({ messageId: "opencode-account-reply", text: "Give a reply" },
+      { excludedMessageIds: [plain.user.messageId] });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(raw.metadata.runtime.status, "complete");
+    assert.equal(raw.assistant.text, JSON.stringify(value));
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const resolutions = f.accountResolutions();
+    f.setKey("changed-opencode-fixture-account");
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await assert.rejects(prepared.publishReply({ turnId: plain.turnId }), /different account binding/);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(plain.turnId)), plain);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), raw);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+      }
+      assert.ok(f.accountResolutions() >= resolutions + 2, "Publication uses the actual fresh connection resolver, not the prepared cached account");
+      const trace = await f.trace();
+      assert.equal(trace.filter(row => row.url?.endsWith("/prompt_async")).length, 1);
+      assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
+      assert.equal(f.effects(), 0);
+    } finally { f.setKey("test-key"); }
+  } finally { await f.close(); }
+});
