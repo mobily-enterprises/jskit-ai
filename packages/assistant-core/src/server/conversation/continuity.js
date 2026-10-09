@@ -15,7 +15,13 @@ export function conversationMessageVersion(message, { includeData = false } = {}
 
 /** Keep native delivery and its history cursor in the same durable record. */
 export function createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {},
-  captureContext = false, applicationMessages = false }) {
+  captureContext = false, applicationMessages = false, maximumInitialMessages = 30,
+  maximumInitialMessageCharacters = Infinity }) {
+  if (!Number.isSafeInteger(maximumInitialMessages) || maximumInitialMessages < 0 ||
+      maximumInitialMessageCharacters !== Infinity &&
+      (!Number.isSafeInteger(maximumInitialMessageCharacters) || maximumInitialMessageCharacters < 1)) {
+    throw new TypeError("Initial native history requires a non-negative message limit and a positive text limit.");
+  }
   const {
     label = "Conversation changeover",
     applicationName = "the application",
@@ -169,7 +175,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
     const switched = value.lastEngine !== engineId;
     // A new native conversation gets the recent bubbles. A returning one gets
     // every missed/edited bubble, even if the edit is older than that window.
-    const catchup = returning ? changed : messages.slice(-30);
+    const catchup = returning ? changed : maximumInitialMessages ? messages.slice(-maximumInitialMessages) : [];
     let pending = binding.pending;
     if (pending && pending.messageId !== input.messageId) {
       delete binding.pending;
@@ -187,7 +193,10 @@ export function createConversationChangeover({ state, transcript, agent, identit
         ...(handover ? ["This is a fresh native context. Earlier native history remains separate. The saved continuity briefing follows:",
           JSON.stringify({ handover })] : []),
         JSON.stringify({ messages: catchup.map(({ version, originalVersion, receipt, ...message }) => ({
-          ...message, ...(binding.seen[message.id] ? { corrected: true } : {})
+          ...message,
+          ...(!returning && typeof message.text === "string" && message.text.length > maximumInitialMessageCharacters
+            ? { text: message.text.slice(0, maximumInitialMessageCharacters) } : {}),
+          ...(binding.seen[message.id] ? { corrected: true } : {})
         })), removedMessageIds: deleted }),
         `[End ${label}]`,
         "",

@@ -2899,3 +2899,56 @@ test("native changeover retries retain original application data including its a
     assert.deepEqual(sent.data, data);
   }
 });
+
+test("initial native seed limits preserve generic history, full returning corrections and delivery ownership", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const attachment = { attachmentId: "retained-file", name: "retained.txt" };
+  const messages = Array.from({ length: 31 }, (_, index) => ({
+    id: `stored-${index}`, messageId: `authored-${index}`, role: index % 2 ? "assistant" : "user",
+    text: `${index}:` + "x".repeat(2_100), version: `version-${index}`, engineId: "claude",
+    ...(index === 30 ? { attachments: [attachment] } : {})
+  }));
+  const original = structuredClone(messages);
+  const words = "My current words remain complete: " + "y".repeat(2_100);
+  const input = { messageId: "current-input", message: words, displayAttachments: [attachment], data: { reference: "current" } };
+  for (const scenario of ["generic", "one-current", "two-current", "wake", "empty", "returning"]) {
+    const allowance = scenario === "two-current" ? 22 : scenario === "wake" ? 24 : scenario === "empty" ? 0 : 23;
+    let value = { lastEngine: "claude", engines: { codex: { seen: scenario === "returning"
+      ? { "stored-0": "old-version", removed: "removed-version" } : {} } } };
+    let sent;
+    const changeover = createConversationChangeover({
+      state: { async read() { return value; }, async write(next) { value = next; } },
+      transcript: { async hasMessage() { return false; } },
+      agent: { async sendMessage(actual) { sent = actual; return { ok: true, delivered: true }; } },
+      captureContext: true,
+      ...(scenario !== "generic" ? { maximumInitialMessages: allowance, maximumInitialMessageCharacters: 2_000 } : {})
+    });
+    assert.equal((await changeover.send({ engineId: "codex", messages, input })).delivered, true);
+    const carried = sent.contextText.split("\n").filter(line => line.startsWith("{")).map(JSON.parse)[0];
+    const selected = scenario === "returning" ? messages : scenario === "empty" ? []
+      : messages.slice(scenario === "generic" ? -30 : -allowance);
+    assert.deepEqual(carried.messages.map(message => [message.id, message.text]), selected.map(message => [message.id,
+      scenario !== "generic" && scenario !== "returning" ? message.text.slice(0, 2_000) : message.text]));
+    assert.equal(carried.messages.some(message => message.messageId === input.messageId), false);
+    if (scenario !== "empty") assert.deepEqual(carried.messages.at(-1).attachments, [attachment]);
+    assert.deepEqual(sent.contextAttachments, scenario === "empty" ? [] : [attachment]);
+    assert.deepEqual(sent.displayAttachments, input.displayAttachments);
+    assert.deepEqual(sent.data, input.data);
+    assert.ok(sent.message.endsWith(words));
+    assert.deepEqual(carried.removedMessageIds, scenario === "returning" ? ["removed"] : []);
+    if (scenario === "returning") assert.equal(carried.messages[0].corrected, true);
+    assert.deepEqual(value.engines.codex.seen, Object.fromEntries(messages.map(message => [message.id, message.version])));
+    assert.equal(value.engines.codex.pending, undefined);
+    assert.equal(value.lastEngine, "codex");
+    assert.deepEqual(messages, original, "clipping a fresh seed must not edit stored history or its fingerprints");
+  }
+});
+
+test("initial native seed options refuse invalid limits before delivery", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  for (const name of ["maximumInitialMessages", "maximumInitialMessageCharacters"]) {
+    for (const value of [...(name === "maximumInitialMessageCharacters" ? [0] : []), -1, 1.5, "24", NaN]) {
+      assert.throws(() => createConversationChangeover({ [name]: value }), /non-negative message limit and a positive text limit/);
+    }
+  }
+});

@@ -799,7 +799,7 @@ Exports
 Exports
 - `conversationMessageIdentity(turnId, message)`
 - `conversationMessageVersion(message, { includeData = false } = {})`
-- `createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {}, captureContext = false, applicationMessages = false })`
+- `createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {}, captureContext = false, applicationMessages = false, maximumInitialMessages = 30, maximumInitialMessageCharacters = Infinity })`
 - `conversationHistoryVersions(history)`
 - `conversationRequestText({ text, origin, data })`
 - `conversationContinuity({ history, briefing = "", maximumCharacters = 128_000 })`

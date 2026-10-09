@@ -339,9 +339,16 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   function nativeChangeover(entry, context, request, sendMessage) {
     let observation;
+    const initialWindow = limits.maxInitialNativeHistoryMessages;
+    if (initialWindow !== undefined && (!Number.isSafeInteger(initialWindow) || initialWindow < 0)) {
+      throw new TypeError("Initial native history requires a non-negative message limit.");
+    }
     return createConversationChangeover({
       state: entry.conversation?.state || changeoverState(entry, request),
       captureContext: !entry.conversation, applicationMessages: !entry.conversation,
+      maximumInitialMessages: initialWindow === undefined ? undefined
+        : Math.max(0, initialWindow - (request?.input.origin === "user" ? 1 : 0)),
+      maximumInitialMessageCharacters: limits.maxInitialNativeHistoryMessageCharacters,
       presentation: entry.conversation?.presentation || { unconfirmedCode: "conversation_delivery_uncertain",
         unconfirmedMessage: "The previous submission has uncertain delivery. Retry this message to check its native receipt; it will not be resent automatically." },
       transcript: entry.conversation?.transcript || {

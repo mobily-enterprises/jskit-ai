@@ -1655,6 +1655,20 @@ corrections are included, even outside the recent-history window; if they exceed
 with a briefing. Nothing is silently dropped. The application remains responsible
 for authorizing edits to its transcript.
 
+Fresh native history uses up to 30 recent messages by default, without a
+per-message text cap. A consumer with an established shorter seed can set
+server-owned `limits.maxInitialNativeHistoryMessages` to a non-negative integer and
+`limits.maxInitialNativeHistoryMessageCharacters` to a positive integer. A configured
+message window includes the current authored user message at the single-request
+boundary: a window of 24 supplies up to 23 prior messages for a user request and
+24 for an application wake. A zero effective allowance supplies no prior messages.
+The default, unconfigured window still supplies up to 30 prior messages. These
+limits apply only to a fresh native context's quoted history. They do not shorten
+the current user input, edit stored messages or their delivery fingerprints, or
+truncate a returning engine's missed/edited messages. Attachment references and
+removed-message identities retain their existing delivery ownership. The direct
+API's initial continuity policy is separate and is unchanged by these limits.
+
 An application whose established selection policy creates a fresh native
 conversation can pass `retireNative: true` to `select()`. This uses the same
 selection transaction and allocates a new binding even for a compatible model
@@ -1692,8 +1706,9 @@ cleanup, retains the predecessor's native binding and installs the successor.
 The first native submission carries the saved briefing and bounded recent written
 history; later native turns do not repeat that history. The API driver supplies
 the same continuity with its subsequent request history. Visible user messages
-remain exactly the submitted text. Carry-over includes up to 30 recent messages,
-with each text bounded to 2,000 characters and truncation/omission marked. The
+remain exactly the submitted text. API carry-over includes up to 30 recent messages,
+with each text bounded to 2,000 characters and truncation/omission marked. Native
+initial history uses the consumer limits described above. The
 combined budget is `limits.maxContinuityCharacters` (128,000 by default); an
 oversized supplied briefing fails before changing the binding.
 
