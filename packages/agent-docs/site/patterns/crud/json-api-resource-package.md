@@ -62,8 +62,7 @@ The example's migration belongs to the application root (`example/migrations/`)
 and is a `.cjs` file. The books package does not declare a migration directory.
 For a package-owned migration instead, declare its actual directory in
 `package.json#jskit.migrations.directories`, as described in the database-layer
-guide. Use the listed paths when reading this example; for other patterns,
-inspect their example tree before assuming a file location or extension.
+guide.
 
 `BooksFeature.js` is deliberately tiny: it binds the readable resource contract
 to the framework module and exports the resulting provider.

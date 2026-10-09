@@ -58,13 +58,17 @@ installed packages directly, edit app-owned files deliberately, and use npm
 for dependency installation.
 
 Finish a dependency installation before inspecting the installed package or
-changing the same manifest/lockfile; do not overlap npm operations on one app. Import
-subpaths are package `exports` aliases, not physical file paths: a package may
-map `client/...` to `src/client/...` and keep shared code outside `src`. If source
-inspection is still needed, resolve the import with the installed `package.json`
-`exports` or `import.meta.resolve()`, or locate the file with `rg --files` before
-opening it. Do not guess a package's directory layout. Use the documented option
-when the guide or pattern already explains the required behaviour.
+changing the same manifest/lockfile; do not overlap npm operations on one app.
+
+**Discover the file, then read it. Do not infer its location from a convention.**
+Use paths identified in the current tree, installed metadata, or the relevant
+example. Before inspecting an unfamiliar package, use `rg --files` on its
+observed directory and select the relevant files from that inventory; do not
+try guessed source directories. Import subpaths are `exports` aliases, not
+physical paths: resolve them through installed `package.json#exports` or
+`import.meta.resolve()` when following an import. This rule applies to every
+package and task, not only CRUDs. Use the documented option when the guide or
+pattern already explains the behaviour instead of inspecting internals.
 
 ## Implement a change
 

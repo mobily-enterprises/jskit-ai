@@ -38,6 +38,21 @@ their own exact versions in dependency declarations; do not replace them with
 The copied files immediately belong to the application. Do not add pattern
 receipts, generator provenance, completion ledgers, or hidden operation state.
 
+## Discover files before reading them
+
+Discover the file, then read it. Do not infer its location from a convention.
+Use paths identified in the current tree, installed metadata, or the relevant
+example. When inspecting an unfamiliar package, list its files with
+`rg --files <observed-package-directory>` and select the relevant paths from
+that inventory before reading or searching source. Do not try guessed source
+directories. An import subpath is an `exports` alias, not necessarily a physical
+path; resolve it through the installed `package.json#exports` or
+`import.meta.resolve()` when following an import.
+
+This applies to every package and task, including third-party dependencies.
+Use a documented option directly when it already answers the question; source
+inspection is a fallback for a concrete unresolved fact.
+
 ## Install and compose capabilities
 
 Install selected capabilities together at the exact versions in the matching
