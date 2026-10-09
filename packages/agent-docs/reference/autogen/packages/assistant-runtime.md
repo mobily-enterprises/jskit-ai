@@ -45,6 +45,7 @@ Local functions
 - `compareTurnIds(left, right)`
 - `isQuestionConfiguration(value)`
 - `draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "")`
+- `resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking })`
 - `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled })`
 - `useBoundedTask({ command, endpoint, scope, input, result, onResult }, { active, data, presentation })`
 - `conversationBindingSetup({ socket, boundedTask = null } = {})`
