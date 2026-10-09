@@ -1847,6 +1847,15 @@ a call; interrupted streams do not imply permission to execute or retry it.
 Output limits count raw provider text, including hidden blocks. Code indentation
 and blank lines remain intact in ordinary API answers.
 
+An application can set server-owned `limits.maxApiToolProgressCharacters` to a
+positive safe integer to bound the decoded text accompanying confirmed API tool
+calls. The API driver rejects oversized progress before executing any call from
+that response; it does not clip the text or ask the model to repeat the operation.
+Omit the limit to retain the original API policy. It does not change final-answer
+limits or the original sixteen tool rounds and three recovery passes. This option
+applies only to the direct API carrier; native tool progress needs association
+with its exact admitted native use at that engine's execution boundary.
+
 An application can additionally set server-owned `limits.maxFinalReplyCharacters`
 to a positive safe integer. This bounds completed, decoded assistant replies in
 JavaScript string characters, independently of raw transport and application-tool
