@@ -26,6 +26,22 @@ The normal layer split is:
 2. `repository.js`: add internal-only filter keys such as visibility scope, or call `listFilterContract.toJsonRestQuery(query)` for structured filters
 3. provider/resource registration: merge backend filter behavior into JSON REST with `createJsonRestResourceScopeOptions(resource, { searchSchema })`
 
+### Shared list and HTTP transport
+
+`useCrudListScreen()` enables query-backed search. Configure
+`resource.searchSchema.q` when composing the initial resource so its visible
+Search control actually filters storage. Narrow the example's `oneOf` fields
+when adapting a resource; do not drop search while retaining the control.
+
+Names in this pattern's schemas and internal queries are plain keys such as
+`q` and `archived`. Public JSON:API HTTP queries encode them as `filter[q]`
+and `filter[archived]`. The browser page route may still use `?q=...`; it is
+not the API transport. Shared CRUD clients perform the conversion. Direct
+HTTP clients use, for example, `params: { "filter[q]": "Ada" }` against the
+actual scoped API URL. Standard CRUD query validators already accept `q`
+through this transport; only additional public filter keys need their own
+filter validator. Verify matching and nonmatching results plus clearing Search.
+
 ## Decision Rules
 
 Use `search: true` on a schema field when:

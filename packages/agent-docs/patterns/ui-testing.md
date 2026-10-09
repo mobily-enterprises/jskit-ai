@@ -18,6 +18,11 @@ Rules:
   app-owned. Do not duplicate base-URL, web-server, or storage-state logic in
   individual tests.
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
+- After clicking a client-side navigation control, wait for its destination
+  with `await expect(page).toHaveURL(...)` before reloading. Awaiting the click
+  alone does not wait for Vue Router to complete. Contextual Back tests must
+  reach the form before reload, then assert the original list URL; direct entry
+  checks the configured fallback separately. Do not replace this wait with sleeps.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
 - Vibe64 supplies an authenticated context through `VIBE64_PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.
 - Do not install a browser when the environment provides a managed browser runner.
@@ -32,6 +37,10 @@ Rules:
   validation and persistence** example: assert the visible configured error,
   retained form, accepted save and reload persistence. Assert `aria-invalid`
   only when the selected field implements that contract.
+- Include the shared list's Search control in the initial feature flow: prove
+  matching rows, excluded rows and clearing the query. Raw JSON:API requests
+  send `filter[q]`; page-route and internal queries use plain `q`. See the CRUD
+  guide's **Wire list search with the initial resource** example.
 
 ## Keep startup incremental
 

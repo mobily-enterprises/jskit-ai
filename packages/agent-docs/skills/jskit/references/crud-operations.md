@@ -79,6 +79,15 @@ const bookResource = defineCrudResource({
         create: { required: true }
       }
     }
+  },
+  searchSchema: {
+    q: {
+      type: "string",
+      oneOf: ["title"],
+      filterOperator: "like",
+      splitBy: " ",
+      matchAll: true
+    }
   }
 });
 ```
@@ -179,7 +188,10 @@ For the public title-only Books variant above, using the pattern's
 surface:
 
 ```ts
-await page.goto("/books/new");
+await page.goto("/books");
+await page.getByRole("link", { name: "Add book", exact: true }).filter({ visible: true }).first().click();
+await expect(page).toHaveURL(/\/books\/new$/);
+await page.reload();
 const title = page.getByRole("textbox", { name: "Title", exact: true });
 const save = page.getByRole("button", { name: "Save book", exact: true });
 await title.fill("");
@@ -195,10 +207,55 @@ await page.reload();
 await expect(page.getByText("A saved book", { exact: true }).filter({ visible: true })).toBeVisible();
 ```
 
+For client-side routing, a click finishing does not prove the route has changed.
+Before reloading after a navigation control, wait for the destination with
+`await expect(page).toHaveURL(...)`, as above. Otherwise reload can reopen the
+origin page and a later form or Back locator waits on the wrong screen. Use the
+actual destination URL, including required context; do not add fixed sleeps or
+increase timeouts to hide this race. For a contextual Back check, wait for the
+form route, reload, click Back, and assert the original list URL. Test direct
+entry separately against the configured fallback.
+
 Keep the application's existing browser configuration and isolated fixtures.
 Adapt the route, labels and configured error message to that application's
 contract, and retain compact, medium and expanded layout coverage. Direct API
 checks additionally prove rejected input is not persisted.
+
+## Wire list search with the initial resource
+
+`useCrudListScreen()` enables query search and the shared list renders a Search
+box. When using that screen, configure `resource.searchSchema.q` with the
+searchable fields from the start, as in the title-only Books resource above.
+Showing a Search box alone does not implement storage filtering. Keep the
+mapping in the resource; do not add page-local filtering or duplicate request
+code. The full Books source example maps `q` to title, author and notes; narrow
+it when adapting the example to fewer fields.
+
+The browser page's route query and internal CRUD query use plain `q`. The
+JSON:API HTTP transport uses `filter[q]`. Shared CRUD clients encode and decode
+this automatically. Raw HTTP/API tests must send the transport key themselves:
+
+```ts
+const headers = { Accept: "application/vnd.api+json" };
+const matches = await request.get("/api/books", {
+  headers, params: { "filter[q]": "A saved book" }
+});
+expect(matches.status()).toBe(200);
+expect((await matches.json()).data.some(book => book.attributes.title === "A saved book")).toBe(true);
+
+const noMatches = await request.get("/api/books", {
+  headers, params: { "filter[q]": "no-matching-fixture-title" }
+});
+expect(noMatches.status()).toBe(200);
+expect((await noMatches.json()).data).toEqual([]);
+```
+
+Use controlled fixtures with a known matching and nonmatching value. A matching
+row alone does not prove search works: an unfiltered response also includes it.
+In the browser, fill Search, assert the expected visible rows and excluded rows,
+then clear it and assert the list returns. Verify route/reload behaviour when
+the screen synchronizes search to the route. Add these checks to the initial
+create/list flow rather than discovering an unwired control at final review.
 
 ## Direct API tests use JSON:API documents
 
