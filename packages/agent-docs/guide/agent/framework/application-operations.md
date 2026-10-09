@@ -43,6 +43,20 @@ their own exact versions in dependency declarations; do not replace them with
 The copied files immediately belong to the application. Do not add pattern
 receipts, generator provenance, completion ledgers, or hidden operation state.
 
+## Implement before investigating internals
+
+Use the relevant public API contract and one matching example to build the
+smallest working slice, then verify its observable result. When the documented
+contract answers the task, stop reading and implement it. Do not trace framework
+or dependency internals to confirm documented options, routing, package
+discovery, transport, or lifecycle behaviour before trying that API.
+
+Implementation source is for a concrete failure or an API question the guide
+and example cannot answer. Name that failure or question before investigating,
+inspect only the relevant owner, and return to implementation and verification
+as soon as it is resolved. Do not tour a dependency tree for confidence. This
+applies to all features and dependencies, not only CRUD screens.
+
 ## Discover files before reading them
 
 Discover the file, then read it. Do not infer its location from a convention.

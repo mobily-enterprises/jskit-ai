@@ -20,6 +20,15 @@ patterns, or treat it as evidence for a different implementation through the
 same public APIs. If its owner runtime package is already installed at a
 different version, prefer that package's version-matched pattern.
 
+**Implement from the documented contract, then verify.** Once the relevant
+guide and example answer the task, stop reading and build the smallest working
+slice. Do not trace framework or dependency internals to confirm documented
+options, routing, package discovery, transport, or lifecycle behaviour before
+trying the documented API. Inspect implementation source only for a concrete
+failure or an API question the guide and example cannot answer. Name that
+failure or question first, inspect only its relevant owner, then return to
+implementation and verification. Do not tour a dependency tree for confidence.
+
 Do not write or consult receipts, provenance, completion ledgers, or other
 durable bookkeeping for pattern or authoring-tool runs. Current source,
 manifests, migrations, tests, and runtime behaviour are the evidence.
