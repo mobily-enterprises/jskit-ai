@@ -1622,7 +1622,7 @@ async function completedEnvelopeFixture(t, options = {}) {
     async complete(messageId = "completed-response") {
       const receipt = await conversation.wake({ messageId, text: "Read a number" });
       const state = await conversation.wait();
-      const turn = state.conversationLog.find(row => row.turnId === receipt.turnId);
+      const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
       assert.equal(turn.metadata.runtime.status, "complete", state.error);
       assert.equal(turn.metadata.runtime.completedEnvelope, true);
       assert.equal(turn.assistant.text, JSON.stringify(completedEnvelopeValue));
@@ -2187,6 +2187,170 @@ test("completed Claude native-tool tracking is part of the prepared immutable re
       await tx.updateTurnMetadata(receipt.turnId, { runtime: { ...turn.metadata.runtime, nativeToolAttempt: true } });
     });
     await assert.rejects(executeCompletedEnvelope(prepared), /completed response identity changed/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Claude presentation pages hide internal carriers while preserving raw completion and current errors", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", tx => tx.appendMessage("000001", {
+      role: "user", messageId: "product-a", text: "Visible A", at: "2026-10-10T00:00:00.000Z"
+    }));
+    const first = await f.complete("internal-a");
+    await f.storage.write("conversation", tx => tx.appendMessage("000003", {
+      role: "user", messageId: "product-b", text: "Visible B", at: "2026-10-10T00:00:01.000Z"
+    }));
+    const last = await f.complete("internal-b");
+    const all = await f.conversation.read();
+    assert.equal(all.status, "ready");
+    assert.deepEqual(all.conversationLog.map(turn => turn.user.text), ["Visible A", "Visible B"]);
+    const page = await f.conversation.read({ limit: 1, presentation: false });
+    assert.deepEqual(page.conversationLog.map(turn => turn.turnId), ["000003"]);
+    assert.equal(page.pagination.totalTurnCount, 2);
+    assert.equal(page.pagination.count, 1);
+    assert.equal(page.pagination.hasMoreBefore, true);
+    assert.equal(page.pagination.nextBeforeTurnId, "000003");
+    const older = await f.conversation.read({ limit: 1, beforeTurnId: page.pagination.nextBeforeTurnId });
+    assert.deepEqual(older.conversationLog.map(turn => turn.turnId), ["000001"]);
+    assert.equal(older.pagination.hasMoreBefore, false);
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(last.turnId);
+      await tx.updateTurnMetadata(last.turnId, { runtime: { ...turn.metadata.runtime, error: "Exact private completion error" } });
+    });
+    assert.equal((await f.conversation.read({ limit: 1, beforeTurnId: "000003" })).error, "Exact private completion error");
+    for (const receipt of [first, last]) {
+      const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(raw.metadata.runtime.status, "complete");
+      assert.equal(raw.metadata.runtime.completedEnvelope, true);
+      assert.equal(raw.assistant.text, JSON.stringify(completedEnvelopeValue));
+    }
+    assert.equal((await f.storage.read("conversation", tx => tx.listTurnIds())).length, 4);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude wake exclusions retain all product fingerprints only after the actual internal admission", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", async tx => {
+      for (const [turnId, messageId, text] of [["000001", "batch-a", "Product A"], ["000002", "batch-b", "Product B"]]) {
+        await tx.appendMessage(turnId, { role: "user", messageId, text, at: "2026-10-10T00:00:00.000Z" });
+      }
+    });
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, {});
+    const receipt = await f.conversation.wake({ messageId: "internal-batch", text: "Read a number" },
+      { excludedMessageIds: ["batch-a", "batch-b"] });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready");
+    assert.deepEqual(state.conversationLog.map(turn => turn.user.messageId), ["batch-a", "batch-b"]);
+    const { claudeNativeMessageId } = await import("../src/server/conversation/claudeTurn.js");
+    const nativeMessageId = claudeNativeMessageId(receipt.messageId);
+    const frames = (await f.trace()).filter(row => row.frame?.type === "user" && row.frame.uuid === nativeMessageId);
+    assert.equal(frames.length, 1, "The original Claude ID mapper identifies exactly one actual admitted native input");
+    const frame = frames[0].frame;
+    assert.equal(frame.uuid, nativeMessageId);
+    assert.doesNotMatch(frame.message.content, /Product A|Product B/);
+    const { runtime } = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.ok(runtime.seen["000001/user/"]);
+    assert.ok(runtime.seen["000002/user/"]);
+    assert.equal(runtime.request, undefined);
+    const internal = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(internal.system.messageId, "internal-batch");
+    assert.equal(internal.metadata.runtime.completedEnvelope, true);
+    assert.equal(internal.metadata.runtime.excludedMessageIds, undefined, "The capture belongs to the private pending request, not a permanent receipt promotion");
+    assert.equal(internal.system.data, undefined);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude retained wake exclusions cannot change on a same-ID retry or backfill old reservations", async t => {
+  const lostEvent = conversationRequestText({ text: "lost", origin: "application" });
+  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { lost: lostEvent } });
+  try {
+    const options = { excludedMessageIds: ["batch-a"] };
+    await assert.rejects(f.conversation.wake({ messageId: "lost-exclusions", text: "lost" }, options), /not acknowledged/);
+    options.excludedMessageIds.push("batch-b");
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(before.runtime.request.excludedMessageIds, ["batch-a"]);
+    assert.equal(before.runtime.request.attempted, true);
+    assert.deepEqual(before.runtime.seen, {});
+    const visible = await f.conversation.read();
+    assert.equal(visible.status, "unconfirmed");
+    assert.equal(visible.pendingRequest, null);
+    assert.deepEqual(visible.conversationLog, []);
+    await f.reopen();
+    const retained = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(retained.runtime.request.excludedMessageIds, before.runtime.request.excludedMessageIds);
+    assert.deepEqual(retained.runtime.request.seen, before.runtime.request.seen);
+    assert.equal(retained.runtime.request.message, before.runtime.request.message);
+    await assert.rejects(f.conversation.wake({ messageId: "lost-exclusions", text: "lost" }, options),
+      error => error.code === "conversation_message_conflict");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, retained.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    await assert.rejects(f.conversation.wake({ messageId: "different-exclusions", text: "Read a number" }, { excludedMessageIds: ["batch-a"] }),
+      error => ["conversation_delivery_uncertain", "conversation_not_steerable"].includes(error.code));
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, retained.runtime.request);
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "old-exclusions", origin: "application", text: "Read a number", attachments: [],
+        at: "2026-10-10T00:00:00.000Z", attempted: false };
+      await tx.writeMetadata(metadata);
+    });
+    const old = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.conversation.wake({ messageId: "old-exclusions", text: "Read a number" }, { excludedMessageIds: ["batch-a"] }),
+      error => error.code === "conversation_message_conflict");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, old.runtime.request);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Claude subscribers keep trusted raw carriers while human reads omit private streams and pending input", async t => {
+  const f = await completedEnvelopeFixture(t);
+  const events = [];
+  const observations = [];
+  await f.conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "message" && event.completedEnvelope === true) observations.push(f.conversation.read());
+  });
+  try {
+    const receipt = await f.complete();
+    const raw = events.filter(event => event.type === "message" && event.status === "complete");
+    assert.ok(raw.some(event => event.text === JSON.stringify(completedEnvelopeValue) && event.completedEnvelope === true));
+    assert.ok(events.some(event => event.type === "message" && event.status === "inProgress" && event.completedEnvelope === true));
+    assert.ok(observations.length);
+    for (const state of await Promise.all(observations)) {
+      assert.deepEqual(state.conversationLog, []);
+      assert.equal(state.pendingRequest, null);
+      assert.deepEqual(state.streaming.messages, []);
+    }
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).assistant.text,
+      JSON.stringify(completedEnvelopeValue));
+    await f.conversation.send({ messageId: "ordinary-data", text: "Hello", data: {
+      completedEnvelope: true, excludedMessageIds: ["ordinary-data"]
+    } });
+    const ordinary = await f.conversation.wait();
+    assert.equal(ordinary.conversationLog.length, 1);
+    assert.equal(ordinary.conversationLog[0].metadata.runtime.completedEnvelope, undefined);
+    assert.deepEqual(ordinary.conversationLog[0].user.data, { completedEnvelope: true, excludedMessageIds: ["ordinary-data"] });
+    assert.ok(events.some(event => event.type === "message" && event.status === "complete" && event.completedEnvelope === undefined));
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude wake rejects invalid private exclusions without creating a native reservation", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (const excludedMessageIds of [null, [""], [" "], ["x".repeat(129)], ["duplicate", "duplicate"], [1]]) {
+      await assert.rejects(f.conversation.wake({ messageId: "invalid-exclusions", text: "Read a number" }, { excludedMessageIds }),
+        error => error.code === "conversation_invalid_message");
+      assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+    }
+    const trace = await f.trace().catch(error => { if (error.code === "ENOENT") return []; throw error; });
+    assert.equal(trace.filter(row => row.frame?.type === "user").length, 0);
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });

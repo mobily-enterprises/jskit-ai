@@ -445,3 +445,63 @@ test("a single pending native delta resolves only its captured same request at e
       nativeIdentity, text: "Repeat", role: "commentary" })).completedMessages, undefined);
   }
 });
+
+
+test("native envelope stream markers come only from exact current pending or authored metadata", async () => {
+  for (const selected of ["pending", "authored", "foreign", "ordinary"]) {
+    const f = await fixture();
+    const transcript = createConversationTranscript({ storage: f.storage, applicationTurns: true });
+    const store = createCodexConversationStore({ storage: f.storage, scope, segmentId: "segment-one",
+      isCurrent: () => true, transcript, streams: createConversationStreams() });
+    const nativeIdentity = { threadId: "native-thread", turnId: "native-turn" };
+    await f.storage.write(scope, async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request.origin = "application";
+      metadata.runtime.request.text = "Original internal prompt";
+      if (selected !== "ordinary") metadata.runtime.request.completedEnvelope = true;
+      await tx.writeMetadata(metadata);
+    });
+    if (selected === "authored") await store.writeConversationUserMessage(scope, {
+      messageId: "authored-request", nativeIdentity, authoredRequest: { messageId: "authored-request", origin: "application", text: "Original internal prompt" }
+    });
+    await store.writeAgentRunEvent(scope, runId, { patch: { state: "active", providerThreadId: nativeIdentity.threadId,
+      providerTurnId: nativeIdentity.turnId, outerTurnId: "authored-request" } });
+    const stream = await store.updateConversationStream(scope, { nativeIdentity: selected === "foreign"
+      ? { ...nativeIdentity, turnId: "foreign-turn" } : nativeIdentity,
+      turnId: "native-thread:native-turn", messageId: "native-partial", text: "Partial internal JSON",
+      completedEnvelope: true, data: { completedEnvelope: true } });
+    assert.equal(stream.messages[0].completedEnvelope, ["pending", "authored"].includes(selected) ? true : undefined);
+    assert.equal(Object.hasOwn(stream.messages[0], "turnId"), false);
+    assert.equal(JSON.stringify(stream).includes("authored-request"), false);
+    if (selected === "authored") {
+      const completed = await store.completeConversationStreamMessage(scope, "native-partial", { nativeIdentity, text: "Exact internal final" });
+      assert.equal(completed.completedMessages[0].completedEnvelope, true);
+      assert.equal(completed.completedMessages[0].text, "Exact internal final");
+    }
+  }
+});
+
+test("marked native pending stream completion cannot borrow a successor's authored receipt", async () => {
+  const f = await fixture();
+  const transcript = createConversationTranscript({ storage: f.storage, applicationTurns: true });
+  const store = createCodexConversationStore({ storage: f.storage, scope, segmentId: "segment-one",
+    isCurrent: () => true, transcript, streams: createConversationStreams() });
+  const nativeIdentity = { threadId: "native-thread", turnId: "native-turn" };
+  await f.storage.write(scope, async tx => {
+    const metadata = await tx.readMetadata();
+    metadata.runtime.request.origin = "application";
+    metadata.runtime.request.completedEnvelope = true;
+    await tx.writeMetadata(metadata);
+  });
+  await store.writeAgentRunEvent(scope, runId, { patch: { state: "active", providerThreadId: nativeIdentity.threadId,
+    providerTurnId: nativeIdentity.turnId, outerTurnId: "authored-request" } });
+  const live = await store.updateConversationStream(scope, { nativeIdentity, turnId: "native-thread:native-turn",
+    messageId: "captured-item", text: "Partial original" });
+  assert.equal(live.messages[0].completedEnvelope, true);
+  await store.writeConversationUserMessage(scope, { messageId: "successor", nativeIdentity,
+    authoredRequest: { messageId: "successor", text: "New ordinary instruction", origin: "user" } });
+  await store.writeAgentRunEvent(scope, runId, { patch: { outerTurnId: "successor" } });
+  const completed = await store.completeConversationStreamMessage(scope, "captured-item", { nativeIdentity, text: "Late old final" });
+  assert.equal(completed.completedMessages, undefined);
+  assert.equal((await transcript.readConversationLog(scope))[0].user.messageId, "successor");
+});

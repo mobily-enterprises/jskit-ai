@@ -1911,6 +1911,23 @@ retry retains that exact snapshot and prepared input; it does not recapture a ne
 batch or infer admission from caller data. Applications must still connect this
 private facility to their own queue, visible replies and observation adapter.
 
+In the opted runtime, human `read()` and paged reads select this presentation
+view on the server. Queries cannot override it. Only marked private pending
+input and streams are hidden; status, phase and current errors still use raw
+current state, including while browsing old pages. Worker subscriptions retain
+raw completed and partial carriers with a trusted `completedEnvelope` scalar
+from the exact saved turn, current authored request or captured native stream
+association. Input data and incoming event marker fields cannot establish it.
+Applications must filter those raw carriers in their browser observation adapter.
+
+`wake(input, { excludedMessageIds })` captures the private batch list outside
+message data in the original admission owner. The second argument is restricted
+to tracked runtime-owned native application wakes. Exact IDs are copied into the
+new pending reservation; changed same-ID retry lists and lists attached to a
+different unresolved request refuse. Old unmarked reservations gain no marker or
+list. The existing changeover receives this immutable capture; its original
+native admission remains the only consumption authority.
+
 The application owns its worker generation and revocation through fresh `tool`
 authorization and the supplied signal. Generic `cancel()` drains the existing
 queue; it does not independently revoke every still-authorized prepared handle.

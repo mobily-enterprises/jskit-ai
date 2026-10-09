@@ -31,12 +31,15 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
       // Ordinary runtime output already carries the exact authored row identity.
       ...(["user", "application"].includes(origin || previous?.origin)
         ? { ...(!nativeIdentity ? { turnId } : {}), origin: origin || previous.origin } : {}),
+      ...(stream.authorship.get(messageId)?.origin === "application" && stream.authorship.get(messageId)?.completedEnvelope === true
+        ? { completedEnvelope: true } : {}),
       role: previous?.role || role,
       at: previous?.at || at || clock().toISOString(),
       text: typeof delta === "string" ? (previous?.text || "") + delta : (text ?? previous?.text ?? ""),
       status: "inProgress"
     };
-    if (previous?.text === next.text && previous.role === next.role && previous.outputId === next.outputId) return null;
+    if (previous?.text === next.text && previous.role === next.role && previous.outputId === next.outputId &&
+        previous.completedEnvelope === next.completedEnvelope) return null;
     stream.messages.set(messageId, next);
     revision += 1;
     return read(scope);
@@ -58,6 +61,7 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     // Cleanup, duplicate notifications and ordinary reads cannot replay it.
     if (message && typeof text === "string" && completedAuthorship?.turnId && ["user", "application"].includes(completedAuthorship.origin)) {
       snapshot.completedMessages = [{ ...message, turnId: completedAuthorship.turnId, origin: completedAuthorship.origin,
+        ...(completedAuthorship.origin === "application" && completedAuthorship.completedEnvelope === true ? { completedEnvelope: true } : {}),
         ...(["assistant", "commentary", "thinking"].includes(role) ? { role } : {}), text, status: "complete" }];
     }
     return snapshot;

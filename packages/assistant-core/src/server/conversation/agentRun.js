@@ -1,5 +1,6 @@
 import { isPlainObject, normalizeText } from "./normalize.js";
 import { createReentrantConversationStorage } from "./storage.js";
+import { isCompletedEnvelopeTurn } from "./transcript.js";
 import { normalizeCodexAppServerRunState, codexAppServerRunStateIsActive,
   codexAppServerRunStateIsTerminal } from "./codexTurn.js";
 
@@ -145,12 +146,14 @@ export function createCodexConversationStore({ storage, scope, segmentId, isCurr
       if (turn?.metadata?.runtime?.segmentId !== segmentId) continue;
       if (turn.user?.messageId === run.outerTurnId) return { origin: "user", messageId: run.outerTurnId, turnId };
       if (turn.system?.messageId === run.outerTurnId && turn.system.origin === "application") {
-        return { origin: "application", messageId: run.outerTurnId, turnId };
+        return { origin: "application", messageId: run.outerTurnId, turnId,
+          ...(isCompletedEnvelopeTurn(turn) ? { completedEnvelope: true } : {}) };
       }
     }
     const request = runtime.request;
     if (request?.messageId === run.outerTurnId && ["user", "application"].includes(request.origin)) {
-      return { origin: request.origin, messageId: request.messageId };
+      return { origin: request.origin, messageId: request.messageId,
+        ...(request.origin === "application" && request.completedEnvelope === true ? { completedEnvelope: true } : {}) };
     }
     return undefined;
   }

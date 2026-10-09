@@ -201,3 +201,40 @@ test("unproven native origin and duplicate cleanup cannot produce completed auth
   assert.equal(streams.complete("chat", "initially-unproven", { text: "Late completed output" }).completedMessages, undefined,
     "A later current request cannot adopt an item that had no captured authored custody");
 });
+
+
+test("completed-envelope stream scalar changes participate in dedup and require captured application authorship", () => {
+  const streams = createConversationStreams();
+  const input = { turnId: "native:turn", nativeIdentity: { threadId: "native", turnId: "turn" },
+    messageId: "item", origin: "application", text: "Exact partial",
+    authorship: { messageId: "request", origin: "application" } };
+  const first = streams.update("chat", input);
+  assert.equal(first.messages[0].completedEnvelope, undefined);
+  const marked = streams.update("chat", { ...input, authorship: { ...input.authorship, completedEnvelope: true } });
+  assert.equal(marked.messages[0].completedEnvelope, true);
+  assert.ok(marked.revision > first.revision, "Equal text does not hide an actual trusted scalar change");
+  assert.equal(streams.update("chat", { ...input, authorship: { ...input.authorship, completedEnvelope: true } }), null);
+  streams.update("chat", { ...input, messageId: "unowned", authorship: undefined,
+    completedEnvelope: true, data: { completedEnvelope: true } });
+  assert.equal(streams.read("chat").messages.find(message => message.messageId === "unowned").completedEnvelope, undefined);
+  streams.update("chat", { ...input, messageId: "ordinary", origin: "user",
+    authorship: { messageId: "user-request", turnId: "000002", origin: "user", completedEnvelope: true } });
+  assert.equal(streams.read("chat").messages.find(message => message.messageId === "ordinary").completedEnvelope, undefined);
+});
+
+test("completed-envelope completion keeps its captured scalar while resolving only the same authored pending receipt", () => {
+  const streams = createConversationStreams();
+  const input = { turnId: "native:turn", nativeIdentity: { threadId: "native", turnId: "turn" }, messageId: "item",
+    origin: "application", text: "Partial", authorship: { messageId: "request", origin: "application", completedEnvelope: true } };
+  streams.update("chat", input);
+  const completed = streams.complete("chat", "item", { text: "Exact final", role: "assistant",
+    authorship: { messageId: "request", turnId: "000001", origin: "application" } });
+  assert.equal(completed.completedMessages[0].completedEnvelope, true);
+  assert.equal(completed.completedMessages[0].turnId, "000001");
+  assert.equal(completed.completedMessages[0].text, "Exact final");
+  assert.equal(streams.complete("chat", "item", { text: "Repeat" }).completedMessages, undefined);
+  streams.update("chat", { ...input, messageId: "old-pending" });
+  assert.equal(streams.complete("chat", "old-pending", { text: "Wrong association", authorship: {
+    messageId: "successor", turnId: "000002", origin: "application", completedEnvelope: true
+  } }).completedMessages, undefined);
+});

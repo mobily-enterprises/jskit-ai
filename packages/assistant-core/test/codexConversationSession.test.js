@@ -3029,7 +3029,7 @@ async function completedCodexFixture(t, options = {}) {
     async complete(messageId = "completed-codex-response") {
       const receipt = await conversation.wake({ messageId, text: "Read a number" });
       const state = await conversation.wait();
-      const turn = state.conversationLog.find(row => row.turnId === receipt.turnId);
+      const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
       assert.equal(turn.metadata.runtime.status, "complete", state.error);
       assert.equal(turn.assistant.text, JSON.stringify(completedCodexValue));
       return { messageId, turnId: receipt.turnId };
@@ -3265,5 +3265,77 @@ for (const markedFirst of [true, false]) test(`completed Codex ${markedFirst ? "
     assert.equal(after.runtime.binding.toolSchemaIdentity, before.runtime.binding.toolSchemaIdentity);
     assert.equal(after.runtime.binding.accountIdentity, before.runtime.binding.accountIdentity);
     assert.equal((await f.trace()).filter(row => row.method === "turn/interrupt").length, 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Codex human presentation retains product history and private actual native receipts", async t => {
+  const f = await completedCodexFixture(t);
+  const events = [];
+  const observations = [];
+  await f.conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "message" && event.completedEnvelope === true) observations.push(f.conversation.read());
+  });
+  try {
+    await f.storage.write("conversation", async tx => {
+      await tx.appendMessage("000001", { role: "user", messageId: "product-question", text: "Visible product question",
+        at: "2026-10-10T00:00:00.000Z" });
+      await tx.replaceAssistant("000001", { role: "assistant", messageId: "product-reply", text: "Visible prior reply",
+        at: "2026-10-10T00:00:01.000Z" });
+    });
+    const receipt = await f.complete("internal-presentation-response");
+    const state = await f.conversation.read();
+    assert.equal(state.status, "ready", state.error);
+    assert.equal(state.error, "");
+    assert.equal(state.pendingRequest, null);
+    assert.deepEqual(state.streaming.messages, []);
+    assert.deepEqual(state.conversationLog.map(turn => turn.turnId), ["000001"]);
+    assert.equal(state.conversationLog[0].user.messageId, "product-question");
+    assert.equal(state.conversationLog[0].assistant.messageId, "product-reply");
+    assert.equal(state.conversationLog[0].assistant.text, "Visible prior reply");
+    const page = await f.conversation.read({ limit: 1, presentation: false });
+    assert.deepEqual(page.conversationLog, state.conversationLog);
+    assert.equal(page.pagination.totalTurnCount, 1);
+    assert.equal(page.pagination.count, 1);
+    assert.equal(page.pagination.oldestTurnId, "000001");
+    assert.equal(page.pagination.newestTurnId, "000001");
+    assert.equal(page.pagination.hasMoreBefore, false);
+    const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(raw.system.messageId, receipt.messageId);
+    assert.equal(raw.metadata.runtime.completedEnvelope, true);
+    assert.equal(raw.metadata.runtime.status, "complete");
+    assert.equal(raw.metadata.runtime.segmentId, state.segmentId);
+    assert.equal(raw.assistant.text, JSON.stringify(completedCodexValue));
+    assert.ok(raw.metadata.runtime.nativeTurnId);
+    assert.equal(metadata.runtime.binding.codexAppServerRun.providerTurnId, raw.metadata.runtime.nativeTurnId);
+    assert.equal(metadata.runtime.binding.codexAppServerRun.outerTurnId, receipt.messageId);
+    const savedHistory = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+    const nativeThread = (savedHistory.threads || [savedHistory]).find(thread => thread.id === metadata.runtime.binding.threadId);
+    const nativeTurn = nativeThread.turns.find(turn => turn.id === raw.metadata.runtime.nativeTurnId);
+    assert.equal(nativeTurn.status, "completed");
+    assert.equal(nativeTurn.items.find(item => item.type === "userMessage").clientId, receipt.messageId);
+    assert.equal(nativeTurn.items.find(item => item.type === "agentMessage").text, raw.assistant.text);
+    const rawFinal = events.filter(event => event.type === "message" && event.status === "complete")
+      .find(event => event.turnId === receipt.turnId && event.text === raw.assistant.text);
+    assert.ok(rawFinal, "The raw worker subscriber still receives this actual native completed response");
+    assert.equal(rawFinal.completedEnvelope, true);
+    assert.ok(events.some(event => event.type === "message" && event.status === "inProgress" &&
+      event.completedEnvelope === true && event.streaming.messages.some(message => message.completedEnvelope === true)),
+    "The original app-server emits a trusted marked native stream, not a manufactured canonical completion");
+    assert.ok(observations.length);
+    for (const observed of await Promise.all(observations)) {
+      assert.ok(["working", "ready"].includes(observed.status), observed.error);
+      assert.deepEqual(observed.conversationLog.map(turn => turn.turnId), ["000001"]);
+      assert.equal(observed.pendingRequest, null);
+      assert.deepEqual(observed.streaming.messages, []);
+    }
+    const trace = await f.trace();
+    const starts = trace.filter(row => row.method === "turn/start");
+    assert.equal(starts.length, 1);
+    assert.equal(starts[0].params.clientUserMessageId, receipt.messageId);
+    assert.equal(trace.find(row => row.method === "thread/start").params.dynamicTools.length, 0);
+    assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });

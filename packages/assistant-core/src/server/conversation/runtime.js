@@ -5,7 +5,7 @@ import { runScopedConversationTurn, readPersistentConversation, startPersistentC
   inspectPersistentConversationDelivery, stopPersistentConversation, deletePersistentConversation } from "./providers/scoped.js";
 import { isDeepStrictEqual } from "node:util";
 import { randomUUID } from "node:crypto";
-import { createConversationTranscript } from "./transcript.js";
+import { createConversationTranscript, isCompletedEnvelopeTurn } from "./transcript.js";
 import { createConversationStreams } from "./streams.js";
 import { createReentrantConversationStorage } from "./storage.js";
 import { createCodexConversationStore } from "./agentRun.js";
@@ -90,12 +90,27 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   }
 
   async function emit(entry, event, isCurrent) {
+    const { completedEnvelope: _untrustedMarker, ...payload } = event;
+    if (completedEnvelope && !entry.conversation) {
+      const request = payload.messageId && entry.active?.requests.get(payload.messageId) ||
+        payload.turnId && [...(entry.active?.requests.values() || [])].find(request => request.turnId === payload.turnId);
+      let marked = isCompletedEnvelopeTurn(payload.patch?.turn) ||
+        request?.completedEnvelope === true && request.input.origin === "application";
+      if (!marked && payload.turnId) {
+        try { marked = await storage.read(entry.id, async transaction => isCompletedEnvelopeTurn(await transaction.readTurn(payload.turnId))); }
+        catch { /* An unavailable receipt cannot establish presentation custody. */ }
+      }
+      if (!marked && payload.type === "message") marked =
+        [...(payload.streaming?.messages || []), ...(payload.streaming?.completedMessages || [])]
+          .some(message => message.messageId === payload.messageId && message.completedEnvelope === true && message.origin === "application");
+      if (marked) payload.completedEnvelope = true;
+    }
     await Promise.all([...entry.listeners].map(async subscription => {
       try { await access(subscription.context, entry.id, "subscribe", entry); }
       catch { entry.listeners.delete(subscription); return; }
       if (isCurrent && !isCurrent()) return;
       // Presentation failures cannot interrupt persistence or provider work.
-      try { Promise.resolve(subscription.listener(structuredClone({ conversationId: entry.id, ...event }))).catch(() => {}); }
+      try { Promise.resolve(subscription.listener(structuredClone({ conversationId: entry.id, ...payload }))).catch(() => {}); }
       catch { /* A failed observer does not own the conversation. */ }
     }));
   }
@@ -111,7 +126,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     ? entry.conversation.transcript.readConversationLog() : transcript.readConversationLog(entry.id);
 
   function readTranscriptPage(entry, query) {
-    if (!entry.conversation) return transcript.readConversationLogPage(entry.id, query);
+    if (!entry.conversation) return transcript.readConversationLogPage(entry.id, { ...query, presentation: completedEnvelope });
     if (typeof entry.conversation.transcript.readConversationLogPage !== "function") {
       throw failure("This conversation does not supply paged history.", "conversation_unsupported", 400);
     }
@@ -154,16 +169,20 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     if (representation === "native") return metadata.runtime.nativeResult;
     const page = logical ? logical.pagination ? { conversationLog: logical.conversationLog, pagination: logical.pagination } : null
       : query ? await readTranscriptPage(entry, query) : null;
-    const conversationLog = logical ? logical.conversationLog : page ? page.conversationLog : await readTranscript(entry);
+    const conversationLog = logical ? logical.conversationLog : page ? page.conversationLog
+      : completedEnvelope ? await transcript.readConversationLog(entry.id, { presentation: true }) : await readTranscript(entry);
     // Browsing an older page does not change the current turn's control/error state.
-    const latest = !logical && query?.beforeTurnId ? (await readTranscriptPage(entry, { limit: 1 })).conversationLog : conversationLog;
+    const latest = !logical && (completedEnvelope || query?.beforeTurnId)
+      ? entry.conversation ? (await readTranscriptPage(entry, { limit: 1 })).conversationLog
+        : (await transcript.readConversationLogPage(entry.id, { limit: 1 })).conversationLog : conversationLog;
     const last = latest.at(-1)?.metadata?.runtime;
     const savedRequest = metadata.runtime.request;
     const nativeTurn = metadata.runtime.nativeTurn || (entry.driver.canonicalTranscript && metadata.runtime.binding?.codexAppServerRun
       ? codexAppServerTurnStateFromAgentRun(metadata.runtime.binding.codexAppServerRun) : null);
     const request = savedRequest && (entry.engine === "api" || savedRequest.attempted || savedRequest.inspectionOnly ||
       entry.active?.requests.has(savedRequest.messageId)) ? savedRequest : null;
-    const pendingRequest = request ? Object.fromEntries([
+    const streaming = entry.conversation ? await entry.conversation.readStream() : streams.read(entry.id);
+    const pendingRequest = request && !(completedEnvelope && request.origin === "application" && request.completedEnvelope === true) ? Object.fromEntries([
       "messageId", "text", "origin", "data", "attachments", "at", "goal", "steering", "error"
     ].filter(name => Object.hasOwn(request, name)).map(name => [name, request[name]])) : null;
     return {
@@ -180,7 +199,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       ...(logical?.presentation ? { presentation: logical.presentation } : {}),
       conversationLog: conversationLog.filter(turn => !turn.metadata?.runtime?.supersededBy),
       ...(page ? { pagination: page.pagination } : {}),
-      streaming: entry.conversation ? await entry.conversation.readStream() : streams.read(entry.id)
+      streaming: completedEnvelope && !entry.conversation ? { ...streaming,
+        messages: streaming.messages.filter(message => !(message.origin === "application" && message.completedEnvelope === true)) } : streaming
     };
   }
 
@@ -852,10 +872,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const outputId = previous?.outputId || (message.outputId ? `${outputOwner.turnId}:${message.outputId}` : "");
       const value = { messageId, ...(outputId ? { outputId } : {}),
         role: message.role, text: message.text, at: previous?.at || new Date().toISOString() };
+      const authorship = request.completedEnvelope ? { authorship: { messageId: request.input.messageId,
+        turnId: request.turnId, origin: request.input.origin, completedEnvelope: true } } : {};
       // Some native streams have temporary block identities. Only their final
       // history snapshots belong in the transcript, as in the original owner.
       if (message.transient) {
-        streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value });
+        streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value, ...authorship });
       } else if (message.role === "assistant") {
         if (request.answer && request.answer.messageId !== messageId) {
           request.progress.set(request.answer.messageId, { ...request.answer, role: "commentary" });
@@ -863,12 +885,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         }
         request.progress.delete(messageId);
         request.answer = value;
-        streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value });
+        streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value, ...authorship });
       } else {
         if (request.answer?.messageId === messageId) request.answer = null;
         if (message.complete) request.progress.set(messageId, value);
         if (message.complete) streams.complete(entry.id, messageId);
-        else streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value });
+        else streams.update(entry.id, { turnId: request.turnId, origin: request.input.origin, ...value, ...authorship });
       }
       await emit(entry, { type: "message", turnId: request.turnId, messageId, origin: request.input.origin, role: message.role,
         ...(outputId ? { outputId } : {}),
@@ -926,7 +948,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           }
           metadata.runtime.request = { ...(pending?.messageId === request.input.messageId ? pending
             : { ...request.input, at: request.at, attempted: false,
-              ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+              ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}),
               ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) }), attachmentManifest };
           await transaction.writeMetadata(metadata);
         });
@@ -998,7 +1020,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               const pending = metadata.runtime.request;
               if (pending && pending.messageId !== request.input.messageId && (pending.attempted || pending.inspectionOnly)) throw new Error("The pending conversation instruction changed.");
               metadata.runtime.request = { ...request.input, at: request.at,
-                ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+                ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}),
                 ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
                 message: rendered.message, displayMessage: rendered.displayMessage,
                 displayAttachments, attachmentIds: rendered.attachmentIds,
@@ -1026,7 +1048,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           ? await dispatchPrepared(input)
           : await nativeChangeover(entry, request.context, request, dispatchPrepared).send({ engineId: engine,
             messages: entry.conversation ? await entry.conversation.transcript.history() : conversationNativeMessages(history),
-            ...(entry.conversation ? { turnMetadata: { engineId: engine } } : {}), input });
+            ...(entry.conversation ? { turnMetadata: { engineId: engine } } : {}),
+            ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}), input });
         if (!delivered?.delivered) {
           const error = failure(delivered?.error || "Native delivery could not be confirmed.", delivered?.code || "conversation_delivery_uncertain");
           if (entry.conversation) {
@@ -1300,7 +1323,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     await emit(entry, { type: "settled", turnId: current.turnId, status: entry.storageFailure || entry.executionFailure ? "failed" : status, error: entry.error });
   }
 
-  async function send(entry, context, input, origin = "user", goal, representation) {
+  async function send(entry, context, input, origin = "user", goal, representation, wakeOptions) {
     await access(context, entry.id, goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send", entry);
     if (entry.conversation?.commands) {
       if (origin !== "user" || goal) throw failure("This conversation supports its original application Send operation.", "conversation_unsupported", 400);
@@ -1309,7 +1332,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     if (entry.conversation?.native?.scoped) return entry.provider.sendNative({ input, context });
     const originalInput = representation === "native" ? input : undefined;
     const message = originalInput ? { ...input, text: input.displayMessage ?? input.message ?? input.text ?? "" } : input;
-    const admission = await serial(entry, () => admitSend(entry, context, message, origin, goal, originalInput));
+    const admission = await serial(entry, () => admitSend(entry, context, message, origin, goal, originalInput, wakeOptions));
     const result = await (admission.receipt || admission.promise);
     if (!entry.conversation) return result;
     if (representation === "native") return result.nativeResult;
@@ -1319,10 +1342,22 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   // Called while holding the conversation queue, including Claude's existing
   // stop-then-Send goal commands. All commands retain the ordinary receipt path.
-  async function admitSend(entry, context, input, origin = "user", goal, originalInput) {
+  async function admitSend(entry, context, input, origin = "user", goal, originalInput, wakeOptions) {
     const operation = goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send";
     await access(context, entry.id, operation, entry);
     await entry.conversation?.admission(context, operation);
+    let suppliedExclusions;
+    if (wakeOptions !== undefined) {
+      if (!completedEnvelope || entry.conversation || origin !== "application" || goal ||
+          !wakeOptions || typeof wakeOptions !== "object" || Array.isArray(wakeOptions) ||
+          Object.keys(wakeOptions).some(name => name !== "excludedMessageIds") ||
+          !Array.isArray(wakeOptions.excludedMessageIds) ||
+          wakeOptions.excludedMessageIds.some(id => typeof id !== "string" || !id.trim() || id.length > 128) ||
+          new Set(wakeOptions.excludedMessageIds).size !== wakeOptions.excludedMessageIds.length) {
+        throw failure("Native history exclusions require a server-owned completed application wake and exact message IDs.", "conversation_invalid_message", 400);
+      }
+      suppliedExclusions = [...wakeOptions.excludedMessageIds];
+    }
     const attachmentIds = conversationAttachmentIds(input?.attachmentIds);
     if (!input || typeof input.messageId !== "string" || !input.messageId.trim() || input.messageId.length > 128 ||
         entry.engine !== "api" && !/^[\w-]{1,128}$/u.test(input.messageId) ||
@@ -1352,6 +1387,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     if (goal && goal.expectedSegmentId !== entry.segmentId) throw failure("The conversation changed before this goal command was sent.", "conversation_goal_changed");
     const pending = entry.active?.requests.get(message.messageId);
     if (pending && entry.engine !== "api" && !pending.admissionSettled) {
+      if (suppliedExclusions && !isDeepStrictEqual(pending.excludedMessageIds || [], suppliedExclusions)) throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_conflict");
       if (!entry.conversation && !sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict");
       return { promise: pending.admission.promise };
     }
@@ -1368,6 +1404,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     if (pending && !entry.conversation) {
       if (!sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict");
+      if (suppliedExclusions && !isDeepStrictEqual(pending.excludedMessageIds || [], suppliedExclusions)) throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_conflict");
       return { promise: pending.admission.promise };
     }
     const working = entry.active;
@@ -1375,7 +1412,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       // No native dispatch has occurred for this request. Finish the previous
       // waiter before reserving the same authored request on the ordinary path.
       await working.done;
-      return admitSend(entry, context, input, origin, goal, originalInput);
+      return admitSend(entry, context, input, origin, goal, originalInput, wakeOptions);
     }
     const nativeSteering = !working && (nativeState.nativeTurn?.active || entry.driver.canonicalTranscript && nativeState.binding?.codexAppServerRun &&
       codexAppServerTurnStateFromAgentRun(nativeState.binding.codexAppServerRun).active);
@@ -1397,6 +1434,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     let configuration;
     let markedResponse = false;
     let nativeToolAttempt;
+    let excludedMessageIds;
     let requestAt = new Date().toISOString();
     try { configuration = entry.conversation ? (await readState(entry)).configuration : await storage.write(entry.id, async transaction => {
       const metadata = await transaction.readMetadata();
@@ -1405,23 +1443,30 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         throw failure("This message has uncertain delivery in a retained conversation. Select that engine and check its receipt before submitting it again.", "conversation_delivery_uncertain");
       }
       if (metadata.runtime.request) {
+        if (suppliedExclusions && metadata.runtime.request.messageId !== message.messageId) {
+          throw failure("Check delivery of the previous instruction before preparing another completed response.", "conversation_delivery_uncertain");
+        }
         if (entry.engine === "api") throw failure("The previous submission has uncertain delivery. It will not be resent automatically.", "conversation_delivery_uncertain");
         if (metadata.runtime.request.messageId === message.messageId) {
           if (!sameRequest(metadata.runtime.request, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict");
+          if (suppliedExclusions && !isDeepStrictEqual(metadata.runtime.request.excludedMessageIds || [], suppliedExclusions)) {
+            throw failure("This messageId already belongs to different native history exclusions.", "conversation_message_conflict");
+          }
           requestAt = metadata.runtime.request.at;
         }
       } else metadata.runtime.request = { ...message, at: requestAt,
-        ...(completedEnvelope && origin === "application" && !goal ? { completedEnvelope: true,
+        ...(completedEnvelope && origin === "application" && !goal ? { completedEnvelope: true, excludedMessageIds: suppliedExclusions || [],
           ...(entry.engine === "claude" ? { nativeToolAttempt: false } : {}) } : {}),
         ...(entry.engine !== "api" ? { attempted: false } : {}), ...(input.steer ? { steering: true } : {}) };
       markedResponse = origin === "application" && !goal && metadata.runtime.request?.messageId === message.messageId &&
         metadata.runtime.request.completedEnvelope === true;
+      if (markedResponse) excludedMessageIds = structuredClone(metadata.runtime.request.excludedMessageIds || []);
       if (entry.engine === "claude" && markedResponse && typeof metadata.runtime.request.nativeToolAttempt === "boolean") nativeToolAttempt = metadata.runtime.request.nativeToolAttempt;
       await transaction.writeMetadata(metadata);
       return metadata.runtime.configuration;
     }); } catch (error) { release(); throw error; }
     const request = { input: message, originalInput, operation, context, at: requestAt,
-      ...(markedResponse ? { completedEnvelope: true } : {}),
+      ...(markedResponse ? { completedEnvelope: true, excludedMessageIds } : {}),
       ...(typeof nativeToolAttempt === "boolean" ? { nativeToolAttempt } : {}), steering: Boolean(working || input.steer && nativeSteering),
       admission: Promise.withResolvers(), progress: new Map() };
     request.admission.promise.catch(() => {});
@@ -2297,7 +2342,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           return result;
         },
         send: input => send(entry, context, input, "user", undefined, representation),
-        wake: input => send(entry, context, input, "application", undefined, representation),
+        wake: (input, options) => send(entry, context, input, "application", undefined, representation, options),
         ...(completedEnvelope ? { prepareCompletedResponse: (input, options) =>
           serial(entry, () => prepareCompletedResponse(entry, context, input, options)) } : {}),
         readGoal: () => serial(entry, () => readGoal(entry, context, representation)),
