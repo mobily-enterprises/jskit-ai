@@ -821,6 +821,7 @@ Exports
 - `conversationMessageIdentity`
 - `conversationMessageVersion`
 - `createConversationChangeover`
+- `conversationRequestText`
 - `createMemoryConversationStorage`
 - `createConversationStorage`
 - `createReentrantConversationStorage`

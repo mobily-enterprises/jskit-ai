@@ -1408,6 +1408,13 @@ validation and authorization of these facts; data does not supply tool authority
 actor identity or a delivery receipt. Unconfigured messages retain their existing
 record shape.
 
+The existing `conversationRequestText({ text, origin, data })` renderer is exported
+from `@jskit-ai/assistant-core/server/conversation`. A bound host that owns native
+input preparation can use it to retain the same application-data envelope around
+its prepared prompt. Supply only validated current-request data; keep canonical
+display words and server-only admission separate. This renderer grants no tool
+authority and does not replace the actual accepted message/native identity guards.
+
 A server-owned bound conversation can opt into common application-tool setup
 with `applicationTools: { storage, prepareContext }`, alongside the runtime's
 existing `actions`/`toolPolicy` or `toolCatalog`. `storage` must be the original
