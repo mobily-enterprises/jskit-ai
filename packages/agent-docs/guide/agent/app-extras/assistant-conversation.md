@@ -282,6 +282,12 @@ latest bounded page; **Load older messages** is available again where older hist
 Reconnection reads state and does not resend the request. After an initial
 subscription failure or timeout, **Reload** retries that exact subscription on
 the connected socket with fresh authorization; it does not resend a message.
+When a product selection changes the native observer behind the same logical
+conversation ID, call the retained runtime’s `reload({ resubscribe: true })` from
+that product’s authorized selection invalidation. It reuses the same subscription
+ID and existing epoch/release guards to attach the current owner, retaining loaded
+history, the draft and delivery receipts. It does not select an assistant or resend
+work; ordinary `reload()` still refreshes canonical history.
 
 Applications that create nonvisual tasks after setup can capture
 `useAssistantConversationFactory(commonOptions)` once during setup, then call

@@ -736,7 +736,7 @@ test("removing the integration releases every observer and callback while the sh
   assert.equal(f.serverSockets.size, 0, "Provider shutdown also runs unrelated connection cleanup");
 });
 
-async function hostSubscriptionFixture(t, authService = null) {
+async function hostSubscriptionFixture(t, authService = null, conversationRuntime = null) {
   const changes = new EventEmitter();
   const notify = () => changes.emit("change");
   const listeners = new Set();
@@ -753,7 +753,7 @@ async function hostSubscriptionFixture(t, authService = null) {
     notify();
     return () => { listeners.delete(listener); notify(); };
   } };
-  const definitions = createAssistantActions({ config, conversationRuntime: { async open() { return conversation; } } });
+  const definitions = createAssistantActions({ config, conversationRuntime: conversationRuntime || { async open() { return conversation; } } });
   const original = definitions.find(definition => definition.id === actionIds.conversationSubscribe);
   const hostActionId = "test.host.conversation.subscribe";
   actions.register({ contributorId: "test.host", domain: "assistant", actions: [...definitions, {
@@ -989,4 +989,116 @@ test("denied Reload before the initial acknowledgement retires only that pending
   assert.deepEqual(states[0].turns, []);
   assert.equal(reads, 1, "Recovery uses fresh subscription admission rather than repeating the old read or inference");
   assert.deepEqual(errors, [failure]);
+});
+
+
+test("retargeting a retained logical observer uses the current engine namespace and original same-ID subscription owner", { timeout: 20_000 }, async t => {
+  let selected = "opencode";
+  let allowed = true;
+  const states = new Map(["opencode", "codex"].map(engine => [engine, {
+    engine, configuration: {}, status: "ready", conversationLog: [], threadId: `${engine}-thread`
+  }]));
+  const oldMessage = { messageId: "old-overlay", role: "assistant", turnId: "old-turn", status: "inProgress", text: "Old engine overlay" };
+  const streams = new Map([["opencode", { revision: 100, messages: [oldMessage] }], ["codex", { revision: 0, messages: [] }]]);
+  const originalListeners = new Map();
+  let sends = 0;
+  let active = 0;
+  let maximum = 0;
+  const commands = { async send() { sends += 1; }, async cancel() {}, async select() {}, async inspectDelivery() {} };
+  const runtime = createConversationRuntime({ authorize: () => allowed, host: {
+    async conversation({ id, context }) {
+      const engine = context.selected;
+      return { namespace: `${engine}:${id}`, sessionId: id, engine, commands,
+        read: () => states.get(engine), readStream: () => streams.get(engine) };
+    }
+  } });
+  t.after(() => runtime.close());
+  async function current() { return runtime.open({ id: "host-conversation", context: { selected } }); }
+  const f = await hostSubscriptionFixture(t, null, { async open() {
+    return { read: async () => (await current()).read(), async subscribe(listener) {
+      const engine = selected;
+      const release = await (await current()).subscribe(listener);
+      originalListeners.set(engine, listener);
+      active += 1;
+      maximum = Math.max(maximum, active);
+      return () => { release(); active -= 1; };
+    } };
+  } });
+  f.registerHost();
+  const socket = await f.connect();
+  const requests = [];
+  const timeout = socket.timeout.bind(socket);
+  socket.timeout = milliseconds => {
+    const target = timeout(milliseconds);
+    return { emit(name, input, acknowledge) {
+      requests.push({ name, input });
+      return target.emit(name, input, acknowledge);
+    } };
+  };
+  const loaded = [];
+  const errors = [];
+  const updates = [];
+  const release = subscribeAssistantConversation({ socket, conversationId: "host-conversation",
+    targetSurfaceId: "home", hostSurfaceId: "home", read: async () => (await current()).read(),
+    onState(state, options) { loaded.push({ state, options }); f.changes.emit("change"); },
+    onEvent(event) { updates.push(event); f.changes.emit("change"); },
+    onError(error) { errors.push(error); f.changes.emit("change"); } });
+  t.after(release);
+  await until(f.changes, () => loaded.length === 1);
+  assert.equal(loaded[0].state.engine, "opencode");
+  assert.equal(loaded[0].options.initial, true);
+  assert.equal(loaded[0].state.streaming.revision, 100);
+  assert.ok(loaded[0].state.turns.some(turn => turn.assistant?.text === oldMessage.text));
+  selected = "codex";
+  await release.reload();
+  assert.equal(loaded.at(-1).state.engine, "codex", "A canonical read can already use the successor owner");
+  assert.equal(f.calls.length, 1, "Ordinary Reload does not retarget the original observer");
+  await runtime.publishNative({ namespace: "codex:host-conversation", sessionId: "host-conversation", event: { type: "phase", phase: "working" } });
+  assert.equal(updates.length, 0, "The new engine namespace has no observer before retargeting");
+
+  release.reload({ resubscribe: true });
+  await until(f.changes, () => loaded.length === 3);
+  assert.equal(f.calls.length, 2);
+  assert.equal(active, 1);
+  assert.equal(maximum, 1, "The original server releases the predecessor before attaching its successor");
+  assert.deepEqual(loaded.at(-1).options, { initial: false, canonical: false }, "Retarget snapshot preserves the mounted loaded history");
+  assert.equal(loaded.at(-1).state.streaming.revision, 0, "The original epoch transition resets the predecessor's high stream revision");
+  assert.equal(loaded.at(-1).state.turns.some(turn => turn.assistant?.text === oldMessage.text), false);
+  originalListeners.get("opencode")({ type: "phase", phase: "obsolete" });
+  originalListeners.get("opencode")({ type: "message", ...oldMessage, text: "Late foreign overlay",
+    streaming: { revision: 200, messages: [{ ...oldMessage, text: "Late foreign overlay" }] } });
+  const partial = { messageId: "answer", role: "assistant", turnId: "000001", status: "inProgress", text: "New engine partial" };
+  streams.set("codex", { revision: 1, messages: [partial] });
+  await runtime.publishNative({ namespace: "codex:host-conversation", sessionId: "host-conversation", event: {
+    payload: { conversationStream: streams.get("codex") }
+  } });
+  await until(f.changes, () => loaded.at(-1).state.turns.some(turn => turn.assistant?.text === partial.text));
+  assert.equal(loaded.at(-1).state.streaming.revision, 1);
+  assert.equal(loaded.at(-1).state.turns.some(turn => turn.assistant?.text === "Late foreign overlay"), false);
+  await runtime.publishNative({ namespace: "codex:host-conversation", sessionId: "host-conversation", event: { type: "phase", phase: "working" } });
+  await until(f.changes, () => updates.some(event => event.phase === "working"));
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(request => request.name === ASSISTANT_CONVERSATION_SUBSCRIBE));
+  assert.equal(requests[1].input.subscriptionId, requests[0].input.subscriptionId);
+  assert.equal(f.published.at(-1).realtime.payload.subscriptionId, requests[0].input.subscriptionId);
+  assert.equal(updates.some(event => event.phase === "obsolete"), false, "Late retired observer callbacks cannot publish");
+  const answer = { messageId: "answer", role: "assistant", text: "Final from the selected engine" };
+  states.set("codex", { ...states.get("codex"), status: "ready", conversationLog: [{ turnId: "000001", messages: [answer], assistant: answer }] });
+  streams.set("codex", { revision: 2, messages: [] });
+  await runtime.publishNative({ namespace: "codex:host-conversation", sessionId: "host-conversation", event: {
+    payload: { conversationLogPatch: { type: "upsert-turn", turn: states.get("codex").conversationLog[0] },
+      conversationStream: streams.get("codex"), agentSession: { turn: { active: false } } }
+  } });
+  await until(f.changes, () => loaded.at(-1).state.status === "ready" && loaded.at(-1).state.turns.some(turn => turn.assistant?.text === answer.text));
+  assert.equal(sends, 0, "Observer refresh and final-state recovery never admit inference");
+  assert.deepEqual(errors, []);
+  allowed = false;
+  release.reload({ resubscribe: true });
+  await until(f.changes, () => errors.length === 1);
+  assert.equal(active, 0, "Revoked access releases the predecessor and cannot attach another observer");
+  assert.equal(errors[0].statusCode, 403);
+  release();
+  release.reload({ resubscribe: true });
+  assert.equal(active, 0);
+  assert.equal(sends, 0);
 });

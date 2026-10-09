@@ -653,7 +653,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     error, accessDenied, loading, stopping, delivery, turns,
     hasMoreBefore, loadingMore, loadMoreError, loadMore,
     send, submitPrepared, submitDraft, cancel, cancelMessage, inspectDelivery, changeGoal, refreshGoal, goalState, goalView, goalLoadError, questions,
-    reload() { const job = subscription?.reload(); void refreshGoal(); return job; } };
+    reload(options) { const job = subscription?.reload(options); void refreshGoal(); return job; } };
   runtime.application = application ? application(runtime) : null;
   return runtime;
 }
