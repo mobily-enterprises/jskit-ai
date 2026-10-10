@@ -157,10 +157,19 @@ export function createCodexConversationStore({ storage, scope, segmentId, isCurr
     }
     return undefined;
   }
-  const writer = name => (sessionId, input) => runStore.mutateSession(sessionId, async transaction => {
-    const written = await transcript[name](sessionId, input);
+  const writer = name => (sessionId, input = {}) => runStore.mutateSession(sessionId, async transaction => {
+    const authorship = await nativeAuthorship(transaction, input.nativeIdentity);
+    if (authorship?.completedEnvelope && !authorship.turnId) {
+      throw new Error("The native output's original turn no longer exists.");
+    }
+    // Queued human rows do not own an already admitted private native response.
+    // Corrections retain their original explicit target and message identity.
+    const written = await transcript[name](sessionId, {
+      ...input, ...(name !== "upsertConversationAssistantMessage" && authorship?.completedEnvelope && authorship.turnId
+        ? { turnId: authorship.turnId } : {})
+    });
     if (!written || written.metadata?.runtime?.segmentId) return written;
-    const origin = (await nativeAuthorship(transaction, input.nativeIdentity))?.origin;
+    const origin = authorship?.origin;
     await transaction.updateTurnMetadata(written.turnId, { runtime: {
       status: "complete", engine: "codex", segmentId, ...(origin ? { origin } : {}),
       ...(input.nativeIdentity?.turnId ? { nativeTurnId: input.nativeIdentity.turnId } : {})

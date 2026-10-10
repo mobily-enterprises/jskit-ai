@@ -20,6 +20,75 @@ import { createAiConnectionResolver } from "../../connectors-catalog/src/server/
 const configuration = { systemPrompt: "Keep these instructions fresh.", model: "test-model", effort: "high" };
 const input = { messageId: "first", text: "Hello" };
 
+test("marked native output keeps its admitted private turn while human messages are queued", async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-private-output-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const storage = createReentrantConversationStorage(createFileConversationStorage({ directory }));
+  const transcript = createConversationTranscript({ storage, applicationTurns: true });
+  for (const [role, method] of [["assistant", "writeConversationAssistantMessage"],
+    ["commentary", "writeConversationCommentaryMessage"], ["thinking", "writeConversationThinkingMessage"]]) {
+    const scope = `private-${role}`, segmentId = `segment-${role}`;
+    const nativeIdentity = { threadId: `thread-${role}`, turnId: `native-${role}` };
+    const privateTurnId = await storage.write(scope, async transaction => {
+      await transaction.writeMetadata({ runtime: { engine: "codex", segmentId, binding: {
+        threadId: nativeIdentity.threadId, codexAppServerRun: {
+          providerThreadId: nativeIdentity.threadId, providerTurnId: nativeIdentity.turnId, outerTurnId: "private-input"
+        }
+      } } });
+      const turnId = await transaction.nextTurnId();
+      await transaction.appendMessage(turnId, { role: "system", origin: "application", messageId: "private-input",
+        text: "The admitted application envelope", at: "2026-10-10T00:00:00.000Z",
+        turnMetadata: { runtime: { status: "running", engine: "codex", segmentId, origin: "application",
+          completedEnvelope: true, nativeTurnId: nativeIdentity.turnId } } });
+      return turnId;
+    });
+    await transcript.writeConversationUserMessage(scope, { messageId: "queued-B", text: "Wait, discuss it first" });
+    await transcript.writeConversationUserMessage(scope, { messageId: "queued-C", text: "Only read the guide" });
+    const before = await transcript.readConversationLog(scope);
+    const store = createCodexConversationStore({ storage, scope, segmentId, isCurrent: () => true,
+      transcript, streams: createConversationStreams() });
+    assert.equal(await store[method](scope), null, "Omitted native output remains an empty no-op");
+    await assert.rejects(transcript[method](scope, { turnId: "missing-private-turn", text: "Do not retarget" }),
+      /original turn no longer exists/);
+    assert.deepEqual(await transcript.readConversationLog(scope), before, "Missing exact targets leave every row untouched");
+    const input = { messageId: `native-message-${role}`, outputId: `native-output-${role}`,
+      text: "Private native output", nativeIdentity };
+    const written = await store[method](scope, input);
+    assert.equal(written.turnId, privateTurnId);
+    const message = written.messages.find(message => message.role === role);
+    assert.equal(message.messageId, input.messageId);
+    assert.equal(message.outputId, input.outputId);
+    assert.equal(message.text, input.text);
+    assert.deepEqual((await transcript.readConversationLog(scope)).slice(1), before.slice(1),
+      "Later human questions retain their exact words and no native reply/progress");
+    assert.equal(await store[method](scope, input), null, "The same native message is saved only once");
+    assert.equal((await transcript.readConversationLog(scope, { presentation: true })).some(turn =>
+      turn.messages.some(message => message.text === input.text)), false, "Private carrier output stays out of human history");
+    if (role === "assistant") {
+      const corrected = await store.upsertConversationAssistantMessage(scope, {
+        turnId: privateTurnId, text: "Corrected private native output", nativeIdentity
+      });
+      assert.equal(corrected.assistant.messageId, input.messageId);
+      assert.equal(corrected.assistant.outputId, input.outputId);
+      assert.equal(corrected.assistant.text, "Corrected private native output");
+    }
+    await transcript.writeConversationAssistantMessage(scope, { messageId: "ordinary-final", text: "Ordinary unpinned final" });
+    assert.equal((await transcript.readConversationLog(scope)).at(-1).assistant.text, "Ordinary unpinned final",
+      "The generic transcript still pairs unpinned output with the latest open human turn");
+    const retained = await transcript.readConversationLog(scope);
+    await storage.write(scope, async transaction => {
+      const metadata = await transaction.readMetadata();
+      metadata.runtime.binding.codexAppServerRun.outerTurnId = "missing-private-input";
+      metadata.runtime.request = { messageId: "missing-private-input", origin: "application", completedEnvelope: true };
+      await transaction.writeMetadata(metadata);
+    });
+    await assert.rejects(store[method](scope, { ...input, messageId: "lost-private-output" }), /original turn no longer exists/,
+      "A pending marked receipt cannot fall back to a later human row when its private turn is absent");
+    assert.throws(() => store[method]("foreign-scope", input), /another conversation/);
+    assert.deepEqual(await transcript.readConversationLog(scope), retained);
+  }
+});
+
 test("Codex structured output uses the existing native turn setting without changing conversation identity", async t => {
   const outputSchema = { type: "object", additionalProperties: false,
     properties: { answer: { type: "string", maxLength: 32 } }, required: ["answer"] };

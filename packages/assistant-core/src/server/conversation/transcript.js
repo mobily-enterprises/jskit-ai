@@ -51,20 +51,23 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     return ids.length ? transaction.readTurn(ids.at(-1)) : null;
   }
 
-  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], data, turnMetadata = null, requireOpenTurn = false, outputId = "" } = {}) {
+  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], data, turnMetadata = null, requireOpenTurn = false, outputId = "", turnId: requestedTurnId = "" } = {}) {
     const messageText = normalizeText(text);
     const id = normalizeText(messageId);
     if (!messageText && !(role === "user" && Array.isArray(attachments) && attachments.length)) return null;
     return storage.write(scope, async (transaction) => {
       if (id && await transaction.hasMessage(id)) return null;
       const createdAt = new Date(at || clock());
-      const tail = ["assistant", "commentary", "thinking"].includes(role) ? await tailTurn(transaction) : null;
+      const targetId = ["assistant", "commentary", "thinking"].includes(role) ? normalizeText(requestedTurnId) : "";
+      const target = targetId ? await transaction.readTurn(targetId) : null;
+      if (targetId && !target) throw new Error("The native output's original turn no longer exists.");
+      const tail = target || (["assistant", "commentary", "thinking"].includes(role) ? await tailTurn(transaction) : null);
       const open = (tail?.user || applicationTurns && tail?.system?.origin === "application") && !tail.assistant ? tail : null;
       if (requireOpenTurn && !open) return null;
       const thinkingOnly = role === "thinking" && !open && at && tail &&
         !tail.system && !tail.user && !tail.assistant && !tail.commentary?.length &&
         tail.thinking?.some((message) => message.at === createdAt.toISOString());
-      const turnId = open?.turnId || (thinkingOnly ? tail.turnId : await transaction.nextTurnId());
+      const turnId = target?.turnId || open?.turnId || (thinkingOnly ? tail.turnId : await transaction.nextTurnId());
       await transaction.appendMessage(turnId, {
         role, text: messageText, messageId: id, at: createdAt.toISOString(),
         ...(["assistant", "commentary", "thinking"].includes(role) && normalizeText(outputId) ? { outputId: normalizeText(outputId) } : {}),
