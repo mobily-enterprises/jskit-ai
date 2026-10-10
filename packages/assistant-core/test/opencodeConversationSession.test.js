@@ -1841,6 +1841,7 @@ test("managed OpenCode refreshes its own key in the retained native scope withou
   } });
   try {
     const first = await f.complete("managed-first");
+    const firstCanonical = await f.storage.read("conversation", tx => tx.readTurn(first.turnId));
     const before = await f.binding();
     const prior = JSON.parse(await readFile(before.databasePath, "utf8"));
     const prepared = await f.prepare(first);
@@ -1849,7 +1850,8 @@ test("managed OpenCode refreshes its own key in the retained native scope withou
     await assert.rejects(executeCompletedOpenCode(prepared), /different account binding/);
     assert.deepEqual(await f.binding(), before);
     assert.equal(f.effects(), 0);
-    await f.complete("managed-second");
+    const second = await f.complete("managed-second");
+    const secondCanonical = await f.storage.read("conversation", tx => tx.readTurn(second.turnId));
     const after = await f.binding();
     assert.equal(after.sessionId, before.sessionId);
     assert.equal(starts.length, 2);
@@ -1865,11 +1867,14 @@ test("managed OpenCode refreshes its own key in the retained native scope withou
     const current = JSON.parse(await readFile(after.databasePath, "utf8")).find(row => row.id === after.sessionId);
     const original = prior.find(row => row.id === before.sessionId);
     assert.deepEqual(current.messages.slice(0, original.messages.length), original.messages);
-    assert.equal((await f.conversation.read()).conversationLog.length, 2);
+    assert.equal(f.appendedRows.length, 2);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(first.turnId)), firstCanonical);
     foreignScope = true;
     await assert.rejects(f.conversation.send({ messageId: "foreign-store", text: "Again" }), /another native history store or runtime/);
     assert.deepEqual(await f.binding(), after);
-    assert.equal((await f.conversation.read()).conversationLog.length, 2);
+    assert.equal(f.appendedRows.length, 2);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(first.turnId)), firstCanonical);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(second.turnId)), secondCanonical);
     assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 2);
     assert.equal(f.effects(), 0);
   } finally {
