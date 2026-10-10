@@ -4202,3 +4202,132 @@ test("an interrupted endpoint commitment retains usable review controls and reje
   assert.equal(call.pendingTranscript.value, null);
   assert.equal(deliveries.length, 1);
 });
+
+test("a bounded native first-audio job survives cold preparation but PCM restores the original stall guard", async t => {
+  let now = 1000, heartbeat;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+  const view = mountVoice(t, { speechEnabled: true });
+  await view.speak("Cold native phrase", "cold-native");
+  const socket = view.sockets[0];
+  socket.receive({ type: "speech.start", turnId: "cold-native" });
+  socket.receive({ type: "speech.segment.start", turnId: "cold-native", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+  for (let step = 0; step < 8; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.equal(view.voice.activeSpeechTurnId.value, "cold-native", "a healthy bounded cold job is not cancelled at 20 seconds");
+  socket.receive(new Int16Array([100, 200]).buffer);
+  await flushVue();
+  assert.equal(view.buffers.length, 1);
+  for (let step = 0; step < 6; step += 1) {
+    now += 4000;
+    socket.receive({ type: "speech.segment.start", turnId: "cold-native", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+    socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.match(view.voice.error.value, /Speech generation stalled/);
+  assert.equal(socket.readyState, 3, "duplicate metadata cannot extend a post-PCM silent gap");
+});
+
+test("duplicate and older segment budgets cannot prolong a bounded native job", async t => {
+  let now = 1000, heartbeat;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+  const view = mountVoice(t, { speechEnabled: true });
+  await view.speak("Native phrase that never finishes", "bounded-native");
+  const socket = view.sockets[0];
+  socket.receive({ type: "speech.start", turnId: "bounded-native" });
+  socket.receive({ type: "speech.segment.start", turnId: "bounded-native", segmentIndex: 1, synthesisTimeoutMs: 120000 });
+  for (let step = 0; step < 31; step += 1) {
+    now += 4000;
+    socket.receive({ type: "speech.segment.start", turnId: "bounded-native", segmentIndex: step % 2, synthesisTimeoutMs: 120000 });
+    socket.receive({ type: "speech.segment.start", turnId: "retired", segmentIndex: step + 2, synthesisTimeoutMs: 120000 });
+    socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.match(view.voice.error.value, /Speech generation stalled/);
+  assert.equal(socket.readyState, 3);
+});
+
+test("chunk completion restores queued-wait policy and a new acquired phrase gets its own bounded allowance", async t => {
+  let now = 1000, heartbeat;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+  const view = mountVoice(t, { speechEnabled: true });
+  await view.voice.speak("First phrase", "phrases", { stream: true });
+  assert.equal(view.voice.appendSpeech("Second phrase"), true);
+  const socket = view.sockets[0];
+  socket.receive({ type: "speech.start", turnId: "phrases" });
+  socket.receive({ type: "speech.segment.start", turnId: "phrases", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+  now += 4000;
+  socket.receive({ type: "speech.chunk.end", turnId: "phrases" });
+  for (let step = 0; step < 4; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  socket.receive({ type: "speech.segment.start", turnId: "phrases", segmentIndex: 1, synthesisTimeoutMs: 120000 });
+  for (let step = 0; step < 8; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.equal(view.voice.activeSpeechTurnId.value, "phrases");
+  socket.receive({ type: "speech.chunk.end", turnId: "phrases" });
+  assert.equal(view.voice.appendSpeech("Third phrase waiting for the queue"), true);
+  for (let step = 0; step < 6; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.match(view.voice.error.value, /Speech generation stalled/, "completed chunks do not leave a 120-second queue allowance behind");
+});
+
+test("invalid synthesis budgets and malformed or retired segments retain the original generic deadline", async t => {
+  const frames = [
+    { segmentIndex: 0 },
+    { segmentIndex: 0, synthesisTimeoutMs: "120000" },
+    { segmentIndex: 0, synthesisTimeoutMs: 120001 },
+    { segmentIndex: 0, synthesisTimeoutMs: 20000.5 },
+    { segmentIndex: 0, synthesisTimeoutMs: -1 },
+    { segmentIndex: -1, synthesisTimeoutMs: 120000 },
+    { segmentIndex: 0.5, synthesisTimeoutMs: 120000 },
+    { segmentIndex: 0, synthesisTimeoutMs: 120000, turnId: "retired" }
+  ];
+  for (const [index, fields] of frames.entries()) await t.test(`invalid segment ${index}`, async child => {
+    let now = 1000, heartbeat;
+    child.mock.method(Date, "now", () => now);
+    child.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+    const view = mountVoice(child, { speechEnabled: true });
+    await view.speak("Generic phrase", "generic");
+    const socket = view.sockets[0];
+    socket.receive({ type: "speech.start", turnId: "generic" });
+    socket.receive({ type: "speech.segment.start", turnId: "generic", ...fields });
+    for (let step = 0; step < 6; step += 1) {
+      now += 4000; socket.receive({ type: "pong" }); heartbeat();
+    }
+    assert.match(view.voice.error.value, /Speech generation stalled/);
+    assert.equal(socket.readyState, 3);
+  });
+});
+
+test("a native first-audio allowance preserves connection liveness and Stop's next-turn default", async t => {
+  for (const control of ["missing-pong", "stop"]) await t.test(control, async child => {
+    let now = 1000, heartbeat;
+    child.mock.method(Date, "now", () => now);
+    child.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+    const view = mountVoice(child, { speechEnabled: true });
+    await view.speak("Bounded cold native phrase", "cancelled-native");
+    const socket = view.sockets[0];
+    socket.receive({ type: "speech.start", turnId: "cancelled-native" });
+    socket.receive({ type: "speech.segment.start", turnId: "cancelled-native", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+    if (control === "missing-pong") {
+      now += 16000; heartbeat();
+      assert.match(view.voice.error.value, /connection was interrupted/);
+    } else {
+      view.voice.stopSpeaking();
+      assert.equal(view.voice.activeSpeechTurnId.value, "");
+      assert.ok(socket.sent.some(raw => JSON.parse(raw).type === "cancel" && JSON.parse(raw).turnId === "cancelled-native"));
+      await view.speak("Next generic answer", "next-generic");
+      socket.receive({ type: "speech.start", turnId: "next-generic" });
+      socket.receive({ type: "speech.segment.start", turnId: "cancelled-native", segmentIndex: 1, synthesisTimeoutMs: 120000 });
+      for (let step = 0; step < 6; step += 1) {
+        now += 4000; socket.receive({ type: "pong" }); heartbeat();
+      }
+      assert.match(view.voice.error.value, /Speech generation stalled/);
+    }
+    assert.equal(socket.readyState, 3);
+  });
+});

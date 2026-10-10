@@ -1,5 +1,7 @@
 import { fork } from "node:child_process";
 
+export const SYNTHESIS_REQUEST_TIMEOUT_MS = 60_000;
+
 // Sherpa's Node API has no explicit model disposal. Process exit releases both
 // the model and ONNX's native arenas before another voice is loaded.
 export async function createSynthesisProcess(configuration, {
@@ -46,7 +48,7 @@ export async function createSynthesisProcess(configuration, {
     if (stopped) return Promise.reject(new Error("Speech worker is unavailable."));
     if (pending) return Promise.reject(new Error("Speech synthesis is already running."));
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { settle(new Error("Speech worker timed out.")); void close(); }, 60_000);
+      const timer = setTimeout(() => { settle(new Error("Speech worker timed out.")); void close(); }, SYNTHESIS_REQUEST_TIMEOUT_MS);
       pending = { resolve, reject, onAudio, timer };
       child.send({ type, ...fields }, error => { if (error) settle(error); });
     });

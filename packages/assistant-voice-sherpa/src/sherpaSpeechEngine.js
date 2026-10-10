@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createRequire } from "node:module";
-import { createSynthesisProcess } from "./synthesisProcess.js";
+import { createSynthesisProcess, SYNTHESIS_REQUEST_TIMEOUT_MS } from "./synthesisProcess.js";
 
 import {
   VOICE_INPUT_SAMPLE_RATE,
@@ -288,6 +288,7 @@ async function createSherpaSpeechEngine({
       version: runtimeValue(runtime, "version")
     }),
     sampleRate,
+    synthesisTimeoutMs: 2 * SYNTHESIS_REQUEST_TIMEOUT_MS,
     synthesize,
     warmup
   });
