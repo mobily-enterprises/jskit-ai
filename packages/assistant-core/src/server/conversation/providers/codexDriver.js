@@ -869,6 +869,9 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           }
         }).catch(error => {
           // A thrown control error also leaves this native owner unconfirmed.
+          if (error === current?.toolFailure && !current.signal.aborted && !error.cleanupFailed) {
+            current.toolFailureCleanup = error;
+          }
           error.cleanupFailed = true;
           throw error;
         });
@@ -1016,6 +1019,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             onEvent, onNativeTurn, signal, completion, admission, inputReady: admission.promise, finishIfCurrent,
             admitted: false, dispatched: false, turnId: "" };
           let cancellation;
+          let toolFailureRecovery;
           let problem;
           let delivered;
           let waitForTurn = false;
@@ -1163,13 +1167,21 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             // original observation-stop owner until its pending recovery joins.
             if (!supplied && error === active.toolFailure && current === active && !disposed && !signal.aborted &&
                 executingProvider && executingProvider === native && binding.threadId === failureThreadId &&
-                active.turnId === failureTurnId && error.code !== "codex_runtime_invalidated") executingProvider.failObservation(error);
+                active.turnId === failureTurnId && error.code !== "codex_runtime_invalidated") {
+              toolFailureRecovery = executingProvider.failObservation(error);
+            }
           }
           try {
             await owner.notificationQueue.drain(sessionId);
             // The original queue starts observation recovery without awaiting
             // it. Join only this provider's existing attempt before settling.
             if (!supplied) await providerOwner.pendingRecovery(providerKey, executingProvider);
+            if (toolFailureRecovery) {
+              await toolFailureRecovery;
+              if (problem === active.toolFailureCleanup && current === active && !disposed && !signal.aborted &&
+                  executingProvider === native && binding.threadId === failureThreadId && active.turnId === failureTurnId &&
+                  !observationError && binding.observationLoss?.stopped === true) delete problem.cleanupFailed;
+            }
           } catch (error) { problem = error; }
           finally {
             for (const owned of toolRegistrations.values()) owned.registration.release();

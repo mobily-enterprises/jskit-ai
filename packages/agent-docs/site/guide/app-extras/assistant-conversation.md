@@ -2385,6 +2385,14 @@ tool error and current provider/thread/turn; user cancellation, account invalida
 and host-supplied native ownership keep their existing policies. It does not retry
 an effect or grant goal controls application-tool authority.
 
+A thrown Stop error remains a cleanup failure until the original native owner
+confirms recovery. When a Stop checkpoint propagated the admitted tool error,
+only the cleanup annotation introduced for that exact error is retired after its
+same recovery task succeeds with the current provider/thread/turn unchanged.
+The authored tool failure remains failed. This does not clear cleanup annotations
+for genuine control refusals, prior cleanup failures, cancelled owners or failed
+recovery.
+
 After restart, call `inspectDelivery({ messageId })` for an actual authored Send
 or steering message. Codex checks that exact native receipt and recovers output
 through the original native turn owner when the saved thread and run establish
