@@ -87,7 +87,11 @@ function claudeMessageBlocks(frame, { includeNested = false } = {}) {
 
 async function readClaudeHistory(options) {
   const file = await claudeHistoryPath(options);
-  if (!file || file.size === 0) return { exists: false, messages: [], userIds: [], text: "" };
+  const inspected = {
+    ...(options.includeUserMessages ? { userMessages: [] } : {}),
+    ...(options.includeFinalCarriers ? { completedResults: [], failedResults: [], structuredOutputs: [] } : {})
+  };
+  if (!file || file.size === 0) return { exists: false, messages: [], userIds: [], text: "", ...inspected };
   if (file.size > 256 * 1024 * 1024) throw new Error("Claude history exceeds the supported read limit.");
   const messages = new Map();
   const userIds = [];
@@ -140,12 +144,42 @@ async function readClaudeHistory(options) {
         (typeof frame.message?.content === "string" || frame.message?.content?.some((block) => block.type === "text"))) {
       userIds.push(frame.uuid);
       lastUserId = frame.uuid;
+      if (options.includeUserMessages && !frame.parent_tool_use_id) {
+        const content = frame.message.content;
+        const text = typeof content === "string" ? content : content
+          .filter(block => block.type === "text" && typeof block.text === "string").map(block => block.text).join("\n\n");
+        inspected.userMessages.push({ id: frame.uuid, text });
+      }
+    }
+    if (options.includeFinalCarriers && !frame.parent_tool_use_id && !frame.isMeta) {
+      if (frame.type === "result" && frame.subtype === "success" && !frame.is_error &&
+          !["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason)) {
+        // Same final normalization as the live native turn; this is an actual
+        // saved result, never a result invented from a tool-use candidate.
+        const text = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
+        inspected.completedResults.push({ id: frame.uuid || "", userId: lastUserId, text });
+      } else if (frame.type === "result") {
+        // Preserve the live terminal-failure/interruption contradiction without
+        // copying native error details into stopped application inspection.
+        inspected.failedResults.push({ id: frame.uuid || "", userId: lastUserId });
+      }
+      if (frame.type === "assistant") {
+        for (const block of frame.message?.content || []) {
+          if (block.type === "tool_use" && block.name === "StructuredOutput" && typeof block.id === "string" && block.id &&
+              block.input && typeof block.input === "object" && !Array.isArray(block.input)) {
+            // Raw native carrier only. A stopped importer must independently
+            // verify the original completed receipt and exact final/user custody.
+            inspected.structuredOutputs.push({ id: frame.uuid || "", userId: lastUserId,
+              toolUseId: block.id, text: JSON.stringify(block.input) });
+          }
+        }
+      }
     }
     for (const message of claudeMessageBlocks(frame)) {
       messages.set(message.id, { ...message, userId: lastUserId });
     }
   }
-  return { exists: true, messages: [...messages.values()], userIds, goal,
+  return { exists: true, messages: [...messages.values()], userIds, goal, ...inspected,
     text: [...messages.values()].filter((message) => message.role === "assistant" && message.userId === lastUserId)
       .map((message) => message.text).join("\n") };
 }

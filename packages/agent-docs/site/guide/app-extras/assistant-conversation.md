@@ -3278,6 +3278,17 @@ cannot bypass admission, authorization, delivery inspection or cleanup proof.
 and message-block mapping stay inside the owner. Pass an authorized
 `configRoot`, `workdir` and native `conversationId` to the reader; these
 operations do not authorize an account or conversation.
+Stopped inspection can opt into `includeUserMessages: true` for raw native
+`userMessages` (`id`, `text`) and `includeFinalCarriers: true` for
+`completedResults` (`id`, `userId`, `text`), `failedResults` (`id`, `userId`) and `structuredOutputs`
+(`id`, `userId`, `toolUseId`, `text`). Completed results come only from actual
+successful native result frames. A recorded failed or interrupted result for the
+same user must block conversion even if an earlier carrier matches. No native
+error content is exposed by this field. Structured outputs are exact top-level
+`StructuredOutput` tool-use candidates, not proof of completion; the application
+must join its original completed receipt, exact user and final reply, and reject
+newer or competing output. These opt-ins use the same selected branch and parser,
+exclude sidechain/nested/meta carriers, and leave the default return shape intact.
 Reads preserve the selected rewind branch and tolerate only an unfinished final
 line in a growing transcript. `listClaudeConversationStorage` enumerates the
 specified binding's native conversations. Export and deletion policy remain with
