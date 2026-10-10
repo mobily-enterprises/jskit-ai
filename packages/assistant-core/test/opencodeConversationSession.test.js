@@ -230,7 +230,7 @@ async function fixture(t, options = {}) {
       connections: { resolve: options.resolve || (async () => ({ providerId: "test", model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
         modelLimits: { context: 32000, output: 4000 }, apiKey: key })) },
       host: { workdir: directory, env: { ...process.env, UNRELATED_SECRET: "must-not-inherit" },
-        commands: { opencode: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
+        commands: { opencode: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper, opencode: options.opencode },
       limits: { admissionTimeoutMs: 250, ...options.limits } });
     runtimes.push(value);
     return value;
@@ -242,7 +242,7 @@ async function fixture(t, options = {}) {
       connections: { resolve: options.resolve || (async () => ({ providerId: "test", model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
         modelLimits: { context: 32000, output: 4000 }, apiKey: key })) },
       host: { workdir: directory, env: { ...process.env, UNRELATED_SECRET: "must-not-inherit" },
-        commands: { opencode: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
+        commands: { opencode: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper, opencode: options.opencode },
       limits: { admissionTimeoutMs: 250, ...options.limits }
     },
     binding: () => storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding),
@@ -1811,4 +1811,69 @@ test("ordinary OpenCode forged-data wire retains the human cap in completed mode
     assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 1);
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
+});
+
+
+test("managed OpenCode refreshes its own key in the retained native scope without transferring completed receipt authority", async t => {
+  const { createOpenCodeConversationServer } = await import("../src/server/conversation/openCodeProcess.js");
+  const { createOpenCodeSharedRuntime } = await import("../src/server/conversation/openCodeRuntime.js");
+  let f, owner, foreignScope = false;
+  const starts = [], stops = [];
+  f = await completedOpenCodeFixture(t, { opencode: async ({ connection }) => {
+    const runtimeDirectory = path.join(f.directory, "managed-native");
+    owner ||= createOpenCodeSharedRuntime({ scope: runtimeDirectory, onStop: event => stops.push(event) });
+    const selected = { modelProviderId: connection.providerId, canonicalUrl: connection.baseURL || "",
+      endpointCode: connection.sdkPackage || "", fingerprint: connection.apiKey };
+    return { runtime: owner, runtimeDirectory, allowCredentialRefresh: true,
+      registryPath: path.join(runtimeDirectory, "environments.json"),
+      databasePath: path.join(runtimeDirectory, foreignScope ? "foreign-native.json" : "native.json"), selected,
+      prepareServer: async () => ({ connections: [selected],
+        options: { command: f.driverOptions.host.commands.opencode, workdir: f.directory,
+          stateDirectory: runtimeDirectory, databasePath: path.join(runtimeDirectory, "native.json"),
+          sessionEnvironmentRegistry: path.join(runtimeDirectory, "environments.json"),
+          connection, env: f.driverOptions.host.env },
+        create: async options => {
+          const server = await createOpenCodeConversationServer(options);
+          starts.push({ options, server });
+          return server;
+        }
+      }) };
+  } });
+  try {
+    const first = await f.complete("managed-first");
+    const before = await f.binding();
+    const prior = JSON.parse(await readFile(before.databasePath, "utf8"));
+    const prepared = await f.prepare(first);
+    f.setKey("managed-replacement-key");
+    await assert.rejects(f.prepare(first), /different account binding/);
+    await assert.rejects(executeCompletedOpenCode(prepared), /different account binding/);
+    assert.deepEqual(await f.binding(), before);
+    assert.equal(f.effects(), 0);
+    await f.complete("managed-second");
+    const after = await f.binding();
+    assert.equal(after.sessionId, before.sessionId);
+    assert.equal(starts.length, 2);
+    assert.equal(starts[0].options.databasePath, starts[1].options.databasePath);
+    assert.equal(starts[0].options.workdir, starts[1].options.workdir);
+    assert.equal(starts[0].options.connection.apiKey, "test-key");
+    assert.equal(starts[1].options.connection.apiKey, "managed-replacement-key");
+    assert.ok(stops.some(event => event.reason === "opencode-connection-changed"));
+    await assert.rejects(starts[0].server.client.health({ signal: AbortSignal.timeout(1000) }));
+    const trace = await f.trace();
+    assert.equal(trace.filter(row => row.url === "/api/session").length, 1);
+    assert.equal(trace.filter(row => row.url?.endsWith("/prompt_async")).length, 2);
+    const current = JSON.parse(await readFile(after.databasePath, "utf8")).find(row => row.id === after.sessionId);
+    const original = prior.find(row => row.id === before.sessionId);
+    assert.deepEqual(current.messages.slice(0, original.messages.length), original.messages);
+    assert.equal((await f.conversation.read()).conversationLog.length, 2);
+    foreignScope = true;
+    await assert.rejects(f.conversation.send({ messageId: "foreign-store", text: "Again" }), /another native history store or runtime/);
+    assert.deepEqual(await f.binding(), after);
+    assert.equal((await f.conversation.read()).conversationLog.length, 2);
+    assert.equal((await f.trace()).filter(row => row.url?.endsWith("/prompt_async")).length, 2);
+    assert.equal(f.effects(), 0);
+  } finally {
+    await f.close();
+    await owner?.stop("managed-fixture-close");
+  }
 });

@@ -417,7 +417,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
         }).finally(() => { stopping = null; });
         return stopping;
       }
-      async function resolvePreparation(configuration, context, signal, requireBound = false, receiptBinding) {
+      async function resolvePreparation(configuration, context, signal, requireBound = false, receiptBinding, authoredPreparation = false) {
         const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
         signal.throwIfAborted();
         validateConnectionModel(configuration, connection);
@@ -426,18 +426,30 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
         if (requireBound && (binding.accountIdentity !== receiptBinding.accountIdentity || identity !== receiptBinding.accountIdentity)) {
           throw new Error("The completed OpenCode response belongs to a different account binding.");
         }
-        if (binding.accountIdentity && identity !== binding.accountIdentity) {
+        // The existing managed host reauthorizes its own connection on every preparation.
+        // A key change can rotate an authored run only inside the same native storage/runtime scope.
+        const preparedFacilities = host.opencode ? await host.opencode({ connection, context }) : facilities;
+        signal.throwIfAborted();
+        if (host.opencode && (
+          binding.databasePath && binding.databasePath !== preparedFacilities.databasePath ||
+          binding.runtimeDirectory && binding.runtimeDirectory !== preparedFacilities.runtimeDirectory ||
+          facilities && facilities.runtime !== preparedFacilities.runtime
+        )) {
+          throw new Error("This OpenCode conversation belongs to another native history store or runtime. Restore its original host configuration.");
+        }
+        const allowCredentialRefresh = authoredPreparation && host.opencode && preparedFacilities.allowCredentialRefresh === true;
+        if (binding.accountIdentity && identity !== binding.accountIdentity && !allowCredentialRefresh) {
           throw new Error("This conversation belongs to another OpenCode account. Restore that connection or start a new conversation.");
         }
-        if (!binding.accountIdentity) await updateBinding({ accountIdentity: identity });
+        if (binding.accountIdentity !== identity) await updateBinding({ accountIdentity: identity });
         const model = { providerID: connection.providerId, id: connection.model };
         const agent = openCodeConversationAgent({ nativeTools, tools: Boolean(current?.tools) });
         if (current) current.agent = agent;
         if (binding.sessionId && !binding.databasePath) {
           throw new Error("This OpenCode conversation uses the earlier private native history layout. Run the offline native-history upgrade before continuing; no history was changed.");
         }
-        if (!facilities) {
-          if (host.opencode) facilities = await host.opencode({ connection, context });
+        if (!facilities || host.opencode) {
+          if (host.opencode) facilities = preparedFacilities;
           else {
             const runtimeDirectory = path.join(stateDirectory, "shared", hash([identity, host.commands?.opencode || "opencode"]));
             const selected = { modelProviderId: connection.providerId, canonicalUrl: connection.baseURL || "",
@@ -680,7 +692,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
           let problem;
           try {
             active.resolved = await resolvePreparation(command.configuration, command.context,
-              AbortSignal.any([command.signal, AbortSignal.timeout(120_000)]));
+              AbortSignal.any([command.signal, AbortSignal.timeout(120_000)]), false, undefined, true);
             let dispatchFailure;
             try { await send(command); }
             catch (error) { dispatchFailure = error; }
