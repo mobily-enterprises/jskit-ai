@@ -2699,6 +2699,15 @@ The common driver passes that preparation to the same runtime's
 `startPreparedProcess`; native acquisition and startup stay inside the shared
 owner. The host retains execution policy, credential resolution and durable
 restart/stop proof. Ordinary apps use the supplied facility without writing one.
+A managed host that already authorizes replacing its own connection may return
+`allowCredentialRefresh: true`. Authored run preparation resolves that facility
+again and retains the same shared runtime, runtime directory, native database and
+session. The original shared owner verifies the old process's exit before starting
+with the current key. This flag does not identify a historical remote account or
+share credentials. Standalone defaults still reject a changed credential;
+inspection and completed-response preparation cannot rotate a binding. An old
+completed receipt must still match its original credential fingerprint before
+any effect or reply publication.
 Existing development bindings from the earlier private `history.db` implementation
 are rejected before inference; changing the stored path does not migrate native
 history. Their offline conversion remains unfinished.
