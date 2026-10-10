@@ -48,7 +48,8 @@ export function createCodexConversationAdapter(host) {
       params = await prepareInstructions(retainInstalledInstructions
         ? { ...params, systemPrompt: undefined, developerInstructions: bound.params.developerInstructions }
         : params, threadId);
-      const signal = AbortSignal.timeout(host.timeoutMs || 10_000);
+      let signal = AbortSignal.timeout(host.timeoutMs || 10_000);
+      const controlDeadline = performance.now() + (host.timeoutMs || 10_000);
       const assertRecoveryOpen = () => {
         signal.throwIfAborted();
         if (generation !== contextGeneration) {
@@ -138,7 +139,15 @@ export function createCodexConversationAdapter(host) {
       if (retainInstalledInstructions && (!bindingMatches || nativeStatus !== "active")) {
         // An active healthy turn keeps its installed prompt. Real control
         // recovery and the next idle admission still read current instructions.
+        assertRecoveryOpen();
+        const remainingControlMs = Math.floor(controlDeadline - performance.now());
+        if (remainingControlMs <= 0) {
+          throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+        }
+        // Instruction composition preceded the control clock originally. Only
+        // this deferred host read is excluded; spent native time is retained.
         params = await prepareInstructions(requestedParams, threadId);
+        signal = AbortSignal.timeout(remainingControlMs);
         environment = instructionEnvironment(params, environment);
         requestParams = { ...requestParams,
           ...(Object.hasOwn(params, "developerInstructions") ? { developerInstructions: params.developerInstructions } : {}),
@@ -157,6 +166,7 @@ export function createCodexConversationAdapter(host) {
         goal.createdAt === original.createdAt && goal.objective === original.objective;
       const log = (event, fields = {}) => host.log?.(event, fields, { threadId, environment });
       try {
+        assertRecoveryOpen();
         if (instructionOnly) {
           // A native goal can start work while the host reads its prompt.
           nativeStatus = await readStatus();

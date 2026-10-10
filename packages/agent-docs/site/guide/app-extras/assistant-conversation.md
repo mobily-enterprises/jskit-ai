@@ -2581,6 +2581,10 @@ turn retains its installed instruction snapshot even if the source changes or is
 temporarily unavailable. The next idle admission rereads the latest instructions;
 if native work starts during that refresh, instruction-only recovery defers
 without explicitly interrupting it.
+Deferred host instruction composition is outside the native-control deadline,
+as in the original preparation order. Native time already spent remains spent;
+the subsequent controls receive only the remaining allowance. An exhausted
+allowance still rejects recovery, and retired contexts cannot install the result.
 Real account, environment, socket and provider recovery still runs normally.
 Native compaction remains the engine's job.
 JSKIT owns the local history adapter used for model-provider changes. It keeps
