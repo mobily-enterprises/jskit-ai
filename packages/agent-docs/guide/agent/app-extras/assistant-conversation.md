@@ -1874,11 +1874,20 @@ the conversation context; this data never grants permissions.
 
 For an application that validates a complete native response before executing an
 action, server-owned `completedEnvelope: true` enables
-`prepareCompletedResponse({ messageId, turnId }, { signal })` on the existing
+`prepareCompletedResponse({ messageId, turnId }, { signal, toolSet })` on the existing
 conversation handle. This requires a tool catalogue, runtime-owned canonical
 storage and a Codex, Claude or OpenCode driver. API, supplied and scoped native
 owners are rejected. The application worker's `AbortSignal` is required; the
 authenticated context comes from `open()`, never from the response or caller data.
+
+An application worker that continues discovery across several completed responses
+may supply the same server-owned `toolSet` resolved by this runtime's catalogue.
+Retain it only for that worker's unchanged action-policy and focused-project scope;
+resolve a new set when either scope changes or a new worker starts. Omitting it
+resolves a fresh set for the prepared operation. This preserves loaded exact action
+contracts between responses without sharing their durable call receipts. The
+existing executor still rechecks current authorization and action availability;
+the set is neither caller input nor permission to execute a revoked action.
 
 Only a newly reserved application `wake()` receives the internal turn marker.
 Ordinary user messages, goals, caller data and historical unmarked requests cannot

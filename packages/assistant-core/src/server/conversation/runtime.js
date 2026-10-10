@@ -516,7 +516,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   }
 
 
-  async function prepareCompletedResponse(entry, context, { messageId, turnId } = {}, { signal } = {}) {
+  async function prepareCompletedResponse(entry, context, { messageId, turnId } = {}, { signal, toolSet } = {}) {
     if (!completedEnvelope || entry.conversation || !["codex", "claude", "opencode"].includes(entry.engine)) {
       throw failure("This conversation does not own completed envelopes.", "conversation_unsupported", 400);
     }
@@ -671,7 +671,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               await saveTools(entry, transaction, request, calls);
             });
           }
-          const tools = createConversationTools({ catalog, context, signal: workerSignal, previousCalls: saved.calls,
+          const tools = createConversationTools({ catalog, toolSet, context, signal: workerSignal, previousCalls: saved.calls,
             maximumCalls: maximumToolCalls, discoveryOnly: false,
             authorize: () => access(context, entry.id, "tool", entry),
             prepareContext: async () => {

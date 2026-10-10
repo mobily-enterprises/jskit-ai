@@ -1095,7 +1095,7 @@ Exports
 
 ### `src/server/conversation/tools.js`
 Exports
-- `createConversationTools({ catalog, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
+- `createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
 
 ### `src/server/conversation/transcript.js`
 Exports
