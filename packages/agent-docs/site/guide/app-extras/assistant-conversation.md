@@ -3736,7 +3736,11 @@ order. Its internal admission inspection uses the bounded native user-message lo
 unknown, never permission to resend. The shared runtime owns admitted-turn
 steering and the original one-attempt missing-answer recovery. Its existing
 monitor projection preserves completed reasoning before recovery advances the
-native input boundary. Applications retain their authorization and durable
+native input boundary. An overlapping newer input joins that turn's exact native
+recovery receipt before dispatch; native created-time/ID ordering is checked before
+its final is accepted. The admitted input keeps its durable receipt if observation
+fails. This uses the original turn lifetime, cancellation and cleanup, with no
+additional message queue or automatic resend. Applications retain their authorization and durable
 delivery receipts. The shared runtime's internal dispatch preserves event readiness before
 the application's admission hook, then records the attempted native send and
 submits the original resumed prompt. Delivery defaults to queue; a host steering

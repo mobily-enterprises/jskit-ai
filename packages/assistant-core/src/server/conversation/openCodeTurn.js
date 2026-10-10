@@ -135,18 +135,31 @@ export function openCodeMessageError(message = {}) {
 }
 
 export async function inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, {
-  signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS)
+  signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS), wait = false, readFailure = () => null
 } = {}) {
-  try {
-    // Do not create a missing native session or submit another prompt. Absence
-    // from bounded history is uncertainty, not proof of non-admission.
-    const messages = await client.messages(conversationId, { limit: 100, order: "desc" }, { signal });
-    const accepted = openCodeMessageRows(messages).some((message) =>
-      message.type === "user" && text(message.id) === inputMessageId);
-    return { accepted, messages };
-  } catch {
-    return null;
-  }
+  do {
+    if (wait) signal.throwIfAborted();
+    try {
+      // Do not create a missing native session or submit another prompt. Absence
+      // from bounded history is uncertainty, not proof of non-admission.
+      const readSignal = wait
+        ? AbortSignal.any([signal, AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS)])
+        : signal;
+      const messages = await client.messages(conversationId, { limit: 100, order: "desc" }, { signal: readSignal });
+      if (wait) signal.throwIfAborted();
+      const accepted = openCodeMessageRows(messages).some((message) =>
+        message.type === "user" && text(message.id) === inputMessageId);
+      if (accepted || !wait) return { accepted, messages };
+    } catch {
+      if (!wait) return null;
+      signal.throwIfAborted();
+    }
+    const failure = readFailure();
+    if (failure && (await client.sessionStatus(conversationId, { signal: AbortSignal.any([
+      signal, AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS)
+    ]) })).type === "idle") throw failure;
+    await delay(250, undefined, { signal });
+  } while (wait);
 }
 
 export async function steerOpenCodeTurn(client, conversationId, turn, input, { signal } = {}) {
@@ -381,19 +394,47 @@ export async function waitForOpenCodeFinalResponse(client, conversationId, turn,
     if (admission !== turn.admission || completion.inputMessageId !== text(turn.inputMessageId)) {
       continue;
     }
-    const admitted = await client.prompt(conversationId, {
-      agent,
-      delivery: "queue",
-      id: recoveryMessageId,
-      model,
-      prompt: {
-        text: "Your previous response ended without a user-facing final answer. Do not call tools or repeat your reasoning. Return the concise final answer to the user's latest request now."
-      },
-      resume: true
-    }, { signal: options.signal });
-    if (admission === turn.admission && completion.inputMessageId === text(turn.inputMessageId)) {
-      turn.inputMessageId = text(admitted?.id) || recoveryMessageId;
-      turn.updatedAt = new Date().toISOString();
+    // The async native prompt ACK does not acknowledge user-row creation.
+    // A later authored input joins this exact receipt before its own dispatch.
+    const recoveryAdmission = Promise.withResolvers();
+    void recoveryAdmission.promise.catch(() => {});
+    turn.recoveryAdmission = recoveryAdmission;
+    const receiptAbort = new AbortController();
+    const receiptSignal = AbortSignal.any([...(options.signal ? [options.signal] : []), receiptAbort.signal]);
+    const receipt = inspectOpenCodeMessageAdmission(client, conversationId, recoveryMessageId, {
+      signal: receiptSignal, wait: true, readFailure: options.readFailure
+    }).then(observation => {
+      const message = openCodeMessageRows(observation.messages).find(message =>
+        message.type === "user" && text(message.id) === recoveryMessageId);
+      recoveryAdmission.resolve(message);
+      return message;
+    }, error => {
+      recoveryAdmission.reject(error);
+      throw error;
+    });
+    void receipt.catch(() => {});
+    try {
+      const admitted = await client.prompt(conversationId, {
+        agent,
+        delivery: "queue",
+        id: recoveryMessageId,
+        model,
+        prompt: {
+          text: "Your previous response ended without a user-facing final answer. Do not call tools or repeat your reasoning. Return the concise final answer to the user's latest request now."
+        },
+        resume: true
+      }, { signal: options.signal });
+      await receipt;
+      options.signal?.throwIfAborted();
+      if (admission === turn.admission && completion.inputMessageId === text(turn.inputMessageId)) {
+        turn.inputMessageId = text(admitted?.id) || recoveryMessageId;
+        turn.updatedAt = new Date().toISOString();
+      }
+    } catch (error) {
+      recoveryAdmission.reject(error);
+      throw error;
+    } finally {
+      receiptAbort.abort();
     }
     return waitForCompletion();
   }
