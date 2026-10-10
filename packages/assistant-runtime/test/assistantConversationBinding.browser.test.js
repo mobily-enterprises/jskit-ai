@@ -2804,3 +2804,91 @@ test("mode-aware application admission rejects nonboolean asynchronous and confl
   ]);
   assert.deepEqual(await f.sent(), []);
 });
+
+test("a background goal read keeps current pinned controls available and serializes actual commands", options, async t => {
+  const f = await fixture(t);
+  const view = { status: "available", goal: { id: "current-goal", objective: "Keep working", status: "active" },
+    target: { segmentId: "pinned-native-goal", capabilities: { goals: true,
+      goalCommands: { pause: { delivery: "control", interruptsTurn: false }, cancel: { delivery: "control", interruptsTurn: false } } } } };
+  const commands = [];
+  let holdRead = false;
+  let releaseRead;
+  let releaseCommand;
+  await f.page.route("**/conversations/*/goal", async route => {
+    if (route.request().method() === "GET") {
+      if (holdRead) await new Promise(resolve => { releaseRead = resolve; });
+      return route.fulfill({ json: view });
+    }
+    commands.push(route.request().postDataJSON());
+    await new Promise(resolve => { releaseCommand = resolve; });
+    return route.fulfill({ json: { ok: true } });
+  });
+  try {
+    await f.page.evaluate(() => window.conversationFixture.eventReaders([{ id: "goal-reader", goal: true }]));
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value?.pending)).toBe(false);
+    await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
+    holdRead = true;
+    await f.page.evaluate(() => { window.fixtureBackgroundGoalRead = window.conversationFixture.current().refreshGoal(); });
+    await expect.poll(() => Boolean(releaseRead)).toBe(true);
+    const pause = f.page.getByRole("button", { name: "Pause goal", exact: true });
+    await expect(pause).toBeEnabled();
+    await pause.click();
+    await expect.poll(() => commands.length).toBe(1);
+    assert.deepEqual(commands[0], { action: "pause", expectedSegmentId: "pinned-native-goal", expectedGoalId: "current-goal" });
+    await expect(f.page.getByRole("button", { name: "Cancel goal", exact: true })).toBeDisabled();
+    assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("cancel")), false);
+    releaseCommand();
+    await expect(pause).toBeEnabled();
+    assert.equal(commands.length, 1, "Only the actual Pause command was admitted");
+    holdRead = false;
+    releaseRead();
+    await f.page.evaluate(() => window.fixtureBackgroundGoalRead);
+    assert.deepEqual(await f.sent(), []);
+  } finally {
+    holdRead = false;
+    releaseCommand?.();
+    releaseRead?.();
+  }
+});
+
+test("changing the observed native segment blocks cached goal controls until the replacement read completes", options, async t => {
+  const f = await fixture(t);
+  const commands = [];
+  const view = { status: "available", goal: { id: "old-goal", objective: "Old goal", status: "active" },
+    target: { segmentId: "old-pinned-target", capabilities: { goals: true,
+      goalCommands: { pause: { delivery: "control", interruptsTurn: false } } } } };
+  let held = false;
+  let releaseRead;
+  await f.page.route("**/conversations/*/goal", async route => {
+    if (route.request().method() === "GET") {
+      if (held) await new Promise(resolve => { releaseRead = resolve; });
+      return route.fulfill({ json: view });
+    }
+    commands.push(route.request().postDataJSON());
+    return route.fulfill({ json: { ok: true } });
+  });
+  try {
+    await f.page.evaluate(() => window.conversationFixture.eventReaders([{ id: "goal-reader", goal: true }]));
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value?.pending)).toBe(false);
+    held = true;
+    await f.command("goals", { id: "chat:1", segmentId: "replacement-native-observation", budgets: false,
+      commands: view.target.capabilities.goalCommands });
+    await f.notify("chat:1");
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.segmentId)).toBe("replacement-native-observation");
+    await expect.poll(() => Boolean(releaseRead)).toBe(true);
+    assert.equal(await f.page.evaluate(() => window.conversationFixture.current().goalState.value.pending), true);
+    assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("pause")), false);
+    assert.deepEqual(commands, [], "A previous observation cannot authorize a command for the replacement thread");
+    view.goal.id = "replacement-goal";
+    view.target.segmentId = "replacement-pinned-target";
+    held = false;
+    releaseRead();
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value.pending)).toBe(false);
+    assert.deepEqual(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("pause")), { ok: true });
+    assert.deepEqual(commands, [{ action: "pause", expectedSegmentId: "replacement-pinned-target", expectedGoalId: "replacement-goal" }]);
+    assert.deepEqual(await f.sent(), []);
+  } finally {
+    held = false;
+    releaseRead?.();
+  }
+});

@@ -2333,6 +2333,11 @@ initial Set to prepare a thread from that state. Later controls use the actual
 thread and current goal identity. A stopped or replaced thread does not become
 an unstarted conversation; its existing recovery and replacement checks still
 apply. The supplied client binding preserves the value automatically.
+Background goal reads keep controls available for the last verified current
+conversation observation. An initial read or changed native segment blocks
+commands until its goal target is verified; a supplied pinned goal target may
+differ from the visible chat segment. Actual goal commands remain serialized,
+and each sends the displayed goal and target identities for server validation.
 
 Claude uses its original native `/goal` commands through ordinary message
 admission. Set and resume require idle work; an unfinished goal must be cleared

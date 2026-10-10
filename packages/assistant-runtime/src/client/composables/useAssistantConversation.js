@@ -85,7 +85,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const loading = ref(true);
   const stopping = ref(false);
   const goalPending = ref(false);
-  const goalLoading = ref(false);
+  const goalTargetCurrent = ref(false);
   const goalError = ref("");
   const goalView = shallowRef(null);
   const goalLoadError = ref("");
@@ -219,6 +219,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (state.segmentId !== goalSegment) {
       // Keep the open goal menu while its first native identity arrives. The
       // pending read disables commands until it supplies the new exact target.
+      goalTargetCurrent.value = false;
       goalReadController?.abort();
     }
     if (readsGoals.value && (initial || goalChanged || state.segmentId !== goalSegment)) void refreshGoal();
@@ -241,6 +242,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       delivery.reset();
       goalError.value = "";
       goalView.value = null;
+      goalTargetCurrent.value = false;
       goalLoadError.value = "";
       goalReadController?.abort();
     }
@@ -539,7 +541,6 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const capabilities = snapshot.value.capabilities;
     const controller = new AbortController();
     goalReadController = controller;
-    goalLoading.value = true;
     const job = Promise.resolve().then(() => api.readConversationGoal(identity.conversationId, {
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)])
     })).then(result => {
@@ -549,6 +550,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       goalView.value = result && Object.hasOwn(result, "target") ? result : {
         status: "available", goal: result, target: { segmentId: segment, capabilities }
       };
+      // A background read does not invalidate this observation. Its supplied
+      // goal target may intentionally differ from the visible chat segment.
+      goalTargetCurrent.value = true;
       goalLoadError.value = "";
       return true;
     }).catch(failure => {
@@ -560,7 +564,6 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (goalRead !== job) return;
       goalRead = null;
       goalReadController = null;
-      goalLoading.value = false;
       if (goalReadQueued) {
         goalReadQueued = false;
         void refreshGoal();
@@ -578,7 +581,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const view = goalView.value;
     const target = view?.target;
     const command = target?.capabilities?.goalCommands?.[action];
-    if (!available.value || view?.status !== "available" || goalLoadError.value || goalPending.value || goalLoading.value ||
+    if (!available.value || view?.status !== "available" || goalLoadError.value || goalPending.value || !goalTargetCurrent.value ||
         !["message", "control"].includes(command?.delivery) ||
         delivery.state.messages.some(message => message.status === "uncertain")) return false;
     if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
@@ -633,7 +636,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       tokenBudgetSupported: capabilities.goalBudgets === true,
       goal: view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
-      pending: goalPending.value || goalLoading.value || !available.value || delivery.state.sending ||
+      pending: goalPending.value || !goalTargetCurrent.value || !available.value || delivery.state.sending ||
         delivery.state.messages.some(message => message.status === "uncertain"),
       error: goalError.value,
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
