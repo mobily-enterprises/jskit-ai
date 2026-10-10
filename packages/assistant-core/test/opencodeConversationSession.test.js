@@ -1871,7 +1871,11 @@ test("managed OpenCode refreshes its own key in the retained native scope withou
     assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(first.turnId)), firstCanonical);
     foreignScope = true;
     await assert.rejects(f.conversation.send({ messageId: "foreign-store", text: "Again" }), /another native history store or runtime/);
-    assert.deepEqual(await f.binding(), after);
+    const refused = await f.binding();
+    assert.deepEqual(refused, { ...after, executionId: "", processDirectory: "" });
+    await assert.rejects(starts[1].server.client.health({ signal: AbortSignal.timeout(1000) }));
+    assert.deepEqual(JSON.parse(await readFile(after.databasePath, "utf8")).find(row => row.id === after.sessionId), current);
+    assert.equal(starts.length, 2);
     assert.equal(f.appendedRows.length, 2);
     assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(first.turnId)), firstCanonical);
     assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(second.turnId)), secondCanonical);
