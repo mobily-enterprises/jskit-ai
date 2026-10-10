@@ -16,7 +16,7 @@ import {
 import { prepareCodexHistory } from "./codexHistoryAdapter.js";
 import { createCodexConversationAdapter } from "./providers/codex.js";
 import { exportCodexNativeHistory } from "./codexNativeHistoryExport.js";
-import { retireNativeConversation } from "./nativeHistoryExport.js";
+import { retireNativeConversation, readStoppedNativeDatabase } from "./nativeHistoryExport.js";
 import { isPlainObject, normalizeText as normalizeAgentText } from "./normalize.js";
 import {
   codexAppServerProviderThreadTurns,
@@ -133,6 +133,41 @@ async function retireCodexConversationHistory(provider, binding, {
   return retireNativeConversation({ binding, inspect, beforeDelete,
     exportConversation: (id, onRecord) => provider.exportThreadHistory(id, onRecord, { signal }),
     remove: () => provider.deleteThread(binding.conversationId) });
+}
+
+// Native Codex0.159.1 keeps goals in its separate goals_1.sqlite store.
+// Return its original SQL fields; the host owns stopped conversion eligibility,
+// including rejecting active/blocked/limited goals and resolving SQLite home.
+async function readCodexNativeGoal(databasePath, { threadId, signal } = {}) {
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(threadId || "") ||
+      path.basename(databasePath || "") !== "goals_1.sqlite") {
+    throw new TypeError("Codex goal inspection requires its exact thread ID and supported goals_1.sqlite path.");
+  }
+  return readStoppedNativeDatabase(databasePath, database => {
+    const columns = database.prepare("PRAGMA table_info(thread_goals)").all();
+    const text = ["thread_id", "goal_id", "objective", "status"];
+    const integers = ["token_budget", "tokens_used", "time_used_seconds", "created_at_ms", "updated_at_ms"];
+    if (!columns.some(column => column.name === "thread_id" && column.pk === 1) ||
+        text.some(name => !columns.some(column => column.name === name && column.type === "TEXT")) ||
+        integers.some(name => !columns.some(column => column.name === name && column.type === "INTEGER"))) {
+      throw new Error("Codex's saved native goal schema is unsupported; no history was changed.");
+    }
+    const rows = database.prepare(`SELECT thread_id, goal_id, objective, status, token_budget,
+      tokens_used, time_used_seconds, created_at_ms, updated_at_ms
+      FROM thread_goals WHERE thread_id = ? LIMIT 2`).all(threadId);
+    if (!rows.length) return null;
+    const row = rows[0];
+    if (rows.length !== 1 || row.thread_id !== threadId ||
+        !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/u.test(row.goal_id || "") ||
+        typeof row.objective !== "string" ||
+        !["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"].includes(row.status) ||
+        row.token_budget !== null && (!Number.isSafeInteger(row.token_budget) || row.token_budget < 0) ||
+        ["tokens_used", "time_used_seconds", "created_at_ms", "updated_at_ms"].some(key =>
+          !Number.isSafeInteger(row[key]) || row[key] < 0)) {
+      throw new Error("Codex's saved native goal is unsupported or ambiguous; no history was changed.");
+    }
+    return row;
+  }, { signal });
 }
 
 async function codexAppServerThreadHasReadableHistory(provider = null, threadId = "") {
@@ -2768,7 +2803,7 @@ export {
   codexAppServerThreadHasReadableHistory, deleteCodexAppServerThread, deleteCodexAppServerHelperThread,
   inspectCodexAppServerMessageAdmission,
   codexCliResumeCommand, codexLocalImageInput, codexTextInput, codexTurnInput, shellQuote,
-  exportCodexNativeHistory, retireCodexConversationHistory
+  exportCodexNativeHistory, retireCodexConversationHistory, readCodexNativeGoal
 };
 export {
   createCodexAppServerProviderOwner,

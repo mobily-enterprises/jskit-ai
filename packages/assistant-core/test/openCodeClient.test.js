@@ -513,3 +513,107 @@ test("OpenCode retained storage validates complete inventories and bounded cance
   await assert.rejects(cancelledPage, { name: "AbortError" });
 
 });
+
+
+test("stopped OpenCode native database retains the original MessageV2 projection without native writes", async t => {
+  const { mkdtemp, readFile, lstat, readdir, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const { DatabaseSync } = await import("node:sqlite");
+  const { readOpenCodeConversationDatabase } = await import("../src/server/hosts/openCodeClient.js");
+  const { readStoppedNativeDatabase } = await import("../src/server/hosts/nativeHistory.js");
+  const root = await mkdtemp(path.join(tmpdir(), "assistant-native-opencode-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = path.join(root, "native space.db");
+  const db = new DatabaseSync(file);
+  db.exec(`CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT, project_id TEXT);
+    CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, data TEXT);
+    CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, data TEXT);
+    CREATE TABLE session_input (session_id TEXT, promoted_seq INTEGER);`);
+  db.prepare("INSERT INTO session VALUES (?, ?, ?)").run("ses_original", "/private/actor/colleague_scope", "project_original");
+  const insert = db.prepare("INSERT INTO message VALUES (?, ?, ?, ?)");
+  insert.run("msg_original_user", "ses_original", 1, JSON.stringify({ id: "untrusted-payload-id", role: "user", time: { created: 1 } }));
+  insert.run("msg_original_answer", "ses_original", 2, JSON.stringify({ role: "assistant", parentID: "msg_original_user", finish: "stop", time: { created: 2, completed: 3 } }));
+  db.prepare("INSERT INTO part VALUES (?, ?, ?, ?)").run("prt_original_text", "msg_original_answer", "ses_original",
+    JSON.stringify({ type: "text", text: "Exact answer 🦊", id: "untrusted-part-id" }));
+  db.close();
+  const before = await readFile(file);
+  const stat = await lstat(file);
+  const messages = [];
+  const result = await readOpenCodeConversationDatabase({ databasePath: file, conversationId: "ses_original", onMessage: row => messages.push(row) });
+  assert.equal(result.session.directory, "/private/actor/colleague_scope");
+  assert.equal(result.session.project_id, "project_original");
+  assert.equal(result.recordCount, 2);
+  assert.match(result.revision, /^[a-f0-9]{64}$/u);
+  assert.deepEqual(messages.map(row => [row.id, row.sessionID, row.type]), [
+    ["msg_original_user", "ses_original", "user"], ["msg_original_answer", "ses_original", "assistant"]
+  ]);
+  assert.equal(messages[1].parentID, "msg_original_user");
+  assert.deepEqual(messages[1].content, [{ type: "text", text: "Exact answer 🦊", id: "prt_original_text", sessionID: "ses_original", messageID: "msg_original_answer" }]);
+  await assert.rejects(readStoppedNativeDatabase(file, database => database.exec("DELETE FROM message")), /readonly|read-only/iu);
+  const cancelled = new Error("Caller stopped original inspection");
+  await assert.rejects(readOpenCodeConversationDatabase({ databasePath: file, conversationId: "ses_original", onMessage() {}, signal: AbortSignal.abort(cancelled) }), error => error === cancelled);
+  assert.deepEqual(await readFile(file), before);
+  const after = await lstat(file);
+  for (const key of ["dev", "ino", "size", "mtimeMs", "ctimeMs", "mode"]) assert.equal(after[key], stat[key]);
+  assert.deepEqual(await readdir(root), ["native space.db"]);
+});
+
+test("stopped OpenCode database refuses pending native work and foreign parts with no storage changes", async t => {
+  const { mkdtemp, readFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const { DatabaseSync } = await import("node:sqlite");
+  const { readOpenCodeConversationDatabase } = await import("../src/server/hosts/openCodeClient.js");
+  const root = await mkdtemp(path.join(tmpdir(), "assistant-native-opencode-refusal-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = path.join(root, "native.db");
+  const db = new DatabaseSync(file);
+  db.exec(`CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT);
+    CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, data TEXT);
+    CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, data TEXT);
+    CREATE TABLE session_input (session_id TEXT, promoted_seq INTEGER);
+    INSERT INTO session VALUES ('ses_original', '/private/actor/scope');
+    INSERT INTO session_input VALUES ('ses_original', NULL);`);
+  db.close();
+  let seen = 0;
+  const before = await readFile(file);
+  await assert.rejects(readOpenCodeConversationDatabase({ databasePath: file, conversationId: "ses_original", onMessage() { seen += 1; } }), /unpromoted native request/u);
+  assert.equal(seen, 0);
+  assert.deepEqual(await readFile(file), before);
+  const edited = new DatabaseSync(file);
+  edited.exec("DELETE FROM session_input");
+  edited.prepare("INSERT INTO message VALUES (?, ?, ?, ?)").run("msg_original", "ses_original", 1, JSON.stringify({ role: "assistant", finish: "stop" }));
+  edited.prepare("INSERT INTO part VALUES (?, ?, ?, ?)").run("prt_foreign", "msg_original", "ses_other", JSON.stringify({ type: "text", text: "Other private owner" }));
+  edited.close();
+  const foreignBefore = await readFile(file);
+  await assert.rejects(readOpenCodeConversationDatabase({ databasePath: file, conversationId: "ses_original", onMessage() { seen += 1; } }), /could not be inspected completely/u);
+  assert.equal(seen, 0);
+  assert.deepEqual(await readFile(file), foreignBefore);
+});
+
+test("stopped native inspection rejects live journals and noncanonical files before opening storage", async t => {
+  const { mkdtemp, readFile, writeFile, readdir, symlink, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const { DatabaseSync } = await import("node:sqlite");
+  const { readStoppedNativeDatabase } = await import("../src/server/hosts/nativeHistory.js");
+  const root = await mkdtemp(path.join(tmpdir(), "assistant-native-journal-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = path.join(root, "native.db");
+  const db = new DatabaseSync(file);
+  db.exec("CREATE TABLE retained (id TEXT)");
+  db.close();
+  const before = await readFile(file);
+  const sidecar = Buffer.from("Uncheckpointed native storage, retained exactly");
+  await writeFile(`${file}-wal`, sidecar);
+  let read = false;
+  await assert.rejects(readStoppedNativeDatabase(file, () => { read = true; }), /journal sidecar/u);
+  assert.equal(read, false);
+  assert.deepEqual(await readFile(file), before);
+  assert.deepEqual(await readFile(`${file}-wal`), sidecar);
+  await symlink(file, path.join(root, "link.db"));
+  await assert.rejects(readStoppedNativeDatabase(path.join(root, "link.db"), () => { read = true; }), /regular file.*canonical path/u);
+  assert.equal(read, false);
+  assert.deepEqual((await readdir(root)).sort(), ["link.db", "native.db", "native.db-wal"]);
+});

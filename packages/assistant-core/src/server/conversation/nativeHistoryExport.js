@@ -1,5 +1,46 @@
 import path from "node:path";
+import { lstat, realpath } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
+
+// Two stopped native-storage readers share file custody, not provider grammar.
+// Immutable SQLite does not inspect WAL: require the original owner to close and
+// checkpoint first, without checkpointing or creating SHM during an upgrade.
+export async function readStoppedNativeDatabase(databasePath, read, { signal } = {}) {
+  if (!path.isAbsolute(databasePath || "") || typeof read !== "function") {
+    throw new TypeError("Native inspection requires an absolute database path and reader.");
+  }
+  const inspect = async () => {
+    signal?.throwIfAborted();
+    const info = await lstat(databasePath);
+    if (!info.isFile() || info.isSymbolicLink() || await realpath(databasePath) !== databasePath) {
+      throw new Error("Native storage must be a regular file at its original canonical path.");
+    }
+    for (const suffix of ["-wal", "-shm", "-journal"]) {
+      try { await lstat(`${databasePath}${suffix}`); }
+      catch (error) { if (error.code === "ENOENT") continue; throw error; }
+      throw new Error("Native storage still has a journal sidecar. Stop its original storage owner cleanly before retrying; inspection does not checkpoint or remove it.");
+    }
+    return info;
+  };
+  const before = await inspect();
+  const { DatabaseSync } = await import("node:sqlite");
+  let database;
+  let result;
+  try {
+    signal?.throwIfAborted();
+    database = new DatabaseSync(`${pathToFileURL(databasePath).href}?mode=ro&immutable=1`, { readOnly: true });
+    database.exec("PRAGMA query_only=ON; BEGIN");
+    result = await read(database);
+    signal?.throwIfAborted();
+    database.exec("ROLLBACK");
+  } finally { database?.close(); }
+  const after = await inspect();
+  if (["dev", "ino", "size", "mtimeMs", "ctimeMs"].some(key => before[key] !== after[key])) {
+    throw new Error("Native storage changed during inspection. Keep all of its writers stopped before retrying.");
+  }
+  return result;
+}
 
 export function canonicalNativeHistoryJson(value) {
   return JSON.stringify(value, (_key, entry) => entry && typeof entry === "object" && !Array.isArray(entry)

@@ -3,5 +3,6 @@ export {
   createOpenCodeServerClient,
   openCodeAssistantMessageText,
   readBoundedResponse,
+  readOpenCodeConversationDatabase,
   retireOpenCodeConversationHistory
 } from "../conversation/openCodeClient.js";

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { nativeAiProvider } from "../../shared/nativeProviders.js";
 import { Duplex } from "node:stream";
 import { stat } from "node:fs/promises";
@@ -63,6 +64,11 @@ async function readNativeClaudeCodeAuthStatus({ env, credentialHome, command, co
   } catch {
     return result.ok ? { loggedIn: false, error: "Claude Code returned an invalid account status." } : failure;
   }
+}
+
+/** Exact existing native connection pin, shared with stopped metadata conversion. */
+export function claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey) {
+  return createHash("sha256").update(JSON.stringify([configRoot, providerId, baseUrl, apiKey])).digest("hex");
 }
 
 /** Native provider routing; the application supplies only its authorized selection. */

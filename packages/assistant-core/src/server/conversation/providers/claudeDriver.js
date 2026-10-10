@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 import { realpath } from "node:fs/promises";
-import { bindClaudeConversationAccount, claudeFlagSettings, claudeModelConfiguration, readClaudeCodeAuthStatus } from "../claudeProcess.js";
+import { bindClaudeConversationAccount, claudeConnectionIdentity, claudeFlagSettings, claudeModelConfiguration, readClaudeCodeAuthStatus } from "../claudeProcess.js";
 import { nativeAiModel, nativeAiProvider } from "../../../shared/nativeProviders.js";
 import { requireClaudeSessionId, listClaudeConversationStorage } from "../claudeHistory.js";
 import { createClaudeConversationOwner, claudeNativeMessageId } from "../claudeTurn.js";
@@ -190,7 +190,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       selected = claudeModelConfiguration({ providerId, model: connection.model }, {
         apiKey: connection.apiKey, baseUrl: provider?.claudeBaseUrl || connection.baseURL || "https://api.anthropic.com"
       });
-      identity = hash([configRoot, providerId, selected.env.ANTHROPIC_BASE_URL, connection.apiKey]);
+      identity = claudeConnectionIdentity(configRoot, providerId, selected.env.ANTHROPIC_BASE_URL, connection.apiKey);
     } else {
       if (requireBound && !accountBinding?.accountIdentity) {
         throw new Error("The completed Claude response has no saved native account fingerprint.");

@@ -16,6 +16,7 @@ export {
   ensureCodexAppServerThread,
   inspectCodexAppServerMessageAdmission,
   retireCodexConversationHistory,
+  readCodexNativeGoal,
   resumeExactCodexAppServerThread,
   sendCodexAppServerPrompt,
   shellQuote,

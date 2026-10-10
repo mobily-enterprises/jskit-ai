@@ -3916,6 +3916,16 @@ thread/account/turn/goal validation. Raw rows alone do not prove an idle native
 turn or authorize resuming it. This read does not start or stop an app-server,
 write history, or obtain credentials.
 
+`readCodexNativeGoal(databasePath, { threadId, signal })` from
+`/server/codex-provider` inspects the native `goals_1.sqlite` store without
+starting an app-server or resuming a thread. It returns the original SQL goal
+fields or `null` for an absent row in that verified database; a missing database,
+journal sidecar, changed file or unknown goal representation is refused.
+Known unfinished goal statuses remain present. The stopped conversion caller
+must qualify its native producer and actual SQLite home, including any original
+`CODEX_SQLITE_HOME` override, and retain its existing goal/account/thread guards.
+A completed rollout or missing database does not establish goal absence.
+
 ## Companions and templates
 
 A companion can receive an app-selected layer containing conversation state and
@@ -3965,3 +3975,24 @@ The textbox coalesces height measurements once per animation frame, after Vue
 applies model changes, and remeasures when its pane width or density changes.
 External state changes retain focus and selection. IME composition does not
 submit or move focus to Send.
+
+## Stopped native SQLite inspection
+
+`readStoppedNativeDatabase` from `/server/native-history` is the shared read-only
+lifecycle for stopped native SQLite readers. It requires a canonical regular
+file and no WAL, SHM or rollback journal, opens immutable read-only with
+`query_only` and one fixed transaction, and verifies unchanged file identity
+and sidecars afterward. It never starts a native CLI, checkpoints, deletes a
+sidecar or stops admitted work. The host must use the ordinary native owner to
+stop and checkpoint writers before inspection; a missing database is not proof
+of absent native state.
+
+`readOpenCodeConversationDatabase` from `/server/opencode-client` streams the
+native session/message/part projection through the existing bounded export and
+message normalizer. It returns original session fields and revision/count
+receipts, refuses pending native admissions or foreign part identities, and
+leaves account authorization and historical-conversion policy to the host.
+`claudeConnectionIdentity` from `/server/claude-process` exposes the same native
+provider/configuration/endpoint/key digest already used by the live driver;
+hosts may translate a verified historical pin without changing its caller or
+copying credentials. These functions do not authorize native continuation.
