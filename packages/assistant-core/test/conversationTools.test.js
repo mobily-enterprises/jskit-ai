@@ -277,6 +277,39 @@ test("repeated calls in one admitted turn reuse receipts; interrupted reservatio
   assert.deepEqual(completed.records(), first.records(), "Restored receipts remain part of the turn's saved state");
 });
 
+test("completed-response tools retain discovery contracts only in their supplied worker catalogue set", async () => {
+  let executions = 0, allowed = true;
+  const catalog = createServiceToolCatalog(actionCatalog(async () => { executions++; return { total: 5 }; }),
+    { maxDirectTools: 0, isActionAvailable: () => allowed });
+  const toolSet = catalog.resolveToolSet(context);
+  const saved = [];
+  const create = retainedToolSet => createConversationTools({ catalog, toolSet: retainedToolSet, context,
+    signal: new AbortController().signal, authorize: async () => {},
+    save: async calls => saved.push(structuredClone(calls)), emit: async () => {} });
+  const contract = { id: "contract-response:operation", name: "assistant_action_contract",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) };
+  const execute = { id: "execute-response:operation", name: "assistant_action_execute",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1, input: { left: 2, right: 3 } }) };
+  assert.equal((await create(toolSet).execute(contract)).ok, true);
+  const isolated = await create().execute(execute);
+  assert.equal(isolated.error.code, "assistant_action_contract_required");
+  assert.equal(executions, 0, "A separate worker must load its own contract");
+  const nextResponse = create(toolSet);
+  const result = await nextResponse.execute(execute);
+  assert.deepEqual(result, { ok: true, result: { actionId: "numbers.add", version: 1, result: { total: 5 } } });
+  assert.deepEqual(await nextResponse.execute(execute), result);
+  assert.equal(executions, 1, "Retaining the contract does not repeat the durable response operation");
+  assert.ok(saved.every(calls => calls.length === 1), "Each response retains its own durable operation receipt");
+  allowed = false;
+  const revoked = await create(toolSet).execute({ ...execute, id: "revoked-response:operation" });
+  assert.equal(revoked.error.code, "assistant_action_unknown");
+  assert.equal(executions, 1, "A retained contract never overrides current action availability");
+  allowed = true;
+  const reset = await create(catalog.resolveToolSet(context)).execute({ ...execute, id: "reset-response:operation" });
+  assert.equal(reset.error.code, "assistant_action_contract_required");
+  assert.equal(executions, 1, "A new worker or scope starts with no loaded contracts");
+});
+
 test("a later admitted turn can reuse a model's tool id with different arguments", async t => {
   const f = await fixture(t, { execute: ({ left, right }) => ({ total: left + right }),
     response: (_body, round, name) => round % 2 ? new Response(frame({ tool_calls: [{

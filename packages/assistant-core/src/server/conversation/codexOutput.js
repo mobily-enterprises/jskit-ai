@@ -37,6 +37,7 @@ export function createCodexAppServerOutput({
   debugLog,
   debugError,
   liveProgressMaxLength,
+  persistCommentary = true,
   storeReadError,
   messageMetadata,
   snapshotRecoveryItemLimit
@@ -639,24 +640,28 @@ export function createCodexAppServerOutput({
       const writer = role === "commentary"
         ? store.writeConversationCommentaryMessage
         : store.writeConversationThinkingMessage;
-      written = await writer.call(store, normalizedSessionId, {
-        ...(streamMessageId ? { outputId: streamMessageId } : {}),
-        messageId: codexAppServerConversationMessageId(
-          normalizedThreadId,
-          codexAppServerNotificationTurnId(notification) || turn.turnId,
-          role,
+      if (role !== "commentary" || persistCommentary) {
+        written = await writer.call(store, normalizedSessionId, {
+          ...(streamMessageId ? { outputId: streamMessageId } : {}),
+          messageId: codexAppServerConversationMessageId(
+            normalizedThreadId,
+            codexAppServerNotificationTurnId(notification) || turn.turnId,
+            role,
+            text
+          ),
+          requireOpenTurn: false,
+          nativeIdentity: { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) || turn.turnId },
           text
-        ),
-        requireOpenTurn: false,
-        nativeIdentity: { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) || turn.turnId },
-        text
-      });
-      if (!written) {
-        codexAppServerLiveProgressItems.delete(key);
-        codexAppServerLiveProgressFingerprints.delete(fingerprintKey);
+        });
+        if (!written) {
+          codexAppServerLiveProgressItems.delete(key);
+          codexAppServerLiveProgressFingerprints.delete(fingerprintKey);
+        }
       }
       const payload = {
-        conversationStream: store.completeConversationStreamMessage(normalizedSessionId, streamMessageId)
+        conversationStream: await store.completeConversationStreamMessage(normalizedSessionId, streamMessageId, {
+          text, role, nativeIdentity: { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) || turn.turnId }
+        })
       };
       if (written) {
         payload.conversationLogPatch = { turn: written, type: "upsert-turn" };

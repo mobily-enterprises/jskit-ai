@@ -417,23 +417,39 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
         }).finally(() => { stopping = null; });
         return stopping;
       }
-      async function resolvePreparation(configuration, context, signal) {
+      async function resolvePreparation(configuration, context, signal, requireBound = false, receiptBinding, authoredPreparation = false) {
         const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
         signal.throwIfAborted();
         validateConnectionModel(configuration, connection);
         const identity = hash([connection.providerId, connection.baseURL || "", connection.apiKey]);
-        if (binding.accountIdentity && identity !== binding.accountIdentity) {
+        if (requireBound && !receiptBinding?.accountIdentity) throw new Error("The completed OpenCode response has no saved account fingerprint.");
+        if (requireBound && (binding.accountIdentity !== receiptBinding.accountIdentity || identity !== receiptBinding.accountIdentity)) {
+          throw new Error("The completed OpenCode response belongs to a different account binding.");
+        }
+        // The existing managed host reauthorizes its own connection on every preparation.
+        // A key change can rotate an authored run only inside the same native storage/runtime scope.
+        const preparedFacilities = host.opencode ? await host.opencode({ connection, context }) : facilities;
+        signal.throwIfAborted();
+        if (host.opencode && (
+          binding.databasePath && binding.databasePath !== preparedFacilities.databasePath ||
+          binding.runtimeDirectory && binding.runtimeDirectory !== preparedFacilities.runtimeDirectory ||
+          facilities && facilities.runtime !== preparedFacilities.runtime
+        )) {
+          throw new Error("This OpenCode conversation belongs to another native history store or runtime. Restore its original host configuration.");
+        }
+        const allowCredentialRefresh = authoredPreparation && host.opencode && preparedFacilities.allowCredentialRefresh === true;
+        if (binding.accountIdentity && identity !== binding.accountIdentity && !allowCredentialRefresh) {
           throw new Error("This conversation belongs to another OpenCode account. Restore that connection or start a new conversation.");
         }
-        if (!binding.accountIdentity) await updateBinding({ accountIdentity: identity });
+        if (binding.accountIdentity !== identity) await updateBinding({ accountIdentity: identity });
         const model = { providerID: connection.providerId, id: connection.model };
         const agent = openCodeConversationAgent({ nativeTools, tools: Boolean(current?.tools) });
         if (current) current.agent = agent;
         if (binding.sessionId && !binding.databasePath) {
           throw new Error("This OpenCode conversation uses the earlier private native history layout. Run the offline native-history upgrade before continuing; no history was changed.");
         }
-        if (!facilities) {
-          if (host.opencode) facilities = await host.opencode({ connection, context });
+        if (!facilities || host.opencode) {
+          if (host.opencode) facilities = preparedFacilities;
           else {
             const runtimeDirectory = path.join(stateDirectory, "shared", hash([identity, host.commands?.opencode || "opencode"]));
             const selected = { modelProviderId: connection.providerId, canonicalUrl: connection.baseURL || "",
@@ -649,9 +665,14 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
       }
 
       return Object.freeze({
-        async inspectAdmission({ messageId, configuration, context }) {
+        async inspectAdmission({ messageId, threadId, configuration, context, verifyAccount = false, receiptBinding }) {
+          if (verifyAccount === true && (!receiptBinding || threadId !== binding.sessionId || receiptBinding.sessionId !== binding.sessionId ||
+              receiptBinding.workdir !== binding.workdir || receiptBinding.directory !== binding.directory ||
+              receiptBinding.databasePath !== binding.databasePath || receiptBinding.runtimeDirectory !== binding.runtimeDirectory)) {
+            throw new Error("The completed OpenCode response belongs to a different native conversation or host scope.");
+          }
           if (!binding.sessionId) return { accepted: false, messages: [] };
-          const prepared = await prepare(await resolvePreparation(configuration, context, AbortSignal.timeout(120_000)));
+          const prepared = await prepare(await resolvePreparation(configuration, context, AbortSignal.timeout(120_000), verifyAccount === true, receiptBinding));
           await ensureOpenCodeSession(prepared.target, prepared.session);
           const id = nativeMessageId(messageId);
           const { accepted = false, messages = [] } = await inspectOpenCodeMessageAdmission(native.server.client, binding.sessionId, id) || {};
@@ -671,7 +692,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
           let problem;
           try {
             active.resolved = await resolvePreparation(command.configuration, command.context,
-              AbortSignal.any([command.signal, AbortSignal.timeout(120_000)]));
+              AbortSignal.any([command.signal, AbortSignal.timeout(120_000)]), false, undefined, true);
             let dispatchFailure;
             try { await send(command); }
             catch (error) { dispatchFailure = error; }

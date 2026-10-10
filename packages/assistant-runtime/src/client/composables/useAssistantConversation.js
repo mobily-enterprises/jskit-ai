@@ -47,7 +47,19 @@ function draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "") {
   return submitted && current.startsWith(submitted) ? current.slice(submitted.length) : current;
 }
 
-function createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, draftStorage, application, goalReadEnabled }) {
+function resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking }) {
+  const resolve = (name, option) => {
+    const value = typeof option === "function" ? option(snapshot) : option;
+    if (typeof value !== "boolean") throw new TypeError(`${name} must return a boolean.`);
+    return value;
+  };
+  const deferred = resolve("deferWhileWorking", deferWhileWorking);
+  const admitted = resolve("admitWhileWorking", admitWhileWorking);
+  if (deferred && admitted) throw new TypeError("Choose either admitWhileWorking or deferWhileWorking.");
+  return { deferWhileWorking: deferred, admitWhileWorking: admitted };
+}
+
+function createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled }) {
   const disposed = ref(false);
   const placementRevision = ref(0);
   const stopPlacement = placement.subscribe(() => { placementRevision.value += 1; });
@@ -73,7 +85,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const loading = ref(true);
   const stopping = ref(false);
   const goalPending = ref(false);
-  const goalLoading = ref(false);
+  const goalTargetCurrent = ref(false);
   const goalError = ref("");
   const goalView = shallowRef(null);
   const goalLoadError = ref("");
@@ -101,8 +113,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const editable = computed(() => active.value && !accessDenied.value);
   const available = computed(() => active.value && !loading.value && !accessDenied.value && Boolean(snapshot.value));
   const steerable = computed(() => snapshot.value?.status === "working" && snapshot.value?.capabilities?.steering === true);
-  const queueing = computed(() => queueWhileSending !== false && (steerable.value || deferWhileWorking));
-  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || deferWhileWorking && snapshot.value.status === "working") &&
+  const workingPolicy = computed(() => resolveWorkingPolicy(snapshot.value, { deferWhileWorking, admitWhileWorking }));
+  const queueing = computed(() => queueWhileSending !== false && (steerable.value || workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking));
+  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || (workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking) && snapshot.value.status === "working") &&
     (queueWhileSending !== false || !delivery.state.sending) &&
     !delivery.state.messages.some(message => message.status === "uncertain"));
   const savedDraft = toValue(draftStorage);
@@ -206,6 +219,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (state.segmentId !== goalSegment) {
       // Keep the open goal menu while its first native identity arrives. The
       // pending read disables commands until it supplies the new exact target.
+      goalTargetCurrent.value = false;
       goalReadController?.abort();
     }
     if (readsGoals.value && (initial || goalChanged || state.segmentId !== goalSegment)) void refreshGoal();
@@ -228,6 +242,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       delivery.reset();
       goalError.value = "";
       goalView.value = null;
+      goalTargetCurrent.value = false;
       goalLoadError.value = "";
       goalReadController?.abort();
     }
@@ -339,8 +354,12 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const requestedSteering = request?.steer === true;
     if (requestedSteering && snapshot.value.capabilities?.steering !== true) return false;
     const steering = requestedSteering || steerable.value;
-    const deferred = deferWhileWorking && !retry && !steering;
-    if ((snapshot.value.status === "working" || delivery.state.sending) && !steering && !deferred) return false;
+    const policy = workingPolicy.value;
+    const deferred = policy.deferWhileWorking && !retry && !steering;
+    // An application queue can admit ordinary messages without native steering
+    // or waiting for ready. It still owns admission, permissions and receipts.
+    const appAdmission = policy.admitWhileWorking && !steering;
+    if ((snapshot.value.status === "working" || delivery.state.sending) && !steering && !deferred && !appAdmission) return false;
     if ((retry?.payload || payload).displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) return false;
     const captured = retry?.payload?.request ? retry.payload : { ...(retry?.payload || payload), request: payload.request || {
       text: String(payload.message || ""),
@@ -348,7 +367,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       ...(payload.displayAttachments?.length ? { attachmentIds: payload.displayAttachments.map(file => file.attachmentId) } : {}),
       ...(steerable.value ? { steer: true } : {})
     } };
-    return submitRequest(captured, { messageId, onAccepted, queue: queueWhileSending !== false && (steering || deferred), deferred });
+    return submitRequest(captured, { messageId, onAccepted, queue: queueWhileSending !== false && (steering || deferred || appAdmission), deferred, appAdmission });
   }
   function submitPrepared(payload, { messageId = crypto.randomUUID(), onAccepted, prepare } = {}) {
     if (typeof prepare !== "function") throw new TypeError("Prepared submission requires application preparation.");
@@ -406,11 +425,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     });
   }
 
-  async function submitRequest(payload, { messageId, onAccepted, queue = false, prepare, deferred = false }) {
+  async function submitRequest(payload, { messageId, onAccepted, queue = false, prepare, deferred = false, appAdmission = false }) {
     if (pendingMessages.has(messageId)) return false;
     // Register before the original serial tail so Stop/retirement also reaches
     // a local follower whose deliver callback has not started yet.
-    const pending = { controller: new AbortController(), started: false, dispatched: false, deferred };
+    const pending = { controller: new AbortController(), started: false, dispatched: false, deferred, appAdmission };
     const { controller } = pending;
     pendingMessages.set(messageId, pending);
     try {
@@ -420,7 +439,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         async deliver(submission) {
           pending.started = true;
           try {
-            if (controller.signal.aborted) return false;
+            if (controller.signal.aborted || appAdmission && (!available.value || stopping.value || !workingPolicy.value.admitWhileWorking)) return false;
             if (deferred) {
               // Refresh through the same subscription after a queued predecessor;
               // its receipt may have arrived before the working snapshot.
@@ -447,7 +466,10 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
             if (controller.signal.aborted) return false;
             if (prepare && !pending.dispatched) return { ok: false, error: failure.message,
               ...(failure.code ? { code: failure.code } : {}) };
-            if (SEND_REJECTIONS.has(failure.code)) return { ok: false, error: failure.message,
+            const rejection = failure.details?.delivery;
+            const notSent = Number.isInteger(failure.status) && failure.status >= 400 && failure.status < 500 &&
+              rejection && !Array.isArray(rejection) && rejection.status === "not-sent" && rejection.messageId === messageId;
+            if (notSent || SEND_REJECTIONS.has(failure.code)) return { ok: false, error: failure.message,
               ...(prepare && failure.code ? { code: failure.code } : {}) };
             throw failure;
           } finally {
@@ -519,7 +541,6 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const capabilities = snapshot.value.capabilities;
     const controller = new AbortController();
     goalReadController = controller;
-    goalLoading.value = true;
     const job = Promise.resolve().then(() => api.readConversationGoal(identity.conversationId, {
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)])
     })).then(result => {
@@ -529,6 +550,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       goalView.value = result && Object.hasOwn(result, "target") ? result : {
         status: "available", goal: result, target: { segmentId: segment, capabilities }
       };
+      // A background read does not invalidate this observation. Its supplied
+      // goal target may intentionally differ from the visible chat segment.
+      goalTargetCurrent.value = true;
       goalLoadError.value = "";
       return true;
     }).catch(failure => {
@@ -540,7 +564,6 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (goalRead !== job) return;
       goalRead = null;
       goalReadController = null;
-      goalLoading.value = false;
       if (goalReadQueued) {
         goalReadQueued = false;
         void refreshGoal();
@@ -558,7 +581,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const view = goalView.value;
     const target = view?.target;
     const command = target?.capabilities?.goalCommands?.[action];
-    if (!available.value || view?.status !== "available" || goalLoadError.value || goalPending.value || goalLoading.value ||
+    if (!available.value || view?.status !== "available" || goalLoadError.value || goalPending.value || !goalTargetCurrent.value ||
         !["message", "control"].includes(command?.delivery) ||
         delivery.state.messages.some(message => message.status === "uncertain")) return false;
     if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
@@ -613,7 +636,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       tokenBudgetSupported: capabilities.goalBudgets === true,
       goal: view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
-      pending: goalPending.value || goalLoading.value || !available.value || delivery.state.sending ||
+      pending: goalPending.value || !goalTargetCurrent.value || !available.value || delivery.state.sending ||
         delivery.state.messages.some(message => message.status === "uncertain"),
       error: goalError.value,
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
@@ -626,7 +649,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (!editable.value || stopping.value) return false;
     stopping.value = true;
     for (const pending of pendingMessages.values()) {
-      if (pending.deferred && !pending.dispatched) pending.controller.abort();
+      if ((pending.deferred || pending.appAdmission) && !pending.dispatched) pending.controller.abort();
     }
     try { return await api.cancelConversation(identity.conversationId); }
     catch (failure) { receiveError(failure); return false; }
@@ -653,7 +676,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     error, accessDenied, loading, stopping, delivery, turns,
     hasMoreBefore, loadingMore, loadMoreError, loadMore,
     send, submitPrepared, submitDraft, cancel, cancelMessage, inspectDelivery, changeGoal, refreshGoal, goalState, goalView, goalLoadError, questions,
-    reload() { const job = subscription?.reload(); void refreshGoal(); return job; } };
+    reload(options) { const job = subscription?.reload(options); void refreshGoal(); return job; } };
   runtime.application = application ? application(runtime) : null;
   return runtime;
 }
@@ -724,7 +747,7 @@ function conversationBindingSetup({ socket, boundedTask = null } = {}) {
 
 function createConversationBinding({ conversationId, endpoint = "", surfaceId = "", hostSurfaceId = "", workspaceSlug,
   actorKey: suppliedActorKey, api: suppliedApi = null, socket: suppliedSocket = null, active = true, onEvent,
-  clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, draftWhileLoading = false,
+  clearDraftOn: suppliedClearDraftOn, queueWhileSending, deferWhileWorking = false, admitWhileWorking = false, draftWhileLoading = false,
   draftStorage = null, application = null, boundedTask = null,
   data, attachments = null, suggestions = null, models = null, questions = null, goal = null, presentation = {} } = {}, setup) {
   const { app, routeContext, placement, workspaceScope, socket: setupSocket, config, defaults = {} } = setup ||
@@ -736,7 +759,9 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
   });
   if (!["dispatch", "accepted"].includes(clearDraftOn)) throw new TypeError("clearDraftOn must be dispatch or accepted.");
   if (queueWhileSending !== undefined && typeof queueWhileSending !== "boolean") throw new TypeError("queueWhileSending must be a boolean.");
-  if (typeof deferWhileWorking !== "boolean") throw new TypeError("deferWhileWorking must be a boolean.");
+  if (!["boolean", "function"].includes(typeof deferWhileWorking)) throw new TypeError("deferWhileWorking must be a boolean.");
+  if (!["boolean", "function"].includes(typeof admitWhileWorking)) throw new TypeError("admitWhileWorking must be a boolean.");
+  resolveWorkingPolicy(null, { deferWhileWorking, admitWhileWorking });
   if (typeof draftWhileLoading !== "boolean") throw new TypeError("draftWhileLoading must be a boolean.");
   if (application !== null && typeof application !== "function") throw new TypeError("application must be a factory.");
   if (boundedTask !== null) return useBoundedTask(boundedTask, { active, data, presentation });
@@ -794,7 +819,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const key = JSON.stringify(["assistant", target.actorKey, target.endpoint, target.targetSurfaceId,
       target.hostSurfaceId, target.workspaceSlug, target.conversationId]);
     retained = retainAssistantConversation(app, key, readers => createConversation(target, {
-      readers, socket, actorKey, placement, queueWhileSending, deferWhileWorking, draftStorage, application, goalReadEnabled: toValue(goal) === true,
+      readers, socket, actorKey, placement, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled: toValue(goal) === true,
       api: suppliedApi || defaults.api || createAssistantApi({ request: defaults.request || assistantHttpClient.request,
         resolveBasePath: () => target.endpoint, resolveSurfaceId: () => target.hostSurfaceId })
     }), { active, questions, goal, onEvent });

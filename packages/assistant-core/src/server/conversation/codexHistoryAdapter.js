@@ -1,4 +1,5 @@
 import { open, realpath } from "node:fs/promises";
+import { isUtf8 } from "node:buffer";
 import { createServer } from "node:http";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -120,8 +121,9 @@ function retainedUserRecord(item) {
 }
 
 // Scan a fixed snapshot without retaining the lifetime transcript. A single
-// record still has a transport-sized bound; incomplete native appends are ignored.
-async function* readCodexHistoryRows(file, start, end, signal) {
+// record still has a transport-sized bound; recovery ignores incomplete appends.
+// Stopped offline inspection can require complete rows without changing recovery.
+async function* readCodexHistoryRows(file, start, end, signal, { strictComplete = false } = {}) {
   const chunk = Buffer.alloc(64 * 1024);
   let pending = [];
   let size = 0;
@@ -141,7 +143,11 @@ async function* readCodexHistoryRows(file, start, end, signal) {
       pending.push(Buffer.from(chunk.subarray(from, until)));
       if (complete) {
         signal.throwIfAborted();
-        if (size) yield { row: JSON.parse(Buffer.concat(pending, size).toString("utf8")), offset: lineStart };
+        if (size) {
+          const bytes = Buffer.concat(pending, size);
+          if (strictComplete && !isUtf8(bytes)) throw compactionHistoryError("the saved history contains invalid UTF-8.");
+          yield { row: JSON.parse(bytes.toString("utf8")), offset: lineStart };
+        }
         pending = [];
         size = 0;
         lineStart = offset + newline + 1;
@@ -150,6 +156,7 @@ async function* readCodexHistoryRows(file, start, end, signal) {
     }
     offset += bytesRead;
   }
+  if (strictComplete && size) throw compactionHistoryError("the saved history has an incomplete final record.");
 }
 
 // Native compaction keeps the original rollout on disk. Foreign providers
@@ -456,4 +463,4 @@ async function prepareCodexHistory(params, client, { baseUrl, modelProviderId, .
   } };
 }
 
-export { startCodexHistoryAdapter, translateCodexHistory, prepareCodexHistory };
+export { startCodexHistoryAdapter, translateCodexHistory, prepareCodexHistory, readCodexHistoryRows };

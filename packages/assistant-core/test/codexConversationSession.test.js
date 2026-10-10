@@ -20,6 +20,75 @@ import { createAiConnectionResolver } from "../../connectors-catalog/src/server/
 const configuration = { systemPrompt: "Keep these instructions fresh.", model: "test-model", effort: "high" };
 const input = { messageId: "first", text: "Hello" };
 
+test("marked native output keeps its admitted private turn while human messages are queued", async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), "codex-private-output-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const storage = createReentrantConversationStorage(createFileConversationStorage({ directory }));
+  const transcript = createConversationTranscript({ storage, applicationTurns: true });
+  for (const [role, method] of [["assistant", "writeConversationAssistantMessage"],
+    ["commentary", "writeConversationCommentaryMessage"], ["thinking", "writeConversationThinkingMessage"]]) {
+    const scope = `private-${role}`, segmentId = `segment-${role}`;
+    const nativeIdentity = { threadId: `thread-${role}`, turnId: `native-${role}` };
+    const privateTurnId = await storage.write(scope, async transaction => {
+      await transaction.writeMetadata({ runtime: { engine: "codex", segmentId, binding: {
+        threadId: nativeIdentity.threadId, codexAppServerRun: {
+          providerThreadId: nativeIdentity.threadId, providerTurnId: nativeIdentity.turnId, outerTurnId: "private-input"
+        }
+      } } });
+      const turnId = await transaction.nextTurnId();
+      await transaction.appendMessage(turnId, { role: "system", origin: "application", messageId: "private-input",
+        text: "The admitted application envelope", at: "2026-10-10T00:00:00.000Z",
+        turnMetadata: { runtime: { status: "running", engine: "codex", segmentId, origin: "application",
+          completedEnvelope: true, nativeTurnId: nativeIdentity.turnId } } });
+      return turnId;
+    });
+    await transcript.writeConversationUserMessage(scope, { messageId: "queued-B", text: "Wait, discuss it first" });
+    await transcript.writeConversationUserMessage(scope, { messageId: "queued-C", text: "Only read the guide" });
+    const before = await transcript.readConversationLog(scope);
+    const store = createCodexConversationStore({ storage, scope, segmentId, isCurrent: () => true,
+      transcript, streams: createConversationStreams() });
+    assert.equal(await store[method](scope), null, "Omitted native output remains an empty no-op");
+    await assert.rejects(transcript[method](scope, { turnId: "missing-private-turn", text: "Do not retarget" }),
+      /original turn no longer exists/);
+    assert.deepEqual(await transcript.readConversationLog(scope), before, "Missing exact targets leave every row untouched");
+    const input = { messageId: `native-message-${role}`, outputId: `native-output-${role}`,
+      text: "Private native output", nativeIdentity };
+    const written = await store[method](scope, input);
+    assert.equal(written.turnId, privateTurnId);
+    const message = written.messages.find(message => message.role === role);
+    assert.equal(message.messageId, input.messageId);
+    assert.equal(message.outputId, input.outputId);
+    assert.equal(message.text, input.text);
+    assert.deepEqual((await transcript.readConversationLog(scope)).slice(1), before.slice(1),
+      "Later human questions retain their exact words and no native reply/progress");
+    assert.equal(await store[method](scope, input), null, "The same native message is saved only once");
+    assert.equal((await transcript.readConversationLog(scope, { presentation: true })).some(turn =>
+      turn.messages.some(message => message.text === input.text)), false, "Private carrier output stays out of human history");
+    if (role === "assistant") {
+      const corrected = await store.upsertConversationAssistantMessage(scope, {
+        turnId: privateTurnId, text: "Corrected private native output", nativeIdentity
+      });
+      assert.equal(corrected.assistant.messageId, input.messageId);
+      assert.equal(corrected.assistant.outputId, input.outputId);
+      assert.equal(corrected.assistant.text, "Corrected private native output");
+    }
+    await transcript.writeConversationAssistantMessage(scope, { messageId: "ordinary-final", text: "Ordinary unpinned final" });
+    assert.equal((await transcript.readConversationLog(scope)).at(-1).assistant.text, "Ordinary unpinned final",
+      "The generic transcript still pairs unpinned output with the latest open human turn");
+    const retained = await transcript.readConversationLog(scope);
+    await storage.write(scope, async transaction => {
+      const metadata = await transaction.readMetadata();
+      metadata.runtime.binding.codexAppServerRun.outerTurnId = "missing-private-input";
+      metadata.runtime.request = { messageId: "missing-private-input", origin: "application", completedEnvelope: true };
+      await transaction.writeMetadata(metadata);
+    });
+    await assert.rejects(store[method](scope, { ...input, messageId: "lost-private-output" }), /original turn no longer exists/,
+      "A pending marked receipt cannot fall back to a later human row when its private turn is absent");
+    assert.throws(() => store[method]("foreign-scope", input), /another conversation/);
+    assert.deepEqual(await transcript.readConversationLog(scope), retained);
+  }
+});
+
 test("Codex structured output uses the existing native turn setting without changing conversation identity", async t => {
   const outputSchema = { type: "object", additionalProperties: false,
     properties: { answer: { type: "string", maxLength: 32 } }, required: ["answer"] };
@@ -487,11 +556,13 @@ test("automatic goal turns retain all nine application tool receipts on their au
   assert.equal(trace.some(row => row.method === "thread/inject_items" || row.method === "thread/goal/set"), false);
 });
 
-test("automatic goal turns cannot reset their authored request's application tool budget", async t => {
+for (const deferBudgetCompletion of [false, true]) test(deferBudgetCompletion
+  ? "automatic goal tool failure verifies recovery when native completion follows the saved terminal"
+  : "automatic goal turns cannot reset their authored request's application tool budget", async t => {
   const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
   let calls = 0;
   const f = await fixture(t, { actions: applicationActions(async () => ({ value: ++calls })), context,
-    nativeGoalObjective: "tools goal", limits: { maxToolCalls: 3 } });
+    nativeGoalObjective: "tools goal", limits: { admissionTimeoutMs: 30_000, maxToolCalls: 3 }, deferBudgetCompletion });
   await f.conversation.send({ messageId: "bounded-goal", text: "native-goal" });
   const state = await f.conversation.wait();
   const trace = await f.trace();
@@ -517,6 +588,22 @@ test("automatic goal turns cannot reset their authored request's application too
   assert.equal(stopped.codexAppServerRun.providerStatus, "observation_lost");
   assert.equal(stopped.codexAppServerRun.outerTurnId, "bounded-goal");
   assert.equal(trace.filter(row => row.method === "turn/start").length, 1);
+  if (deferBudgetCompletion) {
+    const fourth = trace.find(row => row.budgetCompletion?.kind === "fourth-request").budgetCompletion;
+    assert.equal(fourth.threadId, stopped.threadId);
+    assert.equal(fourth.turnId, stopped.codexAppServerRun.providerTurnId);
+    assert.equal(fourth.callId, fourth.turnId + "-4");
+    assert.equal(trace.find(row => row.budgetCompletion?.kind === "fourth-response").budgetCompletion.budgetFailure, true);
+    for (const kind of ["failed-held", "interrupted-held"]) {
+      assert.ok(trace.some(row => row.budgetCompletion?.kind === kind &&
+        row.budgetCompletion.threadId === fourth.threadId && row.budgetCompletion.turnId === fourth.turnId));
+    }
+    const release = JSON.parse(await readFile(path.join(f.directory, "history.json") + ".budget-terminal-" + fourth.turnId, "utf8"));
+    assert.deepEqual(release, { threadId: fourth.threadId, turnId: fourth.turnId, outerTurnId: "bounded-goal" });
+    const native = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+    assert.equal(native.id, fourth.threadId);
+    assert.equal(native.goal.status, "paused");
+  }
 });
 
 test("failed tracked Codex history storage stops owned work and recovers the exact result without replay", async t => {
@@ -772,6 +859,8 @@ async function fixture(t, options = {}) {
     import { execFileSync } from "node:child_process";
     import { WebSocketServer } from ${JSON.stringify(import.meta.resolve("ws"))};
     const args = process.argv.slice(2);
+    const structuredResponse = ${JSON.stringify(options.structuredResponse || null)};
+    const delayedFinal = ${JSON.stringify(options.completionBeforeDelayedFinal || null)};
     if (args.includes("debug") && args.includes("models")) {
       process.stdout.write(JSON.stringify({ models: [{ slug: "test-model", priority: 0 }] }));
       process.exit(0);
@@ -796,6 +885,10 @@ async function fixture(t, options = {}) {
       if (!method) {
         log({ toolResponse: { id, result, error } });
         const pending = toolRequests.get(id); toolRequests.delete(id);
+        if (${Boolean(options.deferBudgetCompletion)} && id === "tool-request-4") {
+          log({ budgetCompletion: { kind: "fourth-response", requestId: id,
+            budgetFailure: !!error && /application tool-call limit/.test(error.message) } });
+        }
         if (error) pending.reject(new Error(error.message)); else pending.resolve(result);
         return;
       }
@@ -807,10 +900,22 @@ async function fixture(t, options = {}) {
         ws.send(JSON.stringify({ id, error: { code: -32000, message: "Native history is temporarily unavailable" } }));
         return;
       }
-      const emit = (method, params) => ws.send(JSON.stringify({ method, params: { threadId: thread.id, ...params } }));
+      const emit = (method, params) => {
+        const notification = { method, params: { threadId: thread.id, ...params } };
+        if (${Boolean(options.holdAfterToolRefusal)} || delayedFinal) log({ notification });
+        ws.send(JSON.stringify(notification));
+      };
       const callTool = (turn, tool, arguments_, foreign = false) => new Promise((resolve, reject) => {
         const id = "tool-request-" + (++requestId);
         toolRequests.set(id, { resolve, reject });
+        if (${Boolean(options.holdAfterToolRefusal)} && tool === "assistant_action_execute") {
+          log({ oversizedNativeToolRequest: { id, threadId: thread.id, turnId: turn.id,
+            argumentsByteLength: Buffer.byteLength(JSON.stringify(arguments_)), inputValueByteLength: Buffer.byteLength(arguments_.input.value) } });
+        }
+        if (${Boolean(options.deferBudgetCompletion)} && requestId === 4) {
+          state.budgetFailureTurnId = turn.id;
+          log({ budgetCompletion: { kind: "fourth-request", threadId: thread.id, turnId: turn.id, callId: turn.id + "-" + requestId } });
+        }
         ws.send(JSON.stringify({ id, method: "item/tool/call", params: {
           threadId: foreign ? "another-thread" : thread.id, turnId: turn.id,
           callId: turn.id + "-" + requestId, tool, arguments: arguments_
@@ -832,7 +937,13 @@ async function fixture(t, options = {}) {
               await callTool(turn, "assistant_action_execute", { actionId: "numbers.read", version: 1, input: {} });
             } catch (error) {
               turn.status = "failed"; save();
-              if (ws.readyState === 1) emit("turn/completed", { turnId: turn.id, turn: { ...turn, error: { message: error.message } } });
+              const failedTurn = { ...turn, error: { message: error.message } };
+              if (${Boolean(options.deferBudgetCompletion)} && state.budgetFailureTurnId === turn.id && /application tool-call limit/.test(error.message)) {
+                log({ budgetCompletion: { kind: "failed-held", threadId: thread.id, turnId: turn.id } });
+                while (!existsSync(file + ".budget-terminal-" + turn.id) && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+                log({ budgetCompletion: { kind: "failed-released", threadId: thread.id, turnId: turn.id } });
+              }
+              if (ws.readyState === 1) emit("turn/completed", { turnId: turn.id, turn: failedTurn });
               return;
             }
           }
@@ -866,6 +977,21 @@ async function fixture(t, options = {}) {
           trustStatus: trusted ? "trusted" : "untrusted", command: JSON.parse(flag.match(/command=(.*),timeout=30/u)[1]) });
         return reply({ data: [{ cwd: params.cwds[0], hooks, errors: [] }] });
       }
+      if (delayedFinal && ["thread/read", "thread/turns/list"].includes(method)) {
+        const full = method === "thread/read" ? params.includeTurns !== false : params.itemsView === "full";
+        const delayMs = full ? state.completionReadDelayMs || 0 : 0;
+        if (delayMs) {
+          // Freeze the actual stale full-history result BEFORE its slow read.
+          const snapshot = structuredClone(method === "thread/read" ? { thread: { ...thread,
+            status: { type: !state.loaded ? "notLoaded" : state.runningTurn?.status === "inProgress" ? "active" : "idle" } } }
+            : { data: [...thread.turns].reverse(), nextCursor: null });
+          state.completionReadDelayMs = 0;
+          log({ historyReadHeld: { threadId: thread.id, turnId: state.runningTurn.id, delayMs } });
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          log({ historyReadReturned: { threadId: thread.id, turnId: state.runningTurn.id } });
+          return reply(snapshot);
+        }
+      }
       if (method === "thread/start") {
         thread = { id: randomUUID(), historyMode: "paginated", modelProvider: params.modelProvider,
           environment: params.config.shell_environment_policy.set,
@@ -896,10 +1022,22 @@ async function fixture(t, options = {}) {
       if (method === "thread/goal/get") return reply({ goal: thread?.goal || null });
       if (method === "thread/unsubscribe") { state.loaded = false; return reply({ status: "unsubscribed" }); }
       if (method === "turn/interrupt") {
+        if (existsSync(file + ".refuse-interrupt")) {
+          ws.send(JSON.stringify({ id, error: { code: -32602, message: "Controlled native interrupt refusal" } }));
+          return;
+        }
         if (state.runningTurn?.id === params.turnId) state.runningTurn.status = "interrupted";
         save();
         reply({});
-        if (state.runningTurn?.id === params.turnId) emit("turn/completed", { turn: state.runningTurn });
+        if (state.runningTurn?.id === params.turnId) {
+          const interruptedTurn = { ...state.runningTurn };
+          if (${Boolean(options.deferBudgetCompletion)} && state.budgetFailureTurnId === params.turnId) {
+            log({ budgetCompletion: { kind: "interrupted-held", threadId: thread.id, turnId: params.turnId } });
+            while (!existsSync(file + ".budget-terminal-" + params.turnId) && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+            log({ budgetCompletion: { kind: "interrupted-released", threadId: thread.id, turnId: params.turnId } });
+          }
+          if (ws.readyState === 1) emit("turn/completed", { turn: interruptedTurn });
+        }
         return;
       }
       if (method === "thread/goal/clear") {
@@ -970,15 +1108,35 @@ async function fixture(t, options = {}) {
         }
         if (text === "failed") { turn.status = "failed"; save(); emitTurn("turn/completed", { turn: { ...turn, error: { message: "Model unavailable" } } }); return; }
         if (text === "disconnect") { setTimeout(() => ws.close(), 50); return; }
+        if (delayedFinal) {
+          // The REAL query-contract request joins active.inputReady; it never
+          // invokes numbers.read or simulates native/application admission.
+          await callTool(turn, "assistant_action_contract", { actionId: "numbers.read", version: 1 });
+          state.completionReadDelayMs = delayedFinal.readDelayMs;
+          turn.status = "completed"; save();
+          emitTurn("turn/completed", { turn: { id: turn.id, status: turn.status } });
+          setTimeout(() => {
+            if (ws.readyState !== 1) return;
+            const answer = { id: "answer", type: "agentMessage", phase: "final_answer", text: delayedFinal.text };
+            turn.items.push(answer); save();
+            emitTurn("item/completed", { item: answer });
+          }, delayedFinal.delayMs);
+          return;
+        }
         let toolAnswer;
         if (text === "tools" || text === "foreign-tool") {
           const invoke = (tool, arguments_) => callTool(turn, tool, arguments_, text === "foreign-tool");
           try {
             await invoke("assistant_action_search", { query: "numbers" });
             await invoke("assistant_action_contract", { actionId: "numbers.read", version: 1 });
-            const result = await invoke("assistant_action_execute", { actionId: "numbers.read", version: 1, input: {} });
+            const result = await invoke("assistant_action_execute", { actionId: "numbers.read", version: 1,
+              input: ${JSON.stringify(options.oversizedNativeToolInput || {})} });
             toolAnswer = result.contentItems[0].text;
           } catch (error) {
+            if (${Boolean(options.holdAfterToolRefusal)}) {
+              log({ heldToolRefusal: { threadId: thread.id, turnId: turn.id, message: error.message } });
+              return;
+            }
             turn.status = "failed"; save();
             if (ws.readyState === 1) emitTurn("turn/completed", { turn: { ...turn, error: { message: error.message } } });
             return;
@@ -998,8 +1156,9 @@ async function fixture(t, options = {}) {
         emitTurn("item/started", { item: { id: "answer", type: "agentMessage", phase } });
         emitTurn("item/reasoning/summaryTextDelta", { itemId: "reasoning", delta: "Reasoning" });
         emitTurn("item/reasoning/summaryTextDelta", { itemId: "reasoning", delta: " summary" });
-        emitTurn("item/agentMessage/delta", { itemId: "answer", delta: "Answer: " });
-        const answer = { id: "answer", type: "agentMessage", phase, text: toolAnswer || "Answer: " + text };
+        const answerText = toolAnswer || (structuredResponse ? JSON.stringify(structuredResponse) : "Answer: " + text);
+        emitTurn("item/agentMessage/delta", { itemId: "answer", delta: structuredResponse ? answerText.slice(0, 8) : "Answer: " });
+        const answer = { id: "answer", type: "agentMessage", phase, text: answerText };
         turn.items.push(answer);
         emitTurn("item/completed", { item: answer });
         if (split) {
@@ -1022,7 +1181,17 @@ async function fixture(t, options = {}) {
   const disk = createFileConversationStorage({ directory: path.join(directory, "storage") });
   const storageFile = path.join(directory, "storage", `${createHash("sha256").update("conversation").digest("hex")}.json`);
   const checkpoints = [];
-  const backing = options.storage ? options.storage(disk) : disk;
+  const originalBacking = options.storage ? options.storage(disk) : disk;
+  const backing = options.deferBudgetCompletion ? { read: originalBacking.read, async write(scope, callback) {
+    const result = await originalBacking.write(scope, callback);
+    const run = (await disk.read(scope, transaction => transaction.readMetadata())).runtime?.binding?.codexAppServerRun;
+    if (scope === "conversation" && run?.outerTurnId === "bounded-goal" && run.providerThreadId && run.providerTurnId &&
+        run.active === false && ["interrupted", "failed"].includes(run.state)) {
+      await writeFile(path.join(directory, "history.json") + ".budget-terminal-" + run.providerTurnId,
+        JSON.stringify({ threadId: run.providerThreadId, turnId: run.providerTurnId, outerTurnId: run.outerTurnId }));
+    }
+    return result;
+  } } : originalBacking;
   const storage = options.checkpoints ? { read: backing.read, async write(scope, callback) {
     const result = await backing.write(scope, callback);
     checkpoints.push(JSON.parse(await readFile(storageFile, "utf8")));
@@ -1742,7 +1911,8 @@ test("steering resolves current attachment access and saves only its authorized 
 test("an uncertain application effect cannot become successful when steering has already produced an answer", async t => {
   const entered = Promise.withResolvers(), complete = Promise.withResolvers();
   const actions = applicationActions(async () => { entered.resolve(); return complete.promise; });
-  const f = await fixture(t, { actions, context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] } });
+  const f = await fixture(t, { actions, limits: { admissionTimeoutMs: 30_000 },
+    context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] } });
   await f.conversation.send({ messageId: "original-tools", text: "tools" });
   await entered.promise;
   await f.conversation.send({ messageId: "new-instruction", text: "Continue differently", steer: true });
@@ -2790,3 +2960,883 @@ test("closing a bound native owner refuses tool callbacks before and after input
   await f.owner.notificationQueue.drain("bound-two");
   assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
 });
+
+// The original supplied Main owner keeps its own canonical policy. A runtime
+// cannot opt that shared owner out of persistence or replace its process.
+test("supplied Codex commentary remains host-owned and refuses a runtime opt-out before opening", async t => {
+  const f = await boundCodexToolsFixture(t);
+  await f.one.send({ messageId: "host-policy-default", text: "blocks" });
+  const first = await f.one.wait();
+  assert.deepEqual(first.conversationLog.flatMap(turn => turn.commentary || []).map(message => message.text), ["Checking the numbers."]);
+  const nativeThreadId = await f.bindings.get("bound-one").identity.read();
+  const before = await f.trace();
+  const originalOwner = f.bindings.get("bound-one").native.runOwner;
+  const refused = createConversationRuntime({ engine: "codex", authorize: () => true, persistCommentary: false,
+    host: { ...f.driverOptions.host, conversation: ({ id }) => f.bindings.get(id) } });
+  t.after(() => refused.close());
+  await assert.rejects(refused.open({ id: "bound-one" }), /runtime-owned transcript/);
+  assert.deepEqual(await f.trace(), before, "refusal opens no native thread and issues no request or interrupt");
+  assert.equal(f.bindings.get("bound-one").native.runOwner, originalOwner);
+  await f.one.send({ messageId: "host-policy-continue", text: "Continue" });
+  const continued = await f.one.wait();
+  assert.equal(continued.conversationLog.at(-1).assistant.text, "Answer: Continue");
+  assert.equal(await f.bindings.get("bound-one").identity.read(), nativeThreadId);
+  assert.deepEqual(f.effects, []);
+});
+
+
+test("default Codex commentary publishes its saved output identity rather than a second transient completion", async t => {
+  const f = await fixture(t);
+  const events = [];
+  await f.conversation.subscribe(event => events.push(event));
+  await f.conversation.send({ messageId: "default-carrier-dedup", text: "blocks" });
+  const state = await f.conversation.wait();
+  const progress = state.conversationLog.flatMap(turn => turn.commentary || []);
+  assert.equal(progress.length, 1);
+  assert.equal(progress[0].text, "Checking the numbers.");
+  assert.notEqual(progress[0].messageId, progress[0].outputId);
+  const completed = events.filter(event => event.type === "message" && event.role === "commentary" && event.status === "complete");
+  assert.ok(completed.length);
+  assert.equal(completed.every(event => event.messageId === progress[0].messageId), true,
+    "The existing canonical publication owns this exact output; its native stream must not complete a second identity");
+  assert.equal(completed.every(event => event.outputId === progress[0].outputId && event.text === progress[0].text), true);
+  assert.equal((await f.conversation.read()).streaming.completedMessages, undefined);
+  assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+});
+
+
+for (const text of ["blocks", "blocks-without-phase"]) test(`transient Codex completed ${text} waits for its exact accepted publication without replay`, async t => {
+  let runtime;
+  t.after(() => runtime?.close());
+  const f = await fixture(t);
+  await f.first.close();
+  runtime = createConversationRuntime({ engine: "codex", storage: f.storage, authorize: () => true,
+    persistCommentary: false, host: f.driverOptions.host, limits: f.driverOptions.limits });
+  const conversation = await runtime.open({ id: "conversation" });
+  const events = [];
+  await conversation.subscribe(event => events.push(event));
+  const receipt = await conversation.send({ messageId: "transient-admission-order", text });
+  const state = await conversation.wait();
+  assert.equal(state.status, "ready", state.error);
+  const accepted = events.findIndex(event => event.type === "accepted" && event.messageId === receipt.messageId);
+  assert.ok(accepted >= 0);
+  const progress = events.filter(event => event.type === "message" && event.status === "complete" &&
+    event.role === "commentary" && event.text === "Checking the numbers.");
+  assert.equal(progress.length, 1);
+  assert.ok(events.indexOf(progress[0]) > accepted, "The exact accepted event must precede this completed native carrier");
+  assert.equal(progress[0].turnId, receipt.turnId);
+  assert.equal(progress[0].origin, "user");
+  assert.deepEqual(state.conversationLog.flatMap(turn => turn.commentary || []), []);
+  assert.deepEqual(state.conversationLog.filter(turn => turn.assistant).map(turn => turn.assistant.text),
+    [`Answer: ${text}`, "The second paragraph."]);
+  const count = events.length;
+  assert.equal((await conversation.read()).streaming.completedMessages, undefined);
+  assert.equal((await conversation.read()).streaming.completedMessages, undefined);
+  assert.equal(events.length, count, "Ordinary reads cannot replay completed progress");
+  assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+});
+
+
+for (const ending of ["steer", "close"]) test(`transient native completion declines ${ending} after subscriber authorization starts`, { timeout: 10_000 }, async t => {
+  const authorization = Promise.withResolvers();
+  const releaseAuthorization = Promise.withResolvers();
+  t.after(() => releaseAuthorization.resolve());
+  let runtime;
+  t.after(() => runtime?.close());
+  const f = await fixture(t);
+  await f.first.close();
+  const command = path.join(f.directory, "codex.mjs");
+  const original = await readFile(command, "utf8");
+  const marker = 'emitTurn("item/completed", { item: progress });';
+  assert.equal(original.split(marker).length, 2, "The original generated progress completion is transformed exactly once");
+  const gated = original.replace(marker, `
+          while (!existsSync(file + ".r07-release-completion") && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+          ${marker}
+          while (!existsSync(file + ".r07-release-final") && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));`);
+  const [prefix, suffix] = original.split(marker);
+  assert.equal(gated.startsWith(prefix), true);
+  assert.equal(gated.endsWith(suffix), true, "All other original native command behavior remains unchanged");
+  await writeFile(command, gated);
+  let armed = false, claimed = false;
+  runtime = createConversationRuntime({ engine: "codex", storage: f.storage, persistCommentary: false,
+    host: f.driverOptions.host, limits: f.driverOptions.limits, async authorize({ operation }) {
+      if (operation === "subscribe" && armed && !claimed) {
+        claimed = true;
+        authorization.resolve();
+        await releaseAuthorization.promise;
+      }
+      return true;
+    } });
+  const conversation = await runtime.open({ id: "conversation" });
+  const events = [];
+  const firstDelta = Promise.withResolvers();
+  const initialWorking = Promise.withResolvers();
+  await conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "phase" && event.phase === "working") initialWorking.resolve();
+    if (event.type === "message" && event.status === "inProgress" && event.text === "Checking the numbers.") firstDelta.resolve();
+  });
+  const first = await conversation.send({ messageId: "predecessor-race", text: "blocks" });
+  await firstDelta.promise;
+  await initialWorking.promise;
+  assert.equal(events.some(event => event.type === "accepted" && event.messageId === first.messageId), true);
+  // The original accepted and working events have been published. Allow their
+  // synchronous authorization continuation to finish the delivery commit.
+  await new Promise(resolve => setImmediate(resolve));
+  armed = true;
+  await writeFile(path.join(f.directory, "history.json.r07-release-completion"), "release");
+  await authorization.promise;
+  if (ending === "steer") {
+    const successor = await conversation.send({ messageId: "successor-race", text: "Keep the successor", steer: true });
+    assert.notEqual(successor.turnId, first.turnId);
+    releaseAuthorization.resolve();
+    const state = await conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    assert.equal(events.some(event => event.type === "accepted" && event.messageId === "successor-race"), true);
+    assert.equal(events.some(event => event.type === "message" && event.status === "complete" &&
+      event.turnId === successor.turnId && event.text === "Steered: Keep the successor"), true,
+      "Declining the sealed carrier retains the legitimate successor subscription");
+    assert.equal((await f.trace()).filter(row => row.method === "turn/steer").length, 1);
+  } else {
+    const closing = runtime.close();
+    releaseAuthorization.resolve();
+    await closing;
+    await assert.rejects(conversation.read(), { code: "conversation_closed" });
+  }
+  assert.equal(events.some(event => event.type === "message" && event.status === "complete" &&
+    event.role === "commentary" && event.text === "Checking the numbers."), false,
+    "Subscriber authorization must not deliver the stale completed carrier after its owner changes");
+});
+
+// The original controlled app-server owns every generated thread and turn below.
+const completedCodexValue = { kind: "tool", text: "Checking.", toolName: "numbers_read", arguments: "{}" };
+const completedCodexSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"],
+  properties: { kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 64 },
+    toolName: { type: "string", maxLength: 64 }, arguments: { type: "string", maxLength: 64 } } };
+async function completedCodexFixture(t, options = {}) {
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  let effects = 0;
+  const appendedRows = [];
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const f = await fixture(t, { ...options, context, actions, structuredResponse: completedCodexValue,
+    configuration: { ...configuration, outputSchema: completedCodexSchema, ...options.configuration },
+    storage: disk => ({ ...disk, write: (id, callback) => disk.write(id, transaction => callback({ ...transaction,
+      async appendMessage(turnId, message) {
+        await transaction.appendMessage(turnId, message);
+        if (message.role === "system" && message.origin === "application") {
+          appendedRows.push(structuredClone(await transaction.readTurn(turnId)));
+        }
+      }
+    })) }) });
+  await f.first.close();
+  let runtime;
+  let conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "codex", storage: f.storage, actions,
+      authorize: () => true, completedEnvelope: true, ...f.driverOptions });
+    try { conversation = await runtime.open({ id: "conversation", context }); }
+    catch (error) { await runtime.close(); throw error; }
+    return conversation;
+  }
+  await reopen();
+  const controller = new AbortController();
+  return { ...f, controller, appendedRows, context, actions, effects: () => effects, reopen,
+    get conversation() { return conversation; }, close: () => runtime.close(),
+    async complete(messageId = "completed-codex-response") {
+      const receipt = await conversation.wake({ messageId, text: "Read a number" });
+      const state = await conversation.wait();
+      const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(turn.metadata.runtime.status, "complete", state.error);
+      assert.equal(turn.assistant.text, JSON.stringify(completedCodexValue));
+      return { messageId, turnId: receipt.turnId };
+    },
+    prepare: receipt => conversation.prepareCompletedResponse(receipt, { signal: controller.signal }) };
+}
+const executeCompletedCodex = (prepared, argumentsText = "{}") => prepared.tools.execute({
+  id: prepared.toolCallId, name: "numbers_read", arguments: argumentsText
+});
+
+test("completed Codex canonical admission preserves its trusted marker and actual native completed tuple", async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    const receipt = await f.complete();
+    const firstAppend = f.appendedRows.find(row => row.system.messageId === receipt.messageId);
+    assert.ok(firstAppend, "The actual canonical writer must append the admitted application row");
+    assert.equal(firstAppend.user, null);
+    assert.equal(firstAppend.system.origin, "application");
+    assert.equal(firstAppend.metadata.runtime.completedEnvelope, true);
+    assert.equal(firstAppend.metadata.runtime.status, "running");
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const run = metadata.runtime.binding.codexAppServerRun;
+    const savedHistory = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+    const nativeThread = (savedHistory.threads || [savedHistory]).find(row => row.id === metadata.runtime.binding.threadId);
+    const nativeTurn = nativeThread.turns.find(row => row.id === turn.metadata.runtime.nativeTurnId);
+    assert.ok(nativeTurn, "The original app-server must persist this generated native turn");
+    assert.equal(nativeTurn.status, "completed");
+    assert.equal(nativeTurn.items.find(row => row.type === "userMessage").clientId, receipt.messageId);
+    assert.equal(nativeTurn.items.find(row => row.type === "agentMessage").text, turn.assistant.text);
+    assert.equal(turn.metadata.runtime.completedEnvelope, true);
+    assert.equal(turn.metadata.runtime.origin, "application");
+    assert.equal(turn.metadata.runtime.segmentId, metadata.runtime.segmentId);
+    assert.equal(turn.metadata.runtime.nativeTurnId, firstAppend.metadata.runtime.nativeTurnId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    assert.equal(run.providerThreadId, nativeThread.id);
+    assert.equal(run.providerTurnId, nativeTurn.id);
+    assert.equal(run.state, "completed");
+    assert.equal(run.active, false);
+    assert.equal(f.effects(), 0);
+    const starts = (await f.trace()).filter(row => row.method === "turn/start");
+    assert.equal(starts.length, 1);
+    assert.equal(starts[0].params.clientUserMessageId, receipt.messageId);
+    assert.equal((await f.trace()).find(row => row.method === "thread/start").params.dynamicTools.length, 0);
+  } finally { await f.close(); }
+});
+
+test("completed Codex prepared handles and reopen retain one durable effect without native replay", async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    const receipt = await f.complete();
+    const one = await f.prepare(receipt), two = await f.prepare(receipt);
+    assert.equal(one.text, JSON.stringify(completedCodexValue));
+    assert.equal(one.toolCallId, `${receipt.messageId}:operation`);
+    assert.equal(two.toolCallId, one.toolCallId);
+    const [first, second] = await Promise.all([executeCompletedCodex(one), executeCompletedCodex(two)]);
+    assert.equal(first.ok, true);
+    assert.deepEqual(second, first);
+    assert.equal(f.effects(), 1);
+    await assert.rejects(executeCompletedCodex(two, '{"changed":true}'), /different arguments/);
+    const before = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(before.metadata.applicationTools.length, 1);
+    assert.equal(before.metadata.applicationTools[0].id, one.toolCallId);
+    assert.equal(before.metadata.applicationTools[0].status, "complete");
+    await f.reopen();
+    assert.deepEqual(await executeCompletedCodex(await f.prepare(receipt)), first);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), before);
+    assert.equal(f.effects(), 1);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    assert.equal((await f.trace()).filter(row => row.method === "thread/start").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Codex cached bindings cannot mask missing or changed persisted native fingerprints", async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (const missing of [true, false]) {
+      const changed = structuredClone(before);
+      if (missing) delete changed.runtime.binding.accountIdentity;
+      else changed.runtime.binding.accountIdentity = "different-persisted-fixture-identity";
+      await f.storage.write("conversation", tx => tx.writeMetadata(changed));
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          await assert.rejects(f.prepare(receipt), missing ? /no saved native account fingerprint/ : /different native account binding/);
+          assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), changed);
+        }
+      } finally { await f.storage.write("conversation", tx => tx.writeMetadata(before)); }
+    }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Codex cached processes still read the actual native account before an effect", async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const reads = (await f.trace()).filter(row => row.method === "account/read").length;
+    await writeFile(f.account, "another@example.test");
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        await assert.rejects(f.prepare(receipt), /another Codex account/);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+      }
+      assert.ok((await f.trace()).filter(row => row.method === "account/read").length >= reads + 2);
+      assert.equal(f.effects(), 0);
+      assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    } finally { await writeFile(f.account, "owner@example.test"); }
+  } finally { await f.close(); }
+});
+
+test("completed Codex foreign accounts compare persisted cached and freshly resolved identity without promotion", async t => {
+  let apiKey = "completed-codex-original-fixture-key";
+  const f = await completedCodexFixture(t, { configuration: { model: undefined, integrationId: "foreign", effort: "low" },
+    connections: { resolve: async () => ({ providerId: "deepseek", model: "deepseek-flash", apiKey }) } });
+  try {
+    const receipt = await f.complete();
+    await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (const missing of [true, false]) {
+      const changed = structuredClone(before);
+      if (missing) delete changed.runtime.binding.connectionIdentities.deepseek;
+      else changed.runtime.binding.connectionIdentities.deepseek = "different-persisted-fixture-identity";
+      await f.storage.write("conversation", tx => tx.writeMetadata(changed));
+      try {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          await assert.rejects(f.prepare(receipt), missing ? /no saved provider account fingerprint/ : /different provider account binding/);
+          assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), changed);
+        }
+      } finally { await f.storage.write("conversation", tx => tx.writeMetadata(before)); }
+    }
+    apiKey = "completed-codex-changed-fixture-key";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assert.rejects(f.prepare(receipt), /different provider account binding/);
+      assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+    }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/interrupt").length, 0);
+  } finally { apiKey = "completed-codex-original-fixture-key"; await f.close(); }
+});
+
+test("completed Codex response custody refuses foreign native tuples and host scope before effects", async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    const receipt = await f.complete();
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const row = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    for (const alter of [
+      binding => { binding.codexAppServerRun.outerTurnId = "different-authored-request"; },
+      binding => { binding.codexAppServerRun.providerThreadId = "foreign-native-thread"; },
+      binding => { binding.codexAppServerRun.providerTurnId = "foreign-native-turn"; },
+      binding => { binding.codexAppServerRun.active = true; },
+      binding => { binding.codexAppServerRun.state = "failed"; },
+      binding => { binding.workdir = "/different-fixture-workdir"; },
+      binding => { binding.configRoot = "/different-fixture-config-root"; }
+    ]) {
+      const changed = structuredClone(before); alter(changed.runtime.binding);
+      await f.storage.write("conversation", tx => tx.writeMetadata(changed));
+      try {
+        await assert.rejects(f.prepare(receipt), /no exact native turn receipt|different native conversation or host scope/);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), changed);
+        assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), row);
+      } finally { await f.storage.write("conversation", tx => tx.writeMetadata(before)); }
+    }
+    await f.storage.write("conversation", tx => tx.updateTurnMetadata(receipt.turnId, {
+      runtime: { ...row.metadata.runtime, nativeTurnId: "foreign-canonical-turn" }
+    }));
+    try { await assert.rejects(f.prepare(receipt), /no exact native turn receipt/); }
+    finally { await f.storage.write("conversation", tx => tx.updateTurnMetadata(receipt.turnId, { runtime: row.metadata.runtime })); }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Codex caller markers do not replace ordinary native discovery or create completion authority", async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    const receipt = await f.conversation.send({ messageId: "ordinary-codex", text: "tools", data: { completedEnvelope: true } });
+    const state = await f.conversation.wait();
+    const turn = state.conversationLog.find(row => row.turnId === receipt.turnId);
+    assert.equal(turn.metadata.runtime.status, "complete", state.error);
+    assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(f.effects(), 0, "Caller data does not itself request or authorize an effect");
+    const initialTrace = await f.trace();
+    assert.deepEqual(initialTrace.find(row => row.method === "thread/start").params.dynamicTools.map(tool => tool.name),
+      ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"]);
+    assert.match(initialTrace.find(row => row.method === "turn/start").params.input[0].text, /\[Application data\]/);
+    await assert.rejects(f.prepare({ messageId: "ordinary-codex", turnId: receipt.turnId }), /no current verified receipt/);
+    // The original controlled CLI invokes discovery only for exact plain "tools".
+    const toolReceipt = await f.conversation.send({ messageId: "ordinary-tools", text: "tools" });
+    const toolsState = await f.conversation.wait();
+    const toolsTurn = toolsState.conversationLog.find(row => row.turnId === toolReceipt.turnId);
+    assert.equal(toolsTurn.metadata.runtime.status, "complete", toolsState.error);
+    assert.equal(toolsTurn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(toolsTurn.metadata.applicationTools.length, 3);
+    assert.equal(f.effects(), 1);
+    await assert.rejects(f.prepare({ messageId: "ordinary-tools", turnId: toolReceipt.turnId }), /no current verified receipt/);
+    const trace = await f.trace();
+    assert.equal(trace.filter(row => row.method === "thread/start").length, 1);
+    const starts = trace.filter(row => row.method === "turn/start");
+    assert.equal(starts.length, 2);
+    assert.equal(starts[1].params.input[0].text, "tools");
+  } finally { await f.close(); }
+});
+
+for (const markedFirst of [true, false]) test(`completed Codex ${markedFirst ? "marked to ordinary" : "ordinary to marked"} transitions retain the original incompatible-schema refusal`, async t => {
+  const f = await completedCodexFixture(t);
+  try {
+    if (markedFirst) await f.complete();
+    else {
+      await f.conversation.send({ messageId: "ordinary-first", text: "tools" });
+      const state = await f.conversation.wait();
+      assert.equal(state.conversationLog[0].metadata.runtime.status, "complete", state.error);
+      assert.equal(state.conversationLog[0].metadata.applicationTools.length, 3);
+    }
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const starts = (await f.trace()).filter(row => row.method === "turn/start").length;
+    const effects = f.effects();
+    const submit = markedFirst
+      ? f.conversation.send({ messageId: "ordinary-next", text: "tools" })
+      : f.conversation.wake({ messageId: "marked-next", text: "Read a number" });
+    await assert.rejects(submit, /different application tool entry points/);
+    assert.equal(f.effects(), effects);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, starts);
+    const after = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(after.runtime.binding.threadId, before.runtime.binding.threadId);
+    assert.equal(after.runtime.binding.toolSchemaIdentity, before.runtime.binding.toolSchemaIdentity);
+    assert.equal(after.runtime.binding.accountIdentity, before.runtime.binding.accountIdentity);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/interrupt").length, 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Codex human presentation retains product history and private actual native receipts", async t => {
+  const f = await completedCodexFixture(t);
+  const events = [];
+  const observations = [];
+  await f.conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "message" && event.completedEnvelope === true) observations.push(f.conversation.read());
+  });
+  try {
+    await f.storage.write("conversation", async tx => {
+      await tx.appendMessage("000001", { role: "user", messageId: "product-question", text: "Visible product question",
+        at: "2026-10-10T00:00:00.000Z" });
+      await tx.replaceAssistant("000001", { role: "assistant", messageId: "product-reply", text: "Visible prior reply",
+        at: "2026-10-10T00:00:01.000Z" });
+    });
+    const receipt = await f.complete("internal-presentation-response");
+    const state = await f.conversation.read();
+    assert.equal(state.status, "ready", state.error);
+    assert.equal(state.error, "");
+    assert.equal(state.pendingRequest, null);
+    assert.deepEqual(state.streaming.messages, []);
+    assert.deepEqual(state.conversationLog.map(turn => turn.turnId), ["000001"]);
+    assert.equal(state.conversationLog[0].user.messageId, "product-question");
+    assert.equal(state.conversationLog[0].assistant.messageId, "product-reply");
+    assert.equal(state.conversationLog[0].assistant.text, "Visible prior reply");
+    const page = await f.conversation.read({ limit: 1, presentation: false });
+    assert.deepEqual(page.conversationLog, state.conversationLog);
+    assert.equal(page.pagination.totalTurnCount, 1);
+    assert.equal(page.pagination.count, 1);
+    assert.equal(page.pagination.oldestTurnId, "000001");
+    assert.equal(page.pagination.newestTurnId, "000001");
+    assert.equal(page.pagination.hasMoreBefore, false);
+    const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(raw.system.messageId, receipt.messageId);
+    assert.equal(raw.metadata.runtime.completedEnvelope, true);
+    assert.equal(raw.metadata.runtime.status, "complete");
+    assert.equal(raw.metadata.runtime.segmentId, state.segmentId);
+    assert.equal(raw.assistant.text, JSON.stringify(completedCodexValue));
+    assert.ok(raw.metadata.runtime.nativeTurnId);
+    assert.equal(metadata.runtime.binding.codexAppServerRun.providerTurnId, raw.metadata.runtime.nativeTurnId);
+    assert.equal(metadata.runtime.binding.codexAppServerRun.outerTurnId, receipt.messageId);
+    const savedHistory = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+    const nativeThread = (savedHistory.threads || [savedHistory]).find(thread => thread.id === metadata.runtime.binding.threadId);
+    const nativeTurn = nativeThread.turns.find(turn => turn.id === raw.metadata.runtime.nativeTurnId);
+    assert.equal(nativeTurn.status, "completed");
+    assert.equal(nativeTurn.items.find(item => item.type === "userMessage").clientId, receipt.messageId);
+    assert.equal(nativeTurn.items.find(item => item.type === "agentMessage").text, raw.assistant.text);
+    const rawFinal = events.filter(event => event.type === "message" && event.status === "complete")
+      .find(event => event.turnId === receipt.turnId && event.text === raw.assistant.text);
+    assert.ok(rawFinal, "The raw worker subscriber still receives this actual native completed response");
+    assert.equal(rawFinal.completedEnvelope, true);
+    assert.ok(events.some(event => event.type === "message" && event.status === "inProgress" &&
+      event.completedEnvelope === true && event.streaming.messages.some(message => message.completedEnvelope === true)),
+    "The original app-server emits a trusted marked native stream, not a manufactured canonical completion");
+    assert.ok(observations.length);
+    for (const observed of await Promise.all(observations)) {
+      assert.ok(["working", "ready"].includes(observed.status), observed.error);
+      assert.deepEqual(observed.conversationLog.map(turn => turn.turnId), ["000001"]);
+      assert.equal(observed.pendingRequest, null);
+      assert.deepEqual(observed.streaming.messages, []);
+    }
+    const trace = await f.trace();
+    const starts = trace.filter(row => row.method === "turn/start");
+    assert.equal(starts.length, 1);
+    assert.equal(starts[0].params.clientUserMessageId, receipt.messageId);
+    assert.equal(trace.find(row => row.method === "thread/start").params.dynamicTools.length, 0);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+// The original controlled app-server owns large wire output and its native receipt.
+const completedCodexWireSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"], properties: {
+    kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 16000 },
+    toolName: { type: "string", maxLength: 256 }, arguments: { type: "string", maxLength: 262144 }
+  } };
+async function completedCodexWireFixture(t, value, options = {}) {
+  let effects = 0;
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const f = await fixture(t, { ...options, actions, context, structuredResponse: value,
+    configuration: { ...configuration, outputSchema: options.outputSchema || completedCodexWireSchema },
+    limits: { admissionTimeoutMs: 30_000, maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455, ...options.limits } });
+  await f.first.close();
+  let runtime, conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "codex", storage: f.storage, actions,
+      authorize: () => true, completedEnvelope: true, ...f.driverOptions });
+    try { conversation = await runtime.open({ id: "conversation", context }); }
+    catch (error) { await runtime.close(); throw error; }
+  }
+  await reopen();
+  return { ...f, reopen, effects: () => effects, get conversation() { return conversation; }, close: () => runtime.close() };
+}
+
+for (const kind of ["tool", "reply"]) test(`completed Codex ${kind} wire preserves large decoded fields beyond the human cap`, async t => {
+  const handover = "😀".repeat(20000);
+  const argumentsText = JSON.stringify({ value: handover }).replace(/[\u0080-\uffff]/g,
+    character => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const value = kind === "tool" ? { kind, text: "", toolName: "numbers_read", arguments: argumentsText }
+    : { kind, text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const raw = JSON.stringify(value);
+  assert.ok(raw.length > (kind === "tool" ? 280000 : 16000));
+  if (kind === "tool") assert.equal(value.arguments.length, 240012);
+  const f = await completedCodexWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.wake({ messageId: `large-codex-${kind}`, text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const run = metadata.runtime.binding.codexAppServerRun;
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.system.origin, "application");
+    assert.equal(saved.assistant.text, raw);
+    assert.equal(saved.metadata.runtime.nativeTurnId, run.providerTurnId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    const prepared = await f.conversation.prepareCompletedResponse(receipt, { signal: new AbortController().signal });
+    assert.equal(prepared.text, raw);
+    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const decoded = readAssistantResponseEnvelope(prepared.text);
+    assert.deepEqual(decoded, value);
+    if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    assert.deepEqual((await f.conversation.read()).conversationLog, []);
+  } finally { await f.close(); }
+});
+
+test("completed Codex wire overflow remains bounded before any decoded effect", async t => {
+  const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
+  assert.ok(JSON.stringify(value).length > 2000);
+  const f = await completedCodexWireFixture(t, value, { outputSchema: completedCodexSchema,
+    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 } });
+  try {
+    const receipt = await f.conversation.wake({ messageId: "codex-wire-overflow", text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "Codex observation failed. Work must be stopped before it can continue.");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "failed");
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const run = metadata.runtime.binding.codexAppServerRun;
+    assert.equal(metadata.runtime.binding.observationLoss.stopped, true);
+    assert.equal(metadata.runtime.binding.observationLoss.message, state.error);
+    assert.equal(run.state, "interrupted");
+    assert.equal(run.active, false);
+    assert.equal(run.providerStatus, "observation_lost");
+    assert.equal(run.error, "Codex observation was lost. Work is stopped; use Resume or Send to continue.");
+    assert.equal(run.providerThreadId, metadata.runtime.binding.threadId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    assert.equal(run.providerTurnId, saved.metadata.runtime.nativeTurnId);
+    assert.ok((saved.assistant?.text.length || 0) <= 2000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+  } finally { await f.close(); }
+});
+
+for (const forged of [false, true]) test(`ordinary Codex ${forged ? "forged-data" : "unmarked"} reply keeps its human cap in completed mode`, async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedCodexWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.send({ messageId: "ordinary-wire", text: "An ordinary request",
+      ...(forged ? { data: { completedEnvelope: true } } : {}) });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "Codex observation failed. Work must be stopped before it can continue.");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "failed");
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    const run = metadata.runtime.binding.codexAppServerRun;
+    assert.equal(metadata.runtime.binding.observationLoss.stopped, true);
+    assert.equal(metadata.runtime.binding.observationLoss.message, state.error);
+    assert.equal(run.state, "interrupted");
+    assert.equal(run.active, false);
+    assert.equal(run.providerStatus, "observation_lost");
+    assert.equal(run.error, "Codex observation was lost. Work is stopped; use Resume or Send to continue.");
+    assert.equal(run.providerThreadId, metadata.runtime.binding.threadId);
+    assert.equal(run.outerTurnId, receipt.messageId);
+    assert.equal(run.providerTurnId, saved.metadata.runtime.nativeTurnId);
+    assert.ok((saved.assistant?.text.length || 0) <= 16000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(saved.user.origin, "user");
+    if (forged) assert.deepEqual(saved.user.data, { completedEnvelope: true });
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    await assert.rejects(f.conversation.inspectDelivery({ messageId: receipt.messageId }),
+      { message: "Codex output exceeded the configured limit." });
+    const afterInspection = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.deepEqual(afterInspection.user, saved.user);
+    assert.equal(afterInspection.metadata.runtime.completedEnvelope, undefined);
+    assert.ok((afterInspection.assistant?.text.length || 0) <= 16000);
+    assert.notEqual(afterInspection.assistant?.text, JSON.stringify(value));
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Codex marked canonical native recovery retains large output without replay", async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedCodexWireFixture(t, value, { checkpoints: true });
+  try {
+    const receipt = await f.conversation.wake({ messageId: "recover-marked-wire", text: "Read the completed envelope" });
+    assert.equal((await f.conversation.wait()).status, "ready");
+    const final = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const checkpoint = f.checkpoints.find(record => record.metadata.runtime.binding.codexAppServerRun?.outerTurnId === receipt.messageId &&
+      record.turns.some(([, turn]) => turn.metadata?.runtime?.completedEnvelope === true && turn.metadata.runtime.nativeTurnId &&
+        turn.metadata.runtime.status === "running" && !turn.messages.some(message => message.role === "assistant")));
+    assert.ok(checkpoint, "The existing canonical fixture captured real marked admission before native output");
+    await f.close();
+    await f.restore(checkpoint);
+    await f.reopen();
+    const recovered = await f.conversation.inspectDelivery({ messageId: receipt.messageId });
+    assert.equal(recovered.status, "accepted");
+    assert.equal(recovered.recovered, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.nativeTurnId, final.metadata.runtime.nativeTurnId);
+    assert.equal(saved.assistant.text, JSON.stringify(value));
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+// The post-port Colleague size-refusal probe belongs to the ordinary native
+// owner: completed-envelope Colleague never authorizes native application tools.
+test("ordinary Codex oversized native arguments retain exact failed-cleanup custody until explicit Stop", async t => {
+  let refusalPath;
+  // Registered before the original fixture teardown: a failed assertion cannot
+  // leave our interrupt-refusal marker blocking the real owner cleanup.
+  t.after(async () => { if (refusalPath) await rm(refusalPath, { force: true }); });
+  let effects = 0;
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const oversized = "x".repeat(262_145);
+  const f = await fixture(t, { actions: applicationActions(async () => { effects++; return { value: 42 }; }), context,
+    oversizedNativeToolInput: { value: oversized }, holdAfterToolRefusal: true,
+    limits: { admissionTimeoutMs: 30_000, maxToolArgumentBytes: 262_144 } });
+  const peer = await f.first.open({ id: "size-peer", configuration, context });
+  const historyPath = path.join(f.directory, "history.json");
+  refusalPath = historyPath + ".refuse-interrupt";
+  try {
+    await peer.send({ messageId: "size-peer-wait", text: "wait" });
+    const peerBefore = await peer.read();
+    const peerBinding = await f.storage.read("size-peer", async tx => (await tx.readMetadata()).runtime.binding);
+    const peerHistory = JSON.parse(await readFile(historyPath, "utf8"));
+    const retainedPeer = (peerHistory.threads || [peerHistory]).find(thread => thread.id === peerBinding.threadId);
+    await writeFile(refusalPath, "refuse");
+    await f.conversation.send({ messageId: "size-authored", text: "tools" });
+    const failed = await f.conversation.wait();
+    assert.equal(failed.status, "unavailable", "A refused real cleanup stays unavailable, not falsely stopped");
+    assert.match(failed.error, /Controlled native interrupt refusal/);
+    assert.equal(effects, 0, "The oversized call never reaches application execution");
+    const authored = failed.conversationLog.filter(turn => turn.user?.messageId === "size-authored");
+    assert.equal(authored.length, 1);
+    assert.equal(authored[0].user.text, "tools");
+    assert.equal(authored[0].assistant, null);
+    assert.equal(authored[0].metadata.runtime.status, "interrupted");
+    assert.equal(authored[0].metadata.applicationTools.length, 2, "Only the genuine search and contract read receipts are reserved");
+    assert.deepEqual(authored[0].metadata.applicationTools.map(call => [call.name, call.status]), [
+      ["assistant_action_search", "complete"], ["assistant_action_contract", "complete"]
+    ]);
+    // The application waiter does not join the remote fixture's error callback.
+    // Observe its actual refused tool response before asserting native custody.
+    let trace;
+    for (let attempt = 0; attempt < 500; attempt++) {
+      trace = await f.trace();
+      if (trace.some(row => row.heldToolRefusal)) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    const starts = trace.filter(row => row.method === "turn/start");
+    assert.equal(starts.length, 2, "One actual peer request and one actual oversized request");
+    const owned = starts.find(row => row.params.clientUserMessageId === "size-authored");
+    assert.ok(owned);
+    const nativeHistory = JSON.parse(await readFile(historyPath, "utf8"));
+    const threads = nativeHistory.threads || [nativeHistory];
+    const thread = threads.find(thread => thread.id === owned.params.threadId);
+    assert.equal(thread.turns.length, 1);
+    assert.equal(thread.turns[0].items[0].clientId, "size-authored");
+    assert.equal(thread.turns[0].status, "inProgress", "A settled application waiter cannot fake native interruption");
+    assert.equal(thread.turns[0].items.some(item => item.type === "agentMessage"), false);
+    assert.equal(trace.some(row => row.notification?.method === "turn/completed" &&
+      row.notification.params.threadId === thread.id), false, "No actual terminal frame falsely settles the active native turn");
+    assert.equal(authored[0].metadata.runtime.nativeTurnId, thread.turns[0].id);
+    assert.deepEqual(threads.find(thread => thread.id === peerBinding.threadId), retainedPeer);
+    const actualRequests = trace.filter(row => row.oversizedNativeToolRequest);
+    assert.equal(actualRequests.length, 1);
+    assert.deepEqual(actualRequests[0].oversizedNativeToolRequest, { id: "tool-request-3", threadId: thread.id,
+      turnId: thread.turns[0].id,
+      argumentsByteLength: Buffer.byteLength(JSON.stringify({ actionId: "numbers.read", version: 1, input: { value: oversized } })),
+      inputValueByteLength: 262_145 });
+    assert.equal(actualRequests[0].oversizedNativeToolRequest.argumentsByteLength > 262_144, true);
+    const refusal = trace.filter(row => row.heldToolRefusal);
+    assert.equal(refusal.length, 1);
+    assert.deepEqual(refusal[0].heldToolRefusal, { threadId: thread.id, turnId: thread.turns[0].id,
+      message: "The application tool arguments exceed their size limit." });
+    const toolResponses = trace.filter(row => row.toolResponse);
+    assert.equal(toolResponses.length, 3);
+    assert.equal(toolResponses.at(-1).toolResponse.id, actualRequests[0].oversizedNativeToolRequest.id);
+    assert.match(toolResponses.at(-1).toolResponse.error.message, /size limit/);
+    const interrupts = trace.filter(row => row.method === "turn/interrupt");
+    assert.equal(interrupts.length, 1);
+    assert.deepEqual(interrupts[0].params, { threadId: thread.id, turnId: thread.turns[0].id });
+    assert.equal((await peer.read()).status, "working");
+    assert.equal((await peer.read()).segmentId, peerBefore.segmentId);
+    assert.deepEqual((await f.storage.read("size-peer", async tx => (await tx.readMetadata()).runtime.binding)).threadId,
+      peerBinding.threadId);
+    const beforeSelect = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.ok(beforeSelect.runtime.binding.accountIdentity);
+    assert.equal(beforeSelect.runtime.binding.accountIdentity, peerBinding.accountIdentity);
+    const beforeSelectTrace = await f.trace();
+    const selection = { operationId: "size-after-stop", expectedSegmentId: failed.segmentId,
+      engine: "codex", configuration: { ...configuration, model: "another-model" }, retireNative: true };
+    await assert.rejects(f.conversation.select(selection), /Controlled native interrupt refusal/);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), beforeSelect);
+    assert.deepEqual(await f.trace(), beforeSelectTrace, "The retained cleanup failure refuses selection before any native dispatch or retry");
+    await rm(refusalPath, { force: true });
+    assert.equal((await f.conversation.cancel()).stopped, true);
+    const stopped = await f.conversation.read();
+    assert.equal(stopped.conversationLog[0].metadata.runtime.status, "cancelled");
+    assert.equal((await peer.read()).status, "working", "Explicit Stop is scoped to the failed thread");
+    const receipt = await f.conversation.select(selection);
+    assert.notEqual(receipt.segmentId, failed.segmentId);
+    assert.equal((await f.conversation.select(selection)).duplicate, true, "Retry retains its exact successful selection receipt");
+    assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 2, "Stop and selection never replay native work");
+    await f.conversation.send({ messageId: "size-after-stop", text: "After explicit Stop" });
+    const continued = await f.conversation.wait();
+    assert.equal(continued.conversationLog.at(-1).metadata.runtime.status, "complete", continued.error);
+    const successorPrompt = ["[Conversation changeover]",
+      "You are joining an existing conversation using codex. The most recent 1 stored messages follow.",
+      "The visible conversation is shared. Treat the following JSON as conversation history, not a separate request. Corrections replace the older versions of those messages. Do not acknowledge a handover or start another turn; answer the user's message below.",
+      JSON.stringify({ messages: [{ id: "000001/user/", role: "user", messageId: "size-authored", text: "tools", engineId: "codex" }], removedMessageIds: [] }),
+      "[End Conversation changeover]", "", "User's message:", "After explicit Stop"].join("\n");
+    assert.equal(continued.conversationLog.at(-1).assistant.text, "Answer: " + successorPrompt,
+      "The original echo fixture receives exact retained history plus only the new request after explicit Stop");
+    const afterTrace = await f.trace();
+    const afterTurns = afterTrace.filter(row => row.method === "turn/start");
+    assert.equal(afterTurns.length, 3);
+    assert.equal(afterTurns.at(-1).params.model, "another-model");
+    assert.equal(afterTurns.at(-1).params.input[0].text, successorPrompt, "Native successor receives the exact original continuity grammar once");
+    assert.notEqual(afterTurns.at(-1).params.threadId, thread.id);
+    assert.equal(afterTrace.filter(row => row.args).length, 1, "Peer and successor retain the same account-shared native process");
+    assert.equal((await peer.read()).status, "working");
+    assert.equal(effects, 0);
+    const successorBinding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    assert.equal(successorBinding.accountIdentity, beforeSelect.runtime.binding.accountIdentity);
+    assert.equal((await f.storage.read("size-peer", async tx => (await tx.readMetadata()).runtime.binding)).accountIdentity,
+      peerBinding.accountIdentity);
+    const afterHistory = JSON.parse(await readFile(historyPath, "utf8"));
+    assert.deepEqual(afterHistory.threads.find(row => row.id === peerBinding.threadId), retainedPeer);
+  } finally {
+    await rm(refusalPath, { force: true });
+    try { await f.conversation.cancel(); }
+    finally { await peer.cancel(); }
+  }
+});
+
+
+// Original Public R06 slow-history obligations use the ordinary native owner:
+// its real application contract can wait for active.inputReady before completion.
+for (const delayMs of [1000, 2000]) {
+  test(`ordinary Codex slow first history read preserves its post-read grace for final at ${delayMs}ms`, async t => {
+    let effects = 0;
+    const text = "Exact final after the slow read.";
+    const f = await fixture(t, {
+      actions: applicationActions(async () => { effects++; return { value: 42 }; }),
+      context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] },
+      completionBeforeDelayedFinal: { readDelayMs: 600, delayMs, text },
+      limits: { admissionTimeoutMs: 30_000, codexFinalizingGraceMs: 500,
+        codexFinalizingGraceAfterHistoryRead: true, codexFailureDetailGraceMs: 500 }
+    });
+    let firstError;
+    try {
+      const receipt = await f.conversation.send({ messageId: "user-1", text: "Keep the slow-read request." });
+      assert.equal(receipt.status, "accepted");
+      let trace;
+      for (let attempt = 0; attempt < 3000; attempt++) {
+        trace = await f.trace();
+        if (trace.some(row => row.historyReadHeld)) break;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.ok(trace.some(row => row.historyReadHeld), "Observe the actual full-history hold after native completion");
+      const held = await f.storage.read("conversation", transaction => transaction.readMetadata());
+      assert.equal(held.runtime.binding.codexAppServerRun.state, "finalizing",
+        "The delayed full-history read must follow native completion and canonical finalization");
+      const result = await f.conversation.wait();
+      // Generic controls are idle/ready after a settled failed turn; Public
+      // Colleague's separate product worker reports its request as failed.
+      assert.equal(result.status, "ready", result.error);
+      if (delayMs === 2000) assert.equal(result.error,
+        "Codex app-server finished this turn, but the assistant result text was not received.");
+      else assert.equal(result.error, "");
+      const messages = result.conversationLog.flatMap(turn => turn.messages);
+      assert.deepEqual(messages.filter(row => row.role === "user").map(row => row.text), ["Keep the slow-read request."]);
+      assert.deepEqual(messages.filter(row => row.role === "assistant").map(row => row.text), delayMs === 1000 ? [text] : []);
+      const saved = await f.storage.read("conversation", transaction => transaction.readTurn(receipt.turnId));
+      assert.equal(saved.user.messageId, "user-1");
+      assert.equal(saved.metadata.runtime.status, delayMs === 1000 ? "complete" : "failed");
+      if (delayMs === 2000) {
+        const metadata = await f.storage.read("conversation", transaction => transaction.readMetadata());
+        assert.equal(metadata.runtime.binding.codexAppServerRun.error, result.error);
+      }
+      assert.equal(saved.assistant?.text, delayMs === 1000 ? text : undefined);
+      assert.equal(effects, 0);
+      assert.equal(saved.metadata.applicationTools.length, 1, "Only the real contract query receipt exists; no numbers action ran");
+      assert.equal(saved.metadata.applicationTools[0].name, "assistant_action_contract");
+      assert.equal(saved.metadata.applicationTools[0].status, "complete");
+      assert.equal(saved.metadata.applicationTools[0].result.ok, true);
+      trace = await f.trace();
+      const turns = trace.filter(row => row.method === "turn/start");
+      assert.equal(turns.length, 1, "No repeat native request or inference");
+      assert.equal(turns[0].params.clientUserMessageId, "user-1");
+      const started = trace.find(row => row.notification?.method === "turn/started").notification.params.turn;
+      assert.equal(saved.metadata.runtime.nativeTurnId, started.id);
+      assert.deepEqual(trace.filter(row => row.historyReadHeld).map(row => row.historyReadHeld),
+        [{ threadId: turns[0].params.threadId, turnId: started.id, delayMs: 600 }]);
+      assert.equal(trace.filter(row => row.historyReadReturned).length, 1);
+      const completedAt = trace.findIndex(row => row.notification?.method === "turn/completed" && row.notification.params.turn.id === started.id);
+      assert.ok(completedAt >= 0 && completedAt < trace.findIndex(row => row.historyReadHeld));
+      assert.equal(trace.filter(row => row.toolResponse).length, 1);
+      const history = JSON.parse(await readFile(path.join(f.directory, "history.json"), "utf8"));
+      assert.equal(history.id, turns[0].params.threadId);
+      assert.equal(history.turns.length, 1);
+      assert.equal(history.turns[0].id, started.id);
+      assert.equal(history.turns[0].items[0].clientId, "user-1");
+    } catch (error) {
+      firstError = error;
+    } finally {
+      try {
+        const beforeStop = await f.conversation.read();
+        const cancelled = await f.conversation.cancel();
+        assert.equal(typeof cancelled.stopped, "boolean", "Original Stop reports whether it interrupted work");
+        const stopped = await f.storage.read("conversation", transaction => transaction.readMetadata());
+        assert.equal(stopped.runtime.binding.codexAppServerRun.active, false, "Actual Stop leaves no active native turn");
+        if (beforeStop.status === "ready") {
+          assert.equal(cancelled.stopped, false, "An already idle native turn truthfully reports no interrupted work");
+        }
+        assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1, "Stop does not replay the original native request");
+        assert.equal(effects, 0);
+      } catch (error) {
+        if (firstError) t.diagnostic(`R06 cleanup also failed; preserving the first assertion: ${error.stack || error.message}`);
+        else firstError = error;
+      }
+    }
+    if (firstError) throw firstError;
+  });
+}

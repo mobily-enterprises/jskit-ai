@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, watch } from "vue";
 import { useVoiceTransport } from "./voiceTransport.js";
-import { takeStreamingSpeech } from "../shared/protocol.js";
+import { speechTextFromAssistant, takeStreamingSpeech, VOICE_MAX_SPEECH_TEXT_CHARACTERS } from "../shared/protocol.js";
 import { createConversationNarrationTracker } from "./conversationNarration.js";
 
 /** Created inside the controller's effect scope, independent of a mounted screen. */
@@ -82,7 +82,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     return "You can speak naturally, including while I reply.";
   });
   const callModeBusy = computed(() => starting.value || changingCallMode.value || pushHolding.value || sending.value || Boolean(pendingTranscript.value)
-    || Boolean(voice.partialTranscript.value.trim()) || capturing.value && !voice.listening.value);
+    || capturing.value && Boolean(voice.partialTranscript.value.trim()) || capturing.value && !voice.listening.value);
   const microphoneStatus = computed(() => microphoneMuted.value ? "Microphone muted" : voice.listening.value ? "Microphone on" : "Microphone off");
   const avatarVisual = computed(() => ({
     avatar: binding.avatar,
@@ -237,7 +237,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         if (reply.started && !speechActive.value) { speechQueue.shift(); continue; }
         if (speechActive.value && !reply.started) return;
         if (reply.started && !voice.canAppendSpeech.value) return;
-        const chunk = takeStreamingSpeech(reply.raw.slice(reply.consumed), reply.final, reply.started ? 140 : 64);
+        const previousSpeech = reply.narrationKind ? "" : speechTextFromAssistant(reply.raw.slice(0, reply.consumed));
+        const maximumCharacters = reply.narrationKind ? (reply.started ? 140 : 64) : Math.max(1, Math.min(
+          reply.started ? 140 : 64,
+          VOICE_MAX_SPEECH_TEXT_CHARACTERS - previousSpeech.length,
+          VOICE_MAX_SPEECH_TEXT_CHARACTERS - reply.spokenCharacters
+        ));
+        const chunk = reply.speechCapped ? null : takeStreamingSpeech(reply.raw.slice(reply.consumed), reply.final, maximumCharacters);
         if (!chunk) {
           if (reply.final && reply.started) voice.endSpeech();
           else if (reply.final) {
@@ -248,11 +254,27 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
           return;
         }
         reply.consumed += chunk.consumed;
-        if (!chunk.text) continue;
+        let text = chunk.text;
+        if (!reply.narrationKind) {
+          // Keep offsets in raw Markdown. The original limit applies after its
+          // cleanup, including whitespace between separately streamed phrases.
+          const speech = speechTextFromAssistant(reply.raw.slice(0, reply.consumed));
+          const boundary = speech.startsWith(previousSpeech)
+            ? speech.slice(previousSpeech.length).match(/^\s*/u)[0].length : 0;
+          text = text.slice(0, Math.max(0, Math.min(
+            VOICE_MAX_SPEECH_TEXT_CHARACTERS - previousSpeech.length - boundary,
+            VOICE_MAX_SPEECH_TEXT_CHARACTERS - reply.spokenCharacters
+          )));
+          reply.spokenCharacters += text.length;
+          reply.speechCapped = speech.length >= VOICE_MAX_SPEECH_TEXT_CHARACTERS
+            || reply.spokenCharacters >= VOICE_MAX_SPEECH_TEXT_CHARACTERS;
+          reply.final ||= reply.speechCapped;
+        }
+        if (!text) continue;
         if (!reply.started) {
           reply.started = true;
           reply.turnId = crypto.randomUUID();
-          const accepted = await voice.speak(chunk.text, reply.turnId, { stream: true });
+          const accepted = await voice.speak(text, reply.turnId, { stream: true });
           if (disposed) return;
           if (reply.cancelled) {
             if (reply.narrationKind) continue;
@@ -262,8 +284,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
             cancelReply(reply, "no-audio");
             continue;
           }
-        } else if (!voice.appendSpeech(chunk.text)) return;
-        if (reply.final && reply.consumed >= reply.raw.length) { voice.endSpeech(); return; }
+        } else if (!voice.appendSpeech(text)) return;
+        if (reply.speechCapped || (reply.final && reply.consumed >= reply.raw.length)) { voice.endSpeech(); return; }
       }
     } catch (cause) { error.value = cause.message; stopSpeech(); }
     finally { draining = false; }
@@ -275,7 +297,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       retireNarration();
       reply = {
         id: message.id, outputId: message.outputId || message.id, streamId: message.streamId,
-        raw: "", consumed: 0, final: false, canonicalFinal: false, started: false
+        raw: "", consumed: 0, spokenCharacters: 0, speechCapped: false,
+        final: false, canonicalFinal: false, started: false
       };
       replies.set(message.id, reply);
       speechQueue.push(reply);
@@ -289,7 +312,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       return;
     }
     if (final) retireNarration();
-    const text = String(message.text || "").slice(0, 4000);
+    const text = String(message.text || "").slice(0, VOICE_MAX_SPEECH_TEXT_CHARACTERS * 2);
     const spokenPrefix = reply.raw.slice(0, reply.consumed);
     if (!text.startsWith(spokenPrefix) && !(final && text.trimEnd() === spokenPrefix.trimEnd())) {
       // A model revision cannot unsay words. Retire that projection; never splice
@@ -301,7 +324,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     reply.consumed = Math.min(reply.consumed, text.length);
     reply.raw = text;
     reply.canonicalFinal ||= final;
-    reply.final = final || text.length >= 4000;
+    reply.final = final || reply.speechCapped || text.length >= VOICE_MAX_SPEECH_TEXT_CHARACTERS * 2;
     if (reply.canonicalFinal && reply.drained) emitReply(reply, "completed");
   }
   async function enableSound() {
@@ -649,6 +672,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     const finished = recording;
     recording = null;
     if (voice.error.value) {
+      if (committing?.messageId === finished.messageId) committing = null;
       live.value = false;
       const text = voice.partialTranscript.value.trim() || voice.transcript.value.trim();
       if (text) {

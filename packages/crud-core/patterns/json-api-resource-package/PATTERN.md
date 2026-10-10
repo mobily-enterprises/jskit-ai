@@ -49,8 +49,41 @@ contracts, access policy, and HTTP routes.
 ## Example files
 
 `example/` contains a complete books package plus a source-controlled migration.
+Paths below are relative to this pattern directory:
+
+```text
+example/migrations/20260815000000_books.cjs
+example/packages/books/package.json
+example/packages/books/src/server/BooksFeature.js
+example/packages/books/src/shared/bookResource.js
+example/packages/books/src/shared/index.js
+```
+
+The example's migration belongs to the application root (`example/migrations/`)
+and is a `.cjs` file. The books package does not declare a migration directory.
+For a package-owned migration instead, declare its actual directory in
+`package.json#jskit.migrations.directories`, as described in the database-layer
+guide.
+
 `BooksFeature.js` is deliberately tiny: it binds the readable resource contract
 to the framework module and exports the resulting provider.
+
+## List search is part of the initial composition
+
+The shared `useCrudListScreen()` enables a query-backed Search box. Its server
+mapping belongs in `bookResource.searchSchema.q`, as the example demonstrates.
+When narrowing the resource, retain that mapping and update `oneOf` to the
+fields that remain; a title-only resource searches `["title"]`. Do this before
+the first list test, alongside the fields and validation.
+
+Keep the query layers distinct: the page route and internal CRUD query use
+`q`, while JSON:API HTTP requests use `filter[q]`. Shared CRUD clients handle
+that transport automatically. A raw API test uses, for example,
+`request.get("/api/books", { params: { "filter[q]": "Kindred" } })` with
+JSON:API Accept headers and the application's actual API base/scope. Do not use
+`/api/books?q=Kindred` to test the JSON:API search contract. Assert a matching
+result, a nonmatching query returning no rows, and clearing the UI query;
+an unfiltered collection can satisfy a matching-row-only assertion.
 
 ## Variation points
 

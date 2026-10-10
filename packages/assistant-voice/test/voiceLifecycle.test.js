@@ -4,7 +4,7 @@ import * as vue from "vue";
 import { useVoiceTransport } from "../src/client/voiceTransport.js";
 import { useVoiceConversation } from "../src/client/voiceConversation.js";
 import { projectConversationVoiceState } from "../src/client/conversationVoiceState.js";
-import { splitSpeechText } from "../src/shared/protocol.js";
+import { speechTextFromAssistant, splitSpeechText } from "../src/shared/protocol.js";
 
 function mountSetup(setup, router) {
   let value;
@@ -2357,6 +2357,9 @@ test("speech cap drains without claiming completion before canonical final", asy
   await flushVue();
   // The bounded projection can need several synthesis append acknowledgements.
   for (let i = 0; i < 40; i++) { socket.receive({ type: "speech.chunk.end", turnId: start.turnId }); await flushVue(); }
+  const phrases = controls(socket).filter(control => ["speak.start", "speak.append"].includes(control.type));
+  assert.equal(phrases.map(control => control.text).join(" "), speechTextFromAssistant(output.text),
+    "the original normalized cap includes spaces between streamed phrases");
   assert.ok(controls(socket).some(control => control.type === "speak.end"));
   socket.receive({ type: "speech.end", turnId: start.turnId });
   await flushVue(); view.sources[0].finish(); await flushVue();
@@ -2364,6 +2367,62 @@ test("speech cap drains without claiming completion before canonical final", asy
   assert.deepEqual(events(), ["started"]);
   view.colleagueProps.conversation.streamingReply = { ...output, status: "completed" }; await flushVue();
   assert.deepEqual(events(), ["started", "completed"]);
+});
+
+for (const streamed of [false, true]) {
+  test(`the original raw window keeps the answer after a long code block (${streamed ? "streamed" : "completed"})`, async t => {
+    const view = mountVoice(t, { colleague: true });
+    await view.colleague.toggleReadAloud();
+    const code = `\`\`\`sql\n${"select secret_field from private_table;\n".repeat(130)}`;
+    assert.ok(code.length > 4000 && code.length < 8000);
+    const output = { id: "long-code", outputId: "canonical-long-code", role: "assistant", text: `${code}\`\`\`\nThe answer is forty-two.` };
+    if (streamed) {
+      view.colleagueProps.conversation.streamingReply = { ...output, text: code, status: "inProgress" };
+      await flushVue();
+      assert.equal(view.sockets[0] ? controls(view.sockets[0]).filter(control => control.type === "speak.start").length : 0, 0,
+        "an unfinished code fence cannot exhaust the spoken budget");
+      view.colleagueProps.conversation.streamingReply = { ...output, status: "completed" };
+    } else view.colleagueProps.conversation.messages = [output];
+    await flushVue();
+    const socket = view.sockets[0];
+    const start = controls(socket).find(control => control.type === "speak.start");
+    assert.ok(start);
+    socket.receive({ type: "speech.start", turnId: start.turnId });
+    socket.receive(new Int16Array(22050).buffer);
+    socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+    await flushVue();
+    const spoken = controls(socket).filter(control => ["speak.start", "speak.append"].includes(control.type)).map(control => control.text).join("");
+    assert.equal(spoken, speechTextFromAssistant(output.text));
+    assert.match(spoken, /SQL on screen/u);
+    assert.match(spoken, /The answer is forty-two\./u);
+    assert.doesNotMatch(spoken, /select secret_field|private_table/u);
+    socket.receive({ type: "speech.end", turnId: start.turnId });
+    await flushVue();
+    view.sources[0].finish();
+    await flushVue();
+    assert.deepEqual(view.emitted.filter(([kind]) => kind === "playback").map(([, event]) => event), [
+      { conversationId: "logical-conversation", outputId: "canonical-long-code", phase: "started" },
+      { conversationId: "logical-conversation", outputId: "canonical-long-code", phase: "completed" }
+    ]);
+  });
+}
+
+test("canonical speech retains the original bounded raw normalization window", async t => {
+  const view = mountVoice(t, { colleague: true });
+  await view.colleague.toggleReadAloud();
+  const code = `\`\`\`sql\n${"x".repeat(7970)}\n\`\`\`\n`;
+  const text = code + "Kept." + " ".repeat(8000 - code.length - 5) + "Outside the raw window.";
+  view.colleagueProps.conversation.messages = [{ id: "raw-window", role: "assistant", text }];
+  await flushVue();
+  const socket = view.sockets[0];
+  const start = controls(socket).find(control => control.type === "speak.start");
+  socket.receive({ type: "speech.start", turnId: start.turnId });
+  socket.receive({ type: "speech.chunk.end", turnId: start.turnId });
+  await flushVue();
+  const spoken = controls(socket).filter(control => ["speak.start", "speak.append"].includes(control.type)).map(control => control.text).join("");
+  assert.equal(spoken, speechTextFromAssistant(text));
+  assert.match(spoken, /Kept\./u);
+  assert.doesNotMatch(spoken, /Outside the raw window/u);
 });
 
 test("Stop interrupts queued outputs once without fictional starts or stale completion", async t => {
@@ -4037,3 +4096,238 @@ for (const failedReader of ["global", "coding", "colleague"]) {
     assert.equal(deliveries[1].text, "Explicit immediate direction");
   });
 }
+
+
+test("discarding an interrupted review allows fresh Talk without resubmitting stale partial words, while active capture and transcription remain guarded", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const call = view.colleague, delivered = [];
+  view.colleagueProps.submit = async (text, details) => { delivered.push({ text, ...details }); return { ok: true }; };
+  const starting = call.toggleHandsFree(); await flushVue();
+  view.media[0].resolve(); await starting;
+  const socket = view.sockets[0], originalListen = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId: originalListen, text: "Sation", revision: 1 });
+  await flushVue();
+  assert.equal(call.callModeBusy.value, true, "active partial words still protect the current recording");
+  await call.changeCallMode("push-to-talk");
+  assert.equal(call.callMode.value, "hands-free");
+  await view.voice.stopListening(); await flushVue();
+  assert.equal(view.voice.captureState.value, "transcribing");
+  assert.equal(call.callModeBusy.value, true, "the final interpretation remains capture-owned");
+  await call.changeCallMode("push-to-talk");
+  assert.equal(call.callMode.value, "hands-free");
+  socket.close(); await flushVue();
+  assert.equal(view.voice.captureState.value, "idle");
+  assert.equal(call.pendingTranscript.value.text, "Sation");
+  assert.equal(call.callModeBusy.value, true, "the retained unsent review remains protected");
+  const messageId = call.pendingTranscript.value.messageId;
+  assert.equal(await call.beginTranscriptEdit(messageId), true);
+  call.editTranscript("", messageId);
+  assert.equal(call.pendingTranscript.value.messageId, messageId);
+  assert.equal(call.pendingTranscript.value.text, "");
+  call.editTranscript("Corrected unsent words", messageId);
+  assert.equal(call.pendingTranscript.value.messageId, messageId);
+  assert.equal(await call.takeTranscript(messageId), true, "the original Discard path resolves only this unsent review");
+  assert.equal(call.pendingTranscript.value, null);
+  assert.deepEqual(delivered, []);
+  const restarting = call.toggleHandsFree(); await flushVue();
+  assert.equal(view.media.length, 2, "normal Talk starts a fresh capture after the interrupted review is resolved");
+  view.media[1].resolve(); await restarting;
+  const freshListen = view.voice.activeListenTurnId.value;
+  assert.notEqual(freshListen, originalListen);
+  const listenStarts = view.sockets.flatMap(controls).filter(control => control.type === "listen.start");
+  assert.equal(listenStarts.length, 2);
+  assert.equal(listenStarts.at(-1).turnId, freshListen);
+  assert.deepEqual(delivered, [], "discarded or stale words cannot become a new request");
+});
+
+
+test("an interrupted endpoint commitment retains usable review controls and rejects late final/reset replay", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const call = view.colleague, deliveries = [];
+  view.colleagueProps.submit = async (text, details) => { deliveries.push({ text, ...details }); return { ok: true }; };
+  const starting = call.toggleHandsFree(); await flushVue();
+  view.media[0].resolve(); await starting;
+  const socket = view.sockets[0], listenId = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId: listenId, text: "Complete captured direction", revision: 12 });
+  await flushVue();
+  const original = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+  socket.receive({ type: "transcript.endpoint", turnId: listenId, text: original.text, revision: 12 });
+  await flushVue();
+  assert.equal(controls(socket).filter(message => message.type === "listen.commit").length, 1);
+  assert.equal(call.canTakeTranscript(original.id), false, "a healthy endpoint commitment still protects its identity");
+  // Both normal transport events arrive before Vue flushes their observers.
+  // Capture interruption wins the queued final observer, as in the mounted failure.
+  socket.receive({ type: "transcript.final", turnId: listenId, text: "Complete captured direction.", revision: 12, continuous: true });
+  socket.receive({ type: "error", turnId: listenId, message: "Voice connection was interrupted." });
+  await flushVue();
+  const pending = call.pendingTranscript.value;
+  assert.equal(view.voice.captureState.value, "idle");
+  assert.equal(call.live.value, false);
+  assert.equal(pending.messageId, original.id);
+  assert.equal(pending.text, "Complete captured direction.");
+  assert.equal(pending.reviewBeforeSend, true);
+  assert.deepEqual(pending.focus, { projectSlug: "example", sessionId: "session-a" });
+  assert.deepEqual(deliveries, [], "interruption never automatically admits retained words");
+  assert.equal(call.canTakeTranscript(original.id), true, "the interrupted commitment no longer strands Send, Edit or Discard");
+  assert.equal(await call.beginTranscriptEdit("wrong-recording"), false);
+  assert.equal(await call.beginTranscriptEdit(original.id), true);
+  call.editTranscript("", original.id);
+  socket.receive({ type: "transcript.final", turnId: listenId, text: "Late words must not replace the review", revision: 12, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId: listenId, revision: 13 });
+  await flushVue();
+  assert.equal(call.pendingTranscript.value.messageId, original.id);
+  assert.equal(call.pendingTranscript.value.text, "");
+  assert.deepEqual(deliveries, []);
+  call.editTranscript("Reviewed direction only", original.id);
+  await call.deliverTranscript(); await flushVue();
+  assert.deepEqual(deliveries, [{ text: "Reviewed direction only", messageId: original.id,
+    focus: { projectSlug: "example", sessionId: "session-a" } }]);
+  assert.equal(call.pendingTranscript.value, null);
+  assert.equal(view.media.length, 1, "manual review does not silently restart an interrupted microphone");
+  socket.receive({ type: "transcript.final", turnId: listenId, text: original.text, revision: 12, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId: listenId, revision: 13 });
+  await flushVue();
+  assert.equal(deliveries.length, 1, "late final/reset cannot replay the reviewed request");
+  const restarting = call.toggleHandsFree(); await flushVue();
+  assert.equal(view.media.length, 2); view.media[1].resolve(); await restarting;
+  const freshId = view.voice.activeListenTurnId.value, freshSocket = view.sockets.at(-1);
+  freshSocket.receive({ type: "transcript.partial", turnId: freshId, text: "Discard this separate direction", revision: 1 });
+  freshSocket.receive({ type: "transcript.endpoint", turnId: freshId, text: "Discard this separate direction", revision: 1 });
+  await flushVue();
+  freshSocket.receive({ type: "error", turnId: freshId, message: "Voice connection was interrupted." });
+  await flushVue();
+  const discarded = call.pendingTranscript.value.messageId;
+  assert.notEqual(discarded, original.id);
+  assert.equal(await call.takeTranscript(discarded), true, "normal Discard also resolves an interrupted commitment");
+  assert.equal(call.pendingTranscript.value, null);
+  assert.equal(deliveries.length, 1);
+});
+
+test("a bounded native first-audio job survives cold preparation but PCM restores the original stall guard", async t => {
+  let now = 1000, heartbeat;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+  const view = mountVoice(t, { speechEnabled: true });
+  await view.speak("Cold native phrase", "cold-native");
+  const socket = view.sockets[0];
+  socket.receive({ type: "speech.start", turnId: "cold-native" });
+  socket.receive({ type: "speech.segment.start", turnId: "cold-native", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+  for (let step = 0; step < 8; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.equal(view.voice.activeSpeechTurnId.value, "cold-native", "a healthy bounded cold job is not cancelled at 20 seconds");
+  socket.receive(new Int16Array([100, 200]).buffer);
+  await flushVue();
+  assert.equal(view.buffers.length, 1);
+  for (let step = 0; step < 6; step += 1) {
+    now += 4000;
+    socket.receive({ type: "speech.segment.start", turnId: "cold-native", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+    socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.match(view.voice.error.value, /Speech generation stalled/);
+  assert.equal(socket.readyState, 3, "duplicate metadata cannot extend a post-PCM silent gap");
+});
+
+test("duplicate and older segment budgets cannot prolong a bounded native job", async t => {
+  let now = 1000, heartbeat;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+  const view = mountVoice(t, { speechEnabled: true });
+  await view.speak("Native phrase that never finishes", "bounded-native");
+  const socket = view.sockets[0];
+  socket.receive({ type: "speech.start", turnId: "bounded-native" });
+  socket.receive({ type: "speech.segment.start", turnId: "bounded-native", segmentIndex: 1, synthesisTimeoutMs: 120000 });
+  for (let step = 0; step < 31; step += 1) {
+    now += 4000;
+    socket.receive({ type: "speech.segment.start", turnId: "bounded-native", segmentIndex: step % 2, synthesisTimeoutMs: 120000 });
+    socket.receive({ type: "speech.segment.start", turnId: "retired", segmentIndex: step + 2, synthesisTimeoutMs: 120000 });
+    socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.match(view.voice.error.value, /Speech generation stalled/);
+  assert.equal(socket.readyState, 3);
+});
+
+test("chunk completion restores queued-wait policy and a new acquired phrase gets its own bounded allowance", async t => {
+  let now = 1000, heartbeat;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+  const view = mountVoice(t, { speechEnabled: true });
+  await view.voice.speak("First phrase", "phrases", { stream: true });
+  assert.equal(view.voice.appendSpeech("Second phrase"), true);
+  const socket = view.sockets[0];
+  socket.receive({ type: "speech.start", turnId: "phrases" });
+  socket.receive({ type: "speech.segment.start", turnId: "phrases", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+  now += 4000;
+  socket.receive({ type: "speech.chunk.end", turnId: "phrases" });
+  for (let step = 0; step < 4; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  socket.receive({ type: "speech.segment.start", turnId: "phrases", segmentIndex: 1, synthesisTimeoutMs: 120000 });
+  for (let step = 0; step < 8; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.equal(view.voice.activeSpeechTurnId.value, "phrases");
+  socket.receive({ type: "speech.chunk.end", turnId: "phrases" });
+  assert.equal(view.voice.appendSpeech("Third phrase waiting for the queue"), true);
+  for (let step = 0; step < 6; step += 1) {
+    now += 4000; socket.receive({ type: "pong" }); heartbeat();
+  }
+  assert.match(view.voice.error.value, /Speech generation stalled/, "completed chunks do not leave a 120-second queue allowance behind");
+});
+
+test("invalid synthesis budgets and malformed or retired segments retain the original generic deadline", async t => {
+  const frames = [
+    { segmentIndex: 0 },
+    { segmentIndex: 0, synthesisTimeoutMs: "120000" },
+    { segmentIndex: 0, synthesisTimeoutMs: 120001 },
+    { segmentIndex: 0, synthesisTimeoutMs: 20000.5 },
+    { segmentIndex: 0, synthesisTimeoutMs: -1 },
+    { segmentIndex: -1, synthesisTimeoutMs: 120000 },
+    { segmentIndex: 0.5, synthesisTimeoutMs: 120000 },
+    { segmentIndex: 0, synthesisTimeoutMs: 120000, turnId: "retired" }
+  ];
+  for (const [index, fields] of frames.entries()) await t.test(`invalid segment ${index}`, async child => {
+    let now = 1000, heartbeat;
+    child.mock.method(Date, "now", () => now);
+    child.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+    const view = mountVoice(child, { speechEnabled: true });
+    await view.speak("Generic phrase", "generic");
+    const socket = view.sockets[0];
+    socket.receive({ type: "speech.start", turnId: "generic" });
+    socket.receive({ type: "speech.segment.start", turnId: "generic", ...fields });
+    for (let step = 0; step < 6; step += 1) {
+      now += 4000; socket.receive({ type: "pong" }); heartbeat();
+    }
+    assert.match(view.voice.error.value, /Speech generation stalled/);
+    assert.equal(socket.readyState, 3);
+  });
+});
+
+test("a native first-audio allowance preserves connection liveness and Stop's next-turn default", async t => {
+  for (const control of ["missing-pong", "stop"]) await t.test(control, async child => {
+    let now = 1000, heartbeat;
+    child.mock.method(Date, "now", () => now);
+    child.mock.method(globalThis, "setInterval", callback => { heartbeat = callback; return 0; });
+    const view = mountVoice(child, { speechEnabled: true });
+    await view.speak("Bounded cold native phrase", "cancelled-native");
+    const socket = view.sockets[0];
+    socket.receive({ type: "speech.start", turnId: "cancelled-native" });
+    socket.receive({ type: "speech.segment.start", turnId: "cancelled-native", segmentIndex: 0, synthesisTimeoutMs: 120000 });
+    if (control === "missing-pong") {
+      now += 16000; heartbeat();
+      assert.match(view.voice.error.value, /connection was interrupted/);
+    } else {
+      view.voice.stopSpeaking();
+      assert.equal(view.voice.activeSpeechTurnId.value, "");
+      assert.ok(socket.sent.some(raw => JSON.parse(raw).type === "cancel" && JSON.parse(raw).turnId === "cancelled-native"));
+      await view.speak("Next generic answer", "next-generic");
+      socket.receive({ type: "speech.start", turnId: "next-generic" });
+      socket.receive({ type: "speech.segment.start", turnId: "cancelled-native", segmentIndex: 1, synthesisTimeoutMs: 120000 });
+      for (let step = 0; step < 6; step += 1) {
+        now += 4000; socket.receive({ type: "pong" }); heartbeat();
+      }
+      assert.match(view.voice.error.value, /Speech generation stalled/);
+    }
+    assert.equal(socket.readyState, 3);
+  });
+});

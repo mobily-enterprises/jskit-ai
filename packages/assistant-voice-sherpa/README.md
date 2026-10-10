@@ -159,10 +159,18 @@ model paths. Speaker IDs are specific to the selected model. Unknown IDs and
 invalid/duplicate catalogue entries fail explicitly. Voices do not change a
 conversation's reasoning model. Tail padding supplies recognizer lookahead when a
 recording ends immediately after a word; it does not wait for wall-clock silence.
-The RMS floor prevents silent input from starting a recognition utterance. After
-an audible onset, all frames reach the recognizer until the utterance ends. Its
-default is 0.001 (−60 dBFS); configure a positive value up to 0.1 for the input
-device. This is an input-level check, not a classifier for speech versus noise.
+Its default is 0.45 seconds; an explicit value from 0 to 3 seconds overrides it.
+The RMS floor is disabled by default (`0`), preserving native silence handling
+and finalization. An explicit positive value up to 0.1 gates the initial input;
+`0.001` (−60 dBFS) is the opt-in example above. After onset, all frames reach the
+recognizer until the utterance ends. With a floor enabled, finalizing an utterance
+that never reached the floor returns no words without feeding native lookahead.
+This is an input-level check, not a classifier for speech versus noise.
+
+The synthesis worker has a separate 60-second operation watchdog for model load
+and generation. A timeout fails the operation and releases the worker process;
+it is a worker lifecycle safeguard, not the microphone's recording limit or an
+extension of the original recognition timing policy.
 
 For separate models, use `synthesizers: { modelId: nativeConfiguration }` instead
 of `synthesizer`, and give each voice a matching `modelId`. Speaker IDs are checked

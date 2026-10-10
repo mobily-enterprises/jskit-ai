@@ -218,7 +218,9 @@ function createChatService({
       writer.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: request.messageId, status: "unconfirmed" });
       return { conversationId: response.meta?.conversationId, messageId: request.messageId, status: "unconfirmed" };
     }
-    if (response.failure && !response.meta) throw new AppError(response.failure.status, response.failure.message);
+    if (response.failure && !response.meta) throw new AppError(response.failure.status, response.failure.message, {
+      code: response.failure.code, details: response.failure.details
+    });
     if (response.meta) writer.sendMeta(response.meta);
     if (response.answer) writer.sendAssistantMessage(response.answer);
     if (response.error) writer.sendError(response.error);
@@ -268,7 +270,9 @@ function createChatService({
       result = await executeTurn();
     } catch (error) {
       response.failure = { message: String(error?.message || "Assistant request failed."),
-        status: Number(error?.status || error?.statusCode || 500) };
+        status: Number(error?.status || error?.statusCode || 500),
+        ...(error instanceof AppError ? { code: error.code,
+          ...(error.details && String(error.code).trim() !== "ACTION_PERMISSION_DENIED" ? { details: error.details } : {}) } : {}) };
       await turnRequests.update(claim, response, "failed");
       throw error;
     }

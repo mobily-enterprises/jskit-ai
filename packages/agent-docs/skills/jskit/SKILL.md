@@ -20,6 +20,15 @@ patterns, or treat it as evidence for a different implementation through the
 same public APIs. If its owner runtime package is already installed at a
 different version, prefer that package's version-matched pattern.
 
+**Implement from the documented contract, then verify.** Once the relevant
+guide and example answer the task, stop reading and build the smallest working
+slice. Do not trace framework or dependency internals to confirm documented
+options, routing, package discovery, transport, or lifecycle behaviour before
+trying the documented API. Inspect implementation source only for a concrete
+failure or an API question the guide and example cannot answer. Name that
+failure or question first, inspect only its relevant owner, then return to
+implementation and verification. Do not tour a dependency tree for confidence.
+
 Do not write or consult receipts, provenance, completion ledgers, or other
 durable bookkeeping for pattern or authoring-tool runs. Current source,
 manifests, migrations, tests, and runtime behaviour are the evidence.
@@ -58,13 +67,17 @@ installed packages directly, edit app-owned files deliberately, and use npm
 for dependency installation.
 
 Finish a dependency installation before inspecting the installed package or
-changing the same manifest/lockfile; do not overlap npm operations on one app. Import
-subpaths are package `exports` aliases, not physical file paths: a package may
-map `client/...` to `src/client/...` and keep shared code outside `src`. If source
-inspection is still needed, resolve the import with the installed `package.json`
-`exports` or `import.meta.resolve()`, or locate the file with `rg --files` before
-opening it. Do not guess a package's directory layout. Use the documented option
-when the guide or pattern already explains the required behaviour.
+changing the same manifest/lockfile; do not overlap npm operations on one app.
+
+**Discover the file, then read it. Do not infer its location from a convention.**
+Use paths identified in the current tree, installed metadata, or the relevant
+example. Before inspecting an unfamiliar package, use `rg --files` on its
+observed directory and select the relevant files from that inventory; do not
+try guessed source directories. Import subpaths are `exports` aliases, not
+physical paths: resolve them through installed `package.json#exports` or
+`import.meta.resolve()` when following an import. This rule applies to every
+package and task, not only CRUDs. Use the documented option when the guide or
+pattern already explains the behaviour instead of inspecting internals.
 
 ## Implement a change
 

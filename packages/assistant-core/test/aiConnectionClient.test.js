@@ -368,3 +368,60 @@ test("only explicit application-catalogue mode reports well-formed unavailable t
   assert.equal(chunks.at(-1).choices[0].finish_reason, "tool-calls");
   assert.equal(requests, 1, "reporting the attempted call neither executes an action nor starts another request");
 });
+
+// Saved app-model aliases are direct API choices, not new native Codex/Claude
+// offerings. Retain the original resolver and image-SDK assertions together.
+for (const modelId of ["deepseek-flash", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp"]) {
+  test(`saved DeepSeek ${modelId} reaches the authorized SDK unchanged with exact limits and image bytes`, async () => {
+    const selected = `deepseek/${modelId}`;
+    const configuration = { schemaVersion: 1, registrations: {}, integrations: {
+      assistant: { provider: "ai", accountMode: "per-user", scopes: [],
+        authentication: { method: "api-key", secretRef: "account:deepseek" }, settings: { model: selected } }
+    } };
+    const actor = { applicationId: "example", subjectId: "person-one" };
+    let credentialReads = 0, requests = 0;
+    const connection = await createAiConnectionResolver({ configuration,
+      authorize(context, operation) {
+        assert.deepEqual(context, actor);
+        assert.deepEqual(operation, { integrationId: "assistant", operation: "ai.resolve", accountMode: "per-user" });
+        return actor;
+      },
+      resolveReference(reference, owner, slot) {
+        credentialReads++;
+        assert.equal(reference, "account:deepseek");
+        assert.deepEqual(owner, actor);
+        assert.deepEqual(slot, { integrationId: "assistant", accountMode: "per-user", providerId: "deepseek" });
+        return "selected-person-key";
+      }
+    }).resolve({ context: actor, integrationId: "assistant" });
+    assert.equal(connection.providerId, "deepseek");
+    assert.equal(connection.model, modelId);
+    assert.deepEqual(connection.modelLimits, { context: 1048576, output: 393216 });
+    assert.equal(connection.sdkPackage, "@ai-sdk/openai-compatible");
+    assert.equal(configuration.integrations.assistant.settings.model, selected, "Resolving preserves the saved selection");
+    const client = createAiConnectionClient(connection, {
+      async fetch(url, options) {
+        requests++;
+        assert.equal(String(url), "https://api.deepseek.com/chat/completions");
+        assert.equal(new Headers(options.headers).get("authorization"), "Bearer selected-person-key");
+        const body = JSON.parse(options.body);
+        assert.equal(body.model, modelId, "The actual SDK never substitutes the current Flash ID for a saved alias");
+        assert.equal(body.stream, true);
+        const content = body.messages[0].content;
+        assert.equal(content[0].text, "Describe this");
+        assert.equal(content[1].type, "image_url");
+        assert.equal(content[1].image_url.url, "data:image/png;base64,AQID");
+        return eventsResponse([{ choices: [{ index: 0, delta: { content: "An image" }, finish_reason: "stop" }] }]);
+      }
+    });
+    assert.equal(client.defaultModel, modelId);
+    const chunks = await Array.fromAsync(client.createChatCompletionStream({ messages: [{ role: "user", content: [
+      { type: "text", text: "Describe this" }, { type: "image", image: new Uint8Array([1, 2, 3]), mediaType: "image/png" }
+    ] }] }));
+    assert.equal(chunks[0].choices[0].delta.content, "An image");
+    assert.equal(chunks.at(-1).choices[0].finish_reason, "stop");
+    assert.equal(credentialReads, 1);
+    assert.equal(requests, 1, "One selected connection produces one inference without fallback or retry");
+    assert.deepEqual(connection.modelLimits, { context: 1048576, output: 393216 });
+  });
+}

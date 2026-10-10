@@ -1063,6 +1063,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     let dispatchMonitor = null;
     let previousInputMessageId = null;
     let previousAdmission;
+    let recoveryReceipt = null;
+    let recoveryObservationError = null;
     try {
       const preparation = await application.prepare({ overwrite: !currentMonitor, threadId: currentThreadId });
       const preparedTarget = preparation.process ? await acquirePrepared(preparation.process) : preparation.target;
@@ -1078,6 +1080,24 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       if (currentMonitor && !turns.get(key)?.active) {
         await currentMonitor;
         currentMonitor = monitors.get(key);
+      }
+      const recoveryTurn = currentMonitor ? turns.get(key) : null;
+      if (recoveryTurn?.recoveryAdmission) {
+        try {
+          recoveryReceipt = await recoveryTurn.recoveryAdmission.promise;
+          currentMonitor = monitors.get(key);
+          if (currentMonitor && !turns.get(key)?.active) {
+            await currentMonitor;
+            currentMonitor = monitors.get(key);
+          }
+          // Stop must not turn a waiting, undispatched input into a fresh turn.
+          recoveryTurn.abortController.signal.throwIfAborted();
+          target.abortController.signal.throwIfAborted();
+        } catch (error) {
+          // This is R's failure, not a rejected or attempted native B input.
+          return { failure: { error, attempted: false, threadId: currentThreadId,
+            turn: openCodeTurnSnapshot(turns.get(key), currentThreadId) } };
+        }
       }
       admission = Promise.withResolvers();
       // The observer may be between polls when dispatch or persistence fails.
@@ -1166,7 +1186,44 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       await dispatchMonitor.catch(() => null);
       throw error;
     }
-    admission.resolve();
+    if (recoveryReceipt) {
+      const receiptAbort = new AbortController();
+      // The original monitor can fail and retire without aborting its turn.
+      // Its settlement also ends this read; it never creates a successor turn.
+      void dispatchMonitor.then(() => receiptAbort.abort(new Error(
+        dispatchTurn.observationError || dispatchTurn.error || "OpenCode observation ended before input custody was confirmed."
+      )), error => receiptAbort.abort(error));
+      try {
+        const observation = await inspectOpenCodeMessageAdmission(target.server.client, currentThreadId,
+          text(admitted.id), { wait: true, signal: AbortSignal.any([
+            target.abortController.signal, dispatchTurn.abortController.signal, receiptAbort.signal
+          ]) });
+        const message = openCodeMessageRows(observation.messages).find(message =>
+          message.type === "user" && text(message.id) === text(admitted.id));
+        const created = message?.time?.created;
+        const recoveryCreated = recoveryReceipt.time?.created;
+        // Match the native latest-user order, including its ID tie-breaker.
+        if (!Number.isFinite(created) || !Number.isFinite(recoveryCreated) ||
+            !(created > recoveryCreated || (created === recoveryCreated && message.id > recoveryReceipt.id))) {
+          throw Object.assign(new Error(
+            "OpenCode could not confirm that the new input follows its final-answer recovery. The admitted message was not resent."
+          ), { code: "assistant_opencode_observation_lost", details: {}, statusCode: 503 });
+        }
+      } catch (error) {
+        recoveryObservationError = error;
+      } finally {
+        receiptAbort.abort();
+      }
+    }
+    if (recoveryObservationError) {
+      // Native B was dispatched: keep its authored receipt even when observing
+      // its place in native history failed, and use the original cleanup owner.
+      admission.reject(recoveryObservationError);
+      dispatchTurn.abortController.abort(recoveryObservationError);
+      await dispatchMonitor.catch(() => null);
+    } else {
+      admission.resolve();
+    }
     const turn = openCodeTurnSnapshot(turns.get(key), target.upstreamSessionId);
     return {
       conversationTurn,
