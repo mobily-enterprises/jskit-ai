@@ -21,3 +21,5 @@ export {
   shellQuote,
   startFreshCodexAppServerThread
 } from "../conversation/codexProvider.js";
+
+export { readCodexHistoryRows } from "../conversation/codexHistoryAdapter.js";

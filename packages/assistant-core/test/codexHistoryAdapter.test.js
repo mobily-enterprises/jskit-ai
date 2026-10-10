@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, open, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { gzipSync, zstdCompressSync } from "node:zlib";
 import { startCodexHistoryAdapter, translateCodexHistory, prepareCodexHistory } from "../src/server/conversation/codexHistoryAdapter.js";
+import { readCodexHistoryRows } from "../src/server/hosts/codexProvider.js";
 import { nativeAiProvider } from "../src/shared/nativeProviders.js";
 
 const foreign = { type: "reasoning", id: "foreign-id", encrypted_content: "foreign-opaque-state",
@@ -747,4 +748,34 @@ test("DeepSeek exact numeric context rejection exposes native recovery code with
     assert.equal(attempts, before + 1);
   }
   assert.equal(attempts, cases.length + 2, "exactly one upstream admission per request");
+});
+
+test("the original fixed-snapshot rollout reader keeps tolerant recovery and supports strict offline inspection", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-offline-rollout-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const history = path.join(root, "rollout.jsonl");
+  const row = { type: "response_item", payload: { type: "message", role: "assistant",
+    content: [{ type: "output_text", text: "😀".repeat(20_000) }] } };
+  const complete = Buffer.from(`${JSON.stringify(row)}\n`);
+  await writeFile(history, complete);
+  const file = await open(history, "r");
+  t.after(() => file.close());
+  const read = async (end, options, signal = new AbortController().signal) => {
+    const rows = [];
+    for await (const entry of readCodexHistoryRows(file, 0, end, signal, options)) rows.push(entry);
+    return rows;
+  };
+  assert.deepEqual(await read(complete.length, { strictComplete: true }), [{ row, offset: 0 }]);
+  await appendFile(history, '{"type":');
+  assert.deepEqual(await read(complete.length, { strictComplete: true }), [{ row, offset: 0 }],
+    "inspection reads only the captured snapshot, not later appends");
+  assert.deepEqual(await read((await file.stat()).size), [{ row, offset: 0 }],
+    "original compaction recovery still ignores an unfinished native append");
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }), /incomplete final record/);
+  await writeFile(history, Buffer.from('{"text":"\xff"}\n', "latin1"));
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }), /invalid UTF-8/);
+  await writeFile(history, 'malformed saved record\n');
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }), SyntaxError);
+  const aborted = AbortSignal.abort(new Error("offline inspection cancelled"));
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }, aborted), /offline inspection cancelled/);
 });

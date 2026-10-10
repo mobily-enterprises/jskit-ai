@@ -3905,6 +3905,17 @@ acquisition layer. Its plugin resolves the current instructions, environment,
 command wrapper and application-tool bridge by the registered native session.
 Changing one conversation's grant does not change another's permissions.
 
+For an explicitly stopped offline upgrade, `readCodexHistoryRows(file, start,
+end, signal, { strictComplete: true })` from `/server/codex-provider` reads the
+existing fixed file snapshot as `{ row, offset }` entries, with the original
+32 MiB bound per record. Strict inspection rejects an unfinished final JSON
+record or invalid UTF-8. Omitting the option preserves compaction recovery's
+original unfinished-append tolerance. The caller owns opening and closing the
+file, trusted runtime/path and file-identity checks, cancellation, and native
+thread/account/turn/goal validation. Raw rows alone do not prove an idle native
+turn or authorize resuming it. This read does not start or stop an app-server,
+write history, or obtain credentials.
+
 ## Companions and templates
 
 A companion can receive an app-selected layer containing conversation state and
