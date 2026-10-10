@@ -305,17 +305,17 @@ Exports
 - `listClaudeConversationStorage({ configRoot, binding })`
 - `deleteClaudeConversationHistory({ configRoot, workdir, conversationId })`
 - `retireClaudeConversationHistory({ configRoot, binding, beforeDelete, requireIdle, signal })`
+- `claudeHistoryPath({ configRoot, workdir, conversationId })`
 - `claudeMessageBlocks(frame, { includeNested = false } = {})`
 - `readClaudeHistory(options)`
 - `requireClaudeSessionId(id)`
 - `archivedClaudeProjectDirectory(workdir)`
 - `matchingClaudeProjectDirectories(names, directory)`
-Local functions
-- `claudeHistoryPath({ configRoot, workdir, conversationId })`
 
 ### `src/server/conversation/claudeProcess.js`
 Exports
 - `readClaudeCodeAuthStatus({ env = process.env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal } = {})`
+- `claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey)`
 - `claudeModelConfiguration({ providerId, model: modelId }, connection)`
 - `verifyClaudeProviderKey(provider, apiKey, fetchImpl)`
 - `claudeFlagSettings({ effort = "", providerEnv, hooks, commandHook } = {})`
@@ -483,6 +483,7 @@ Exports
 - `startCodexHistoryAdapter({ token, codexHome, readHistoryPath, fetchImpl = fetch, maxRequestBytes = MAX_REQUEST_BYTES } = {})`
 - `translateCodexHistory(body, destination = "openai")`
 - `prepareCodexHistory(params, client, { baseUrl, modelProviderId, ...options } = {})`
+- `readCodexHistoryRows`
 Local functions
 - `compactionHistoryError(reason, statusCode = 422)`
 - `retainedUserRecord(item)`
@@ -601,6 +602,7 @@ Exports
 - `shellQuote(value = "")`
 - `exportCodexNativeHistory`
 - `retireCodexConversationHistory(provider, binding, { toolHomeSource, beforeDelete, signal, errorPrefix = "" } = {})`
+- `readCodexNativeGoal(databasePath, { threadId, signal } = {})`
 - `createCodexAppServerProviderOwner`
 - `codexAppServerOwnedRuntimeKey`
 - `codexAppServerRuntimeStopWasVerified`
@@ -820,6 +822,7 @@ Exports
 - `createConversationTranscript`
 - `conversationMessageIdentity`
 - `conversationMessageVersion`
+- `conversationHistoryVersions`
 - `createConversationChangeover`
 - `conversationRequestText`
 - `createMemoryConversationStorage`
@@ -852,6 +855,7 @@ Exports
 
 ### `src/server/conversation/nativeHistoryExport.js`
 Exports
+- `readStoppedNativeDatabase(databasePath, read, { signal } = {})`
 - `canonicalNativeHistoryJson(value)`
 - `createNativeHistoryExport(onRecord, { signal, maxBytes = 2 * 1024 ** 3 } = {})`
 - `retireNativeConversation({ binding, inspect, remove, beforeDelete, readConversation, exportConversation })`
@@ -867,6 +871,7 @@ Exports
 
 ### `src/server/conversation/openCodeClient.js`
 Exports
+- `readOpenCodeConversationDatabase({ databasePath, conversationId, onMessage, signal } = {})`
 - `retireOpenCodeConversationHistory(storageClient, controlClient, binding, options = {})`
 - `openCodeAssistantMessageText(message = {})`
 - `OPENCODE_RESPONSE_LIMIT_BYTES`
@@ -1106,6 +1111,7 @@ Local functions
 
 ### `src/server/hosts/claudeHistory.js`
 Exports
+- `claudeHistoryPath`
 - `listClaudeConversationStorage`
 - `readClaudeHistory`
 - `retireClaudeConversationHistory`
@@ -1114,6 +1120,7 @@ Exports
 Exports
 - `bindClaudeConversationAccount`
 - `claudeCodeArguments`
+- `claudeConnectionIdentity`
 - `claudeCatalogueModels`
 - `claudeFlagSettings`
 - `claudeModelConfiguration`
@@ -1209,10 +1216,12 @@ Exports
 - `ensureCodexAppServerThread`
 - `inspectCodexAppServerMessageAdmission`
 - `retireCodexConversationHistory`
+- `readCodexNativeGoal`
 - `resumeExactCodexAppServerThread`
 - `sendCodexAppServerPrompt`
 - `shellQuote`
 - `startFreshCodexAppServerThread`
+- `readCodexHistoryRows`
 
 ### `src/server/hosts/codexTurn.js`
 Exports
@@ -1239,6 +1248,7 @@ Exports
 
 ### `src/server/hosts/nativeHistory.js`
 Exports
+- `readStoppedNativeDatabase`
 - `retireNativeConversation`
 
 ### `src/server/hosts/openCodeClient.js`
@@ -1247,6 +1257,7 @@ Exports
 - `createOpenCodeServerClient`
 - `openCodeAssistantMessageText`
 - `readBoundedResponse`
+- `readOpenCodeConversationDatabase`
 - `retireOpenCodeConversationHistory`
 
 ### `src/server/hosts/openCodeProcess.js`
@@ -1279,6 +1290,7 @@ Exports
 - `openCodeDetachedPrompt`
 - `openCodeMessageError`
 - `openCodeRowsForInput`
+- `openCodeLastAssistantResult`
 - `openCodeStructuredOutput`
 - `runOpenCodeConversationTurn`
 

@@ -3280,6 +3280,17 @@ cannot bypass admission, authorization, delivery inspection or cleanup proof.
 and message-block mapping stay inside the owner. Pass an authorized
 `configRoot`, `workdir` and native `conversationId` to the reader; these
 operations do not authorize an account or conversation.
+Stopped inspection can opt into `includeUserMessages: true` for raw native
+`userMessages` (`id`, `text`) and `includeFinalCarriers: true` for
+`completedResults` (`id`, `userId`, `text`), `failedResults` (`id`, `userId`) and `structuredOutputs`
+(`id`, `userId`, `toolUseId`, `text`). Completed results come only from actual
+successful native result frames. A recorded failed or interrupted result for the
+same user must block conversion even if an earlier carrier matches. No native
+error content is exposed by this field. Structured outputs are exact top-level
+`StructuredOutput` tool-use candidates, not proof of completion; the application
+must join its original completed receipt, exact user and final reply, and reject
+newer or competing output. These opt-ins use the same selected branch and parser,
+exclude sidechain/nested/meta carriers, and leave the default return shape intact.
 Reads preserve the selected rewind branch and tolerate only an unfinished final
 line in a growing transcript. `listClaudeConversationStorage` enumerates the
 specified binding's native conversations. Export and deletion policy remain with
@@ -3907,6 +3918,27 @@ acquisition layer. Its plugin resolves the current instructions, environment,
 command wrapper and application-tool bridge by the registered native session.
 Changing one conversation's grant does not change another's permissions.
 
+For an explicitly stopped offline upgrade, `readCodexHistoryRows(file, start,
+end, signal, { strictComplete: true })` from `/server/codex-provider` reads the
+existing fixed file snapshot as `{ row, offset }` entries, with the original
+32 MiB bound per record. Strict inspection rejects an unfinished final JSON
+record or invalid UTF-8. Omitting the option preserves compaction recovery's
+original unfinished-append tolerance. The caller owns opening and closing the
+file, trusted runtime/path and file-identity checks, cancellation, and native
+thread/account/turn/goal validation. Raw rows alone do not prove an idle native
+turn or authorize resuming it. This read does not start or stop an app-server,
+write history, or obtain credentials.
+
+`readCodexNativeGoal(databasePath, { threadId, signal })` from
+`/server/codex-provider` inspects the native `goals_1.sqlite` store without
+starting an app-server or resuming a thread. It returns the original SQL goal
+fields or `null` for an absent row in that verified database; a missing database,
+journal sidecar, changed file or unknown goal representation is refused.
+Known unfinished goal statuses remain present. The stopped conversion caller
+must qualify its native producer and actual SQLite home, including any original
+`CODEX_SQLITE_HOME` override, and retain its existing goal/account/thread guards.
+A completed rollout or missing database does not establish goal absence.
+
 ## Companions and templates
 
 A companion can receive an app-selected layer containing conversation state and
@@ -3956,3 +3988,24 @@ The textbox coalesces height measurements once per animation frame, after Vue
 applies model changes, and remeasures when its pane width or density changes.
 External state changes retain focus and selection. IME composition does not
 submit or move focus to Send.
+
+## Stopped native SQLite inspection
+
+`readStoppedNativeDatabase` from `/server/native-history` is the shared read-only
+lifecycle for stopped native SQLite readers. It requires a canonical regular
+file and no WAL, SHM or rollback journal, opens immutable read-only with
+`query_only` and one fixed transaction, and verifies unchanged file identity
+and sidecars afterward. It never starts a native CLI, checkpoints, deletes a
+sidecar or stops admitted work. The host must use the ordinary native owner to
+stop and checkpoint writers before inspection; a missing database is not proof
+of absent native state.
+
+`readOpenCodeConversationDatabase` from `/server/opencode-client` streams the
+native session/message/part projection through the existing bounded export and
+message normalizer. It returns original session fields and revision/count
+receipts, refuses pending native admissions or foreign part identities, and
+leaves account authorization and historical-conversion policy to the host.
+`claudeConnectionIdentity` from `/server/claude-process` exposes the same native
+provider/configuration/endpoint/key digest already used by the live driver;
+hosts may translate a verified historical pin without changing its caller or
+copying credentials. These functions do not authorize native continuation.
