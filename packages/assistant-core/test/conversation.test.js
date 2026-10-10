@@ -165,3 +165,86 @@ test("application transcript opt-in opens only authored application system turns
     assert.equal((await transcript.writeConversationAssistantMessage("one", { text: "Answer" })).turnId, authored.turnId);
   }
 });
+
+async function completedEnvelopeTranscriptRows(storage) {
+  await storage.write("projected", async transaction => {
+    for (let index = 1; index <= 9; index++) {
+      const internal = index % 3 !== 1;
+      const turnId = String(index).padStart(6, "0");
+      await transaction.appendMessage(turnId, { role: internal ? "system" : "user", messageId: `authored-${index}`,
+        text: internal ? `Private prompt ${index}` : `Visible question ${index}`, at: "2026-10-10",
+        ...(internal ? { origin: "application" } : { attachments: [{ attachmentId: "retained" }] }),
+        turnMetadata: { runtime: { origin: internal ? "application" : "user", status: "complete",
+          ...(internal ? { completedEnvelope: true } : {}) } } });
+      await transaction.appendMessage(turnId, { role: "assistant", messageId: `answer-${index}`,
+        text: internal ? '{"kind":"reply","text":"private raw carrier"}' : `Visible answer ${index}`, at: "2026-10-10" });
+      if (internal) await transaction.updateTurnMetadata(turnId, { applicationTools: [{ id: `effect-${index}`, status: "unknown" }] });
+      else await transaction.appendMessage(turnId, { role: "commentary", messageId: `progress-${index}`, text: "Checking.", at: "2026-10-10" });
+    }
+  });
+}
+
+test("completed envelope presentation reads retain raw canonical receipts and visible message identity", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await completedEnvelopeTranscriptRows(storage);
+  const before = await transcript.readConversationLog("projected");
+  const visible = await transcript.readConversationLog("projected", { presentation: true });
+  assert.deepEqual(visible.map(turn => turn.turnId), ["000001", "000004", "000007"]);
+  assert.deepEqual(visible, before.filter((_, index) => index % 3 === 0));
+  assert.deepEqual(visible[0].user.attachments, [{ attachmentId: "retained" }]);
+  assert.equal(visible[0].commentary[0].messageId, "progress-1");
+  assert.equal(visible[0].assistant.messageId, "answer-1");
+  const reopened = createConversationTranscript({ storage });
+  assert.deepEqual(await reopened.readConversationLog("projected", { presentation: true }), visible);
+  assert.deepEqual(await transcript.readConversationLog("projected"), before, "Presentation never changes stored carriers or unknown effect receipts");
+  assert.equal(await transcript.conversationMessageIdExists("projected", "authored-2"), true);
+  assert.deepEqual(before[1].metadata.applicationTools, [{ id: "effect-2", status: "unknown" }]);
+});
+
+test("completed envelope presentation pagination counts visible turns before selecting a page", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await completedEnvelopeTranscriptRows(storage);
+  const newest = await transcript.readConversationLogPage("projected", { limit: 2, presentation: true });
+  assert.deepEqual(newest.conversationLog.map(turn => turn.turnId), ["000004", "000007"]);
+  assert.deepEqual(newest.pagination, { beforeTurnId: "", count: 2, hasMoreBefore: true, limit: 2,
+    newestTurnId: "000007", nextBeforeTurnId: "000004", oldestTurnId: "000004", totalTurnCount: 3 });
+  const older = await transcript.readConversationLogPage("projected", {
+    beforeTurnId: newest.pagination.nextBeforeTurnId, limit: 2, presentation: true
+  });
+  assert.deepEqual(older.conversationLog.map(turn => turn.turnId), ["000001"]);
+  assert.deepEqual(older.pagination, { beforeTurnId: "000004", count: 1, hasMoreBefore: false, limit: 2,
+    newestTurnId: "000001", nextBeforeTurnId: "", oldestTurnId: "000001", totalTurnCount: 3 });
+  const raw = await transcript.readConversationLogPage("projected", { limit: 2 });
+  assert.deepEqual(raw.conversationLog.map(turn => turn.turnId), ["000008", "000009"]);
+  assert.equal(raw.pagination.totalTurnCount, 9);
+});
+
+test("completed envelope presentation requires the trusted application marker rather than data or reply content", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await storage.write("markers", async transaction => {
+    for (const [index, runtime] of [undefined, { origin: "application" }, { origin: "user", completedEnvelope: true },
+      { origin: "application", completedEnvelope: "true" }, { origin: "application", completedEnvelope: true }].entries()) {
+      await transaction.appendMessage(String(index), { role: "user", messageId: `identity-${index}`, text: '{"kind":"reply","text":"plain authored JSON"}',
+        data: { completedEnvelope: true }, at: "2026-10-10", ...(runtime ? { turnMetadata: { runtime } } : {}) });
+    }
+  });
+  assert.deepEqual((await transcript.readConversationLog("markers", { presentation: true })).map(turn => turn.turnId), ["0", "1", "2", "3"]);
+  assert.equal((await transcript.readConversationLog("markers")).length, 5);
+  await assert.rejects(transcript.readConversationLog("markers", { presentation: "true" }), /explicit boolean/);
+  await assert.rejects(transcript.readConversationLogPage("markers", { presentation: 1 }), /explicit boolean/);
+});
+
+test("completed envelope presentation has an honest empty page when all canonical turns are internal", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await storage.write("empty", tx => tx.appendMessage("000001", { role: "system", text: "Private response input", at: "2026-10-10",
+    turnMetadata: { runtime: { origin: "application", completedEnvelope: true } } }));
+  const page = await transcript.readConversationLogPage("empty", { presentation: true, limit: 50 });
+  assert.deepEqual(page.conversationLog, []);
+  assert.deepEqual(page.pagination, { beforeTurnId: "", count: 0, hasMoreBefore: false, limit: 50,
+    newestTurnId: "", nextBeforeTurnId: "", oldestTurnId: "", totalTurnCount: 0 });
+  assert.equal((await transcript.readConversationLog("empty")).length, 1);
+});

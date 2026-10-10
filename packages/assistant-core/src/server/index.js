@@ -15,4 +15,4 @@ export {
 export { resolveWorkspaceSlug } from "./lib/resolveWorkspaceSlug.js";
 export { createServiceToolCatalog } from "./lib/serviceToolCatalog.js";
 export { consumeCompletionStream, sanitizeAssistantMessageText } from "./lib/assistantCompletion.js";
-export { runAssistantToolLoop, runBoundedAssistantToolLoop } from "./lib/assistantToolLoop.js";
+export { runAssistantToolLoop, runBoundedAssistantToolLoop, readAssistantResponseEnvelope, readPartialAssistantReply } from "./lib/assistantToolLoop.js";

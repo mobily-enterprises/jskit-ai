@@ -12,6 +12,8 @@ import { createCodexAppServerRunOwner, codexAppServerTurnState, codexAppServerFr
 import { createLocalConversationExecution } from "../localExecution.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
 import { codexCommandHookCommand } from "../commandWrapper.js";
+import { isCompletedEnvelopeTurn } from "../transcript.js";
+import { createInertCodexConversationBinding } from "../runtimeStateUpgrade.js";
 
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const goalValue = goal => goal ? {
@@ -221,7 +223,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       return native.runOwner.runDetachedConversation(sessionId, input, options);
     },
     async createBinding() {
-      return { threadId: "", workdir: await realpath(workdir), configRoot, executionId: "" };
+      return createInertCodexConversationBinding({ workdir: await realpath(workdir), configRoot });
     },
     async open({ binding, writeBinding, onFailure: reportFailure, conversation }) {
       const supplied = conversation?.native;
@@ -281,8 +283,29 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       const boundedWriter = name => (id, input) => {
         const limit = name === "writeConversationThinkingMessage" ? 4 * 1024 * 1024
           : name.includes("AssistantMessage") ? Math.min(maximumOutput, maximumFinalReply) : maximumOutput;
-        if ((input.text?.length || 0) > limit) throw new Error("Codex output exceeded the configured limit.");
-        return nativeStore[name](id, input);
+        const length = input.text?.length || 0;
+        if (length <= limit) return nativeStore[name](id, input);
+        if (!name.includes("AssistantMessage") || length > maximumOutput) throw new Error("Codex output exceeded the configured limit.");
+        return nativeStore.mutateSession(id, async transaction => {
+          const { runtime: state } = await transaction.readMetadata();
+          const identity = input.nativeIdentity;
+          const run = state.binding?.codexAppServerRun;
+          if (identity?.threadId && identity.turnId && state.engine === "codex" &&
+              state.binding.threadId === identity.threadId && run?.providerThreadId === identity.threadId &&
+              run.providerTurnId === identity.turnId && run.outerTurnId) {
+            for (const turnId of (await transaction.listTurnIds()).reverse()) {
+              const turn = await transaction.readTurn(turnId);
+              if (turn?.system?.messageId !== run.outerTurnId) continue;
+              if (turn.system.origin === "application" && !turn.system.goal && isCompletedEnvelopeTurn(turn) &&
+                  turn.metadata.runtime.engine === "codex" && turn.metadata.runtime.segmentId === state.segmentId &&
+                  turn.metadata.runtime.nativeTurnId === identity.turnId) {
+                return nativeStore[name](id, input);
+              }
+              break;
+            }
+          }
+          throw new Error("Codex output exceeded the configured limit.");
+        });
       };
       const runtime = supplied ? conversation.runtime : { ...conversation.runtime, store: { ...nativeStore,
         writeConversationAssistantMessage: boundedWriter("writeConversationAssistantMessage"),
@@ -303,6 +326,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         }
       } };
       const owner = supplied?.runOwner || createCodexAppServerRunOwner({
+        persistCommentary: conversation.persistCommentary,
         finalizingGraceMs: limits.codexFinalizingGraceMs,
         finalizingGraceAfterHistoryRead: limits.codexFinalizingGraceAfterHistoryRead,
         failureDetailGraceMs: limits.codexFailureDetailGraceMs,
@@ -514,8 +538,14 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         return stopping;
       }
 
-      async function selection(configuration, context, signal) {
-        if (!configuration.integrationId) return { model: configuration.model, providerId: "openai" };
+      async function selection(configuration, context, signal, requireBound = false, receiptBinding) {
+        if (!configuration.integrationId) {
+          if (requireBound && !receiptBinding?.accountIdentity) throw new Error("The completed Codex response has no saved native account fingerprint.");
+          if (requireBound && binding.accountIdentity !== receiptBinding.accountIdentity) {
+            throw new Error("The completed Codex response belongs to a different native account binding.");
+          }
+          return { model: configuration.model, providerId: "openai" };
+        }
         const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
         signal.throwIfAborted();
         const provider = nativeAiProvider(connection.providerId);
@@ -525,6 +555,11 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         if (configuration.effort && !model.variants.includes(configuration.effort)) throw new Error("The selected Codex model does not support this reasoning effort.");
         const identity = hash([provider.id, provider.baseUrl, connection.apiKey]);
         const previous = binding.connectionIdentities?.[provider.id];
+        const expected = receiptBinding?.connectionIdentities?.[provider.id];
+        if (requireBound && !expected) throw new Error("The completed Codex response has no saved provider account fingerprint.");
+        if (requireBound && (previous !== expected || identity !== expected)) {
+          throw new Error("The completed Codex response belongs to a different provider account binding.");
+        }
         if (previous && previous !== identity) throw new Error("This conversation belongs to another Codex provider account. Restore that connection or start a new conversation.");
         if (!previous) await updateBinding({ connectionIdentities: { ...binding.connectionIdentities, [provider.id]: identity } });
         return { model: model.id, providerId: provider.id, accountIdentity: identity, config: codexProviderConfiguration(provider, connection.apiKey) };
@@ -832,6 +867,10 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             await native.ensureAvailable();
             return native;
           }
+        }).catch(error => {
+          // A thrown control error also leaves this native owner unconfirmed.
+          error.cleanupFailed = true;
+          throw error;
         });
         if (result.value?.ok === false) throw Object.assign(new Error(result.value.error || "Codex could not confirm that work stopped."), { cleanupFailed: true });
         return result.value;
@@ -901,7 +940,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           if (result.ok === false) throw new Error(result.error);
           return goalValue(result.goal);
         },
-        async inspectAdmission({ messageId, threadId, nativeTurnId, configuration, context, goal: command, representation }) {
+        async inspectAdmission({ messageId, threadId, nativeTurnId, configuration, context, goal: command, representation, verifyAccount = false, receiptBinding }) {
           if (supplied) {
             const prepared = await supplied.inspectionPreparation({ messageId, threadId }, context);
             if (prepared.ok === false) return representation === "native" ? prepared : { accepted: false, ...prepared };
@@ -915,9 +954,13 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             // cannot certify the authored delivery invented by that adapter.
             return { accepted: false, recoveryLimitation: "This older goal-message record requires offline inspection. Its saved history and delivery evidence were preserved." };
           }
+          if (verifyAccount === true && (!receiptBinding || threadId !== binding.threadId || receiptBinding.threadId !== binding.threadId ||
+              receiptBinding.workdir !== binding.workdir || receiptBinding.configRoot !== binding.configRoot)) {
+            throw new Error("The completed Codex response belongs to a different native conversation or host scope.");
+          }
           if (!binding.threadId) return { accepted: false };
           const signal = AbortSignal.timeout(30_000);
-          await connect(signal, await selection(configuration, context, signal));
+          await connect(signal, await selection(configuration, context, signal, verifyAccount === true, receiptBinding));
           let acceptedTurn;
           let cursor;
           do {
@@ -1007,7 +1050,15 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
                   owned = false;
                   throw new Error("This application tool call belongs to another turn.");
                 }
-                const result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
+                let result;
+                try {
+                  result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
+                } catch (error) {
+                  if (!supplied && owned && current === active && !disposed && !signal.aborted &&
+                      provider === executingProvider && provider === native &&
+                      params.threadId === binding.threadId && params.turnId === active.turnId) active.toolFailure ||= error;
+                  throw error;
+                }
                 return { success: result.ok, contentItems: [{ type: "inputText", text: JSON.stringify(result) }] };
               })();
               toolCalls.add(operation);
@@ -1097,13 +1148,23 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           }
           signal.removeEventListener("abort", abort);
           admission.reject(problem || signal.reason);
+          const failureThreadId = binding.threadId;
+          const failureTurnId = active.turnId;
           try {
             // Account invalidation already owns this stop attempt. Its failed
             // proof stays available for explicit cleanup through the same owner.
             if ((!supplied && problem || supplied && active.toolFailure || signal.aborted) && problem?.code !== "codex_runtime_invalidated") {
               await (cancellation || interrupt());
             }
-          } catch (error) { problem = error; }
+          } catch (error) {
+            problem = error;
+            // A direct Stop checkpoint can throw before its native completion
+            // reaches the queue. Keep the same admitted tool failure with the
+            // original observation-stop owner until its pending recovery joins.
+            if (!supplied && error === active.toolFailure && current === active && !disposed && !signal.aborted &&
+                executingProvider && executingProvider === native && binding.threadId === failureThreadId &&
+                active.turnId === failureTurnId && error.code !== "codex_runtime_invalidated") executingProvider.failObservation(error);
+          }
           try {
             await owner.notificationQueue.drain(sessionId);
             // The original queue starts observation recovery without awaiting

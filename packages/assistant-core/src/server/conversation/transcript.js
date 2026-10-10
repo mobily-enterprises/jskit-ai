@@ -6,23 +6,30 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     throw new TypeError("Conversation storage requires read(scope, callback) and write(scope, callback).");
   }
 
-  async function readConversationLog(scope) {
+  async function readConversationLog(scope, { presentation = false } = {}) {
+    if (typeof presentation !== "boolean") throw new TypeError("Transcript presentation requires an explicit boolean.");
     return storage.read(scope, async (transaction) => {
       const ids = await transaction.listTurnIds();
-      return (await Promise.all(ids.map((id) => transaction.readTurn(id)))).filter(hasMessages);
+      const turns = (await Promise.all(ids.map((id) => transaction.readTurn(id)))).filter(hasMessages);
+      return presentation ? turns.filter(turn => !isCompletedEnvelopeTurn(turn)) : turns;
     });
   }
 
-  async function readConversationLogPage(scope, { beforeTurnId = "", limit = 0 } = {}) {
+  async function readConversationLogPage(scope, { beforeTurnId = "", limit = 0, presentation = false } = {}) {
+    if (typeof presentation !== "boolean") throw new TypeError("Transcript presentation requires an explicit boolean.");
     return storage.read(scope, async (transaction) => {
-      const ids = await transaction.listTurnIds();
+      const allIds = await transaction.listTurnIds();
+      const visible = presentation ? (await Promise.all(allIds.map(id => transaction.readTurn(id))))
+        .filter(turn => hasMessages(turn) && !isCompletedEnvelopeTurn(turn)) : null;
+      const ids = visible ? visible.map(turn => turn.turnId) : allIds;
       const before = normalizeText(beforeTurnId);
       const requestedLimit = Number.parseInt(String(limit || ""), 10);
       const pageLimit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 0;
       const end = before && ids.includes(before) ? ids.indexOf(before) : ids.length;
       const start = pageLimit ? Math.max(0, end - pageLimit) : 0;
       const selected = ids.slice(start, end);
-      const turns = (await Promise.all(selected.map((id) => transaction.readTurn(id)))).filter(hasMessages);
+      const turns = visible ? visible.slice(start, end)
+        : (await Promise.all(selected.map((id) => transaction.readTurn(id)))).filter(hasMessages);
       return {
         conversationLog: turns,
         pagination: {
@@ -44,20 +51,23 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     return ids.length ? transaction.readTurn(ids.at(-1)) : null;
   }
 
-  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], data, turnMetadata = null, requireOpenTurn = false, outputId = "" } = {}) {
+  async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], data, turnMetadata = null, requireOpenTurn = false, outputId = "", turnId: requestedTurnId = "" } = {}) {
     const messageText = normalizeText(text);
     const id = normalizeText(messageId);
     if (!messageText && !(role === "user" && Array.isArray(attachments) && attachments.length)) return null;
     return storage.write(scope, async (transaction) => {
       if (id && await transaction.hasMessage(id)) return null;
       const createdAt = new Date(at || clock());
-      const tail = ["assistant", "commentary", "thinking"].includes(role) ? await tailTurn(transaction) : null;
+      const targetId = ["assistant", "commentary", "thinking"].includes(role) ? normalizeText(requestedTurnId) : "";
+      const target = targetId ? await transaction.readTurn(targetId) : null;
+      if (targetId && !target) throw new Error("The native output's original turn no longer exists.");
+      const tail = target || (["assistant", "commentary", "thinking"].includes(role) ? await tailTurn(transaction) : null);
       const open = (tail?.user || applicationTurns && tail?.system?.origin === "application") && !tail.assistant ? tail : null;
       if (requireOpenTurn && !open) return null;
       const thinkingOnly = role === "thinking" && !open && at && tail &&
         !tail.system && !tail.user && !tail.assistant && !tail.commentary?.length &&
         tail.thinking?.some((message) => message.at === createdAt.toISOString());
-      const turnId = open?.turnId || (thinkingOnly ? tail.turnId : await transaction.nextTurnId());
+      const turnId = target?.turnId || open?.turnId || (thinkingOnly ? tail.turnId : await transaction.nextTurnId());
       await transaction.appendMessage(turnId, {
         role, text: messageText, messageId: id, at: createdAt.toISOString(),
         ...(["assistant", "commentary", "thinking"].includes(role) && normalizeText(outputId) ? { outputId: normalizeText(outputId) } : {}),
@@ -90,4 +100,9 @@ export function createConversationTranscript({ storage, clock = () => new Date()
 
 function hasMessages(turn) {
   return Boolean(turn && (turn.system || turn.user || turn.assistant || turn.commentary?.length || turn.thinking?.length));
+}
+
+// Only the future server-owned application response marker identifies a private carrier.
+export function isCompletedEnvelopeTurn(turn) {
+  return turn?.metadata?.runtime?.origin === "application" && turn.metadata.runtime.completedEnvelope === true;
 }

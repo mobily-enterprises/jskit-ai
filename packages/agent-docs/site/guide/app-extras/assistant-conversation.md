@@ -280,6 +280,12 @@ latest bounded page; **Load older messages** is available again where older hist
 Reconnection reads state and does not resend the request. After an initial
 subscription failure or timeout, **Reload** retries that exact subscription on
 the connected socket with fresh authorization; it does not resend a message.
+When a product selection changes the native observer behind the same logical
+conversation ID, call the retained runtime’s `reload({ resubscribe: true })` from
+that product’s authorized selection invalidation. It reuses the same subscription
+ID and existing epoch/release guards to attach the current owner, retaining loaded
+history, the draft and delivery receipts. It does not select an assistant or resend
+work; ordinary `reload()` still refreshes canonical history.
 
 Applications that create nonvisual tasks after setup can capture
 `useAssistantConversationFactory(commonOptions)` once during setup, then call
@@ -379,6 +385,15 @@ this code only when the original turn is absent or finished before dispatch.
 Transport and provider failures without that proof remain uncertain and require
 receipt inspection; an HTTP 409 alone is not proof of rejection.
 
+At an application's known pre-admission boundary, a structured HTTP client error
+may carry `details.delivery: { status: "not-sent", messageId }`. The binding accepts
+only an exact current message ID and a 4xx HTTP error; it retains the original
+error and failed request for manual Retry with the same captured payload. Hosts
+must attach this fact before any routing/native dispatch, preserve error
+sanitization and never derive it from missing history. Mismatched metadata,
+server/transport failures and unknown inspection stay uncertain. This response
+fact cannot repair an older saved uncertain request or grant actor access.
+
 When `draftStorage` restores a page, known failed deliveries remain failed and
 accepted receipts remain accepted. Saved uncertain, pending or unrecognised
 delivery states stay uncertain with the exact original ID, payload and draft;
@@ -409,6 +424,29 @@ retirement and lost access cannot dispatch them later. This option defaults to
 false and belongs to the initial retained conversation composition. It adds no
 server queue or persisted queue recovery; genuine uncertainty still blocks new
 submissions and requires receipt inspection.
+
+An application that already owns a queue accepting messages during active work
+may instead set `admitWhileWorking: true`. Ordinary nonsteerable typed and retained
+voice messages then reach that application's API while the conversation reports
+working. The existing serial delivery queue waits for each real admission receipt,
+not for a ready snapshot. Message IDs and captured data remain distinct; this
+option neither cancels active work nor supplies a server queue or native steering.
+Stop, actor retirement, denied access and uncertain-delivery guards still apply.
+It defaults to false, belongs to the initial retained composition, and cannot be
+combined with `deferWhileWorking: true`. The application must authorize and save
+each request before returning acceptance; enabling this option alone is not a
+backend queue implementation.
+
+Both `deferWhileWorking` and `admitWhileWorking` also accept a synchronous
+predicate receiving the actual conversation snapshot, or `null` before its first
+read. Return a boolean for every snapshot, including `null`; promises and other
+results are rejected. The two resolved options must never both be true. This
+lets one retained binding choose its working policy from the actual backend,
+without changing message IDs, captured data or native steering intent. A queued
+application-admission follower rechecks the current policy at the serial delivery
+tail before dispatch; if admission is no longer enabled, it returns `false`
+without calling the API. Deferred requests still wait for ready. The existing
+Stop, actor, access and uncertain-delivery guards remain in force.
 
 Set `draftWhileLoading: true` when people should be able to type before the
 application resolves its conversation ID or while the first read is unavailable.
@@ -1390,6 +1428,23 @@ conversations in one runtime can use different hosts. An open handle rejects a
 second, conflicting host; native bindings also validate their saved worktree and
 credential scope on reopen. Environment values are not persisted.
 
+Claude's original scoped native history may live in the authorized credential
+HOME while its logical conversation belongs to a private host workdir. Such a
+server-owned binding retains the physical path in `workdir` and the logical path
+in `scopeWorkdir`. Reopening validates both against the current host's real paths,
+and retains the same native UUID and account checks. Ordinary bindings without
+`scopeWorkdir` keep their existing workdir validation. This does not import legacy
+records, change account fingerprints or authorize a browser-supplied native path;
+historical conversion belongs to the application's stopped state-upgrade owner.
+
+The existing `server/claude-history` reader accepts `allowIncompleteTail: false`
+for stopped maintenance that must reject a partial final JSON frame. Its default
+remains true for live observation. `claudeHistoryPath` and the unambiguous inventory
+are existing native-history facilities, not browser path authority. The conversation
+module exposes the existing `conversationHistoryVersions` cursor mapping so an
+application-owned offline conversion can reuse canonical identity/version rules.
+These pure/read-only facilities neither grant access nor resume or replay work.
+
 An existing application using the extracted Codex owner can supply
 `host.conversation({ id, context })` to bind its original transcript, native
 identity, delivery journal and lifecycle facilities. That bound path uses those
@@ -1405,6 +1460,13 @@ newer request or recreates absent historical associations. The application owns
 validation and authorization of these facts; data does not supply tool authority,
 actor identity or a delivery receipt. Unconfigured messages retain their existing
 record shape.
+
+The existing `conversationRequestText({ text, origin, data })` renderer is exported
+from `@jskit-ai/assistant-core/server/conversation`. A bound host that owns native
+input preparation can use it to retain the same application-data envelope around
+its prepared prompt. Supply only validated current-request data; keep canonical
+display words and server-only admission separate. This renderer grants no tool
+authority and does not replace the actual accepted message/native identity guards.
 
 A server-owned bound conversation can opt into common application-tool setup
 with `applicationTools: { storage, prepareContext }`, alongside the runtime's
@@ -1623,6 +1685,20 @@ corrections are included, even outside the recent-history window; if they exceed
 with a briefing. Nothing is silently dropped. The application remains responsible
 for authorizing edits to its transcript.
 
+Fresh native history uses up to 30 recent messages by default, without a
+per-message text cap. A consumer with an established shorter seed can set
+server-owned `limits.maxInitialNativeHistoryMessages` to a non-negative integer and
+`limits.maxInitialNativeHistoryMessageCharacters` to a positive integer. A configured
+message window includes the current authored user message at the single-request
+boundary: a window of 24 supplies up to 23 prior messages for a user request and
+24 for an application wake. A zero effective allowance supplies no prior messages.
+The default, unconfigured window still supplies up to 30 prior messages. These
+limits apply only to a fresh native context's quoted history. They do not shorten
+the current user input, edit stored messages or their delivery fingerprints, or
+truncate a returning engine's missed/edited messages. Attachment references and
+removed-message identities retain their existing delivery ownership. The direct
+API's initial continuity policy is separate and is unchanged by these limits.
+
 An application whose established selection policy creates a fresh native
 conversation can pass `retireNative: true` to `select()`. This uses the same
 selection transaction and allocates a new binding even for a compatible model
@@ -1660,8 +1736,9 @@ cleanup, retains the predecessor's native binding and installs the successor.
 The first native submission carries the saved briefing and bounded recent written
 history; later native turns do not repeat that history. The API driver supplies
 the same continuity with its subsequent request history. Visible user messages
-remain exactly the submitted text. Carry-over includes up to 30 recent messages,
-with each text bounded to 2,000 characters and truncation/omission marked. The
+remain exactly the submitted text. API carry-over includes up to 30 recent messages,
+with each text bounded to 2,000 characters and truncation/omission marked. Native
+initial history uses the consumer limits described above. The
 combined budget is `limits.maxContinuityCharacters` (128,000 by default); an
 oversized supplied briefing fails before changing the binding.
 
@@ -1678,6 +1755,24 @@ historical Undo blocks opening or replacing the conversation and fails offline
 preflight without changing its saved state. Complete that operation with the
 previous release before upgrading; the runtime does not guess a new boundary.
 Application checkpoints and file restoration remain separate application actions.
+
+The pure `upgradeConversationRuntimeState({ metadata, conversationLog, retirement })`
+transform can accept an explicit Codex metadata retirement. The server-owned
+`retirement` object supplies string `operationId` and `successorSegmentId`, the exact
+`expectedSegmentId`, `expectedThreadId` and `expectedToolSchemaIdentity`, and trusted
+physical `workdir` and `configRoot` paths matching the saved binding. It retains the
+old predecessor and written history, and produces the same inert binding and
+seen/last-delivered reset as live fresh selection. Omission preserves the existing
+upgrade behavior; it never automatically retires an eligible-looking binding.
+
+This is only a metadata transform. It does not stop native work, inspect goals,
+verify accounts or filesystem authorization, exclude concurrent writers, or publish
+state. The application must establish those facts through its existing owners
+before a separately approved stopped-service numbered upgrade. Pending current
+requests/replacements, mismatched identities, reused IDs and unsupported formats
+refuse without changing input. Verified BEFORE metadata and stable IDs produce
+the same output; applying the old tuple to AFTER refuses. Publication backups and
+retry remain the application's upgrade-owner responsibility, with no lazy repair.
 
 The unreleased common runtime now validates its versioned metadata. Earlier local
 development records with an older runtime version fail with an explicit export/restart
@@ -1775,6 +1870,146 @@ share the configured input-size limit. A retry must retain the same data as well
 as the same message ID and text. Supply trusted authorization separately through
 the conversation context; this data never grants permissions.
 
+For an application that validates a complete native response before executing an
+action, server-owned `completedEnvelope: true` enables
+`prepareCompletedResponse({ messageId, turnId }, { signal, toolSet })` on the existing
+conversation handle. This requires a tool catalogue, runtime-owned canonical
+storage and a Codex, Claude or OpenCode driver. API, supplied and scoped native
+owners are rejected. The application worker's `AbortSignal` is required; the
+authenticated context comes from `open()`, never from the response or caller data.
+
+An application worker that continues discovery across several completed responses
+may supply the same server-owned `toolSet` resolved by this runtime's catalogue.
+Retain it only for that worker's unchanged action-policy and focused-project scope;
+resolve a new set when either scope changes or a new worker starts. Omitting it
+resolves a fresh set for the prepared operation. This preserves loaded exact action
+contracts between responses without sharing their durable call receipts. The
+existing executor still rechecks current authorization and action availability;
+the set is neither caller input nor permission to execute a revoked action.
+
+Only a newly reserved application `wake()` receives the internal turn marker.
+Ordinary user messages, goals, caller data and historical unmarked requests cannot
+acquire it through reopening, retry or inspection. Marked responses omit native
+application-tool registration; unmarked requests retain their existing tools.
+Codex preserves its native thread tool schema: changing between those two tool
+shapes on the same thread refuses before dispatch, without replacing the binding.
+Marked internal responses use the finite `limits.maxOutputCharacters` wire limit
+(64,000 by default) rather than the human `maxFinalReplyCharacters` limit. Set the
+wire allowance to fit the configured response schema, including JSON escaping.
+Live output and retained native recovery apply the same distinction. Codex also
+checks the exact saved marker, segment and native thread/turn before its canonical
+writer permits that allowance. Ordinary replies, goals and forged message data
+retain the human limit. The completed-envelope parser still enforces its decoded
+field bounds; this wire allowance grants neither tool nor publication authority.
+
+Codex's canonical assistant, commentary and thinking writes resolve the existing
+native authorship before appending a marked application's response. Its exact
+private turn remains the target when the application has already saved newer human
+messages. Generated native message and output IDs stay intact; an explicit
+correction retains its original target. A verified marked request whose original
+row is absent refuses before appending, rather than using a newer human row.
+Ordinary unpinned transcript writes keep
+their existing latest-open-turn behavior. No new native receipt or history repair
+is inferred from a later human message.
+
+Preparation requires the exact saved successful assistant response, current native
+binding and saved account fingerprint. Native input inspection verifies that
+association; it does not establish completion or rewrite an absent account identity.
+Claude structured output can coexist with separate native commentary, so its final
+canonical receipt is checked without requiring equal projected native text.
+
+New marked Claude requests also record `nativeToolAttempt` through their original
+command owner. Its typed observation carries only the bounded logical tool name
+and actual authored-message/thread IDs; arguments and provider frames are neither
+published nor added to canonical metadata. The initial authorized catalogue uses
+its ordinary direct/discovery policy. Exact catalogue names and the Claude
+`mcp__application__` alias count; `StructuredOutput`, unrelated native tools and
+nested-agent frames do not. The receipt write is awaited before completion can
+be prepared. Callback write failures retain the original native interruption and
+error cause, rather than becoming presentation-only errors; an interrupted receipt
+cannot prepare an application effect.
+
+Claude preparation returns that verified boolean as `nativeToolAttempt`, which
+the shared completed-response loop uses for its existing reply-only correction
+rule. An old marked reservation or response without boolean evidence refuses;
+reopening and delivery inspection do not infer a historical false value. The
+flag is part of the immutable prepared identity. Marked Claude responses cannot
+share a native steering turn with another marked response, an ordinary request
+or a goal message. This refusal applies before successor reservation, including
+a retained marked unconfirmed delivery. Ordinary-to-ordinary steering and other
+native owners retain their existing policies. Applications still own the pending
+queue needed to supersede completed responses without native steering.
+
+The result contains `{ text, toolCallId, tools }`. Use that exact stable call ID
+with `tools.execute()` after validating the response. Execution rechecks authority
+and receipt ownership through the same conversation queue, then uses the existing
+catalogue and durable `applicationTools` records. Independently prepared handles
+reuse the same saved result; changed arguments conflict and unknown effects refuse.
+A failed result write retains the actual result for `retrySave()` without repeating
+inference or the action. Native completion remains distinct from an application's
+unconfirmed effect.
+
+The prepared result also provides `publishReply({ turnId })` for a validated
+plain reply. Supply only the existing plain user/system turn ID selected by the
+application worker; caller text, credentials and acknowledgement fields are not
+accepted. The runtime decodes the exact saved response and rechecks current
+authority, native association, account and signal before publication. A tool
+envelope, Claude native application-tool misroute or existing action receipt
+cannot publish a reply.
+
+The existing reentrant transcript transaction saves the decoded assistant
+message, its exact consumed assistant fingerprint and the internal receipt's
+`publishedReplyTurnId` together. It does not acknowledge the authored user turn
+or change its data. Independent handles and restart may reuse that same target
+and unchanged saved final; changed targets, edited/cleared text or unrelated
+existing content refuse. A failed write rolls back all three records and may
+retry without inference. Publication and application effects are mutually
+exclusive for the same receipt. This applies to future marked responses, with
+no historical backfill. The application retains queue, target selection and
+worker revocation ownership.
+
+The existing transcript readers accept explicit server-side `{ presentation: true }`
+to omit newly marked internal application turns. Raw reads remain the default for
+receipt inspection and native preservation. Presentation pagination filters before
+selecting the page, so its counts and cursors describe the visible product turns.
+Caller data or JSON-looking text cannot mark a turn as internal.
+
+Native continuity uses those same product rows for history versions and API
+briefings while retaining raw canonical envelopes in storage. An application
+coordinator can pass trusted top-level `completedEnvelope: true` and
+`excludedMessageIds` to the existing changeover `send()`: current-batch IDs are
+excluded only from rendered catch-up, after the original initial-history window
+is selected. The full product snapshot remains captured in the original pending
+record and becomes consumed only on actual native admission. An unknown delivery
+retry retains that exact snapshot and prepared input; it does not recapture a new
+batch or infer admission from caller data. Applications must still connect this
+private facility to their own queue, visible replies and observation adapter.
+
+In the opted runtime, human `read()` and paged reads select this presentation
+view on the server. Queries cannot override it. Only marked private pending
+input and streams are hidden; status, phase and current errors still use raw
+current state, including while browsing old pages. Worker subscriptions retain
+raw completed and partial carriers with a trusted `completedEnvelope` scalar
+from the exact saved turn, current authored request or captured native stream
+association. Input data and incoming event marker fields cannot establish it.
+Applications must filter those raw carriers in their browser observation adapter.
+
+`wake(input, { excludedMessageIds })` captures the private batch list outside
+message data in the original admission owner. The second argument is restricted
+to tracked runtime-owned native application wakes. Exact IDs are copied into the
+new pending reservation; changed same-ID retry lists and lists attached to a
+different unresolved request refuse. Old unmarked reservations gain no marker or
+list. The existing changeover receives this immutable capture; its original
+native admission remains the only consumption authority.
+
+The application owns its worker generation and revocation through fresh `tool`
+authorization and the supplied signal. Generic `cancel()` drains the existing
+queue; it does not independently revoke every still-authorized prepared handle.
+Already invoked actions retain their original receipt while Stop drains them.
+This operation does not supply product queue policy or the browser observation
+adapter. Complete those application owners before enabling it in a consumer;
+never manufacture historical markers or completion receipts.
+
 Saved turns distinguish complete, failed, cancelled and interrupted work. Error
 messages are not assistant replies. After restart, accepted work is marked
 interrupted and is never replayed. API reservations interrupted before admission
@@ -1783,6 +2018,12 @@ retains unsaved output in the current handle and prevents new submissions throug
 that handle. Repair storage and call `retrySave()` to save the retained result;
 this never reruns inference. Disposal and shutdown also retry that pending save
 and report failure without discarding it. Do not blindly resend the message.
+
+Ordinary Codex tool-failure cleanup retains both returned Stop failures and
+thrown native control errors as unconfirmed cleanup. The existing runtime keeps
+that failure unavailable and blocks Send/selection until explicit `cancel()`
+confirms the same owner's cleanup. It retains the original error and shared
+peer process/thread ownership; neither Stop retry nor selection replays work.
 
 Native acknowledgement can be lost after the engine received a message.
 `inspectDelivery({ messageId })` checks its native history and returns an accepted
@@ -1810,6 +2051,44 @@ Unconfirmed cleanup retains the identity through the existing native binding for
 Stop/recovery. If binding publication also fails, the original startup failure and
 in-memory custody remain, with the persistence error in `bindingError`; durable
 restart recovery is not established until that binding can be saved.
+During Claude initialization, the trusted `onStarted(executionId, stop)` callback
+shares the process factory's existing private cleanup closure. It may follow the
+host's early ID-only publication; the turn owner accepts the cleanup receipt
+without saving or publishing the same execution again. The owner keeps
+that receipt in memory until initialization transfers the native handle or
+confirmed cleanup and binding release finish. Cancel and startup failure join the
+same stop promise; the client is not treated as initialized before its handshake.
+Unconfirmed cleanup or failed release retains the exact-ID receipt for Stop retry.
+Historical missing-handle recovery and local foreign/missing-ID refusal are unchanged;
+no receipt is reconstructed from mere process absence or stored in conversation data.
+
+Runtime-owned transcripts persist completed commentary by default. A server can
+supply `persistCommentary: false` to `createConversationRuntime()` when its product
+requires progress to remain transient. Live streams still publish and complete;
+only commentary is excluded from subsequent canonical writes, including native
+output recovery. Assistant answers, reasoning, tool receipts and native provider
+history are unchanged. The existing Codex output owner retains item/fingerprint
+deduplication without writing a commentary row. Existing saved rows are never
+removed or repaired. Supplied native owners retain their own transcript policy;
+`open()` refuses a supplied conversation with this opt-out rather than silently
+persisting commentary or changing the host's owner.
+For runtime-owned Codex streams, an exact completed native item can emit the
+existing `message` event with `status: "complete"` and its verified canonical
+authored turn. Item custody remains private and is retained across steering;
+a pending request alone does not invent a canonical row. The completed item text
+replaces partial deltas and is carried once through the existing admission owner.
+If completion precedes admission publication, its exact request's existing
+progress custody holds it until accepted has been published; completion is then
+published before the original delivery commit permits native tools. Completion
+can resolve a pending captured message only to that same admitted row, not a
+successor. Subscriber authorization rechecks the captured native owner and
+unsealed request before delivery. Ordinary stream reads, repeated completion and fingerprint cleanup do not replay
+it. A canonical patch for the same output keeps the existing saved message
+identity rather than publishing a second transient completion. A first-seen
+completion without captured authored custody does not gain it from the newest
+request. This storage/completion option does not establish native progress/tool
+same-response association or a pre-effect progress bound.
+
 An optional `limits.timeoutMs` deadline aborts work and waits for owned cleanup;
 a failed cleanup is still reported as unavailable rather than as a successful stop.
 
@@ -1844,6 +2123,15 @@ execution and saved receipts. A completed response is required before executing
 a call; interrupted streams do not imply permission to execute or retry it.
 Output limits count raw provider text, including hidden blocks. Code indentation
 and blank lines remain intact in ordinary API answers.
+
+An application can set server-owned `limits.maxApiToolProgressCharacters` to a
+positive safe integer to bound the decoded text accompanying confirmed API tool
+calls. The API driver rejects oversized progress before executing any call from
+that response; it does not clip the text or ask the model to repeat the operation.
+Omit the limit to retain the original API policy. It does not change final-answer
+limits or the original sixteen tool rounds and three recovery passes. This option
+applies only to the direct API carrier; native tool progress needs association
+with its exact admitted native use at that engine's execution boundary.
 
 An application can additionally set server-owned `limits.maxFinalReplyCharacters`
 to a positive safe integer. This bounds completed, decoded assistant replies in
@@ -2047,6 +2335,11 @@ initial Set to prepare a thread from that state. Later controls use the actual
 thread and current goal identity. A stopped or replaced thread does not become
 an unstarted conversation; its existing recovery and replacement checks still
 apply. The supplied client binding preserves the value automatically.
+Background goal reads keep controls available for the last verified current
+conversation observation. An initial read or changed native segment blocks
+commands until its goal target is verified; a supplied pinned goal target may
+differ from the visible chat segment. Actual goal commands remain serialized,
+and each sends the displayed goal and target identities for server validation.
 
 Claude uses its original native `/goal` commands through ordinary message
 admission. Set and resume require idle work; an unfinished goal must be cleared
@@ -2083,6 +2376,15 @@ admitted request, including its continuations. `read()` includes the last observ
 work started by another native client. Reopening does not resume unobserved goal
 work automatically.
 
+An admitted standalone Codex application-tool failure retains the same failure
+through both native completion orders. If direct interruption reaches its saved
+terminal before the native completion notification, the existing observation-stop
+owner still pauses the same active goal, verifies native idleness and saves the
+stopped barrier before the request settles. This handoff requires the same latched
+tool error and current provider/thread/turn; user cancellation, account invalidation
+and host-supplied native ownership keep their existing policies. It does not retry
+an effect or grant goal controls application-tool authority.
+
 After restart, call `inspectDelivery({ messageId })` for an actual authored Send
 or steering message. Codex checks that exact native receipt and recovers output
 through the original native turn owner when the saved thread and run establish
@@ -2108,6 +2410,12 @@ still controls the execution account, working directory and environment. This
 grant uses that account's filesystem permissions and adds no OS sandbox. A
 multi-user host must supply its managed execution facility and appropriate
 isolation. User messages and model configuration cannot enable these tools.
+
+Custom-provider Codex model catalogues use the native Codex allowance of 10,000
+tokens for tool output, rather than a 10,000-byte cap. This lets ordinary source
+and guidance reads return the same amount of content as native models. Tool
+output remains bounded; this allowance is separate from the model's context
+window, response limit and provider usage quota.
 
 Ambient hooks, MCP integrations and skills remain disabled. Native subagents and
 interactive permission questions are not enabled by this grant. Application
@@ -2396,6 +2704,15 @@ The common driver passes that preparation to the same runtime's
 `startPreparedProcess`; native acquisition and startup stay inside the shared
 owner. The host retains execution policy, credential resolution and durable
 restart/stop proof. Ordinary apps use the supplied facility without writing one.
+A managed host that already authorizes replacing its own connection may return
+`allowCredentialRefresh: true`. Authored run preparation resolves that facility
+again and retains the same shared runtime, runtime directory, native database and
+session. The original shared owner verifies the old process's exit before starting
+with the current key. This flag does not identify a historical remote account or
+share credentials. Standalone defaults still reject a changed credential;
+inspection and completed-response preparation cannot rotate a binding. An old
+completed receipt must still match its original credential fingerprint before
+any effect or reply publication.
 Existing development bindings from the earlier private `history.db` implementation
 are rejected before inference; changing the stored path does not migrate native
 history. Their offline conversion remains unfinished.
@@ -2657,6 +2974,45 @@ transient results and immediate failure policy. Ordinary conversations use the
 runtime's durable tool calls. Disabling built-in native tools alone is not a reason
 to select the bounded protocol: both paths can execute supplied application actions
 through the same catalogue and execution owner.
+
+#### Completed reply/tool envelopes
+
+An existing application that uses completed `reply`/`tool` JSON envelopes can
+opt into the same coordinator with `completedEnvelope: true`. This mode requires
+`policy.maximumResponses: 24` and a server-owned `settle` function. The default
+bounded workflow above retains its transient tools and existing error policy.
+
+The fixed wire object contains `kind`, `text`, `toolName` and string `arguments`.
+The moved decoder preserves limits of 16,000 characters for reply text, 256 for
+the tool name, 262,144 for decoded arguments and 280 for tool progress text.
+These are decoded string limits; the catalogue's argument byte limit remains
+separate. `readAssistantResponseEnvelope` and `readPartialAssistantReply` are
+exported from `@jskit-ai/assistant-core/server`. The partial reader exposes only
+reply text and waits for complete JSON escapes; it never displays tool payloads.
+
+`complete(prompt, { timeoutMs, outputSchema, previousResponse })` returns the
+completed text and any `nativeToolAttempt` fact. A tool response also requires
+the current durable `tools` instance and a stable `toolCallId` supplied by the
+completed-response owner. Reusing that response must reuse its call ID and saved
+records. The loop does not mint another ID during recovery. The existing tool
+executor retains authorization, reservation, result persistence, conflict and
+unknown-outcome checks. A sealed native request's old tools are not a valid
+post-completion instance. This mode does not itself implement or prove a native
+receipt bridge, application admission or history projection.
+
+Before parsing, `settle({ phase: "before-parse", result })` returns `"use"`,
+`"continue"` for a superseded response, or `"end"`. Before returning a final
+reply, `settle({ phase: "after-final", response })` returns `"continue"` or
+`"end"`; the application retains its final persistence and admission-tail check.
+Unknown decisions fail. All completed responses, including discarded ones,
+spend the same 24-response allowance. Two invalid responses permit correction;
+the third fails. Valid tools and newly pending input do not reset that allowance.
+A native application-tool attempt invalidates a reply, but a valid completed
+tool envelope remains usable. `previousResponse` carries the actual tool result
+or the invalid-response fact; product instructions and feedback stay with the
+application. In this mode only, `invalidResponseError` may also be a factory
+receiving `{ nativeToolAttempt }` from the third invalid response and returning
+an `Error`. The existing `Error` option preserves its identity.
 
 ### Native instruction lifecycle
 
@@ -2938,6 +3294,17 @@ cannot bypass admission, authorization, delivery inspection or cleanup proof.
 and message-block mapping stay inside the owner. Pass an authorized
 `configRoot`, `workdir` and native `conversationId` to the reader; these
 operations do not authorize an account or conversation.
+Stopped inspection can opt into `includeUserMessages: true` for raw native
+`userMessages` (`id`, `text`) and `includeFinalCarriers: true` for
+`completedResults` (`id`, `userId`, `text`), `failedResults` (`id`, `userId`) and `structuredOutputs`
+(`id`, `userId`, `toolUseId`, `text`). Completed results come only from actual
+successful native result frames. A recorded failed or interrupted result for the
+same user must block conversion even if an earlier carrier matches. No native
+error content is exposed by this field. Structured outputs are exact top-level
+`StructuredOutput` tool-use candidates, not proof of completion; the application
+must join its original completed receipt, exact user and final reply, and reject
+newer or competing output. These opt-ins use the same selected branch and parser,
+exclude sidechain/nested/meta carriers, and leave the default return shape intact.
 Reads preserve the selected rewind branch and tolerate only an unfinished final
 line in a growing transcript. `listClaudeConversationStorage` enumerates the
 specified binding's native conversations. Export and deletion policy remain with
@@ -3371,7 +3738,11 @@ order. Its internal admission inspection uses the bounded native user-message lo
 unknown, never permission to resend. The shared runtime owns admitted-turn
 steering and the original one-attempt missing-answer recovery. Its existing
 monitor projection preserves completed reasoning before recovery advances the
-native input boundary. Applications retain their authorization and durable
+native input boundary. An overlapping newer input joins that turn's exact native
+recovery receipt before dispatch; native created-time/ID ordering is checked before
+its final is accepted. The admitted input keeps its durable receipt if observation
+fails. This uses the original turn lifetime, cancellation and cleanup, with no
+additional message queue or automatic resend. Applications retain their authorization and durable
 delivery receipts. The shared runtime's internal dispatch preserves event readiness before
 the application's admission hook, then records the attempted native send and
 submits the original resumed prompt. Delivery defaults to queue; a host steering
@@ -3565,6 +3936,27 @@ acquisition layer. Its plugin resolves the current instructions, environment,
 command wrapper and application-tool bridge by the registered native session.
 Changing one conversation's grant does not change another's permissions.
 
+For an explicitly stopped offline upgrade, `readCodexHistoryRows(file, start,
+end, signal, { strictComplete: true })` from `/server/codex-provider` reads the
+existing fixed file snapshot as `{ row, offset }` entries, with the original
+32 MiB bound per record. Strict inspection rejects an unfinished final JSON
+record or invalid UTF-8. Omitting the option preserves compaction recovery's
+original unfinished-append tolerance. The caller owns opening and closing the
+file, trusted runtime/path and file-identity checks, cancellation, and native
+thread/account/turn/goal validation. Raw rows alone do not prove an idle native
+turn or authorize resuming it. This read does not start or stop an app-server,
+write history, or obtain credentials.
+
+`readCodexNativeGoal(databasePath, { threadId, signal })` from
+`/server/codex-provider` inspects the native `goals_1.sqlite` store without
+starting an app-server or resuming a thread. It returns the original SQL goal
+fields or `null` for an absent row in that verified database; a missing database,
+journal sidecar, changed file or unknown goal representation is refused.
+Known unfinished goal statuses remain present. The stopped conversion caller
+must qualify its native producer and actual SQLite home, including any original
+`CODEX_SQLITE_HOME` override, and retain its existing goal/account/thread guards.
+A completed rollout or missing database does not establish goal absence.
+
 ## Companions and templates
 
 A companion can receive an app-selected layer containing conversation state and
@@ -3614,3 +4006,27 @@ The textbox coalesces height measurements once per animation frame, after Vue
 applies model changes, and remeasures when its pane width or density changes.
 External state changes retain focus and selection. IME composition does not
 submit or move focus to Send.
+
+## Stopped native SQLite inspection
+
+`readStoppedNativeDatabase` from `/server/native-history` is the shared read-only
+lifecycle for stopped native SQLite readers. It requires a canonical regular
+file and stopped writers. With no journal it opens immutable read-only. A valid
+stopped WAL/SHM pair is fingerprinted with the base file; exact private base/WAL
+copies let SQLite read committed pages and create its own temporary SHM. The
+native files are never opened writable. Both paths use `query_only` and one
+fixed transaction. Changed files, invalid journal headers, rollback journals and
+noncanonical files refuse inspection; private copies are removed on success,
+failure and cancellation. It never starts a native CLI, checkpoints, deletes a
+native sidecar or stops admitted work. The host must keep writers stopped through
+inspection and publication; a missing database is not proof of absent native state.
+
+`readOpenCodeConversationDatabase` from `/server/opencode-client` streams the
+native session/message/part projection through the existing bounded export and
+message normalizer. It returns original session fields and revision/count
+receipts, refuses pending native admissions or foreign part identities, and
+leaves account authorization and historical-conversion policy to the host.
+`claudeConnectionIdentity` from `/server/claude-process` exposes the same native
+provider/configuration/endpoint/key digest already used by the live driver;
+hosts may translate a verified historical pin without changing its caller or
+copying credentials. These functions do not authorize native continuation.

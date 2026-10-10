@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, open, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { gzipSync, zstdCompressSync } from "node:zlib";
 import { startCodexHistoryAdapter, translateCodexHistory, prepareCodexHistory } from "../src/server/conversation/codexHistoryAdapter.js";
+import { readCodexHistoryRows, readCodexNativeGoal } from "../src/server/hosts/codexProvider.js";
 import { nativeAiProvider } from "../src/shared/nativeProviders.js";
 
 const foreign = { type: "reasoning", id: "foreign-id", encrypted_content: "foreign-opaque-state",
@@ -747,4 +748,76 @@ test("DeepSeek exact numeric context rejection exposes native recovery code with
     assert.equal(attempts, before + 1);
   }
   assert.equal(attempts, cases.length + 2, "exactly one upstream admission per request");
+});
+
+test("the original fixed-snapshot rollout reader keeps tolerant recovery and supports strict offline inspection", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-offline-rollout-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const history = path.join(root, "rollout.jsonl");
+  const row = { type: "response_item", payload: { type: "message", role: "assistant",
+    content: [{ type: "output_text", text: "😀".repeat(20_000) }] } };
+  const complete = Buffer.from(`${JSON.stringify(row)}\n`);
+  await writeFile(history, complete);
+  const file = await open(history, "r");
+  t.after(() => file.close());
+  const read = async (end, options, signal = new AbortController().signal) => {
+    const rows = [];
+    for await (const entry of readCodexHistoryRows(file, 0, end, signal, options)) rows.push(entry);
+    return rows;
+  };
+  assert.deepEqual(await read(complete.length, { strictComplete: true }), [{ row, offset: 0 }]);
+  await appendFile(history, '{"type":');
+  assert.deepEqual(await read(complete.length, { strictComplete: true }), [{ row, offset: 0 }],
+    "inspection reads only the captured snapshot, not later appends");
+  assert.deepEqual(await read((await file.stat()).size), [{ row, offset: 0 }],
+    "original compaction recovery still ignores an unfinished native append");
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }), /incomplete final record/);
+  await writeFile(history, Buffer.from('{"text":"\xff"}\n', "latin1"));
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }), /invalid UTF-8/);
+  await writeFile(history, 'malformed saved record\n');
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }), SyntaxError);
+  const aborted = AbortSignal.abort(new Error("offline inspection cancelled"));
+  await assert.rejects(read((await file.stat()).size, { strictComplete: true }, aborted), /offline inspection cancelled/);
+  const { DatabaseSync } = await import("node:sqlite");
+  const goals = path.join(root, "goals_1.sqlite");
+  const threadId = randomUUID(), goalId = randomUUID();
+  const db = new DatabaseSync(goals);
+  db.exec(`CREATE TABLE thread_goals (thread_id TEXT PRIMARY KEY, goal_id TEXT NOT NULL,
+    objective TEXT NOT NULL, status TEXT NOT NULL, token_budget INTEGER,
+    tokens_used INTEGER NOT NULL, time_used_seconds INTEGER NOT NULL,
+    created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL)`);
+  db.close();
+  assert.equal(await readCodexNativeGoal(goals, { threadId }), null);
+  for (const status of ["active", "paused", "blocked", "usage_limited", "budget_limited", "complete"]) {
+    const db = new DatabaseSync(goals);
+    try { db.prepare(`INSERT OR REPLACE INTO thread_goals VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(threadId, goalId, "Original native objective", status, 500, 30, 2, 1000, 2000); }
+    finally { db.close(); }
+    const before = await readFile(goals);
+    const goal = await readCodexNativeGoal(goals, { threadId });
+    assert.equal(goal.thread_id, threadId);
+    assert.equal(goal.goal_id, goalId);
+    assert.equal(goal.status, status, "unfinished goals are retained, never projected as absent");
+    assert.equal(goal.objective, "Original native objective");
+    assert.equal(goal.token_budget, 500);
+    assert.equal(goal.tokens_used, 30);
+    assert.equal(goal.time_used_seconds, 2);
+    assert.equal(goal.created_at_ms, 1000);
+    assert.equal(goal.updated_at_ms, 2000);
+    assert.deepEqual(await readFile(goals), before, "offline goal inspection never writes native storage");
+  }
+  const invalid = new DatabaseSync(goals);
+  try { invalid.prepare("UPDATE thread_goals SET status = ?").run("unsupported"); }
+  finally { invalid.close(); }
+  await assert.rejects(readCodexNativeGoal(goals, { threadId }), /unsupported or ambiguous/);
+  const unknownSchema = new DatabaseSync(goals);
+  try { unknownSchema.exec("DROP TABLE thread_goals; CREATE TABLE thread_goals (thread_id TEXT)"); }
+  finally { unknownSchema.close(); }
+  await assert.rejects(readCodexNativeGoal(goals, { threadId }), /schema is unsupported/);
+  await writeFile(`${goals}-wal`, "An original owner still has a journal.");
+  await assert.rejects(readCodexNativeGoal(goals, { threadId }), /journal sidecar/);
+  await rm(`${goals}-wal`);
+  await rm(goals);
+  await assert.rejects(readCodexNativeGoal(goals, { threadId }), { code: "ENOENT" });
+
 });

@@ -203,7 +203,7 @@ export function createClaudeConversationOwner({
     if (saved && typeof saved.then === "function") saved = await saved;
     if (!main && !saved && !create && !recoveringCleanup) throw createError("This Claude conversation is unavailable.");
     const state = saved ? JSON.parse(saved) : {};
-    const entry = { id, key, main, persistent: state.persistent === true, context, process: null,
+    const entry = { id, key, main, persistent: state.persistent === true, context, process: null, startupCleanup: null,
       executionId: state.executionId || (recoveringCleanup ? cleanupExecutionId : ""),
       accountIdentities: state.accountIdentities || (state.accountIdentity ? { anthropic: state.accountIdentity } : {}),
       accountIdentity: state.accountIdentity || "", sent: state.sent === true, nativeWorkdir: state.nativeWorkdir || nativeWorkdir,
@@ -312,7 +312,9 @@ export function createClaudeConversationOwner({
     if (options && typeof options.then === "function") options = await options;
     try { entry.process = await createProcess({ ...options,
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
-      onStarted: async executionId => {
+      onStarted: async (executionId, stop) => {
+        if (typeof stop === "function") entry.startupCleanup = { executionId, stop };
+        if (entry.executionId === executionId) return;
         entry.executionId = executionId;
         await store.save(entry, { execution: true });
         await onEvent(entry, { type: "execution", context, executionId });
@@ -380,9 +382,13 @@ export function createClaudeConversationOwner({
           await onEvent(entry, { type: "execution", context, executionId: entry.executionId });
         } catch (bindingError) { error.bindingError = bindingError; }
       }
-      if (store.releaseExecution && error.stopProof?.scopeEmpty) await store.releaseExecution(entry);
+      if (store.releaseExecution && error.stopProof?.scopeEmpty) {
+        await store.releaseExecution(entry);
+        if (entry.startupCleanup?.executionId === error.executionId) entry.startupCleanup = null;
+      }
       throw error;
     }
+    if (entry.startupCleanup?.executionId === entry.executionId) entry.startupCleanup = null;
     return entry.process;
   }
 
@@ -742,10 +748,10 @@ export function createClaudeConversationOwner({
   async function run(control, command, { acquire, reportFailure, entry: selectedEntry, maximumOutput, maximumToolCalls = 32, timeoutMs } = {}) {
     if (control.disposed || control.current) throw new Error("This Claude conversation is closed or already working.");
     const binding = Boolean(store.releaseExecution);
-    const { configuration, context, input, tools, signal, beforeDispatch, accept, onMessage, onEvent } = command;
+    const { configuration, context, input, tools, signal, beforeDispatch, accept, onMessage, onEvent, onNativeToolUse } = command;
     const completion = Promise.withResolvers();
     completion.promise.catch(() => {});
-    const active = { completion, onMessage, onEvent, signal, tools, admitted: false, nativeTools: new Map(),
+    const active = { completion, onMessage, onEvent, onNativeToolUse, signal, tools, admitted: false, nativeTools: new Map(),
       messageId: input.messageId, goal: input.goal, nativeToolCount: 0, toolWork: new Set(), maximumToolCalls,
       context, failure: Promise.withResolvers() };
     let failure;
@@ -947,10 +953,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     const active = read().active;
     if (!binding) entry.stopping = true;
     const operation = async () => {
+      const startup = entry.startupCleanup?.executionId === entry.executionId ? entry.startupCleanup : null;
       let proof;
       try {
         if (!binding || entry.process || entry.executionId) {
-          proof = await stopClaudeCodeProcess({ process: entry.process, executionId: entry.executionId,
+          proof = await stopClaudeCodeProcess({ process: entry.process || startup, executionId: entry.executionId,
             stopExecution: process.stopExecution });
         }
       } catch (error) {
@@ -966,12 +973,14 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       entry.exitProof = proof;
       stop(binding ? reason : reason || "Claude stopped before acknowledging the prompt.");
       if (binding) {
+        if (entry.startupCleanup === startup) entry.startupCleanup = null;
         if (active) entry.completion?.resolve({ status: "interrupted", error: reason || "Work stopped." });
         return;
       }
       if (entry.turn?.active) await updateState("interrupted", reason);
       else await onEvent({ type: "save" });
       entry.completion?.resolve(readResult());
+      if (entry.startupCleanup === startup) entry.startupCleanup = null;
       return entry.exitProof;
     };
     if (!binding) return operation();

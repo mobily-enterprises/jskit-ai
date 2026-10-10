@@ -149,6 +149,15 @@ replay history or automatically restart capture. If a service advertises several
 voices, the Voice settings cog offers Speaking voice for the next reply's speaker; an in-flight reply keeps
 its original speaker through all streamed phrases.
 
+Canonical replies retain the original bounded Markdown cleanup: inspect at most
+8,000 raw characters, then speak at most 4,000 normalized characters. A long code
+block inside that window does not consume the spoken allowance or hide the answer
+after it. Streaming keeps raw source offsets for revision checks; the existing
+queue counts normalized consumed prefixes and limits appended text. Reaching the
+speech limit ends synthesis, but a completed playback receipt still waits for
+the canonical final and actual audio drain. Optional activity narration keeps its
+separate original observed-delta limit.
+
 ## Server connection
 
 Register an authenticated WebSocket route with Fastify's WebSocket plugin:

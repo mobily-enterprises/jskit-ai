@@ -6,6 +6,7 @@ import path from "node:path";
 import { createConversationRuntime, createFileConversationStorage, upgradeConversationRuntimeState } from "../src/server/conversation/index.js";
 import { createLocalConversationExecution } from "../src/server/conversation/localExecution.js";
 import { createClaudeConversationDriver } from "../src/server/conversation/providers/claudeDriver.js";
+import { conversationRequestText } from "../src/server/conversation/continuity.js";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createSchema } from "json-rest-schema";
 
@@ -231,6 +232,8 @@ async function fixture(t, options = {}) {
     import path from "node:path";
     const args = process.argv.slice(2);
     const structuredResponse = ${JSON.stringify(options.structuredResponse || null)};
+    const nativeToolUse = ${JSON.stringify(options.nativeToolUse || null)};
+    const applicationEventBehavior = ${JSON.stringify(options.applicationEventBehavior || null)};
     const option = name => args[args.indexOf(name) + 1];
     const log = value => appendFileSync(process.env.TEST_TRACE, JSON.stringify(value) + "\\n");
     const emit = value => process.stdout.write(JSON.stringify(value) + "\\n");
@@ -273,7 +276,7 @@ async function fixture(t, options = {}) {
         : frame.message.content.filter(part => part.type === "text").map(part => part.text).join(" ");
       let answer = { type: "assistant", uuid: frame.uuid + "-answer", message: { content: [{ type: "text", text: "Answer: " + text }] } };
       if (structuredResponse) answer.message.content[0].text = JSON.stringify(structuredResponse);
-      if (text === "lost") { record(answer); return; }
+      if (text === "lost" || text === applicationEventBehavior?.lost) { record(answer); return; }
       if (text.startsWith("/goal ")) {
         const condition = text.slice(6);
         record({ type: "attachment", timestamp: new Date().toISOString(),
@@ -284,7 +287,14 @@ async function fixture(t, options = {}) {
         return;
       }
       emit(frame);
-      if (text === "wait") return;
+      if (nativeToolUse) {
+        const use = { type: "assistant", session_id: id, uuid: frame.uuid + "-native-tool",
+          ...(nativeToolUse.parentToolUseId ? { parent_tool_use_id: nativeToolUse.parentToolUseId } : {}), message: { content: [
+          { type: "tool_use", id: frame.uuid + "-native-tool", name: nativeToolUse.name, input: nativeToolUse.input }
+        ] } };
+        record(use); emit(use);
+      }
+      if (text === "wait" || text === applicationEventBehavior?.wait) return;
       if (text === "steering") {
         answer.message.content[0].text = "Initial progress";
         answer.message.id = frame.uuid + "-before";
@@ -305,6 +315,9 @@ async function fixture(t, options = {}) {
         const invoke = async (name, input) => {
           const toolId = frame.uuid + "-tool-" + (++sequence);
           const use = { type: "assistant", uuid: toolId, message: { content: [{ type: "tool_use", id: toolId, name: "mcp__application__" + name, input }] } };
+          if (sequence === 1 && ${JSON.stringify(options.toolProgress || "")}) {
+            use.message.content.unshift({ type: "text", text: ${JSON.stringify(options.toolProgress || "")} });
+          }
           record(use); emit(use);
           return request({ subtype: "mcp_message", server_name: "application", message: {
             jsonrpc: "2.0", id: sequence, method: "tools/call",
@@ -343,7 +356,7 @@ async function fixture(t, options = {}) {
     CLAUDE_CONFIG_DIR: path.join(directory, "claude"), TEST_TRACE: trace, TEST_ACCOUNT: account, ...options.environment };
   function runtime() {
     const value = createConversationRuntime({ engine: "claude", storage, authorize: options.authorize || (() => true), actions: options.actions,
-      connections: options.connections, attachments: options.attachments,
+      connections: options.connections, attachments: options.attachments, persistCommentary: options.persistCommentary,
       host: { workdir: directory, env, commands: { claude: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
       limits: { admissionTimeoutMs: 150, ...options.limits } });
     runtimes.push(value);
@@ -1413,4 +1426,1317 @@ for (const saveFails of [false, true]) test(`Claude retains failed-start custody
     await reopened?.dispose();
     await local.close();
   }
+});
+
+test("original scoped Claude history resumes from the authorized credential home while retaining its private scope", async t => {
+  const f = await fixture(t);
+  await f.first.close();
+  const { realpath } = await import("node:fs/promises");
+  const { createHash } = await import("node:crypto");
+  const home = path.join(f.directory, "credential-home");
+  const foreignHome = path.join(f.directory, "foreign-home");
+  await mkdir(home);
+  await mkdir(foreignHome);
+  const env = { ...f.driverOptions.host.env, HOME: home };
+  const scopeWorkdir = await realpath(f.directory);
+  const readBinding = () => f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  const writeBinding = binding => f.storage.write("conversation", async tx => {
+    const metadata = await tx.readMetadata();
+    metadata.runtime.binding = binding;
+    await tx.writeMetadata(metadata);
+  });
+  const original = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, workdir: home, env } });
+  await writeBinding(await original.createBinding());
+  const run = (provider, messageId, text) => provider.run({ configuration,
+    input: { messageId, text }, signal: new AbortController().signal,
+    beforeDispatch() {}, accept() {}, onMessage() {}, onEvent() {}
+  });
+  const first = await original.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await run(first, "original", "Original scoped words"); }
+  finally { await first.dispose(); }
+  const receipt = await readBinding();
+  assert.equal(receipt.workdir, await realpath(home));
+  assert.equal(receipt.executionId, "");
+  assert.equal(receipt.sent, true);
+  // The original native-OAuth identity has the same exact tuple; only its
+  // explicit hash label differs. API/connection tuples are not converted here.
+  const originalAccount = "sha256:" + createHash("sha256")
+    .update(JSON.stringify([receipt.configRoot, "claude.ai", "owner@example.test"])).digest("hex");
+  assert.equal(originalAccount, "sha256:" + receipt.accountIdentity);
+  const historyPath = path.join(receipt.configRoot, "projects", home.replace(/[^a-zA-Z0-9]/gu, "-"), receipt.conversationId + ".jsonl");
+  const originalHistory = await readFile(historyPath, "utf8");
+  assert.match(originalHistory, /Original scoped words/);
+  const scoped = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, env } });
+  await assert.rejects(scoped.open({ binding: receipt, writeBinding, onFailure() {} }), /another working directory or credential home/);
+  const binding = { ...receipt, scopeWorkdir };
+  for (const wrong of [{ ...binding, scopeWorkdir: await realpath(foreignHome) },
+    { ...binding, scopeWorkdir: "" }, { ...binding, workdir: await realpath(foreignHome) },
+    { ...binding, configRoot: foreignHome }]) {
+    await assert.rejects(scoped.open({ binding: wrong, writeBinding, onFailure() {} }), /another working directory or credential home/);
+  }
+  const differentHome = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, env: { ...env, HOME: foreignHome } } });
+  await assert.rejects(differentHome.open({ binding, writeBinding, onFailure() {} }), /another working directory or credential home/);
+  assert.equal((await f.trace()).filter(row => row.args?.includes("--print")).length, 1);
+  assert.equal(await readFile(historyPath, "utf8"), originalHistory);
+  await writeBinding(binding);
+  const resumed = await scoped.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await run(resumed, "resumed", "Continue original scope"); }
+  finally { await resumed.dispose(); }
+  const saved = await readBinding();
+  assert.equal(saved.conversationId, receipt.conversationId);
+  assert.equal(saved.scopeWorkdir, scopeWorkdir);
+  assert.equal(saved.workdir, receipt.workdir);
+  assert.equal(saved.accountIdentity, receipt.accountIdentity);
+  assert.equal(saved.executionId, "");
+  const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+  assert.equal(starts.length, 2);
+  assert.equal(starts[1].args[starts[1].args.indexOf("--resume") + 1], receipt.conversationId);
+  assert.equal((await readFile(historyPath, "utf8")).startsWith(originalHistory), true);
+  assert.deepEqual((await f.trace()).filter(row => row.frame?.type === "user").map(row => row.frame.message.content),
+    ["Original scoped words", "Continue original scope"]);
+  await writeFile(f.account, "another@example.test");
+  const changed = await scoped.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await assert.rejects(run(changed, "foreign-account", "Must not send"), /another Claude account/); }
+  finally { await changed.dispose(); }
+  const api = createClaudeConversationDriver({ ...f.driverOptions,
+    host: { ...f.driverOptions.host, env: { ...env, ANTHROPIC_AUTH_TOKEN: "different-api-identity" } } });
+  const changedApi = await api.open({ binding: await readBinding(), writeBinding, onFailure() {} });
+  try { await assert.rejects(run(changedApi, "foreign-api", "Must not send"), /another Claude account/); }
+  finally { await changedApi.dispose(); }
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 2);
+  assert.equal((await f.trace()).filter(row => row.args?.includes("--print")).length, 2);
+  assert.equal((await readBinding()).accountIdentity, receipt.accountIdentity);
+});
+
+// Original accepted-output restart recovery must honor the same transient
+// transcript policy without changing native history, receipts or inference.
+for (const restoredPolicy of [undefined, false]) {
+  test("Claude recovered commentary uses " + (restoredPolicy === false ? "transient" : "default") + " transcript policy", async t => {
+    let executions = 0;
+    const progress = "Checking the current number.";
+    const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+    const options = { context, actions: applicationActions(async () => { executions++; return { value: 42 }; }),
+      persistCommentary: false, toolProgress: progress };
+    const f = await fixture(t, options);
+    await f.conversation.send({ messageId: "recover-progress", text: "tools" });
+    const finished = await f.conversation.wait();
+    assert.deepEqual(finished.conversationLog[0].commentary, []);
+    assert.equal(finished.conversationLog[0].metadata.applicationTools.length, 3);
+    assert.equal(executions, 1);
+    await f.first.close();
+    await f.storage.write("conversation", async transaction => {
+      const turn = await transaction.readTurn("000001");
+      await transaction.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime, status: "running" } });
+      await transaction.replaceAssistant(turn.turnId, { ...turn.assistant, text: "Partial reply" });
+    });
+    options.persistCommentary = restoredPolicy;
+    const reopened = await f.runtime().open({ id: "conversation", context });
+    assert.equal((await reopened.inspectDelivery({ messageId: "recover-progress" })).recovered, true);
+    const state = await reopened.read();
+    assert.equal(state.conversationLog[0].assistant.text, finished.conversationLog[0].assistant.text);
+    assert.deepEqual(state.conversationLog[0].commentary.map(message => message.text), restoredPolicy === false ? [] : [progress]);
+    assert.equal(state.conversationLog[0].metadata.runtime.status, "interrupted");
+    assert.deepEqual(state.conversationLog[0].metadata.applicationTools, finished.conversationLog[0].metadata.applicationTools);
+    await reopened.inspectDelivery({ messageId: "recover-progress" });
+    assert.deepEqual((await reopened.read()).conversationLog, state.conversationLog);
+    assert.equal(executions, 1);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  });
+}
+
+// The original initialization-cancel case must join the process factory's
+// existing cleanup receipt, not reclaim an already-released execution by ID.
+test("Claude startup cancellation shares one cleanup receipt and keeps missing execution refusal", async t => {
+  const local = createLocalConversationExecution();
+  const started = Promise.withResolvers();
+  const stops = [];
+  let nativeExecutionId;
+  const execution = {
+    async start(options) {
+      const native = await local.start(options);
+      if (options.args.includes("--print")) {
+        nativeExecutionId = native.id;
+        started.resolve();
+      }
+      return native;
+    },
+    async stop(id, options) {
+      stops.push(id);
+      return local.stop(id, options);
+    }
+  };
+  const f = await fixture(t, { execution, environment: { TEST_STARTUP_WAIT: "1" } });
+  const sending = f.conversation.send(input);
+  sending.catch(() => {});
+  await started.promise;
+  try {
+    assert.equal(typeof nativeExecutionId, "string");
+    await f.conversation.cancel();
+    await assert.rejects(sending);
+    assert.deepEqual(stops.filter(id => id === nativeExecutionId), [nativeExecutionId],
+      "startup failure and cancellation join one verified native cleanup");
+    assert.equal((await f.conversation.wait()).conversationLog.length, 0);
+    const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    assert.equal(binding.executionId, "");
+    await assert.rejects(local.stop("unowned-execution"), /does not own the requested execution/);
+    await assert.rejects(local.stop(nativeExecutionId), /does not own the requested execution/,
+      "only the actual cleanup owner retains its receipt; an absent local record is never proof");
+  } finally {
+    await local.close();
+  }
+});
+
+// Reuse the original controlled native CLI and its owned history/account roots.
+// The opt-in runtime is created only after the fixture's original runtime closes.
+const completedEnvelopeValue = { kind: "tool", text: "Checking.", toolName: "numbers_read", arguments: "{}" };
+const completedEnvelopeSchema = { type: "object", additionalProperties: false,
+  properties: { kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 64 },
+    toolName: { type: "string", maxLength: 64 }, arguments: { type: "string", maxLength: 64 } },
+  required: ["kind", "text", "toolName", "arguments"] };
+async function completedEnvelopeFixture(t, options = {}) {
+  const context = options.context || { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  let effects = 0;
+  const actions = applicationActions(async request => {
+    effects++;
+    return options.execute ? options.execute(request) : { value: 42 };
+  });
+  const f = await fixture(t, { ...options, context, actions, structuredResponse: completedEnvelopeValue,
+    configuration: { ...configuration, outputSchema: completedEnvelopeSchema, ...options.configuration } });
+  await f.first.close();
+  let runtime;
+  let conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "claude", storage: f.storage, actions,
+      authorize: options.authorize || (() => true), completedEnvelope: true, ...f.driverOptions });
+    conversation = await runtime.open({ id: "conversation", context });
+    return conversation;
+  }
+  await reopen();
+  const controller = new AbortController();
+  return { ...f, context, controller, effects: () => effects, reopen,
+    get conversation() { return conversation; }, close: () => runtime.close(),
+    async complete(messageId = "completed-response") {
+      const receipt = await conversation.wake({ messageId, text: "Read a number" });
+      const state = await conversation.wait();
+      const turn = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(turn.metadata.runtime.status, "complete", state.error);
+      assert.equal(turn.metadata.runtime.completedEnvelope, true);
+      assert.equal(turn.assistant.text, JSON.stringify(completedEnvelopeValue));
+      return { messageId, turnId: receipt.turnId };
+    },
+    prepare: receipt => conversation.prepareCompletedResponse(receipt, { signal: controller.signal }) };
+}
+const executeCompletedEnvelope = (prepared, argumentsText = "{}") => prepared.tools.execute({
+  id: prepared.toolCallId, name: "numbers_read", arguments: argumentsText
+});
+
+test("completed Claude envelopes reuse one durable receipt across prepared handles and restart", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const one = await f.prepare(receipt);
+    const two = await f.prepare(receipt);
+    const [first, second] = await Promise.all([executeCompletedEnvelope(one), executeCompletedEnvelope(two)]);
+    assert.equal(first.ok, true);
+    assert.deepEqual(second, first);
+    assert.equal(f.effects(), 1);
+    await assert.rejects(executeCompletedEnvelope(two, '{"different":true}'), /different arguments/);
+    await assert.rejects(two.tools.execute({ id: "foreign-operation", name: "numbers_read", arguments: "{}" }), /different completed response identity/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools.length, 1);
+    assert.equal(saved.metadata.applicationTools[0].id, one.toolCallId);
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    await f.reopen();
+    assert.deepEqual(await executeCompletedEnvelope(await f.prepare(receipt)), first);
+    assert.equal(f.effects(), 1, "Restoring the completed response never repeats its action");
+    const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+    assert.equal(starts.length, 1, "Account/history inspection does not launch another native turn");
+    assert.deepEqual(JSON.parse(starts[0].args.at(starts[0].args.indexOf("--mcp-config") + 1)), { mcpServers: {} });
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude response authority comes from canonical final custody, not native commentary equality", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    const project = path.join(f.driverOptions.host.env.CLAUDE_CONFIG_DIR, "projects", f.directory.replace(/[^a-zA-Z0-9]/gu, "-"));
+    const historyPath = path.join(project, binding.conversationId + ".jsonl");
+    const history = (await readFile(historyPath, "utf8")).trim().split("\n").map(row => JSON.parse(row));
+    await writeFile(historyPath, history.filter(row => row.type !== "assistant").map(row => JSON.stringify(row)).join("\n") + "\n");
+    assert.equal((await f.prepare(receipt)).text, JSON.stringify(completedEnvelopeValue),
+      "StructuredOutput successful canonical completion can have no native assistant text");
+    const prepared = await f.prepare(receipt);
+    await f.storage.write("conversation", tx => tx.replaceAssistant(receipt.turnId, { text: "Changed final" }));
+    await assert.rejects(executeCompletedEnvelope(prepared), /identity changed/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes refuse aborted or revoked worker authority before the effect", async t => {
+  let eligible = true;
+  const f = await completedEnvelopeFixture(t, { authorize: ({ operation }) => operation !== "tool" || eligible });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    eligible = false;
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_forbidden");
+    eligible = true;
+    f.controller.abort(new Error("Original product worker stopped"));
+    await assert.rejects(executeCompletedEnvelope(prepared), /Original product worker stopped/);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools?.length || 0, 0);
+  } finally { eligible = true; await f.close(); }
+});
+
+test("completed Claude invoked effects retain their result while Stop drains and worker authority is revoked", async t => {
+  let eligible = true;
+  const entered = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  const f = await completedEnvelopeFixture(t, { authorize: ({ operation }) => operation !== "tool" || eligible,
+    async execute() { entered.resolve(); await released.promise; return { value: 73 }; } });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const effect = executeCompletedEnvelope(prepared);
+    await entered.promise;
+    eligible = false;
+    f.controller.abort(new Error("Original worker stopped after invocation"));
+    let stopped = false;
+    const stopping = f.conversation.cancel().then(result => { stopped = true; return result; });
+    await Promise.resolve();
+    assert.equal(stopped, false, "Stop joins the existing serial effect owner");
+    released.resolve();
+    const result = await effect;
+    await stopping;
+    assert.equal(result.ok, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    assert.deepEqual(saved.metadata.applicationTools[0].result, result);
+    assert.equal(f.effects(), 1, "Revoked invocation authority does not discard the original result receipt");
+  } finally { released.resolve(); eligible = true; await f.close(); }
+});
+
+function completedEnvelopeStorageFault(control) {
+  return storage => ({ ...storage, write: (id, callback) => storage.write(id, transaction => callback({ ...transaction,
+    async updateTurnMetadata(turnId, metadata) {
+      if (metadata.applicationTools?.[0]?.status === control.status && control.fail) {
+        control.fail = false;
+        throw new Error("Completed application receipt storage offline");
+      }
+      return transaction.updateTurnMetadata(turnId, metadata);
+    }
+  })) });
+}
+
+test("completed Claude reservation failure executes nothing and installs no result-save retry", async t => {
+  const fault = { status: "running", fail: true };
+  const f = await completedEnvelopeFixture(t, { wrapStorage: completedEnvelopeStorageFault(fault) });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await assert.rejects(executeCompletedEnvelope(prepared), /receipt storage offline/);
+    assert.equal(f.effects(), 0);
+    assert.deepEqual(await f.conversation.retrySave(), { saved: false });
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools?.length || 0, 0);
+    assert.equal((await executeCompletedEnvelope(prepared)).ok, true);
+    assert.equal(f.effects(), 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude result-save retry preserves the exact original result without re-execution", async t => {
+  const fault = { status: "complete", fail: true };
+  const f = await completedEnvelopeFixture(t, { wrapStorage: completedEnvelopeStorageFault(fault) });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await assert.rejects(executeCompletedEnvelope(prepared), /receipt storage offline/);
+    assert.equal(f.effects(), 1);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools[0].status, "running");
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_storage_unavailable");
+    assert.deepEqual(await f.conversation.retrySave(), { saved: true });
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "complete");
+    assert.deepEqual(await executeCompletedEnvelope(prepared), saved.metadata.applicationTools[0].result);
+    assert.equal(f.effects(), 1);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude external account changes refuse repeatedly without fingerprint promotion", async t => {
+  let apiKey = "completed-old-fixture-key";
+  const f = await completedEnvelopeFixture(t, { configuration: { integrationId: "foreign", model: undefined, effort: "low" },
+    connections: { resolve: async () => ({ providerId: "deepseek", model: "deepseek-flash", apiKey }) } });
+  try {
+    const receipt = await f.complete();
+    const before = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    apiKey = "completed-replaced-fixture-key";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assert.rejects(f.prepare(receipt), /different account or provider connection/);
+      assert.deepEqual(await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding), before);
+    }
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.frame?.request?.subtype === "interrupt").length, 0,
+      "Completion inspection cannot stop/promote the old native binding");
+  } finally { await f.close(); }
+});
+
+test("completed Claude account inspection never creates a missing historical fingerprint", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      delete metadata.runtime.binding.accountIdentity;
+      await tx.writeMetadata(metadata);
+    });
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.prepare(receipt), /no saved native account fingerprint/);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.binding.accountIdentity = "different-persisted-fixture-fingerprint";
+      await tx.writeMetadata(metadata);
+    });
+    const mismatched = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assert.rejects(f.prepare(receipt), /no longer matches its saved account fingerprint/);
+      assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), mismatched);
+    }
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes refuse unmarked history and caller-supplied markers preserve ordinary tool policy", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(receipt.turnId);
+      const runtime = { ...turn.metadata.runtime };
+      delete runtime.completedEnvelope;
+      await tx.updateTurnMetadata(receipt.turnId, { runtime });
+    });
+    await assert.rejects(f.prepare(receipt), /no current verified receipt/);
+    const ordinary = await f.conversation.send({ messageId: "ordinary-user", text: "tools", data: { completedEnvelope: true } });
+    const state = await f.conversation.wait();
+    const turn = state.conversationLog.find(row => row.turnId === ordinary.turnId);
+    assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(turn.metadata.runtime.status, "complete", state.error);
+    assert.deepEqual(turn.user.data, { completedEnvelope: true });
+    const trace = await f.trace();
+    const forged = trace.filter(row => row.frame?.type === "user").at(-1).frame.message.content;
+    const forgedText = typeof forged === "string" ? forged : forged.filter(part => part.type === "text").map(part => part.text).join(" ");
+    assert.match(forgedText, /\[Application data\]/);
+    assert.match(forgedText, /"completedEnvelope":true/);
+    assert.equal(f.effects(), 0, "Wrapped data is not the original fixture's exact tools trigger");
+    await assert.rejects(f.prepare({ messageId: "ordinary-user", turnId: ordinary.turnId }), /no current verified receipt/);
+    const plain = await f.conversation.send({ messageId: "ordinary-tools", text: "tools" });
+    const final = await f.conversation.wait();
+    const plainTurn = final.conversationLog.find(row => row.turnId === plain.turnId);
+    assert.equal(plainTurn.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(plainTurn.metadata.runtime.status, "complete", final.error);
+    assert.equal(plainTurn.metadata.applicationTools.length, 3, "Ordinary native discovery remains enabled in the opt-in runtime");
+    assert.equal(f.effects(), 1);
+    await assert.rejects(f.prepare({ messageId: "ordinary-tools", turnId: plain.turnId }), /no current verified receipt/);
+    const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+    assert.equal(starts.length, 2, "The existing comparator resumes once when application MCP availability changes");
+    assert.deepEqual(JSON.parse(starts[0].args.at(starts[0].args.indexOf("--mcp-config") + 1)), { mcpServers: {} });
+    assert.deepEqual(JSON.parse(starts[1].args.at(starts[1].args.indexOf("--mcp-config") + 1)), {
+      mcpServers: { application: { type: "sdk", name: "application" } }
+    });
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes refuse successors, active native work and foreign binding custody", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const old = await f.complete("older-response");
+    const prepared = await f.prepare(old);
+    const current = await f.complete("newer-response");
+    await assert.rejects(executeCompletedEnvelope(prepared), /newer completed response/);
+    const currentPrepared = await f.prepare(current);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await f.storage.write("conversation", tx => tx.writeMetadata({ ...before,
+      runtime: { ...before.runtime, binding: { ...before.runtime.binding, conversationId: "foreign-native-session" } } }));
+    await assert.rejects(f.prepare(current), /different native conversation or host scope/,
+      "Initial inspection cannot authorize a changed canonical conversation using a cached native entry");
+    await assert.rejects(executeCompletedEnvelope(currentPrepared));
+    await f.storage.write("conversation", tx => tx.writeMetadata(before));
+    await f.conversation.wake({ messageId: "active-response", text: "wait" });
+    await assert.rejects(f.prepare(current), error => error.code === "conversation_busy");
+    await f.conversation.cancel();
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "new-pending-response", origin: "application", text: "Pending",
+        at: new Date().toISOString(), attempted: false, completedEnvelope: true };
+      await tx.writeMetadata(metadata);
+    });
+    await assert.rejects(f.prepare(current), /no current verified receipt/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude envelopes never backfill an old unmarked application reservation", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "old-unmarked", text: "Read a number", origin: "application",
+        attachments: [], at: new Date().toISOString(), attempted: false };
+      await tx.writeMetadata(metadata);
+    });
+    const receipt = await f.conversation.wake({ messageId: "old-unmarked", text: "Read a number", data: undefined });
+    const state = await f.conversation.wait();
+    const turn = state.conversationLog.find(row => row.turnId === receipt.turnId);
+    assert.equal(turn.metadata.runtime.status, "complete", state.error);
+    assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+    await assert.rejects(f.prepare({ messageId: "old-unmarked", turnId: receipt.turnId, completedEnvelope: true }), /no current verified receipt/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude effect-boundary revocation records a verified not-executed result", async t => {
+  let eligible = true;
+  let revoke = false;
+  const f = await completedEnvelopeFixture(t, {
+    authorize: ({ operation }) => operation !== "tool" || eligible,
+    wrapStorage: storage => ({ ...storage, write: (id, callback) => storage.write(id, transaction => callback({ ...transaction,
+      async updateTurnMetadata(turnId, metadata) {
+        await transaction.updateTurnMetadata(turnId, metadata);
+        if (revoke && metadata.applicationTools?.[0]?.status === "running") eligible = false;
+      }
+    })) })
+  });
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    revoke = true;
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_forbidden");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "not-executed");
+    assert.equal(saved.metadata.applicationTools[0].result.error.code, "conversation_tool_not_executed");
+    eligible = true;
+    const result = await executeCompletedEnvelope(prepared);
+    assert.deepEqual(result, saved.metadata.applicationTools[0].result);
+    assert.equal(f.effects(), 0, "A saved non-effect receipt also deduplicates without execution");
+  } finally { eligible = true; await f.close(); }
+});
+
+test("completed Claude custody retains logical binding while existing process references refresh", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await f.storage.write("conversation", tx => tx.writeMetadata({ ...before,
+      runtime: { ...before.runtime, binding: { ...before.runtime.binding, executionId: "", processDirectory: "" } } }));
+    try {
+      assert.equal((await executeCompletedEnvelope(prepared)).ok, true);
+      assert.equal(f.effects(), 1);
+      const after = await f.storage.read("conversation", tx => tx.readMetadata());
+      const persistent = ({ executionId, processDirectory, ...binding }) => binding;
+      assert.deepEqual(persistent(after.runtime.binding), persistent(before.runtime.binding));
+    } finally {
+      await f.storage.write("conversation", async tx => {
+        const current = await tx.readMetadata();
+        current.runtime.binding = before.runtime.binding;
+        await tx.writeMetadata(current);
+      });
+    }
+  } finally { await f.close(); }
+});
+
+test("completed Claude unknown application outcomes never replay after the actual action fails", async t => {
+  const f = await completedEnvelopeFixture(t, { execute() { throw new Error("Actual application operation failed"); } });
+  try {
+    const receipt = await f.complete();
+    const first = await f.prepare(receipt);
+    const second = await f.prepare(receipt);
+    await assert.rejects(executeCompletedEnvelope(first), error => error.code === "conversation_tool_outcome_unknown");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.applicationTools[0].status, "unknown");
+    assert.equal(saved.metadata.applicationTools[0].result.ok, false);
+    assert.ok(saved.metadata.applicationTools[0].result.error.status >= 500);
+    await assert.rejects(executeCompletedEnvelope(second), error => error.code === "conversation_tool_outcome_unknown");
+    await f.reopen();
+    await assert.rejects(executeCompletedEnvelope(await f.prepare(receipt)), error => error.code === "conversation_tool_outcome_unknown");
+    assert.equal(f.effects(), 1);
+  } finally { await f.close(); }
+});
+
+test("completed Claude saved running application custody refuses an unconfirmed effect", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await f.storage.write("conversation", tx => tx.updateTurnMetadata(receipt.turnId, { applicationTools: [{
+      id: prepared.toolCallId, name: "numbers_read", arguments: "{}", status: "running", at: new Date().toISOString()
+    }] }));
+    await assert.rejects(executeCompletedEnvelope(prepared), error => error.code === "conversation_tool_outcome_unknown");
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools[0].status, "running");
+  } finally { await f.close(); }
+});
+
+
+for (const name of ["numbers_read", "mcp__application__numbers_read", "StructuredOutput", "unrelated_native_tool"]) {
+  test(`completed Claude native-tool tracking classifies the authorized name ${name} without publishing its arguments`, async t => {
+    const privateArgument = "native-tool-private-argument-must-not-leak";
+    const f = await completedEnvelopeFixture(t, { nativeToolUse: { name, input: { privateArgument } } });
+    const events = [];
+    await f.conversation.subscribe(event => events.push(event));
+    try {
+      const receipt = await f.complete();
+      const expected = name === "numbers_read" || name === "mcp__application__numbers_read";
+      assert.equal((await f.prepare(receipt)).nativeToolAttempt, expected);
+      const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(saved.metadata.runtime.nativeToolAttempt, expected);
+      assert.equal(saved.metadata.applicationTools, undefined, "Observing a native attempt does not execute an application action");
+      assert.equal(f.effects(), 0);
+      assert.equal(events.some(event => event.type === "provider-event"), false);
+      assert.equal(JSON.stringify(events).includes(privateArgument), false);
+      assert.equal(JSON.stringify(saved).includes(privateArgument), false);
+      await f.reopen();
+      assert.equal((await f.prepare(receipt)).nativeToolAttempt, expected, "A restart retains actual tracking evidence");
+      assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    } finally { await f.close(); }
+  });
+}
+
+test("completed Claude native-tool tracking refuses an older marked reservation with unknown evidence", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "old-marked-unknown", text: "Read a number", origin: "application",
+        attachments: [], at: new Date().toISOString(), attempted: false, completedEnvelope: true };
+      await tx.writeMetadata(metadata);
+    });
+    const receipt = await f.complete("old-marked-unknown");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.nativeToolAttempt, undefined);
+    await assert.rejects(f.prepare(receipt), /no native tool-attempt evidence/);
+    await f.reopen();
+    await assert.rejects(f.prepare(receipt), /no native tool-attempt evidence/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.runtime.nativeToolAttempt, undefined);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking refuses lost evidence on an already completed receipt", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(receipt.turnId);
+      delete turn.metadata.runtime.nativeToolAttempt;
+      await tx.updateTurnMetadata(receipt.turnId, { runtime: turn.metadata.runtime });
+    });
+    await assert.rejects(f.prepare(receipt), /no native tool-attempt evidence/);
+    await assert.rejects(executeCompletedEnvelope(prepared), /no native tool-attempt evidence/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking refuses marked and mixed steering before reserving a successor", async t => {
+  const waitEvent = conversationRequestText({ text: "wait", origin: "application" });
+  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { wait: waitEvent } });
+  try {
+    const marked = await f.conversation.wake({ messageId: "marked-working", text: "wait" });
+    assert.equal((await f.conversation.read()).status, "working", "The exact application wait frame genuinely holds the native turn");
+    const markedTurn = await f.storage.read("conversation", tx => tx.readTurn(marked.turnId));
+    assert.equal(markedTurn.metadata.runtime.status, "running");
+    assert.equal(markedTurn.assistant, null);
+    assert.equal((await f.trace()).find(row => row.frame?.type === "user").frame.message.content, waitEvent);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.conversation.send({ messageId: "ordinary-steer", text: "Different instruction", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    await assert.rejects(f.conversation.wake({ messageId: "marked-steer", text: "Different application instruction", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    const after = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(after.runtime.request, before.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal((await f.trace()).filter(row => row.frame?.request?.subtype === "interrupt").length, 0);
+    await f.conversation.cancel();
+    const ordinaryReceipt = await f.conversation.send({ messageId: "ordinary-working", text: "wait" });
+    assert.equal((await f.conversation.read()).status, "working");
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(ordinaryReceipt.turnId))).metadata.runtime.status, "running");
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").at(-1).frame.message.content, "wait");
+    const ordinary = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.conversation.wake({ messageId: "mixed-marked", text: "New application response", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, ordinary.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 2);
+    assert.equal(f.effects(), 0);
+    await f.conversation.cancel();
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking refuses steering a retained marked unconfirmed delivery", async t => {
+  const lostEvent = conversationRequestText({ text: "lost", origin: "application" });
+  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { lost: lostEvent } });
+  try {
+    await assert.rejects(f.conversation.wake({ messageId: "retained-marked", text: "lost" }), /not acknowledged/);
+    assert.equal((await f.conversation.wait()).status, "unconfirmed");
+    assert.equal((await f.trace()).find(row => row.frame?.type === "user").frame.message.content, lostEvent);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(before.runtime.request.completedEnvelope, true);
+    assert.equal(before.runtime.request.attempted, true);
+    await assert.rejects(f.conversation.send({ messageId: "retained-mixed-steer", text: "New instruction", steer: true }),
+      error => error.code === "conversation_not_steerable");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, before.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking preserves ordinary native steering in the opted runtime", async t => {
+  const f = await completedEnvelopeFixture(t);
+  const progress = Promise.withResolvers();
+  await f.conversation.subscribe(event => {
+    if (event.type === "message" && event.text === "Initial progress") progress.resolve();
+  });
+  try {
+    await f.conversation.send({ messageId: "ordinary-before", text: "steering" });
+    await progress.promise;
+    await f.conversation.send({ messageId: "ordinary-after", text: "Continue differently", steer: true });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "");
+    assert.equal(state.conversationLog.length, 2);
+    assert.equal(state.conversationLog[0].assistant.text, "Initial progress");
+    assert.equal(state.conversationLog[1].assistant.text, JSON.stringify(completedEnvelopeValue));
+    for (const turn of state.conversationLog) {
+      assert.equal(turn.metadata.runtime.completedEnvelope, undefined);
+      assert.equal(turn.metadata.runtime.nativeToolAttempt, undefined);
+    }
+    const trace = await f.trace();
+    assert.equal(trace.filter(row => row.args?.includes("--print")).length, 1);
+    assert.equal(trace.filter(row => row.frame?.type === "user").length, 2);
+    assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Claude native-tool tracking excludes nested-agent frames at the original receive owner", async t => {
+  const privateArgument = "nested-tool-argument-must-not-leak";
+  const f = await completedEnvelopeFixture(t, { nativeToolUse: { name: "mcp__application__numbers_read",
+    input: { privateArgument }, parentToolUseId: "parent-native-tool" } });
+  const events = [];
+  await f.conversation.subscribe(event => events.push(event));
+  try {
+    const receipt = await f.complete();
+    assert.equal((await f.prepare(receipt)).nativeToolAttempt, false);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.nativeToolAttempt, false);
+    assert.equal(JSON.stringify(events).includes(privateArgument), false);
+    assert.equal(JSON.stringify(saved).includes(privateArgument), false);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking propagates its receipt write failure before effect preparation", async t => {
+  let attempts = 0;
+  const f = await completedEnvelopeFixture(t, { nativeToolUse: { name: "numbers_read", input: {} },
+    wrapStorage: storage => ({ ...storage, write: (id, callback) => storage.write(id, transaction => callback({ ...transaction,
+      async updateTurnMetadata(turnId, metadata) {
+        if (metadata.runtime?.nativeToolAttempt === true) {
+          attempts++;
+          throw new Error("Native attempt persistence failed");
+        }
+        return transaction.updateTurnMetadata(turnId, metadata);
+      }
+    })) }) });
+  const events = [];
+  await f.conversation.subscribe(event => events.push(event));
+  try {
+    const receipt = await f.conversation.wake({ messageId: "native-attempt-write-failure", text: "Read a number" });
+    const state = await f.conversation.wait();
+    assert.equal(state.error, "Native attempt persistence failed");
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.status, "interrupted", "Original native failure cleanup stops the admitted turn before rejecting completion");
+    assert.equal(saved.metadata.runtime.error, "Native attempt persistence failed");
+    assert.equal(saved.assistant, null);
+    const settled = events.filter(event => event.type === "settled").at(-1);
+    assert.equal(settled.status, "interrupted");
+    assert.equal(settled.error, "Native attempt persistence failed");
+    assert.equal((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.binding.executionId, "");
+    assert.equal(saved.metadata.runtime.nativeToolAttempt, false);
+    assert.equal(attempts, 1, "The awaited native callback does not swallow or repeat a failed receipt write");
+    await assert.rejects(f.prepare({ messageId: receipt.messageId, turnId: receipt.turnId }),
+      error => error.code === "conversation_completed_response_unavailable");
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude native-tool tracking is part of the prepared immutable response identity", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await f.complete();
+    const prepared = await f.prepare(receipt);
+    assert.equal(prepared.nativeToolAttempt, false);
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(receipt.turnId);
+      await tx.updateTurnMetadata(receipt.turnId, { runtime: { ...turn.metadata.runtime, nativeToolAttempt: true } });
+    });
+    await assert.rejects(executeCompletedEnvelope(prepared), /completed response identity changed/);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Claude presentation pages hide internal carriers while preserving raw completion and current errors", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", tx => tx.appendMessage("000001", {
+      role: "user", messageId: "product-a", text: "Visible A", at: "2026-10-10T00:00:00.000Z"
+    }));
+    const first = await f.complete("internal-a");
+    await f.storage.write("conversation", tx => tx.appendMessage("000003", {
+      role: "user", messageId: "product-b", text: "Visible B", at: "2026-10-10T00:00:01.000Z"
+    }));
+    const last = await f.complete("internal-b");
+    const all = await f.conversation.read();
+    assert.equal(all.status, "ready");
+    assert.deepEqual(all.conversationLog.map(turn => turn.user.text), ["Visible A", "Visible B"]);
+    const page = await f.conversation.read({ limit: 1, presentation: false });
+    assert.deepEqual(page.conversationLog.map(turn => turn.turnId), ["000003"]);
+    assert.equal(page.pagination.totalTurnCount, 2);
+    assert.equal(page.pagination.count, 1);
+    assert.equal(page.pagination.hasMoreBefore, true);
+    assert.equal(page.pagination.nextBeforeTurnId, "000003");
+    const older = await f.conversation.read({ limit: 1, beforeTurnId: page.pagination.nextBeforeTurnId });
+    assert.deepEqual(older.conversationLog.map(turn => turn.turnId), ["000001"]);
+    assert.equal(older.pagination.hasMoreBefore, false);
+    await f.storage.write("conversation", async tx => {
+      const turn = await tx.readTurn(last.turnId);
+      await tx.updateTurnMetadata(last.turnId, { runtime: { ...turn.metadata.runtime, error: "Exact private completion error" } });
+    });
+    assert.equal((await f.conversation.read({ limit: 1, beforeTurnId: "000003" })).error, "Exact private completion error");
+    for (const receipt of [first, last]) {
+      const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(raw.metadata.runtime.status, "complete");
+      assert.equal(raw.metadata.runtime.completedEnvelope, true);
+      assert.equal(raw.assistant.text, JSON.stringify(completedEnvelopeValue));
+    }
+    assert.equal((await f.storage.read("conversation", tx => tx.listTurnIds())).length, 4);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude wake exclusions retain all product fingerprints only after the actual internal admission", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    await f.storage.write("conversation", async tx => {
+      for (const [turnId, messageId, text] of [["000001", "batch-a", "Product A"], ["000002", "batch-b", "Product B"]]) {
+        await tx.appendMessage(turnId, { role: "user", messageId, text, at: "2026-10-10T00:00:00.000Z" });
+      }
+    });
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, {});
+    const receipt = await f.conversation.wake({ messageId: "internal-batch", text: "Read a number" },
+      { excludedMessageIds: ["batch-a", "batch-b"] });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready");
+    assert.deepEqual(state.conversationLog.map(turn => turn.user.messageId), ["batch-a", "batch-b"]);
+    const { claudeNativeMessageId } = await import("../src/server/conversation/claudeTurn.js");
+    const nativeMessageId = claudeNativeMessageId(receipt.messageId);
+    const frames = (await f.trace()).filter(row => row.frame?.type === "user" && row.frame.uuid === nativeMessageId);
+    assert.equal(frames.length, 1, "The original Claude ID mapper identifies exactly one actual admitted native input");
+    const frame = frames[0].frame;
+    assert.equal(frame.uuid, nativeMessageId);
+    assert.doesNotMatch(frame.message.content, /Product A|Product B/);
+    const { runtime } = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.ok(runtime.seen["000001/user/"]);
+    assert.ok(runtime.seen["000002/user/"]);
+    assert.equal(runtime.request, undefined);
+    const internal = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(internal.system.messageId, "internal-batch");
+    assert.equal(internal.metadata.runtime.completedEnvelope, true);
+    assert.equal(internal.metadata.runtime.excludedMessageIds, undefined, "The capture belongs to the private pending request, not a permanent receipt promotion");
+    assert.equal(internal.system.data, undefined);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude retained wake exclusions cannot change on a same-ID retry or backfill old reservations", async t => {
+  const lostEvent = conversationRequestText({ text: "lost", origin: "application" });
+  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { lost: lostEvent } });
+  try {
+    const options = { excludedMessageIds: ["batch-a"] };
+    await assert.rejects(f.conversation.wake({ messageId: "lost-exclusions", text: "lost" }, options), /not acknowledged/);
+    options.excludedMessageIds.push("batch-b");
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(before.runtime.request.excludedMessageIds, ["batch-a"]);
+    assert.equal(before.runtime.request.attempted, true);
+    assert.deepEqual(before.runtime.seen, {});
+    const visible = await f.conversation.read();
+    assert.equal(visible.status, "unconfirmed");
+    assert.equal(visible.pendingRequest, null);
+    assert.deepEqual(visible.conversationLog, []);
+    await f.reopen();
+    const retained = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(retained.runtime.request.excludedMessageIds, before.runtime.request.excludedMessageIds);
+    assert.deepEqual(retained.runtime.request.seen, before.runtime.request.seen);
+    assert.equal(retained.runtime.request.message, before.runtime.request.message);
+    await assert.rejects(f.conversation.wake({ messageId: "lost-exclusions", text: "lost" }, options),
+      error => error.code === "conversation_message_conflict");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, retained.runtime.request);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    await assert.rejects(f.conversation.wake({ messageId: "different-exclusions", text: "Read a number" }, { excludedMessageIds: ["batch-a"] }),
+      error => ["conversation_delivery_uncertain", "conversation_not_steerable"].includes(error.code));
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, retained.runtime.request);
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.request = { messageId: "old-exclusions", origin: "application", text: "Read a number", attachments: [],
+        at: "2026-10-10T00:00:00.000Z", attempted: false };
+      await tx.writeMetadata(metadata);
+    });
+    const old = await f.storage.read("conversation", tx => tx.readMetadata());
+    await assert.rejects(f.conversation.wake({ messageId: "old-exclusions", text: "Read a number" }, { excludedMessageIds: ["batch-a"] }),
+      error => error.code === "conversation_message_conflict");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.request, old.runtime.request);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+test("completed Claude subscribers keep trusted raw carriers while human reads omit private streams and pending input", async t => {
+  const f = await completedEnvelopeFixture(t);
+  const events = [];
+  const observations = [];
+  await f.conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "message" && event.completedEnvelope === true) observations.push(f.conversation.read());
+  });
+  try {
+    const receipt = await f.complete();
+    const raw = events.filter(event => event.type === "message" && event.status === "complete");
+    assert.ok(raw.some(event => event.text === JSON.stringify(completedEnvelopeValue) && event.completedEnvelope === true));
+    assert.ok(events.some(event => event.type === "message" && event.status === "inProgress" && event.completedEnvelope === true));
+    assert.ok(observations.length);
+    for (const state of await Promise.all(observations)) {
+      assert.deepEqual(state.conversationLog, []);
+      assert.equal(state.pendingRequest, null);
+      assert.deepEqual(state.streaming.messages, []);
+    }
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).assistant.text,
+      JSON.stringify(completedEnvelopeValue));
+    await f.conversation.send({ messageId: "ordinary-data", text: "Hello", data: {
+      completedEnvelope: true, excludedMessageIds: ["ordinary-data"]
+    } });
+    const ordinary = await f.conversation.wait();
+    assert.equal(ordinary.conversationLog.length, 1);
+    assert.equal(ordinary.conversationLog[0].metadata.runtime.completedEnvelope, undefined);
+    assert.deepEqual(ordinary.conversationLog[0].user.data, { completedEnvelope: true, excludedMessageIds: ["ordinary-data"] });
+    assert.ok(events.some(event => event.type === "message" && event.status === "complete" && event.completedEnvelope === undefined));
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude wake rejects invalid private exclusions without creating a native reservation", async t => {
+  const f = await completedEnvelopeFixture(t);
+  try {
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (const excludedMessageIds of [null, [""], [" "], ["x".repeat(129)], ["duplicate", "duplicate"], [1]]) {
+      await assert.rejects(f.conversation.wake({ messageId: "invalid-exclusions", text: "Read a number" }, { excludedMessageIds }),
+        error => error.code === "conversation_invalid_message");
+      assert.deepEqual(await f.storage.read("conversation", tx => tx.readMetadata()), before);
+    }
+    const trace = await f.trace().catch(error => { if (error.code === "ENOENT") return []; throw error; });
+    assert.equal(trace.filter(row => row.frame?.type === "user").length, 0);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+
+// A reply carrier uses the same original executable/native history fixture, not
+// a manufactured completion or a second product transcript implementation.
+async function completedReplyFixture(t, options = {}) {
+  const value = { kind: "reply", text: "  Verified plain reply.  ", toolName: "", arguments: "" };
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  let effects = 0;
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const f = await fixture(t, { ...options, context, actions, structuredResponse: value,
+    configuration: { ...configuration, outputSchema: completedEnvelopeSchema } });
+  await f.first.close();
+  const { createConversationTranscript } = await import("../src/server/conversation/transcript.js");
+  const transcript = createConversationTranscript({ storage: f.storage });
+  let runtime;
+  let conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "claude", storage: f.storage, actions,
+      authorize: options.authorize || (() => true), completedEnvelope: true, ...f.driverOptions });
+    conversation = await runtime.open({ id: "conversation", context });
+  }
+  await reopen();
+  const controller = new AbortController();
+  return { ...f, transcript, value, controller, reopen, effects: () => effects,
+    get conversation() { return conversation; }, close: () => runtime.close(),
+    plain: (messageId, text = "Actual product user words") => transcript.writeConversationUserMessage("conversation", {
+      messageId, text, data: { original: true }
+    }),
+    async complete(messageId = "completed-reply", excludedMessageIds = []) {
+      const receipt = await conversation.wake({ messageId, text: "Give a reply" }, { excludedMessageIds });
+      const state = await conversation.wait();
+      const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+      assert.equal(saved.metadata.runtime.status, "complete", state.error);
+      assert.equal(saved.metadata.runtime.completedEnvelope, true);
+      assert.equal(saved.assistant.text, JSON.stringify(value));
+      return { messageId, turnId: receipt.turnId };
+    },
+    prepare: receipt => conversation.prepareCompletedResponse(receipt, { signal: controller.signal }) };
+}
+
+test("completed Claude prepared reply atomically publishes one plain final across handles and restart", async t => {
+  const f = await completedReplyFixture(t);
+  try {
+    const plain = await f.plain("product-reply");
+    const receipt = await f.complete("internal-reply", [plain.user.messageId]);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    const first = await f.prepare(receipt);
+    const second = await f.prepare(receipt);
+    first.text = JSON.stringify({ kind: "reply", text: "Caller supplied replacement" });
+    const [one, two] = await Promise.all([first.publishReply({ turnId: plain.turnId }), second.publishReply({ turnId: plain.turnId })]);
+    assert.deepEqual(two, one);
+    assert.equal(one.assistant.text, "Verified plain reply.");
+    assert.deepEqual(one.user, plain.user);
+    assert.equal(one.metadata?.runtime?.engine, undefined);
+    const { conversationMessageIdentity, conversationMessageVersion } = await import("../src/server/conversation/continuity.js");
+    const identity = conversationMessageIdentity(plain.turnId, one.assistant);
+    const after = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.deepEqual(after.runtime.seen, { ...before.runtime.seen,
+      [identity]: conversationMessageVersion(one.assistant, { includeData: true }) });
+    const internal = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.deepEqual(internal.assistant, raw.assistant);
+    assert.deepEqual(internal.system, raw.system);
+    assert.deepEqual(internal.metadata.runtime, { ...raw.metadata.runtime, publishedReplyTurnId: plain.turnId });
+    assert.equal(internal.metadata.applicationTools, undefined);
+    await assert.rejects(second.publishReply({ turnId: plain.turnId, text: "Untrusted text" }), TypeError);
+    await f.reopen();
+    assert.deepEqual(await (await f.prepare(receipt)).publishReply({ turnId: plain.turnId }), one);
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, after.runtime.seen);
+    assert.deepEqual((await f.conversation.read()).conversationLog.map(turn => turn.assistant?.text), ["Verified plain reply."]);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal((await f.trace()).filter(row => row.args?.includes("--print")).length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude prepared reply refuses foreign targets, existing finals and consumed identities", async t => {
+  const f = await completedReplyFixture(t);
+  try {
+    const empty = await f.plain("empty-target");
+    const populated = await f.plain("populated-target");
+    await f.transcript.upsertConversationAssistantMessage("conversation", { turnId: populated.turnId, text: "Unassociated final" });
+    const consumed = await f.plain("consumed-target");
+    const owned = await f.plain("native-owned-target");
+    const receipt = await f.complete("target-check", [empty.user.messageId, populated.user.messageId, consumed.user.messageId, owned.user.messageId]);
+    await f.storage.write("conversation", async tx => {
+      const metadata = await tx.readMetadata();
+      metadata.runtime.seen[`${consumed.turnId}/assistant/`] = "Retained prior consumption";
+      await tx.writeMetadata(metadata);
+      await tx.updateTurnMetadata(owned.turnId, { runtime: { engine: "claude" } });
+    });
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    for (const turnId of ["missing", receipt.turnId, populated.turnId, consumed.turnId, owned.turnId]) {
+      await assert.rejects(prepared.publishReply({ turnId }), error => error.code === "conversation_tool_receipt_conflict");
+    }
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(populated.turnId))).assistant.text, "Unassociated final");
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(consumed.turnId))).assistant, null);
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, before.runtime.seen);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.runtime.publishedReplyTurnId, undefined);
+    const published = await prepared.publishReply({ turnId: empty.turnId });
+    await assert.rejects((await f.prepare(receipt)).publishReply({ turnId: consumed.turnId }), /target or text changed/);
+    assert.equal(published.assistant.text, "Verified plain reply.");
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude prepared reply refuses edited or cleared finals without rewriting consumption", async t => {
+  const f = await completedReplyFixture(t);
+  try {
+    const plain = await f.plain("edited-target");
+    const receipt = await f.complete("edit-check", [plain.user.messageId]);
+    const prepared = await f.prepare(receipt);
+    const published = await prepared.publishReply({ turnId: plain.turnId });
+    const seen = (await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen;
+    await f.transcript.upsertConversationAssistantMessage("conversation", { turnId: plain.turnId, text: "Actual user edit" });
+    await assert.rejects(prepared.publishReply({ turnId: plain.turnId }), /target or text changed/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(plain.turnId))).assistant.text, "Actual user edit");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, seen);
+    // The original replaceAssistant owner clears this saved final, preserving
+    // the persisted consumed version instead of acknowledging an edit.
+    await f.storage.write("conversation", tx => tx.replaceAssistant(plain.turnId, { text: "" }));
+    await f.reopen();
+    await assert.rejects((await f.prepare(receipt)).publishReply({ turnId: plain.turnId }), /target or text changed/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(plain.turnId))).assistant.text, "");
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, seen);
+    assert.notEqual(published.assistant.text, "");
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude prepared reply rolls back final and cursor together when receipt persistence fails", async t => {
+  let failPublication = false;
+  let commits = 0;
+  const f = await completedReplyFixture(t, { wrapStorage: storage => ({ ...storage,
+    write: (id, callback) => storage.write(id, async tx => {
+      let replaced = false;
+      const result = await callback({ ...tx,
+        async replaceAssistant(...args) { replaced = true; return tx.replaceAssistant(...args); },
+        async updateTurnMetadata(turnId, patch) {
+          if (failPublication && patch.runtime?.publishedReplyTurnId) throw new Error("Actual reply receipt write failed");
+          return tx.updateTurnMetadata(turnId, patch);
+        } });
+      if (replaced) commits++;
+      return result;
+    }) }) });
+  try {
+    const plain = await f.plain("rollback-target");
+    const receipt = await f.complete("rollback-check", [plain.user.messageId]);
+    const prepared = await f.prepare(receipt);
+    const before = await f.storage.read("conversation", tx => tx.readMetadata());
+    const raw = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    commits = 0;
+    failPublication = true;
+    await assert.rejects(prepared.publishReply({ turnId: plain.turnId }), /Actual reply receipt write failed/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(plain.turnId))).assistant, null);
+    assert.deepEqual(await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId)), raw);
+    assert.deepEqual((await f.storage.read("conversation", tx => tx.readMetadata())).runtime.seen, before.runtime.seen);
+    assert.equal(commits, 0, "The failed nested upsert never commits independently");
+    failPublication = false;
+    const published = await prepared.publishReply({ turnId: plain.turnId });
+    assert.equal(published.assistant.text, "Verified plain reply.");
+    assert.equal(commits, 1, "Final, exact response link and assistant cursor share one storage commit");
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { failPublication = false; await f.close(); }
+});
+
+test("completed Claude prepared reply checks live worker authority and account again before publication", async t => {
+  let eligible = true;
+  const f = await completedReplyFixture(t, { authorize: ({ operation }) => operation !== "tool" || eligible });
+  try {
+    const plain = await f.plain("authority-target");
+    const receipt = await f.complete("authority-check", [plain.user.messageId]);
+    const prepared = await f.prepare(receipt);
+    eligible = false;
+    await assert.rejects(prepared.publishReply({ turnId: plain.turnId }), error => error.code === "conversation_forbidden");
+    eligible = true;
+    await writeFile(f.account, "different@example.test");
+    await assert.rejects(prepared.publishReply({ turnId: plain.turnId }));
+    await writeFile(f.account, "owner@example.test");
+    f.controller.abort(new Error("Original product worker stopped before reply"));
+    await assert.rejects(prepared.publishReply({ turnId: plain.turnId }), /Original product worker stopped before reply/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(plain.turnId))).assistant, null);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.runtime.publishedReplyTurnId, undefined);
+    assert.equal(f.effects(), 0);
+  } finally { eligible = true; await f.close(); }
+});
+
+test("completed Claude receipt cannot publish a final and execute an application effect in either order", async t => {
+  for (const effectFirst of [false, true]) {
+    await t.test(effectFirst ? "effect before publication" : "publication before effect", async t => {
+      const f = await completedReplyFixture(t);
+      try {
+        const plain = await f.plain("exclusive-target");
+        const receipt = await f.complete("exclusive-check", [plain.user.messageId]);
+        const one = await f.prepare(receipt);
+        const two = await f.prepare(receipt);
+        if (effectFirst) {
+          assert.equal((await executeCompletedEnvelope(one)).ok, true);
+          await assert.rejects(two.publishReply({ turnId: plain.turnId }), /does not own a plain reply/);
+          assert.equal((await f.storage.read("conversation", tx => tx.readTurn(plain.turnId))).assistant, null);
+          assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.runtime.publishedReplyTurnId, undefined);
+          assert.equal(f.effects(), 1);
+        } else {
+          await one.publishReply({ turnId: plain.turnId });
+          await assert.rejects(executeCompletedEnvelope(two), /already published its plain reply/);
+          assert.equal((await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId))).metadata.applicationTools, undefined);
+          assert.equal(f.effects(), 0);
+        }
+      } finally { await f.close(); }
+    });
+  }
+});
+
+test("completed Claude prepared reply refuses a native application-tool misroute and a tool envelope", async t => {
+  const f = await completedReplyFixture(t, { nativeToolUse: { name: "numbers_read", input: { privateArgument: "Not a reply" } } });
+  try {
+    const plain = await f.plain("misroute-target");
+    const receipt = await f.complete("misroute-reply", [plain.user.messageId]);
+    const prepared = await f.prepare(receipt);
+    assert.equal(prepared.nativeToolAttempt, true);
+    await assert.rejects(prepared.publishReply({ turnId: plain.turnId }), /does not own a plain reply/);
+    assert.equal((await f.storage.read("conversation", tx => tx.readTurn(plain.turnId))).assistant, null);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+  const tool = await completedEnvelopeFixture(t);
+  try {
+    const receipt = await tool.complete("tool-not-final");
+    await tool.storage.write("conversation", tx => tx.appendMessage("000002", {
+      role: "user", messageId: "tool-target", text: "Product words", at: "2026-10-10T00:00:00.000Z"
+    }));
+    await assert.rejects((await tool.prepare(receipt)).publishReply({ turnId: "000002" }), /does not own a plain reply/);
+    assert.equal((await tool.storage.read("conversation", tx => tx.readTurn("000002"))).assistant, null);
+    assert.equal(tool.effects(), 0);
+  } finally { await tool.close(); }
+});
+
+
+// Wire capacity belongs to a trusted internal carrier; decoded human/tool fields
+// keep the original fixed-envelope bounds. Reuse the original native executable.
+const completedClaudeWireSchema = { type: "object", additionalProperties: false,
+  required: ["kind", "text", "toolName", "arguments"], properties: {
+    kind: { type: "string", enum: ["reply", "tool"] }, text: { type: "string", maxLength: 16000 },
+    toolName: { type: "string", maxLength: 256 }, arguments: { type: "string", maxLength: 262144 }
+  } };
+async function completedClaudeWireFixture(t, value, options = {}) {
+  let effects = 0;
+  const actions = applicationActions(async () => { effects++; return { value: 42 }; });
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const f = await fixture(t, { ...options, actions, context, structuredResponse: value,
+    configuration: { ...configuration, outputSchema: options.outputSchema || completedClaudeWireSchema },
+    limits: { maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455, ...options.limits } });
+  await f.first.close();
+  let runtime, conversation;
+  async function reopen() {
+    if (runtime) await runtime.close();
+    runtime = createConversationRuntime({ engine: "claude", storage: f.storage, actions,
+      authorize: () => true, completedEnvelope: true, ...f.driverOptions });
+    try { conversation = await runtime.open({ id: "conversation", context }); }
+    catch (error) { await runtime.close(); throw error; }
+  }
+  await reopen();
+  return { ...f, reopen, effects: () => effects, get conversation() { return conversation; }, close: () => runtime.close() };
+}
+
+for (const kind of ["tool", "reply"]) test(`completed Claude ${kind} wire preserves large decoded fields beyond the human cap`, async t => {
+  const handover = "😀".repeat(20000);
+  const argumentsText = JSON.stringify({ value: handover }).replace(/[\u0080-\uffff]/g,
+    character => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const value = kind === "tool" ? { kind, text: "", toolName: "numbers_read", arguments: argumentsText }
+    : { kind, text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const raw = JSON.stringify(value);
+  assert.ok(raw.length > (kind === "tool" ? 280000 : 16000));
+  if (kind === "tool") assert.equal(value.arguments.length, 240012);
+  const f = await completedClaudeWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.wake({ messageId: `large-claude-${kind}`, text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", state.error);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.status, "complete");
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.system.origin, "application");
+    assert.equal(saved.assistant.text, raw);
+    const prepared = await f.conversation.prepareCompletedResponse(receipt, { signal: new AbortController().signal });
+    assert.equal(prepared.text, raw);
+    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const decoded = readAssistantResponseEnvelope(prepared.text);
+    assert.deepEqual(decoded, value);
+    if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);
+    assert.equal(f.effects(), 0);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.deepEqual((await f.conversation.read()).conversationLog, []);
+  } finally { await f.close(); }
+});
+
+test("completed Claude wire overflow remains bounded before any decoded effect", async t => {
+  const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
+  assert.ok(JSON.stringify(value).length > 2000);
+  const f = await completedClaudeWireFixture(t, value, { outputSchema: completedEnvelopeSchema,
+    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 } });
+  try {
+    const receipt = await f.conversation.wake({ messageId: "claude-wire-overflow", text: "Read the completed envelope" });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", "The thread is idle after its failed admitted turn");
+    assert.match(state.error, /output exceeded.*size limit|final reply limit/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "interrupted");
+    assert.equal(saved.metadata.runtime.error, state.error);
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(metadata.runtime.binding.executionId, "", "The original verified Stop released its native execution");
+    assert.ok((saved.assistant?.text.length || 0) <= 2000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+for (const forged of [false, true]) test(`ordinary Claude ${forged ? "forged-data" : "unmarked"} reply keeps its human cap in completed mode`, async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedClaudeWireFixture(t, value);
+  try {
+    const receipt = await f.conversation.send({ messageId: "ordinary-wire", text: "An ordinary request",
+      ...(forged ? { data: { completedEnvelope: true } } : {}) });
+    const state = await f.conversation.wait();
+    assert.equal(state.status, "ready", "The thread is idle after its failed admitted turn");
+    assert.match(state.error, /final reply limit/);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(receipt.status, "accepted");
+    assert.equal(saved.metadata.runtime.status, "interrupted");
+    assert.equal(saved.metadata.runtime.error, state.error);
+    const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
+    assert.equal(metadata.runtime.binding.executionId, "", "The original verified Stop released its native execution");
+    assert.ok((saved.assistant?.text.length || 0) <= 16000);
+    assert.equal(saved.metadata.runtime.completedEnvelope, undefined);
+    assert.equal(saved.user.origin, "user");
+    if (forged) assert.deepEqual(saved.user.data, { completedEnvelope: true });
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.equal((await f.conversation.inspectDelivery({ messageId: receipt.messageId })).status, "accepted");
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude marked native recovery retains large raw output without replay", async t => {
+  const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
+  const f = await completedClaudeWireFixture(t, value, { applicationEventBehavior: {
+    lost: conversationRequestText({ text: "lost", origin: "application" }) } });
+  try {
+    await assert.rejects(f.conversation.wake({ messageId: "lost-marked-wire", text: "lost" }), /not acknowledged/);
+    assert.equal((await f.conversation.read()).status, "unconfirmed");
+    await f.reopen();
+    const receipt = await f.conversation.inspectDelivery({ messageId: "lost-marked-wire" });
+    assert.equal(receipt.status, "accepted");
+    assert.equal(receipt.recovered, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.metadata.runtime.status, "interrupted", "An acknowledged history row is not a fabricated successful native result");
+    assert.equal(saved.assistant.text, JSON.stringify(value));
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
+});
+
+test("completed Claude marked native recovery retains admission but rejects wire overflow", async t => {
+  const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
+  const f = await completedClaudeWireFixture(t, value, { outputSchema: completedEnvelopeSchema,
+    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 }, applicationEventBehavior: {
+      lost: conversationRequestText({ text: "lost", origin: "application" }) } });
+  try {
+    await assert.rejects(f.conversation.wake({ messageId: "lost-marked-overflow", text: "lost" }), /not acknowledged/);
+    await f.reopen();
+    const receipt = await f.conversation.inspectDelivery({ messageId: "lost-marked-overflow" });
+    assert.equal(receipt.status, "accepted");
+    assert.equal(receipt.recovered, true);
+    const saved = await f.storage.read("conversation", tx => tx.readTurn(receipt.turnId));
+    assert.equal(saved.metadata.runtime.completedEnvelope, true);
+    assert.equal(saved.metadata.runtime.status, "failed");
+    assert.notEqual(saved.assistant?.text, JSON.stringify(value));
+    assert.match((await f.conversation.read()).error, /final reply limit/);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+    assert.equal(f.effects(), 0);
+  } finally { await f.close(); }
 });
