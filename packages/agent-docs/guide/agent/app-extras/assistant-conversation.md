@@ -4002,12 +4002,15 @@ submit or move focus to Send.
 
 `readStoppedNativeDatabase` from `/server/native-history` is the shared read-only
 lifecycle for stopped native SQLite readers. It requires a canonical regular
-file and no WAL, SHM or rollback journal, opens immutable read-only with
-`query_only` and one fixed transaction, and verifies unchanged file identity
-and sidecars afterward. It never starts a native CLI, checkpoints, deletes a
-sidecar or stops admitted work. The host must use the ordinary native owner to
-stop and checkpoint writers before inspection; a missing database is not proof
-of absent native state.
+file and stopped writers. With no journal it opens immutable read-only. A valid
+stopped WAL/SHM pair is fingerprinted with the base file; exact private base/WAL
+copies let SQLite read committed pages and create its own temporary SHM. The
+native files are never opened writable. Both paths use `query_only` and one
+fixed transaction. Changed files, invalid journal headers, rollback journals and
+noncanonical files refuse inspection; private copies are removed on success,
+failure and cancellation. It never starts a native CLI, checkpoints, deletes a
+native sidecar or stops admitted work. The host must keep writers stopped through
+inspection and publication; a missing database is not proof of absent native state.
 
 `readOpenCodeConversationDatabase` from `/server/opencode-client` streams the
 native session/message/part projection through the existing bounded export and

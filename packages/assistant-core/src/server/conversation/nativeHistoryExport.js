@@ -1,43 +1,99 @@
 import path from "node:path";
-import { lstat, realpath } from "node:fs/promises";
+import { chmod, copyFile, lstat, mkdtemp, open, realpath, rm } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 
-// Two stopped native-storage readers share file custody, not provider grammar.
-// Immutable SQLite does not inspect WAL: require the original owner to close and
-// checkpoint first, without checkpointing or creating SHM during an upgrade.
+// Providers retain their grammar; stopped file custody belongs to this owner.
+// Immutable reads require no journal. A valid stopped WAL is read from private
+// copies so SQLite can build its own SHM without touching native storage.
 export async function readStoppedNativeDatabase(databasePath, read, { signal } = {}) {
   if (!path.isAbsolute(databasePath || "") || typeof read !== "function") {
     throw new TypeError("Native inspection requires an absolute database path and reader.");
   }
+  const journalError = () => new Error("Native storage still has a journal sidecar that cannot be inspected safely. Keep its original storage owner stopped; inspection does not checkpoint or remove it.");
   const inspect = async () => {
-    signal?.throwIfAborted();
-    const info = await lstat(databasePath);
-    if (!info.isFile() || info.isSymbolicLink() || await realpath(databasePath) !== databasePath) {
-      throw new Error("Native storage must be a regular file at its original canonical path.");
+    const files = {};
+    for (const suffix of ["", "-wal", "-shm", "-journal"]) {
+      signal?.throwIfAborted();
+      const file = `${databasePath}${suffix}`;
+      let info;
+      try { info = await lstat(file); }
+      catch (error) { if (suffix && error.code === "ENOENT") continue; throw error; }
+      if (!info.isFile() || info.isSymbolicLink() || await realpath(file) !== file) {
+        throw new Error("Native storage must be a regular file at its original canonical path.");
+      }
+      files[suffix] = info;
     }
-    for (const suffix of ["-wal", "-shm", "-journal"]) {
-      try { await lstat(`${databasePath}${suffix}`); }
-      catch (error) { if (error.code === "ENOENT") continue; throw error; }
-      throw new Error("Native storage still has a journal sidecar. Stop its original storage owner cleanly before retrying; inspection does not checkpoint or remove it.");
-    }
-    return info;
+    if (files["-journal"] || Boolean(files["-wal"]) !== Boolean(files["-shm"])) throw journalError();
+    return files;
   };
   const before = await inspect();
+  const fingerprint = async file => {
+    const hash = createHash("sha256");
+    try {
+      for await (const chunk of createReadStream(file, { signal })) hash.update(chunk);
+      return hash.digest("hex");
+    } catch (error) {
+      if (signal?.aborted) throw signal.reason;
+      throw error;
+    }
+  };
+  const unchanged = async (digests = null) => {
+    const after = await inspect();
+    if (JSON.stringify(Object.keys(before)) !== JSON.stringify(Object.keys(after)) ||
+        Object.keys(before).some(suffix => ["dev", "ino", "size", "mtimeMs", "ctimeMs", "mode"].some(key => before[suffix][key] !== after[suffix][key]))) {
+      throw new Error("Native storage changed during inspection. Keep all of its writers stopped before retrying.");
+    }
+    if (digests) for (const suffix of Object.keys(before)) {
+      if (await fingerprint(`${databasePath}${suffix}`) !== digests[suffix]) {
+        throw new Error("Native storage changed during inspection. Keep all of its writers stopped before retrying.");
+      }
+    }
+  };
   const { DatabaseSync } = await import("node:sqlite");
+  let directory;
   let database;
   let result;
+  let digests;
   try {
     signal?.throwIfAborted();
-    database = new DatabaseSync(`${pathToFileURL(databasePath).href}?mode=ro&immutable=1`, { readOnly: true });
+    let target = `${pathToFileURL(databasePath).href}?mode=ro&immutable=1`;
+    if (before["-wal"]) {
+      // Eligibility only: SQLite owns WAL frames, checksums and committed pages.
+      const header = Buffer.alloc(32);
+      const wal = await open(`${databasePath}-wal`, "r");
+      let bytesRead;
+      try { ({ bytesRead } = await wal.read(header, 0, header.length, 0)); }
+      finally { await wal.close(); }
+      const magic = header.readUInt32BE(0);
+      const pageSize = header.readUInt32BE(8);
+      if (bytesRead !== 32 || ![0x377f0682, 0x377f0683].includes(magic) || header.readUInt32BE(4) !== 3007000 ||
+          pageSize < 512 || pageSize > 65536 || (pageSize & (pageSize - 1)) !== 0 || before["-shm"].size < 32768) throw journalError();
+      digests = {};
+      for (const suffix of Object.keys(before)) digests[suffix] = await fingerprint(`${databasePath}${suffix}`);
+      await unchanged(digests);
+      directory = await mkdtemp(path.join(tmpdir(), "assistant-native-snapshot-"));
+      const snapshot = path.join(directory, "native.db");
+      for (const suffix of ["", "-wal"]) {
+        signal?.throwIfAborted();
+        await copyFile(`${databasePath}${suffix}`, `${snapshot}${suffix}`);
+        await chmod(`${snapshot}${suffix}`, 0o600);
+        if (await fingerprint(`${snapshot}${suffix}`) !== digests[suffix]) throw new Error("Native storage changed while copying its stopped snapshot.");
+      }
+      await unchanged(digests);
+      target = `${pathToFileURL(snapshot).href}?mode=ro`;
+    }
+    database = new DatabaseSync(target, { readOnly: true });
     database.exec("PRAGMA query_only=ON; BEGIN");
     result = await read(database);
     signal?.throwIfAborted();
     database.exec("ROLLBACK");
-  } finally { database?.close(); }
-  const after = await inspect();
-  if (["dev", "ino", "size", "mtimeMs", "ctimeMs"].some(key => before[key] !== after[key])) {
-    throw new Error("Native storage changed during inspection. Keep all of its writers stopped before retrying.");
+    await unchanged(digests);
+  } finally {
+    try { database?.close(); }
+    finally { if (directory) await rm(directory, { recursive: true, force: true }); }
   }
   return result;
 }
