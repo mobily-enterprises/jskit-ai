@@ -672,6 +672,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     const finished = recording;
     recording = null;
     if (voice.error.value) {
+      if (committing?.messageId === finished.messageId) committing = null;
       live.value = false;
       const text = voice.partialTranscript.value.trim() || voice.transcript.value.trim();
       if (text) {

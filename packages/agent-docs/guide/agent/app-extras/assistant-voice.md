@@ -177,7 +177,10 @@ return true; false leaves speech untouched. Taking an active partial uses the
 original capture cancellation and guarded hands-free restart, preserving the
 session and playback. Taking a pending review clears only that review. Once an
 interrupted review is resolved, stale partial words from its idle capture do not
-block a fresh Talk gesture or become a new request. Active capture, including
+block a fresh Talk gesture or become a new request. If capture interrupts an
+endpoint commitment, only that recording's unfinished commitment is retired;
+its retained words stay available for explicit Send, Edit or Discard. Late finals
+and resets cannot admit or replace the retained review. Active capture, including
 transcription, and pending startup, review and delivery retain their guards. Hosts
 also gate these controls while their canonical delivery has uncertain admission.
 

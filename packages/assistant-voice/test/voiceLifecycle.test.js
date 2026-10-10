@@ -4139,3 +4139,66 @@ test("discarding an interrupted review allows fresh Talk without resubmitting st
   assert.equal(listenStarts.at(-1).turnId, freshListen);
   assert.deepEqual(delivered, [], "discarded or stale words cannot become a new request");
 });
+
+
+test("an interrupted endpoint commitment retains usable review controls and rejects late final/reset replay", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const call = view.colleague, deliveries = [];
+  view.colleagueProps.submit = async (text, details) => { deliveries.push({ text, ...details }); return { ok: true }; };
+  const starting = call.toggleHandsFree(); await flushVue();
+  view.media[0].resolve(); await starting;
+  const socket = view.sockets[0], listenId = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId: listenId, text: "Complete captured direction", revision: 12 });
+  await flushVue();
+  const original = view.emitted.filter(([kind]) => kind === "transcript").at(-1)[1];
+  socket.receive({ type: "transcript.endpoint", turnId: listenId, text: original.text, revision: 12 });
+  await flushVue();
+  assert.equal(controls(socket).filter(message => message.type === "listen.commit").length, 1);
+  assert.equal(call.canTakeTranscript(original.id), false, "a healthy endpoint commitment still protects its identity");
+  // Both normal transport events arrive before Vue flushes their observers.
+  // Capture interruption wins the queued final observer, as in the mounted failure.
+  socket.receive({ type: "transcript.final", turnId: listenId, text: "Complete captured direction.", revision: 12, continuous: true });
+  socket.receive({ type: "error", turnId: listenId, message: "Voice connection was interrupted." });
+  await flushVue();
+  const pending = call.pendingTranscript.value;
+  assert.equal(view.voice.captureState.value, "idle");
+  assert.equal(call.live.value, false);
+  assert.equal(pending.messageId, original.id);
+  assert.equal(pending.text, "Complete captured direction.");
+  assert.equal(pending.reviewBeforeSend, true);
+  assert.deepEqual(pending.focus, { projectSlug: "example", sessionId: "session-a" });
+  assert.deepEqual(deliveries, [], "interruption never automatically admits retained words");
+  assert.equal(call.canTakeTranscript(original.id), true, "the interrupted commitment no longer strands Send, Edit or Discard");
+  assert.equal(await call.beginTranscriptEdit("wrong-recording"), false);
+  assert.equal(await call.beginTranscriptEdit(original.id), true);
+  call.editTranscript("", original.id);
+  socket.receive({ type: "transcript.final", turnId: listenId, text: "Late words must not replace the review", revision: 12, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId: listenId, revision: 13 });
+  await flushVue();
+  assert.equal(call.pendingTranscript.value.messageId, original.id);
+  assert.equal(call.pendingTranscript.value.text, "");
+  assert.deepEqual(deliveries, []);
+  call.editTranscript("Reviewed direction only", original.id);
+  await call.deliverTranscript(); await flushVue();
+  assert.deepEqual(deliveries, [{ text: "Reviewed direction only", messageId: original.id,
+    focus: { projectSlug: "example", sessionId: "session-a" } }]);
+  assert.equal(call.pendingTranscript.value, null);
+  assert.equal(view.media.length, 1, "manual review does not silently restart an interrupted microphone");
+  socket.receive({ type: "transcript.final", turnId: listenId, text: original.text, revision: 12, continuous: true });
+  socket.receive({ type: "transcript.reset", turnId: listenId, revision: 13 });
+  await flushVue();
+  assert.equal(deliveries.length, 1, "late final/reset cannot replay the reviewed request");
+  const restarting = call.toggleHandsFree(); await flushVue();
+  assert.equal(view.media.length, 2); view.media[1].resolve(); await restarting;
+  const freshId = view.voice.activeListenTurnId.value, freshSocket = view.sockets.at(-1);
+  freshSocket.receive({ type: "transcript.partial", turnId: freshId, text: "Discard this separate direction", revision: 1 });
+  freshSocket.receive({ type: "transcript.endpoint", turnId: freshId, text: "Discard this separate direction", revision: 1 });
+  await flushVue();
+  freshSocket.receive({ type: "error", turnId: freshId, message: "Voice connection was interrupted." });
+  await flushVue();
+  const discarded = call.pendingTranscript.value.messageId;
+  assert.notEqual(discarded, original.id);
+  assert.equal(await call.takeTranscript(discarded), true, "normal Discard also resolves an interrupted commitment");
+  assert.equal(call.pendingTranscript.value, null);
+  assert.equal(deliveries.length, 1);
+});
