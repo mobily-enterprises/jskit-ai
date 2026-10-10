@@ -562,7 +562,7 @@ for (const deferBudgetCompletion of [false, true]) test(deferBudgetCompletion
   const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
   let calls = 0;
   const f = await fixture(t, { actions: applicationActions(async () => ({ value: ++calls })), context,
-    nativeGoalObjective: "tools goal", limits: { maxToolCalls: 3 }, deferBudgetCompletion });
+    nativeGoalObjective: "tools goal", limits: { admissionTimeoutMs: 30_000, maxToolCalls: 3 }, deferBudgetCompletion });
   await f.conversation.send({ messageId: "bounded-goal", text: "native-goal" });
   const state = await f.conversation.wait();
   const trace = await f.trace();
@@ -1911,7 +1911,8 @@ test("steering resolves current attachment access and saves only its authorized 
 test("an uncertain application effect cannot become successful when steering has already produced an answer", async t => {
   const entered = Promise.withResolvers(), complete = Promise.withResolvers();
   const actions = applicationActions(async () => { entered.resolve(); return complete.promise; });
-  const f = await fixture(t, { actions, context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] } });
+  const f = await fixture(t, { actions, limits: { admissionTimeoutMs: 30_000 },
+    context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] } });
   await f.conversation.send({ messageId: "original-tools", text: "tools" });
   await entered.promise;
   await f.conversation.send({ messageId: "new-instruction", text: "Continue differently", steer: true });
@@ -3629,7 +3630,7 @@ test("ordinary Codex oversized native arguments retain exact failed-cleanup cust
   const oversized = "x".repeat(262_145);
   const f = await fixture(t, { actions: applicationActions(async () => { effects++; return { value: 42 }; }), context,
     oversizedNativeToolInput: { value: oversized }, holdAfterToolRefusal: true,
-    limits: { maxToolArgumentBytes: 262_144 } });
+    limits: { admissionTimeoutMs: 30_000, maxToolArgumentBytes: 262_144 } });
   const peer = await f.first.open({ id: "size-peer", configuration, context });
   const historyPath = path.join(f.directory, "history.json");
   refusalPath = historyPath + ".refuse-interrupt";
