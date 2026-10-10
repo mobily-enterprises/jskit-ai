@@ -2054,7 +2054,9 @@ Stop/recovery. If binding publication also fails, the original startup failure a
 in-memory custody remain, with the persistence error in `bindingError`; durable
 restart recovery is not established until that binding can be saved.
 During Claude initialization, the trusted `onStarted(executionId, stop)` callback
-shares the process factory's existing private cleanup closure. The owner keeps
+shares the process factory's existing private cleanup closure. It may follow the
+host's early ID-only publication; the turn owner accepts the cleanup receipt
+without saving or publishing the same execution again. The owner keeps
 that receipt in memory until initialization transfers the native handle or
 confirmed cleanup and binding release finish. Cancel and startup failure join the
 same stop promise; the client is not treated as initialized before its handshake.

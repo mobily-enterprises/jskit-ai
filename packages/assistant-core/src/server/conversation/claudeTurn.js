@@ -314,6 +314,7 @@ export function createClaudeConversationOwner({
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
       onStarted: async (executionId, stop) => {
         if (typeof stop === "function") entry.startupCleanup = { executionId, stop };
+        if (entry.executionId === executionId) return;
         entry.executionId = executionId;
         await store.save(entry, { execution: true });
         await onEvent(entry, { type: "execution", context, executionId });

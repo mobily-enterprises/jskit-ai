@@ -962,7 +962,7 @@ Exports
 - `openCodeStructuredOutput(value = "")`
 - `observeOpenCodeEvents(client, conversationId, { abortController, signal = abortController.signal, ...options } = {})`
 - `openCodeMessageError(message = {})`
-- `inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, { signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS) } = {})`
+- `inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, { signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS), wait = false, readFailure = () => null } = {})`
 - `steerOpenCodeTurn(client, conversationId, turn, input, { signal } = {})`
 - `dispatchOpenCodeTurn(client, conversationId, turn, input, options = {})`
 - `openCodeMessageRows(value = null)`
