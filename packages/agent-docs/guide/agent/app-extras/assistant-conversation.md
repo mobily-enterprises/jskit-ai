@@ -1904,6 +1904,16 @@ writer permits that allowance. Ordinary replies, goals and forged message data
 retain the human limit. The completed-envelope parser still enforces its decoded
 field bounds; this wire allowance grants neither tool nor publication authority.
 
+Codex's canonical assistant, commentary and thinking writes resolve the existing
+native authorship before appending a marked application's response. Its exact
+private turn remains the target when the application has already saved newer human
+messages. Generated native message and output IDs stay intact; an explicit
+correction retains its original target. A verified marked request whose original
+row is absent refuses before appending, rather than using a newer human row.
+Ordinary unpinned transcript writes keep
+their existing latest-open-turn behavior. No new native receipt or history repair
+is inferred from a later human message.
+
 Preparation requires the exact saved successful assistant response, current native
 binding and saved account fingerprint. Native input inspection verifies that
 association; it does not establish completion or rewrite an absent account identity.
