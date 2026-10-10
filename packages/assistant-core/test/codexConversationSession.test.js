@@ -3819,7 +3819,6 @@ for (const delayMs of [1000, 2000]) {
       assert.equal(history.turns[0].items[0].clientId, "user-1");
     } catch (error) {
       firstError = error;
-      throw error;
     } finally {
       try {
         const beforeStop = await f.conversation.read();
@@ -3833,9 +3832,10 @@ for (const delayMs of [1000, 2000]) {
         assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1, "Stop does not replay the original native request");
         assert.equal(effects, 0);
       } catch (error) {
-        if (!firstError) throw error;
-        t.diagnostic(`R06 cleanup also failed; preserving the first assertion: ${error.stack || error.message}`);
+        if (firstError) t.diagnostic(`R06 cleanup also failed; preserving the first assertion: ${error.stack || error.message}`);
+        else firstError = error;
       }
     }
+    if (firstError) throw firstError;
   });
 }
