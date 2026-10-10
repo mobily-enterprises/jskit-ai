@@ -173,7 +173,10 @@ committing or sending messages. An optional synchronous `transfer(text)` must
 recheck the host's empty typed draft, set it through its original setter, and
 return true; false leaves speech untouched. Taking an active partial uses the
 original capture cancellation and guarded hands-free restart, preserving the
-session and playback. Taking a pending review clears only that review. Hosts
+session and playback. Taking a pending review clears only that review. Once an
+interrupted review is resolved, stale partial words from its idle capture do not
+block a fresh Talk gesture or become a new request. Active capture, including
+transcription, and pending startup, review and delivery retain their guards. Hosts
 also gate these controls while their canonical delivery has uncertain admission.
 
 For custom compositions, its optional `toolsTarget` is a DOM element belonging

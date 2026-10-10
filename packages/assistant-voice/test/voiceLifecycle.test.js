@@ -4096,3 +4096,46 @@ for (const failedReader of ["global", "coding", "colleague"]) {
     assert.equal(deliveries[1].text, "Explicit immediate direction");
   });
 }
+
+
+test("discarding an interrupted review allows fresh Talk without resubmitting stale partial words, while active capture and transcription remain guarded", async t => {
+  const view = mountVoice(t, { colleague: true });
+  const call = view.colleague, delivered = [];
+  view.colleagueProps.submit = async (text, details) => { delivered.push({ text, ...details }); return { ok: true }; };
+  const starting = call.toggleHandsFree(); await flushVue();
+  view.media[0].resolve(); await starting;
+  const socket = view.sockets[0], originalListen = view.voice.activeListenTurnId.value;
+  socket.receive({ type: "transcript.partial", turnId: originalListen, text: "Sation", revision: 1 });
+  await flushVue();
+  assert.equal(call.callModeBusy.value, true, "active partial words still protect the current recording");
+  await call.changeCallMode("push-to-talk");
+  assert.equal(call.callMode.value, "hands-free");
+  await view.voice.stopListening(); await flushVue();
+  assert.equal(view.voice.captureState.value, "transcribing");
+  assert.equal(call.callModeBusy.value, true, "the final interpretation remains capture-owned");
+  await call.changeCallMode("push-to-talk");
+  assert.equal(call.callMode.value, "hands-free");
+  socket.close(); await flushVue();
+  assert.equal(view.voice.captureState.value, "idle");
+  assert.equal(call.pendingTranscript.value.text, "Sation");
+  assert.equal(call.callModeBusy.value, true, "the retained unsent review remains protected");
+  const messageId = call.pendingTranscript.value.messageId;
+  assert.equal(await call.beginTranscriptEdit(messageId), true);
+  call.editTranscript("", messageId);
+  assert.equal(call.pendingTranscript.value.messageId, messageId);
+  assert.equal(call.pendingTranscript.value.text, "");
+  call.editTranscript("Corrected unsent words", messageId);
+  assert.equal(call.pendingTranscript.value.messageId, messageId);
+  assert.equal(await call.takeTranscript(messageId), true, "the original Discard path resolves only this unsent review");
+  assert.equal(call.pendingTranscript.value, null);
+  assert.deepEqual(delivered, []);
+  const restarting = call.toggleHandsFree(); await flushVue();
+  assert.equal(view.media.length, 2, "normal Talk starts a fresh capture after the interrupted review is resolved");
+  view.media[1].resolve(); await restarting;
+  const freshListen = view.voice.activeListenTurnId.value;
+  assert.notEqual(freshListen, originalListen);
+  const listenStarts = view.sockets.flatMap(controls).filter(control => control.type === "listen.start");
+  assert.equal(listenStarts.length, 2);
+  assert.equal(listenStarts.at(-1).turnId, freshListen);
+  assert.deepEqual(delivered, [], "discarded or stale words cannot become a new request");
+});

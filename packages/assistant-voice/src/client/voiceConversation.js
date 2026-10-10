@@ -82,7 +82,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     return "You can speak naturally, including while I reply.";
   });
   const callModeBusy = computed(() => starting.value || changingCallMode.value || pushHolding.value || sending.value || Boolean(pendingTranscript.value)
-    || Boolean(voice.partialTranscript.value.trim()) || capturing.value && !voice.listening.value);
+    || capturing.value && Boolean(voice.partialTranscript.value.trim()) || capturing.value && !voice.listening.value);
   const microphoneStatus = computed(() => microphoneMuted.value ? "Microphone muted" : voice.listening.value ? "Microphone on" : "Microphone off");
   const avatarVisual = computed(() => ({
     avatar: binding.avatar,
