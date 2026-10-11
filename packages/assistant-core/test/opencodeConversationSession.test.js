@@ -1056,7 +1056,7 @@ for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]
 
 // Opt-in bound host uses the same native server, registry and Send/monitor owner.
 // The original standalone fixture above remains byte-for-byte unchanged.
-async function boundToolFixture(t) {
+async function boundToolFixture(t, { runInContext } = {}) {
   const { createOpenCodeConversationServer, openCodeApplicationToolSchemas } = await import("../src/server/conversation/openCodeProcess.js");
   const { createOpenCodeSharedRuntime, ensureOpenCodeSession } = await import("../src/server/conversation/openCodeRuntime.js");
   const { observeOpenCodeEvents } = await import("../src/server/conversation/openCodeTurn.js");
@@ -1086,7 +1086,7 @@ async function boundToolFixture(t) {
     const driver = createOpenCodeConversationDriver(f.driverOptions);
     const handle = await driver.open({ onFailure() {}, conversation: {
       publish() {}, native: { owner,
-        acquire: async context => ({ key, options: context || {} }),
+        acquire: async context => ({ key, options: context || {}, runInContext }),
         preparation: {
           cleanup: () => ({ sessionId: id, options: {}, application: {
             closeTerminals: async () => ({ ok: true }), beforeRelease: async () => {},
@@ -1885,4 +1885,35 @@ test("managed OpenCode refreshes its own key in the retained native scope withou
     await f.close();
     await owner?.stop("managed-fixture-close");
   }
+});
+
+
+test("opted bound OpenCode re-enters supplied callback context after admission ends", async t => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  const context = new AsyncLocalStorage();
+  const admission = { scope: "admission" }, control = { scope: "control" };
+  const released = Promise.withResolvers();
+  t.after(() => released.resolve());
+  let reentries = 0;
+  const f = await boundToolFixture(t, { runInContext(operation) {
+    reentries++;
+    return context.run(control, operation);
+  } });
+  const calls = [];
+  const main = await f.open("delayed-context-main", async call => {
+    await released.promise;
+    assert.equal(context.getStore(), control, "A retained callback must re-enter the supplied context");
+    calls.push(call.name);
+    return {};
+  });
+  const running = context.run(admission, () => main.send("delayed-context-words", "tools"));
+  await running.accepted;
+  assert.equal(context.getStore(), undefined, "The authored admission callback has ended");
+  released.resolve();
+  await running.completion;
+  assert.deepEqual(calls, ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"]);
+  assert.equal(reentries, 3);
+  assert.equal(main.receipts.length, 1);
+  assert.equal(main.receipts[0].turn.messages[0].text, "tools");
+  assert.equal(f.owner.turns.get(main.key).active, false);
 });

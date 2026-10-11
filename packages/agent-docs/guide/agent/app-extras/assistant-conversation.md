@@ -3895,6 +3895,14 @@ acknowledgement, retryable failure flags, admission release and current-monitor
 wait. It does not add an idle query. The existing observation-loss branch keeps
 its stronger native-stop or exact-process-exit proof. `turnSnapshot` supplies the
 same result fields to host readers.
+For a supplied native conversation, per-Send `acquire(context)` may return
+`runInContext(operation)` alongside its existing key and options. The application
+captures its durable control context before admission ends; the driver re-enters
+that context for retained HTTP application-tool callbacks. It does not retain a
+finite effect grant. The existing native identity, authored admission and current
+turn checks still apply, and application operations must obtain fresh permissions.
+Without this optional facility, the callback executes directly as before.
+
 The bound OpenCode driver uses the same owner's `readSessionState` for canonical
 and native reads. Application context, saved identity and terminal-state facilities
 retain their original read order. Passive reads do not prepare or start a native

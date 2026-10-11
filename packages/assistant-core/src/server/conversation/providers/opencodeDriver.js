@@ -234,7 +234,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
               maxArgumentBytes: active.tools.maximumArgumentBytes, execute(input, signal) {
                 const turn = supplied.owner.turns.get(acquired.key);
                 const target = supplied.owner.processes.get(acquired.key);
-                return executeOpenCodeApplicationTool({ active: current, turn, target,
+                const execute = () => executeOpenCodeApplicationTool({ active: current, turn, target,
                   sessionId: target?.upstreamSessionId,
                   assertCurrent(throwFailure = true, authored) {
                     const owned = !disposed && current === active && active.turn === turn && turn?.active &&
@@ -244,6 +244,7 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
                     return owned;
                   }
                 }, input, signal);
+                return typeof acquired.runInContext === "function" ? acquired.runInContext(execute) : execute();
               }
             });
           }
