@@ -977,8 +977,19 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         if (active) entry.completion?.resolve({ status: "interrupted", error: reason || "Work stopped." });
         return;
       }
-      if (entry.turn?.active) await updateState("interrupted", reason);
-      else await onEvent({ type: "save" });
+      if (entry.turn?.active) {
+        try { await updateState("interrupted", reason); }
+        catch (error) {
+          // Native cleanup is verified even when the host refuses its checkpoint.
+          // Retain that refusal without publishing a completed answer or active work.
+          setState("interrupted", error.message);
+          await onEvent({ type: "save" });
+          await onEvent({ type: "state", state: "interrupted", active: false, message: error.message });
+          entry.completion?.resolve(readResult());
+          if (entry.startupCleanup === startup) entry.startupCleanup = null;
+          throw error;
+        }
+      } else await onEvent({ type: "save" });
       entry.completion?.resolve(readResult());
       if (entry.startupCleanup === startup) entry.startupCleanup = null;
       return entry.exitProof;

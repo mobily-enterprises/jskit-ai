@@ -2524,6 +2524,12 @@ native account while retaining the Claude conversation. An explicit `model` must
 match the connection. The connection resolver authorizes the current key before
 dispatch; rotating an authorized external-provider key preserves the conversation.
 
+For a retained supplied-store host, verified native cleanup makes the saved turn
+inactive even when its interrupted checkpoint rejects. The original checkpoint
+error remains visible and is rethrown; the completion reports interruption rather
+than successful teaching. Completed-answer checkpoints still gate settlement and
+canonical final receipts. Failed native cleanup retains its original retry owner.
+
 Advanced hosts may supply `host.execution` with `start`/`stop`, `host.env`,
 `host.commands.claude` and `host.limits`. The common execution request carries the
 executable, arguments, directory, environment, stream requirement and resource
