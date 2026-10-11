@@ -2060,7 +2060,9 @@ export class CodexAppServerAgentProvider {
       throw new TypeError("Codex tool dispatch requires its exact thread and handler.");
     }
     if (this.threadRequestHandlers.has(threadId)) throw new Error("This Codex thread already has an application tool owner.");
-    const registration = { handler };
+    const runInContext = this.options.runInContext;
+    const registration = { handler: typeof runInContext === "function"
+      ? request => runInContext(() => handler(request)) : handler };
     this.threadRequestHandlers.set(threadId, registration);
     const client = this.client;
     client?.setRequestHandler?.(request => this.handleServerRequest(request, client));

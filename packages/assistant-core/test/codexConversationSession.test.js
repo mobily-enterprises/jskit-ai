@@ -2641,7 +2641,7 @@ async function boundCodexToolsFixture(t, options = {}) {
       for (const cleanup of cleanups) await cleanup();
     }
   });
-  const f = await fixture({ after: callback => cleanups.push(callback) });
+  const f = await fixture({ after: callback => cleanups.push(callback) }, { limits: { admissionTimeoutMs: 30_000, ...options.limits } });
   await f.conversation.send({ messageId: "original-process-seed", text: "Hello" });
   await f.conversation.wait();
   assert.ok(sharedProvider);
@@ -2745,6 +2745,7 @@ async function boundCodexToolsFixture(t, options = {}) {
         preparation: { cleanup: () => ({}) } }
     });
   }
+  f.driverOptions.limits = { admissionTimeoutMs: 2000, ...options.limits };
   const runtime = createConversationRuntime({ engine: "codex", toolCatalog: catalog, authorize: () => true,
     host: { ...f.driverOptions.host, conversation: ({ id }) => bindings.get(id) } });
   boundRuntime = runtime;
@@ -3840,3 +3841,55 @@ for (const delayMs of [1000, 2000]) {
     if (firstError) throw firstError;
   });
 }
+
+
+test("bound Codex tool callbacks re-enter captured control after the socket opening scope expires", async t => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  const contexts = new AsyncLocalStorage();
+  const expired = { access: "write", active: false };
+  const control = Object.freeze({ access: "control", active: true });
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let hold = true;
+  const f = await boundCodexToolsFixture(t, { limits: { admissionTimeoutMs: 30_000 }, execute: async actual => {
+    assert.equal(contexts.getStore(), control, "native calls must not borrow the expired opening WRITE callback");
+    assert.equal(actual.actor.id, "bound-owner", "each tool retains the original request actor");
+    actual.boundAdmission.assertCurrent();
+    if (hold) { entered.resolve(); await release.promise; }
+    return { value: 7 };
+  } });
+  // The host facility supplies a CONTROL projection. The real fixture still
+  // owns both native threads, original actions, tool framing and shared server.
+  f.sharedProvider.options.runInContext = operation => contexts.run(control, operation);
+  const receive = f.sharedProvider.handleServerRequest;
+  t.mock.method(f.sharedProvider, "handleServerRequest", function (...args) {
+    return contexts.run(expired, () => receive.apply(this, args));
+  });
+  try {
+    await f.one.send({ messageId: "expired-opening-one", text: "tools" });
+    const firstDone = f.one.wait();
+    firstDone.catch(() => {});
+    await Promise.race([entered.promise, firstDone.then(() => {
+      throw new Error("The bound tool turn ended before executing in captured CONTROL.");
+    })]);
+    await f.two.send({ messageId: "expired-opening-peer", text: "wait" });
+    assert.equal(f.sharedProvider.threadRequestHandlers.size, 2);
+    let stopped = false;
+    const stopping = f.one.cancel().then(() => { stopped = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(stopped, false, "Stop joins the existing in-flight tool");
+    release.resolve();
+    await stopping;
+    assert.equal((await f.two.read()).status, "working", "one thread's Stop retains its peer");
+    hold = false;
+    await f.two.send({ messageId: "expired-opening-peer-finish", text: "Continue", steer: true });
+    await f.two.wait();
+    await f.two.send({ messageId: "expired-opening-two", text: "tools" });
+    const result = await f.two.wait();
+    assert.deepEqual(f.effects.map(value => value.conversationId), ["bound-one", "bound-two"]);
+    assert.deepEqual(f.effects.map(value => value.messageId), ["expired-opening-one", "expired-opening-two"]);
+    assert.equal(result.conversationLog.at(-1).metadata.applicationTools.at(-1).result.result.result.value, 7);
+    assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
+    assert.equal((await f.trace()).filter(row => row.args).length, 1, "both threads keep the original account-shared app-server");
+    assert.equal((await f.trace()).filter(row => row.method === "thread/start").length, 3);
+  } finally { release.resolve(); }
+});

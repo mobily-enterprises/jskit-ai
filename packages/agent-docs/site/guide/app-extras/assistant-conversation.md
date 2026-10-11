@@ -1538,6 +1538,17 @@ executor or observation failure uses the original thread's interrupt and drain.
 Helper authentication refresh and isolated Helper request refusal retain their
 original precedence.
 
+For managed providers, the existing preparation's `runInContext(operation)` is
+also retained by each registered thread handler. The host supplies an admitted
+observation/control context that remains valid after the socket-opening callback
+returns; it must not retain a temporary write grant. A directly constructed
+`CodexAppServerAgentProvider` can receive the same optional `runInContext` in its
+options. Without it, callbacks retain their existing direct execution. This
+context re-entry does not authorize effects: the original request's tool
+authorization and `prepareContext` still recheck current actor, resource and
+native-turn authority. Socket dispatch, account refresh and peer threads retain
+their existing owners.
+
 The host still owns exact write authorization, readiness composition and native
 identity persistence. This shared prerequisite does not establish a particular
 application's integration, installed acceptance or real native acceptance.

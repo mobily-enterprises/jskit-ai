@@ -231,6 +231,7 @@ export function createCodexAppServerProviderOwner({
       create: onObservationLost => {
         const parameters = {
           ...prepared.parameters,
+          runInContext: prepared.runInContext,
           onClose() { unsubscribeControls?.(); },
           beforeResumeThread(threadId) {
             return prepared.runInContext(async () => {
