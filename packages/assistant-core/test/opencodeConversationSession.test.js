@@ -1056,7 +1056,7 @@ for (const savedStatus of ["cancelled", "failed", "unknown-tool", "interrupted"]
 
 // Opt-in bound host uses the same native server, registry and Send/monitor owner.
 // The original standalone fixture above remains byte-for-byte unchanged.
-async function boundToolFixture(t, { runInContext } = {}) {
+async function boundToolFixture(t, { runInContext, monitorRunInContext, monitorContext } = {}) {
   const { createOpenCodeConversationServer, openCodeApplicationToolSchemas } = await import("../src/server/conversation/openCodeProcess.js");
   const { createOpenCodeSharedRuntime, ensureOpenCodeSession } = await import("../src/server/conversation/openCodeRuntime.js");
   const { observeOpenCodeEvents } = await import("../src/server/conversation/openCodeTurn.js");
@@ -1120,12 +1120,16 @@ async function boundToolFixture(t, { runInContext } = {}) {
                 prompt: { text: input.message }, beforeDispatch: threadId => input.onPromptSending({ threadId }) }),
               commit: async admitted => { const turn = { turnId: input.messageId, messages: [{ role: "user", messageId: input.messageId, text: input.message }] }; receipts.push({ admitted, turn }); return turn; },
               monitor: {
+                runInContext: monitorRunInContext,
                 prepare: () => ({ fields: {} }),
                 create(target, turn, _metadata, options) { return {
                   observe: (_turn, signal) => observeOpenCodeEvents(target.server.client, target.upstreamSessionId,
                     { signal, abortController: turn.abortController, eventStartedAt: turn.eventStartedAt }),
                   eventReady: options.eventReady, finalResponse: { agent: "jskit-assistant-actions", model: { id: "test-model", providerID: "test" }, recoveryMessageId: `msg_recovery_${nativeId}` },
-                  async writeRun() {}, projectMessages: () => ({ failure: "", providerApiFailure: false }), completeResult: (_turn, result) => result.failure, onRetired() {}
+                  async writeRun() { await monitorContext?.("writeRun"); },
+                  async projectMessages() { await monitorContext?.("projectMessages"); return { failure: "", providerApiFailure: false }; },
+                  completeResult: (_turn, result) => result.failure,
+                  onRetired() { monitorContext?.("onRetired"); }
                 }; }
               }
             }, project: value => value };
@@ -1916,4 +1920,55 @@ test("opted bound OpenCode re-enters supplied callback context after admission e
   assert.equal(main.receipts.length, 1);
   assert.equal(main.receipts[0].turn.messages[0].text, "tools");
   assert.equal(f.owner.turns.get(main.key).active, false);
+});
+
+
+test("opted bound OpenCode retains supplied control through delayed monitor publication and retirement", async t => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  const context = new AsyncLocalStorage();
+  const admission = { scope: "admission" }, control = { scope: "control" };
+  const released = Promise.withResolvers();
+  t.after(() => released.resolve());
+  const phases = [];
+  const f = await boundToolFixture(t, {
+    runInContext: operation => context.run(control, operation),
+    monitorRunInContext: async operation => context.run(control, operation),
+    async monitorContext(phase) {
+      if (phase !== "onRetired") {
+        await released.promise;
+        assert.equal(context.getStore(), control, "The retained monitor must inherit supplied CONTROL");
+      }
+      phases.push({ phase, context: context.getStore() });
+    }
+  });
+  const calls = [];
+  const main = await f.open("delayed-monitor-main", async call => { calls.push(call.name); return {}; });
+  const running = context.run(admission, () => main.send("delayed-monitor-words", "tools"));
+  await running.accepted;
+  assert.equal(context.getStore(), undefined, "Send admission ended before delayed publication");
+  const retainedMonitor = f.owner.monitors.get(main.key);
+  assert.equal(f.owner.beginMessageMonitor(main.key, f.owner.processes.get(main.key), {}, {}, {
+    runInContext: async operation => context.run(control, operation),
+    prepare: () => assert.fail("An existing monitor must not be recreated")
+  }), retainedMonitor, "An async scope wrapper must preserve the original monitor promise");
+  const preparationFailure = new Error("Exact synchronous monitor preparation failure");
+  const scopeErrors = [];
+  assert.throws(() => f.owner.beginMessageMonitor("failed-monitor-preparation", {}, {}, {}, {
+    runInContext: async operation => context.run(control, operation),
+    prepare() { assert.equal(context.getStore(), control); throw preparationFailure; },
+    onError: error => scopeErrors.push(error)
+  }), error => error === preparationFailure);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(scopeErrors, [], "A synchronous creation failure is not reported again by the scope wrapper");
+  released.resolve();
+  await running.completion;
+  assert.deepEqual(calls, ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"]);
+  assert.ok(phases.some(value => value.phase === "writeRun"));
+  assert.ok(phases.some(value => value.phase === "projectMessages"));
+  assert.ok(phases.some(value => value.phase === "onRetired"));
+  assert.ok(phases.every(value => value.context === control));
+  assert.equal(main.receipts.length, 1);
+  assert.equal(main.receipts[0].turn.messages[0].text, "tools");
+  assert.equal(f.owner.turns.get(main.key).active, false);
+  assert.equal(f.owner.turns.get(main.key).state, "completed");
 });

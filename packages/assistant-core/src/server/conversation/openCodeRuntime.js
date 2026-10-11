@@ -1284,30 +1284,43 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   function beginMessageMonitor(key, target, admitted, options, projection) {
-    target = { ...target };
-    const existing = monitors.get(key);
-    if (existing) {
-      return existing;
-    }
-    const metadata = projection.prepare(admitted, options);
-    const eventStartedAt = Number(admitted.eventStartedAt) || Date.now();
-    const startedAt = text(admitted.startedAt) || new Date(eventStartedAt).toISOString();
-    const turn = {
-      abortController: new AbortController(),
-      admission: options.admission,
-      active: true,
-      error: "",
-      eventStartedAt,
-      id: text(admitted.id),
-      inputMessageId: text(admitted.id),
-      startedAt,
-      state: options.admission ? "starting" : "active",
-      ...metadata.fields,
-      threadId: target.upstreamSessionId,
-      updatedAt: startedAt
+    const start = () => {
+      target = { ...target };
+      const existing = monitors.get(key);
+      if (existing) {
+        return existing;
+      }
+      const metadata = projection.prepare(admitted, options);
+      const eventStartedAt = Number(admitted.eventStartedAt) || Date.now();
+      const startedAt = text(admitted.startedAt) || new Date(eventStartedAt).toISOString();
+      const turn = {
+        abortController: new AbortController(),
+        admission: options.admission,
+        active: true,
+        error: "",
+        eventStartedAt,
+        id: text(admitted.id),
+        inputMessageId: text(admitted.id),
+        startedAt,
+        state: options.admission ? "starting" : "active",
+        ...metadata.fields,
+        threadId: target.upstreamSessionId,
+        updatedAt: startedAt
+      };
+      const monitor = beginMonitor(key, target, turn, projection.create(target, turn, metadata, options));
+      void monitor.catch(error => projection.onError(error));
+      return monitor;
     };
-    const monitor = beginMonitor(key, target, turn, projection.create(target, turn, metadata, options));
-    void monitor.catch(error => projection.onError(error));
+    if (typeof projection.runInContext !== "function") return start();
+    let monitor, startFailure;
+    // Context entry invokes this callback synchronously. Do not return the
+    // monitor to an async scope wrapper: retain its identity and error owner.
+    const scope = projection.runInContext(() => {
+      try { monitor = start(); }
+      catch (error) { startFailure = { error }; }
+    });
+    void Promise.resolve(scope).catch(error => projection.onError(error));
+    if (startFailure) throw startFailure.error;
     return monitor;
   }
 

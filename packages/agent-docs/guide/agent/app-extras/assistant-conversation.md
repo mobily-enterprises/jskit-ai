@@ -3903,6 +3903,14 @@ finite effect grant. The existing native identity, authored admission and curren
 turn checks still apply, and application operations must obtain fresh permissions.
 Without this optional facility, the callback executes directly as before.
 
+The existing Main monitor projection may also supply `runInContext(operation)`.
+The shared owner enters it while preparing, creating and registering that monitor,
+so its asynchronous observation, publication, checkpoint and retirement callbacks
+inherit the captured control context. Restored monitors use the same boundary.
+Enter the context synchronously and return the operation's result; do not wrap
+fresh Send preparation, retain an effect grant or capture context on the shared
+process. An absent facility preserves the original direct monitor behavior.
+
 The bound OpenCode driver uses the same owner's `readSessionState` for canonical
 and native reads. Application context, saved identity and terminal-state facilities
 retain their original read order. Passive reads do not prepare or start a native
