@@ -1218,3 +1218,75 @@ test("connection warnings keep avatar controls and Reload reachable without repl
     await stopProcess(vite);
   }
 });
+
+
+test("short connection warnings preserve full text and recovery targets at phone widths", {
+  skip: !RUN_BROWSER_TEST, timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [320, 390]) {
+      const page = await browser.newPage({ viewport: { width, height: 768 } });
+      await page.goto(`${vite.baseURL}/?conversation=1&avatar=1&avatarTools=1&update-errors=1`);
+      await page.locator(".fixture").evaluate(element => {
+        element.style.height = "368px";
+        element.style.width = "100%";
+      });
+      await page.getByRole("combobox", { name: "Avatar preference", exact: true }).selectOption("standard");
+      const conversation = page.locator(".assistant-conversation");
+      const body = page.locator(".assistant-transcript__body");
+      const draft = page.getByRole("textbox", { name: "Message AI assistant", exact: true });
+      const banner = page.locator(".assistant-transcript__error");
+      const reload = banner.getByRole("button", { name: "Reload chat", exact: true });
+      await draft.fill("Keep this short-view draft.");
+      const originalBody = await body.elementHandle();
+      const history = await body.locator(".assistant-transcript__turn").allTextContents();
+      await page.getByRole("button", { name: "Show update error", exact: true }).evaluate(element => element.click());
+      await expect(banner).toContainText("the assistant may still be working.");
+      const bounds = await banner.evaluate(element => {
+        const box = node => {
+          const rect = node.getBoundingClientRect();
+          return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+        };
+        return { banner: box(element), content: box(element.querySelector(".v-alert__content")),
+          words: box(element.querySelector(".assistant-transcript__error-content > span")),
+          button: box(element.querySelector("button")) };
+      });
+      for (const target of [bounds.words, bounds.button]) {
+        assert.ok(target.top >= bounds.content.top - 1 && target.bottom <= bounds.content.bottom + 1,
+          "The error content reserves the full wrapped text and Reload height");
+        assert.ok(target.top >= bounds.banner.top - 1 && target.bottom <= bounds.banner.bottom + 1,
+          "The warning does not clip its text or recovery button");
+      }
+      await expect(conversation).toHaveCSS("overflow-y", "auto");
+      await reload.scrollIntoViewIfNeeded();
+      assert.equal(await reload.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        return [2, rect.height / 2, rect.height - 2].every(offset =>
+          element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + offset)));
+      }), true, "The pointer reaches the top, centre and bottom of Reload");
+      await reload.focus();
+      await reload.press("Tab");
+      assert.equal(await body.evaluate(element => document.activeElement === element), true,
+        "The original transcript remains keyboard reachable after Reload");
+      await draft.focus();
+      assert.equal(await draft.evaluate(element => document.activeElement === element), true);
+      await expect(draft).toHaveValue("Keep this short-view draft.");
+      assert.equal(await body.evaluate((element, original) => element === original, originalBody), true);
+      assert.deepEqual(await body.locator(".assistant-transcript__turn").allTextContents(), history);
+      await reload.click();
+      await expect(banner).toHaveCount(0);
+      await expect(conversation).not.toHaveClass(/assistant-conversation--error/u);
+      await expect(page.getByText("Error reloads: 1", { exact: true })).toBeVisible();
+      assert.equal(await body.evaluate((element, original) => element === original, originalBody), true);
+      assert.deepEqual(await body.locator(".assistant-transcript__turn").allTextContents(), history);
+      await expect(draft).toHaveValue("Keep this short-view draft.");
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});

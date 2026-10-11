@@ -929,6 +929,11 @@ recovery button. The loaded message body and draft remain mounted; this layout
 temporarily leaves less height for history. Clearing the error restores the
 floating layout without changing the requested avatar size.
 
+The error row reserves its full text and recovery-button height. If a short
+conversation cannot fit the avatar, warning and composer together, the error
+layout scrolls vertically to keep those controls reachable; the retained message
+body keeps its separate scroll owner. Normal layout returns when the error clears.
+
 ```vue
 <AssistantConversationElement :adapter="adapter" v-model:avatar-size="avatarSize">
   <template #avatar><SupportAvatar /></template>

@@ -1103,7 +1103,8 @@ watch(() => props.visible, (visible) => {
 }
 
 .assistant-transcript--error {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: max-content minmax(0, 1fr);
+  min-height: min-content;
 }
 
 .assistant-transcript__error {

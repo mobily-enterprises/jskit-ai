@@ -389,6 +389,7 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 <style scoped>
 .assistant-conversation__preview-actions { display: flex; justify-content: flex-end; }
 .assistant-conversation { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; container: assistant-conversation / inline-size; }
+.assistant-conversation--error { overflow-y: auto; }
 .assistant-conversation__avatar { position: absolute; top: 0; right: 0; z-index: 3; max-width: 100%; min-width: 0; }
 .assistant-conversation--error .assistant-conversation__avatar { position: relative; align-self: flex-end; flex: 0 0 auto; }
 .assistant-conversation--error .assistant-conversation__avatar-controls { position: static; }
