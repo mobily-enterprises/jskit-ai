@@ -355,6 +355,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           }
         }
       });
+      // Retain this queue's exact opening namespace, never its admission grant.
+      const drainNotifications = owner.notificationQueue.captureDrain(sessionId);
       async function publishNative(event) {
         if (supplied) binding.threadId = await conversation.identity.read();
         await conversation.publish(event);
@@ -1130,7 +1132,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             waitForTurn = !supplied || delivered.value?.delivered === true;
             if (!finishIfCurrent && waitForTurn) {
               await completion.promise;
-              await owner.notificationQueue.drain(sessionId);
+              await drainNotifications();
             }
           } catch (error) { problem = error; }
           if (finishIfCurrent) {
@@ -1147,7 +1149,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
                 problem = undefined;
                 waitForTurn = true;
               }
-              if (!problem && waitForTurn) await owner.notificationQueue.drain(sessionId);
+              if (!problem && waitForTurn) await drainNotifications();
             } catch (error) { problem = error; }
           }
           signal.removeEventListener("abort", abort);
@@ -1172,7 +1174,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             }
           }
           try {
-            await owner.notificationQueue.drain(sessionId);
+            await drainNotifications();
             // The original queue starts observation recovery without awaiting
             // it. Join only this provider's existing attempt before settling.
             if (!supplied) await providerOwner.pendingRecovery(providerKey, executingProvider);

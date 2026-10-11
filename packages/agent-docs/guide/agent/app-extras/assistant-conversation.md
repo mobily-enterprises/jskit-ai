@@ -3528,6 +3528,15 @@ scoped turns and private renewal execution against the supplied application
 store and publication policy. Detached waiting and run-transition helpers stay
 inside that owner; hosts do not compose another observer or delivery journal.
 
+The same notification queue exposes `captureDrain(sessionId)` for a bound
+native driver's delayed settlement. Capture it while the opening namespace is
+valid; the returned function waits for that exact queue key and any same-key
+successors. It retains no request context or effect grant. The Codex driver uses
+it only for its three delayed run drains, so completion cannot re-read an expired
+admission scope. Ordinary `drain(sessionId)` still validates the current namespace;
+inspection, standalone disposal and provider release retain that original path.
+Different namespaces remain independent even when their session IDs are equal.
+
 This advanced constructor adapts an existing managed host's retained run store
 and application effects. Ordinary applications use `createConversationRuntime`
 with their chosen conversation storage; they do not configure the following

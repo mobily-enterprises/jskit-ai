@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -535,6 +536,54 @@ test("native notification draining follows same-scope successors while another s
   release.resolve();
   await draining;
   assert.deepEqual(output, ["independent", "first", "successor"]);
+  assert.equal(owner.tasks.size, 0);
+});
+
+test("captured native notification drain retains exact scope after admission expiry", { timeout: 3_000 }, async () => {
+  const scopes = new AsyncLocalStorage();
+  const expiry = Object.assign(new Error("The original admission expired"), { code: "scope_expired" });
+  const namespace = id => {
+    const scope = scopes.getStore();
+    if (!scope?.active) throw expiry;
+    return `${scope.project}:${id}`;
+  };
+  const owner = createCodexAppServerNotificationQueue({ namespace,
+    runInContext: (context, operation) => scopes.run(context, operation) });
+  const alpha = { project: "alpha", active: true, access: "write" };
+  const beta = { project: "beta", active: true, access: "write" };
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  const betaEntered = Promise.withResolvers(), betaRelease = Promise.withResolvers();
+  const output = [];
+  let drainAlpha;
+  scopes.run(alpha, () => {
+    drainAlpha = owner.captureDrain("shared-session");
+    const context = { sessionId: "shared-session", projectContext: { ...alpha, access: "control" } };
+    owner.run(context, async () => {
+      entered.resolve();
+      await release.promise;
+      assert.equal(scopes.getStore().access, "control", "waiting retains no write admission");
+      output.push("alpha");
+      owner.run(context, () => { output.push("alpha-successor"); });
+    });
+  });
+  scopes.run(beta, () => owner.run({ sessionId: "shared-session", projectContext: { ...beta, access: "control" } },
+    async () => { betaEntered.resolve(); await betaRelease.promise; output.push("beta"); }));
+  await Promise.all([entered.promise, betaEntered.promise]);
+  alpha.active = false;
+  try {
+    await scopes.run(alpha, () => assert.rejects(owner.drain("shared-session"), error => error === expiry));
+    scopes.run(alpha, () => assert.throws(() => owner.captureDrain("shared-session"), error => error === expiry));
+    const draining = scopes.run(alpha, () => drainAlpha());
+    release.resolve();
+    await draining;
+    assert.deepEqual(output, ["alpha", "alpha-successor"], "captured alpha follows its successor without waiting for beta");
+    assert.equal(owner.tasks.has("alpha:shared-session"), false);
+    assert.equal(owner.tasks.has("beta:shared-session"), true, "equal session IDs retain independent scope ownership");
+  } finally {
+    release.resolve(); betaRelease.resolve();
+    await scopes.run(beta, () => owner.drain("shared-session"));
+  }
+  assert.deepEqual(output, ["alpha", "alpha-successor", "beta"]);
   assert.equal(owner.tasks.size, 0);
 });
 
