@@ -323,9 +323,17 @@ export async function createClaudeCodeProcess({
       }
     });
     signal?.addEventListener("abort", abort, { once: true });
-    const initialization = await client.initialize(commandWrapper ? { hooks: {
+    const initializing = client.initialize(commandWrapper ? { hooks: {
       PreToolUse: [{ matcher: "^Bash$", hookCallbackIds: ["jskit-command-wrapper"], timeout: 30 }]
     } } : {});
+    const initialization = await (native.exited ? Promise.race([
+      initializing,
+      native.exited.then(processExit => {
+        throw Object.assign(new Error("Claude exited before initialization completed."), {
+          code: "assistant_claude_startup_exited", processExit
+        });
+      })
+    ]) : initializing);
     return { client, initialization, executionId: native.id, stop };
   } catch (error) {
     // A rejected start may already own an execution and its cleanup proof.

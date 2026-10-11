@@ -3394,9 +3394,15 @@ The host supplies its application closing fact and retains subsequent Git,
 environment and managed PTY preparation.
 Startup uses an execution
 facility with `start({ command, args, cwd, env, stream })` and `stop(id)`;
-`start` returns `{ id, stdin, stdout }` for duplex protocols, and a successful
-stop must return `{ scopeEmpty: true }`. Engine flags, environment normalization
-and the JSON initialization handshake stay inside JSKIT.
+`start` returns `{ id, stdin, stdout }` for duplex protocols. When the host also
+supplies an `exited` promise reporting the native process's `{ code, signal }`,
+startup rejects that confirmed exit even when the protocol stream remains open.
+Hosts without this optional receipt retain the original protocol EOF path. The error retains
+`processExit` and the acquired execution identity before the original exact-owner
+cleanup. Exit does not prove scope cleanup: a successful stop must still return
+`{ scopeEmpty: true }`. Engine flags, environment normalization and the JSON
+initialization handshake stay inside JSKIT. The existing control deadline and
+normal EOF event-draining order are unchanged.
 
 Without a replacement execution facility, Claude startup uses the supplied local
 POSIX process-group implementation. This is a trusted single-user host, not a
