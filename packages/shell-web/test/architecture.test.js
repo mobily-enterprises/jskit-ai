@@ -37,6 +37,20 @@ test('source import evidence resolves configured aliases and project-root paths 
   assert.equal(result.inputs.some(file => file.path.startsWith('node_modules/')), false);
 });
 
+test('binary asset imports do not prevent route and cross-file import inspection', async t => {
+  const { root, input } = await fixture(t, {
+    'routes.js': 'import { createRouter } from "vue-router"; import Screen from "./Screen.vue"; createRouter({ routes: [{ path: "/", component: Screen }] });',
+    'Screen.vue': '<script setup>import image from "@/image.png";</script><template><img :src="image" /></template>',
+    'src/image.png': Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xff, 0x00]),
+  }, { id: 'app', adapter: 'vue-registered-router', surface: 'app', mode: 'registered', registrations: ['routes.js'], pageRoots: [] });
+  const result = await inspectVueArchitecture({ projectRoot: root, input, aliases: { '@': 'src' } });
+  assert.equal(result.pages.length, 1);
+  assert.equal(result.pages[0].file, 'Screen.vue');
+  assert.ok(result.imports.some(use => use.targetFile === 'src/image.png' && use.names.includes('default')));
+  assert.ok(result.inputs.some(file => file.path === 'src/image.png' && file.hash === input.files.find(file => file.path === 'src/image.png').hash));
+  assert.deepEqual(result.diagnostics, []);
+});
+
 test("explicit registered routes discover real pages and referenced shared elements", async t => {
   const source = {
     "routes.ts": 'import { createRouter } from "vue-router";\nimport Checkout from "./views/Checkout.vue";\nconst routes = [{ path: "/shop", component: Checkout, children: [{ path: "detail", component: () => import("./views/Detail.vue") }] }];\ncreateRouter({ routes });\n',

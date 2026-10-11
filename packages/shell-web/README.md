@@ -7,6 +7,11 @@ for finite static architecture inspection.
 
 ## Architecture inspection
 
+Imported assets remain file-import evidence. The Vue adapter parses only its
+supported JavaScript, TypeScript and Vue modules; binary images do not block
+route discovery. Asset-to-component transformations require their own adapter
+and remain explicitly unsupported here.
+
 Run `jskit-inspect-vue` in the project directory. It reads one bounded JSON
 document from stdin and writes one `genesis.architecture-observations.v1` JSON
 document to stdout. Errors use stderr and a failing exit status. It does not

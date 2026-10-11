@@ -80,6 +80,12 @@ export async function inspectVueArchitecture({ projectRoot, input, aliases = {},
     for (const directory of filePath.split("/").map((_, index, parts) => parts.slice(0, index + 1).join("/"))) if ((await lstat(path.join(projectRoot, directory))).isSymbolicLink()) throw new Error("Architecture inspection cannot follow symbolic links.");
     const bytes = await readFile(path.join(projectRoot, filePath));
     if (bytes.length > 4 * 1024 * 1024 || hash(bytes) !== files.get(filePath).hash) throw new Error(`Source changed or exceeded inspection bounds: ${filePath}`);
+    // Asset imports need current input evidence, but no JavaScript/Vue parsing.
+    if (!/\.(?:[cm]?js|jsx|tsx?|vue)$/u.test(filePath)) {
+      modules.set(filePath, null);
+      output.inputs.push({ path: filePath, hash: hash(bytes) });
+      return null;
+    }
     const source = bytes.toString("utf8");
     if (!Buffer.from(source).equals(bytes)) throw new Error(`Source is not UTF-8: ${filePath}`);
     const module = { path: filePath, source, hash: hash(bytes), bindings: new Map(), imports: new Map(), nodes: [], exports: new Map(), descriptor: null };
@@ -278,6 +284,7 @@ export async function inspectVueArchitecture({ projectRoot, input, aliases = {},
       let definition;
       if (target) {
         const targetModule = await load(target); const id = `component:${target}`;
+        if (!targetModule) { warn("COMPONENT_SOURCE_UNSUPPORTED", "An imported asset needs its own component adapter.", target); continue; }
         if (!components.has(id)) { definition = { id, title: path.posix.basename(target, path.posix.extname(target)), file: target, resolution: "resolved", evidence: evidence(targetModule) }; components.set(id, definition); output.components.push(definition); }
         definition = components.get(id); pendingComponents.push({ file: target, parentId: id });
       } else if (imported) {
