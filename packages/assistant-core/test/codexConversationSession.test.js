@@ -3893,3 +3893,40 @@ test("bound Codex tool callbacks re-enter captured control after the socket open
     assert.equal((await f.trace()).filter(row => row.method === "thread/start").length, 3);
   } finally { release.resolve(); }
 });
+
+test("bound native Codex configuration notifications reach only the original conversation subscriber without native work", async t => {
+  const f = await boundCodexToolsFixture(t);
+  await f.one.send({ messageId: "bound-configuration-seed", text: "Hello" });
+  await f.one.wait();
+  const events = [], peerEvents = [];
+  const release = await f.one.subscribe(event => events.push(event));
+  await f.two.subscribe(event => peerEvents.push(event));
+  assert.equal(f.bindings.get("bound-one").commands, undefined,
+    "The original native-backed host has no command facade");
+  const notification = { type: "configuration" };
+  await f.boundRuntime.publishNative({ namespace: "main-bound-one", sessionId: "foreign-session", event: notification });
+  await f.boundRuntime.publishNative({ namespace: "foreign-namespace", sessionId: "bound-one", event: notification });
+  assert.deepEqual(events, [], "Foreign publication identities cannot invalidate this browser");
+  for (const status of ["ready", "working"]) {
+    if (status === "working") await f.one.send({ messageId: "bound-configuration-active", text: "wait" });
+    assert.equal((await f.one.read()).status, status);
+    const before = await f.storage.read("bound-one", async transaction => ({
+      metadata: await transaction.readMetadata(), history: await Promise.all((await transaction.listTurnIds()).map(id => transaction.readTurn(id)))
+    }));
+    const nativeBefore = await f.trace();
+    const count = events.length;
+    await f.boundRuntime.publishNative({ namespace: "main-bound-one", sessionId: "bound-one", event: notification });
+    assert.deepEqual(events.slice(count), [{ conversationId: "bound-one", ...notification }],
+      `The existing subscriber receives its configuration notification while ${status}`);
+    assert.deepEqual(peerEvents, [], "The account-shared native peer keeps its independent subscriber");
+    assert.deepEqual(await f.storage.read("bound-one", async transaction => ({
+      metadata: await transaction.readMetadata(), history: await Promise.all((await transaction.listTurnIds()).map(id => transaction.readTurn(id)))
+    })), before, "A browser invalidation does not rewrite native identity or transcript");
+    assert.deepEqual(await f.trace(), nativeBefore, "A browser invalidation performs no native request");
+  }
+  release();
+  const count = events.length;
+  await f.boundRuntime.publishNative({ namespace: "main-bound-one", sessionId: "bound-one", event: notification });
+  assert.equal(events.length, count, "Releasing the original browser reader ends its notifications");
+  await f.one.cancel();
+});

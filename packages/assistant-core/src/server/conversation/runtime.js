@@ -215,7 +215,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const publicationOwner = entry.bindingOwner;
     const publicationSegment = entry.segmentId;
     const publicationActive = entry.active;
-    if (entry.conversation?.commands && ["phase", "configuration"].includes(event.type)) {
+    // A native-backed bound conversation also uses configuration as a browser
+    // invalidation. It has no command facade, but owns the same subscriptions.
+    if (entry.conversation && (event.type === "configuration" || entry.conversation.commands && event.type === "phase")) {
       return emit(entry, event);
     }
     const payload = event.payload || {};
