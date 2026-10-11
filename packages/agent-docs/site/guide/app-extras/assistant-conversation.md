@@ -1517,6 +1517,15 @@ actor/resource checks or native thread check, and it is not serialized. Hosts
 choose this check explicitly; the generic runtime still preserves originating
 contexts for already invoked actions and saved-result recovery.
 
+Bound native admissions also expose `assertCompletionCurrent()` for the host's
+original final-settlement callback. It requires a finishing native request and
+retains cancellation, accepted-message, binding and segment ownership after
+live tools finish. A newer accepted request retires that receipt even after the
+newer request settles; rejected input does not replace it. The host must still
+freshly authorize access and verify its exact current inactive native turn and
+original final result immediately before binding that output. This assertion
+does not authorize tool effects or replace `assertCurrent()`.
+
 For an opted-in bound Codex conversation, the common driver installs the same
 application-tool schemas and executor used by its standalone path. The original
 message preparation passes them to `ensureCodexAppServerThread()` before native

@@ -733,7 +733,16 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               if (entry.active !== active || current !== request || !request.accepted || request.finished) {
                 throw failure("This application tool's admitted message is no longer current.", "conversation_tool_request_retired");
               }
-            } }));
+            },
+            ...(entry.conversation ? { assertCompletionCurrent() {
+              active.controller.signal.throwIfAborted();
+              if (closed || entry.disposed || entry.bindingOwner !== bindingOwner || entry.segmentId !== segmentId ||
+                  !active.finishing || active.timedOut || problem || toolFailure || entry.executionFailure || entry.storageFailure ||
+                  current !== request || !request.accepted || entry.lastAcceptedRequest !== request ||
+                  entry.active && entry.active !== active) {
+                throw failure("This native completion's admitted message is no longer current.", "conversation_tool_request_retired");
+              }
+            } } : {}) }));
         } } : {}),
         maximumCalls: maximumToolCalls, discoveryOnly: driver.toolDiscovery === true,
         authorize: () => access(request.context, entry.id, "tool", entry),
@@ -849,6 +858,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       request.nativeTurnId = nativeTurnId;
       if (request.input.goal) goalOwner = request;
       current = active.request = request;
+      if (entry.conversation) entry.lastAcceptedRequest = request;
       if (!nativeDelivery) await publishAdmission(request);
     }
 
@@ -1134,6 +1144,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           }
           if (!saved) throw new Error("The native receipt has no stored authored message.");
           request.accepted = request.finished = true;
+          if (entry.conversation) entry.lastAcceptedRequest = request;
           request.turnId = saved.turnId;
           request.recovered = saved.metadata?.runtime;
           const receipt = { status: "accepted", messageId: request.input.messageId, turnId: saved.turnId,
