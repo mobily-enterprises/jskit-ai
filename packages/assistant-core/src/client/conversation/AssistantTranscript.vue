@@ -1115,6 +1115,7 @@ watch(() => props.visible, (visible) => {
 .assistant-transcript__error-content {
   align-items: flex-start;
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 

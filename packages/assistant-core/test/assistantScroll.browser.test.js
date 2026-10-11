@@ -1149,3 +1149,72 @@ test("pending history keeps following the reader when a new reply changes transc
     await stopProcess(vite);
   }
 });
+
+
+test("connection warnings keep avatar controls and Reload reachable without replacing history", {
+  skip: !RUN_BROWSER_TEST, timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [320, 800]) {
+      const page = await browser.newPage({ viewport: { width, height: 1000 } });
+      await page.goto(`${vite.baseURL}/?conversation=1&avatar=1&avatarTools=1&update-errors=1`);
+      const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
+      await external("Resize height");
+      const conversation = page.locator(".assistant-conversation");
+      const avatar = page.locator(".assistant-conversation__avatar");
+      const body = page.locator(".assistant-transcript__body");
+      const draft = page.getByRole("textbox", { name: "Message AI assistant", exact: true });
+      const banner = page.locator(".assistant-transcript__error");
+      const reload = banner.getByRole("button", { name: "Reload chat", exact: true });
+      await draft.fill("Keep this draft and the loaded history.");
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(2);
+      await body.hover();
+      await page.mouse.wheel(0, -1000);
+      await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
+      await body.evaluate(element => { element.scrollTop = 420; window.errorAvatarBody = element; });
+      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      const history = await body.locator(".assistant-transcript__turn").allTextContents();
+      let reloads = 0;
+      for (const size of ["standard", "large", "hidden"]) {
+        await page.getByRole("combobox", { name: "Avatar preference", exact: true }).selectOption(size);
+        await external("Show update error");
+        await expect(conversation).toHaveClass(/assistant-conversation--error/u);
+        await expect(avatar).toHaveCSS("position", "relative");
+        await expect(banner).toContainText("Conversation updates are temporarily unavailable.");
+        await expect(reload).toBeVisible();
+        const avatarBox = await avatar.boundingBox();
+        const bannerBox = await banner.boundingBox();
+        assert.ok(avatarBox.y + avatarBox.height <= bannerBox.y, "The entire avatar and its controls stay above the warning");
+        const controls = size === "hidden"
+          ? [page.getByRole("button", { name: "Retained avatar control", exact: true }), page.getByRole("button", { name: "Show avatar", exact: true })]
+          : [page.getByRole("button", { name: "Avatar tool", exact: true }), page.getByRole("button", { name: "Minimise avatar", exact: true })];
+        for (const target of [reload, ...controls]) {
+          await expect(target).toBeVisible();
+          assert.equal(await target.evaluate(element => {
+            const rect = element.getBoundingClientRect();
+            return element.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+          }), true, "The ordinary pointer reaches each recovery and avatar control");
+        }
+        assert.equal(await body.evaluate(element => element === window.errorAvatarBody), true);
+        assert.deepEqual(await body.locator(".assistant-transcript__turn").allTextContents(), history);
+        await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+        await expect(draft).toHaveValue("Keep this draft and the loaded history.");
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+        await reload.click();
+        await expect(banner).toHaveCount(0);
+        await expect(avatar).toHaveCSS("position", "absolute");
+        await expect(page.getByText(`Error reloads: ${++reloads}`, { exact: true })).toBeVisible();
+        assert.equal(await body.evaluate(element => element === window.errorAvatarBody), true);
+        assert.deepEqual(await body.locator(".assistant-transcript__turn").allTextContents(), history);
+        await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+        await expect(draft).toHaveValue("Keep this draft and the loaded history.");
+      }
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});

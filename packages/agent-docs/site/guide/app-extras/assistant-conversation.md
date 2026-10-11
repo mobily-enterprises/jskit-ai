@@ -921,6 +921,14 @@ slot, the text-only layout has no avatar region or visibility control and requir
 voice package or speech service. The application supplies artwork and any
 animation; the element does not acquire audio or another conversation.
 
+While the transcript has an `error`, the avatar and its controls temporarily
+occupy space above the transcript instead of floating over the warning. This
+keeps the warning text and **Reload chat** reachable at narrow widths, including
+with hidden artwork and retained controls. The warning stacks its text and
+recovery button. The loaded message body and draft remain mounted; this layout
+temporarily leaves less height for history. Clearing the error restores the
+floating layout without changing the requested avatar size.
+
 ```vue
 <AssistantConversationElement :adapter="adapter" v-model:avatar-size="avatarSize">
   <template #avatar><SupportAvatar /></template>
