@@ -1107,6 +1107,10 @@ watch(() => props.visible, (visible) => {
   min-height: min-content;
 }
 
+.assistant-transcript--error .assistant-transcript__body {
+  contain: size;
+}
+
 .assistant-transcript__error {
   font-size: 0.85rem;
   min-width: 0;

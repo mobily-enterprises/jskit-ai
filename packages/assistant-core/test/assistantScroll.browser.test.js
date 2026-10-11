@@ -1259,8 +1259,18 @@ test("short connection warnings preserve full text and recovery targets at phone
         assert.ok(target.top >= bounds.banner.top - 1 && target.bottom <= bounds.banner.bottom + 1,
           "The warning does not clip its text or recovery button");
       }
+      const transcriptBounds = await page.locator(".assistant-transcript").evaluate(element => ({
+        top: element.getBoundingClientRect().top,
+        bottom: element.getBoundingClientRect().bottom,
+        scrollTop: element.scrollTop
+      }));
+      assert.ok(bounds.banner.top >= transcriptBounds.top - 1 && bounds.banner.bottom <= transcriptBounds.bottom + 1,
+        "The parent allocates the complete warning height instead of clipping its own error row");
+      assert.equal(transcriptBounds.scrollTop, 0, "Reading the warning does not require scrolling the hidden transcript container");
       await expect(conversation).toHaveCSS("overflow-y", "auto");
       await reload.scrollIntoViewIfNeeded();
+      assert.equal(await page.locator(".assistant-transcript").evaluate(element => element.scrollTop), 0,
+        "The ordinary recovery target scrolls through the error conversation, not its clipped transcript");
       assert.equal(await reload.evaluate(element => {
         const rect = element.getBoundingClientRect();
         return [2, rect.height / 2, rect.height - 2].every(offset =>

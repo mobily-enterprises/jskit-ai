@@ -404,6 +404,7 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__avatar-visual :deep(> *) { max-width: 100%; max-height: 100%; }
 .assistant-conversation__goal { display: flex; justify-content: flex-end; flex: 0 0 auto; }
 .assistant-conversation__transcript { flex: 1 1 auto; min-height: 0; }
+.assistant-conversation--error .assistant-conversation__transcript { min-height: min-content; }
 .assistant-conversation__composer { flex: 0 0 auto; }
 .assistant-conversation__attachment-error { flex-basis: 100%; margin: 0; }
 .assistant-conversation__setting { min-width: 8rem; max-width: 16rem; }
