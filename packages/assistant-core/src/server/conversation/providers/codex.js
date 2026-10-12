@@ -10,6 +10,7 @@ export function createCodexConversationAdapter(host) {
   const instructionPrompts = new Map();
   const tasks = new Map();
   const goalChanges = new Map();
+  const threadGenerations = new Map();
   let contextGeneration = 0;
 
   function instructionEnvironment(params, environment) {
@@ -38,6 +39,7 @@ export function createCodexConversationAdapter(host) {
   // Detaching alone is insufficient when another subscriber retains it: prove
   // the effective managed environment before recording a new binding.
   async function withThreadContext(threadId, params, operation) {
+    const threadGeneration = threadGenerations.get(threadId) || 0;
     const previous = tasks.get(threadId) || Promise.resolve();
     const task = previous.catch(() => null).then(() => host.runRequest(async () => {
       const client = await host.client();
@@ -52,7 +54,7 @@ export function createCodexConversationAdapter(host) {
       const controlDeadline = performance.now() + (host.timeoutMs || 10_000);
       const assertRecoveryOpen = () => {
         signal.throwIfAborted();
-        if (generation !== contextGeneration) {
+        if (generation !== contextGeneration || threadGeneration !== (threadGenerations.get(threadId) || 0)) {
           throw new Error("The assistant connection closed during recovery.");
         }
       };
@@ -66,6 +68,7 @@ export function createCodexConversationAdapter(host) {
         if (bound && params.developerInstructions != null && instructionPrompts.get(threadId) !== params.developerInstructions) {
           throw new Error("Start a new ephemeral conversation to change its instructions.");
         }
+        assertRecoveryOpen();
         return operation(threadParameters({ ...bound?.params, ...params }, {}));
       }
       let environment = instructionEnvironment(params, fixedPolicy?.set || await host.prepareEnvironment(
@@ -291,6 +294,10 @@ export function createCodexConversationAdapter(host) {
     registerThread(id, binding) {
       bindings.set(id, binding);
       if (binding.params.developerInstructions != null) instructionPrompts.set(id, binding.params.developerInstructions);
+    },
+    invalidateThread(id) {
+      threadGenerations.set(id, (threadGenerations.get(id) || 0) + 1);
+      bindings.delete(id);
     },
     goalChanged: (id) => goalChanges.set(id, (goalChanges.get(id) || 0) + 1),
     get bindingCount() { return bindings.size; },

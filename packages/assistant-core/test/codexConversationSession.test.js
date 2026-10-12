@@ -999,6 +999,8 @@ async function fixture(t, options = {}) {
         state.thread = thread; state.loaded = true; threads.set(thread.id, state); save();
         return reply({ thread, modelProvider: thread.modelProvider });
       }
+      if (method === "thread/loaded/list") return reply({ data: [...threads.values()].filter(state => state.loaded).map(state => state.thread.id), nextCursor: null });
+      if (method === "thread/read" && existsSync(file + ".unknown-provider")) return reply({ thread: { id: thread.id, status: { type: "idle" } } });
       if (method === "thread/read") return reply({ thread: { ...thread,
         status: { type: !state.loaded ? "notLoaded" : state.runningTurn?.status === "inProgress" ? "active" : "idle" } } });
       if (method === "thread/turns/list") return reply({ data: [...thread.turns].reverse(), nextCursor: null });
@@ -1020,7 +1022,7 @@ async function fixture(t, options = {}) {
         return reply({});
       }
       if (method === "thread/goal/get") return reply({ goal: thread?.goal || null });
-      if (method === "thread/unsubscribe") { state.loaded = false; return reply({ status: "unsubscribed" }); }
+      if (method === "thread/unsubscribe") { if (!existsSync(file + ".retained-subscriber")) state.loaded = false; return reply({ status: "unsubscribed" }); }
       if (method === "turn/interrupt") {
         if (existsSync(file + ".refuse-interrupt")) {
           ws.send(JSON.stringify({ id, error: { code: -32602, message: "Controlled native interrupt refusal" } }));
@@ -2960,6 +2962,109 @@ test("closing a bound native owner refuses tool callbacks before and after input
   await f.owner.notificationQueue.drain("bound-one");
   await f.owner.notificationQueue.drain("bound-two");
   assert.equal(f.sharedProvider.threadRequestHandlers.size, 0);
+});
+
+
+test("provider retirement unloads only matching native threads and retains the shared server, peer goal and account binding", async t => {
+  const f = await fixture(t);
+  const goal = await f.conversation.updateGoal({ action: "set", objective: "wait goal", expectedSegmentId: (await f.conversation.read()).segmentId });
+  const owner = createCodexAppServerProviderOwner({ runtimeRoot: f.directory });
+  const provider = [...owner.ownedRuntimes.values()][0].provider;
+  const peerBinding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  const originalParams = (await f.trace()).find(row => row.method === "thread/start").params;
+  const selectedParams = { ...originalParams, modelProvider: "deepseek", config: { ...originalParams.config,
+    "model_providers.deepseek": { experimental_bearer_token: "selected-old-fixture", requires_openai_auth: false } } };
+  const { thread } = await provider.client.request("thread/start", selectedParams);
+  const result = await owner.invalidateRuntimes({ includeOwned: true, modelProviderId: "deepseek" });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.stopped, 1);
+  assert.deepEqual(result.results[0].threadIds, [thread.id]);
+  assert.equal(result.results[0].sharedProcessRetained, true);
+  assert.equal((await provider.client.request("thread/read", { threadId: thread.id, includeTurns: false })).thread.status.type, "notLoaded");
+  assert.equal((await f.conversation.read()).status, "working");
+  assert.equal((await f.conversation.readGoal()).id, goal.id);
+  assert.equal((await f.conversation.readGoal()).status, "active");
+  assert.deepEqual(await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding), peerBinding);
+  const nextParams = { ...selectedParams, threadId: thread.id, config: { ...selectedParams.config,
+    "model_providers.deepseek": { experimental_bearer_token: "selected-new-fixture", requires_openai_auth: false } } };
+  await provider.client.request("thread/resume", nextParams);
+  const trace = await f.trace();
+  assert.equal(trace.filter(row => row.args).length, 1);
+  assert.equal(trace.filter(row => row.method === "thread/resume").at(-1).params.config["model_providers.deepseek"].experimental_bearer_token, "selected-new-fixture");
+  assert.equal(trace.some(row => row.method === "turn/interrupt" && row.params.threadId === peerBinding.threadId), false);
+  assert.equal(trace.filter(row => row.method === "thread/goal/set" && row.params.threadId === peerBinding.threadId).length, 1);
+  await f.conversation.cancel();
+});
+
+test("provider retirement fails closed on unknown loaded providers and retained native subscribers", async t => {
+  const f = await fixture(t);
+  await f.conversation.send(input); await f.conversation.wait();
+  const owner = createCodexAppServerProviderOwner({ runtimeRoot: f.directory });
+  const provider = [...owner.ownedRuntimes.values()][0].provider;
+  const originalParams = (await f.trace()).find(row => row.method === "thread/start").params;
+  const { thread } = await provider.client.request("thread/start", { ...originalParams, modelProvider: "deepseek" });
+  const unknown = path.join(f.directory, "history.json.unknown-provider");
+  await writeFile(unknown, "fixture");
+  const rejected = await owner.invalidateRuntimes({ includeOwned: true, modelProviderId: "deepseek" });
+  assert.equal(rejected.ok, false);
+  assert.match(rejected.failed[0].error, /untrustworthy thread\/provider inventory/);
+  assert.equal((await f.trace()).some(row => row.method === "thread/unsubscribe"), false);
+  await rm(unknown);
+  const retained = path.join(f.directory, "history.json.retained-subscriber");
+  await writeFile(retained, "fixture");
+  const blocked = await owner.invalidateRuntimes({ includeOwned: true, modelProviderId: "deepseek" });
+  assert.equal(blocked.ok, false);
+  assert.match(blocked.failed[0].error, /Close the native Codex terminal/);
+  assert.equal(provider.client.isOpen(), true);
+  assert.equal((await provider.client.request("thread/read", { threadId: thread.id, includeTurns: false })).thread.status.type, "idle");
+  await rm(retained);
+  assert.equal((await owner.invalidateRuntimes({ includeOwned: true, modelProviderId: "deepseek" })).ok, true);
+  assert.equal((await f.trace()).filter(row => row.args).length, 1);
+});
+
+test("provider retirement cannot skip an owned native runtime absent from cached consumers", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-provider-retirement-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const owner = createCodexAppServerProviderOwner({ runtimeRoot: root });
+  const provider = { runtime: { pid: 123 }, client: null };
+  owner.rememberOwnedRuntime({ provider, providerKey: "retained-owned", providerOptions: { runtimeDir: path.join(root, "native") } });
+  t.after(() => owner.forgetOwnedRuntime(provider));
+  const result = await owner.invalidateRuntimes({ includeOwned: true, modelProviderId: "deepseek" });
+  assert.equal(result.ok, false);
+  assert.match(result.failed[0].error, /existing control connection is unavailable/);
+  assert.equal([...owner.ownedRuntimes.values()].length, 1);
+});
+
+
+for (const mixed of [false, true]) test(`dedicated provider home ${mixed ? "refuses mixed-provider threads without stopping" : "uses its existing verified process retirement"}`, async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-dedicated-provider-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const owner = createCodexAppServerProviderOwner({ runtimeRoot: root });
+  const unrelated = createCodexAppServerProviderOwner({ runtimeRoot: `${root}-other` });
+  let stops = 0, unrelatedStops = 0, loaded = true;
+  const home = path.join(root, "provider-home");
+  const providerOptions = { runtimeDir: path.join(root, "native"), toolHomeSource: home };
+  const provider = owner.createProvider({ providerKey: "dedicated", providerOptions, create: () => ({
+    client: { isOpen: () => true, async request(method, params) {
+      if (method === "thread/loaded/list") return { data: mixed ? ["selected", "unrelated"] : ["selected"], nextCursor: null };
+      if (method === "thread/read") return { thread: { id: params.threadId,
+        modelProvider: params.threadId === "selected" ? "deepseek" : "openai", status: { type: loaded ? "idle" : "notLoaded" } } };
+      if (method === "thread/unsubscribe") { loaded = false; return { status: "unsubscribed" }; }
+      assert.fail(method);
+    } },
+    async stopThreadForObservationLoss() {},
+    async stopRuntime() { stops++; return { stopped: true }; }, close() {}
+  }) });
+  await owner.acquireRuntime({ providerKey: "dedicated", providerOptions, provider, operation: async () => {} });
+  const peer = { async stopRuntime() { unrelatedStops++; return { stopped: true }; }, close() {} };
+  unrelated.rememberOwnedRuntime({ provider: peer, providerKey: "unrelated", providerOptions: { runtimeDir: `${root}-other/native` } });
+  t.after(() => { owner.forgetOwnedRuntime(provider); owner.closeProvider("dedicated"); unrelated.forgetOwnedRuntime(peer); });
+  const result = await owner.invalidateRuntimes({ includeOwned: true, modelProviderId: "deepseek", toolHomeSource: home });
+  assert.equal(result.ok, !mixed, JSON.stringify(result));
+  assert.equal(stops, mixed ? 0 : 1);
+  assert.equal(unrelatedStops, 0);
+  if (mixed) { assert.match(result.failed[0].error, /another provider thread/); assert.equal(loaded, true); }
+  else { assert.equal(result.results[0].dedicatedRuntimeRetired, true); assert.equal(result.results[0].sharedProcessRetained, false); }
 });
 
 // The original supplied Main owner keeps its own canonical policy. A runtime

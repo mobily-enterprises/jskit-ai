@@ -432,10 +432,11 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         } });
       }
 
-      async function completeObservation({ provider, error, sharedStop }) {
+      async function completeObservation({ provider, error, sharedStop, threadIds }) {
+        if (threadIds && !threadIds.includes(binding.threadId)) return;
         await updateBinding({ observationLoss: { ...binding.observationLoss, stopped: true },
           ...(sharedStop ? { executionId: "" } : {}) });
-        await observation.complete({ provider, error, sharedStop });
+        await observation.complete({ provider, error, sharedStop, threadIds });
         observationError = null;
         await reportFailure(error, { recovered: true });
         current?.completion.reject(error);
@@ -495,6 +496,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           create: onObservationLost => new CodexAppServerAgentProvider({ ...providerOptions, onObservationLost }, facilities),
           observation: {
             async prepare(input) {
+              if (input.threadIds && !input.threadIds.includes(binding.threadId)) return new Map();
               observationError = input.error;
               await reportFailure(input.error);
               const threads = await observation.prepare(input);
@@ -502,6 +504,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
               return threads;
             },
             async barrier(input) {
+              if (input.threadIds && !input.threadIds.includes(binding.threadId)) return;
               await observation.barrier(input);
               await recordObservationBarrier(input);
             },

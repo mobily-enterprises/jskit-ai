@@ -643,3 +643,81 @@ test("original message monitor clone retains only its registered target's final 
   assert.equal(modelPrompts, 0);
   assert.deepEqual(errors, []);
 });
+
+test("credential publication refuses another provider and unowned consumers before stopping or writing", async () => {
+  for (const unowned of [false, true]) {
+    const { runtime, acquire, stops } = fixture();
+    const selected = await acquire("selected"); selected.modelProviderId = "deepseek";
+    const peer = await acquire("peer"); peer.modelProviderId = unowned ? "deepseek" : "zai";
+    let published = false;
+    const effects = [];
+    await assert.rejects(runtime.invalidateRuntimes({ modelProviderId: "deepseek", publish() { published = true; } }, {
+      release: { ownsTarget: target => !unowned || target !== peer,
+        beforeRelease: async target => effects.push(target.key), onRemoved: async () => {}, failure: error => { throw error; } }
+    }), { code: "assistant_opencode_connection_in_use" });
+    assert.equal(published, false);
+    assert.deepEqual(effects, []);
+    assert.deepEqual(stops, []);
+    assert.equal(runtime.processes.get("peer"), peer);
+    assert.equal(peer.abortController.signal.aborted, false);
+    assert.equal(selected.abortController.signal.aborted, false);
+  }
+});
+
+test("credential publication fences new acquisition and ensure across native cleanup and private publication", async () => {
+  const { runtime, acquire, connection, starts, stops } = fixture();
+  const selected = await acquire("selected"); selected.modelProviderId = "deepseek";
+  const publishing = Promise.withResolvers(), finish = Promise.withResolvers();
+  let saved = "old";
+  const changed = runtime.invalidateRuntimes({ modelProviderId: "deepseek", async publish() {
+    assert.equal(stops.length, 1); publishing.resolve(); await finish.promise; saved = "new";
+  } }, { release: { ownsTarget: () => true, beforeRelease: async () => {}, onRemoved: async () => {}, failure: error => { throw error; } } });
+  await publishing.promise;
+  assert.equal(saved, "old");
+  await assert.rejects(acquire("late"), { code: "assistant_opencode_connection_changing" });
+  await assert.rejects(runtime.ensure(connection, async () => { throw new Error("must not start"); }), { code: "assistant_opencode_connection_changing" });
+  assert.equal(starts.length, 1);
+  finish.resolve();
+  assert.equal((await changed).ok, true);
+  assert.equal(saved, "new");
+  await acquire("retry");
+  assert.equal(starts.length, 2);
+});
+
+test("credential barrier drains admitted acquisitions and refuses a late peer without native effects", async () => {
+  const { runtime, acquire, stops } = fixture();
+  const started = Promise.withResolvers(), finish = Promise.withResolvers();
+  const pending = runtime.acquire("late-peer", async () => {
+    started.resolve(); await finish.promise;
+    return { key: "late-peer", modelProviderId: "zai", abortController: new AbortController() };
+  });
+  await started.promise;
+  let published = false;
+  const changed = runtime.invalidateRuntimes({ modelProviderId: "deepseek", publish() { published = true; } }, {
+    release: { ownsTarget: () => true, beforeRelease: async () => { throw new Error("must not release"); } }
+  });
+  const rejected = assert.rejects(changed, { code: "assistant_opencode_connection_in_use" });
+  finish.resolve(); await pending; await rejected;
+  assert.equal(published, false);
+  assert.deepEqual(stops, []);
+});
+
+test("unconfirmed terminal and failed verified stop keep the prior credential and permit safe retry", async () => {
+  let terminalOpen = true, stopFails = true, published = false;
+  const { runtime, acquire, stops } = fixture({ stop: async () => ({ exited: !stopFails }) });
+  const target = await acquire("selected"); target.modelProviderId = "deepseek";
+  const input = { modelProviderId: "deepseek", publish() { published = true; } };
+  const preparation = { release: { ownsTarget: () => true,
+    assertConnectionChange() { if (terminalOpen) throw new Error("close terminal"); },
+    beforeRelease: async () => {}, onRemoved: async () => {}, failure: error => { throw error; } } };
+  await assert.rejects(runtime.invalidateRuntimes(input, preparation), /close terminal/);
+  assert.equal(target.abortController.signal.aborted, false);
+  assert.equal(stops.length, 0);
+  terminalOpen = false;
+  await assert.rejects(runtime.invalidateRuntimes(input, preparation), { code: "assistant_opencode_stop_unverified" });
+  assert.equal(published, false);
+  stopFails = false;
+  assert.equal((await runtime.invalidateRuntimes(input, preparation)).ok, true);
+  assert.equal(published, true);
+  assert.equal(stops.length, 2);
+});

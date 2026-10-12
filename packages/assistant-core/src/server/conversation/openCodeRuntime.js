@@ -181,6 +181,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   let sharedProcessStop = null;
   let failedStartup = null;
   let closed = false;
+  let connectionChanging = false;
+
+  function requireConnectionAvailable() {
+    if (connectionChanging) throw Object.assign(new Error("OpenCode is changing a connection. Retry after the connection change finishes."), {
+      code: "assistant_opencode_connection_changing", statusCode: 409
+    });
+  }
   const bindingScopes = new Map();
   let registryPath = "";
   let bindingWrite = Promise.resolve();
@@ -230,7 +237,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   async function ensure(selected, start) {
+    requireConnectionAvailable();
     await sharedProcessStop;
+    requireConnectionAvailable();
     if (failedStartup) await stop("opencode-startup-cleanup");
     if (sharedProcess) {
       const currentConnection = sharedProcess.connections.get(selected?.modelProviderId);
@@ -243,6 +252,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
           await sharedProcess.server.client.health({ signal: AbortSignal.timeout(1_000) });
           return sharedProcess;
         } catch {
+          requireConnectionAvailable();
           await stop("opencode-health-check-failed");
         }
       } else {
@@ -320,6 +330,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   async function acquire(key, prepare, onFailure = async () => {}) {
+    requireConnectionAvailable();
     const pending = processStarts.get(key);
     if (pending) return pending;
     const start = Promise.resolve().then(async () => {
@@ -442,6 +453,33 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       closed = true;
     }
     const application = preparation.release;
+    if (typeof input.publish === "function") {
+      requireConnectionAvailable();
+      connectionChanging = true;
+      try {
+        await Promise.all([...processStarts.values()].map(start => start.catch(() => null)));
+        await sharedProcessStart?.catch(() => null);
+        await application.assertConnectionChange?.();
+        const targets = [...processes.values()];
+        const providerId = text(input.modelProviderId);
+        if (!providerId || targets.some(target => text(target.modelProviderId) !== providerId || !application.ownsTarget(target))) {
+          throw Object.assign(new Error("Close other OpenCode chats and Colleague conversations, then retry this connection change. The saved connection has not changed."), {
+            code: "assistant_opencode_connection_in_use", statusCode: 409
+          });
+        }
+        const results = [];
+        for (const target of targets) {
+          const proof = await releaseProcessTarget(target, { retainSharedProcess: true }, application);
+          if (proof?.exited === false || proof?.ok === false) throw new Error("OpenCode could not stop the selected conversation. Retry the connection change.");
+          results.push(proof);
+        }
+        if (sharedProcess || failedStartup) results.push(await stop("opencode-connection-changed"));
+        await input.publish();
+        return { closed: results.length, ok: true };
+      } finally {
+        connectionChanging = false;
+      }
+    }
     await Promise.all([...processStarts.entries()]
       .filter(([key]) => key.includes("\0"))
       .map(([, start]) => start.catch(() => null)));

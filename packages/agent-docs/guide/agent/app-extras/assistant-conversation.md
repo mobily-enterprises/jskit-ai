@@ -2677,6 +2677,36 @@ native work running; failed stop or final persistence remains retryable. Recover
 uses the recorded native owner after reopening and never replays the request.
 Applications using the common runtime do not supply Codex recovery callbacks.
 
+OpenCode provider credentials are cached for a shared server lifetime. The
+application's private `publish` operation enters that same owner's acquisition
+fence after validating the selected provider. Pending starts drain before the
+owner checks all consumers. Another provider, an unowned driver target or an
+unconfirmed native terminal refuses publication before stopping work; the
+previous saved credential stays available. When only owned selected users remain,
+the original cleanup and verified server exit retire the native cache before
+publishing. New acquisitions refuse during this interval and can retry afterwards.
+The application supplies terminal inventory from its existing PTY owner; no
+second process owner or credential refresh proxy is involved.
+
+An application's selected provider credential change uses the existing owner's
+`invalidateRuntimes({ modelProviderId, includeOwned, toolHomeSource })` branch.
+It inventories loaded native thread identities and exact provider assignments,
+stops only matching turns/goals, detaches their observers and verifies they are
+not loaded. Other provider threads, their queues and the shared server stay
+active. Malformed inventories or a retaining native terminal subscriber refuse
+the change before credential publication; close that terminal and retry. This
+branch never falls back to stopping the shared service. An exact isolated
+provider HOME whose default config caches the key may use the existing verified
+process retirement only after every loaded/cached thread is proved to belong to
+that provider; mixed-provider homes refuse retirement. Genuine account/socket
+changes retain the original whole-runtime invalidation and recovery.
+
+The application owns independently saved orchestrator/provider records and
+validation before publication. This native lifecycle facility copies no keys
+and validates no other provider. Changed account fingerprints still require an
+explicit existing replacement/selection operation or another conversation;
+provider retirement does not weaken the native account guard.
+
 A custom Codex execution facility supplies `run()` for capture/detached requests
 and `stop()` with confirmed scope cleanup. The supplied local facility supports
 both. An existing managed native integration may supply `host.codex({ providerId })`
