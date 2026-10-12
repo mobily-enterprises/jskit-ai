@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 const unknownOutcome = "The application operation did not return a verified result. Inspect its target before requesting another execution.";
 
 /** One turn's application calls. Native/API adapters only transport these calls. */
-export function createConversationTools({ catalog, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit,
+export function createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize, save, emit,
   maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false }) {
   if (transient !== true && [authorize, save, emit].some(hook => typeof hook !== "function")) {
     throw new TypeError("Conversation tools require authorization, durable save and event facilities.");
@@ -12,7 +12,7 @@ export function createConversationTools({ catalog, context, prepareContext, sign
     throw new TypeError("Transient application tools cannot restore a previous execution.");
   }
   if (prepareContext !== undefined && typeof prepareContext !== "function") throw new TypeError("Application tool context requires a server-owned mapper.");
-  const toolSet = catalog.resolveToolSet(context, { discoveryOnly });
+  const toolSet = retainedToolSet ?? catalog.resolveToolSet(context, { discoveryOnly });
   const calls = new Map(structuredClone(previousCalls).map(call => [call.id, call]));
   let pending = Promise.resolve();
   let requested = 0;

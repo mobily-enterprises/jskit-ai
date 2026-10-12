@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.1.239",
+  "version": "0.1.240",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -25,13 +25,16 @@
     "./client/components/ShellTabLinkItem": "./src/client/components/ShellTabLinkItem.vue",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
-    "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js"
+    "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js",
+    "./architecture": "./src/architecture/inspectVueArchitecture.js"
   },
   "dependencies": {
-    "@mdi/js": "^7.4.47"
+    "@mdi/js": "^7.4.47",
+    "@babel/parser": "7.29.9",
+    "@vue/compiler-sfc": "3.5.43"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.235",
+    "@jskit-ai/kernel": "0.1.236",
     "pinia": "^4.0.3",
     "vue": "^3.5.43",
     "vue-router": "^5.3.1",
@@ -379,5 +382,8 @@
         }
       }
     }
+  },
+  "bin": {
+    "jskit-inspect-vue": "./src/architecture/cli.js"
   }
 }

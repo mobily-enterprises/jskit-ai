@@ -1,6 +1,6 @@
 import { computed, onScopeDispose, ref, watch } from "vue";
 
-import { speechTextFromAssistant } from "../shared/protocol.js";
+import { VOICE_MAX_SYNTHESIS_TIMEOUT_MS, speechTextFromAssistant } from "../shared/protocol.js";
 import { createMicrophoneCapture } from "./audioCapture.js";
 import {
   normalizeSpeechSegment,
@@ -63,6 +63,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   let heartbeatTimer;
   let lastPongAt = 0;
   let lastSpeechProgressAt = 0;
+  let synthesisTimeoutMs = 20_000;
+  let lastStartedSegmentIndex = -1;
   let microphone = null;
   let preserveBufferedMicrophone = false;
   const openingMicrophones = new Set();
@@ -165,7 +167,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       connectionLost();
       return;
     }
-    if (activeSpeechTurnId.value && synthesisPending.value && Date.now() - lastSpeechProgressAt > 20000) {
+    if (activeSpeechTurnId.value && synthesisPending.value && Date.now() - lastSpeechProgressAt > synthesisTimeoutMs) {
       connectionLost("Speech generation stalled. The answer remains in chat; use Talk to resume.");
       return;
     }
@@ -405,6 +407,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     stopAfterSegment = Infinity;
     bufferedSeconds.value = 0;
     synthesisPending.value = 0;
+    synthesisTimeoutMs = 20_000;
+    lastStartedSegmentIndex = -1;
     receivingTurnId = "";
     receivingSegment = null;
     streamedSegments.clear();
@@ -477,11 +481,24 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return;
     }
     if (type === "speech.segment.start" && message.turnId === activeSpeechTurnId.value) {
+      if (!speechStreamEnded && Number.isSafeInteger(message.segmentIndex) &&
+          message.segmentIndex > lastStartedSegmentIndex) {
+        lastStartedSegmentIndex = message.segmentIndex;
+        synthesisTimeoutMs = 20_000;
+        if (Number.isSafeInteger(message.synthesisTimeoutMs) && message.synthesisTimeoutMs > 20_000 &&
+            message.synthesisTimeoutMs <= VOICE_MAX_SYNTHESIS_TIMEOUT_MS) {
+          // The engine acquired its queue slot. Allow its bounded cold job until
+          // first PCM; repeated metadata and pongs are not synthesis progress.
+          synthesisTimeoutMs = message.synthesisTimeoutMs;
+          lastSpeechProgressAt = Date.now();
+        }
+      }
       receivingSegment = { index: message.segmentIndex };
       streamedSegments.set(message.segmentIndex, receivingSegment);
       return;
     }
     if (type === "speech.chunk.end" && message.turnId === activeSpeechTurnId.value) {
+      synthesisTimeoutMs = 20_000;
       lastSpeechProgressAt = Date.now();
       synthesisPending.value = Math.max(0, synthesisPending.value - 1);
       return;
@@ -515,6 +532,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   function handleSocketMessage(event) {
     if (event.data instanceof ArrayBuffer) {
       if (speechOutputEnabled.value && activeSpeechTurnId.value && receivingTurnId === activeSpeechTurnId.value && !speechStreamEnded) {
+        synthesisTimeoutMs = 20_000;
         lastSpeechProgressAt = Date.now();
         enqueuePcm(event.data);
       }

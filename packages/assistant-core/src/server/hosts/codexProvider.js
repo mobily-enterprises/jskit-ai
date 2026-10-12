@@ -16,8 +16,11 @@ export {
   ensureCodexAppServerThread,
   inspectCodexAppServerMessageAdmission,
   retireCodexConversationHistory,
+  readCodexNativeGoal,
   resumeExactCodexAppServerThread,
   sendCodexAppServerPrompt,
   shellQuote,
   startFreshCodexAppServerThread
 } from "../conversation/codexProvider.js";
+
+export { readCodexHistoryRows } from "../conversation/codexHistoryAdapter.js";

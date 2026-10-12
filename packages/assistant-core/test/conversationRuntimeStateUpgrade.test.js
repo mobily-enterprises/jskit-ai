@@ -142,3 +142,92 @@ test("current journals distinguish an unsent reservation from a frozen attempted
         request: { ...frozen.metadata.runtime.request, ...patch } } } }), { code: "conversation_runtime_upgrade_unavailable" });
   }
 });
+
+function codexRetirementRecord() {
+  const value = record("codex", { version: 3, lastEngine: "codex",
+    continuity: "Retained discussion", continuityAttachments: [{ attachmentId: "earlier" }],
+    binding: { ...bindings.codex, accountIdentity: "retained-account", toolSchemaIdentity: "a".repeat(64),
+      run: { turnId: "retained-native-turn", status: "running" }, goal: { status: "active", objective: "Retained native goal" } },
+    predecessors: [segment("claude", { segmentId: "earlier-segment" })] });
+  value.metadata.application.effects = [{ toolCallId: "already-invoked", status: "unknown" }];
+  return { ...value, retirement: { operationId: "retire-old-manifest", successorSegmentId: "inert-successor",
+    expectedSegmentId: value.metadata.runtime.segmentId, expectedThreadId: value.metadata.runtime.binding.threadId,
+    expectedToolSchemaIdentity: value.metadata.runtime.binding.toolSchemaIdentity,
+    workdir: value.metadata.runtime.binding.workdir, configRoot: value.metadata.runtime.binding.configRoot } };
+}
+
+test("explicit Codex retirement only transforms metadata and preserves the exact predecessor and history", () => {
+  const value = codexRetirementRecord();
+  const before = structuredClone(value);
+  const { retirement, ...withoutRetirement } = value;
+  const unchanged = upgradeConversationRuntimeState(withoutRetirement);
+  assert.equal(unchanged.changed, false, "Known metadata alone must not activate retirement");
+  assert.equal(unchanged.metadata, value.metadata);
+  assert.deepEqual(unchanged.warnings, []);
+
+  const result = upgradeConversationRuntimeState(value);
+  const old = before.metadata.runtime;
+  const current = result.metadata.runtime;
+  assert.equal(result.changed, true);
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(result.metadata.application, before.metadata.application);
+  assert.deepEqual(current.predecessors[0], old.predecessors[0]);
+  assert.deepEqual(current.predecessors[1], { segmentId: old.segmentId, engine: old.engine,
+    configuration: old.configuration, binding: old.binding, seen: old.seen,
+    continuity: old.continuity, continuityAttachments: old.continuityAttachments, request: undefined,
+    successorId: retirement.successorSegmentId, replacement: { operationId: retirement.operationId,
+      expectedSegmentId: old.segmentId, engine: "codex", configuration: old.configuration,
+      retireNative: true, operation: "select" } });
+  assert.deepEqual(current.binding, { threadId: "", workdir: old.binding.workdir,
+    configRoot: old.binding.configRoot, executionId: "" });
+  assert.equal(current.segmentId, retirement.successorSegmentId);
+  assert.equal(current.engine, "codex");
+  assert.equal(current.version, 3);
+  assert.deepEqual(current.configuration, old.configuration);
+  assert.deepEqual(current.seen, {});
+  assert.equal(current.lastEngine, "");
+  assert.equal(current.continuity, undefined);
+  assert.deepEqual(current.continuityAttachments, []);
+  assert.equal(Object.hasOwn(current, "request"), false);
+  assert.equal(Object.hasOwn(current, "replacement"), false);
+  assert.equal(Object.hasOwn(current.predecessors[1], "preparedAt"), false);
+  assert.deepEqual(value, before, "Native activity and effect facts are retained, not certified or mutated");
+  assert.deepEqual(upgradeConversationRuntimeState(structuredClone(before)), result,
+    "Verified before metadata and stable IDs yield the same pure result");
+  const repeated = { ...before, metadata: result.metadata };
+  const repeatedBefore = structuredClone(repeated);
+  assert.throws(() => upgradeConversationRuntimeState(repeated), { code: "conversation_runtime_upgrade_unavailable" });
+  assert.deepEqual(repeated, repeatedBefore, "A converted tuple is not silently retired a second time");
+});
+
+test("explicit Codex retirement refuses malformed IDs, changed identity and unresolved metadata without mutation", () => {
+  const cases = [
+    ["numeric operation ID", value => { value.retirement.operationId = 1; }],
+    ["numeric successor ID", value => { value.retirement.successorSegmentId = 1; }],
+    ["unknown input field", value => { value.retirement.idle = true; }],
+    ["changed segment", value => { value.retirement.expectedSegmentId = "other-segment"; }],
+    ["changed native thread", value => { value.retirement.expectedThreadId = "other-thread"; }],
+    ["changed tool schema", value => { value.retirement.expectedToolSchemaIdentity = "b".repeat(64); }],
+    ["changed workdir", value => { value.retirement.workdir = "/other-workspace"; }],
+    ["changed config root", value => { value.retirement.configRoot = "/other-account"; }],
+    ["relative path", value => { value.retirement.workdir = "workspace"; }],
+    ["current successor", value => { value.retirement.successorSegmentId = value.metadata.runtime.segmentId; }],
+    ["retained successor", value => { value.retirement.successorSegmentId = "earlier-segment"; }],
+    ["reserved successor", value => { value.metadata.runtime.predecessors[0].successorId = value.retirement.successorSegmentId; }],
+    ["used operation", value => { value.metadata.runtime.predecessors[0].replacement = { operationId: value.retirement.operationId }; }],
+    ["missing runtime", value => { delete value.metadata.runtime; }],
+    ["old runtime version", value => { value.metadata.runtime.version = 2; }],
+    ["other engine", value => { value.metadata.runtime.engine = "claude"; value.metadata.runtime.binding = bindings.claude; }],
+    ["pending delivery", value => { value.metadata.runtime.request = { ...request, attempted: false }; }],
+    ["pending replacement", value => { value.metadata.runtime.replacement = { ...segment("codex"), segmentId: "pending",
+      request: { operationId: "pending-selection", expectedSegmentId: value.metadata.runtime.segmentId, operation: "select" } }; }],
+    ["unfinished Undo", value => { value.metadata.runtime.replacement = { ...segment("codex"), reason: "rewind" }; }]
+  ];
+  for (const [reason, mutate] of cases) {
+    const value = codexRetirementRecord();
+    mutate(value);
+    const before = structuredClone(value);
+    assert.throws(() => upgradeConversationRuntimeState(value), { code: "conversation_runtime_upgrade_unavailable" }, reason);
+    assert.deepEqual(value, before, reason);
+  }
+});

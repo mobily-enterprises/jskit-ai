@@ -231,6 +231,7 @@ export function createCodexAppServerProviderOwner({
       create: onObservationLost => {
         const parameters = {
           ...prepared.parameters,
+          runInContext: prepared.runInContext,
           onClose() { unsubscribeControls?.(); },
           beforeResumeThread(threadId) {
             return prepared.runInContext(async () => {
@@ -561,12 +562,120 @@ export function createCodexAppServerProviderOwner({
     });
   }
 
+  async function invalidateProviderThreads(modelProviderId, includeOwned, toolHomeSource) {
+    const groups = new Map();
+    const inventory = [...providerRecords()];
+    if (includeOwned) for (const record of codexAppServerOwnedRuntimes.values()) {
+      if (!inventory.some(candidate => candidate.provider === record.provider)) inventory.push(record);
+    }
+    for (const record of inventory) {
+      if (!inScope(record)) continue;
+      const key = codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(record);
+    }
+    const results = [], failed = [];
+    for (const [runtimeKey, peers] of groups) {
+      try {
+        await withRuntimeLifecycle(runtimeKey, async () => {
+          const available = peers.filter(record => record.provider.client?.isOpen());
+          if (!available.length) {
+            if (peers.some(record => record.provider.runtime || record.provider.runtimeStopOwner ||
+                codexAppServerOwnedRuntimes.get(runtimeKey)?.provider === record.provider)) {
+              throw new Error("Codex's existing control connection is unavailable. Restore it before changing this provider connection.");
+            }
+            return;
+          }
+          const request = (record, method, params) => {
+            const client = record.provider.client;
+            if (!client?.isOpen()) throw new Error("Codex's control connection closed during provider retirement. Restore it and retry.");
+            return client.request(method, params, { signal: AbortSignal.timeout(5_000) });
+          };
+          const selectedHome = normalizeText(toolHomeSource);
+          const dedicated = Boolean(selectedHome && peers.some(record =>
+            normalizeText(record.providerOptions.toolHomeSource) === selectedHome));
+          if (dedicated && peers.some(record => normalizeText(record.providerOptions.toolHomeSource) !== selectedHome)) {
+            throw new Error("Codex's provider credential home has other native consumers. Close its native terminal/helper and retry; unrelated runtimes remain running.");
+          }
+          const inspector = available[0], candidates = new Set(), seen = new Set();
+          let cursor;
+          do {
+            const page = await request(inspector, "thread/loaded/list", { limit: 100, ...(cursor ? { cursor } : {}) });
+            if (!Array.isArray(page?.data)) throw new Error("Codex returned an invalid loaded-thread inventory. Restore its connection before retrying.");
+            for (const id of page.data) {
+              if (typeof id !== "string" || !id) throw new Error("Codex returned an invalid loaded-thread identity.");
+              candidates.add(id);
+            }
+            cursor = page.nextCursor;
+            if (cursor && (typeof cursor !== "string" || seen.has(cursor) || seen.size >= 100)) throw new Error("Codex's loaded-thread inventory did not finish.");
+            if (cursor) seen.add(cursor);
+          } while (cursor);
+          for (const { provider } of peers) for (const [id, binding] of provider.threadEnvironments || []) {
+            if (dedicated || binding.params?.modelProvider === modelProviderId) candidates.add(id);
+          }
+          const threadIds = [];
+          for (const id of candidates) {
+            const { thread } = await request(inspector, "thread/read", { threadId: id, includeTurns: false });
+            if (!thread || thread.id !== id || typeof thread.modelProvider !== "string" || !thread.modelProvider ||
+                !(typeof thread.status === "string" ? thread.status : thread.status?.type)) {
+              throw new Error("Codex returned an untrustworthy thread/provider inventory. Restore its connection before changing credentials.");
+            }
+            if (dedicated && thread.modelProvider !== modelProviderId) {
+              throw new Error("Codex's provider credential home retains another provider thread. Close its native terminal/helper and retry; unrelated threads remain running.");
+            }
+            if (thread.modelProvider === modelProviderId) threadIds.push(id);
+          }
+          if (!threadIds.length && !dedicated) return;
+          const error = Object.assign(new Error("This Codex provider connection changed. Work is stopped; use Send or Resume after reconnecting."), {
+            code: "codex_provider_connection_changed"
+          });
+          for (const { provider } of peers) for (const threadId of threadIds) provider.conversationRuntime?.invalidateThread(threadId);
+          await Promise.allSettled(peers.flatMap(({ provider }) => threadIds
+            .map(id => provider.threadEnvironmentTasks?.get(id)).filter(Boolean)));
+          // The same observation journal retains selected stop ownership. Peers
+          // with other threads must keep their admission and active work intact.
+          for (const record of available) await record.observation?.prepare({ provider: record.provider, error, threadIds });
+          for (const threadId of threadIds) {
+            await inspector.provider.stopThreadForObservationLoss(threadId);
+            for (const record of available) {
+              const detached = await request(record, "thread/unsubscribe", { threadId });
+              if (!["unsubscribed", "notSubscribed", "notLoaded"].includes(detached?.status)) throw new Error("Codex did not confirm selected-thread detachment.");
+            }
+            const { thread } = await request(inspector, "thread/read", { threadId, includeTurns: false });
+            if ((typeof thread?.status === "string" ? thread.status : thread?.status?.type) !== "notLoaded") {
+              throw new Error("Close the native Codex terminal using this provider, then retry changing its connection. Another subscriber retained the selected thread; the shared server and other conversations remain running.");
+            }
+          }
+          if (dedicated) {
+            // A curated default also lives in this exact isolated helper's
+            // native config cache. Reuse verified retirement only after proving
+            // every loaded/cached thread belongs to the selected provider.
+            const owned = codexAppServerOwnedRuntimes.get(runtimeKey);
+            if (!owned || !peers.some(record => record.provider === owned.provider)) {
+              throw new Error("Codex's dedicated provider runtime ownership cannot be verified. Restore its control connection and retry.");
+            }
+            await owned.scope.stopOwnedRuntime(owned, { cached: false, preserveProcessExitProof: true, requireVerifiedExit: true });
+          }
+          for (const record of available) await record.observation?.complete({ provider: record.provider, error, threadIds, sharedStop: dedicated });
+          if (dedicated) for (const record of peers) record.scope.closeProvider(record.providerKey);
+          results.push({ runtimeKey, threadIds, stopped: true, sharedProcessRetained: !dedicated,
+            ...(dedicated ? { dedicatedRuntimeRetired: true } : {}) });
+        });
+      } catch (error) {
+        failed.push({ runtimeKey, error: error.message, retryable: true });
+      }
+    }
+    return { ok: failed.length === 0, failed, results, providerCount: results.length, stopped: results.reduce((sum, result) => sum + result.threadIds.length, 0) };
+  }
+
   async function invalidateRuntimes({
     includeOwned = false,
     requireVerifiedExit = false,
     stopOwnedRuntimes = false,
-    toolHomeSource = ""
+    toolHomeSource = "",
+    modelProviderId = ""
   } = {}) {
+    if (modelProviderId) return withLifecycle(() => invalidateProviderThreads(modelProviderId, includeOwned, toolHomeSource));
     codexAppServerChatModelCatalog = null;
     const normalizedToolHomeSource = normalizeText(toolHomeSource);
     const ownedRecordsByProvider = new Map(

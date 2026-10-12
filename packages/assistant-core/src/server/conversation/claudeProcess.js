@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { nativeAiProvider } from "../../shared/nativeProviders.js";
 import { Duplex } from "node:stream";
 import { stat } from "node:fs/promises";
@@ -63,6 +64,11 @@ async function readNativeClaudeCodeAuthStatus({ env, credentialHome, command, co
   } catch {
     return result.ok ? { loggedIn: false, error: "Claude Code returned an invalid account status." } : failure;
   }
+}
+
+/** Exact existing native connection pin, shared with stopped metadata conversion. */
+export function claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey) {
+  return createHash("sha256").update(JSON.stringify([configRoot, providerId, baseUrl, apiKey])).digest("hex");
 }
 
 /** Native provider routing; the application supplies only its authorized selection. */
@@ -305,7 +311,7 @@ export async function createClaudeCodeProcess({
     signal?.throwIfAborted();
     native = await execution.start({ command, args: claudeCodeArguments(options), cwd: workdir,
       env: environment, stream: true, limits: executionLimits });
-    await onStarted?.(native.id);
+    await onStarted?.(native.id, stop);
     signal?.throwIfAborted();
     client = createClaudeJsonClient({ stream: Duplex.from({ readable: native.stdout, writable: native.stdin }), onEvent, onFailure,
       onControlRequest(request, context) {
@@ -317,9 +323,17 @@ export async function createClaudeCodeProcess({
       }
     });
     signal?.addEventListener("abort", abort, { once: true });
-    const initialization = await client.initialize(commandWrapper ? { hooks: {
+    const initializing = client.initialize(commandWrapper ? { hooks: {
       PreToolUse: [{ matcher: "^Bash$", hookCallbackIds: ["jskit-command-wrapper"], timeout: 30 }]
     } } : {});
+    const initialization = await (native.exited ? Promise.race([
+      initializing,
+      native.exited.then(processExit => {
+        throw Object.assign(new Error("Claude exited before initialization completed."), {
+          code: "assistant_claude_startup_exited", processExit
+        });
+      })
+    ]) : initializing);
     return { client, initialization, executionId: native.id, stop };
   } catch (error) {
     // A rejected start may already own an execution and its cleanup proof.

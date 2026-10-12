@@ -16,6 +16,8 @@ const previewCanTake = ref(true);
 const previewDelivery = createAssistantMessageDelivery();
 const avatarFixture = new URLSearchParams(location.search).has("avatar");
 const avatarToolsFixture = new URLSearchParams(location.search).has("avatarTools");
+const updateErrorFixture = new URLSearchParams(location.search).has("update-errors");
+const errorReloads = ref(0);
 const showAvatar = ref(avatarFixture);
 const avatarSize = ref("compact");
 const short = ref(avatarFixture);
@@ -136,7 +138,8 @@ const adapter = reactive({
       assistant: { messageId: `answer-${index}`, outputId: `output-${index}`, role: "assistant",
         text: `Support answer ${index + 1}: Keep your recovery email available.\n\nRead the **account instructions** and follow the [recovery link](https://example.com/help). A long message wraps inside this narrow conversation without taking space from the composer.` }
     })) : [],
-    visible: true, reloadable: avatarFixture, scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture"
+    visible: true, reloadable: avatarFixture && !updateErrorFixture, error: "", errorReloadable: updateErrorFixture,
+    scrollKey: "fixture", welcomeMessage: "Composer responsiveness fixture"
   },
   composer: {
     draft,
@@ -153,6 +156,7 @@ const adapter = reactive({
   models: capabilitiesEnabled ? models : undefined,
   questions: computed(() => showQuestions.value ? questionState : undefined),
   actions: {
+    reload() { errorReloads.value += 1; adapter.conversation.error = ""; },
     setDraft(value) { draft.value = value; },
     submit(payload) { attachmentReceipts.value = payload.attachments; attachments.clearAttachments(); submissions.value += 1; draft.value = ""; phase.value = "active"; },
     stop() { phase.value = "stopping"; }
@@ -166,6 +170,8 @@ const adapter = reactive({
         <button v-if="attribution" @click="assistantLabel = 'Next assistant'">Change assistant</button>
         <button v-for="state in ['idle', 'active', 'reconnecting', 'stopping', 'stopped']" :key="state" @click="phase = state">External {{ state }}</button>
         <button @click="narrow = !narrow">Resize pane</button>
+        <button v-if="updateErrorFixture" @click="adapter.conversation.error = 'Conversation updates are temporarily unavailable. Reload to reconnect; the assistant may still be working.'">Show update error</button>
+        <output v-if="updateErrorFixture">Error reloads: {{ errorReloads }}</output>
         <button @click="feedback = !feedback">Toggle action feedback</button>
         <button v-if="supportEnabled" @click="suggestionModel = 'other-model'">Change suggestion model</button>
         <button v-if="supportEnabled" @click="customActivity = !customActivity">Custom activity</button>

@@ -11,11 +11,13 @@ test("streaming recognition uses bounded beam search and its installed technical
   let synthesizerConfig = null;
   let result = "";
   let resets = 0;
+  const waveforms = [];
+  let finishes = 0;
   class OnlineRecognizer {
     constructor(config) {
       recognizerConfig = config;
     }
-    createStream() { return { acceptWaveform() {}, inputFinished() {} }; }
+    createStream() { return { acceptWaveform(frame) { waveforms.push(frame); }, inputFinished() { finishes += 1; } }; }
     isReady() { return false; }
     getResult() { return { text: result }; }
     isEndpoint() { return true; }
@@ -54,13 +56,64 @@ test("streaming recognition uses bounded beam search and its installed technical
   const endpoints = [];
   const listening = engine.createListeningSession({ continuous: true, onEndpoint: text => endpoints.push(text) });
   listening.acceptPcm(Buffer.alloc(320));
-  assert.equal(resets, 0, "silence cannot start a native utterance");
+  assert.equal(resets, 1, "silence resets the recording budget without becoming a turn");
+  result = "I MEANT SUGAR";
+  listening.acceptPcm(Buffer.alloc(320));
+  listening.acceptPcm(Buffer.alloc(320));
+  assert.deepEqual(endpoints, ["I meant sugar"], "one stable endpoint is offered once");
+  assert.equal(listening.reset(), "I meant sugar");
   assert.equal(listening.acceptedSamples, 0);
+  result = "A SECOND TURN";
+  listening.acceptPcm(Buffer.alloc(320));
+  assert.deepEqual(endpoints, ["I meant sugar", "A second turn"]);
+  listening.reset();
+  result = "ACME LABS USES SQL";
+  listening.acceptPcm(Buffer.alloc(320));
+  assert.equal(endpoints.at(-1), "Acme Labs uses SQL");
+  assert.equal(listening.finish(), "Acme Labs uses SQL");
+  assert.equal(waveforms.at(-1).samples.length, 7200, "default finalization preserves the original 0.45-second lookahead");
+  listening.cancel();
+  assert.equal(listening.isEndpoint(), false);
+  result = "";
+  assert.equal(engine.createListeningSession().finish(), "");
+  assert.equal(waveforms.at(-1).samples.length, 7200, "default empty finalization still feeds native lookahead");
+  assert.equal(finishes, 2);
+});
+
+test("an explicit RMS floor gates only onset and retains configured final lookahead", async () => {
+  let result = "";
+  let resets = 0;
+  let finishes = 0;
+  const waveforms = [];
+  class OnlineRecognizer {
+    createStream() { return { acceptWaveform(frame) { waveforms.push(frame); }, inputFinished() { finishes += 1; } }; }
+    isReady() { return false; }
+    getResult() { return { text: result }; }
+    isEndpoint() { return true; }
+    reset() { resets += 1; result = ""; }
+  }
+  const engine = await createSherpaSpeechEngine({
+    modelsRoot: path.resolve("/tmp/vibe64-voice-models"),
+    configuration: { recognizerMinimumRms: 0.001, recognizerTailPaddingSeconds: 1 },
+    createSynthesizer: async () => ({ sampleRate: 22050, numSpeakers: 1, running: true, async close() {} }),
+    sherpa: { OnlineRecognizer }
+  });
+  const endpoints = [];
+  const listening = engine.createListeningSession({ continuous: true, onEndpoint: text => endpoints.push(text) });
   const speechFrame = Buffer.alloc(320);
   for (let i = 0; i < speechFrame.length; i += 2) speechFrame.writeInt16LE(1000, i);
+  const quietFrame = Buffer.alloc(320);
+  for (let i = 0; i < quietFrame.length; i += 2) quietFrame.writeInt16LE(20, i);
+  listening.acceptPcm(Buffer.alloc(320));
+  listening.acceptPcm(quietFrame);
+  assert.equal(resets, 0, "silence cannot start a native utterance with an explicit floor");
+  assert.equal(listening.acceptedSamples, 0);
+  assert.equal(waveforms.length, 0);
   result = "I MEANT SUGAR";
   listening.acceptPcm(speechFrame);
   listening.acceptPcm(Buffer.alloc(320));
+  listening.acceptPcm(quietFrame);
+  assert.equal(listening.acceptedSamples, 480, "all silence and quiet frames are retained after onset");
   assert.deepEqual(endpoints, ["I meant sugar"], "one stable endpoint is offered once");
   assert.equal(listening.reset(), "I meant sugar");
   assert.equal(listening.acceptedSamples, 0);
@@ -69,13 +122,12 @@ test("streaming recognition uses bounded beam search and its installed technical
   assert.deepEqual(endpoints, ["I meant sugar"], "a native hallucination from silence is not a new utterance");
   listening.acceptPcm(speechFrame);
   assert.deepEqual(endpoints, ["I meant sugar", "A second turn"]);
-  listening.reset();
-  result = "ACME LABS USES SQL";
-  listening.acceptPcm(speechFrame);
-  assert.equal(endpoints.at(-1), "Acme Labs uses SQL");
-  assert.equal(listening.finish(), "Acme Labs uses SQL");
-  listening.cancel();
-  assert.equal(listening.isEndpoint(), false);
+  assert.equal(listening.finish(), "A second turn");
+  assert.equal(waveforms.at(-1).samples.length, 16000, "explicit one-second lookahead remains supported");
+  const framesBeforeEmptyFinish = waveforms.length;
+  assert.equal(engine.createListeningSession().finish(), "");
+  assert.equal(waveforms.length, framesBeforeEmptyFinish, "an explicit floor suppresses empty native finalization");
+  assert.equal(finishes, 1);
 });
 
 test("voice model contracts verify every selected file", async (context) => {

@@ -38,6 +38,35 @@ their own exact versions in dependency declarations; do not replace them with
 The copied files immediately belong to the application. Do not add pattern
 receipts, generator provenance, completion ledgers, or hidden operation state.
 
+## Implement before investigating internals
+
+Use the relevant public API contract and one matching example to build the
+smallest working slice, then verify its observable result. When the documented
+contract answers the task, stop reading and implement it. Do not trace framework
+or dependency internals to confirm documented options, routing, package
+discovery, transport, or lifecycle behaviour before trying that API.
+
+Implementation source is for a concrete failure or an API question the guide
+and example cannot answer. Name that failure or question before investigating,
+inspect only the relevant owner, and return to implementation and verification
+as soon as it is resolved. Do not tour a dependency tree for confidence. This
+applies to all features and dependencies, not only CRUD screens.
+
+## Discover files before reading them
+
+Discover the file, then read it. Do not infer its location from a convention.
+Use paths identified in the current tree, installed metadata, or the relevant
+example. When inspecting an unfamiliar package, list its files with
+`rg --files <observed-package-directory>` and select the relevant paths from
+that inventory before reading or searching source. Do not try guessed source
+directories. An import subpath is an `exports` alias, not necessarily a physical
+path; resolve it through the installed `package.json#exports` or
+`import.meta.resolve()` when following an import.
+
+This applies to every package and task, including third-party dependencies.
+Use a documented option directly when it already answers the question; source
+inspection is a fallback for a concrete unresolved fact.
+
 ## Install and compose capabilities
 
 Install selected capabilities together at the exact versions in the matching

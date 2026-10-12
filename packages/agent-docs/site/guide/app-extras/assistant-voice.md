@@ -173,7 +173,13 @@ committing or sending messages. An optional synchronous `transfer(text)` must
 recheck the host's empty typed draft, set it through its original setter, and
 return true; false leaves speech untouched. Taking an active partial uses the
 original capture cancellation and guarded hands-free restart, preserving the
-session and playback. Taking a pending review clears only that review. Hosts
+session and playback. Taking a pending review clears only that review. Once an
+interrupted review is resolved, stale partial words from its idle capture do not
+block a fresh Talk gesture or become a new request. If capture interrupts an
+endpoint commitment, only that recording's unfinished commitment is retired;
+its retained words stay available for explicit Send, Edit or Discard. Late finals
+and resets cannot admit or replace the retained review. Active capture, including
+transcription, and pending startup, review and delivery retain their guards. Hosts
 also gate these controls while their canonical delivery has uncertain admission.
 
 For custom compositions, its optional `toolsTarget` is a DOM element belonging
@@ -379,6 +385,15 @@ models; one synthesis worker retains only the selected model. Changing models
 releases the previous worker and its native caches before loading the next, while
 recognition and the connection stay running. The first reply after a change
 includes loading time. Extra choices require disk space, not resident model RAM.
+The native engine advertises a bounded 120-second first-audio allowance at each
+new phrase's acquired queue slot: its unchanged load and generation requests each
+have a 60-second deadline. The browser returns to its original 20-second progress
+watchdog on actual PCM and after chunk completion. This allowance does not change
+microphone controls, playback cancellation or the separate connection heartbeat.
+Other engines omit `synthesisTimeoutMs` and retain the original 20-second policy;
+optional segment metadata must be an integer above 20,000 and at most 120,000 ms.
+Only the current turn's advancing segment can arm it; duplicate or stale metadata
+and pongs cannot extend generation indefinitely.
 `kokoro` supplies Heart, Bella,
 Emma, Michael, Adam, George and Daniel. `kokoro-q8f16` offers all 28 English
 Kokoro voices using the exact pinned `model_q8f16.onnx` (86 MB). Its preparation

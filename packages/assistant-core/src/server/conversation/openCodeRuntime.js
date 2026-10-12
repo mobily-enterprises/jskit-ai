@@ -181,6 +181,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   let sharedProcessStop = null;
   let failedStartup = null;
   let closed = false;
+  let connectionChanging = false;
+
+  function requireConnectionAvailable() {
+    if (connectionChanging) throw Object.assign(new Error("OpenCode is changing a connection. Retry after the connection change finishes."), {
+      code: "assistant_opencode_connection_changing", statusCode: 409
+    });
+  }
   const bindingScopes = new Map();
   let registryPath = "";
   let bindingWrite = Promise.resolve();
@@ -230,7 +237,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   async function ensure(selected, start) {
+    requireConnectionAvailable();
     await sharedProcessStop;
+    requireConnectionAvailable();
     if (failedStartup) await stop("opencode-startup-cleanup");
     if (sharedProcess) {
       const currentConnection = sharedProcess.connections.get(selected?.modelProviderId);
@@ -243,6 +252,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
           await sharedProcess.server.client.health({ signal: AbortSignal.timeout(1_000) });
           return sharedProcess;
         } catch {
+          requireConnectionAvailable();
           await stop("opencode-health-check-failed");
         }
       } else {
@@ -320,6 +330,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   async function acquire(key, prepare, onFailure = async () => {}) {
+    requireConnectionAvailable();
     const pending = processStarts.get(key);
     if (pending) return pending;
     const start = Promise.resolve().then(async () => {
@@ -442,6 +453,33 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       closed = true;
     }
     const application = preparation.release;
+    if (typeof input.publish === "function") {
+      requireConnectionAvailable();
+      connectionChanging = true;
+      try {
+        await Promise.all([...processStarts.values()].map(start => start.catch(() => null)));
+        await sharedProcessStart?.catch(() => null);
+        await application.assertConnectionChange?.();
+        const targets = [...processes.values()];
+        const providerId = text(input.modelProviderId);
+        if (!providerId || targets.some(target => text(target.modelProviderId) !== providerId || !application.ownsTarget(target))) {
+          throw Object.assign(new Error("Close other OpenCode chats and Colleague conversations, then retry this connection change. The saved connection has not changed."), {
+            code: "assistant_opencode_connection_in_use", statusCode: 409
+          });
+        }
+        const results = [];
+        for (const target of targets) {
+          const proof = await releaseProcessTarget(target, { retainSharedProcess: true }, application);
+          if (proof?.exited === false || proof?.ok === false) throw new Error("OpenCode could not stop the selected conversation. Retry the connection change.");
+          results.push(proof);
+        }
+        if (sharedProcess || failedStartup) results.push(await stop("opencode-connection-changed"));
+        await input.publish();
+        return { closed: results.length, ok: true };
+      } finally {
+        connectionChanging = false;
+      }
+    }
     await Promise.all([...processStarts.entries()]
       .filter(([key]) => key.includes("\0"))
       .map(([, start]) => start.catch(() => null)));
@@ -1063,6 +1101,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
     let dispatchMonitor = null;
     let previousInputMessageId = null;
     let previousAdmission;
+    let recoveryReceipt = null;
+    let recoveryObservationError = null;
     try {
       const preparation = await application.prepare({ overwrite: !currentMonitor, threadId: currentThreadId });
       const preparedTarget = preparation.process ? await acquirePrepared(preparation.process) : preparation.target;
@@ -1078,6 +1118,24 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       if (currentMonitor && !turns.get(key)?.active) {
         await currentMonitor;
         currentMonitor = monitors.get(key);
+      }
+      const recoveryTurn = currentMonitor ? turns.get(key) : null;
+      if (recoveryTurn?.recoveryAdmission) {
+        try {
+          recoveryReceipt = await recoveryTurn.recoveryAdmission.promise;
+          currentMonitor = monitors.get(key);
+          if (currentMonitor && !turns.get(key)?.active) {
+            await currentMonitor;
+            currentMonitor = monitors.get(key);
+          }
+          // Stop must not turn a waiting, undispatched input into a fresh turn.
+          recoveryTurn.abortController.signal.throwIfAborted();
+          target.abortController.signal.throwIfAborted();
+        } catch (error) {
+          // This is R's failure, not a rejected or attempted native B input.
+          return { failure: { error, attempted: false, threadId: currentThreadId,
+            turn: openCodeTurnSnapshot(turns.get(key), currentThreadId) } };
+        }
       }
       admission = Promise.withResolvers();
       // The observer may be between polls when dispatch or persistence fails.
@@ -1166,7 +1224,44 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       await dispatchMonitor.catch(() => null);
       throw error;
     }
-    admission.resolve();
+    if (recoveryReceipt) {
+      const receiptAbort = new AbortController();
+      // The original monitor can fail and retire without aborting its turn.
+      // Its settlement also ends this read; it never creates a successor turn.
+      void dispatchMonitor.then(() => receiptAbort.abort(new Error(
+        dispatchTurn.observationError || dispatchTurn.error || "OpenCode observation ended before input custody was confirmed."
+      )), error => receiptAbort.abort(error));
+      try {
+        const observation = await inspectOpenCodeMessageAdmission(target.server.client, currentThreadId,
+          text(admitted.id), { wait: true, signal: AbortSignal.any([
+            target.abortController.signal, dispatchTurn.abortController.signal, receiptAbort.signal
+          ]) });
+        const message = openCodeMessageRows(observation.messages).find(message =>
+          message.type === "user" && text(message.id) === text(admitted.id));
+        const created = message?.time?.created;
+        const recoveryCreated = recoveryReceipt.time?.created;
+        // Match the native latest-user order, including its ID tie-breaker.
+        if (!Number.isFinite(created) || !Number.isFinite(recoveryCreated) ||
+            !(created > recoveryCreated || (created === recoveryCreated && message.id > recoveryReceipt.id))) {
+          throw Object.assign(new Error(
+            "OpenCode could not confirm that the new input follows its final-answer recovery. The admitted message was not resent."
+          ), { code: "assistant_opencode_observation_lost", details: {}, statusCode: 503 });
+        }
+      } catch (error) {
+        recoveryObservationError = error;
+      } finally {
+        receiptAbort.abort();
+      }
+    }
+    if (recoveryObservationError) {
+      // Native B was dispatched: keep its authored receipt even when observing
+      // its place in native history failed, and use the original cleanup owner.
+      admission.reject(recoveryObservationError);
+      dispatchTurn.abortController.abort(recoveryObservationError);
+      await dispatchMonitor.catch(() => null);
+    } else {
+      admission.resolve();
+    }
     const turn = openCodeTurnSnapshot(turns.get(key), target.upstreamSessionId);
     return {
       conversationTurn,
@@ -1227,30 +1322,43 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   function beginMessageMonitor(key, target, admitted, options, projection) {
-    target = { ...target };
-    const existing = monitors.get(key);
-    if (existing) {
-      return existing;
-    }
-    const metadata = projection.prepare(admitted, options);
-    const eventStartedAt = Number(admitted.eventStartedAt) || Date.now();
-    const startedAt = text(admitted.startedAt) || new Date(eventStartedAt).toISOString();
-    const turn = {
-      abortController: new AbortController(),
-      admission: options.admission,
-      active: true,
-      error: "",
-      eventStartedAt,
-      id: text(admitted.id),
-      inputMessageId: text(admitted.id),
-      startedAt,
-      state: options.admission ? "starting" : "active",
-      ...metadata.fields,
-      threadId: target.upstreamSessionId,
-      updatedAt: startedAt
+    const start = () => {
+      target = { ...target };
+      const existing = monitors.get(key);
+      if (existing) {
+        return existing;
+      }
+      const metadata = projection.prepare(admitted, options);
+      const eventStartedAt = Number(admitted.eventStartedAt) || Date.now();
+      const startedAt = text(admitted.startedAt) || new Date(eventStartedAt).toISOString();
+      const turn = {
+        abortController: new AbortController(),
+        admission: options.admission,
+        active: true,
+        error: "",
+        eventStartedAt,
+        id: text(admitted.id),
+        inputMessageId: text(admitted.id),
+        startedAt,
+        state: options.admission ? "starting" : "active",
+        ...metadata.fields,
+        threadId: target.upstreamSessionId,
+        updatedAt: startedAt
+      };
+      const monitor = beginMonitor(key, target, turn, projection.create(target, turn, metadata, options));
+      void monitor.catch(error => projection.onError(error));
+      return monitor;
     };
-    const monitor = beginMonitor(key, target, turn, projection.create(target, turn, metadata, options));
-    void monitor.catch(error => projection.onError(error));
+    if (typeof projection.runInContext !== "function") return start();
+    let monitor, startFailure;
+    // Context entry invokes this callback synchronously. Do not return the
+    // monitor to an async scope wrapper: retain its identity and error owner.
+    const scope = projection.runInContext(() => {
+      try { monitor = start(); }
+      catch (error) { startFailure = { error }; }
+    });
+    void Promise.resolve(scope).catch(error => projection.onError(error));
+    if (startFailure) throw startFailure.error;
     return monitor;
   }
 

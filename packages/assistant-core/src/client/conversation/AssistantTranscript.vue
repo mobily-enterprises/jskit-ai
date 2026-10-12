@@ -440,6 +440,9 @@ const KEYBOARD_SCROLL_KEYS = new Set([
   "Spacebar"
 ]);
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
   hour: "2-digit",
   minute: "2-digit"
 });
@@ -1103,7 +1106,12 @@ watch(() => props.visible, (visible) => {
 }
 
 .assistant-transcript--error {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: max-content minmax(0, 1fr);
+  min-height: min-content;
+}
+
+.assistant-transcript--error .assistant-transcript__body {
+  contain: size;
 }
 
 .assistant-transcript__error {
@@ -1115,6 +1123,7 @@ watch(() => props.visible, (visible) => {
 .assistant-transcript__error-content {
   align-items: flex-start;
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 

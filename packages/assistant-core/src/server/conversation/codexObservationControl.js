@@ -39,19 +39,19 @@ export function createCodexObservationControl({
   function createCodexAppServerObservation(sessionId, context = {}) {
     const { projectContext, target, retireProvider } = context;
     return {
-      prepare({ provider, error }) {
+      prepare({ provider, error, threadIds }) {
         return runInContext(projectContext, async () => {
           const managed = target(error);
           const threads = new Map();
           for (const entry of codexAppServerConversations.get(namespace(sessionId))?.values() || []) {
-            if (entry.provider !== provider) continue;
+            if (entry.provider !== provider || threadIds && !threadIds.includes(entry.conversationId)) continue;
             threads.set(entry.conversationId, entry.runId);
             if (codexAppServerConversationTurnIsActive(entry.status) || entry.goal?.status === "active") {
               entry.error = managed.pendingMessage;
             }
           }
           // A helper owns only its own threads. Main chat belongs to its managed provider.
-          if (managed.threadId) {
+          if (managed.threadId && (!threadIds || threadIds.includes(managed.threadId))) {
             const runtime = await createRuntime();
             const turn = turnState(await runtime.getSession(sessionId));
             threads.set(managed.threadId, turn.turnId);
@@ -66,10 +66,10 @@ export function createCodexObservationControl({
           return threads;
         });
       },
-      barrier({ error }) {
+      barrier({ error, threadIds }) {
         return runInContext(projectContext, async () => {
           const managed = target(error);
-          if (!managed.threadId) return;
+          if (!managed.threadId || threadIds && !threadIds.includes(managed.threadId)) return;
           const runtime = await createRuntime();
           const turn = turnState(await runtime.getSession(sessionId));
           if (!turn.active && !codexAppServerTurnOwnsActiveGoal(turn, managed.threadId)) return;
@@ -79,12 +79,12 @@ export function createCodexObservationControl({
           });
         });
       },
-      complete({ provider, error, sharedStop }) {
+      complete({ provider, error, sharedStop, threadIds }) {
         return runInContext(projectContext, async () => {
           const managed = target(error);
           let stoppedRun = null;
           let conversationStream = null;
-          if (managed.threadId) {
+          if (managed.threadId && (!threadIds || threadIds.includes(managed.threadId))) {
             const runtime = await createRuntime();
             stoppedRun = await runtime.store.mutateSession(sessionId, async () => {
               const run = await readCodexAppServerAgentRunForSession(runtime.store, sessionId);
@@ -105,7 +105,7 @@ export function createCodexObservationControl({
           if (sharedStop) await retireProvider(provider);
           else provider.observationFailure = null;
           for (const entry of codexAppServerConversations.get(namespace(sessionId))?.values() || []) {
-            if (entry.provider === provider && (
+            if (entry.provider === provider && (!threadIds || threadIds.includes(entry.conversationId)) && (
               codexAppServerConversationTurnIsActive(entry.status) || entry.goal?.status === "active"
             )) {
               entry.status = "interrupted";

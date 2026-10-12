@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createRequire } from "node:module";
-import { createSynthesisProcess } from "./synthesisProcess.js";
+import { createSynthesisProcess, SYNTHESIS_REQUEST_TIMEOUT_MS } from "./synthesisProcess.js";
 
 import {
   VOICE_INPUT_SAMPLE_RATE,
@@ -53,13 +53,13 @@ async function createSherpaSpeechEngine({
     return value;
   }
   configuration = modelPaths(configuration);
-  const tailPaddingSeconds = configuration.recognizerTailPaddingSeconds ?? 1;
+  const tailPaddingSeconds = configuration.recognizerTailPaddingSeconds ?? 0.45;
   if (!Number.isFinite(tailPaddingSeconds) || tailPaddingSeconds < 0 || tailPaddingSeconds > 3) {
     throw new TypeError("Recognizer tail padding must be between zero and three seconds.");
   }
-  const minimumRms = configuration.recognizerMinimumRms ?? 0.001;
-  if (!Number.isFinite(minimumRms) || minimumRms <= 0 || minimumRms > 0.1) {
-    throw new TypeError("Recognizer minimum RMS must be greater than zero and at most 0.1.");
+  const minimumRms = configuration.recognizerMinimumRms ?? 0;
+  if (!Number.isFinite(minimumRms) || minimumRms < 0 || minimumRms > 0.1) {
+    throw new TypeError("Recognizer minimum RMS must be between zero and 0.1.");
   }
   const recognizer = new runtime.OnlineRecognizer(configuration.recognizer || {
     decodingMethod: "modified_beam_search",
@@ -177,9 +177,9 @@ async function createSherpaSpeechEngine({
         return latestText;
       }
       const samples = pcm16LeToFloat32(frame);
-      // This recognizer can invent words from silent input. Wait for an audible
-      // onset; once it starts, keep every frame for pauses and native endpoints.
-      if (!acceptedSamples) {
+      // An explicit RMS floor gates onset only; after onset, retain every frame
+      // for pauses and native endpoints. The default retains all input.
+      if (minimumRms > 0 && !acceptedSamples) {
         let energy = 0;
         for (const sample of samples) energy += sample * sample;
         if (!samples.length || Math.sqrt(energy / samples.length) < minimumRms) return "";
@@ -216,7 +216,7 @@ async function createSherpaSpeechEngine({
         return latestText;
       }
       closed = true;
-      if (!acceptedSamples) return "";
+      if (minimumRms > 0 && !acceptedSamples) return "";
       stream.acceptWaveform({
         sampleRate: VOICE_INPUT_SAMPLE_RATE,
         // Supply the model's lookahead when push-to-talk ends on the final word.
@@ -288,6 +288,7 @@ async function createSherpaSpeechEngine({
       version: runtimeValue(runtime, "version")
     }),
     sampleRate,
+    synthesisTimeoutMs: 2 * SYNTHESIS_REQUEST_TIMEOUT_MS,
     synthesize,
     warmup
   });

@@ -93,6 +93,7 @@ export function createCodexAppServerRunOwner({
   idlePublishPayload = null,
   checkpoint = async () => null,
   messageMetadata = {},
+  persistCommentary = true,
   deliveryStateMetadataKey = "assistant_delivery",
   hasRuntime = () => true,
   recoverAdmission = null,
@@ -117,6 +118,7 @@ export function createCodexAppServerRunOwner({
   interruptFailedCode = "codex_turn_interrupt_failed",
   errorPrefix = ""
 } = {}) {
+  if (typeof persistCommentary !== "boolean") throw new TypeError("Invalid Codex commentary persistence policy.");
   if (!Number.isSafeInteger(finalizingGraceMs) || finalizingGraceMs < 1) {
     throw new TypeError("Invalid Codex finalizing grace.");
   }
@@ -195,6 +197,7 @@ export function createCodexAppServerRunOwner({
     debugLog,
     debugError,
     liveProgressMaxLength,
+    persistCommentary,
     storeReadError,
     messageMetadata,
     snapshotRecoveryItemLimit

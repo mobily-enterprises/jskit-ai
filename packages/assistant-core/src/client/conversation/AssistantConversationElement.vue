@@ -1,5 +1,5 @@
 <template>
-  <section ref="container" class="assistant-conversation" :aria-label="label">
+  <section ref="container" class="assistant-conversation" :class="{ 'assistant-conversation--error': conversation.error }" :aria-label="label">
     <section
       v-if="$slots.avatar" class="assistant-conversation__avatar"
       :class="{ 'assistant-conversation__avatar--hidden': avatarSize === 'hidden' }" aria-label="Conversation avatar"
@@ -389,7 +389,10 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 <style scoped>
 .assistant-conversation__preview-actions { display: flex; justify-content: flex-end; }
 .assistant-conversation { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; container: assistant-conversation / inline-size; }
+.assistant-conversation--error { overflow-y: auto; }
 .assistant-conversation__avatar { position: absolute; top: 0; right: 0; z-index: 3; max-width: 100%; min-width: 0; }
+.assistant-conversation--error .assistant-conversation__avatar { position: relative; align-self: flex-end; flex: 0 0 auto; }
+.assistant-conversation--error .assistant-conversation__avatar-controls { position: static; }
 .assistant-conversation__avatar-controls { position: absolute; top: 0; right: 100%; display: flex; align-items: center; justify-content: flex-end; min-height: 44px; }
 .assistant-conversation__avatar--hidden .assistant-conversation__avatar-controls { right: 0; }
 .assistant-conversation__avatar-size { min-width: 44px; min-height: 44px; }
@@ -401,6 +404,7 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__avatar-visual :deep(> *) { max-width: 100%; max-height: 100%; }
 .assistant-conversation__goal { display: flex; justify-content: flex-end; flex: 0 0 auto; }
 .assistant-conversation__transcript { flex: 1 1 auto; min-height: 0; }
+.assistant-conversation--error .assistant-conversation__transcript { min-height: min-content; }
 .assistant-conversation__composer { flex: 0 0 auto; }
 .assistant-conversation__attachment-error { flex-basis: 100%; margin: 0; }
 .assistant-conversation__setting { min-width: 8rem; max-width: 16rem; }

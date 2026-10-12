@@ -943,7 +943,7 @@ export function codexProviderModelCatalog({ models }) {
       supports_reasoning_summaries: false,
       default_reasoning_summary: "none",
       support_verbosity: false,
-      truncation_policy: { mode: "bytes", limit: 10000 },
+      truncation_policy: { mode: "tokens", limit: 10000 },
       context_window: model.contextWindow,
       max_context_window: model.contextWindow,
       effective_context_window_percent: 95,

@@ -8,6 +8,7 @@ import {
   VOICE_MAX_AUDIO_FRAME_BYTES,
   VOICE_MAX_CONTROL_BYTES,
   VOICE_MAX_UTTERANCE_SECONDS,
+  VOICE_MAX_SYNTHESIS_TIMEOUT_MS,
   VOICE_PROTOCOL_VERSION,
   assertVoiceAudioFrame,
   parseVoiceClientControl,
@@ -356,7 +357,10 @@ function createVoiceDaemon({
                 sendJson(socket, "speech.start", { sampleRate: Number(engine.sampleRate), turnId });
               }
               const segmentIndex = active.segmentIndex++;
-              sendJson(socket, "speech.segment.start", { segmentIndex, turnId });
+              const synthesisTimeoutMs = engine.synthesisTimeoutMs;
+              sendJson(socket, "speech.segment.start", { segmentIndex, turnId,
+                ...(Number.isSafeInteger(synthesisTimeoutMs) && synthesisTimeoutMs > 20_000 &&
+                    synthesisTimeoutMs <= VOICE_MAX_SYNTHESIS_TIMEOUT_MS ? { synthesisTimeoutMs } : {}) });
               let sampleCount = 0;
               const result = text.trim() ? await engine.synthesize(text.trim(), {
                 onAudio(frame) {

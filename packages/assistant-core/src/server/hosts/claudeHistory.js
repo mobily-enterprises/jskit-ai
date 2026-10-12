@@ -1,4 +1,5 @@
 export {
+  claudeHistoryPath,
   listClaudeConversationStorage,
   readClaudeHistory,
   retireClaudeConversationHistory

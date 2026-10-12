@@ -704,3 +704,34 @@ test("Claude admitted old executor failure cannot stop its accepted steering suc
   assert.equal(stops, 0);
   assert.equal(f.entry.process, native);
 });
+
+
+test("Claude verified native cleanup retains interrupted checkpoint refusal without leaving saved work active", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("checkpoint-refused-stop");
+  const native = f.entry.process;
+  const refusal = new Error("Saved lesson checkpoint refused");
+  let stopped = false;
+  native.stop = async () => { stopped = true; return { exited: true, scopeEmpty: true }; };
+  f.setBeforeState((_entry, event) => {
+    if (event.state === "interrupted") {
+      assert.equal(stopped, true, "Original native cleanup precedes the host checkpoint");
+      throw refusal;
+    }
+  });
+  const completion = f.entry.completion.promise;
+  await assert.rejects(f.entry.nativeTurn.stopProcess("Broken stream"), error => error === refusal);
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.executionId, "");
+  assert.deepEqual(f.entry.exitProof, { exited: true, scopeEmpty: true });
+  assert.equal(f.entry.turn.active, false);
+  assert.equal(f.entry.turn.state, "interrupted");
+  assert.equal(f.entry.turn.error, refusal.message);
+  const settled = await completion;
+  assert.equal(settled.status, "interrupted");
+  assert.equal(settled.error, refusal.message);
+  assert.equal(f.final(), null, "Refused checkpoint supplies no completed answer receipt");
+  await f.reopen();
+  assert.equal(f.entry.turn.active, false, "Original supplied store retained the truthful interruption");
+  assert.equal(f.entry.turn.state, "interrupted");
+});

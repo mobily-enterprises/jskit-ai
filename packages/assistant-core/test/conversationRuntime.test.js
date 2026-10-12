@@ -408,3 +408,98 @@ test("Codex never interrupts a late active turn for instructions and restores it
   assert.equal(goal.status, "active");
   assert.equal(f.requests.some(request => ["host.recordInterruption", "turn/interrupt", "thread/unsubscribe", "thread/resume", "thread/inject_items"].includes(request.method)), false);
 });
+
+
+test("Codex excludes deferred instruction composition without replenishing spent native-control time", async t => {
+  for (const mode of ["idle", "became active", "native timed out", "native refused", "binding closed", "budget exhausted before composition"]) {
+    await t.test(mode, async t => {
+      let now = 0;
+      const deadlines = [];
+      t.mock.method(performance, "now", () => now);
+      t.mock.method(AbortSignal, "timeout", duration => {
+        const controller = new AbortController();
+        deadlines.push({ duration, due: now + duration, controller });
+        return controller.signal;
+      });
+      const advance = duration => {
+        now += duration;
+        for (const deadline of deadlines) {
+          if (deadline.due <= now && !deadline.controller.signal.aborted) {
+            deadline.controller.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
+          }
+        }
+      };
+      let refresh = false, instructionReads = 0;
+      const f = codexHost({ readInstructions: () => {
+        instructionReads += 1;
+        if (!refresh) return "Installed project instructions";
+        advance(15_000);
+        if (mode === "became active") f.state.status = "active";
+        if (mode === "binding closed") f.runtime.close();
+        return "Fresh composed project instructions";
+      } });
+      await f.runtime.withThreadContext("native-history", {}, () => {});
+      const installed = f.runtime.threadEnvironments.get("native-history");
+      f.requests.length = 0;
+      const request = f.client.request;
+      let statusReads = 0;
+      f.client.request = async (method, input, options) => {
+        if (method === "thread/read") {
+          statusReads += 1;
+          if (statusReads === 1) {
+            if (mode === "budget exhausted before composition") now += 10_000;
+            else advance(2_500);
+          }
+          if (statusReads === 2 && mode === "native timed out") {
+            advance(7_501);
+            options.signal.throwIfAborted();
+          }
+          if (statusReads === 2 && mode === "native refused") throw new Error("Native read refused");
+        }
+        options.signal.throwIfAborted();
+        return request(method, input, options);
+      };
+      refresh = true;
+      let operations = 0;
+      const operation = f.runtime.withThreadContext("native-history", {}, params => {
+        operations += 1;
+        assert.equal(params.developerInstructions, mode === "became active"
+          ? installed.params.developerInstructions : "Fresh composed project instructions");
+      });
+      if (mode === "budget exhausted before composition") {
+        await assert.rejects(operation, { name: "TimeoutError" });
+        assert.equal(instructionReads, 1, "An exhausted native budget cannot begin deferred composition");
+        assert.equal(operations, 0);
+        assert.equal(statusReads, 1);
+      } else if (["native timed out", "native refused"].includes(mode)) {
+        await assert.rejects(operation, error => {
+          assert.match(error.message, /could not be verified/);
+          assert.equal(error.cause.name, mode === "native timed out" ? "TimeoutError" : "Error");
+          return true;
+        });
+        assert.equal(operations, 0);
+        assert.equal(f.runtime.bindingCount, 0);
+      } else if (mode === "binding closed") {
+        await assert.rejects(operation, error => {
+          assert.match(error.message, /could not be verified/);
+          assert.match(error.cause.message, /closed during recovery/);
+          return true;
+        });
+        assert.equal(operations, 0);
+        assert.equal(statusReads, 1, "Retired instructions cannot issue a later native request");
+      } else {
+        await operation;
+        assert.equal(operations, 1);
+        if (mode === "became active") {
+          assert.equal(f.runtime.threadEnvironments.get("native-history"), installed);
+          assert.equal(f.requests.some(r => ["thread/goal/get", "turn/interrupt", "thread/unsubscribe", "thread/resume", "thread/inject_items"].includes(r.method)), false);
+        } else {
+          assert.equal(f.requests.filter(r => r.method === "thread/inject_items").length, 1);
+        }
+      }
+      assert.deepEqual(deadlines.map(deadline => deadline.duration), mode === "budget exhausted before composition"
+        ? [10_000, 10_000] : [10_000, 10_000, 7_500],
+        "Only host composition is excluded; the 2.5 seconds already spent are not replenished");
+    });
+  }
+});

@@ -276,3 +276,104 @@ test("Claude handshake failure retains acquired execution custody when cleanup i
     });
   }
 });
+
+
+test("Claude initialization rejects confirmed execution exit before half-open protocol EOF", async () => {
+  const { PassThrough, Writable } = await import("node:stream");
+  for (const cleanup of ["verified", "unconfirmed", "rejected"]) {
+    const requested = Promise.withResolvers();
+    const exited = Promise.withResolvers();
+    const stdout = new PassThrough();
+    const stdin = new Writable({ write(chunk, _encoding, done) {
+      requested.resolve(JSON.parse(chunk.toString()));
+      done();
+    } });
+    const cleanupError = new Error("Owned cleanup refused");
+    const stops = [];
+    const execution = {
+      async start() { return { id: "half-open-startup", stdin, stdout, exited: exited.promise }; },
+      async stop(id) {
+        stops.push(id);
+        if (cleanup === "rejected") throw cleanupError;
+        return { scopeEmpty: cleanup === "verified" };
+      }
+    };
+    const pending = createClaudeCodeProcess({ execution });
+    let failure;
+    void pending.catch(error => { failure = error; });
+    try {
+      assert.equal((await requested.promise).request.subtype, "initialize");
+      assert.equal(stdout.readableEnded, false);
+      exited.resolve({ code: 1, signal: null });
+      // The supplied process receipt must settle startup without a protocol EOF
+      // or advancement of the original 30-second control deadline.
+      for (let index = 0; index < 5; index += 1) await new Promise(resolve => setImmediate(resolve));
+      assert.ok(failure, "Confirmed native exit settles initialization promptly");
+      assert.equal(failure.code, "assistant_claude_startup_exited");
+      assert.deepEqual(failure.processExit, { code: 1, signal: null });
+      assert.equal(failure.executionId, "half-open-startup");
+      assert.deepEqual(stops, ["half-open-startup"]);
+      assert.equal(failure.stopProof.scopeEmpty, cleanup === "verified");
+      assert.equal(failure.cleanupFailed === true, cleanup !== "verified");
+      if (cleanup === "rejected") assert.equal(failure.cleanupError, cleanupError);
+    } finally {
+      stdout.destroy();
+      stdin.destroy();
+      await pending.catch(() => {});
+    }
+  }
+});
+
+test("Claude initialization preserves rejected execution observation and exact cleanup custody", async () => {
+  const { PassThrough, Writable } = await import("node:stream");
+  const requested = Promise.withResolvers();
+  const exited = Promise.withResolvers();
+  const stdout = new PassThrough();
+  const stdin = new Writable({ write(_chunk, _encoding, done) { requested.resolve(); done(); } });
+  const failure = new Error("Execution observation failed");
+  const stops = [];
+  const pending = createClaudeCodeProcess({ execution: {
+    async start() { return { id: "observed-startup", stdin, stdout, exited: exited.promise }; },
+    async stop(id) { stops.push(id); return { scopeEmpty: true }; }
+  } });
+  const rejected = assert.rejects(pending, error => {
+    assert.equal(error, failure);
+    assert.equal(error.executionId, "observed-startup");
+    assert.deepEqual(error.stopProof, { scopeEmpty: true, exited: true });
+    assert.equal(error.cleanupFailed, undefined);
+    return true;
+  });
+  try {
+    await requested.promise;
+    exited.reject(failure);
+    await rejected;
+    assert.deepEqual(stops, ["observed-startup"]);
+  } finally {
+    stdout.destroy();
+    stdin.destroy();
+  }
+});
+
+
+test("Claude supplied execution hosts retain initialization without an optional exit receipt", { skip: process.platform === "win32" }, async t => {
+  const setup = await fixture(t, `
+    import { createInterface } from "node:readline";
+    createInterface({ input: process.stdin }).on("line", line => {
+      const frame = JSON.parse(line);
+      process.stdout.write(JSON.stringify({ type: "control_response", response: {
+        subtype: "success", request_id: frame.request_id, response: { originalHost: true }
+      } }) + "\\n");
+    });
+  `);
+  const local = createLocalConversationExecution();
+  t.after(() => local.close());
+  const native = await createClaudeCodeProcess({ ...setup, execution: {
+    async start(input) {
+      const { id, stdin, stdout } = await local.start(input);
+      return { id, stdin, stdout };
+    },
+    stop: id => local.stop(id)
+  } });
+  assert.equal(native.initialization.originalHost, true);
+  assert.deepEqual(await native.stop(), { scopeEmpty: true, exited: true });
+});

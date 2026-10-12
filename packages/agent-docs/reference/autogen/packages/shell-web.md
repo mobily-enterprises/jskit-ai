@@ -14,6 +14,21 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/architecture/cli.js`
+Exports
+- None
+
+### `src/architecture/inspectVueArchitecture.js`
+Exports
+- `inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "" })`
+Local functions
+- `hash(source)`
+- `canonical(value)`
+- `property(node, key)`
+- `nodes(root)`
+- `staticValue(node, bindings, seen = new Set())`
+- `bindingNode(node, bindings, seen = new Set())`
+
 ### `src/client/asyncModuleRecovery/index.js`
 Exports
 - `SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY`

@@ -697,3 +697,30 @@ test("voice selection is advertised, validated and retained for every streamed p
   await messages.next(value => value?.type === "speech.end" && value.turnId === "two");
   assert.equal(selected.at(-1), "female");
 });
+
+test("only acquired native segments advertise a bounded synthesis allowance; voice catalogues stay unchanged", async t => {
+  for (const budget of [120000, undefined, 120001, "120000"]) await t.test(`engine budget ${budget}`, async child => {
+    const engine = fakeSpeechEngine();
+    engine.synthesisTimeoutMs = budget;
+    engine.voices = [{ id: "test", label: "Test" }];
+    engine.defaultVoice = "test";
+    const daemon = createVoiceDaemon({ accessKey: ACCESS_KEY, engine, host: "127.0.0.1", port: 0 });
+    const address = await daemon.start();
+    child.after(() => daemon.close());
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, {
+      headers: { authorization: `Bearer ${createVoiceAccessToken({ key: ACCESS_KEY, tenant: "native-budget" })}` }
+    });
+    child.after(() => socket.close());
+    const messages = createSocketMessageCollector(socket);
+    const ready = (await messages.next(value => value.type === "voice.ready")).value;
+    assert.deepEqual(ready.voices, engine.voices);
+    assert.equal(Object.hasOwn(ready, "synthesisTimeoutMs"), false);
+    socket.send(JSON.stringify({ type: "speak.start", turnId: "native-budget", text: "A bounded native phrase." }));
+    const segment = (await messages.next(value => value.type === "speech.segment.start")).value;
+    assert.equal(segment.turnId, "native-budget");
+    assert.equal(segment.segmentIndex, 0);
+    assert.equal(Object.hasOwn(segment, "synthesisTimeoutMs"), budget === 120000);
+    if (budget === 120000) assert.equal(segment.synthesisTimeoutMs, 120000);
+    await messages.next(value => value.type === "speech.end");
+  });
+});

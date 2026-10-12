@@ -16,9 +16,13 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
   if (!apiClientFactory && typeof connections?.resolve !== "function") throw new TypeError("API conversations require an authorized AI connection resolver.");
   const maximumOutput = limits.maxOutputCharacters ?? 64_000;
   const maximumHistory = limits.maxHistoryCharacters ?? 256_000;
+  const maximumToolProgress = limits.maxApiToolProgressCharacters;
   const preserveWhitespace = apiClientFactory?.preserveWhitespace !== false;
   for (const limit of [maximumOutput, maximumHistory]) {
     if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError("Invalid API conversation limit.");
+  }
+  if (maximumToolProgress !== undefined && (!Number.isSafeInteger(maximumToolProgress) || maximumToolProgress < 1)) {
+    throw new TypeError("Invalid API application tool progress limit.");
   }
   const driver = Object.freeze({
     admissionBeforeDispatch: true,
@@ -101,6 +105,9 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
             if (finishReason !== (toolCallSource === "text" ? "stop" : "tool-calls")) throw new Error("The model stream ended without confirming its application tool calls.");
           } else if (finishReason !== "stop") {
             throw new Error("The model stream ended without confirming a completed answer.");
+          }
+          if (calls.length && maximumToolProgress !== undefined && text.length > maximumToolProgress) {
+            throw new Error("Application tool progress text exceeds the configured API limit.");
           }
           if (text.trim() && (calls.length || isAssistantProgressOnlyText(text))) {
             responseIsCommentary = true;

@@ -1,6 +1,7 @@
 export {
   bindClaudeConversationAccount,
   claudeCodeArguments,
+  claudeConnectionIdentity,
   claudeCatalogueModels,
   claudeFlagSettings,
   claudeModelConfiguration,

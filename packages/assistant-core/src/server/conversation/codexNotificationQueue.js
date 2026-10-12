@@ -40,8 +40,7 @@ export function createCodexAppServerNotificationQueue({
     });
   }
 
-  async function drainCodexAppServerNotificationTasks(sessionId = "") {
-    const taskSessionKey = namespace(sessionId);
+  async function drainCodexAppServerNotificationTasksForKey(taskSessionKey) {
     while (true) {
       const task = codexAppServerNotificationTasks.get(taskSessionKey);
       if (!task) {
@@ -49,6 +48,15 @@ export function createCodexAppServerNotificationQueue({
       }
       await task;
     }
+  }
+
+  async function drainCodexAppServerNotificationTasks(sessionId = "") {
+    return drainCodexAppServerNotificationTasksForKey(namespace(sessionId));
+  }
+
+  function captureCodexAppServerNotificationDrain(sessionId = "") {
+    const taskSessionKey = namespace(sessionId);
+    return () => drainCodexAppServerNotificationTasksForKey(taskSessionKey);
   }
 
   function queueCodexAppServerStream(context, classification, deliver) {
@@ -97,6 +105,7 @@ export function createCodexAppServerNotificationQueue({
     pendingReasoning: codexAppServerPendingReasoning,
     run: runCodexAppServerNotificationTask,
     drain: drainCodexAppServerNotificationTasks,
+    captureDrain: captureCodexAppServerNotificationDrain,
     stream: queueCodexAppServerStream,
     reasoning: queueCodexAppServerReasoning
   };

@@ -188,6 +188,8 @@ the application operator to inspect the reported rows and any affected action
 target. Do not delete a request claim or infer that an action with no result did
 nothing. Repairs require the application's offline upgrade procedure and a
 database backup; requests and startup never backfill these rows.
+Retrying the same rejected message ID preserves that inspection code and its row
+IDs without running inference or actions again. A retry is not a history repair.
 
 New runtime metadata uses the existing JSON fields, so this ownership move adds
 no database schema migration. Stop old assistant requests before switching
@@ -487,6 +489,12 @@ message-ID key. The database arbitrates concurrent requests across server
 processes before provider or tool execution. A reused ID with a different request
 returns a conflict. An identical retry replays the recorded answer or failure
 without calling the provider or tools again, including after a process restart.
+Pre-stream `AppError` failures retain their public code and details in the same
+request receipt. `ACTION_PERMISSION_DENIED` details remain private, and arbitrary
+non-`AppError` diagnostics are not added to the receipt. Older failure receipts
+without these optional fields replay their original message and status; missing
+diagnostics are not invented or backfilled. No database schema upgrade is needed
+for these optional fields in the existing response JSON.
 
 The acceptance receipt is stored before execution; completion is stored before
 sending the final stream event. If a request is still running, or its process

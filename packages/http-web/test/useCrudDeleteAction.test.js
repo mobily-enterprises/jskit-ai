@@ -4,6 +4,7 @@ import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createSSRApp, h, nextTick, ref } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { configureHttpWebClient, resetHttpWebClientForTests } from "../src/client/lib/httpClient.js";
 import {
   requireCrudDeleteOperation,
   useCrudDeleteAction
@@ -43,7 +44,7 @@ function createScreen() {
   });
 }
 
-async function renderDeleteAction({ client, queryClient = new QueryClient() } = {}) {
+async function renderDeleteAction({ client, resource = deleteResource, queryClient = new QueryClient() } = {}) {
   const router = createTestRouter();
   await router.push("/notes/42");
   await router.isReady();
@@ -53,7 +54,7 @@ async function renderDeleteAction({ client, queryClient = new QueryClient() } = 
     setup() {
       deleteAction = useCrudDeleteAction({
         screen: createScreen(),
-        resource: deleteResource,
+        resource,
         resourceNamespace: "notes",
         apiUrlTemplate: "/notes/:noteId",
         client
@@ -125,6 +126,74 @@ test("useCrudDeleteAction keeps the record dialog open with useful error feedbac
   assert.equal(deleteAction.isDeleting, false);
   assert.equal(deleteAction.error, "Delete service unavailable.");
   assert.equal(router.currentRoute.value.path, "/notes/42");
+});
+
+test("public deletion resolves the configured client without session CSRF", async (t) => {
+  t.after(resetHttpWebClientForTests);
+  const requests = [];
+  configureHttpWebClient({
+    async request(path, options) {
+      requests.push({ path, options });
+      return null;
+    }
+  });
+  const { deleteAction, router } = await renderDeleteAction({
+    resource: { ...deleteResource, apiAccess: "public" }
+  });
+
+  deleteAction.request();
+  await deleteAction.confirm();
+
+  assert.equal(requests.length, 1);
+  assert.match(requests[0].path, /\/notes\/42$/);
+  assert.equal(requests[0].options.method, "DELETE");
+  assert.equal(requests[0].options.csrf, false);
+  assert.equal(router.currentRoute.value.path, "/notes");
+});
+
+test("authenticated deletion retains configured-client CSRF behavior", async (t) => {
+  t.after(resetHttpWebClientForTests);
+  const requests = [];
+  configureHttpWebClient({
+    async request(path, options) {
+      requests.push({ path, options });
+      return null;
+    }
+  });
+  const { deleteAction } = await renderDeleteAction();
+
+  deleteAction.request();
+  await deleteAction.confirm();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].options.method, "DELETE");
+  assert.equal(Object.hasOwn(requests[0].options, "csrf"), false);
+});
+
+test("public deletion honors an explicit client override", async (t) => {
+  t.after(resetHttpWebClientForTests);
+  configureHttpWebClient({
+    request() {
+      assert.fail("The configured client must not replace the explicit override.");
+    }
+  });
+  const requests = [];
+  const { deleteAction } = await renderDeleteAction({
+    resource: { ...deleteResource, apiAccess: "public" },
+    client: {
+      async request(path, options) {
+        requests.push({ path, options });
+        return null;
+      }
+    }
+  });
+
+  deleteAction.request();
+  await deleteAction.confirm();
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].options.method, "DELETE");
+  assert.equal(requests[0].options.csrf, false);
 });
 
 test("useCrudDeleteAction rejects resources without the canonical DELETE operation", () => {

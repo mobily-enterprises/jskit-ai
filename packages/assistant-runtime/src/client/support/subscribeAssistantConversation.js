@@ -65,9 +65,10 @@ function subscribeAssistantConversation({
   function receiveState(snapshot, options) {
     state = snapshot;
     receiveStreaming(snapshot.streaming);
-    publishState({ ...options, canonical: true });
+    publishState({ canonical: true, ...options });
   }
-  function reload() {
+  function reload({ resubscribe = false } = {}) {
+    if (resubscribe) return subscribe({ preserveHistory: true });
     if (!listening) return subscribe();
     if (reloadInFlight) {
       reloadQueued = true;
@@ -179,7 +180,7 @@ function subscribeAssistantConversation({
     if (epoch === null) pending.push(payload);
     else deliver(payload);
   }
-  function subscribe() {
+  function subscribe({ preserveHistory = false } = {}) {
     if (disposed || !socket.connected) return;
     const attempt = ++generation;
     epoch = null;
@@ -206,7 +207,7 @@ function subscribeAssistantConversation({
         return;
       }
       epoch = response.streamEpoch;
-      receiveState(response.state, { initial: true });
+      receiveState(response.state, { initial: !preserveHistory, canonical: !preserveHistory });
       for (const payload of pending.sort((left, right) => left.streamRevision - right.streamRevision)) deliver(payload);
       pending = [];
     });

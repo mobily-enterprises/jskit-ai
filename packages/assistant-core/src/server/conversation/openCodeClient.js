@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { Buffer } from "node:buffer";
 import path from "node:path";
-import { createNativeHistoryExport, retireNativeConversation } from "./nativeHistoryExport.js";
+import { createNativeHistoryExport, readStoppedNativeDatabase, retireNativeConversation } from "./nativeHistoryExport.js";
 
 const OPENCODE_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
 const OPENCODE_CATALOG_LIMIT_BYTES = 32 * 1024 * 1024;
@@ -120,6 +120,51 @@ function normalizedMessageRows(value = null) {
       type: text(info.role)
     };
   });
+}
+
+/** Inspect stopped native storage without starting OpenCode or changing its files. */
+async function readOpenCodeConversationDatabase({ databasePath, conversationId, onMessage, signal } = {}) {
+  if (!path.isAbsolute(databasePath || "") || !/^ses_[a-zA-Z0-9_]{1,256}$/u.test(conversationId || "") ||
+      typeof onMessage !== "function") throw new TypeError("OpenCode inspection requires its exact database, conversation and message reader.");
+  const unavailable = () => new Error("OpenCode native storage could not be inspected completely. Keep its writers stopped and inspect its original database before retrying.");
+  try {
+    return await readStoppedNativeDatabase(databasePath, async database => {
+      const session = database.prepare("SELECT * FROM session WHERE id = ?").get(conversationId);
+      if (!session || session.id !== conversationId || !path.isAbsolute(session.directory || "")) throw unavailable();
+      if (database.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'session_input'").get() &&
+          database.prepare("SELECT 1 FROM session_input WHERE session_id = ? AND promoted_seq IS NULL LIMIT 1").get(conversationId)) {
+        throw new Error("OpenCode has an unpromoted native request. Inspect it before restoring continuity; no request was repeated.");
+      }
+      const output = createNativeHistoryExport(async ({ message }) => onMessage(normalizedMessageRows([message])[0]), { signal });
+      const parts = database.prepare("SELECT id, message_id, session_id, data FROM part WHERE message_id = ? ORDER BY id");
+      for (const row of database.prepare("SELECT id, session_id, data FROM message WHERE session_id = ? ORDER BY time_created, id").iterate(conversationId)) {
+        signal?.throwIfAborted();
+        if (!/^msg_[a-zA-Z0-9_]{1,256}$/u.test(row.id)) throw unavailable();
+        let bytes = Buffer.byteLength(row.data);
+        if (bytes > 64 * 1024 * 1024) throw unavailable();
+        const data = JSON.parse(row.data);
+        if (!data || typeof data !== "object" || Array.isArray(data) || !["user", "assistant"].includes(data.role)) throw unavailable();
+        const content = [];
+        for (const part of parts.iterate(row.id)) {
+          signal?.throwIfAborted();
+          bytes += Buffer.byteLength(part.data);
+          if (bytes > 64 * 1024 * 1024 || part.session_id !== conversationId || part.message_id !== row.id ||
+              !/^prt_[a-zA-Z0-9_]{1,256}$/u.test(part.id)) throw unavailable();
+          const value = JSON.parse(part.data);
+          if (!value || typeof value !== "object" || Array.isArray(value)) throw unavailable();
+          content.push({ ...value, id: part.id, sessionID: part.session_id, messageID: part.message_id });
+        }
+        // Same original MessageV2 storage projection: native columns own IDs.
+        await output.emit({ type: "message", message: { info: { ...data, id: row.id, sessionID: row.session_id }, parts: content }, text: [] });
+      }
+      return { session, ...output.complete() };
+    }, { signal });
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason;
+    if (String(error?.message || "").startsWith("OpenCode ") ||
+        String(error?.message || "").startsWith("Native storage ")) throw error;
+    throw unavailable();
+  }
 }
 
 function providerCapabilityMedia(value = null) {
@@ -710,6 +755,7 @@ async function retireOpenCodeConversationHistory(storageClient, controlClient, b
 }
 
 export {
+  readOpenCodeConversationDatabase,
   retireOpenCodeConversationHistory,
   openCodeAssistantMessageText,
   OPENCODE_RESPONSE_LIMIT_BYTES,

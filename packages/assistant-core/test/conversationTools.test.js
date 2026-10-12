@@ -277,6 +277,39 @@ test("repeated calls in one admitted turn reuse receipts; interrupted reservatio
   assert.deepEqual(completed.records(), first.records(), "Restored receipts remain part of the turn's saved state");
 });
 
+test("completed-response tools retain discovery contracts only in their supplied worker catalogue set", async () => {
+  let executions = 0, allowed = true;
+  const catalog = createServiceToolCatalog(actionCatalog(async () => { executions++; return { total: 5 }; }),
+    { maxDirectTools: 0, isActionAvailable: () => allowed });
+  const toolSet = catalog.resolveToolSet(context);
+  const saved = [];
+  const create = retainedToolSet => createConversationTools({ catalog, toolSet: retainedToolSet, context,
+    signal: new AbortController().signal, authorize: async () => {},
+    save: async calls => saved.push(structuredClone(calls)), emit: async () => {} });
+  const contract = { id: "contract-response:operation", name: "assistant_action_contract",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1 }) };
+  const execute = { id: "execute-response:operation", name: "assistant_action_execute",
+    arguments: JSON.stringify({ actionId: "numbers.add", version: 1, input: { left: 2, right: 3 } }) };
+  assert.equal((await create(toolSet).execute(contract)).ok, true);
+  const isolated = await create().execute(execute);
+  assert.equal(isolated.error.code, "assistant_action_contract_required");
+  assert.equal(executions, 0, "A separate worker must load its own contract");
+  const nextResponse = create(toolSet);
+  const result = await nextResponse.execute(execute);
+  assert.deepEqual(result, { ok: true, result: { actionId: "numbers.add", version: 1, result: { total: 5 } } });
+  assert.deepEqual(await nextResponse.execute(execute), result);
+  assert.equal(executions, 1, "Retaining the contract does not repeat the durable response operation");
+  assert.ok(saved.every(calls => calls.length === 1), "Each response retains its own durable operation receipt");
+  allowed = false;
+  const revoked = await create(toolSet).execute({ ...execute, id: "revoked-response:operation" });
+  assert.equal(revoked.error.code, "assistant_action_unknown");
+  assert.equal(executions, 1, "A retained contract never overrides current action availability");
+  allowed = true;
+  const reset = await create(catalog.resolveToolSet(context)).execute({ ...execute, id: "reset-response:operation" });
+  assert.equal(reset.error.code, "assistant_action_contract_required");
+  assert.equal(executions, 1, "A new worker or scope starts with no loaded contracts");
+});
+
 test("a later admitted turn can reuse a model's tool id with different arguments", async t => {
   const f = await fixture(t, { execute: ({ left, right }) => ({ total: left + right }),
     response: (_body, round, name) => round % 2 ? new Response(frame({ tool_calls: [{
@@ -529,7 +562,8 @@ test("bound tools use exact accepted host rows and fresh server context without 
   assert.equal(f.observed.mappings.length, 2);
   assert.deepEqual(f.observed.mappings[1].admission, { conversationId: "one", turnId: before.turnId,
     messageId: message.messageId, nativeTurnId: "native-turn", nativeThreadId: "native-thread", origin: "user",
-    assertCurrent: f.observed.mappings[1].admission.assertCurrent });
+    assertCurrent: f.observed.mappings[1].admission.assertCurrent,
+    assertCompletionCurrent: f.observed.mappings[1].admission.assertCompletionCurrent });
   assert.equal(f.observed.mappings[0].actual, context);
   assert.deepEqual(f.observed.contexts[0].boundAdmission, f.observed.mappings[1].admission);
   await f.tools().execute(f.nativeCall);
@@ -778,4 +812,81 @@ test("a current bound effect failure still fails its own run and retains its ori
   assert.equal(receipt.status, "unknown");
   assert.equal(receipt.result.error.code, "current_effect_failure");
   assert.equal(f.observed.executions.length, 1);
+});
+
+
+test("bound admission completion guard retains only its latest successful native settlement", async t => {
+  for (const boundary of ["completed", "steered", "stopped", "closed", "successor-active", "successor-completed", "recovered-successor", "rejected-successor"]) {
+    await t.test(boundary, async t => {
+      const f = await boundToolFixture(t);
+      await f.conversation.send(message);
+      const command = await f.currentCommand();
+      await f.loadContract();
+      await f.tools().execute(f.nativeCall);
+      const original = f.observed.mappings[0].admission;
+      assert.equal(typeof original.assertCompletionCurrent, "function");
+      assert.equal(JSON.parse(JSON.stringify(original)).assertCompletionCurrent, undefined);
+      assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" },
+        "A working native turn cannot authorize completion");
+      if (boundary === "stopped") {
+        await f.conversation.cancel();
+        assert.throws(() => original.assertCompletionCurrent(), error => error === command.signal.reason);
+        return;
+      }
+      if (boundary === "steered") {
+        await f.conversation.send({ messageId: "completion-steer", text: "Use this newer instruction.", steer: true });
+        await f.currentCommand(1);
+      }
+      f.finish.resolve();
+      await f.conversation.wait();
+      assert.throws(() => original.assertCurrent(), { code: "conversation_tool_request_retired" },
+        "Native settlement never restores live tool authority");
+      if (boundary === "steered") {
+        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+        return;
+      }
+      original.assertCompletionCurrent();
+      if (boundary === "closed") {
+        await f.runtime.close();
+        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+      } else if (boundary === "rejected-successor") {
+        f.binding.prepareInput = async () => { throw new Error("The newer input was rejected before native dispatch."); };
+        await assert.rejects(f.conversation.send({ messageId: "unaccepted-successor", text: "Never admitted." }),
+          /rejected before native dispatch/u);
+        await f.conversation.wait();
+        original.assertCompletionCurrent();
+        assert.equal(f.observed.commands.length, 1, "Rejected input cannot replace the accepted receipt owner");
+      } else if (boundary === "recovered-successor") {
+        f.binding.native.owner.run = async (_control, current) => {
+          await current.beforeDispatch({ threadId: "native-thread" });
+          await f.binding.transcript.writeUserMessage({ messageId: current.input.messageId, text: current.input.text });
+          return { value: { ok: true, delivered: true } };
+        };
+        const receipt = await f.conversation.send({ messageId: "recovered-successor", text: "An original recovered native receipt." });
+        assert.equal(receipt.recovered, true);
+        await f.conversation.wait();
+        assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" },
+          "Verified recovered admission also retires the previous completion receipt");
+      } else if (boundary.startsWith("successor-")) {
+        const gate = Promise.withResolvers();
+        const run = f.binding.native.owner.run;
+        f.binding.native.owner.run = async (...args) => {
+          await run(...args);
+          if (boundary === "successor-active") await gate.promise;
+        };
+        try {
+          await f.conversation.send({ messageId: "accepted-successor", text: "A genuinely accepted later input." });
+          await f.currentCommand(1);
+          if (boundary === "successor-active") {
+            assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+            gate.resolve();
+          }
+          await f.conversation.wait();
+          assert.throws(() => original.assertCompletionCurrent(), { code: "conversation_tool_request_retired" },
+            "A later accepted receipt stays current after its active slot clears");
+        } finally { gate.resolve(); }
+      }
+      assert.equal(f.observed.executions.length, 1, "Completion checks cannot dispatch or replay application effects");
+    });
+  }
 });
