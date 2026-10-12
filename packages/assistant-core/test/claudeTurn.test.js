@@ -275,6 +275,9 @@ import { createClaudeConversationOwner } from "../src/server/conversation/claude
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { createConversationRuntime, createMemoryConversationStorage, createConversationTranscript } from "../src/server/conversation/index.js";
+import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { createSchema } from "json-rest-schema";
 
 // Exercise the original supplied-store Send/process/event owner, without the
 // standalone execution-release capability or application-tool branch.
@@ -292,9 +295,12 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       select() {}, read: (_context, id) => saved.get(id),
       async save(entry) { saved.set(entry.id, JSON.stringify({ turnId: entry.turn?.id,
         state: entry.turn?.state, accountIdentity: entry.accountIdentity })); },
-      async hasMessage() { return false; }
+      async hasMessage() { return false; },
+      readSessionConversations: () => ({ ids: [...saved.keys()], context })
     },
     preparation: {
+      context: async () => context,
+      entry: () => ({ options: { mainId: conversationId }, check() {} }),
       check() {}, account: () => ({ identity: behavior.account, providerId }),
       async configuration() { return { systemPrompt: "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
       async message(_entry, _input, { message }) { return message; }
@@ -321,10 +327,12 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       if (event.type === "before-state") await beforeState?.(entry, event);
       if (event.type === "admit-message" && canonicalAdmission) {
         await behavior.beforeAdmit?.();
+        if (behavior.admit) return behavior.admit(event);
         return { turnId: `authored-${event.messageId}`, messages: [{ role: "user", messageId: event.messageId, text: event.message }] };
       }
       if (event.type === "message" && event.message.complete && event.message.role === "assistant") {
         await behavior.beforePublish?.();
+        if (behavior.publish) return behavior.publish(event.message);
         const turn = { id: `host-${messages.length}`, messages: [{ messageId: event.message.id,
           outputId: event.message.outputId || event.message.id, role: "assistant", text: event.message.text }] };
         messages.push(turn);
@@ -734,4 +742,200 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
   await f.reopen();
   assert.equal(f.entry.turn.active, false, "Original supplied store retained the truthful interruption");
   assert.equal(f.entry.turn.state, "interrupted");
+});
+
+// Retain the original supplied-store/native process fixture and drive it through
+// the actual common runtime, including its completion-only admitted receipt.
+async function suppliedCommonFixture(t, { tools = true } = {}) {
+  const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  const context = { actor: { id: "owner" }, surface: "app" };
+  const admissions = [];
+  const checkpoints = [];
+  const actions = createActionCatalogue();
+  actions.register({ contributorId: "lesson", domain: "lesson", actions: [{
+    id: "lesson.inspect", version: 1, kind: "query", channels: ["automation"], surfaces: ["app"],
+    permission: { require: "authenticated" }, idempotency: "none",
+    input: { schema: createSchema({}), mode: "replace" },
+    output: { schema: createSchema({}), mode: "replace" }, execute: async () => ({})
+  }] });
+  let delivery;
+  f.behavior.admit = event => transcript.writeConversationUserMessage("lesson", {
+    messageId: event.messageId, text: event.message
+  });
+  f.behavior.publish = message => storage.write("lesson", async transaction => {
+    const turnId = await transaction.nextTurnId();
+    await transaction.appendMessage(turnId, { ...message, role: "assistant", messageId: message.id });
+    const turn = await transaction.readTurn(turnId);
+    f.messages.push(turn);
+    return turn;
+  });
+  const binding = { sessionId: "lesson", namespace: f.context.key, engine: "claude", runtime: { store: {} },
+    native: { owner: f.owner, preparation: { cleanup: () => ({ context: f.context, application: {
+      readContext: async () => f.context, terminals: { close: async () => ({ ok: true }) }
+    } }) } },
+    admission() {}, prepareInput: async input => input,
+    read: async () => ({ threadId: f.conversationId, configuration: { model: "native" },
+      turn: f.owner.snapshot(f.entry), delivery }),
+    readStream: async () => ({ messages: [] }),
+    state: { read: async () => delivery, write: async value => { delivery = structuredClone(value); } },
+    transcript: { history: async () => [], readConversationLog: () => transcript.readConversationLog("lesson"),
+      hasMessage: id => transcript.conversationMessageIdExists("lesson", id),
+      writeUserMessage: input => transcript.writeConversationUserMessage("lesson", input) },
+    ...(tools ? { applicationTools: { storage, prepareContext(actual, admission) {
+      admissions.push(admission); return actual;
+    } } } : {}) };
+  const runtime = createConversationRuntime({ ...(tools ? { actions } : {}), authorize: () => true,
+    host: { conversation: () => binding } });
+  t.after(() => runtime.close());
+  const conversation = await runtime.open({ id: "lesson", context });
+  f.setBeforeState((entry, event) => {
+    if (event.state !== "completed") return;
+    assert.equal(entry.turn.active, true, "Retained checkpoint still precedes saved idle state");
+    assert.equal(entry.nativeTurn.read().active, false);
+    const final = f.final();
+    assert.ok(final, "The original canonical FINAL is available at the checkpoint");
+    const admission = admissions.at(-1);
+    if (tools) admission.assertCompletionCurrent();
+    checkpoints.push({ final, admission });
+  });
+  async function loadContract(id = "contract") {
+    await f.frame({ type: "assistant", uuid: `tool-${id}`, message: { content: [
+      { type: "tool_use", id, name: "mcp__application__assistant_action_contract",
+        input: { actionId: "lesson.inspect", version: 1 } }
+    ] } });
+    return f.entry.process.options.onControlRequest({ subtype: "mcp_message", server_name: "application",
+      message: { jsonrpc: "2.0", id, method: "tools/call", params: { name: "assistant_action_contract",
+        arguments: { actionId: "lesson.inspect", version: 1 }, _meta: { "claudecode/toolUseId": id } } }
+    }, { signal: new AbortController().signal });
+  }
+  return { ...f, get entry() { return f.entry; }, runtime, conversation, binding, admissions, checkpoints, loadContract, testSignal: t.signal };
+}
+
+async function sendCommon(f, messageId) {
+  const receipt = await f.conversation.send({ messageId, text: "Prepare the question." });
+  while (!f.entry.command?.admitted) {
+    f.testSignal.throwIfAborted();
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  return receipt;
+}
+
+for (const tools of [true, false]) test(`Claude supplied common runtime checkpoints after its completion fence with tools=${tools}`, { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools });
+  const receipt = await sendCommon(f, "common-question");
+  assert.equal(receipt.status, "accepted");
+  assert.equal(typeof f.entry.command.finishIfCurrent, "function");
+  if (tools) {
+    await f.loadContract();
+    assert.throws(() => f.admissions.at(-1).assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+  } else assert.equal(f.entry.command.tools, undefined);
+  await f.frame({ type: "result", subtype: "success", result: "Where would you try the application?", uuid: "question-final" });
+  await f.conversation.wait();
+  assert.equal(f.checkpoints.length, 1);
+  assert.notEqual(f.checkpoints[0].final.conversationTurn.turnId, receipt.turnId,
+    "The true native FINAL keeps its separate original carrier");
+  assert.equal(f.entry.turn.state, "completed");
+  assert.equal(f.entry.command, null);
+  if (tools) f.admissions.at(-1).assertCompletionCurrent();
+});
+
+test("Claude supplied common completion joins accepted steering and checkpoints only its own final", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "common-first");
+  await f.loadContract("first-contract");
+  const first = f.admissions.at(-1);
+  const legacyCompletion = f.entry.completion.promise;
+  const receipt = await f.conversation.send({ messageId: "common-successor", text: "Use this new question.", steer: true });
+  assert.equal(receipt.status, "accepted");
+  assert.equal(f.entry.completion.promise, legacyCompletion, "Original same-turn steering retains the direct wait owner");
+  while (f.entry.command.messageId !== "common-successor") {
+    f.testSignal.throwIfAborted();
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  await f.loadContract("successor-contract");
+  assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+  await f.frame({ type: "result", subtype: "success", result: "The successor question", uuid: "successor-final" });
+  await f.conversation.wait();
+  assert.equal((await legacyCompletion).status, "completed");
+  assert.equal(f.checkpoints.length, 1);
+  assert.equal(f.checkpoints[0].final.inputMessageId, claudeNativeMessageId("common-successor"));
+  assert.equal(f.checkpoints[0].admission.messageId, "common-successor");
+  assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+});
+
+test("Claude supplied completion retains the original waiter when a reserved successor is rejected before dispatch", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "unreplaced-first");
+  await f.loadContract();
+  const first = f.admissions.at(-1);
+  const legacyCompletion = f.entry.completion.promise;
+  const preparing = Promise.withResolvers();
+  const held = Promise.withResolvers();
+  f.binding.prepareInput = async () => { preparing.resolve(); await held.promise; };
+  const steering = f.conversation.send({ messageId: "never-dispatched-successor", text: "Rejected before native work.", steer: true });
+  void steering.catch(() => {});
+  await preparing.promise;
+  await f.frame({ type: "result", subtype: "success", result: "The still-current question", uuid: "unreplaced-final" });
+  assert.equal(f.checkpoints.length, 0);
+  held.reject(new Error("The host rejected preparation before dispatch."));
+  await assert.rejects(steering, /host rejected preparation/);
+  await f.conversation.wait();
+  assert.equal((await legacyCompletion).status, "completed");
+  assert.equal(f.checkpoints.length, 1);
+  assert.equal(f.checkpoints[0].final.inputMessageId, claudeNativeMessageId("unreplaced-first"));
+  first.assertCompletionCurrent();
+});
+
+for (const cancelled of [false, true]) test(`Claude supplied native settlement releases its queue while reserved steering waits, cancelled=${cancelled}`, { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "reserved-first");
+  await f.loadContract();
+  const first = f.admissions.at(-1);
+  const preparing = Promise.withResolvers();
+  const held = Promise.withResolvers();
+  f.binding.prepareInput = async input => { preparing.resolve(); await held.promise; return input; };
+  const steering = f.conversation.send({ messageId: "reserved-successor", text: "A reserved new instruction.", steer: true });
+  void steering.catch(() => {});
+  await preparing.promise;
+  const legacyCompletion = f.entry.completion.promise;
+  let cancellation;
+  try {
+    await f.frame({ type: "result", subtype: "success", result: "The prior question", uuid: "reserved-final" });
+    assert.equal(f.entry.nativeTurn.read().active, false);
+    assert.equal(f.entry.turn.active, true);
+    assert.equal(f.checkpoints.length, 0, "Native queue does not await the reserved common admission");
+    assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+    if (cancelled) cancellation = f.conversation.cancel();
+  } finally { held.resolve(); }
+  await cancellation;
+  await assert.rejects(steering);
+  assert.equal((await legacyCompletion).status, "interrupted", "Legacy wait keeps its original settlement and cleanup result");
+  await f.conversation.wait();
+  assert.equal(f.checkpoints.length, 0);
+  assert.equal(f.final(), null, "Rejected steering or Stop cannot revive the prior FINAL");
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.command, null);
+  assert.throws(() => first.assertCompletionCurrent());
+});
+
+test("Claude supplied common checkpoint failure preserves original refusal and native cleanup", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "refused-common-question");
+  await f.loadContract();
+  const refusal = new Error("The original lesson checkpoint refused this completion.");
+  f.setBeforeState((entry, event) => {
+    if (event.state !== "completed") return;
+    assert.equal(entry.turn.active, true);
+    f.admissions.at(-1).assertCompletionCurrent();
+    throw refusal;
+  });
+  await f.frame({ type: "result", subtype: "success", result: "Never delivered", uuid: "refused-final" });
+  const state = await f.conversation.wait();
+  assert.equal(state.error, refusal.message);
+  assert.equal(f.final(), null);
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.command, null);
+  assert.equal(f.entry.turn.active, false);
 });
