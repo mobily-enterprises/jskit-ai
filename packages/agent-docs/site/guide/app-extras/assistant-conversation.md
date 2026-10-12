@@ -3322,6 +3322,15 @@ completion metadata cannot supply this proof. New input, steering, account
 changes, interruption and cleanup invalidate it. Pending or failed native Stop
 cannot revive an older receipt. This optional getter preserves existing storage,
 checkpoint and cleanup behavior; the host still owns question or grading policy.
+For a supplied conversation running through the common runtime, native settlement
+first releases the receiver queue. The same accepted delivery then joins reserved
+steering in the original run owner before invoking the retained checkpoint, so
+`assertCompletionCurrent()` is armed while the saved turn still reports active.
+An accepted successor supersedes the earlier delivery; rejected preparation keeps
+the earlier accepted receipt. The original direct Send/wait completion still
+settles after the checkpoint and retains interruption and cleanup failures.
+This coordination applies with or without application tools and adds no host
+callback or execution-release capability.
 The turn owner preserves the production receiver's block lifecycle: deltas are
 temporary, block-stop removes them, and completed snapshots use their native
 UUIDs. It does not group distinct history snapshots into a synthetic reply.

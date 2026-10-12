@@ -467,7 +467,14 @@ export function createClaudeConversationOwner({
       if (!command) await entry.nativeTurn.updateState("active");
       if (applicationCommand && conversationTurn) {
         const value = deliveryResult();
-        applicationCommand.active.delivery = { value, completion: entry.completion?.promise };
+        const active = applicationCommand.active;
+        const previousCompletion = active.completion;
+        if (active.finishIfCurrent) {
+          active.completion = Promise.withResolvers();
+          active.completion.promise.catch(() => {});
+        }
+        active.delivery = { value, completion: active.finishIfCurrent ? active.completion.promise : entry.completion?.promise };
+        if (active.finishIfCurrent) previousCompletion.resolve();
         // The original canonical admission and publication precede Core's same
         // accepted-request gate; native tools cannot race an unaccepted user.
         await applicationCommand.accept({ nativeResult: { value }, conversationTurn, nativeTurnId: entry.turn?.id });
@@ -721,13 +728,13 @@ export function createClaudeConversationOwner({
     command.signal.throwIfAborted();
     const entry = await acquire(command.context);
     const active = control.current;
-    const applicationCommand = active?.tools ? { active, accept: command.accept } : null;
+    const applicationCommand = active && (active.tools || active.finishIfCurrent) ? { active, accept: command.accept } : null;
     if (applicationCommand) {
       if (entry.disposed || entry.command && entry.command !== active) throw new Error("This Claude conversation is closed or already working.");
       if (active.entry && active.entry !== entry) throw new Error("Claude's application tools belong to another native conversation.");
       active.entry = entry;
       entry.command = active;
-      entry.toolSchemas = active.tools.schemas;
+      entry.toolSchemas = active.tools?.schemas || [];
     }
     const value = await send(entry, { ...command.input.nativeMessage, onPromptSending: command.beforeDispatch }, { applicationCommand });
     const completion = value.conversationTurn ? entry.completion?.promise : null;
@@ -753,7 +760,7 @@ export function createClaudeConversationOwner({
     completion.promise.catch(() => {});
     const active = { completion, onMessage, onEvent, onNativeToolUse, signal, tools, admitted: false, nativeTools: new Map(),
       messageId: input.messageId, goal: input.goal, nativeToolCount: 0, toolWork: new Set(), maximumToolCalls,
-      context, failure: Promise.withResolvers() };
+      context, finishIfCurrent: command.finishIfCurrent, failure: Promise.withResolvers() };
     let failure;
     active.failure.promise.catch(error => { failure = error; });
     control.current = active;
@@ -810,6 +817,10 @@ export function createClaudeConversationOwner({
           catch (error) { problem = error; }
         }
         if (command.finishIfCurrent && !await command.finishIfCurrent(() => active.delivery === settling)) continue;
+        if (!problem && typeof result === "function") {
+          try { result = await result(); }
+          catch (error) { problem = error; }
+        }
         problem = dispatchFailure || failure || problem;
         if (!problem && settling?.completion && (binding ? result.status !== "completed" : !result.ok)) {
           problem = Object.assign(new Error(result.error || (binding ? "Claude interrupted this answer." : `Claude turn ${result.status}.`)), { status: result.status });
@@ -832,7 +843,7 @@ export function createClaudeConversationOwner({
       }
     } else {
       await cancellation?.catch(() => {});
-      if (tools && active.entry) {
+      if (active.entry) {
         try {
           if (problem || signal.aborted) await active.entry.nativeTurn.stopProcess(problem?.message || "Work stopped.");
         } catch (error) {
@@ -927,6 +938,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       messages: current.messages, error: entry.turn?.error || "", status };
   }
 
+  function resolveCompletion(result) {
+    entry.completion?.resolve(result);
+    if (entry.command?.finishIfCurrent) entry.command.completion.resolve(result);
+  }
+
   async function updateState(state, message = "") {
     if (!entry.turn) return;
     const active = ["starting", "active", "finalizing"].includes(state);
@@ -985,12 +1001,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
           setState("interrupted", error.message);
           await onEvent({ type: "save" });
           await onEvent({ type: "state", state: "interrupted", active: false, message: error.message });
-          entry.completion?.resolve(readResult());
+          resolveCompletion(readResult());
           if (entry.startupCleanup === startup) entry.startupCleanup = null;
           throw error;
         }
       } else await onEvent({ type: "save" });
-      entry.completion?.resolve(readResult());
+      resolveCompletion(readResult());
       if (entry.startupCleanup === startup) entry.startupCleanup = null;
       return entry.exitProof;
     };
@@ -1000,9 +1016,32 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     return entry.stopPending;
   }
 
-  async function publishEntryEvent(event) {
+  async function publishEntryEvent(event, deferred = false) {
     if (entry.stopping) return;
     const binding = Boolean(process.releaseExecution);
+    const command = entry.command;
+    if (event.type === "settled" && !binding && !deferred && command?.finishIfCurrent) {
+      const delivery = command.delivery;
+      const completion = entry.completion;
+      const owner = acceptedInput;
+      // Release the native queue before the common run joins reserved steering.
+      // That same accepted delivery then performs the original retained checkpoint.
+      command.completion.resolve(async () => {
+        if (entry.command !== command || command.delivery !== delivery || entry.completion !== completion ||
+            command.signal.aborted || !currentReceiptOwner(owner)) {
+          clearFinalAssistantResult();
+          throw failure("Claude's completion belongs to a retired native input.");
+        }
+        try {
+          await publishEntryEvent(event, true);
+          return readResult();
+        } catch (error) {
+          clearFinalAssistantResult();
+          throw error;
+        }
+      });
+      return;
+    }
     if (event.type === "admitted") {
       if (event.userEcho) entry.sent = true;
       if (!binding) await onEvent({ type: "save" });
@@ -1022,7 +1061,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     }
     if (event.type === "settled") {
       if (event.source === "result") await onEvent({ type: "provider-update", change: "goal" });
-      entry.completion?.resolve(binding ? event : readResult());
+      resolveCompletion(binding ? event : readResult());
     }
     return published;
   }
