@@ -685,7 +685,7 @@ test("credential publication fences new acquisition and ensure across native cle
 });
 
 test("credential barrier drains admitted acquisitions and refuses a late peer without native effects", async () => {
-  const { runtime, acquire, stops } = fixture();
+  const { runtime, stops } = fixture();
   const started = Promise.withResolvers(), finish = Promise.withResolvers();
   const pending = runtime.acquire("late-peer", async () => {
     started.resolve(); await finish.promise;
