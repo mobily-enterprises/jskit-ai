@@ -90,3 +90,32 @@ test("the shared element renders delayed sends and supplies retry, edit and canc
     await stopProcess(vite);
   }
 });
+
+
+test("chronological messages and application Cancel work on phone and desktop", {
+  skip: process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION !== "1", timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    for (const width of [390, 1365]) {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const errors = [];
+      page.on("pageerror", error => errors.push(error.message));
+      await page.goto(`${vite.baseURL}/?delivery=1&recovery=1`);
+      const rows = page.locator(".assistant-transcript__turn");
+      await expect(rows).toHaveCount(5);
+      for (const [index, text] of ["Question one", "Reply one", "Question two", "Reply two", "Discard failed attempt"].entries()) {
+        await expect(rows.nth(index)).toContainText(text);
+      }
+      await expect(page.getByRole("button", { name: "Retry delivery check" })).toBeVisible();
+      await page.screenshot({ path: `/tmp/sas-chat-recovery-${width}.png` });
+      await page.getByRole("button", { name: "Cancel", exact: true }).click();
+      await expect(rows).toHaveCount(4);
+      await expect(page.getByText("Discard failed attempt", { exact: true })).toHaveCount(0);
+      assert.deepEqual(errors, []);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.close();
+    }
+  } finally { await browser.close(); await stopProcess(vite); }
+});

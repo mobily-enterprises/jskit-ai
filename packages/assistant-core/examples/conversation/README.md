@@ -75,3 +75,13 @@ database or files; the UI has no storage assumptions.
 
 See the JSKIT guide **Embeddable assistant conversations** for the complete
 client, storage and provider contracts and reusable storage-adapter checks.
+
+An adapter that sets `conversation.cancellableDelivery` and supplies
+`actions.cancel(messageId)` also exposes **Cancel** next to **Retry** for uncertain
+delivery. The application owns that cancellation and preserves accepted history.
+Standalone delivery continues to offer cancellation only for definite failures.
+Direct `AssistantTranscript` consumers opt in with `cancellableDelivery`.
+
+The shared transcript interleaves timestamped messages across storage and native
+streaming turns. Equal timestamps keep source order; undated notices keep their
+slots. Reasoning groups form after ordering, preserving original turn identities.

@@ -3,6 +3,7 @@ import { reactive, ref } from "vue";
 import AssistantConversationElement from "../../src/client/conversation/AssistantConversationElement.vue";
 import { createAssistantMessageDelivery } from "../../src/client/conversation/messageDelivery.js";
 
+const recoveryFixture = new URLSearchParams(location.search).has("recovery");
 const draft = ref("");
 const turns = ref([]);
 const requests = ref([]);
@@ -29,11 +30,24 @@ function accept() {
     assistant: { text: "Accepted once." } }];
   pendingRequest.resolve({ ok: true });
 }
+if (recoveryFixture) {
+  const at = minute => `2026-10-13T06:${minute}:00.000Z`;
+  turns.value = [
+    { turnId: "one", user: { messageId: "one", text: "Question one", at: at("01") } },
+    { turnId: "two", user: { messageId: "two", text: "Question two", at: at("03") } },
+    { turnId: "native", messages: [
+      { messageId: "reply-one", role: "assistant", text: "Reply one", at: at("02") },
+      { messageId: "reply-two", role: "assistant", text: "Reply two", at: at("04") }
+    ] }
+  ];
+  delivery.state.messages.push({ id: "uncertain", text: "Discard failed attempt", status: "uncertain", error: "Lost response", createdAt: at("05") });
+}
 const adapter = reactive({
   delivery, attachments,
-  conversation: { turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation." },
+  conversation: { cancellableDelivery: recoveryFixture, turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation." },
   composer: { draft, canSend: true, submitOnEnter: true, queueWhileSending },
   actions: {
+    ...(recoveryFixture ? { cancel: id => delivery.remove(id) } : {}),
     setDraft(value) { draft.value = value; }
   }
 });

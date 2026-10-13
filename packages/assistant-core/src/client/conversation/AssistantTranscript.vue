@@ -196,12 +196,12 @@
                   {{ entry.delivery?.delivery.checking ? 'Checking…' : 'Retry' }}
                 </v-btn>
                 <v-btn
-                  v-if="!entry.delivery"
+                  v-if="!entry.delivery || cancellableDelivery"
                   class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"
                   variant="text"
-                  @click="emit('cancel-turn', entry.turn.optimistic.id)"
+                  @click="emit('cancel-turn', entry.delivery?.delivery.messageId || entry.turn.optimistic.id)"
                 >
                   Cancel
                 </v-btn>
@@ -338,6 +338,7 @@ function previewForTurn(turn) {
 }
 
 const props = defineProps({
+  cancellableDelivery: { type: Boolean, default: false },
   systemLabel: { type: String, default: "Status" },
   previewMessage: { type: Object, default: null },
   working: { type: Boolean, default: undefined },
@@ -586,7 +587,7 @@ function conversationMessageKey(message = {}, index = 0) {
 // Storage rows are not visual boundaries. Only an intervening message ends a
 // reasoning group, including when history is prepended or execution continues.
 const displayEntries = computed(() => {
-  const entries = [];
+  const candidates = [];
   for (const [index, turn] of props.turns.entries()) {
     const turnId = String(turn.turnId || index + 1);
     // A delivery notice belongs to its exact user message, not the previous reply.
@@ -606,17 +607,20 @@ const displayEntries = computed(() => {
         previewUserMessage: role === "user"
       }, key);
       if (!displayed) continue;
-      const previous = entries.at(-1);
-      if (role === "thinking" && previous?.role === "thinking") {
-        previous.messages.push({ ...displayed, key });
-      } else {
-        entries.push({
-          key, role, turn: { ...turn, turnId }, message: displayed,
-          delivery: role === "user" ? userDelivery : null,
-          ...(role === "thinking" ? { messages: [{ ...displayed, key }] } : {})
-        });
-      }
+      candidates.push({ key, role, turn: { ...turn, turnId }, message: displayed,
+        delivery: role === "user" ? userDelivery : null });
     }
+  }
+  // Native streaming turns and saved authored turns can arrive independently.
+  // Only dated entries participate; undated notices retain their original slot.
+  const dated = candidates.filter(entry => Number.isFinite(Date.parse(entry.message.at)))
+    .sort((a, b) => Date.parse(a.message.at) - Date.parse(b.message.at))[Symbol.iterator]();
+  const entries = [];
+  for (const candidate of candidates) {
+    const entry = Number.isFinite(Date.parse(candidate.message.at)) ? dated.next().value : candidate;
+    const previous = entries.at(-1);
+    if (entry.role === "thinking" && previous?.role === "thinking") previous.messages.push({ ...entry.message, key: entry.key });
+    else entries.push({ ...entry, ...(entry.role === "thinking" ? { messages: [{ ...entry.message, key: entry.key }] } : {}) });
   }
   // Anchor a progress group to the following message, or to the transcript end.
   // Appending progress or prepending history then preserves its expansion state.
