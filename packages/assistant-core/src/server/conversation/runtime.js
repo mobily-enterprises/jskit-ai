@@ -241,7 +241,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         await emit(entry, { type: "message", turnId: turn.turnId, messageId: message.messageId,
           ...(message.outputId ? { outputId: message.outputId } : {}),
           ...(["user", "application"].includes(turn.metadata?.runtime?.origin) ? { origin: turn.metadata.runtime.origin } : {}),
-          role: message.role, text: message.text, status: "complete", streaming: payload.conversationStream || streams.read(entry.id) });
+          role: message.role, text: message.text, at: message.at, status: "complete", persisted: true,
+          streaming: payload.conversationStream || streams.read(entry.id) });
       }
     }
     if (payload.conversationStream) {

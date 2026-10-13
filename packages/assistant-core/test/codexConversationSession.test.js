@@ -3108,6 +3108,8 @@ test("default Codex commentary publishes its saved output identity rather than a
   assert.equal(completed.every(event => event.messageId === progress[0].messageId), true,
     "The existing canonical publication owns this exact output; its native stream must not complete a second identity");
   assert.equal(completed.every(event => event.outputId === progress[0].outputId && event.text === progress[0].text), true);
+  assert.equal(completed.every(event => event.persisted === true && event.at === progress[0].at), true,
+    "Saved output notifications retain their timestamp and cannot masquerade as transient output outside a loaded history page");
   assert.equal((await f.conversation.read()).streaming.completedMessages, undefined);
   assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
 });

@@ -148,6 +148,10 @@ function subscribeAssistantConversation({
         changedPresentation = true;
       }
     } else if (event.type === "message" || event.type === "message-complete") {
+      // A saved turn can be outside the loaded page. Its transcript patch owns
+      // presentation; the following completion must not recreate it at the tail.
+      const persisted = event.type === "message" && event.status === "complete" && event.persisted === true;
+      if (persisted) changedPresentation = completed.delete(event.messageId) || changedPresentation;
       // A later initial read can already contain the result of buffered events.
       const older = streaming && event.streaming?.revision < streaming.revision;
       const completedWhileRunning = event.type === "message" && event.status === "complete" &&
@@ -155,13 +159,13 @@ function subscribeAssistantConversation({
       if (!older || completedWhileRunning) {
         const previous = streaming?.messages?.find(message => message.messageId === event.messageId);
         const changed = receiveStreaming(event.streaming);
-        if (event.type === "message" && event.status === "complete" && event.text) {
+        if (event.type === "message" && event.status === "complete" && event.text && !persisted) {
           completed.set(event.messageId, { turnId: event.turnId, message: {
             messageId: event.messageId, role: event.role, text: event.text, status: "complete",
             ...(event.outputId ? { outputId: event.outputId } : {}),
             ...(event.turnId ? { turnId: event.turnId } : {}),
             ...(event.origin ? { origin: event.origin } : {}),
-            ...(previous?.at ? { at: previous.at } : {})
+            ...((event.at || previous?.at) ? { at: event.at || previous.at } : {})
           } });
         }
         changedPresentation ||= changed || event.status === "complete";

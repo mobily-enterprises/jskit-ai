@@ -2435,6 +2435,39 @@ test("canonical rewind replaces the loaded saved window without retaining remove
 });
 
 
+test("saved history replay stays off the live tail and loads once with its timestamp", options, async t => {
+  const f = await fixture(t, 390);
+  const progress = { role: "commentary", messageId: "replayed-progress", text: "Earlier saved progress",
+    at: "2026-10-13T15:50:59.328Z" };
+  const answer = { role: "assistant", messageId: "replayed-answer", text: "Earlier saved answer",
+    at: "2026-10-13T15:52:58.929Z" };
+  const turns = Array.from({ length: 37 }, (_, index) => {
+    const user = { role: "user", messageId: `replay-question-${index}`, text: `Replay question ${index + 1}` };
+    return { turnId: String(2485 + index).padStart(6, "0"), user,
+      ...(index === 0 ? { commentary: [progress], assistant: answer, messages: [user, progress, answer] } : {}) };
+  });
+  await f.command("history", { id: "chat:1", turns, limit: 20 });
+  await f.notify("chat:1");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().turns.value.length)).toBe(20);
+  await f.page.evaluate(turn => {
+    const socket = window.conversationFixture.socket;
+    socket.notify("chat:1", { type: "transcript", patch: { type: "upsert-turn", turn } });
+    for (const message of turn.messages.filter(message => message.role !== "user")) {
+      socket.notify("chat:1", { type: "message", ...message, turnId: turn.turnId, status: "complete",
+        persisted: true, streaming: { revision: 1, messages: [] } });
+    }
+  }, turns[0]);
+  await expect(f.primary.getByText(answer.text, { exact: true })).toHaveCount(0);
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().turns.value.length), 20);
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().loadMore()), true);
+  await expect(f.primary.getByText(answer.text, { exact: true })).toHaveCount(1);
+  const saved = await f.page.evaluate(() => window.conversationFixture.current().turns.value.find(turn => turn.turnId === "002485"));
+  assert.equal(saved.user.text, "Replay question 1");
+  assert.equal(saved.assistant.at, answer.at);
+  assert.equal(saved.commentary[0].at, progress.at);
+  assert.deepEqual(await f.sent(), [], "Reading replayed history cannot send another request");
+});
+
 test("canonical loaded-history replay retains older completed output and its authored row", options, async t => {
   const f = await fixture(t, 390);
   const turns = Array.from({ length: 25 }, (_, index) => ({

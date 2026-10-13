@@ -570,6 +570,52 @@ test("stream snapshots preserve completed commentary and coalesce lifecycle read
   assert.deepEqual(errors, []);
 });
 
+test("replayed saved completions outside the history page never become live tail rows", async t => {
+  const socket = new EventEmitter();
+  socket.connected = true;
+  const states = [], events = [];
+  const latest = Array.from({ length: 20 }, (_, index) => {
+    const turnId = String(2502 + index).padStart(6, "0");
+    const user = { messageId: `question-${turnId}`, role: "user", text: `Question ${turnId}` };
+    return { turnId, user, messages: [user] };
+  });
+  const initial = { id: "chat", status: "working", conversationLog: latest,
+    pagination: { limit: 20, hasMoreBefore: true }, streaming: { revision: 0, messages: [] } };
+  let subscriptionId, revision = 0;
+  socket.timeout = () => ({ emit(_name, input, acknowledge) {
+    subscriptionId = input.subscriptionId;
+    acknowledge(null, { ok: true, streamEpoch: "epoch", state: initial });
+  } });
+  const dispose = subscribeAssistantConversation({ socket, conversationId: "chat", targetSurfaceId: "home", hostSurfaceId: "home",
+    read: async () => initial, onState: state => states.push(state), onEvent: event => events.push(event) });
+  t.after(dispose);
+  function deliver(event) {
+    socket.emit(ASSISTANT_CONVERSATION_EVENT, { subscriptionId, conversationId: "chat", streamEpoch: "epoch",
+      streamRevision: ++revision, event });
+  }
+  const messages = [
+    { messageId: "old-progress", role: "commentary", text: "Earlier progress", at: "2026-10-13T15:50:59.328Z" },
+    { messageId: "old-answer", role: "assistant", text: "Earlier answer", at: "2026-10-13T15:52:58.929Z" }
+  ];
+  // Native history reconciliation first publishes the saved turn, then its
+  // completion notifications. Paging deliberately excludes this older turn.
+  const turn = { turnId: "002485", commentary: [messages[0]], assistant: messages[1], messages };
+  deliver({ type: "transcript", patch: { type: "upsert-turn", turn } });
+  for (const message of messages) deliver({ type: "message", ...message, turnId: turn.turnId,
+    status: "complete", persisted: true, streaming: initial.streaming });
+  assert.deepEqual(states.at(-1).turns, latest, "Saved replay cannot append a synthetic old turn after the current request");
+  await dispose.reload();
+  assert.deepEqual(states.at(-1).turns, latest, "Ordinary canonical refresh does not revive completed replay entries");
+  assert.equal(events.filter(event => event.type === "message").length, 2, "Notifications still reach non-transcript consumers");
+
+  const live = { messageId: "live-progress", turnId: "002521", role: "commentary", text: "New progress",
+    at: "2026-10-13T16:13:22.233Z", status: "complete" };
+  deliver({ type: "message", ...live, streaming: { revision: 1, messages: [] } });
+  assert.equal(states.at(-1).turns.at(-1).commentary[0].text, live.text);
+  assert.equal(states.at(-1).turns.at(-1).commentary[0].at, live.at,
+    "A completed message without an earlier partial retains its supplied timestamp");
+});
+
 test("original transcript patches survive a read already in flight and the next canonical read remains authoritative", async t => {
   const changes = new EventEmitter();
   const socket = new EventEmitter();
