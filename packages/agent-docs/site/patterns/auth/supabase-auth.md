@@ -92,6 +92,6 @@ when the product needs their behavior.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/auth-provider-supabase-core@0.1.238`
+- Owner: `@jskit-ai/auth-provider-supabase-core@0.1.239`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/auth-provider-supabase-core/patterns/supabase-auth/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/auth-provider-supabase-core/patterns/supabase-auth/example)
