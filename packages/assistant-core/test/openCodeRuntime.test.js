@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createOpenCodeSharedRuntime, ensureOpenCodeSession, openCodeServerForDirectory, readOpenCodeEnvironments } from "../src/server/conversation/openCodeRuntime.js";
+import { createOpenCodeServerClient } from "../src/server/conversation/openCodeClient.js";
 
 function fixture(options = {}) {
   const runtime = createOpenCodeSharedRuntime();
@@ -184,6 +185,54 @@ test("OpenCode shares one lazy server across open sessions and stops it after th
   assert.equal(f.starts.length, 2);
   assert.equal((await f.runtime.release(reopened)).exited, true);
   assert.equal(f.stops.length, 2);
+});
+
+test("an acquired OpenCode process without a main conversation can close without interrupting a peer", async () => {
+  const interrupted = [];
+  const f = fixture({ interrupt: id => { interrupted.push(id); return true; } });
+  const target = await f.acquire("empty");
+  target.sessionId = "empty";
+  const peer = await f.acquire("peer");
+  peer.upstreamSessionId = "peer-native";
+  const nativeClient = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:1",
+    fetchImpl: async () => assert.fail("No native main conversation exists to interrupt.") });
+  target.server = { ...target.server, client: nativeClient };
+  const stopped = await f.runtime.interruptPreparedTurn({
+    key: "empty", threadId: "", failure: error => { throw error; }
+  });
+  assert.equal(stopped.ok, true);
+  assert.equal(stopped.interrupted, false);
+  const calls = [];
+  const closed = await f.runtime.closeSession("empty", {}, {
+    closeTerminals: async () => { calls.push("terminals"); return { ok: true, closed: 0 }; },
+    beforeRelease: async () => { calls.push("helpers"); },
+    onRemoved: async () => { calls.push("removed"); },
+    afterRelease: async () => { calls.push("history"); },
+    failure: error => { throw error; }
+  });
+  assert.equal(closed.ok, true);
+  assert.equal(closed.closed, 1);
+  assert.deepEqual(calls, ["terminals", "helpers", "removed", "history"]);
+  assert.equal(target.abortController.signal.aborted, true);
+  assert.equal(peer.abortController.signal.aborted, false);
+  assert.equal(f.stops.length, 0);
+  assert.deepEqual(interrupted, []);
+  await f.runtime.interruptTurn("peer", peer);
+  assert.deepEqual(interrupted, ["peer-native"]);
+  await f.runtime.release(peer);
+  assert.equal(f.stops.length, 1);
+});
+
+test("an active OpenCode turn with missing native identity still fails instead of claiming Stop", async () => {
+  const runtime = createOpenCodeSharedRuntime();
+  const client = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:1",
+    fetchImpl: async () => assert.fail("Invalid identity must fail before transport.") });
+  const turn = { active: true, state: "inProgress" };
+  runtime.turns.set("invalid", turn);
+  await assert.rejects(runtime.interruptTurn("invalid", { upstreamSessionId: "", server: { client } }),
+    /OpenCode session requests require a session id/u);
+  assert.equal(turn.active, true);
+  assert.equal(turn.interruptRequested, false);
 });
 
 test("a pending OpenCode session start retains the shared server while another session closes", async () => {

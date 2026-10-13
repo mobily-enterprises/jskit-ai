@@ -1634,7 +1634,9 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
 
   async function interruptTurn(key, target, { threadId = "", writeRun } = {}) {
     const turn = turns.get(key);
-    if (!target) {
+    // Helpers can acquire the shared process before a main conversation exists.
+    // Their cleanup is owned by closeSession, not a native main-turn interrupt.
+    if (!target || (!text(target.upstreamSessionId) && !turn?.active)) {
       return {
         interrupted: false,
         ok: true,

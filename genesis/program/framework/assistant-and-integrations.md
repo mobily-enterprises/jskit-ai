@@ -18,3 +18,9 @@ own conversation and connection identities, and supply credentials through
 server-side environment references. Conversations preserve provider lifecycle,
 streaming, attachment, recovery, and storage contracts. Connector operations
 remain scoped to the application and user or workspace that owns the account.
+
+An OpenCode process acquired for helpers can exist before the main conversation
+has a native ID. Stopping its idle main turn is a no-op; session closure still
+drains owned helpers and releases the process without interrupting peer sessions.
+An active turn with a missing native identity remains an error, never a
+successful Stop.
