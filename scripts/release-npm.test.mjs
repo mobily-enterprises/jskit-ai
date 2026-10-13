@@ -119,7 +119,9 @@ test("repository package state is one coordinated exact graph", async () => {
 });
 
 test("publication requires clean main matching the remote main commit", async (t) => {
-  const root = await mkdtemp(path.join(tmpdir(), "jskit-release-checkout-"));
+  const workspaceTemp = path.join(process.cwd(), ".tmp");
+  await mkdir(workspaceTemp, { recursive: true });
+  const root = await mkdtemp(path.join(workspaceTemp, "jskit-release-checkout-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const checkout = path.join(root, "checkout");
   const remote = path.join(root, "remote.git");

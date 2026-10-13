@@ -847,7 +847,9 @@ async function select(conversation, engine, operationId) {
 }
 
 async function fixture(t, options = {}) {
-  const directory = await mkdtemp(path.join(tmpdir(), "jskit-codex-conversation-"));
+  // Keep enough room for the runtime's nested Unix socket path even when the
+  // host supplies a comparatively long temporary-directory prefix.
+  const directory = await mkdtemp(path.join(tmpdir(), "jc-"));
   const command = path.join(directory, "codex.mjs");
   const account = path.join(directory, "account.txt");
   const trace = path.join(directory, "trace.jsonl");
