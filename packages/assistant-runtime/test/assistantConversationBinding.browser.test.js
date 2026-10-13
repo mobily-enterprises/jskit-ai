@@ -51,7 +51,7 @@ test("inspecting a restored no-admission request releases Send while preserving 
   await f.command("mode", { mode: "uncertain" });
   await f.input.fill("Original unadmitted words");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   const [original] = await f.sent();
   await f.input.fill("A separate newer draft");
@@ -222,7 +222,7 @@ test("a lost goal receipt uses the same inspection-only ledger and never starts 
   await expect(start).toBeEnabled();
   await start.click();
   await f.input.click();
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   await expect(f.primary.getByText("Finish the uncertain goal", { exact: true })).toHaveCount(1);
   const requests = async () => (await f.state()).requests.filter(request => request.suffix === "/goal" && request.method === "POST");
@@ -391,7 +391,7 @@ test("explicit delivery inspection acknowledges uncertain attachments without cl
   await f.command("mode", { mode: "uncertain" });
   await f.input.fill("Inspect this file.");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   assert.deepEqual((await attachments()).acknowledged, []);
   await files.setInputFiles({ name: "newer.txt", mimeType: "text/plain", buffer: Buffer.from("Keep this newer file") });
@@ -622,7 +622,7 @@ test("canonical receipts settle a held response and uncertain delivery stays ins
   await f.command("mode", { mode: "uncertain" });
   await f.input.fill("Keep this exact uncertain request");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   await expect(f.primary.getByText("Keep this exact uncertain request", { exact: true })).toHaveCount(1);
   await expect(f.primary.getByRole("button", { name: /^(Retry|Edit|Cancel)$/u })).toHaveCount(0);
@@ -719,7 +719,7 @@ for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognise
     assert.equal((await f.sent()).length, 1, "restoration never dispatches a saved request");
     assert.equal(await f.page.evaluate(() => window.savedBinding.runtime.value.canSubmit.value), !unconfirmed);
     if (unconfirmed) {
-      const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+      const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
       try { await expect(check).toBeEnabled(); }
       catch (failure) {
         t.diagnostic(JSON.stringify(await f.page.evaluate(() => {
@@ -752,7 +752,7 @@ for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognise
       await expect(check).toHaveCount(0);
       assert.equal((await f.sent()).length, 1, "only the actual canonical receipt settles the original identity");
     } else {
-      await expect(f.primary.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(0);
+      await expect(f.primary.getByRole("button", { name: "Retry delivery check", exact: true })).toHaveCount(0);
       await expect(f.primary.getByRole("button", { name: "Retry", exact: true })).toHaveCount(status === "failed" ? 1 : 0);
     }
   });
@@ -781,7 +781,7 @@ test(`an explicit pre-admission rejection retains original retry identity and th
   assert.equal((await f.sent()).length, 1, "a definite rejection never silently resubmits steering as new work");
   assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status, rejected.input.messageId), "failed");
   assert.equal(await f.page.evaluate(() => window.conversationFixture.current().canSubmit.value), true);
-  await expect(f.primary.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(0);
+  await expect(f.primary.getByRole("button", { name: "Retry delivery check", exact: true })).toHaveCount(0);
   if (code === "conversation_not_steerable") {
     assert.equal(rejected.input.steer, true);
   }
@@ -926,7 +926,7 @@ test("authored application data stays captured across retry, a lost receipt and 
   await f.input.fill("Keep the newer typed draft");
   await f.command("mode", { mode: "uncertain" });
   await f.primary.getByRole("button", { name: "Retry", exact: true }).click();
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   assert.deepEqual((await f.sent())[1].input, original.input);
   assert.deepEqual(await f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages[0].payload.request.data), originalData);
@@ -1068,7 +1068,7 @@ test("canonical questions retry their exact formatted reply and uncertain delive
   await f.input.fill("A separate newer thought.");
   await f.command("mode", { mode: "uncertain" });
   await f.primary.getByRole("button", { name: "Retry", exact: true }).click();
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   const requests = await f.sent();
   assert.equal(requests.length, 2);
@@ -1314,7 +1314,7 @@ test("accepted draft identity survives voice retention and lost receipts without
   await expect(f.input).toHaveValue("Keep the typed capture.");
   await f.command("mode", { mode: "uncertain" });
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   assert.deepEqual((await f.sent())[2].input, typed.input);
   await expect(f.input).toHaveValue("Keep the typed capture.");
@@ -1416,7 +1416,7 @@ test("a voice preview cannot acknowledge sending or uncertain delivery and dedup
   await f.command("mode", { mode: "uncertain" });
   await f.input.fill("Keep this uncertain request.");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   const second = (await f.sent())[1].input.messageId;
   await preview(second, "An uncertain preview is not an acknowledgement.");
@@ -1452,7 +1452,7 @@ test("an interim reply stays on its exact turn without acknowledging delivery an
   await f.command("mode", { mode: "uncertain" });
   await f.input.fill("Check the project before answering.");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   const [{ input: { messageId } }] = await f.sent();
   const reply = { id: "native-ack", outputId: "native-ack-output", turnId: messageId,
@@ -2499,7 +2499,7 @@ test("an exact host pre-admission receipt preserves one manual retry and actor a
   await expect(f.primary.getByText("Failed: The host refused this message before native admission.", { exact: true })).toBeVisible();
   const [original] = await f.sent();
   assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status, original.input.messageId), "failed");
-  await expect(f.primary.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(0);
+  await expect(f.primary.getByRole("button", { name: "Retry delivery check", exact: true })).toHaveCount(0);
   await f.input.fill("Keep my newer draft");
   await f.page.evaluate(() => window.conversationFixture.data({ originId: "newer-tab", choice: "newer" }));
   assert.equal((await f.sent()).length, 1, "a rejection never retries automatically");
@@ -2534,7 +2534,7 @@ for (const kind of ["mismatched-id", "malformed-status", "missing-marker", "post
     });
     await f.input.fill("Do not resubmit unknown work");
     await f.input.press("Enter");
-    const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+    const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
     await expect(check).toBeVisible();
     const [original] = await f.sent();
     await check.click();
@@ -2665,7 +2665,7 @@ test("application admission keeps unknown delivery inspection-only and rejects c
   await f.command("mode", { mode: "uncertain" });
   await f.input.fill("Do not repeat unknown work");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   const [original] = await f.sent();
   await f.input.fill("Keep my newer draft");
@@ -2901,13 +2901,15 @@ test("unknown delivery reports its current result and allows different idle inpu
   await f.command("mode", { mode: "unadmitted" });
   await f.input.fill("Original uncertain request");
   await f.input.press("Enter");
-  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   const send = f.primary.getByRole("button", { name: "Send message", exact: true });
   await expect(check).toBeVisible();
   const bubble = f.primary.locator(".assistant-transcript__message--user").filter({ hasText: "Original uncertain request" });
-  await expect(bubble.getByText("Delivery unconfirmed", { exact: true })).toBeVisible();
-  await expect(bubble.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(1);
-  await expect(bubble).toHaveClass(/assistant-transcript__message--unconfirmed/u);
+  await expect(bubble.getByRole("button", { name: "Retry delivery check", exact: true })).toHaveCount(1);
+  await expect(bubble).not.toHaveClass(/assistant-transcript__message--unconfirmed/u);
+  const recovery = bubble.locator(".assistant-transcript__optimistic-failure");
+  assert.ok(await recovery.evaluate(el => parseFloat(getComputedStyle(el).fontSize) < 14));
+  await expect(check).toHaveClass(/v-btn--variant-text/u);
   await expect(f.primary.locator(".assistant-transcript__system")).toHaveCount(0);
   await expect(bubble.getByText("Request failed with status 503.", { exact: true })).toBeVisible();
   await f.input.fill("Original uncertain request");
@@ -2921,7 +2923,7 @@ test("unknown delivery reports its current result and allows different idle inpu
   const screenshots = process.env.JSKIT_ASSISTANT_SCREENSHOTS;
   for (const width of [390, 1280]) {
     await f.page.setViewportSize({ width, height: 900 });
-    await expect(bubble.getByRole("button", { name: "Check delivery", exact: true })).toBeVisible();
+    await expect(bubble.getByRole("button", { name: "Retry delivery check", exact: true })).toBeVisible();
     assert.ok(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     if (screenshots) await f.page.screenshot({ path: `${screenshots}/delivery-attached-${width}.png` });
   }
