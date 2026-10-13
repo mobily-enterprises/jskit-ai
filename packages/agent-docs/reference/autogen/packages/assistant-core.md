@@ -240,7 +240,7 @@ Exports
 
 ### `src/client/conversation/useAssistantSuggestions.js`
 Exports
-- `useAssistantSuggestions({ active = true, requestKey = "", draft = "", configuration = {}, generate, onSelect = () => false, debounceMs = 750 } = {})`
+- `useAssistantSuggestions({ active = true, requestKey = "", draft = "", configuration = {}, generate, onSelect = () => false, debounceMs = 750, minIntervalMs = 0 } = {})`
 
 ### `src/client/conversation/useScrollToBottom.js`
 Exports

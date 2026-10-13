@@ -111,6 +111,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     const ownerPendingSends = pendingSends;
     const current = () => pendingSends === ownerPendingSends && isCurrent();
     const predecessor = deliveryTail;
+    const knownUncertain = new Set(state.messages.filter(entry => entry.status === "uncertain").map(entry => entry.id));
     const settled = Promise.withResolvers();
     deliveryTail = settled.promise;
     ownerPendingSends.set(messageId, settled);
@@ -132,7 +133,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     try {
       if (predecessor) await predecessor;
       if (!current()) return false;
-      if (uncertainOnError && state.messages.some(entry => entry.id !== messageId && entry.status === "uncertain")) {
+      if (uncertainOnError && state.messages.some(entry => entry.id !== messageId && entry.status === "uncertain" && !knownUncertain.has(entry.id))) {
         fail(messageId, "Check the previous message's delivery before sending again.");
         return false;
       }

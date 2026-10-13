@@ -397,3 +397,18 @@ test("restored application requests retain their origin and attachment-only user
   assert.equal(delivery.turns()[0].user.text, "");
   assert.deepEqual(delivery.turns()[0].user.attachments, [{ attachmentId: "image" }]);
 });
+
+test("a deliberate new message can follow known uncertainty without resending the old request", async () => {
+  const sent = [];
+  const delivery = createAssistantMessageDelivery({ deliver: async payload => {
+    sent.push(payload);
+    if (payload.messageId === "old") throw new Error("Lost receipt");
+    return { ok: true };
+  } });
+  await assert.rejects(delivery.send({ message: "Old request" }, { messageId: "old", uncertainOnError: true }));
+  assert.equal(await delivery.send({ message: "Old request" }, { messageId: "old", uncertainOnError: true }), false);
+  assert.deepEqual(await delivery.send({ message: "A new request" }, { messageId: "new", uncertainOnError: true }), { ok: true });
+  assert.deepEqual(sent.map(message => message.messageId), ["old", "new"]);
+  assert.equal(delivery.find("old").status, "uncertain");
+  assert.equal(delivery.find("new").status, "accepted");
+});

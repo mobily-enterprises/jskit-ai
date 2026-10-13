@@ -3,7 +3,7 @@ import { computed, onScopeDispose, ref, toValue, unref, watch } from "vue";
 /** Suggestion requests use an application-supplied agent; credentials stay on its server. */
 export function useAssistantSuggestions({
   active = true, requestKey = "", draft = "", configuration = {},
-  generate, onSelect = () => false, debounceMs = 750
+  generate, onSelect = () => false, debounceMs = 750, minIntervalMs = 0
 } = {}) {
   const items = ref([]);
   const loading = ref(false);
@@ -18,6 +18,7 @@ export function useAssistantSuggestions({
   const visible = computed(() => eligible.value && (loading.value || items.value.length > 0));
   let timer;
   let request;
+  let lastStartedAt = -Infinity;
 
   function cancel() {
     clearTimeout(timer);
@@ -43,6 +44,7 @@ export function useAssistantSuggestions({
     const run = unref(generate);
     loading.value = true;
     timer = setTimeout(async () => {
+      lastStartedAt = Date.now();
       try {
         const result = await run(input);
         if (request !== controller) return;
@@ -58,7 +60,8 @@ export function useAssistantSuggestions({
           loading.value = false;
         }
       }
-    }, Math.max(0, Number(toValue(debounceMs)) || 0));
+    }, Math.max(0, Number(toValue(debounceMs)) || 0,
+      lastStartedAt + Math.max(0, Number(toValue(minIntervalMs)) || 0) - Date.now()));
   }, { immediate: true, flush: "sync" });
 
   function currentSuggestion(value) {
@@ -80,7 +83,6 @@ export function useAssistantSuggestions({
   }
   function focus() {
     if (toValue(active) === false || composerFocused.value) return;
-    dismissedKey.value = null;
     composerFocused.value = true;
   }
   function blur() {
