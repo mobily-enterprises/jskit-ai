@@ -662,7 +662,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (receipt.status === "accepted") delivery.accept(messageId);
       else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, receipt.error);
       else if (receipt.status === "unknown" && message?.status === "uncertain") {
-        message.error = "Delivery is still unknown. You can send a different message when the conversation is ready. Check delivery before resending this one.";
+        message.error = "Delivery is still unknown. Retry to check again.";
       }
       subscription?.reload();
       return receipt;

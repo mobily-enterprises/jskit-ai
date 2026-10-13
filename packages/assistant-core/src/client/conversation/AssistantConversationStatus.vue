@@ -1,14 +1,15 @@
 <template>
-  <div v-if="message.delivery" role="status">
-    <p>{{ message.text }}</p>
-    <p v-if="message.delivery.error" class="text-body-small">{{ message.delivery.error }}</p>
+  <div v-if="message.delivery" class="d-flex flex-wrap align-center ga-1 text-caption text-error" role="status">
+    <span>{{ message.delivery.error || message.text }}</span>
     <v-btn
-      variant="tonal"
-      min-height="48"
+      variant="text"
+      color="error"
+      size="x-small"
+      aria-label="Retry delivery check"
       :disabled="message.delivery.checking"
       @click="$emit('check-delivery', message.delivery.messageId)"
     >
-      {{ message.delivery.checking ? 'Checking delivery…' : 'Check delivery' }}
+      {{ message.delivery.checking ? 'Checking…' : 'Retry' }}
     </v-btn>
   </div>
   <slot v-else>

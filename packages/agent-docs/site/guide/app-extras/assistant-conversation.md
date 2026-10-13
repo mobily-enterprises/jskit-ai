@@ -259,9 +259,9 @@ Text views and `runtime.retain()` readers share draft, delivery and subscription
 state for an exact actor, endpoint, surface, workspace and conversation. Release
 a retained handle with `release()`. Final view/reader release detaches browser
 observers; it does not stop server work. A lost receipt remains uncertain with
-**Check delivery** until inspection or canonical history proves acceptance.
+**Retry** until inspection or canonical history proves acceptance.
 The transcript attaches an exact-ID delivery notice inside that user's message
-bubble, with a warning outline and **Delivery unconfirmed** label. It does not
+bubble, with compact red error text and a small **Retry** action. It does not
 render the notice above the message as an unrelated system status. Application
 system messages retain their existing presentation.
 When the server reports ready, a different authored message may proceed; the old
@@ -383,7 +383,7 @@ explicit delivery inspection can clear it before the HTTP response arrives;
 a newer draft is kept. After a pre-admission failure, pressing Send again on the
 same trimmed draft reuses that submission's message ID and captured data. A
 different submission replaces that reference; it never selects an older matching
-failure from history. Uncertain delivery still requires **Check delivery**.
+failure from history. Uncertain delivery still requires **Retry**.
 Voice sends keep their own authored capture and do not consume the typed draft.
 
 `conversation_not_steerable` is a definite pre-admission rejection: its original
@@ -406,7 +406,7 @@ When `draftStorage` restores a page, known failed deliveries remain failed and
 accepted receipts remain accepted. Saved uncertain, pending or unrecognised
 delivery states stay uncertain with the exact original ID, payload and draft;
 closing a page during HTTP is not proof of rejection. Only the transient
-inspection flag is reset so **Check delivery** is reachable again. A matching
+inspection flag is reset so **Retry** is reachable again. A matching
 canonical row marked `receipt: false` cannot settle delivery. Unknown inspection
 never retries; an actual accepted receipt is required to acknowledge the request.
 The existing storage shape is unchanged and reads perform no historical repair.
@@ -1231,7 +1231,7 @@ context and sends one ordinary message through the same delivery entry. Choosing
 a suggested-answer chip waits for Send and uses that choice's submitted value.
 **Answer normally instead** keeps the draft. Submitted forms hide while delivery
 is pending; retries keep the original formatted answer, and uncertain delivery
-uses **Check delivery**.
+uses **Retry**.
 
 Mirrored standard elements for the same target share the form. Answers and
 dismissal survive a text panel closing while voice retains that conversation.

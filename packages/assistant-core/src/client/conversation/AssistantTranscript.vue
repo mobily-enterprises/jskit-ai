@@ -139,8 +139,7 @@
             class="assistant-transcript__message assistant-transcript__message--user"
             :class="{
               'assistant-transcript__message--pending': entry.turn.optimistic?.status === 'pending',
-              'assistant-transcript__message--failed': entry.turn.optimistic?.status === 'failed',
-              'assistant-transcript__message--unconfirmed': Boolean(entry.delivery)
+              'assistant-transcript__message--failed': entry.turn.optimistic?.status === 'failed'
             }"
           >
             <div
@@ -176,30 +175,28 @@
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
               <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">Pending</span>
             </div>
-            <div v-if="entry.delivery" class="assistant-transcript__unconfirmed-delivery">
-              <AssistantConversationStatus
-                :message="{ ...entry.delivery, text: 'Delivery unconfirmed' }"
-                @check-delivery="emit('check-delivery', $event)"
-              />
-            </div>
             <slot name="user-message-actions" :message="entry.message" :turn="entry.turn" />
             <div
-              v-if="entry.turn.optimistic?.status === 'failed'"
+              v-if="entry.delivery || entry.turn.optimistic?.status === 'failed'"
               class="assistant-transcript__optimistic-failure"
             >
-              <span role="status">Failed: {{ entry.turn.optimistic.error || "Message could not be sent." }}</span>
+              <span role="status">{{ entry.delivery ? entry.delivery.delivery.error || 'Delivery unconfirmed.' : `Failed: ${entry.turn.optimistic.error || 'Message could not be sent.'}` }}</span>
               <div v-if="!entry.turn.preview" class="assistant-transcript__optimistic-actions">
                 <v-btn
                   class="assistant-transcript__delivery-action"
-                  color="primary"
+                  color="error"
                   size="x-small"
                   type="button"
-                  variant="tonal"
-                  @click="emit('resend-turn', entry.turn.optimistic.id)"
+                  variant="text"
+                  :disabled="entry.delivery?.delivery.checking"
+                  :aria-label="entry.delivery ? 'Retry delivery check' : undefined"
+                  :title="entry.delivery ? entry.delivery.delivery.error || 'Check delivery before resending.' : undefined"
+                  @click="entry.delivery ? emit('check-delivery', entry.delivery.delivery.messageId) : emit('resend-turn', entry.turn.optimistic.id)"
                 >
-                  Retry
+                  {{ entry.delivery?.delivery.checking ? 'Checking…' : 'Retry' }}
                 </v-btn>
                 <v-btn
+                  v-if="!entry.delivery"
                   class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"
@@ -209,6 +206,7 @@
                   Cancel
                 </v-btn>
                 <v-btn
+                  v-if="!entry.delivery"
                   class="assistant-transcript__delivery-action"
                   size="x-small"
                   type="button"
@@ -1440,26 +1438,6 @@ watch(() => props.visible, (visible) => {
 .assistant-transcript__message-footer--assistant {
   justify-content: flex-start;
   margin-top: -0.15rem;
-}
-
-.assistant-transcript__message--user.assistant-transcript__message--unconfirmed {
-  background: rgba(var(--v-theme-warning), 0.08);
-  border: 1px solid rgba(var(--v-theme-warning), 0.6);
-}
-
-.assistant-transcript__unconfirmed-delivery {
-  border-top: 1px solid rgba(var(--v-theme-warning), 0.4);
-  font-size: 0.875rem;
-  padding-top: 0.65rem;
-}
-
-.assistant-transcript__unconfirmed-delivery :deep(p:first-child) {
-  font-weight: 700;
-  margin-bottom: 0.4rem;
-}
-
-.assistant-transcript__unconfirmed-delivery :deep(p) {
-  overflow-wrap: anywhere;
 }
 
 .assistant-transcript__optimistic-failure {
