@@ -592,3 +592,85 @@ test("jskit CLI updates a project through its npm-style executable symlink", asy
     assert.match(stdout, /Skipped npm install; run it before jskit check\./u);
   });
 });
+
+test("additional manifests are updated once, keep host scripts, and need no root lock installation", async () => {
+  await withProject(async (projectRoot) => {
+    await writeJson(path.join(projectRoot, "package.json"), {
+      name: "host", scripts: { "jskit:update": "node host-update.mjs", "jskit:check": "node host-check.mjs" }
+    });
+    const privateFile = "private/service/package.json";
+    await writeJson(path.join(projectRoot, privateFile), {
+      name: "private-service", dependencies: { "@jskit-ai/shell-web": "0.1.1" }
+    });
+    const additionalManifests = [privateFile, privateFile];
+    const result = await updateProject({ projectRoot, catalog: CATALOG, additionalManifests, install: false });
+    assert.deepEqual(result.changedFiles, ["package.json", privateFile]);
+    assert.equal((await readJson(path.join(projectRoot, privateFile))).dependencies["@jskit-ai/shell-web"], "0.1.4");
+    const root = await readJson(path.join(projectRoot, "package.json"));
+    assert.equal(root.workspaces, undefined);
+    assert.equal(root.scripts["jskit:update"], "node host-update.mjs");
+    assert.equal(root.scripts["jskit:check"], "node host-check.mjs");
+    await writeJson(path.join(projectRoot, "package-lock.json"), { packages: {
+      "": root, "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.9" }
+    } });
+    assert.equal((await checkProject({ projectRoot, catalog: CATALOG, additionalManifests })).ok, true);
+    await writeJson(path.join(projectRoot, privateFile), { dependencies: { "@jskit-ai/shell-web": "0.1.1" } });
+    assert.match((await checkProject({ projectRoot, catalog: CATALOG, additionalManifests })).issues.join("\n"), /private\/service.*0\.1\.1.*0\.1\.4/u);
+  });
+});
+
+test("installed check detects stale files and lock declarations, including non-JSKIT packages", async () => {
+  await withProject(async (projectRoot) => {
+    await writeJson(path.join(projectRoot, "package.json"), { dependencies: { vue: "^3.5.0" } });
+    await writeJson(path.join(projectRoot, "package-lock.json"), { packages: {
+      "": { dependencies: { vue: "^3.4.0" } },
+      "node_modules/vue": { version: "3.5.0" }
+    } });
+    await writeJson(path.join(projectRoot, "node_modules/vue/package.json"), { name: "vue", version: "3.4.0" });
+    const result = await checkProject({ projectRoot, catalog: CATALOG, checkInstalled: true });
+    assert.match(result.issues.join("\n"), /installed 3\.4\.0; lockfile requires 3\.5\.0/u);
+    assert.match(result.issues.join("\n"), /vue is \^3\.5\.0; lockfile records \^3\.4\.0/u);
+  });
+});
+
+test("composed graph follows symlinks and rejects identical-version singleton copies", async () => {
+  const { checkInstalledGraph } = await import("../scripts/project-packages.mjs");
+  await withProject(async (root) => {
+    const app = path.join(root, "app");
+    const external = path.join(root, "external");
+    await writeJson(path.join(app, "package.json"), { dependencies: { feature: "1.0.0", "@jskit-ai/shell-web": "0.1.4" } });
+    await writeJson(path.join(external, "package.json"), { name: "feature", version: "1.0.0", dependencies: { "@jskit-ai/shell-web": "0.1.4" } });
+    const runtime = { name: "@jskit-ai/shell-web", version: "0.1.4" };
+    await writeJson(path.join(app, "node_modules/@jskit-ai/shell-web/package.json"), runtime);
+    await writeJson(path.join(external, "node_modules/@jskit-ai/shell-web/package.json"), runtime);
+    await symlink(external, path.join(app, "node_modules/feature"));
+    const options = { catalog: CATALOG, manifestPaths: [path.join(app, "package.json")] };
+    const failure = await checkInstalledGraph(options);
+    assert.match(failure.issues.join("\n"), /shell-web has duplicate singleton installations.*0\.1\.4.*app.*0\.1\.4.*external/u);
+    await rm(path.join(app, "node_modules/feature"));
+    await writeJson(path.join(app, "node_modules/feature/package.json"), { name: "feature", dependencies: { "@jskit-ai/shell-web": "0.1.4" } });
+    assert.equal((await checkInstalledGraph(options)).ok, true);
+    await rm(path.join(app, "node_modules/@jskit-ai/shell-web"), { recursive: true });
+    assert.match((await checkInstalledGraph(options)).issues.join("\n"), /shell-web@0\.1\.4.*unavailable/u);
+  });
+});
+
+test("additional manifests participate in failed-update rollback", async () => {
+  await withProject(async (projectRoot) => {
+    await writeJson(path.join(projectRoot, "package.json"), { name: "host" });
+    const file = path.join(projectRoot, "private/package.json");
+    await writeJson(file, { dependencies: { "@jskit-ai/shell-web": "0.1.1" } });
+    const before = await readFile(file, "utf8");
+    await assert.rejects(updateProject({ projectRoot, catalog: CATALOG, additionalManifests: [file],
+      installProject: async () => { throw new Error("installation refused"); }
+    }), /installation refused/u);
+    assert.equal(await readFile(file, "utf8"), before);
+  });
+});
+
+
+test("CLI forwards repeated explicit manifests and rejects a missing path", () => {
+  assert.deepEqual(parseArgs(["check", "--manifest", "private/a/package.json", "--manifest", "private/b/package.json"]).additionalManifests,
+    ["private/a/package.json", "private/b/package.json"]);
+  assert.throws(() => parseArgs(["update", "--manifest", "--root", "/tmp"]), /requires a package.json path/u);
+});

@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rename,
   rm,
   writeFile
@@ -134,7 +135,7 @@ async function collectNestedPackageJsonPaths(directory, results = []) {
   return results;
 }
 
-async function discoverProjectManifests(projectRoot) {
+async function discoverProjectManifests(projectRoot, additionalManifests = []) {
   const root = path.resolve(projectRoot);
   const rootManifestPath = path.join(root, "package.json");
   if (!(await fileExists(rootManifestPath))) {
@@ -147,7 +148,8 @@ async function discoverProjectManifests(projectRoot) {
     .filter((manifestPath) => matchesWorkspace(path.relative(root, path.dirname(manifestPath))))
     .sort((left, right) => left.localeCompare(right));
   const manifests = [rootManifest];
-  for (const manifestPath of workspacePaths) {
+  for (const manifestPath of new Set([...workspacePaths, ...additionalManifests.map((file) => path.resolve(root, file))])) {
+    if (manifestPath === rootManifestPath) continue;
     manifests.push(await readJsonRecord(manifestPath));
   }
   return Object.freeze(manifests);
@@ -274,10 +276,10 @@ function collectJskitOverridePaths(value, currentPath = "overrides", results = [
   return results;
 }
 
-async function checkProject({ projectRoot = process.cwd(), catalog } = {}) {
+async function checkProject({ projectRoot = process.cwd(), catalog, additionalManifests = [], checkInstalled = false } = {}) {
   const root = path.resolve(projectRoot);
   const normalizedCatalog = normalizeCatalog(catalog);
-  const manifests = await discoverProjectManifests(root);
+  const manifests = await discoverProjectManifests(root, additionalManifests);
   const localPackageNames = collectLocalPackageNames(manifests);
   const declarations = collectManifestDeclarations(manifests, root)
     .filter((entry) => !localPackageNames.has(entry.packageId));
@@ -311,6 +313,33 @@ async function checkProject({ projectRoot = process.cwd(), catalog } = {}) {
   } else {
     const packageLock = (await readJsonRecord(packageLockPath)).value;
     installations = collectLockInstallations(packageLock);
+    if (checkInstalled) {
+      for (const [packagePath, record] of Object.entries(packageLock.packages || {})) {
+        if (!packagePath || record.link || !packagePath.includes("node_modules/")) continue;
+        const installedPath = path.join(root, packagePath, "package.json");
+        if (!(await fileExists(installedPath))) {
+          if (!record.optional) issues.push(`${packagePath} is missing; lockfile requires ${record.version}. Run npm ci.`);
+          continue;
+        }
+        const installed = (await readJsonRecord(installedPath)).value;
+        if (installed.version !== record.version) {
+          issues.push(`${packagePath} installed ${installed.version}; lockfile requires ${record.version}. Run npm ci.`);
+        }
+      }
+      for (const manifest of manifests) {
+        const directory = toPosixPath(path.relative(root, path.dirname(manifest.absolutePath)));
+        const record = packageLock.packages?.[directory];
+        // Separately composed manifests deliberately have no entry in this root lockfile.
+        if (!record && additionalManifests.some((file) => path.resolve(root, file) === manifest.absolutePath)) continue;
+        for (const field of DEPENDENCY_FIELDS) {
+          const declared = manifest.value[field] || {};
+          const locked = record?.[field] || {};
+          for (const name of new Set([...Object.keys(declared), ...Object.keys(locked)])) {
+            if (declared[name] !== locked[name]) issues.push(`${manifest.absolutePath}#${field}.${name} is ${declared[name] || "absent"}; lockfile records ${locked[name] || "absent"}. Run npm install and commit the lockfile.`);
+          }
+        }
+      }
+    }
     const byPackageId = new Map();
     for (const installation of installations) {
       const expectedVersion = normalizedCatalog.versions.get(installation.packageId);
@@ -342,7 +371,9 @@ async function checkProject({ projectRoot = process.cwd(), catalog } = {}) {
     }
 
     const resolvedPackageIds = new Set(installations.map((entry) => entry.packageId));
-    for (const packageId of new Set(declarations.map((entry) => entry.packageId))) {
+    for (const packageId of new Set(declarations
+      .filter((entry) => !additionalManifests.some((file) => path.resolve(root, file) === entry.manifest.absolutePath))
+      .map((entry) => entry.packageId))) {
       if (!resolvedPackageIds.has(packageId)) {
         issues.push(`${packageId} is declared but has no resolved package-lock installation.`);
       }
@@ -356,6 +387,61 @@ async function checkProject({ projectRoot = process.cwd(), catalog } = {}) {
     declarations,
     installations: Object.freeze(installations)
   });
+}
+
+// Resolve package manifests without relying on a package exporting package.json.
+// Following real paths matches Node's normal symlink resolution.
+async function resolveInstalledPackage(consumerDirectory, packageId) {
+  let directory = await realpath(consumerDirectory);
+  while (true) {
+    const candidate = path.join(directory, "node_modules", packageId, "package.json");
+    if (await fileExists(candidate)) return realpath(candidate);
+    const parent = path.dirname(directory);
+    if (parent === directory) return null;
+    directory = parent;
+  }
+}
+
+async function checkInstalledGraph({ catalog, manifestPaths = [] } = {}) {
+  const { versions, singletonPackages } = normalizeCatalog(catalog);
+  const issues = [];
+  const installations = new Map();
+  const visited = new Set();
+  const pending = [...manifestPaths];
+  while (pending.length) {
+    const manifestPath = await realpath(pending.pop());
+    if (visited.has(manifestPath)) continue;
+    visited.add(manifestPath);
+    const manifest = (await readJsonRecord(manifestPath)).value;
+    if (manifest.name?.startsWith(JSKIT_SCOPE_PREFIX)) {
+      const expected = versions.get(manifest.name);
+      if (manifest.version !== expected) issues.push(`${manifestPath} provides ${manifest.name}@${manifest.version}; catalog requires ${expected || "no such package"}.`);
+      const paths = installations.get(manifest.name) || new Map();
+      paths.set(manifestPath, manifest.version);
+      installations.set(manifest.name, paths);
+    }
+    for (const [name, required] of Object.entries({ ...manifest.peerDependencies, ...manifest.dependencies, ...manifest.optionalDependencies })) {
+      const resolved = await resolveInstalledPackage(path.dirname(manifestPath), name);
+      const optional = Object.hasOwn(manifest.optionalDependencies || {}, name)
+        || (manifest.peerDependenciesMeta?.[name]?.optional === true && !Object.hasOwn(manifest.dependencies || {}, name));
+      if (!resolved) {
+        if (!optional) issues.push(`${manifestPath} requires ${name}@${required}, but it is unavailable from that consumer.`);
+        continue;
+      }
+      // Check the consumer's JSKIT contract as well as the installed version.
+      if (name.startsWith(JSKIT_SCOPE_PREFIX) && !String(required).startsWith("file:") && required !== versions.get(name)) {
+        issues.push(`${manifestPath} requires ${name}@${required}; catalog requires ${versions.get(name) || "no such package"}.`);
+      }
+      pending.push(resolved);
+    }
+  }
+  for (const [name, paths] of installations) {
+    const distinctVersions = new Set(paths.values());
+    if (distinctVersions.size > 1 || (singletonPackages.has(name) && paths.size > 1)) {
+      issues.push(`${name} has ${singletonPackages.has(name) ? "duplicate singleton" : "conflicting"} installations: ${[...paths].map(([file, version]) => `${version} at ${file}`).join(", ")}.`);
+    }
+  }
+  return { ok: issues.length === 0, issues, installations };
 }
 
 async function writeManifestUpdates(updates = []) {
@@ -577,11 +663,12 @@ async function updateProject({
   projectRoot = process.cwd(),
   catalog,
   install = true,
-  installProject = runNpmInstall
+  installProject = runNpmInstall,
+  additionalManifests = []
 } = {}) {
   const root = path.resolve(projectRoot);
   const normalizedCatalog = normalizeCatalog(catalog);
-  const manifests = await discoverProjectManifests(root);
+  const manifests = await discoverProjectManifests(root, additionalManifests);
   const localPackageNames = collectLocalPackageNames(manifests);
   const declarations = collectManifestDeclarations(manifests, root)
     .filter((entry) => !localPackageNames.has(entry.packageId));
@@ -637,11 +724,11 @@ async function updateProject({
         changed = true;
       }
       next.scripts = next.scripts && typeof next.scripts === "object" ? next.scripts : {};
-      if (next.scripts["jskit:update"] !== UPDATE_SCRIPT) {
+      if (!next.scripts["jskit:update"]) {
         next.scripts["jskit:update"] = UPDATE_SCRIPT;
         changed = true;
       }
-      if (next.scripts["jskit:check"] !== CHECK_SCRIPT) {
+      if (!next.scripts["jskit:check"]) {
         next.scripts["jskit:check"] = CHECK_SCRIPT;
         changed = true;
       }
@@ -661,10 +748,10 @@ async function updateProject({
   let installTransaction = null;
   try {
     if (install) {
-      const updatedManifests = await discoverProjectManifests(root);
+      const updatedManifests = await discoverProjectManifests(root, additionalManifests);
       await preparePackageLockForInstall(root, updatedManifests, packageLockPath);
       installTransaction = await installProject(root);
-      const result = await checkProject({ projectRoot: root, catalog });
+      const result = await checkProject({ projectRoot: root, catalog, additionalManifests });
       if (!result.ok) {
         throw new Error(`JSKIT graph remains inconsistent after npm install:\n- ${result.issues.join("\n- ")}`);
       }
@@ -706,6 +793,8 @@ export {
   DEPENDENCY_FIELDS,
   UPDATE_SCRIPT,
   checkProject,
+  checkInstalledGraph,
+  resolveInstalledPackage,
   collectLockInstallations,
   discoverProjectManifests,
   normalizeCatalog,

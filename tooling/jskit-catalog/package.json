@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/jskit-catalog",
-  "version": "0.1.267",
+  "version": "0.1.268",
   "description": "Published metadata catalog for JSKIT package metadata.",
   "type": "module",
   "files": [
@@ -13,6 +13,7 @@
   "exports": {
     ".": "./catalog/packages.json",
     "./packages": "./catalog/packages.json",
+    "./project-packages": "./scripts/project-packages.mjs",
     "./package.json": "./package.json"
   },
   "scripts": {

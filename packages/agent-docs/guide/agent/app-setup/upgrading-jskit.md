@@ -33,10 +33,11 @@ first:
 npm pkg delete 'devDependencies.@jskit-ai/jskit-cli'
 ```
 
-If the application has app-local packages, make them real npm workspaces before
-updating. Declare the workspace paths at the root and depend on each local
+For app-local packages installed by the root npm installation, use npm workspaces. Declare the workspace paths at the root and depend on each local
 package by its exact manifest version. Do not retain legacy `file:` links; the
 updater does not infer or rewrite an application's local package topology.
+Separately composed packages can instead supply explicit additional manifests
+as described below; they do not need to become npm workspaces.
 
 The shell and authentication packages use Pinia 4. Before upgrading an app
 that still declares Pinia 3, update its manifest without installing the old
@@ -77,6 +78,47 @@ installation, or validation fails, it restores the previous manifests,
 lockfile, and installed tree before reporting the failure. Resolve the reported
 registry or real peer problem and rerun `npm run jskit:update`.
 
+## Separately composed packages
+
+Pass each additional manifest explicitly to both commands:
+
+```bash
+jskit update --manifest private/feature/package.json
+jskit check --manifest private/feature/package.json
+```
+
+Repeat `--manifest` for more packages; paths are relative to `--root` (or the
+current directory). Missing files fail. Additional manifests join declaration
+preflight, updates and rollback, but their dependencies are not expected in the
+root lockfile. The host must check them in the actual composed installation.
+Existing `jskit:update` and `jskit:check` scripts are preserved, so a host wrapper
+can supply its own canonical composition list on every invocation. Absent scripts
+receive the standard defaults.
+
+A host coordinating multiple repositories resolves the desired catalog tag once,
+then invokes that exact published catalog version for each repository. It must
+record all resulting manifests and lockfiles. Normal checks and startup use the
+installed, recorded catalog and do not query the registry.
+
+The package exports `@jskit-ai/jskit-catalog/project-packages` for hosts:
+
+- `updateProject({ projectRoot, catalog, additionalManifests, install })` uses the
+  same updater as the CLI. Each root update retains its own rollback transaction.
+- `checkProject({ projectRoot, catalog, additionalManifests, checkInstalled: true })`
+  also compares lock declarations and installed versions with the root lockfile.
+- `checkInstalledGraph({ catalog, manifestPaths })` follows runtime dependencies
+  and peers from the composed consumer manifests through real filesystem paths.
+  It detects missing required dependencies, conflicting JSKIT releases, and
+  separate copies of catalog-declared singleton runtimes, even at equal versions.
+- `resolveInstalledPackage(consumerDirectory, packageId)` returns the resolved
+  real manifest path, or `null`, without requiring a package.json export. Hosts
+  use it for their additional non-JSKIT requirement validation.
+
+Do not aggregate separate tool installations as one runtime graph: pass the
+composed application manifest and let resolution identify its actual consumers.
+The installed-graph check does not replace application-owned non-JSKIT version
+validation or the original root lockfile checks.
+
 ## Enforce the graph in CI
 
 Run this after `npm ci`, and include it in the application's normal verifier:
@@ -102,7 +144,8 @@ The check fails when:
 - resolved JSKIT packages use stale, unknown, or multiple release versions;
 - a shared singleton client package has a private nested installation;
 - a JSKIT override tries to force a private graph;
-- a declared package has no lockfile installation, or the lockfile is missing.
+- a root/workspace declaration has no lockfile installation, or the lockfile is missing;
+- installed package versions or root/workspace declarations disagree with the lockfile.
 
 Shared client owners such as the kernel, HTTP runtime, shell, auth web runtime,
 realtime runtime, and assistant runtime use exact peer dependencies where they

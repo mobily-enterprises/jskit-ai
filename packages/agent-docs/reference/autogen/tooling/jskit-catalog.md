@@ -63,11 +63,13 @@ Exports
 - `CHECK_SCRIPT`
 - `DEPENDENCY_FIELDS`
 - `UPDATE_SCRIPT`
-- `checkProject({ projectRoot = process.cwd(), catalog } = {})`
+- `checkProject({ projectRoot = process.cwd(), catalog, additionalManifests = [], checkInstalled = false } = {})`
+- `checkInstalledGraph({ catalog, manifestPaths = [] } = {})`
+- `resolveInstalledPackage(consumerDirectory, packageId)`
 - `collectLockInstallations(packageLock = {})`
-- `discoverProjectManifests(projectRoot)`
+- `discoverProjectManifests(projectRoot, additionalManifests = [])`
 - `normalizeCatalog(catalog = {})`
-- `updateProject({ projectRoot = process.cwd(), catalog, install = true, installProject = runNpmInstall } = {})`
+- `updateProject({ projectRoot = process.cwd(), catalog, install = true, installProject = runNpmInstall, additionalManifests = [] } = {})`
 Local functions
 - `toPosixPath(value = "")`
 - `normalizeWorkspacePatterns(value)`

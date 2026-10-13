@@ -13,8 +13,8 @@ const CATALOG_PATH = path.join(PACKAGE_ROOT, "catalog", "packages.json");
 function usage() {
   return [
     "Usage:",
-    "  jskit update [--root <path>] [--no-install]",
-    "  jskit check [--root <path>]",
+    "  jskit update [--root <path>] [--no-install] [--manifest <path> ...]",
+    "  jskit check [--root <path>] [--manifest <path> ...]",
     "",
     "Commands:",
     "  update  Align root and workspace @jskit-ai/* declarations to this published catalog, then run npm install.",
@@ -42,6 +42,12 @@ function parseArgs(argv = []) {
     }
     if (argument === "--no-install") {
       options.install = false;
+      continue;
+    }
+    if (argument === "--manifest") {
+      const value = args.shift();
+      if (!value || value.startsWith("--")) throw new Error("--manifest requires a package.json path.");
+      (options.additionalManifests ||= []).push(value);
       continue;
     }
     if (argument === "--root") {
@@ -87,6 +93,7 @@ async function main(argv = process.argv.slice(2)) {
     const result = await updateProject({
       projectRoot: options.projectRoot,
       catalog,
+      additionalManifests: options.additionalManifests,
       install: options.install
     });
     if (result.changedFiles.length < 1) {
@@ -105,6 +112,8 @@ async function main(argv = process.argv.slice(2)) {
 
   const result = await checkProject({
     projectRoot: options.projectRoot,
+    additionalManifests: options.additionalManifests,
+    checkInstalled: true,
     catalog
   });
   if (!result.ok) {
