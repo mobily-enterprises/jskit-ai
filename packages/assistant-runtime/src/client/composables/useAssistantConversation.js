@@ -117,7 +117,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const queueing = computed(() => queueWhileSending !== false && (steerable.value || workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking));
   const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || (workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking) && snapshot.value.status === "working") &&
     (queueWhileSending !== false || !delivery.state.sending) &&
-    !delivery.state.messages.some(message => message.status === "uncertain"));
+    !delivery.state.messages.some(message => message.status === "uncertain" &&
+      (snapshot.value.status !== "ready" || !message.payload || text(message.payload.draft ?? message.payload.message) === text(draft))));
   const savedDraft = toValue(draftStorage);
   if (savedDraft && (typeof savedDraft.key !== "string" || !savedDraft.key ||
       !["getItem", "setItem", "removeItem"].every(name => typeof savedDraft.storage?.[name] === "function"))) {
@@ -340,8 +341,6 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     for (const pending of pendingMessages.values()) pending.controller.abort();
     pendingMessages.clear();
     goalReadController?.abort();
-    globalThis.removeEventListener?.("focus", refreshVisibleGoal);
-    globalThis.document?.removeEventListener("visibilitychange", refreshVisibleGoal);
     delivery.reset();
   });
 
@@ -350,6 +349,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (retry?.status === "failed" && retry.payload.goalRequest) return changeGoal(retry.payload.goalRequest.action, {}, { messageId });
     if (!canSubmit.value) return false;
     if (retry && retry.status !== "failed") return false;
+    if (delivery.state.messages.some(message => message.status === "uncertain" &&
+        text(message.payload?.message) === text((retry?.payload || payload).message))) return false;
     const request = retry?.payload?.request || payload.request;
     const requestedSteering = request?.steer === true;
     if (requestedSteering && snapshot.value.capabilities?.steering !== true) return false;
@@ -572,11 +573,6 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     goalRead = job;
     return job;
   }
-  function refreshVisibleGoal() {
-    if (!globalThis.document?.hidden) void refreshGoal();
-  }
-  globalThis.addEventListener?.("focus", refreshVisibleGoal);
-  globalThis.document?.addEventListener("visibilitychange", refreshVisibleGoal);
   async function changeGoal(action, input = {}, { messageId = crypto.randomUUID() } = {}) {
     const view = goalView.value;
     const target = view?.target;
@@ -665,9 +661,16 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       if (!current.value) return false;
       if (receipt.status === "accepted") delivery.accept(messageId);
       else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, receipt.error);
+      else if (receipt.status === "unknown" && message?.status === "uncertain") {
+        message.error = "Delivery is still unknown. You can send a different message when the conversation is ready. Check delivery before resending this one.";
+      }
       subscription?.reload();
       return receipt;
-    } catch (failure) { receiveError(failure); return false; }
+    } catch (failure) {
+      if (current.value && message?.status === "uncertain") message.error = failure.message || "Delivery could not be checked.";
+      receiveError(failure);
+      return false;
+    }
     finally { if (message) message.checking = false; }
   }
 

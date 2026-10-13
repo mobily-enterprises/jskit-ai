@@ -155,6 +155,7 @@ export default defineConfig({
             return json({ ok: true, delivered: true, messageId: input.messageId }, 202);
           }
           if (mode === "rejected") return json({ error: "The message was rejected before admission.", code: "ACTION_VALIDATION_FAILED" }, 400);
+          if (mode === "unadmitted") return json({ error: "Request failed with status 503." }, 503);
           if (mode === "uncertain") {
             state.status = "unconfirmed";
             state.pendingRequest = { messageId: input.messageId, text: input.text, origin: "user",

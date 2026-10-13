@@ -87,7 +87,7 @@ test("suggestion previews preserve a draft and stale selections cannot submit", 
   state.focus();
   t.mock.timers.tick(750);
   await flush();
-  assert.equal(state.visible.value, true);
+  assert.equal(state.visible.value, false, "Refocusing does not regenerate dismissed suggestions");
   draft.value = "Keep my text";
   assert.equal(state.preview.value, "");
   assert.equal(state.select(suggestion("Next step")), false);
@@ -111,4 +111,37 @@ test("a failing suggestion agent leaves the composer independent and stops retry
   assert.equal(draft.value, "Keep this");
   t.mock.timers.tick(60_000);
   assert.equal(requests, 1);
+});
+
+
+test("suggestions wait five seconds and coalesce edited drafts through a thirty-second cooldown", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000 });
+  const scope = effectScope();
+  t.after(() => scope.stop());
+  const draft = ref("First");
+  const active = ref(true);
+  const calls = [];
+  const state = scope.run(() => useAssistantSuggestions({ draft, active, debounceMs: 5_000, minIntervalMs: 30_000,
+    generate: async input => { calls.push({ draft: input.draft, at: Date.now() }); return [suggestion(input.draft)]; }
+  }));
+  t.mock.timers.tick(4_999);
+  state.focus(); state.blur(); state.focus();
+  assert.equal(calls.length, 0);
+  t.mock.timers.tick(1);
+  await flush();
+  draft.value = "Second";
+  t.mock.timers.tick(15_000);
+  draft.value = "Newest";
+  state.focus();
+  t.mock.timers.tick(14_999);
+  assert.equal(calls.length, 1);
+  t.mock.timers.tick(1);
+  await flush();
+  assert.deepEqual(calls, [{ draft: "First", at: 6_000 }, { draft: "Newest", at: 36_000 }]);
+  t.mock.timers.tick(90_000);
+  assert.equal(calls.length, 2, "Cooldown does not poll when the input is unchanged");
+  draft.value = "Cancelled before dispatch";
+  active.value = false;
+  t.mock.timers.tick(30_000);
+  assert.equal(calls.length, 2);
 });

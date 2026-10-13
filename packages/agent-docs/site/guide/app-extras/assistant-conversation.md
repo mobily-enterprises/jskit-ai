@@ -260,6 +260,14 @@ state for an exact actor, endpoint, surface, workspace and conversation. Release
 a retained handle with `release()`. Final view/reader release detaches browser
 observers; it does not stop server work. A lost receipt remains uncertain with
 **Check delivery** until inspection or canonical history proves acceptance.
+The transcript attaches an exact-ID delivery notice inside that user's message
+bubble, with a warning outline and **Delivery unconfirmed** label. It does not
+render the notice above the message as an unrelated system status. Application
+system messages retain their existing presentation.
+When the server reports ready, a different authored message may proceed; the old
+uncertain ID and matching draft text cannot be resent. Active or unconfirmed
+server work still blocks this continuation. Unknown inspection displays its
+current result without retaining a stale HTTP error.
 The same inspection operation may return `{ status: "not-sent", messageId, error }`
 when a settled native request has explicit durable no-admission proof. The client
 marks only that exact uncertain message failed, preserving its payload, the draft
@@ -422,8 +430,9 @@ Native steering and explicit retries keep their captured intent. Stop aborts
 these local pre-dispatch followers before stopping the original turn; actor
 retirement and lost access cannot dispatch them later. This option defaults to
 false and belongs to the initial retained conversation composition. It adds no
-server queue or persisted queue recovery; genuine uncertainty still blocks new
-submissions and requires receipt inspection.
+server queue or persisted queue recovery. A predecessor that becomes uncertain
+leaves queued followers unsent; a new, different message may proceed once the
+server reports ready, preserving the uncertain receipt for inspection.
 
 An application that already owns a queue accepting messages during active work
 may instead set `admitWhileWorking: true`. Ordinary nonsteerable typed and retained
@@ -1008,7 +1017,8 @@ const suggestions = reactive(useAssistantSuggestions({
   configuration: () => ({ integrationId: "suggestions", style: suggestionStyle.value }),
   generate: ({ draft, configuration, signal }) => app.suggest({ draft, configuration, signal }),
   onSelect: prompt => { draft.value = prompt; },
-  debounceMs: 750
+  debounceMs: 5_000,
+  minIntervalMs: 30_000
 }));
 adapter.suggestions = suggestions;
 ```
@@ -1020,6 +1030,11 @@ Changing scope, draft, configuration or eligibility aborts and invalidates old
 requests. Disposal cancels requests; late results are ignored. `items`, `loading`,
 `preview`, `visible`, `error`, and `composerFocused` are reactive. `focus`, `blur`,
 `previewSuggestion`, `select`, and `dismiss` drive the shared interaction.
+`debounceMs` defaults to 750 and `minIntervalMs` defaults to zero; applications
+can set both limits as above. The minimum interval is measured between generation
+starts and survives cancellation or eligibility changes within that instance.
+Unchanged input does not poll. Focus never clears dismissal or starts a request;
+a changed draft or scope can make suggestions eligible again.
 Selection edits the draft; submission remains explicit. The standalone example
 includes a separate suggestion integration and server prompt.
 
@@ -1127,7 +1142,7 @@ adapter. For a low-level adapter, omit `goal` or use `enabled: false` when goals
 are unsupported. The supplied binding hides unsupported controls automatically.
 
 The supplied binding owns goal reads, command state and message receipts. It
-refreshes on goal events, reconnect and window focus, with a 30-second passive
+refreshes on goal events and reconnect, with a 30-second passive
 read deadline and no goal poll. Passive failures remain local to the control.
 An explicit `goal: true` option also enables reads when an application's retained
 goal may belong to a different target from its visible conversation. Such an

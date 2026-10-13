@@ -139,7 +139,8 @@
             class="assistant-transcript__message assistant-transcript__message--user"
             :class="{
               'assistant-transcript__message--pending': entry.turn.optimistic?.status === 'pending',
-              'assistant-transcript__message--failed': entry.turn.optimistic?.status === 'failed'
+              'assistant-transcript__message--failed': entry.turn.optimistic?.status === 'failed',
+              'assistant-transcript__message--unconfirmed': Boolean(entry.delivery)
             }"
           >
             <div
@@ -174,6 +175,12 @@
             >
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
               <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">Pending</span>
+            </div>
+            <div v-if="entry.delivery" class="assistant-transcript__unconfirmed-delivery">
+              <AssistantConversationStatus
+                :message="{ ...entry.delivery, text: 'Delivery unconfirmed' }"
+                @check-delivery="emit('check-delivery', $event)"
+              />
             </div>
             <slot name="user-message-actions" :message="entry.message" :turn="entry.turn" />
             <div
@@ -584,8 +591,11 @@ const displayEntries = computed(() => {
   const entries = [];
   for (const [index, turn] of props.turns.entries()) {
     const turnId = String(turn.turnId || index + 1);
+    // A delivery notice belongs to its exact user message, not the previous reply.
+    const userDelivery = turn.user && turn.system?.delivery && turn.system.delivery.messageId === turn.user.messageId
+      ? turn.system : null;
     const messages = [
-      turn.system && { ...turn.system, role: "system" },
+      turn.system && !userDelivery && { ...turn.system, role: "system" },
       turn.user && { ...turn.user, role: "user" },
       ...conversationAgentMessages(turn)
     ].filter(Boolean);
@@ -604,6 +614,7 @@ const displayEntries = computed(() => {
       } else {
         entries.push({
           key, role, turn: { ...turn, turnId }, message: displayed,
+          delivery: role === "user" ? userDelivery : null,
           ...(role === "thinking" ? { messages: [{ ...displayed, key }] } : {})
         });
       }
@@ -1429,6 +1440,26 @@ watch(() => props.visible, (visible) => {
 .assistant-transcript__message-footer--assistant {
   justify-content: flex-start;
   margin-top: -0.15rem;
+}
+
+.assistant-transcript__message--user.assistant-transcript__message--unconfirmed {
+  background: rgba(var(--v-theme-warning), 0.08);
+  border: 1px solid rgba(var(--v-theme-warning), 0.6);
+}
+
+.assistant-transcript__unconfirmed-delivery {
+  border-top: 1px solid rgba(var(--v-theme-warning), 0.4);
+  font-size: 0.875rem;
+  padding-top: 0.65rem;
+}
+
+.assistant-transcript__unconfirmed-delivery :deep(p:first-child) {
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.assistant-transcript__unconfirmed-delivery :deep(p) {
+  overflow-wrap: anywhere;
 }
 
 .assistant-transcript__optimistic-failure {

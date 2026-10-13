@@ -62,7 +62,7 @@ test("inspecting a restored no-admission request releases Send while preserving 
   await attach();
   await expect(f.input).toHaveValue("A separate newer draft");
   const send = f.primary.getByRole("button", { name: "Send message", exact: true });
-  await expect(send).toBeDisabled();
+  await expect(send).toBeEnabled();
   await f.page.evaluate(() => window.conversationFixture.attachments(true));
   await f.primary.locator("input[type=file]").setInputFiles({ name: "newer.txt", mimeType: "text/plain", buffer: Buffer.from("Keep this upload") });
   const uploads = () => f.page.evaluate(() => window.conversationFixture.attachmentState());
@@ -288,7 +288,9 @@ test("a supplied goal view keeps its pinned target and refreshes through the ret
   await expect.poll(() => reads).toBeGreaterThan(beforeReconnect);
   const beforeFocus = reads;
   await f.page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect.poll(() => reads).toBeGreaterThan(beforeFocus);
+  await f.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await f.page.waitForTimeout(100);
+  assert.equal(reads, beforeFocus, "Focus and visibility do not request goal state");
   await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value.pending)).toBe(false);
   failedRead = true;
   await f.page.evaluate(() => window.conversationFixture.current().refreshGoal());
@@ -2891,4 +2893,46 @@ test("changing the observed native segment blocks cached goal controls until the
     held = false;
     releaseRead?.();
   }
+});
+
+
+test("unknown delivery reports its current result and allows different idle input without replaying the old message", options, async t => {
+  const f = await fixture(t, 390);
+  await f.command("mode", { mode: "unadmitted" });
+  await f.input.fill("Original uncertain request");
+  await f.input.press("Enter");
+  const check = f.primary.getByRole("button", { name: "Check delivery", exact: true });
+  const send = f.primary.getByRole("button", { name: "Send message", exact: true });
+  await expect(check).toBeVisible();
+  const bubble = f.primary.locator(".assistant-transcript__message--user").filter({ hasText: "Original uncertain request" });
+  await expect(bubble.getByText("Delivery unconfirmed", { exact: true })).toBeVisible();
+  await expect(bubble.getByRole("button", { name: "Check delivery", exact: true })).toHaveCount(1);
+  await expect(bubble).toHaveClass(/assistant-transcript__message--unconfirmed/u);
+  await expect(f.primary.locator(".assistant-transcript__system")).toHaveCount(0);
+  await expect(bubble.getByText("Request failed with status 503.", { exact: true })).toBeVisible();
+  await f.input.fill("Original uncertain request");
+  await expect(send).toBeDisabled();
+  await f.input.fill("A different message");
+  await expect(send).toBeEnabled();
+  await check.click();
+  await expect(f.primary.getByText("Delivery is still unknown.", { exact: false })).toBeVisible();
+  await expect(f.input).toHaveValue("A different message");
+  await expect(bubble.getByText("Request failed with status 503.", { exact: true })).toHaveCount(0);
+  const screenshots = process.env.JSKIT_ASSISTANT_SCREENSHOTS;
+  for (const width of [390, 1280]) {
+    await f.page.setViewportSize({ width, height: 900 });
+    await expect(bubble.getByRole("button", { name: "Check delivery", exact: true })).toBeVisible();
+    assert.ok(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    if (screenshots) await f.page.screenshot({ path: `${screenshots}/delivery-attached-${width}.png` });
+  }
+  assert.equal((await f.sent()).length, 1);
+  await f.command("mode", { mode: "product-accepted" });
+  await send.click();
+  await expect.poll(async () => (await f.sent()).length).toBe(2);
+  const [old, next] = await f.sent();
+  assert.notEqual(old.input.messageId, next.input.messageId);
+  assert.equal(next.input.text, "A different message");
+  await expect(check).toBeVisible();
+  assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status,
+    old.input.messageId), "uncertain");
 });
