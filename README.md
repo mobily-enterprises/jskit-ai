@@ -57,8 +57,14 @@ the actual `main` commit on `origin`, including when run through GitHub Actions.
 Feature branches, detached checkouts, uncommitted files, and unpushed or stale
 commits cannot publish. `publish --dry-run` may inspect work before committing.
 It rejects stale internal versions and dependency
-cycles, then publishes the current packages directly to npm in dependency
-order. `verify:registry` contains the checks that require the public registry.
+cycles, then packs and checks every exact package version before any upload.
+Matching published releases are skipped. Different contents under an existing
+version stop the release and name the first differing file; registry errors
+also stop it. Hash matches prove identical tarballs. Hash differences trigger
+comparison of verified archive files and permissions, ignoring container
+timestamps and compression. Only absent versions are uploaded, using the exact
+checked tarballs in dependency order. Dry runs perform this registry preflight
+without uploading. `verify:registry` contains additional public registry checks.
 
 `npm run release` verifies and publishes an already prepared, committed and
 pushed `main` checkout. Run `prepare` and commit/push separately first.
@@ -75,6 +81,8 @@ prepared release to `main`, then publish from a separate clean clone of the
 published branch using the project's managed shell. Keep the working session
 on its own branch; the publisher's clean, pushed `main` requirement still applies.
 
-If npm interrupts a publication after accepting some packages, fix the cause
-and prepare a new coordinated patch release. Published npm versions are
-immutable; there is no release-resume state in the repository.
+If npm interrupts publication after accepting some packages, fix the cause and
+rerun publication from the same committed source. Matching versions are skipped
+and absent versions are published. If source contents must change, prepare a
+new coordinated patch release. Published npm versions are immutable; npm is the
+source of truth and there is no release-resume state in the repository.

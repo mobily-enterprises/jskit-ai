@@ -4,6 +4,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execFileSync, spawn } from "node:child_process";
+import { planPublication } from "./npm-publication.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(__filename), "..");
@@ -348,7 +349,7 @@ async function prepareRelease(records, { dryRun }) {
   process.stdout.write(dryRun ? "Prepare dry-run complete.\n" : "Release source prepared.\n");
 }
 
-async function createNpmUserConfig(registry) {
+async function createNpmUserConfig(registry, directory) {
   const token = String(process.env.NPM_TOKEN || "").trim();
   if (!token) {
     throw new Error("NPM_TOKEN is required for publish.");
@@ -356,14 +357,13 @@ async function createNpmUserConfig(registry) {
   const registryUrl = new URL(registry);
   const registryWithSlash = `${registryUrl.origin}${registryUrl.pathname}`.replace(/\/+$/u, "/");
   const authHost = `${registryUrl.host}${registryUrl.pathname}`.replace(/\/+$/u, "");
-  const directory = await mkdtemp(path.join(tmpdir(), "jskit-npmrc-"));
   const configPath = path.join(directory, "npmrc");
   await writeFile(
     configPath,
     `@jskit-ai:registry=${registryWithSlash}\nregistry=${registryWithSlash}\n//${authHost}/:_authToken=${token}\n`,
     { encoding: "utf8", mode: 0o600 }
   );
-  return { configPath, directory };
+  return configPath;
 }
 
 function assertMainReleaseCheckout(repoRoot = REPO_ROOT) {
@@ -390,41 +390,33 @@ async function publishRelease(records, { dryRun, registry }) {
   if (!dryRun) {
     assertMainReleaseCheckout();
   }
-  const versions = await validateReleaseState(records);
+  await validateReleaseState(records);
   const order = topologicalPublishOrder(records);
   const recordsByName = new Map(records.map((record) => [record.name, record]));
-  process.stdout.write(`${dryRun ? "Checking" : "Publishing"} coordinated source:\n`);
-  for (const name of order) {
-    process.stdout.write(`- ${name}@${versions.get(name)}\n`);
-  }
-
-  let npmConfig = null;
-  if (!dryRun) {
-    npmConfig = await createNpmUserConfig(registry);
-  }
+  const directory = await mkdtemp(path.join(tmpdir(), "jskit-release-"));
   try {
-    for (const name of order) {
+    const configPath = !dryRun || String(process.env.NPM_TOKEN || "").trim()
+      ? await createNpmUserConfig(registry, directory) : "";
+    if (!dryRun) await runCommand("npm", ["whoami", "--registry", registry, "--userconfig", configPath]);
+    const plan = await planPublication(order.map(name => recordsByName.get(name)), { directory, registry, configPath });
+    for (const entry of plan) {
+      if (dryRun || entry.state === "skip") continue;
       const args = [
         "publish",
+        entry.tarball,
         "--access",
         "public",
         "--tag",
         "latest",
         "--registry",
         registry,
-        "--workspaces=false"
+        "--workspaces=false",
+        "--userconfig", configPath
       ];
-      if (dryRun) {
-        args.push("--dry-run");
-      } else {
-        args.push("--userconfig", npmConfig.configPath);
-      }
-      await runCommand("npm", args, { cwd: recordsByName.get(name).dir });
+      await runCommand("npm", args);
     }
   } finally {
-    if (npmConfig) {
-      await rm(npmConfig.directory, { recursive: true, force: true });
-    }
+    await rm(directory, { recursive: true, force: true });
   }
   process.stdout.write(dryRun ? "Publish dry-run complete.\n" : "Publish complete.\n");
 }

@@ -4,6 +4,8 @@ import test from "node:test";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { existsSync } from "node:fs";
+import { publicationFixture } from "./npm-publication-fixture.mjs";
 import {
   assertMainReleaseCheckout,
   bumpPatch,
@@ -165,4 +167,77 @@ test("publication requires clean main matching the remote main commit", async (t
   assert.throws(() => assertMainReleaseCheckout(checkout), /requires HEAD to match/u);
   git("switch", "--detach");
   assert.throws(() => assertMainReleaseCheckout(checkout), /requires the main branch/u);
+});
+
+test("publication skips a matching dependency and publishes only the absent consumer tarball", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0);
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 0, result.stderr);
+  const calls = await f.calls();
+  const publications = calls.filter(call => call.args[0] === "publish");
+  assert.equal(publications.length, 1);
+  assert.match(publications[0].args[1], /jskit-ai-b-1\.0\.0\.tgz$/u);
+  assert.equal(publications[0].integrity, await f.published(1));
+  assert.equal(existsSync(publications[0].args[1]), false);
+  assert.equal(existsSync(calls[0].config), false);
+  assert.match(result.stdout, /Skip matching release: @jskit-ai\/a@1\.0\.0/u);
+});
+
+test("publication checks later packages before uploading earlier absent versions", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(1, { content: "export const value = 2;\n" });
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /@jskit-ai\/b@1\.0\.0: published contents differ/u);
+  const calls = await f.calls();
+  assert.equal(calls.some(call => call.args[0] === "publish"), false);
+  assert.equal(existsSync(calls[0].config), false);
+});
+
+test("publication accepts matching archive contents despite different tarball metadata", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0, { mtime: 2000 });
+  await f.published(1, { mtime: 2000 });
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
+test("publication stops on registry errors, including after earlier absent versions", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const result = f.run(["publish"], { RELEASE_TEST_FAIL: "view", RELEASE_TEST_CODE: "E503" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Registry state is unknown/u);
+  assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
+test("publication retains dependency order and cleans artifacts after an interrupted upload", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const result = f.run(["publish"], { RELEASE_TEST_FAIL: "publish" });
+  assert.equal(result.status, 1);
+  const calls = await f.calls();
+  const publications = calls.filter(call => call.args[0] === "publish");
+  assert.equal(publications.length, 1);
+  assert.match(publications[0].args[1], /jskit-ai-a-1\.0\.0\.tgz$/u);
+  assert.equal(existsSync(publications[0].args[1]), false);
+  assert.equal(existsSync(calls[0].config), false);
+});
+
+test("publication dry run checks registry matches and makes no uploads", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0);
+  const result = f.run(["publish", "--dry-run"], { NPM_TOKEN: "" });
+  assert.equal(result.status, 0, result.stderr);
+  const calls = await f.calls();
+  assert.equal(calls.some(call => ["publish", "whoami"].includes(call.args[0])), false);
+  assert.match(result.stdout, /Publish new release: @jskit-ai\/b@1\.0\.0/u);
+});
+
+test("empty registry metadata stops publication instead of implying absence", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const result = f.run(["publish"], { RELEASE_TEST_NULL_METADATA: "1" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /invalid JSON/u);
+  assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
 });
