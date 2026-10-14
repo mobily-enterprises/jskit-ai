@@ -122,6 +122,7 @@ export default defineConfig({
         if (denied || !state) return json({ error: "Access denied.", code: "conversation_forbidden" }, 403);
         if (request.method === "GET" && !match[2]) {
           return json(pageLimits.has(id) ? { ...state, ...await transcript.readConversationLogPage(id, {
+            pageUnit: "messages",
             beforeTurnId: url.searchParams.get("beforeTurnId") || "",
             limit: url.searchParams.get("limit") || pageLimits.get(id)
           }) } : state);

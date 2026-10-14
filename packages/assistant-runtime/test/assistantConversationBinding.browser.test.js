@@ -1628,7 +1628,7 @@ test("paged history uses the original page reader and keeps older messages throu
     user: { role: "user", messageId: `history-${index + 1}`, text: `Saved question ${index + 1}` },
     ...(index < 4 ? { assistant: { role: "assistant", messageId: `answer-${index + 1}`, text: `Saved answer ${index + 1}` } } : {})
   }));
-  await f.command("history", { id: "chat:1", turns, limit: 2 });
+  await f.command("history", { id: "chat:1", turns, limit: 4 });
   await f.notify("chat:1");
   await expect(f.primary.getByText("Saved question 5", { exact: true })).toHaveCount(1);
   await expect(f.primary.getByText("Saved question 1", { exact: true })).toHaveCount(0);
@@ -1639,7 +1639,7 @@ test("paged history uses the original page reader and keeps older messages throu
   assert.deepEqual(await f.page.evaluate(() => window.historyCompletion), { changed: true, loaded: true });
   await expect(f.primary.getByText("Saved question 2", { exact: true })).toHaveCount(1);
   const paged = (await f.state()).requests.filter(request => request.query.beforeTurnId);
-  assert.deepEqual(paged.map(request => request.query), [{ beforeTurnId: "000004", limit: "2" }]);
+  assert.deepEqual(paged.map(request => request.query), [{ beforeTurnId: 'message:["000003","assistant"]', limit: "4" }]);
   await f.page.evaluate(() => window.conversationFixture.socket.notify("chat:1", {
     type: "message", turnId: "000005", messageId: "live-answer", role: "assistant", status: "inProgress", text: "Live answer",
     streaming: { revision: 1, messages: [{ turnId: "000005", messageId: "live-answer", role: "assistant", status: "inProgress", text: "Live answer" }] }
@@ -2230,7 +2230,7 @@ test("canonical incoming messages preserve paged history and the scrolled-up rea
     user: { messageId: `loaded-user-${index}`, role: "user", text: `Loaded question ${index + 1}. ` + "Keep the earlier discussion. ".repeat(6) },
     assistant: { messageId: `loaded-answer-${index}`, role: "assistant", text: `Loaded answer ${index + 1}. ` + "Keep the earlier answer. ".repeat(6) }
   }));
-  await f.command("history", { id: "chat:1", turns, limit: 6 });
+  await f.command("history", { id: "chat:1", turns, limit: 12 });
   await f.notify("chat:1");
   await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().turns.value.length)).toBe(6);
   assert.equal(await f.page.evaluate(() => window.conversationFixture.current().loadMore()), true);
@@ -2246,7 +2246,7 @@ test("canonical incoming messages preserve paged history and the scrolled-up rea
   await f.input.fill("Keep this unsent draft");
   await f.input.evaluate(element => { element.focus({ preventScroll: true }); element.setSelectionRange(2, 7); });
   turns.push({ turnId: "000025", user: { messageId: "incoming-user", role: "user", text: "New incoming question" } });
-  await f.command("history", { id: "chat:1", turns, limit: 6 });
+  await f.command("history", { id: "chat:1", turns, limit: 12 });
   await f.notify("chat:1");
   await expect(f.primary.getByText("New incoming question", { exact: true })).toHaveCount(1);
   const ids = await f.page.evaluate(() => window.conversationFixture.current().turns.value.map(turn => turn.turnId));
@@ -2267,7 +2267,7 @@ for (const width of [390, 768, 1280]) {
       user: { role: "user", messageId: `atomic-user-${index}`, text: `Atomic saved question ${index + 1}. ` + "Retain visible discussion. ".repeat(8) },
       assistant: { role: "assistant", messageId: `atomic-answer-${index}`, text: `Atomic saved answer ${index + 1}. ` + "Retain visible answer. ".repeat(8) }
     }));
-    await f.command("history", { id: "chat:1", turns, limit: 6 });
+    await f.command("history", { id: "chat:1", turns, limit: 12 });
     await f.notify("chat:1");
     await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().turns.value.length)).toBe(6);
     assert.equal(await f.page.evaluate(() => window.conversationFixture.current().loadMore()), true);
@@ -2284,7 +2284,7 @@ for (const width of [390, 768, 1280]) {
     const fresh = turns.filter(turn => !["000007", "000010"].includes(turn.turnId));
     fresh[8] = { ...fresh[8], assistant: { ...fresh[8].assistant, text: "Authoritatively replaced saved answer" } };
     fresh.push({ turnId: "000025", user: { role: "user", messageId: "atomic-incoming", text: "Atomic new question" } });
-    await f.command("history", { id: "chat:1", turns: fresh, limit: 6 });
+    await f.command("history", { id: "chat:1", turns: fresh, limit: 12 });
     let release;
     let held = false;
     const reads = "**/api/assistant/home/conversations/chat%3A1?**";
@@ -2970,4 +2970,44 @@ test("unknown delivery reports its current result and allows different idle inpu
   await expect(check).toBeVisible();
   assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status,
     old.input.messageId), "uncertain");
+});
+
+
+for (const width of [1280, 390]) test(`ten real messages per history load across split turns at ${width}px`, options, async t => {
+  const f = await fixture(t, width);
+  const turns = [];
+  let id = 0;
+  for (let index = 1; index <= 16; index++) {
+    const user = { role: "user", messageId: `ten-user-${index}`, text: `Ten question ${index}` };
+    const assistant = index < 16 ? { role: "assistant", messageId: `ten-answer-${index}`, text: `Ten answer ${index}` } : null;
+    turns.push({ turnId: String(++id).padStart(6, "0"), user, assistant, messages: [user, assistant].filter(Boolean) });
+    for (let reasoning = 0; reasoning < 4; reasoning++) {
+      const thought = { role: "thinking", messageId: `ten-thought-${index}-${reasoning}`, text: `Reasoning ${index} ${reasoning}` };
+      turns.push({ turnId: String(++id).padStart(6, "0"), thinking: [thought], messages: [thought] });
+    }
+  }
+  await f.command("history", { id: "chat:1", turns, limit: 10 });
+  await f.notify("chat:1");
+  const messageCount = () => f.page.evaluate(() => window.conversationFixture.current().turns.value
+    .reduce((count, turn) => count + [turn.system, turn.user, turn.assistant].filter(Boolean).length, 0));
+  await expect.poll(messageCount).toBe(10);
+  await expect(f.primary.getByText("Ten question 11", { exact: true })).toHaveCount(0);
+  await expect(f.primary.getByText("Ten answer 11", { exact: true })).toHaveCount(1);
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().loadMore()), true);
+  await expect.poll(messageCount).toBe(20);
+  await f.page.evaluate(() => { window.beforeTenMessageRefresh = window.conversationFixture.current().snapshot.value; });
+  await f.notify("chat:1");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value !== window.beforeTenMessageRefresh)).toBe(true);
+  await expect.poll(messageCount).toBe(20);
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().loadMore()), true);
+  await expect.poll(messageCount).toBe(30);
+  await expect(f.primary.getByText("Ten question 1", { exact: true })).toHaveCount(0);
+  assert.equal(await f.page.evaluate(() => window.conversationFixture.current().loadMore({
+    complete: result => { window.tenMessageCompletion = result; }
+  })), true);
+  await expect.poll(messageCount).toBe(31);
+  assert.deepEqual(await f.page.evaluate(() => window.tenMessageCompletion), { changed: true, loaded: true });
+  await expect(f.primary.getByText("Ten question 1", { exact: true })).toHaveCount(1);
+  await expect(f.primary.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
+  assert.deepEqual(await f.sent(), []);
 });

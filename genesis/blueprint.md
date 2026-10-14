@@ -7,6 +7,10 @@ data-backed resources, integrations, assistants, payments, uploads, realtime
 features, and responsive web interfaces without taking ownership away from the
 application.
 
+Browser history can paginate user, assistant and system messages separately,
+with reasoning and progress retained outside the message allowance. Internal
+transcript consumers can continue reading whole stored turns.
+
 The project also publishes developer tooling and documentation that explain how
 to assemble, verify, migrate, and release those building blocks. Its public
 documentation site is the primary browsable product surface; the packages and

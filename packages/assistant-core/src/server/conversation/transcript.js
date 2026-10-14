@@ -1,4 +1,5 @@
 import { normalizeText } from "./normalize.js";
+import { conversationLogPage } from "../../shared/conversation/pagination.js";
 
 /** Conversation policy, independent of database, filesystem, identity and HTTP. */
 export function createConversationTranscript({ storage, clock = () => new Date(), applicationTurns = false } = {}) {
@@ -15,30 +16,43 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     });
   }
 
-  async function readConversationLogPage(scope, { beforeTurnId = "", limit = 0, presentation = false } = {}) {
+  async function readConversationLogPage(scope, { beforeTurnId = "", limit = 0, presentation = false, pageUnit = "turns" } = {}) {
     if (typeof presentation !== "boolean") throw new TypeError("Transcript presentation requires an explicit boolean.");
+    if (!["turns", "messages"].includes(pageUnit)) throw new TypeError("Transcript pageUnit must be turns or messages.");
     return storage.read(scope, async (transaction) => {
       const allIds = await transaction.listTurnIds();
-      const visible = presentation ? (await Promise.all(allIds.map(id => transaction.readTurn(id))))
-        .filter(turn => hasMessages(turn) && !isCompletedEnvelopeTurn(turn)) : null;
+      const visible = presentation || pageUnit === "messages"
+        ? (await Promise.all(allIds.map(id => transaction.readTurn(id))))
+          .filter(turn => hasMessages(turn) && (!presentation || !isCompletedEnvelopeTurn(turn))) : null;
       const ids = visible ? visible.map(turn => turn.turnId) : allIds;
       const before = normalizeText(beforeTurnId);
       const requestedLimit = Number.parseInt(String(limit || ""), 10);
       const pageLimit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 0;
-      const end = before && ids.includes(before) ? ids.indexOf(before) : ids.length;
-      const start = pageLimit ? Math.max(0, end - pageLimit) : 0;
-      const selected = ids.slice(start, end);
-      const turns = visible ? visible.slice(start, end)
-        : (await Promise.all(selected.map((id) => transaction.readTurn(id)))).filter(hasMessages);
+      let page;
+      if (pageUnit === "messages") {
+        page = conversationLogPage(visible, { beforeTurnId: before, limit: pageLimit });
+      } else {
+        const end = before && ids.includes(before) ? ids.indexOf(before) : ids.length;
+        const start = pageLimit ? Math.max(0, end - pageLimit) : 0;
+        const selected = ids.slice(start, end);
+        page = {
+          conversationLog: visible ? visible.slice(start, end)
+            : (await Promise.all(selected.map(id => transaction.readTurn(id)))).filter(hasMessages),
+          hasMoreBefore: start > 0,
+          nextBeforeTurnId: start > 0 ? ids[start] : ""
+        };
+      }
+      const turns = page.conversationLog;
       return {
         conversationLog: turns,
         pagination: {
+          ...(pageUnit === "messages" ? { pageUnit } : {}),
           beforeTurnId: before,
           count: turns.length,
-          hasMoreBefore: start > 0,
+          hasMoreBefore: page.hasMoreBefore,
           limit: pageLimit,
           newestTurnId: turns.at(-1)?.turnId || "",
-          nextBeforeTurnId: start > 0 ? turns[0]?.turnId || selected[0] || "" : "",
+          nextBeforeTurnId: page.nextBeforeTurnId,
           oldestTurnId: turns[0]?.turnId || "",
           totalTurnCount: ids.length
         }

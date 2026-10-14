@@ -274,7 +274,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     // refresh in this same read, rather than dropping that newly loaded page.
     while (valid()) {
       const revision = historyRevision;
-      const oldest = olderPages.value[0]?.conversationLog?.[0]?.turnId;
+      const oldestTurn = olderPages.value[0]?.conversationLog?.[0];
+      const oldest = oldestTurn?.turnId;
+      const oldestCursor = olderPages.value[0]?.pagination?.nextBeforeTurnId || oldest;
       const latest = await api.readConversation(identity.conversationId);
       if (!valid()) return latest;
       const pages = [];
@@ -282,7 +284,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       const cursors = new Set();
       while (oldest && page.pagination.hasMoreBefore) {
         const cursor = page.pagination.nextBeforeTurnId || page.pagination.oldestTurnId;
-        if (cursor && compareTurnIds(cursor, oldest) <= 0) break;
+        const reachedFullOldestTurn = page.pagination.oldestTurnId === oldest && !page.conversationLog[0]?.paginationPartial;
+        const passedOldestTurn = compareTurnIds(page.pagination.oldestTurnId, oldest) < 0;
+        if (cursor && (cursor === oldestCursor || passedOldestTurn || reachedFullOldestTurn)) break;
         if (!cursor || cursors.has(cursor)) throw new Error("Older conversation history could not be refreshed. Reload chat to try again.");
         cursors.add(cursor);
         page = normalizeConversationLogPage(await api.readConversation(identity.conversationId, {
@@ -291,7 +295,14 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         if (!valid()) return latest;
         // A removed oldest row can make this page reach farther back than the
         // reader loaded. Keep the original visible boundary and page metadata.
-        const saved = page.conversationLog.filter(turn => compareTurnIds(turn.turnId, oldest) >= 0);
+        const saved = page.conversationLog.filter(turn => compareTurnIds(turn.turnId, oldest) >= 0).map(turn => {
+          if (turn.turnId !== oldest || !oldestTurn.paginationPartial) return turn;
+          const roles = ["system", "user", "assistant"];
+          const excluded = roles.slice(0, roles.findIndex(role => oldestTurn[role]));
+          return { ...turn, paginationPartial: true,
+            ...Object.fromEntries(excluded.map(role => [role, null])),
+            messages: turn.messages?.filter(message => !excluded.includes(message.role)) };
+        });
         pages.unshift(normalizeConversationLogPage({ ...page, conversationLog: saved, pagination: {
           ...page.pagination, count: saved.length, oldestTurnId: saved[0]?.turnId || "",
           hasMoreBefore: page.pagination.hasMoreBefore || saved.length < page.conversationLog.length
@@ -501,7 +512,8 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const finish = (result) => {
       if (typeof complete === "function") complete(result);
     };
-    const beforeTurnId = normalizeConversationLogPagination(oldestLoadedPage.value?.pagination).oldestTurnId ||
+    const pagination = normalizeConversationLogPagination(oldestLoadedPage.value?.pagination);
+    const beforeTurnId = pagination.nextBeforeTurnId || pagination.oldestTurnId ||
       String(turns.value[0]?.turnId || "").trim();
     if (!available.value || !hasMoreBefore.value || loadingMore.value || !beforeTurnId) {
       finish({ changed: false, loaded: false });
@@ -519,10 +531,13 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         return false;
       }
       const previousOldestTurnId = String(turns.value[0]?.turnId || "").trim();
+      const previousMessageCount = turns.value.reduce((count, turn) => count + (turn.messages?.length || 0), 0);
       historyRevision += 1;
       olderPages.value = [normalizeConversationLogPage(page), ...olderPages.value];
       const nextOldestTurnId = String(turns.value[0]?.turnId || "").trim();
-      const changed = Boolean(nextOldestTurnId && nextOldestTurnId !== previousOldestTurnId);
+      const nextMessageCount = turns.value.reduce((count, turn) => count + (turn.messages?.length || 0), 0);
+      const changed = Boolean(nextOldestTurnId && (nextOldestTurnId !== previousOldestTurnId ||
+        nextMessageCount !== previousMessageCount));
       finish({ changed, loaded: true });
       return true;
     } catch (failure) {

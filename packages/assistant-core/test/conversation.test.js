@@ -4,6 +4,8 @@ import { createMemoryConversationStorage } from "../src/server/conversation/memo
 import { createConversationStorage } from "../src/server/conversation/storage.js";
 import { createConversationTranscript } from "../src/server/conversation/transcript.js";
 import { conversationTurnsFromMessages } from "../src/shared/conversation/turns.js";
+import { CONVERSATION_LOG_PAGE_LIMIT, conversationLogReadQuery, mergeConversationLogPages } from "../src/shared/conversation/pagination.js";
+import { applyConversationLogPatch } from "../src/shared/conversation/patches.js";
 import { verifyConversationStorageContract } from "../src/testing/conversationStorageContract.js";
 
 test("new output identity persists on its original message while older records remain unchanged", async () => {
@@ -247,4 +249,64 @@ test("completed envelope presentation has an honest empty page when all canonica
   assert.deepEqual(page.pagination, { beforeTurnId: "", count: 0, hasMoreBefore: false, limit: 50,
     newestTurnId: "", nextBeforeTurnId: "", oldestTurnId: "", totalTurnCount: 0 });
   assert.equal((await transcript.readConversationLog("empty")).length, 1);
+});
+
+
+test("history pages load ten real messages across reasoning rows and split turns without rewriting storage", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await storage.write("large", async tx => {
+    let id = 0;
+    const append = async (role, turnId = String(++id).padStart(6, "0")) => {
+      await tx.appendMessage(turnId, { role, messageId: `${turnId}-${role}`, text: `${role} ${turnId}`, at: "2026-10-14" });
+      return turnId;
+    };
+    await append("thinking");
+    for (let index = 0; index < 123; index++) {
+      const turnId = await append("user");
+      await append("commentary", turnId);
+      if (index < 122) await append("assistant", turnId);
+      for (let reasoning = 0; reasoning < 9; reasoning++) await append("thinking");
+    }
+  });
+  const before = await transcript.readConversationLog("large");
+  assert.equal(CONVERSATION_LOG_PAGE_LIMIT, 10);
+  assert.equal(conversationLogReadQuery().limit, "10");
+  const pages = [];
+  let cursor = "";
+  let remaining = 245;
+  do {
+    const page = await transcript.readConversationLogPage("large", { limit: 10, beforeTurnId: cursor, pageUnit: "messages" });
+    const count = page.conversationLog.reduce((sum, turn) => sum + [turn.system, turn.user, turn.assistant].filter(Boolean).length, 0);
+    assert.equal(count, Math.min(10, remaining));
+    remaining -= count;
+    assert.equal(page.pagination.hasMoreBefore, remaining > 0);
+    assert.notEqual(page.pagination.nextBeforeTurnId, cursor);
+    pages.unshift(page);
+    cursor = page.pagination.nextBeforeTurnId;
+  } while (cursor);
+  assert.equal(remaining, 0);
+  assert.match(pages.at(-1).pagination.nextBeforeTurnId, /^message:/);
+  const merged = mergeConversationLogPages(pages).conversationLog;
+  const identities = rows => rows.flatMap(turn => turn.messages.map(message => message.messageId));
+  assert.deepEqual(identities(merged), identities(before), "all messages and reasoning survive pagination exactly once and in order");
+  assert.deepEqual(await transcript.readConversationLog("large"), before, "reading pages never changes saved rows");
+  const firstAnswer = pages.at(-1).conversationLog[0];
+  assert.equal(firstAnswer.user, null);
+  assert.ok(firstAnswer.assistant);
+  const patched = applyConversationLogPatch(pages.at(-1), { type: "upsert-turn", turn: {
+    turnId: "999999", thinking: [{ role: "thinking", text: "More reasoning" }]
+  } }, { limit: 10 });
+  assert.equal(patched.conversationLog[0].turnId, firstAnswer.turnId);
+  assert.equal(patched.pagination.nextBeforeTurnId, pages.at(-1).pagination.nextBeforeTurnId);
+});
+
+test("reasoning-only histories remain readable without creating phantom message pages", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  for (let index = 0; index < 25; index++) await transcript.writeConversationThinkingMessage("activity", { text: `Thought ${index}` });
+  const page = await transcript.readConversationLogPage("activity", { limit: 10, pageUnit: "messages" });
+  assert.equal(page.conversationLog.length, 25);
+  assert.equal(page.pagination.hasMoreBefore, false);
+  assert.equal(page.pagination.nextBeforeTurnId, "");
 });

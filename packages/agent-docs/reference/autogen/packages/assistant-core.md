@@ -1551,6 +1551,8 @@ Local functions
 ### `src/shared/conversation/pagination.js`
 Exports
 - `CONVERSATION_LOG_PAGE_LIMIT`
+- `conversationLogPageStart(turns, limit, end = turns.length)`
+- `conversationLogPage(turns, { beforeTurnId = "", limit = 0 } = {})`
 - `normalizeConversationLogPagination(pagination = {})`
 - `normalizeConversationLogPage(payload = {})`
 - `mergeConversationLogPages(pages = [])`

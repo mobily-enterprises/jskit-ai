@@ -1,5 +1,5 @@
 import { normalizeThinkingMessageText } from "./thinkingText.js";
-import { normalizeConversationLogPagination } from "./pagination.js";
+import { conversationLogPageStart, normalizeConversationLogPagination } from "./pagination.js";
 
 function isRecord(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -125,14 +125,17 @@ function applyConversationLogPatch(payload = {}, patch = null, options = {}) {
       numeric: true
     }
   ));
+  const pagination = normalizeConversationLogPagination(source.pagination);
   const limit = Number.parseInt(String(options.limit || ""), 10);
   const limitedTurns = Number.isFinite(limit) && limit > 0
-    ? nextTurns.slice(-limit)
+    ? nextTurns.slice(pagination.pageUnit === "messages" ? conversationLogPageStart(nextTurns, limit) : -limit)
     : nextTurns;
   const wasTrimmed = limitedTurns.length < nextTurns.length;
-  const pagination = normalizeConversationLogPagination(source.pagination);
   const hasMoreBefore = pagination.hasMoreBefore || wasTrimmed;
   const oldestTurnId = String(limitedTurns[0]?.turnId || "").trim();
+  const beforeCursor = oldestTurnId === pagination.oldestTurnId
+    ? pagination.nextBeforeTurnId || oldestTurnId
+    : oldestTurnId;
   return {
     ...source,
     conversationLog: limitedTurns,
@@ -141,7 +144,7 @@ function applyConversationLogPatch(payload = {}, patch = null, options = {}) {
       count: limitedTurns.length,
       hasMoreBefore,
       newestTurnId: String(limitedTurns.at(-1)?.turnId || "").trim(),
-      nextBeforeTurnId: hasMoreBefore ? oldestTurnId : "",
+      nextBeforeTurnId: hasMoreBefore ? beforeCursor : "",
       oldestTurnId
     }
   };

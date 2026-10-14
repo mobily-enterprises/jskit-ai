@@ -2045,6 +2045,17 @@ receipt inspection and native preservation. Presentation pagination filters befo
 selecting the page, so its counts and cursors describe the visible product turns.
 Caller data or JSON-looking text cannot mark a turn as internal.
 
+For browser history, the server can also select `pageUnit: "messages"` when
+calling `readConversationLogPage` or a bound conversation's `read`. The limit
+then counts user, assistant and system messages separately; reasoning and
+commentary remain visible without consuming it. The default still counts whole
+stored turns for internal consumers. Follow the returned `nextBeforeTurnId`
+verbatim: it can identify a boundary between a request and answer in one turn.
+The supplied browser binding merges those partial turns and keeps the same
+boundary through live updates and refreshes. This projection never rewrites
+stored messages. The shared browser page-size default is ten; the application
+host selects the paging unit and its initial limit.
+
 Native continuity uses those same product rows for history versions and API
 briefings while retaining raw canonical envelopes in storage. An application
 coordinator can pass trusted top-level `completedEnvelope: true` and
