@@ -17,6 +17,27 @@ Choose one transcript owner for a conversation. The [ordinary API](./assistant.m
 is the starting point; [advanced hosts](#advanced-host-facilities) and
 [testing](#testing-entrypoints) are separate reference areas.
 
+### Native delivery diagnostics
+
+`createConversationRuntime({ onDeliveryTiming(event) {} })` accepts an optional
+server-owned diagnostic observer for ordinary native Send and steering. Codex,
+Claude and OpenCode use the same milestones: `received`, `preparation-started`,
+`provider-started`, `runtime-ready`, `dispatch-started`, `native-acknowledged`,
+`receipt-persisted`, `accepted`, `first-response` and `failed` when applicable.
+`provider-started` to `runtime-ready` includes the provider's acquisition,
+startup or reuse and prompt preparation; it is not an inference timer.
+Native acknowledgement precedes the application's receipt write. Accepted delivery
+still waits for the existing durable receipt contract.
+
+Each event contains `engine`, `conversationId`, `messageId`, `stage`,
+`previousStage`, `durationMs`, `elapsedMs` and a snapshot of accumulated `timings`.
+Durations use a monotonic clock. Milestones occur once per request; they contain
+no prompt, response, attachment bytes, credentials or native protocol payload.
+The first response can be text, commentary or reasoning. The observer is not
+awaited, and its failures cannot change delivery. Applications choose their log
+sink and severity; the runtime does not persist diagnostics as conversation data.
+Recovered or duplicate receipts need not pass through every live-send milestone.
+
 ### Supplied server integration
 
 `@jskit-ai/assistant-runtime/server` exports `AssistantFeature`,

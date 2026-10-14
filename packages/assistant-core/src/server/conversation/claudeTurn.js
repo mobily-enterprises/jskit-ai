@@ -449,6 +449,7 @@ export function createClaudeConversationOwner({
         thread: { id: entry.id }, turn: snapshot(entry), workdir: context.workdir, conversationTurn };
     }
     async function accept() {
+      (command || input).onNativeReceipt?.();
       // The new native ACK retires old effect custody while its canonical
       // admission/commit is awaited; it cannot retag a delayed old failure.
       if (applicationCommand) applicationCommand.active.nativeOwner = null;
@@ -465,6 +466,7 @@ export function createClaudeConversationOwner({
         if (admission) conversationTurn = await admission;
       }
       if (!command) await entry.nativeTurn.updateState("active");
+      (command || input).onReceiptPersisted?.();
       if (applicationCommand && conversationTurn) {
         const value = deliveryResult();
         const active = applicationCommand.active;
@@ -736,7 +738,8 @@ export function createClaudeConversationOwner({
       entry.command = active;
       entry.toolSchemas = active.tools?.schemas || [];
     }
-    const value = await send(entry, { ...command.input.nativeMessage, onPromptSending: command.beforeDispatch }, { applicationCommand });
+    const value = await send(entry, { ...command.input.nativeMessage, onPromptSending: command.beforeDispatch,
+      onNativeReceipt: command.onNativeReceipt, onReceiptPersisted: command.onReceiptPersisted }, { applicationCommand });
     const completion = value.conversationTurn ? entry.completion?.promise : null;
     const delivered = { value, completion };
     if (!applicationCommand && value.delivered === true && value.conversationTurn) {
@@ -766,9 +769,10 @@ export function createClaudeConversationOwner({
     control.current = active;
     const ready = Promise.withResolvers();
     ready.promise.catch(() => {});
-    active.steer = async ({ input, beforeDispatch, accept }) => {
+    active.steer = async ({ input, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted }) => {
       await ready.promise;
-      const nativeDispatch = { active, signal, beforeDispatch, accept, timeoutMs, steering: true, interrupted: false, attempted: false, admitted: false };
+      const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted,
+        timeoutMs, steering: true, interrupted: false, attempted: false, admitted: false };
       try { await dispatch(control, { input, context, signal }, { acquire, entry, dispatch: nativeDispatch }); }
       catch (error) {
         if (nativeDispatch.attempted && !nativeDispatch.admitted) error.delivery = "uncertain";
@@ -776,7 +780,8 @@ export function createClaudeConversationOwner({
         throw error;
       }
     };
-    const nativeDispatch = { active, signal, beforeDispatch, accept, timeoutMs, maximumOutput, attempted: false, admitted: false };
+    const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt: command.onNativeReceipt,
+      onReceiptPersisted: command.onReceiptPersisted, timeoutMs, maximumOutput, attempted: false, admitted: false };
     let entry;
     let cancellation;
     let problem;

@@ -809,6 +809,10 @@ Exports
 Local functions
 - `writtenMessages(history, native = false)`
 
+### `src/server/conversation/deliveryTiming.js`
+Exports
+- `createConversationDeliveryTiming({ engine, conversationId, messageId, report, clock = () => performance.now() })`
+
 ### `src/server/conversation/fileStorage.js`
 Exports
 - `createFileConversationStorage({ directory } = {})`
@@ -1047,7 +1051,7 @@ Local functions
 
 ### `src/server/conversation/runtime.js`
 Exports
-- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, completedEnvelope = false, limits = {} } = {})`
+- `createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory, actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, onDeliveryTiming, persistCommentary = true, completedEnvelope = false, limits = {} } = {})`
 Local functions
 - `failure(message, code, statusCode = 409)`
 - `submittedMessage(turn)`

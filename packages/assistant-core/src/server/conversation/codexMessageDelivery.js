@@ -95,6 +95,7 @@ export function createCodexAppServerMessageDelivery({
       if (!written) {
         return null;
       }
+      pendingMessage?.onReceiptPersisted?.();
       await publish(normalizedSessionId, {
         payload: {
           conversationLogPatch: {
@@ -144,6 +145,7 @@ export function createCodexAppServerMessageDelivery({
       Array.isArray(recoveredMessage?.displayAttachments) && recoveredMessage.displayAttachments.length
     ))) return;
     if (ownership) {
+      pendingMessage?.onNativeReceipt?.();
       // The provider's user-message receipt precedes its answer notifications.
       // Persist the authored message here so answers cannot overtake it while
       // the original HTTP request is still finishing startup bookkeeping.

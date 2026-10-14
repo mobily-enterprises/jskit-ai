@@ -1,4 +1,5 @@
 import { createConversationProviderFactory } from "./provider.js";
+import { createConversationDeliveryTiming } from "./deliveryTiming.js";
 import { normalizeConversationConfiguration } from "./configuration.js";
 import { runScopedConversationTurn, readPersistentConversation, startPersistentConversationTurn,
   inspectPersistentConversationAdmission, preparePersistentConversationChangeover,
@@ -36,8 +37,9 @@ const sameRequest = (left, right) => left.text === right.text && (left.origin ||
 
 /** One application conversation API. Storage and authorization remain host facilities. */
 export function createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory,
-  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, persistCommentary = true, completedEnvelope = false, limits = {} } = {}) {
+  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, onDeliveryTiming, persistCommentary = true, completedEnvelope = false, limits = {} } = {}) {
   if (typeof authorize !== "function") throw new TypeError("Conversation access requires an authorize function.");
+  if (onDeliveryTiming !== undefined && typeof onDeliveryTiming !== "function") throw new TypeError("Delivery timing requires a server-owned observer.");
   if (typeof completedEnvelope !== "boolean") throw new TypeError("Completed envelope policy requires a server-side boolean.");
   if (typeof persistCommentary !== "boolean") throw new TypeError("Conversation commentary persistence requires an explicit server-side boolean.");
   if (apiHistory !== undefined && typeof apiHistory !== "function") throw new TypeError("API request history requires a server-owned selector.");
@@ -97,6 +99,19 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function emit(entry, event, isCurrent) {
     const { completedEnvelope: _untrustedMarker, ...payload } = event;
+    if (payload.type === "message" && ["assistant", "commentary", "thinking"].includes(payload.role) && payload.text?.trim()) {
+      // Bound live streams deliberately omit private native turn identities.
+      // Their current admitted request owns them; historical rows retain IDs.
+      let request;
+      if (payload.turnId) {
+        request = [...(entry.active?.requests.values() || [])].find(request =>
+          !request.sealed && (request.turnId === payload.turnId || request.nativeTurnId === payload.turnId));
+      } else if (entry.conversation) {
+        const current = entry.active?.request;
+        if (current?.accepted && !current.sealed) request = current;
+      }
+      request?.deliveryTiming?.("first-response");
+    }
     if (completedEnvelope && !entry.conversation) {
       const request = payload.messageId && entry.active?.requests.get(payload.messageId) ||
         payload.turnId && [...(entry.active?.requests.values() || [])].find(request => request.turnId === payload.turnId);
@@ -777,6 +792,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
 
     async function publishAdmission(request, nativeResult) {
+      request.deliveryTiming?.("accepted");
       const receipt = { status: "accepted", messageId: request.input.messageId, turnId: request.turnId, origin: request.input.origin };
       request.admission.resolve(entry.conversation ? { receipt, nativeResult } : receipt);
       request.admissionSettled = true;
@@ -856,6 +872,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         if (!driver.canonicalTranscript) streams.clear(entry.id);
       }
       request.accepted = true;
+      if (!entry.conversation) request.deliveryTiming?.("receipt-persisted");
       request.nativeTurnId = nativeTurnId;
       if (request.input.goal) goalOwner = request;
       current = active.request = request;
@@ -1027,6 +1044,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         committed = Promise.withResolvers();
         committed.promise.catch(() => {});
         request.deliveryCommitted = committed.promise;
+        request.deliveryTiming?.("provider-started");
         completion = Promise.resolve().then(() => dispatch({
           context: request.context,
           input: { ...request.input, authoredInput: { ...request.input, at: request.at },
@@ -1034,8 +1052,11 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             text: input.message, contextText: input.contextText || "",
             content: [...contextFiles.content, ...files.content], localFiles, attachmentManifest },
           signal: active.controller.signal,
+          onNativeReceipt: () => request.deliveryTiming?.("native-acknowledged"),
+          onReceiptPersisted: () => request.deliveryTiming?.("receipt-persisted"),
           ...(engine === "opencode" ? { deliveryCommitted: committed.promise } : {}),
           async beforeDispatch(native) {
+            request.deliveryTiming?.("runtime-ready");
             await beforeDispatch(request);
             threadId = native?.threadId;
             if (!threadId) throw new Error("Native admission requires the saved conversation identity.");
@@ -1043,6 +1064,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               turnMetadata: { runtime: { engine, segmentId, origin: request.input.origin,
                 ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
                 ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) } } });
+            request.deliveryTiming?.("dispatch-started");
           },
           async accept(native) {
             if (entry.conversation) nativeResult = native.nativeResult;
@@ -1396,25 +1418,34 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   }
 
   async function send(entry, context, input, origin = "user", goal, representation, wakeOptions) {
-    await access(context, entry.id, goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send", entry);
-    if (entry.conversation?.commands) {
-      if (origin !== "user" || goal) throw failure("This conversation supports its original application Send operation.", "conversation_unsupported", 400);
-      return entry.conversation.commands.send(input, context);
+    const deliveryTiming = createConversationDeliveryTiming({ engine: entry.engine,
+      conversationId: entry.id, messageId: input?.messageId, report: onDeliveryTiming });
+    deliveryTiming("received");
+    try {
+      await access(context, entry.id, goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send", entry);
+      if (entry.conversation?.commands) {
+        if (origin !== "user" || goal) throw failure("This conversation supports its original application Send operation.", "conversation_unsupported", 400);
+        return entry.conversation.commands.send(input, context);
+      }
+      if (entry.conversation?.native?.scoped) return entry.provider.sendNative({ input, context });
+      const originalInput = representation === "native" ? input : undefined;
+      const message = originalInput ? { ...input, text: input.displayMessage ?? input.message ?? input.text ?? "" } : input;
+      const admission = await serial(entry, () => admitSend(entry, context, message, origin, goal, originalInput, wakeOptions, deliveryTiming));
+      const result = await (admission.receipt || admission.promise);
+      if (!entry.conversation) return result;
+      if (representation === "native") return result.nativeResult;
+      if (result.error) throw result.error;
+      return result.receipt;
+    } catch (error) {
+      deliveryTiming("failed");
+      throw error;
     }
-    if (entry.conversation?.native?.scoped) return entry.provider.sendNative({ input, context });
-    const originalInput = representation === "native" ? input : undefined;
-    const message = originalInput ? { ...input, text: input.displayMessage ?? input.message ?? input.text ?? "" } : input;
-    const admission = await serial(entry, () => admitSend(entry, context, message, origin, goal, originalInput, wakeOptions));
-    const result = await (admission.receipt || admission.promise);
-    if (!entry.conversation) return result;
-    if (representation === "native") return result.nativeResult;
-    if (result.error) throw result.error;
-    return result.receipt;
   }
 
   // Called while holding the conversation queue, including Claude's existing
   // stop-then-Send goal commands. All commands retain the ordinary receipt path.
-  async function admitSend(entry, context, input, origin = "user", goal, originalInput, wakeOptions) {
+  async function admitSend(entry, context, input, origin = "user", goal, originalInput, wakeOptions, deliveryTiming) {
+    deliveryTiming?.("preparation-started");
     const operation = goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send";
     await access(context, entry.id, operation, entry);
     await entry.conversation?.admission(context, operation);
@@ -1484,7 +1515,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       // No native dispatch has occurred for this request. Finish the previous
       // waiter before reserving the same authored request on the ordinary path.
       await working.done;
-      return admitSend(entry, context, input, origin, goal, originalInput, wakeOptions);
+      return admitSend(entry, context, input, origin, goal, originalInput, wakeOptions, deliveryTiming);
     }
     const nativeSteering = !working && (nativeState.nativeTurn?.active || entry.driver.canonicalTranscript && nativeState.binding?.codexAppServerRun &&
       codexAppServerTurnStateFromAgentRun(nativeState.binding.codexAppServerRun).active);
@@ -1537,7 +1568,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await transaction.writeMetadata(metadata);
       return metadata.runtime.configuration;
     }); } catch (error) { release(); throw error; }
-    const request = { input: message, originalInput, operation, context, at: requestAt,
+    const request = { input: message, originalInput, operation, context, at: requestAt, deliveryTiming,
       ...(markedResponse ? { completedEnvelope: true, excludedMessageIds } : {}),
       ...(typeof nativeToolAttempt === "boolean" ? { nativeToolAttempt } : {}), steering: Boolean(working || input.steer && nativeSteering),
       admission: Promise.withResolvers(), progress: new Map() };

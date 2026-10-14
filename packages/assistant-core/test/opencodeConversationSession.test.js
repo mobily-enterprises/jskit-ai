@@ -227,6 +227,7 @@ async function fixture(t, options = {}) {
   });
   const runtime = () => {
     const value = createConversationRuntime({ engine: "opencode", storage, authorize: options.authorize || (() => true), actions: options.actions, attachments: options.attachments,
+      onDeliveryTiming: options.onDeliveryTiming,
       connections: { resolve: options.resolve || (async () => ({ providerId: "test", model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
         modelLimits: { context: 32000, output: 4000 }, apiKey: key })) },
       host: { workdir: directory, env: { ...process.env, UNRELATED_SECRET: "must-not-inherit" },
@@ -248,6 +249,19 @@ async function fixture(t, options = {}) {
     binding: () => storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding),
     async trace() { return (await readFile(trace, "utf8")).trim().split("\n").map(line => JSON.parse(line)); } };
 }
+
+test("OpenCode delivery timing uses the common receipt stages without recording authored content", async t => {
+  const timings = [];
+  const f = await fixture(t, { onDeliveryTiming: event => timings.push(event) });
+  const receipt = await f.conversation.send({ messageId: "timed-request", text: "Private message" });
+  assert.equal(receipt.status, "accepted");
+  await f.conversation.wait();
+  const stages = timings.map(event => event.stage);
+  assert.deepEqual(stages.slice(0, 8), ["received", "preparation-started", "provider-started", "runtime-ready", "dispatch-started",
+    "native-acknowledged", "receipt-persisted", "accepted"]);
+  assert.equal(stages.filter(stage => stage === "first-response").length, 1);
+  assert.equal(JSON.stringify(timings).includes("Private message"), false);
+});
 
 test("OpenCode structured output shares the original prompt and completed-result normalization across reopen", async t => {
   const outputSchema = { type: "object", additionalProperties: false,

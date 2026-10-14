@@ -700,11 +700,14 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         return saved;
       }
 
-      async function withDelivery(input, operation) {
+      async function withDelivery(command, operation) {
+        const input = command.input;
         return owner.withMessageDelivery(sessionId, input.messageId, {
           attachments: input.attachments, text: input.authoredInput?.text ?? input.text,
           turnMetadata: input.nativeMessage?.turnMetadata || null, actorContext: input.nativeMessage?.actorContext || null,
-          authoredInput: input.authoredInput
+          authoredInput: input.authoredInput,
+          onNativeReceipt: command.onNativeReceipt,
+          onReceiptPersisted: command.onReceiptPersisted
         }, operation);
       }
 
@@ -788,7 +791,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
       }
 
       async function sendMessage(command, configuration, context, signal, tools) {
-        return withDelivery(command.input, async () => {
+        return withDelivery(command, async () => {
           let attempted = false;
           let rejected = false;
           let accepted = false;
@@ -1013,7 +1016,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           if (!current || current.finished && !current.finishIfCurrent) throw new Error("Codex has no active turn to steer.");
           return current.steer(command);
         },
-        async run({ configuration, context, input, tools, signal, beforeDispatch, accept, onEvent, onNativeTurn, finishIfCurrent }) {
+        async run({ configuration, context, input, tools, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted,
+          onEvent, onNativeTurn, finishIfCurrent }) {
           if (disposed || current) throw new Error("This Codex conversation is closed or already working.");
           const completion = Promise.withResolvers();
           const admission = Promise.withResolvers();
@@ -1130,7 +1134,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
               executingProvider = native;
             }
             if (!supplied) native.setServerRequestHandler(toolHandler(executingProvider));
-            const command = { input, beforeDispatch, accept };
+            const command = { input, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted };
             delivered = await sendMessage(command, configuration, context, signal, tools);
             waitForTurn = !supplied || delivered.value?.delivered === true;
             if (!finishIfCurrent && waitForTurn) {

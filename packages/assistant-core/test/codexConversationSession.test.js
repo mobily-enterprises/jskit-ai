@@ -1214,6 +1214,7 @@ async function fixture(t, options = {}) {
     TEST_HISTORY: path.join(directory, "history.json"), ...options.environment };
   function runtime({ nativeTools = options.nativeTools } = {}) {
     const value = createConversationRuntime({ engine: "codex", storage, authorize: options.authorize || (() => true),
+      onDeliveryTiming: options.onDeliveryTiming,
       actions: options.actions, connections: options.connections, fetch: options.fetch, attachments: options.attachments,
       host: { workdir: directory, runtimeDirectory: directory, env, commands: { codex: command }, execution, nativeTools, commandWrapper: options.commandWrapper },
       limits: { admissionTimeoutMs: 2000, ...options.limits } });
@@ -1234,6 +1235,18 @@ async function fixture(t, options = {}) {
     },
     async trace() { return (await readFile(trace, "utf8")).trim().split("\n").map(line => JSON.parse(line)); } };
 }
+
+test("Codex delivery timing uses the common native receipt and first-response stages", async t => {
+  const timings = [];
+  const f = await fixture(t, { onDeliveryTiming: event => timings.push(event) });
+  assert.equal((await f.conversation.send({ messageId: "timed-request", text: "Private message" })).status, "accepted");
+  await f.conversation.wait();
+  const stages = timings.map(event => event.stage);
+  assert.deepEqual(stages.slice(0, 8), ["received", "preparation-started", "provider-started", "runtime-ready",
+    "dispatch-started", "native-acknowledged", "receipt-persisted", "accepted"]);
+  assert.equal(stages.filter(stage => stage === "first-response").length, 1);
+  assert.equal(JSON.stringify(timings).includes("Private message"), false);
+});
 
 test("Codex admits, streams, persists reasoning and deduplicates using native receipts", async t => {
   const f = await fixture(t);

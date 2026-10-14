@@ -19,6 +19,12 @@ server-side environment references. Conversations preserve provider lifecycle,
 streaming, attachment, recovery, and storage contracts. Connector operations
 remain scoped to the application and user or workspace that owns the account.
 
+Native conversations optionally report content-free delivery timings through
+`onDeliveryTiming`. One shared observer supplies milestone names, monotonic
+durations and message attribution for Codex, Claude and OpenCode; their original
+native owners mark acknowledgement before receipt persistence. Observer work
+does not block dispatch or alter saved conversation data.
+
 An OpenCode process acquired for helpers can exist before the main conversation
 has a native ID. Stopping its idle main turn is a no-op; session closure still
 drains owned helpers and releases the process without interrupting peer sessions.

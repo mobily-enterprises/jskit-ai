@@ -746,7 +746,7 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
 
 // Retain the original supplied-store/native process fixture and drive it through
 // the actual common runtime, including its completion-only admitted receipt.
-async function suppliedCommonFixture(t, { tools = true } = {}) {
+async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming } = {}) {
   const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
   const storage = createMemoryConversationStorage();
   const transcript = createConversationTranscript({ storage });
@@ -786,7 +786,7 @@ async function suppliedCommonFixture(t, { tools = true } = {}) {
     ...(tools ? { applicationTools: { storage, prepareContext(actual, admission) {
       admissions.push(admission); return actual;
     } } } : {}) };
-  const runtime = createConversationRuntime({ ...(tools ? { actions } : {}), authorize: () => true,
+  const runtime = createConversationRuntime({ ...(tools ? { actions } : {}), authorize: () => true, onDeliveryTiming,
     host: { conversation: () => binding } });
   t.after(() => runtime.close());
   const conversation = await runtime.open({ id: "lesson", context });
@@ -821,6 +821,25 @@ async function sendCommon(f, messageId) {
   }
   return receipt;
 }
+
+test("Claude delivery timing separates native acknowledgement from the held canonical receipt", { timeout: 10_000 }, async t => {
+  const timings = [];
+  const f = await suppliedCommonFixture(t, { onDeliveryTiming: event => timings.push(event) });
+  const writing = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  f.behavior.beforeAdmit = async () => { writing.resolve(); await release.promise; };
+  const sending = f.conversation.send({ messageId: "timed-request", text: "Private message" });
+  await writing.promise;
+  assert.deepEqual(timings.map(event => event.stage), [
+    "received", "preparation-started", "provider-started", "runtime-ready", "dispatch-started", "native-acknowledged"
+  ]);
+  release.resolve();
+  assert.equal((await sending).status, "accepted");
+  assert.deepEqual(timings.slice(-2).map(event => event.stage), ["receipt-persisted", "accepted"]);
+  await f.frame({ type: "result", subtype: "success", result: "Public answer" });
+  await f.conversation.wait();
+  assert.equal(JSON.stringify(timings).includes("Private message"), false);
+});
 
 for (const tools of [true, false]) test(`Claude supplied common runtime checkpoints after its completion fence with tools=${tools}`, { timeout: 10_000 }, async t => {
   const f = await suppliedCommonFixture(t, { tools });

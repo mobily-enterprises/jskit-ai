@@ -1079,10 +1079,13 @@ test("original receipt owner persists authored metadata before releasing the rec
   f.run = { ...f.run, state: "starting", providerTurnId: "", pendingUserMessageClientIds: [messageId] };
   const receipt = Promise.withResolvers();
   let received = false;
+  const deliveryTimings = [];
   receipt.promise.then(() => { received = true; f.operations.push("receipt"); });
   f.owner.pendingUserMessages.set(`project:${f.sessionId}\0${messageId}`, {
     attachments: [{ id: "attachment-1", name: "Diagram" }], actorContext,
     turnMetadata: { actorId: "saved-actor", label: "authored" }, receipt,
+    onNativeReceipt: () => deliveryTimings.push("native-acknowledged"),
+    onReceiptPersisted: () => deliveryTimings.push("receipt-persisted"),
     text: "Review the diagram."
   });
   f.observe();
@@ -1090,11 +1093,13 @@ test("original receipt owner persists authored metadata before releasing the rec
   f.emit({ method: "item/completed", params: { threadId: f.threadId, turnId: f.turnId,
     item: outputItem("early-commentary", "I am reviewing the diagram.", "commentary") } });
   await decorating.promise;
+  assert.deepEqual(deliveryTimings, ["native-acknowledged"], "Native acknowledgement precedes the held canonical write");
   assert.equal(received, false);
   assert.equal(await f.store.conversationMessageIdExists(f.sessionId, messageId), false);
   assert.equal(f.publications.some(event => event.payload?.conversationLogPatch?.turn?.commentary), false);
   release.resolve();
   await f.drain();
+  assert.deepEqual(deliveryTimings, ["native-acknowledged", "receipt-persisted"]);
   assert.deepEqual(await receipt.promise, { id: f.turnId });
   const turns = await f.store.readConversationLog(f.sessionId);
   const authored = turns.find(row => row.user?.messageId === messageId);

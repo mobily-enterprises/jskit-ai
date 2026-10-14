@@ -499,6 +499,7 @@ export function createCodexMessageCommands({
     if (!deliveredTurnId) {
       throw new Error("Codex app-server accepted the prompt without returning a turn id.");
     }
+    codexAppServerPendingUserMessages.get(`${promptDeliveryKey}\0${clientUserMessageId}`)?.onNativeReceipt?.();
     await markCodexAppServerTurnActive(sessionId, {
       requireTrackedTurn: true,
       status: "inProgress",
@@ -624,6 +625,7 @@ export function createCodexMessageCommands({
         turnId
       } };
     }
+    codexAppServerPendingUserMessages.get(`${namespace(sessionId)}\0${clientUserMessageId}`)?.onNativeReceipt?.();
     const conversationTurn = await writeCodexAppServerDeliveredUserMessage(
       runtime,
       sessionId,

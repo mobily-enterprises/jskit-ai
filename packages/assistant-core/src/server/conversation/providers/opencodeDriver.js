@@ -257,6 +257,15 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
             active.messageIds.set(prepared.input.id, { messageId: input.messageId, committed: command.deliveryCommitted });
           } : beforeDispatch;
           prepared = await supplied.preparation.message({ ...input.nativeMessage, onPromptSending: dispatch }, options);
+          if (prepared.application?.commit) {
+            const application = prepared.application;
+            prepared.application = { ...application, async commit(admitted) {
+              command.onNativeReceipt?.();
+              const result = await application.commit(admitted);
+              command.onReceiptPersisted?.();
+              return result;
+            } };
+          }
           if (active?.tools && prepared.application?.monitor) {
             const monitor = prepared.application.monitor;
             const create = monitor.create;
@@ -639,7 +648,9 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
               };
             },
             async commit() {
+              command.onNativeReceipt?.();
               await command.accept();
+              command.onReceiptPersisted?.();
               active.deliveryCommitted = command.deliveryCommitted;
               accepted = true;
             },
