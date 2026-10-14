@@ -11,6 +11,7 @@ import {
   CHECK_SCRIPT,
   UPDATE_SCRIPT,
   checkProject,
+  checkInstalledGraph,
   collectLockInstallations,
   discoverProjectManifests,
   updateProject
@@ -665,6 +666,60 @@ test("additional manifests participate in failed-update rollback", async () => {
       installProject: async () => { throw new Error("installation refused"); }
     }), /installation refused/u);
     assert.equal(await readFile(file, "utf8"), before);
+  });
+});
+
+test("explicit source packages exempt only their published pins and leave release checks strict", async () => {
+  await withProject(async (projectRoot) => {
+    const name = "@jskit-ai/shell-web";
+    const manifestFile = path.join(projectRoot, "package.json");
+    const lockFile = path.join(projectRoot, "package-lock.json");
+    const manifest = { dependencies: { [name]: "0.1.1", vue: "3.5.0" } };
+    await writeJson(manifestFile, manifest);
+    await writeJson(lockFile, { packages: {
+      "": { dependencies: { [name]: "0.1.2", vue: "3.5.0" } },
+      [`node_modules/${name}`]: { version: "0.1.2" },
+      "node_modules/vue": { version: "3.5.0" }
+    } });
+    await writeJson(path.join(projectRoot, "node_modules/vue/package.json"), { name: "vue", version: "3.5.0" });
+    const before = await Promise.all([manifestFile, lockFile].map(file => readFile(file, "utf8")));
+    const options = { projectRoot, catalog: CATALOG, checkInstalled: true };
+    assert.equal((await checkProject(options)).ok, false);
+    const sourcePackages = { [name]: path.join(projectRoot, "selected/shell") };
+    assert.equal((await checkProject({ ...options, sourcePackages })).ok, true);
+    assert.deepEqual(await Promise.all([manifestFile, lockFile].map(file => readFile(file, "utf8"))), before);
+    await writeJson(path.join(projectRoot, "node_modules/vue/package.json"), { name: "vue", version: "3.4.0" });
+    assert.match((await checkProject({ ...options, sourcePackages })).issues.join("\n"), /vue installed 3\.4\.0; lockfile requires 3\.5\.0/u);
+    await writeJson(manifestFile, { dependencies: { ...manifest.dependencies, "@jskit-ai/assistant-runtime": "0.1.7" } });
+    assert.match((await checkProject({ ...options, sourcePackages })).issues.join("\n"), /assistant-runtime is declared but has no resolved/u);
+  });
+});
+
+test("selected source graph permits version differences but enforces exact paths, required packages and singletons", async () => {
+  await withProject(async (root) => {
+    const name = "@jskit-ai/shell-web";
+    const app = path.join(root, "app");
+    const selected = path.join(app, "node_modules", name);
+    const external = path.join(root, "external");
+    await writeJson(path.join(app, "package.json"), { dependencies: { [name]: "0.1.1" } });
+    await writeJson(path.join(selected, "package.json"), { name, version: "9.0.0" });
+    const options = { catalog: CATALOG, manifestPaths: [path.join(app, "package.json")] };
+    assert.equal((await checkInstalledGraph(options)).ok, false);
+    options.sourcePackages = { [name]: selected };
+    assert.equal((await checkInstalledGraph(options)).ok, true);
+    await writeJson(path.join(selected, "package.json"), { name, version: "9.0.0", dependencies: { missing: "1.0.0" } });
+    assert.match((await checkInstalledGraph(options)).issues.join("\n"), /missing@1\.0\.0.*unavailable/u);
+    await writeJson(path.join(selected, "package.json"), { name, version: "9.0.0" });
+    await writeJson(path.join(external, "package.json"), { dependencies: { [name]: "0.1.4" } });
+    await writeJson(path.join(external, "node_modules", name, "package.json"), { name, version: "9.0.0" });
+    options.manifestPaths.push(path.join(external, "package.json"));
+    const duplicate = await checkInstalledGraph(options);
+    assert.match(duplicate.issues.join("\n"), /not its selected source/u);
+    assert.match(duplicate.issues.join("\n"), /duplicate singleton installations/u);
+    await writeJson(path.join(external, "node_modules", name, "package.json"), { name: "wrong-name", version: "9.0.0" });
+    assert.match((await checkInstalledGraph(options)).issues.join("\n"), /not its selected source/u);
+    await writeJson(path.join(selected, "package.json"), { name: "wrong-name", version: "9.0.0" });
+    await assert.rejects(checkInstalledGraph(options), /must provide @jskit-ai\/shell-web/u);
   });
 });
 

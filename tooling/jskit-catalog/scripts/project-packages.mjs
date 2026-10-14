@@ -276,13 +276,13 @@ function collectJskitOverridePaths(value, currentPath = "overrides", results = [
   return results;
 }
 
-async function checkProject({ projectRoot = process.cwd(), catalog, additionalManifests = [], checkInstalled = false } = {}) {
+async function checkProject({ projectRoot = process.cwd(), catalog, additionalManifests = [], checkInstalled = false, sourcePackages = {} } = {}) {
   const root = path.resolve(projectRoot);
   const normalizedCatalog = normalizeCatalog(catalog);
   const manifests = await discoverProjectManifests(root, additionalManifests);
   const localPackageNames = collectLocalPackageNames(manifests);
   const declarations = collectManifestDeclarations(manifests, root)
-    .filter((entry) => !localPackageNames.has(entry.packageId));
+    .filter((entry) => !localPackageNames.has(entry.packageId) && !Object.hasOwn(sourcePackages, entry.packageId));
   const issues = [];
 
   for (const declaration of declarations) {
@@ -316,6 +316,7 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
     if (checkInstalled) {
       for (const [packagePath, record] of Object.entries(packageLock.packages || {})) {
         if (!packagePath || record.link || !packagePath.includes("node_modules/")) continue;
+        if (Object.hasOwn(sourcePackages, resolveLockPackageName(packagePath, record))) continue;
         const installedPath = path.join(root, packagePath, "package.json");
         if (!(await fileExists(installedPath))) {
           if (!record.optional) issues.push(`${packagePath} is missing; lockfile requires ${record.version}. Run npm ci.`);
@@ -335,6 +336,7 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
           const declared = manifest.value[field] || {};
           const locked = record?.[field] || {};
           for (const name of new Set([...Object.keys(declared), ...Object.keys(locked)])) {
+            if (Object.hasOwn(sourcePackages, name)) continue;
             if (declared[name] !== locked[name]) issues.push(`${manifest.absolutePath}#${field}.${name} is ${declared[name] || "absent"}; lockfile records ${locked[name] || "absent"}. Run npm install and commit the lockfile.`);
           }
         }
@@ -342,6 +344,9 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
     }
     const byPackageId = new Map();
     for (const installation of installations) {
+      // Selected sources replace these installations in the composed graph,
+      // where their exact paths and singleton identity are checked separately.
+      if (Object.hasOwn(sourcePackages, installation.packageId)) continue;
       const expectedVersion = normalizedCatalog.versions.get(installation.packageId);
       if (!expectedVersion) {
         issues.push(`${installation.path} resolves unknown JSKIT package ${installation.packageId}@${installation.version}.`);
@@ -402,20 +407,32 @@ async function resolveInstalledPackage(consumerDirectory, packageId) {
   }
 }
 
-async function checkInstalledGraph({ catalog, manifestPaths = [] } = {}) {
+async function checkInstalledGraph({ catalog, manifestPaths = [], sourcePackages = {} } = {}) {
   const { versions, singletonPackages } = normalizeCatalog(catalog);
   const issues = [];
   const installations = new Map();
   const visited = new Set();
   const pending = [...manifestPaths];
+  const sourceManifests = new Map();
+  for (const [name, directory] of Object.entries(sourcePackages)) {
+    const file = await realpath(path.join(directory, "package.json"));
+    const manifest = (await readJsonRecord(file)).value;
+    if (manifest.name !== name) throw new Error(`Selected source ${directory} must provide ${name}.`);
+    sourceManifests.set(name, file);
+    pending.push(file);
+  }
   while (pending.length) {
     const manifestPath = await realpath(pending.pop());
     if (visited.has(manifestPath)) continue;
     visited.add(manifestPath);
     const manifest = (await readJsonRecord(manifestPath)).value;
+    const selectedSource = sourceManifests.get(manifest.name);
+    if (selectedSource && manifestPath !== selectedSource) {
+      issues.push(`${manifest.name} resolves at ${manifestPath}, not its selected source ${selectedSource}.`);
+    }
     if (manifest.name?.startsWith(JSKIT_SCOPE_PREFIX)) {
       const expected = versions.get(manifest.name);
-      if (manifest.version !== expected) issues.push(`${manifestPath} provides ${manifest.name}@${manifest.version}; catalog requires ${expected || "no such package"}.`);
+      if (!selectedSource && manifest.version !== expected) issues.push(`${manifestPath} provides ${manifest.name}@${manifest.version}; catalog requires ${expected || "no such package"}.`);
       const paths = installations.get(manifest.name) || new Map();
       paths.set(manifestPath, manifest.version);
       installations.set(manifest.name, paths);
@@ -428,8 +445,11 @@ async function checkInstalledGraph({ catalog, manifestPaths = [] } = {}) {
         if (!optional) issues.push(`${manifestPath} requires ${name}@${required}, but it is unavailable from that consumer.`);
         continue;
       }
+      if (sourceManifests.has(name) && resolved !== sourceManifests.get(name)) {
+        issues.push(`${manifestPath} requires ${name}, but resolves ${resolved}, not its selected source ${sourceManifests.get(name)}.`);
+      }
       // Check the consumer's JSKIT contract as well as the installed version.
-      if (name.startsWith(JSKIT_SCOPE_PREFIX) && !String(required).startsWith("file:") && required !== versions.get(name)) {
+      if (!sourceManifests.has(name) && name.startsWith(JSKIT_SCOPE_PREFIX) && !String(required).startsWith("file:") && required !== versions.get(name)) {
         issues.push(`${manifestPath} requires ${name}@${required}; catalog requires ${versions.get(name) || "no such package"}.`);
       }
       pending.push(resolved);
