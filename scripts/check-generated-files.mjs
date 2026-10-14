@@ -71,17 +71,18 @@ function changedGeneratedPaths(before, after) {
     .sort();
 }
 
-function runGenerators(repoRoot = REPO_ROOT) {
+function runGenerators(repoRoot = REPO_ROOT, { quiet = false } = {}) {
   for (const scriptPath of GENERATORS) {
     const result = spawnSync(process.execPath, [scriptPath], {
       cwd: repoRoot,
-      stdio: "inherit"
+      stdio: quiet ? "pipe" : "inherit",
+      encoding: "utf8"
     });
     if (result.error) {
       throw result.error;
     }
     if (result.status !== 0) {
-      throw new Error(`${scriptPath} failed with exit code ${result.status}.`);
+      throw new Error(`${scriptPath} failed with exit code ${result.status}. ${result.stderr || result.stdout || ""}`);
     }
   }
 }
@@ -111,5 +112,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 
 export {
   changedGeneratedPaths,
+  runGenerators,
   snapshotGeneratedFiles
 };

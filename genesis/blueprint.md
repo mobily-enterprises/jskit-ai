@@ -12,6 +12,10 @@ to assemble, verify, migrate, and release those building blocks. Its public
 documentation site is the primary browsable product surface; the packages and
 command-line tools are consumed by other projects.
 
+Release preparation selects only packages whose publishable contents changed,
+plus necessary dependency and generated catalog/documentation consequences.
+Unchanged packages retain their versions and repeated preparation retains suitable
+unpublished versions. A dry run calculates the same plan without changing source.
 Package publication checks npm before uploading, skips identical existing
 releases and rejects changed content under an existing version. Retrying an
 interrupted publication uses the same reviewed source and npm's current state.

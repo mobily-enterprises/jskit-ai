@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile } from "node:fs/promises";
+import { lstat, mkdtemp, readdir, readFile, readlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { list } from "tar";
@@ -69,67 +69,142 @@ async function archiveContents(file) {
   return contents;
 }
 
-async function differingArchivePath(left, right) {
-  const candidate = await archiveContents(left);
-  const published = await archiveContents(right);
-  for (const name of [...new Set([...candidate.keys(), ...published.keys()])].sort()) {
-    if (JSON.stringify(candidate.get(name)) !== JSON.stringify(published.get(name))) return name;
+// Directory snapshots invalidate only invocation-local pack reuse. Equality with
+// npm still comes from the actual package archive, never this source snapshot.
+async function snapshotFiles(root, relative = "", files = new Map()) {
+  for (const entry of await readdir(path.join(root, relative), { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name === ".git") continue;
+    const name = path.join(relative, entry.name);
+    if (entry.isDirectory()) await snapshotFiles(root, name, files);
+    else {
+      const file = path.join(root, name);
+      const info = await lstat(file);
+      files.set(name, entry.isSymbolicLink()
+        ? `link:${await readlink(file)}`
+        : `${info.mode & 0o7777}:${createHash("sha512").update(await readFile(file)).digest("base64")}`);
+    }
   }
-  return "";
+  return files;
 }
 
-async function planPublication(records, { directory, registry, configPath = "", env = process.env }) {
-  const registryArgs = ["--registry", registry, "--workspaces=false"];
+function sameSnapshot(left, right) {
+  return left.size === right.size && [...left].every(([name, value]) => right.get(name) === value);
+}
+
+function createPublicationInspection({ directory, registry, configPath = "", env = process.env }) {
+  const registryArgs = ["--registry", registry, "--workspaces=false", "--cache", path.join(directory, "npm-cache"), "--offline=false"];
   if (configPath) registryArgs.push("--userconfig", configPath);
-  const plan = [];
-  for (const [index, record] of records.entries()) {
-    const name = record.packageJson.name;
-    const version = record.packageJson.version;
-    const spec = `${name}@${version}`;
-    const destination = path.join(directory, String(index));
-    await mkdir(destination);
-    const packed = await npmJson(["pack", "--json", "--pack-destination", destination, ...registryArgs], { cwd: record.dir, env });
-    const candidate = packed?.[0];
-    if (packed?.length !== 1 || candidate?.name !== name || candidate?.version !== version ||
-        path.basename(candidate.filename || "") !== candidate.filename) {
-      throw new Error(`${spec}: npm pack returned an unexpected package.`);
-    }
-    const tarball = path.join(destination, candidate.filename);
-    const bytes = await readFile(tarball);
-    let metadata = await npmJson(["view", spec, "--json", "--prefer-online", ...registryArgs], {
+  const metadata = new Map();
+  const published = new Map();
+  const candidates = new Map();
+  const stats = { packed: 0, lookups: 0, downloaded: 0, packReused: 0, metadataReused: 0, downloadReused: 0, packMs: 0, lookupMs: 0, downloadMs: 0 };
+
+  async function version(record, selectedVersion = record.packageJson.version) {
+    const spec = `${record.name}@${selectedVersion}`;
+    if (metadata.has(spec)) { stats.metadataReused++; return metadata.get(spec); }
+    stats.lookups++;
+    const started = performance.now();
+    let value = await npmJson(["view", spec, "--json", "--prefer-online", ...registryArgs], {
       cwd: record.dir, env, allowMissing: true
     });
-    if (Array.isArray(metadata) && metadata.length === 1) [metadata] = metadata;
-    let state = "publish";
-    if (metadata !== null) {
-      if (metadata?.name !== name || metadata?.version !== version || !metadata?.dist?.integrity) {
-        throw new Error(`${spec}: registry returned invalid version metadata.`);
-      }
-      if (!matchesIntegrity(bytes, metadata.dist.integrity)) {
-        const publishedDirectory = path.join(destination, "published");
-        await mkdir(publishedDirectory);
-        const downloaded = await npmJson([
-          "pack", spec, "--json", "--ignore-scripts", "--prefer-online",
-          "--pack-destination", publishedDirectory, ...registryArgs
-        ], { cwd: record.dir, env });
-        const archive = downloaded?.[0];
-        if (downloaded?.length !== 1 || archive?.name !== name || archive?.version !== version ||
-            path.basename(archive.filename || "") !== archive.filename) {
-          throw new Error(`${spec}: npm downloaded an unexpected package.`);
-        }
-        const publishedTarball = path.join(publishedDirectory, archive.filename);
-        if (!matchesIntegrity(await readFile(publishedTarball), metadata.dist.integrity)) {
-          throw new Error(`${spec}: downloaded tarball does not match registry integrity.`);
-        }
-        const difference = await differingArchivePath(tarball, publishedTarball);
-        if (difference) throw new Error(`${spec}: published contents differ at ${difference}. Prepare a new version.`);
-      }
-      state = "skip";
+    stats.lookupMs += performance.now() - started;
+    if (Array.isArray(value) && value.length === 1) [value] = value;
+    if (value !== null && (value?.name !== record.name || value?.version !== selectedVersion || !value?.dist?.integrity || !value?.dist?.tarball)) {
+      throw new Error(`${spec}: registry returned invalid version metadata.`);
     }
+    metadata.set(spec, value);
+    return value;
+  }
+
+  async function versions(record) {
+    stats.lookups++;
+    const started = performance.now();
+    const value = await npmJson(["view", record.name, "--json", "--prefer-online", ...registryArgs], {
+      cwd: record.dir, env, allowMissing: true
+    });
+    stats.lookupMs += performance.now() - started;
+    const result = value === null ? [] : value.versions;
+    if (!Array.isArray(result) || result.some(item => typeof item !== "string" || !/^\d+\.\d+\.\d+(?:[-+].+)?$/u.test(item))) {
+      throw new Error(`${record.name}: registry returned invalid version history.`);
+    }
+    // The response carries a mutable tag's version, but reuse is keyed by its
+    // exact immutable identity. Current versions not in that response are read
+    // explicitly by version(); latest is never the comparison baseline.
+    if (value !== null) {
+      if (value.name !== record.name || !result.includes(value.version) || !value.dist?.integrity || !value.dist?.tarball) {
+        throw new Error(`${record.name}: registry returned invalid package metadata.`);
+      }
+      metadata.set(`${record.name}@${value.version}`, value);
+    }
+    return result;
+  }
+
+  function packedRecord(packed, record, destination) {
+    const candidate = packed?.[0];
+    if (packed?.length !== 1 || candidate?.name !== record.name || candidate?.version !== record.packageJson.version ||
+        !candidate.filename || path.basename(candidate.filename) !== candidate.filename) {
+      throw new Error(`${record.name}@${record.packageJson.version}: npm pack returned an unexpected package.`);
+    }
+    return path.join(destination, candidate.filename);
+  }
+
+  async function pack(record) {
+    const snapshot = await snapshotFiles(record.dir);
+    const previous = candidates.get(record.dir);
+    if (previous && sameSnapshot(previous.snapshot, snapshot)) { stats.packReused++; return previous.tarball; }
+    const destination = await mkdtemp(path.join(directory, "candidate-"));
+    const started = performance.now();
+    const packed = await npmJson(["pack", "--json", "--pack-destination", destination, ...registryArgs], { cwd: record.dir, env });
+    stats.packMs += performance.now() - started;
+    stats.packed++;
+    const tarball = packedRecord(packed, record, destination);
+    candidates.set(record.dir, { snapshot: await snapshotFiles(record.dir), tarball });
+    return tarball;
+  }
+
+  async function compare(record, tarball) {
+    const spec = `${record.name}@${record.packageJson.version}`;
+    const value = await version(record);
+    if (value === null) return { state: "publish", difference: "" };
+    if (matchesIntegrity(await readFile(tarball), value.dist.integrity)) return { state: "skip", difference: "" };
+    let baseline = published.get(spec);
+    if (!baseline) {
+      const destination = await mkdtemp(path.join(directory, "published-"));
+      const started = performance.now();
+      const downloaded = await npmJson([
+        "pack", value.dist.tarball, "--json", "--ignore-scripts", "--prefer-online",
+        "--pack-destination", destination, ...registryArgs
+      ], { cwd: record.dir, env });
+      const file = packedRecord(downloaded, record, destination);
+      if (!matchesIntegrity(await readFile(file), value.dist.integrity)) {
+        throw new Error(`${spec}: downloaded tarball does not match registry integrity.`);
+      }
+      baseline = await archiveContents(file);
+      published.set(spec, baseline);
+      stats.downloadMs += performance.now() - started;
+      stats.downloaded++;
+    } else stats.downloadReused++;
+    const candidate = await archiveContents(tarball);
+    const difference = [...new Set([...candidate.keys(), ...baseline.keys()])].sort()
+      .find(name => JSON.stringify(candidate.get(name)) !== JSON.stringify(baseline.get(name))) || "";
+    return { state: difference ? "conflict" : "skip", difference };
+  }
+
+  return { version, versions, pack, compare, stats };
+}
+
+async function planPublication(records, options) {
+  const inspection = options.inspection || createPublicationInspection(options);
+  const plan = [];
+  for (const record of records) {
+    const tarball = await inspection.pack(record);
+    const { state, difference } = await inspection.compare(record, tarball);
+    const { name, version } = record.packageJson;
+    if (state === "conflict") throw new Error(`${name}@${version}: published contents differ at ${difference}. Prepare a new version.`);
     plan.push({ name, version, tarball, state });
-    process.stdout.write(`${state === "skip" ? "Skip matching release" : "Publish new release"}: ${spec}\n`);
+    if (options.report !== false) process.stdout.write(`${state === "skip" ? "Skip matching release" : "Publish new release"}: ${name}@${version}\n`);
   }
   return plan;
 }
 
-export { planPublication };
+export { createPublicationInspection, planPublication, snapshotFiles };

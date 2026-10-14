@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
+import { snapshotFiles } from "./npm-publication.mjs";
 import {
   assertMainReleaseCheckout,
   bumpPatch,
@@ -195,12 +196,30 @@ test("publication checks later packages before uploading earlier absent versions
   assert.equal(existsSync(calls[0].config), false);
 });
 
+test("publication refuses newer registry releases discovered after preparation", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(1, { version: "1.0.1" });
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /@jskit-ai\/b: checkout version 1\.0\.0 is behind published 1\.0\.1/u);
+  assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
 test("publication accepts matching archive contents despite different tarball metadata", async t => {
   const f = await publicationFixture(t, "jskit");
   await f.published(0, { mtime: 2000 });
   await f.published(1, { mtime: 2000 });
   const result = f.run(["publish"]);
   assert.equal(result.status, 0, result.stderr);
+  assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
+test("publication verifies downloaded integrity before accepting equal archive contents", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0, { integrity: "sha512-AAAA" });
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /does not match registry integrity/u);
   assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
 });
 
@@ -240,4 +259,261 @@ test("empty registry metadata stops publication instead of implying absence", as
   assert.equal(result.status, 1);
   assert.match(result.stderr, /invalid JSON/u);
   assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
+async function publishFixtureBaseline(f) {
+  f.regenerate();
+  await f.syncLockfile();
+  for (let index = 0; index < f.packages.length; index++) await f.published(index);
+}
+
+async function fixtureVersions(f) {
+  return Object.fromEntries(await Promise.all(f.packages.map(async record => {
+    const manifest = JSON.parse(await readFile(path.join(record.dir, "package.json"), "utf8"));
+    return [record.name, manifest.version];
+  })));
+}
+
+test("selective preparation is a no-op for matching packages and excluded development changes", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await publishFixtureBaseline(f);
+  await writeFile(path.join(f.packages[0].dir, "excluded.test.js"), "test-only edit\n");
+  await writeFile(path.join(f.repo, "development.txt"), "root-only edit\n");
+  const before = await snapshotFiles(f.repo);
+  const status = f.git("status", "--porcelain").toString();
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /0\/2 packages need publication; 0 source\/generated files/u);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+  assert.equal(f.git("status", "--porcelain").toString(), status);
+  assert.deepEqual(await fixtureVersions(f), { "@jskit-ai/a": "1.0.0", "@jskit-ai/b": "1.0.0" });
+  assert.equal((await f.calls()).some(call => ["install", "publish"].includes(call.args[0])), false);
+});
+
+test("a publishable source change propagates through all exact dependency fields and packaged examples", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const c = await f.addPackage("@jskit-ai/c", { dependencies: { "@jskit-ai/b": "1.0.0" } });
+  const independent = await f.addPackage("@jskit-ai/independent");
+  for (const field of ["devDependencies", "peerDependencies", "optionalDependencies"]) {
+    await f.addPackage(`@jskit-ai/${field.toLowerCase()}`, { [field]: { "@jskit-ai/a": "1.0.0" } });
+  }
+  const example = await f.addPackage("@jskit-ai/example", { files: ["index.js", "examples"] });
+  const exampleManifest = path.join(f.packages[example].dir, "examples/sample/package.json");
+  await mkdir(path.dirname(exampleManifest), { recursive: true });
+  await writeFile(exampleManifest, '{"dependencies":{"@jskit-ai/a":"1.0.0"}}\n');
+  await publishFixtureBaseline(f);
+  await writeFile(path.join(f.packages[0].dir, "index.js"), "export const value = 2;\n");
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  const versions = await fixtureVersions(f);
+  for (const record of f.packages) assert.equal(versions[record.name], record === f.packages[independent] ? "1.0.0" : "1.0.1");
+  const manifest = JSON.parse(await readFile(path.join(f.packages[c].dir, "package.json"), "utf8"));
+  assert.equal(manifest.dependencies["@jskit-ai/b"], "1.0.1");
+  assert.equal(JSON.parse(await readFile(exampleManifest, "utf8")).dependencies["@jskit-ai/a"], "1.0.1");
+  assert.match(result.stdout, /@jskit-ai\/a@1\.0\.0 -> 1\.0\.1 \(direct content change\)/u);
+  assert.match(result.stdout, /@jskit-ai\/b@1\.0\.0 -> 1\.0\.1 \(dependency update\)/u);
+  const after = await snapshotFiles(f.repo);
+  const repeat = f.run(["prepare"]);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.deepEqual(await snapshotFiles(f.repo), after);
+  assert.deepEqual(await fixtureVersions(f), versions);
+  assert.match(repeat.stdout, /Keep unpublished: @jskit-ai\/a@1\.0\.1/u);
+});
+
+test("included README and ignored built output count as changes; a sibling remains unchanged", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const independent = await f.addPackage("@jskit-ai/independent");
+  const built = await f.addPackage("@jskit-ai/built", { files: ["index.js", "dist"] });
+  const dir = f.packages[built].dir;
+  await mkdir(path.join(dir, "dist"));
+  await writeFile(path.join(dir, ".gitignore"), "dist/\n");
+  await writeFile(path.join(dir, "dist/runtime.js"), "export const built = 1;\n");
+  await writeFile(path.join(f.packages[1].dir, "README.md"), "Original guide.\n");
+  await publishFixtureBaseline(f);
+  await writeFile(path.join(f.packages[1].dir, "README.md"), "Changed included guide.\n");
+  await writeFile(path.join(dir, "dist/runtime.js"), "export const built = 2;\n");
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  const versions = await fixtureVersions(f);
+  assert.equal(versions[f.packages[0].name], "1.0.0");
+  assert.equal(versions[f.packages[1].name], "1.0.1");
+  assert.equal(versions[f.packages[built].name], "1.0.1");
+  assert.equal(versions[f.packages[independent].name], "1.0.0");
+});
+
+test("catalog self-version and generated docs converge with the final mixed graph", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const docs = await f.addPackage("@jskit-ai/agent-docs", { files: ["reference", "guide", "skills", "templates", "patterns"] });
+  const catalog = await f.addPackage("@jskit-ai/jskit-catalog", { files: ["catalog", "scripts"] });
+  const independent = await f.addPackage("@jskit-ai/independent");
+  const pattern = path.join(f.packages[docs].dir, "patterns/sample");
+  await mkdir(path.join(pattern, "example"), { recursive: true });
+  await writeFile(path.join(pattern, "PATTERN.md"), "---\nid: app/sample\ntitle: Fixture sample\nsummary: A release fixture.\nkeywords: fixture\nrequires: @jskit-ai/a\n---\n# Fixture sample\n" +
+    ["Use when", "Do not use when", "Product decisions", "Invariants", "Framework APIs", "Example files", "Variation points", "Verification", "Avoid"]
+      .map(heading => `\n## ${heading}\n\nFixture explanation.\n`).join(""));
+  await writeFile(path.join(pattern, "example/package.json"), '{"dependencies":{"@jskit-ai/a":"1.0.0"}}\n');
+  await publishFixtureBaseline(f);
+  await writeFile(path.join(f.packages[0].dir, "index.js"), "export function changedPublicApi() {}\n");
+  const status = f.git("status", "--porcelain").toString();
+  const before = await snapshotFiles(f.repo);
+  const dry = f.run(["prepare", "--dry-run"]);
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+  assert.equal(f.git("status", "--porcelain").toString(), status);
+  const real = f.run(["prepare"]);
+  assert.equal(real.status, 0, real.stderr);
+  const summary = text => text.split("\n").filter(line => /^(Keep published|Keep unpublished|New version):/u.test(line));
+  assert.deepEqual(summary(dry.stdout), summary(real.stdout));
+  const versions = await fixtureVersions(f);
+  assert.equal(versions[f.packages[docs].name], "1.0.1");
+  assert.equal(versions[f.packages[catalog].name], "1.0.1");
+  assert.equal(versions[f.packages[independent].name], "1.0.0");
+  const generated = JSON.parse(await readFile(path.join(f.packages[catalog].dir, "catalog/packages.json"), "utf8"));
+  assert.deepEqual(generated.release.packages, versions);
+  const patternIndex = await readFile(path.join(f.packages[docs].dir, "reference/autogen/PATTERN_INDEX.md"), "utf8");
+  assert.match(patternIndex, /Owner: `@jskit-ai\/agent-docs@1\.0\.1`/u);
+  const bundledExample = path.join(f.packages[docs].dir, "skills/jskit/references/patterns/app/sample/example/package.json");
+  assert.equal(JSON.parse(await readFile(bundledExample, "utf8")).dependencies["@jskit-ai/a"], "1.0.1");
+  assert.match(real.stdout, /generated artifact change/u);
+  const after = await snapshotFiles(f.repo);
+  f.regenerate();
+  assert.deepEqual(await snapshotFiles(f.repo), after);
+  const repeat = f.run(["prepare"]);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.deepEqual(await snapshotFiles(f.repo), after);
+});
+
+test("generation repairs stale outputs before deciding versions, without creating a false release", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const catalog = await f.addPackage("@jskit-ai/jskit-catalog", { files: ["catalog", "scripts"] });
+  await publishFixtureBaseline(f);
+  const output = path.join(f.packages[catalog].dir, "catalog/packages.json");
+  const original = await readFile(output, "utf8");
+  await writeFile(output, '{"stale":true}\n');
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /0\/3 packages need publication/u);
+  assert.equal(await readFile(output, "utf8"), original);
+  assert.equal((await fixtureVersions(f))[f.packages[catalog].name], "1.0.0");
+  assert.equal((await f.calls()).some(call => call.args[0] === "install"), false);
+});
+
+test("preparation retains unpublished versions for both existing and never-published packages", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0, { version: "0.9.9" });
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(await fixtureVersions(f), { "@jskit-ai/a": "1.0.0", "@jskit-ai/b": "1.0.0" });
+  assert.match(result.stdout, /Keep unpublished: @jskit-ai\/a@1\.0\.0/u);
+  const after = await snapshotFiles(f.repo);
+  const repeat = f.run(["prepare"]);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.deepEqual(await snapshotFiles(f.repo), after);
+});
+
+test("repeating preparation repairs a failed lockfile refresh without bumping prepared versions", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await publishFixtureBaseline(f);
+  await writeFile(path.join(f.packages[0].dir, "index.js"), "export const value = 2;\n");
+  const partial = f.run(["prepare"], { RELEASE_TEST_FAIL: "install" });
+  assert.equal(partial.status, 1);
+  const prepared = await fixtureVersions(f);
+  assert.equal(prepared["@jskit-ai/a"], "1.0.1");
+  const retry = f.run(["prepare"]);
+  assert.equal(retry.status, 0, retry.stderr);
+  assert.deepEqual(await fixtureVersions(f), prepared);
+  const lock = JSON.parse(await readFile(path.join(f.repo, "package-lock.json"), "utf8"));
+  assert.equal(lock.packages["packages/a"].version, "1.0.1");
+  assert.equal(lock.packages["packages/b"].dependencies["@jskit-ai/a"], "1.0.1");
+  const installCount = (await f.calls()).filter(call => call.args[0] === "install").length;
+  const before = await snapshotFiles(f.repo);
+  assert.equal(f.run(["prepare"]).status, 0);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+  assert.equal((await f.calls()).filter(call => call.args[0] === "install").length, installCount);
+});
+
+test("preparation refuses a checkout behind npm, including an occupied patch version", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0);
+  await f.published(0, { version: "1.0.1" });
+  const before = await snapshotFiles(f.repo);
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /checkout version 1\.0\.0 is behind published 1\.0\.1.*Update the checkout/u);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+  assert.equal((await f.calls()).some(call => ["install", "publish"].includes(call.args[0])), false);
+});
+
+test("preparation also refuses an occupied next version absent from earlier version history", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0, { version: "1.0.1" });
+  await f.published(0);
+  await writeFile(path.join(f.packages[0].dir, "index.js"), "export const value = 2;\n");
+  const before = await snapshotFiles(f.repo);
+  const result = f.run(["prepare"], { RELEASE_TEST_HIDE_VERSION: "1.0.1" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /chosen next version 1\.0\.1 is already published/u);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+});
+
+test("the current exact version remains the comparison anchor when latest points elsewhere", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0);
+  await f.published(0, { version: "0.9.9", content: "export const value = 0;\n" });
+  await f.published(1);
+  const before = await snapshotFiles(f.repo);
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /0\/2 packages need publication/u);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+});
+
+test("preparation fails on registry errors without modifying the checkout", async t => {
+  for (const code of ["E401", "E403", "E429", "E503", "ENOTFOUND"]) {
+    await t.test(code, async t => {
+      const f = await publicationFixture(t, "jskit");
+      const before = await snapshotFiles(f.repo);
+      const result = f.run(["prepare"], { RELEASE_TEST_FAIL: "view", RELEASE_TEST_CODE: code });
+      assert.equal(result.status, 1);
+      assert.match(result.stderr, /Registry state is unknown/u);
+      assert.deepEqual(await snapshotFiles(f.repo), before);
+    });
+  }
+});
+
+test("preparation ignores archive metadata differences and reuses package comparisons", async t => {
+  const f = await publicationFixture(t, "jskit");
+  for (let index = 0; index < f.packages.length; index++) await f.published(index, { mtime: 2000 });
+  const before = await snapshotFiles(f.repo);
+  const result = f.run(["prepare"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /0\/2 packages need publication/u);
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+  const calls = await f.calls();
+  assert.equal(calls.filter(call => call.args[0] === "pack" && call.args[1].startsWith("--")).length, 2);
+  assert.equal(calls.filter(call => call.args[0] === "pack" && !call.args[1].startsWith("--")).length, 2);
+});
+
+test("selectively prepared publication resumes after partial success and becomes a no-op", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const independent = await f.addPackage("@jskit-ai/independent");
+  await publishFixtureBaseline(f);
+  await writeFile(path.join(f.packages[0].dir, "index.js"), "export const value = 2;\n");
+  const prepared = f.run(["prepare"]);
+  assert.equal(prepared.status, 0, prepared.stderr);
+  assert.equal((await fixtureVersions(f))[f.packages[independent].name], "1.0.0");
+  f.git("add", "."); f.git("commit", "-m", "Prepared release"); f.git("push", "origin", "main");
+  const partial = f.run(["publish"], { RELEASE_TEST_FAIL_UPLOAD: "2" });
+  assert.equal(partial.status, 1);
+  const retry = f.run(["publish"]);
+  assert.equal(retry.status, 0, retry.stderr);
+  assert.match(retry.stdout, /Skip matching release: @jskit-ai\/a@1\.0\.1/u);
+  assert.match(retry.stdout, /Publish new release: @jskit-ai\/b@1\.0\.1/u);
+  const afterSuccess = (await f.calls()).filter(call => call.args[0] === "publish").length;
+  const repeated = f.run(["publish"]);
+  assert.equal(repeated.status, 0, repeated.stderr);
+  assert.equal((await f.calls()).filter(call => call.args[0] === "publish").length, afterSuccess);
+  const finalPreparation = f.run(["prepare"]);
+  assert.equal(finalPreparation.status, 0, finalPreparation.stderr);
+  assert.match(finalPreparation.stdout, /0\/3 packages need publication/u);
 });
