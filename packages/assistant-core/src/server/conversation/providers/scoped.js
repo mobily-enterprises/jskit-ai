@@ -107,12 +107,48 @@ function streamMessage({ sessionId, store, projection, publish }, context, recor
   }).catch(() => {});
 }
 
+// Saved transcript projection is also used while a host's source lease is busy.
+// Keep provider observation and transcript writes in readPersistentConversation.
+async function projectPersistentConversation(options, context, record, response, turns) {
+  const { sessionId, store, projection, receipts, includeAccess = false, transcriptQuery } = options;
+  const scope = { sessionId, conversationId: record.conversationId };
+  const messages = turns.flatMap((turn) => turn.messages.map((message) => ({
+    ...message,
+    id: message.messageId || `${turn.turnId}:${message.role}:${message.at}`,
+    ...(message.role === "user" ? { attachments: turn.user?.attachments || [] } : {}),
+    ...(message.role === "user" && !receipts.persisted(turn) &&
+      !(response.admitted === true && message.messageId === record.messageId) ? { receipt: false } : {}),
+    status: "completed",
+    ...projection.messageMetadata(turn)
+  })));
+  for (const message of response.messages || []) {
+    if (message.complete === false && !messages.some((saved) => saved.id === message.id)) {
+      const projected = projection.message(message, record, "incomplete");
+      if (projected) messages.push({ ...projected, status: response.status });
+    }
+  }
+  return projection.snapshot({ context, record, response, messages, includeAccess,
+    readPage: transcriptQuery ? async () => {
+      const page = await store.readConversationLogPage(scope, transcriptQuery);
+      return { ...page, conversationLog: qualifyTranscript(page.conversationLog, record, response, receipts) };
+    } : null
+  });
+}
+
+export async function projectStoredPersistentConversation(options) {
+  const { sessionId, store, record, projection } = options;
+  const context = projection.context(options.context, record);
+  const turns = await store.readConversationLog({ sessionId, conversationId: record.conversationId });
+  return projectPersistentConversation(options, context, record, {
+    status: record.status, runId: record.runId, error: record.error
+  }, turns);
+}
+
 // These original persistent-conversation operations run inside the host's
 // existing write lease. Their record, transcript and native operations are the
 // same facilities used by its retained conversation; no state is copied here.
 export async function readPersistentConversation(options) {
-  const { sessionId, operations, store, records, projection, receipts, publish,
-    includeAccess = false, transcriptQuery } = options;
+  const { sessionId, operations, store, records, projection, receipts, publish } = options;
   let { record } = options;
   const context = projection.context(options.context, record);
   const scope = { sessionId, conversationId: record.conversationId };
@@ -154,27 +190,7 @@ export async function readPersistentConversation(options) {
       store.readConversationStream(scope).messages.length) {
     await publish(context, record.conversationId, { payload: { conversationStream: store.clearConversationStream(scope) } });
   }
-  const messages = turns.flatMap((turn) => turn.messages.map((message) => ({
-    ...message,
-    id: message.messageId || `${turn.turnId}:${message.role}:${message.at}`,
-    ...(message.role === "user" ? { attachments: turn.user?.attachments || [] } : {}),
-    ...(message.role === "user" && !receipts.persisted(turn) &&
-      !(response.admitted === true && message.messageId === record.messageId) ? { receipt: false } : {}),
-    status: "completed",
-    ...projection.messageMetadata(turn)
-  })));
-  for (const message of response.messages || []) {
-    if (message.complete === false && !messages.some((saved) => saved.id === message.id)) {
-      const projected = projection.message(message, record, "incomplete");
-      if (projected) messages.push({ ...projected, status: response.status });
-    }
-  }
-  return projection.snapshot({ context, record, response, messages, includeAccess,
-    readPage: transcriptQuery ? async () => {
-      const page = await store.readConversationLogPage(scope, transcriptQuery);
-      return { ...page, conversationLog: qualifyTranscript(page.conversationLog, record, response, receipts) };
-    } : null
-  });
+  return projectPersistentConversation(options, context, record, response, turns);
 }
 
 export async function startPersistentConversationTurn(options) {

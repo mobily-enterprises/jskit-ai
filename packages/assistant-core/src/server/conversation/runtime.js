@@ -1,7 +1,7 @@
 import { createConversationProviderFactory } from "./provider.js";
 import { createConversationDeliveryTiming } from "./deliveryTiming.js";
 import { normalizeConversationConfiguration } from "./configuration.js";
-import { runScopedConversationTurn, readPersistentConversation, startPersistentConversationTurn,
+import { runScopedConversationTurn, readPersistentConversation, projectStoredPersistentConversation, startPersistentConversationTurn,
   inspectPersistentConversationAdmission, preparePersistentConversationChangeover,
   inspectPersistentConversationDelivery, stopPersistentConversation, deletePersistentConversation } from "./providers/scoped.js";
 import { isDeepStrictEqual } from "node:util";
@@ -2186,6 +2186,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   return Object.freeze({
     // Internal host composition uses its existing admission/write lease. These
     // original coordinators share the scoped owner and introduce no entry or queue.
+    async projectStoredPersistentConversation(options) {
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed");
+      return projectStoredPersistentConversation(options);
+    },
     async readPersistentConversation(options) {
       if (closed) throw failure("This conversation runtime is closed.", "conversation_closed");
       return readPersistentConversation(options);

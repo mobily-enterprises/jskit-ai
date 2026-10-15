@@ -3,7 +3,7 @@ import test from "node:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createConversationHookBridge } from "../src/server/conversation/index.js";
+import { createConversationHookBridge, createConversationRuntime } from "../src/server/conversation/index.js";
 import { createClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
 import { createCodexConversationAdapter } from "../src/server/conversation/providers/codex.js";
 import { createOpenCodeConversationAdapter } from "../src/server/conversation/providers/opencode.js";
@@ -28,6 +28,36 @@ function claudeHost() {
 }
 const claudeInput = { systemPrompt: "Use the calendar tools.", contextIdentity: "calendar/model-one",
   model: "one", settings: { effortLevel: "high" }, liveUpdateIdentity: "calendar-schema" };
+
+test("saved persistent history projects receipts and pages without native observation or writes", async () => {
+  const runtime = createConversationRuntime({ authorize: async () => true, host: { conversation: () => ({}) } });
+  const turn = { turnId: "turn-1", user: { messageId: "user-1", attachments: [] },
+    messages: [{ role: "user", messageId: "user-1", text: "Saved draft", at: "2026-01-01T00:00:00Z" }] };
+  const calls = [];
+  const options = {
+    sessionId: "session-1", record: { conversationId: "chat-1", status: "starting", runId: "run-1", messageId: "user-1" },
+    context: { actor: "owner" }, includeAccess: true, transcriptQuery: { limit: 10 },
+    store: {
+      async readConversationLog(scope) { calls.push(["log", scope]); return [turn]; },
+      async readConversationLogPage(scope, query) { calls.push(["page", scope, query]); return { conversationLog: [turn], pagination: { more: false } }; }
+    },
+    operations: new Proxy({}, { get() { throw new Error("native operation must not run"); } }),
+    receipts: { persisted: () => false },
+    projection: {
+      context: (context) => context,
+      messageMetadata: () => ({}),
+      async snapshot(input) { return { ...input, page: await input.readPage() }; }
+    }
+  };
+  const result = await runtime.projectStoredPersistentConversation(options);
+  assert.equal(result.includeAccess, true);
+  assert.equal(result.response.status, "starting");
+  assert.equal(result.messages[0].receipt, false);
+  assert.equal(result.page.conversationLog[0].user.receipt, false);
+  assert.deepEqual(calls.map(([kind]) => kind), ["log", "page"]);
+  await runtime.close();
+  await assert.rejects(runtime.projectStoredPersistentConversation(options), { code: "conversation_closed" });
+});
 
 test("a standalone Claude consumer reuses, updates and replaces processes without changing native history", async () => {
   const f = claudeHost();
