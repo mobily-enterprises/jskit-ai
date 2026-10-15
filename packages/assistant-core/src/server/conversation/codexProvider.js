@@ -1320,6 +1320,7 @@ export class CodexAppServerAgentProvider {
     this.connectPromise = null;
     this.connectionGeneration = 0;
     this.notificationSubscribers = new Set();
+    this.settingsWaiters = new Set();
     this.helperAuth = null;
     this.helperAuthBlocked = false;
     this.initializeResult = null;
@@ -1335,7 +1336,7 @@ export class CodexAppServerAgentProvider {
       runRequest: (run, reason) => this.runRequest(run, reason),
       timeoutMs: options.threadControlTimeoutMs,
       environment: options.threadEnv,
-      prepareEnvironment: (environment) => this.options.prepareThreadEnvironment(environment),
+      prepareEnvironment: (environment) => this.options.prepareThreadEnvironment?.(environment) || environment,
       prepareParameters: (params) => this.options.prepareThreadParams?.(params),
       prepareResume: (id, params, context) => this.options.prepareThreadResumeParams?.(id, params, context),
       beforeResume: (id) => this.options.beforeResumeThread?.(id),
@@ -1353,6 +1354,7 @@ export class CodexAppServerAgentProvider {
           for (const pending of probe.pending) this.publishNotification(pending);
         }
       },
+      publishGoal: (threadId, goal) => this.publishNotification({ method: "thread/goal/updated", params: { threadId, goal } }),
       log: (event, fields, context) => host.log?.(event, fields, {
         ...context, connectionGeneration: this.connectionGeneration
       })
@@ -1707,7 +1709,10 @@ export class CodexAppServerAgentProvider {
     const client = new CodexAppServerJsonRpcClient({
       endpoint: runtime.endpoint,
       onDisconnect: (error) => {
-        if (this.client === client) this.failObservation(error);
+        if (this.client === client) {
+          for (const reject of this.settingsWaiters) reject(error);
+          this.failObservation(error);
+        }
       },
       ...(this.isHelperProvider()
         ? { maxMessageBytes: CODEX_APP_SERVER_HELPER_MAX_MESSAGE_BYTES }
@@ -1793,6 +1798,10 @@ export class CodexAppServerAgentProvider {
 
   publishNotification(notification) {
     const threadId = notification.params?.threadId;
+    if (notification.method === "thread/goal/updated") {
+      notification = { ...notification, params: { ...notification.params,
+        goal: this.conversationRuntime.projectGoal(threadId, notification.params.goal) } };
+    }
     const turnId = notification.params?.turnId;
     const item = notification.params?.item;
     if (item?.type === "commandExecution" && item.processId && item.source === "unifiedExecStartup") {
@@ -2209,10 +2218,63 @@ export class CodexAppServerAgentProvider {
 
   async readGoal(threadId = "", { signal } = {}) {
     const client = await this.activeClient();
-    return this.runRequest(
+    const result = await this.runRequest(
       () => client.request("thread/goal/get", { threadId: normalizeAgentText(threadId) }, { signal }),
       "codex-app-server-goal-read"
     );
+    return { ...result, goal: this.conversationRuntime.projectGoal(threadId, result.goal) };
+  }
+
+  async updateThreadSettings(threadId, { model, effort } = {}, { signal } = {}) {
+    if (!normalizeAgentText(threadId) || !normalizeAgentText(model)) {
+      throw new TypeError("Codex settings require an existing thread and a model.");
+    }
+    const client = await this.activeClient();
+    threadId = normalizeAgentText(threadId);
+    const requested = { model, effort, ...(effort ? { config: { model_reasoning_effort: effort } } : {}) };
+    const params = await this.options.prepareThreadParams?.(requested) || requested;
+    const update = async selected => {
+      const current = await this.activeClient();
+      const applied = Promise.withResolvers();
+      // A successful RPC only queues the update. Observe its applied snapshot
+      // before resuming a goal or accepting a dependent settings operation.
+      const deadline = AbortSignal.any([AbortSignal.timeout(this.options.requestTimeoutMs || 10_000), ...(signal ? [signal] : [])]);
+      const abort = () => applied.reject(deadline.reason);
+      const unsubscribe = current.subscribe(notification => {
+        const settings = notification.params?.threadSettings;
+        if (notification.method === "thread/settings/updated" && notification.params?.threadId === threadId &&
+            settings?.model === selected.model && (!selected.effort || settings.effort === selected.effort)) applied.resolve();
+      });
+      this.settingsWaiters.add(applied.reject);
+      deadline.addEventListener("abort", abort, { once: true });
+      void applied.promise.catch(() => {});
+      try {
+        deadline.throwIfAborted();
+        const { thread } = await this.runRequest(() => current.request("thread/read", {
+          threadId, includeTurns: false
+        }, { signal: deadline }), "codex-app-server-settings-read");
+        // Native no-op updates may emit no settings event. A current snapshot
+        // also confirms values already applied by the provider reload.
+        if (thread?.model === selected.model && (!selected.effort || thread.reasoningEffort === selected.effort) &&
+            (!selected.modelProvider || thread.modelProvider === selected.modelProvider)) return {};
+        const result = await this.runRequest(() => current.request("thread/settings/update", {
+          threadId, model: selected.model, ...(selected.effort ? { effort: selected.effort } : {})
+        }, { signal: deadline }), "codex-app-server-settings-update");
+        await applied.promise;
+        return result;
+      } finally {
+        unsubscribe();
+        deadline.removeEventListener("abort", abort);
+        this.settingsWaiters.delete(applied.reject);
+      }
+    };
+    if (params.modelProvider || this.conversationRuntime.hasPendingSettings(threadId)) {
+      const { thread } = await client.request("thread/read", { threadId, includeTurns: false }, { signal });
+      if (params.modelProvider !== thread?.modelProvider || this.conversationRuntime.hasPendingSettings(threadId)) {
+        return this.conversationRuntime.scheduleSettings(threadId, params, update);
+      }
+    }
+    return update(params);
   }
 
   async setGoal(threadId, { objective, tokenBudget } = {}, { signal } = {}) {
@@ -2752,6 +2814,8 @@ export class CodexAppServerAgentProvider {
 
   close() {
     this.options.onClose?.();
+    for (const reject of this.settingsWaiters) reject(new Error("The assistant connection closed before confirming its settings."));
+    this.settingsWaiters.clear();
     this.conversationRuntime.close();
     this.threadControlProbes.clear();
     this.commandExecutions.clear();

@@ -1236,3 +1236,51 @@ for (const text of ["abc", "abcd"]) {
     if (text.length > 3) assert.match(result.error, /final reply limit/);
   });
 }
+
+test("native settings authorize their scope and reject replaced or closed host preparation", async t => {
+  const context = { actor: { id: "owner" } };
+  const nativeContext = { sessionId: "settings-scope", authorized: true };
+  const input = { threadId: "owned-thread", model: "next-model", effort: "high" };
+  let allowed = false, hostCalls = 0, acquisitions = 0, updates = 0;
+  let scope = "settings-scope", gate;
+  const owner = {
+    async acquire(prepared, threadId) {
+      assert.equal(prepared, nativeContext);
+      assert.equal(threadId, input.threadId);
+      acquisitions += 1;
+      return { process: {} };
+    },
+    async ensureProcess() { updates += 1; }
+  };
+  const runtime = createConversationRuntime({
+    authorize: request => allowed && request.context === context &&
+      request.conversationId === "settings-scope" && request.operation === "configure",
+    host: { async conversation(request) {
+      hostCalls += 1;
+      assert.deepEqual(request, { id: "settings-scope", context, input, operation: "updateSettings" });
+      if (gate) { gate.entered.resolve(); await gate.finished.promise; }
+      return { sessionId: scope, engine: "claude", native: { owner }, context: nativeContext };
+    } }
+  });
+  t.after(() => runtime.close());
+  const request = { id: "settings-scope", context, input,
+    get native() { assert.fail("The caller cannot select a native owner"); },
+    get engine() { assert.fail("The caller cannot select an engine"); } };
+  await assert.rejects(runtime.updateNativeConversationSettings(request), { code: "conversation_forbidden" });
+  assert.deepEqual([hostCalls, acquisitions, updates], [0, 0, 0]);
+  allowed = true;
+  scope = "another-scope";
+  await assert.rejects(runtime.updateNativeConversationSettings(request), /authorized host preparation/);
+  assert.deepEqual([acquisitions, updates], [0, 0]);
+  scope = "settings-scope";
+  assert.deepEqual(await runtime.updateNativeConversationSettings(request), { ok: true });
+  assert.deepEqual([acquisitions, updates], [1, 1]);
+  gate = { entered: Promise.withResolvers(), finished: Promise.withResolvers() };
+  const pending = runtime.updateNativeConversationSettings(request);
+  await gate.entered.promise;
+  await runtime.close();
+  gate.finished.resolve();
+  await assert.rejects(pending, { code: "conversation_closed" });
+  await assert.rejects(runtime.updateNativeConversationSettings(request), { code: "conversation_closed" });
+  assert.deepEqual([acquisitions, updates], [1, 1]);
+});

@@ -220,10 +220,17 @@ export function claudeCatalogueModels(initialization) {
 export function createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false }) {
   const error = message => Object.assign(new Error(message), { code: "claude_account_query_failed" });
   const accountProcessStops = new Set();
+  const accountReads = new Set();
   let catalog;
-  let catalogStart;
+  const catalogStarts = new Map();
   let planUsage;
-  let planUsagePending;
+  const planUsagePending = new Map();
+  let revision = 0;
+
+  function assertCurrent(expectedRevision) {
+    if (expectedRevision !== revision) throw error("Claude account query was cancelled for reconnection.");
+    if (isClosing()) throw error("Claude is reconnecting.");
+  }
 
   async function stopAccountProcess(native) {
     accountProcessStops.add(native);
@@ -231,50 +238,73 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
     accountProcessStops.delete(native);
   }
 
-  async function readAccountProcess(identity, read) {
-    if (isClosing()) throw error("Claude is reconnecting.");
+  async function readAccountProcess(identity, expectedRevision, read) {
+    assertCurrent(expectedRevision);
     for (const native of accountProcessStops) await stopAccountProcess(native);
+    assertCurrent(expectedRevision);
     const owned = [...processes()].find((entry) =>
       entry.process && !entry.stopping && entry.accountIdentity === identity);
-    if (owned) return read(owned.process);
-    const native = await createProcess();
+    const controller = new AbortController();
+    accountReads.add(controller);
+    const cancelled = Promise.withResolvers();
+    const abort = () => cancelled.reject(controller.signal.reason);
+    controller.signal.addEventListener("abort", abort, { once: true });
+    // Startup owns its abort and exit proof before it can return a process.
+    // Observe cancellation while awaiting that factory as well.
+    cancelled.promise.catch(() => {});
+    let native;
     try {
-      return await read(native);
+      native = owned?.process || await createProcess({ signal: controller.signal });
+      controller.signal.throwIfAborted();
+      return await Promise.race([read(native), cancelled.promise]);
     } finally {
-      await stopAccountProcess(native);
+      accountReads.delete(controller);
+      controller.signal.removeEventListener("abort", abort);
+      if (native && !owned) await stopAccountProcess(native);
     }
   }
 
   return Object.freeze({
     async readCatalogue(context) {
-      if (isClosing()) throw error("Claude is reconnecting.");
+      const expectedRevision = revision;
+      assertCurrent(expectedRevision);
       const identity = await accountIdentity(context);
+      assertCurrent(expectedRevision);
       if (!catalog || catalog.identity !== identity || Date.now() - catalog.at > 600_000) {
-        catalogStart ||= (async () => {
-          const value = await readAccountProcess(identity, (native) => native.initialization);
+        if (!catalogStarts.has(identity)) catalogStarts.set(identity, (async () => {
+          const value = await readAccountProcess(identity, expectedRevision, (native) => native.initialization);
           if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
+          assertCurrent(expectedRevision);
           catalog = { at: Date.now(), identity, value };
-        })().finally(() => { catalogStart = null; });
-        await catalogStart;
+          return value;
+        })().finally(() => { catalogStarts.delete(identity); }));
+        return catalogStarts.get(identity);
       }
       return catalog.value;
     },
     async readPlanUsage(context) {
+      const expectedRevision = revision;
+      assertCurrent(expectedRevision);
       const identity = await accountIdentity(context);
+      assertCurrent(expectedRevision);
       if (planUsage?.identity === identity && Date.now() - planUsage.checkedAt < 60_000) return planUsage;
-      if (planUsagePending) return planUsagePending;
-      planUsagePending = (async () => {
-        const value = await readAccountProcess(identity, (native) => native.client.request(
+      if (planUsagePending.has(identity)) return planUsagePending.get(identity);
+      const pending = (async () => {
+        const value = await readAccountProcess(identity, expectedRevision, (native) => native.client.request(
           { subtype: "get_usage", skip_behaviors: true }));
         if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
+        assertCurrent(expectedRevision);
         planUsage = { ...claudePlanUsage(value), identity };
         return planUsage;
-      })().finally(() => { planUsagePending = null; });
-      return planUsagePending;
+      })().finally(() => { planUsagePending.delete(identity); });
+      planUsagePending.set(identity, pending);
+      return pending;
     },
     invalidateUsage() { planUsage = null; },
     async invalidate() {
-      await Promise.allSettled([catalogStart, planUsagePending]);
+      revision++;
+      for (const controller of accountReads) controller.abort(error("Claude account query was cancelled for reconnection."));
+      await Promise.allSettled([...catalogStarts.values(), ...planUsagePending.values()]);
       catalog = null;
       planUsage = null;
       for (const native of accountProcessStops) await stopAccountProcess(native);
@@ -313,7 +343,8 @@ export async function createClaudeCodeProcess({
       env: environment, stream: true, limits: executionLimits });
     await onStarted?.(native.id, stop);
     signal?.throwIfAborted();
-    client = createClaudeJsonClient({ stream: Duplex.from({ readable: native.stdout, writable: native.stdin }), onEvent, onFailure,
+    const stream = Duplex.from({ readable: native.stdout, writable: native.stdin });
+    client = createClaudeJsonClient({ stream, onEvent, onFailure,
       onControlRequest(request, context) {
         if (request.subtype === "hook_callback" && commandWrapper && request.callback_id === "jskit-command-wrapper") {
           return nativeCommandHook(commandWrapper, request.input);
@@ -334,6 +365,15 @@ export async function createClaudeCodeProcess({
         });
       })
     ]) : initializing);
+    // Children can retain stdout after the parent exits. Keep observing the
+    // execution receipt after startup instead of waiting forever for pipe EOF.
+    if (native.exited) void native.exited.then(processExit => {
+      if (!stopped && !stopping) stream.destroy(Object.assign(new Error("Claude exited unexpectedly."), {
+        code: "assistant_claude_observation_lost", processExit
+      }));
+    }, error => {
+      if (!stopped && !stopping) stream.destroy(error);
+    });
     return { client, initialization, executionId: native.id, stop };
   } catch (error) {
     // A rejected start may already own an execution and its cleanup proof.

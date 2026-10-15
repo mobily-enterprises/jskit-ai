@@ -9,6 +9,7 @@ export function createClaudeConversationAdapter({ getProcess, isActive, startPro
   let pending = Promise.resolve();
   let updateIdentity;
   let installedMode;
+  let installedPrompt;
 
   function instructionArguments({ systemPrompt, instructionMode = "append" }) {
     if (typeof systemPrompt !== "string" || !systemPrompt.trim()) throw new TypeError("Claude instructions must contain text.");
@@ -27,7 +28,9 @@ export function createClaudeConversationAdapter({ getProcess, isActive, startPro
       const instructionMode = input.instructionMode || "append";
       const contextIdentity = JSON.stringify([input.contextIdentity, instructionMode]);
       if (!getProcess()) instructions.invalidate();
-      if (getProcess() && isActive() && !instructions.isCurrent({ systemPrompt, contextIdentity })) {
+      const canUpdate = getProcess() && installedPrompt === systemPrompt && installedMode === instructionMode &&
+        liveUpdateIdentity !== undefined && updateIdentity === liveUpdateIdentity;
+      if (getProcess() && isActive() && !canUpdate && !instructions.isCurrent({ systemPrompt, contextIdentity })) {
         throw new Error("Stop the current Claude turn before changing its settings.");
       }
       return instructions.ensure({
@@ -51,6 +54,7 @@ export function createClaudeConversationAdapter({ getProcess, isActive, startPro
           }
           updateIdentity = liveUpdateIdentity;
           installedMode = instructionMode;
+          installedPrompt = systemPrompt;
           return native;
         }
       });

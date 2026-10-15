@@ -205,7 +205,7 @@ test("Codex goal controls preserve native scheduling without authored command me
   const state = await f.conversation.read();
   assert.deepEqual(state.capabilities.goalCommands, {
     set: { delivery: "control", interruptsTurn: false }, resume: { delivery: "control", interruptsTurn: false },
-    pause: { delivery: "control", interruptsTurn: false }, cancel: { delivery: "control", interruptsTurn: false }
+    pause: { delivery: "control", interruptsTurn: true }, cancel: { delivery: "control", interruptsTurn: false }
   });
   const command = { action: "set", objective: "Finish the goal", expectedSegmentId: state.segmentId, tokenBudget: 40 };
   const events = [];
@@ -398,6 +398,30 @@ test("a native create_goal retains its authored owner and recovers only the exac
   assert.deepEqual((await reopened.read()).conversationLog, recovered.conversationLog);
   assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 1);
   assert.equal((await f.trace()).some(row => row.method === "thread/goal/set"), false);
+});
+
+test("Pause goal stops the active Codex conversation and preserves its goal for Resume", async t => {
+  const f = await fixture(t);
+  const { segmentId } = await f.conversation.read();
+  const goal = await f.conversation.updateGoal({ action: "set", objective: "wait goal", tokenBudget: 100,
+    expectedSegmentId: segmentId });
+  assert.equal((await f.conversation.read()).status, "working");
+  const paused = await f.conversation.updateGoal({ action: "pause", expectedGoalId: goal.id, expectedSegmentId: segmentId });
+  assert.equal(paused.id, goal.id);
+  assert.equal(paused.objective, goal.objective);
+  assert.equal(paused.tokenBudget, goal.tokenBudget);
+  assert.equal(paused.status, "paused");
+  assert.equal((await f.conversation.read()).status, "ready");
+  const trace = await f.trace();
+  const pause = trace.findIndex(row => row.method === "thread/goal/set" && row.params.status === "paused");
+  const stop = trace.findIndex(row => row.method === "turn/interrupt");
+  assert.ok(pause >= 0 && stop > pause, "goal scheduling stops before interrupting the active turn");
+  assert.equal(trace.filter(row => row.method === "turn/interrupt").length, 1);
+  assert.equal(trace.some(row => row.method === "thread/goal/clear"), false);
+  await f.conversation.updateGoal({ action: "resume", expectedGoalId: goal.id, expectedSegmentId: segmentId });
+  const resumed = await f.conversation.readGoal();
+  assert.equal(resumed.id, goal.id);
+  assert.equal(resumed.status, "active");
 });
 
 test("Codex goal pause, process restart, resume and clear retain the same goal identity", async t => {
@@ -735,9 +759,8 @@ test("a paused goal stays with its native conversation when another engine is se
   await f.conversation.updateGoal({ action: "set", messageId: "retained-goal", objective: "wait goal", expectedSegmentId: segmentId });
   const goal = await f.conversation.readGoal();
   await f.conversation.updateGoal({ action: "pause", expectedGoalId: goal.id, expectedSegmentId: segmentId });
-  assert.equal((await f.conversation.read()).status, "working");
-  assert.equal((await f.trace()).some(row => row.method === "turn/interrupt"), false);
-  await f.conversation.cancel();
+  assert.equal((await f.conversation.read()).status, "ready");
+  assert.equal((await f.trace()).filter(row => row.method === "turn/interrupt").length, 1);
   await select(f.conversation, "api", "to-api");
   assert.equal((await f.conversation.read()).goal, null);
   assert.equal(await f.conversation.readGoal(), null);

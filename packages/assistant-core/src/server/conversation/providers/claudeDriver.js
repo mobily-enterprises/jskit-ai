@@ -271,6 +271,11 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       const entry = await native.owner.acquire(context);
       return native.owner.ensureReady(entry);
     },
+    async updateConversationSettings({ native, context, input }) {
+      const entry = await native.owner.acquire(context, input.threadId);
+      if (entry.process) await native.owner.ensureProcess(entry);
+      return { ok: true };
+    },
     disposeNative,
     async interruptDetachedConversation({ native, input, context }) {
       const entry = await native.owner.acquire(context, input.conversationId || input.threadId,
@@ -467,7 +472,6 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
               result = await disposeNative({ native: supplied, options: scoped ? scoped.context : options });
               if (result?.ok === false) throw Object.assign(new Error(result.error || (scoped ? "Scoped cleanup could not be confirmed." : "Claude cleanup could not be confirmed.")), result);
             } else {
-              await entry.nativeTurn.whenIdle().catch(() => {});
               for (const id of pendingAccountStops) await stopAccount(id);
               await owner.close(entry);
             }

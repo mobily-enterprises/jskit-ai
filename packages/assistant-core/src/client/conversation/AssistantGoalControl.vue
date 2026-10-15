@@ -6,9 +6,9 @@ const open = ref(false);
 const objective = ref("");
 const tokenBudget = ref("");
 const now = ref(Date.now());
-const goal = computed(() => props.state?.goal);
+const goal = computed(() => props.state?.loading || props.state?.available === false ? null : props.state?.goal);
 const running = computed(() => goal.value?.status === "active");
-const label = computed(() => ({
+const label = computed(() => props.state?.loading ? "Loading goal…" : props.state?.available === false ? "Goal unavailable" : ({
   active: "Goal running", paused: "Goal paused", blocked: "Goal blocked",
   usageLimited: "Goal waiting for allowance", budgetLimited: "Goal budget reached", complete: "Goal complete"
 })[goal.value?.status] || "Set goal");
@@ -21,7 +21,7 @@ const elapsed = computed(() => {
   const minutes = Math.floor(total / 60);
   return minutes < 60 ? `${minutes}:${seconds}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}`;
 });
-const canSet = computed(() => typeof props.state?.set === "function" && (!goal.value || goal.value.status === "complete"));
+const canSet = computed(() => !props.state?.loading && props.state?.available !== false && typeof props.state?.set === "function" && (!goal.value || goal.value.status === "complete"));
 const validBudget = computed(() => props.state?.tokenBudgetSupported === false || tokenBudget.value === "" || (Number.isSafeInteger(Number(tokenBudget.value)) && Number(tokenBudget.value) > 0));
 let timer;
 onMounted(() => watch(() => [props.state?.enabled, running.value, goal.value?.elapsedSeconds, goal.value?.sampledAt], () => {
@@ -45,7 +45,7 @@ async function setGoal() {
     <template #activator="{ props: menuProps }">
       <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsed && `${elapsed} running time`, goal?.objective].filter(Boolean).join('\n')">
         <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
-        <span class="assistant-goal__label">{{ goal ? 'Goal' : 'Set goal' }}</span>
+        <span class="assistant-goal__label">{{ state.loading ? 'Loading goal…' : state.available === false ? 'Goal unavailable' : goal ? 'Goal' : 'Set goal' }}</span>
         <span v-if="elapsed" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
     </template>
@@ -54,15 +54,15 @@ async function setGoal() {
       <p v-if="goal" class="my-2">{{ goal.objective }}</p>
       <p v-if="goal?.reason" class="text-body-small my-2">{{ goal.reason }}</p>
       <p v-if="elapsed" class="text-body-small my-2">Running time: {{ elapsed }}</p>
-      <v-btn v-if="running && state.pause" size="small" :disabled="state.pending" @click="state.pause()">{{ state.pending ? 'Pausing…' : 'Pause goal' }}</v-btn>
-      <v-btn v-else-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.pending ? 'Resuming…' : 'Resume goal' }}</v-btn>
-      <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.pending" @click="state.cancel()">Cancel goal</v-btn>
+      <v-btn v-if="running && state.pause" size="small" :disabled="state.pending" @click="state.pause()">{{ state.action === 'pause' ? 'Pausing…' : 'Pause goal' }}</v-btn>
+      <v-btn v-else-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? 'Resuming…' : 'Resume goal' }}</v-btn>
+      <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.pending" @click="state.cancel()">{{ state.action === 'cancel' ? 'Cancelling…' : 'Cancel goal' }}</v-btn>
       <p v-if="running || goal?.status === 'paused'" class="text-body-small mt-2">{{ state.pauseInterruptsTurn ? 'Pause stops the current turn and keeps the goal for later.' : 'Pausing prevents further automatic turns. Use Stop to interrupt the current turn.' }}</p>
       <p v-if="goal && goal.status !== 'complete' && state.cancel" class="text-body-small mt-2">{{ state.cancelInterruptsTurn ? 'Cancel stops the current turn and clears the goal.' : 'Cancel removes this goal. Use Stop to interrupt a turn already running.' }}</p>
       <form v-if="canSet" class="assistant-goal__form mt-2" @submit.prevent="setGoal">
         <v-textarea v-model="objective" label="Goal objective" rows="2" maxlength="4000" auto-grow :disabled="state.pending" hide-details />
         <v-text-field v-if="state.tokenBudgetSupported !== false" v-model="tokenBudget" label="Token budget (optional)" type="number" min="1" step="1" :disabled="state.pending" :error="!validBudget" hide-details />
-        <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ state.pending ? 'Starting…' : 'Start goal' }}</v-btn>
+        <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ state.action === 'set' ? 'Starting…' : 'Start goal' }}</v-btn>
       </form>
       <p v-if="state.error" role="alert" class="text-error text-body-small mt-2">{{ state.error }}</p>
       <slot :goal="goal" />

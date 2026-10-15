@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os, { tmpdir } from "node:os";
 import path, { join } from "node:path";
 import { test } from "node:test";
-import { claudePlanUsage, claudeCodeArguments, claudeModelConfiguration, createClaudeCodeProcess, readClaudeCodeAuthStatus, stopClaudeCodeProcess } from "../src/server/conversation/claudeProcess.js";
+import { createClaudeAccountQueries, claudePlanUsage, claudeCodeArguments, claudeModelConfiguration, createClaudeCodeProcess, readClaudeCodeAuthStatus, stopClaudeCodeProcess } from "../src/server/conversation/claudeProcess.js";
 import { createLocalConversationExecution } from "../src/server/conversation/localExecution.js";
 
 test("native command construction preserves tool-free constraints without granting permissions by default", () => {
@@ -278,6 +278,31 @@ test("Claude handshake failure retains acquired execution custody when cleanup i
 });
 
 
+test("Claude observes parent exit after initialization even while a child retains stdout", { timeout: 3_000 }, async t => {
+  const { PassThrough, Writable } = await import("node:stream");
+  const exited = Promise.withResolvers();
+  const failed = Promise.withResolvers();
+  const stdout = new PassThrough();
+  const stdin = new Writable({ write(chunk, _encoding, done) {
+    const frame = JSON.parse(String(chunk));
+    stdout.write(JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: frame.request_id, response: {} } }) + "\n");
+    done();
+  } });
+  let failures = 0;
+  const native = await createClaudeCodeProcess({ execution: {
+    async start() { return { id: "parent-exit", stdin, stdout, exited: exited.promise }; },
+    async stop() { return { scopeEmpty: true }; }
+  }, onFailure(error) { failures++; failed.resolve(error); } });
+  t.after(() => native.stop());
+  assert.equal(stdout.readableEnded, false);
+  exited.resolve({ code: 1, signal: null });
+  const error = await failed.promise;
+  assert.equal(error.code, "assistant_claude_observation_lost");
+  assert.deepEqual(error.processExit, { code: 1, signal: null });
+  await native.client.completion;
+  assert.equal(failures, 1);
+});
+
 test("Claude initialization rejects confirmed execution exit before half-open protocol EOF", async () => {
   const { PassThrough, Writable } = await import("node:stream");
   for (const cleanup of ["verified", "unconfirmed", "rejected"]) {
@@ -377,3 +402,116 @@ test("Claude supplied execution hosts retain initialization without an optional 
   assert.equal(native.initialization.originalHost, true);
   assert.deepEqual(await native.stop(), { scopeEmpty: true, exited: true });
 });
+
+
+test("Claude account queries isolate concurrent identities and deduplicate each account", async () => {
+  for (const method of ["readCatalogue", "readPlanUsage"]) {
+    const pending = new Map(["first", "second"].map(id => [id, Promise.withResolvers()]));
+    const calls = [];
+    const queries = createClaudeAccountQueries({
+      accountIdentity: async context => context.id,
+      processes: () => [...pending].map(([id, held]) => ({ accountIdentity: id, process: {
+        get initialization() { calls.push(id); return held.promise; },
+        client: { request() { calls.push(id); return held.promise; } }
+      } })),
+      createProcess() { throw new Error("An owned account process should be reused."); }
+    });
+    const first = queries[method]({ id: "first" });
+    const duplicate = queries[method]({ id: "first" });
+    const second = queries[method]({ id: "second" });
+    // Finish in reverse order to expose cross-account sharing and cache races.
+    pending.get("second").resolve({ models: [{ value: "second" }], rate_limits_available: true,
+      rate_limits: { five_hour: { utilization: 20 } } });
+    pending.get("first").resolve({ models: [{ value: "first" }], rate_limits_available: true,
+      rate_limits: { five_hour: { utilization: 80 } } });
+    const [a, same, b] = await Promise.all([first, duplicate, second]);
+    assert.deepEqual(calls, ["first", "second"], method);
+    assert.deepEqual(same, a);
+    if (method === "readCatalogue") {
+      assert.equal(a.models[0].value, "first");
+      assert.equal(b.models[0].value, "second");
+    } else {
+      assert.equal(a.identity, "first");
+      assert.equal(b.identity, "second");
+      assert.equal(a.windows[0].remainingPercent, 20);
+      assert.equal(b.windows[0].remainingPercent, 80);
+    }
+    await queries.invalidate();
+  }
+});
+
+test("account invalidation cancels held startup and usage without stopping a borrowed conversation", async () => {
+  for (const phase of ["startup", "owned usage", "borrowed usage"]) {
+    const started = Promise.withResolvers();
+    let stops = 0;
+    const native = { client: { request() { started.resolve(); return new Promise(() => {}); } },
+      async stop() { stops++; return { scopeEmpty: true }; } };
+    const queries = createClaudeAccountQueries({ accountIdentity: async () => "account",
+      processes: () => phase === "borrowed usage" ? [{ accountIdentity: "account", process: native }] : [],
+      createProcess({ signal }) {
+        if (phase !== "startup") return native;
+        started.resolve();
+        return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+      }
+    });
+    const pending = queries.readPlanUsage({});
+    const rejected = assert.rejects(pending, /cancelled for reconnection/);
+    await started.promise;
+    await queries.invalidate();
+    await rejected;
+    assert.equal(stops, phase === "owned usage" ? 1 : 0, phase);
+  }
+});
+
+for (const method of ["readCatalogue", "readPlanUsage"]) {
+  for (const phase of ["initial identity", "final identity", "retained cleanup"]) {
+    test(`${method} invalidation fences ${phase} before launching or caching a stale query`, { timeout: 2_000 }, async () => {
+      const entered = Promise.withResolvers();
+      const release = Promise.withResolvers();
+      let identities = 0;
+      let starts = 0;
+      let stops = 0;
+      const queries = createClaudeAccountQueries({
+        async accountIdentity() {
+          identities++;
+          if (identities === (phase === "initial identity" ? 1 : phase === "final identity" ? 2 : -1)) {
+            entered.resolve();
+            await release.promise;
+          }
+          return "account";
+        },
+        createProcess() {
+          starts++;
+          return {
+            initialization: { models: [{ value: `model-${starts}` }] },
+            client: { request: async () => ({ rate_limits_available: true, rate_limits: {} }) },
+            async stop() {
+              stops++;
+              if (phase === "retained cleanup" && stops === 1) return { scopeEmpty: false };
+              if (phase === "retained cleanup" && stops === 2) {
+                entered.resolve();
+                await release.promise;
+              }
+              return { scopeEmpty: true };
+            }
+          };
+        }
+      });
+      if (phase === "retained cleanup") await assert.rejects(queries[method]({}), /cleanup could not be confirmed/);
+      const pending = queries[method]({}).then(value => ({ value }), failure => ({ failure }));
+      await entered.promise;
+      const invalidating = queries.invalidate();
+      // Initial account lookup has not registered a process or pending query.
+      // Let invalidation finish to exercise an old read resuming after reconnect.
+      if (phase === "initial identity") await invalidating;
+      release.resolve();
+      const result = await pending;
+      await invalidating;
+      assert.match(result.failure?.message || "query unexpectedly succeeded", /cancelled for reconnection/);
+      assert.equal(starts, phase === "initial identity" ? 0 : 1, "invalidation must not launch a successor");
+      await queries[method]({});
+      assert.equal(starts, phase === "initial identity" ? 1 : 2, "a fresh request repopulates the invalidated cache");
+      await queries.invalidate();
+    });
+  }
+}

@@ -26,7 +26,7 @@ const goalCapabilities = Object.freeze({ goals: true, goalBudgets: true,
   goalCommands: Object.freeze({
     set: Object.freeze({ delivery: "control", interruptsTurn: false }),
     resume: Object.freeze({ delivery: "control", interruptsTurn: false }),
-    pause: Object.freeze({ delivery: "control", interruptsTurn: false }),
+    pause: Object.freeze({ delivery: "control", interruptsTurn: true }),
     cancel: Object.freeze({ delivery: "control", interruptsTurn: false })
   }) });
 const nativeInput = input => [
@@ -215,6 +215,12 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     },
     async ensureConversation({ sessionId, native }) {
       return native.runOwner.ensureSessionReadiness(sessionId, await native.preparation.readiness());
+    },
+    async updateConversationSettings({ sessionId, native, context, input }) {
+      const acquired = await native.runOwner.conversationContext(sessionId, { conversationId: input.threadId }, context);
+      if (acquired.ok === false) return acquired;
+      await acquired.provider.updateThreadSettings(input.threadId, { model: input.model, effort: input.effort });
+      return { ok: true };
     },
     async createConversation({ sessionId, native, input, context }) {
       return native.runOwner.createConversation(sessionId, input, context);
@@ -931,6 +937,12 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
               });
               if (result.ok !== false) binding.goal = result.goal || null;
             } finally { admission.release(); }
+            if (result.ok !== false && input.action === "pause") {
+              // Pause keeps the goal and uses the original verified Stop owner
+              // to stop its current conversation turn as well as scheduling.
+              const stopped = await interrupt({ configuration, context });
+              if (stopped?.ok === false) throw Object.assign(new Error(stopped.error), stopped, { cleanupFailed: true });
+            }
             if (nativeContext.completeResult) await nativeContext.completeResult(result);
             return { goal: goalValue(result.goal), nativeResult: result };
           }
@@ -949,6 +961,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             prepareConversation: () => goalContext(configuration, context, signal, { prepareThread: true, tools })
           });
           if (result.ok === false) throw new Error(result.error);
+          if (input.action === "pause") await interrupt({ configuration, context });
           return goalValue(result.goal);
         },
         async inspectAdmission({ messageId, threadId, nativeTurnId, configuration, context, goal: command, representation, verifyAccount = false, receiptBinding }) {

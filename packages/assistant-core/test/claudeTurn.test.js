@@ -51,6 +51,72 @@ test("steering waits for the generation's terminal event after the control ackno
   assert.equal(turn.read().status, "completed");
 });
 
+test("Claude native follow-ups reactivate a completed turn without admitting another human message", async () => {
+  for (const start of [
+    { type: "user", uuid: "notification", origin: { kind: "task-notification" } },
+    { type: "stream_event", event: { type: "message_start", message: { id: "continued-message" } } },
+    { type: "assistant", uuid: "continued-answer", message: { content: [{ type: "text", text: "Still working" }] } }
+  ]) {
+    const { turn, send, events } = fixture();
+    await send();
+    await turn.receive({ type: "result", subtype: "success", result: "Background work launched" });
+    assert.equal(turn.read().active, false);
+    const admitted = events.filter(event => event.type === "admitted").length;
+    await turn.receive(start);
+    assert.equal(turn.read().active, true);
+    assert.equal(turn.read().status, "inProgress");
+    assert.equal(turn.read().text, "");
+    assert.equal(events.filter(event => event.type === "continued").length, 1);
+    assert.equal(events.filter(event => event.type === "admitted").length, admitted);
+    await turn.receive({ type: "system", subtype: "status", status: null });
+    assert.equal(turn.read().active, true, "The previous result cannot complete the follow-up");
+    await turn.receive({ type: "result", subtype: "success", result: "Background work finished" });
+    assert.equal(turn.read().active, false);
+    assert.equal(turn.read().text, "Background work finished");
+    turn.stop();
+    await turn.receive(start);
+    assert.equal(turn.read().active, false, "Late native frames cannot restart stopped work");
+  }
+});
+
+test("Claude authoritative task snapshots repair membership and ignore ambient work", async () => {
+  const { turn, send, events } = fixture();
+  await send();
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "missed-completion", task_type: "local_agent" });
+  await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [
+    { task_id: "build", task_type: "local_bash" }, { task_id: "remote", task_type: "remote_agent" },
+    { task_id: "watcher", task_type: "local_bash", ambient: true }
+  ] });
+  assert.equal(turn.read().backgroundTasks, 2);
+  await turn.receive({ type: "result", subtype: "success", result: "Launched" });
+  assert.equal(turn.read().active, true);
+  await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [
+    { task_id: "watcher", task_type: "local_bash", ambient: true }
+  ] });
+  assert.equal(turn.read().active, false);
+  await turn.receive({ type: "system", subtype: "status", status: null });
+  await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [] });
+  assert.equal(events.filter(event => event.type === "settled").length, 1);
+  await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [{ task_id: "late", task_type: "local_bash" }] });
+  assert.equal(turn.read().active, true, "A later task snapshot restores the working state");
+  await turn.receive({ type: "system", subtype: "task_updated", task_id: "late", patch: { status: "completed" } });
+  assert.equal(turn.read().active, false);
+});
+
+test("Claude can steer background-only work without waiting for an already completed generation", async () => {
+  const { turn, send, client } = fixture();
+  await send();
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
+  await turn.receive({ type: "result", subtype: "success", result: "Build started" });
+  client.interrupt = () => assert.fail("There is no active generation to interrupt");
+  await turn.interruptGeneration(client, { timeoutMs: 5 });
+  await send("follow-up");
+  await turn.receive({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
+  assert.equal(turn.read().active, true, "The new human input still needs its own result");
+  await turn.receive({ type: "result", subtype: "success", result: "Revised answer" });
+  assert.equal(turn.read().status, "completed");
+});
+
 test("interruption does not claim process exit or complete work on a control acknowledgement", async () => {
   const { turn, send, client, events } = fixture();
   await send();
@@ -132,6 +198,7 @@ function renewalFixture() {
 
 test("renewal recovers the exact accepted native answer without another dispatch and closes before returning", async () => {
   const f = renewalFixture();
+  f.state.turn = { id: f.uuid, state: "completed", active: false };
   f.history.userIds.push(f.uuid);
   f.history.messages.push({ userId: "other", role: "assistant", text: "Unrelated" },
     { userId: f.uuid, role: "thinking", text: "Private reasoning" },
@@ -140,6 +207,28 @@ test("renewal recovers the exact accepted native answer without another dispatch
   assert.deepEqual(result, { text: "First\nSecond", threadId: f.state.id, turnId: f.uuid, reconciled: true,
     clientMessageId: f.input.clientMessageId, freshThread: false, processExitProof: { exited: true } });
   assert.deepEqual(f.events, ["history", ["stop", undefined]]);
+});
+
+test("renewal never treats partial or unrelated accepted output as completed", async () => {
+  for (const state of ["active", "failed", "interrupted", "completed"]) {
+    const f = renewalFixture();
+    f.history.userIds.push(f.uuid);
+    f.history.messages.push({ userId: f.uuid, role: "assistant", text: "A plausible but unconfirmed answer" });
+    f.state.turn = { id: state === "completed" ? "other-turn" : f.uuid, state, active: state === "active" };
+    await assert.rejects(runClaudeRenewalTurn(f.conversation, f.input), error =>
+      error.code === "assistant_claude_turn_unreadable" && error.details.inputAccepted === true);
+    assert.deepEqual(f.events.map(event => Array.isArray(event) ? event[0] : event), ["history", "stop"]);
+  }
+});
+
+test("renewal joins an accepted running turn before stopping without resubmitting", async () => {
+  const f = renewalFixture();
+  f.history.userIds.push(f.uuid);
+  f.state.turn = { id: f.uuid, state: "active", active: true };
+  f.state.process = {};
+  const result = await runClaudeRenewalTurn(f.conversation, f.input);
+  assert.equal(result.text, "Finished");
+  assert.deepEqual(f.events, ["history", ["wait", { conversationId: f.state.id, timeoutMs: 100 }], ["stop", undefined]]);
 });
 
 test("renewal refuses changed or unrelated successor history before native work and never resends unreadable accepted input", async () => {
@@ -229,7 +318,7 @@ test("wait interrupts on its bounded timeout or caller abort without replacing t
   assert.equal(interrupts, 2);
 });
 
-test("Claude split completions carry the exact live output identity before native block retirement", async () => {
+test("Claude split completions retain exact output identity until the message role is known", async () => {
   const { turn, events, send } = fixture();
   await send();
   await turn.receive({ type: "stream_event", event: { type: "message_start", message: { id: "same-api-message" } } });
@@ -241,6 +330,12 @@ test("Claude split completions carry the exact live output identity before nativ
       delta: block.type === "thinking" ? { thinking: block.thinking } : { text: block.text } } });
     // Claude's documented wire order completes the split frame before its stop.
     await turn.receive({ type: "assistant", uuid: `saved-block-${index}`, message: { id: "same-api-message", content: [block] } });
+    if (block.type === "text") {
+      assert.equal(events.filter(event => event.type === "message" && event.message.complete && event.message.role === "assistant").length, 0);
+      await turn.receive({ type: "stream_event", event: { type: "content_block_stop", index } });
+      assert.ok(turn.read().messages.some(message => message.id === `claude_same-api-message_${index}`));
+      await turn.receive({ type: "stream_event", event: { type: "message_delta", delta: { stop_reason: "end_turn" } } });
+    }
     const complete = events.filter(event => event.type === "message" && event.message.complete).at(-1).message;
     assert.equal(complete.id, `claude_saved-block-${index}_0`, "Native history keeps its frame UUID and local index");
     assert.equal(complete.outputId, `claude_same-api-message_${index}`, "The existing live map supplies the global block index");
@@ -263,11 +358,26 @@ test("Claude output identity is absent without unique live proof or with a confl
       id: mode === "missing-id" ? undefined : mode === "foreign" ? "other" : "native", content: [{ type: "text", text: "Complete" }]
     }, ...(mode === "wrong-index" ? { apiBlockIndex: 4 } : mode === "invalid-index" ? { apiBlockIndex: "3" }
       : mode === "explicit-index" ? { apiBlockIndex: 3 } : {}) });
+    await turn.receive({ type: "result", subtype: "success", result: "" });
     const message = events.filter(event => event.type === "message").at(-1).message;
     assert.equal(message.id, "claude_saved_0");
     if (mode === "explicit-index") assert.equal(message.outputId, "claude_native_3");
     else assert.equal(Object.hasOwn(message, "outputId"), false, mode);
   }
+});
+
+test("Claude split text followed by a tool is commentary, never a final answer", async () => {
+  const { turn, events, send } = fixture();
+  await send();
+  await turn.receive({ type: "assistant", uuid: "progress", message: { id: "tool-message", content: [{ type: "text", text: "Checking files" }] } });
+  assert.equal(events.some(event => event.type === "message" && event.message.complete), false);
+  await turn.receive({ type: "assistant", uuid: "tool", message: { id: "tool-message", content: [{ type: "tool_use", id: "read", name: "Read", input: {} }] } });
+  const progress = events.filter(event => event.type === "message").at(-1).message;
+  assert.equal(progress.role, "commentary");
+  assert.equal(progress.id, "claude_progress_0");
+  await turn.receive({ type: "assistant", uuid: "answer", message: { id: "final-message", content: [{ type: "text", text: "Done" }] } });
+  await turn.receive({ type: "result", subtype: "success", result: "Done" });
+  assert.deepEqual(events.filter(event => event.type === "message" && event.message.role === "assistant").map(event => event.message.text), ["Done"]);
 });
 
 
@@ -302,7 +412,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       context: async () => context,
       entry: () => ({ options: { mainId: conversationId }, check() {} }),
       check() {}, account: () => ({ identity: behavior.account, providerId }),
-      async configuration() { return { systemPrompt: "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
+      async configuration() { await behavior.configure?.(); return { systemPrompt: "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
       async message(_entry, _input, { message }) { return message; }
     },
     process: {
@@ -319,7 +429,8 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
             } }
         };
         processes.push(native);
-        await options.onStarted(native.executionId);
+        await options.onStarted(native.executionId, () => native.stop());
+        await behavior.initialize?.(native);
         return native;
       }
     },
@@ -351,6 +462,55 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
     get entry() { return entry; }, setBeforeState(callback) { beforeState = callback; },
     async reopen() { entry = await owner.open(context, { mainId: conversationId }); return entry; } };
 }
+
+test("Claude continuation supersedes an older completion checkpoint", { timeout: 10_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let checkpoints = 0;
+  f.setBeforeState(async (_entry, event) => {
+    if (event.state === "completed" && ++checkpoints === 1) {
+      entered.resolve();
+      await release.promise;
+    }
+  });
+  const oldResult = f.frame({ type: "result", subtype: "success", result: "First answer" });
+  await entered.promise;
+  const originalWaiter = f.entry.completion.promise;
+  await f.frame({ type: "user", uuid: "background-notification", origin: { kind: "task-notification" } });
+  const completion = f.entry.completion;
+  release.resolve();
+  await oldResult;
+  assert.equal(f.entry.turn.state, "active");
+  assert.equal(f.entry.turn.active, true);
+  assert.equal(f.entry.completion, completion);
+  await f.frame({ type: "result", subtype: "success", result: "Follow-up answer" });
+  assert.equal((await completion.promise).text, "Follow-up answer");
+  assert.equal((await originalWaiter).text, "Follow-up answer");
+  assert.equal(f.entry.turn.state, "completed");
+});
+
+test("Claude concurrent cleanup callers join the same process stop and interrupted checkpoint", { timeout: 3_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let stops = 0;
+  f.entry.process.stop = async () => { stops++; return { scopeEmpty: true }; };
+  f.setBeforeState(async (_entry, event) => {
+    if (event.state === "interrupted") { entered.resolve(); await release.promise; }
+  });
+  const first = f.entry.nativeTurn.stopProcess("Observation lost");
+  await entered.promise;
+  const second = f.entry.nativeTurn.stopProcess("Concurrent Stop");
+  assert.equal(stops, 1);
+  release.resolve();
+  await Promise.all([first, second]);
+  assert.equal(f.entry.turn.active, false);
+  assert.equal(f.entry.turn.state, "interrupted");
+  assert.equal(f.entry.turn.error, "Observation lost");
+});
 
 test("Claude final receipt uses the original supplied-store publication and is available before retained idle checkpoint", async t => {
   const f = await publishedClaudeFixture(t);
@@ -822,6 +982,31 @@ async function sendCommon(f, messageId) {
   return receipt;
 }
 
+test("Claude fast follow-up completes while the earlier common checkpoint is held", { timeout: 3_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "checkpoint-follow-up");
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let checkpoints = 0;
+  f.setBeforeState(async (_entry, event) => {
+    if (event.state === "completed" && ++checkpoints === 1) {
+      entered.resolve();
+      await release.promise;
+    }
+  });
+  const waiting = f.entry.completion.promise;
+  await f.frame({ type: "result", subtype: "success", result: "First answer" });
+  await entered.promise;
+  try {
+    await f.frame({ type: "user", uuid: "automatic", origin: { kind: "task-notification" } });
+    await f.frame({ type: "result", subtype: "success", result: "Latest answer" });
+  } finally { release.resolve(); }
+  await f.conversation.wait();
+  assert.equal(f.entry.turn.state, "completed");
+  assert.equal((await waiting).text, "Latest answer");
+  assert.equal(f.entry.process.stopped, undefined);
+});
+
 test("Claude delivery timing separates native acknowledgement from the held canonical receipt", { timeout: 10_000 }, async t => {
   const timings = [];
   const f = await suppliedCommonFixture(t, { onDeliveryTiming: event => timings.push(event) });
@@ -957,4 +1142,69 @@ test("Claude supplied common checkpoint failure preserves original refusal and n
   assert.equal(f.entry.process, null);
   assert.equal(f.entry.command, null);
   assert.equal(f.entry.turn.active, false);
+});
+
+
+test("Claude failed Stop retains cleanup for an explicit retry without a hidden second attempt", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const running = f.owner.run(f.control, f.command("stop-retry"), f.options);
+  const failedRun = assert.rejects(running, error => error.cleanupFailed === true);
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  let stops = 0;
+  let allowed = false;
+  t.after(() => { allowed = true; });
+  f.entry.process.stop = async () => { stops++; return { scopeEmpty: allowed, exited: allowed }; };
+  await assert.rejects(f.owner.cancel(f.control, { context: f.context, ...f.options }), { code: "claude_stop_unconfirmed" });
+  await failedRun;
+  assert.equal(stops, 1, "Turn failure must not retry unconfirmed cleanup behind the caller");
+  allowed = true;
+  await f.owner.cancel(f.control, { context: f.context, ...f.options });
+  assert.equal(stops, 2);
+  assert.equal(f.entry.turn.active, false);
+});
+
+
+for (const scope of ["session", "conversation"]) test(`Claude ${scope} close stops pending initialization before waiting for preparation`, { timeout: 3000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  const entered = Promise.withResolvers();
+  const initialization = Promise.withResolvers();
+  f.behavior.initialize = async native => {
+    native.stop = async () => {
+      initialization.reject(new Error("Startup stopped"));
+      return { scopeEmpty: true, exited: true };
+    };
+    entered.resolve();
+    await initialization.promise;
+  };
+  const preparing = f.owner.ensureProcess(f.entry);
+  const rejected = assert.rejects(preparing, /Startup stopped/);
+  await entered.promise;
+  const closed = scope === "conversation" ? f.owner.close(f.entry) :
+    f.owner.closeSession(f.context, { readContext: async () => f.context,
+      terminals: { close: async () => ({ ok: true, closed: 0 }) } });
+  let timer;
+  try {
+    await Promise.race([closed, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Session close waited for initialization before stopping it")), 300);
+    })]);
+    await rejected;
+    assert.equal(f.entry.executionId, "");
+  } finally {
+    clearTimeout(timer);
+    initialization.reject(new Error("Startup stopped"));
+    await Promise.allSettled([closed, preparing, rejected]);
+  }
+});
+
+test("Claude Stop cancels configuration that has not started its native process", async t => {
+  const f = await publishedClaudeFixture(t);
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  f.behavior.configure = async () => { entered.resolve(); await release.promise; };
+  const preparing = f.owner.ensureProcess(f.entry);
+  await entered.promise;
+  await f.entry.nativeTurn.stopProcess();
+  release.resolve();
+  await assert.rejects(preparing, /stopped|closing/);
+  assert.equal(f.processes.length, 0, "Stopped configuration must not launch Claude later");
 });

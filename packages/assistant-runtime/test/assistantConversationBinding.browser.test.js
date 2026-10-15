@@ -295,6 +295,12 @@ test("a supplied goal view keeps its pinned target and refreshes through the ret
   failedRead = true;
   await f.page.evaluate(() => window.conversationFixture.current().refreshGoal());
   await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalLoadError.value)).toBe("Goal status is unavailable.");
+  await expect(f.primary.getByRole("button", { name: "Goal unavailable", exact: true })).toBeVisible();
+  assert.deepEqual(await f.page.evaluate(() => {
+    const state = window.conversationFixture.current().goalState.value;
+    return { available: state.available, goal: state.goal, pending: state.pending };
+  }), { available: false, goal: null, pending: true });
+  await expect(f.page.getByRole("button", { name: "Resume goal", exact: true })).toHaveCount(0);
   assert.equal(await f.page.evaluate(() => window.conversationFixture.current().error.value), "",
     "Passive goal failure does not enter conversation or app-wide request recovery");
   await expect(f.input).toBeEnabled();
@@ -876,6 +882,41 @@ test("opted-in nonsteerable follow-ups use the original serial queue and dispatc
   assert.equal((await f.page.evaluate(() => window.conversationFixture.sendVoice("Native steering remains immediate"))).status, "accepted");
   assert.equal((await f.sent()).at(-1).input.steer, true);
 });
+
+for (const steer of [false, true]) {
+  test(`Stop cancels locally queued native ${steer ? "steering" : "startup"} follow-ups`, options, async t => {
+    const f = await fixture(t);
+    await f.command("steering", { id: "chat:1", enabled: true });
+    await f.command("mode", { mode: "hold" });
+    await f.page.evaluate(() => {
+      window.firstNative = window.conversationFixture.current().send({ message: "First held instruction" });
+    });
+    await expect.poll(async () => (await f.state()).held).toBe(1);
+    await f.command("question", { id: "chat:1", text: "Starting native work", pending: true });
+    await f.notify("chat:1");
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+    await f.page.evaluate(steer => {
+      window.queuedNative = window.conversationFixture.current().send({ message: "Queued native follow-up",
+        request: { text: "Queued native follow-up", steer } });
+    }, steer);
+    assert.equal((await f.sent()).length, 1);
+    const stopGate = Promise.withResolvers();
+    t.after(() => stopGate.resolve());
+    await f.page.route("**/cancel", async route => { await stopGate.promise; await route.continue(); });
+    await f.page.evaluate(() => { window.stoppingNative = window.conversationFixture.current().cancel(); });
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().stopping.value)).toBe(true);
+    const canSendDuringStop = await f.page.evaluate(() => window.conversationFixture.current().canSubmit.value);
+    stopGate.resolve();
+    await f.page.evaluate(() => window.stoppingNative);
+    await f.command("mode", { mode: "accepted" });
+    await f.command("accept");
+    await f.page.evaluate(() => window.firstNative);
+    const queuedResult = await f.page.evaluate(() => window.queuedNative);
+    assert.equal((await f.sent()).length, 1, "Stop must prevent a local follower from dispatching after the first receipt");
+    assert.equal(queuedResult, false);
+    assert.equal(canSendDuringStop, false, "new sends wait for Stop confirmation");
+  });
+}
 
 for (const action of ["stop", "actor", "denied"]) {
   test(`opted-in local followers cannot dispatch after ${action}`, options, async t => {
@@ -2912,6 +2953,11 @@ test("changing the observed native segment blocks cached goal controls until the
     await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.segmentId)).toBe("replacement-native-observation");
     await expect.poll(() => Boolean(releaseRead)).toBe(true);
     assert.equal(await f.page.evaluate(() => window.conversationFixture.current().goalState.value.pending), true);
+    assert.equal(await f.page.evaluate(() => window.conversationFixture.current().goalState.value.loading), true);
+    assert.equal(await f.page.evaluate(() => window.conversationFixture.current().goalState.value.goal), null);
+    await expect(f.primary.getByRole("button", { name: "Loading goal…", exact: true })).toBeVisible();
+    await expect(f.page.getByRole("button", { name: "Pause goal", exact: true })).toHaveCount(0);
+    await expect(f.page.getByRole("button", { name: "Resuming…", exact: true })).toHaveCount(0);
     assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("pause")), false);
     assert.deepEqual(commands, [], "A previous observation cannot authorize a command for the replacement thread");
     view.goal.id = "replacement-goal";
@@ -3010,4 +3056,32 @@ for (const width of [1280, 390]) test(`ten real messages per history load across
   await expect(f.primary.getByText("Ten question 1", { exact: true })).toHaveCount(1);
   await expect(f.primary.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
   assert.deepEqual(await f.sent(), []);
+});
+
+
+test("initial goal loading shows no goal commands until the empty goal is confirmed", options, async t => {
+  const f = await fixture(t);
+  const waiting = Promise.withResolvers();
+  const entered = Promise.withResolvers();
+  await f.page.route("**/conversations/*/goal", async route => {
+    entered.resolve();
+    await waiting.promise;
+    return route.fulfill({ json: { status: "available", goal: null, target: { segmentId: "empty-goal",
+      capabilities: { goals: true, goalBudgets: false, goalCommands: {
+        set: { delivery: "message", interruptsTurn: false }, resume: { delivery: "message", interruptsTurn: false }
+      } } } } });
+  });
+  try {
+    await f.page.evaluate(() => window.conversationFixture.eventReaders([{ id: "goal-reader", goal: true }]));
+    await entered.promise;
+    const loading = f.primary.getByRole("button", { name: "Loading goal…", exact: true });
+    await expect(loading).toBeVisible();
+    await loading.click();
+    await expect(f.page.getByRole("button", { name: "Start goal", exact: true })).toHaveCount(0);
+    await expect(f.page.getByRole("button", { name: "Resume goal", exact: true })).toHaveCount(0);
+    waiting.resolve();
+    await expect(f.primary.getByRole("button", { name: "Set goal", exact: true })).toBeVisible();
+    await expect(f.page.getByRole("button", { name: "Start goal", exact: true })).toBeVisible();
+    await expect(f.page.getByRole("button", { name: "Resume goal", exact: true })).toHaveCount(0);
+  } finally { waiting.resolve(); }
 });

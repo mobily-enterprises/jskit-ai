@@ -2304,6 +2304,21 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       return createDriver(prepared.engine, defaultHost).seedRenewalHandover(prepared);
     },
+    async updateNativeConversationSettings({ id, context, input = {} } = {}) {
+      if (typeof id !== "string" || !id.trim()) throw new TypeError("A conversation id is required.");
+      await access(context, id, "configure");
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed");
+      const prepared = await defaultHost?.conversation?.({ id, context, input, operation: "updateSettings" });
+      if (prepared?.sessionId !== id || !prepared.native || !Object.hasOwn(prepared, "context")) {
+        throw new TypeError("Native settings require their authorized host preparation.");
+      }
+      const driver = createDriver(prepared.engine, defaultHost);
+      if (typeof driver.updateConversationSettings !== "function") {
+        throw failure("This provider does not support live native settings.", "conversation_unsupported");
+      }
+      if (closed) throw failure("This conversation runtime is closed.", "conversation_closed");
+      return driver.updateConversationSettings({ ...prepared, input });
+    },
     // Readiness uses the same authorized host and original native owner without
     // opening a retained handle or starting a conversational turn.
     async ensureNativeConversation({ id, context } = {}) {

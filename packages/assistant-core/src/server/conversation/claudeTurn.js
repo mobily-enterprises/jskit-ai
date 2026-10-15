@@ -71,9 +71,17 @@ export async function runClaudeRenewalTurn(conversation, {
   let result;
   try {
     if (accepted) {
-      result = { text: history.messages.filter((message) => message.userId === uuid && message.role === "assistant").map((message) => message.text).join("\n"),
-        threadId: entry.id, turnId: uuid, reconciled: true };
-      if (!result.text) throw createError("The accepted Claude renewal turn has no readable result; it will not be submitted again.", unreadableCode);
+      if (entry.turn?.id === uuid && entry.turn.active && entry.process) {
+        result = await conversation.wait({ conversationId: entry.id, timeoutMs });
+        if (result.status !== "completed") throw createError(result.error || "Claude did not complete the renewal turn.", failedCode);
+      } else {
+        if (entry.turn?.id !== uuid || entry.turn.state !== "completed" || entry.turn.active) {
+          throw createError("The accepted Claude renewal turn has no confirmed completion; it will not be submitted again.", unreadableCode);
+        }
+        result = { text: history.messages.filter((message) => message.userId === uuid && message.role === "assistant").map((message) => message.text).join("\n"),
+          threadId: entry.id, turnId: uuid, reconciled: true };
+        if (!result.text) throw createError("The accepted Claude renewal turn has no readable result; it will not be submitted again.", unreadableCode);
+      }
     } else {
       if (entry.turn?.active && entry.process) throw createError("Stop the current turn before renewing this conversation.");
       await conversation.send({ message: prompt, messageId: clientMessageId, outputSchema }, { renewal: true });
@@ -146,6 +154,7 @@ export function createClaudeConversationOwner({
 
   function snapshot(entry) {
     return entry?.turn ? { ...entry.turn, threadId: entry.id,
+      ...(entry.turn.active && entry.observationError ? { status: "observation_lost", error: entry.observationError } : {}),
       phase: entry.turn.active && !entry.observationError ? text(entry.turn.phase) : "" } : null;
   }
 
@@ -204,7 +213,7 @@ export function createClaudeConversationOwner({
     if (!main && !saved && !create && !recoveringCleanup) throw createError("This Claude conversation is unavailable.");
     const state = saved ? JSON.parse(saved) : {};
     const entry = { id, key, main, persistent: state.persistent === true, context, process: null, startupCleanup: null,
-      executionId: state.executionId || (recoveringCleanup ? cleanupExecutionId : ""),
+      executionId: state.executionId || (recoveringCleanup ? cleanupExecutionId : ""), preparationRevision: 0,
       accountIdentities: state.accountIdentities || (state.accountIdentity ? { anthropic: state.accountIdentity } : {}),
       accountIdentity: state.accountIdentity || "", sent: state.sent === true, nativeWorkdir: state.nativeWorkdir || nativeWorkdir,
       lastMessageId: state.lastMessageId || "", turn: state.turnId ? {
@@ -219,7 +228,8 @@ export function createClaudeConversationOwner({
         getProcess: () => entry.stopping ? null : entry.process,
         isActive: () => store.releaseExecution ? entry.nativeTurn.read().active : Boolean(entry.turn?.active),
         startProcess: input => startProcess(entry, input),
-        stopProcess: reason => entry.process || entry.executionId ? entry.nativeTurn.stopProcess(reason) : Promise.resolve()
+        stopProcess: reason => entry.process || entry.executionId
+          ? entry.nativeTurn.stopProcess(reason, { preparing: true }) : Promise.resolve()
       }
     });
     entry.goals = createClaudeConversationGoals({ conversationId: id,
@@ -255,7 +265,7 @@ export function createClaudeConversationOwner({
     if (entry.accountIdentity !== identity) entry.nativeTurn.invalidateFinalAssistantResult();
     try {
       await bindClaudeConversationAccount(entry, { identity, providerId,
-        stop: (entry, reason) => entry.nativeTurn.stopProcess(reason), save: saveAccount });
+        stop: (entry, reason) => entry.nativeTurn.stopProcess(reason, { preparing: true }), save: saveAccount });
     } catch (failure) {
       if (failure.code !== "claude_account_changed") throw failure;
       throw createError(failure.message, account.changedCode || failure.code);
@@ -273,12 +283,17 @@ export function createClaudeConversationOwner({
   }
 
   async function ensureProcess(entry, input = {}) {
-    if (preparation.checkConfiguration) {
-      const application = preparation.checkConfiguration(entry, input);
-      if (closing || closingSessions.has(entry.context.key) || application?.sessionClosing) throw createError("This session is closing.");
+    const revision = entry.preparationRevision;
+    const application = preparation.checkConfiguration?.(entry, input);
+    if (entry.disposed || closing || closingSessions.has(entry.context.key) || application?.sessionClosing) {
+      throw createError("This session is closing.");
     }
     if (preparation.account) await bindAccount(entry);
-    return entry.nativeTurn.prepare(await preparation.configuration(entry, input));
+    const configuration = await preparation.configuration(entry, input);
+    if (revision !== entry.preparationRevision || entry.disposed || closing || closingSessions.has(entry.context.key)) {
+      throw createError("Claude preparation was stopped while this session was closing or changing.");
+    }
+    return entry.nativeTurn.prepare(configuration);
   }
 
   async function stopForTerminal(entry, application) {
@@ -301,6 +316,13 @@ export function createClaudeConversationOwner({
 
   async function startProcess(entry, configuration) {
     const context = entry.context;
+    const revision = entry.preparationRevision;
+    const assertPreparing = () => {
+      if (revision !== entry.preparationRevision || entry.disposed || closing || closingSessions.has(context.key)) {
+        throw createError("Claude preparation was stopped while this session was closing or changing.");
+      }
+    };
+    assertPreparing();
     let prepared = process.prepare ? process.prepare(entry, configuration, context) : { workdir: entry.nativeWorkdir };
     if (prepared && typeof prepared.then === "function") prepared = await prepared;
     entry.nativeWorkdir = prepared.workdir;
@@ -310,14 +332,17 @@ export function createClaudeConversationOwner({
     entry.profile = configuration.profile;
     let options = process.configure(entry, configuration, { context, prepared });
     if (options && typeof options.then === "function") options = await options;
+    assertPreparing();
     try { entry.process = await createProcess({ ...options,
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
       onStarted: async (executionId, stop) => {
         if (typeof stop === "function") entry.startupCleanup = { executionId, stop };
-        if (entry.executionId === executionId) return;
-        entry.executionId = executionId;
-        await store.save(entry, { execution: true });
-        await onEvent(entry, { type: "execution", context, executionId });
+        if (entry.executionId !== executionId) {
+          entry.executionId = executionId;
+          await store.save(entry, { execution: true });
+          await onEvent(entry, { type: "execution", context, executionId });
+        }
+        assertPreparing();
       },
       async onEvent(frame) {
         const current = entry.command;
@@ -386,6 +411,11 @@ export function createClaudeConversationOwner({
         await store.releaseExecution(entry);
         if (entry.startupCleanup?.executionId === error.executionId) entry.startupCleanup = null;
       }
+      throw error;
+    }
+    try { assertPreparing(); }
+    catch (error) {
+      await entry.nativeTurn.stopProcess(error.message);
       throw error;
     }
     if (entry.startupCleanup?.executionId === entry.executionId) entry.startupCleanup = null;
@@ -624,9 +654,13 @@ export function createClaudeConversationOwner({
   }
 
   async function drain(key) {
-    await Promise.allSettled([...entries.values()].filter(entry => entry.context.key === key).map(entry => entry.nativeTurn.whenIdle()));
+    const selected = [...entries.values()].filter(entry => entry.context.key === key);
+    // Startup already lends cleanup before initialization completes. Stop it
+    // first; waiting for the preparation queue first can exhaust host shutdown.
+    for (const entry of selected) await entry.nativeTurn.stopProcess();
+    await Promise.allSettled(selected.map(entry => entry.nativeTurn.whenIdle()));
     const proofs = [];
-    for (const entry of entries.values()) if (entry.context.key === key) proofs.push(await entry.nativeTurn.stopProcess());
+    for (const entry of selected) proofs.push(await entry.nativeTurn.stopProcess());
     return proofs;
   }
 
@@ -637,6 +671,8 @@ export function createClaudeConversationOwner({
   async function close(entry) {
     await entry.nativeTurn.stopProcess("Conversation closed.");
     entry.disposed = true;
+    await entry.nativeTurn.whenIdle().catch(() => {});
+    await entry.nativeTurn.stopProcess("Conversation closed.");
     if (entries.get(entry.key) === entry) entries.delete(entry.key);
   }
 
@@ -850,7 +886,11 @@ export function createClaudeConversationOwner({
       await cancellation?.catch(() => {});
       if (active.entry) {
         try {
-          if (problem || signal.aborted) await active.entry.nativeTurn.stopProcess(problem?.message || "Work stopped.");
+          // A failed Stop already retained custody for the caller's retry.
+          // Do not race that retry with another implicit cleanup attempt.
+          if ((problem || signal.aborted) && !problem?.cleanupFailed) {
+            await active.entry.nativeTurn.stopProcess(problem?.message || "Work stopped.");
+          }
         } catch (error) {
           if (problem && error !== problem) error.cause ||= problem;
           problem = error;
@@ -880,6 +920,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   const instructions = process ? createClaudeConversationAdapter(process) : null;
   const publish = entry ? publishEntryEvent : onEvent;
   const messages = new Map();
+  const pendingAssistantMessages = new Map();
+  const assistantRoles = new Map();
   const admissions = new Map();
   const inFlight = new Set();
   const tasks = new Set();
@@ -890,6 +932,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   let phase = "";
   let outcome;
   let active = false;
+  let generation = 0;
   let stopped = false;
   let cancelling = false;
   let steering;
@@ -898,6 +941,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   let acceptedInput = null;
   let publishedAssistant = null;
   let finalAssistantResult = null;
+  let resolvedCompletion;
+  let latestSettlement;
+  // A common command fences its first checkpoint; later native continuations
+  // keep the same input but cannot enqueue onto that already resolved command.
+  let checkpointedCommand;
 
   function clearFinalAssistantResult() {
     publishedAssistant = null;
@@ -945,17 +993,21 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
 
   function resolveCompletion(result) {
     entry.completion?.resolve(result);
+    resolvedCompletion = entry.completion;
     if (entry.command?.finishIfCurrent) entry.command.completion.resolve(result);
   }
 
-  async function updateState(state, message = "") {
-    if (!entry.turn) return;
+  async function updateState(state, message = "", expectedGeneration = generation) {
+    if (!entry.turn || expectedGeneration !== generation) return false;
     const active = ["starting", "active", "finalizing"].includes(state);
     const checkpoint = onEvent({ type: "before-state", state, active, message });
     if (checkpoint) await checkpoint;
+    if (expectedGeneration !== generation) return false;
     setState(state, message);
     await onEvent({ type: "save" });
+    if (expectedGeneration !== generation) return false;
     await onEvent({ type: "state", state, active, message });
+    return expectedGeneration === generation;
   }
 
   function setState(state, message = "") {
@@ -965,12 +1017,13 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       phase: active && !entry.observationError ? String(entry.turn.phase ?? "").trim() : "" });
   }
 
-  async function stopProcess(reason = "") {
+  async function stopProcess(reason = "", { preparing = false } = {}) {
+    if (!preparing) entry.preparationRevision++;
     invalidateFinalAssistantResult();
     // Runtime bindings commit execution release before dropping the handle.
     // Retained host entries keep their original post-proof checkpoint order.
     const binding = Boolean(process.releaseExecution);
-    if (binding && entry.stopPending) return entry.stopPending;
+    if (entry.stopPending) return entry.stopPending;
     const active = read().active;
     if (!binding) entry.stopping = true;
     const operation = async () => {
@@ -1015,39 +1068,50 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (entry.startupCleanup === startup) entry.startupCleanup = null;
       return entry.exitProof;
     };
-    if (!binding) return operation();
-    entry.stopPending = operation().catch(error => { error.cleanupFailed = true; throw error; })
+    entry.stopPending = operation().catch(error => { if (binding) error.cleanupFailed = true; throw error; })
       .finally(() => { entry.stopPending = null; });
     return entry.stopPending;
   }
 
   async function publishEntryEvent(event, deferred = false) {
     if (entry.stopping) return;
+    if (event.type === "settled" && event.generation !== generation) return;
     const binding = Boolean(process.releaseExecution);
     const command = entry.command;
-    if (event.type === "settled" && !binding && !deferred && command?.finishIfCurrent) {
+    if (event.type === "settled" && !binding && !deferred && command?.finishIfCurrent && command !== checkpointedCommand) {
       const delivery = command.delivery;
       const completion = entry.completion;
       const owner = acceptedInput;
       // Release the native queue before the common run joins reserved steering.
       // That same accepted delivery then performs the original retained checkpoint.
       command.completion.resolve(async () => {
-        if (entry.command !== command || command.delivery !== delivery || entry.completion !== completion ||
-            command.signal.aborted || !currentReceiptOwner(owner)) {
-          clearFinalAssistantResult();
-          throw failure("Claude's completion belongs to a retired native input.");
-        }
         try {
-          await publishEntryEvent(event, true);
-          return readResult();
+          for (;;) {
+            if (entry.command !== command || command.delivery !== delivery || entry.completion !== completion ||
+                command.signal.aborted || !currentReceiptOwner(owner)) {
+              throw failure("Claude's completion belongs to a retired native input.");
+            }
+            // Follow-ups share this input, but can finish while its checkpoint
+            // awaits storage. Apply the latest settlement after the same fence.
+            if (active) return readResult();
+            const settlement = latestSettlement;
+            await publishEntryEvent(settlement, true);
+            if (settlement === latestSettlement) return readResult();
+          }
         } catch (error) {
           clearFinalAssistantResult();
           throw error;
+        } finally {
+          checkpointedCommand = command;
         }
       });
       return;
     }
-    if (event.type === "admitted") {
+    if (event.type === "continued") {
+      if (entry.completion === resolvedCompletion) entry.completion = Promise.withResolvers();
+      if (binding) setState("active");
+      else await updateState("active");
+    } else if (event.type === "admitted") {
       if (event.userEcho) entry.sent = true;
       if (!binding) await onEvent({ type: "save" });
     } else if (event.type === "phase") {
@@ -1056,7 +1120,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     } else if (event.type === "settled") {
       const state = event.status === "interrupted" ? "interrupted" : event.status === "failed" ? "failed" : "completed";
       if (binding) setState(state, event.error);
-      else await updateState(state, event.error);
+      else if (!await updateState(state, event.error, event.generation)) return;
     }
     const published = await onEvent(event);
     if (event.type === "provider-event") {
@@ -1065,6 +1129,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (change) await onEvent({ type: "provider-update", change });
     }
     if (event.type === "settled") {
+      if (event.generation !== generation) return;
       if (event.source === "result") await onEvent({ type: "provider-update", change: "goal" });
       resolveCompletion(binding ? event : readResult());
     }
@@ -1091,11 +1156,38 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     return conversationTurn;
   }
 
+  async function flushAssistantMessages(apiMessageId, role) {
+    assistantRoles.set(apiMessageId, role);
+    const pending = pendingAssistantMessages.get(apiMessageId) || [];
+    pendingAssistantMessages.delete(apiMessageId);
+    for (const block of pending) {
+      await publishMessage({ ...block, role });
+      if (block.outputId) {
+        if (block.outputId !== block.id) messages.delete(block.outputId);
+        await publish({ type: "message-complete", messageId: block.outputId });
+      }
+    }
+  }
+
   async function receive(frame) {
     if (stopped) return;
     if (frame.session_id && frame.session_id !== conversationId) throw failure("Claude returned a different conversation id.");
     if (frame.parent_tool_use_id) return; // Nested agents do not replace the main reply.
     await publish({ type: "provider-event", event: frame });
+    const continuation = (frame.type === "user" && frame.origin?.kind === "task-notification") ||
+      (frame.type === "command_lifecycle" && frame.state === "started") ||
+      (frame.type === "stream_event" && frame.event?.type === "message_start") || frame.type === "assistant";
+    if (continuation && turnId && !cancelling) {
+      const wasActive = active;
+      if (outcome || !active) {
+        generation++;
+        outcome = null;
+        result = "";
+        clearFinalAssistantResult();
+      }
+      active = true;
+      if (!wasActive) await publish({ type: "continued", source: frame.type });
+    }
     if (frame.type === "command_lifecycle" || frame.type === "user") {
       const uuid = frame.type === "user" ? frame.uuid : frame.command_uuid;
       if (frame.type === "user" && !inFlight.has(uuid) && !admissions.has(uuid)) return;
@@ -1135,9 +1227,23 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (frame.subtype === "local_command_output" && frame.content) {
         await publishMessage({ id: `claude_${frame.uuid}`, role: "commentary", text: frame.content, complete: true });
       }
-      if (frame.subtype === "task_started" && ["local_agent", "local_workflow"].includes(frame.task_type)) tasks.add(frame.task_id);
+      if (frame.subtype === "background_tasks_changed") {
+        tasks.clear();
+        for (const task of frame.tasks || []) if (task.task_id && !task.ambient) tasks.add(task.task_id);
+      }
+      if (frame.subtype === "task_started" && frame.task_id && !frame.ambient) tasks.add(frame.task_id);
       if (["task_notification", "task_updated"].includes(frame.subtype) &&
           ["completed", "failed", "stopped", "killed"].includes(frame.status || frame.patch?.status)) tasks.delete(frame.task_id);
+      if (["background_tasks_changed", "task_started", "task_notification", "task_updated"].includes(frame.subtype)) {
+        if (tasks.size && turnId && !active && !cancelling) {
+          generation++;
+          active = true;
+          clearFinalAssistantResult();
+          await publish({ type: "continued", source: frame.subtype });
+        }
+        await publish({ type: "diagnostic", stage: "background_tasks", nativeEvent: frame.subtype,
+          active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
+      }
     } else if (frame.type === "stream_event") {
       const event = frame.event || {};
       if (event.type === "message_start") messageId = event.message?.id || frame.uuid;
@@ -1155,10 +1261,18 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
           await publish({ type: block.role === "thinking" ? "thinking" : "text", text: delta, messageId: id });
         }
       } else if (event.type === "content_block_stop") {
-        messages.delete(id);
-        await publish({ type: "message-complete", messageId: id });
+        if (![...pendingAssistantMessages.values()].some(blocks => blocks.some(block => block.outputId === id))) {
+          messages.delete(id);
+          await publish({ type: "message-complete", messageId: id });
+        }
+      } else if (event.type === "message_delta" && event.delta?.stop_reason) {
+        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? "commentary" : "assistant");
       }
     } else if (frame.type === "assistant") {
+      const apiMessageId = frame.message?.id;
+      if (apiMessageId && frame.message.content?.some(block => block.type === "tool_use")) {
+        await flushAssistantMessages(apiMessageId, "commentary");
+      }
       for (const block of claudeMessageBlocks(frame)) {
         checkOutput(block.text, block.role);
         // Native split frames arrive before their block's stop event. Keep that
@@ -1171,12 +1285,26 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
               Number.isSafeInteger(frame.apiBlockIndex) && frame.apiBlockIndex >= 0 &&
               live[0].id === `${prefix}${frame.apiBlockIndex}`)) block.outputId = live[0].id;
         }
-        await publishMessage(block);
+        if (apiMessageId && block.role === "assistant") {
+          const role = assistantRoles.get(apiMessageId);
+          if (role) await publishMessage({ ...block, role });
+          else {
+            const pending = pendingAssistantMessages.get(apiMessageId) || [];
+            pending.push(block);
+            pendingAssistantMessages.set(apiMessageId, pending);
+          }
+        } else await publishMessage(block);
+      }
+      if (apiMessageId && frame.message.stop_reason) {
+        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? "commentary" : "assistant");
       }
     } else if (frame.type === "result") {
+      const failed = frame.is_error || frame.subtype !== "success";
+      const interrupted = ["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason);
+      const role = failed || interrupted ? "commentary" : "assistant";
+      for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role);
       const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
       checkOutput(output);
-      const failed = frame.is_error || frame.subtype !== "success";
       const message = failed ? (frame.errors || []).join("; ") || output || frame.subtype : "";
       result = failed ? "" : output;
       if (result && ![...messages.values()].some((block) => block.complete && block.role === "assistant" && block.text === result)) {
@@ -1188,11 +1316,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         return;
       }
       if (cancelling) return;
-      const interrupted = ["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason);
       outcome = { status: interrupted ? "interrupted" : failed ? "failed" : "completed", error: message };
+      await publish({ type: "diagnostic", stage: "native_result", status: outcome.status,
+        terminalReason: frame.terminal_reason, active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
     }
     if ((frame.type === "system" || frame.type === "result") &&
-        outcome && inFlight.size === 0 && tasks.size === 0) {
+        active && !cancelling && outcome && inFlight.size === 0 && tasks.size === 0) {
       active = false;
       phase = "";
       const candidate = publishedAssistant;
@@ -1201,12 +1330,14 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         ? { threadId: conversationId, turnId, inputMessageId: candidate.owner.commandId,
           itemId: candidate.itemId, outputId: candidate.outputId, text: candidate.text,
           conversationTurn: candidate.conversationTurn } : null;
-      try { await publish({ type: "settled", ...read(), source: frame.type }); }
+      latestSettlement = { type: "settled", ...read(), generation, source: frame.type };
+      try { await publish(latestSettlement); }
       catch (error) { clearFinalAssistantResult(); throw error; }
     }
   }
 
   function stop(reason = "Claude stopped before acknowledging the prompt.") {
+    generation++;
     stopped = true;
     inputOwner = null;
     acceptedInput = null;
@@ -1217,6 +1348,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     admissions.clear();
     inFlight.clear();
     tasks.clear();
+    pendingAssistantMessages.clear();
+    assistantRoles.clear();
     steering?.reject(failure(reason));
     if (active) outcome = { status: "interrupted", error: reason };
     active = false;
@@ -1242,12 +1375,15 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     begin({ id, maxOutputCharacters = 4 * 1024 * 1024 } = {}) {
       if (active) throw failure("This Claude turn is still working.");
       if (!id || !Number.isSafeInteger(maxOutputCharacters) || maxOutputCharacters < 1) throw new TypeError("Invalid Claude turn configuration.");
+      generation++;
       inputOwner = null;
       acceptedInput = null;
       clearFinalAssistantResult();
       turnId = id;
       maximumOutput = maxOutputCharacters;
       messages.clear();
+      pendingAssistantMessages.clear();
+      assistantRoles.clear();
       result = "";
       phase = "";
       messageId = "";
@@ -1260,6 +1396,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     reset() {
       if (active || inFlight.size || tasks.size) throw failure("Stop Claude before resetting its turn view.");
       messages.clear();
+      pendingAssistantMessages.clear();
+      assistantRoles.clear();
       result = "";
       outcome = null;
       inputOwner = null;
@@ -1293,6 +1431,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     },
     async interruptGeneration(client, { timeoutMs = 30_000 } = {}) {
       if (!active || steering || cancelling) throw failure("This Claude turn cannot accept steering now.");
+      // A completed main loop can still own background work. There is no
+      // generation left to interrupt or second terminal result to wait for.
+      if (outcome && inFlight.size === 0) {
+        await publish({ type: "diagnostic", stage: "steering_background_only", backgroundTasks: tasks.size });
+        return;
+      }
       // Streaming user input otherwise queues behind the entire running turn.
       // Claude's supported steering path interrupts generation, then continues
       // the same native history with the new instruction.
@@ -1301,12 +1445,17 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       steering = Promise.withResolvers();
       let timer;
       try {
+        await publish({ type: "diagnostic", stage: "steering_requested", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
         await Promise.all([client.interrupt(), Promise.race([
           steering.promise,
           new Promise((_, reject) => {
             timer = setTimeout(() => reject(failure("Claude did not confirm the interrupted generation.")), timeoutMs);
           })
         ])]);
+        await publish({ type: "diagnostic", stage: "steering_confirmed", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
+      } catch (error) {
+        await publish({ type: "diagnostic", stage: "steering_failed", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
+        throw error;
       }
       finally { clearTimeout(timer); steering = null; }
     },

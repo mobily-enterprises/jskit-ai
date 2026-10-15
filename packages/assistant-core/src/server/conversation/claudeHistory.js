@@ -68,14 +68,14 @@ async function claudeHistoryPath({ configRoot, workdir, conversationId }) {
   return null;
 }
 
-function claudeMessageBlocks(frame, { includeNested = false } = {}) {
+function claudeMessageBlocks(frame, { includeNested = false, commentary = false } = {}) {
   if (frame.type !== "assistant" || frame.parent_tool_use_id && !includeNested) return [];
   const content = frame.message?.content;
   if (!Array.isArray(content)) return [];
   // Native frames split one API message into blocks with distinct UUIDs.
   const messageId = frame.uuid || frame.message.id;
   if (!messageId) return [];
-  const commentary = content.some((block) => block.type === "tool_use");
+  commentary ||= content.some((block) => block.type === "tool_use");
   return content.flatMap((block, index) => {
     const text = block.type === "thinking" ? block.thinking : block.type === "text" ? block.text : "";
     return typeof text === "string" && text.trim() ? [{
@@ -124,6 +124,12 @@ async function readClaudeHistory(options) {
       retained.add(leafUuid);
       leafUuid = byId.get(leafUuid)?.parentUuid;
     }
+  }
+  const toolMessages = new Set();
+  for (const frame of frames) {
+    if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
+    if (frame.type === "assistant" && !frame.parent_tool_use_id && frame.message?.id &&
+        frame.message.content?.some(block => block.type === "tool_use")) toolMessages.add(frame.message.id);
   }
   for (const frame of frames) {
     if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
@@ -175,7 +181,7 @@ async function readClaudeHistory(options) {
         }
       }
     }
-    for (const message of claudeMessageBlocks(frame)) {
+    for (const message of claudeMessageBlocks(frame, { commentary: toolMessages.has(frame.message?.id) })) {
       messages.set(message.id, { ...message, userId: lastUserId });
     }
   }

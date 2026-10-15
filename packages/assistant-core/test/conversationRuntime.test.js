@@ -87,6 +87,21 @@ test("Claude rejects active prompt changes without invalidating ordinary steerin
   assert.equal(f.launches.length, 1);
 });
 
+test("Claude applies model and effort changes during work without restarting its process", async () => {
+  const f = claudeHost();
+  await f.runtime.prepare(claudeInput);
+  f.state.active = true;
+  await f.runtime.prepare({ ...claudeInput, contextIdentity: "calendar/model-two", model: "two",
+    settings: { effortLevel: "low" } });
+  assert.equal(f.state.active, true);
+  assert.equal(f.launches.length, 1);
+  assert.deepEqual(f.requests.slice(-2), [
+    { subtype: "apply_flag_settings", settings: { effortLevel: "low" } },
+    { subtype: "set_model", model: "two" }
+  ]);
+  await assert.rejects(f.runtime.prepare({ ...claudeInput, liveUpdateIdentity: "changed-tools" }), /Stop the current/);
+});
+
 test("Claude restarts when only the native instruction mode changes", async () => {
   const f = claudeHost();
   await f.runtime.prepare(claudeInput);
@@ -111,10 +126,14 @@ function codexHost({ readInstructions } = {}) {
   const state = { status: "idle", process: "process-1", prompt: "Calendar instructions", provider: "openai", fail: false,
     environment: { TOOL_ENDPOINT: "current" } };
   const requests = [];
-  const client = { async request(method, input) {
+  const client = { isOpen: () => true, async request(method, input) {
     requests.push({ method, input });
     if (method === "thread/read") return { thread: { historyMode: "paginated", status: state.status, modelProvider: state.provider } };
-    if (method === "thread/goal/get") return { goal: null };
+    if (method === "thread/goal/get") return { goal: state.goal ? { ...state.goal } : null };
+    if (method === "thread/goal/set") {
+      state.goal = { ...state.goal, status: input.status, updatedAt: state.goal.updatedAt + 1 };
+      return { goal: { ...state.goal } };
+    }
     if (method === "thread/turns/list") return { data: [{ id: "active-turn" }] };
     if (method === "turn/interrupt") { state.status = "idle"; return {}; }
     if (method === "thread/inject_items") return {};
@@ -123,7 +142,8 @@ function codexHost({ readInstructions } = {}) {
     if (method === "thread/resume") {
       if (state.fail) throw new Error("resume failed");
       state.status = "idle";
-      return { modelProvider: input.modelProvider || state.provider };
+      state.provider = input.modelProvider || state.provider;
+      return { modelProvider: state.provider };
     }
     throw new Error(`Unexpected native request: ${method}`);
   } };
@@ -134,6 +154,7 @@ function codexHost({ readInstructions } = {}) {
     prepareHistory: async (params) => params,
     threadParameters: (params) => params,
     verifyEnvironment: async () => {},
+    publishGoal: (threadId, goal) => requests.push({ method: "host.goal", input: { threadId, goal } }),
     recordInterruption: (threadId, turnId) => requests.push({ method: "host.recordInterruption", input: { threadId, turnId } }),
     prepareResume: async (id, params) => { requests.push({ method: "host.prepareResume", input: { id } }); return params; }
   });
@@ -532,4 +553,117 @@ test("Codex excludes deferred instruction composition without replenishing spent
         "Only host composition is excluded; the 2.5 seconds already spent are not replenished");
     });
   }
+});
+
+
+for (const action of ["continue", "pause", "cancel", "complete", "close", "invalidate", "failure"]) {
+  test(`next-turn Codex provider settings preserve the current turn and ${action}`, async () => {
+    const f = codexHost();
+    const id = "native-history";
+    await f.runtime.withThreadContext(id, { modelProvider: "openai" }, () => {});
+    f.requests.length = 0;
+    f.state.status = "active";
+    f.state.goal = { status: "active", createdAt: 1, updatedAt: 1, objective: "Finish the same goal", tokenBudget: 100, tokensUsed: 40 };
+    const applied = [];
+    const update = params => { applied.push(params.model); return { ok: true }; };
+    const first = { modelProvider: "deepseek", model: "first", config: { "model_providers.deepseek": { base_url: "https://example.test" } } };
+    assert.deepEqual(await f.runtime.scheduleSettings(id, first, update), { ok: true, pending: true });
+    const task = f.runtime.threadEnvironmentTasks.get(id);
+    assert.equal(f.state.goal.status, "paused");
+    assert.equal(f.runtime.projectGoal(id, f.state.goal).status, "active", "An internal scheduling hold is not a user Pause");
+    assert.equal(f.requests.some(r => ["turn/interrupt", "thread/resume", "thread/unsubscribe"].includes(r.method)), false);
+    assert.deepEqual(await f.runtime.scheduleSettings(id, { ...first, model: "latest" }, update), { ok: true, pending: true });
+    if (["pause", "cancel"].includes(action)) f.runtime.goalChanged(id);
+    if (action === "pause") f.state.goal = { ...f.state.goal, status: "paused", updatedAt: 3 };
+    if (action === "cancel") f.state.goal = null;
+    if (action === "complete") f.state.goal = { ...f.state.goal, status: "complete", updatedAt: 3 };
+    if (action === "failure") f.state.fail = true;
+    if (action === "close") f.runtime.close();
+    if (action === "invalidate") f.runtime.invalidateThread(id);
+    f.state.status = "idle";
+    if (["close", "invalidate", "failure"].includes(action)) {
+      await assert.rejects(task);
+      assert.deepEqual(applied, []);
+      assert.equal(f.runtime.projectGoal(id, f.state.goal).status, "paused");
+    } else {
+      await task;
+      assert.deepEqual(applied, ["latest"]);
+      assert.equal(f.state.provider, "deepseek");
+      assert.equal(f.state.goal?.status || null, { continue: "active", pause: "paused", cancel: null, complete: "complete" }[action]);
+      if (f.state.goal) for (const [key, value] of Object.entries({ createdAt: 1, objective: "Finish the same goal", tokenBudget: 100, tokensUsed: 40 })) {
+        assert.equal(f.state.goal[key], value);
+      }
+    }
+    assert.equal(f.requests.some(r => r.method === "turn/interrupt"), false);
+    f.runtime.close();
+  });
+}
+
+test("a settings save during Codex reload replaces the older choice before its goal resumes", async () => {
+  const f = codexHost();
+  const id = "native-history";
+  await f.runtime.withThreadContext(id, { modelProvider: "openai" }, () => {});
+  f.state.goal = { status: "active", createdAt: 1, updatedAt: 1, objective: "Continue" };
+  const params = { modelProvider: "deepseek", model: "first" };
+  const applied = [];
+  await f.runtime.scheduleSettings(id, params, async selected => {
+    applied.push(selected.model);
+    if (selected.model === "first") {
+      void f.runtime.scheduleSettings(id, { ...params, model: "latest" }, () => assert.fail("The retained owner handles later saves"));
+    }
+    assert.equal(f.state.goal.status, "paused");
+  });
+  assert.deepEqual(applied, ["first", "latest"]);
+  assert.equal(f.state.goal.status, "active");
+  assert.equal(f.requests.filter(r => r.method === "thread/goal/set" && r.input.status === "active").length, 1);
+  f.runtime.close();
+});
+
+test("Codex retains settings saved during goal resume acknowledgement and after completion", async () => {
+  const f = codexHost();
+  const id = "native-history";
+  await f.runtime.withThreadContext(id, { modelProvider: "openai" }, () => {});
+  f.state.goal = { status: "active", createdAt: 1, updatedAt: 1, objective: "Continue" };
+  const params = { modelProvider: "deepseek", model: "first" };
+  const applied = [];
+  const update = selected => { applied.push(selected.model); };
+  const request = f.client.request.bind(f.client);
+  let savedDuringResume = false;
+  f.client.request = async (method, input) => {
+    const result = await request(method, input);
+    if (method === "thread/goal/set" && input.status === "active" && !savedDuringResume) {
+      savedDuringResume = true;
+      void f.runtime.scheduleSettings(id, { ...params, model: "during-resume" }, update);
+    }
+    return result;
+  };
+  await f.runtime.scheduleSettings(id, params, update);
+  assert.deepEqual(applied, ["first", "during-resume"]);
+  assert.equal(f.runtime.hasPendingSettings(id), false);
+  await f.runtime.scheduleSettings(id, { ...params, model: "after-completion" }, update);
+  assert.deepEqual(applied, ["first", "during-resume", "after-completion"]);
+  assert.equal(f.state.goal.status, "active");
+  assert.equal(f.requests.some(r => r.method === "turn/interrupt"), false);
+  f.runtime.close();
+});
+
+test("a user Pause during the final goal read prevents automatic settings recovery from resuming it", async () => {
+  const f = codexHost();
+  const id = "native-history";
+  await f.runtime.withThreadContext(id, { modelProvider: "openai" }, () => {});
+  f.state.goal = { status: "active", createdAt: 1, updatedAt: 1, objective: "Continue" };
+  const request = f.client.request.bind(f.client);
+  let settingsApplied = false;
+  f.client.request = async (method, input) => {
+    const result = await request(method, input);
+    if (method === "thread/goal/get" && settingsApplied) {
+      f.runtime.goalChanged(id);
+      f.state.goal = { ...f.state.goal, status: "paused", updatedAt: f.state.goal.updatedAt + 1 };
+    }
+    return result;
+  };
+  await f.runtime.scheduleSettings(id, { modelProvider: "deepseek", model: "next" }, () => { settingsApplied = true; });
+  assert.equal(f.state.goal.status, "paused");
+  assert.equal(f.requests.some(r => r.method === "thread/goal/set" && r.input.status === "active"), false);
+  f.runtime.close();
 });

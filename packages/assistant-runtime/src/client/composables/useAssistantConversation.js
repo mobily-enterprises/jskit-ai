@@ -84,7 +84,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const error = ref("");
   const loading = ref(true);
   const stopping = ref(false);
-  const goalPending = ref(false);
+  const goalAction = ref("");
   const goalTargetCurrent = ref(false);
   const goalError = ref("");
   const goalView = shallowRef(null);
@@ -115,7 +115,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   const steerable = computed(() => snapshot.value?.status === "working" && snapshot.value?.capabilities?.steering === true);
   const workingPolicy = computed(() => resolveWorkingPolicy(snapshot.value, { deferWhileWorking, admitWhileWorking }));
   const queueing = computed(() => queueWhileSending !== false && (steerable.value || workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking));
-  const canSubmit = computed(() => available.value && (snapshot.value.status === "ready" || steerable.value || (workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking) && snapshot.value.status === "working") &&
+  const canSubmit = computed(() => available.value && !stopping.value && (snapshot.value.status === "ready" || steerable.value || (workingPolicy.value.deferWhileWorking || workingPolicy.value.admitWhileWorking) && snapshot.value.status === "working") &&
     (queueWhileSending !== false || !delivery.state.sending) &&
     !delivery.state.messages.some(message => message.status === "uncertain" &&
       (snapshot.value.status !== "ready" || !message.payload || text(message.payload.draft ?? message.payload.message) === text(draft))));
@@ -221,6 +221,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       // Keep the open goal menu while its first native identity arrives. The
       // pending read disables commands until it supplies the new exact target.
       goalTargetCurrent.value = false;
+      goalLoadError.value = "";
       goalReadController?.abort();
     }
     if (readsGoals.value && (initial || goalChanged || state.segmentId !== goalSegment)) void refreshGoal();
@@ -338,7 +339,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     draftAttachments.value = [];
     draftRetry.value = null;
     goalError.value = "";
-    goalPending.value = false;
+    goalAction.value = "";
     goalView.value = null;
     goalLoadError.value = "";
     goalReadQueued = false;
@@ -441,7 +442,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (pendingMessages.has(messageId)) return false;
     // Register before the original serial tail so Stop/retirement also reaches
     // a local follower whose deliver callback has not started yet.
-    const pending = { controller: new AbortController(), started: false, dispatched: false, deferred, appAdmission };
+    const pending = { controller: new AbortController(), started: false, dispatched: false };
     const { controller } = pending;
     pendingMessages.set(messageId, pending);
     try {
@@ -592,7 +593,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const view = goalView.value;
     const target = view?.target;
     const command = target?.capabilities?.goalCommands?.[action];
-    if (!available.value || view?.status !== "available" || goalLoadError.value || goalPending.value || !goalTargetCurrent.value ||
+    if (!available.value || view?.status !== "available" || goalLoadError.value || goalAction.value || !goalTargetCurrent.value ||
         !["message", "control"].includes(command?.delivery) ||
         delivery.state.messages.some(message => message.status === "uncertain")) return false;
     if (input.tokenBudget != null && !target.capabilities.goalBudgets) {
@@ -605,7 +606,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       expectedGoalId: view.goal?.id || null,
       ...(action === "set" ? { objective: String(input.objective || "").trim(),
         ...(input.tokenBudget == null ? {} : { tokenBudget: input.tokenBudget }) } : {}) };
-    goalPending.value = true;
+    goalAction.value = action;
     goalError.value = "";
     try {
       if (retry || command.delivery === "message") {
@@ -630,7 +631,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       return false;
     } finally {
       if (current.value) {
-        goalPending.value = false;
+        goalAction.value = "";
         await goalRead;
         await refreshGoal();
         subscription?.reload();
@@ -642,14 +643,19 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (!readsGoals.value) return null;
     const capabilities = view?.target?.capabilities || {};
     const commands = capabilities.goalCommands || {};
+    const loading = !goalTargetCurrent.value && !goalLoadError.value;
+    const goalAvailable = goalTargetCurrent.value && view?.status === "available" && !goalLoadError.value;
     return {
-      enabled: active.value && Boolean((view?.status === "available" && !goalLoadError.value) || goalError.value),
+      enabled: active.value && Boolean(loading || (view?.status === "available" && !goalLoadError.value) || goalError.value || goalLoadError.value),
+      loading,
+      available: Boolean(goalAvailable),
+      action: goalAction.value,
       tokenBudgetSupported: capabilities.goalBudgets === true,
-      goal: view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
+      goal: goalAvailable && view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
-      pending: goalPending.value || !goalTargetCurrent.value || !available.value || delivery.state.sending ||
+      pending: Boolean(goalAction.value) || !goalAvailable || !available.value || delivery.state.sending ||
         delivery.state.messages.some(message => message.status === "uncertain"),
-      error: goalError.value,
+      error: goalError.value || goalLoadError.value,
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
       cancelInterruptsTurn: commands.cancel?.interruptsTurn === true,
       ...Object.fromEntries(["set", "resume", "pause", "cancel"].filter(action =>
@@ -660,7 +666,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (!editable.value || stopping.value) return false;
     stopping.value = true;
     for (const pending of pendingMessages.values()) {
-      if ((pending.deferred || pending.appAdmission) && !pending.dispatched) pending.controller.abort();
+      if (!pending.dispatched) pending.controller.abort();
     }
     try { return await api.cancelConversation(identity.conversationId); }
     catch (failure) { receiveError(failure); return false; }
