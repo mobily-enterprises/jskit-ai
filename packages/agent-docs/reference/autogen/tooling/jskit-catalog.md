@@ -63,8 +63,8 @@ Exports
 - `CHECK_SCRIPT`
 - `DEPENDENCY_FIELDS`
 - `UPDATE_SCRIPT`
-- `checkProject({ projectRoot = process.cwd(), catalog, additionalManifests = [], checkInstalled = false } = {})`
-- `checkInstalledGraph({ catalog, manifestPaths = [] } = {})`
+- `checkProject({ projectRoot = process.cwd(), catalog, additionalManifests = [], checkInstalled = false, sourcePackages = {} } = {})`
+- `checkInstalledGraph({ catalog, manifestPaths = [], sourcePackages = {} } = {})`
 - `resolveInstalledPackage(consumerDirectory, packageId)`
 - `collectLockInstallations(packageLock = {})`
 - `discoverProjectManifests(projectRoot, additionalManifests = [])`

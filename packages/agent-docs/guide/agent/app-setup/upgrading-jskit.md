@@ -119,6 +119,24 @@ composed application manifest and let resolution identify its actual consumers.
 The installed-graph check does not replace application-owned non-JSKIT version
 validation or the original root lockfile checks.
 
+### Explicit development sources
+
+Hosts composing selected source checkouts can pass `sourcePackages`, an explicit
+package-name-to-directory map, to both `checkProject` and `checkInstalledGraph`.
+The former exempts only these replaced names from published declaration and
+root lock/installed-version comparisons. Pass the corresponding **materialized**
+directories to the latter: it validates package identity and required dependencies,
+rejects resolution outside each selected real path, and still rejects duplicate
+singleton runtimes, including identical-version copies. Selected source versions
+and their consumer ranges need not match the published catalog.
+
+Always run both stages. Source preflight alone does not prove a usable graph.
+The host still validates external dependency compatibility and prepared exports.
+Unselected packages retain ordinary checks. This programmatic development option
+does not modify manifests or locks, change release pins, or relax CLI/update/CI
+defaults. A missing selected checkout must fail; it is not permission to choose a
+published package instead.
+
 ## Enforce the graph in CI
 
 Run this after `npm ci`, and include it in the application's normal verifier:

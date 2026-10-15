@@ -306,7 +306,7 @@ Exports
 - `deleteClaudeConversationHistory({ configRoot, workdir, conversationId })`
 - `retireClaudeConversationHistory({ configRoot, binding, beforeDelete, requireIdle, signal })`
 - `claudeHistoryPath({ configRoot, workdir, conversationId })`
-- `claudeMessageBlocks(frame, { includeNested = false } = {})`
+- `claudeMessageBlocks(frame, { includeNested = false, commentary = false } = {})`
 - `readClaudeHistory(options)`
 - `requireClaudeSessionId(id)`
 - `archivedClaudeProjectDirectory(workdir)`
@@ -1036,6 +1036,7 @@ Local functions
 ### `src/server/conversation/providers/scoped.js`
 Exports
 - `runScopedConversationTurn({ operations, scope = {}, input = {}, context: options = {}, executionProfile: profileSnapshot } = {})`
+- `projectStoredPersistentConversation(options)`
 - `readPersistentConversation(options)`
 - `startPersistentConversationTurn(options)`
 - `inspectPersistentConversationAdmission(options)`
@@ -1048,6 +1049,7 @@ Local functions
 - `qualifyTranscript(turns, record, response, receipts)`
 - `publishTranscript({ sessionId, store, receipts, publish }, context, record, turns, response = {})`
 - `streamMessage({ sessionId, store, projection, publish }, context, record, event)`
+- `projectPersistentConversation(options, context, record, response, turns)`
 
 ### `src/server/conversation/runtime.js`
 Exports
