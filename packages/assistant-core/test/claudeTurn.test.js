@@ -135,6 +135,21 @@ test("interruption does not claim process exit or complete work on a control ack
   assert.equal(turn.read().text, "Resumed");
 });
 
+test("Claude steering survives background completion while the follow-up is being prepared", async () => {
+  const { turn, send, client, events } = fixture();
+  await send();
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
+  await turn.receive({ type: "result", subtype: "success", result: "Build started" });
+  client.interrupt = () => assert.fail("The generation has already completed");
+  await turn.interruptGeneration(client);
+  await turn.receive({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
+  assert.equal(events.some(event => event.type === "settled"), false, "The reserved steering input still needs admission");
+  await send("follow-up");
+  await turn.receive({ type: "result", subtype: "success", result: "Revised answer" });
+  assert.equal(turn.read().status, "completed");
+  assert.equal(turn.read().text, "Revised answer");
+});
+
 test("lost acknowledgement stays uncertain and stop rejects pending admission", async () => {
   const { turn, client, send } = fixture();
   client.send = async () => {};

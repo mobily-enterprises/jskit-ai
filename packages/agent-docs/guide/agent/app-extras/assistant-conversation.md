@@ -3438,6 +3438,12 @@ native closing checks after the application's replacement and PTY guards; an
 optional application session-closing fact remains lazy. Passive retained-turn
 projection reads the same entry and saved receipt without opening a native session.
 Credential selection, storage and actual terminal access remain host facilities.
+An application-owned `preparation.account(entry)` may explicitly return
+`allowAccountChange: true` for a conversation whose authorized current account
+is controlled by that application. The original account-binding owner then
+requires verified process shutdown before saving the new identity and resuming
+the same native history. The default continues to reject a changed native account;
+this option does not authorize access to a conversation or credentials.
 The same owner reads its closing state and retained turn snapshot; application
 preparation supplies the current authorized session-closing fact, saved receipt
 and PTY state at the original read points. Configured history retirement applies
@@ -3446,8 +3452,14 @@ the application retains saved execution and terminal writer facts.
 
 The retained owner handles the extracted native goal commands and status
 interpretation using its history, activity, interrupt and ordinary Send operations. Pause interrupts the
-work and retains the goal; Cancel interrupts and sends `/goal clear`. Revision
-checks use the native conversation, creation time and objective. This native
+work and retains the goal; Cancel interrupts and sends `/goal clear`.
+Set and Resume may use the existing steering path during an active turn; Set
+still refuses to replace an unfinished goal. Neither action needs a separate
+process or a preliminary cancellation of the current work.
+When only native background tasks remain, steering retires the previous result
+before host preparation. A task completing during preparation cannot settle the
+turn before the follow-up is admitted; the new input requires its own result.
+Revision checks use the native conversation, creation time and objective. This native
 facility is shared by managed native bindings and the common runtime. The runtime
 supplies its existing serialized stop and Send operations, so clearing a goal
 cannot bypass admission, authorization, delivery inspection or cleanup proof.

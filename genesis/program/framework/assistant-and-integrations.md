@@ -69,6 +69,16 @@ remain owned by their original lifecycle. Requests also retain the invalidation
 revision across account lookup and retained cleanup: an older request cannot
 launch a successor process or refill the cache after reconnection.
 
+Claude goal creation and resumption use ordinary native message admission,
+including steering while a turn is active. A new goal cannot replace an
+unfinished goal; turn activity alone does not require cancellation.
+Background-only steering retires the prior completion before host preparation,
+so a task finishing during preparation cannot close the pending follow-up.
+An application-owned account preparation may opt into following its current
+authorized native account with `allowAccountChange`. Verified old-process cleanup
+precedes identity persistence and same-history resume; standalone bindings retain
+the default changed-account refusal.
+
 The retained browser goal binding distinguishes an unknown goal from a confirmed
 empty goal. Initial and replacement reads display loading; failed reads hide
 stale actions and report unavailability. Starting, pausing, resuming and cancelling

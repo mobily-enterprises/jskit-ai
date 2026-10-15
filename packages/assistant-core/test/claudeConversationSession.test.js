@@ -1059,6 +1059,25 @@ test("Claude native goal commands use ordinary admission, pause retains the goal
   await assert.rejects(f.conversation.updateGoal({ ...start, messageId: "budget", tokenBudget: 100 }), /token budget/u);
 });
 
+test("Claude accepts a goal during an active turn through the existing steering path", async t => {
+  const f = await fixture(t);
+  await f.conversation.send({ messageId: "working", text: "wait" });
+  const { segmentId } = await f.conversation.read();
+  assert.equal(await f.conversation.readGoal(), null);
+  const command = { action: "set", objective: "Finish the current work", messageId: "working-goal", expectedSegmentId: segmentId };
+  assert.equal((await f.conversation.updateGoal(command)).status, "accepted");
+  const goal = await f.conversation.readGoal();
+  assert.equal(goal.objective, command.objective);
+  assert.equal(goal.status, "active");
+  assert.equal((await f.conversation.updateGoal(command)).duplicate, true);
+  await assert.rejects(f.conversation.updateGoal({ ...command, messageId: "another-goal", objective: "Replace it" }), /cancel the existing goal/i);
+  const trace = await f.trace();
+  assert.equal(trace.filter(row => row.args?.includes("--print")).length, 1);
+  assert.deepEqual(trace.filter(row => row.frame?.type === "user").map(row => row.frame.message.content),
+    ["wait", "/goal Finish the current work"]);
+  assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 1);
+});
+
 test("Claude rejects reserved goals and waits for ordinary Send to deliver a replacement briefing", async t => {
   const f = await fixture(t);
   let state = await f.conversation.read();

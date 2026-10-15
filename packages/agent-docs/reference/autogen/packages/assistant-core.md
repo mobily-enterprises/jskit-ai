@@ -322,7 +322,7 @@ Exports
 - `claudeFlagSettings({ effort = "", providerEnv, hooks, commandHook } = {})`
 - `claudeCodeArguments({ sessionId, resume = false, model = "", effort = "", toolFree = false, applicationTools = false, outputSchema, terminal = false, instructionArguments = [], permissionMode, isolated = false, settings = { fallbackModel: [] } } = {})`
 - `stopClaudeCodeProcess({ process: native, executionId, stopExecution })`
-- `bindClaudeConversationAccount(entry, { identity, providerId, stop, save })`
+- `bindClaudeConversationAccount(entry, { identity, providerId, allowAccountChange = false, stop, save })`
 - `claudePlanUsage(value)`
 - `claudeCatalogueModels(initialization)`
 - `createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false })`

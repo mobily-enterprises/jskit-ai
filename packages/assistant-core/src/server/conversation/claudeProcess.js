@@ -180,13 +180,15 @@ export async function stopClaudeCodeProcess({ process: native, executionId, stop
   return { ...proof, exited: true };
 }
 
-export async function bindClaudeConversationAccount(entry, { identity, providerId, stop, save }) {
+export async function bindClaudeConversationAccount(entry, { identity, providerId, allowAccountChange = false, stop, save }) {
   entry.accountIdentities ||= {};
   if (!nativeAiProvider(providerId) && entry.accountIdentities[providerId] && entry.accountIdentities[providerId] !== identity) {
     await stop(entry, "The signed-in Claude account changed.");
-    throw Object.assign(new Error("This conversation belongs to another Claude account. Reconnect that account or start a new session."), {
-      code: "claude_account_changed"
-    });
+    if (!allowAccountChange) {
+      throw Object.assign(new Error("This conversation belongs to another Claude account. Reconnect that account or start a new session."), {
+        code: "claude_account_changed"
+      });
+    }
   }
   if (entry.accountIdentity !== identity) {
     entry.accountIdentity = identity;

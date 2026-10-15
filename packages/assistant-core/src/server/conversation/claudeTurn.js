@@ -126,8 +126,8 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
       if (!objective || objective.length > 4000 || /^(clear|stop|off|reset|none|cancel)$/iu.test(objective)) {
         throw goalError("Enter a goal condition of up to 4,000 characters.");
       }
-      if (readState().active || (action === "set" && goal && goal.status !== "complete")) {
-        throw goalError("Stop the current turn and cancel the existing goal before setting another.");
+      if (action === "set" && goal && goal.status !== "complete") {
+        throw goalError("Cancel the existing goal before setting another.");
       }
       await sendGoal({ message: `/goal ${objective}` });
     } else throw goalError("Unknown Claude goal action.");
@@ -264,7 +264,7 @@ export function createClaudeConversationOwner({
     const providerId = account.providerId;
     if (entry.accountIdentity !== identity) entry.nativeTurn.invalidateFinalAssistantResult();
     try {
-      await bindClaudeConversationAccount(entry, { identity, providerId,
+      await bindClaudeConversationAccount(entry, { identity, providerId, allowAccountChange: account.allowAccountChange === true,
         stop: (entry, reason) => entry.nativeTurn.stopProcess(reason, { preparing: true }), save: saveAccount });
     } catch (failure) {
       if (failure.code !== "claude_account_changed") throw failure;
@@ -1434,6 +1434,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       // A completed main loop can still own background work. There is no
       // generation left to interrupt or second terminal result to wait for.
       if (outcome && inFlight.size === 0) {
+        // The next input owns completion now. A task finishing during host
+        // preparation must not settle this turn using the previous result.
+        outcome = null;
+        acceptedInput = null;
+        clearFinalAssistantResult();
         await publish({ type: "diagnostic", stage: "steering_background_only", backgroundTasks: tasks.size });
         return;
       }
