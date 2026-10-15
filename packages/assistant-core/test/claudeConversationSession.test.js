@@ -298,6 +298,7 @@ async function fixture(t, options = {}) {
       if (text === "steering") {
         answer.message.content[0].text = "Initial progress";
         answer.message.id = frame.uuid + "-before";
+        answer.message.stop_reason = "end_turn";
         record(answer); emit(answer); return;
       }
       if (text === "phases") {
@@ -434,7 +435,7 @@ test("Claude reports common work and compaction phases and clears phase after se
   assert.deepEqual(phases, ["preparing", "working", "compacting", "working", ""]);
 });
 
-test("Claude steering interrupts generation and admits a distinct message without replacing its process", async t => {
+test("Claude steering interrupts generation and admits a distinct message without replacing its process", { timeout: 30_000 }, async t => {
   const f = await fixture(t);
   const started = Promise.withResolvers();
   const events = [];
@@ -2097,7 +2098,7 @@ test("completed Claude native-tool tracking refuses steering a retained marked u
   } finally { await f.close(); }
 });
 
-test("completed Claude native-tool tracking preserves ordinary native steering in the opted runtime", async t => {
+test("completed Claude native-tool tracking preserves ordinary native steering in the opted runtime", { timeout: 30_000 }, async t => {
   const f = await completedEnvelopeFixture(t);
   const progress = Promise.withResolvers();
   await f.conversation.subscribe(event => {

@@ -148,7 +148,7 @@ export async function projectStoredPersistentConversation(options) {
 // existing write lease. Their record, transcript and native operations are the
 // same facilities used by its retained conversation; no state is copied here.
 export async function readPersistentConversation(options) {
-  const { sessionId, operations, store, records, projection, receipts, publish } = options;
+  const { sessionId, operations, store, records, projection, publish } = options;
   let { record } = options;
   const context = projection.context(options.context, record);
   const scope = { sessionId, conversationId: record.conversationId };

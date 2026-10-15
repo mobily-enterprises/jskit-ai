@@ -1264,8 +1264,8 @@ test("native settings authorize their scope and reject replaced or closed host p
   });
   t.after(() => runtime.close());
   const request = { id: "settings-scope", context, input,
-    get native() { assert.fail("The caller cannot select a native owner"); },
-    get engine() { assert.fail("The caller cannot select an engine"); } };
+    get native() { return assert.fail("The caller cannot select a native owner"); },
+    get engine() { return assert.fail("The caller cannot select an engine"); } };
   await assert.rejects(runtime.updateNativeConversationSettings(request), { code: "conversation_forbidden" });
   assert.deepEqual([hostCalls, acquisitions, updates], [0, 0, 0]);
   allowed = true;
