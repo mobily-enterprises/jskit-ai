@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { upgradeConversationRuntimeState } from "../src/server/conversation/runtimeStateUpgrade.js";
+import { upgradeConversationRuntimeState, prepareConversationRuntimeCopy } from "../src/server/conversation/runtimeStateUpgrade.js";
+import { createMemoryConversationStorage } from "../src/server/conversation/memoryStorage.js";
+import { codexAppServerTurnStateFromAgentRun } from "../src/server/conversation/codexTurnState.js";
 
 const configuration = { systemPrompt: "Retained instructions", model: "saved-model" };
 const request = { messageId: "uncertain", text: "Authored text", origin: "user", attachments: [{ attachmentId: "file" }],
@@ -17,6 +19,72 @@ const record = (engine = "claude", extra = {}) => ({
   metadata: { application: { retained: true }, runtime: { ...segment(engine), version: 2, predecessors: [], ...extra } },
   conversationLog: [{ turnId: "old", metadata: { runtime: { engine: "codex", segmentId: "codex-segment", status: "interrupted" } },
     messages: [{ role: "user", text: "Accepted before model selection", messageId: "old-message" }] }]
+});
+
+test("a stopped development copy preserves native identity, history and uncertain input without retaining active execution", async () => {
+  const at = "2026-10-15T00:00:00.000Z";
+  for (const engine of ["api", "codex", "claude", "opencode"]) {
+    const value = record(engine, { version: 3, lastEngine: engine,
+      ...(engine === "api" ? {} : { request: { ...request, inspectionOnly: true,
+        threadId: engine === "codex" ? "saved-thread" : engine === "claude" ? "saved-conversation" : "saved-session" } }),
+      nativeTurn: { active: true, state: "active", phase: "working", goalStatus: "active" } });
+    if (value.metadata.runtime.binding) Object.assign(value.metadata.runtime.binding = { ...value.metadata.runtime.binding }, {
+      executionId: "parent-process", processDirectory: "/parent/process" });
+    if (engine === "codex") value.metadata.runtime.binding.codexAppServerRun = {
+      id: "codex_app_server", state: "active", providerThreadId: "saved-thread", providerTurnId: "native-turn",
+      providerStatus: "inProgress", providerGoalStatus: "active", pendingUserMessageClientIds: ["pending"], events: []
+    };
+    const before = structuredClone(value);
+    const storage = createMemoryConversationStorage();
+    await storage.write("copy", async transaction => {
+      await transaction.writeMetadata(value.metadata);
+      await transaction.appendMessage("turn", { role: "user", text: "Existing question", messageId: "authored", at,
+        turnMetadata: { runtime: { engine, segmentId: `${engine}-segment`, status: "running" } } });
+    });
+    await storage.write("copy", transaction => prepareConversationRuntimeCopy(transaction, { at }));
+    const copied = await storage.read("copy", async transaction => ({
+      metadata: await transaction.readMetadata(), turn: await transaction.readTurn("turn")
+    }));
+    const saved = copied.metadata.runtime;
+    assert.deepEqual(value, before, "The parent input is never mutated");
+    assert.equal(saved.segmentId, before.metadata.runtime.segmentId);
+    assert.deepEqual(saved.configuration, configuration);
+    assert.equal(saved.nativeTurn.active, false);
+    assert.equal(saved.nativeTurn.goalStatus, "paused");
+    assert.equal(copied.turn.metadata.runtime.status, "interrupted");
+    assert.equal(copied.turn.messages[0].text, "Existing question");
+    if (engine !== "api") {
+      assert.equal(saved.binding.executionId, "");
+      assert.equal(saved.binding.processDirectory, "");
+      assert.equal(saved.request.text, request.text);
+      assert.equal(saved.request.inspectionOnly, true);
+      assert.deepEqual(saved.request.attachments, request.attachments);
+      assert.match(saved.request.error, /not replayed/);
+    }
+    if (engine === "codex") {
+      assert.equal(saved.binding.threadId, "saved-thread");
+      const turn = codexAppServerTurnStateFromAgentRun(saved.binding.codexAppServerRun);
+      assert.equal(turn.active, false);
+      assert.equal(turn.goalStatus, "paused");
+      assert.equal(turn.turnId, "native-turn");
+      assert.deepEqual(saved.binding.codexAppServerRun.pendingUserMessageClientIds, []);
+    }
+    await storage.write("copy", transaction => prepareConversationRuntimeCopy(transaction, { at }));
+    assert.deepEqual(await storage.read("copy", transaction => transaction.readMetadata()), copied.metadata);
+  }
+});
+
+test("development copy rejects incomplete changeover and older runtime before writing", async () => {
+  for (const metadata of [record().metadata, record("claude", {
+    version: 3, lastEngine: "claude", replacement: { ...segment("claude"), request: { operationId: "pending" } }
+  }).metadata]) {
+    let wrote = false;
+    await assert.rejects(prepareConversationRuntimeCopy({
+      readMetadata: async () => metadata, listTurnIds: async () => [],
+      writeMetadata: async () => { wrote = true; }
+    }, { at: "2026-10-15T00:00:00Z" }), /Upgrade the parent|Finish the parent/);
+    assert.equal(wrote, false);
+  }
 });
 
 test("offline conversion preserves exact native bindings and authored requests without inventing a prompt", () => {

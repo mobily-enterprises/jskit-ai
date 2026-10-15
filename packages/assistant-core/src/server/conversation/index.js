@@ -3,13 +3,13 @@ export { conversationMessageIdentity, conversationMessageVersion, conversationHi
 export { createMemoryConversationStorage } from "./memoryStorage.js";
 export { createConversationStorage, createReentrantConversationStorage,
   createConversationOperationLease, beginConversationOperation, finishConversationOperation } from "./storage.js";
-export { conversationAgentRunRecord, conversationAgentRunEvent } from "./agentRun.js";
+export { conversationAgentRunRecord, conversationAgentRunEvent, prepareCopiedConversationAgentRun } from "./agentRun.js";
 export { createFileConversationStorage } from "./fileStorage.js";
 export { createConversationStreams } from "./streams.js";
 export { createConversationSystemPrompt } from "./systemPrompt.js";
 export { createConversationRuntime } from "./runtime.js";
 export { normalizeConversationConfiguration } from "./configuration.js";
-export { upgradeConversationRuntimeState } from "./runtimeStateUpgrade.js";
+export { upgradeConversationRuntimeState, prepareConversationRuntimeCopy } from "./runtimeStateUpgrade.js";
 export { createConversationHookBridge } from "./hookBridge.js";
 export { nativeConversationStoragePolicy } from "./nativeStorage.js";
 export { createConversationProcessIdentity } from "./localExecution.js";

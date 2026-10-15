@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path";
+import { prepareCopiedConversationAgentRun } from "./agentRun.js";
 
 const engines = new Set(["api", "claude", "codex", "opencode"]);
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -197,4 +198,45 @@ export function upgradeConversationRuntimeState({ metadata, conversationLog, ret
   runtime.version = 3;
   runtime.lastEngine = lastEngine;
   return { metadata: { ...metadata, runtime }, changed: true, warnings };
+}
+
+/** Explicit destination-only operation. The caller first stops all copied
+ * processes and pauses native goals through their owners; this makes their
+ * saved projections inert without opening a provider or replaying requests.
+ */
+export async function prepareConversationRuntimeCopy(transaction, { at }) {
+  if (typeof at !== "string" || !Number.isFinite(Date.parse(at))) throw new TypeError("A copy timestamp is required.");
+  const metadata = structuredClone(await transaction.readMetadata());
+  const turns = await Promise.all((await transaction.listTurnIds()).map(id => transaction.readTurn(id)));
+  const runtime = metadata.runtime;
+  if (runtime) {
+    if (runtime.version !== 3) invalid("Upgrade the parent conversation before copying its runtime state.");
+    upgradeConversationRuntimeState({ metadata, conversationLog: turns });
+    if (runtime.replacement) invalid("Finish the parent conversation changeover before copying it.");
+    for (const segment of [...runtime.predecessors, runtime]) {
+      if (segment.binding) {
+        // Native history identity and paths remain valid in the identical guest
+        // layout; process handles belong exclusively to the original machine.
+        if (Object.hasOwn(segment.binding, "executionId")) segment.binding.executionId = "";
+        if (Object.hasOwn(segment.binding, "processDirectory")) segment.binding.processDirectory = "";
+        if (segment.binding.codexAppServerRun) {
+          segment.binding.codexAppServerRun = prepareCopiedConversationAgentRun(segment.binding.codexAppServerRun, { at });
+        }
+      }
+      if (segment.nativeTurn) {
+        if (segment.nativeTurn.active) Object.assign(segment.nativeTurn, {
+          active: false, state: "interrupted", status: "interrupted", runState: "interrupted", phase: "", completedAt: at, updatedAt: at
+        });
+        if (segment.nativeTurn.goalStatus === "active") segment.nativeTurn.goalStatus = "paused";
+      }
+      if (segment.request) segment.request.error = "Copied pending input was not replayed. Check its delivery before submitting again.";
+    }
+    await transaction.writeMetadata(metadata);
+  }
+  for (const turn of turns) {
+    if (turn.metadata?.runtime?.status === "running") {
+      await transaction.updateTurnMetadata(turn.turnId, { runtime: { ...turn.metadata.runtime,
+        status: "interrupted", error: "Copied into a stopped development environment. This request was not replayed." } });
+    }
+  }
 }

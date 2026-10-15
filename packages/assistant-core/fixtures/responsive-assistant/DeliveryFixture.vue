@@ -26,8 +26,9 @@ const delivery = createAssistantMessageDelivery({ deliver(payload) {
 } });
 function accept() {
   const payload = requests.value.at(-1);
-  turns.value = [...turns.value, { turnId: payload.messageId, user: { messageId: payload.messageId, text: payload.message },
-    assistant: { text: "Accepted once." } }];
+  const at = new Date().toISOString();
+  turns.value = [...turns.value, { turnId: payload.messageId, user: { messageId: payload.messageId, text: payload.message, at },
+    assistant: { text: "Accepted once.", at } }];
   pendingRequest.resolve({ ok: true });
 }
 if (recoveryFixture) {

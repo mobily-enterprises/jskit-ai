@@ -63,6 +63,18 @@ export function conversationAgentRunEvent(previous, normalizedRunId, {
   return record;
 }
 
+/** Explicit offline copy only: the destination has no inherited execution. */
+export function prepareCopiedConversationAgentRun(run, { at }) {
+  const active = runStateIsActive(run.state);
+  if (!active && run.providerGoalStatus !== "active") return structuredClone(run);
+  return conversationAgentRunEvent(run, run.id, {
+    event: { at, kind: "development-copy", message: "Copied into a stopped development environment." },
+    patch: { state: active ? "interrupted" : run.state, providerPhase: "",
+      ...(active ? { providerStatus: "interrupted", pendingUserMessageClientIds: [], finishedAt: at } : {}),
+      ...(run.providerGoalStatus === "active" ? { providerGoalStatus: "paused" } : {}) }
+  });
+}
+
 /** The original native run occupies its bound conversation segment. Reading a
  * binding without a run never constructs historical ownership or writes state.
  */

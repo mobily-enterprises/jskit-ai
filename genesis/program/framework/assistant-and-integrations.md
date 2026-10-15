@@ -6,6 +6,9 @@ connector account management, and focused third-party operations.
 ## Sources
 
 - Main: `packages/assistant-core/src/server/conversation/provider.js`
+- `packages/assistant-core/src/client/conversation/AssistantTranscript.vue`
+- `packages/assistant-core/src/server/conversation/runtimeStateUpgrade.js`
+- `packages/assistant-core/src/server/conversation/agentRun.js`
 - `packages/assistant-runtime/src/server/AssistantProvider.js`
 - `packages/assistant-voice/src/server/index.js`
 - `packages/connectors-core/src/server/ConnectorsFeature.js`
@@ -28,6 +31,11 @@ boundary when a page splits a stored turn. Browser bindings follow that cursor
 and merge partial turns without losing either half. Live patches retain whole
 boundary turns and their progress rather than trimming by raw storage row count.
 Pagination is a read-only projection; saved identities and records do not change.
+
+The shared transcript sorts confirmed dated messages chronologically while
+keeping optimistic authored messages in their supplied positions. A queued
+message's earlier local timestamp cannot move it ahead of a preceding message
+that receives its native timestamp later; receipts restore normal history ordering.
 
 Native conversations optionally report content-free delivery timings through
 `onDeliveryTiming`. One shared observer supplies milestone names, monotonic
@@ -87,3 +95,16 @@ has a native ID. Stopping its idle main turn is a no-op; session closure still
 drains owned helpers and releases the process without interrupting peer sessions.
 An active turn with a missing native identity remains an error, never a
 successful Stop.
+Shared acquisition and readiness propagate an expired health probe without
+stopping the server. Main and temporary conversations retain their ownership;
+a later readiness check can reuse the same process. Connection failures other
+than that probe deadline retain the existing verified-stop recovery.
+
+Explicit offline development copies use `prepareConversationRuntimeCopy` inside
+an existing destination write transaction. Hosts own file isolation, stopped
+processes and native goal pause before invoking it. The helper preserves history
+and native identity, clears execution handles, interrupts running projections and
+retains pending requests without replay. It requires version 3 and rejects an
+unfinished replacement before writes; normal startup and historical upgrades do
+not invoke it. `prepareCopiedConversationAgentRun` applies the same projection
+policy to a separately stored legacy run without opening a provider.

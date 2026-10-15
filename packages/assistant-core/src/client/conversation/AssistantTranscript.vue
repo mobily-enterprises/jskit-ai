@@ -608,16 +608,18 @@ const displayEntries = computed(() => {
       }, key);
       if (!displayed) continue;
       candidates.push({ key, role, turn: { ...turn, turnId }, message: displayed,
+        sortAt: turn.optimistic && turn.optimistic.id === message.messageId ? NaN : Date.parse(message.at),
         delivery: role === "user" ? userDelivery : null });
     }
   }
   // Native streaming turns and saved authored turns can arrive independently.
-  // Only dated entries participate; undated notices retain their original slot.
-  const dated = candidates.filter(entry => Number.isFinite(Date.parse(entry.message.at)))
-    .sort((a, b) => Date.parse(a.message.at) - Date.parse(b.message.at))[Symbol.iterator]();
+  // Local queued timestamps can precede an earlier message's native admission.
+  // Keep their supplied positions, along with undated notices.
+  const dated = candidates.filter(entry => Number.isFinite(entry.sortAt))
+    .sort((a, b) => a.sortAt - b.sortAt)[Symbol.iterator]();
   const entries = [];
   for (const candidate of candidates) {
-    const entry = Number.isFinite(Date.parse(candidate.message.at)) ? dated.next().value : candidate;
+    const entry = Number.isFinite(candidate.sortAt) ? dated.next().value : candidate;
     const previous = entries.at(-1);
     if (entry.role === "thinking" && previous?.role === "thinking") previous.messages.push({ ...entry.message, key: entry.key });
     else entries.push({ ...entry, ...(entry.role === "thinking" ? { messages: [{ ...entry.message, key: entry.key }] } : {}) });

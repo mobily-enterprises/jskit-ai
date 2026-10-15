@@ -278,6 +278,7 @@ Exports
 Exports
 - `conversationAgentRunRecord(record, normalizedRunId, { normalizeState = normalizeRunState, isActive = runStateIsActive } = {})`
 - `conversationAgentRunEvent(previous, normalizedRunId, { event = {}, patch = {} } = {}, { now = () => new Date(), normalizeState = normalizeRunState, isTerminal = runStateIsTerminal } = {})`
+- `prepareCopiedConversationAgentRun(run, { at })`
 - `createCodexConversationRunStore({ storage, scope, segmentId, isCurrent, clock = () => new Date() } = {})`
 - `createCodexConversationStore({ storage, scope, segmentId, isCurrent, transcript, streams } = {})`
 Local functions
@@ -837,12 +838,14 @@ Exports
 - `finishConversationOperation`
 - `conversationAgentRunRecord`
 - `conversationAgentRunEvent`
+- `prepareCopiedConversationAgentRun`
 - `createFileConversationStorage`
 - `createConversationStreams`
 - `createConversationSystemPrompt`
 - `createConversationRuntime`
 - `normalizeConversationConfiguration`
 - `upgradeConversationRuntimeState`
+- `prepareConversationRuntimeCopy`
 - `createConversationHookBridge`
 - `nativeConversationStoragePolicy`
 - `createConversationProcessIdentity`
@@ -1070,6 +1073,7 @@ Exports
 - `finishConversationRuntimeReplacement(state, { engine, selection, retireNative, pending, value })`
 - `createInertCodexConversationBinding({ workdir, configRoot })`
 - `upgradeConversationRuntimeState({ metadata, conversationLog, retirement })`
+- `prepareConversationRuntimeCopy(transaction, { at })`
 Local functions
 - `object(value)`
 - `invalid(message)`

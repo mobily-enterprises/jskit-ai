@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { createOpenCodeSharedRuntime, ensureOpenCodeSession, openCodeServerForDirectory, readOpenCodeEnvironments } from "../src/server/conversation/openCodeRuntime.js";
 import { createOpenCodeServerClient } from "../src/server/conversation/openCodeClient.js";
 
@@ -13,7 +14,7 @@ function fixture(options = {}) {
   const start = async selected => {
     const server = {
       client: {
-        async health() { return { healthy: true }; },
+        async health(input) { return options.health ? options.health(input) : { healthy: true }; },
         async interrupt(id) { return options.interrupt ? options.interrupt(id) : true; },
         async sessionStatus() { return { type: "idle" }; },
         forDirectory(directory) { return { ...this, directory }; }
@@ -250,6 +251,75 @@ test("a pending OpenCode session start retains the shared server while another s
   assert.equal(f.starts.length, 1);
   assert.equal((await f.runtime.release(second)).exited, true);
   assert.equal(f.stops.length, 1);
+});
+
+test("a timed-out shared health probe preserves active conversations and allows retry", async () => {
+  let slow = false;
+  const f = fixture({ health: async ({ signal }) => {
+    if (slow) await delay(5_000, undefined, { signal });
+    return { healthy: true };
+  } });
+  const main = await f.acquire("main");
+  const helper = await f.acquire("helper");
+  const turn = { active: true, id: "turn", threadId: "main-thread" };
+  const temporary = { active: true, target: helper, conversationId: "helper-thread" };
+  f.runtime.turns.set(main.key, turn);
+  f.runtime.temporaryConversations.set("helper-thread", temporary);
+  const shared = f.runtime.current;
+  slow = true;
+  await assert.rejects(f.acquire("next"), { name: "AbortError" });
+  assert.equal(f.runtime.current, shared);
+  assert.equal(f.stops.length, 0);
+  assert.equal(f.starts.length, 1);
+  assert.equal(main.abortController.signal.aborted, false);
+  assert.equal(helper.abortController.signal.aborted, false);
+  assert.equal(f.runtime.turns.get(main.key), turn);
+  assert.equal(f.runtime.temporaryConversations.get("helper-thread"), temporary);
+  assert.equal(turn.active, true);
+  assert.equal(temporary.active, true);
+  assert.equal(f.runtime.processStarts.size, 0);
+  slow = false;
+  await f.acquire("next");
+  assert.equal(f.starts.length, 1);
+});
+
+test("a timed-out readiness probe does not classify the shared process as unhealthy", async () => {
+  let slow = false;
+  const f = fixture({ health: async ({ signal }) => {
+    if (slow) await delay(5_000, undefined, { signal });
+    return { healthy: true };
+  } });
+  const target = await f.acquire("main");
+  const selection = { modelProviderId: "provider", modelId: "model", catalogRevision: "catalog" };
+  Object.assign(target, { upstream: { id: "thread" }, upstreamSessionId: "thread", selection,
+    upstreamSelection: selection, canonicalUrl: f.connection.canonicalUrl,
+    connectionFingerprint: f.connection.fingerprint, endpointCode: f.connection.endpointCode });
+  target.server.client.readSession = async () => ({ id: "thread" });
+  const input = { selection, workdir: target.workdir, connection: f.connection,
+    refresh: async () => target, changed: () => new Error("Changed") };
+  slow = true;
+  await assert.rejects(f.runtime.inspectSessionReadiness(target, input), { name: "AbortError" });
+  assert.equal(f.stops.length, 0);
+  assert.equal(target.abortController.signal.aborted, false);
+  slow = false;
+  assert.deepEqual(await f.runtime.inspectSessionReadiness(target, input), {
+    ready: true, unhealthyProcess: null, missingUpstream: false
+  });
+});
+
+test("a refused shared health connection still replaces the stopped server", async () => {
+  let refused = false;
+  const f = fixture({ health: async () => {
+    if (refused) throw new TypeError("fetch failed", { cause: { code: "ECONNREFUSED" } });
+    return { healthy: true };
+  } });
+  await f.acquire("first");
+  const original = f.runtime.current;
+  refused = true;
+  await f.acquire("next");
+  assert.equal(f.stops.length, 1);
+  assert.equal(f.starts.length, 2);
+  assert.notEqual(f.runtime.current, original);
 });
 
 test("OpenCode failed acquisition cleans application state once before stopping an unused server", async () => {

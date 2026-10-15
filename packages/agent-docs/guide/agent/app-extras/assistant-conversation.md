@@ -17,6 +17,26 @@ Choose one transcript owner for a conversation. The [ordinary API](./assistant.m
 is the starting point; [advanced hosts](#advanced-host-facilities) and
 [testing](#testing-entrypoints) are separate reference areas.
 
+### Prepare an offline development copy
+
+Advanced hosts that copy a stopped conversation store can call
+`prepareConversationRuntimeCopy(transaction, { at })` from
+`@jskit-ai/assistant-core/server/conversation` inside the destination's ordinary
+storage write transaction. `at` is an ISO timestamp. The host must first isolate
+the destination, stop its processes and pause native provider goals through their
+owners. The helper does not establish those host conditions or invoke providers.
+
+It preserves transcript messages, configuration and native history identity,
+clears copied execution handles, interrupts running turn projections and pauses
+active goal projections. Pending requests remain available for inspection with a
+copy diagnostic; preparation does not replay them. Version 3 state is required,
+and unfinished replacements fail before writes. Upgrade the parent through its
+normal state upgrade process rather than using this helper as a migration.
+
+`prepareCopiedConversationAgentRun(run, { at })` supplies the corresponding pure
+transform for an application's separately stored legacy run projection. Neither
+operation belongs in normal startup or live recovery.
+
 ### Native delivery diagnostics
 
 `createConversationRuntime({ onDeliveryTiming(event) {} })` accepts an optional
@@ -782,6 +802,9 @@ the application may supply one in options. `false`, `{ ok: false, error }`, or
 a thrown error retain a failed entry. Exceptions are rethrown after recording
 the visible failure. Undelivered bubbles use a neutral fill, dashed outline and
 Pending label. A failed bubble has an error outline, its error and Retry action.
+Queued bubbles keep their supplied order while awaiting receipts, even when an
+earlier message receives a later native timestamp. Confirmed history retains
+its chronological ordering.
 Success removes the pending treatment but retains the bubble until authoritative
 history contains its `user.messageId`, so it cannot flicker away before history
 arrives. Older histories without IDs can match by text and timestamp.
@@ -3991,6 +4014,10 @@ continue to use the common runtime.
 The same subpath exposes the extracted `createOpenCodeSharedRuntime` for hosts
 whose managed service is shared by several conversation consumers. It owns server
 reuse, pending acquisition, verified final release and exact-server recovery.
+An expired health-probe deadline is reported to the caller without stopping the
+shared server or its other conversations. Retry the readiness operation after
+the server responds again. A refused connection still follows the existing
+server recovery path; a probe timeout alone is not evidence of process failure.
 Its retained Main turn and monitor maps also back the original
 `interruptTurn(key, target, { threadId, writeRun })` operation. The host selects
 the authorized target, supplies a saved identity only when no target exists, and

@@ -248,10 +248,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         currentConnection?.fingerprint === selected.fingerprint &&
         currentConnection?.endpointCode === selected.endpointCode
       )) {
+        const probe = AbortSignal.timeout(1_000);
         try {
-          await sharedProcess.server.client.health({ signal: AbortSignal.timeout(1_000) });
+          await sharedProcess.server.client.health({ signal: probe });
           return sharedProcess;
-        } catch {
+        } catch (error) {
+          // A slow probe is not proof that the shared server stopped working.
+          if (probe.aborted) throw error;
           requireConnectionAvailable();
           await stop("opencode-health-check-failed");
         }
@@ -1567,12 +1570,13 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       const observedProcess = sharedProcess;
       const observedServer = target.server;
       let healthy = false;
+      const probe = AbortSignal.timeout(1_000);
       try {
-        await target.server.client.health({ signal: AbortSignal.timeout(1_000) });
+        await target.server.client.health({ signal: probe });
         healthy = true;
         ready = Boolean(await target.server.client.readSession(target.upstreamSessionId));
       } catch (error) {
-        if (healthy && error?.statusCode !== 404) {
+        if ((!healthy && probe.aborted) || (healthy && error?.statusCode !== 404)) {
           throw error;
         }
         if (!healthy) {
