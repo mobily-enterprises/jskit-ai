@@ -81,3 +81,7 @@
 ## Workspace setup
 
 - Prepare `Install dependencies` with `nodejs` when `package-lock.json` exists: `npm` `ci`
+
+## Connected development
+
+- Default package type: `npm`
