@@ -2584,7 +2584,12 @@ await runtime.close();
 The native identity, working directory and credential-home binding remain in
 server-side runtime metadata. Prompt changes replace the process while preserving
 native history; compatible model/effort changes use native controls. Account changes
-cannot silently continue the previous account's conversation. Application access
+are rejected by default. An application that owns its conversations and authorizes
+the current workspace account may opt into `host.allowAccountChange: true`. The
+existing account guard confirms the old process has stopped before saving the new
+identity and resuming the same native history. Failed cleanup blocks adoption
+until the existing Stop recovery succeeds. Completed response receipts still
+require their original saved account; this option cannot rebind past effects. Application access
 is checked again after native preparation and before dispatch. Built-in tools are
 disabled unless the server grants `host.nativeTools`. Optional application `actions` use the shared
 executor and authorized attachments use the common resolver above. Steering uses
@@ -2598,8 +2603,8 @@ credential-file metadata is unchanged. File changes invalidate the result,
 failed reads are retryable, and signed-out JSON is distinct from a failed query.
 On macOS, only concurrent reads are shared because native credentials may live
 in the keychain. JSKIT does not parse credential contents for this cache.
-The extracted native account guard prevents a different signed-in Claude account
-from resuming owned history. Authorized external-provider connections can rotate
+Without the explicit host opt-in, the extracted native account guard prevents a
+different signed-in Claude account from resuming owned history. Authorized external-provider connections can rotate
 their API keys while retaining the native conversation; application authorization
 still decides which connection the caller may use.
 Compatible connection/key changes use the production flag-then-model control

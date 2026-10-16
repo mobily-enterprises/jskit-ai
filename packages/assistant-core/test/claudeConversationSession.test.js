@@ -372,7 +372,7 @@ async function fixture(t, options = {}) {
   function runtime() {
     const value = createConversationRuntime({ engine: "claude", storage, authorize: options.authorize || (() => true), actions: options.actions,
       connections: options.connections, attachments: options.attachments, persistCommentary: options.persistCommentary,
-      host: { workdir: directory, env, commands: { claude: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
+      host: { workdir: directory, env, commands: { claude: command }, allowAccountChange: options.allowAccountChange, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
       limits: { admissionTimeoutMs: 150, ...options.limits } });
     runtimes.push(value);
     return value;
@@ -381,7 +381,7 @@ async function fixture(t, options = {}) {
   const conversation = await first.open({ id: "conversation", configuration: options.configuration || configuration, context: options.context });
   return { directory, storage, account, runtime, first, conversation,
     driverOptions: { connections: options.connections,
-      host: { workdir: directory, env, commands: { claude: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
+      host: { workdir: directory, env, commands: { claude: command }, allowAccountChange: options.allowAccountChange, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
       limits: { admissionTimeoutMs: 150, ...options.limits } },
     async trace() { return (await readFile(trace, "utf8")).trim().split("\n").map(line => JSON.parse(line)); } };
 }
@@ -774,6 +774,53 @@ test("changed native login cannot continue another account's conversation", asyn
   await assert.rejects(f.conversation.send({ messageId: "second", text: "No access" }), /another Claude account/);
   assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
   assert.equal((await f.conversation.read()).conversationLog.length, 1);
+});
+
+test("workspace-authorized Claude account changes retire the old process and resume native history", async t => {
+  const f = await fixture(t, { allowAccountChange: true });
+  await f.conversation.send(input);
+  await f.conversation.wait();
+  const before = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  await writeFile(f.account, "different@example.test");
+  await f.conversation.send({ messageId: "second", text: "Continue with the current account" });
+  const state = await f.conversation.wait();
+  const after = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
+  assert.equal(starts.length, 2, "The old account's process cannot be reused");
+  assert.equal(starts[1].args[starts[1].args.indexOf("--resume") + 1], before.conversationId);
+  assert.equal(after.conversationId, before.conversationId);
+  assert.notEqual(after.accountIdentity, before.accountIdentity);
+  assert.equal(state.conversationLog.length, 2);
+  assert.equal(state.conversationLog[0].assistant.text, "Answer: Hello");
+  assert.equal(state.conversationLog[1].assistant.text, "Answer: Continue with the current account");
+});
+
+test("workspace-authorized Claude account changes cannot promote an account before verified stop", async t => {
+  const local = createLocalConversationExecution();
+  const nativeIds = new Set();
+  let allowStop = true;
+  const execution = {
+    async start(options) {
+      const native = await local.start(options);
+      if (options.args.includes("--print")) nativeIds.add(native.id);
+      return native;
+    },
+    stop: id => !allowStop && nativeIds.has(id) ? Promise.resolve({ scopeEmpty: false }) : local.stop(id)
+  };
+  const f = await fixture(t, { execution, allowAccountChange: true });
+  await f.conversation.send(input);
+  await f.conversation.wait();
+  const before = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  await writeFile(f.account, "different@example.test");
+  allowStop = false;
+  try {
+    await assert.rejects(f.conversation.send({ messageId: "second", text: "Continue" }), /cleanup could not be confirmed/);
+    assert.deepEqual(await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding), before);
+    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  } finally { allowStop = true; }
+  assert.deepEqual(await f.conversation.cancel(), { stopped: true });
+  await f.conversation.send({ messageId: "second", text: "Continue" });
+  assert.equal((await f.conversation.wait()).conversationLog[1].assistant.text, "Answer: Continue");
 });
 
 // Ported from the production provider's control-order case. The common fixture
@@ -1820,6 +1867,20 @@ test("completed Claude external account changes refuse repeatedly without finger
     assert.equal(f.effects(), 0);
     assert.equal((await f.trace()).filter(row => row.frame?.request?.subtype === "interrupt").length, 0,
       "Completion inspection cannot stop/promote the old native binding");
+  } finally { await f.close(); }
+});
+
+test("workspace-authorized account adoption never rebinds a completed Claude receipt", async t => {
+  const f = await completedEnvelopeFixture(t, { allowAccountChange: true });
+  try {
+    const receipt = await f.complete();
+    const before = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+    await writeFile(f.account, "different@example.test");
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await assert.rejects(f.prepare(receipt), /different account or provider connection/);
+      assert.deepEqual(await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding), before);
+    }
+    assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });
 

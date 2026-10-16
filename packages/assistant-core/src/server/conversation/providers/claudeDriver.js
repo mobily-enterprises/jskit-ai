@@ -213,6 +213,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
     await bindClaudeConversationAccount({ accountIdentity: previous,
       accountIdentities: { [providerId || "anthropic"]: previous }
     }, { identity, providerId: providerId || "anthropic",
+      allowAccountChange: host.allowAccountChange === true && !requireBound,
       stop: (_entry, reason) => entry.nativeTurn.stopProcess(reason),
       save: account => entry.context.updateBinding(providerId
         ? { connectionIdentities: { ...entry.context.binding.connectionIdentities, [providerId]: account.accountIdentity } }

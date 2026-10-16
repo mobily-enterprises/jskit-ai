@@ -79,7 +79,10 @@ so a task finishing during preparation cannot close the pending follow-up.
 An application-owned account preparation may opt into following its current
 authorized native account with `allowAccountChange`. Verified old-process cleanup
 precedes identity persistence and same-history resume; standalone bindings retain
-the default changed-account refusal.
+the default changed-account refusal. The standalone Claude driver exposes this
+existing policy through the trusted `host.allowAccountChange` option. Completed
+response inspection always keeps its original account pin, even for an opted-in
+host; no past application effect acquires the replacement identity.
 
 The retained browser goal binding distinguishes an unknown goal from a confirmed
 empty goal. Initial and replacement reads display loading; failed reads hide
