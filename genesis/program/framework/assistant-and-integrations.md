@@ -61,6 +61,9 @@ Scoped Claude output also keeps its native input identity across accepted steeri
 The native reader resolves that identity against saved authored request IDs, and
 the existing transcript writer attaches partial and final output to that exact
 turn. An unmatched identified output cannot fall back to the latest request.
+Verified Stop also retains buffered or streaming partial text as commentary for
+the existing transcript reader; unconfirmed cleanup leaves the stream incomplete.
+This preserves displayed work without claiming a completed answer.
 Renewal recovery joins the exact running turn or requires its saved completed
 state before accepting history text. Accepted but unconfirmed input is never
 submitted again automatically. Bound native goal Set/Resume may re-enter ordinary

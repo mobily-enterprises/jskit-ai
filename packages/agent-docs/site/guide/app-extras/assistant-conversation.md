@@ -4325,6 +4325,11 @@ output without a matching authored turn is left in native history for a later
 read, never assigned to the latest request. Providers without this identity
 continue using their existing projection. This is read-time routing into the
 existing transcript format, not a historical repair or a new persisted field.
+After verified Claude Stop, buffered and already displayed partial text remains
+readable as interrupted commentary with its original input/output identity. The
+scoped reader saves it through the same transcript writer before retiring live
+state. It is not a completed-answer receipt, and unconfirmed process cleanup
+does not finalize a still-running stream.
 
 Claude's internal task notifications do not become user requests. Their command
 lifecycle events must not leave a completed user request busy or replace its

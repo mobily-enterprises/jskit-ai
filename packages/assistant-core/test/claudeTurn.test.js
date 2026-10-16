@@ -99,6 +99,59 @@ test("interrupted Claude output keeps its input identity after a follow-up is ac
     [["FIRST-PARTIAL", "first"], ["SECOND-OK", "second"]]);
 });
 
+for (const savedFrame of [false, true]) test(`verified Claude Stop retains partial output for transcript reads, savedFrame=${savedFrame}`, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("stopped-request");
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "stopped-api" } } });
+  await f.frame({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } });
+  await f.frame({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { text: "Already visible partial answer" } } });
+  if (savedFrame) await f.frame({ type: "assistant", uuid: "stopped-output", message: { id: "stopped-api",
+    content: [{ type: "text", text: "Already visible partial answer" }] } });
+  // The control acknowledgement need not deliver a terminal generation frame
+  // before the managed process is drained, as observed in the live Stop case.
+  const native = f.entry.process;
+  native.client.interrupt = async () => {};
+  native.stop = async () => ({ scopeEmpty: false, exited: false });
+  await assert.rejects(f.owner.interrupt(f.entry), { code: "claude_stop_unconfirmed" });
+  const unconfirmed = await f.owner.read(f.entry, { messageId: "stopped-request" });
+  assert.equal(unconfirmed.messages.find(m => m.text === "Already visible partial answer").complete, false);
+  native.stop = async () => ({ scopeEmpty: true, exited: true });
+  await f.owner.interrupt(f.entry);
+  const stopped = await f.owner.read(f.entry, { messageId: "stopped-request" });
+  assert.equal(stopped.status, "interrupted");
+  assert.equal(stopped.messages.length, 1, "Saved-frame and streaming aliases are one interrupted output");
+  assert.deepEqual(stopped.messages.map(m => ({ text: m.text, role: m.role, complete: m.complete,
+    requestMessageId: m.requestMessageId, outputId: m.outputId })), [{
+    text: "Already visible partial answer", role: "commentary", complete: true,
+    requestMessageId: "stopped-request", outputId: "claude_stopped-api_0"
+  }]);
+  assert.equal(f.final(), null, "An interrupted partial is never a completed answer receipt");
+  await f.owner.interrupt(f.entry);
+  assert.deepEqual((await f.owner.read(f.entry, { messageId: "stopped-request" })).messages, stopped.messages);
+  const { readPersistentConversation, projectStoredPersistentConversation } = await import("../src/server/conversation/providers/scoped.js");
+  const transcript = createConversationTranscript({ storage: createMemoryConversationStorage() });
+  const store = Object.fromEntries(Object.entries(transcript).map(([name, operation]) =>
+    [name, (scope, ...args) => operation(JSON.stringify([scope.sessionId, scope.conversationId]), ...args)]));
+  store.readConversationStream = () => ({ messages: [] });
+  const scope = { sessionId: "session", conversationId: "temporary" };
+  await store.writeConversationUserMessage(scope, { messageId: "stopped-request", text: "Explain" });
+  const options = { ...scope, store, context: {},
+    record: { conversationId: "temporary", providerConversationId: f.conversationId, messageId: "stopped-request", status: "interrupted" },
+    operations: { readConversation: (_sessionId, input) => f.owner.read(f.entry, input) },
+    records: { input: (record, input) => ({ ...record, ...input }), save: async (_context, record, patch) => ({ ...record, ...patch }) },
+    receipts: { persisted: () => true },
+    projection: { context: context => context, messageScope: (_context, scope) => scope,
+      message: message => message, messageMetadata: () => ({}), snapshot: value => value }, publish: async () => {}
+  };
+  await readPersistentConversation(options);
+  await readPersistentConversation(options);
+  f.entry.nativeTurn.reset();
+  const restored = await projectStoredPersistentConversation(options);
+  assert.deepEqual(restored.messages.map(m => [m.role, m.text]), [
+    ["user", "Explain"], ["commentary", "Already visible partial answer"]
+  ], "Canonical history retains exactly one interrupted partial after live state is gone");
+});
+
 // Claude 2.1.289 folds internal commands into the outer turn. Their lifecycle
 // completes before result; the original input's completion follows result.
 for (const background of [false, true]) test(`folded native command cannot strand its outer input, background=${background}`, async () => {

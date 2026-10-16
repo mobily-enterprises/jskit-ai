@@ -1396,6 +1396,18 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     admissions.clear();
     inFlight.clear();
     tasks.clear();
+    // Verified process cleanup can precede Claude's terminal generation frame.
+    // Retain already displayed text for the existing transcript reader, with
+    // its original input/output identity and no completed-answer receipt.
+    for (const pending of pendingAssistantMessages.values()) for (const block of pending) {
+      if (block.outputId && block.outputId !== block.id) messages.delete(block.outputId);
+      messages.set(block.id, { ...block, role: "commentary" });
+    }
+    for (const [id, block] of messages) {
+      if (block.complete === false && block.role === "assistant" && block.text) {
+        messages.set(id, { ...block, complete: true, role: "commentary" });
+      }
+    }
     pendingAssistantMessages.clear();
     assistantRoles.clear();
     steering?.reject(failure(reason));
