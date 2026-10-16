@@ -994,6 +994,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     async function beforeDispatch(request) {
       await access(request.context, entry.id, request.operation, entry);
       active.controller.signal.throwIfAborted();
+      if (request.input.goal && request.context.signal?.aborted) {
+        throw Object.assign(failure("The goal command was stopped before delivery.", "conversation_goal_stopped"), { delivery: "not-sent" });
+      }
       if (active.finishing) throw Object.assign(failure("The native turn finished before this instruction was sent. Send it as a new message.", "conversation_steer_turn_finished"), { delivery: "not-sent" });
     }
 
@@ -1048,6 +1051,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         completion = Promise.resolve().then(() => dispatch({
           context: request.context,
           input: { ...request.input, authoredInput: { ...request.input, at: request.at },
+            ...(request.input.goal ? { signal: request.context.signal } : {}),
             ...(boundInput ? { nativeMessage: boundInput } : {}),
             text: input.message, contextText: input.contextText || "",
             content: [...contextFiles.content, ...files.content], localFiles, attachmentManifest },
@@ -1064,6 +1068,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               turnMetadata: { runtime: { engine, segmentId, origin: request.input.origin,
                 ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
                 ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) } } });
+            if (request.input.goal && request.context.signal?.aborted) {
+              throw Object.assign(failure("The goal command was stopped before delivery.", "conversation_goal_stopped"), { delivery: "not-sent" });
+            }
             request.deliveryTiming?.("dispatch-started");
           },
           async accept(native) {
@@ -1449,6 +1456,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const operation = goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send";
     await access(context, entry.id, operation, entry);
     await entry.conversation?.admission(context, operation);
+    if (goal) context.signal?.throwIfAborted();
     let suppliedExclusions;
     if (wakeOptions !== undefined) {
       if (!completedEnvelope || entry.conversation || origin !== "application" || goal ||
@@ -1636,6 +1644,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function updateGoal(entry, context, input, representation) {
     await access(context, entry.id, "goal", entry);
+    context.signal?.throwIfAborted();
     if (!capabilities(entry).goals) throw failure("This connection does not support native goals.", "conversation_unsupported", 400);
     if (representation !== "native" && !capabilities(entry).goals) {
       throw failure("This bound conversation does not yet map native goal messages to canonical receipts.", "conversation_unsupported", 400);

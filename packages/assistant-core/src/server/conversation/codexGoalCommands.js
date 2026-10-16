@@ -38,9 +38,11 @@ export function createCodexGoalCommands({
 
   async function updateCodexAppServerGoal(sessionId, input = {}, {
     context: initialContext,
+    signal,
     prepareConversation
   } = {}) {
     let context = initialContext;
+    signal?.throwIfAborted();
     if (context.ok === false) return context;
     let threadId = context.threadId;
     if (threadId !== input.threadId || (!threadId && input.action !== "set")) {
@@ -59,10 +61,11 @@ export function createCodexGoalCommands({
       if (previousGoal && (previousGoal.status !== "complete" || previousGoal.createdAt !== input.createdAt)) {
         return { ok: false, error: "The Codex goal changed. Refresh it before setting a new goal." };
       }
+      signal?.throwIfAborted();
       subscribeCodexAppServerEvents(sessionId, context.provider, threadId, context);
       const result = await context.provider.setGoal(threadId, {
         objective: input.objective, tokenBudget: input.tokenBudget
-      });
+      }, { signal });
       await reconcileCodexAppServerGoalUpdated(sessionId, context.provider, threadId, {
         params: { goal: result.goal }
       });
@@ -75,7 +78,7 @@ export function createCodexGoalCommands({
     }
     if (input.action === "cancel") {
       subscribeCodexAppServerEvents(sessionId, context.provider, threadId, context);
-      await context.provider.clearGoal(threadId);
+      await context.provider.clearGoal(threadId, { signal });
       await reconcileCodexAppServerGoalUpdated(sessionId, context.provider, threadId, {
         method: "thread/goal/cleared",
         params: { threadId }
@@ -105,9 +108,11 @@ export function createCodexGoalCommands({
           patch: { providerStatus: "interrupted", error: "" }
         });
       });
+      signal?.throwIfAborted();
       await context.provider.resumeThread(threadId, context.resumeOptions);
     }
-    const result = await context.provider.setGoalStatus(threadId, input.action === "pause" ? "paused" : "active");
+    signal?.throwIfAborted();
+    const result = await context.provider.setGoalStatus(threadId, input.action === "pause" ? "paused" : "active", { signal });
     await reconcileCodexAppServerGoalUpdated(sessionId, context.provider, threadId, {
       params: { goal: result.goal }
     });

@@ -158,3 +158,9 @@ cannot confirm the generation has ended.
 Claude local command output carries its native system subtype in message data.
 The existing transcript writer clones that optional data for every role, retaining
 protocol provenance without interpreting application presentation policy.
+
+Goal admission cancellation travels through the existing context `signal`, rather
+than a separate queue. Canonical Claude checks it after asynchronous preparation
+and immediately before native dispatch; raw Claude and Codex goal controls preserve
+the same boundary. An abort before dispatch cannot publish a native command, while
+an acknowledged command retains its receipt and uses the ordinary stop owner.

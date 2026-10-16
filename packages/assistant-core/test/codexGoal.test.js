@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
+import { createCodexGoalCommands } from "../src/server/conversation/codexGoalCommands.js";
 import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
 
 test("cached goal reads retain the original session and interactive-provider boundary", async t => {
@@ -187,3 +188,49 @@ for (const pause of [false, true]) {
     assert.equal(requests.some(row => row.method === "turn/interrupt" || row.method === "turn/start"), false);
   });
 }
+
+for (const action of ["set", "resume"]) test(`cancelled Codex goal ${action} cannot dispatch after native goal read`, async () => {
+  const controller = new AbortController();
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let writes = 0;
+  const goal = { status: "paused", objective: "Finish the checks", createdAt: 1 };
+  const owner = createCodexGoalCommands({ turnState: () => ({ status: "interrupted" }),
+    subscribeCodexAppServerEvents() {}, reconcileCodexAppServerGoalUpdated: async () => {}, publish: async () => {} });
+  const provider = {
+    async readGoal() { entered.resolve(); await release.promise; return { goal: action === "set" ? null : goal }; },
+    async setGoal() { writes++; return { goal }; }, async setGoalStatus() { writes++; return { goal }; }
+  };
+  const operation = owner.updateCodexAppServerGoal("session", { action, threadId: "native", ...goal },
+    { context: { threadId: "native", provider, session: {} }, signal: controller.signal });
+  void operation.catch(() => {});
+  await entered.promise;
+  controller.abort(new Error("Goal stopped"));
+  release.resolve();
+  await assert.rejects(operation, /Goal stopped/);
+  assert.equal(writes, 0);
+});
+
+for (const action of ["set", "resume"]) test(`Codex goal ${action} forwards cancellation through provider preparation`, async t => {
+  const controller = new AbortController();
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const provider = new CodexAppServerAgentProvider({}, { credentials: { assertCurrent() {} } });
+  t.after(() => provider.close());
+  const goal = { status: "paused", objective: "Finish the checks", createdAt: 1 };
+  const writes = [];
+  provider.readGoal = async () => ({ goal: action === "set" ? null : goal });
+  provider.activeClient = async () => { entered.resolve(); await release.promise; return {
+    async request(method, input, { signal }) { signal.throwIfAborted(); writes.push({ method, input }); return { goal }; }
+  }; };
+  const owner = createCodexGoalCommands({ turnState: () => ({ status: "interrupted" }),
+    subscribeCodexAppServerEvents() {}, reconcileCodexAppServerGoalUpdated: async () => {}, publish: async () => {} });
+  const operation = owner.updateCodexAppServerGoal("session", { action, threadId: "native", ...goal },
+    { context: { threadId: "native", provider, session: {} }, signal: controller.signal });
+  void operation.catch(() => {});
+  await entered.promise;
+  controller.abort(new Error("Goal stopped"));
+  release.resolve();
+  await assert.rejects(operation, /Goal stopped/);
+  assert.deepEqual(writes, []);
+});

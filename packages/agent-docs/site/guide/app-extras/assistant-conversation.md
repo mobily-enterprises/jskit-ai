@@ -4279,3 +4279,9 @@ Native Claude `system/local_command_output` messages retain their origin in
 message data for agent messages as well as user messages. A consuming application
 can distinguish command confirmations from ordinary assistant prose without
 altering native history or treating matching text alone as protocol evidence.
+
+For a host-owned goal admission, the conversation context may carry an `AbortSignal`
+as `signal`. Abort it when the person cancels that admission while authorization or
+native preparation is still pending. The native goal dispatch checks cancellation
+before writing; a command already acknowledged keeps its receipt. Continue to use
+the ordinary Stop/Pause operation to stop work that has already reached the provider.

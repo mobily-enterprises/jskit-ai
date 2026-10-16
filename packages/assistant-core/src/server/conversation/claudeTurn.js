@@ -108,8 +108,9 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
       state.running && state.active ? "active" : "paused" } : null;
   }
 
-  async function update(input = {}, { interrupt: interruptGoal = interrupt, send: sendGoal = send } = {}) {
+  async function update(input = {}, { interrupt: interruptGoal = interrupt, send: sendGoal = send, signal } = {}) {
     const goal = await read();
+    signal?.throwIfAborted();
     const action = input.action;
     if (action !== "set" && (!goal || input.threadId !== conversationId ||
         input.createdAt !== goal.createdAt || input.objective !== goal.objective)) {
@@ -120,7 +121,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
       await interruptGoal();
     } else if (action === "cancel") {
       await interruptGoal();
-      await sendGoal({ message: "/goal clear" });
+      await sendGoal({ message: "/goal clear", signal });
     } else if (action === "set" || action === "resume") {
       const objective = String((action === "set" ? input.objective : goal.objective) ?? "").trim();
       if (!objective || objective.length > 4000 || /^(clear|stop|off|reset|none|cancel)$/iu.test(objective)) {
@@ -129,7 +130,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
       if (action === "set" && goal && goal.status !== "complete") {
         throw goalError("Cancel the existing goal before setting another.");
       }
-      await sendGoal({ message: `/goal ${objective}` });
+      await sendGoal({ message: `/goal ${objective}`, signal });
     } else throw goalError("Unknown Claude goal action.");
   }
 
@@ -441,6 +442,7 @@ export function createClaudeConversationOwner({
     const native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
     if (command && !command.steering) command.signal.throwIfAborted();
     const steering = command ? command.steering === true : Boolean(entry.turn?.active);
+    if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
     if (steering) {
       if (command) {
         await command.beforeDispatch({ threadId: entry.id });
@@ -526,6 +528,7 @@ export function createClaudeConversationOwner({
     try {
       if (command) command.attempted = true;
       else await input.onPromptSending?.({ threadId: entry.id, displayAttachments: input.displayAttachments, turnMetadata: actorMetadata });
+      if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
       await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
         { messageId: uuid, accept, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
     } catch (error) {
@@ -776,7 +779,7 @@ export function createClaudeConversationOwner({
       entry.command = active;
       entry.toolSchemas = active.tools?.schemas || [];
     }
-    const value = await send(entry, { ...command.input.nativeMessage, onPromptSending: command.beforeDispatch,
+    const value = await send(entry, { ...command.input.nativeMessage, signal: command.input.signal, onPromptSending: command.beforeDispatch,
       onNativeReceipt: command.onNativeReceipt, onReceiptPersisted: command.onReceiptPersisted }, { applicationCommand });
     const completion = value.conversationTurn ? entry.completion?.promise : null;
     const delivered = { value, completion };

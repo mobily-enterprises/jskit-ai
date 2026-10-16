@@ -988,11 +988,11 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
 
 // Retain the original supplied-store/native process fixture and drive it through
 // the actual common runtime, including its completion-only admitted receipt.
-async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical", beforeToolWrite } = {}) {
+async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical", beforeToolWrite, signal } = {}) {
   const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
   const storage = createMemoryConversationStorage();
   const transcript = createConversationTranscript({ storage });
-  const context = { actor: { id: "owner" }, surface: "app" };
+  const context = { actor: { id: "owner" }, surface: "app", signal };
   const admissions = [];
   const checkpoints = [];
   const actions = createActionCatalogue();
@@ -1424,4 +1424,74 @@ test("failed cleanup after interrupt failure retains the cleanup error and execu
     assert.equal(f.entry.process, native);
     assert.ok(f.entry.executionId);
   } finally { native.stop = originalStop; }
+});
+
+for (const stage of ["preparation", "native-ready"]) test(`cancelled Claude goal cannot dispatch after ${stage}`, { timeout: 5_000 }, async t => {
+  const controller = new AbortController();
+  const f = await suppliedCommonFixture(t, { tools: false, signal: controller.signal });
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let sends = 0;
+  if (stage === "preparation") f.binding.prepareInput = async input => {
+    entered.resolve(); await release.promise; return input;
+  };
+  f.behavior.initialize = async native => {
+    const send = native.client.send;
+    native.client.send = (...args) => { sends++; return send(...args); };
+    if (stage === "native-ready") { entered.resolve(); await release.promise; }
+  };
+  const operation = f.conversation.updateGoal({ action: "set", objective: "Finish the checks", messageId: "stopped-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  void operation.catch(() => {});
+  await entered.promise;
+  controller.abort(new Error("The person stopped this goal"));
+  release.resolve();
+  await assert.rejects(operation, error => error.delivery === "not-sent" && /goal command was stopped before delivery/.test(error.message));
+  assert.equal(sends, 0, "No cancelled goal reaches the native input");
+  assert.equal((await f.binding.transcript.readConversationLog()).length, 0, "An unsent goal has no accepted receipt");
+});
+
+test("raw Claude goal cancellation during native preparation prevents its write", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  const controller = new AbortController();
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let sends = 0;
+  f.behavior.initialize = async native => {
+    native.client.send = async () => { sends++; };
+    entered.resolve(); await release.promise;
+  };
+  const operation = f.owner.updateGoal(f.entry, { action: "set", objective: "Finish the checks" }, { signal: controller.signal });
+  void operation.catch(() => {});
+  await entered.promise;
+  controller.abort(new Error("Goal stopped"));
+  release.resolve();
+  await assert.rejects(operation, error => error.delivery === "not-sent");
+  assert.equal(sends, 0);
+});
+
+test("aborting an admitted Claude goal preserves its receipt and final output", { timeout: 5_000 }, async t => {
+  const controller = new AbortController();
+  const f = await suppliedCommonFixture(t, { tools: false, signal: controller.signal });
+  const result = await f.conversation.updateGoal({ action: "set", objective: "Finish the checks", messageId: "admitted-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  assert.equal(result.status, "accepted");
+  controller.abort(new Error("The person stopped this goal"));
+  await f.frame({ type: "result", subtype: "success", result: "Work already delivered" });
+  await f.conversation.wait();
+  const log = await f.binding.transcript.readConversationLog();
+  assert.equal(log.flatMap(turn => turn.messages).filter(message => message.messageId === "admitted-goal").length, 1);
+  assert.equal(f.entry.turn.state, "completed");
+});
+
+test("Claude goal cancellation at the final native write preserves definite non-delivery", { timeout: 5_000 }, async t => {
+  const controller = new AbortController();
+  const f = await suppliedCommonFixture(t, { tools: false, signal: controller.signal });
+  let sends = 0;
+  f.behavior.initialize = async native => { native.client.send = async () => { sends++; }; };
+  f.setBeforeState((_entry, event) => { if (event.state === "starting") controller.abort(new Error("Stopped at write boundary")); });
+  await assert.rejects(f.conversation.updateGoal({ action: "set", objective: "Finish the checks", messageId: "write-stopped-goal",
+    expectedSegmentId: `claude:${f.conversationId}` }), error => error.delivery === "not-sent");
+  assert.equal(sends, 0);
+  assert.equal((await f.binding.transcript.readConversationLog()).length, 0);
 });
