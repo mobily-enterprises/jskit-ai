@@ -2686,6 +2686,36 @@ test("native failure detail grace rejects invalid duration", () => {
   }
 });
 
+for (const phase of ["final_answer", "", "commentary"]) {
+  test(`a provider usage limit remains visible after recovering ${phase || "unmarked"} assistant output`, async t => {
+    const notices = [];
+    const detail = "You've hit your usage limit. Try again at Oct 22nd, 2026 11:37 PM.";
+    const f = await receiptFixture({ failureDetailGraceMs: 0,
+      checkpoint: async (_id, input) => f.checkpoints.push(input),
+      outcomeNotice: async (_runtime, _id, _thread, _turn, outcome, error, options) =>
+        notices.push({ outcome, error, ...options })
+    });
+    t.after(() => f.owner.clearSessionRecoveryTimers(f.sessionId));
+    f.run.providerStatus = "failed";
+    f.history = [{ id: f.turnId, status: "failed", items: [outputItem("saved-output", "Work saved so far.", phase)] }];
+    f.observe();
+    const notification = { method: "turn/completed", params: { threadId: f.threadId,
+      turn: { id: f.turnId, status: "failed", error: { message: detail, codexErrorInfo: "usageLimitExceeded" } } } };
+    f.emit(notification);
+    await f.drain();
+    assert.deepEqual(notices, [{ outcome: "provider_failure", error: `${detail} usageLimitExceeded`, usageLimitExceeded: true }]);
+    assert.equal(f.run.state, "failed");
+    assert.match(f.run.error, /hit your usage limit/);
+    assert.equal(f.checkpoints.length, 1);
+    assert.equal(f.checkpoints[0].turnOutcome, "provider_failure");
+    assert.equal((await f.replies()).length, phase === "commentary" ? 0 : 1);
+    f.emit(notification);
+    await f.drain();
+    assert.equal(notices.length, 1, "Repeated terminal events do not duplicate the failure notice");
+    assert.equal(f.checkpoints.length, 1);
+  });
+}
+
 for (const change of ["detail", "expiry", "repeat", "cleanup", "successor", "foreign-error", "user-stop"]) {
   test(`native failure detail grace preserves the existing notification owner for ${change}`, { timeout: 2000 }, async t => {
     const settled = Promise.withResolvers();

@@ -54,6 +54,7 @@ export function createCodexTurnRecovery({
     finalizedTurns: codexAppServerFinalizedTurns,
     resultFinalizationKey: codexAppServerResultFinalizationKey,
     readAgentRunForSession: readCodexAppServerAgentRunForSession,
+    submitAssistantResult: submitCodexAppServerAssistantResult,
     cleanupUntrackedTurn: cleanupCodexAppServerUntrackedTurn
   } = output;
   const {
@@ -953,14 +954,23 @@ export function createCodexTurnRecovery({
       }
       return { ok: true, processed: false, reason: "failure_detail_pending", status: normalizedStatus };
     }
-    const recovered = await recoverCodexAppServerFinalResponseBeforeOutcome(
-      normalizedSessionId,
-      normalizedThreadId,
-      normalizedTurnId,
-      normalizedStatus
-    );
-    if (recovered?.processed) {
-      return recovered;
+    if (resolvedOutcome === turnOutcomes.PROVIDER_FAILURE) {
+      // Saved output is still useful, but cannot turn a known provider failure
+      // into successful completion. Persist it without settling the turn;
+      // the failure notice and checkpoint below own the terminal outcome.
+      await submitCodexAppServerAssistantResult(normalizedSessionId, normalizedThreadId, normalizedTurnId, {
+        recoverFromProvider: true
+      });
+    } else {
+      const recovered = await recoverCodexAppServerFinalResponseBeforeOutcome(
+        normalizedSessionId,
+        normalizedThreadId,
+        normalizedTurnId,
+        normalizedStatus
+      );
+      if (recovered?.processed) {
+        return recovered;
+      }
     }
     // History recovery awaited the provider. Confirm activity again before
     // publishing a failure, because the goal may have continued in that gap.

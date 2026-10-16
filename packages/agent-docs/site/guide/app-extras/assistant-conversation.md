@@ -1753,6 +1753,13 @@ remain in force; no message is resent. A host-supplied owner retains its own
 policy. This is a server coordination option, not a client field or recording
 limit.
 
+When Codex confirms a provider failure, recovering saved assistant output does
+not replace that failure with successful completion. The run owner preserves
+the output, publishes the provider detail through the existing outcome notice,
+and settles once with the failed outcome. Usage-limit details remain available
+even when the same turn already contains an answer. Repeated terminal events
+do not duplicate the notice or checkpoint.
+
 Claude uses its native schema flag and restarts the owned process when the schema
 changes, retaining the conversation. Codex uses its native turn schema setting.
 OpenCode uses the existing schema instruction and removes a single JSON fence
