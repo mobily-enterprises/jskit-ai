@@ -1781,6 +1781,37 @@ test("Claude failed startup no longer exempts retained cleanup from reconciliati
   assert.equal(f.entry.executionId, "");
 });
 
+test("Claude goal retains native loop-limit blocking across reads and clears it only on new native goal progress", async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  await f.conversation.updateGoal({ action: "set", objective: "Finish checks", messageId: "blocked-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  const initial = await f.conversation.readGoal();
+  const file = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"), `${f.conversationId}.jsonl`);
+  const append = async frame => writeFile(file, JSON.stringify(frame) + "\n", { flag: "a" });
+  const content = "A hook blocked the turn from ending 9 consecutive times — overriding and ending turn. For Stop/SubagentStop hooks, check stop_hook_active in the input and return success while it's true.";
+  await append({ type: "attachment", timestamp: "2026-10-16T10:19:52.997Z",
+    attachment: { type: "goal_status", condition: "Finish checks", met: false, reason: "Six checks require credentials." } });
+  await append({ type: "assistant", uuid: "quoted-warning", message: { content: [{ type: "text", text: content }] } });
+  await append({ type: "system", subtype: "informational", parent_tool_use_id: "nested", content });
+  assert.equal((await f.conversation.readGoal()).status, "active", "quoted and nested notices cannot block the parent goal");
+  await append({ type: "system", subtype: "informational", timestamp: "2026-10-16T10:19:53.008Z", content });
+  const blocked = await f.conversation.readGoal();
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.id, initial.id, "blocking preserves the original goal identity");
+  assert.match(blocked.reason, /Six checks require credentials/);
+  assert.match(blocked.reason, /Resolve the blocker/);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "blocked", "all consumers use the original native history owner");
+  await f.owner.close(f.entry);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "blocked", "process shutdown cannot convert native blocking to a pause");
+  await append({ type: "attachment", timestamp: "2026-10-16T10:20:00.000Z",
+    attachment: { type: "goal_status", condition: "Finish checks", met: true, reason: "Checks passed." } });
+  await append({ type: "system", subtype: "informational", timestamp: "2026-10-16T10:20:01.000Z", content });
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "complete", "a later hook failure cannot reopen completed work");
+  await f.conversation.updateGoal({ action: "set", objective: "Next checks", messageId: "next-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  assert.equal((await f.conversation.readGoal()).status, "active", "new goal attachment supersedes the earlier block");
+});
+
 for (const action of ["set", "resume"]) test(`Claude ${action} waits for its exact delayed goal attachment`, { timeout: 5000 }, async t => {
   const f = await suppliedCommonFixture(t, { tools: false });
   const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));

@@ -109,7 +109,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
     const state = readState();
-    return goal ? { ...goal, status: goal.status === "complete" ? "complete" :
+    return goal ? { ...goal, status: ["complete", "blocked"].includes(goal.status) ? goal.status :
       state.running && state.active ? "active" : "paused" } : null;
   }
 

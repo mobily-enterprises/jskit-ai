@@ -205,3 +205,13 @@ The native history reader can separately expose original local-command messages
 for stopped application repair. It retains their UUID, exact unwrapped text and
 explicit command/stdout/stderr provenance. Ordinary history output and native
 files are unchanged; the application owns matching, backups and publication.
+
+Claude native goal reads preserve `blocked` when the main history records the
+explicit informational event terminating repeated stop-hook attempts. The same
+goal identity and last evaluator reason remain available across process shutdown.
+Quoted assistant text and nested tool events are not evidence of blocking. A
+later native goal attachment supersedes the block; a completed goal is not reopened
+by a hook notice. Hosts must not automatically resume this blocked state on
+restart. This projection records the native termination; it does not prevent
+Claude's preceding retry loop or turn an assistant's “paused” reply into a control
+operation.

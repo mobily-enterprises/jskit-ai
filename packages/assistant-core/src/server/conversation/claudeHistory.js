@@ -167,6 +167,14 @@ async function readClaudeHistory(options) {
         };
       }
     }
+    // This is native terminal evidence, not an inference from the assistant's
+    // answer or its wording. Retain it across process and application restarts.
+    if (goal?.status === "active" && frame.type === "system" && frame.subtype === "informational" &&
+        !frame.parent_tool_use_id && typeof frame.content === "string" &&
+        /^A hook blocked the turn from ending \d+ consecutive times — overriding and ending turn\./u.test(frame.content)) {
+      goal = { ...goal, status: "blocked", updatedAt: Date.parse(frame.timestamp) / 1000,
+        reason: ["Claude stopped after repeated attempts to continue the unfinished goal. Resolve the blocker, then resume the goal.", goal.reason].filter(Boolean).join("\n\n") };
+    }
     // Native /goal appends its sentinel before the authored command, whose
     // parent identifies that exact attachment. A later evaluation keeps it.
     if (frame.type === "user" && !frame.isMeta && frame.uuid && goalStartId && frame.parentUuid === goalStartId) {

@@ -4386,3 +4386,13 @@ projection is unchanged. Sidechain, nested and meta records are excluded, and
 existing rewind branch selection still applies. Use `allowIncompleteTail: false`
 with stopped writers when these records prove a historical application repair.
 The native reader writes nothing; the application owns its repair and backups.
+
+Claude native goal reads preserve `blocked` when the main history records the
+explicit informational event terminating repeated stop-hook attempts. The same
+goal identity and last evaluator reason remain available across process shutdown.
+Quoted assistant text and nested tool events are not evidence of blocking. A
+later native goal attachment supersedes the block; a completed goal is not reopened
+by a hook notice. Hosts must not automatically resume this blocked state on
+restart. This projection records the native termination; it does not prevent
+Claude's preceding retry loop or turn an assistant's “paused” reply into a control
+operation.
