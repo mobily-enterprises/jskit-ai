@@ -610,13 +610,15 @@ const displayEntries = computed(() => {
       }, key);
       if (!displayed) continue;
       candidates.push({ key, role, turn: { ...turn, turnId }, message: displayed,
-        sortAt: turn.optimistic && turn.optimistic.id === message.messageId ? NaN : Date.parse(message.at),
+        sortAt: turn.optimistic && turn.optimistic.status !== "accepted" && turn.optimistic.id === message.messageId
+          ? NaN : Date.parse(message.at),
         delivery: role === "user" ? userDelivery : null });
     }
   }
   // Native streaming turns and saved authored turns can arrive independently.
   // Local queued timestamps can precede an earlier message's native admission.
-  // Keep their supplied positions, along with undated notices.
+  // Keep unconfirmed messages in their supplied positions, along with undated
+  // notices. Accepted local copies join chronology even before history arrives.
   const dated = candidates.filter(entry => Number.isFinite(entry.sortAt))
     .sort((a, b) => a.sortAt - b.sortAt)[Symbol.iterator]();
   const entries = [];

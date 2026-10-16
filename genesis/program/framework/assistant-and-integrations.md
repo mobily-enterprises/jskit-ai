@@ -36,8 +36,9 @@ The shared transcript accepts Markdown tables with blank header cells when the
 separator row establishes the column structure; paragraph whitespace handling
 does not flatten recognized table rows.
 
-The shared transcript sorts confirmed dated messages chronologically while
-keeping optimistic authored messages in their supplied positions. A queued
+The shared transcript sorts confirmed dated messages chronologically, including
+accepted local copies whose canonical history page has not arrived, while
+keeping unconfirmed authored messages in their supplied positions. A queued
 message's earlier local timestamp cannot move it ahead of a preceding message
 that receives its native timestamp later; receipts restore normal history ordering.
 

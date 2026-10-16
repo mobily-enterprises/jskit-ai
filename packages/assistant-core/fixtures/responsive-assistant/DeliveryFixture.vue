@@ -4,6 +4,7 @@ import AssistantConversationElement from "../../src/client/conversation/Assistan
 import { createAssistantMessageDelivery } from "../../src/client/conversation/messageDelivery.js";
 
 const recoveryFixture = new URLSearchParams(location.search).has("recovery");
+const acceptedFixture = new URLSearchParams(location.search).has("accepted-history");
 const draft = ref("");
 const turns = ref([]);
 const requests = ref([]);
@@ -43,6 +44,13 @@ if (recoveryFixture) {
   ];
   delivery.state.messages.push({ id: "uncertain", text: "Discard failed attempt", status: "uncertain", error: "Lost response", createdAt: at("05") });
 }
+if (acceptedFixture) {
+  turns.value = [{ turnId: "later", assistant: { text: "Later assistant reply", at: "2026-10-16T11:56:00.000Z" } }];
+  delivery.state.messages.push(
+    { id: "accepted-old", text: "Earlier accepted message", status: "accepted", createdAt: "2026-10-16T11:04:00.000Z" },
+    { id: "queued", text: "Still queued", status: "pending", createdAt: "2026-10-16T11:03:00.000Z" }
+  );
+}
 const adapter = reactive({
   delivery, attachments,
   conversation: { cancellableDelivery: recoveryFixture, turns, visible: true, scrollKey: "delivery", welcomeMessage: "Start a conversation." },
@@ -57,6 +65,7 @@ const adapter = reactive({
   <v-app>
     <main class="fixture">
       <nav>
+        <button v-if="acceptedFixture" @click="turns.unshift({ turnId: 'earlier', user: { messageId: 'accepted-old', text: 'Earlier accepted message', at: '2026-10-16T11:05:00.000Z' } })">Load accepted history</button>
         <button @click="pendingRequest.reject(new Error('Delivery unavailable.'))">Fail request</button>
         <button @click="accept">Accept request</button>
         <button @click="attachments.attachments.push({ attachmentId: 'new-file', fileName: 'next.txt' }); configuration = { tone: 'detailed' }">Prepare newer input</button>
