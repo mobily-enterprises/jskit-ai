@@ -1356,7 +1356,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       const message = failed ? (frame.errors || []).join("; ") || output || frame.subtype : "";
       result = failed ? "" : output;
       if (result && ![...messages.values()].some((block) => block.complete && block.role === "assistant" && block.text === result)) {
-        await publishMessage({ id: `claude_${frame.uuid || turnId}_result`, role: "assistant", text: result, complete: true });
+        await publishMessage({ id: `claude_${frame.uuid || turnId}_result`, role: "assistant", text: result, complete: true,
+          ...(typeof frame.local_command === "string" && frame.local_command ? {
+            data: { native: { engineId: "claude", type: "result", command: frame.local_command, output: "stdout" } }
+          } : {}) });
       }
       inFlight.delete(currentCommandId);
       if (steering) {

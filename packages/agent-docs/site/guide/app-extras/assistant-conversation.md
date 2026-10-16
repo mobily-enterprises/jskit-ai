@@ -4342,6 +4342,14 @@ Native Claude `system/local_command_output` messages retain their origin in
 message data for agent messages as well as user messages. A consuming application
 can distinguish command confirmations from ordinary assistant prose without
 altering native history or treating matching text alone as protocol evidence.
+Claude also emits local-command confirmations as synthetic assistant frames.
+When `local_command_run.command` and `local_command_source` identify their origin,
+`data.native` carries `engineId: "claude"`, `type: "assistant"`, `command`, and
+`output: "stdout"` or `"stderr"`. Successful result-only confirmations with
+`local_command` use `type: "result"` and `output: "stdout"`. Ordinary replies do
+not acquire this metadata because of their wording or model name. Applications
+can hide successful management output while retaining command errors. This
+applies to newly written messages; it does not enrich older stored records.
 
 For a host-owned goal admission, the conversation context may carry an `AbortSignal`
 as `signal`. Abort it when the person cancels that admission while authorization or

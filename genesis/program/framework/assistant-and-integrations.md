@@ -175,8 +175,12 @@ timeouts are typed recoverable failures; a control acknowledgement alone still
 cannot confirm the generation has ended.
 
 Claude local command output carries its native system subtype in message data.
-The existing transcript writer clones that optional data for every role, retaining
-protocol provenance without interpreting application presentation policy.
+Synthetic assistant command replies also retain the explicit native command name
+and stdout/stderr distinction; a successful result-only reply retains its command
+identity. Neither reply wording nor the synthetic model name is classification
+evidence. The existing transcript writer clones that optional data for every
+role, retaining protocol provenance without interpreting application presentation
+policy. Historical records without these fields are unchanged.
 
 Goal admission cancellation travels through the existing context `signal`, rather
 than a separate queue. Canonical Claude checks it after asynchronous preparation

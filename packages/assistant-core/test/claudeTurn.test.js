@@ -35,6 +35,46 @@ test("native local command output retains protocol provenance through transcript
   turn.stop();
 });
 
+test("actual Claude synthetic goal confirmations retain command provenance without relabelling ordinary replies", async () => {
+  const { turn, send, events } = fixture();
+  await send();
+  // Captured from Claude 2.1.289's stream-json /goal clear operation. Native
+  // history stores system/local_command, but the live protocol uses assistant.
+  await turn.receive({ type: "assistant", uuid: "clear-confirmation", local_command_run: { command: "goal", args: "clear" },
+    local_command_source: "<local-command-stdout>No goal set</local-command-stdout>",
+    message: { id: "synthetic-command", model: "<synthetic>", stop_reason: "end_turn", content: [{ type: "text", text: "No goal set" }] } });
+  await turn.receive({ type: "result", subtype: "success", local_command: "goal", result: "No goal set" });
+  const output = events.filter(event => event.type === "message" && event.message.complete);
+  assert.equal(output.length, 1, "The result does not duplicate its synthetic assistant carrier");
+  assert.deepEqual(output[0].message.data, { native: { engineId: "claude", type: "assistant", command: "goal", output: "stdout" } });
+  const transcript = createConversationTranscript({ storage: createMemoryConversationStorage() });
+  await transcript.writeConversationUserMessage("test", { messageId: "clear", text: "/goal clear" });
+  await transcript.writeConversationAssistantMessage("test", { ...output[0].message, messageId: output[0].message.id });
+  assert.deepEqual((await transcript.readConversationLog("test"))[0].assistant.data, output[0].message.data);
+  turn.begin({ id: "ordinary" });
+  await send("ordinary");
+  await turn.receive({ type: "assistant", uuid: "ordinary-answer", message: { id: "ordinary-api", model: "haiku", stop_reason: "end_turn",
+    content: [{ type: "text", text: "Goal set: I will work through the checks." }] } });
+  assert.equal(events.findLast(event => event.type === "message").message.data, undefined);
+  turn.stop();
+});
+
+test("Claude local-command error output stays distinguishable and result-only success retains provenance", async () => {
+  const { turn, send, events } = fixture();
+  await send();
+  await turn.receive({ type: "assistant", uuid: "command-error", local_command_run: { command: "goal", args: "invalid" },
+    local_command_source: "<local-command-stderr>Goal cannot be changed</local-command-stderr>",
+    message: { id: "error-command", stop_reason: "end_turn", content: [{ type: "text", text: "Goal cannot be changed" }] } });
+  assert.deepEqual(events.find(event => event.type === "message").message.data,
+    { native: { engineId: "claude", type: "assistant", command: "goal", output: "stderr" } });
+  turn.stop();
+  turn.begin({ id: "result-only" });
+  await send("result-only");
+  await turn.receive({ type: "result", subtype: "success", local_command: "goal", result: "Goal cleared: Previous objective" });
+  assert.deepEqual(events.findLast(event => event.type === "message").message.data,
+    { native: { engineId: "claude", type: "result", command: "goal", output: "stdout" } });
+});
+
 test("a pipe write is not admission; queued and replayed acknowledgements persist the user exactly once", async () => {
   const { turn, client, send, events } = fixture();
   client.send = async () => {};

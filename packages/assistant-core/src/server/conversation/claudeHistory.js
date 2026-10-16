@@ -75,12 +75,17 @@ function claudeMessageBlocks(frame, { includeNested = false, commentary = false 
   // Native frames split one API message into blocks with distinct UUIDs.
   const messageId = frame.uuid || frame.message.id;
   if (!messageId) return [];
+  const command = frame.local_command_run?.command;
+  const output = /^<local-command-(stdout|stderr)>/u.exec(frame.local_command_source || "")?.[1];
   commentary ||= content.some((block) => block.type === "tool_use");
   return content.flatMap((block, index) => {
     const text = block.type === "thinking" ? block.thinking : block.type === "text" ? block.text : "";
     return typeof text === "string" && text.trim() ? [{
       id: `claude_${messageId}_${index}`, text, complete: true,
-      role: block.type === "thinking" ? "thinking" : commentary ? "commentary" : "assistant"
+      role: block.type === "thinking" ? "thinking" : commentary ? "commentary" : "assistant",
+      ...(typeof command === "string" && command && output ? {
+        data: { native: { engineId: "claude", type: "assistant", command, output } }
+      } : {})
     }] : [];
   });
 }
