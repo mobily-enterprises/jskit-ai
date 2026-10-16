@@ -7,6 +7,46 @@ import { createConversationHookBridge, createConversationRuntime } from "../src/
 import { createClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
 import { createCodexConversationAdapter } from "../src/server/conversation/providers/codex.js";
 import { createOpenCodeConversationAdapter } from "../src/server/conversation/providers/opencode.js";
+import { readPersistentConversation } from "../src/server/conversation/providers/scoped.js";
+import { createConversationTranscript, createMemoryConversationStorage } from "../src/server/conversation/index.js";
+
+test("scoped reads retain each request's output when an accepted steer interrupts the earlier reply", async () => {
+  const transcript = createConversationTranscript({ storage: createMemoryConversationStorage() });
+  const store = Object.fromEntries(Object.entries(transcript).map(([name, operation]) =>
+    [name, (scope, ...args) => operation(JSON.stringify([scope.sessionId, scope.conversationId]), ...args)]));
+  store.readConversationStream = () => ({ messages: [] });
+  const scope = { sessionId: "session", conversationId: "chat" };
+  await store.writeConversationUserMessage(scope, { messageId: "first", text: "First request" });
+  await store.writeConversationUserMessage(scope, { messageId: "second", text: "Second request" });
+  const record = { conversationId: "chat", providerConversationId: "native", messageId: "second", status: "completed" };
+  const observed = [];
+  const options = {
+    ...scope, record, context: {}, store,
+    operations: { async readConversation(_sessionId, input) {
+      observed.push(input.requestMessageIds);
+      return { status: "completed", messages: [
+        { id: "partial-first", requestMessageId: "first", role: "commentary", text: "FIRST-PARTIAL", complete: true },
+        { id: "answer-second", requestMessageId: "second", role: "assistant", text: "SECOND-OK", complete: true },
+        { id: "late-first", requestMessageId: "first", role: "commentary", text: "FIRST-TAIL", complete: true },
+        { id: "unmatched", requestMessageId: "", role: "assistant", text: "Unmatched native input", complete: true }
+      ] };
+    } },
+    records: { input: (record, input) => ({ ...record, ...input }), save: async (_context, record, patch) => ({ ...record, ...patch }) },
+    receipts: { persisted: () => true },
+    projection: { context: context => context, messageScope: (_context, scope) => scope,
+      message: message => message, messageMetadata: () => ({}), snapshot: value => value },
+    publish: async () => {}
+  };
+  await readPersistentConversation(options);
+  await readPersistentConversation(options);
+  const [first, second] = await store.readConversationLog(scope);
+  assert.deepEqual(first.commentary.map(message => message.text), ["FIRST-PARTIAL", "FIRST-TAIL"]);
+  assert.equal(first.assistant, null);
+  assert.equal(second.assistant.text, "SECOND-OK");
+  assert.deepEqual(second.commentary, []);
+  assert.equal((await store.readConversationLog(scope)).length, 2);
+  assert.deepEqual(observed, [["first", "second"], ["first", "second"]]);
+});
 
 function claudeHost() {
   let process = null;

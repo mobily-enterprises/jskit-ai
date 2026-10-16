@@ -4316,6 +4316,16 @@ pending record with `attempted: false` permits retry after definite rejection,
 including after reload. Missing evidence remains inspection-only. Rejected rows
 remain intact; no historical rows or pending records are rewritten.
 
+Accepted Claude steering also preserves output ownership. Scoped reads pass the
+saved authored `requestMessageIds` to the native read operation. The Claude owner
+retains the native input `userId` on live blocks and restored history, and resolves
+it to `requestMessageId` using those known IDs. The scoped transcript writer uses
+that exact authored turn for partial output and final replies; an identified
+output without a matching authored turn is left in native history for a later
+read, never assigned to the latest request. Providers without this identity
+continue using their existing projection. This is read-time routing into the
+existing transcript format, not a historical repair or a new persisted field.
+
 Claude's internal task notifications do not become user requests. Their command
 lifecycle events must not leave a completed user request busy or replace its
 receipt identity. The shared native owner clears completed commands while still

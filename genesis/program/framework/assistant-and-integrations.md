@@ -57,6 +57,10 @@ response contents, and continues to own persistence and operator logging.
 Older completion checkpoints cannot overwrite a newer native continuation.
 Split native text keeps its live output identity until the API message identifies
 it as tool commentary or an answer; restored history uses the same classification.
+Scoped Claude output also keeps its native input identity across accepted steering.
+The native reader resolves that identity against saved authored request IDs, and
+the existing transcript writer attaches partial and final output to that exact
+turn. An unmatched identified output cannot fall back to the latest request.
 Renewal recovery joins the exact running turn or requires its saved completed
 state before accepting history text. Accepted but unconfirmed input is never
 submitted again automatically. Bound native goal Set/Resume may re-enter ordinary

@@ -154,23 +154,30 @@ export async function readPersistentConversation(options) {
   const scope = { sessionId, conversationId: record.conversationId };
   let response = {};
   let turns = await store.readConversationLog(scope);
+  const requestTurns = new Map(turns.filter(turn => turn.user?.messageId).map(turn => [turn.user.messageId, turn]));
   let requestTurn = turns.findLast((turn) => turn.user?.messageId === record.messageId);
-  const messageScope = projection.messageScope(context, scope, requestTurn);
   const savedIds = new Set(turns.flatMap((turn) => turn.messages.map((message) => message.messageId)));
   const writtenTurnIds = new Set();
   let appended = false;
   if (record.providerConversationId && record.state !== "closing") {
     try {
-      response = requireSuccess(await operations.readConversation(sessionId, records.input(record), context));
+      response = requireSuccess(await operations.readConversation(sessionId,
+        records.input(record, { requestMessageIds: [...requestTurns.keys()] }), context));
       for (const message of response.messages || []) {
         const operation = messageWriters[message.role];
         if (operation && message.text && message.complete !== false && !savedIds.has(message.id)) {
-          const written = await store[operation](messageScope, {
+          const identified = Object.hasOwn(message, "requestMessageId");
+          const target = identified ? requestTurns.get(message.requestMessageId) : requestTurn;
+          // An identified output must never fall through to the latest request.
+          // Its authored row may not have been committed yet; retain native proof.
+          if (identified && !target) continue;
+          const written = await store[operation](projection.messageScope(context, scope, target), {
             ...projection.message(message, record, "stored"), messageId: message.id,
-            ...(requestTurn && !requestTurn.assistant ? { turnId: requestTurn.turnId } : {})
+            ...(target && (identified || !target.assistant) ? { turnId: target.turnId } : {})
           });
           if (written) {
             writtenTurnIds.add(written.turnId);
+            if (written.user?.messageId) requestTurns.set(written.user.messageId, written);
             if (written.turnId === requestTurn?.turnId) requestTurn = written;
           }
           appended = true;

@@ -69,6 +69,36 @@ test("steering waits for the generation's terminal event after the control ackno
   assert.equal(turn.read().status, "completed");
 });
 
+test("interrupted Claude output keeps its input identity after a follow-up is accepted", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.owner.send(f.entry, { messageId: "first", message: "First request" });
+  const native = f.processes.at(-1);
+  await native.options.onEvent({ type: "stream_event", event: { type: "message_start", message: { id: "first-api" } } });
+  await native.options.onEvent({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } });
+  await native.options.onEvent({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { text: "FIRST-PARTIAL" } } });
+  await native.options.onEvent({ type: "assistant", uuid: "first-output", message: { id: "first-api", content: [{ type: "text", text: "FIRST-PARTIAL" }] } });
+  await f.owner.send(f.entry, { messageId: "second", message: "Second request" });
+  await native.options.onEvent({ type: "assistant", uuid: "second-output", message: { id: "second-api", content: [{ type: "text", text: "SECOND-OK" }], stop_reason: "end_turn" } });
+  await native.options.onEvent({ type: "result", subtype: "success", result: "SECOND-OK" });
+  const read = await f.owner.read(f.entry, { messageId: "second", requestMessageIds: ["first", "second"] });
+  assert.equal(read.messages.find(message => message.text === "FIRST-PARTIAL").requestMessageId, "first");
+  assert.equal(read.messages.find(message => message.text === "FIRST-PARTIAL").role, "commentary");
+  assert.equal(read.messages.find(message => message.text === "SECOND-OK").requestMessageId, "second");
+  // A cold read uses the original native input identities, without live state.
+  const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, `${f.conversationId}.jsonl`), [
+    { type: "user", uuid: claudeNativeMessageId("first"), message: { content: "First request" } },
+    { type: "assistant", uuid: "first-output", message: { id: "first-api", content: [{ type: "text", text: "FIRST-PARTIAL" }] } },
+    { type: "user", uuid: claudeNativeMessageId("second"), message: { content: "Second request" } },
+    { type: "assistant", uuid: "second-output", message: { id: "second-api", content: [{ type: "text", text: "SECOND-OK" }] } }
+  ].map(JSON.stringify).join("\n") + "\n");
+  f.entry.nativeTurn.reset();
+  const restored = await f.owner.read(f.entry, { messageId: "second", requestMessageIds: ["first", "second"] });
+  assert.deepEqual(restored.messages.map(message => [message.text, message.requestMessageId]),
+    [["FIRST-PARTIAL", "first"], ["SECOND-OK", "second"]]);
+});
+
 // Claude 2.1.289 folds internal commands into the outer turn. Their lifecycle
 // completes before result; the original input's completion follows result.
 for (const background of [false, true]) test(`folded native command cannot strand its outer input, background=${background}`, async () => {

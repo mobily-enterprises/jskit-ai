@@ -567,8 +567,12 @@ export function createClaudeConversationOwner({
     const history = await readHistory(entry);
     const messages = new Map(history.messages.map(message => [message.id, message]));
     const current = entry.nativeTurn.read();
-    for (const message of current.messages) messages.set(message.id, message);
-    return { ...entry.nativeTurn.readResult(), ok: true, messages: [...messages.values()], text: current.text || history.text,
+    for (const message of current.messages) messages.set(message.id, { ...messages.get(message.id), ...message });
+    const requestIds = new Map((input.requestMessageIds || [input.messageId]).filter(id => typeof id === "string" && id)
+      .map(id => [claudeNativeMessageId(id), id]));
+    return { ...entry.nativeTurn.readResult(), ok: true,
+      messages: [...messages.values()].map(message => ({ ...message,
+        ...(message.userId ? { requestMessageId: requestIds.get(message.userId) || "" } : {}) })), text: current.text || history.text,
       admitted: history.userIds.includes(claudeNativeMessageId(input.messageId || "")) };
   }
 
@@ -1178,6 +1182,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   }
 
   async function publishMessage(message) {
+    if (!message.userId && currentCommandId) message = { ...message, userId: currentCommandId };
     messages.set(message.id, message);
     const owner = acceptedInput;
     const completeAssistant = message.complete && message.role === "assistant";
@@ -1288,7 +1293,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (event.type === "message_start") messageId = event.message?.id || frame.uuid;
       const id = `claude_${messageId}_${event.index}`;
       if (event.type === "content_block_start" && ["text", "thinking"].includes(event.content_block?.type)) {
-        messages.set(id, { id, outputId: id, complete: false, role: event.content_block.type === "thinking" ? "thinking" : "assistant",
+        messages.set(id, { id, outputId: id, userId: currentCommandId, complete: false, role: event.content_block.type === "thinking" ? "thinking" : "assistant",
           text: event.content_block.text || event.content_block.thinking || "" });
       } else if (event.type === "content_block_delta") {
         const block = messages.get(id);
@@ -1313,6 +1318,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         await flushAssistantMessages(apiMessageId, "commentary");
       }
       for (const block of claudeMessageBlocks(frame)) {
+        block.userId = currentCommandId;
         checkOutput(block.text, block.role);
         // Native split frames arrive before their block's stop event. Keep that
         // existing live identity without replacing the saved frame UUID.
@@ -1322,7 +1328,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
             message.id.startsWith(prefix) && /^\d+$/u.test(message.id.slice(prefix.length)));
           if (live.length === 1 && (!Object.hasOwn(frame, "apiBlockIndex") ||
               Number.isSafeInteger(frame.apiBlockIndex) && frame.apiBlockIndex >= 0 &&
-              live[0].id === `${prefix}${frame.apiBlockIndex}`)) block.outputId = live[0].id;
+              live[0].id === `${prefix}${frame.apiBlockIndex}`)) {
+            block.outputId = live[0].id;
+            block.userId = live[0].userId || block.userId;
+          }
         }
         if (apiMessageId && block.role === "assistant") {
           const role = assistantRoles.get(apiMessageId);
