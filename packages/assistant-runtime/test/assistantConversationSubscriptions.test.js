@@ -1194,6 +1194,11 @@ test("opt-in subscription watchdog identifies a pending snapshot before the awai
   t.mock.timers.tick(10_000);
   t.mock.timers.reset();
   const pending = f.subscriptionTimings.find(record => record.stage === "pending");
+  const stages = f.subscriptionTimings.filter(record => record.stage !== "pending");
+  assert.deepEqual(stages.map(record => record.stage), ["authentication", "action-admission",
+    "conversation-open", "observer-attach", "snapshot-read"]);
+  assert.ok(stages.every(record => record.level === "warn"), "Opt-in stage timings survive a warning-only operational log");
+  assert.ok(stages.every(record => Number.isFinite(record.durationMs) && Number.isFinite(record.elapsedMs)));
   assert.equal(pending.previousStage, "snapshot-read");
   assert.equal(pending.conversationId, f.ids[0]);
   assert.equal(pending.acknowledgementBudgetMs, 10_000);

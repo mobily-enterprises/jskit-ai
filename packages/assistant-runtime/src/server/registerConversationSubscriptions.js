@@ -85,7 +85,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         if (next === "observer-attach") observedConversationId = input.conversationId;
         try {
           const slowOutcome = now - startedAt >= 5_000 && ["acknowledgement", "abandoned"].includes(next);
-          const level = next === "failed" || slowOutcome ? "warn" : "info";
+          const level = diagnostics || next === "failed" || slowOutcome ? "warn" : "info";
           logger?.[level]?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
             ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
             stage: next, previousStage: stage,
