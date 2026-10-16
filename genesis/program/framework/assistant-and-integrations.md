@@ -113,6 +113,8 @@ whose native stdout is `No goal set`: an impossible-goal evaluation may already
 have removed the live goal without writing a clearing attachment. That explicit
 command receipt clears the historical projection on subsequent reads. Model
 prose, nested commands and stderr cannot clear a goal; native history is unchanged.
+Its native parent user UUID supplies the exact cancellation acknowledgement,
+so the accepted command does not wait for a clearing attachment that will not arrive.
 Background-only steering retires the prior completion before host preparation,
 so a task finishing during preparation cannot close the pending follow-up.
 An application-owned account preparation may opt into following its current

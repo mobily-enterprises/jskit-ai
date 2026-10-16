@@ -753,6 +753,13 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
                   const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
                   await mkdir(directory, { recursive: true });
                   const condition = _message.slice(6);
+                  if (condition === "clear" && behavior.clearWithoutGoalSentinel) {
+                    const user = { type: "user", uuid: input.messageId, message: { content: "<command-name>/goal</command-name>\n<command-args>clear</command-args>" } };
+                    const receipt = { type: "system", subtype: "local_command", uuid: `${input.messageId}-clear`, parentUuid: input.messageId,
+                      commandRun: { command: "goal", args: "clear" }, content: "<local-command-stdout>No goal set</local-command-stdout>" };
+                    await appendFile(path.join(directory, `${options.sessionId}.jsonl`), [user, receipt].map(JSON.stringify).join("\n") + "\n");
+                    return;
+                  }
                   const marker = { type: "attachment", uuid: `${input.messageId}-goal`, timestamp: new Date().toISOString(),
                     attachment: { type: "goal_status", condition, sentinel: true, met: condition === "clear" } };
                   const user = { type: "user", uuid: input.messageId, parentUuid: marker.uuid, message: { content: _message } };
@@ -1917,6 +1924,23 @@ test("Claude failed startup no longer exempts retained cleanup from reconciliati
   await f.owner.recover([f.entry]);
   assert.equal(stops, 1);
   assert.equal(f.entry.executionId, "");
+});
+
+test("Claude cancellation acknowledges its exact no-goal command receipt without waiting for a sentinel", { timeout: 5000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  await f.conversation.updateGoal({ action: "set", objective: "Finish checks", messageId: "cancel-impossible-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  const file = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"), `${f.conversationId}.jsonl`);
+  await appendFile(file, JSON.stringify({ type: "attachment", timestamp: "2026-10-16T18:08:11.407Z",
+    attachment: { type: "goal_status", condition: "Finish checks", met: false, failed: true } }) + "\n");
+  const blocked = await f.conversation.readGoal();
+  assert.equal(blocked.status, "blocked");
+  f.behavior.clearWithoutGoalSentinel = true;
+  await f.conversation.updateGoal({ action: "cancel", expectedGoalId: blocked.id,
+    expectedSegmentId: `claude:${f.conversationId}`, messageId: "clear-impossible-goal" });
+  assert.equal(await f.conversation.readGoal(), null);
+  const history = await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir, conversationId: f.conversationId });
+  assert.equal(history.goalCommandId, claudeNativeMessageId("clear-impossible-goal"));
 });
 
 test("Claude goal retains a native impossible evaluation as blocked until explicit Resume", async t => {

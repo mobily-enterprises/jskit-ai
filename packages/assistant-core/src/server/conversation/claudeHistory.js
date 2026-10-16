@@ -154,7 +154,9 @@ async function readClaudeHistory(options) {
         frame.commandRun.args === "clear" && frame.content === "<local-command-stdout>No goal set</local-command-stdout>") {
       goal = null;
       goalStartId = "";
-      goalCommandId = "";
+      const command = byId.get(frame.parentUuid);
+      goalCommandId = command?.type === "user" && !command.isMeta && !command.parent_tool_use_id
+        ? command.uuid : "";
     }
     if (options.includeCommandMessages && frame.type === "system" && frame.subtype === "local_command" &&
         frame.uuid && !frame.parent_tool_use_id && !frame.isMeta &&
