@@ -3,6 +3,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClaudeConversationTurn, claudeNativeMessageId, runClaudeRenewalTurn,
   waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
+import { readClaudeHistory } from "../src/server/conversation/claudeHistory.js";
 
 function fixture() {
   const events = [];
@@ -57,6 +58,37 @@ test("actual Claude synthetic goal confirmations retain command provenance witho
     content: [{ type: "text", text: "Goal set: I will work through the checks." }] } });
   assert.equal(events.findLast(event => event.type === "message").message.data, undefined);
   turn.stop();
+});
+
+test("Claude native no-response placeholders are excluded from live and cold replies without hiding errors or model answers", async t => {
+  const { turn, send, events } = fixture();
+  t.after(() => turn.stop());
+  await send();
+  // SAS26: native 2.1.289 appends this placeholder after a stopped request
+  // when changing models. Its own lI classifier uses this exact provenance.
+  const placeholder = { type: "assistant", uuid: "b53b36f5-0eca-4fea-9e70-5b8f67353256", isApiErrorMessage: false,
+    message: { id: "79b0fcfc-0510-4fd7-8f41-7623dba7697a", model: "<synthetic>", stop_reason: "stop_sequence",
+      usage: { input_tokens: 0, output_tokens: 0 }, content: [{ type: "text", text: "No response requested." }] } };
+  const frames = [placeholder,
+    { ...placeholder, uuid: "real-answer", message: { ...placeholder.message, id: "real-api", model: "claude-haiku-4-5-20251001" } },
+    { ...placeholder, uuid: "api-error", isApiErrorMessage: true, message: { ...placeholder.message, id: "error-api" } },
+    { ...placeholder, uuid: "other-synthetic", message: { ...placeholder.message, id: "other-api", content: [{ type: "text", text: "Different native notice" }] } }
+  ];
+  for (const frame of frames) await turn.receive(frame);
+  const expected = ["claude_real-answer_0", "claude_api-error_0", "claude_other-synthetic_0"];
+  assert.deepEqual(events.filter(event => event.type === "message").map(event => event.message.id), expected);
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-placeholder-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "669021a9-a56e-48e8-b752-44e6accb1300";
+  await writeFile(path.join(directory, `${conversationId}.jsonl`), [
+    { type: "user", uuid: "original-request", message: { content: "Original request" } }, ...frames
+  ].map(JSON.stringify).join("\n") + "\n");
+  const history = await readClaudeHistory({ configRoot: root, workdir: root, conversationId });
+  assert.deepEqual(history.messages.map(message => message.id), expected);
+  assert.ok(history.messages.every(message => message.userId === "original-request"));
+  assert.deepEqual(history.userIds, ["original-request"]);
 });
 
 test("Claude local-command error output stays distinguishable and result-only success retains provenance", async () => {

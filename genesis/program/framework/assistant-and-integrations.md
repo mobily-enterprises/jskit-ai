@@ -75,6 +75,10 @@ fragment as the same output. A Stop/read race retains that block once, as
 commentary after verified interruption. Scoped transcript admission checks both
 saved message IDs and existing output IDs, so a later history read cannot append
 the same block again under its frame UUID. Existing history is not rewritten.
+The shared native block reader excludes Claude's non-error `<synthetic>`
+single-text `No response requested.` placeholder, following the CLI's own
+classification. Live events and cold history use the same rule; actual model
+replies, native API errors and other synthetic command output remain intact.
 Renewal recovery joins the exact running turn or requires its saved completed
 state before accepting history text. Accepted but unconfirmed input is never
 submitted again automatically. Bound native goal Set/Resume may re-enter ordinary

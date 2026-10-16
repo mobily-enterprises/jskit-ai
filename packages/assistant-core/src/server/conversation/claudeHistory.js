@@ -72,6 +72,11 @@ function claudeMessageBlocks(frame, { includeNested = false, commentary = false 
   if (frame.type !== "assistant" || frame.parent_tool_use_id && !includeNested) return [];
   const content = frame.message?.content;
   if (!Array.isArray(content)) return [];
+  // Claude's native placeholder classifier excludes this non-error synthetic
+  // carrier after an interrupted request. Real model replies and API errors
+  // with the same wording remain ordinary output.
+  if (frame.message.model === "<synthetic>" && !frame.isApiErrorMessage && content.length === 1 &&
+      content[0]?.type === "text" && content[0].text === "No response requested.") return [];
   // Native frames split one API message into blocks with distinct UUIDs.
   const messageId = frame.uuid || frame.message.id;
   if (!messageId) return [];
