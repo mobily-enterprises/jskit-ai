@@ -217,7 +217,10 @@ async function readClaudeHistory(options) {
       }
     }
     for (const message of claudeMessageBlocks(frame, { commentary: toolMessages.has(frame.message?.id) })) {
-      messages.set(message.id, { ...message, userId: lastUserId });
+      messages.set(message.id, { ...message, userId: lastUserId,
+        ...(frame.message.content.length === 1 && typeof frame.message.id === "string" && frame.message.id &&
+            Number.isSafeInteger(frame.apiBlockIndex) && frame.apiBlockIndex >= 0
+          ? { outputId: `claude_${frame.message.id}_${frame.apiBlockIndex}` } : {}) });
     }
   }
   return { exists: true, messages: [...messages.values()], userIds, goal, goalCommandId, ...inspected,

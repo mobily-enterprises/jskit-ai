@@ -70,6 +70,11 @@ turn. An unmatched identified output cannot fall back to the latest request.
 Verified Stop also retains buffered or streaming partial text as commentary for
 the existing transcript reader; unconfirmed cleanup leaves the stream incomplete.
 This preserves displayed work without claiming a completed answer.
+Native history's explicit API block index identifies a saved frame and its live
+fragment as the same output. A Stop/read race retains that block once, as
+commentary after verified interruption. Scoped transcript admission checks both
+saved message IDs and existing output IDs, so a later history read cannot append
+the same block again under its frame UUID. Existing history is not rewritten.
 Renewal recovery joins the exact running turn or requires its saved completed
 state before accepting history text. Accepted but unconfirmed input is never
 submitted again automatically. Bound native goal Set/Resume may re-enter ordinary

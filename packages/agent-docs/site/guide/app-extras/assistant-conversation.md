@@ -4332,6 +4332,12 @@ scoped reader saves it through the same transcript writer before retiring live
 state. It is not a completed-answer receipt, and unconfirmed process cleanup
 does not finalize a still-running stream.
 
+When Stop races with native history persistence, Claude's explicit API block
+identity reconciles the saved frame and live fragment before transcript admission.
+The existing output ID also prevents a later native-history read from appending
+the interrupted output again under another frame UUID. This does not promote an
+interruption to a completed-answer receipt or rewrite earlier saved transcripts.
+
 Claude's internal task notifications do not become user requests. Their command
 lifecycle events must not leave a completed user request busy or replace its
 receipt identity. The shared native owner clears completed commands while still

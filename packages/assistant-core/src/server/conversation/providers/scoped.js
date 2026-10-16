@@ -156,7 +156,7 @@ export async function readPersistentConversation(options) {
   let turns = await store.readConversationLog(scope);
   const requestTurns = new Map(turns.filter(turn => turn.user?.messageId).map(turn => [turn.user.messageId, turn]));
   let requestTurn = turns.findLast((turn) => turn.user?.messageId === record.messageId);
-  const savedIds = new Set(turns.flatMap((turn) => turn.messages.map((message) => message.messageId)));
+  const savedIds = new Set(turns.flatMap(turn => turn.messages.flatMap(message => [message.messageId, message.outputId].filter(Boolean))));
   const writtenTurnIds = new Set();
   let appended = false;
   if (record.providerConversationId && record.state !== "closing") {
@@ -165,7 +165,7 @@ export async function readPersistentConversation(options) {
         records.input(record, { requestMessageIds: [...requestTurns.keys()] }), context));
       for (const message of response.messages || []) {
         const operation = messageWriters[message.role];
-        if (operation && message.text && message.complete !== false && !savedIds.has(message.id)) {
+        if (operation && message.text && message.complete !== false && !savedIds.has(message.id) && !savedIds.has(message.outputId)) {
           const identified = Object.hasOwn(message, "requestMessageId");
           const target = identified ? requestTurns.get(message.requestMessageId) : requestTurn;
           // An identified output must never fall through to the latest request.
@@ -176,6 +176,8 @@ export async function readPersistentConversation(options) {
             ...(target && (identified || !target.assistant) ? { turnId: target.turnId } : {})
           });
           if (written) {
+            savedIds.add(message.id);
+            if (message.outputId) savedIds.add(message.outputId);
             writtenTurnIds.add(written.turnId);
             if (written.user?.messageId) requestTurns.set(written.user.messageId, written);
             if (written.turnId === requestTurn?.turnId) requestTurn = written;

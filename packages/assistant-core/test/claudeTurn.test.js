@@ -192,6 +192,57 @@ for (const savedFrame of [false, true]) test(`verified Claude Stop retains parti
   ], "Canonical history retains exactly one interrupted partial after live state is gone");
 });
 
+for (const historyFirst of [true, false]) test(`stopped Claude output and late native history remain one output, historyFirst=${historyFirst}`, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("stopped-race");
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "race-api" } } });
+  await f.frame({ type: "stream_event", event: { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } } });
+  await f.frame({ type: "stream_event", event: { type: "content_block_delta", index: 1, delta: { text: "Already visible" } } });
+  f.entry.process.client.interrupt = async () => {};
+  await f.owner.interrupt(f.entry);
+  const saveNative = async () => {
+    const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, `${f.conversationId}.jsonl`), [
+      { type: "user", uuid: claudeNativeMessageId("stopped-race"), message: { content: "Explain" } },
+      { type: "assistant", uuid: "race-saved", apiBlockIndex: 1,
+        message: { id: "race-api", stop_reason: "end_turn", content: [{ type: "text", text: "Already visible, with later native text" }] } }
+    ].map(JSON.stringify).join("\n") + "\n");
+  };
+  if (historyFirst) await saveNative();
+  const read = await f.owner.read(f.entry, { messageId: "stopped-race" });
+  assert.equal(read.messages.length, 1, "One native API block cannot become both a saved answer and a live partial");
+  assert.equal(read.messages[0].role, "commentary");
+  assert.equal(read.messages[0].outputId, "claude_race-api_1");
+  assert.equal(read.messages[0].text, historyFirst ? "Already visible, with later native text" : "Already visible");
+  assert.equal(f.final(), null);
+  const { readPersistentConversation } = await import("../src/server/conversation/providers/scoped.js");
+  const transcript = createConversationTranscript({ storage: createMemoryConversationStorage() });
+  const store = Object.fromEntries(Object.entries(transcript).map(([name, operation]) =>
+    [name, (scope, ...args) => operation(JSON.stringify([scope.sessionId, scope.conversationId]), ...args)]));
+  store.readConversationStream = () => ({ messages: [] });
+  const scope = { sessionId: "session", conversationId: "temporary" };
+  await store.writeConversationUserMessage(scope, { messageId: "stopped-race", text: "Explain" });
+  const options = { ...scope, store, context: {},
+    record: { conversationId: "temporary", providerConversationId: f.conversationId, messageId: "stopped-race", status: "interrupted" },
+    operations: { readConversation: (_sessionId, input) => f.owner.read(f.entry, input) },
+    records: { input: (record, input) => ({ ...record, ...input }), save: async (_context, record, patch) => ({ ...record, ...patch }) },
+    receipts: { persisted: () => true },
+    projection: { context: context => context, messageScope: (_context, scope) => scope,
+      message: message => message, messageMetadata: () => ({}), snapshot: value => value }, publish: async () => {}
+  };
+  await readPersistentConversation(options);
+  if (!historyFirst) await saveNative();
+  await readPersistentConversation(options);
+  f.entry.nativeTurn.reset();
+  await readPersistentConversation(options);
+  const turns = await store.readConversationLog(scope);
+  assert.equal(turns.length, 1);
+  assert.equal(turns[0].assistant, null, "Reload cannot promote an already retained interruption into an answer");
+  assert.equal(turns[0].commentary.length, 1, "Later native identity cannot duplicate the saved output");
+  assert.equal(turns[0].commentary[0].text, read.messages[0].text);
+});
+
 // Claude 2.1.289 folds internal commands into the outer turn. Their lifecycle
 // completes before result; the original input's completion follows result.
 for (const background of [false, true]) test(`folded native command cannot strand its outer input, background=${background}`, async () => {

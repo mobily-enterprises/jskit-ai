@@ -567,8 +567,18 @@ export function createClaudeConversationOwner({
     if (entry.executionId && !entry.process && !hasPendingClaudeStartup(entry)) await entry.nativeTurn.stopProcess(disconnectedMessage);
     const history = await readHistory(entry);
     const messages = new Map(history.messages.map(message => [message.id, message]));
+    const savedOutputs = new Map(history.messages.filter(message => message.outputId).map(message => [message.outputId, message]));
     const current = entry.nativeTurn.read();
-    for (const message of current.messages) messages.set(message.id, { ...messages.get(message.id), ...message });
+    for (const message of current.messages) {
+      const saved = savedOutputs.get(message.outputId);
+      if (saved && saved.id !== message.id && saved.userId === message.userId) {
+        // Native history can contain the completed block before its frame has
+        // drained through live callbacks. Keep that text once, retaining a
+        // verified Stop's commentary classification rather than inventing a FINAL.
+        messages.set(saved.id, { ...saved,
+          ...(current.status === "interrupted" && message.complete && message.role === "commentary" ? { role: "commentary" } : {}) });
+      } else messages.set(message.id, { ...messages.get(message.id), ...message });
+    }
     const requestIds = new Map((input.requestMessageIds || [input.messageId]).filter(id => typeof id === "string" && id)
       .map(id => [claudeNativeMessageId(id), id]));
     return { ...entry.nativeTurn.readResult(), ok: true,
