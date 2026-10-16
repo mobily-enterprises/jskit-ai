@@ -501,6 +501,10 @@ test("native Send retries inspect the durable prompt receipt before duplicate ha
   assert.equal(Object.hasOwn((await f.conversation.read()).pendingRequest, "message"), false);
   await f.first.close();
   const resumed = await f.runtime().open({ id: "conversation" });
+  const uncertain = await resumed.read();
+  assert.equal(uncertain.status, "unconfirmed");
+  assert.equal(uncertain.pendingRequest.messageId, request.messageId);
+  assert.match(uncertain.error, /previous submission was interrupted/);
   assert.equal((await resumed.send(request)).status, "accepted");
   const recovered = await resumed.wait();
   assert.equal(recovered.status, "ready");
@@ -508,6 +512,33 @@ test("native Send retries inspect the durable prompt receipt before duplicate ha
   assert.equal(recovered.conversationLog[0].assistant.text, "Answer: lost");
   assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
   assert.equal((await resumed.send(request)).duplicate, true);
+});
+
+test("reopening an undispatched Claude reservation does not invent an uncertain-delivery warning", async t => {
+  const f = await fixture(t, { environment: { TEST_REJECT_EFFORT: "low" } });
+  await f.conversation.configure({ effort: "low" });
+  const request = { messageId: "never-dispatched", text: "Keep this original request", origin: "application" };
+  await assert.rejects(f.conversation.send(request), /Settings rejected/);
+  await f.conversation.wait();
+  const readRequest = () => f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.request);
+  const saved = await readRequest();
+  assert.equal(saved.attempted, false);
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 0);
+  await f.first.close();
+  const resumed = await f.runtime().open({ id: "conversation" });
+  const state = await resumed.read();
+  assert.equal(state.status, "ready");
+  assert.equal(state.pendingRequest, null);
+  assert.equal(state.error, "");
+  assert.equal(state.conversationLog.length, 0);
+  assert.deepEqual(await readRequest(), { ...saved,
+    error: "The previous submission was interrupted. Check delivery before submitting it again." },
+  "Projection must retain the original reservation, including its dispatch evidence");
+  await resumed.configure({ effort: "high" });
+  await resumed.send(request);
+  await resumed.wait();
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1,
+    "Only an explicit send dispatches the retained request");
 });
 
 test("native changeover keeps the prepared prompt frozen across rejection, transcript edits and retry", async t => {

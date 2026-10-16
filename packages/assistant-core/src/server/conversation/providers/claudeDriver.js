@@ -403,7 +403,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
             await acquire(context);
             const completeResult = supplied.completeResult?.(context);
             let command = input;
-            let facilities = { signal: context.signal };
+            let facilities = { signal: context?.signal };
             if (representation !== "native") {
               const current = await owner.readGoal(await acquire(context));
               if (input.action !== "set" && claudeGoalValue(current.goal, current.threadId)?.id !== input.expectedGoalId) {
@@ -411,7 +411,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
               }
               command = { ...input, threadId: current.threadId,
                 ...(input.action !== "set" ? { createdAt: current.goal.createdAt, objective: current.goal.objective } : {}) };
-              facilities = { signal: context.signal, interrupt, send: command => send(command, { threadId: current.threadId }) };
+              facilities = { signal: context?.signal, interrupt, send: command => send(command, { threadId: current.threadId }) };
             }
             const nativeResult = await owner.updateGoal(await acquire(context), command, facilities);
             await completeResult?.(nativeResult);
@@ -423,7 +423,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
             throw new Error("The Claude goal changed. Refresh before trying again.");
           }
           await entry.goals.update({ ...input, threadId: entry.id,
-            ...(input.action !== "set" ? { createdAt: goal?.createdAt, objective: goal?.objective } : {}) }, { interrupt, send, signal: context.signal });
+            ...(input.action !== "set" ? { createdAt: goal?.createdAt, objective: goal?.objective } : {}) }, { interrupt, send, signal: context?.signal });
           return claudeGoalValue(await entry.goals.read(), entry.id);
         },
         async inspectAdmission({ context, representation, verifyAccount = false, ...input }) {

@@ -2134,6 +2134,12 @@ This operation does not supply product queue policy or the browser observation
 adapter. Complete those application owners before enabling it in a consumer;
 never manufacture historical markers or completion receipts.
 
+A retained native reservation whose dispatch was never attempted is ready after
+reopening, with no pending delivery or interruption banner. Its frozen request
+stays stored for an explicit retry; opening or reading does not replay it.
+Attempted requests and inspection-only upgrade records still report uncertain
+delivery and require receipt inspection before any resend.
+
 Saved turns distinguish complete, failed, cancelled and interrupted work. Error
 messages are not assistant replies. After restart, accepted work is marked
 interrupted and is never replayed. API reservations interrupted before admission
