@@ -217,6 +217,9 @@ function useAssistantAttachments({
   if (![maxBytes, maxItems, uploadConcurrency].every(value => Number.isSafeInteger(value) && value > 0)) {
     throw new TypeError("Attachment limits must be positive integers.");
   }
+  const maxSizeLabel = maxBytes % (1024 * 1024) === 0
+    ? `${maxBytes / (1024 * 1024)} MiB`
+    : `${maxBytes / 1_000_000} MB`;
   const attachments = ref([]);
   const queueItems = ref([]);
   const dragDepth = ref(0);
@@ -585,7 +588,7 @@ function useAssistantAttachments({
       return waiter.promise;
     }
     if (row.size > maxBytes) {
-      row.error = `${row.fileName} is larger than the ${maxBytes / 1_000_000} MB attachment limit.`;
+      row.error = `${row.fileName} is larger than the ${maxSizeLabel} attachment limit.`;
       row.failureStage = "validation";
       row.phase = "failed";
       reportAttachmentError(row.error, "Attachment upload failed.", { notify: false });
@@ -767,7 +770,7 @@ function useAssistantAttachments({
     row.size = Number(preparedFile.size) || 0;
     row.totalBytes = row.size;
     if (row.size > maxBytes) {
-      row.error = `${row.fileName} is larger than the ${maxBytes / 1_000_000} MB attachment limit.`;
+      row.error = `${row.fileName} is larger than the ${maxSizeLabel} attachment limit.`;
       row.failureStage = "validation";
       row.phase = "failed";
       settleWaiter(row, null, waiter);
@@ -881,7 +884,7 @@ function useAssistantAttachments({
       const waiter = row.waiter;
       waiters.push(waiter.promise);
       if (row.size > maxBytes) {
-        row.error = `${row.fileName} is larger than the ${maxBytes / 1_000_000} MB attachment limit.`;
+        row.error = `${row.fileName} is larger than the ${maxSizeLabel} attachment limit.`;
         row.failureStage = "validation";
         row.phase = "failed";
         settleWaiter(row, null);

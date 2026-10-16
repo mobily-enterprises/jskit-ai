@@ -1,3 +1,4 @@
+import { useAssistantAttachments } from "../src/client/conversation/useAssistantAttachments.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
@@ -235,4 +236,20 @@ test("authorization revoked during file resolution prevents dispatch", async t =
   assert.equal(f.requests.length, 0);
   allowed = true;
   assert.equal((await f.conversation.read()).conversationLog.length, 0);
+});
+
+
+test("attachment validation displays the application's configured binary or decimal limit", async () => {
+  for (const [maxBytes, label] of [[500 * 1024 * 1024, "500 MiB"], [100_000_000, "100 MB"]]) {
+    let uploaded = false;
+    const attachments = useAssistantAttachments({ sessionId: "one", maxBytes,
+      uploadAttachment: async () => { uploaded = true; } });
+    try {
+      await attachments.uploadFiles([{ name: "oversized.bin", size: maxBytes + 1 }]);
+      assert.equal(uploaded, false);
+      assert.match(attachments.queueItems.value[0].error, new RegExp(label));
+    } finally {
+      await attachments.disposeAttachments();
+    }
+  }
 });

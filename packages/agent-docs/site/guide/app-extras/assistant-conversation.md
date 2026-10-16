@@ -1237,7 +1237,8 @@ owns queueing, concurrent uploads, cancellation, retries, stale-response cleanup
 drag/drop/paste and scope disposal. `queueItems`, `attachments`, `canSubmit`,
 `canAddFiles`, `dragActive`, and `status` feed the aggregate. Uploads block Send
 until resolved; typing stays available. The UI defaults to ten files and 100 MB
-per file; the server must enforce its own limits.
+per file; the server must enforce its own limits. Configured limits that are exact
+multiples of 1 MiB display in MiB; other limits display in decimal MB.
 
 After acknowledged delivery, call
 `clearAttachments({ accepted: true, attachmentIds })` with that submission's
