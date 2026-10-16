@@ -988,7 +988,7 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
 
 // Retain the original supplied-store/native process fixture and drive it through
 // the actual common runtime, including its completion-only admitted receipt.
-async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical" } = {}) {
+async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical", beforeToolWrite } = {}) {
   const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
   const storage = createMemoryConversationStorage();
   const transcript = createConversationTranscript({ storage });
@@ -1025,7 +1025,9 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, repres
     transcript: { history: async () => [], readConversationLog: () => transcript.readConversationLog("lesson"),
       hasMessage: id => transcript.conversationMessageIdExists("lesson", id),
       writeUserMessage: input => transcript.writeConversationUserMessage("lesson", input) },
-    ...(tools ? { applicationTools: { storage, prepareContext(actual, admission) {
+    ...(tools ? { applicationTools: { storage: beforeToolWrite ? { ...storage, async write(...args) {
+      await beforeToolWrite(); return storage.write(...args);
+    } } : storage, prepareContext(actual, admission) {
       admissions.push(admission); return actual;
     } } } : {}) };
   const runtime = createConversationRuntime({ ...(tools ? { actions } : {}), authorize: () => true, onDeliveryTiming,
@@ -1087,6 +1089,51 @@ test("Claude fast follow-up completes while the earlier common checkpoint is hel
   assert.equal(f.entry.turn.state, "completed");
   assert.equal((await waiting).text, "Latest answer");
   assert.equal(f.entry.process.stopped, undefined);
+});
+
+for (const failedSave of [false, true]) test(`Claude goal waits for common final saving, failedSave=${failedSave}`, { timeout: 5_000 }, async t => {
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let held = false;
+  const f = await suppliedCommonFixture(t, { async beforeToolWrite() {
+    if (!held && f.entry.turn.state === "completed") {
+      held = true;
+      entered.resolve();
+      await release.promise;
+      if (failedSave) throw new Error("Final save unavailable");
+    }
+  } });
+  await sendCommon(f, "before-goal");
+  await f.loadContract();
+  const completing = f.frame({ type: "result", subtype: "success", result: "First answer" });
+  await entered.promise;
+  const command = { action: "set", objective: "Finish the checks", messageId: "finishing-goal",
+    expectedSegmentId: `claude:${f.conversationId}` };
+  f.setBeforeState(() => {});
+  const goalChecked = Promise.withResolvers();
+  f.binding.admission = (_context, operation) => { if (operation === "goal") goalChecked.resolve(); };
+  let result;
+  const setting = f.conversation.updateGoal(command).then(value => { result = value; return value; }, error => { result = error; throw error; });
+  void setting.catch(() => {});
+  try {
+    await goalChecked.promise;
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(result, undefined, "The goal waits for the original final save before dispatch");
+    assert.equal(f.entry.command, null);
+  } finally { release.resolve(); }
+  await completing;
+  if (failedSave) {
+    await assert.rejects(setting, { code: "conversation_storage_unavailable" });
+    assert.equal(f.entry.command, null, "Failed saving must not dispatch a goal");
+  } else {
+    assert.equal((await setting).status, "accepted");
+    assert.equal(f.entry.command.messageId, command.messageId);
+    await f.frame({ type: "result", subtype: "success", result: "Checks complete" });
+    await f.conversation.wait();
+    assert.equal((await f.conversation.updateGoal(command)).duplicate, true);
+    const log = await f.binding.transcript.readConversationLog();
+    assert.equal(log.flatMap(turn => turn.messages).filter(message => message.messageId === command.messageId).length, 1);
+  }
 });
 
 test("Claude delivery timing separates native acknowledgement from the held canonical receipt", { timeout: 10_000 }, async t => {

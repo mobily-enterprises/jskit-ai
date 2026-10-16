@@ -1511,9 +1511,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       return { promise: pending.admission.promise };
     }
     const working = entry.active;
-    if (entry.conversation && ["codex", "opencode", "claude"].includes(entry.engine) && operation === "send" && working?.finishing) {
+    if (entry.conversation && ["codex", "opencode", "claude"].includes(entry.engine) && ["send", "goal"].includes(operation) && working?.finishing) {
       // No native dispatch has occurred for this request. Finish the previous
-      // waiter before reserving the same authored request on the ordinary path.
+      // waiter before reserving the same authored message or goal request.
       await working.done;
       return admitSend(entry, context, input, origin, goal, originalInput, wakeOptions, deliveryTiming);
     }
