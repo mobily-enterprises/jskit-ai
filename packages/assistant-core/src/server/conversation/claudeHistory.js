@@ -151,7 +151,8 @@ async function readClaudeHistory(options) {
           command: frame.commandRun.command, output: output[1] } } });
     }
     const status = frame.attachment;
-    if (status?.type === "goal_status" && typeof status.condition === "string") {
+    if (frame.type === "attachment" && !frame.parent_tool_use_id &&
+        status?.type === "goal_status" && typeof status.condition === "string") {
       if (status.sentinel === true || goal?.objective !== status.condition) {
         goalStartId = status.sentinel === true && typeof status.met === "boolean" ? frame.uuid || "" : "";
         goalCommandId = "";
@@ -162,7 +163,7 @@ async function readClaudeHistory(options) {
         goal = {
           threadId: options.conversationId, objective: status.condition,
           createdAt: goal?.objective === status.condition && !status.sentinel ? goal.createdAt : timestamp,
-          status: status.met ? "complete" : "active", updatedAt: timestamp,
+          status: status.met ? "complete" : status.failed === true ? "blocked" : "active", updatedAt: timestamp,
           reason: typeof status.reason === "string" ? status.reason : ""
         };
       }

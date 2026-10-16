@@ -1781,6 +1781,30 @@ test("Claude failed startup no longer exempts retained cleanup from reconciliati
   assert.equal(f.entry.executionId, "");
 });
 
+test("Claude goal retains a native impossible evaluation as blocked until explicit Resume", async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  await f.conversation.updateGoal({ action: "set", objective: "Finish checks", messageId: "impossible-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  const initial = await f.conversation.readGoal();
+  const file = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"), `${f.conversationId}.jsonl`);
+  const failed = { type: "attachment", timestamp: "2026-10-16T10:19:52.997Z",
+    attachment: { type: "goal_status", condition: "Finish checks", met: false, failed: true,
+      reason: "The remaining checks require credentials from the user." } };
+  await writeFile(file, JSON.stringify({ ...failed, parent_tool_use_id: "nested" }) + "\n", { flag: "a" });
+  assert.equal((await f.conversation.readGoal()).status, "active", "a nested failure cannot stop the parent goal");
+  await writeFile(file, JSON.stringify(failed) + "\n", { flag: "a" });
+  const blocked = await f.conversation.readGoal();
+  assert.equal(blocked.status, "blocked");
+  assert.equal(blocked.id, initial.id);
+  assert.equal(blocked.objective, initial.objective);
+  assert.equal(blocked.reason, failed.attachment.reason);
+  await f.owner.close(f.entry);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "blocked", "shutdown preserves native failure");
+  await f.conversation.updateGoal({ action: "resume", expectedGoalId: blocked.id,
+    expectedSegmentId: `claude:${f.conversationId}`, messageId: "resume-impossible-goal" });
+  assert.equal((await f.conversation.readGoal()).status, "active", "explicit Resume establishes a new native goal attachment");
+});
+
 test("Claude goal retains native loop-limit blocking across reads and clears it only on new native goal progress", async t => {
   const f = await suppliedCommonFixture(t, { tools: false });
   await f.conversation.updateGoal({ action: "set", objective: "Finish checks", messageId: "blocked-goal",

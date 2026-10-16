@@ -4387,8 +4387,11 @@ existing rewind branch selection still applies. Use `allowIncompleteTail: false`
 with stopped writers when these records prove a historical application repair.
 The native reader writes nothing; the application owns its repair and backups.
 
-Claude native goal reads preserve `blocked` when the main history records the
-explicit informational event terminating repeated stop-hook attempts. The same
+Claude native goal reads preserve `blocked` when the main history records a
+structured `goal_status` evaluation with `met: false, failed: true`, or the
+explicit informational event terminating repeated stop-hook attempts. The failed
+evaluation means the native evaluator found the goal impossible and removed its
+Stop hook; it is not an active goal or a user Pause. The same
 goal identity and last evaluator reason remain available across process shutdown.
 Quoted assistant text and nested tool events are not evidence of blocking. A
 later native goal attachment supersedes the block; a completed goal is not reopened

@@ -206,8 +206,11 @@ for stopped application repair. It retains their UUID, exact unwrapped text and
 explicit command/stdout/stderr provenance. Ordinary history output and native
 files are unchanged; the application owns matching, backups and publication.
 
-Claude native goal reads preserve `blocked` when the main history records the
-explicit informational event terminating repeated stop-hook attempts. The same
+Claude native goal reads preserve `blocked` when the main history records a
+structured `goal_status` evaluation with `met: false, failed: true`, or the
+explicit informational event terminating repeated stop-hook attempts. The failed
+evaluation means the native evaluator found the goal impossible and removed its
+Stop hook; it is not an active goal or a user Pause. The same
 goal identity and last evaluator reason remain available across process shutdown.
 Quoted assistant text and nested tool events are not evidence of blocking. A
 later native goal attachment supersedes the block; a completed goal is not reopened
