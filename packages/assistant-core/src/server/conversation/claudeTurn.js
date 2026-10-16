@@ -104,7 +104,11 @@ export async function runClaudeRenewalTurn(conversation, {
 }
 
 export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send }) {
-  const goalError = message => failure(message, "assistant_claude_goal_failed");
+  // These checks run before interrupt/send. Native execution and receipt
+  // failures keep their own codes and must not be treated as safe rejections.
+  const goalError = message => Object.assign(failure(message, "conversation_invalid_goal"), {
+    statusCode: 400, delivery: "not-sent"
+  });
 
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
@@ -753,12 +757,8 @@ export function createClaudeConversationOwner({
   async function updateGoal(entry, input, operations) {
     await bindAccount(entry);
     const messageId = input.messageId || randomUUID();
-    try { await entry.goals.update(input, { ...operations,
-      send: command => operations?.send ? operations.send(command) : send(entry, { ...command, messageId }) }); }
-    catch (error) {
-      if (error.code !== "assistant_claude_goal_failed") throw error;
-      throw createError(error.message);
-    }
+    await entry.goals.update(input, { ...operations,
+      send: command => operations?.send ? operations.send(command) : send(entry, { ...command, messageId }) });
     let result;
     if (input.action !== "pause") {
       const deadline = Date.now() + (operations?.attachmentTimeoutMs ?? 30_000);

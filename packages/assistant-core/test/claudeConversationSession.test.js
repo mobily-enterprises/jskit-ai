@@ -1176,8 +1176,15 @@ test("Claude accepts a goal during an active turn through the existing steering 
 test("Claude rejects reserved goals and waits for ordinary Send to deliver a replacement briefing", async t => {
   const f = await fixture(t);
   let state = await f.conversation.read();
-  await assert.rejects(f.conversation.updateGoal({ action: "set", objective: "clear", messageId: "reserved",
-    expectedSegmentId: state.segmentId }), /goal condition/u);
+  for (const objective of ["clear", "stop", "off", "reset", "none", "cancel"]) {
+    await assert.rejects(f.conversation.updateGoal({ action: "set", objective, messageId: `reserved-${objective}`,
+      expectedSegmentId: state.segmentId }), {
+      code: "conversation_invalid_goal", statusCode: 400, delivery: "not-sent"
+    });
+  }
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 0,
+    "reserved conditions are rejected before native dispatch, not uncertain sends");
+  assert.equal((await f.conversation.read()).conversationLog.length, 0);
   await f.conversation.send(input);
   state = await f.conversation.wait();
   await f.conversation.replace({ operationId: "renew-goal", reason: "renewal", expectedSegmentId: state.segmentId });

@@ -319,7 +319,7 @@ test("a supplied goal view keeps its pinned target and refreshes through the ret
   assert.equal(commands.length, 1, "Retired viewer controls cannot target the next viewer's goal");
 });
 
-test("a rejected message goal retry keeps its original UUID and exact read target", options, async t => {
+for (const rejection of ["conversation_goal_changed", "conversation_invalid_goal"]) test(`a rejected message goal retry keeps its original UUID and exact read target (${rejection})`, options, async t => {
   const f = await fixture(t);
   const commands = [];
   const view = { status: "available", goal: null, target: { segmentId: null,
@@ -328,8 +328,8 @@ test("a rejected message goal retry keeps its original UUID and exact read targe
     if (route.request().method() === "GET") return route.fulfill({ json: view });
     const input = route.request().postDataJSON();
     commands.push(input);
-    if (commands.length === 1) return route.fulfill({ status: 409,
-      json: { code: "conversation_goal_changed", error: "Goal changed before admission." } });
+    if (commands.length === 1) return route.fulfill({ status: rejection === "conversation_invalid_goal" ? 400 : 409,
+      json: { code: rejection, error: "Goal rejected before admission." } });
     return route.fulfill({ json: { status: "accepted", messageId: input.messageId, turnId: "original-goal-receipt" } });
   });
   await f.page.evaluate(() => window.conversationFixture.eventReaders([{ id: "goal-reader", goal: true }]));
@@ -337,6 +337,8 @@ test("a rejected message goal retry keeps its original UUID and exact read targe
   await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value?.pending)).toBe(false);
   assert.equal(await f.page.evaluate(() => window.conversationFixture.current().changeGoal("set", { objective: "Original objective" })), false);
   assert.equal(commands.length, 1);
+  assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id)?.status,
+    commands[0].messageId), "failed", "pre-dispatch validation is not an uncertain delivery");
   assert.ok(commands[0].messageId);
   assert.equal(commands[0].expectedSegmentId, null);
   assert.equal(commands[0].expectedGoalId, null);

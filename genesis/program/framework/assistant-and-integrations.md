@@ -241,6 +241,12 @@ restart. This projection records the native termination; it does not prevent
 Claude's preceding retry loop or turn an assistant's “paused” reply into a control
 operation.
 
+The existing Claude goal owner marks its own pre-dispatch validation failures
+as `conversation_invalid_goal`, HTTP 400 and `delivery: "not-sent"`. The shared
+client then retains a failed attempt without requiring delivery inspection.
+Native execution and acknowledgement failures keep their original uncertain
+delivery behavior; validation does not wrap those effects.
+
 The existing voice queue preserves arrival order for selected progress/thinking
 narration and canonical answers. An arriving answer retires only optional murmur
 filler, not message playback. Explicit Stop, mute, capture-related narration

@@ -2488,6 +2488,14 @@ retryable through `cancel()`. These commands accept neither attachments nor a to
 budget. After replacement or engine change, an ordinary Send must deliver the
 pending continuity briefing before a goal can start.
 
+Claude's goal validation runs before native interruption or Send. Rejected
+conditions, including reserved commands such as `clear`, return
+`conversation_invalid_goal` (HTTP 400, `delivery: "not-sent"`). The shared
+delivery binding retains a failed attempt for correction or dismissal rather
+than presenting an uncertain receipt. Errors from native execution, storage or
+acknowledgement remain separate; this validation result never licenses replay
+after a transport failure.
+
 Codex uses native goal controls and may attach a goal to ordinary active work.
 Starting another goal after completion requires the completed goal's ID. These
 controls accept neither attachments nor authored message receipts. They return
