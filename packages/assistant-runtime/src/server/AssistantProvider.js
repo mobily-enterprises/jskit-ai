@@ -98,11 +98,12 @@ const AssistantFeature = defineFeature({
       config
     });
   },
-  boot({ conversationRuntime, conversationAccess, realtime, events, config, workspaces, logger }, { outputs }) {
+  boot({ conversationRuntime, conversationAccess, realtime, events, config, env, workspaces, logger }, { outputs }) {
     if (!conversationRuntime || !realtime) return;
     const state = subscriptionLifecycle.get(outputs.assistant);
     state.release = registerConversationSubscriptions({
       realtime, events, actions: state.actions, config, logger, workspaceScopeSupport: workspaces?.scope || null,
+      diagnostics: ["1", "true", "yes", "on"].includes(String(env?.JSKIT_REALTIME_DEBUG ?? config?.realtime?.debug ?? "").trim().toLowerCase()),
       ...(conversationAccess ? {
         subscribeActionId: conversationAccess.subscribeActionId,
         requestPolicy: conversationAccess.requestPolicy

@@ -31,7 +31,7 @@ function subscriptionError(error) {
 // A host may select its fixed action/request policy at composition; clients
 // never choose either. The selected action remains the authorization boundary.
 function registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = null, workspaceScopeSupport = null,
-  subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated" } = {}) {
+  subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated", diagnostics = false } = {}) {
   if (typeof realtime?.onConnection !== "function" || typeof events?.publish !== "function") {
     throw new TypeError("Conversation subscriptions require the shared realtime connection and event runtime.");
   }
@@ -50,10 +50,11 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
     const subscriptions = new Map();
     let closed = false;
 
-    function release(subscriptionId) {
+    function release(subscriptionId, reason = "unsubscribe") {
       const subscription = subscriptions.get(subscriptionId);
       if (!subscription) return;
       subscriptions.delete(subscriptionId);
+      subscription.diagnosticRelease?.(reason);
       clearTimeout(subscription.timer);
       subscription.pending.clear();
       subscription.release?.();
@@ -67,6 +68,17 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       let stageStartedAt = startedAt;
       let stage = "request-admission";
       let observedConversationId;
+      let diagnosticTimer;
+      function diagnostic(stageName, fields = {}) {
+        if (!diagnostics) return;
+        const now = performance.now();
+        try {
+          logger?.warn?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
+            ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
+            stage: stageName, previousStage: stage, durationMs: now - stageStartedAt,
+            elapsedMs: now - startedAt, ...fields }, "Assistant conversation subscription diagnostic.");
+        } catch { /* Diagnostics never change admission or cleanup. */ }
+      }
       function onStage(next, fields = {}) {
         const now = performance.now();
         // Only a successfully opened, authorized conversation may enter diagnostics.
@@ -85,9 +97,17 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       }
       try {
         subscriptionId = requireSubscriptionId(input);
-        release(subscriptionId);
+        release(subscriptionId, "replacement");
         subscription = { pending: new Map(), revision: 0, epoch: randomUUID(), queue: Promise.resolve() };
         subscriptions.set(subscriptionId, subscription);
+        if (diagnostics) {
+          subscription.diagnosticRelease = reason => {
+            clearTimeout(diagnosticTimer);
+            diagnostic("released", { reason });
+          };
+          diagnosticTimer = setTimeout(() => diagnostic("pending", { acknowledgementBudgetMs: 10_000 }), 10_000);
+          diagnosticTimer.unref?.();
+        }
         const current = () => !closed && socket.connected && subscriptions.get(subscriptionId) === subscription;
         onStage("authentication");
         const request = await (requestPolicy === "host" ? readRequest() : authenticate());
@@ -169,6 +189,8 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
           status: Number(error?.status || error?.statusCode || 500) });
         if (subscriptions.get(subscriptionId) === subscription) release(subscriptionId);
         if (!closed && socket.connected) acknowledge(subscriptionError(error));
+      } finally {
+        clearTimeout(diagnosticTimer);
       }
     }
 
@@ -186,7 +208,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       closed = true;
       socket.off(ASSISTANT_CONVERSATION_SUBSCRIBE, subscribe);
       socket.off(ASSISTANT_CONVERSATION_UNSUBSCRIBE, unsubscribe);
-      for (const subscriptionId of subscriptions.keys()) release(subscriptionId);
+      for (const subscriptionId of subscriptions.keys()) release(subscriptionId, "connection-closed");
     };
   });
 }

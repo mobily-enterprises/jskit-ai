@@ -42,7 +42,7 @@ function requestSubscription(socket, input) {
   });
 }
 
-async function fixture(t) {
+async function fixture(t, { diagnostics = false } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "assistant-subscriptions-"));
   const changes = new EventEmitter();
   const notify = () => changes.emit("change");
@@ -141,7 +141,7 @@ async function fixture(t) {
     serverSockets.add(socket);
     return () => { serverSockets.delete(socket); notify(); };
   });
-  const stopSubscriptions = registerConversationSubscriptions({ realtime, events, actions, config,
+  const stopSubscriptions = registerConversationSubscriptions({ realtime, events, actions, config, diagnostics,
     logger: {
       info(record) { subscriptionTimings.push({ ...record, level: "info" }); notify(); },
       warn(record) { subscriptionTimings.push({ ...record, level: "warn" }); notify(); }
@@ -1181,4 +1181,43 @@ test("retargeting a retained logical observer uses the current engine namespace 
   release.reload({ resubscribe: true });
   assert.equal(active, 0);
   assert.equal(sends, 0);
+});
+
+
+test("opt-in subscription watchdog identifies a pending snapshot before the await returns", async t => {
+  const f = await fixture(t, { diagnostics: true });
+  const socket = await f.connect();
+  const barrier = f.holdNextRead(f.ids[0]);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const view = f.view(socket, f.ids[0]);
+  await until(f.changes, () => barrier.started);
+  t.mock.timers.tick(10_000);
+  t.mock.timers.reset();
+  const pending = f.subscriptionTimings.find(record => record.stage === "pending");
+  assert.equal(pending.previousStage, "snapshot-read");
+  assert.equal(pending.conversationId, f.ids[0]);
+  assert.equal(pending.acknowledgementBudgetMs, 10_000);
+  assert.equal(pending.level, "warn");
+  assert.equal(Object.hasOwn(pending, "state"), false);
+  view.dispose();
+  await until(f.changes, () => f.subscriptionTimings.some(record => record.stage === "released"));
+  assert.equal(f.subscriptionTimings.find(record => record.stage === "released").previousStage, "snapshot-read");
+  barrier.resolve();
+  await until(f.changes, () => f.subscriptionTimings.some(record => record.stage === "abandoned"));
+  assert.equal(view.states.length, 0);
+  assert.equal(f.fetches.length, 0, "Diagnostics do not start or replay a model turn");
+});
+
+for (const diagnostics of [false, true]) test(`watchdog timer is removed after acknowledgement (diagnostics=${diagnostics})`, async t => {
+  const f = await fixture(t, { diagnostics });
+  const socket = await f.connect();
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const view = f.view(socket, f.ids[0]);
+  await until(f.changes, () => view.states.length === 1);
+  t.mock.timers.tick(20_000);
+  t.mock.timers.reset();
+  view.dispose();
+  await until(f.changes, () => f.active() === 0);
+  assert.equal(f.subscriptionTimings.some(record => record.stage === "pending"), false);
+  assert.equal(f.subscriptionTimings.some(record => record.stage === "released"), diagnostics);
 });
