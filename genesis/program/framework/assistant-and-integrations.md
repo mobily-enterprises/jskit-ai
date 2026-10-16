@@ -52,7 +52,12 @@ Claude's native turn owner follows automatic task-notification continuations and
 the complete live background-task inventory. Non-ambient native work keeps the
 conversation active, including Bash and remote tasks; repeated status events do
 not complete the same activity twice. Steering after the main loop has finished
-does not wait for another interrupt result from that finished loop. The retained
+does not wait for another interrupt result from that finished loop. When Claude
+advertises `interrupt_send_now_v1` in its native initialization event, active-turn
+steering and goal Set/Resume write the new input before targeting its UUID with
+Send now. This preserves native background workers; plain interrupt is Stop and
+can cancel them. Explicit Stop retains that cancellation behavior. Older CLIs
+without the capability retain the existing interrupt path. The retained
 host receives normalized continuation and diagnostic events without prompt or
 response contents, and continues to own persistence and operator logging.
 Older completion checkpoints cannot overwrite a newer native continuation.

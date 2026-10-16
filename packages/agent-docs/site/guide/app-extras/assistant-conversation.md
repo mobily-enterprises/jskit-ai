@@ -4338,6 +4338,16 @@ receipt identity. The shared native owner clears completed commands while still
 waiting for the generation result and any remaining background work. Hosts should
 keep using the shared owner for steering and goal admission.
 
+For Claude versions advertising `interrupt_send_now_v1` on the native
+`system/init` event, steering and active-turn goal Set/Resume use targeted **Send
+now**: write the new user message first, then send the control with that message's
+UUID. Native background workers continue; foreground generation or foreground
+tools may be interrupted to consume the instruction. The ordinary receipt and
+task-completion owners still determine admission and completion. Explicit **Stop**
+uses the cancellation control. Versions without this capability keep the existing
+interrupt behavior; the client never sends an unsupported Send now control that
+an older CLI could interpret as Stop.
+
 Native Claude `system/local_command_output` messages retain their origin in
 `data.native` (`engineId`, `type`, `subtype`). Transcript writers preserve supplied
 message data for agent messages as well as user messages. A consuming application

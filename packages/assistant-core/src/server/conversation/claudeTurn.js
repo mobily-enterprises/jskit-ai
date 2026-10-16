@@ -453,6 +453,7 @@ export function createClaudeConversationOwner({
     const native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
     if (command && !command.steering) command.signal.throwIfAborted();
     const steering = command ? command.steering === true : Boolean(entry.turn?.active);
+    const sendNow = steering && native.client.supportsSendNow?.() === true;
     if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
     if (steering) {
       if (command) {
@@ -461,8 +462,8 @@ export function createClaudeConversationOwner({
       }
       try {
         await entry.nativeTurn.interruptGeneration(command ? entry.process.client : native.client,
-          command ? { timeoutMs: command.timeoutMs } : undefined);
-        if (command) command.interrupted = true;
+          { ...(command ? { timeoutMs: command.timeoutMs } : {}), sendNow });
+        if (command) command.interrupted = !sendNow;
       } catch (error) {
         if (!command) await entry.nativeTurn.stopProcess(error.message);
         // Interruption precedes this input's pipe write. Preserve that definite
@@ -541,7 +542,7 @@ export function createClaudeConversationOwner({
       else await input.onPromptSending?.({ threadId: entry.id, displayAttachments: input.displayAttachments, turnMetadata: actorMetadata });
       if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
       await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
-        { messageId: uuid, accept, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
+        { messageId: uuid, accept, sendNow, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
     } catch (error) {
       if (!command) await entry.nativeTurn.stopProcess(error.message);
       throw error;
@@ -1467,7 +1468,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       acceptedInput = null;
       clearFinalAssistantResult();
     },
-    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000 } = {}) {
+    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000, sendNow = false } = {}) {
       if (!active || stopped || cancelling) throw Object.assign(
         failure("Claude has no active turn for this message.", !active && !stopped && !cancelling
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
@@ -1488,7 +1489,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       )), timeoutMs);
       admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });
       try {
-        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId }), admitted.promise]);
+        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId, ...(sendNow ? { sendNow: true } : {}) }), admitted.promise]);
       } catch (error) {
         if (inputOwner === receiptOwner) invalidateFinalAssistantResult();
         throw error;
@@ -1496,22 +1497,23 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         clearTimeout(timer);
       }
     },
-    async interruptGeneration(client, { timeoutMs = 30_000 } = {}) {
+    async interruptGeneration(client, { timeoutMs = 30_000, sendNow = false } = {}) {
       if (!active || steering || cancelling) {
         const completed = !active && !steering && !stopped && !cancelling && outcome?.status === "completed";
         throw Object.assign(failure("This Claude turn cannot accept steering now.", completed
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
         { delivery: "not-sent", ...(completed ? { statusCode: 409 } : {}) });
       }
-      // A completed main loop can still own background work. There is no
-      // generation left to interrupt or second terminal result to wait for.
-      if (outcome && inFlight.size === 0) {
+      // Targeted Send now admits the new input before asking the native loop to
+      // make way; unlike plain Stop it preserves background agents. A completed
+      // main loop also has no further interruption result to wait for.
+      if (sendNow || outcome && inFlight.size === 0) {
         // The next input owns completion now. A task finishing during host
         // preparation must not settle this turn using the previous result.
         outcome = null;
         acceptedInput = null;
         clearFinalAssistantResult();
-        await publish({ type: "diagnostic", stage: "steering_background_only", backgroundTasks: tasks.size });
+        await publish({ type: "diagnostic", stage: sendNow ? "steering_send_now" : "steering_background_only", backgroundTasks: tasks.size });
         return;
       }
       // Streaming user input otherwise queues behind the entire running turn.

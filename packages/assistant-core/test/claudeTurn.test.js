@@ -1310,9 +1310,24 @@ for (const tools of [true, false]) test(`Claude supplied common runtime checkpoi
   if (tools) f.admissions.at(-1).assertCompletionCurrent();
 });
 
-test("Claude supplied common completion joins accepted steering and checkpoints only its own final", { timeout: 10_000 }, async t => {
+for (const sendNow of [false, true]) test(`Claude supplied common completion joins accepted steering and checkpoints only its own final, sendNow=${sendNow}`, { timeout: 10_000 }, async t => {
   const f = await suppliedCommonFixture(t);
   await sendCommon(f, "common-first");
+  if (sendNow) {
+    const native = f.entry.process;
+    const send = native.client.send;
+    native.client.supportsSendNow = () => true;
+    native.client.interrupt = async () => { throw Error("Steering must preserve the background worker"); };
+    await f.frame({ type: "system", subtype: "task_started", task_id: "common-worker" });
+    native.client.send = async (message, input) => {
+      assert.equal(input.sendNow, true);
+      await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+      await f.frame({ type: "result", subtype: "error_during_execution", is_error: true,
+        terminal_reason: "aborted_tools", user_message_uuid: claudeNativeMessageId("common-first") });
+      await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "started" });
+      await send(message, input);
+    };
+  }
   await f.loadContract("first-contract");
   const first = f.admissions.at(-1);
   const legacyCompletion = f.entry.completion.promise;
@@ -1326,6 +1341,10 @@ test("Claude supplied common completion joins accepted steering and checkpoints 
   await f.loadContract("successor-contract");
   assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
   await f.frame({ type: "result", subtype: "success", result: "The successor question", uuid: "successor-final" });
+  if (sendNow) {
+    assert.equal(f.checkpoints.length, 0, "Foreground completion cannot checkpoint live background work");
+    await f.frame({ type: "system", subtype: "task_notification", task_id: "common-worker", status: "completed" });
+  }
   await f.conversation.wait();
   assert.equal((await legacyCompletion).status, "completed");
   assert.equal(f.checkpoints.length, 1);
@@ -1899,4 +1918,40 @@ test("Claude goal command proof survives only evaluations of its own condition",
   const changed = await f.owner.readGoal(f.entry);
   assert.equal(changed.goal.objective, "A different condition");
   assert.equal(changed.goalCommandId, null, "an old command cannot prove a different goal");
+});
+
+for (const action of ["steer", "set", "resume"]) test(`Claude ${action} uses targeted Send now without cancelling background workers`, async t => {
+  const f = await publishedClaudeFixture(t);
+  if (action === "resume") await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish checks", messageId: "first" });
+  else await f.send("first");
+  await f.frame({ type: "system", subtype: "task_started", task_id: "live-worker" });
+  const native = f.entry.process;
+  const send = native.client.send;
+  native.client.supportsSendNow = () => true;
+  let stops = 0;
+  native.client.interrupt = async () => { stops++; throw Error("A steer must not send Stop"); };
+  native.client.send = async (message, input) => {
+    assert.equal(input.sendNow, true);
+    // Native 2.1.289 may end the foreground generation before consuming the
+    // queued goal. Its background task remains alive throughout this sequence.
+    await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+    await f.frame({ type: "result", subtype: "error_during_execution", is_error: true,
+      terminal_reason: "aborted_tools", user_message_uuid: claudeNativeMessageId("first") });
+    assert.equal(f.entry.nativeTurn.read().active, true, "Old result cannot finish a queued input or its worker");
+    await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "started" });
+    await send(message, input);
+  };
+  if (action === "steer") await f.send("next");
+  else {
+    const goal = (await f.owner.readGoal(f.entry)).goal;
+    await f.owner.updateGoal(f.entry, { action, objective: "Finish checks", messageId: "next",
+      ...(action === "resume" ? { threadId: f.conversationId, createdAt: goal.createdAt } : {}) });
+    assert.equal((await f.owner.readGoal(f.entry)).goal.status, "active");
+  }
+  assert.equal(stops, 0);
+  assert.equal(f.processes.length, 1, "No process replacement");
+  await f.frame({ type: "result", subtype: "success", result: "New instruction accepted" });
+  assert.equal(f.entry.nativeTurn.read().active, true, "Retained worker still owns activity");
+  await f.frame({ type: "system", subtype: "task_notification", task_id: "live-worker", status: "completed" });
+  assert.equal(f.entry.nativeTurn.read().active, false, "Only actual worker completion settles the turn");
 });

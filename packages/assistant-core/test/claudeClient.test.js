@@ -228,3 +228,35 @@ test("unregistered headless controls are denied and repeated active control IDs 
   second.close();
   await second.completion;
 });
+
+test("Claude targeted Send now writes its named input first and preserves ordinary Stop", async () => {
+  const writes = [];
+  const stream = fakeStream((frame, socket) => {
+    writes.push(frame);
+    if (frame.type === "control_request") socket.push(`${JSON.stringify({ type: "control_response", response: {
+      subtype: "success", request_id: frame.request_id, response: { send_now: "delivering", still_queued: ["follow-up"] }
+    } })}\n`);
+  });
+  const client = createClaudeJsonClient({ stream });
+  try {
+    assert.equal(client.supportsSendNow(), false);
+    stream.push(`${JSON.stringify({ type: "system", subtype: "init", capabilities: ["interrupt_send_now_v1"] })}\n`);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(client.supportsSendNow(), true);
+    await client.send("New instruction", { messageId: "follow-up", sessionId: "session", sendNow: true });
+    assert.deepEqual(writes.map(frame => frame.type), ["user", "control_request"]);
+    assert.deepEqual(writes[1].request, { subtype: "interrupt", send_now: true, message_uuid: "follow-up" });
+    await client.interrupt();
+    assert.deepEqual(writes.at(-1).request, { subtype: "interrupt" }, "Explicit Stop is still a Stop");
+  } finally { client.close(); }
+});
+
+test("Claude never sends an unsupported Send now that an older CLI would interpret as Stop", async () => {
+  const writes = [];
+  const stream = fakeStream(frame => writes.push(frame));
+  const client = createClaudeJsonClient({ stream });
+  try {
+    await assert.rejects(client.send("Keep workers", { sendNow: true }), /does not support.*Send now/);
+    assert.equal(writes.length, 0, "Capability failure precedes both input and control writes");
+  } finally { client.close(); }
+});

@@ -66,6 +66,7 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
   const incoming = new Map();
   let failure = null;
   let closed = false;
+  let supportsSendNow = false;
   let writes = Promise.resolve();
   let events = Promise.resolve();
   let queuedEventBytes = 0;
@@ -170,6 +171,9 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
         } else if (frame.type === "control_cancel_request") {
           incoming.get(frame.request_id)?.controller.abort(claudeProtocolError("Claude cancelled this control request."));
         } else {
+          if (frame.type === "system" && frame.subtype === "init") {
+            supportsSendNow = frame.capabilities?.includes("interrupt_send_now_v1") === true;
+          }
           const bytes = Buffer.byteLength(JSON.stringify(frame));
           queuedEventBytes += bytes;
           if (queuedEventBytes > 2 * CLAUDE_JSON_MAX_FRAME_BYTES) {
@@ -204,13 +208,20 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
 
   return Object.freeze({
     completion,
+    supportsSendNow: () => supportsSendNow,
     initialize: ({ hooks } = {}, options) => request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }, options),
     interrupt: () => request({ subtype: "interrupt" }),
     request,
     whenRequestsIdle: () => Promise.all([...incoming.values()].map(pending => pending.done)),
-    send(message, { messageId = randomUUID(), sessionId = "" } = {}) {
-      return write({ type: "user", uuid: messageId, session_id: sessionId,
+    async send(message, { messageId = randomUUID(), sessionId = "", sendNow = false } = {}) {
+      // Older CLIs treat this control as a plain Stop, cancelling background
+      // workers. Require the native capability before writing either frame.
+      if (sendNow && !supportsSendNow) throw Object.assign(
+        claudeProtocolError("This Claude version does not support targeted Send now."), { delivery: "not-sent" }
+      );
+      await write({ type: "user", uuid: messageId, session_id: sessionId,
         parent_tool_use_id: null, message: { role: "user", content: message } });
+      if (sendNow) await request({ subtype: "interrupt", send_now: true, message_uuid: messageId });
     },
     close() {
       closed = true;
