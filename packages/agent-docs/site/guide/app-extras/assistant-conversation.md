@@ -3542,8 +3542,10 @@ Hosts without this optional receipt retain the original protocol EOF path. The e
 `processExit` and the acquired execution identity before the original exact-owner
 cleanup. Exit does not prove scope cleanup: a successful stop must still return
 `{ scopeEmpty: true }`. Engine flags, environment normalization and the JSON
-initialization handshake stay inside JSKIT. The existing control deadline and
-normal EOF event-draining order are unchanged.
+initialization handshake stay inside JSKIT. A host may supply
+`initializationTimeoutMs` for cold startup (default 30 seconds); ordinary controls
+retain their separate 30-second deadline. Expired startup still performs verified
+cleanup. Normal EOF event-draining order is unchanged.
 
 Without a replacement execution facility, Claude startup uses the supplied local
 POSIX process-group implementation. This is a trusted single-user host, not a
@@ -4238,3 +4240,29 @@ leaves account authorization and historical-conversion policy to the host.
 provider/configuration/endpoint/key digest already used by the live driver;
 hosts may translate a verified historical pin without changing its caller or
 copying credentials. These functions do not authorize native continuation.
+
+A Claude turn that ends before the native sender writes the prompt is a definite
+rejection. The sender reports `delivery: "not-sent"`, and the common runtime
+notifies the bound host through its existing `onPromptRejected` callback. The
+host can clear its dispatch marker and offer Retry. A pipe write without native
+acknowledgement remains uncertain; never use absence from history alone to resend.
+
+Subscription failures and terminal outcomes taking at least five seconds are
+logged at warning level with the last stage and elapsed duration. Normal stage
+diagnostics remain at info; no transcript or unvalidated client identity is logged.
+
+
+A retained user steering request can race with native turn completion. The server's
+`conversation_steer_turn_finished` conflict is a specific pre-admission rejection,
+not a generic steering/transport failure. The conversation binding retries that
+queued request once as ordinary Send with the same message ID, authored content,
+attachments and application data, retaining Send intent if it later fails. It
+never converts goals or prepared application submissions, never retries accepted
+or uncertain delivery, and checks that the original actor/conversation remains
+current. Other `conversation_not_steerable` refusals retain their existing policy.
+
+Claude's internal task notifications do not become user requests. Their command
+lifecycle events must not leave a completed user request busy or replace its
+receipt identity. The shared native owner clears completed commands while still
+waiting for the generation result and any remaining background work. Hosts should
+keep using the shared owner for steering and goal admission.

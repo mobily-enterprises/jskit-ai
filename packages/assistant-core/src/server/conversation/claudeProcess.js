@@ -317,7 +317,8 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
 /** Native startup and handshake; an execution host owns processes and their identity. */
 export async function createClaudeCodeProcess({
   command = "claude", execution = createLocalConversationExecution(), env = process.env,
-  workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper, ...options
+  workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper,
+  initializationTimeoutMs = 30_000, ...options
 } = {}) {
   if (commandWrapper !== undefined) validateCommandWrapper(commandWrapper);
   const environment = { ...env, DISABLE_AUTOUPDATER: "1" };
@@ -358,7 +359,7 @@ export async function createClaudeCodeProcess({
     signal?.addEventListener("abort", abort, { once: true });
     const initializing = client.initialize(commandWrapper ? { hooks: {
       PreToolUse: [{ matcher: "^Bash$", hookCallbackIds: ["jskit-command-wrapper"], timeout: 30 }]
-    } } : {});
+    } } : {}, { timeoutMs: initializationTimeoutMs });
     const initialization = await (native.exited ? Promise.race([
       initializing,
       native.exited.then(processExit => {

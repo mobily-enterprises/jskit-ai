@@ -51,6 +51,55 @@ test("steering waits for the generation's terminal event after the control ackno
   assert.equal(turn.read().status, "completed");
 });
 
+// Claude 2.1.289 folds internal commands into the outer turn. Their lifecycle
+// completes before result; the original input's completion follows result.
+for (const background of [false, true]) test(`folded native command cannot strand its outer input, background=${background}`, async () => {
+  const { turn, send, events } = fixture();
+  await send();
+  const outer = claudeNativeMessageId("first");
+  await turn.receive({ type: "command_lifecycle", command_uuid: outer, state: "started" });
+  if (background) await turn.receive({ type: "system", subtype: "task_started", task_id: "background" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: "internal-notification", state: "started" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: "internal-notification", state: "completed" });
+  assert.equal(turn.read().active, true, "A folded command's completion does not complete its outer generation");
+  await turn.receive({ type: "result", subtype: "success", result: "Done" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: outer, state: "completed" });
+  assert.equal(turn.read().pendingCommands, 0);
+  assert.equal(turn.read().active, background);
+  if (background) await turn.receive({ type: "system", subtype: "task_notification", task_id: "background", status: "completed" });
+  assert.equal(turn.read().status, "completed");
+  assert.equal(events.filter(event => event.type === "settled").length, 1);
+});
+
+test("folded lifecycle completion cannot acknowledge interruption before the generation result", async () => {
+  const { turn, send, client } = fixture();
+  await send();
+  await turn.receive({ type: "command_lifecycle", command_uuid: "internal-notification", state: "started" });
+  let confirmed = false;
+  const steering = turn.interruptGeneration(client).then(() => { confirmed = true; });
+  await turn.receive({ type: "command_lifecycle", command_uuid: "internal-notification", state: "completed" });
+  await Promise.resolve();
+  assert.equal(confirmed, false);
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "aborted_streaming", result: "" });
+  await steering;
+  await send("goal");
+  await turn.receive({ type: "result", subtype: "success", result: "Goal accepted" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("goal"), state: "completed" });
+  assert.equal(turn.read().pendingCommands, 0);
+  assert.equal(turn.read().status, "completed");
+});
+
+test("late input completion cannot settle a newer native continuation", async () => {
+  const { turn, send } = fixture();
+  await send();
+  await turn.receive({ type: "result", subtype: "success", result: "First answer" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: "native-successor", state: "started" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("first"), state: "completed" });
+  assert.equal(turn.read().active, true);
+  await turn.receive({ type: "result", subtype: "success", result: "Successor answer" });
+  assert.equal(turn.read().status, "completed");
+});
+
 test("Claude native follow-ups reactivate a completed turn without admitting another human message", async () => {
   for (const start of [
     { type: "user", uuid: "notification", origin: { kind: "task-notification" } },
@@ -921,7 +970,7 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
 
 // Retain the original supplied-store/native process fixture and drive it through
 // the actual common runtime, including its completion-only admitted receipt.
-async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming } = {}) {
+async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical" } = {}) {
   const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
   const storage = createMemoryConversationStorage();
   const transcript = createConversationTranscript({ storage });
@@ -964,7 +1013,7 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming } = {})
   const runtime = createConversationRuntime({ ...(tools ? { actions } : {}), authorize: () => true, onDeliveryTiming,
     host: { conversation: () => binding } });
   t.after(() => runtime.close());
-  const conversation = await runtime.open({ id: "lesson", context });
+  const conversation = await runtime.open({ id: "lesson", context, representation });
   f.setBeforeState((entry, event) => {
     if (event.state !== "completed") return;
     assert.equal(entry.turn.active, true, "Retained checkpoint still precedes saved idle state");
@@ -1222,4 +1271,55 @@ test("Claude Stop cancels configuration that has not started its native process"
   release.resolve();
   await assert.rejects(preparing, /stopped|closing/);
   assert.equal(f.processes.length, 0, "Stopped configuration must not launch Claude later");
+});
+
+// The application has persisted dispatch intent, but the native guard has not
+// written anything. Its rejection must clear that intent, not trap Retry forever.
+test("Claude supplied runtime records rejection when the native turn ends before the pipe write", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { representation: "native" });
+  let rejected = 0;
+  let sent = 0;
+  f.behavior.initialize = native => {
+    const send = native.client.send;
+    native.client.send = (...args) => { sent += 1; return send(...args); };
+  };
+  await assert.rejects(f.conversation.send({
+    messageId: "stopped-before-write", text: "Do the work",
+    onPromptSending() { f.entry.nativeTurn.stop(); },
+    onPromptRejected() { rejected += 1; }
+  }), error => error.delivery === "not-sent");
+  assert.equal(sent, 0);
+  assert.equal(rejected, 1);
+  assert.equal(f.messages.length, 0);
+});
+
+test("only natural completion marks a rejected steer eligible for ordinary Send; Stop and cancellation do not", async () => {
+  for (const ending of ["complete", "stop", "cancel"]) {
+    const f = fixture();
+    await f.send();
+    if (ending === "complete") await f.turn.receive({ type: "result", subtype: "success", result: "Done" });
+    else if (ending === "stop") f.turn.stop();
+    else await f.turn.interrupt(f.client);
+    let writes = 0;
+    f.client.send = async () => { writes += 1; };
+    await assert.rejects(f.send("late"), error => {
+      assert.equal(error.delivery, "not-sent");
+      assert.equal(error.code, ending === "complete" ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed");
+      assert.equal(error.statusCode, ending === "complete" ? 409 : undefined);
+      return true;
+    });
+    assert.equal(writes, 0);
+    f.turn.stop();
+  }
+});
+
+test("folded internal command preserves the original published answer owner", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  await f.frame({ type: "command_lifecycle", command_uuid: "internal-notification", state: "started" });
+  await f.frame({ type: "command_lifecycle", command_uuid: "internal-notification", state: "completed" });
+  await f.frame({ type: "result", subtype: "success", result: "The user's answer" });
+  await f.frame({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("request"), state: "completed" });
+  assert.equal(f.entry.turn.active, false);
+  assert.equal(f.final()?.text, "The user's answer");
 });

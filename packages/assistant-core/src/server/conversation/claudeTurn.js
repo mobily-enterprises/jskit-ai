@@ -811,7 +811,7 @@ export function createClaudeConversationOwner({
         timeoutMs, steering: true, interrupted: false, attempted: false, admitted: false };
       try { await dispatch(control, { input, context, signal }, { acquire, entry, dispatch: nativeDispatch }); }
       catch (error) {
-        if (nativeDispatch.attempted && !nativeDispatch.admitted) error.delivery = "uncertain";
+        if (nativeDispatch.attempted && !nativeDispatch.admitted && error.delivery !== "not-sent") error.delivery = "uncertain";
         if (nativeDispatch.interrupted || nativeDispatch.attempted) completion.reject(error);
         throw error;
       }
@@ -903,7 +903,7 @@ export function createClaudeConversationOwner({
     }
     if (control.current === active) control.current = null;
     if (problem) {
-      if (binding && nativeDispatch.attempted && !nativeDispatch.admitted) problem.delivery = "uncertain";
+      if (binding && nativeDispatch.attempted && !nativeDispatch.admitted && problem.delivery !== "not-sent") problem.delivery = "uncertain";
       throw problem;
     }
     if (!binding) return { value: delivered.value };
@@ -1191,7 +1191,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     if (frame.type === "command_lifecycle" || frame.type === "user") {
       const uuid = frame.type === "user" ? frame.uuid : frame.command_uuid;
       if (frame.type === "user" && !inFlight.has(uuid) && !admissions.has(uuid)) return;
-      if (frame.state === "started" || frame.type === "user") currentCommandId = uuid;
+      // Native notifications have their own lifecycle UUIDs, including work
+      // folded into this input. They must not steal its receipt/result owner.
+      if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) currentCommandId = uuid;
+      if (frame.state === "completed") inFlight.delete(uuid);
       if (frame.state === "cancelled" && steering) {
         inFlight.delete(uuid);
         steering.resolve();
@@ -1320,7 +1323,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       await publish({ type: "diagnostic", stage: "native_result", status: outcome.status,
         terminalReason: frame.terminal_reason, active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
     }
-    if ((frame.type === "system" || frame.type === "result") &&
+    if ((frame.type === "system" || frame.type === "result" || frame.type === "command_lifecycle" && frame.state === "completed") &&
         active && !cancelling && outcome && inFlight.size === 0 && tasks.size === 0) {
       active = false;
       phase = "";
@@ -1405,7 +1408,11 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       clearFinalAssistantResult();
     },
     async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000 } = {}) {
-      if (!active || stopped || cancelling) throw failure("Claude has no active turn for this message.");
+      if (!active || stopped || cancelling) throw Object.assign(
+        failure("Claude has no active turn for this message.", !active && !stopped && !cancelling
+          ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
+        { delivery: "not-sent", ...(!active && !stopped && !cancelling ? { statusCode: 409 } : {}) }
+      );
       if (!uuid || typeof accept !== "function" || admissions.has(uuid)) throw new TypeError("A distinct message id and admission writer are required.");
       clearFinalAssistantResult();
       acceptedInput = null;

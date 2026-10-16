@@ -823,7 +823,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             if (supplied) return delivered;
             throw Object.assign(new Error(value?.error || "Codex is not ready to receive this instruction."), value);
           } catch (error) {
-            if (attempted && !accepted && !rejected && !Number.isInteger(error.code)) error.delivery = "uncertain";
+            if (attempted && !accepted && !rejected && error.delivery !== "not-sent" && !Number.isInteger(error.code)) error.delivery = "uncertain";
             throw error;
           }
         });

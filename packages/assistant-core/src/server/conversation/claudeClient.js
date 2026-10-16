@@ -204,7 +204,7 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
 
   return Object.freeze({
     completion,
-    initialize: ({ hooks } = {}) => request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }),
+    initialize: ({ hooks } = {}, options) => request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }, options),
     interrupt: () => request({ subtype: "interrupt" }),
     request,
     whenRequestsIdle: () => Promise.all([...incoming.values()].map(pending => pending.done)),

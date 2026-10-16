@@ -303,6 +303,42 @@ test("Claude observes parent exit after initialization even while a child retain
   assert.equal(failures, 1);
 });
 
+test("Claude host startup budget allows slow initialization and still bounds failed startup", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { PassThrough, Writable } = await import("node:stream");
+  for (const responds of [true, false]) {
+    const requested = Promise.withResolvers();
+    const stdout = new PassThrough();
+    const stdin = new Writable({ write(chunk, _encoding, done) {
+      requested.resolve(JSON.parse(chunk.toString())); done();
+    } });
+    const stops = [];
+    const pending = createClaudeCodeProcess({ initializationTimeoutMs: 90_000, execution: {
+      async start() { return { id: "cold-start", stdin, stdout }; },
+      async stop(id) { stops.push(id); return { scopeEmpty: true }; }
+    } });
+    let settled = false;
+    void pending.then(() => { settled = true; }, () => { settled = true; });
+    const frame = await requested.promise;
+    t.mock.timers.tick(45_000);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(settled, false, "Cold initialization survives the ordinary control deadline");
+    if (responds) {
+      stdout.write(JSON.stringify({ type: "control_response", response: {
+        subtype: "success", request_id: frame.request_id, response: {}
+      } }) + "\n");
+      await (await pending).stop();
+    } else {
+      const rejected = assert.rejects(pending, error =>
+        error.code === "assistant_claude_control_timeout" && error.stopProof.scopeEmpty === true);
+      t.mock.timers.tick(45_000);
+      await rejected;
+    }
+    assert.deepEqual(stops, ["cold-start"]);
+    stdout.destroy(); stdin.destroy();
+  }
+});
+
 test("Claude initialization rejects confirmed execution exit before half-open protocol EOF", async () => {
   const { PassThrough, Writable } = await import("node:stream");
   for (const cleanup of ["verified", "unconfirmed", "rejected"]) {

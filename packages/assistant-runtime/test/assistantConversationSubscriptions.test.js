@@ -142,7 +142,10 @@ async function fixture(t) {
     return () => { serverSockets.delete(socket); notify(); };
   });
   const stopSubscriptions = registerConversationSubscriptions({ realtime, events, actions, config,
-    logger: { info(record) { subscriptionTimings.push(record); notify(); } } });
+    logger: {
+      info(record) { subscriptionTimings.push({ ...record, level: "info" }); notify(); },
+      warn(record) { subscriptionTimings.push({ ...record, level: "warn" }); notify(); }
+    } });
   const published = [];
   events.register({ id: "test.assistant.published", handle(event) { published.push(event); notify(); } });
   http.listen(0, "127.0.0.1");
@@ -247,12 +250,37 @@ test("subscription timings identify a blocked snapshot and abandoned observation
   assert.ok(records.every(record => !Object.hasOwn(record, "subscriptionId")),
     "Correlation uses the server epoch rather than arbitrary client subscription text");
   assert.equal(records.find(record => record.stage === "acknowledgement").snapshotTurns, 1);
+  assert.ok(records.every(record => record.level === "info"), "Normal subscriptions do not produce warnings");
   assert.equal(recovered.states[0].conversationLog[0].user.messageId, "measured-once");
   assert.equal(f.active(), 1);
   assert.equal(f.fetches.length, 1);
   assert.equal(f.fetches[0].signal.aborted, false);
   recovered.dispose();
   await until(f.changes, () => f.active() === 0);
+});
+
+test("slow successful subscriptions warn once with the blocked stage and no conversation content", async t => {
+  const f = await fixture(t);
+  const socket = await f.connect();
+  const id = f.ids[0];
+  const barrier = f.holdNextRead(id);
+  const view = f.view(socket, id);
+  await until(f.changes, () => barrier.started);
+  const now = performance.now.bind(performance);
+  const clock = t.mock.method(performance, "now", () => now() + 6_000);
+  try {
+    barrier.resolve();
+    await until(f.changes, () => view.states.length === 1);
+  } finally { clock.mock.restore(); }
+  const warnings = f.subscriptionTimings.filter(record => record.level === "warn");
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].stage, "acknowledgement");
+  assert.equal(warnings[0].previousStage, "snapshot-read");
+  assert.ok(warnings[0].durationMs >= 6_000);
+  assert.ok(warnings[0].elapsedMs >= warnings[0].durationMs);
+  assert.equal(warnings[0].snapshotTurns, 0);
+  assert.equal(Object.hasOwn(warnings[0], "state"), false);
+  assert.equal(f.fetches.length, 0);
 });
 
 test("the real ten-second subscription deadline releases its late observer and Reload never repeats work", { timeout: 25_000 }, async t => {
@@ -282,6 +310,11 @@ test("the real ten-second subscription deadline releases its late observer and R
   barrier.resolve();
   await until(f.changes, () => f.subscriptionTimings.some(record =>
     record.subscriptionEpoch === firstSubscriptionEpoch && record.stage === "abandoned"));
+  const abandoned = f.subscriptionTimings.find(record =>
+    record.subscriptionEpoch === firstSubscriptionEpoch && record.stage === "abandoned");
+  assert.equal(abandoned.level, "warn", "A timed-out snapshot remains visible at the production warning level");
+  assert.equal(abandoned.previousStage, "snapshot-read");
+  assert.ok(abandoned.durationMs >= 5_000);
   assert.equal(view.states.length, statesBeforeLateRead, "The obsolete server read never acknowledges into the recovered view");
   assert.equal(f.active(), 1, "The late read cannot release the recovered observer");
   assert.equal(f.fetches.length, 1);
@@ -304,6 +337,7 @@ test("subscription diagnostics never serialize unvalidated client identifiers", 
   assert.equal(result.status, 400);
   assert.equal(f.active(), 0);
   assert.equal(f.subscriptionTimings.at(-1).stage, "failed");
+  assert.equal(f.subscriptionTimings.at(-1).level, "warn");
   assert.ok(f.subscriptionTimings.every(record => /^[0-9a-f-]{36}$/.test(record.subscriptionEpoch)));
   assert.ok(f.subscriptionTimings.every(record => !Object.hasOwn(record, "conversationId") &&
     !Object.hasOwn(record, "subscriptionId")));

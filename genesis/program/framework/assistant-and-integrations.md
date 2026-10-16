@@ -63,6 +63,8 @@ cleanup exposes observation loss through the existing host status contract.
 Closing a session cancels native startup before waiting for preparation to drain;
 late configuration cannot launch a successor after Stop. Failed cleanup retains
 its owner for an explicit retry rather than starting another hidden stop attempt.
+Hosts may set a bounded cold-initialization timeout without extending ordinary
+control deadlines; timeout still follows the same verified cleanup path.
 Account queries deduplicate by account identity, and invalidation cancels held
 startup and reads before awaiting their owned cleanup. Borrowed conversations
 remain owned by their original lifecycle. Requests also retain the invalidation
@@ -118,3 +120,25 @@ retains pending requests without replay. It requires version 3 and rejects an
 unfinished replacement before writes; normal startup and historical upgrades do
 not invoke it. `prepareCopiedConversationAgentRun` applies the same projection
 policy to a separately stored legacy run without opening a provider.
+
+Claude's native pre-write turn guard reports definite non-delivery to the common
+runtime. Its existing host rejection callback clears dispatch intent; attempted
+writes without acknowledgements retain uncertain-delivery protection.
+
+
+The retained conversation queue distinguishes the exact pre-admission native
+turn-finished steer refusal from general steering failures. Its one ordinary-send
+fallback preserves message identity, content and attachments, and persists the
+new dispatch intent for explicit retry. Unknown/accepted delivery, retired actor
+scope, goals and prepared application work do not qualify. Runtime finished-turn
+guards mark definite non-delivery; the Codex driver preserves this marker instead
+of converting it to uncertainty. Generic transport/provider failures stay unknown.
+
+Claude command tracking distinguishes admitted user inputs from internally generated
+lifecycle UUIDs. Internal starts can continue native work but do not replace the
+input that owns its receipt and final answer. A matching `completed` lifecycle
+retires its pending input; settlement still requires a native result and no
+remaining commands or background tasks. Folded completion alone never confirms
+an interrupt. The native owner regression tests cover the deployed CLI's folded
+notification order, late completion after a successor starts, background work,
+and preservation of the original published-answer owner.

@@ -1341,7 +1341,12 @@ test("Codex steering admits once and preserves original unfinished-reply groupin
   assert.equal(trace.filter(row => row.method === "turn/steer").length, 1);
   assert.equal(trace.find(row => row.method === "turn/steer").params.clientUserMessageId, "after");
   assert.equal((await f.conversation.send(steering)).duplicate, true);
-  await assert.rejects(f.conversation.send({ ...steering, messageId: "idle" }), { code: "conversation_not_steerable" });
+  await assert.rejects(f.conversation.send({ ...steering, messageId: "idle" }), { code: "conversation_steer_turn_finished", delivery: "not-sent" });
+  const next = { messageId: "idle", text: steering.text };
+  await f.conversation.send(next);
+  await f.conversation.wait();
+  assert.equal((await f.conversation.send(next)).duplicate, true);
+  assert.equal((await f.trace()).filter(row => row.method === "turn/start").length, 2);
 });
 
 test("Codex steering rejection leaves the active turn available and checks authorization before dispatch", async t => {
@@ -1718,6 +1723,9 @@ test("Codex cancellation drains owned work, and a deadline saves a failed turn",
   const f = await fixture(t, { limits: { timeoutMs: 2000 } });
   await f.conversation.send({ messageId: "cancel", text: "wait" });
   assert.deepEqual(await f.conversation.cancel(), { stopped: true });
+  await assert.rejects(f.conversation.send({ messageId: "late-after-stop", text: "Do more", steer: true }), {
+    code: "conversation_not_steerable", delivery: "not-sent"
+  });
   await f.conversation.send({ messageId: "timeout", text: "wait" });
   const state = await f.conversation.wait();
   assert.equal(state.conversationLog[0].metadata.runtime.status, "cancelled");

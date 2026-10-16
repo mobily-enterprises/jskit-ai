@@ -72,7 +72,9 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         // Only a successfully opened, authorized conversation may enter diagnostics.
         if (next === "observer-attach") observedConversationId = input.conversationId;
         try {
-          logger?.info?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
+          const slowOutcome = now - startedAt >= 5_000 && ["acknowledgement", "abandoned"].includes(next);
+          const level = next === "failed" || slowOutcome ? "warn" : "info";
+          logger?.[level]?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
             ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
             stage: next, previousStage: stage,
             durationMs: now - stageStartedAt, elapsedMs: now - startedAt, ...fields },

@@ -994,7 +994,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     async function beforeDispatch(request) {
       await access(request.context, entry.id, request.operation, entry);
       active.controller.signal.throwIfAborted();
-      if (active.finishing) throw failure("The native turn finished before this instruction was sent. Send it as a new message.", "conversation_not_steerable");
+      if (active.finishing) throw Object.assign(failure("The native turn finished before this instruction was sent. Send it as a new message.", "conversation_steer_turn_finished"), { delivery: "not-sent" });
     }
 
     async function deliverNative(request, dispatch) {
@@ -1008,7 +1008,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const dispatchPrepared = async input => {
         rendered = input;
         rejectionSaves.delete(request.input.messageId);
-        if (request.operation === "steer" && !request.steering) throw failure("There is no active native turn to steer. Send a new message.", "conversation_not_steerable");
+        if (request.operation === "steer" && !request.steering) throw Object.assign(failure("There is no active native turn to steer. Send a new message.", "conversation_steer_turn_finished"), { delivery: "not-sent" });
         if ((input.contextText || "").length > maximumContinuity) throw new Error("Conversation updates exceed the configured history budget. Renew the context with a continuity briefing before continuing.");
         if (request.input.goal && input.contextText) {
           throw failure("Send a chat message to deliver the saved continuity briefing before starting a native terminal or goal.", "conversation_replacement_briefing_pending");
@@ -1085,7 +1085,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           }
           if (!request.accepted) throw new Error("The engine did not acknowledge the message.");
         }).catch(async error => {
-          if (!entry.conversation && !request.accepted && error.delivery !== "uncertain") {
+          if (!request.accepted && (error.delivery === "not-sent" || !entry.conversation && error.delivery !== "uncertain")) {
             try { await input.onPromptRejected(); }
             catch (saveError) {
               rejectionSaves.set(request.input.messageId, input.onPromptRejected);
@@ -1525,7 +1525,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       throw failure("Completed Claude responses cannot share a native steering turn. Wait for the response or stop it.", "conversation_not_steerable");
     }
     if (working && !input.steer && !goal && !entry.conversation) throw failure("Wait for this answer or use steer to send another instruction.", "conversation_busy");
-    if (input.steer && (!working && !nativeSteering || working?.finishing) && !(nativePending?.attempted || nativePending?.inspectionOnly)) throw failure("There is no active native turn to steer. Send a new message.", "conversation_not_steerable");
+    if (input.steer && (!working && !nativeSteering || working?.finishing) && !(nativePending?.attempted || nativePending?.inspectionOnly)) {
+      const previousState = nativeState?.nativeTurn?.runState || nativeState?.nativeTurn?.state || history.at(-1)?.metadata?.runtime?.status;
+      const completed = working ? !working.controller.signal.aborted && !working.timedOut : ["complete", "completed"].includes(previousState);
+      throw Object.assign(failure("There is no active native turn to steer. Send a new message.",
+        completed ? "conversation_steer_turn_finished" : "conversation_not_steerable"), { delivery: "not-sent" });
+    }
     if (goal && working?.finishing) throw failure("Wait for the current turn to finish saving before starting the goal.", "conversation_busy");
     if (working && (!working.request.admissionSettled || working.steering)) throw failure("Wait for the pending instruction to be admitted before steering again.", "conversation_busy");
     const barrier = working ? Promise.withResolvers() : null;

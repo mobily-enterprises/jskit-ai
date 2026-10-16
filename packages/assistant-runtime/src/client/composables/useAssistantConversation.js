@@ -463,7 +463,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
                 return { ok: false, error: "This conversation no longer accepts attachments." };
               }
             }
-            const request = prepare ? await prepare(submission, { signal: controller.signal }) : submission.request;
+            let request = prepare ? await prepare(submission, { signal: controller.signal }) : submission.request;
             if (prepare) {
               if (!current.value || accessDenied.value || controller.signal.aborted || request === false) return false;
               if (!request || typeof request !== "object" || Array.isArray(request)) {
@@ -471,9 +471,31 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
               }
             }
             pending.dispatched = true;
-            return await (submission.goalRequest
-              ? api.updateConversationGoal(identity.conversationId, { ...submission.goalRequest, messageId }, { signal: controller.signal })
-              : api.sendConversationMessage(identity.conversationId, { ...request, messageId }, { signal: controller.signal }));
+            for (let attempt = 0; ; attempt += 1) {
+              try {
+                return await (submission.goalRequest
+                  ? api.updateConversationGoal(identity.conversationId, { ...submission.goalRequest, messageId }, { signal: controller.signal })
+                  : api.sendConversationMessage(identity.conversationId, { ...request, messageId }, { signal: controller.signal }));
+              } catch (failure) {
+                // The server identifies this exact pre-admission race. Keep the
+                // same queued words/attachments/identity and try ordinary Send
+                // once. A timeout, generic rejection or uncertain send never
+                // grants another dispatch.
+                if (attempt !== 0 || prepare || submission.goalRequest || request.steer !== true ||
+                    failure.code !== "conversation_steer_turn_finished" || failure.status !== 409 ||
+                    failure.details?.delivery && (failure.details.delivery.status !== "not-sent" ||
+                      failure.details.delivery.messageId !== messageId)) throw failure;
+                const retained = delivery.find(messageId);
+                if (retained?.status === "accepted" || turns.value.some(turn => turn.user?.messageId === messageId && turn.user.receipt !== false)) return { ok: true };
+                if (!current.value || accessDenied.value || controller.signal.aborted || !retained || retained.status !== "pending") return false;
+                const { steer: _finishedTurn, ...nextRequest } = request;
+                request = nextRequest;
+                // Retain the new dispatch intent if Send itself fails; Retry
+                // must not loop back through the obsolete steering request.
+                retained.payload.request = nextRequest;
+                retained.payload.submissionKind = "send";
+              }
+            }
           }
           catch (failure) {
             if (controller.signal.aborted) return false;
@@ -482,7 +504,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
             const rejection = failure.details?.delivery;
             const notSent = Number.isInteger(failure.status) && failure.status >= 400 && failure.status < 500 &&
               rejection && !Array.isArray(rejection) && rejection.status === "not-sent" && rejection.messageId === messageId;
-            if (notSent || SEND_REJECTIONS.has(failure.code)) return { ok: false, error: failure.message,
+            if (notSent || SEND_REJECTIONS.has(failure.code) || failure.code === "conversation_steer_turn_finished" && failure.status === 409 && !failure.details?.delivery) return { ok: false, error: failure.message,
               ...(prepare && failure.code ? { code: failure.code } : {}) };
             throw failure;
           } finally {

@@ -72,6 +72,20 @@ test("Claude exposes the durable native identity before dispatch and respects a 
   } finally { await provider.dispose(); }
 });
 
+test("Claude rejects a finished-turn steer before admission and permits the same ordinary message once", async t => {
+  const f = await fixture(t);
+  await f.conversation.send(input);
+  await f.conversation.wait();
+  const next = { messageId: "late-steer", text: "Keep working", steer: true };
+  await assert.rejects(f.conversation.send(next), { code: "conversation_steer_turn_finished", delivery: "not-sent" });
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
+  const { steer, ...ordinary } = next;
+  await f.conversation.send(ordinary);
+  await f.conversation.wait();
+  await f.conversation.send(ordinary);
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 2);
+});
+
 test("native Claude coding tools require the server-side host grant", async t => {
   const f = await fixture(t, { nativeTools: true });
   await f.conversation.send(input);
@@ -593,6 +607,9 @@ test("cancel drains native work and allows a subsequent request in the same conv
   assert.equal((await f.conversation.read()).status, "working");
   assert.deepEqual(await f.conversation.cancel(), { stopped: true });
   assert.equal((await f.conversation.read()).conversationLog[0].metadata.runtime.status, "cancelled");
+  await assert.rejects(f.conversation.send({ messageId: "late-after-stop", text: "Do more", steer: true }), {
+    code: "conversation_not_steerable", delivery: "not-sent"
+  });
   const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
   assert.equal(binding.executionId, "");
   await f.conversation.send(input);

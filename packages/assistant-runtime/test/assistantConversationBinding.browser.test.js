@@ -764,6 +764,67 @@ for (const status of ["uncertain", "pending", "accepted", "failed", "unrecognise
   });
 }
 
+for (const ordinaryFails of [false, true]) {
+  test(`a finished-turn steer becomes one ordinary Send with its original identity (Send fails: ${ordinaryFails})`, options, async t => {
+    const f = await fixture(t);
+    await f.command("mode", { mode: "rejected" });
+    await f.command("steering", { id: "chat:1", enabled: true });
+    await f.command("question", { id: "chat:1", text: "Earlier work", pending: true });
+    await f.notify("chat:1");
+    await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+    let calls = 0;
+    await f.page.route("**/messages", async route => {
+      calls += 1;
+      const response = await route.fetch();
+      if (calls === 1) {
+        if (!ordinaryFails) await f.command("mode", { mode: "accepted" });
+        await route.fulfill({ response, status: 409, json: {
+          error: "The turn finished before dispatch.", code: "conversation_steer_turn_finished"
+        } });
+      } else await route.fulfill({ response });
+    });
+    await f.input.fill("Keep exactly these words");
+    await f.input.press("Enter");
+    await expect.poll(async () => (await f.sent()).length).toBe(2);
+    const [steer, send] = await f.sent();
+    assert.equal(steer.input.steer, true);
+    const { steer: _oldIntent, ...ordinary } = steer.input;
+    assert.deepEqual(send.input, ordinary);
+    if (ordinaryFails) {
+      await expect(f.primary.getByText("Failed: The message was rejected before admission.", { exact: true })).toBeVisible();
+      assert.equal(await f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).payload.request.steer,
+        steer.input.messageId), undefined);
+      await f.input.fill("Keep my newer draft");
+      await f.command("mode", { mode: "accepted" });
+      await f.primary.getByRole("button", { name: "Retry", exact: true }).click();
+      await expect.poll(async () => (await f.sent()).length).toBe(3);
+      assert.deepEqual((await f.sent())[2].input, ordinary);
+      await expect(f.input).toHaveValue("Keep my newer draft");
+    }
+    await expect(f.primary.getByRole("button", { name: "Stop", exact: true })).toBeVisible();
+    await expect(f.primary.getByText("Keep exactly these words", { exact: true })).toHaveCount(1);
+  });
+}
+
+test("a finished-turn error without a definite rejection status remains uncertain and never auto-resends", options, async t => {
+  const f = await fixture(t);
+  await f.command("mode", { mode: "rejected" });
+  await f.command("steering", { id: "chat:1", enabled: true });
+  await f.command("question", { id: "chat:1", text: "Earlier work", pending: true });
+  await f.notify("chat:1");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().steerable.value)).toBe(true);
+  await f.page.route("**/messages", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, status: 503, json: { error: "Delivery unknown", code: "conversation_steer_turn_finished" } });
+  });
+  await f.input.fill("Retain uncertain words");
+  await f.input.press("Enter");
+  await expect.poll(async () => (await f.sent()).length).toBe(1);
+  const [request] = await f.sent();
+  await expect.poll(() => f.page.evaluate(id => window.conversationFixture.current().delivery.find(id).status, request.input.messageId)).toBe("uncertain");
+  assert.equal((await f.sent()).length, 1);
+});
+
 for (const code of ["ACTION_VALIDATION_FAILED", "conversation_not_steerable"]) {
 test(`an explicit pre-admission rejection retains original retry identity and the newer draft: ${code}`, options, async t => {
   const f = await fixture(t);
