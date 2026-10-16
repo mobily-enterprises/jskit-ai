@@ -677,7 +677,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         sampledAt: Date.parse(view.goal.updatedAt) } : null,
       pending: Boolean(goalAction.value) || !goalAvailable || !available.value || delivery.state.sending ||
         delivery.state.messages.some(message => message.status === "uncertain"),
-      error: goalError.value || goalLoadError.value,
+      error: goalError.value || goalLoadError.value || view?.error || "",
       pauseInterruptsTurn: commands.pause?.interruptsTurn === true,
       cancelInterruptsTurn: commands.cancel?.interruptsTurn === true,
       ...Object.fromEntries(["set", "resume", "pause", "cancel"].filter(action =>

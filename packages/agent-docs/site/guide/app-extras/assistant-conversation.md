@@ -1191,7 +1191,9 @@ read deadline and no goal poll. Passive failures remain local to the control.
 An explicit `goal: true` option also enables reads when an application's retained
 goal may belong to a different target from its visible conversation. Such an
 authorized facade can return `{ status, goal, target: { segmentId, capabilities },
-routing? }` from its existing goal read. The target and declared goal capabilities
+routing?, error? }` from its existing goal read. An optional `error` explains a
+recoverable host condition while the available goal and its controls remain
+usable; a subsequent successful read clears that message when the host clears it. The target and declared goal capabilities
 must come from that same native read; the client does not infer an engine or
 reconstruct native expectations. Standalone goal reads still return a goal or
 null. An object-valued `goal` presentation adapter remains supported.

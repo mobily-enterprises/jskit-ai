@@ -88,6 +88,8 @@ The retained browser goal binding distinguishes an unknown goal from a confirmed
 empty goal. Initial and replacement reads display loading; failed reads hide
 stale actions and report unavailability. Starting, pausing, resuming and cancelling
 labels describe the actual command, not a background read or message admission.
+An available host goal view can also carry a recovery error. The shared goal
+state displays it without disabling the same-read target or Resume controls.
 Codex Pause combines native scheduling pause with the existing verified turn
 interrupt, preserving the goal identity and budget for Resume. Cleanup failure
 is reported rather than treating paused scheduling as proof that work stopped.

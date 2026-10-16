@@ -3146,3 +3146,31 @@ test("initial goal loading shows no goal commands until the empty goal is confir
     await expect(f.page.getByRole("button", { name: "Resume goal", exact: true })).toHaveCount(0);
   } finally { waiting.resolve(); }
 });
+
+
+test("host goal recovery errors remain visible while Resume uses the current goal target", options, async t => {
+  const f = await fixture(t);
+  const view = { status: "available", error: "Goal recovery stopped because its AI account changed. Resume with the intended account.",
+    goal: { id: "retained-goal", objective: "Finish the agreed work", status: "paused" },
+    target: { segmentId: "retained-native", capabilities: { goals: true,
+      goalCommands: { resume: { delivery: "control", interruptsTurn: false } } } } };
+  const commands = [];
+  await f.page.route("**/conversations/*/goal", async route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: view });
+    commands.push(route.request().postDataJSON());
+    view.error = "";
+    view.goal.status = "active";
+    return route.fulfill({ json: { ok: true } });
+  });
+  await f.page.evaluate(() => window.conversationFixture.eventReaders([{ id: "goal-reader", goal: true }]));
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value?.pending)).toBe(false);
+  await f.primary.getByRole("button", { name: "Goal paused", exact: true }).click();
+  await expect(f.page.getByRole("alert").filter({ hasText: "Goal recovery stopped" })).toBeVisible();
+  const resume = f.page.getByRole("button", { name: "Resume goal", exact: true });
+  await expect(resume).toBeEnabled();
+  await resume.click();
+  await expect.poll(() => commands.length).toBe(1);
+  assert.deepEqual(commands[0], { action: "resume", expectedSegmentId: "retained-native", expectedGoalId: "retained-goal" });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value.error)).toBe("");
+  assert.deepEqual(await f.sent(), []);
+});
