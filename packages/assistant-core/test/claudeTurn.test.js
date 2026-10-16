@@ -464,7 +464,7 @@ test("Claude split text followed by a tool is commentary, never a final answer",
 
 
 import { createClaudeConversationOwner } from "../src/server/conversation/claudeTurn.js";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createConversationRuntime, createMemoryConversationStorage, createConversationTranscript } from "../src/server/conversation/index.js";
@@ -1494,4 +1494,80 @@ test("Claude goal cancellation at the final native write preserves definite non-
     expectedSegmentId: `claude:${f.conversationId}` }), error => error.delivery === "not-sent");
   assert.equal(sends, 0);
   assert.equal((await f.binding.transcript.readConversationLog()).length, 0);
+});
+
+for (const action of ["set", "resume"]) for (const finishCount of [1, 2]) test(`Claude goal re-admits a definite finished-turn race once, action=${action}, finishes=${finishCount}`, { timeout: 5_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  let preparations = 0;
+  let writes = 0;
+  f.behavior.initialize = async native => {
+    const send = native.client.send;
+    native.client.send = async (...args) => { writes++; return send(...args); };
+  };
+  f.setBeforeState(async (_entry, event) => {
+    // A resumed native process can finish its previous generation during the
+    // host's asynchronous new-input checkpoint, before this input is written.
+    if (event.state === "starting" && ++preparations <= finishCount) {
+      await f.frame({ type: "result", subtype: "success", result: "Previous work finished" });
+    }
+  });
+  let expectedGoalId;
+  if (action === "resume") {
+    const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, `${f.conversationId}.jsonl`), `${JSON.stringify({ type: "attachment",
+      timestamp: "2026-10-16T00:00:00.000Z", attachment: { type: "goal_status", condition: "Finish the checks", met: false } })}\n`);
+    expectedGoalId = (await f.conversation.readGoal()).id;
+  }
+  const input = { action, objective: "Finish the checks", messageId: "racing-goal", expectedGoalId,
+    expectedSegmentId: `claude:${f.conversationId}` };
+  const pending = f.conversation.updateGoal(input);
+  if (finishCount === 2) {
+    await assert.rejects(pending, error => error.code === "conversation_steer_turn_finished" && error.delivery === "not-sent");
+    assert.equal(writes, 0);
+  } else {
+    assert.equal((await pending).status, "accepted");
+    assert.equal(writes, 1, "The same goal is written only after definite non-delivery");
+    await f.frame({ type: "result", subtype: "success", result: "Checks finished" });
+    await f.conversation.wait();
+    assert.equal((await f.conversation.updateGoal(input)).duplicate, true);
+    const log = await f.binding.transcript.readConversationLog();
+    assert.equal(log.flatMap(turn => turn.messages).filter(message => message.messageId === input.messageId).length, 1);
+  }
+  assert.equal(preparations, 2, "Only one re-admission is allowed");
+});
+
+test("Claude goal does not re-admit uncertain native delivery", { timeout: 5_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  let writes = 0;
+  f.behavior.initialize = async native => {
+    native.client.send = async () => { writes++; throw Object.assign(new Error("Receipt unknown"), { delivery: "uncertain" }); };
+  };
+  await assert.rejects(f.conversation.updateGoal({ action: "set", objective: "Finish the checks",
+    messageId: "uncertain-goal", expectedSegmentId: `claude:${f.conversationId}` }),
+  error => error.delivery === "uncertain");
+  assert.equal(writes, 1);
+});
+
+test("Claude goal re-admission preserves Stop during rejected dispatch cleanup", { timeout: 5_000 }, async t => {
+  const controller = new AbortController();
+  const f = await suppliedCommonFixture(t, { tools: false, signal: controller.signal });
+  let preparations = 0;
+  let writes = 0;
+  f.behavior.initialize = async native => {
+    const send = native.client.send;
+    const stop = native.stop;
+    native.client.send = async (...args) => { writes++; return send(...args); };
+    native.stop = async () => { controller.abort(new Error("The person stopped this goal")); return stop(); };
+  };
+  f.setBeforeState(async (_entry, event) => {
+    if (event.state === "starting") {
+      preparations++;
+      await f.frame({ type: "result", subtype: "success", result: "Previous work finished" });
+    }
+  });
+  await assert.rejects(f.conversation.updateGoal({ action: "set", objective: "Finish the checks",
+    messageId: "race-stopped-goal", expectedSegmentId: `claude:${f.conversationId}` }), /person stopped/);
+  assert.equal(preparations, 1);
+  assert.equal(writes, 0);
 });

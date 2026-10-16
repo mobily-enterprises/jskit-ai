@@ -2468,7 +2468,12 @@ automatic continuations but does not interrupt an already running turn;
 
 Claude Set, Resume and Clear return the same admission receipt as `send()`.
 Reusing an accepted command's `messageId` returns its receipt without executing
-it again. A lost acknowledgement stays uncertain until `inspectDelivery()` finds
+it again. If a bound native turn finishes during Set or Resume preparation and
+returns `conversation_steer_turn_finished` with `delivery: "not-sent"`, the runtime
+waits for that dispatch's cleanup and final save, then tries the same goal command
+once through normal admission. It rechecks access, cancellation and goal identity;
+a repeated rejection or uncertain delivery remains an error.
+A lost acknowledgement stays uncertain until `inspectDelivery()` finds
 native proof. Codex controls use the existing native goal identity checks;
 refresh `readGoal()` after a failed control before choosing another action.
 Older Codex goal-message records remain inspection-only and require offline

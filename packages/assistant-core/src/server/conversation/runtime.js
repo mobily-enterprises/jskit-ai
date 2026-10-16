@@ -1642,7 +1642,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     return representation === "native" ? result.nativeResult : structuredClone(entry.goal);
   }
 
-  async function updateGoal(entry, context, input, representation) {
+  async function updateGoal(entry, context, input, representation, retryFinishedTurn = true) {
     await access(context, entry.id, "goal", entry);
     context.signal?.throwIfAborted();
     if (!capabilities(entry).goals) throw failure("This connection does not support native goals.", "conversation_unsupported", 400);
@@ -1767,8 +1767,18 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await emit(entry, { type: "goal", goal: entry.goal });
       return { goal: structuredClone(entry.goal) };
     });
-    const completed = result.operation ? await result.operation : result;
-    return completed.receipt || completed.promise || completed.goal;
+    try {
+      const completed = result.operation ? await result.operation : result;
+      return await (completed.receipt || completed.promise || completed.goal);
+    } catch (error) {
+      if (!retryFinishedTurn || !entry.conversation || !starting || !messageCommand ||
+          error.code !== "conversation_steer_turn_finished" || error.delivery !== "not-sent") throw error;
+      // Completion can retire Claude's generation during asynchronous native
+      // preparation. Its exact pre-write rejection permits one re-admission of
+      // this same goal/message ID, after the original cleanup and save finish.
+      await entry.active?.done;
+      return updateGoal(entry, context, input, representation, false);
+    }
   }
 
   async function retrySave(entry) {

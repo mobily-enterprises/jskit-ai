@@ -59,7 +59,11 @@ Split native text keeps its live output identity until the API message identifie
 it as tool commentary or an answer; restored history uses the same classification.
 Renewal recovery joins the exact running turn or requires its saved completed
 state before accepting history text. Accepted but unconfirmed input is never
-submitted again automatically.
+submitted again automatically. Bound native goal Set/Resume may re-enter ordinary
+admission once when native preparation returns the exact finished-turn rejection
+with definite non-delivery. This waits for cleanup and final persistence, retains
+the same message ID, and repeats target/access/cancellation checks; uncertainty
+and a second failure never trigger another dispatch.
 The execution receipt remains observed after initialization, so a parent exit
 cannot be hidden by children retaining its output pipe. Concurrent cleanup calls
 join one process stop and its interrupted-state checkpoint. Unconfirmed retained
