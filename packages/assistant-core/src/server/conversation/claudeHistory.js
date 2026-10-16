@@ -146,6 +146,16 @@ async function readClaudeHistory(options) {
   }
   for (const frame of frames) {
     if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
+    // After an impossible evaluation Claude may already have removed its live
+    // goal. A successful clear then has only this native command receipt, not
+    // a goal_status sentinel. Ordinary model text is never goal-state evidence.
+    if (frame.type === "system" && frame.subtype === "local_command" &&
+        !frame.parent_tool_use_id && !frame.isMeta && frame.commandRun?.command === "goal" &&
+        frame.commandRun.args === "clear" && frame.content === "<local-command-stdout>No goal set</local-command-stdout>") {
+      goal = null;
+      goalStartId = "";
+      goalCommandId = "";
+    }
     if (options.includeCommandMessages && frame.type === "system" && frame.subtype === "local_command" &&
         frame.uuid && !frame.parent_tool_use_id && !frame.isMeta &&
         typeof frame.commandRun?.command === "string" && frame.commandRun.command) {

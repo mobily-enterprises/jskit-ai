@@ -108,6 +108,11 @@ launch a successor process or refill the cache after reconnection.
 Claude goal creation and resumption use ordinary native message admission,
 including steering while a turn is active. A new goal cannot replace an
 unfinished goal; turn activity alone does not require cancellation.
+The native history reader also recognizes a successful `goal clear` command
+whose native stdout is `No goal set`: an impossible-goal evaluation may already
+have removed the live goal without writing a clearing attachment. That explicit
+command receipt clears the historical projection on subsequent reads. Model
+prose, nested commands and stderr cannot clear a goal; native history is unchanged.
 Background-only steering retires the prior completion before host preparation,
 so a task finishing during preparation cannot close the pending follow-up.
 An application-owned account preparation may opt into following its current

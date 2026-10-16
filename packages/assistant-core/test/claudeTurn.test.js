@@ -91,6 +91,42 @@ test("Claude native no-response placeholders are excluded from live and cold rep
   assert.deepEqual(history.userIds, ["original-request"]);
 });
 
+test("Claude successful native clear removes a failed goal without a clearing sentinel", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-clear-goal-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "cde87511-7341-4f9e-9d8a-6fe849a953a5";
+  const file = path.join(directory, `${conversationId}.jsonl`);
+  const failed = { type: "attachment", uuid: "failed", timestamp: "2026-10-16T18:08:11.407Z",
+    attachment: { type: "goal_status", condition: "Finish checks", met: false, failed: true } };
+  // Actual Claude 2.1.289 history after Cancel on an impossible goal. It emits
+  // no goal_status sentinel because its native checker already removed the goal.
+  const cleared = { type: "system", subtype: "local_command", uuid: "cleared",
+    timestamp: "2026-10-16T18:09:31.206Z", commandRun: { command: "goal", args: "clear" },
+    content: "<local-command-stdout>No goal set</local-command-stdout>" };
+  const frames = [failed,
+    { ...cleared, type: "assistant", uuid: "quoted", message: { content: "No goal set" } },
+    { ...cleared, uuid: "nested", parent_tool_use_id: "child" },
+    { ...cleared, uuid: "sidechain", isSidechain: true },
+    { ...cleared, uuid: "meta", isMeta: true },
+    { ...cleared, uuid: "other-command", commandRun: { command: "help", args: "clear" } },
+    { ...cleared, uuid: "status-only", commandRun: { command: "goal", args: "" } },
+    { ...cleared, uuid: "error", content: "<local-command-stderr>No goal set</local-command-stderr>" }
+  ];
+  await writeFile(file, frames.map(JSON.stringify).join("\n") + "\n");
+  const options = { configRoot: root, workdir: root, conversationId };
+  assert.equal((await readClaudeHistory(options)).goal.status, "blocked", "quotes, nested commands and failures cannot clear the goal");
+  await writeFile(file, JSON.stringify(cleared) + "\n", { flag: "a" });
+  const original = await readFile(file, "utf8");
+  assert.equal((await readClaudeHistory(options)).goal, null);
+  assert.equal((await readClaudeHistory(options)).goal, null, "a fresh read cannot resurrect the failed goal");
+  assert.equal(await readFile(file, "utf8"), original, "projection does not mutate native history");
+  await writeFile(file, JSON.stringify({ ...failed, uuid: "next", timestamp: "2026-10-16T18:10:00.000Z",
+    attachment: { type: "goal_status", condition: "Next checks", met: false, sentinel: true } }) + "\n", { flag: "a" });
+  assert.equal((await readClaudeHistory(options)).goal.objective, "Next checks", "a later goal still wins");
+});
+
 test("Claude local-command error output stays distinguishable and result-only success retains provenance", async () => {
   const { turn, send, events } = fixture();
   await send();
@@ -670,7 +706,7 @@ test("Claude split text followed by a tool is commentary, never a final answer",
 
 
 import { createClaudeConversationOwner } from "../src/server/conversation/claudeTurn.js";
-import { mkdtemp, mkdir, rm, writeFile, appendFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, readFile, writeFile, appendFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createConversationRuntime, createMemoryConversationStorage, createConversationTranscript } from "../src/server/conversation/index.js";
