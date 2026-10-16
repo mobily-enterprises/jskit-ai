@@ -141,8 +141,9 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   }
   function queueNarration(kind, text) {
     // Optional activity uses the original queue but never impersonates a canonical output.
-    if (!narrationEnabled() || speechQueue.some(reply => !reply.narrationKind)
-      || speechActive.value && !speechQueue.some(reply => reply.narrationKind && reply.turnId === voice.activeSpeechTurnId.value)) return;
+    if (!narrationEnabled()) return;
+    // Only filler yields to queued speech. Actual messages keep arrival order.
+    if (kind === "murmur" && (speechQueue.length || speechActive.value)) return;
     speechQueue.push({ narrationKind: kind, raw: text, consumed: 0, final: true, started: false });
     void drainSpeech();
   }
@@ -294,7 +295,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     let reply = replies.get(message.id);
     if (!reply) {
       if (!primed || !readAloud.value || speechSuppressed || seen.has(message.id) || (!final && message.autonomous)) return;
-      retireNarration();
+      retireNarration(kind => kind === "murmur");
       reply = {
         id: message.id, outputId: message.outputId || message.id, streamId: message.streamId,
         raw: "", consumed: 0, spokenCharacters: 0, speechCapped: false,
@@ -311,7 +312,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (reply.turnId && voice.activeSpeechTurnId.value === reply.turnId) voice.stopSpeaking("page-hidden");
       return;
     }
-    if (final) retireNarration();
+    if (final) retireNarration(kind => kind === "murmur");
     const text = String(message.text || "").slice(0, VOICE_MAX_SPEECH_TEXT_CHARACTERS * 2);
     const spokenPrefix = reply.raw.slice(0, reply.consumed);
     if (!text.startsWith(spokenPrefix) && !(final && text.trimEnd() === spokenPrefix.trimEnd())) {

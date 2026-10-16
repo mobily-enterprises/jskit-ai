@@ -219,3 +219,8 @@ by a hook notice. Hosts must not automatically resume this blocked state on
 restart. This projection records the native termination; it does not prevent
 Claude's preceding retry loop or turn an assistant's “paused” reply into a control
 operation.
+
+The existing voice queue preserves arrival order for selected progress/thinking
+narration and canonical answers. An arriving answer retires only optional murmur
+filler, not message playback. Explicit Stop, mute, capture-related narration
+retirement and target cleanup retain their existing cancellation owners.

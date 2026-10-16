@@ -3274,25 +3274,63 @@ test("optional thinking sounds wait 20 seconds and yield to real speech and capt
   assert.equal(view.emitted.some(([kind, event]) => kind === "playback" && event.outputId !== "actual-answer"), false);
 });
 
-test("canonical replies supersede only optional narration in the original queue", async t => {
-  const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
-  view.colleagueProps.narration = { turns: [], eligible: true, working: true, vocalizeInterimTurns: true };
-  await flushVue();
-  view.colleagueProps.narration.turns = [{ turnId: "work", messages: [{ role: "commentary", messageId: "progress", text: "Checking the project." }] }];
-  await flushVue();
-  const socket = view.sockets[0];
-  const activity = controls(socket).find(control => control.type === "speak.start");
-  view.colleagueProps.conversation.streamingReply = { id: "answer", role: "assistant", text: "A canonical streamed answer. ", status: "inProgress" };
-  await flushVue();
-  const answer = controls(socket).filter(control => control.type === "speak.start").at(-1);
-  assert.notEqual(answer.turnId, activity.turnId);
-  assert.ok(controls(socket).some(control => control.type === "cancel" && control.turnId === activity.turnId));
-  view.colleagueProps.narration.turns[0].messages.push({ role: "commentary", messageId: "late", text: "Do not interrupt the answer." });
-  await flushVue();
-  assert.equal(view.voice.activeSpeechTurnId.value, answer.turnId);
-  assert.equal(controls(socket).some(control => control.type === "cancel" && control.turnId === answer.turnId), false);
-  assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 2);
-});
+for (const kind of ["commentary", "thinking"]) {
+  test(`spoken ${kind} and answers finish in arrival order without replacing current playback`, async t => {
+    const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
+    view.colleagueProps.narration = { turns: [], eligible: true, working: true,
+      vocalizeInterimTurns: true, vocalizeThinking: true };
+    await flushVue();
+    const first = { role: kind, messageId: "progress-a", text: "First spoken message." };
+    view.colleagueProps.narration.turns = [{ turnId: "work", messages: [first] }];
+    await flushVue();
+    const socket = view.sockets[0];
+    const activity = controls(socket).find(control => control.type === "speak.start");
+    socket.receive({ type: "speech.start", turnId: activity.turnId });
+    socket.receive(new Int16Array(22050).buffer);
+    socket.receive({ type: "speech.end", turnId: activity.turnId });
+    await flushVue();
+    const firstAudio = view.sources[0];
+    view.colleagueProps.narration.turns[0].messages.push({ role: kind, messageId: "progress-b", text: "Second spoken message." });
+    await flushVue();
+    const answer = { id: "answer", outputId: "canonical-answer", role: "assistant", text: "Third spoken message.", status: "inProgress" };
+    view.colleagueProps.conversation.streamingReply = answer;
+    await flushVue();
+    view.colleagueProps.conversation.streamingReply = { ...answer, status: "completed" };
+    await flushVue();
+    view.colleagueProps.conversation.messages = [{ ...answer, status: "completed" }];
+    view.colleagueProps.conversation.streamingReply = null;
+    await flushVue();
+    assert.equal(firstAudio.stopped, false, "a new answer must not cancel earlier spoken activity");
+    assert.equal(controls(socket).filter(control => control.type === "speak.start").length, 1);
+    assert.equal(controls(socket).some(control => control.type === "cancel"), false);
+    firstAudio.finish();
+    await flushVue();
+    for (const text of ["Second spoken message.", "Third spoken message.", "Fourth spoken message."]) {
+      const active = controls(socket).filter(control => control.type === "speak.start").at(-1);
+      assert.equal(active.text, text);
+      socket.receive({ type: "speech.start", turnId: active.turnId });
+      socket.receive(new Int16Array(22050).buffer);
+      socket.receive({ type: "speech.end", turnId: active.turnId });
+      await flushVue();
+      const audio = view.sources.at(-1);
+      if (text === "Third spoken message.") {
+        view.colleagueProps.narration.turns[0].messages.push({ role: kind, messageId: "progress-d", text: "Fourth spoken message." });
+        await flushVue();
+        assert.equal(audio.stopped, false);
+      }
+      audio.finish();
+      await flushVue();
+    }
+    view.colleagueProps.narration.turns = [...view.colleagueProps.narration.turns];
+    view.colleagueProps.conversation.messages = [...view.colleagueProps.conversation.messages];
+    await flushVue();
+    assert.deepEqual(controls(socket).filter(control => control.type === "speak.start").map(control => control.text),
+      ["First spoken message.", "Second spoken message.", "Third spoken message.", "Fourth spoken message."]);
+    assert.equal(view.voice.activeSpeechTurnId.value, "");
+    assert.equal(controls(socket).some(control => control.type === "cancel"), false);
+  });
+}
+
 
 test("optional narration tracks cumulative activity beyond 4000 while preserving the original observed-delta cap", async t => {
   const view = mountVoice(t, { colleague: true, defaults: { readAloud: true } });
