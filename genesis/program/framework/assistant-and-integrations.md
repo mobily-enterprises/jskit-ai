@@ -142,3 +142,10 @@ remaining commands or background tasks. Folded completion alone never confirms
 an interrupt. The native owner regression tests cover the deployed CLI's folded
 notification order, late completion after a successor starts, background work,
 and preservation of the original published-answer owner.
+
+If steering fails while interrupting the preceding generation, the next input
+has not been written. After the original cleanup owner succeeds, the shared
+owner preserves definite non-delivery rather than leaving an attempted receipt.
+A failed cleanup retains its error and execution custody. Interrupt confirmation
+timeouts are typed recoverable failures; a control acknowledgement alone still
+cannot confirm the generation has ended.

@@ -452,7 +452,9 @@ export function createClaudeConversationOwner({
         if (command) command.interrupted = true;
       } catch (error) {
         if (!command) await entry.nativeTurn.stopProcess(error.message);
-        throw error;
+        // Interruption precedes this input's pipe write. Preserve that definite
+        // non-delivery so a failed interrupt cannot strand an attempted receipt.
+        throw Object.assign(error, { delivery: "not-sent" });
       }
     }
     const prompt = command ? undefined : await preparation.message(entry, input, { context, message, steering, renewal });
@@ -1461,7 +1463,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         await Promise.all([client.interrupt(), Promise.race([
           steering.promise,
           new Promise((_, reject) => {
-            timer = setTimeout(() => reject(failure("Claude did not confirm the interrupted generation.")), timeoutMs);
+            timer = setTimeout(() => reject(Object.assign(failure(
+              "Claude did not confirm the interrupted generation. This instruction was not sent; retry after reconnecting.",
+              "assistant_claude_interrupt_timeout"
+            ), { statusCode: 503 })), timeoutMs);
           })
         ])]);
         await publish({ type: "diagnostic", stage: "steering_confirmed", pendingCommands: inFlight.size, backgroundTasks: tasks.size });

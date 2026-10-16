@@ -1323,3 +1323,40 @@ test("folded internal command preserves the original published answer owner", as
   assert.equal(f.entry.turn.active, false);
   assert.equal(f.final()?.text, "The user's answer");
 });
+
+
+test("failed interruption reports definite non-delivery after the original process cleanup", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("original-input");
+  let writes = 0;
+  f.entry.process.client.send = async () => { writes++; };
+  f.entry.process.client.interrupt = async () => { throw new Error("Interrupt was not acknowledged"); };
+  await assert.rejects(f.send("goal-input"), error => error.delivery === "not-sent" &&
+    error.message === "Interrupt was not acknowledged");
+  assert.equal(writes, 0);
+  assert.equal(f.entry.process, null, "The original stop owner still proves cleanup before returning");
+});
+
+test("interrupt confirmation timeout is a recoverable typed failure, not a generic server error", async () => {
+  const { turn, send, client } = fixture();
+  await send();
+  await assert.rejects(turn.interruptGeneration(client, { timeoutMs: 5 }), error =>
+    error.code === "assistant_claude_interrupt_timeout" && error.statusCode === 503 && /not sent/.test(error.message));
+  turn.stop();
+});
+
+
+test("failed cleanup after interrupt failure retains the cleanup error and execution custody", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("original-input");
+  const native = f.entry.process;
+  const originalStop = native.stop;
+  native.client.interrupt = async () => { throw new Error("Interrupt was not acknowledged"); };
+  native.stop = async () => ({ scopeEmpty: false, exited: false });
+  try {
+    await assert.rejects(f.send("goal-input"), error => error.code === "claude_stop_unconfirmed" &&
+      error.delivery !== "not-sent");
+    assert.equal(f.entry.process, native);
+    assert.ok(f.entry.executionId);
+  } finally { native.stop = originalStop; }
+});
