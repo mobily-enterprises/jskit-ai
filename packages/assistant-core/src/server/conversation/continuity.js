@@ -167,12 +167,16 @@ export function createConversationChangeover({ state, transcript, agent, identit
 
     const provisional = messages.find((message) => (message.role === "user" || applicationMessages && message.role === "application") &&
       message.messageId === input.messageId && message.receipt === false);
-    if (provisional) {
+    // The original pending write precedes every native dispatch. A retained
+    // false attempt for this exact input proves it has not crossed that boundary
+    // (or the native owner explicitly rejected it before writing).
+    const notAttempted = binding.pending?.messageId === input.messageId && binding.pending.attempted === false;
+    if (provisional && !notAttempted) {
       const receipt = await agent.inspectMessageAdmission({ messageId: input.messageId }).catch(() => null);
       if (receipt?.admission !== "accepted") return unconfirmed(input.messageId, receipt?.threadId);
       return { ok: true, delivered: true, messageId: input.messageId, duplicate: true };
     }
-    if (await transcript.hasMessage(input.messageId)) {
+    if (!provisional && await transcript.hasMessage(input.messageId)) {
       return { ok: true, delivered: true, messageId: input.messageId, duplicate: true };
     }
     const snapshot = Object.fromEntries(messages.map((message) => [message.id, message.version]));
@@ -190,10 +194,11 @@ export function createConversationChangeover({ state, transcript, agent, identit
       delete binding.pending;
       pending = null;
     }
-    if (!pending && (switched || renderChanged.length || deleted.length)) {
+    if (!pending) {
+      const needsContext = switched || renderChanged.length || deleted.length;
       const handover = value.replacement?.engineId === engineId && value.replacement.status === "ready"
         ? value.replacement.handover : "";
-      const preamble = [
+      const preamble = needsContext ? [
         `[${label}]`,
         returning
           ? `You are continuing your existing ${engineId} conversation. Other messages or corrections were recorded in ${applicationName} since you last received them.`
@@ -211,7 +216,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         "",
         "User's message:",
         String(input.message || "")
-      ].join("\n");
+      ].join("\n") : String(input.message || "");
       pending = binding.pending = {
         messageId: input.messageId, message: preamble,
         displayMessage: String(input.displayMessage || input.message || ""),
@@ -219,7 +224,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         attachmentIds: input.attachmentIds || [],
         ...(input.data !== undefined ? { data: structuredClone(input.data) } : {}),
         seen: snapshot, attempted: false,
-        ...(captureContext ? {
+        ...(captureContext && needsContext ? {
           contextText: preamble.slice(0, preamble.length - String(input.message || "").length - "\n\nUser's message:\n".length),
           contextAttachments: [...new Map(catchup.flatMap(message => message.attachments || [])
             .map(file => [file.attachmentId, file])).values()]

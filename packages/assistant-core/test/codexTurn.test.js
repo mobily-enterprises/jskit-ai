@@ -3185,3 +3185,73 @@ test("completed envelope returning corrections remain full while the current bat
   assert.deepEqual(carried.removedMessageIds, ["removed"]);
   assert.deepEqual(value.engines.codex.seen, { "old-row": "edited", "current-row": "current" });
 });
+
+
+test("a provisional row retries only with the exact retained no-attempt evidence after reload", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  for (const proof of ["rejected", "attempted", "missing", "other-input"]) {
+    let saved = { lastEngine: "claude", engines: { claude: { seen: {}, ...(proof !== "missing" ? { pending: {
+      messageId: proof === "other-input" ? "other" : "followup", message: "Exact prepared input",
+      displayMessage: "Follow-up", displayAttachments: [], attachmentIds: [], seen: {}, attempted: proof === "attempted"
+    } } : {}) } } };
+    let sends = 0;
+    const changeover = createConversationChangeover({
+      state: { async read() { return structuredClone(saved); }, async write(value) { saved = structuredClone(value); } },
+      transcript: { async hasMessage() { return true; }, async writeUserMessage() { assert.fail("The existing authored row must not be copied"); } },
+      agent: {
+        async inspectMessageAdmission() { return { admission: "unknown" }; },
+        async sendMessage(input) {
+          sends += 1;
+          assert.equal(input.messageId, "followup");
+          assert.equal(input.message, "Exact prepared input");
+          await input.onPromptSending({ threadId: "retained-native" });
+          return { ok: true, delivered: true };
+        }
+      }
+    });
+    const result = await changeover.send({ engineId: "claude", messages: [{ id: "row", messageId: "followup",
+      role: "user", text: "Follow-up", receipt: false, version: "v1" }], input: { messageId: "followup", message: "Follow-up" } });
+    assert.equal(result.delivered, proof === "rejected");
+    assert.equal(sends, proof === "rejected" ? 1 : 0);
+    if (proof === "rejected") assert.equal(saved.engines.claude.pending, undefined);
+  }
+});
+
+
+test("ordinary same-engine input reserves the existing pending proof without adding context", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  let saved = { lastEngine: "claude", engines: { claude: { seen: {} } } };
+  const messages = [];
+  let sends = 0;
+  let failed = true;
+  const create = () => createConversationChangeover({
+    state: { async read() { return structuredClone(saved); }, async write(value) { saved = structuredClone(value); } },
+    transcript: { async hasMessage() { return messages.length > 0; } },
+    captureContext: true,
+    agent: {
+      async inspectMessageAdmission() { return { admission: "unknown" }; },
+      async sendMessage(input) {
+        sends++;
+        assert.equal(input.message, "Unchanged authored words");
+        assert.equal(input.contextText, undefined);
+        assert.equal(saved.engines.claude.pending.attempted, false);
+        await input.onPromptSending({ threadId: "exact-native" });
+        assert.equal(saved.engines.claude.pending.attempted, true);
+        if (failed) {
+          messages.push({ id: "provisional", messageId: "same", role: "user", receipt: false, text: input.message, version: "v1" });
+          await input.onPromptRejected();
+          throw Object.assign(new Error("Ended before write"), { delivery: "not-sent" });
+        }
+        return { ok: true, delivered: true };
+      }
+    }
+  });
+  const input = { messageId: "same", message: "Unchanged authored words" };
+  await assert.rejects(create().send({ engineId: "claude", messages, input }), { delivery: "not-sent" });
+  assert.equal(saved.engines.claude.pending.attempted, false);
+  failed = false;
+  assert.equal((await create().send({ engineId: "claude", messages, input })).delivered, true);
+  assert.equal(saved.engines.claude.pending, undefined);
+  assert.equal(sends, 2);
+  assert.equal(messages.length, 1);
+});

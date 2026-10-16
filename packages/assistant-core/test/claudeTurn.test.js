@@ -1378,6 +1378,36 @@ test("only natural completion marks a rejected steer eligible for ordinary Send;
   }
 });
 
+test("interruption before a late steer distinguishes completed work from Stop, cancellation and idle state", async () => {
+  for (const ending of ["complete", "stop", "cancel", "idle", "steering"]) {
+    const f = fixture();
+    await f.send();
+    let firstInterrupt;
+    if (ending === "complete" || ending === "idle") {
+      await f.turn.receive({ type: "result", subtype: "success", result: "Done" });
+      if (ending === "idle") f.turn.reset();
+    } else if (ending === "stop") f.turn.stop();
+    else if (ending === "cancel") await f.turn.interrupt(f.client);
+    else {
+      const began = Promise.withResolvers();
+      f.client.interrupt = async () => { began.resolve(); };
+      firstInterrupt = f.turn.interruptGeneration(f.client).catch(() => {});
+      await began.promise;
+    }
+    let interrupts = 0;
+    f.client.interrupt = async () => { interrupts += 1; };
+    await assert.rejects(f.turn.interruptGeneration(f.client), error => {
+      assert.equal(error.delivery, "not-sent");
+      assert.equal(error.code, ending === "complete" ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed");
+      assert.equal(error.statusCode, ending === "complete" ? 409 : undefined);
+      return true;
+    });
+    assert.equal(interrupts, 0);
+    f.turn.stop();
+    await firstInterrupt;
+  }
+});
+
 test("folded internal command preserves the original published answer owner", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send();

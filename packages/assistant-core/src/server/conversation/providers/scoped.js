@@ -154,7 +154,7 @@ export async function readPersistentConversation(options) {
   const scope = { sessionId, conversationId: record.conversationId };
   let response = {};
   let turns = await store.readConversationLog(scope);
-  const requestTurn = turns.findLast((turn) => turn.user?.messageId === record.messageId);
+  let requestTurn = turns.findLast((turn) => turn.user?.messageId === record.messageId);
   const messageScope = projection.messageScope(context, scope, requestTurn);
   const savedIds = new Set(turns.flatMap((turn) => turn.messages.map((message) => message.messageId)));
   const writtenTurnIds = new Set();
@@ -166,9 +166,13 @@ export async function readPersistentConversation(options) {
         const operation = messageWriters[message.role];
         if (operation && message.text && message.complete !== false && !savedIds.has(message.id)) {
           const written = await store[operation](messageScope, {
-            ...projection.message(message, record, "stored"), messageId: message.id
+            ...projection.message(message, record, "stored"), messageId: message.id,
+            ...(requestTurn && !requestTurn.assistant ? { turnId: requestTurn.turnId } : {})
           });
-          if (written) writtenTurnIds.add(written.turnId);
+          if (written) {
+            writtenTurnIds.add(written.turnId);
+            if (written.turnId === requestTurn?.turnId) requestTurn = written;
+          }
           appended = true;
         }
       }
@@ -196,6 +200,7 @@ export async function readPersistentConversation(options) {
 export async function startPersistentConversationTurn(options) {
   const { sessionId, input, operations, store, records, prepare, receipts } = options;
   let { record, context } = options;
+  const priorInput = { messageId: record.messageId || "", runId: record.runId || "" };
   const previous = await readPersistentConversation({ ...options, record: { ...record, messageId: input.messageId } });
   if (previous.readError) throw new Error(previous.error);
   if (previous.admitted) return { ...previous, delivered: true, turnId: previous.runId };
@@ -236,12 +241,19 @@ export async function startPersistentConversationTurn(options) {
     if (authoredTurn) await publishTranscript(options, context, record, [authoredTurn], { admitted: true });
     return { ...result, delivered: true, turnId: result.runId, conversationId: record.conversationId };
   } catch (error) {
+    const notSent = error.delivery === "not-sent";
+    // A rejected follow-up does not own the prior request's late answer. Retain
+    // its authored row, but restore the admitted identity before reconciliation.
+    if (notSent) {
+      record = await records.save(context, record, priorInput);
+      await input.onPromptRejected?.();
+    }
     const observed = await readPersistentConversation({ ...options, context, record });
-    if (observed.admitted) {
+    if (!notSent && observed.admitted) {
       if (receipts.afterAdmission(input)) await writeReceipt();
       return { ...observed, delivered: true, turnId: observed.runId };
     }
-    if (observed.readError && !receipts.afterAdmission(input)) return {
+    if (!notSent && observed.readError && !receipts.afterAdmission(input)) return {
       ...observed, ok: false, delivered: false, status: "uncertain", messageId: input.messageId, error: error.message
     };
     await records.save(context, record, { error: error.message, status: "failed" });

@@ -4291,6 +4291,17 @@ attachments and application data, retaining Send intent if it later fails. It
 never converts goals or prepared application submissions, never retries accepted
 or uncertain delivery, and checks that the original actor/conversation remains
 current. Other `conversation_not_steerable` refusals retain their existing policy.
+Claude also classifies this race before native interruption, but only a completed
+result qualifies; idle state, Stop, cancellation and another interrupt do not.
+The scoped retained-conversation owner restores the prior admitted identity on
+definite rejection before reading late output, and anchors the first answer to
+the original unanswered authored turn. Further native messages retain the
+ordinary multi-message projection. Every newly outgoing input reserves the
+existing continuity pending record, including ordinary same-model sends: bare
+authored text stays unchanged when no catch-up is needed. Only the matching
+pending record with `attempted: false` permits retry after definite rejection,
+including after reload. Missing evidence remains inspection-only. Rejected rows
+remain intact; no historical rows or pending records are rewritten.
 
 Claude's internal task notifications do not become user requests. Their command
 lifecycle events must not leave a completed user request busy or replace its

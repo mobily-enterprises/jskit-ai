@@ -1453,7 +1453,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       }
     },
     async interruptGeneration(client, { timeoutMs = 30_000 } = {}) {
-      if (!active || steering || cancelling) throw failure("This Claude turn cannot accept steering now.");
+      if (!active || steering || cancelling) {
+        const completed = !active && !steering && !stopped && !cancelling && outcome?.status === "completed";
+        throw Object.assign(failure("This Claude turn cannot accept steering now.", completed
+          ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
+        { delivery: "not-sent", ...(completed ? { statusCode: 409 } : {}) });
+      }
       // A completed main loop can still own background work. There is no
       // generation left to interrupt or second terminal result to wait for.
       if (outcome && inFlight.size === 0) {
