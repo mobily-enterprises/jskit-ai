@@ -68,6 +68,10 @@ The execution receipt remains observed after initialization, so a parent exit
 cannot be hidden by children retaining its output pipe. Concurrent cleanup calls
 join one process stop and its interrupted-state checkpoint. Unconfirmed retained
 cleanup exposes observation loss through the existing host status contract.
+Observation and reconciliation distinguish an orphaned execution from the exact
+pending cleanup lease owned by current Claude initialization. That transient
+lease loses its pending flag on either startup success or failure; explicit Stop
+retains its cleanup access throughout, and restored executions gain no exemption.
 Closing a session cancels native startup before waiting for preparation to drain;
 late configuration cannot launch a successor after Stop. Failed cleanup retains
 its owner for an explicit retry rather than starting another hidden stop attempt.

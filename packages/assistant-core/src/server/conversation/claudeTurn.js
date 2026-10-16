@@ -12,6 +12,10 @@ function failure(message, code = "assistant_claude_turn_failed") {
 const text = value => String(value ?? "").trim();
 const now = () => new Date().toISOString();
 
+function hasPendingClaudeStartup(entry) {
+  return entry.startupCleanup?.pending === true && entry.startupCleanup.executionId === entry.executionId;
+}
+
 export function claudeNativeMessageId(id) {
   const value = createHash("sha256").update(String(id)).digest("hex");
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-4${value.slice(13, 16)}-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
@@ -23,7 +27,7 @@ export async function waitForClaudeConversationTurn(conversation, input = {}, {
   interruptedMessage = "Claude was interrupted when the application disconnected."
 } = {}) {
   const entry = conversation.state;
-  if (entry.executionId && !entry.process) await conversation.stop(interruptedMessage);
+  if (entry.executionId && !entry.process && !hasPendingClaudeStartup(entry)) await conversation.stop(interruptedMessage);
   if (!entry.turn?.active) return conversation.read(input);
   const timeoutMs = Math.min(
     Number(input.timeoutMs) > 0 ? Number(input.timeoutMs) : defaultTimeoutMs,
@@ -277,7 +281,7 @@ export function createClaudeConversationOwner({
     if (entry.process) await ensureProcess(entry);
     else {
       await bindAccount(entry);
-      if (entry.executionId) await entry.nativeTurn.stopProcess("Claude's previous process exit could not be confirmed.");
+      if (entry.executionId && !hasPendingClaudeStartup(entry)) await entry.nativeTurn.stopProcess("Claude's previous process exit could not be confirmed.");
       // The first Send prepares host hooks before starting the native process.
     }
     return { ok: true, thread: { id: entry.id }, turn: snapshot(entry), workdir: entry.context.workdir };
@@ -334,10 +338,14 @@ export function createClaudeConversationOwner({
     let options = process.configure(entry, configuration, { context, prepared });
     if (options && typeof options.then === "function") options = await options;
     assertPreparing();
+    let startupCleanup;
     try { entry.process = await createProcess({ ...options,
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
       onStarted: async (executionId, stop) => {
-        if (typeof stop === "function") entry.startupCleanup = { executionId, stop };
+        if (typeof stop === "function") {
+          startupCleanup = { executionId, stop, pending: true };
+          entry.startupCleanup = startupCleanup;
+        }
         if (entry.executionId !== executionId) {
           entry.executionId = executionId;
           await store.save(entry, { execution: true });
@@ -413,6 +421,8 @@ export function createClaudeConversationOwner({
         if (entry.startupCleanup?.executionId === error.executionId) entry.startupCleanup = null;
       }
       throw error;
+    } finally {
+      if (startupCleanup) startupCleanup.pending = false;
     }
     try { assertPreparing(); }
     catch (error) {
@@ -552,7 +562,7 @@ export function createClaudeConversationOwner({
   }
 
   async function read(entry, input = {}) {
-    if (entry.executionId && !entry.process) await entry.nativeTurn.stopProcess(disconnectedMessage);
+    if (entry.executionId && !entry.process && !hasPendingClaudeStartup(entry)) await entry.nativeTurn.stopProcess(disconnectedMessage);
     const history = await readHistory(entry);
     const messages = new Map(history.messages.map(message => [message.id, message]));
     const current = entry.nativeTurn.read();
@@ -691,7 +701,7 @@ export function createClaudeConversationOwner({
 
   async function recover(restoredEntries) {
     for (const entry of restoredEntries) {
-      if (!entry.process && (entry.executionId || entry.turn?.active)) await entry.nativeTurn.stopProcess(disconnectedMessage);
+      if (!entry.process && !hasPendingClaudeStartup(entry) && (entry.executionId || entry.turn?.active)) await entry.nativeTurn.stopProcess(disconnectedMessage);
     }
   }
 

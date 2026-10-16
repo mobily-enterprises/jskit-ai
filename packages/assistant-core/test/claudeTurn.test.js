@@ -1571,3 +1571,46 @@ test("Claude goal re-admission preserves Stop during rejected dispatch cleanup",
   assert.equal(preparations, 1);
   assert.equal(writes, 0);
 });
+
+for (const observation of ["read", "ensureReady", "recover", "wait"]) test(`Claude ${observation} preserves its own pending startup lease`, { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  let stops = 0;
+  f.behavior.initialize = async native => {
+    const stop = native.stop;
+    native.stop = async () => { stops++; return stop(); };
+    entered.resolve();
+    await release.promise;
+  };
+  const starting = f.owner.ensureProcess(f.entry);
+  void starting.catch(() => {});
+  try {
+    await entered.promise;
+    assert.ok(f.entry.executionId);
+    assert.equal(f.entry.process, null);
+    if (observation === "recover") await f.owner.recover([f.entry]);
+    else if (observation === "wait") await waitForClaudeConversationTurn({ state: f.entry,
+      stop: reason => f.entry.nativeTurn.stopProcess(reason), read: () => f.owner.read(f.entry) });
+    else await f.owner[observation](f.entry);
+    assert.equal(stops, 0, "A live startup's retained cleanup handle is not an orphaned execution");
+  } finally { release.resolve(); }
+  await starting;
+  assert.ok(f.entry.process);
+  await f.owner.close(f.entry);
+  assert.equal(stops, 1, "Explicit close still proves cleanup through the original owner");
+});
+
+test("Claude failed startup no longer exempts retained cleanup from reconciliation", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  let stops = 0;
+  f.behavior.initialize = async native => {
+    const stop = native.stop;
+    native.stop = async () => { stops++; return stop(); };
+    throw new Error("Initialization failed with cleanup still owned");
+  };
+  await assert.rejects(f.owner.ensureProcess(f.entry), /Initialization failed/);
+  await f.owner.recover([f.entry]);
+  assert.equal(stops, 1);
+  assert.equal(f.entry.executionId, "");
+});

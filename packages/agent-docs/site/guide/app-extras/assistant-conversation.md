@@ -4314,3 +4314,10 @@ Connection warnings render a compact full-width row with Reload on the left and
 wrapped status text on the right. The avatar stays over the transcript below
 that row; its selected size cannot push recovery controls down. Reload preserves
 loaded messages and drafts, and its disabled pending state remains visible.
+
+Status/history reads and reconciliation do not stop a Claude process while its
+current runtime still owns the pending initialization cleanup lease. The lease
+is transient and tied to the exact execution ID; after initialization fails,
+ordinary cleanup/reconciliation applies again. Explicit Stop can always use that
+lease to stop startup. A restored execution has no pending lease and still needs
+verified cleanup before reuse.
