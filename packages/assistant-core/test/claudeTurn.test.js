@@ -464,7 +464,7 @@ test("Claude split text followed by a tool is commentary, never a final answer",
 
 
 import { createClaudeConversationOwner } from "../src/server/conversation/claudeTurn.js";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile, appendFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { createConversationRuntime, createMemoryConversationStorage, createConversationTranscript } from "../src/server/conversation/index.js";
@@ -505,6 +505,19 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
           client: { async request() { return {}; },
             async send(_message, input) {
               await options.onEvent({ type: "user", uuid: input.messageId, session_id: options.sessionId });
+              if (_message.startsWith("/goal ")) {
+                behavior.goalAttachmentWork = (async () => {
+                  await behavior.beforeGoalAttachment?.();
+                  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+                  await mkdir(directory, { recursive: true });
+                  const condition = _message.slice(6);
+                  const marker = { type: "attachment", uuid: `${input.messageId}-goal`, timestamp: new Date().toISOString(),
+                    attachment: { type: "goal_status", condition, sentinel: true, met: condition === "clear" } };
+                  const user = { type: "user", uuid: input.messageId, parentUuid: marker.uuid, message: { content: _message } };
+                  await appendFile(path.join(directory, `${options.sessionId}.jsonl`), [marker, user].map(JSON.stringify).join("\n") + "\n");
+                })();
+                void behavior.goalAttachmentWork.catch(() => {});
+              }
             },
             async interrupt() {
               await options.onEvent({ type: "result", subtype: "success", result: "", terminal_reason: "aborted_streaming" });
@@ -1643,4 +1656,69 @@ test("Claude failed startup no longer exempts retained cleanup from reconciliati
   await f.owner.recover([f.entry]);
   assert.equal(stops, 1);
   assert.equal(f.entry.executionId, "");
+});
+
+for (const action of ["set", "resume"]) test(`Claude ${action} waits for its exact delayed goal attachment`, { timeout: 5000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, `${f.conversationId}.jsonl`), JSON.stringify({ type: "attachment", uuid: "previous-marker",
+    timestamp: "2026-10-16T00:00:00.000Z", attachment: { type: "goal_status", condition: "Finish the checks", met: action === "set", sentinel: false } }) + "\n");
+  const previous = await f.conversation.readGoal();
+  const attached = Promise.withResolvers();
+  f.behavior.beforeGoalAttachment = () => attached.promise;
+  let finished = false;
+  const updating = f.conversation.updateGoal({ action, objective: "Finish the checks", expectedGoalId: previous.id,
+    messageId: "delayed-goal", expectedSegmentId: `claude:${f.conversationId}` }).then(result => { finished = true; return result; });
+  while (!(await f.binding.transcript.hasMessage("delayed-goal"))) await delay(1);
+  await delay(20);
+  assert.equal(finished, false, "Admission must not return the previous goal as the command's result");
+  attached.resolve();
+  assert.equal((await updating).status, "accepted");
+  const current = await f.owner.readGoal(f.entry);
+  assert.equal(current.goalCommandId, claudeNativeMessageId("delayed-goal"));
+  assert.notEqual(current.goal.createdAt, Date.parse("2026-10-16T00:00:00.000Z") / 1000);
+  assert.equal(current.goal.status, "active");
+});
+
+test("Claude goal attachment timeout retains accepted delivery instead of returning an older goal", { timeout: 5000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  const attached = Promise.withResolvers();
+  f.behavior.beforeGoalAttachment = () => attached.promise;
+  await assert.rejects(f.owner.updateGoal(f.entry, { action: "set", objective: "Finish checks", messageId: "timeout-goal" },
+    { attachmentTimeoutMs: 10 }), { code: "assistant_claude_goal_attachment_pending", delivery: "accepted" });
+  attached.resolve();
+  await f.behavior.goalAttachmentWork;
+  assert.equal((await f.owner.readGoal(f.entry)).goalCommandId, claudeNativeMessageId("timeout-goal"));
+});
+
+test("Stop after Claude goal admission aborts attachment waiting without losing the accepted receipt", { timeout: 5000 }, async t => {
+  const controller = new AbortController();
+  const f = await suppliedCommonFixture(t, { tools: false, signal: controller.signal });
+  const attached = Promise.withResolvers();
+  f.behavior.beforeGoalAttachment = () => attached.promise;
+  const updating = f.conversation.updateGoal({ action: "set", objective: "Finish checks", messageId: "stopped-attaching-goal",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  const rejected = assert.rejects(updating, /abort|stopped/iu);
+  while (!(await f.binding.transcript.hasMessage("stopped-attaching-goal"))) await delay(1);
+  controller.abort(new Error("The goal was stopped"));
+  await rejected;
+  assert.equal(await f.binding.transcript.hasMessage("stopped-attaching-goal"), true);
+  attached.resolve();
+  await f.behavior.goalAttachmentWork;
+});
+
+test("Claude goal command proof survives only evaluations of its own condition", { timeout: 5000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  await f.conversation.updateGoal({ action: "set", objective: "Finish checks", messageId: "condition-proof",
+    expectedSegmentId: `claude:${f.conversationId}` });
+  const file = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"), `${f.conversationId}.jsonl`);
+  const append = condition => appendFile(file, JSON.stringify({ type: "attachment", timestamp: new Date().toISOString(),
+    attachment: { type: "goal_status", condition, met: false } }) + "\n");
+  await append("Finish checks");
+  assert.equal((await f.owner.readGoal(f.entry)).goalCommandId, claudeNativeMessageId("condition-proof"));
+  await append("A different condition");
+  const changed = await f.owner.readGoal(f.entry);
+  assert.equal(changed.goal.objective, "A different condition");
+  assert.equal(changed.goalCommandId, null, "an old command cannot prove a different goal");
 });

@@ -97,6 +97,8 @@ async function readClaudeHistory(options) {
   const userIds = [];
   let lastUserId = "";
   let goal = null;
+  let goalStartId = "";
+  let goalCommandId = "";
   const frames = [];
   const byId = new Map();
   let leafUuid = "";
@@ -135,6 +137,10 @@ async function readClaudeHistory(options) {
     if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
     const status = frame.attachment;
     if (status?.type === "goal_status" && typeof status.condition === "string") {
+      if (status.sentinel === true || goal?.objective !== status.condition) {
+        goalStartId = status.sentinel === true && typeof status.met === "boolean" ? frame.uuid || "" : "";
+        goalCommandId = "";
+      }
       if (status.met === true && status.sentinel === true) goal = null;
       else if (status.met === false || status.met === true) {
         const timestamp = Date.parse(frame.timestamp) / 1000;
@@ -145,6 +151,11 @@ async function readClaudeHistory(options) {
           reason: typeof status.reason === "string" ? status.reason : ""
         };
       }
+    }
+    // Native /goal appends its sentinel before the authored command, whose
+    // parent identifies that exact attachment. A later evaluation keeps it.
+    if (frame.type === "user" && !frame.isMeta && frame.uuid && goalStartId && frame.parentUuid === goalStartId) {
+      goalCommandId = frame.uuid;
     }
     if (frame.type === "user" && !frame.isMeta && frame.uuid &&
         (typeof frame.message?.content === "string" || frame.message?.content?.some((block) => block.type === "text"))) {
@@ -185,7 +196,7 @@ async function readClaudeHistory(options) {
       messages.set(message.id, { ...message, userId: lastUserId });
     }
   }
-  return { exists: true, messages: [...messages.values()], userIds, goal, ...inspected,
+  return { exists: true, messages: [...messages.values()], userIds, goal, goalCommandId, ...inspected,
     text: [...messages.values()].filter((message) => message.role === "assistant" && message.userId === lastUserId)
       .map((message) => message.text).join("\n") };
 }

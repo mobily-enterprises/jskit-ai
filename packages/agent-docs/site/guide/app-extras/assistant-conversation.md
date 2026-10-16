@@ -4332,3 +4332,11 @@ is transient and tied to the exact execution ID; after initialization fails,
 ordinary cleanup/reconciliation applies again. Explicit Stop can always use that
 lease to stop startup. A restored execution has no pending lease and still needs
 verified cleanup before reuse.
+
+For a bound Claude goal, command admission can precede its native goal attachment.
+The retained goal owner waits up to 30 seconds for the attachment linked to that
+exact native command UUID before returning the goal result; it does not await the
+model's whole turn. An attachment timeout reports accepted delivery and leaves the
+original receipt authoritative. Native goal reads expose `goalCommandId` as derived
+history evidence for a host recovering that same pending command. A goal with the
+same condition but a different command is not proof of that command's goal.

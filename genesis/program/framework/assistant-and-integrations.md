@@ -181,3 +181,10 @@ an acknowledged command retains its receipt and uses the ordinary stop owner.
 `AssistantConversationElement` reuses its avatar space observer to reserve the
 warning height for the floating avatar, preserving full-width recovery controls
 without putting the avatar into document flow or replacing the transcript.
+
+Claude's native goal attachment precedes its persisted authored `/goal` command,
+whose parent UUID points to that sentinel. The history owner retains this exact
+command provenance through subsequent evaluations. The bound goal owner waits
+boundedly after native admission for its own attachment before publishing a goal
+result, preserving Stop and accepted receipts during the wait. Missing evidence
+is an accepted-but-pending outcome, not non-delivery or an older goal result.

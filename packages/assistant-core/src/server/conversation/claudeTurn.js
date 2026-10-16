@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { claudeMessageBlocks, deleteClaudeConversationHistory, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
 import { bindClaudeConversationAccount, claudeCodeArguments, createClaudeAccountQueries, createClaudeCodeProcess, stopClaudeCodeProcess } from "./claudeProcess.js";
 import { claudeApplicationToolResponse } from "./claudeTools.js";
@@ -105,8 +106,8 @@ export async function runClaudeRenewalTurn(conversation, {
 export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send }) {
   const goalError = message => failure(message, "assistant_claude_goal_failed");
 
-  async function read() {
-    const { goal = null } = await readHistory();
+  async function read(history = null) {
+    const { goal = null } = history || await readHistory();
     const state = readState();
     return goal ? { ...goal, status: goal.status === "complete" ? "complete" :
       state.running && state.active ? "active" : "paused" } : null;
@@ -730,18 +731,37 @@ export function createClaudeConversationOwner({
 
   async function readGoal(entry) {
     await bindAccount(entry);
-    return { status: "available", threadId: entry.id, goal: await entry.goals.read() };
+    const history = await readHistory(entry);
+    return { status: "available", threadId: entry.id, goal: await entry.goals.read(history), goalCommandId: history.goalCommandId || null };
   }
 
   async function updateGoal(entry, input, operations) {
     await bindAccount(entry);
-    try { await entry.goals.update(input, operations); }
+    const messageId = input.messageId || randomUUID();
+    try { await entry.goals.update(input, { ...operations,
+      send: command => operations?.send ? operations.send(command) : send(entry, { ...command, messageId }) }); }
     catch (error) {
       if (error.code !== "assistant_claude_goal_failed") throw error;
       throw createError(error.message);
     }
+    let result;
+    if (input.action !== "pause") {
+      const deadline = Date.now() + (operations?.attachmentTimeoutMs ?? 30_000);
+      for (;;) {
+        const history = await readHistory(entry);
+        if (history.goalCommandId === claudeNativeMessageId(messageId)) {
+          result = { status: "available", threadId: entry.id, goal: await entry.goals.read(history), goalCommandId: history.goalCommandId };
+          break;
+        }
+        if (operations?.signal?.aborted) throw operations.signal.reason;
+        if (Date.now() >= deadline) throw Object.assign(failure(
+          "Claude accepted the goal command, but its goal attachment is not available yet. Check its original receipt before trying again.",
+          "assistant_claude_goal_attachment_pending"), { delivery: "accepted", statusCode: 503 });
+        await delay(Math.min(250, Math.max(1, deadline - Date.now())), undefined, { signal: operations?.signal });
+      }
+    }
     await onEvent(entry, { type: "goal-updated" });
-    return { ok: true, status: "available", threadId: entry.id, goal: await entry.goals.read() };
+    return { ok: true, ...(result || await readGoal(entry)) };
   }
 
   function renewal(entry, input, options, { context, acquire }) {
