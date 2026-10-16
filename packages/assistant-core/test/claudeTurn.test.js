@@ -17,6 +17,24 @@ function fixture() {
   return { turn, events, client, send };
 }
 
+test("native local command output retains protocol provenance through transcript storage", async () => {
+  const { createConversationTranscript, createMemoryConversationStorage } = await import("../src/server/conversation/index.js");
+  const { turn, send, events } = fixture();
+  await send();
+  await turn.receive({ type: "system", subtype: "local_command_output", uuid: "goal-confirmation", content: "Goal cleared: Finish checks" });
+  const message = events.find(event => event.type === "message").message;
+  assert.deepEqual(message.data, { native: { engineId: "claude", type: "system", subtype: "local_command_output" } });
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  await transcript.writeConversationUserMessage("test", { messageId: "user", text: "/goal clear" });
+  await transcript.writeConversationCommentaryMessage("test", { ...message, messageId: message.id });
+  const [saved] = await transcript.readConversationLog("test");
+  assert.deepEqual(saved.commentary[0].data, message.data);
+  message.data.native.subtype = "changed";
+  assert.equal((await transcript.readConversationLog("test"))[0].commentary[0].data.native.subtype, "local_command_output");
+  turn.stop();
+});
+
 test("a pipe write is not admission; queued and replayed acknowledgements persist the user exactly once", async () => {
   const { turn, client, send, events } = fixture();
   client.send = async () => {};

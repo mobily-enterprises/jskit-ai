@@ -85,7 +85,8 @@ export function createConversationTranscript({ storage, clock = () => new Date()
       await transaction.appendMessage(turnId, {
         role, text: messageText, messageId: id, at: createdAt.toISOString(),
         ...(["assistant", "commentary", "thinking"].includes(role) && normalizeText(outputId) ? { outputId: normalizeText(outputId) } : {}),
-        ...(role === "user" ? { attachments, turnMetadata, ...(data !== undefined ? { data: structuredClone(data) } : {}) } : {})
+        ...(role === "user" ? { attachments, turnMetadata } : {}),
+        ...(data !== undefined ? { data: structuredClone(data) } : {})
       });
       return transaction.readTurn(turnId);
     });

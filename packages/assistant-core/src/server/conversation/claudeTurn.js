@@ -1230,7 +1230,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         }
       }
       if (frame.subtype === "local_command_output" && frame.content) {
-        await publishMessage({ id: `claude_${frame.uuid}`, role: "commentary", text: frame.content, complete: true });
+        await publishMessage({ id: `claude_${frame.uuid}`, role: "commentary", text: frame.content, complete: true,
+          data: { native: { engineId: "claude", type: "system", subtype: "local_command_output" } } });
       }
       if (frame.subtype === "background_tasks_changed") {
         tasks.clear();

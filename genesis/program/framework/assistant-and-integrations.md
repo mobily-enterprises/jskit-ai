@@ -152,3 +152,7 @@ owner preserves definite non-delivery rather than leaving an attempted receipt.
 A failed cleanup retains its error and execution custody. Interrupt confirmation
 timeouts are typed recoverable failures; a control acknowledgement alone still
 cannot confirm the generation has ended.
+
+Claude local command output carries its native system subtype in message data.
+The existing transcript writer clones that optional data for every role, retaining
+protocol provenance without interpreting application presentation policy.

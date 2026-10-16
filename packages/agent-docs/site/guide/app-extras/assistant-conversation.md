@@ -4271,3 +4271,9 @@ lifecycle events must not leave a completed user request busy or replace its
 receipt identity. The shared native owner clears completed commands while still
 waiting for the generation result and any remaining background work. Hosts should
 keep using the shared owner for steering and goal admission.
+
+Native Claude `system/local_command_output` messages retain their origin in
+`data.native` (`engineId`, `type`, `subtype`). Transcript writers preserve supplied
+message data for agent messages as well as user messages. A consuming application
+can distinguish command confirmations from ordinary assistant prose without
+altering native history or treating matching text alone as protocol evidence.
