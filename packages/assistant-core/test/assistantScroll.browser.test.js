@@ -1160,6 +1160,7 @@ test("connection warnings keep avatar controls and Reload reachable without repl
     for (const width of [320, 800]) {
       const page = await browser.newPage({ viewport: { width, height: 1000 } });
       await page.goto(`${vite.baseURL}/?conversation=1&avatar=1&avatarTools=1&update-errors=1`);
+      await page.locator(".fixture").evaluate(element => { element.style.width = "100%"; });
       const external = name => page.getByRole("button", { name, exact: true }).evaluate(element => element.click());
       await external("Resize height");
       const conversation = page.locator(".assistant-conversation");
@@ -1179,14 +1180,25 @@ test("connection warnings keep avatar controls and Reload reachable without repl
       let reloads = 0;
       for (const size of ["standard", "large", "hidden"]) {
         await page.getByRole("combobox", { name: "Avatar preference", exact: true }).selectOption(size);
+        // Establish the reading position after changing the fixture-only avatar preference.
+        await body.evaluate(element => { element.scrollTop = 420; });
+        await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
         await external("Show update error");
         await expect(conversation).toHaveClass(/assistant-conversation--error/u);
-        await expect(avatar).toHaveCSS("position", "relative");
+        await expect(avatar).toHaveCSS("position", "absolute");
         await expect(banner).toContainText("Conversation updates are temporarily unavailable.");
         await expect(reload).toBeVisible();
         const avatarBox = await avatar.boundingBox();
         const bannerBox = await banner.boundingBox();
-        assert.ok(avatarBox.y + avatarBox.height <= bannerBox.y, "The entire avatar and its controls stay above the warning");
+        assert.ok(avatarBox.y >= bannerBox.y + bannerBox.height - 1, "The compact warning stays above the overlaid avatar");
+        const transcriptBox = await page.locator(".assistant-transcript").boundingBox();
+        assert.ok(bannerBox.y < transcriptBox.y + 12, "Avatar height cannot push the warning below the top of chat");
+        assert.ok(bannerBox.width >= transcriptBox.width - 20, "Warning spans the chat width across the avatar area");
+        const wordsBox = await banner.locator(".assistant-transcript__error-content > span").boundingBox();
+        const reloadBox = await reload.boundingBox();
+        assert.ok(reloadBox.x + reloadBox.width <= wordsBox.x, "Reload stays left of the status text");
+        if (size === "standard") await page.screenshot({ path: `/tmp/sas25-connection-${width}.png` });
+        assert.ok(bannerBox.height < (width === 320 ? 150 : 75), `The row wraps compactly instead of reserving avatar height: width=${width}, height=${bannerBox.height}`);
         const controls = size === "hidden"
           ? [page.getByRole("button", { name: "Retained avatar control", exact: true }), page.getByRole("button", { name: "Show avatar", exact: true })]
           : [page.getByRole("button", { name: "Avatar tool", exact: true }), page.getByRole("button", { name: "Minimise avatar", exact: true })];

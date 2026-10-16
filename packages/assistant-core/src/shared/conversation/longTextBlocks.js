@@ -209,10 +209,6 @@ function parsePipeTableAt(lines = [], startIndex = 0) {
   if (!headers || !alignments || headers.length !== alignments.length) {
     return null;
   }
-  if (!headers.some((header) => header)) {
-    return null;
-  }
-
   const rows = [];
   let rowIndex = startIndex + 2;
   while (rowIndex < lines.length) {

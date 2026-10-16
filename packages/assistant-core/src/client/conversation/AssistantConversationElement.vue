@@ -195,6 +195,9 @@ const observedAvatarElements = new Set();
 function measureAvatarSpace() {
   const root = container.value;
   if (!root || !slots.avatar) return;
+  const warning = root.querySelector(".assistant-transcript__error");
+  const warningBottom = warning ? warning.getBoundingClientRect().bottom - root.getBoundingClientRect().top + root.scrollTop : 0;
+  root.style.setProperty("--assistant-conversation-warning-bottom", `${warningBottom}px`);
   const rootStyle = getComputedStyle(root);
   let occupied = parseFloat(rootStyle.paddingTop) + parseFloat(rootStyle.paddingBottom);
   for (const element of observedAvatarElements) {
@@ -216,6 +219,8 @@ function observeAvatarSpace() {
     !element.classList.contains("assistant-conversation__avatar") && !element.classList.contains("assistant-conversation__transcript"));
   const elements = new Set([container.value, ...fixedElements]);
   if (avatarControls.value) elements.add(avatarControls.value);
+  const warning = container.value.querySelector(".assistant-transcript__error");
+  if (warning) elements.add(warning);
   for (const element of observedAvatarElements) {
     if (!elements.has(element)) {
       avatarObserver.unobserve(element);
@@ -390,9 +395,7 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__preview-actions { display: flex; justify-content: flex-end; }
 .assistant-conversation { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; gap: 0; container: assistant-conversation / inline-size; }
 .assistant-conversation--error { overflow-y: auto; }
-.assistant-conversation__avatar { position: absolute; top: 0; right: 0; z-index: 3; max-width: 100%; min-width: 0; }
-.assistant-conversation--error .assistant-conversation__avatar { position: relative; align-self: flex-end; flex: 0 0 auto; }
-.assistant-conversation--error .assistant-conversation__avatar-controls { position: static; }
+.assistant-conversation__avatar { position: absolute; top: var(--assistant-conversation-warning-bottom, 0px); right: 0; z-index: 3; max-width: 100%; min-width: 0; }
 .assistant-conversation__avatar-controls { position: absolute; top: 0; right: 100%; display: flex; align-items: center; justify-content: flex-end; min-height: 44px; }
 .assistant-conversation__avatar--hidden .assistant-conversation__avatar-controls { right: 0; }
 .assistant-conversation__avatar-size { min-width: 44px; min-height: 44px; }

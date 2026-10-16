@@ -41,18 +41,20 @@
     <v-alert
       v-if="error"
       class="assistant-transcript__error"
+      :icon="false"
       density="compact"
       type="warning"
       variant="tonal"
     >
       <div class="assistant-transcript__error-content">
-        <span>{{ error }}</span>
         <v-btn
-          v-if="errorReloadable && !reloadable" :disabled="reloading" :min-height="48" size="small"
+          v-if="errorReloadable && !reloadable" :disabled="reloading" :min-height="32" size="small"
+          :aria-label="reloading ? 'Reloading chat' : 'Reload chat'"
           type="button" variant="text" @click="emit('reload')"
         >
-          Reload chat
+          {{ reloading ? 'Reloading…' : 'Reload chat' }}
         </v-btn>
+        <span>{{ error }}</span>
       </div>
     </v-alert>
 
@@ -1130,15 +1132,18 @@ watch(() => props.visible, (visible) => {
 }
 
 .assistant-transcript__error {
+  position: relative;
+  z-index: 4;
+  background: rgb(var(--v-theme-surface));
+  padding: 0.25rem 0.5rem;
   font-size: 0.85rem;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .assistant-transcript__error-content {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
-  flex-direction: column;
   gap: 0.5rem;
 }
 

@@ -15,6 +15,10 @@ Choose one transcript owner for a conversation. The [ordinary API](./assistant.m
 is the starting point; [advanced hosts](#advanced-host-facilities) and
 [testing](#testing-entrypoints) are separate reference areas.
 
+The shared transcript renders pipe tables with a valid separator row even when
+all header cells are blank. Empty headers do not flatten the body into prose;
+code fences and text without a table separator retain their ordinary treatment.
+
 ### Prepare an offline development copy
 
 Advanced hosts that copy a stopped conversation store can call
@@ -4285,3 +4289,8 @@ as `signal`. Abort it when the person cancels that admission while authorization
 native preparation is still pending. The native goal dispatch checks cancellation
 before writing; a command already acknowledged keeps its receipt. Continue to use
 the ordinary Stop/Pause operation to stop work that has already reached the provider.
+
+Connection warnings render a compact full-width row with Reload on the left and
+wrapped status text on the right. The avatar stays over the transcript below
+that row; its selected size cannot push recovery controls down. Reload preserves
+loaded messages and drafts, and its disabled pending state remains visible.

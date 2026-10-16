@@ -32,6 +32,10 @@ and merge partial turns without losing either half. Live patches retain whole
 boundary turns and their progress rather than trimming by raw storage row count.
 Pagination is a read-only projection; saved identities and records do not change.
 
+The shared transcript accepts Markdown tables with blank header cells when the
+separator row establishes the column structure; paragraph whitespace handling
+does not flatten recognized table rows.
+
 The shared transcript sorts confirmed dated messages chronologically while
 keeping optimistic authored messages in their supplied positions. A queued
 message's earlier local timestamp cannot move it ahead of a preceding message
@@ -164,3 +168,8 @@ than a separate queue. Canonical Claude checks it after asynchronous preparation
 and immediately before native dispatch; raw Claude and Codex goal controls preserve
 the same boundary. An abort before dispatch cannot publish a native command, while
 an acknowledged command retains its receipt and uses the ordinary stop owner.
+
+`AssistantTranscript` owns the compact error row and Reload action.
+`AssistantConversationElement` reuses its avatar space observer to reserve the
+warning height for the floating avatar, preserving full-width recovery controls
+without putting the avatar into document flow or replacing the transcript.
