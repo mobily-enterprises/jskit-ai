@@ -199,3 +199,9 @@ command provenance through subsequent evaluations. The bound goal owner waits
 boundedly after native admission for its own attachment before publishing a goal
 result, preserving Stop and accepted receipts during the wait. Missing evidence
 is an accepted-but-pending outcome, not non-delivery or an older goal result.
+
+
+The native history reader can separately expose original local-command messages
+for stopped application repair. It retains their UUID, exact unwrapped text and
+explicit command/stdout/stderr provenance. Ordinary history output and native
+files are unchanged; the application owns matching, backups and publication.

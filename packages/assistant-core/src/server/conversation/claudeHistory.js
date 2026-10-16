@@ -94,6 +94,7 @@ async function readClaudeHistory(options) {
   const file = await claudeHistoryPath(options);
   const inspected = {
     ...(options.includeUserMessages ? { userMessages: [] } : {}),
+    ...(options.includeCommandMessages ? { commandMessages: [] } : {}),
     ...(options.includeFinalCarriers ? { completedResults: [], failedResults: [], structuredOutputs: [] } : {})
   };
   if (!file || file.size === 0) return { exists: false, messages: [], userIds: [], text: "", ...inspected };
@@ -140,6 +141,15 @@ async function readClaudeHistory(options) {
   }
   for (const frame of frames) {
     if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
+    if (options.includeCommandMessages && frame.type === "system" && frame.subtype === "local_command" &&
+        frame.uuid && !frame.parent_tool_use_id && !frame.isMeta &&
+        typeof frame.commandRun?.command === "string" && frame.commandRun.command) {
+      const output = typeof frame.content === "string"
+        ? /^<local-command-(stdout|stderr)>([\s\S]*)<\/local-command-\1>$/u.exec(frame.content) : null;
+      if (output) inspected.commandMessages.push({ id: `claude_${frame.uuid}_0`, text: output[2],
+        data: { native: { engineId: "claude", type: "system", subtype: "local_command",
+          command: frame.commandRun.command, output: output[1] } } });
+    }
     const status = frame.attachment;
     if (status?.type === "goal_status" && typeof status.condition === "string") {
       if (status.sentinel === true || goal?.objective !== status.condition) {

@@ -4376,3 +4376,13 @@ model's whole turn. An attachment timeout reports accepted delivery and leaves t
 original receipt authoritative. Native goal reads expose `goalCommandId` as derived
 history evidence for a host recovering that same pending command. A goal with the
 same condition but a different command is not proof of that command's goal.
+
+
+Offline native-history inspection may set `includeCommandMessages: true` on
+`readClaudeHistory`. Its separate `commandMessages` list contains exact native
+IDs, unwrapped text and `data.native` for `system/local_command` records with
+explicit command identity and matching stdout/stderr wrappers. Ordinary history
+projection is unchanged. Sidechain, nested and meta records are excluded, and
+existing rewind branch selection still applies. Use `allowIncompleteTail: false`
+with stopped writers when these records prove a historical application repair.
+The native reader writes nothing; the application owns its repair and backups.
