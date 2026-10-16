@@ -390,7 +390,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       throw new TypeError("Prepared submission requires an authored conversation request.");
     }
     if (!current.value || accessDenied.value || retry && retry.status !== "failed") return Promise.resolve(false);
-    return submitRequest(captured, { messageId, onAccepted, prepare });
+    return submitRequest(captured, { messageId, onAccepted, prepare, queue: queueWhileSending === true });
   }
   async function submitDraft(payload, { messageId = crypto.randomUUID(), submissionKind = steerable.value ? "steer" : "send",
     questionText = "", onAccepted } = {}) {
@@ -481,7 +481,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
                 // same queued words/attachments/identity and try ordinary Send
                 // once. A timeout, generic rejection or uncertain send never
                 // grants another dispatch.
-                if (attempt !== 0 || prepare || submission.goalRequest || request.steer !== true ||
+                if (attempt !== 0 || submission.goalRequest || request.steer !== true ||
                     failure.code !== "conversation_steer_turn_finished" || failure.status !== 409 ||
                     failure.details?.delivery && (failure.details.delivery.status !== "not-sent" ||
                       failure.details.delivery.messageId !== messageId)) throw failure;

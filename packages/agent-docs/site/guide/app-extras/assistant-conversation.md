@@ -361,6 +361,14 @@ turn eligibility when its product state also includes non-native work such as
 routing. The binding captures Send or Steer before preparation; retry keeps that
 choice and the original message identity, text, settings and files.
 
+Explicit `queueWhileSending: true` also serializes prepared submissions. A
+follower is visible immediately but its preparation waits for the previous
+receipt. Stop or retirement cancels it through the existing pending-message
+owner. A definite `conversation_steer_turn_finished` rejection can become one
+ordinary Send with the same identity, without repeating preparation; unknown
+delivery never permits replay. Without explicit opt-in, prepared submissions
+retain their non-queueing behavior.
+
 `prepare(captured, { signal })` performs only the application's existing save,
 creation and authorization prerequisites, then returns its canonical request or
 `false` to cancel before dispatch. The optimistic entry exists before those awaits.
@@ -1903,6 +1911,13 @@ different IDs. `message-complete` retires the temporary block. The runtime's
 `streaming` state contains live output, while `conversationLog` contains saved
 messages. Do not save temporary blocks or assume that every answer in a turn
 has the same ID. Native snapshot identities match recovered history.
+
+The transient stream owner can retain host-provided message `metadata`, such as
+recorded model attribution. It captures the first supplied metadata for that
+message, preserves it across text deltas, and returns independent copies on read.
+Only supply safe presentation data already authorized for that conversation;
+never put credentials, native custody details or hidden instructions there.
+This does not add a persisted field or replace saved transcript metadata.
 
 All engines accept the same configuration fields: required `systemPrompt`, plus
 optional `integrationId`, `model` and `effort`. API and OpenCode require an

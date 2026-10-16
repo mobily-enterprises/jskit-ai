@@ -7,11 +7,12 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     const stream = streams.get(scope);
     return {
       revision,
-      messages: stream ? [...stream.messages.values()].map((message) => ({ ...message })) : []
+      messages: stream ? [...stream.messages.values()].map((message) => ({ ...message,
+        ...(message.metadata ? { metadata: structuredClone(message.metadata) } : {}) })) : []
     };
   }
 
-  function update(scope, { turnId, messageId, role = "assistant", text, delta, at, origin, nativeIdentity, outputId, authorship } = {}) {
+  function update(scope, { turnId, messageId, role = "assistant", text, delta, at, origin, nativeIdentity, outputId, authorship, metadata } = {}) {
     if (!turnId || !messageId || !["assistant", "commentary"].includes(role)) return null;
     let stream = streams.get(scope);
     if (!stream || stream.turnId !== turnId) {
@@ -24,8 +25,11 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
     if (authorship?.messageId && (!previous || captured?.messageId === authorship.messageId)) {
       stream.authorship.set(messageId, captured?.turnId ? captured : { ...authorship });
     }
+    const capturedMetadata = previous?.metadata || (metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? structuredClone(metadata) : null);
     const next = {
       messageId,
+      ...(capturedMetadata ? { metadata: capturedMetadata } : {}),
       ...((previous?.outputId || outputId) ? { outputId: previous?.outputId || outputId } : {}),
       // Native grouping is private even when its authored origin is known.
       // Ordinary runtime output already carries the exact authored row identity.
@@ -39,7 +43,7 @@ export function createConversationStreams({ clock = () => new Date() } = {}) {
       status: "inProgress"
     };
     if (previous?.text === next.text && previous.role === next.role && previous.outputId === next.outputId &&
-        previous.completedEnvelope === next.completedEnvelope) return null;
+        previous.completedEnvelope === next.completedEnvelope && previous.metadata === next.metadata) return null;
     stream.messages.set(messageId, next);
     revision += 1;
     return read(scope);

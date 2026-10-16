@@ -238,3 +238,21 @@ test("completed-envelope completion keeps its captured scalar while resolving on
     messageId: "successor", turnId: "000002", origin: "application", completedEnvelope: true
   } }).completedMessages, undefined);
 });
+
+test("live message metadata retains its captured attribution across deltas without sharing mutable reads", () => {
+  const streams = createConversationStreams();
+  const input = { turnId: "native-turn", messageId: "reply", text: "First", metadata: { model: { id: "original" } } };
+  streams.update("one", input);
+  input.metadata.model.id = "later composer choice";
+  streams.update("one", { ...input, delta: " chunk" });
+  const first = streams.read("one");
+  assert.equal(first.messages[0].metadata.model.id, "original");
+  first.messages[0].metadata.model.id = "read mutation";
+  const next = streams.update("one", { turnId: "native-turn", messageId: "reply", delta: " again" });
+  assert.equal(next.messages[0].metadata.model.id, "original");
+  assert.equal(mergeConversationStream([], next)[0].assistant.metadata.model.id, "original");
+  streams.complete("one", "reply");
+  assert.equal(streams.update("one", { ...input, delta: "late" }), null);
+  const other = streams.update("two", { ...input, metadata: { model: { id: "other" } } });
+  assert.equal(other.messages[0].metadata.model.id, "other");
+});

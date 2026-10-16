@@ -1871,6 +1871,65 @@ test("dynamic acquisition keeps the original shared readers and releases only it
   assert.equal((await f.sent()).length, 0);
 });
 
+for (const stop of [false, true]) {
+  test(`prepared application queue retains followers until admission and respects Stop (${stop})`, options, async t => {
+    const f = await fixture(t);
+    await f.command("mode", { mode: "hold" });
+    await f.page.evaluate(() => {
+      window.preparedQueue = window.conversationFixture.acquireConversation({ conversationId: "chat:2", queueWhileSending: true });
+      window.preparedCalls = [];
+      const send = (id, text) => window.preparedQueue.runtime.value.submitPrepared({ message: text, request: { text } }, {
+        messageId: id, prepare(submission) { window.preparedCalls.push(id); return submission.request; }
+      });
+      window.preparedFirst = send("prepared-first", "First authored message");
+      window.preparedSecond = send("prepared-second", "Second authored message");
+    });
+    await expect.poll(async () => (await f.state()).held).toBe(1);
+    assert.deepEqual(await f.page.evaluate(() => window.preparedCalls), ["prepared-first"]);
+    assert.equal(await f.page.evaluate(() => window.preparedQueue.runtime.value.delivery.state.messages.length), 2);
+    if (stop) await f.page.evaluate(() => window.preparedQueue.runtime.value.cancel());
+    await f.command("mode", { mode: "accepted" });
+    await f.command("accept");
+    await f.page.evaluate(() => window.preparedFirst);
+    const result = await f.page.evaluate(() => window.preparedSecond);
+    assert.equal((await f.sent()).length, stop ? 1 : 2);
+    assert.deepEqual(await f.page.evaluate(() => window.preparedCalls), stop ? ["prepared-first"] : ["prepared-first", "prepared-second"]);
+    if (stop) assert.equal(result, false);
+    else assert.equal(result.status, "accepted");
+  });
+}
+
+test("prepared steering uses the definite finished-turn fallback without repeating preparation", options, async t => {
+  const f = await fixture(t);
+  await f.command("mode", { mode: "rejected" });
+  let calls = 0;
+  await f.page.route("**/messages", async route => {
+    const response = await route.fetch();
+    if (++calls === 1) {
+      await f.command("mode", { mode: "accepted" });
+      const input = route.request().postDataJSON();
+      await route.fulfill({ response, status: 409, json: {
+        error: "The turn finished before dispatch.", code: "conversation_steer_turn_finished",
+        details: { delivery: { status: "not-sent", messageId: input.messageId } }
+      } });
+    } else await route.fulfill({ response });
+  });
+  const result = await f.page.evaluate(async () => {
+    const binding = window.conversationFixture.acquireConversation({ conversationId: "chat:2", queueWhileSending: true });
+    window.prepareCount = 0;
+    return binding.runtime.value.submitPrepared({ message: "Keep these words", request: { text: "Keep these words", steer: true } }, {
+      messageId: "prepared-finished", prepare(submission) { window.prepareCount += 1; return submission.request; }
+    });
+  });
+  assert.equal(result.status, "accepted");
+  assert.equal(await f.page.evaluate(() => window.prepareCount), 1);
+  const sent = await f.sent();
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].input.steer, true);
+  const { steer: _ended, ...ordinary } = sent[0].input;
+  assert.deepEqual(sent[1].input, ordinary);
+});
+
 test("prepared submission keeps optimism before application creation and uses the same captured receipt owner", options, async t => {
   const f = await fixture(t);
   await f.command("mode", { mode: "hold" });
