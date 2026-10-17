@@ -286,3 +286,13 @@ local clear command before admitting another input, preventing automatic checker
 restoration on ordinary messages or restart. Resume reinstalls the retained goal;
 Cancel removes it only after the matching native receipt. This adds no scheduler
 and never infers goal changes from model prose.
+
+
+The same Claude goal owner accepts an admitted native `block` control with the
+exact goal identity and a nonempty reason of at most 1,000 characters. It stores
+`blockedGoal` alongside the existing optional `pausedGoal` (never both), stops
+native execution and disarms the checker before ordinary input. Hosts must
+round-trip both optional fields. Resume and Cancel clear retained state only
+after their exact native command receipt. Host application tools decide who may
+report an external blocker; this owner does not interpret message prose or
+schedule retries. Blocked status and reason survive owner recreation.

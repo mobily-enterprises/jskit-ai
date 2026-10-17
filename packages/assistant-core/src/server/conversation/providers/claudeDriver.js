@@ -105,9 +105,9 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
   function standaloneOwner() {
     if (standalone) return standalone;
     const store = {
-      read(context) { return JSON.stringify({ executionId: context.binding.executionId, sent: context.binding.sent, pausedGoal: context.binding.pausedGoal }); },
+      read(context) { return JSON.stringify({ executionId: context.binding.executionId, sent: context.binding.sent, pausedGoal: context.binding.pausedGoal, blockedGoal: context.binding.blockedGoal }); },
       async save(entry, { execution = false } = {}) {
-        await entry.context.updateBinding({ pausedGoal: entry.pausedGoal, ...(execution ? { executionId: entry.executionId } : {}) });
+        await entry.context.updateBinding({ pausedGoal: entry.pausedGoal, blockedGoal: entry.blockedGoal, ...(execution ? { executionId: entry.executionId } : {}) });
       },
       async releaseExecution(entry) {
         await entry.context.updateBinding({ executionId: "" });

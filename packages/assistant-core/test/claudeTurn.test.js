@@ -728,7 +728,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       ...(releaseExecution ? { releaseExecution } : {}),
       select() {}, read: (_context, id) => saved.get(id),
       async save(entry) { saved.set(entry.id, JSON.stringify({ turnId: entry.turn?.id,
-        state: entry.turn?.state, pausedGoal: entry.pausedGoal, accountIdentity: entry.accountIdentity })); },
+        state: entry.turn?.state, pausedGoal: entry.pausedGoal, blockedGoal: entry.blockedGoal, accountIdentity: entry.accountIdentity })); },
       async hasMessage() { return false; },
       readSessionConversations: () => ({ ids: [...saved.keys()], context })
     },
@@ -2189,15 +2189,16 @@ test("bound Main cannot dispatch or retain a pending prompt when its history bud
 });
 
 
-test("Claude common runtime saves a successful self-pause tool receipt and admits the next request", { timeout: 5_000 }, async t => {
+for (const retention of [{ action: "pause", status: "paused" }, { action: "block", status: "blocked", reason: "The human must supply the approval code." }])
+test(`Claude common runtime saves a successful self-${retention.action} tool receipt and admits the next request`, { timeout: 5_000 }, async t => {
   let effects = 0;
   const f = await suppliedCommonFixture(t, { async executeTool() {
     effects++;
     const native = await f.runtime.open({ id: "lesson", context: f.toolContext, representation: "native" });
     const goal = await native.readGoal();
-    const result = await native.updateGoal({ action: "pause", threadId: f.conversationId,
+    const result = await native.updateGoal({ action: retention.action, reason: retention.reason, threadId: f.conversationId,
       createdAt: goal.goal.createdAt, objective: goal.goal.objective });
-    assert.equal(result.goal.status, "paused");
+    assert.equal(result.goal.status, retention.status);
     return {};
   } });
   const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
@@ -2229,12 +2230,12 @@ test("Claude common runtime saves a successful self-pause tool receipt and admit
   assert.equal(f.entry.process, null);
   assert.equal(f.entry.command, null);
   const retained = await f.owner.readGoal(f.entry);
-  assert.equal(retained.goal.status, "paused");
+  assert.equal(retained.goal.status, retention.status);
   assert.equal(retained.goal.createdAt, original.goal.createdAt);
   assert.equal(retained.goal.objective, original.goal.objective);
   const next = await sendCommon(f, "after-self-pause");
   assert.equal(next.status, "accepted");
-  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, retention.status);
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Prepare the question."]);
   assert.equal((await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir,
     conversationId: f.conversationId })).goal, null, "The native checker is disarmed, not merely labelled paused");
@@ -2283,27 +2284,29 @@ test("Claude admitted application tool can pause its own native goal without wai
 });
 
 
-test("Claude Pause survives ordinary messages and owner recreation; only Resume restores the goal", { timeout: 5_000 }, async t => {
+for (const retention of [{ action: "pause", status: "paused" }, { action: "block", status: "blocked", reason: "A new human approval code is required." }])
+test(`Claude ${retention.action} survives ordinary messages and owner recreation; only Resume restores the goal`, { timeout: 5_000 }, async t => {
   const f = await publishedClaudeFixture(t);
   await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish every check", messageId: "lifecycle-set" });
   const original = (await f.owner.readGoal(f.entry)).goal;
-  await f.owner.updateGoal(f.entry, { action: "pause", ...original });
+  await f.owner.updateGoal(f.entry, { ...original, action: retention.action, reason: retention.reason });
   assert.equal(f.entry.process, null);
-  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, retention.status);
   await f.send("ordinary-after-pause");
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
   assert.equal((await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir, conversationId: f.conversationId })).goal, null);
-  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: "paused" });
+  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: retention.status, ...(retention.reason ? { reason: retention.reason } : {}) });
   await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
   await f.owner.close(f.entry);
   await f.reopen();
-  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: "paused" });
+  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: retention.status, ...(retention.reason ? { reason: retention.reason } : {}) });
   f.behavior.clearWithoutGoalSentinel = true;
   await f.send("ordinary-after-restart");
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
   await f.frame({ type: "result", subtype: "success", result: "Still ordinary" });
   await f.owner.updateGoal(f.entry, { action: "resume", ...original, messageId: "lifecycle-resume" });
   assert.equal(f.entry.pausedGoal, null);
+  assert.equal(f.entry.blockedGoal, null);
   const resumed = (await f.owner.readGoal(f.entry)).goal;
   assert.equal(resumed.status, "active");
   assert.equal(resumed.objective, original.objective);
@@ -2311,6 +2314,7 @@ test("Claude Pause survives ordinary messages and owner recreation; only Resume 
   await f.owner.updateGoal(f.entry, { action: "cancel", ...resumed, messageId: "lifecycle-cancel" });
   assert.equal((await f.owner.readGoal(f.entry)).goal, null);
   assert.equal(f.entry.pausedGoal, null);
+  assert.equal(f.entry.blockedGoal, null);
 });
 
 
@@ -2350,4 +2354,20 @@ test("Pausing an idle Claude goal retires its warm process before the next ordin
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
   assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
   await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
+});
+
+
+test("Claude Block refuses absent reasons and stale identity before interrupting", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish checks", messageId: "block-validation" });
+  const goal = (await f.owner.readGoal(f.entry)).goal;
+  const process = f.entry.process;
+  for (const input of [{ reason: "" }, { reason: "x".repeat(1001) }, { reason: "Missing code", createdAt: goal.createdAt + 1 }]) {
+    await assert.rejects(f.owner.updateGoal(f.entry, { ...goal, action: "block", ...input }), {
+      code: "conversation_invalid_goal", delivery: "not-sent"
+    });
+    assert.equal(f.entry.process, process);
+    assert.equal((await f.owner.readGoal(f.entry)).goal.status, "active");
+    assert.equal(f.entry.blockedGoal, null);
+  }
 });

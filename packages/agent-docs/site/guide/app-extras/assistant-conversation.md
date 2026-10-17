@@ -4501,3 +4501,13 @@ by a hook notice. Hosts must not automatically resume this blocked state on
 restart. This projection records the native termination; it does not prevent
 Claude's preceding retry loop or turn an assistant's “paused” reply into a control
 operation.
+
+
+The same Claude goal owner accepts an admitted native `block` control with the
+exact goal identity and a nonempty reason of at most 1,000 characters. It stores
+`blockedGoal` alongside the existing optional `pausedGoal` (never both), stops
+native execution and disarms the checker before ordinary input. Hosts must
+round-trip both optional fields. Resume and Cancel clear retained state only
+after their exact native command receipt. Host application tools decide who may
+report an external blocker; this owner does not interpret message prose or
+schedule retries. Blocked status and reason survive owner recreation.
