@@ -106,18 +106,23 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
   async function request(request, options = {}) {
     if (failure || closed) throw failure || claudeProtocolError("Claude connection is closed.");
     const requestId = randomUUID();
+    function progress(stage) {
+      try { options.onProgress?.(stage); }
+      catch { /* Diagnostic observers cannot change protocol completion. */ }
+    }
     let timer;
     const response = new Promise((resolve, reject) => {
       timer = setTimeout(() => {
         requests.delete(requestId);
         reject(claudeProtocolError(`Claude ${request.subtype} timed out.`, "assistant_claude_control_timeout"));
       }, options.timeoutMs ?? timeoutMs);
-      requests.set(requestId, { resolve, reject });
+      requests.set(requestId, { resolve, reject, received: () => progress("response_received") });
     });
     // Install both observers before a write can fail or an immediate reply arrives.
     try {
+      progress("requested");
       const [, result] = await Promise.all([
-        write({ type: "control_request", request_id: requestId, request }), response
+        write({ type: "control_request", request_id: requestId, request }).then(() => progress("written")), response
       ]);
       return result;
     } finally {
@@ -164,6 +169,7 @@ function createClaudeJsonClient({ stream, onEvent = async () => {}, onControlReq
           const pending = requests.get(response?.request_id);
           if (!pending) continue; // A timed-out request may still get a reply.
           requests.delete(response.request_id);
+          pending.received();
           if (response.subtype === "success") pending.resolve(response.response || {});
           else pending.reject(claudeProtocolError(String(response.error || "Claude control request failed.")));
         } else if (frame.type === "control_request") {

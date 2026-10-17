@@ -32,6 +32,47 @@ function fakeStream(onWrite) {
   } });
 }
 
+test("Claude initialization diagnostics distinguish a held write from its matched response without affecting completion", async t => {
+  for (const responseFirst of [false, true]) await t.test(`response first: ${responseFirst}`, async () => {
+    const entered = Promise.withResolvers();
+    let finishWrite;
+    const stages = [];
+    const stream = new Duplex({ read() {}, write(chunk, _encoding, callback) {
+      finishWrite = () => { finishWrite = undefined; callback(); };
+      entered.resolve(JSON.parse(String(chunk)));
+    } });
+    const client = createClaudeJsonClient({ stream });
+    let settled = false;
+    const initialization = client.initialize({}, { onProgress(stage) {
+      stages.push(stage);
+      throw new Error("Diagnostic observer failed");
+    } }).then(result => { settled = true; return result; });
+    try {
+      const frame = await entered.promise;
+      assert.deepEqual(stages, ["requested"]);
+      const reply = requestId => stream.push(`${JSON.stringify({ type: "control_response", response: {
+        subtype: "success", request_id: requestId, response: { privateValue: "secret" }
+      } })}\n`);
+      reply("unmatched");
+      await new Promise(resolve => setImmediate(resolve));
+      assert.deepEqual(stages, ["requested"]);
+      if (responseFirst) reply(frame.request_id);
+      else finishWrite();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.deepEqual(stages, ["requested", responseFirst ? "response_received" : "written"]);
+      assert.equal(settled, false, "both the write and matching response remain required");
+      if (responseFirst) finishWrite();
+      else reply(frame.request_id);
+      assert.deepEqual(await initialization, { privateValue: "secret" });
+      assert.deepEqual(stages, ["requested", ...(responseFirst ? ["response_received", "written"] : ["written", "response_received"])]);
+    } finally {
+      finishWrite?.();
+      client.close();
+      await client.completion;
+    }
+  });
+});
+
 test("Claude controls correlate out-of-order replies and events apply backpressure", async () => {
   const requests = [];
   const observed = [];

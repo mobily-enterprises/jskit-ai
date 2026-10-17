@@ -130,6 +130,11 @@ late configuration cannot launch a successor after Stop. Failed cleanup retains
 its owner for an explicit retry rather than starting another hidden stop attempt.
 Hosts may set a bounded cold-initialization timeout without extending ordinary
 control deadlines; timeout still follows the same verified cleanup path.
+The optional initialization progress observer reports request creation, completed
+pipe write and the matching control response separately. It receives only fixed
+stage names; observer failures cannot change protocol completion or cleanup.
+Write completion and response arrival may occur in either order, and both remain
+required for successful initialization.
 Account queries deduplicate by account identity, and invalidation cancels held
 startup and reads before awaiting their owned cleanup. Borrowed conversations
 remain owned by their original lifecycle. Requests also retain the invalidation
