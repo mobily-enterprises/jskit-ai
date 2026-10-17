@@ -18,7 +18,8 @@ export function conversationMessageVersion(message, { includeData = false } = {}
 export function createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {},
   captureContext = false, applicationMessages = false, maximumInitialMessages = 30,
   maximumInitialMessageCharacters = Infinity, maximumHistoryBytes = Infinity }) {
-  if (maximumHistoryBytes !== Infinity && (!Number.isSafeInteger(maximumHistoryBytes) || maximumHistoryBytes < 1) ||
+  if (typeof maximumHistoryBytes !== "function" && maximumHistoryBytes !== Infinity &&
+      (!Number.isSafeInteger(maximumHistoryBytes) || maximumHistoryBytes < 1) ||
       maximumInitialMessages === Infinity && maximumHistoryBytes === Infinity) {
     throw new TypeError("Native history requires a positive byte limit for unbounded message selection.");
   }
@@ -202,6 +203,15 @@ export function createConversationChangeover({ state, transcript, agent, identit
       const needsContext = switched || renderChanged.length || deleted.length;
       const handover = value.replacement?.engineId === engineId && value.replacement.status === "ready"
         ? value.replacement.handover : "";
+      let historyBudget = maximumHistoryBytes;
+      if (typeof historyBudget === "function") {
+        // Native context inspection may prepare a runtime. Do it only when a
+        // new catch-up needs sizing, never for receipt recovery or exact retry.
+        historyBudget = needsContext ? await historyBudget({ engineId, returning, input, handover }) : Infinity;
+        if (needsContext && (!Number.isSafeInteger(historyBudget) || historyBudget < 1)) {
+          throw new TypeError("Native history requires an available positive byte limit.");
+        }
+      }
       const encoded = catchup.map(({ version, originalVersion, receipt, ...message }) => JSON.stringify({
         ...message,
         ...(!returning && typeof message.text === "string" && message.text.length > maximumInitialMessageCharacters
@@ -210,15 +220,15 @@ export function createConversationChangeover({ state, transcript, agent, identit
       }));
       const envelopeBytes = Buffer.byteLength(JSON.stringify({ messages: [], removedMessageIds: deleted }));
       let first = 0;
-      if (needsContext && maximumHistoryBytes !== Infinity) {
+      if (needsContext && historyBudget !== Infinity) {
         // Count the actual UTF-8 JSON, including escapes, attribution and
         // attachments. Bytes are a transport budget, not a token estimate.
         const sizes = encoded.map(message => Buffer.byteLength(message));
         let bytes = envelopeBytes + sizes.reduce((total, size) => total + size, 0) + Math.max(0, sizes.length - 1);
-        if (envelopeBytes > maximumHistoryBytes) {
+        if (envelopeBytes > historyBudget) {
           throw new Error("Conversation history removal records exceed the available history budget.");
         }
-        while (bytes > maximumHistoryBytes && first < sizes.length) {
+        while (bytes > historyBudget && first < sizes.length) {
           bytes -= sizes[first] + (first < sizes.length - 1 ? 1 : 0);
           first++;
         }

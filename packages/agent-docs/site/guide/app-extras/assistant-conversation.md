@@ -1834,6 +1834,15 @@ the source snapshot, including older rows omitted by the bounded transfer, so
 subsequent unchanged requests do not repeatedly inject the discarded history.
 This lower-level option does not change the runtime's default 30-message seed.
 
+`maximumHistoryBytes` can also be an async server-owned resolver receiving
+`{ engineId, returning, input, handover }`. It must return a finite positive
+integer. The owner calls it only when preparing new quoted history, after
+checking existing delivery evidence. Ordinary input needing no catch-up, exact
+pending retries and receipt recovery do not invoke it. This lets the caller
+inspect the selected native conversation's current budget without preparing
+another runtime during recovery. An unavailable or invalid budget prevents
+dispatch; it does not silently substitute an unlimited allowance.
+
 For a prepared Codex runtime, the existing `server/codex-configuration` entry
 exports `readCodexModelContextWindow({ runtimeDir, model })`. Supply the exact
 runtime directory and selected catalogue model ID. It reads that runtime's

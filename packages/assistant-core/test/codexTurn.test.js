@@ -3370,3 +3370,46 @@ test("native history byte budget rejects invalid bounds and an oversized removal
   assert.equal(writes, 0);
   assert.equal(sends, 0);
 });
+
+test("native history budget resolves only for new catch-up and preserves the retry's original budget", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const message = { id: "retained", role: "user", text: "Original words", version: "v1", engineId: "claude" };
+  let saved = { lastEngine: "claude", engines: { codex: { seen: {} } } };
+  const state = { async read() { return structuredClone(saved); }, async write(value) { saved = structuredClone(value); } };
+  const sent = [];
+  const calls = [];
+  const input = { messageId: "bounded-input", message: "Current words" };
+  const create = maximumHistoryBytes => createConversationChangeover({
+    state, maximumInitialMessages: Infinity, maximumHistoryBytes,
+    transcript: { async hasMessage() { return false; } },
+    agent: { async sendMessage(value) { sent.push(value); return { ok: false, delivered: false }; } }
+  });
+  await create(async query => { calls.push(query); return 4096; }).send({ engineId: "codex", messages: [message], input });
+  assert.deepEqual(calls, [{ engineId: "codex", returning: false, input, handover: "" }]);
+  assert.match(sent[0].message, /Original words/);
+  await create(() => { throw new Error("A retry must not prepare another native budget"); })
+    .send({ engineId: "codex", messages: [], input });
+  assert.equal(sent[1].message, sent[0].message);
+  saved = { lastEngine: "codex", engines: { codex: { seen: { retained: "v1" } } } };
+  await create(() => { throw new Error("Ordinary input has no history to budget"); })
+    .send({ engineId: "codex", messages: [message], input: { messageId: "ordinary-input", message: "Just these words" } });
+  assert.equal(sent[2].message, "Just these words");
+});
+
+test("native history budget rejects unavailable dynamic limits before pending delivery", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  for (const budget of [0, -1, NaN, Infinity, "4096", undefined]) {
+    let writes = 0;
+    let sends = 0;
+    const changeover = createConversationChangeover({ maximumInitialMessages: Infinity,
+      maximumHistoryBytes: async () => budget,
+      state: { async read() { return { lastEngine: "claude", engines: {} }; }, async write() { writes++; } },
+      transcript: { async hasMessage() { return false; } },
+      agent: { async sendMessage() { sends++; } }
+    });
+    await assert.rejects(changeover.send({ engineId: "codex", messages: [], input: { messageId: "unavailable", message: "Words" } }),
+      /history.*byte.*limit/i);
+    assert.equal(writes, 0);
+    assert.equal(sends, 0);
+  }
+});
