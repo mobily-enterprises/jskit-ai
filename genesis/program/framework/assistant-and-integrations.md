@@ -286,8 +286,11 @@ request. Host continuation intent and permission remain application-owned.
 The existing Claude goal owner marks its own pre-dispatch validation failures
 as `conversation_invalid_goal`, HTTP 400 and `delivery: "not-sent"`. The shared
 client then retains a failed attempt without requiring delivery inspection.
-Native execution and acknowledgement failures keep their original uncertain
-delivery behavior; validation does not wrap those effects.
+The original send owner also marks failed process preparation as `delivery:
+"not-sent"`: starting or resuming the process has not written the new authored
+input. The same message can be explicitly retried after preparation recovers.
+Failures after the native input write keep their original acknowledgement and
+uncertain-delivery behavior; the preparation catch does not wrap those effects.
 
 The existing voice queue preserves arrival order for selected progress/thinking
 narration and canonical answers. An arriving answer retires only optional murmur

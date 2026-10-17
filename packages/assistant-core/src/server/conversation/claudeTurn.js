@@ -543,7 +543,14 @@ export function createClaudeConversationOwner({
         return { ok: true, delivered: true, duplicate: true, thread: { id: entry.id }, turn: snapshot(entry) };
       }
     }
-    const native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
+    let native;
+    try {
+      native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
+    } catch (error) {
+      // Preparation may start or resume the process, but has not written this
+      // authored input. Keep its failure distinct from a lost native receipt.
+      throw Object.assign(error, { delivery: "not-sent" });
+    }
     if (command && !command.steering) command.signal.throwIfAborted();
     const steering = command ? command.steering === true : Boolean(entry.turn?.active);
     const sendNow = steering && native.client.supportsSendNow?.() === true;

@@ -1899,6 +1899,38 @@ for (const action of ["set", "resume"]) for (const finishCount of [1, 2]) test(`
   assert.equal(preparations, 2, "Only one re-admission is allowed");
 });
 
+for (const action of ["set", "resume"]) test(`Claude goal preparation failure permits a safe same-message retry, action=${action}`, { timeout: 5_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  let expectedGoalId;
+  if (action === "resume") {
+    const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, `${f.conversationId}.jsonl`), `${JSON.stringify({ type: "attachment",
+      timestamp: "2026-10-16T00:00:00.000Z", attachment: { type: "goal_status", condition: "Finish the checks", met: false } })}\n`);
+    expectedGoalId = (await f.conversation.readGoal()).id;
+  }
+  const input = { action, objective: "Finish the checks", messageId: "preparation-failed-goal", expectedGoalId,
+    expectedSegmentId: `claude:${f.conversationId}` };
+  let writes = 0;
+  let failPreparation = true;
+  f.behavior.initialize = native => {
+    const send = native.client.send;
+    native.client.send = (...args) => { writes++; return send(...args); };
+    if (failPreparation) throw new Error("Claude preparation stopped before dispatch");
+  };
+  await assert.rejects(f.conversation.updateGoal(input), error =>
+    error.delivery === "not-sent" && /preparation stopped/.test(error.message));
+  assert.equal(writes, 0, "Preparation failed before the authored command reached the native pipe");
+  assert.equal(await f.binding.transcript.hasMessage(input.messageId), false);
+  while (f.entry.command) { f.testSignal.throwIfAborted(); await delay(1); }
+  failPreparation = false;
+  assert.equal((await f.conversation.updateGoal(input)).status, "accepted");
+  assert.equal(writes, 1, "Retry sends the same authored command exactly once");
+  assert.equal(await f.binding.transcript.hasMessage(input.messageId), true);
+  await f.frame({ type: "result", subtype: "success", result: "Checks finished" });
+  await f.conversation.wait();
+});
+
 test("Claude goal does not re-admit uncertain native delivery", { timeout: 5_000 }, async t => {
   const f = await suppliedCommonFixture(t, { tools: false });
   let writes = 0;
