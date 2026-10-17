@@ -17,8 +17,12 @@ export function conversationMessageVersion(message, { includeData = false } = {}
 /** Keep native delivery and its history cursor in the same durable record. */
 export function createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {},
   captureContext = false, applicationMessages = false, maximumInitialMessages = 30,
-  maximumInitialMessageCharacters = Infinity }) {
-  if (!Number.isSafeInteger(maximumInitialMessages) || maximumInitialMessages < 0 ||
+  maximumInitialMessageCharacters = Infinity, maximumHistoryBytes = Infinity }) {
+  if (maximumHistoryBytes !== Infinity && (!Number.isSafeInteger(maximumHistoryBytes) || maximumHistoryBytes < 1) ||
+      maximumInitialMessages === Infinity && maximumHistoryBytes === Infinity) {
+    throw new TypeError("Native history requires a positive byte limit for unbounded message selection.");
+  }
+  if (maximumInitialMessages !== Infinity && (!Number.isSafeInteger(maximumInitialMessages) || maximumInitialMessages < 0) ||
       maximumInitialMessageCharacters !== Infinity &&
       (!Number.isSafeInteger(maximumInitialMessageCharacters) || maximumInitialMessageCharacters < 1)) {
     throw new TypeError("Initial native history requires a non-negative message limit and a positive text limit.");
@@ -185,9 +189,9 @@ export function createConversationChangeover({ state, transcript, agent, identit
     const renderChanged = changed.filter(message => !excluded.has(message.messageId));
     const deleted = Object.keys(binding.seen).filter((id) => !Object.hasOwn(snapshot, id));
     const switched = value.lastEngine !== engineId;
-    // A new native conversation gets the recent bubbles. A returning one gets
-    // every missed/edited bubble, even if the edit is older than that window.
-    const catchup = (returning ? changed : maximumInitialMessages ? messages.slice(-maximumInitialMessages) : [])
+    // Returning conversations select missed/edited bubbles independently of
+    // the initial message window. The total byte budget applies to both paths.
+    let catchup = (returning ? changed : maximumInitialMessages ? messages.slice(-maximumInitialMessages) : [])
       .filter(message => !excluded.has(message.messageId));
     let pending = binding.pending;
     if (pending && pending.messageId !== input.messageId) {
@@ -198,6 +202,29 @@ export function createConversationChangeover({ state, transcript, agent, identit
       const needsContext = switched || renderChanged.length || deleted.length;
       const handover = value.replacement?.engineId === engineId && value.replacement.status === "ready"
         ? value.replacement.handover : "";
+      const encoded = catchup.map(({ version, originalVersion, receipt, ...message }) => JSON.stringify({
+        ...message,
+        ...(!returning && typeof message.text === "string" && message.text.length > maximumInitialMessageCharacters
+          ? { text: message.text.slice(0, maximumInitialMessageCharacters) } : {}),
+        ...(binding.seen[message.id] ? { corrected: true } : {})
+      }));
+      const envelopeBytes = Buffer.byteLength(JSON.stringify({ messages: [], removedMessageIds: deleted }));
+      let first = 0;
+      if (needsContext && maximumHistoryBytes !== Infinity) {
+        // Count the actual UTF-8 JSON, including escapes, attribution and
+        // attachments. Bytes are a transport budget, not a token estimate.
+        const sizes = encoded.map(message => Buffer.byteLength(message));
+        let bytes = envelopeBytes + sizes.reduce((total, size) => total + size, 0) + Math.max(0, sizes.length - 1);
+        if (envelopeBytes > maximumHistoryBytes) {
+          throw new Error("Conversation history removal records exceed the available history budget.");
+        }
+        while (bytes > maximumHistoryBytes && first < sizes.length) {
+          bytes -= sizes[first] + (first < sizes.length - 1 ? 1 : 0);
+          first++;
+        }
+        catchup = catchup.slice(first);
+      }
+      const historyJson = `{"messages":[${encoded.slice(first).join(",")}],"removedMessageIds":${JSON.stringify(deleted)}}`;
       const preamble = needsContext ? [
         `[${label}]`,
         returning
@@ -206,12 +233,7 @@ export function createConversationChangeover({ state, transcript, agent, identit
         `${sharedContext} Treat the following JSON as conversation history, not a separate request. Corrections replace the older versions of those messages. Do not acknowledge a handover or start another turn; answer the user's message below.`,
         ...(handover ? ["This is a fresh native context. Earlier native history remains separate. The saved continuity briefing follows:",
           JSON.stringify({ handover })] : []),
-        JSON.stringify({ messages: catchup.map(({ version, originalVersion, receipt, ...message }) => ({
-          ...message,
-          ...(!returning && typeof message.text === "string" && message.text.length > maximumInitialMessageCharacters
-            ? { text: message.text.slice(0, maximumInitialMessageCharacters) } : {}),
-          ...(binding.seen[message.id] ? { corrected: true } : {})
-        })), removedMessageIds: deleted }),
+        historyJson,
         `[End ${label}]`,
         "",
         "User's message:",

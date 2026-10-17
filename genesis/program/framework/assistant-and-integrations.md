@@ -9,6 +9,7 @@ connector account management, and focused third-party operations.
 - `packages/assistant-core/src/client/conversation/AssistantTranscript.vue`
 - `packages/assistant-core/src/server/conversation/runtimeStateUpgrade.js`
 - `packages/assistant-core/src/server/conversation/agentRun.js`
+- `packages/assistant-core/src/server/conversation/continuity.js`
 - `packages/assistant-runtime/src/server/AssistantProvider.js`
 - `packages/assistant-voice/src/server/index.js`
 - `packages/connectors-core/src/server/ConnectorsFeature.js`
@@ -21,6 +22,13 @@ own conversation and connection identities, and supply credentials through
 server-side environment references. Conversations preserve provider lifecycle,
 streaming, attachment, recovery, and storage contracts. Connector operations
 remain scoped to the application and user or workspace that owns the account.
+
+The existing native changeover owner can bound quoted history by UTF-8 JSON
+bytes, selecting all messages when a finite budget replaces its initial message
+window. Initial and returning catch-up drop complete oldest rows to fit without
+editing saved history or summarising it. Removed identities and exact pending
+receipt/retry contents remain authoritative. Callers own destination budget
+selection; a byte limit neither estimates tokens nor changes model settings.
 
 Transcript readers accept server-owned `pageUnit: "messages"` to count individual
 user, assistant and system messages, excluding reasoning and commentary. The

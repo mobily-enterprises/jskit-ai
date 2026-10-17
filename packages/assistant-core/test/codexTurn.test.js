@@ -3285,3 +3285,88 @@ test("ordinary same-engine input reserves the existing pending proof without add
   assert.equal(sends, 2);
   assert.equal(messages.length, 1);
 });
+
+test("native history byte budget carries all fitting messages and trims complete oldest messages", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const messages = Array.from({ length: 80 }, (_, index) => ({
+    id: `history-${index}`, messageId: `authored-${index}`, role: index % 2 ? "assistant" : "user",
+    text: `${index}: 漢字 🐈 \\"\n`.repeat(20), version: `v-${index}`, engineId: "claude",
+    at: new Date(2026, 0, 1, 0, index).toISOString(), model: "original-model",
+    ...(index === 0 ? { attachments: [{ attachmentId: "old-file", name: "old.txt" }] } : {}),
+    ...(index === 79 ? { attachments: [{ attachmentId: "new-file", name: "new.txt" }] } : {})
+  }));
+  const original = structuredClone(messages);
+  const rows = messages.map(({ version, ...message }) => message);
+  const size = selected => Buffer.byteLength(JSON.stringify({ messages: selected, removedMessageIds: [] }));
+  const limits = [size(rows), size(rows.slice(40)), size(rows.slice(40)) - 1, size([])];
+  for (const maximumHistoryBytes of limits) {
+    let saved = { lastEngine: "claude", engines: { codex: { seen: {} } } };
+    let sent;
+    const changeover = createConversationChangeover({
+      maximumInitialMessages: Infinity, maximumHistoryBytes, captureContext: true,
+      state: { async read() { return saved; }, async write(value) { saved = structuredClone(value); } },
+      transcript: { async hasMessage() { return false; } },
+      agent: { async sendMessage(input) { sent = input; return { ok: true, delivered: true }; } }
+    });
+    await changeover.send({ engineId: "codex", messages, input: { messageId: "new-request", message: "My full current request." } });
+    const encoded = sent.contextText.split("\n").find(line => line.startsWith("{"));
+    const carried = JSON.parse(encoded);
+    const expected = maximumHistoryBytes === size(rows) ? rows : maximumHistoryBytes === size(rows.slice(40))
+      ? rows.slice(40) : maximumHistoryBytes === size([]) ? [] : rows.slice(41);
+    assert.deepEqual(carried.messages, expected);
+    assert.ok(Buffer.byteLength(encoded) <= maximumHistoryBytes);
+    assert.deepEqual(sent.contextAttachments, expected.flatMap(message => message.attachments || []));
+    assert.ok(sent.message.endsWith("My full current request."));
+    assert.deepEqual(saved.engines.codex.seen, Object.fromEntries(messages.map(message => [message.id, message.version])));
+    assert.deepEqual(messages, original);
+  }
+});
+
+test("native history byte budget bounds returning corrections and retains exact retry after reload", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  const messages = [
+    { id: "old", messageId: "old-input", role: "user", engineId: "claude", text: "Older correction", version: "edited-old" },
+    { id: "middle", messageId: "middle-input", role: "user", engineId: "claude", text: "Middle correction", version: "edited-middle" },
+    { id: "new", messageId: "new-reply", role: "assistant", engineId: "claude", text: "Latest missed reply", version: "new" }
+  ];
+  const expected = messages.slice(1).map(({ version, ...message }) => ({ ...message,
+    ...(message.id === "middle" ? { corrected: true } : {}) }));
+  const maximumHistoryBytes = Buffer.byteLength(JSON.stringify({ messages: expected, removedMessageIds: ["deleted"] }));
+  let saved = { lastEngine: "claude", engines: { codex: { seen: { old: "v0", middle: "v1", deleted: "v2" } } } };
+  const attempts = [];
+  const state = { async read() { return structuredClone(saved); }, async write(value) { saved = structuredClone(value); } };
+  const transcript = { async hasMessage() { return false; }, async writeUserMessage() {} };
+  const input = { messageId: "stable-input", message: "My request" };
+  const first = createConversationChangeover({ state, transcript, maximumHistoryBytes, captureContext: true,
+    agent: { async sendMessage(value) { attempts.push(value); return { ok: false, delivered: false }; } } });
+  await first.send({ engineId: "codex", messages, input });
+  const encoded = attempts[0].contextText.split("\n").find(line => line.startsWith("{"));
+  assert.deepEqual(JSON.parse(encoded), { messages: expected, removedMessageIds: ["deleted"] });
+  assert.equal(Buffer.byteLength(encoded), maximumHistoryBytes);
+  // A later budget or transcript change cannot rewrite a retained exact input.
+  const reloaded = createConversationChangeover({ state, transcript, maximumHistoryBytes: 1,
+    agent: { async sendMessage(value) { attempts.push(value); return { ok: true, delivered: true }; } } });
+  await reloaded.send({ engineId: "codex", messages: [], input });
+  assert.equal(attempts[1].message, attempts[0].message);
+  assert.equal(saved.engines.codex.pending, undefined);
+});
+
+test("native history byte budget rejects invalid bounds and an oversized removal envelope before dispatch", async () => {
+  const { createConversationChangeover } = await import("../src/server/conversation/continuity.js");
+  for (const maximumHistoryBytes of [0, -1, 1.5, "100", NaN]) {
+    assert.throws(() => createConversationChangeover({ maximumHistoryBytes }), /history.*byte.*limit/i);
+  }
+  assert.throws(() => createConversationChangeover({ maximumInitialMessages: Infinity }), /bounded.*history|history.*byte.*limit/i);
+  let writes = 0;
+  let sends = 0;
+  const changeover = createConversationChangeover({ maximumHistoryBytes: 10,
+    state: { async read() { return { lastEngine: "claude", engines: { codex: { seen: { removed: "v1" } } } }; },
+      async write() { writes++; } },
+    transcript: { async hasMessage() { return false; } },
+    agent: { async sendMessage() { sends++; } }
+  });
+  await assert.rejects(changeover.send({ engineId: "codex", messages: [], input: { messageId: "too-small", message: "Words" } }),
+    /history.*budget/i);
+  assert.equal(writes, 0);
+  assert.equal(sends, 0);
+});

@@ -1813,6 +1813,27 @@ truncate a returning engine's missed/edited messages. Attachment references and
 removed-message identities retain their existing delivery ownership. The direct
 API's initial continuity policy is separate and is unchanged by these limits.
 
+The lower-level `createConversationChangeover()` owner additionally accepts
+`maximumHistoryBytes`, a positive UTF-8 byte limit on the quoted history JSON.
+This includes message metadata, escaped text, attachment references and removed
+message IDs. It bounds both initial history and returning missed/corrected
+messages, dropping complete oldest messages until the remainder fits. Set
+`maximumInitialMessages: Infinity` together with a finite byte budget to select
+the entire available history instead of a fixed message window. Saved transcript
+text is never changed and no summary is generated. Removed message IDs are
+retained; if even that envelope exceeds the budget, delivery fails before a
+pending request is written or sent.
+
+The caller must derive this byte allowance from the selected destination's
+available normal context, reserving room for its retained history, instructions,
+tools, the current request and further work. Byte counts are not token counts;
+this option does not select a model or enable an extended context window. A
+retained pending prompt keeps its exact original contents on retry even if the
+budget or source transcript later changes. The existing delivery cursor records
+the source snapshot, including older rows omitted by the bounded transfer, so
+subsequent unchanged requests do not repeatedly inject the discarded history.
+This lower-level option does not change the runtime's default 30-message seed.
+
 An application whose established selection policy creates a fresh native
 conversation can pass `retireNative: true` to `select()`. This uses the same
 selection transaction and allocates a new binding even for a compatible model
