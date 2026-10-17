@@ -201,12 +201,15 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
         if (typeof deps?.onEvent !== "function" || typeof deps?.onRelease !== "function") {
           throw new TypeError("Conversation subscriptions require their server-owned event and cleanup callbacks.");
         }
+        if (deps.isCurrent?.() === false) return null;
         deps.onStage?.("conversation-open");
         const conversation = await openConversation(input, context);
+        if (deps.isCurrent?.() === false) return null;
         deps.onStage?.("observer-attach");
         const release = await conversation.subscribe(deps.onEvent);
         try {
           deps.onRelease(release);
+          if (deps.isCurrent?.() === false) return null;
           deps.onStage?.("snapshot-read");
           return await conversation.read();
         } catch (error) {

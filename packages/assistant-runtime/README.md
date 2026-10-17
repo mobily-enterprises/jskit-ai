@@ -12,6 +12,13 @@ Timers are removed on acknowledgement, failure, replacement, unsubscribe
 and connection close. Diagnostics contain no request body or conversation text,
 and do not change authorization, subscription deadlines or model work.
 
+Released subscriptions stop setup at the next completed phase. The existing
+socket owner supplies its current subscription identity to the subscribe action;
+an obsolete open cannot attach a new observer, and a late observer is detached
+without starting a snapshot. Reads already in progress may finish, but cannot
+acknowledge into a replacement view. Reload performs fresh authorization, and
+releasing a view never stops its model turn.
+
 Prepared application submissions may explicitly enable `queueWhileSending` to
 reuse the binding's serial delivery queue while application preparation is still
 running. Each queued request retains its captured payload and receipt identity.

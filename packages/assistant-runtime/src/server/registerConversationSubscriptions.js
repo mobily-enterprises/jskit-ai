@@ -170,6 +170,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
           deps: {
             onEvent,
             onStage,
+            isCurrent: current,
             onRelease(detach) {
               if (!current()) detach();
               else subscription.release = detach;

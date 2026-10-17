@@ -42,7 +42,7 @@ function requestSubscription(socket, input) {
   });
 }
 
-async function fixture(t, { diagnostics = false } = {}) {
+async function fixture(t, { diagnostics = false, onSetup } = {}) {
   const directory = await mkdtemp(join(tmpdir(), "assistant-subscriptions-"));
   const changes = new EventEmitter();
   const notify = () => changes.emit("change");
@@ -86,13 +86,16 @@ async function fixture(t, { diagnostics = false } = {}) {
     conversations.set(id, conversation);
   }
   let active = 0;
+  let snapshotReads = 0;
   const actions = createActionCatalogue();
   const contributor = createAuthActionContextContributor();
   actions.registerContextContributor({ id: contributor.contributorId, contribute: contributor.contribute });
   actions.register({ contributorId: "test.assistant", domain: "assistant", actions: createAssistantActions({ config,
     conversationRuntime: { async open(input) {
+      await onSetup?.("conversation-open");
       const conversation = await runtime.open(input);
       return { ...conversation, async read() {
+        snapshotReads += 1;
         const barrier = nextReadBarriers.get(input.id);
         if (barrier) {
           nextReadBarriers.delete(input.id);
@@ -106,6 +109,7 @@ async function fixture(t, { diagnostics = false } = {}) {
         let released = false;
         active += 1;
         notify();
+        await onSetup?.("observer-attach");
         return () => {
           if (released) return;
           released = true;
@@ -207,7 +211,49 @@ async function fixture(t, { diagnostics = false } = {}) {
   }
   return { ids, connect, view, changes, sessions, revoked, fetches, conversations, runtimeEvents,
     realtime, transport, serverSockets, published, events, stopSubscriptions, authRequests, subscriptionTimings,
-    holdNextRead, active: () => active };
+    holdNextRead, active: () => active, snapshotReads: () => snapshotReads };
+}
+
+for (const phase of ["conversation-open", "observer-attach"]) {
+  test(`released during ${phase} skips obsolete snapshot and preserves replacement observation`, async t => {
+    const entered = Promise.withResolvers();
+    const gate = Promise.withResolvers();
+    t.after(() => gate.resolve());
+    let held = false;
+    const f = await fixture(t, { diagnostics: true, async onSetup(stage) {
+      if (stage !== phase || held) return;
+      held = true;
+      entered.resolve();
+      await gate.promise;
+    } });
+    const socket = await f.connect();
+    const id = f.ids[0];
+    await f.conversations.get(id).send({ messageId: "survives-observer-release", text: "Keep working" });
+    await until(f.changes, () => f.fetches.length === 1);
+    const oldView = f.view(socket, id);
+    await entered.promise;
+    const epoch = f.subscriptionTimings.at(-1).subscriptionEpoch;
+    oldView.dispose();
+    await until(f.changes, () => f.subscriptionTimings.some(record =>
+      record.subscriptionEpoch === epoch && record.stage === "released"));
+    const replacement = f.view(socket, id);
+    await until(f.changes, () => replacement.states.length === 1);
+    assert.equal(f.snapshotReads(), 1);
+    gate.resolve();
+    await until(f.changes, () => f.subscriptionTimings.some(record =>
+      record.subscriptionEpoch === epoch && record.stage === "abandoned"));
+    assert.equal(f.snapshotReads(), 1, "Released setup cannot start a new snapshot");
+    assert.equal(f.subscriptionTimings.some(record =>
+      record.subscriptionEpoch === epoch && record.stage === "snapshot-read"), false);
+    assert.equal(f.active(), 1, "Late cleanup preserves the replacement observer");
+    assert.equal(oldView.states.length, 0);
+    assert.equal(f.fetches.length, 1);
+    assert.equal(f.fetches[0].signal.aborted, false, "View cancellation never stops the model");
+    f.fetches[0].text("Still working after view replacement.");
+    await until(f.changes, () => replacement.received.some(event => event.text?.includes("view replacement")));
+    replacement.dispose();
+    await until(f.changes, () => f.active() === 0);
+  });
 }
 
 test("subscription timings identify a blocked snapshot and abandoned observation without stopping work", { timeout: 20_000 }, async t => {

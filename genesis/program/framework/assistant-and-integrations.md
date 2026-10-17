@@ -23,6 +23,12 @@ server-side environment references. Conversations preserve provider lifecycle,
 streaming, attachment, recovery, and storage contracts. Connector operations
 remain scoped to the application and user or workspace that owns the account.
 
+Realtime subscription setup checks its original socket-owned liveness between
+opening, observer attachment and snapshot reading. Released setup cannot start
+the next phase; late observers are detached without affecting a replacement or
+stopping model work. Reload still performs fresh authorization, and reads already
+in flight remain unable to acknowledge into a replacement view.
+
 The existing native changeover owner can bound quoted history by UTF-8 JSON
 bytes, selecting all messages when a finite budget replaces its initial message
 window. Initial and returning catch-up drop complete oldest rows to fit without
