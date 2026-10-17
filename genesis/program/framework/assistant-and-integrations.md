@@ -292,6 +292,11 @@ input. The same message can be explicitly retried after preparation recovers.
 Failures after the native input write keep their original acknowledgement and
 uncertain-delivery behavior; the preparation catch does not wrap those effects.
 
+The existing Claude account-query factory receives the bounded `purpose` value
+`catalogue` or `usage` for temporary process startup diagnostics. Borrowed
+conversation processes, account caches, cancellation and cleanup remain owned
+by the same query facility; the label does not change their lifecycle.
+
 The existing voice queue preserves arrival order for selected progress/thinking
 narration and canonical answers. An arriving answer retires only optional murmur
 filler, not message playback. Explicit Stop, mute, capture-related narration

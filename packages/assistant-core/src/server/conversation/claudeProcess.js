@@ -240,7 +240,7 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
     accountProcessStops.delete(native);
   }
 
-  async function readAccountProcess(identity, expectedRevision, read) {
+  async function readAccountProcess(identity, expectedRevision, purpose, read) {
     assertCurrent(expectedRevision);
     for (const native of accountProcessStops) await stopAccountProcess(native);
     assertCurrent(expectedRevision);
@@ -256,7 +256,7 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
     cancelled.promise.catch(() => {});
     let native;
     try {
-      native = owned?.process || await createProcess({ signal: controller.signal });
+      native = owned?.process || await createProcess({ signal: controller.signal, purpose });
       controller.signal.throwIfAborted();
       return await Promise.race([read(native), cancelled.promise]);
     } finally {
@@ -274,7 +274,7 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       assertCurrent(expectedRevision);
       if (!catalog || catalog.identity !== identity || Date.now() - catalog.at > 600_000) {
         if (!catalogStarts.has(identity)) catalogStarts.set(identity, (async () => {
-          const value = await readAccountProcess(identity, expectedRevision, (native) => native.initialization);
+          const value = await readAccountProcess(identity, expectedRevision, "catalogue", (native) => native.initialization);
           if (identity !== await accountIdentity(context)) throw error("The signed-in Claude account changed. Refresh the model list.");
           assertCurrent(expectedRevision);
           catalog = { at: Date.now(), identity, value };
@@ -292,7 +292,7 @@ export function createClaudeAccountQueries({ createProcess, accountIdentity, pro
       if (planUsage?.identity === identity && Date.now() - planUsage.checkedAt < 60_000) return planUsage;
       if (planUsagePending.has(identity)) return planUsagePending.get(identity);
       const pending = (async () => {
-        const value = await readAccountProcess(identity, expectedRevision, (native) => native.client.request(
+        const value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
           { subtype: "get_usage", skip_behaviors: true }));
         if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
         assertCurrent(expectedRevision);

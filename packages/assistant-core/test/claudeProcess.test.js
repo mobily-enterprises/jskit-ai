@@ -476,6 +476,31 @@ test("Claude account queries isolate concurrent identities and deduplicate each 
   }
 });
 
+test("Claude account queries label temporary startup without changing cached process reuse", async () => {
+  const starts = [];
+  let stops = 0;
+  const queries = createClaudeAccountQueries({
+    accountIdentity: async () => "private-account-identity",
+    createProcess(input) {
+      starts.push(input);
+      return {
+        initialization: { models: [] },
+        client: { request: async () => ({ rate_limits_available: false }) },
+        async stop() { stops++; return { scopeEmpty: true }; }
+      };
+    }
+  });
+  for (const method of ["readCatalogue", "readPlanUsage"]) {
+    await queries[method]({});
+    await queries[method]({});
+  }
+  assert.deepEqual(starts.map(input => input.purpose), ["catalogue", "usage"]);
+  assert.ok(starts.every(input => input.signal instanceof AbortSignal));
+  assert.ok(starts.every(input => Object.keys(input).sort().join() === "purpose,signal"));
+  assert.equal(stops, 2);
+  await queries.invalidate();
+});
+
 test("account invalidation cancels held startup and usage without stopping a borrowed conversation", async () => {
   for (const phase of ["startup", "owned usage", "borrowed usage"]) {
     const started = Promise.withResolvers();
