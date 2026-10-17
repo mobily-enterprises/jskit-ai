@@ -1684,6 +1684,16 @@ Applications still supply exact action authorization, native instruction/account
 configuration and checkpoints. Source/component proofs do not establish a host's
 installed or real CLI/application acceptance.
 
+If an opted-in host starts Claude for a native goal before an authored turn,
+`process.configure` must already declare `applicationTools: true` and retain the
+same discovery schemas for subsequent turns. The retained owner installs the
+existing SDK control handler at that startup. Discovery can be served before a
+turn; execution still requires the exact admitted top-level native tool use.
+An admitted application action can call the existing native goal Pause owner:
+its process cleanup does not wait on the enclosing tool call, and the common
+runtime saves the action result before releasing that turn. Applications own
+explicit pause authorization and persisted continuation intent.
+
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
 to that handle and each invocation, not the cached conversation or saved state.

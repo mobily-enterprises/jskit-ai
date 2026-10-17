@@ -261,6 +261,13 @@ restart. This projection records the native termination; it does not prevent
 Claude's preceding retry loop or turn an assistant's “paused” reply into a control
 operation.
 
+An explicitly configured Claude application-tool process installs its SDK control
+handler even when a native goal starts it before the first authored tool-bearing
+turn. Native execution still requires the same current admitted tool identity.
+Self-pause reuses the original native goal/cleanup owner; the shared runtime
+retains the successful application-tool receipt and admits a later ordinary
+request. Host continuation intent and permission remain application-owned.
+
 The existing Claude goal owner marks its own pre-dispatch validation failures
 as `conversation_invalid_goal`, HTTP 400 and `delivery: "not-sent"`. The shared
 client then retains a failed attempt without requiring delivery inspection.

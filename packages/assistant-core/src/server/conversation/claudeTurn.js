@@ -391,7 +391,7 @@ export function createClaudeConversationOwner({
         }
         await entry.nativeTurn.receive(frame);
       },
-      ...(store.releaseExecution || entry.command?.tools ? {
+      ...(store.releaseExecution || options.applicationTools || entry.command?.tools ? {
         async onControlRequest(request, { signal }) {
           const active = entry.command;
           const suppliedTools = !store.releaseExecution && active?.tools;

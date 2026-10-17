@@ -1250,7 +1250,7 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
 
 // Retain the original supplied-store/native process fixture and drive it through
 // the actual common runtime, including its completion-only admitted receipt.
-async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical", beforeToolWrite, signal } = {}) {
+async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical", beforeToolWrite, signal, executeTool = async () => ({}) } = {}) {
   const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
   const storage = createMemoryConversationStorage();
   const transcript = createConversationTranscript({ storage });
@@ -1262,7 +1262,7 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, repres
     id: "lesson.inspect", version: 1, kind: "query", channels: ["automation"], surfaces: ["app"],
     permission: { require: "authenticated" }, idempotency: "none",
     input: { schema: createSchema({}), mode: "replace" },
-    output: { schema: createSchema({}), mode: "replace" }, execute: async () => ({})
+    output: { schema: createSchema({}), mode: "replace" }, execute: executeTool
   }] });
   let delivery;
   f.behavior.admit = event => transcript.writeConversationUserMessage("lesson", {
@@ -1316,7 +1316,7 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, repres
         arguments: { actionId: "lesson.inspect", version: 1 }, _meta: { "claudecode/toolUseId": id } } }
     }, { signal: new AbortController().signal });
   }
-  return { ...f, get entry() { return f.entry; }, runtime, conversation, binding, admissions, checkpoints, loadContract, testSignal: t.signal };
+  return { ...f, get entry() { return f.entry; }, runtime, conversation, binding, admissions, checkpoints, loadContract, storage, toolContext: context, testSignal: t.signal };
 }
 
 async function sendCommon(f, messageId) {
@@ -2178,4 +2178,94 @@ test("bound Main cannot dispatch or retain a pending prompt when its history bud
   assert.equal(f.processes.length, 0);
   assert.equal(f.messages.length, 0);
   assert.equal((await f.binding.state.read())?.engines?.claude?.pending, undefined);
+});
+
+
+test("Claude common runtime saves a successful self-pause tool receipt and admits the next request", { timeout: 5_000 }, async t => {
+  let effects = 0;
+  const f = await suppliedCommonFixture(t, { async executeTool() {
+    effects++;
+    const native = await f.runtime.open({ id: "lesson", context: f.toolContext, representation: "native" });
+    const goal = await native.readGoal();
+    const result = await native.updateGoal({ action: "pause", threadId: f.conversationId,
+      createdAt: goal.goal.createdAt, objective: goal.goal.objective });
+    assert.equal(result.goal.status, "paused");
+    return {};
+  } });
+  const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, `${f.conversationId}.jsonl`), JSON.stringify({
+    type: "attachment", uuid: "common-self-pause-goal", timestamp: "2026-10-17T02:00:00.000Z",
+    attachment: { type: "goal_status", condition: "Finish the assigned checks", sentinel: true, met: false }
+  }) + "\n");
+  const original = await f.owner.readGoal(f.entry);
+  const receipt = await sendCommon(f, "common-self-pause");
+  await f.loadContract();
+  const native = f.entry.process;
+  const input = { actionId: "lesson.inspect", version: 1, input: {} };
+  await f.frame({ type: "assistant", uuid: "self-pause-tool-use", message: { content: [
+    { type: "tool_use", id: "pause-self", name: "mcp__application__assistant_action_execute", input }
+  ] } });
+  const response = await native.options.onControlRequest({ subtype: "mcp_message", server_name: "application",
+    message: { jsonrpc: "2.0", id: "pause-self", method: "tools/call", params: {
+      name: "assistant_action_execute", arguments: input, _meta: { "claudecode/toolUseId": "pause-self" }
+    } }
+  }, { signal: new AbortController().signal });
+  assert.equal(JSON.parse(response.mcp_response.result.content[0].text).ok, true);
+  await f.conversation.wait();
+  assert.equal(effects, 1);
+  const saved = await f.storage.read("lesson", transaction => transaction.readTurn(receipt.turnId));
+  const call = saved.metadata.applicationTools.find(call => call.id.endsWith("pause-self"));
+  assert.equal(call.status, "complete", "The native process stopping must not discard its tool receipt");
+  assert.equal(call.result.ok, true);
+  assert.equal(f.entry.process, null);
+  assert.equal(f.entry.command, null);
+  const retained = await f.owner.readGoal(f.entry);
+  assert.equal(retained.goal.status, "paused");
+  assert.equal(retained.goal.createdAt, original.goal.createdAt);
+  assert.equal(retained.goal.objective, original.goal.objective);
+  const next = await sendCommon(f, "after-self-pause");
+  assert.equal(next.status, "accepted");
+  await f.frame({ type: "result", subtype: "success", result: "Next request completed." });
+  await f.conversation.wait();
+});
+
+test("Claude admitted application tool can pause its own native goal without waiting on its enclosing run", { timeout: 5_000 }, async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, `${f.conversationId}.jsonl`), JSON.stringify({
+    type: "attachment", uuid: "self-pause-goal", timestamp: "2026-10-17T02:00:00.000Z",
+    attachment: { type: "goal_status", condition: "Finish the assigned checks", sentinel: true, met: false }
+  }) + "\n");
+  const original = await f.owner.readGoal(f.entry);
+  const effects = [];
+  f.tools.execute = async (_input, options) => {
+    assert.equal(options.messageId, "pause-at-checkpoint");
+    effects.push("pause");
+    const result = await f.owner.updateGoal(f.entry, {
+      action: "pause", threadId: f.conversationId,
+      createdAt: original.goal.createdAt, objective: original.goal.objective
+    });
+    effects.push("paused");
+    return { ok: true, status: result.goal.status };
+  };
+  const running = f.owner.run(f.control, f.command("pause-at-checkpoint"), f.options);
+  void running.catch(() => {});
+  while (!f.accepted.length) {
+    t.signal.throwIfAborted();
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  await f.nativeTool("pause-self");
+  const response = await f.call("pause-self");
+  assert.deepEqual(JSON.parse(response.mcp_response.result.content[0].text), { ok: true, status: "paused" });
+  await running;
+  assert.deepEqual(effects, ["pause", "paused"]);
+  assert.equal(f.entry.process, null, "Pause proves native process cleanup before releasing its handle");
+  assert.equal(f.entry.command, null, "The enclosing tool/turn owner drains without a self-wait");
+  assert.equal(f.entry.turn.active, false);
+  const retained = await f.owner.readGoal(f.entry);
+  assert.equal(retained.goal.status, "paused");
+  assert.equal(retained.goal.createdAt, original.goal.createdAt);
+  assert.equal(retained.goal.objective, original.goal.objective);
 });
