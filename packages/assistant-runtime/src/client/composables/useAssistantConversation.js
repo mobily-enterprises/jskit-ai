@@ -703,7 +703,10 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     try {
       const receipt = await api.inspectConversationDelivery(identity.conversationId, messageId);
       if (!current.value) return false;
-      if (receipt.status === "accepted") delivery.accept(messageId);
+      if (receipt.status === "accepted") {
+        delivery.accept(messageId);
+        if (receipt.messageId === messageId && message?.payload.goalRequest) goalError.value = "";
+      }
       else if (receipt.status === "not-sent" && receipt.messageId === messageId) delivery.rejectUnsent(messageId, receipt.error);
       else if (receipt.status === "unknown" && message?.status === "uncertain") {
         message.error = "Delivery is still unknown. Retry to check again.";

@@ -1223,7 +1223,9 @@ Custom product presentation can use the retained runtime's `goalView`,
 `goalState`, `goalLoadError`, `changeGoal` and `refreshGoal` instead of creating
 another remote resource. New commands capture that view's target and goal ID.
 A failed message command keeps its original UUID and request for explicit retry;
-unknown delivery is inspected, never automatically resent.
+unknown delivery is inspected, never automatically resent. When inspection confirms
+the same goal request was accepted, its stale command error clears without
+creating another goal. Unknown delivery keeps its recovery error.
 
 ### Files
 

@@ -229,6 +229,7 @@ test("a lost goal receipt uses the same inspection-only ledger and never starts 
   const check = f.primary.getByRole("button", { name: "Retry delivery check", exact: true });
   await expect(check).toBeVisible();
   await expect(f.primary.getByText("Finish the uncertain goal", { exact: true })).toHaveCount(1);
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value.error)).toBe("The goal's receipt was lost.");
   const requests = async () => (await f.state()).requests.filter(request => request.suffix === "/goal" && request.method === "POST");
   const [original] = await requests();
   assert.ok(original.input.messageId);
@@ -239,6 +240,7 @@ test("a lost goal receipt uses the same inspection-only ledger and never starts 
   await f.command("confirm", { id: "chat:1" });
   await check.click();
   await expect(check).toHaveCount(0);
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value.error)).toBe("");
   await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toBeVisible();
   await expect(f.primary.getByText("Finish the uncertain goal", { exact: true })).toHaveCount(1);
   assert.equal((await requests()).length, 1);

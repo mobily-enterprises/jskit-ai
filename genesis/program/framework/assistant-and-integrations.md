@@ -166,7 +166,9 @@ animation, independently of active goal scheduling. Provider-supplied elapsed
 usage remains running time; when only goal creation timestamps are available it
 explicitly labels wall elapsed time including pauses. Recovery actions precede
 long objective and reason text. Accepted Set closes the menu and clears its
-draft; rejected or uncertain results retain both for recovery.
+draft; rejected or uncertain results retain both for recovery. A delivery check
+that confirms the same goal request was accepted clears its stale command error
+without submitting another goal.
 The objective input stops growing after four rows and scrolls its remaining text.
 The menu stays within the viewport, retaining its existing scroll behavior so
 long objectives cannot push Start outside the visible panel.
