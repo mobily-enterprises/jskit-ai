@@ -1843,6 +1843,24 @@ inspect the selected native conversation's current budget without preparing
 another runtime during recovery. An unavailable or invalid budget prevents
 dispatch; it does not silently substitute an unlimited allowance.
 
+A supplied native conversation can expose the same `maximumHistoryBytes`
+resolver on its binding. The common runtime adds the current authorized
+`context` and active execution `signal` to its arguments. When no explicit
+`maxInitialNativeHistoryMessages` is configured, this opts that binding into
+whole-history selection up to the returned byte budget. The host owns the budget
+policy and usage source. The common runtime reauthorizes and checks cancellation
+before the lookup, then checks cancellation again before retaining the result.
+No resolver means the existing initial message limit remains in effect.
+
+The existing Claude conversation owner exposes
+`readContextUsage(entry, { signal, ...input })` for an already acquired native
+entry. It uses the original account/configuration/process preparation and sends
+only `get_context_usage` with `detail: "summary"`; it does not submit an inference
+request. The result is `{ model, usedTokens, windowTokens }`. When auto-compaction
+is enabled, the window is bounded by its reported threshold. Invalid native
+usage fails instead of guessing a limit. Call this with the same prepared tool
+configuration as the eventual request; it is not a separate provider lifecycle.
+
 For a prepared Codex runtime, the existing `server/codex-configuration` entry
 exports `readCodexModelContextWindow({ runtimeDir, model })`. Supply the exact
 runtime directory and selected catalogue model ID. It reads that runtime's

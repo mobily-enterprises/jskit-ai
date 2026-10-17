@@ -36,6 +36,12 @@ window and effective percentage. Extended maximum windows are not used as
 transfer limits. Missing or ambiguous model facts fail without leaking private
 catalogue contents; existing thread usage remains a separate input.
 
+A bound native conversation may supply that budget resolver directly. The
+common runtime adds fresh authorization and cancellation checks and selects all
+history unless the host retains an explicit initial message window. The original
+Claude owner reads model-specific context usage through its existing native
+process without sending an inference request; host policy reserves working space.
+
 Transcript readers accept server-owned `pageUnit: "messages"` to count individual
 user, assistant and system messages, excluding reasoning and commentary. The
 default remains whole stored turns for internal consumers. The shared browser

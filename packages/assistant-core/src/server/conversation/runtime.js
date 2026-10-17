@@ -402,18 +402,26 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     };
   }
 
-  function nativeChangeover(entry, context, request, sendMessage) {
+  function nativeChangeover(entry, context, request, sendMessage, signal) {
     let observation;
     const initialWindow = limits.maxInitialNativeHistoryMessages;
+    const budget = entry.conversation?.maximumHistoryBytes;
     if (initialWindow !== undefined && (!Number.isSafeInteger(initialWindow) || initialWindow < 0)) {
       throw new TypeError("Initial native history requires a non-negative message limit.");
     }
     return createConversationChangeover({
       state: entry.conversation?.state || changeoverState(entry, request),
       captureContext: !entry.conversation, applicationMessages: !entry.conversation,
-      maximumInitialMessages: initialWindow === undefined ? undefined
+      maximumInitialMessages: initialWindow === undefined ? (budget ? Infinity : undefined)
         : Math.max(0, initialWindow - (request?.input.origin === "user" ? 1 : 0)),
       maximumInitialMessageCharacters: limits.maxInitialNativeHistoryMessageCharacters,
+      ...(budget ? { maximumHistoryBytes: async options => {
+        await access(context, entry.id, request.operation, entry);
+        signal.throwIfAborted();
+        const bytes = await budget({ ...options, context, signal });
+        signal.throwIfAborted();
+        return bytes;
+      } } : {}),
       presentation: entry.conversation?.presentation || { unconfirmedCode: "conversation_delivery_uncertain",
         unconfirmedMessage: "The previous submission has uncertain delivery. Retry this message to check its native receipt; it will not be resent automatically." },
       transcript: entry.conversation?.transcript || {
@@ -1146,7 +1154,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         // context rendering and its delivery cursor must not change /goal input.
         const delivered = entry.conversation && request.input.goal
           ? await dispatchPrepared(input)
-          : await nativeChangeover(entry, request.context, request, dispatchPrepared).send({ engineId: engine,
+          : await nativeChangeover(entry, request.context, request, dispatchPrepared, active.controller.signal).send({ engineId: engine,
             messages: entry.conversation ? await entry.conversation.transcript.history() : conversationNativeMessages(history),
             ...(entry.conversation ? { turnMetadata: { engineId: engine } } : {}),
             ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}), input });
@@ -2435,6 +2443,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               : invalidOpenCodeOwner) ||
           typeof conversation.prepareInput !== "function" || typeof conversation.read !== "function"))) {
         throw new TypeError("A bound native conversation requires its original identity, store, preparation and native owners.");
+      }
+      if (conversation?.maximumHistoryBytes !== undefined && typeof conversation.maximumHistoryBytes !== "function") {
+        throw new TypeError("A bound native history budget requires a server-owned resolver.");
       }
       if (!["canonical", "native"].includes(representation) || representation === "native" && !conversation) {
         throw new TypeError("Native result representation requires an original bound conversation.");

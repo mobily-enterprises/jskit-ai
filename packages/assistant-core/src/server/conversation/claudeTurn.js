@@ -306,6 +306,24 @@ export function createClaudeConversationOwner({
     return entry.nativeTurn.prepare(configuration);
   }
 
+  async function readContextUsage(entry, input = {}) {
+    input.signal?.throwIfAborted();
+    const native = await ensureProcess(entry, input);
+    input.signal?.throwIfAborted();
+    const usage = await native.client.request({ subtype: "get_context_usage", detail: "summary" });
+    input.signal?.throwIfAborted();
+    const usedTokens = usage?.totalTokens;
+    const maximum = usage?.maxTokens;
+    const threshold = usage?.autoCompactThreshold ?? maximum;
+    if (!Number.isSafeInteger(usedTokens) || usedTokens < 0 ||
+        !Number.isSafeInteger(maximum) || maximum < 1 ||
+        !Number.isSafeInteger(threshold) || threshold < 1 || typeof usage.model !== "string" || !usage.model) {
+      throw createError("Claude's current context usage is unavailable.");
+    }
+    return { model: usage.model, usedTokens,
+      windowTokens: usage.isAutoCompactEnabled === false ? maximum : Math.min(maximum, threshold) };
+  }
+
   async function stopForTerminal(entry, application) {
     if (entry.turn?.active) throw createError("Stop the current turn before opening the Claude Code terminal.");
     if (closing || closingSessions.has(entry.context.key) || application?.sessionClosing) throw createError("This session is closing.");
@@ -959,7 +977,7 @@ export function createClaudeConversationOwner({
     if (!binding) return { value: delivered.value };
   }
 
-  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, stopForTerminal, prepareTerminal, send, startTurn,
+  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, readContextUsage, stopForTerminal, prepareTerminal, send, startTurn,
     interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }

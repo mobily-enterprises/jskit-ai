@@ -2098,3 +2098,84 @@ for (const action of ["steer", "set", "resume"]) test(`Claude ${action} uses tar
   await f.frame({ type: "system", subtype: "task_notification", task_id: "live-worker", status: "completed" });
   assert.equal(f.entry.nativeTurn.read().active, false, "Only actual worker completion settles the turn");
 });
+
+test("Claude context inspection reuses the native owner and reports the selected model's current usage", async t => {
+  const f = await publishedClaudeFixture(t);
+  const requests = [];
+  let usage = { model: "claude-opus", totalTokens: 12345, maxTokens: 1000000, autoCompactThreshold: 967000 };
+  f.behavior.initialize = native => {
+    native.client.request = async request => {
+      requests.push(request);
+      return request.subtype === "get_context_usage" ? usage : {};
+    };
+  };
+  const first = await f.owner.readContextUsage(f.entry);
+  assert.deepEqual(first, { model: "claude-opus", usedTokens: 12345, windowTokens: 967000 });
+  usage = { model: "claude-haiku", totalTokens: 54321, maxTokens: 200000, autoCompactThreshold: 167000 };
+  assert.deepEqual(await f.owner.readContextUsage(f.entry), { model: "claude-haiku", usedTokens: 54321, windowTokens: 167000 });
+  assert.equal(f.processes.length, 1);
+  assert.equal(f.entry.turn, null);
+  assert.equal(f.messages.length, 0);
+  assert.equal(requests.filter(value => value.subtype === "get_context_usage").length, 2);
+});
+
+test("Claude context inspection refuses unavailable usage and honours cancellation before preparation", async t => {
+  const f = await publishedClaudeFixture(t);
+  const controller = new AbortController();
+  controller.abort(new Error("cancelled context inspection"));
+  await assert.rejects(f.owner.readContextUsage(f.entry, { signal: controller.signal }), /cancelled context inspection/);
+  assert.equal(f.processes.length, 0);
+  let usage;
+  f.behavior.initialize = native => { native.client.request = async request => request.subtype === "get_context_usage" ? usage : {}; };
+  for (const invalid of [undefined, {}, { totalTokens: -1, maxTokens: 200000 }, { totalTokens: "1", maxTokens: 200000 },
+    { totalTokens: 1, maxTokens: 0 }, { totalTokens: 1, maxTokens: 200000, autoCompactThreshold: -1 }]) {
+    usage = invalid;
+    await assert.rejects(f.owner.readContextUsage(f.entry), /context usage is unavailable/);
+  }
+  assert.equal(f.messages.length, 0);
+});
+
+
+test("bound Main history budget transfers more than 30 complete messages through the original Claude sender", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false, representation: "native" });
+  const history = Array.from({ length: 80 }, (_, index) => ({
+    id: `history-${index}`, version: `v${index}`, role: index % 2 ? "assistant" : "user", text: `${index}:` + "visible text ".repeat(200)
+  }));
+  f.binding.transcript.history = async () => history;
+  await f.binding.state.write({ lastEngine: "codex", engines: { codex: { seen: {} } } });
+  let reads = 0;
+  f.binding.maximumHistoryBytes = async ({ engineId, returning, context, signal, input }) => {
+    reads++;
+    assert.equal(engineId, "claude");
+    assert.equal(returning, false);
+    assert.equal(context.actor.id, "owner");
+    assert.equal(signal.aborted, false);
+    assert.equal(input.message, "Prepare the question.");
+    return 300_000;
+  };
+  const sent = [];
+  f.behavior.initialize = native => {
+    const send = native.client.send;
+    native.client.send = (message, ...args) => { sent.push(message); return send(message, ...args); };
+  };
+  await sendCommon(f, "full-history");
+  assert.equal(reads, 1);
+  assert.ok(sent[0].length > 128_000);
+  for (const message of history) assert.ok(sent[0].includes(JSON.stringify(message.text)), message.id);
+  await f.frame({ type: "result", subtype: "success", result: "Received." });
+  await f.conversation.wait();
+  await sendCommon(f, "ordinary-follow-up");
+  assert.equal(reads, 1, "Unchanged history must not prepare another budget lookup");
+  assert.equal(sent[1], "Prepare the question.");
+});
+
+test("bound Main cannot dispatch or retain a pending prompt when its history budget is unavailable", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false, representation: "native" });
+  f.binding.transcript.history = async () => [{ id: "earlier", version: "v1", role: "user", text: "Earlier work." }];
+  await f.binding.state.write({ lastEngine: "codex", engines: { codex: { seen: {} } } });
+  f.binding.maximumHistoryBytes = async () => { throw new Error("Current native context usage unavailable"); };
+  await assert.rejects(f.conversation.send({ messageId: "no-budget", text: "Continue" }), /Current native context usage unavailable/u);
+  assert.equal(f.processes.length, 0);
+  assert.equal(f.messages.length, 0);
+  assert.equal((await f.binding.state.read())?.engines?.claude?.pending, undefined);
+});
