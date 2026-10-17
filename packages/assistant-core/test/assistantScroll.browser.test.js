@@ -733,7 +733,9 @@ test("optional goals show running and paused lights, count only active time, and
     await page.getByRole("textbox", { name: "Goal objective" }).fill("Complete the shared assistant.");
     await page.getByRole("spinbutton", { name: "Token budget (optional)" }).fill("10000");
     await page.getByRole("button", { name: "Start goal", exact: true }).click();
-    await expect(page.getByText("Complete the shared assistant.", { exact: true })).toBeVisible();
+    await page.clock.runFor(250);
+    await expect(page.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("textbox", { name: "Goal objective" })).toBeHidden();
     await input.click();
     await input.fill("Preserve this draft and caret");
     await input.evaluate(element => element.setSelectionRange(5, 9));

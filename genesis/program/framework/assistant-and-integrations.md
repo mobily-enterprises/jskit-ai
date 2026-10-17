@@ -154,7 +154,8 @@ The shared goal control uses canonical conversation working status for activity
 animation, independently of active goal scheduling. Provider-supplied elapsed
 usage remains running time; when only goal creation timestamps are available it
 explicitly labels wall elapsed time including pauses. Recovery actions precede
-long objective and reason text, and rejected Set results preserve the draft.
+long objective and reason text. Accepted Set closes the menu and clears its
+draft; rejected or uncertain results retain both for recovery.
 
 The retained browser goal binding distinguishes an unknown goal from a confirmed
 empty goal. Initial and replacement reads display loading; failed reads hide

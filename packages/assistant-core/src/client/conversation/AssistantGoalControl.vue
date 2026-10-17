@@ -49,7 +49,7 @@ watch(() => props.state?.enabled, enabled => { if (enabled === false) open.value
 async function setGoal() {
   if (!canSet.value || props.state.pending || !objective.value.trim() || !validBudget.value) return;
   const result = await props.state.set({ objective: objective.value.trim(), ...(props.state.tokenBudgetSupported === false || tokenBudget.value === "" ? {} : { tokenBudget: Number(tokenBudget.value) }) });
-  if (result !== false && result?.ok !== false && !props.state.error) { objective.value = ""; tokenBudget.value = ""; }
+  if (result !== false && result?.ok !== false && !props.state.error) { objective.value = ""; tokenBudget.value = ""; open.value = false; }
 }
 </script>
 

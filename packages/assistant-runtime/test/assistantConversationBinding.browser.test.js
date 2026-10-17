@@ -147,6 +147,8 @@ test("optional goal controls follow declared command semantics and budgets witho
     await expect(start).toBeEnabled();
     await start.click();
     await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toBeVisible();
+    await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+    await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
     const pause = f.page.getByRole("button", { name: "Pause goal", exact: true });
     await expect(pause).toBeEnabled();
     await expect(f.page.getByText(budgets
@@ -191,6 +193,8 @@ test("the first native goal preserves absent identity and later controls capture
   await expect(start).toBeEnabled();
   await start.click();
   await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toBeVisible();
+  await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+  await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
   const pause = f.page.getByRole("button", { name: "Pause goal", exact: true });
   await expect(pause).toBeEnabled();
   await pause.click();
