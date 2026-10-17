@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Duplex } from "node:stream";
+import { createClaudeJsonClient } from "../src/server/conversation/claudeClient.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClaudeConversationTurn, claudeNativeMessageId, runClaudeRenewalTurn,
   waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
@@ -2221,6 +2223,8 @@ test(`Claude common runtime saves a successful self-${retention.action} tool rec
     } }
   }, { signal: new AbortController().signal });
   assert.equal(JSON.parse(response.mcp_response.result.content[0].text).ok, true);
+  assert.equal(f.entry.process, native, "The returning native tool still owns its connection");
+  await f.frame({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "pause-self", is_error: false }] } });
   await f.conversation.wait();
   assert.equal(effects, 1);
   const saved = await f.storage.read("lesson", transaction => transaction.readTurn(receipt.turnId));
@@ -2243,8 +2247,33 @@ test(`Claude common runtime saves a successful self-${retention.action} tool rec
   await f.conversation.wait();
 });
 
-test("Claude admitted application tool can pause its own native goal without waiting on its enclosing run", { timeout: 5_000 }, async t => {
+for (const retention of [{ action: "pause", status: "paused" }, { action: "block", status: "blocked", reason: "An approval code is required." }])
+for (const ending of ["receipt", "receipt timeout", "human Pause"])
+test(`Claude self-${retention.action} delivers its real control response before draining its process: ${ending}`, { timeout: 5_000 }, async t => {
   const f = await claudeSuppliedToolFixture(t);
+  const delivered = Promise.withResolvers();
+  const wire = [];
+  let stream;
+  f.behavior.initialize = native => {
+    const original = native.client;
+    stream = new Duplex({ read() {}, write(chunk, _encoding, callback) {
+      const frame = JSON.parse(String(chunk));
+      wire.push(frame);
+      Promise.resolve().then(async () => {
+        if (frame.type === "user") await original.send(frame.message.content, { messageId: frame.uuid });
+        if (frame.type === "control_response") delivered.resolve(frame);
+        if (frame.type === "control_request") {
+          assert.ok(["interrupt", "apply_flag_settings", "set_model"].includes(frame.request.subtype));
+          this.push(JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: frame.request_id } }) + "\n");
+          if (frame.request.subtype === "interrupt") this.push(JSON.stringify({ type: "result", subtype: "success", terminal_reason: "aborted_streaming" }) + "\n");
+        }
+      }).then(() => callback(), callback);
+    } });
+    native.client = createClaudeJsonClient({ stream, onEvent: native.options.onEvent, onControlRequest: native.options.onControlRequest,
+      onFailure: native.options.onFailure });
+    const stop = native.stop;
+    native.stop = async () => { native.client.close(); return stop(); };
+  };
   const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
   await mkdir(directory, { recursive: true });
   await writeFile(path.join(directory, `${f.conversationId}.jsonl`), JSON.stringify({
@@ -2257,7 +2286,7 @@ test("Claude admitted application tool can pause its own native goal without wai
     assert.equal(options.messageId, "pause-at-checkpoint");
     effects.push("pause");
     const result = await f.owner.updateGoal(f.entry, {
-      action: "pause", threadId: f.conversationId,
+      action: retention.action, reason: retention.reason, threadId: f.conversationId,
       createdAt: original.goal.createdAt, objective: original.goal.objective
     });
     effects.push("paused");
@@ -2270,15 +2299,35 @@ test("Claude admitted application tool can pause its own native goal without wai
     await new Promise(resolve => setImmediate(resolve));
   }
   await f.nativeTool("pause-self");
-  const response = await f.call("pause-self");
-  assert.deepEqual(JSON.parse(response.mcp_response.result.content[0].text), { ok: true, status: "paused" });
+  if (ending === "receipt timeout") t.mock.timers.enable({ apis: ["setTimeout"] });
+  const native = f.entry.process;
+  stream.push(JSON.stringify({ type: "control_request", request_id: "pause-control", request: {
+    subtype: "mcp_message", server_name: "application", message: { jsonrpc: "2.0", id: "pause-self", method: "tools/call",
+      params: { name: "inspect_lesson", arguments: { attemptId: "saved-attempt" }, _meta: { "claudecode/toolUseId": "pause-self" } } }
+  } }) + "\n");
+  const response = await delivered.promise;
+  assert.equal(response.response.subtype, "success");
+  assert.deepEqual(JSON.parse(response.response.response.mcp_response.result.content[0].text), { ok: true, status: retention.status });
+  assert.equal(f.entry.process, native, "A successful write alone is not the CLI's tool receipt");
+  assert.equal(wire.some(frame => frame.request?.subtype === "interrupt"), false, "No interrupt overtakes the tool response");
+  await f.frame({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "unrelated-tool" }] } });
+  assert.equal(f.entry.process, native);
+  await assert.rejects(f.call("pause-self"), /retired input/, "No more application effects after the retained stop");
+  if (ending === "receipt") {
+    stream.push(JSON.stringify({ type: "user", session_id: f.conversationId,
+      message: { content: [{ type: "tool_result", tool_use_id: "pause-self", is_error: false }] } }) + "\n");
+  } else if (ending === "human Pause") {
+    await f.owner.updateGoal(f.entry, { ...original.goal, action: "pause" });
+  } else t.mock.timers.tick(30_000);
   await running;
+  if (ending === "receipt timeout") assert.match(f.entry.turn.error, /did not acknowledge its goal tool response/);
   assert.deepEqual(effects, ["pause", "paused"]);
   assert.equal(f.entry.process, null, "Pause proves native process cleanup before releasing its handle");
   assert.equal(f.entry.command, null, "The enclosing tool/turn owner drains without a self-wait");
   assert.equal(f.entry.turn.active, false);
   const retained = await f.owner.readGoal(f.entry);
-  assert.equal(retained.goal.status, "paused");
+  assert.equal(retained.goal.status, ending === "human Pause" ? "paused" : retention.status);
+  assert.equal(f.entry.goalToolStop, null);
   assert.equal(retained.goal.createdAt, original.goal.createdAt);
   assert.equal(retained.goal.objective, original.goal.objective);
 });

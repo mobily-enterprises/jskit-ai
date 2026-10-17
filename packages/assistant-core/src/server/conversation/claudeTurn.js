@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { claudeMessageBlocks, deleteClaudeConversationHistory, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
@@ -160,6 +161,7 @@ export function createClaudeConversationOwner({
   disconnectedMessage = "Claude was interrupted when the application disconnected."
 }) {
   const entries = new Map();
+  const applicationCall = new AsyncLocalStorage();
   const closingSessions = new Set();
   let closing = false;
   const createProcess = process.create || createClaudeCodeProcess;
@@ -181,7 +183,7 @@ export function createClaudeConversationOwner({
     return Boolean(owner && entry && !closing && !closingSessions.has(entry.context.key) &&
       entries.get(entry.key) === entry && entry.command === command && command.entry === entry &&
       command.admitted && !command.signal.aborted && !command.toolFailure &&
-      !entry.disposed && !entry.stopping && !entry.stopPending && !entry.observationError &&
+      !entry.disposed && !entry.stopping && !entry.stopPending && !entry.goalToolStop && !entry.observationError &&
       entry.process === owner.process && entry.executionId === owner.executionId &&
       entry.accountIdentity === owner.accountIdentity && entry.id === owner.threadId &&
       entry.turn?.id === owner.turnId && entry.turn.active && native.turnId === owner.turnId && native.active);
@@ -388,9 +390,11 @@ export function createClaudeConversationOwner({
     assertPreparing();
     let startupCleanup;
     let retainedGoalClear;
+    let startedExecutionId;
     try { entry.process = await createProcess({ ...options,
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
       onStarted: async (executionId, stop) => {
+        startedExecutionId = executionId;
         if (typeof stop === "function") {
           startupCleanup = { executionId, stop, pending: true };
           entry.startupCleanup = startupCleanup;
@@ -403,6 +407,14 @@ export function createClaudeConversationOwner({
         assertPreparing();
       },
       async onEvent(frame) {
+        const pending = entry.goalToolStop;
+        if (pending && pending.executionId === startedExecutionId && entry.process === pending.process &&
+            frame.type === "user" && !frame.parent_tool_use_id && Array.isArray(frame.message?.content) &&
+            frame.message.content.some(block => block.type === "tool_result" && block.tool_use_id === pending.toolUseId)) {
+          // The CLI has consumed the tool response. Do not join process cleanup
+          // on its event reader: interrupt/exit also needs that reader to drain.
+          pending.stop();
+        }
         // A retained Pause disarms only the native goal hook before a new
         // authored input is admitted. This local command is not an AI turn.
         if (retainedGoalClear) {
@@ -431,7 +443,9 @@ export function createClaudeConversationOwner({
           const active = entry.command;
           const suppliedTools = !store.releaseExecution && active?.tools;
           const owner = active?.nativeOwner;
-          const work = claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], turn: active, signal,
+          const work = applicationCall.run({ entry, command: active, owner,
+            toolUseId: request.message?.params?._meta?.["claudecode/toolUseId"] },
+          () => claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], turn: active, signal,
             ...(suppliedTools ? {
               assertCurrent(native) {
                 if (!currentApplicationCommand(entry, active, owner) || active.nativeOwner !== owner ||
@@ -446,7 +460,7 @@ export function createClaudeConversationOwner({
                   active.failure.reject(error);
                 }
               }
-            } : {}) });
+            } : {}) }));
           active?.toolWork.add(work);
           try { return await work; }
           finally { active?.toolWork.delete(work); }
@@ -831,10 +845,33 @@ export function createClaudeConversationOwner({
 
   async function updateGoal(entry, input, operations) {
     await bindAccount(entry);
+    const call = applicationCall.getStore();
+    const selfStop = ["pause", "block"].includes(input.action) && call?.entry === entry &&
+      call.toolUseId && currentApplicationCommand(entry, call.command, call.owner);
     const messageId = input.messageId || randomUUID();
     await entry.goals.update(input, { ...operations,
+      ...(selfStop ? { interrupt: async () => {} } : {}),
       send: command => operations?.send ? operations.send(command) : send(entry, { ...command, messageId }) });
-    if (["pause", "block"].includes(input.action)) await entry.nativeTurn.stopProcess();
+    if (selfStop && currentApplicationCommand(entry, call.command, call.owner)) {
+      // This scope identifies the already-authorized native invocation; it does
+      // not grant tool authority. Retain its exact process until its tool_result
+      // arrives instead of interrupting the MCP request that is returning here.
+      const pending = { process: call.owner.process, executionId: call.owner.executionId, toolUseId: call.toolUseId };
+      pending.stop = (reason = "") => {
+        if (entry.goalToolStop !== pending || pending.stopping) return;
+        clearTimeout(pending.timer);
+        if (entry.process !== pending.process || entry.executionId !== pending.executionId) {
+          entry.goalToolStop = null;
+          return;
+        }
+        pending.stopping = true;
+        const work = reason || !entry.turn?.active ? entry.nativeTurn.stopProcess(reason) : interrupt(entry);
+        void work.catch(error => call.command.failure.reject(error));
+      };
+      entry.goalToolStop = pending;
+      pending.timer = setTimeout(() => pending.stop("Claude did not acknowledge its goal tool response before the time limit."), 30_000);
+      pending.timer.unref();
+    } else if (!selfStop && ["pause", "block"].includes(input.action)) await entry.nativeTurn.stopProcess();
     let result;
     if (!["pause", "block"].includes(input.action)) {
       const deadline = Date.now() + (operations?.attachmentTimeoutMs ?? 30_000);
@@ -1145,6 +1182,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   }
 
   async function stopProcess(reason = "", { preparing = false } = {}) {
+    clearTimeout(entry.goalToolStop?.timer);
+    entry.goalToolStop = null;
     if (!preparing) entry.preparationRevision++;
     invalidateFinalAssistantResult();
     // Runtime bindings commit execution release before dropping the handle.
