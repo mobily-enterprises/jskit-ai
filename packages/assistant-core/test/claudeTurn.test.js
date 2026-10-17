@@ -328,7 +328,11 @@ for (const background of [false, true]) test(`folded native command cannot stran
   await turn.receive({ type: "command_lifecycle", command_uuid: outer, state: "completed" });
   assert.equal(turn.read().pendingCommands, 0);
   assert.equal(turn.read().active, background);
-  if (background) await turn.receive({ type: "system", subtype: "task_notification", task_id: "background", status: "completed" });
+  if (background) {
+    await turn.receive({ type: "system", subtype: "task_notification", task_id: "background", status: "completed" });
+    assert.equal(turn.read().active, true, "The main model still needs to consume the worker result");
+    await turn.receive({ type: "result", subtype: "success", result: "Worker checked" });
+  }
   assert.equal(turn.read().status, "completed");
   assert.equal(events.filter(event => event.type === "settled").length, 1);
 });
@@ -404,6 +408,8 @@ test("Claude authoritative task snapshots repair membership and ignore ambient w
   await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [
     { task_id: "watcher", task_type: "local_bash", ambient: true }
   ] });
+  assert.equal(turn.read().active, true);
+  await turn.receive({ type: "result", subtype: "success", result: "Background work checked" });
   assert.equal(turn.read().active, false);
   await turn.receive({ type: "system", subtype: "status", status: null });
   await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [] });
@@ -411,6 +417,8 @@ test("Claude authoritative task snapshots repair membership and ignore ambient w
   await turn.receive({ type: "system", subtype: "background_tasks_changed", tasks: [{ task_id: "late", task_type: "local_bash" }] });
   assert.equal(turn.read().active, true, "A later task snapshot restores the working state");
   await turn.receive({ type: "system", subtype: "task_updated", task_id: "late", patch: { status: "completed" } });
+  assert.equal(turn.read().active, true);
+  await turn.receive({ type: "result", subtype: "success", result: "Late worker checked" });
   assert.equal(turn.read().active, false);
 });
 
@@ -908,6 +916,8 @@ test("Claude final receipt waits for original background settlement and preserve
   assert.equal(f.final(), null);
   assert.equal(f.entry.nativeTurn.read().active, true);
   await f.frame({ type: "system", subtype: "task_notification", task_id: "background", status: "completed" });
+  assert.equal(f.final(), null, "The main model must finish processing the task notification");
+  await f.frame({ type: "result", subtype: "success", result: "The answer" });
   assert.equal(f.final().itemId, "claude_saved-answer_0");
   assert.equal(f.final().outputId, "claude_api-answer_3");
   assert.equal(f.messages.length, 1, "Original duplicate result adds no synthetic assistant carrier");
@@ -1480,6 +1490,8 @@ for (const sendNow of [false, true]) test(`Claude supplied common completion joi
   if (sendNow) {
     assert.equal(f.checkpoints.length, 0, "Foreground completion cannot checkpoint live background work");
     await f.frame({ type: "system", subtype: "task_notification", task_id: "common-worker", status: "completed" });
+    assert.equal(f.checkpoints.length, 0);
+    await f.frame({ type: "result", subtype: "success", result: "The successor question", uuid: "successor-final" });
   }
   await f.conversation.wait();
   assert.equal((await legacyCompletion).status, "completed");
@@ -1487,6 +1499,35 @@ for (const sendNow of [false, true]) test(`Claude supplied common completion joi
   assert.equal(f.checkpoints[0].final.inputMessageId, claudeNativeMessageId("common-successor"));
   assert.equal(f.checkpoints[0].admission.messageId, "common-successor");
   assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
+});
+
+for (const preceding of [null, "task_updated", "background_tasks_changed"])
+test(`Claude background completion retains admitted tools until the main continuation answers: ${preceding}`, { timeout: 5_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "background-authority");
+  await f.loadContract("before-background");
+  await f.frame({ type: "system", subtype: "task_started", task_id: "worker" });
+  await f.frame({ type: "result", subtype: "success", result: "The worker is running." });
+  if (preceding) {
+    await f.frame(preceding === "task_updated"
+      ? { type: "system", subtype: preceding, task_id: "worker", patch: { status: "completed" } }
+      : { type: "system", subtype: preceding, tasks: [] });
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  await f.frame({ type: "system", subtype: "task_notification", task_id: "worker", status: "completed" });
+  // The process delivers the task's completed notice before the main model
+  // consumes it. Let the existing runtime finish any incorrectly queued cleanup.
+  await new Promise(resolve => setImmediate(resolve));
+  await new Promise(resolve => setImmediate(resolve));
+  await f.frame({ type: "user", uuid: "worker-notice", origin: { kind: "task-notification" } });
+  const response = await f.loadContract("after-background");
+  assert.equal(JSON.parse(response.mcp_response.result.content[0].text).ok, true);
+  assert.equal(f.checkpoints.length, 0, "Worker completion is not the main answer's checkpoint");
+  await f.frame({ type: "result", subtype: "success", result: "Worker evidence checked." });
+  await f.conversation.wait();
+  assert.equal(f.checkpoints.length, 1);
+  assert.equal(f.checkpoints[0].final.text, "Worker evidence checked.");
+  assert.equal(f.entry.command, null, "The actual final still releases application authority");
 });
 
 test("Claude supplied completion retains the original waiter when a reserved successor is rejected before dispatch", { timeout: 10_000 }, async t => {
@@ -2106,7 +2147,9 @@ for (const action of ["steer", "set", "resume"]) test(`Claude ${action} uses tar
   await f.frame({ type: "result", subtype: "success", result: "New instruction accepted" });
   assert.equal(f.entry.nativeTurn.read().active, true, "Retained worker still owns activity");
   await f.frame({ type: "system", subtype: "task_notification", task_id: "live-worker", status: "completed" });
-  assert.equal(f.entry.nativeTurn.read().active, false, "Only actual worker completion settles the turn");
+  assert.equal(f.entry.nativeTurn.read().active, true, "The main model still needs to consume the worker result");
+  await f.frame({ type: "result", subtype: "success", result: "Worker result checked" });
+  assert.equal(f.entry.nativeTurn.read().active, false, "The main response settles the completed worker's turn");
 });
 
 test("Claude context inspection reuses the native owner and reports the selected model's current usage", async t => {
@@ -2192,7 +2235,8 @@ test("bound Main cannot dispatch or retain a pending prompt when its history bud
 
 
 for (const retention of [{ action: "pause", status: "paused" }, { action: "block", status: "blocked", reason: "The human must supply the approval code." }])
-test(`Claude common runtime saves a successful self-${retention.action} tool receipt and admits the next request`, { timeout: 5_000 }, async t => {
+for (const background of [false, true])
+test(`Claude common runtime saves a successful self-${retention.action} tool receipt and admits the next request, background=${background}`, { timeout: 5_000 }, async t => {
   let effects = 0;
   const f = await suppliedCommonFixture(t, { async executeTool() {
     effects++;
@@ -2212,6 +2256,16 @@ test(`Claude common runtime saves a successful self-${retention.action} tool rec
   const original = await f.owner.readGoal(f.entry);
   const receipt = await sendCommon(f, "common-self-pause");
   await f.loadContract();
+  if (background) {
+    await f.frame({ type: "system", subtype: "task_started", task_id: "pause-worker" });
+    await f.frame({ type: "result", subtype: "success", result: "Waiting for the worker checkpoint." });
+    await f.frame({ type: "system", subtype: "background_tasks_changed", tasks: [] });
+    await f.frame({ type: "system", subtype: "task_updated", task_id: "pause-worker", patch: { status: "completed" } });
+    await new Promise(resolve => setImmediate(resolve));
+    await f.frame({ type: "system", subtype: "task_notification", task_id: "pause-worker", status: "completed" });
+    await f.frame({ type: "user", uuid: "pause-worker-notice", origin: { kind: "task-notification" } });
+    await f.loadContract("after-worker-contract");
+  }
   const native = f.entry.process;
   const input = { actionId: "lesson.inspect", version: 1, input: {} };
   await f.frame({ type: "assistant", uuid: "self-pause-tool-use", message: { content: [

@@ -1398,13 +1398,20 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         await publishMessage({ id: `claude_${frame.uuid}`, role: "commentary", text: frame.content, complete: true,
           data: { native: { engineId: "claude", type: "system", subtype: "local_command_output" } } });
       }
+      const previousTaskCount = tasks.size;
       if (frame.subtype === "background_tasks_changed") {
         tasks.clear();
         for (const task of frame.tasks || []) if (task.task_id && !task.ambient) tasks.add(task.task_id);
       }
       if (frame.subtype === "task_started" && frame.task_id && !frame.ambient) tasks.add(frame.task_id);
       if (["task_notification", "task_updated"].includes(frame.subtype) &&
-          ["completed", "failed", "stopped", "killed"].includes(frame.status || frame.patch?.status)) tasks.delete(frame.task_id);
+          ["completed", "failed", "stopped", "killed"].includes(frame.status || frame.patch?.status)) {
+        tasks.delete(frame.task_id);
+      }
+      // Inventory removal can precede the task notification and the main model's
+      // response to it. A foreground result written while that worker was live
+      // cannot complete this follow-up or retire its admitted application tools.
+      if (tasks.size < previousTaskCount) outcome = null;
       if (["background_tasks_changed", "task_started", "task_notification", "task_updated"].includes(frame.subtype)) {
         if (tasks.size && turnId && !active && !cancelling) {
           generation++;

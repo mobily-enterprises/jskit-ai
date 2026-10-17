@@ -81,6 +81,11 @@ without the capability retain the existing interrupt path. The retained
 host receives normalized continuation and diagnostic events without prompt or
 response contents, and continues to own persistence and operator logging.
 Older completion checkpoints cannot overwrite a newer native continuation.
+Removing a completed worker from the native inventory invalidates the preceding
+foreground result as completion evidence. The main model must finish consuming
+that worker's notification before the shared run releases its admitted application
+tools. This applies when inventory replacement or a task update arrives before
+the notification itself; explicit Stop still uses the original cleanup owner.
 Split native text keeps its live output identity until the API message identifies
 it as tool commentary or an answer; restored history uses the same classification.
 Scoped Claude output also keeps its native input identity across accepted steering.
