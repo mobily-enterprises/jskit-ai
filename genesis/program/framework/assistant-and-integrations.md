@@ -156,6 +156,9 @@ usage remains running time; when only goal creation timestamps are available it
 explicitly labels wall elapsed time including pauses. Recovery actions precede
 long objective and reason text. Accepted Set closes the menu and clears its
 draft; rejected or uncertain results retain both for recovery.
+The objective input stops growing after four rows and scrolls its remaining text.
+The menu stays within the viewport, retaining its existing scroll behavior so
+long objectives cannot push Start outside the visible panel.
 
 The retained browser goal binding distinguishes an unknown goal from a confirmed
 empty goal. Initial and replacement reads display loading; failed reads hide

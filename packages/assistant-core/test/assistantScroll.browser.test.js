@@ -716,6 +716,42 @@ test("working state appears before output and suggestion agents and activity ren
 });
 
 
+test("long goal objectives keep Start reachable on short phone, tablet and desktop screens", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  try {
+    const objective = "Complete the requested work and verify the result. ".repeat(80).slice(0, 3990);
+    for (const width of [390, 800, 1280]) {
+      const page = await browser.newPage({ viewport: { width, height: 578 } });
+      await page.goto(`${vite.baseURL}/?conversation=1&goal=1`);
+      await page.getByRole("button", { name: "Set goal", exact: true }).click();
+      await page.getByRole("textbox", { name: "Goal objective" }).fill(objective);
+      const start = page.getByRole("button", { name: "Start goal", exact: true });
+      await expect(start).toBeInViewport();
+      await expect.poll(() => start.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.top >= 0 && bounds.bottom <= innerHeight &&
+          element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+      })).toBe(true);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.screenshot({ path: `/tmp/jskit-goal-long-objective-${width}.png` });
+      await start.click();
+      const running = page.getByRole("button", { name: "Goal running", exact: true });
+      await expect(running).toHaveAttribute("aria-expanded", "false");
+      await running.click();
+      await expect(page.locator(".assistant-goal__details").getByText(objective, { exact: true })).toHaveText(objective);
+      await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeInViewport();
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+    await stopProcess(vite);
+  }
+});
+
 test("optional goals show running and paused lights, count only active time, and adapt to pane width", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000

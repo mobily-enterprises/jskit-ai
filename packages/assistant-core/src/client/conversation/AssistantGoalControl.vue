@@ -73,7 +73,7 @@ async function setGoal() {
       <p v-if="running || goal?.status === 'paused'" class="text-body-small mt-2">{{ state.pauseInterruptsTurn ? 'Pause stops the current turn and keeps the goal for later.' : 'Pausing prevents further automatic turns. Use Stop to interrupt the current turn.' }}</p>
       <p v-if="goal && goal.status !== 'complete' && state.cancel" class="text-body-small mt-2">{{ state.cancelInterruptsTurn ? 'Cancel stops the current turn and clears the goal.' : 'Cancel removes this goal. Use Stop to interrupt a turn already running.' }}</p>
       <form v-if="canSet" class="assistant-goal__form mt-2" @submit.prevent="setGoal">
-        <v-textarea v-model="objective" label="Goal objective" rows="2" maxlength="4000" auto-grow :disabled="state.pending" hide-details />
+        <v-textarea v-model="objective" label="Goal objective" rows="2" max-rows="4" maxlength="4000" auto-grow :disabled="state.pending" hide-details />
         <v-text-field v-if="state.tokenBudgetSupported !== false" v-model="tokenBudget" label="Token budget (optional)" type="number" min="1" step="1" :disabled="state.pending" :error="!validBudget" hide-details />
         <v-btn type="submit" size="small" :disabled="state.pending || !objective.trim() || !validBudget">{{ state.action === 'set' ? 'Starting…' : 'Start goal' }}</v-btn>
       </form>
@@ -90,7 +90,7 @@ async function setGoal() {
 .assistant-goal__light--working { animation: assistant-goal-flash 1.5s ease-in-out infinite; }
 .assistant-goal__light--paused { background: #ef6c00; box-shadow: 0 0 0 3px #ef6c0020; }
 .assistant-goal__elapsed { margin-inline-start: 0.45rem; }
-.assistant-goal__details { overflow-wrap: anywhere; }
+.assistant-goal__details { overflow-wrap: anywhere; min-height: 0; max-height: calc(100dvh - 24px); }
 .assistant-goal__form { display: grid; gap: 0.75rem; }
 @keyframes assistant-goal-flash { 50% { opacity: 0.3; } }
 @container assistant-conversation (max-width: 26rem) { .assistant-goal__elapsed { display: none; } }
