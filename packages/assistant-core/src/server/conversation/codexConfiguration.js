@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { open, rename, rm, writeFile } from "node:fs/promises";
+import { open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { isPlainObject as isRecord, normalizeText } from "./normalize.js";
@@ -194,6 +194,29 @@ export async function prepareCodexModelCatalog({ command, runtimeDir, bundled = 
     await rm(temporary, { force: true });
   }
   return catalogPath;
+}
+
+// Read the same catalogue supplied to this runtime's native model manager.
+// max_context_window advertises an extended window; it is not the normal budget.
+export async function readCodexModelContextWindow({ runtimeDir, model } = {}) {
+  if (typeof runtimeDir !== "string" || !path.isAbsolute(runtimeDir) ||
+      typeof model !== "string" || !model.trim()) {
+    throw new TypeError("A selected Codex runtime and exact model are required.");
+  }
+  try {
+    const catalog = JSON.parse(await readFile(path.join(runtimeDir, "models.json"), "utf8"));
+    const matches = catalog.models.filter(row => row?.slug === model);
+    if (matches.length !== 1) throw new Error("Unknown model");
+    const { context_window: windowTokens, effective_context_window_percent: percent } = matches[0];
+    if (!Number.isSafeInteger(windowTokens) || windowTokens < 1 ||
+        !Number.isSafeInteger(percent) || percent < 1 || percent > 100) throw new Error("Invalid context limit");
+    const effectiveWindowTokens = Math.floor(windowTokens * percent / 100);
+    if (effectiveWindowTokens < 1) throw new Error("Invalid effective context limit");
+    return { model, windowTokens, effectiveWindowTokens };
+  } catch {
+    // A native catalogue can contain private provider configuration.
+    throw new Error("Codex's normal context window is unavailable for the selected runtime and model.");
+  }
 }
 
 const DISABLED_FEATURES = Object.freeze([

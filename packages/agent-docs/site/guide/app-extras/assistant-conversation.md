@@ -1834,6 +1834,16 @@ the source snapshot, including older rows omitted by the bounded transfer, so
 subsequent unchanged requests do not repeatedly inject the discarded history.
 This lower-level option does not change the runtime's default 30-message seed.
 
+For a prepared Codex runtime, the existing `server/codex-configuration` entry
+exports `readCodexModelContextWindow({ runtimeDir, model })`. Supply the exact
+runtime directory and selected catalogue model ID. It reads that runtime's
+`models.json`, returning `windowTokens` from the normal `context_window` and
+`effectiveWindowTokens` after the catalogue's effective-context percentage.
+It never substitutes `max_context_window`, changes model settings or launches
+a process. Missing, ambiguous or invalid normal limits fail without exposing
+catalogue contents. This read establishes the limit only; the caller must still
+account for usage belonging to the destination thread and reserve working space.
+
 An application whose established selection policy creates a fresh native
 conversation can pass `retireNative: true` to `select()`. This uses the same
 selection transaction and allocates a new binding even for a compatible model

@@ -29,6 +29,10 @@ window. Initial and returning catch-up drop complete oldest rows to fit without
 editing saved history or summarising it. Removed identities and exact pending
 receipt/retry contents remain authoritative. Callers own destination budget
 selection; a byte limit neither estimates tokens nor changes model settings.
+The Codex configuration owner reads the exact runtime catalogue's normal model
+window and effective percentage. Extended maximum windows are not used as
+transfer limits. Missing or ambiguous model facts fail without leaking private
+catalogue contents; existing thread usage remains a separate input.
 
 Transcript readers accept server-owned `pageUnit: "messages"` to count individual
 user, assistant and system messages, excluding reasoning and commentary. The

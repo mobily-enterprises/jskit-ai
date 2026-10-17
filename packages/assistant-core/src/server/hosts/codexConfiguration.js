@@ -14,6 +14,7 @@ export {
   codexCatalogReasoningEfforts,
   codexCatalogModels,
   codexConfiguredModelCatalog,
+  readCodexModelContextWindow,
   createCodexAccountReader,
   createCodexAppServerIsolation,
   readCodexToolFreeConfiguration

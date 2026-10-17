@@ -360,3 +360,58 @@ test("catalog cancellation during shared acquisition still awaits startup and cl
   assert.equal(captures.stopRuntimes, 1);
   assert.equal(captures.closes, 1);
 });
+
+test("native context window uses the exact runtime model's normal window without extending it", async t => {
+  const { readCodexModelContextWindow } = await import("../src/server/conversation/codexConfiguration.js");
+  const first = await fixture(t, "");
+  const second = await fixture(t, "");
+  const catalogue = { models: [
+    { slug: "astra", context_window: 272000, max_context_window: 872000, effective_context_window_percent: 95 },
+    { slug: "sol", context_window: 500000, max_context_window: 872000, effective_context_window_percent: 95 }
+  ] };
+  const firstPath = path.join(first.runtimeDir, "models.json");
+  await writeFile(firstPath, JSON.stringify(catalogue));
+  await writeFile(path.join(second.runtimeDir, "models.json"), JSON.stringify({ models: [
+    { slug: "astra", context_window: 128000, max_context_window: 872000, effective_context_window_percent: 90 }
+  ] }));
+  const before = await readFile(firstPath, "utf8");
+  assert.deepEqual(await readCodexModelContextWindow({ runtimeDir: first.runtimeDir, model: "astra" }),
+    { model: "astra", windowTokens: 272000, effectiveWindowTokens: 258400 });
+  assert.deepEqual(await readCodexModelContextWindow({ runtimeDir: first.runtimeDir, model: "sol" }),
+    { model: "sol", windowTokens: 500000, effectiveWindowTokens: 475000 });
+  assert.deepEqual(await readCodexModelContextWindow({ runtimeDir: second.runtimeDir, model: "astra" }),
+    { model: "astra", windowTokens: 128000, effectiveWindowTokens: 115200 });
+  assert.equal(await readFile(firstPath, "utf8"), before);
+  catalogue.models[0].context_window = 200000;
+  await writeFile(firstPath, JSON.stringify(catalogue));
+  assert.equal((await readCodexModelContextWindow({ runtimeDir: first.runtimeDir, model: "astra" })).windowTokens, 200000,
+    "a new runtime catalogue is not hidden by an earlier read");
+});
+
+test("native context window refuses missing or invalid normal limits without leaking catalogue content", async t => {
+  const { readCodexModelContextWindow } = await import("../src/server/conversation/codexConfiguration.js");
+  const f = await fixture(t, "");
+  const valid = { slug: "astra", context_window: 272000, max_context_window: 872000, effective_context_window_percent: 95 };
+  const target = path.join(f.runtimeDir, "models.json");
+  for (const contents of [
+    "secret-provider-key", JSON.stringify({ models: [] }),
+    ...[
+      { ...valid, context_window: undefined }, { ...valid, context_window: "272000" },
+      { ...valid, context_window: 0 }, { ...valid, context_window: 1.5 },
+      { ...valid, effective_context_window_percent: 0 }, { ...valid, effective_context_window_percent: 101 },
+      { ...valid, effective_context_window_percent: undefined }, { ...valid, slug: "another-model" }
+    ].map(row => JSON.stringify({ models: [row], secret: "secret-provider-key" })),
+    JSON.stringify({ models: [valid, valid] })
+  ]) {
+    await writeFile(target, contents);
+    await assert.rejects(readCodexModelContextWindow({ runtimeDir: f.runtimeDir, model: "astra" }), error => {
+      assert.match(error.message, /normal context window/);
+      assert.doesNotMatch(error.message, /secret-provider-key/);
+      return true;
+    });
+  }
+  await rm(target);
+  await assert.rejects(readCodexModelContextWindow({ runtimeDir: f.runtimeDir, model: "astra" }), /normal context window/);
+  await assert.rejects(readCodexModelContextWindow({ runtimeDir: "", model: "astra" }), /runtime.*model/);
+  await assert.rejects(readCodexModelContextWindow({ runtimeDir: f.runtimeDir, model: "" }), /runtime.*model/);
+});
