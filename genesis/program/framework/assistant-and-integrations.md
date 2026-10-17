@@ -278,3 +278,11 @@ The existing voice queue preserves arrival order for selected progress/thinking
 narration and canonical answers. An arriving answer retires only optional murmur
 filler, not message playback. Explicit Stop, mute, capture-related narration
 retirement and target cleanup retain their existing cancellation owners.
+
+
+Claude Pause now retains its exact objective and native identity in the original
+conversation record. The existing process owner sends and verifies the native
+local clear command before admitting another input, preventing automatic checker
+restoration on ordinary messages or restart. Resume reinstalls the retained goal;
+Cancel removes it only after the matching native receipt. This adds no scheduler
+and never infers goal changes from model prose.

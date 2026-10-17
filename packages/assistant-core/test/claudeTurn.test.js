@@ -728,7 +728,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       ...(releaseExecution ? { releaseExecution } : {}),
       select() {}, read: (_context, id) => saved.get(id),
       async save(entry) { saved.set(entry.id, JSON.stringify({ turnId: entry.turn?.id,
-        state: entry.turn?.state, accountIdentity: entry.accountIdentity })); },
+        state: entry.turn?.state, pausedGoal: entry.pausedGoal, accountIdentity: entry.accountIdentity })); },
       async hasMessage() { return false; },
       readSessionConversations: () => ({ ids: [...saved.keys()], context })
     },
@@ -746,6 +746,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
           async stop() { return { scopeEmpty: true, exited: true }; },
           client: { async request() { return {}; },
             async send(_message, input) {
+              (behavior.nativeInputs ||= []).push(_message);
               await options.onEvent({ type: "user", uuid: input.messageId, session_id: options.sessionId });
               if (_message.startsWith("/goal ")) {
                 behavior.goalAttachmentWork = (async () => {
@@ -758,12 +759,19 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
                     const receipt = { type: "system", subtype: "local_command", uuid: `${input.messageId}-clear`, parentUuid: input.messageId,
                       commandRun: { command: "goal", args: "clear" }, content: "<local-command-stdout>No goal set</local-command-stdout>" };
                     await appendFile(path.join(directory, `${options.sessionId}.jsonl`), [user, receipt].map(JSON.stringify).join("\n") + "\n");
+                    await options.onEvent({ type: "result", subtype: "success", local_command: "goal", user_message_uuid: input.messageId });
                     return;
                   }
                   const marker = { type: "attachment", uuid: `${input.messageId}-goal`, timestamp: new Date().toISOString(),
                     attachment: { type: "goal_status", condition, sentinel: true, met: condition === "clear" } };
                   const user = { type: "user", uuid: input.messageId, parentUuid: marker.uuid, message: { content: _message } };
-                  await appendFile(path.join(directory, `${options.sessionId}.jsonl`), [marker, user].map(JSON.stringify).join("\n") + "\n");
+                  const caveat = { type: "user", uuid: `${input.messageId}-caveat`, parentUuid: marker.uuid,
+                    message: { content: "<local-command-caveat>Native command context</local-command-caveat>" } };
+                  const receipt = { type: "system", subtype: "local_command", uuid: `${input.messageId}-receipt`, parentUuid: input.messageId,
+                    commandRun: { command: "goal", args: "clear" }, content: "<local-command-stdout>Goal cleared: prior goal</local-command-stdout>" };
+                  await appendFile(path.join(directory, `${options.sessionId}.jsonl`), (condition === "clear"
+                    ? [marker, caveat, { ...user, parentUuid: caveat.uuid }, receipt] : [marker, user]).map(JSON.stringify).join("\n") + "\n");
+                  if (condition === "clear") await options.onEvent({ type: "result", subtype: "success", local_command: "goal", user_message_uuid: input.messageId });
                 })();
                 void behavior.goalAttachmentWork.catch(() => {});
               }
@@ -2226,6 +2234,10 @@ test("Claude common runtime saves a successful self-pause tool receipt and admit
   assert.equal(retained.goal.objective, original.goal.objective);
   const next = await sendCommon(f, "after-self-pause");
   assert.equal(next.status, "accepted");
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Prepare the question."]);
+  assert.equal((await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir,
+    conversationId: f.conversationId })).goal, null, "The native checker is disarmed, not merely labelled paused");
   await f.frame({ type: "result", subtype: "success", result: "Next request completed." });
   await f.conversation.wait();
 });
@@ -2268,4 +2280,74 @@ test("Claude admitted application tool can pause its own native goal without wai
   assert.equal(retained.goal.status, "paused");
   assert.equal(retained.goal.createdAt, original.goal.createdAt);
   assert.equal(retained.goal.objective, original.goal.objective);
+});
+
+
+test("Claude Pause survives ordinary messages and owner recreation; only Resume restores the goal", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish every check", messageId: "lifecycle-set" });
+  const original = (await f.owner.readGoal(f.entry)).goal;
+  await f.owner.updateGoal(f.entry, { action: "pause", ...original });
+  assert.equal(f.entry.process, null);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  await f.send("ordinary-after-pause");
+  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  assert.equal((await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir, conversationId: f.conversationId })).goal, null);
+  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: "paused" });
+  await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
+  await f.owner.close(f.entry);
+  await f.reopen();
+  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: "paused" });
+  f.behavior.clearWithoutGoalSentinel = true;
+  await f.send("ordinary-after-restart");
+  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  await f.frame({ type: "result", subtype: "success", result: "Still ordinary" });
+  await f.owner.updateGoal(f.entry, { action: "resume", ...original, messageId: "lifecycle-resume" });
+  assert.equal(f.entry.pausedGoal, null);
+  const resumed = (await f.owner.readGoal(f.entry)).goal;
+  assert.equal(resumed.status, "active");
+  assert.equal(resumed.objective, original.objective);
+  await f.owner.updateGoal(f.entry, { action: "pause", ...resumed });
+  await f.owner.updateGoal(f.entry, { action: "cancel", ...resumed, messageId: "lifecycle-cancel" });
+  assert.equal((await f.owner.readGoal(f.entry)).goal, null);
+  assert.equal(f.entry.pausedGoal, null);
+});
+
+
+test("Claude refuses ordinary input when the paused native goal could not be cleared, then permits a safe retry", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish every check", messageId: "refused-set" });
+  const goal = (await f.owner.readGoal(f.entry)).goal;
+  await f.owner.updateGoal(f.entry, { action: "pause", ...goal });
+  f.behavior.initialize = native => {
+    native.client.send = async (message, input) => {
+      assert.equal(message, "/goal clear");
+      await native.options.onEvent({ type: "result", subtype: "error_during_execution", is_error: true,
+        local_command: "goal", user_message_uuid: input.messageId });
+    };
+  };
+  await assert.rejects(f.send("ordinary-refused"), error => error.delivery === "not-sent");
+  assert.equal(f.entry.process, null);
+  assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...goal, status: "paused" });
+  f.behavior.initialize = null;
+  await f.send("ordinary-refused");
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  await f.frame({ type: "result", subtype: "success", result: "Ordinary retry" });
+});
+
+
+test("Pausing an idle Claude goal retires its warm process before the next ordinary message", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish all checks", messageId: "idle-goal" });
+  await f.frame({ type: "result", subtype: "success", result: "Waiting for a prerequisite" });
+  const goal = (await f.owner.readGoal(f.entry)).goal;
+  assert.ok(f.entry.process);
+  assert.equal(f.entry.turn.active, false);
+  await f.owner.updateGoal(f.entry, { action: "pause", ...goal });
+  assert.equal(f.entry.process, null);
+  await f.send("ordinary-after-idle-pause");
+  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
 });

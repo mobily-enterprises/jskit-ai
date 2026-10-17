@@ -1197,6 +1197,15 @@ callbacks from runtime capabilities; applications using it need no custom goal
 adapter. For a low-level adapter, omit `goal` or use `enabled: false` when goals
 are unsupported. The supplied binding hides unsupported controls automatically.
 
+Claude Pause retains the objective and native identity in the existing conversation
+binding before interrupting execution. When another message starts a process, the
+native owner clears the restored checker with Claude's local command and requires
+its exact successful receipt before admitting user input. Ordinary messages and
+process restart keep the goal paused. Explicit Resume reinstalls the objective;
+Cancel removes the retained goal. A failed native clear leaves the new message
+unsent and retains Pause for recovery. Hosts supplying their own Claude store must
+round-trip the optional `pausedGoal` field with the existing conversation state.
+
 The supplied binding owns goal reads, command state and message receipts. It
 refreshes on goal events and reconnect, with a 30-second passive
 read deadline and no goal poll. Passive failures remain local to the control.

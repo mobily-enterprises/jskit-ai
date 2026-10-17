@@ -103,7 +103,7 @@ export async function runClaudeRenewalTurn(conversation, {
   }
 }
 
-export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send }) {
+export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readPausedGoal, savePausedGoal }) {
   // These checks run before interrupt/send. Native execution and receipt
   // failures keep their own codes and must not be treated as safe rejections.
   const goalError = message => Object.assign(failure(message, "conversation_invalid_goal"), {
@@ -112,6 +112,8 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
 
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
+    const paused = readPausedGoal?.();
+    if (paused) return { ...paused, status: "paused" };
     const state = readState();
     return goal ? { ...goal, status: ["complete", "blocked"].includes(goal.status) ? goal.status :
       state.running && state.active ? "active" : "paused" } : null;
@@ -127,6 +129,7 @@ export function createClaudeConversationGoals({ conversationId, readHistory, rea
     }
     if (input.tokenBudget != null) throw goalError("Claude goals do not support a token budget.");
     if (action === "pause") {
+      if (goal.status !== "complete") await savePausedGoal({ ...goal, status: "paused" });
       await interruptGoal();
     } else if (action === "cancel") {
       await interruptGoal();
@@ -226,10 +229,15 @@ export function createClaudeConversationOwner({
       executionId: state.executionId || (recoveringCleanup ? cleanupExecutionId : ""), preparationRevision: 0,
       accountIdentities: state.accountIdentities || (state.accountIdentity ? { anthropic: state.accountIdentity } : {}),
       accountIdentity: state.accountIdentity || "", sent: state.sent === true, nativeWorkdir: state.nativeWorkdir || nativeWorkdir,
-      lastMessageId: state.lastMessageId || "", turn: state.turnId ? {
+      lastMessageId: state.lastMessageId || "", pausedGoal: state.pausedGoal || null, turn: state.turnId ? {
         id: state.turnId, active: ["starting", "active", "finalizing"].includes(state.state),
         state: state.state, startedAt: now(), updatedAt: now()
       } : null };
+    if (entry.pausedGoal && (entry.pausedGoal.threadId !== id ||
+        typeof entry.pausedGoal.objective !== "string" || !entry.pausedGoal.objective.trim() ||
+        !Number.isFinite(entry.pausedGoal.createdAt) || entry.pausedGoal.status !== "paused")) {
+      throw createError("The retained paused Claude goal is invalid. Restore its saved conversation state.");
+    }
     entry.nativeTurn = createClaudeConversationTurn({ conversationId: id, entry,
       onEvent: event => onEvent(entry, event),
       process: {
@@ -244,6 +252,13 @@ export function createClaudeConversationOwner({
     });
     entry.goals = createClaudeConversationGoals({ conversationId: id,
       readHistory: () => readHistory(entry),
+      readPausedGoal: () => entry.pausedGoal,
+      async savePausedGoal(goal) {
+        const previous = entry.pausedGoal;
+        entry.pausedGoal = goal;
+        try { await store.save(entry); }
+        catch (error) { entry.pausedGoal = previous; throw error; }
+      },
       readState: () => ({ running: Boolean(entry.process), active: store.releaseExecution ? entry.nativeTurn.read().active : Boolean(entry.turn?.active) }),
       interrupt: () => interrupt(entry), send: input => send(entry, input) });
     entries.set(key, entry);
@@ -362,6 +377,7 @@ export function createClaudeConversationOwner({
     if (options && typeof options.then === "function") options = await options;
     assertPreparing();
     let startupCleanup;
+    let pausedGoalClear;
     try { entry.process = await createProcess({ ...options,
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
       onStarted: async (executionId, stop) => {
@@ -377,6 +393,15 @@ export function createClaudeConversationOwner({
         assertPreparing();
       },
       async onEvent(frame) {
+        // A retained Pause disarms only the native goal hook before a new
+        // authored input is admitted. This local command is not an AI turn.
+        if (pausedGoalClear) {
+          if (frame.type === "result" && frame.user_message_uuid === pausedGoalClear.id) {
+            if (frame.local_command === "goal" && frame.is_error !== true && frame.subtype === "success") pausedGoalClear.resolve();
+            else pausedGoalClear.reject(createError("Claude could not suspend its paused goal checker."));
+          }
+          return;
+        }
         const current = entry.command;
         if (current && frame.type === "assistant" && !frame.parent_tool_use_id) {
           for (const tool of frame.message?.content || []) if (tool.type === "tool_use" && tool.id && tool.name?.startsWith("mcp__application__")) {
@@ -418,6 +443,7 @@ export function createClaudeConversationOwner({
         }
       } : {}),
       onFailure: async error => {
+        pausedGoalClear?.reject(error);
         if (store.releaseExecution) {
           entry.nativeTurn.invalidateInstructions();
           try { await entry.nativeTurn.stopProcess(error.message); }
@@ -453,6 +479,27 @@ export function createClaudeConversationOwner({
       throw error;
     }
     if (entry.startupCleanup?.executionId === entry.executionId) entry.startupCleanup = null;
+    if (entry.pausedGoal) {
+      const completion = Promise.withResolvers();
+      completion.promise.catch(() => {});
+      pausedGoalClear = { ...completion, id: randomUUID() };
+      const timer = setTimeout(() => completion.reject(createError("Claude timed out suspending its paused goal checker.")), 30_000);
+      try {
+        await entry.process.client.send("/goal clear", { messageId: pausedGoalClear.id, sessionId: entry.id });
+        await completion.promise;
+        const cleared = await readHistory(entry);
+        if (cleared.goal || cleared.goalCommandId !== pausedGoalClear.id) {
+          throw createError("Claude has not saved the paused goal's native clear receipt.");
+        }
+        assertPreparing();
+      } catch (error) {
+        await entry.nativeTurn.stopProcess(error.message);
+        throw Object.assign(error, { delivery: "not-sent" });
+      } finally {
+        clearTimeout(timer);
+        pausedGoalClear = null;
+      }
+    }
     return entry.process;
   }
 
@@ -777,12 +824,14 @@ export function createClaudeConversationOwner({
     const messageId = input.messageId || randomUUID();
     await entry.goals.update(input, { ...operations,
       send: command => operations?.send ? operations.send(command) : send(entry, { ...command, messageId }) });
+    if (input.action === "pause") await entry.nativeTurn.stopProcess();
     let result;
     if (input.action !== "pause") {
       const deadline = Date.now() + (operations?.attachmentTimeoutMs ?? 30_000);
       for (;;) {
         const history = await readHistory(entry);
         if (history.goalCommandId === claudeNativeMessageId(messageId)) {
+          if (entry.pausedGoal) { entry.pausedGoal = null; await store.save(entry); }
           result = { status: "available", threadId: entry.id, goal: await entry.goals.read(history), goalCommandId: history.goalCommandId };
           break;
         }

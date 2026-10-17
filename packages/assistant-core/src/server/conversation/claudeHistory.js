@@ -146,12 +146,14 @@ async function readClaudeHistory(options) {
   }
   for (const frame of frames) {
     if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
-    // After an impossible evaluation Claude may already have removed its live
-    // goal. A successful clear then has only this native command receipt, not
-    // a goal_status sentinel. Ordinary model text is never goal-state evidence.
+    // The exact native local-command receipt owns clear identity. Claude may
+    // insert a caveat between the sentinel and authored command, or omit the
+    // sentinel after an impossible evaluation. Neither case changes delivery.
+    // Ordinary model text is never goal-state evidence.
     if (frame.type === "system" && frame.subtype === "local_command" &&
         !frame.parent_tool_use_id && !frame.isMeta && frame.commandRun?.command === "goal" &&
-        frame.commandRun.args === "clear" && frame.content === "<local-command-stdout>No goal set</local-command-stdout>") {
+        frame.commandRun.args === "clear" && typeof frame.content === "string" &&
+        /^<local-command-stdout>(?:No goal set|Goal cleared: [\s\S]+)<\/local-command-stdout>$/u.test(frame.content)) {
       goal = null;
       goalStartId = "";
       const command = byId.get(frame.parentUuid);
