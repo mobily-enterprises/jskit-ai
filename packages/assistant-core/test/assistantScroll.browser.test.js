@@ -740,6 +740,11 @@ test("optional goals show running and paused lights, count only active time, and
     const light = page.locator(".assistant-goal__light");
     await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
     await expect(light).toHaveCSS("animation-name", /^assistant-goal-flash/u);
+    await page.getByRole("button", { name: "External idle", exact: true }).evaluate(element => element.click());
+    await expect(light).toHaveCSS("animation-name", "none");
+    await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
+    await page.getByRole("button", { name: "External active", exact: true }).evaluate(element => element.click());
+    await expect(light).toHaveCSS("animation-name", /^assistant-goal-flash/u);
     const elapsed = page.locator(".assistant-goal__elapsed");
     await page.clock.fastForward(65_000);
     await expect(elapsed).toHaveText("1:05");
@@ -766,6 +771,21 @@ test("optional goals show running and paused lights, count only active time, and
     await page.getByRole("button", { name: "Goal running", exact: true }).click();
     await page.clock.runFor(250);
     await expect(page.getByText("Running time: 1:10", { exact: true })).toBeVisible();
+    await input.click();
+    await page.clock.runFor(250);
+    await page.setViewportSize({ width: 1280, height: 577 });
+    await page.getByRole("button", { name: "Block goal with long explanation", exact: true }).click();
+    await expect(light).toHaveCSS("animation-name", "none");
+    await page.getByRole("button", { name: "Goal blocked", exact: true }).click();
+    await page.clock.runFor(250);
+    for (const name of ["Resume goal", "Cancel goal"]) {
+      const button = page.getByRole("button", { name, exact: true });
+      await expect(button).toBeInViewport();
+      const bounds = await button.boundingBox();
+      assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 577, `${name} is fully visible without scrolling`);
+    }
+    await page.getByRole("button", { name: "Resume goal", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Toggle goals" }).evaluate(element => element.click());
     await expect(page.locator(".assistant-goal")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeHidden();

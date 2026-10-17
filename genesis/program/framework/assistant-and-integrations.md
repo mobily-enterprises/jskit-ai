@@ -150,6 +150,12 @@ existing policy through the trusted `host.allowAccountChange` option. Completed
 response inspection always keeps its original account pin, even for an opted-in
 host; no past application effect acquires the replacement identity.
 
+The shared goal control uses canonical conversation working status for activity
+animation, independently of active goal scheduling. Provider-supplied elapsed
+usage remains running time; when only goal creation timestamps are available it
+explicitly labels wall elapsed time including pauses. Recovery actions precede
+long objective and reason text, and rejected Set results preserve the draft.
+
 The retained browser goal binding distinguishes an unknown goal from a confirmed
 empty goal. Initial and replacement reads display loading; failed reads hide
 stale actions and report unavailability. Starting, pausing, resuming and cancelling

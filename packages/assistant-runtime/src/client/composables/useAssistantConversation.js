@@ -672,6 +672,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
       loading,
       available: Boolean(goalAvailable),
       action: goalAction.value,
+      working: snapshot.value?.status === "working",
       tokenBudgetSupported: capabilities.goalBudgets === true,
       goal: goalAvailable && view?.goal ? { ...view.goal, elapsedSeconds: view.goal.timeUsedSeconds,
         sampledAt: Date.parse(view.goal.updatedAt) } : null,

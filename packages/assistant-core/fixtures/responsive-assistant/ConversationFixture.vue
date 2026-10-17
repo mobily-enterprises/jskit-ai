@@ -70,10 +70,11 @@ const models = reactive({
 const goalEnabled = ref(new URLSearchParams(location.search).has("goal"));
 const goal = ref(null);
 const goalState = reactive({
-  enabled: goalEnabled, goal,
-  set(input) { goal.value = { ...input, status: "active", elapsedSeconds: 0, sampledAt: Date.now() }; },
+  enabled: goalEnabled, goal, working: computed(() => phase.value === "active"),
+  set(input) { phase.value = "active"; goal.value = { ...input, status: "active", elapsedSeconds: 0, sampledAt: Date.now() }; },
   pause() { goal.value = { ...goal.value, status: "paused", elapsedSeconds: goal.value.elapsedSeconds + (Date.now() - goal.value.sampledAt) / 1000, sampledAt: Date.now() }; },
-  resume() { goal.value = { ...goal.value, status: "active", sampledAt: Date.now() }; }
+  resume() { phase.value = "active"; goal.value = { ...goal.value, status: "active", reason: "", sampledAt: Date.now() }; },
+  cancel() { goal.value = null; phase.value = "idle"; }
 });
 const adapter = reactive({
   delivery: previewFixture ? previewDelivery : undefined,
@@ -177,6 +178,7 @@ const adapter = reactive({
         <button v-if="supportEnabled" @click="customActivity = !customActivity">Custom activity</button>
         <button v-if="capabilitiesEnabled" @click="finishUploads">Finish uploads</button>
         <button @click="goalEnabled = !goalEnabled">Toggle goals</button>
+        <button v-if="goal" @click="goal = { ...goal, status: 'blocked', reason: 'An explanation of the blocker. '.repeat(200) }">Block goal with long explanation</button>
         <template v-if="previewFixture">
           <button @click="temporaryWords = 'Exact temporary words'; temporaryPresent = true; temporaryEditing = false">Add temporary message</button>
           <button @click="newerWords = 'Keep newer live words'; newerPresent = true; newerEditing = false">Add newer temporary message</button>
