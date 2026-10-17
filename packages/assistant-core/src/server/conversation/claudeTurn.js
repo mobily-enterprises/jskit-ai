@@ -381,8 +381,7 @@ export function createClaudeConversationOwner({
     let prepared = process.prepare ? process.prepare(entry, configuration, context) : { workdir: entry.nativeWorkdir };
     if (prepared && typeof prepared.then === "function") prepared = await prepared;
     entry.nativeWorkdir = prepared.workdir;
-    const history = await readHistory(entry);
-    entry.sent ||= history.exists;
+    if (!entry.sent) entry.sent = (await readHistory(entry)).exists;
     entry.stopping = false;
     entry.profile = configuration.profile;
     let options = process.configure(entry, configuration, { context, prepared });
