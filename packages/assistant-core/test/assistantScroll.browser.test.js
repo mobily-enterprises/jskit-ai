@@ -926,6 +926,7 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       };
       assert.equal(Math.round((await panel.boundingBox()).width), 320);
       assert.equal(Math.round((await panel.boundingBox()).height), 420);
+      await expect(artwork).toHaveCSS("contain", "layout paint");
       await expect.poll(async () => (await artwork.boundingBox()).height).toBeGreaterThan(64);
       assert.ok((await artwork.boundingBox()).height <= 96, "Compact artwork preserves the existing short-container clamp");
       await page.getByRole("button", { name: "Resize height", exact: true }).evaluate(element => element.click());

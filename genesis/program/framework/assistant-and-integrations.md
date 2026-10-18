@@ -266,6 +266,9 @@ an acknowledged command retains its receipt and uses the ordinary stop owner.
 `AssistantConversationElement` reuses its avatar space observer to reserve the
 warning height for the floating avatar, preserving full-width recovery controls
 without putting the avatar into document flow or replacing the transcript.
+The existing clipped artwork wrapper contains layout and paint, limiting animated
+SVG invalidation to its reserved region while retaining the supplied animation,
+voice controls and responsive size clamp.
 
 Claude's native goal attachment precedes its persisted authored `/goal` command,
 whose parent UUID points to that sentinel. The history owner retains this exact

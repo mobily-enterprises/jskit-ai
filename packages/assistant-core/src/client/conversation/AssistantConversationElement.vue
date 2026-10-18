@@ -403,7 +403,7 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__avatar-size-disc--minimise { background: rgba(var(--v-theme-primary), .12); }
 .assistant-conversation__avatar-presentation { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .assistant-conversation__avatar-tools { display: flex; align-items: center; gap: 0; }
-.assistant-conversation__avatar-visual { display: flex; justify-content: center; min-height: 0; overflow: hidden; }
+.assistant-conversation__avatar-visual { display: flex; justify-content: center; min-height: 0; overflow: hidden; contain: layout paint; }
 .assistant-conversation__avatar-visual :deep(> *) { max-width: 100%; max-height: 100%; }
 .assistant-conversation__goal { display: flex; justify-content: flex-end; flex: 0 0 auto; }
 .assistant-conversation__transcript { flex: 1 1 auto; min-height: 0; }
