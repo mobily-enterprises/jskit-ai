@@ -299,8 +299,33 @@ test("Claude observes parent exit after initialization even while a child retain
   const error = await failed.promise;
   assert.equal(error.code, "assistant_claude_observation_lost");
   assert.deepEqual(error.processExit, { code: 1, signal: null });
+  assert.match(error.message, /^Claude stopped unexpectedly with exit code 1\. .*send a message to continue/u);
   await native.client.completion;
   assert.equal(failures, 1);
+});
+
+test("Claude reports a task-limit exit that arrives after its stream ended", { timeout: 3_000 }, async t => {
+  const { PassThrough, Writable } = await import("node:stream");
+  const exited = Promise.withResolvers();
+  const failed = Promise.withResolvers();
+  const stdout = new PassThrough();
+  const stdin = new Writable({ write(chunk, _encoding, done) {
+    const frame = JSON.parse(String(chunk));
+    stdout.write(JSON.stringify({ type: "control_response", response: { subtype: "success", request_id: frame.request_id, response: {} } }) + "\n");
+    done();
+  } });
+  const native = await createClaudeCodeProcess({ execution: {
+    async start() { return { id: "task-limit", stdin, stdout, exited: exited.promise }; },
+    async stop() { return { scopeEmpty: true }; }
+  }, onFailure(error) { failed.resolve(error); } });
+  t.after(() => native.stop());
+  stdout.end();
+  const taskLimit = { source: "cgroup-pids-events", count: 3 };
+  setTimeout(() => exited.resolve({ code: 1, signal: null, taskLimit }), 50);
+  const error = await failed.promise;
+  assert.equal(error.code, "assistant_claude_observation_lost");
+  assert.deepEqual(error.processExit, { code: 1, signal: null, taskLimit });
+  assert.match(error.message, /process\/thread limit reached/u);
 });
 
 test("Claude host startup budget allows slow initialization and still bounds failed startup", async t => {

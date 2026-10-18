@@ -10,6 +10,21 @@ import { CLAUDE_APPLICATION_TOOL_SERVER } from "./claudeTools.js";
 import { nativeCommandHook, validateCommandWrapper } from "./commandWrapper.js";
 
 const statusReads = new WeakMap();
+const CLAUDE_EXIT_WAIT_MS = 5_000;
+
+/** Person-facing cause for a Claude process that ended without being stopped. */
+export function claudeUnexpectedExitMessage(processExit = {}) {
+  const resume = "The conversation so far is saved; send a message to continue.";
+  if (Number(processExit?.taskLimit?.count) > 0) {
+    return "Claude stopped unexpectedly: the server refused to create more processes or threads for it " +
+      `(process/thread limit reached). ${resume}`;
+  }
+  if (processExit?.signal) return `Claude stopped unexpectedly: it was terminated by ${processExit.signal}. ${resume}`;
+  if (Number.isInteger(processExit?.code)) {
+    return `Claude stopped unexpectedly with exit code ${processExit.code}. ${resume}`;
+  }
+  return `Claude stopped unexpectedly. ${resume}`;
+}
 
 export async function readClaudeCodeAuthStatus({
   env = process.env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal
@@ -347,7 +362,20 @@ export async function createClaudeCodeProcess({
     await onStarted?.(native.id, stop);
     signal?.throwIfAborted();
     const stream = Duplex.from({ readable: native.stdout, writable: native.stdin });
-    client = createClaudeJsonClient({ stream, onEvent, onFailure,
+    // A lost stream usually means the process ended. Its exit details arrive
+    // separately, so wait briefly for them before reporting the cause.
+    const exited = native.exited;
+    const describeFailure = async (failure) => {
+      if (failure?.code === "assistant_claude_observation_lost" && exited && !stopped && !stopping) {
+        const processExit = failure.processExit || await Promise.race([
+          exited.catch(() => null),
+          new Promise((resolve) => setTimeout(resolve, CLAUDE_EXIT_WAIT_MS, null).unref?.())
+        ]);
+        if (processExit) Object.assign(failure, { processExit, message: claudeUnexpectedExitMessage(processExit) });
+      }
+      return onFailure?.(failure);
+    };
+    client = createClaudeJsonClient({ stream, onEvent, onFailure: describeFailure,
       onControlRequest(request, context) {
         if (request.subtype === "hook_callback" && commandWrapper && request.callback_id === "jskit-command-wrapper") {
           return nativeCommandHook(commandWrapper, request.input);

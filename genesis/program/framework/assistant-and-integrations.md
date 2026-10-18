@@ -78,6 +78,11 @@ Claude status reads and ordinary Main steering retain the active process's instr
 changed host guidance is applied at the next idle admission. Account identity is
 still checked during status reads and before delivery; explicit settings changes retain their guards.
 
+When a Claude process ends without being stopped, its stream failure waits up to
+five seconds for the execution host's exit report. The person-facing failure then
+names the cause: a recorded process/thread-limit denial, a terminating signal or
+the exit code, and says the saved conversation continues with the next message.
+
 Claude's native turn owner follows automatic task-notification continuations and
 the complete live background-task inventory. Non-ambient native work keeps the
 conversation active, including Bash and remote tasks; repeated status events do
