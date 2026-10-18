@@ -746,7 +746,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       context: async () => context,
       entry: () => ({ options: { mainId: conversationId }, check() {} }),
       check() {}, account: () => ({ identity: behavior.account, providerId }),
-      async configuration() { await behavior.configure?.(); return { systemPrompt: "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
+      async configuration() { await behavior.configure?.(); return { systemPrompt: behavior.systemPrompt || "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
       async message(_entry, _input, { message }) { return message; }
     },
     process: {
@@ -824,6 +824,28 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
     get entry() { return entry; }, setBeforeState(callback) { beforeState = callback; },
     async reopen() { entry = await owner.open(context, { mainId: conversationId }); return entry; } };
 }
+
+test("Claude status retains active instructions and applies changed guidance once idle", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  const original = f.entry.process;
+  f.behavior.systemPrompt = "Changed project guidance during the active turn.";
+  const state = await f.owner.ensureReady(f.entry);
+  assert.equal(state.turn.active, true);
+  assert.equal(f.entry.process, original);
+  assert.equal(f.processes.length, 1);
+  await f.frame({ type: "result", subtype: "success", result: "Done" });
+  await f.owner.ensureReady(f.entry);
+  assert.equal(f.processes.length, 2, "Idle readiness installs the changed instructions");
+});
+
+test("Claude active status still rejects account replacement", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send();
+  f.behavior.account = "account-b";
+  await assert.rejects(f.owner.ensureReady(f.entry), { code: "claude_account_changed" });
+  assert.equal(f.entry.process, null);
+});
 
 test("Claude continuation supersedes an older completion checkpoint", { timeout: 10_000 }, async t => {
   const f = await publishedClaudeFixture(t);

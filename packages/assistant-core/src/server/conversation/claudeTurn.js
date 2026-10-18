@@ -310,8 +310,11 @@ export function createClaudeConversationOwner({
   }
 
   async function ensureReady(entry) {
-    if (entry.process) await ensureProcess(entry);
-    else {
+    if (entry.process) {
+      // Status reads retain active instructions; apply changes at idle admission.
+      if (store.releaseExecution ? entry.nativeTurn.read().active : entry.turn?.active) await bindAccount(entry);
+      else await ensureProcess(entry);
+    } else {
       await bindAccount(entry);
       if (entry.executionId && !hasPendingClaudeStartup(entry)) await entry.nativeTurn.stopProcess("Claude's previous process exit could not be confirmed.");
       // The first Send prepares host hooks before starting the native process.
