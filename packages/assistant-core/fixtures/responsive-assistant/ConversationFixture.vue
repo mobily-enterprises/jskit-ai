@@ -70,7 +70,7 @@ const models = reactive({
 const goalEnabled = ref(new URLSearchParams(location.search).has("goal"));
 const goal = ref(null);
 const goalState = reactive({
-  enabled: goalEnabled, goal, working: computed(() => phase.value === "active"),
+  enabled: goalEnabled, goal, pauseBlocked: true, working: computed(() => phase.value === "active"),
   set(input) { phase.value = "active"; goal.value = { ...input, status: "active", elapsedSeconds: 0, sampledAt: Date.now() }; },
   pause() { goal.value = { ...goal.value, status: "paused", elapsedSeconds: goal.value.elapsedSeconds + (Date.now() - goal.value.sampledAt) / 1000, sampledAt: Date.now() }; },
   resume() { phase.value = "active"; goal.value = { ...goal.value, status: "active", reason: "", sampledAt: Date.now() }; },

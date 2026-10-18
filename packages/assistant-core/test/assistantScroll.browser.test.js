@@ -816,12 +816,14 @@ test("optional goals show running and paused lights, count only active time, and
     await expect(light).toHaveCSS("animation-name", "none");
     await page.getByRole("button", { name: "Goal blocked", exact: true }).click();
     await page.clock.runFor(250);
-    for (const name of ["Resume goal", "Cancel goal"]) {
+    for (const name of ["Pause goal", "Resume goal", "Cancel goal"]) {
       const button = page.getByRole("button", { name, exact: true });
       await expect(button).toBeInViewport();
       const bounds = await button.boundingBox();
       assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 577, `${name} is fully visible without scrolling`);
     }
+    await page.getByRole("button", { name: "Pause goal", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Goal paused", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Resume goal", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause goal", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Toggle goals" }).evaluate(element => element.click());

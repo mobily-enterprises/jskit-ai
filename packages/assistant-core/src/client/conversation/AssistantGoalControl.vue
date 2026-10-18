@@ -64,8 +64,8 @@ async function setGoal() {
     </template>
     <v-card class="assistant-goal__details pa-3" max-width="360">
       <strong role="status">{{ label }}</strong>
-      <v-btn v-if="running && state.pause" size="small" :disabled="state.pending" @click="state.pause()">{{ state.action === 'pause' ? 'Pausing…' : 'Pause goal' }}</v-btn>
-      <v-btn v-else-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? 'Resuming…' : 'Resume goal' }}</v-btn>
+      <v-btn v-if="(running || (state.pauseBlocked && goal?.status === 'blocked')) && state.pause" size="small" :disabled="state.pending" @click="state.pause()">{{ state.action === 'pause' ? 'Pausing…' : 'Pause goal' }}</v-btn>
+      <v-btn v-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? 'Resuming…' : 'Resume goal' }}</v-btn>
       <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.pending" @click="state.cancel()">{{ state.action === 'cancel' ? 'Cancelling…' : 'Cancel goal' }}</v-btn>
       <p v-if="goal" class="my-2">{{ goal.objective }}</p>
       <p v-if="goal?.reason" class="text-body-small my-2">{{ goal.reason }}</p>

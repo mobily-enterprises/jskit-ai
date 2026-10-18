@@ -2528,3 +2528,14 @@ test("Claude Block refuses absent reasons and stale identity before interrupting
     assert.equal(f.entry.blockedGoal, null);
   }
 });
+
+
+test("Claude explicitly pauses a blocked goal without resuming native work", async t => {
+  const f = await publishedClaudeFixture(t);
+  f.entry.blockedGoal = { threadId: f.entry.id, createdAt: 123, objective: "Finish checks", status: "blocked", reason: "Native loop stopped" };
+  const result = await f.owner.updateGoal(f.entry, { action: "pause", threadId: f.entry.id, createdAt: 123, objective: "Finish checks" });
+  assert.equal(result.goal.status, "paused");
+  assert.equal(f.entry.blockedGoal, null);
+  assert.equal(f.entry.pausedGoal.status, "paused");
+  assert.equal(f.processes.length, 0);
+});

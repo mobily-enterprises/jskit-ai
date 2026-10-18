@@ -339,3 +339,9 @@ round-trip both optional fields. Resume and Cancel clear retained state only
 after their exact native command receipt. Host application tools decide who may
 report an external blocker; this owner does not interpret message prose or
 schedule retries. Blocked status and reason survive owner recreation.
+
+
+The shared goal control accepts `pauseBlocked` from a consumer whose provider
+can explicitly pause blocked goals. Pause and Resume are independent controls
+in that state; Claude uses the existing retained-goal Pause owner without
+resuming native work.
