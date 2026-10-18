@@ -544,7 +544,15 @@ export function createClaudeConversationOwner({
     }
     let native;
     try {
-      native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
+      if (!command && entry.main && entry.turn?.active && entry.process) {
+        // Main steering keeps the active instruction installation, just like
+        // command steering. Refresh guidance on the next idle admission.
+        // Account replacement must still confirm cleanup before any new send.
+        if (preparation.account) await bindAccount(entry);
+        native = entry.process || await ensureProcess(entry, input);
+      } else {
+        native = command ? command.steering ? entry.process : await entry.nativeTurn.prepare(command.prepared) : await ensureProcess(entry, input);
+      }
     } catch (error) {
       // Preparation may start or resume the process, but has not written this
       // authored input. Keep its failure distinct from a lost native receipt.

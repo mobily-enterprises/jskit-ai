@@ -74,6 +74,10 @@ durations and message attribution for Codex, Claude and OpenCode; their original
 native owners mark acknowledgement before receipt persistence. Observer work
 does not block dispatch or alter saved conversation data.
 
+Ordinary Main steering retains the active process's instruction installation;
+changed host guidance is applied at the next idle admission. Account identity is
+still checked before delivery, and explicit settings changes retain their guards.
+
 Claude's native turn owner follows automatic task-notification continuations and
 the complete live background-task inventory. Non-ambient native work keeps the
 conversation active, including Bash and remote tasks; repeated status events do
