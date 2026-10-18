@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
 import { realpath } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 import { bindClaudeConversationAccount, claudeConnectionIdentity, claudeFlagSettings, claudeModelConfiguration, readClaudeCodeAuthStatus } from "../claudeProcess.js";
 import { nativeAiModel, nativeAiProvider } from "../../../shared/nativeProviders.js";
 import { requireClaudeSessionId, listClaudeConversationStorage } from "../claudeHistory.js";
@@ -107,7 +108,13 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
     const store = {
       read(context) { return JSON.stringify({ executionId: context.binding.executionId, sent: context.binding.sent, pausedGoal: context.binding.pausedGoal, blockedGoal: context.binding.blockedGoal }); },
       async save(entry, { execution = false } = {}) {
-        await entry.context.updateBinding({ pausedGoal: entry.pausedGoal, blockedGoal: entry.blockedGoal, ...(execution ? { executionId: entry.executionId } : {}) });
+        // Only execution and retained-goal changes belong to the binding. An
+        // unchanged save (such as opening a replacement successor before its
+        // owner commits) must not write through the provider's binding fence.
+        const { binding } = entry.context;
+        const goals = { pausedGoal: entry.pausedGoal ?? null, blockedGoal: entry.blockedGoal ?? null };
+        if (!execution && isDeepStrictEqual(goals, { pausedGoal: binding.pausedGoal ?? null, blockedGoal: binding.blockedGoal ?? null })) return;
+        await entry.context.updateBinding({ ...goals, ...(execution ? { executionId: entry.executionId } : {}) });
       },
       async releaseExecution(entry) {
         await entry.context.updateBinding({ executionId: "" });

@@ -1550,6 +1550,18 @@ for (const saveFails of [false, true]) test(`Claude retains failed-start custody
   }
 });
 
+test("opening an inert Claude successor binding does not write through the provider fence", async t => {
+  const f = await fixture(t);
+  await f.first.close();
+  const driver = createClaudeConversationDriver(f.driverOptions);
+  // A replacement opens its successor before the runtime commits the new owner.
+  const writeBinding = () => { throw new Error("A retired provider cannot change a native binding."); };
+  for (const binding of [await driver.createBinding(), { ...await driver.createBinding(), pausedGoal: null, blockedGoal: null }]) {
+    const provider = await driver.open({ binding, writeBinding, onFailure() {} });
+    await provider.dispose();
+  }
+});
+
 test("original scoped Claude history resumes from the authorized credential home while retaining its private scope", async t => {
   const f = await fixture(t);
   await f.first.close();
