@@ -1,6 +1,7 @@
 <script setup>
 import { mdiCog } from "@mdi/js";
 import { useSlots } from "vue";
+import VoiceSpeakingVoiceSelect from "./VoiceSpeakingVoiceSelect.vue";
 
 const props = defineProps({
   voice: { type: Object, default: null },
@@ -8,10 +9,6 @@ const props = defineProps({
 });
 const emit = defineEmits(["error"]);
 const slots = useSlots();
-function selectVoice(value) {
-  const selectedVoice = props.voice.selectedVoice;
-  selectedVoice.value = value;
-}
 async function openSettings(open) {
   if (!open || slots.default || !props.voice) return;
   try { await props.voice.connect(); }
@@ -33,13 +30,7 @@ async function openSettings(open) {
     <v-card class="voice-settings__menu" role="region" aria-label="Voice settings">
       <v-card-text>
         <slot :voice="voice">
-          <v-select
-            v-if="voice" :model-value="voice.selectedVoice.value" @update:model-value="selectVoice"
-            :items="voice.availableVoices.value" item-title="label" item-value="id"
-            :disabled="voice.availableVoices.value.length < 2"
-            label="Speaking voice" density="comfortable"
-            hint="Applies to the next spoken reply" persistent-hint
-          />
+          <VoiceSpeakingVoiceSelect v-if="voice" :voice="voice" />
         </slot>
       </v-card-text>
     </v-card>
