@@ -159,7 +159,7 @@ Exports
 
 ### `src/server/registerConversationSubscriptions.js`
 Exports
-- `registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = null, workspaceScopeSupport = null, subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated" } = {})`
+- `registerConversationSubscriptions({ realtime, events, actions, config = {}, logger = null, workspaceScopeSupport = null, subscribeActionId = actionIds.conversationSubscribe, requestPolicy = "authenticated", diagnostics = false } = {})`
 Local functions
 - `requireSubscriptionId(input)`
 - `subscriptionError(error)`

@@ -495,8 +495,10 @@ characters; a larger single burst can lose its remaining tail. With thinking sou
 selected, an idle working conversation may say “Hmm...” after 20 seconds; it does
 not overlap existing audio.
 
-Optional activity joins the original speech queue. Canonical answers take priority
-and keep their existing output IDs and playback callbacks. Activity and thinking
+Optional activity and canonical answers join the original speech queue in arrival
+order. A new message never cancels an earlier message being read. Repeated updates
+to an observed message do not restart it. Only the optional “Hmm...” filler yields
+to an answer. Canonical answers keep their existing output IDs and playback callbacks. Activity and thinking
 sounds have no canonical output identity and emit no `onPlayback` receipt; they
 cannot satisfy lesson audio completion. Optional speech yields to microphone
 startup, capture and transcription. Canonical answers retain full duplex playback.

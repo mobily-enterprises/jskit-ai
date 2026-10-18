@@ -326,7 +326,7 @@ Exports
 - `claudePlanUsage(value)`
 - `claudeCatalogueModels(initialization)`
 - `createClaudeAccountQueries({ createProcess, accountIdentity, processes = () => [], isClosing = () => false })`
-- `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env = process.env, workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper, ...options } = {})`
+- `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env = process.env, workdir, onEvent, onControlRequest, onFailure, onStarted, executionLimits, signal, commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, ...options } = {})`
 Local functions
 - `readNativeClaudeCodeAuthStatus({ env, credentialHome, command, commandRunner, signal })`
 
@@ -340,13 +340,14 @@ Exports
 - `claudeNativeMessageId(id)`
 - `waitForClaudeConversationTurn(conversation, input = {}, { signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = failure, interruptedMessage = "Claude was interrupted when the application disconnected." } = {})`
 - `runClaudeRenewalTurn(conversation, { clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId, requireFreshHistory = false, timeoutMs = 180_000 }, { createError = failure, unreadableCode = "assistant_claude_turn_unreadable", failedCode = "assistant_claude_turn_failed", acceptedField = "inputAccepted" } = {})`
-- `createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send })`
+- `createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal })`
 - `createClaudeConversationOwner({ configRoot, store, preparation, process, onEvent, createError = failure, disconnectedMessage = "Claude was interrupted when the application disconnected." })`
 - `createClaudeConversationTurn({ conversationId, onEvent = async () => {}, process, entry } = {})`
 Local functions
 - `failure(message, code = "assistant_claude_turn_failed")`
 - `text(value)`
 - `now()`
+- `hasPendingClaudeStartup(entry)`
 
 ### `src/server/conversation/codexClient.js`
 Exports
@@ -367,6 +368,7 @@ Exports
 - `codexInteractiveArguments({ command, threadId = "", remoteEndpoint = "", model, effort, disableStartupUpdates = false, bypassApprovalsAndSandbox = false, bypassHookTrust = false } = {})`
 - `codexAppServerProjectHookTrustConfig(provider, cwd = "", { persist = false } = {})`
 - `prepareCodexModelCatalog({ command, runtimeDir, bundled = false, signal, additionalModels = [] })`
+- `readCodexModelContextWindow({ runtimeDir, model } = {})`
 - `codexAppServerTextHasControlCharacters(value = "")`
 - `createCodexAppServerIsolation({ clientName = "jskit", minimumVersion = "0.151.0", disabledFeatures = DISABLED_FEATURES, limits: { userAgentMaxLength = 512, mcpServerMaxCount = 128, mcpServerNameMaxLength = 256, configResponseMaxBytes = 256 * 1024, hookMaxCount = 256, hookErrorMaxCount = 256, hookFieldMaxLength = 2048, hookFingerprintMaxLength = 256 * 1024, hookResponseMaxBytes = 512 * 1024 } = {}, createError = codexAppServerIsolationPolicyError } = {})`
 - `codexToolFreeConfiguration(options)`
@@ -802,7 +804,7 @@ Exports
 Exports
 - `conversationMessageIdentity(turnId, message)`
 - `conversationMessageVersion(message, { includeData = false } = {})`
-- `createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {}, captureContext = false, applicationMessages = false, maximumInitialMessages = 30, maximumInitialMessageCharacters = Infinity })`
+- `createConversationChangeover({ state, transcript, agent, identity, presentation = {}, log = () => {}, captureContext = false, applicationMessages = false, maximumInitialMessages = 30, maximumInitialMessageCharacters = Infinity, maximumHistoryBytes = Infinity })`
 - `conversationHistoryVersions(history)`
 - `conversationRequestText({ text, origin, data })`
 - `conversationContinuity({ history, briefing = "", maximumCharacters = 128_000 })`
@@ -1161,6 +1163,7 @@ Exports
 - `codexCatalogReasoningEfforts`
 - `codexCatalogModels`
 - `codexConfiguredModelCatalog`
+- `readCodexModelContextWindow`
 - `createCodexAccountReader`
 - `createCodexAppServerIsolation`
 - `readCodexToolFreeConfiguration`

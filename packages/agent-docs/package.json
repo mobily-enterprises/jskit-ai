@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/agent-docs",
-  "version": "0.1.220",
+  "version": "0.1.221",
   "description": "Distributed JSKIT agent references, prompts, guides, and generated reference maps.",
   "type": "module",
   "files": [

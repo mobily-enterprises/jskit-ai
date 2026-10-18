@@ -17,6 +17,10 @@ Choose one transcript owner for a conversation. The [ordinary API](./assistant.m
 is the starting point; [advanced hosts](#advanced-host-facilities) and
 [testing](#testing-entrypoints) are separate reference areas.
 
+The shared transcript renders pipe tables with a valid separator row even when
+all header cells are blank. Empty headers do not flatten the body into prose;
+code fences and text without a table separator retain their ordinary treatment.
+
 ### Prepare an offline development copy
 
 Advanced hosts that copy a stopped conversation store can call
@@ -358,6 +362,14 @@ message/display attachments and declared `data`; an already authored canonical
 turn eligibility when its product state also includes non-native work such as
 routing. The binding captures Send or Steer before preparation; retry keeps that
 choice and the original message identity, text, settings and files.
+
+Explicit `queueWhileSending: true` also serializes prepared submissions. A
+follower is visible immediately but its preparation waits for the previous
+receipt. Stop or retirement cancels it through the existing pending-message
+owner. A definite `conversation_steer_turn_finished` rejection can become one
+ordinary Send with the same identity, without repeating preparation; unknown
+delivery never permits replay. Without explicit opt-in, prepared submissions
+retain their non-queueing behavior.
 
 `prepare(captured, { signal })` performs only the application's existing save,
 creation and authorization prerequisites, then returns its canonical request or
@@ -1187,13 +1199,24 @@ callbacks from runtime capabilities; applications using it need no custom goal
 adapter. For a low-level adapter, omit `goal` or use `enabled: false` when goals
 are unsupported. The supplied binding hides unsupported controls automatically.
 
+Claude Pause retains the objective and native identity in the existing conversation
+binding before interrupting execution. When another message starts a process, the
+native owner clears the restored checker with Claude's local command and requires
+its exact successful receipt before admitting user input. Ordinary messages and
+process restart keep the goal paused. Explicit Resume reinstalls the objective;
+Cancel removes the retained goal. A failed native clear leaves the new message
+unsent and retains Pause for recovery. Hosts supplying their own Claude store must
+round-trip the optional `pausedGoal` field with the existing conversation state.
+
 The supplied binding owns goal reads, command state and message receipts. It
 refreshes on goal events and reconnect, with a 30-second passive
 read deadline and no goal poll. Passive failures remain local to the control.
 An explicit `goal: true` option also enables reads when an application's retained
 goal may belong to a different target from its visible conversation. Such an
 authorized facade can return `{ status, goal, target: { segmentId, capabilities },
-routing? }` from its existing goal read. The target and declared goal capabilities
+routing?, error? }` from its existing goal read. An optional `error` explains a
+recoverable host condition while the available goal and its controls remain
+usable; a subsequent successful read clears that message when the host clears it. The target and declared goal capabilities
 must come from that same native read; the client does not infer an engine or
 reconstruct native expectations. Standalone goal reads still return a goal or
 null. An object-valued `goal` presentation adapter remains supported.
@@ -1202,7 +1225,9 @@ Custom product presentation can use the retained runtime's `goalView`,
 `goalState`, `goalLoadError`, `changeGoal` and `refreshGoal` instead of creating
 another remote resource. New commands capture that view's target and goal ID.
 A failed message command keeps its original UUID and request for explicit retry;
-unknown delivery is inspected, never automatically resent.
+unknown delivery is inspected, never automatically resent. When inspection confirms
+the same goal request was accepted, its stale command error clears without
+creating another goal. Unknown delivery keeps its recovery error.
 
 ### Files
 
@@ -1225,7 +1250,8 @@ owns queueing, concurrent uploads, cancellation, retries, stale-response cleanup
 drag/drop/paste and scope disposal. `queueItems`, `attachments`, `canSubmit`,
 `canAddFiles`, `dragActive`, and `status` feed the aggregate. Uploads block Send
 until resolved; typing stays available. The UI defaults to ten files and 100 MB
-per file; the server must enforce its own limits.
+per file; the server must enforce its own limits. Configured limits that are exact
+multiples of 1 MiB display in MiB; other limits display in decimal MB.
 
 After acknowledged delivery, call
 `clearAttachments({ accepted: true, attachmentIds })` with that submission's
@@ -1671,6 +1697,16 @@ Applications still supply exact action authorization, native instruction/account
 configuration and checkpoints. Source/component proofs do not establish a host's
 installed or real CLI/application acceptance.
 
+If an opted-in host starts Claude for a native goal before an authored turn,
+`process.configure` must already declare `applicationTools: true` and retain the
+same discovery schemas for subsequent turns. The retained owner installs the
+existing SDK control handler at that startup. Discovery can be served before a
+turn; execution still requires the exact admitted top-level native tool use.
+An admitted application action can call the existing native goal Pause owner:
+its process cleanup does not wait on the enclosing tool call, and the common
+runtime saves the action result before releasing that turn. Applications own
+explicit pause authorization and persisted continuation intent.
+
 Such a server integration may open a handle with `representation: "native"` when
 its existing command contract requires the original result. The option belongs
 to that handle and each invocation, not the cached conversation or saved state.
@@ -1741,6 +1777,13 @@ remain in force; no message is resent. A host-supplied owner retains its own
 policy. This is a server coordination option, not a client field or recording
 limit.
 
+When Codex confirms a provider failure, recovering saved assistant output does
+not replace that failure with successful completion. The run owner preserves
+the output, publishes the provider detail through the existing outcome notice,
+and settles once with the failed outcome. Usage-limit details remain available
+even when the same turn already contains an answer. Repeated terminal events
+do not duplicate the notice or checkpoint.
+
 Claude uses its native schema flag and restarts the owned process when the schema
 changes, retaining the conversation. Codex uses its native turn schema setting.
 OpenCode uses the existing schema instruction and removes a single JSON fence
@@ -1792,6 +1835,64 @@ the current user input, edit stored messages or their delivery fingerprints, or
 truncate a returning engine's missed/edited messages. Attachment references and
 removed-message identities retain their existing delivery ownership. The direct
 API's initial continuity policy is separate and is unchanged by these limits.
+
+The lower-level `createConversationChangeover()` owner additionally accepts
+`maximumHistoryBytes`, a positive UTF-8 byte limit on the quoted history JSON.
+This includes message metadata, escaped text, attachment references and removed
+message IDs. It bounds both initial history and returning missed/corrected
+messages, dropping complete oldest messages until the remainder fits. Set
+`maximumInitialMessages: Infinity` together with a finite byte budget to select
+the entire available history instead of a fixed message window. Saved transcript
+text is never changed and no summary is generated. Removed message IDs are
+retained; if even that envelope exceeds the budget, delivery fails before a
+pending request is written or sent.
+
+The caller must derive this byte allowance from the selected destination's
+available normal context, reserving room for its retained history, instructions,
+tools, the current request and further work. Byte counts are not token counts;
+this option does not select a model or enable an extended context window. A
+retained pending prompt keeps its exact original contents on retry even if the
+budget or source transcript later changes. The existing delivery cursor records
+the source snapshot, including older rows omitted by the bounded transfer, so
+subsequent unchanged requests do not repeatedly inject the discarded history.
+This lower-level option does not change the runtime's default 30-message seed.
+
+`maximumHistoryBytes` can also be an async server-owned resolver receiving
+`{ engineId, returning, input, handover }`. It must return a finite positive
+integer. The owner calls it only when preparing new quoted history, after
+checking existing delivery evidence. Ordinary input needing no catch-up, exact
+pending retries and receipt recovery do not invoke it. This lets the caller
+inspect the selected native conversation's current budget without preparing
+another runtime during recovery. An unavailable or invalid budget prevents
+dispatch; it does not silently substitute an unlimited allowance.
+
+A supplied native conversation can expose the same `maximumHistoryBytes`
+resolver on its binding. The common runtime adds the current authorized
+`context` and active execution `signal` to its arguments. When no explicit
+`maxInitialNativeHistoryMessages` is configured, this opts that binding into
+whole-history selection up to the returned byte budget. The host owns the budget
+policy and usage source. The common runtime reauthorizes and checks cancellation
+before the lookup, then checks cancellation again before retaining the result.
+No resolver means the existing initial message limit remains in effect.
+
+The existing Claude conversation owner exposes
+`readContextUsage(entry, { signal, ...input })` for an already acquired native
+entry. It uses the original account/configuration/process preparation and sends
+only `get_context_usage` with `detail: "summary"`; it does not submit an inference
+request. The result is `{ model, usedTokens, windowTokens }`. When auto-compaction
+is enabled, the window is bounded by its reported threshold. Invalid native
+usage fails instead of guessing a limit. Call this with the same prepared tool
+configuration as the eventual request; it is not a separate provider lifecycle.
+
+For a prepared Codex runtime, the existing `server/codex-configuration` entry
+exports `readCodexModelContextWindow({ runtimeDir, model })`. Supply the exact
+runtime directory and selected catalogue model ID. It reads that runtime's
+`models.json`, returning `windowTokens` from the normal `context_window` and
+`effectiveWindowTokens` after the catalogue's effective-context percentage.
+It never substitutes `max_context_window`, changes model settings or launches
+a process. Missing, ambiguous or invalid normal limits fail without exposing
+catalogue contents. This read establishes the limit only; the caller must still
+account for usage belonging to the destination thread and reserve working space.
 
 An application whose established selection policy creates a fresh native
 conversation can pass `retireNative: true` to `select()`. This uses the same
@@ -1899,6 +2000,13 @@ different IDs. `message-complete` retires the temporary block. The runtime's
 `streaming` state contains live output, while `conversationLog` contains saved
 messages. Do not save temporary blocks or assume that every answer in a turn
 has the same ID. Native snapshot identities match recovered history.
+
+The transient stream owner can retain host-provided message `metadata`, such as
+recorded model attribution. It captures the first supplied metadata for that
+message, preserves it across text deltas, and returns independent copies on read.
+Only supply safe presentation data already authorized for that conversation;
+never put credentials, native custody details or hidden instructions there.
+This does not add a persisted field or replace saved transcript metadata.
 
 All engines accept the same configuration fields: required `systemPrompt`, plus
 optional `integrationId`, `model` and `effort`. API and OpenCode require an
@@ -2114,6 +2222,12 @@ Already invoked actions retain their original receipt while Stop drains them.
 This operation does not supply product queue policy or the browser observation
 adapter. Complete those application owners before enabling it in a consumer;
 never manufacture historical markers or completion receipts.
+
+A retained native reservation whose dispatch was never attempted is ready after
+reopening, with no pending delivery or interruption banner. Its frozen request
+stays stored for an explicit retry; opening or reading does not replay it.
+Attempted requests and inspection-only upgrade records still report uncertain
+delivery and require receipt inspection before any resend.
 
 Saved turns distinguish complete, failed, cancelled and interrupted work. Error
 messages are not assistant replies. After restart, accepted work is marked
@@ -2455,6 +2569,14 @@ retryable through `cancel()`. These commands accept neither attachments nor a to
 budget. After replacement or engine change, an ordinary Send must deliver the
 pending continuity briefing before a goal can start.
 
+Claude's goal validation runs before native interruption or Send. Rejected
+conditions, including reserved commands such as `clear`, return
+`conversation_invalid_goal` (HTTP 400, `delivery: "not-sent"`). The shared
+delivery binding retains a failed attempt for correction or dismissal rather
+than presenting an uncertain receipt. Errors from native execution, storage or
+acknowledgement remain separate; this validation result never licenses replay
+after a transport failure.
+
 Codex uses native goal controls and may attach a goal to ordinary active work.
 Starting another goal after completion requires the completed goal's ID. These
 controls accept neither attachments nor authored message receipts. They return
@@ -2464,7 +2586,12 @@ automatic continuations but does not interrupt an already running turn;
 
 Claude Set, Resume and Clear return the same admission receipt as `send()`.
 Reusing an accepted command's `messageId` returns its receipt without executing
-it again. A lost acknowledgement stays uncertain until `inspectDelivery()` finds
+it again. If a bound native turn finishes during Set or Resume preparation and
+returns `conversation_steer_turn_finished` with `delivery: "not-sent"`, the runtime
+waits for that dispatch's cleanup and final save, then tries the same goal command
+once through normal admission. It rechecks access, cancellation and goal identity;
+a repeated rejection or uncertain delivery remains an error.
+A lost acknowledgement stays uncertain until `inspectDelivery()` finds
 native proof. Codex controls use the existing native goal identity checks;
 refresh `readGoal()` after a failed control before choosing another action.
 Older Codex goal-message records remain inspection-only and require offline
@@ -2586,7 +2713,12 @@ await runtime.close();
 The native identity, working directory and credential-home binding remain in
 server-side runtime metadata. Prompt changes replace the process while preserving
 native history; compatible model/effort changes use native controls. Account changes
-cannot silently continue the previous account's conversation. Application access
+are rejected by default. An application that owns its conversations and authorizes
+the current workspace account may opt into `host.allowAccountChange: true`. The
+existing account guard confirms the old process has stopped before saving the new
+identity and resuming the same native history. Failed cleanup blocks adoption
+until the existing Stop recovery succeeds. Completed response receipts still
+require their original saved account; this option cannot rebind past effects. Application access
 is checked again after native preparation and before dispatch. Built-in tools are
 disabled unless the server grants `host.nativeTools`. Optional application `actions` use the shared
 executor and authorized attachments use the common resolver above. Steering uses
@@ -2600,8 +2732,8 @@ credential-file metadata is unchanged. File changes invalidate the result,
 failed reads are retryable, and signed-out JSON is distinct from a failed query.
 On macOS, only concurrent reads are shared because native credentials may live
 in the keychain. JSKIT does not parse credential contents for this cache.
-The extracted native account guard prevents a different signed-in Claude account
-from resuming owned history. Authorized external-provider connections can rotate
+Without the explicit host opt-in, the extracted native account guard prevents a
+different signed-in Claude account from resuming owned history. Authorized external-provider connections can rotate
 their API keys while retaining the native conversation; application authorization
 still decides which connection the caller may use.
 Compatible connection/key changes use the production flag-then-model control
@@ -3544,8 +3676,10 @@ Hosts without this optional receipt retain the original protocol EOF path. The e
 `processExit` and the acquired execution identity before the original exact-owner
 cleanup. Exit does not prove scope cleanup: a successful stop must still return
 `{ scopeEmpty: true }`. Engine flags, environment normalization and the JSON
-initialization handshake stay inside JSKIT. The existing control deadline and
-normal EOF event-draining order are unchanged.
+initialization handshake stay inside JSKIT. A host may supply
+`initializationTimeoutMs` for cold startup (default 30 seconds); ordinary controls
+retain their separate 30-second deadline. Expired startup still performs verified
+cleanup. Normal EOF event-draining order is unchanged.
 
 Without a replacement execution facility, Claude startup uses the supplied local
 POSIX process-group implementation. This is a trusted single-user host, not a
@@ -4239,3 +4373,141 @@ leaves account authorization and historical-conversion policy to the host.
 provider/configuration/endpoint/key digest already used by the live driver;
 hosts may translate a verified historical pin without changing its caller or
 copying credentials. These functions do not authorize native continuation.
+
+A Claude turn that ends before the native sender writes the prompt is a definite
+rejection. The sender reports `delivery: "not-sent"`, and the common runtime
+notifies the bound host through its existing `onPromptRejected` callback. The
+host can clear its dispatch marker and offer Retry. A pipe write without native
+acknowledgement remains uncertain; never use absence from history alone to resend.
+
+Subscription failures and terminal outcomes taking at least five seconds are
+logged at warning level with the last stage and elapsed duration. Normal stage
+diagnostics remain at info; no transcript or unvalidated client identity is logged.
+
+A retained user steering request can race with native turn completion. The server's
+`conversation_steer_turn_finished` conflict is a specific pre-admission rejection,
+not a generic steering/transport failure. The conversation binding retries that
+queued request once as ordinary Send with the same message ID, authored content,
+attachments and application data, retaining Send intent if it later fails. It
+never converts goals or prepared application submissions, never retries accepted
+or uncertain delivery, and checks that the original actor/conversation remains
+current. Other `conversation_not_steerable` refusals retain their existing policy.
+Claude also classifies this race before native interruption, but only a completed
+result qualifies; idle state, Stop, cancellation and another interrupt do not.
+The scoped retained-conversation owner restores the prior admitted identity on
+definite rejection before reading late output, and anchors the first answer to
+the original unanswered authored turn. Further native messages retain the
+ordinary multi-message projection. Every newly outgoing input reserves the
+existing continuity pending record, including ordinary same-model sends: bare
+authored text stays unchanged when no catch-up is needed. Only the matching
+pending record with `attempted: false` permits retry after definite rejection,
+including after reload. Missing evidence remains inspection-only. Rejected rows
+remain intact; no historical rows or pending records are rewritten.
+
+Accepted Claude steering also preserves output ownership. Scoped reads pass the
+saved authored `requestMessageIds` to the native read operation. The Claude owner
+retains the native input `userId` on live blocks and restored history, and resolves
+it to `requestMessageId` using those known IDs. The scoped transcript writer uses
+that exact authored turn for partial output and final replies; an identified
+output without a matching authored turn is left in native history for a later
+read, never assigned to the latest request. Providers without this identity
+continue using their existing projection. This is read-time routing into the
+existing transcript format, not a historical repair or a new persisted field.
+After verified Claude Stop, buffered and already displayed partial text remains
+readable as interrupted commentary with its original input/output identity. The
+scoped reader saves it through the same transcript writer before retiring live
+state. It is not a completed-answer receipt, and unconfirmed process cleanup
+does not finalize a still-running stream.
+
+When Stop races with native history persistence, Claude's explicit API block
+identity reconciles the saved frame and live fragment before transcript admission.
+The existing output ID also prevents a later native-history read from appending
+the interrupted output again under another frame UUID. This does not promote an
+interruption to a completed-answer receipt or rewrite earlier saved transcripts.
+
+Claude's internal task notifications do not become user requests. Their command
+lifecycle events must not leave a completed user request busy or replace its
+receipt identity. The shared native owner clears completed commands while still
+waiting for the generation result and any remaining background work. Hosts should
+keep using the shared owner for steering and goal admission.
+
+For Claude versions advertising `interrupt_send_now_v1` on the native
+`system/init` event, steering and active-turn goal Set/Resume use targeted **Send
+now**: write the new user message first, then send the control with that message's
+UUID. Native background workers continue; foreground generation or foreground
+tools may be interrupted to consume the instruction. The ordinary receipt and
+task-completion owners still determine admission and completion. Explicit **Stop**
+uses the cancellation control. Versions without this capability keep the existing
+interrupt behavior; the client never sends an unsupported Send now control that
+an older CLI could interpret as Stop.
+
+Native Claude `system/local_command_output` messages retain their origin in
+`data.native` (`engineId`, `type`, `subtype`). Transcript writers preserve supplied
+message data for agent messages as well as user messages. A consuming application
+can distinguish command confirmations from ordinary assistant prose without
+altering native history or treating matching text alone as protocol evidence.
+Claude also emits local-command confirmations as synthetic assistant frames.
+When `local_command_run.command` and `local_command_source` identify their origin,
+`data.native` carries `engineId: "claude"`, `type: "assistant"`, `command`, and
+`output: "stdout"` or `"stderr"`. Successful result-only confirmations with
+`local_command` use `type: "result"` and `output: "stdout"`. Ordinary replies do
+not acquire this metadata because of their wording or model name. Applications
+can hide successful management output while retaining command errors. This
+applies to newly written messages; it does not enrich older stored records.
+
+For a host-owned goal admission, the conversation context may carry an `AbortSignal`
+as `signal`. Abort it when the person cancels that admission while authorization or
+native preparation is still pending. The native goal dispatch checks cancellation
+before writing; a command already acknowledged keeps its receipt. Continue to use
+the ordinary Stop/Pause operation to stop work that has already reached the provider.
+
+Connection warnings render a compact full-width row with Reload on the left and
+wrapped status text on the right. The avatar stays over the transcript below
+that row; its selected size cannot push recovery controls down. Reload preserves
+loaded messages and drafts, and its disabled pending state remains visible.
+
+Status/history reads and reconciliation do not stop a Claude process while its
+current runtime still owns the pending initialization cleanup lease. The lease
+is transient and tied to the exact execution ID; after initialization fails,
+ordinary cleanup/reconciliation applies again. Explicit Stop can always use that
+lease to stop startup. A restored execution has no pending lease and still needs
+verified cleanup before reuse.
+
+For a bound Claude goal, command admission can precede its native goal attachment.
+The retained goal owner waits up to 30 seconds for the attachment linked to that
+exact native command UUID before returning the goal result; it does not await the
+model's whole turn. An attachment timeout reports accepted delivery and leaves the
+original receipt authoritative. Native goal reads expose `goalCommandId` as derived
+history evidence for a host recovering that same pending command. A goal with the
+same condition but a different command is not proof of that command's goal.
+
+Offline native-history inspection may set `includeCommandMessages: true` on
+`readClaudeHistory`. Its separate `commandMessages` list contains exact native
+IDs, unwrapped text and `data.native` for `system/local_command` records with
+explicit command identity and matching stdout/stderr wrappers. Ordinary history
+projection is unchanged. Sidechain, nested and meta records are excluded, and
+existing rewind branch selection still applies. Use `allowIncompleteTail: false`
+with stopped writers when these records prove a historical application repair.
+The native reader writes nothing; the application owns its repair and backups.
+
+Claude native goal reads preserve `blocked` when the main history records a
+structured `goal_status` evaluation with `met: false, failed: true`, or the
+explicit informational event terminating repeated stop-hook attempts. The failed
+evaluation means the native evaluator found the goal impossible and removed its
+Stop hook; it is not an active goal or a user Pause. The same
+goal identity and last evaluator reason remain available across process shutdown.
+Quoted assistant text and nested tool events are not evidence of blocking. A
+later native goal attachment supersedes the block; a completed goal is not reopened
+by a hook notice. Hosts must not automatically resume this blocked state on
+restart. This projection records the native termination; it does not prevent
+Claude's preceding retry loop or turn an assistant's “paused” reply into a control
+operation.
+
+The same Claude goal owner accepts an admitted native `block` control with the
+exact goal identity and a nonempty reason of at most 1,000 characters. It stores
+`blockedGoal` alongside the existing optional `pausedGoal` (never both), stops
+native execution and disarms the checker before ordinary input. Hosts must
+round-trip both optional fields. Resume and Cancel clear retained state only
+after their exact native command receipt. Host application tools decide who may
+report an external blocker; this owner does not interpret message prose or
+schedule retries. Blocked status and reason survive owner recreation.
