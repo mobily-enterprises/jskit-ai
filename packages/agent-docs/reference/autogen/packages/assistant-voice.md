@@ -44,6 +44,7 @@ Exports
 - `VoiceConversation`
 - `VoiceConversationControls`
 - `VoiceConversationSettings`
+- `VoiceSpeakingVoiceSelect`
 - `useVoiceLauncher`
 - `useVoiceAvatar`
 - `VoiceAvatar`
@@ -85,7 +86,6 @@ Local functions
 Exports
 - None
 Local functions
-- `selectVoice(value)`
 - `openSettings(open)`
 
 ### `src/client/voiceLauncher.js`
@@ -98,6 +98,12 @@ Exports
 - `normalizeSpeechSegment(message = {}, sampleRate = 22_050)`
 - `pcm16ArrayBufferToFloat32(buffer)`
 - `visemeCueAtTime(segments = [], currentTime = 0)`
+
+### `src/client/VoiceSpeakingVoiceSelect.vue`
+Exports
+- None
+Local functions
+- `selectVoice(value)`
 
 ### `src/client/voiceTransport.js`
 Exports
