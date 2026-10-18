@@ -315,6 +315,7 @@ Exports
 
 ### `src/server/conversation/claudeProcess.js`
 Exports
+- `claudeUnexpectedExitMessage(processExit = {})`
 - `readClaudeCodeAuthStatus({ env = process.env, credentialHome = { home: env.HOME || homedir() }, command = "claude", commandRunner, signal } = {})`
 - `claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey)`
 - `claudeModelConfiguration({ providerId, model: modelId }, connection)`

@@ -48,7 +48,7 @@
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.241",
-    "@jskit-ai/jskit-catalog": "0.1.275",
+    "@jskit-ai/jskit-catalog": "0.1.276",
     "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^10.8.0",

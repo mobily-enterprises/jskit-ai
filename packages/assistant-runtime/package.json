@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.1.221",
+  "version": "0.1.222",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -12,7 +12,7 @@
     "./server": "./src/server/index.js"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.1.228",
+    "@jskit-ai/assistant-core": "0.1.229",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
