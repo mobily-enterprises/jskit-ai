@@ -130,8 +130,9 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
 
   // Saved records are shared and never changed in place. A transaction copies
   // the turn map and each turn it changes, then commits that new record.
+  // Adapter fields the transaction does not manage are carried unchanged.
   function transaction(saved) {
-    const draft = { metadata: saved.metadata, turns: saved.turns };
+    const { index: _index, ...draft } = saved;
     const added = new Map();
     let ownTurns = false;
     const owned = new Set();

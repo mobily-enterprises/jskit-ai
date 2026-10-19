@@ -81,6 +81,15 @@ test("message adaptation retains progress, attachments, system actions and SQL m
   assert.equal(turns[2].assistant.sql, "select 1");
 });
 
+test("record storage carries adapter fields it does not manage through writes", async () => {
+  let record = { turns: new Map(), metadata: {}, rewound: [{ turnId: "000001" }] };
+  const storage = createConversationStorage({ readRecord: () => record, writeRecord: (_scope, next) => { record = next; } });
+  await storage.write("conversation", transaction => transaction.appendMessage("000002",
+    { role: "user", at: "2026-10-01T01:00:00.000Z", text: "Hello", messageId: "m1" }));
+  assert.deepEqual(record.rewound, [{ turnId: "000001" }]);
+  assert.equal(record.turns.get("000002").messages[0].text, "Hello");
+});
+
 test("record storage preserves original role, timestamp and message-id overwrite identity", async () => {
   let record = { turns: new Map(), metadata: {} };
   const storage = createConversationStorage({ readRecord: () => record, writeRecord: (_scope, next) => { record = next; } });
