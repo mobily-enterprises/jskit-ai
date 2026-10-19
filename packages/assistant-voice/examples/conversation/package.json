@@ -21,7 +21,7 @@
     "@tanstack/vue-query": "^5.90.5",
     "fastify": "^5.8.0",
     "pinia": "^4.0.3",
-    "vue": "^3.5.43",
+    "vue": "^3.5.44",
     "vue-router": "^5.3.1",
     "vuetify": "^4.0.0"
   },
