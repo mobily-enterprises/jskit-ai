@@ -2242,6 +2242,53 @@ test("Claude context inspection refuses unavailable usage and honours cancellati
   assert.equal(f.messages.length, 0);
 });
 
+test("Claude context compaction runs native /compact as a local command without a chat turn", async t => {
+  const f = await publishedClaudeFixture(t);
+  let usage = { model: "claude-opus", totalTokens: 946000, maxTokens: 1000000, autoCompactThreshold: 967000 };
+  f.behavior.initialize = native => {
+    native.client.request = async request => request.subtype === "get_context_usage" ? usage : {};
+    const send = native.client.send;
+    native.client.send = async (message, input) => {
+      if (message !== "/compact") return send(message, input);
+      (f.behavior.nativeInputs ||= []).push(message);
+      for (const frame of [{ type: "user", uuid: input.messageId }, { type: "system", subtype: "status", status: "compacting" },
+        { type: "system", subtype: "compact_boundary", compact_metadata: { trigger: "manual" } },
+        { type: "user", uuid: "summary", message: { content: "This session is being continued..." } }]) {
+        await native.options.onEvent({ ...frame, session_id: native.options.sessionId });
+      }
+      usage = { ...usage, totalTokens: 40000 };
+      await native.options.onEvent({ type: "result", subtype: "success", result: "", local_command: "compact",
+        user_message_uuid: input.messageId, session_id: native.options.sessionId });
+    };
+  };
+  await f.owner.compactContext(f.entry);
+  assert.deepEqual(f.behavior.nativeInputs, ["/compact"]);
+  assert.equal((await f.owner.readContextUsage(f.entry)).usedTokens, 40000);
+  assert.equal(f.entry.turn, null);
+  assert.equal(f.entry.localCommand, null);
+  assert.equal(f.messages.length, 0);
+  assert.equal(f.processes.length, 1);
+  await f.send("after-compaction");
+  assert.deepEqual(f.behavior.nativeInputs.slice(-1), ["Explain"]);
+  assert.equal(f.entry.turn.active, true);
+});
+
+test("Claude context compaction reports native failure and refuses an active turn", async t => {
+  const f = await publishedClaudeFixture(t);
+  f.behavior.initialize = native => {
+    const send = native.client.send;
+    native.client.send = async (message, input) => {
+      if (message !== "/compact") return send(message, input);
+      await native.options.onEvent({ type: "result", subtype: "error_during_execution", is_error: true,
+        local_command: "compact", user_message_uuid: input.messageId, session_id: native.options.sessionId });
+    };
+  };
+  await assert.rejects(f.owner.compactContext(f.entry), /could not summarise its context/);
+  assert.equal(f.entry.localCommand, null);
+  await f.send("working");
+  await assert.rejects(f.owner.compactContext(f.entry), error => error.statusCode === 409 && /still working/.test(error.message));
+});
+
 
 test("bound Main history budget transfers more than 30 complete messages through the original Claude sender", { timeout: 10_000 }, async t => {
   const f = await suppliedCommonFixture(t, { tools: false, representation: "native" });

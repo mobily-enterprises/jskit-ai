@@ -391,8 +391,8 @@ export function createClaudeConversationOwner({
     if (options && typeof options.then === "function") options = await options;
     assertPreparing();
     let startupCleanup;
-    let retainedGoalClear;
     let startedExecutionId;
+    const processToken = {};
     try { entry.process = await createProcess({ ...options,
       workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
       onStarted: async (executionId, stop) => {
@@ -417,12 +417,13 @@ export function createClaudeConversationOwner({
           // on its event reader: interrupt/exit also needs that reader to drain.
           pending.stop();
         }
-        // A retained Pause disarms only the native goal hook before a new
-        // authored input is admitted. This local command is not an AI turn.
-        if (retainedGoalClear) {
-          if (frame.type === "result" && frame.user_message_uuid === retainedGoalClear.id) {
-            if (frame.local_command === "goal" && frame.is_error !== true && frame.subtype === "success") retainedGoalClear.resolve();
-            else retainedGoalClear.reject(createError("Claude could not suspend its retained goal checker."));
+        // Local commands (retained goal clear, compaction) are not AI turns.
+        // Their frames stay out of the turn view until their own result.
+        const local = entry.localCommand;
+        if (local?.processToken === processToken) {
+          if (frame.type === "result" && frame.user_message_uuid === local.id) {
+            if (frame.local_command === local.name && frame.is_error !== true && frame.subtype === "success") local.resolve();
+            else local.reject(createError(local.failureMessage));
           }
           return;
         }
@@ -469,7 +470,7 @@ export function createClaudeConversationOwner({
         }
       } : {}),
       onFailure: async error => {
-        retainedGoalClear?.reject(error);
+        if (entry.localCommand?.processToken === processToken) entry.localCommand.reject(error);
         if (store.releaseExecution) {
           entry.nativeTurn.invalidateInstructions();
           try { await entry.nativeTurn.stopProcess(error.message); }
@@ -505,28 +506,53 @@ export function createClaudeConversationOwner({
       throw error;
     }
     if (entry.startupCleanup?.executionId === entry.executionId) entry.startupCleanup = null;
+    entry.processToken = processToken;
     if (entry.pausedGoal || entry.blockedGoal) {
-      const completion = Promise.withResolvers();
-      completion.promise.catch(() => {});
-      retainedGoalClear = { ...completion, id: randomUUID() };
-      const timer = setTimeout(() => completion.reject(createError("Claude timed out suspending its retained goal checker.")), 30_000);
       try {
-        await entry.process.client.send("/goal clear", { messageId: retainedGoalClear.id, sessionId: entry.id });
-        await completion.promise;
+        const id = await runLocalCommand(entry, "/goal clear", { name: "goal", timeoutMs: 30_000,
+          failureMessage: "Claude could not suspend its retained goal checker.",
+          timeoutMessage: "Claude timed out suspending its retained goal checker." });
         const cleared = await readHistory(entry);
-        if (cleared.goal || cleared.goalCommandId !== retainedGoalClear.id) {
+        if (cleared.goal || cleared.goalCommandId !== id) {
           throw createError("Claude has not saved the retained goal's native clear receipt.");
         }
         assertPreparing();
       } catch (error) {
         await entry.nativeTurn.stopProcess(error.message);
         throw Object.assign(error, { delivery: "not-sent" });
-      } finally {
-        clearTimeout(timer);
-        retainedGoalClear = null;
       }
     }
     return entry.process;
+  }
+
+  async function runLocalCommand(entry, command, { name, timeoutMs, failureMessage, timeoutMessage }) {
+    const completion = Promise.withResolvers();
+    completion.promise.catch(() => {});
+    const local = { ...completion, id: randomUUID(), name, failureMessage, processToken: entry.processToken };
+    entry.localCommand = local;
+    const timer = setTimeout(() => completion.reject(createError(timeoutMessage)), timeoutMs);
+    try {
+      await entry.process.client.send(command, { messageId: local.id, sessionId: entry.id });
+      await completion.promise;
+      return local.id;
+    } finally {
+      clearTimeout(timer);
+      if (entry.localCommand === local) entry.localCommand = null;
+    }
+  }
+
+  // Native /compact summarises Claude's own history in place, exactly like its
+  // automatic compaction. It is not an AI turn and adds no chat message.
+  async function compactContext(entry, input = {}) {
+    input.signal?.throwIfAborted();
+    if (entry.turn?.active || entry.nativeTurn.read().active) {
+      throw Object.assign(createError("Claude is still working. Wait for it to finish before freeing its context."), { statusCode: 409 });
+    }
+    await ensureProcess(entry, input);
+    input.signal?.throwIfAborted();
+    await runLocalCommand(entry, "/compact", { name: "compact", timeoutMs: 15 * 60_000,
+      failureMessage: "Claude could not summarise its context.",
+      timeoutMessage: "Claude timed out summarising its context." });
   }
 
   async function send(entry, input = {}, { renewal = false, command, applicationCommand } = {}) {
@@ -1090,7 +1116,7 @@ export function createClaudeConversationOwner({
     if (!binding) return { value: delivered.value };
   }
 
-  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, readContextUsage, stopForTerminal, prepareTerminal, send, startTurn,
+  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, readContextUsage, compactContext, stopForTerminal, prepareTerminal, send, startTurn,
     interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }
