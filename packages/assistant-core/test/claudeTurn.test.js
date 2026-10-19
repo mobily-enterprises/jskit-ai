@@ -2298,8 +2298,14 @@ test("bound Main history budget transfers more than 30 complete messages through
   f.binding.transcript.history = async () => history;
   await f.binding.state.write({ lastEngine: "codex", engines: { codex: { seen: {} } } });
   let reads = 0;
-  f.binding.maximumHistoryBytes = async ({ engineId, returning, context, signal, input }) => {
+  const phases = [];
+  const canonical = await f.runtime.open({ id: "lesson", context: f.toolContext });
+  f.binding.maximumHistoryBytes = async ({ engineId, returning, context, signal, input, setPhase }) => {
     reads++;
+    await setPhase("compacting");
+    phases.push((await canonical.read()).phase);
+    await setPhase("preparing");
+    phases.push((await canonical.read()).phase);
     assert.equal(engineId, "claude");
     assert.equal(returning, false);
     assert.equal(context.actor.id, "owner");
@@ -2314,6 +2320,7 @@ test("bound Main history budget transfers more than 30 complete messages through
   };
   await sendCommon(f, "full-history");
   assert.equal(reads, 1);
+  assert.deepEqual(phases, ["compacting", "preparing"], "a host freeing native context reports it as compacting");
   assert.ok(sent[0].length > 128_000);
   for (const message of history) assert.ok(sent[0].includes(JSON.stringify(message.text)), message.id);
   await f.frame({ type: "result", subtype: "success", result: "Received." });

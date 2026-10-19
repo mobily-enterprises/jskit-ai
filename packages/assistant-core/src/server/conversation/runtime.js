@@ -418,7 +418,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       ...(budget ? { maximumHistoryBytes: async options => {
         await access(context, entry.id, request.operation, entry);
         signal.throwIfAborted();
-        const bytes = await budget({ ...options, context, signal });
+        // A host may free native context first; show that as compacting.
+        const bytes = await budget({ ...options, context, signal,
+          setPhase: phase => setPhase(entry, phase === "compacting" ? "compacting" : "preparing") });
         signal.throwIfAborted();
         return bytes;
       } } : {}),
