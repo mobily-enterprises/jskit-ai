@@ -6,11 +6,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { create } from "tar";
-import { runGenerators } from "./check-generated-files.mjs";
+import { runGenerators } from "../../../scripts/check-generated-files.mjs";
 
 const realNpm = execFileSync("sh", ["-c", "command -v npm"], { encoding: "utf8" }).trim();
 
-const sourceRoot = fileURLToPath(new URL("../", import.meta.url));
+// The JSKIT repository root supplies the generators its prepare command runs.
+const sourceRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const releaseBin = fileURLToPath(new URL("../bin/jskit-release.mjs", import.meta.url));
 
 async function publicationFixture(t, publisher = "genesis") {
   const directory = await mkdtemp(path.join(tmpdir(), "npm-publication-test-"));
@@ -20,7 +22,7 @@ async function publicationFixture(t, publisher = "genesis") {
   await mkdir(path.join(repo, "scripts"), { recursive: true });
   await mkdir(path.join(repo, "tooling"));
   await mkdir(tools);
-  for (const file of ["release-npm.mjs", "npm-publication.mjs", "check-generated-files.mjs", "check-generated-reference-paths.mjs", "build-agent-docs.mjs"]) {
+  for (const file of ["check-generated-files.mjs", "check-generated-reference-paths.mjs", "build-agent-docs.mjs"]) {
     await copyFile(path.join(sourceRoot, "scripts", file), path.join(repo, "scripts", file));
   }
   await symlink(path.join(sourceRoot, "node_modules"), path.join(repo, "node_modules"), "dir");
@@ -28,11 +30,16 @@ async function publicationFixture(t, publisher = "genesis") {
   const packages = publisher === "genesis"
     ? [{ name: "genesis-compiler", dir: repo }, { name: "genesis-stack", dir: path.join(repo, "packages/genesis-stack") }]
     : [{ name: "@jskit-ai/a", dir: path.join(repo, "packages/a") }, { name: "@jskit-ai/b", dir: path.join(repo, "packages/b") }];
-  if (publisher === "jskit") await writeFile(path.join(repo, "package.json"), '{"name":"release-fixture","private":true,"workspaces":["packages/*","tooling/*"]}\n');
+  if (publisher === "jskit") {
+    await writeFile(path.join(repo, "package.json"), JSON.stringify({ name: "release-fixture", private: true, workspaces: ["packages/*", "tooling/*"],
+      jskitRelease: { prepare: "node ./scripts/check-generated-files.mjs --regenerate", nestedManifests: ["patterns", "examples"] } }) + "\n");
+  }
   for (const [index, record] of packages.entries()) {
     await mkdir(record.dir, { recursive: true });
     record.packageJson = { name: record.name, version: "1.0.0", files: ["index.js"],
-      ...(publisher === "jskit" && index === 1 ? { dependencies: { "@jskit-ai/a": "1.0.0" } } : {}) };
+      ...(publisher === "jskit" && index === 1 ? { dependencies: { "@jskit-ai/a": "1.0.0" } } : {}),
+      // Genesis shape: the root package reaches the second one only through `file:`.
+      ...(publisher === "genesis" && index === 0 ? { devDependencies: { "genesis-stack": "file:packages/genesis-stack" } } : {}) };
     await writeFile(path.join(record.dir, "package.json"), JSON.stringify(record.packageJson) + "\n");
     await writeFile(path.join(record.dir, "index.js"), "export const value = 1;\n");
   }
@@ -84,6 +91,9 @@ const entry={args,cwd:process.cwd(),config};
 if(config){entry.mode=fs.statSync(config).mode&0o777;entry.tokenPresent=Boolean(process.env.NPM_TOKEN);}
 if(args[0]==='publish')entry.integrity='sha512-'+crypto.createHash('sha512').update(fs.readFileSync(args[1])).digest('base64');
 fs.appendFileSync(process.env.RELEASE_TEST_LOG,JSON.stringify(entry)+'\\n');
+if(args[0]==='install'&&Number(process.env.RELEASE_TEST_INSTALL_FAILURES||0)>=fs.readFileSync(process.env.RELEASE_TEST_LOG,'utf8').trim().split('\\n').filter(line=>JSON.parse(line).args[0]==='install').length){
+  console.error('npm error code ETARGET');process.exit(1);
+}
 if(process.env.RELEASE_TEST_FAIL===args[0]){
   console.log(JSON.stringify({error:{code:process.env.RELEASE_TEST_CODE||'E503'}}));process.exit(1);
 }
@@ -125,7 +135,7 @@ if(args[0]==='view'){
 }else if(args[0]==='install'){
   const lock={name:'release-fixture',lockfileVersion:3,packages:{}};
   const files=['package.json'];
-  for(const root of ['packages','tooling'])for(const name of fs.readdirSync(root)){
+  for(const root of ['packages','tooling'].filter(root=>fs.existsSync(root)))for(const name of fs.readdirSync(root)){
     const manifest=path.join(root,name,'package.json');if(fs.existsSync(manifest))files.push(manifest);
   }
   for(const file of files){
@@ -136,13 +146,13 @@ if(args[0]==='view'){
   fs.writeFileSync('package-lock.json',JSON.stringify(lock)+'\\n');
 }else console.log(args[0]==='whoami'?'release-fixture':'published fixture');
 `, { mode: 0o755 });
+  const fixtureEnv = { ...process.env, PATH: tools + path.delimiter + process.env.PATH, NPM_TOKEN: "fixture-token",
+    RELEASE_TEST_LOG: log, RELEASE_TEST_REGISTRY: registryFile };
   return {
-    repo, git, packages, regenerate, syncLockfile,
-    run(args, env = {}) {
-      return spawnSync(process.execPath, [path.join(repo, "scripts/release-npm.mjs"), ...args], {
-        encoding: "utf8",
-        env: { ...process.env, PATH: tools + path.delimiter + process.env.PATH, NPM_TOKEN: "fixture-token",
-          RELEASE_TEST_LOG: log, RELEASE_TEST_REGISTRY: registryFile, ...env }
+    repo, directory, git, packages, regenerate, syncLockfile, env: fixtureEnv,
+    run(args, env = {}, cwd = repo) {
+      return spawnSync(process.execPath, [releaseBin, ...args], {
+        cwd, encoding: "utf8", env: { ...fixtureEnv, ...env }
       });
     },
     async addPackage(name, options = {}) {

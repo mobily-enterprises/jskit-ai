@@ -107,7 +107,10 @@ async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await main();
+  // `--regenerate` is the release prepare command (package.json jskitRelease.prepare):
+  // it rebuilds the catalog and agent docs for the prepared version graph.
+  if (process.argv.includes("--regenerate")) runGenerators(REPO_ROOT, { quiet: true });
+  else await main();
 }
 
 export {

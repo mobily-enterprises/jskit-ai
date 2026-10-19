@@ -1,6 +1,6 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, mkdtemp, readdir, readFile, readlink } from "node:fs/promises";
+import { copyFile, lstat, mkdtemp, readdir, readFile, readlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { list } from "tar";
@@ -67,6 +67,42 @@ async function archiveContents(file) {
   if (invalid) throw new Error(invalid);
   if (!contents.has("package/package.json")) throw new Error("Package archive has no package.json.");
   return contents;
+}
+
+async function archiveManifest(file) {
+  let contents = "";
+  await list({
+    file, strict: true,
+    onReadEntry(entry) {
+      if (entry.path.replace(/^\.\//u, "") !== "package/package.json") return entry.resume();
+      entry.on("data", chunk => { contents += chunk.toString("utf8"); });
+    }
+  });
+  try { return JSON.parse(contents); } catch { throw new Error(`${file}: package archive has no readable package.json.`); }
+}
+
+// A package whose published artifact is not plain `npm pack` output declares
+// `jskitRelease.pack`: a command run in the package directory that prints the
+// tarball path (or JSON {"tarball": path}) as its last stdout line. Its other
+// output is forwarded to stderr.
+async function runPackCommand(record, env) {
+  const command = String(record.packageJson.jskitRelease?.pack || "");
+  const output = await new Promise((resolve, reject) => {
+    const child = spawn(command, { cwd: record.dir, env, shell: true, stdio: ["ignore", "pipe", "inherit"] });
+    let stdout = "";
+    child.stdout.on("data", chunk => { stdout += chunk; process.stderr.write(chunk); });
+    child.on("error", reject);
+    child.on("close", code => code === 0 ? resolve(stdout)
+      : reject(new Error(`${record.name}: pack command \`${command}\` failed (code=${code}).`)));
+  });
+  const line = output.trim().split("\n").at(-1)?.trim() || "";
+  let tarball = line;
+  try {
+    const value = JSON.parse(line);
+    tarball = typeof value === "string" ? value : value?.tarball;
+  } catch { /* A plain path. */ }
+  if (!tarball) throw new Error(`${record.name}: pack command \`${command}\` printed no tarball path.`);
+  return path.resolve(record.dir, tarball);
 }
 
 // Directory snapshots invalidate only invocation-local pack reuse. Equality with
@@ -154,10 +190,18 @@ function createPublicationInspection({ directory, registry, configPath = "", env
     if (previous && sameSnapshot(previous.snapshot, snapshot)) { stats.packReused++; return previous.tarball; }
     const destination = await mkdtemp(path.join(directory, "candidate-"));
     const started = performance.now();
-    const packed = await npmJson(["pack", "--json", "--pack-destination", destination, ...registryArgs], { cwd: record.dir, env });
+    let tarball;
+    if (record.packageJson.jskitRelease?.pack) {
+      const built = await runPackCommand(record, env);
+      const manifest = await archiveManifest(built);
+      tarball = packedRecord([{ name: manifest.name, version: manifest.version, filename: path.basename(built) }], record, destination);
+      await copyFile(built, tarball);
+    } else {
+      const packed = await npmJson(["pack", "--json", "--pack-destination", destination, ...registryArgs], { cwd: record.dir, env });
+      tarball = packedRecord(packed, record, destination);
+    }
     stats.packMs += performance.now() - started;
     stats.packed++;
-    const tarball = packedRecord(packed, record, destination);
     candidates.set(record.dir, { snapshot: await snapshotFiles(record.dir), tarball });
     return tarball;
   }

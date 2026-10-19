@@ -55,4 +55,5 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 ## Tooling Maps
 - [config-eslint](/packages/agent-docs/reference/autogen/tooling/config-eslint.md)
 - [jskit-catalog](/packages/agent-docs/reference/autogen/tooling/jskit-catalog.md)
+- [jskit-release](/packages/agent-docs/reference/autogen/tooling/jskit-release.md)
 - [testUtils](/packages/agent-docs/reference/autogen/tooling/testUtils.md)

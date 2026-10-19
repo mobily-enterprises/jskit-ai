@@ -94,9 +94,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-            npm run release:npm:publish:dry-run
+            npm run npm-publish:dry-run
           else
-            npm run release:npm:publish
+            npm run npm-publish
           fi
 
       - name: Verify published registry state

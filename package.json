@@ -10,9 +10,9 @@
     "lint:packages": "node ./tooling/jskit-catalog/scripts/verify-packages.mjs",
     "check:runtime-deps": "node ./scripts/check-runtime-dependencies.mjs",
     "check:ci": "node --test --test-concurrency=1 ./scripts/check-ci-contract.test.mjs && node ./scripts/check-ci-contract.mjs",
-    "verify": "npm run lint && npm run test:release-npm && npm run check:runtime-deps && npm run check:ci && npm run lint:packages && npm run generated:check && npm --workspaces --if-present test",
+    "verify": "npm run lint && npm run check:runtime-deps && npm run check:ci && npm run lint:packages && npm run generated:check && npm --workspaces --if-present test",
     "verify:registry": "npm run security:audit && npm --workspaces --if-present run test:registry",
-    "release": "npm run verify && npm run release:npm:publish",
+    "release": "npm run verify && npm run npm-publish",
     "catalog:build": "npm run --workspace tooling/jskit-catalog catalog:build",
     "cloc:actual": "cloc --vcs=git --include-ext=js,cjs,mjs,jsx,ts,tsx,vue,py,go,rs,java,kt,swift,rb,php,cs,cpp,c,h,sql,sh,bash,zsh,ps1,rst,adoc,txt --exclude-dir=node_modules,dist,build,coverage,.next,.nuxt,.turbo,.cache,storybook-static,vendor,tmp,temp,.output,.vercel .",
     "sloc:actual": "npm run cloc:actual",
@@ -22,13 +22,20 @@
     "agent-docs:build": "node ./scripts/build-agent-docs.mjs",
     "generated:refs:check": "node ./scripts/check-generated-reference-paths.mjs",
     "generated:check": "node ./scripts/check-generated-files.mjs",
-    "test:release-npm": "node --test --test-concurrency=1 ./scripts/release-npm.test.mjs",
+    "test:release-npm": "node --test --test-concurrency=1 ./tooling/jskit-release/test/release.test.mjs",
     "security:audit": "npm audit --audit-level=low",
     "files:checklist": "./scripts/files-checklist.sh",
-    "release:npm:prepare": "node ./scripts/release-npm.mjs prepare",
-    "release:npm:prepare:dry-run": "node ./scripts/release-npm.mjs prepare --dry-run",
-    "release:npm:publish": "node ./scripts/release-npm.mjs publish",
-    "release:npm:publish:dry-run": "node ./scripts/release-npm.mjs publish --dry-run"
+    "npm-publish": "jskit-release publish",
+    "npm-publish:dry-run": "jskit-release publish --dry-run",
+    "release:prepare": "jskit-release prepare",
+    "release:prepare:dry-run": "jskit-release prepare --dry-run"
+  },
+  "jskitRelease": {
+    "prepare": "node ./scripts/check-generated-files.mjs --regenerate",
+    "nestedManifests": [
+      "patterns",
+      "examples"
+    ]
   },
   "workspaces": [
     "packages/*",

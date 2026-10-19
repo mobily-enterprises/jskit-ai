@@ -5,34 +5,44 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
-import { snapshotFiles } from "./npm-publication.mjs";
+import { createPublicationInspection, planPublication, snapshotFiles } from "../src/npm-publication.mjs";
 import {
   assertMainReleaseCheckout,
   bumpPatch,
   collectPublishDependencies,
   collectPatternPackageJsonPaths,
-  discoverWorkspacePackages,
+  discoverReleasePackages,
   parseArgs,
   topologicalPublishOrder,
   updatePackageDependencyVersions,
   updatePatternPackageJsonContents,
   validateReleaseState
-} from "./release-npm.mjs";
+} from "../src/release.mjs";
+
+const JSKIT_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 test("release commands have one explicit intent", () => {
   assert.deepEqual(parseArgs(["prepare"]), {
     intent: "prepare",
+    cwd: process.cwd(),
     dryRun: false,
-    registry: "https://registry.npmjs.org"
+    registry: "https://registry.npmjs.org",
+    from: []
   });
-  assert.deepEqual(parseArgs(["publish", "--dry-run", "--registry", "registry.example.test/"]), {
+  assert.deepEqual(parseArgs(["publish", "--dry-run", "--registry", "registry.example.test/", "--cwd", "/tmp/target"]), {
     intent: "publish",
+    cwd: "/tmp/target",
     dryRun: true,
-    registry: "https://registry.example.test"
+    registry: "https://registry.example.test",
+    from: []
   });
-  assert.throws(() => parseArgs([]), /prepare\|publish/u);
+  assert.deepEqual(parseArgs(["pin", "--from", "/tmp/a", "--from=/tmp/b", "--cwd=/tmp/target"]).from, ["/tmp/a", "/tmp/b"]);
+  assert.throws(() => parseArgs([]), /prepare\|publish\|pin/u);
   assert.throws(() => parseArgs(["prepare", "--only", "kernel"]), /Unknown argument/u);
+  assert.throws(() => parseArgs(["publish", "--from", "/tmp/a"]), /Unknown argument/u);
+  assert.throws(() => parseArgs(["pin"]), /requires at least one --from/u);
 });
 
 test("prepare increments exact patch versions", () => {
@@ -55,6 +65,43 @@ test("prepare updates ordinary npm dependency versions", () => {
   assert.equal(packageJson.dependencies["@jskit-ai/kernel"], "0.1.2");
   assert.equal(packageJson.dependencies.vue, "^3.5.0");
   assert.equal(updatePackageDependencyVersions(packageJson, versions), false);
+});
+
+test("version updates keep ^/~ ranges and leave protocol specs alone", () => {
+  const packageJson = {
+    dependencies: { a: "^0.1.1", b: "~0.1.1", c: "file:packages/c", d: ">=0.1.0" }
+  };
+  const versions = new Map([["a", "0.2.0"], ["b", "0.2.0"], ["c", "0.2.0"], ["d", "0.2.0"]]);
+  const changes = [];
+  assert.equal(updatePackageDependencyVersions(packageJson, versions, changes), true);
+  assert.deepEqual(packageJson.dependencies, { a: "^0.2.0", b: "~0.2.0", c: "file:packages/c", d: ">=0.1.0" });
+  assert.deepEqual(changes, ["dependencies.a ^0.1.1 -> ^0.2.0", "dependencies.b ~0.1.1 -> ~0.2.0"]);
+});
+
+test("publishable packages are the non-private root, workspaces and in-repository file: dependencies", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "jskit-release-discovery-"));
+  try {
+    const manifests = {
+      "package.json": { name: "root-tool", version: "1.0.0", workspaces: ["packages/*"],
+        devDependencies: { "vendored": "file:vendor/vendored", "outside": "file:../outside" } },
+      "packages/public/package.json": { name: "@scope/public", version: "1.0.0" },
+      "packages/internal/package.json": { name: "@scope/internal", version: "1.0.0", private: true,
+        dependencies: { "nested": "file:../../nested" } },
+      "packages/nameless/package.json": {},
+      "vendor/vendored/package.json": { name: "vendored", version: "2.0.0" },
+      "nested/package.json": { name: "nested", version: "3.0.0" },
+      "unrelated/package.json": { name: "unrelated", version: "1.0.0" },
+      "packages/public/node_modules/dep/package.json": { name: "dep", version: "1.0.0" }
+    };
+    for (const [file, json] of Object.entries(manifests)) {
+      await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+      await writeFile(path.join(root, file), JSON.stringify(json));
+    }
+    const records = await discoverReleasePackages(root);
+    assert.deepEqual(records.map(record => [record.name, path.relative(root, record.dir)]), [
+      ["@scope/public", "packages/public"], ["nested", "nested"], ["root-tool", ""], ["vendored", "vendor/vendored"]
+    ]);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test("prepare updates concrete package manifests inside patterns", () => {
@@ -118,7 +165,7 @@ test("package dependency cycles are invalid", () => {
 });
 
 test("repository package state is one coordinated exact graph", async () => {
-  await validateReleaseState(await discoverWorkspacePackages());
+  await validateReleaseState(await discoverReleasePackages(JSKIT_ROOT), JSKIT_ROOT);
 });
 
 test("publication requires clean main matching the remote main commit", async (t) => {
@@ -188,12 +235,51 @@ test("publication skips a matching dependency and publishes only the absent cons
 test("publication checks later packages before uploading earlier absent versions", async t => {
   const f = await publicationFixture(t, "jskit");
   await f.published(1, { content: "export const value = 2;\n" });
+  const directory = await mkdtemp(path.join(f.directory, "plan-"));
+  const inspection = createPublicationInspection({ directory, registry: "https://registry.npmjs.org", env: f.env });
+  await assert.rejects(planPublication(f.packages, { inspection, report: false }),
+    /@jskit-ai\/b@1\.0\.0: published contents differ/u);
+  assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
+test("publish prepares a changed published version, commits and pushes it, then uploads in order", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(1, { content: "export const value = 2;\n" });
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /@jskit-ai\/b@1\.0\.0 -> 1\.0\.1 \(direct content change\)/u);
+  assert.equal(f.git("log", "-1", "--format=%s").toString().trim(), "Release @jskit-ai/a@1.0.0, @jskit-ai/b@1.0.1");
+  assert.equal(f.git("rev-parse", "HEAD").toString(), f.git("rev-parse", "origin/main").toString());
+  assert.equal(f.git("status", "--porcelain").toString(), "");
+  const publications = (await f.calls()).filter(call => call.args[0] === "publish");
+  assert.deepEqual(publications.map(call => path.basename(call.args[1])), ["jskit-ai-a-1.0.0.tgz", "jskit-ai-b-1.0.1.tgz"]);
+});
+
+test("publish refuses an unclean or unpushed checkout before preparing", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await writeFile(path.join(f.packages[0].dir, "index.js"), "export const value = 2;\n");
   const result = f.run(["publish"]);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /@jskit-ai\/b@1\.0\.0: published contents differ/u);
-  const calls = await f.calls();
-  assert.equal(calls.some(call => call.args[0] === "publish"), false);
-  assert.equal(existsSync(calls[0].config), false);
+  assert.match(result.stderr, /requires a clean checkout/u);
+  assert.equal((await f.calls()).length, 0);
+});
+
+test("publish rebases its release commit when main moved and retries the push", async t => {
+  const f = await publicationFixture(t, "jskit");
+  await f.published(0, { content: "export const value = 2;\n" });
+  const other = path.join(f.directory, "other");
+  execFileSync("git", ["clone", "--quiet", path.join(f.directory, "origin.git"), other]);
+  await writeFile(path.join(other, "notes.txt"), "concurrent work\n");
+  const otherGit = (...args) => execFileSync("git", args, { cwd: other, stdio: "pipe" });
+  otherGit("-c", "user.email=other@example.invalid", "-c", "user.name=Other", "-c", "commit.gpgsign=false", "add", ".");
+  otherGit("-c", "user.email=other@example.invalid", "-c", "user.name=Other", "-c", "commit.gpgsign=false", "commit", "-m", "Concurrent work");
+  // The release checkout passes its clean/current check, then main moves before its push.
+  await writeFile(path.join(f.repo, ".git/hooks/pre-push"), `#!/bin/sh\nunset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE\n[ -f "${other}/.pushed" ] || (cd "${other}" && git push --quiet origin HEAD:main && touch .pushed)\n`, { mode: 0o755 });
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /main moved; rebasing the release commit and retrying/u);
+  assert.equal(f.git("log", "-2", "--format=%s").toString().trim(), "Release @jskit-ai/a@1.0.1, @jskit-ai/b@1.0.0\nConcurrent work");
+  assert.equal(f.git("rev-parse", "HEAD").toString(), f.git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n");
 });
 
 test("publication refuses newer registry releases discovered after preparation", async t => {
@@ -516,4 +602,144 @@ test("selectively prepared publication resumes after partial success and becomes
   const finalPreparation = f.run(["prepare"]);
   assert.equal(finalPreparation.status, 0, finalPreparation.stderr);
   assert.match(finalPreparation.stdout, /0\/3 packages need publication/u);
+});
+
+test("a custom pack command supplies the published tarball and keeps unchanged detection", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const custom = await f.addPackage("@jskit-ai/custom", { jskitRelease: { pack: "node pack.mjs" } });
+  const dir = f.packages[custom].dir;
+  // The artifact is built, not packed from source: it contains a generated file.
+  await writeFile(path.join(dir, "pack.mjs"), `import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { create } from "tar";
+// Build output lives outside the package (and is ignored), like a release build directory.
+mkdirSync("../../.custom-out", { recursive: true });
+const out = mkdtempSync("../../.custom-out/build-");
+mkdirSync(path.join(out, "package"));
+writeFileSync(path.join(out, "package/package.json"), readFileSync("package.json"));
+writeFileSync(path.join(out, "package/artifact.js"), "export const built = " + JSON.stringify(readFileSync("index.js", "utf8")) + ";\\n");
+const tarball = path.resolve(out, "custom.tgz");
+await create({ cwd: out, file: tarball, gzip: true, portable: true }, ["package"]);
+console.log("custom build log");
+console.log(JSON.stringify({ tarball }));
+`);
+  await writeFile(path.join(f.repo, ".gitignore"), "node_modules\n.custom-out/\n");
+  await f.syncLockfile();
+  f.git("add", "."); f.git("commit", "-m", "Add custom package"); f.git("push", "origin", "main");
+
+  const first = f.run(["publish"]);
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stderr, /custom build log/u);
+  const publication = (await f.calls()).filter(call => call.args[0] === "publish")
+    .find(call => /custom\.tgz$/u.test(call.args[1]));
+  assert.ok(publication, "the custom tarball is the uploaded artifact");
+  assert.equal((await f.calls()).some(call => call.args[0] === "pack" && call.cwd === dir), false);
+
+  const unchanged = f.run(["prepare"]);
+  assert.equal(unchanged.status, 0, unchanged.stderr);
+  assert.match(unchanged.stdout, /0\/3 packages need publication; 0 source\/generated files/u);
+  assert.equal(f.git("status", "--porcelain").toString(), "");
+
+  await writeFile(path.join(dir, "index.js"), "export const value = 2;\n");
+  f.git("commit", "-am", "Change custom source"); f.git("push", "origin", "main");
+  const changed = f.run(["publish"]);
+  assert.equal(changed.status, 0, changed.stderr);
+  assert.match(changed.stdout, /@jskit-ai\/custom@1\.0\.0 -> 1\.0\.1 \(direct content change\)/u);
+  assert.match(changed.stdout, /Publish new release: @jskit-ai\/custom@1\.0\.1/u);
+  assert.equal(f.git("log", "-1", "--format=%s").toString().trim(), "Release @jskit-ai/custom@1.0.1");
+});
+
+test("a root package and its file: dependency release together in dependency order", async t => {
+  const f = await publicationFixture(t, "genesis");
+  const [compiler, stack] = f.packages;
+  const pluginManifest = path.join(f.repo, "plugins/genesis/plugin.json");
+  await mkdir(path.dirname(pluginManifest), { recursive: true });
+  await writeFile(pluginManifest, '{"name":"genesis","version":"1.0.0"}\n');
+  compiler.packageJson.jskitRelease = { versionFiles: ["plugins/genesis/plugin.json"] };
+  await writeFile(path.join(compiler.dir, "package.json"), JSON.stringify(compiler.packageJson) + "\n");
+  for (let index = 0; index < f.packages.length; index++) await f.published(index);
+  f.git("add", "."); f.git("commit", "-m", "Declare plugin version file"); f.git("push", "origin", "main");
+
+  const unchanged = f.run(["publish", "--dry-run"], { NPM_TOKEN: "" });
+  assert.equal(unchanged.status, 0, unchanged.stderr);
+  assert.match(unchanged.stdout, /0\/2 packages need publication/u);
+
+  await writeFile(path.join(compiler.dir, "index.js"), "export const value = 2;\n");
+  await writeFile(path.join(stack.dir, "index.js"), "export const value = 2;\n");
+  f.git("commit", "-am", "Change both packages"); f.git("push", "origin", "main");
+  const result = f.run(["publish"]);
+  assert.equal(result.status, 0, result.stderr);
+  const root = JSON.parse(await readFile(path.join(f.repo, "package.json"), "utf8"));
+  assert.equal(root.version, "1.0.1");
+  assert.equal(root.devDependencies["genesis-stack"], "file:packages/genesis-stack");
+  assert.equal(JSON.parse(await readFile(path.join(stack.dir, "package.json"), "utf8")).version, "1.0.1");
+  assert.equal(JSON.parse(await readFile(pluginManifest, "utf8")).version, "1.0.1");
+  assert.equal(f.git("log", "-1", "--format=%s").toString().trim(), "Release genesis-stack@1.0.1, genesis-compiler@1.0.1");
+  const publications = (await f.calls()).filter(call => call.args[0] === "publish");
+  assert.deepEqual(publications.map(call => path.basename(call.args[1])), ["genesis-stack-1.0.1.tgz", "genesis-compiler-1.0.1.tgz"]);
+});
+
+test("a version file that disagrees with its package stops publication", async t => {
+  const f = await publicationFixture(t, "genesis");
+  const [compiler] = f.packages;
+  await writeFile(path.join(f.repo, "plugin.json"), '{"version":"0.9.0"}\n');
+  compiler.packageJson.jskitRelease = { versionFiles: ["plugin.json"] };
+  await writeFile(path.join(compiler.dir, "package.json"), JSON.stringify(compiler.packageJson) + "\n");
+  for (let index = 0; index < f.packages.length; index++) await f.published(index);
+  await writeFile(path.join(f.repo, "plugin.json"), '{"version":"0.9.0"}\n');
+  const directory = await mkdtemp(path.join(f.directory, "validate-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await assert.rejects(validateReleaseState(await discoverReleasePackages(f.repo), f.repo),
+    /plugin\.json has version 0\.9\.0; expected 1\.0\.0/u);
+});
+
+async function consumerRepository(f) {
+  const consumer = path.join(f.directory, "consumer");
+  const manifests = {
+    "package.json": { name: "consumer", private: true, workspaces: ["packages/*"],
+      dependencies: { "@jskit-ai/a": "^0.9.0", "@jskit-ai/b": "1.0.0", "left-pad": "^1.0.0", "@jskit-ai/local": "file:vendor/local" } },
+    "packages/x/package.json": { name: "x", private: true, devDependencies: { "@jskit-ai/a": "~0.9.1" } }
+  };
+  for (const [file, json] of Object.entries(manifests)) {
+    await mkdir(path.dirname(path.join(consumer, file)), { recursive: true });
+    await writeFile(path.join(consumer, file), JSON.stringify(json, null, 2) + "\n");
+  }
+  const git = (...args) => execFileSync("git", args, { cwd: consumer, stdio: "pipe" });
+  git("init", "--initial-branch=main");
+  git("config", "user.email", "release-test@example.invalid");
+  git("config", "user.name", "Release test");
+  git("config", "commit.gpgsign", "false");
+  git("add", "."); git("commit", "-m", "Consumer");
+  execFileSync("git", ["init", "--bare", path.join(f.directory, "consumer.git")], { stdio: "pipe" });
+  git("remote", "add", "origin", path.join(f.directory, "consumer.git"));
+  git("push", "origin", "main");
+  return { consumer, git };
+}
+
+test("pin follows released versions, keeps range prefixes, retries npm propagation, commits and pushes", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  const before = await snapshotFiles(consumer);
+  const dry = f.run(["pin", "--from", f.repo, "--dry-run"], {}, consumer);
+  assert.equal(dry.status, 0, dry.stderr);
+  assert.match(dry.stdout, /package\.json: dependencies\.@jskit-ai\/a \^0\.9\.0 -> \^1\.0\.0/u);
+  assert.match(dry.stdout, /packages\/x\/package\.json: devDependencies\.@jskit-ai\/a ~0\.9\.1 -> ~1\.0\.0/u);
+  assert.deepEqual(await snapshotFiles(consumer), before);
+  assert.equal((await f.calls()).length, 0);
+
+  const result = f.run(["pin", "--from", f.repo], { RELEASE_TEST_INSTALL_FAILURES: "1", JSKIT_RELEASE_RETRY_DELAY_MS: "10" }, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /npm does not serve the new versions yet; retrying/u);
+  const installs = (await f.calls()).filter(call => call.args[0] === "install");
+  assert.equal(installs.length, 2);
+  assert.ok(installs[0].args.includes("--prefer-online"));
+  const root = JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8"));
+  assert.deepEqual(root.dependencies, { "@jskit-ai/a": "^1.0.0", "@jskit-ai/b": "1.0.0", "left-pad": "^1.0.0", "@jskit-ai/local": "file:vendor/local" });
+  assert.equal(JSON.parse(await readFile(path.join(consumer, "packages/x/package.json"), "utf8")).devDependencies["@jskit-ai/a"], "~1.0.0");
+  assert.equal(git("log", "-1", "--format=%s").toString().trim(), "Consume released packages");
+  assert.equal(git("rev-parse", "HEAD").toString(), git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n");
+
+  const repeat = f.run(["pin", "--from", f.repo], {}, consumer);
+  assert.equal(repeat.status, 0, repeat.stderr);
+  assert.match(repeat.stdout, /pins already match the released versions/u);
 });
