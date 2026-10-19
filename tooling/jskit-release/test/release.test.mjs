@@ -741,8 +741,11 @@ test("pin follows released versions, keeps range prefixes, retries npm propagati
   const result = f.run(["pin", "--from", f.repo], { RELEASE_TEST_INSTALL_FAILURES: "1", JSKIT_RELEASE_RETRY_DELAY_MS: "10" }, consumer);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /npm does not serve the new versions yet; retrying/u);
-  const installs = (await f.calls()).filter(call => call.args[0] === "install");
+  const calls = await f.calls();
+  const installs = calls.filter(call => call.args[0] === "install");
   assert.equal(installs.length, 2);
+  const firstInstall = calls.indexOf(installs[0]);
+  assert.deepEqual(calls[firstInstall + 1].args, ["cache", "clean", "--force"], "the retry drops npm's stale package list");
   assert.ok(installs[0].args.includes("--prefer-online"));
   const root = JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8"));
   assert.deepEqual(root.dependencies, { "@jskit-ai/a": "^1.0.0", "@jskit-ai/b": "1.0.0", "left-pad": "^1.0.0", "@jskit-ai/local": "file:vendor/local" });

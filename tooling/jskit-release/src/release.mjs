@@ -715,6 +715,9 @@ async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(p
       throw new Error(`npm install failed in ${repoRoot}.`);
     }
     process.stdout.write(`npm does not serve the new versions yet; retrying in ${Math.round(delayMs / 1000)} s (${attempt}/${attempts})\n`);
+    // --prefer-online still reuses a cached package list that predates the
+    // release; observed in a real deploy. Drop it so the retry sees the registry.
+    spawnSync("npm", ["cache", "clean", "--force"], { cwd: repoRoot, stdio: "ignore" });
     await new Promise(resolve => setTimeout(resolve, delayMs));
   }
 }
