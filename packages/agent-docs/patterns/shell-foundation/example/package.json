@@ -44,13 +44,13 @@
     "vuetify": "^4.1.2",
     "@jskit-ai/http-runtime": "0.1.242",
     "@mdi/js": "^7.4.47",
-    "@jskit-ai/shell-web": "0.1.248",
+    "@jskit-ai/shell-web": "0.1.249",
     "@fastify/fast-json-stringify-compiler": "^5.1.0",
     "@vue/devtools-api": "^8.2.1"
   },
   "devDependencies": {
     "@jskit-ai/config-eslint": "0.1.241",
-    "@jskit-ai/jskit-catalog": "0.1.279",
+    "@jskit-ai/jskit-catalog": "0.1.280",
     "@playwright/test": "1.61.1",
     "@vitejs/plugin-vue": "^6.0.7",
     "eslint": "^10.8.0",
