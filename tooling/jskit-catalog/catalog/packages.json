@@ -5,9 +5,9 @@
   },
   "release": {
     "packages": {
-      "@jskit-ai/agent-docs": "0.1.228",
-      "@jskit-ai/assistant-core": "0.1.233",
-      "@jskit-ai/assistant-runtime": "0.1.227",
+      "@jskit-ai/agent-docs": "0.1.229",
+      "@jskit-ai/assistant-core": "0.1.234",
+      "@jskit-ai/assistant-runtime": "0.1.228",
       "@jskit-ai/assistant-voice": "0.1.34",
       "@jskit-ai/assistant-voice-sherpa": "0.1.34",
       "@jskit-ai/auth-core": "0.1.242",
@@ -28,7 +28,7 @@
       "@jskit-ai/database-runtime-postgres": "0.1.241",
       "@jskit-ai/http-runtime": "0.1.242",
       "@jskit-ai/http-web": "0.1.90",
-      "@jskit-ai/jskit-catalog": "0.1.281",
+      "@jskit-ai/jskit-catalog": "0.1.282",
       "@jskit-ai/json-rest-api-core": "0.1.188",
       "@jskit-ai/kernel": "0.1.244",
       "@jskit-ai/mobile-capacitor": "0.1.180",
@@ -66,7 +66,7 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.233",
+      "version": "0.1.234",
       "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
       "jskit": {
         "kind": "runtime",
@@ -239,7 +239,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.227",
+      "version": "0.1.228",
       "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
       "jskit": {
         "kind": "runtime",
@@ -328,7 +328,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.1.233",
+          "@jskit-ai/assistant-core": "0.1.234",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
@@ -388,7 +388,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.1.233",
+          "@jskit-ai/assistant-core": "0.1.234",
           "@mdi/js": "^7.4.47",
           "ws": "^8.20.1"
         },
@@ -3617,7 +3617,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/assistant-runtime",
-      "packageVersion": "0.1.227",
+      "packageVersion": "0.1.228",
       "documentPath": "patterns/assistant-surface/PATTERN.md",
       "examplePath": "patterns/assistant-surface/example",
       "files": [
