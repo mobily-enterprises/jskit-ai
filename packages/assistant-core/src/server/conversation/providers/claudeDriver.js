@@ -171,7 +171,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
         else if (event.type === "message-complete") await current.onEvent(event);
         else if ((event.type === "admitted" && current.goal) || event.type === "settled") {
           await current.onEvent({ type: "goal", goal: claudeGoalValue(await entry.goals.read(), entry.id) });
-        } else if (event.type === "phase") await current.onEvent({ type: "phase", phase: event.phase === "compacting" ? "compacting" : "working" });
+        } else if (event.type === "phase") await current.onEvent({ type: "phase", phase: ["compacting", "background"].includes(event.phase) ? event.phase : "working" });
       }
     });
     return standalone;

@@ -1408,6 +1408,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       }
       active = true;
       if (!wasActive) await publish({ type: "continued", source: frame.type });
+      if (phase === "background") {
+        phase = "";
+        await publish({ type: "phase", phase });
+      }
     }
     if (frame.type === "command_lifecycle" || frame.type === "user") {
       const uuid = frame.type === "user" ? frame.uuid : frame.command_uuid;
@@ -1443,7 +1447,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     } else if (frame.type === "system") {
       if (active && ["status", "compact_boundary"].includes(frame.subtype)) {
         const nextPhase = frame.subtype === "status" && frame.status === "compacting" ? "compacting" : "";
-        if (nextPhase !== phase) {
+        // An idle status does not end a wait that only background tasks own.
+        if (nextPhase !== phase && (nextPhase || phase !== "background")) {
           phase = nextPhase;
           await publish({ type: "phase", phase });
         }
@@ -1466,6 +1471,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       // response to it. A foreground result written while that worker was live
       // cannot complete this follow-up or retire its admitted application tools.
       if (tasks.size < previousTaskCount) outcome = null;
+      if (phase === "background" && !outcome) {
+        phase = "";
+        await publish({ type: "phase", phase });
+      }
       if (["background_tasks_changed", "task_started", "task_notification", "task_updated"].includes(frame.subtype)) {
         if (tasks.size && turnId && !active && !cancelling) {
           generation++;
@@ -1556,6 +1565,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       }
       if (cancelling) return;
       outcome = { status: interrupted ? "interrupted" : failed ? "failed" : "completed", error: message };
+      // The reply is final, but native background tasks still own the turn
+      // (and may continue it). Keep it active and say what it is waiting for.
+      if (active && tasks.size && !inFlight.size && phase !== "background") {
+        phase = "background";
+        await publish({ type: "phase", phase });
+      }
       await publish({ type: "diagnostic", stage: "native_result", status: outcome.status,
         terminalReason: frame.terminal_reason, active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
     }

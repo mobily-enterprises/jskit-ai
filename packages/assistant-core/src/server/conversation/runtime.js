@@ -142,7 +142,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
   }
 
   async function setPhase(entry, phase, turnId) {
-    if (!["", "preparing", "working", "compacting", "retrying"].includes(phase)) throw new Error("Invalid conversation phase from the engine adapter.");
+    if (!["", "preparing", "working", "compacting", "retrying", "background"].includes(phase)) throw new Error("Invalid conversation phase from the engine adapter.");
     if ((entry.phase || "") === phase) return;
     entry.phase = phase;
     await emit(entry, { type: "phase", phase, turnId });
@@ -239,7 +239,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         reason: metadata.runtime.replacement.reason, segmentId: metadata.runtime.replacement.segmentId } : null,
       status: logical ? logical.status : entry.storageFailure || entry.executionFailure ? "unavailable" : entry.active || nativeTurn?.active ? "working" : metadata.runtime.replacement ? "replacement-pending"
         : metadata.runtime.request && (entry.engine === "api" || metadata.runtime.request.attempted || metadata.runtime.request.inspectionOnly) ? "unconfirmed" : "ready",
-      phase: logical ? logical.phase || "" : entry.phase || (nativeTurn?.active && nativeTurn.status !== "observation_lost" ? nativeTurn.phase === "compacting" ? "compacting" : "working" : ""),
+      phase: logical ? logical.phase || "" : entry.phase || (nativeTurn?.active && nativeTurn.status !== "observation_lost" ? ["compacting", "background"].includes(nativeTurn.phase) ? nativeTurn.phase : "working" : ""),
       error: logical ? logical.error || "" : entry.error || nativeTurn?.error || request?.error || last?.error || "",
       goal: entry.goal || null,
       pendingRequest: logical ? logical.pendingRequest || null : pendingRequest,
@@ -309,7 +309,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const nativeTurn = payload.agentSession?.turn;
     if (nativeTurn) {
       entry.nativePhase = nativeTurn.active
-        ? ["preparing", "compacting", "retrying"].includes(nativeTurn.phase) ? nativeTurn.phase : "working"
+        ? ["preparing", "compacting", "retrying", "background"].includes(nativeTurn.phase) ? nativeTurn.phase : "working"
         : "";
       const request = entry.active?.request;
       if (!entry.active || request.accepted) {

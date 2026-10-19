@@ -422,6 +422,29 @@ test("Claude authoritative task snapshots repair membership and ignore ambient w
   assert.equal(turn.read().active, false);
 });
 
+test("Claude reports a final reply that waits only for background tasks as the background phase", async () => {
+  const { turn, send, events } = fixture();
+  const phases = () => events.filter(event => event.type === "phase").map(event => event.phase);
+  await send();
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "helper", task_type: "local_bash" });
+  await turn.receive({ type: "result", subtype: "success", result: "Started" });
+  assert.deepEqual([turn.read().active, turn.read().phase], [true, "background"]);
+  await turn.receive({ type: "system", subtype: "status", status: null });
+  assert.equal(turn.read().phase, "background", "An idle status keeps the background wait");
+  await turn.receive({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
+  assert.equal(turn.read().phase, "", "A finished task means Claude is working on it again");
+  await turn.receive({ type: "stream_event", event: { type: "message_start", message: { id: "report" } } });
+  await turn.receive({ type: "result", subtype: "success", result: "Report" });
+  assert.deepEqual([turn.read().active, turn.read().phase, turn.read().text], [true, "background", "Report"]);
+  await turn.receive({ type: "system", subtype: "task_notification", task_id: "helper", status: "killed" });
+  await turn.receive({ type: "user", uuid: "notice", origin: { kind: "task-notification" } });
+  assert.equal(turn.read().phase, "");
+  await turn.receive({ type: "result", subtype: "success", result: "Helper stopped" });
+  assert.deepEqual([turn.read().active, turn.read().phase], [false, ""]);
+  assert.deepEqual(phases(), ["background", "", "background", ""]);
+});
+
 test("Claude can steer background-only work without waiting for an already completed generation", async () => {
   const { turn, send, client } = fixture();
   await send();
