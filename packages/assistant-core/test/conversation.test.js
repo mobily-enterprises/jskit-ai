@@ -319,3 +319,39 @@ test("reasoning-only histories remain readable without creating phantom message 
   assert.equal(page.pagination.hasMoreBefore, false);
   assert.equal(page.pagination.nextBeforeTurnId, "");
 });
+
+test("native continuation replies in one request turn all stay in saved and patched history", async () => {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  const request = await transcript.writeConversationUserMessage("chat", { messageId: "request", text: "Write a report" });
+  const write = (role, messageId, outputId, at, text) => transcript[{
+    thinking: "writeConversationThinkingMessage", commentary: "writeConversationCommentaryMessage",
+    assistant: "writeConversationAssistantMessage"
+  }[role]]("chat", { messageId, outputId, at, text, turnId: request.turnId });
+  await write("thinking", "t1", "api_a_0", "2026-10-01T01:00:01.000Z", "Planning the query");
+  await write("commentary", "c1", "api_a_1", "2026-10-01T01:00:02.000Z", "Running the query");
+  // A text-only API message ends one native run while a background task continues.
+  await write("assistant", "interim", "api_b_0", "2026-10-01T01:00:03.000Z", "The query is still running.");
+  // The task notification continues the same request: thinking and the report share one API message.
+  await write("thinking", "t2", "api_c_0", "2026-10-01T01:00:04.000Z", "Time for the report");
+  await write("assistant", "report", "api_c_1", "2026-10-01T01:00:05.000Z", "| Group | Share |\n| --- | --- |\n| A | 60% |");
+  const beforeFollowUp = await transcript.readConversationLogPage("chat", { limit: 12, presentation: true });
+  // An unsolicited later notification adds a short follow-up to the same request turn.
+  await write("thinking", "t3", "api_d_0", "2026-10-01T01:00:40.000Z", "That helper was stale");
+  const followUp = await write("assistant", "follow-up", "api_d_1", "2026-10-01T01:00:41.000Z", "The stale helper stopped.");
+  const ids = turn => turn.messages.map(message => message.messageId);
+  const expected = ["request", "t1", "c1", "interim", "t2", "report", "t3", "follow-up"];
+  const [saved] = await transcript.readConversationLog("chat", { presentation: true });
+  assert.equal(saved.turnId, request.turnId);
+  assert.deepEqual(ids(saved), expected, "every saved reply is presented in order, after its own progress");
+  assert.equal(saved.assistant.messageId, "interim", "the turn's first reply keeps its existing field identity");
+  assert.deepEqual(ids(followUp), expected);
+  // A live upsert from the late follow-up must not hide the report already shown.
+  const patched = applyConversationLogPatch(beforeFollowUp, { type: "upsert-turn", turn: followUp }, { limit: 12 });
+  assert.deepEqual(ids(patched.conversationLog[0]), expected);
+  const partial = applyConversationLogPatch(beforeFollowUp, { type: "upsert-turn", turn: {
+    turnId: request.turnId, assistant: followUp.messages.at(-1), messages: [followUp.messages.at(-1)]
+  } }, { limit: 12 });
+  assert.deepEqual(ids(partial.conversationLog[0]).filter(id => ["interim", "report", "follow-up"].includes(id)),
+    ["interim", "report", "follow-up"], "a partial patch adds its reply without dropping earlier ones");
+});

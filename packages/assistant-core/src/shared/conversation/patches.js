@@ -108,11 +108,20 @@ function applyConversationLogPatch(payload = {}, patch = null, options = {}) {
       }
       updated[role] = chronologicalConversationActivity([...messages.values()]);
     }
+    // A request turn can hold several saved replies (native continuations).
+    // Keep each one; the latest reply still closes the message list.
+    const replies = new Map();
+    for (const message of [existing, patch.turn].flatMap(turn => Array.isArray(turn.messages)
+      ? turn.messages.filter(message => message?.role === "assistant") : [turn.assistant].filter(Boolean))) {
+      replies.set(message.messageId || JSON.stringify(message.at ? [message.at] : ["", message.text]), message);
+    }
+    if (!replies.size && updated.assistant) replies.set("", updated.assistant);
+    const orderedReplies = chronologicalConversationActivity([...replies.values()]);
     updated.messages = [
       updated.system,
       updated.user,
-      ...chronologicalConversationActivity([...updated.thinking, ...updated.commentary]),
-      updated.assistant
+      ...chronologicalConversationActivity([...updated.thinking, ...updated.commentary, ...orderedReplies.slice(0, -1)]),
+      orderedReplies.at(-1)
     ].filter(Boolean);
   }
   const nextTurns = (existingIndex >= 0

@@ -186,12 +186,16 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
           const find = (role) => turn.messages.find((message) => message.role === role) || null;
           const thinking = turn.messages.filter((message) => message.role === "thinking");
           const commentary = turn.messages.filter((message) => message.role === "commentary");
-          const activity = [...thinking, ...commentary].sort((a, b) => a.at.localeCompare(b.at));
+          // Native continuations (for example Claude background-task notifications)
+          // can add later replies to the same request turn. Every saved reply stays
+          // in the ordered message list; the latest one still closes it.
+          const replies = turn.messages.filter((message) => message.role === "assistant");
+          const activity = [...thinking, ...commentary, ...replies.slice(0, -1)].sort((a, b) => a.at.localeCompare(b.at));
           const system = find("system"), user = find("user"), assistant = find("assistant");
           return structuredClone({
             turnId: id, user, assistant, thinking, commentary,
             ...(system ? { system } : {}), ...(turn.metadata ? { metadata: turn.metadata } : {}),
-            messages: [system, user, ...activity, assistant].filter(Boolean)
+            messages: [system, user, ...activity, replies.at(-1)].filter(Boolean)
           });
         },
         async appendMessage(id, { turnMetadata, ...message }) {
