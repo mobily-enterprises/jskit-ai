@@ -2361,7 +2361,8 @@ test("bound Main cannot dispatch or retain a pending prompt when its history bud
   f.binding.transcript.history = async () => [{ id: "earlier", version: "v1", role: "user", text: "Earlier work." }];
   await f.binding.state.write({ lastEngine: "codex", engines: { codex: { seen: {} } } });
   f.binding.maximumHistoryBytes = async () => { throw new Error("Current native context usage unavailable"); };
-  await assert.rejects(f.conversation.send({ messageId: "no-budget", text: "Continue" }), /Current native context usage unavailable/u);
+  await assert.rejects(f.conversation.send({ messageId: "no-budget", text: "Continue" }), error =>
+    /Current native context usage unavailable/u.test(error.message) && error.delivery === "not-sent");
   assert.equal(f.processes.length, 0);
   assert.equal(f.messages.length, 0);
   assert.equal((await f.binding.state.read())?.engines?.claude?.pending, undefined);

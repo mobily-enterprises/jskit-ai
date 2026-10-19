@@ -504,8 +504,10 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
             const rejection = failure.details?.delivery;
             const notSent = Number.isInteger(failure.status) && failure.status >= 400 && failure.status < 500 &&
               rejection && !Array.isArray(rejection) && rejection.status === "not-sent" && rejection.messageId === messageId;
+            // A definite rejection keeps its code so the application can offer
+            // the matching recovery, such as freeing assistant context.
             if (notSent || SEND_REJECTIONS.has(failure.code) || failure.code === "conversation_steer_turn_finished" && failure.status === 409 && !failure.details?.delivery) return { ok: false, error: failure.message,
-              ...(prepare && failure.code ? { code: failure.code } : {}) };
+              ...(failure.code ? { code: failure.code } : {}) };
             throw failure;
           } finally {
             if (pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);

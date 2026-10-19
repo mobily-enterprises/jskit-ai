@@ -442,13 +442,19 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         : Math.max(0, initialWindow - (request?.input.origin === "user" ? 1 : 0)),
       maximumInitialMessageCharacters: limits.maxInitialNativeHistoryMessageCharacters,
       ...(budget ? { maximumHistoryBytes: async options => {
-        await access(context, entry.id, request.operation, entry);
-        signal.throwIfAborted();
-        // A host may free native context first; show that as compacting.
-        const bytes = await budget({ ...options, context, signal,
-          setPhase: phase => setPhase(entry, phase === "compacting" ? "compacting" : "preparing") });
-        signal.throwIfAborted();
-        return bytes;
+        try {
+          await access(context, entry.id, request.operation, entry);
+          signal.throwIfAborted();
+          // A host may free native context first; show that as compacting.
+          const bytes = await budget({ ...options, context, signal,
+            setPhase: phase => setPhase(entry, phase === "compacting" ? "compacting" : "preparing") });
+          signal.throwIfAborted();
+          return bytes;
+        } catch (error) {
+          // Sizing missed history precedes native dispatch, so this message
+          // was definitely not sent. Hosts and clients report it as such.
+          throw Object.assign(error, { delivery: "not-sent" });
+        }
       } } : {}),
       presentation: entry.conversation?.presentation || { unconfirmedCode: "conversation_delivery_uncertain",
         unconfirmedMessage: "The previous submission has uncertain delivery. Retry this message to check its native receipt; it will not be resent automatically." },
