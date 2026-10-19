@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import test from "node:test";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, readlink, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -612,6 +612,10 @@ test("a custom pack command supplies the published tarball and keeps unchanged d
   await writeFile(path.join(dir, "pack.mjs"), `import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { create } from "tar";
+import { realpathSync } from "node:fs";
+// A build must resolve workspace links inside the tree it builds, as it would in place.
+const link = realpathSync("../../node_modules/fixture-workspace-link");
+if (!link.startsWith(realpathSync("../..") + path.sep)) throw new Error("workspace link resolves outside the build tree: " + link);
 // Build output lives outside the package (and is ignored), like a release build directory.
 mkdirSync("../../.custom-out", { recursive: true });
 const out = mkdtempSync("../../.custom-out/build-");
@@ -624,6 +628,13 @@ console.log("custom build log");
 console.log(JSON.stringify({ tarball }));
 `);
   await writeFile(path.join(f.repo, ".gitignore"), "node_modules\n.custom-out/\n");
+  // An installed tree like an npm workspace: dependencies plus a relative workspace link.
+  const installed = path.join(f.repo, "node_modules");
+  const dependencies = await readlink(installed);
+  await rm(installed);
+  await mkdir(installed);
+  for (const entry of await readdir(dependencies)) await symlink(path.join(dependencies, entry), path.join(installed, entry));
+  await symlink("../packages/b", path.join(installed, "fixture-workspace-link"));
   await f.syncLockfile();
   f.git("add", "."); f.git("commit", "-m", "Add custom package"); f.git("push", "origin", "main");
 

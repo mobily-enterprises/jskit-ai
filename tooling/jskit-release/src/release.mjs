@@ -474,11 +474,18 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
       }
     });
     const before = await snapshotFiles(source);
-    if (await fileExists(path.join(repoRoot, "node_modules"))) {
-      await symlink(path.join(repoRoot, "node_modules"), path.join(source, "node_modules"), "dir");
-    }
     const config = await releaseConfig(source);
     const staged = await discoverReleasePackages(source);
+    if (await fileExists(path.join(repoRoot, "node_modules"))) {
+      // A custom pack command builds from this copy. Linking node_modules would
+      // resolve workspace links and dependencies outside the copy and change
+      // the build, so it gets a real copy (workspace links stay relative).
+      if (staged.some(record => record.packageJson.jskitRelease?.pack)) {
+        await cp(path.join(repoRoot, "node_modules"), path.join(source, "node_modules"), { recursive: true, verbatimSymlinks: true });
+      } else {
+        await symlink(path.join(repoRoot, "node_modules"), path.join(source, "node_modules"), "dir");
+      }
+    }
     if (!staged.length) throw new Error(`No publishable packages found in ${repoRoot}.`);
     hydrateLocalDependencies(staged);
     topologicalPublishOrder(staged);
