@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.232`
+- Owner: `@jskit-ai/agent-docs@0.1.233`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
 
 ## [Adaptive-shell JSKIT application foundation](/patterns/app/shell-foundation)
@@ -24,7 +24,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.232`
+- Owner: `@jskit-ai/agent-docs@0.1.233`
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
 
 ## [Assistant surface and settings](/patterns/assistant/assistant-surface)
@@ -267,7 +267,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.232`
+- Owner: `@jskit-ai/agent-docs@0.1.233`
 - Requires: `@jskit-ai/kernel`
 
 ## [Responsive application shell](/patterns/shell/application-shell)

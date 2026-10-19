@@ -5,7 +5,7 @@
   },
   "release": {
     "packages": {
-      "@jskit-ai/agent-docs": "0.1.232",
+      "@jskit-ai/agent-docs": "0.1.233",
       "@jskit-ai/assistant-core": "0.1.236",
       "@jskit-ai/assistant-runtime": "0.1.230",
       "@jskit-ai/assistant-voice": "0.1.37",
@@ -28,7 +28,7 @@
       "@jskit-ai/database-runtime-postgres": "0.1.241",
       "@jskit-ai/http-runtime": "0.1.242",
       "@jskit-ai/http-web": "0.1.90",
-      "@jskit-ai/jskit-catalog": "0.1.285",
+      "@jskit-ai/jskit-catalog": "0.1.286",
       "@jskit-ai/json-rest-api-core": "0.1.188",
       "@jskit-ai/kernel": "0.1.244",
       "@jskit-ai/mobile-capacitor": "0.1.180",
