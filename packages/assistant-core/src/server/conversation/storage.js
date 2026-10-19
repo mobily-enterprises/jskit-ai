@@ -90,64 +90,128 @@ function conversationMessageStorageKey({ role, at, messageId } = {}) {
   return `${normalizedRole}.${timestamp}${idSuffix}.md`;
 }
 
+function conversationMessageIndex(record) {
+  if (!record.index) {
+    record.index = new Map();
+    for (const [turnId, turn] of record.turns) {
+      for (const message of turn.messages) {
+        if (message.messageId && !record.index.has(message.messageId)) record.index.set(message.messageId, turnId);
+      }
+    }
+  }
+  return record.index;
+}
+
 /** Transaction implementation for single-writer record adapters. This serializes
  * one instance's writes; a database with multiple writers must also hold its own
  * transaction/lock across readRecord and writeRecord, or implement read/write directly.
+ * An adapter may supply recordVersion(id), a cheap token that changes whenever
+ * the saved record changes; the parsed record is then reused until it changes.
  */
-export function createConversationStorage({ readRecord, writeRecord, deleteRecord }) {
+export function createConversationStorage({ readRecord, writeRecord, deleteRecord, recordVersion }) {
   const pending = new Map();
+  const cache = new Map();
 
   function key(scope) {
     if (typeof scope !== "string" || !scope.trim()) throw new TypeError("Conversation scope must be a nonempty string.");
     return scope;
   }
 
-  function transaction(record) {
-    const turns = record.turns;
+  async function readSaved(id) {
+    if (typeof recordVersion !== "function") return readRecord(id);
+    const version = await recordVersion(id);
+    const cached = cache.get(id);
+    if (version != null && cached?.version === version) return cached.record;
+    const record = await readRecord(id);
+    if (version == null) cache.delete(id);
+    else cache.set(id, { version, record });
+    return record;
+  }
+
+  // Saved records are shared and never changed in place. A transaction copies
+  // the turn map and each turn it changes, then commits that new record.
+  function transaction(saved) {
+    const draft = { metadata: saved.metadata, turns: saved.turns };
+    const added = new Map();
+    let ownTurns = false;
+    const owned = new Set();
+    function ownTurn(id) {
+      if (!ownTurns) {
+        draft.turns = new Map(draft.turns);
+        ownTurns = true;
+      }
+      const existing = draft.turns.get(id);
+      if (existing && owned.has(id)) return existing;
+      const turn = existing ? { ...existing, messages: [...existing.messages] } : { messages: [] };
+      draft.turns.set(id, turn);
+      owned.add(id);
+      return turn;
+    }
+    function record() {
+      // Index entries are verified against the turn on lookup, so removed
+      // messages can remain listed; only additions need new entries.
+      if (!added.size) return saved.index ? { ...draft, index: saved.index } : draft;
+      const index = new Map(conversationMessageIndex(saved));
+      for (const [messageId, turnId] of added) index.set(messageId, turnId);
+      return { ...draft, index };
+    }
+    const turns = () => draft.turns;
+    function messageTurnId(id) {
+      if (!id) return "";
+      const turnId = added.get(id) ?? conversationMessageIndex(saved).get(id);
+      if (turnId === undefined) return "";
+      const contains = (turn) => turn.messages.some((message) => message.messageId === id);
+      if (turns().get(turnId) && contains(turns().get(turnId))) return turnId;
+      return [...turns()].find(([, turn]) => contains(turn))?.[0] || "";
+    }
     return {
-      async readMetadata() { return structuredClone(record.metadata); },
-      async writeMetadata(value) { record.metadata = structuredClone(value); },
-      async updateTurnMetadata(id, patch) {
-        const turn = turns.get(id);
-        if (!turn) throw new Error("The conversation turn does not exist.");
-        turn.metadata = { ...turn.metadata, ...structuredClone(patch) };
-      },
-      async listTurnIds() { return [...turns.keys()]; },
-      async nextTurnId() { return String(Math.max(0, ...[...turns.keys()].map(Number).filter(Number.isSafeInteger)) + 1).padStart(6, "0"); },
-      async hasMessage(id) {
-        return Boolean(id) && [...turns.values()].some((turn) => turn.messages.some((message) => message.messageId === id));
-      },
-      async readTurn(id) {
-        const turn = turns.get(id);
-        if (!turn) return null;
-        const find = (role) => turn.messages.find((message) => message.role === role) || null;
-        const thinking = turn.messages.filter((message) => message.role === "thinking");
-        const commentary = turn.messages.filter((message) => message.role === "commentary");
-        const activity = [...thinking, ...commentary].sort((a, b) => a.at.localeCompare(b.at));
-        const system = find("system"), user = find("user"), assistant = find("assistant");
-        return structuredClone({
-          turnId: id, user, assistant, thinking, commentary,
-          ...(system ? { system } : {}), ...(turn.metadata ? { metadata: turn.metadata } : {}),
-          messages: [system, user, ...activity, assistant].filter(Boolean)
-        });
-      },
-      async appendMessage(id, { turnMetadata, ...message }) {
-        const turn = turns.get(id) || { messages: [] };
-        if (turnMetadata) turn.metadata = structuredClone(turnMetadata);
-        const identity = conversationMessageStorageKey(message);
-        const existing = identity === null ? -1 : turn.messages.findIndex((previous) =>
-          conversationMessageStorageKey(previous) === identity);
-        if (existing < 0) turn.messages.push(structuredClone(message));
-        else turn.messages[existing] = structuredClone(message);
-        turns.set(id, turn);
-      },
-      async replaceAssistant(id, message) {
-        if (!id) throw new TypeError("Assistant replacement requires a turn id.");
-        const turn = turns.get(id) || { messages: [] };
-        const previous = turn.messages.find((entry) => entry.role === "assistant");
-        turn.messages = turn.messages.filter((entry) => entry.role !== "assistant");
-        turn.messages.push({ ...previous, ...structuredClone(message), at: previous?.at || message.at });
-        turns.set(id, turn);
+      record,
+      view: {
+        async readMetadata() { return structuredClone(draft.metadata); },
+        async writeMetadata(value) { draft.metadata = structuredClone(value); },
+        async updateTurnMetadata(id, patch) {
+          if (!turns().get(id)) throw new Error("The conversation turn does not exist.");
+          const turn = ownTurn(id);
+          turn.metadata = { ...turn.metadata, ...structuredClone(patch) };
+        },
+        async listTurnIds() { return [...turns().keys()]; },
+        async nextTurnId() { return String(Math.max(0, ...[...turns().keys()].map(Number).filter(Number.isSafeInteger)) + 1).padStart(6, "0"); },
+        async hasMessage(id) { return Boolean(messageTurnId(id)); },
+        // Optional transaction extension: the turn holding this message ID.
+        async findMessageTurnId(id) { return messageTurnId(id); },
+        async readTurn(id) {
+          const turn = turns().get(id);
+          if (!turn) return null;
+          const find = (role) => turn.messages.find((message) => message.role === role) || null;
+          const thinking = turn.messages.filter((message) => message.role === "thinking");
+          const commentary = turn.messages.filter((message) => message.role === "commentary");
+          const activity = [...thinking, ...commentary].sort((a, b) => a.at.localeCompare(b.at));
+          const system = find("system"), user = find("user"), assistant = find("assistant");
+          return structuredClone({
+            turnId: id, user, assistant, thinking, commentary,
+            ...(system ? { system } : {}), ...(turn.metadata ? { metadata: turn.metadata } : {}),
+            messages: [system, user, ...activity, assistant].filter(Boolean)
+          });
+        },
+        async appendMessage(id, { turnMetadata, ...message }) {
+          const turn = ownTurn(id);
+          if (turnMetadata) turn.metadata = structuredClone(turnMetadata);
+          const identity = conversationMessageStorageKey(message);
+          const existing = identity === null ? -1 : turn.messages.findIndex((previous) =>
+            conversationMessageStorageKey(previous) === identity);
+          if (existing < 0) turn.messages.push(structuredClone(message));
+          else turn.messages[existing] = structuredClone(message);
+          if (message.messageId) added.set(message.messageId, id);
+        },
+        async replaceAssistant(id, message) {
+          if (!id) throw new TypeError("Assistant replacement requires a turn id.");
+          const turn = ownTurn(id);
+          const previous = turn.messages.find((entry) => entry.role === "assistant");
+          turn.messages = turn.messages.filter((entry) => entry.role !== "assistant");
+          const replacement = { ...previous, ...structuredClone(message), at: previous?.at || message.at };
+          turn.messages.push(replacement);
+          if (replacement.messageId) added.set(replacement.messageId, id);
+        }
       }
     };
   }
@@ -157,11 +221,17 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
     const id = key(scope);
     const previous = pending.get(id) || Promise.resolve();
     const operation = previous.then(async () => {
-      const draft = structuredClone(await readRecord(id));
-      const view = transaction(draft);
-      const result = await callback(view);
+      const draft = transaction(await readSaved(id));
+      const result = await callback(draft.view);
+      // A failed or partial save leaves the cached record unknown.
+      cache.delete(id);
       if (remove) await deleteRecord(id);
-      else await writeRecord(id, draft, view);
+      else {
+        const record = draft.record();
+        await writeRecord(id, record, draft.view);
+        const version = typeof recordVersion === "function" ? await recordVersion(id) : null;
+        if (version != null) cache.set(id, { version, record });
+      }
       return result;
     });
     const settled = operation.then(() => undefined, () => undefined);
@@ -175,7 +245,7 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
     async read(scope, callback) {
       const id = key(scope);
       await pending.get(id);
-      return callback(transaction(structuredClone(await readRecord(id))));
+      return callback(transaction(await readSaved(id)).view);
     },
     async deleteConversation(scope) {
       await write(scope, async () => {}, true);

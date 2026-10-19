@@ -92,8 +92,29 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     });
   }
 
+  // The first turn whose submitted (user or application) message has this ID.
+  async function findSubmittedTurn(scope, messageId) {
+    const id = normalizeText(messageId);
+    if (!id) return null;
+    return storage.read(scope, async (transaction) => {
+      const submitted = turn => hasMessages(turn) && (turn.user || turn.system)?.messageId === id ? turn : null;
+      if (typeof transaction.findMessageTurnId === "function") {
+        const turnId = await transaction.findMessageTurnId(id);
+        if (!turnId) return null;
+        const turn = submitted(await transaction.readTurn(turnId));
+        if (turn) return turn;
+      }
+      for (const turnId of await transaction.listTurnIds()) {
+        const turn = submitted(await transaction.readTurn(turnId));
+        if (turn) return turn;
+      }
+      return null;
+    });
+  }
+
   return Object.freeze({
     readConversationLog,
+    findSubmittedTurn,
     readConversationLogPage,
     conversationMessageIdExists: (scope, messageId) => storage.read(scope, (transaction) => transaction.hasMessage(normalizeText(messageId))),
     writeConversationUserMessage: (scope, input) => append(scope, "user", input),

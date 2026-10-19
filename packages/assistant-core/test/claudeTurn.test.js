@@ -1449,11 +1449,14 @@ test("Claude delivery timing separates native acknowledgement from the held cano
   const sending = f.conversation.send({ messageId: "timed-request", text: "Private message" });
   await writing.promise;
   assert.deepEqual(timings.map(event => event.stage), [
-    "received", "preparation-started", "provider-started", "runtime-ready", "dispatch-started", "native-acknowledged"
+    "received", "preparation-started", "authorized", "history-read", "state-read", "request-saved", "input-prepared",
+    "provider-started", "duplicate-checked", "native-history-read", "process-ready", "prompt-rendered", "metadata-ready",
+    "runtime-ready", "dispatch-started", "native-acknowledged"
   ]);
   release.resolve();
   assert.equal((await sending).status, "accepted");
-  assert.deepEqual(timings.slice(-2).map(event => event.stage), ["receipt-persisted", "accepted"]);
+  const admitted = timings.map(event => event.stage).slice(16);
+  assert.deepEqual(admitted, ["receipt-written", "state-active", "receipt-persisted", "admission-authorized", "turn-located", "accepted"]);
   await f.frame({ type: "result", subtype: "success", result: "Public answer" });
   await f.conversation.wait();
   assert.equal(JSON.stringify(timings).includes("Private message"), false);
@@ -2592,4 +2595,46 @@ test("Claude explicitly pauses a blocked goal without resuming native work", asy
   assert.equal(f.entry.blockedGoal, null);
   assert.equal(f.entry.pausedGoal.status, "paused");
   assert.equal(f.processes.length, 0);
+});
+
+test("live Claude history parses only frames appended since the previous read", async t => {
+  const { appendFile, mkdir: makeDirectory, mkdtemp: makeTemporary, rename: move, rm: remove, writeFile: write } = await import("node:fs/promises");
+  const root = await makeTemporary(path.join(os.tmpdir(), "claude-incremental-"));
+  t.after(() => remove(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await makeDirectory(directory, { recursive: true });
+  const conversationId = "7b1f9a52-1c1e-4d0b-9a55-3c8e2f4d6a10";
+  const file = path.join(directory, `${conversationId}.jsonl`);
+  const options = { configRoot: root, workdir: root, conversationId };
+  const user = id => JSON.stringify({ type: "user", uuid: id, message: { content: `Request ${id}` } });
+  const answer = (id, parent) => JSON.stringify({ type: "assistant", uuid: id, parentUuid: parent,
+    message: { id: `api-${id}`, content: [{ type: "text", text: `Answer ${id}` }] } });
+  await write(file, [user("u1"), answer("a1", "u1")].join("\n") + "\n");
+  const parse = JSON.parse;
+  let parsed = 0;
+  JSON.parse = (...args) => { parsed += 1; return parse(...args); };
+  try {
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["u1"]);
+    assert.equal(parsed, 2);
+    parsed = 0;
+    // A complete appended frame is parsed once; the writer's unfinished tail is not.
+    await appendFile(file, user("u2") + "\n" + user("u3").slice(0, 10));
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["u1", "u2"]);
+    assert.equal(parsed, 1);
+    parsed = 0;
+    await appendFile(file, user("u3").slice(10) + "\n");
+    const history = await readClaudeHistory(options);
+    assert.deepEqual(history.userIds, ["u1", "u2", "u3"]);
+    assert.deepEqual(history.messages.map(message => message.text), ["Answer a1"]);
+    assert.equal(parsed, 1);
+    parsed = 0;
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["u1", "u2", "u3"]);
+    assert.equal(parsed, 0);
+    // Replacement and truncation discard the parsed prefix.
+    await write(`${file}.next`, [user("r1"), answer("ra", "r1")].join("\n") + "\n");
+    await move(`${file}.next`, file);
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["r1"]);
+    await write(file, user("t1") + "\n");
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["t1"]);
+  } finally { JSON.parse = parse; }
 });

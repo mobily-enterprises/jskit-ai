@@ -312,6 +312,10 @@ Exports
 - `requireClaudeSessionId(id)`
 - `archivedClaudeProjectDirectory(workdir)`
 - `matchingClaudeProjectDirectories(names, directory)`
+Local functions
+- `retainedClaudeFrame(frame)`
+- `claudeHistoryFrames(file)`
+- `readClaudeHistoryFrames(file)`
 
 ### `src/server/conversation/claudeProcess.js`
 Exports
@@ -1091,9 +1095,10 @@ Exports
 - `beginConversationOperation(lease)`
 - `finishConversationOperation(lease, participant)`
 - `createReentrantConversationStorage(storage)`
-- `createConversationStorage({ readRecord, writeRecord, deleteRecord })`
+- `createConversationStorage({ readRecord, writeRecord, deleteRecord, recordVersion })`
 Local functions
 - `conversationMessageStorageKey({ role, at, messageId } = {})`
+- `conversationMessageIndex(record)`
 
 ### `src/server/conversation/streams.js`
 Exports

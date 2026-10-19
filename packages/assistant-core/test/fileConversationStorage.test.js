@@ -71,3 +71,34 @@ test("application scopes cannot traverse paths and deletion remains isolated", a
   assert.deepEqual(await f.transcript.readConversationLog("../../other"), []);
   assert.equal((await f.transcript.readConversationLog("other"))[0].user.text, "Two");
 });
+
+test("saved conversations are parsed once until they change and look messages up by identity", async (t) => {
+  const f = await fixture(t);
+  await f.transcript.writeConversationUserMessage("cached", { text: "First", messageId: "first", at: "2026-01-01T00:00:00Z" });
+  await f.transcript.writeConversationUserMessage("cached", { text: "Second", messageId: "second", at: "2026-01-01T00:00:01Z" });
+  const [file] = (await readdir(f.directory)).filter(name => name.endsWith(".json"));
+  const parse = JSON.parse;
+  let parsed = 0;
+  JSON.parse = (...args) => { parsed += 1; return parse(...args); };
+  try {
+    assert.equal((await f.transcript.findSubmittedTurn("cached", "second")).user.text, "Second");
+    assert.equal(await f.transcript.conversationMessageIdExists("cached", "first"), true);
+    assert.equal(await f.transcript.conversationMessageIdExists("cached", "missing"), false);
+    assert.equal(await f.transcript.findSubmittedTurn("cached", "missing"), null);
+    assert.equal((await f.transcript.readConversationLog("cached")).length, 2);
+    assert.equal(parsed, 0, "The record written by this process is reused.");
+    // An external writer changes the saved file; the next read parses it.
+    const saved = parse(await readFile(join(f.directory, file), "utf8"));
+    saved.turns[1][1].messages[0].text = "Edited elsewhere";
+    await writeFile(join(f.directory, file), JSON.stringify(saved));
+    assert.equal((await f.transcript.findSubmittedTurn("cached", "second")).user.text, "Edited elsewhere");
+    assert.equal(parsed, 1);
+  } finally { JSON.parse = parse; }
+  // Changes made inside a failed write or a read never reach the saved record.
+  await assert.rejects(f.storage.write("cached", async transaction => {
+    await transaction.appendMessage("000001", { role: "assistant", text: "Discarded", at: "2026-01-01T00:00:02Z" });
+    throw new Error("rolled back");
+  }), /rolled back/);
+  await f.storage.read("cached", transaction => transaction.appendMessage("000001", { role: "assistant", text: "Read only", at: "2026-01-01T00:00:03Z" }));
+  assert.equal((await f.transcript.readConversationLog("cached"))[0].assistant, null);
+});

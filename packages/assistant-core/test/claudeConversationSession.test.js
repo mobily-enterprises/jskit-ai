@@ -41,6 +41,29 @@ test("Claude account checks use the supplied finite capture policy without start
   assert.ok(checks.length > 0);
 });
 
+test("a warm Claude send neither rescans the whole transcript nor authorizes its admission twice", async t => {
+  let scans = 0;
+  const authorizations = [];
+  const f = await fixture(t, {
+    authorize: ({ operation }) => { authorizations.push(operation); return true; },
+    wrapStorage: storage => ({ ...storage, read: (scope, callback) => storage.read(scope, transaction => callback(new Proxy(transaction, {
+      get(target, property) {
+        if (property === "listTurnIds") scans += 1;
+        return target[property];
+      }
+    }))) })
+  });
+  assert.equal((await f.conversation.send(input)).status, "accepted");
+  await f.conversation.wait();
+  scans = 0;
+  authorizations.length = 0;
+  assert.equal((await f.conversation.send({ messageId: "second", text: "Hello again" })).status, "accepted");
+  await f.conversation.wait();
+  assert.equal(scans, 2, "Only native catch-up history and the final snapshot read the whole log; admission uses message identity.");
+  assert.equal(authorizations.filter(operation => operation === "send").length, 3,
+    "Send shares one grant with its admission; dispatch and receipt admission authorize again.");
+});
+
 test("Claude exposes the durable native identity before dispatch and respects a rejected gate", async t => {
   const f = await fixture(t);
   await f.first.close();

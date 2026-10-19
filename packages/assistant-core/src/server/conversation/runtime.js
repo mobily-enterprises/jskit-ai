@@ -83,10 +83,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     throw new TypeError("Invalid conversation request time limit.");
   }
 
-  async function access(context, id, operation, entry) {
+  // Send and its immediate admission share one authorization. Dispatch,
+  // receipt admission and every other operation authorize again.
+  async function access(context, id, operation, entry, grant) {
     if (closed || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_closed");
-    if (!await authorize({ context, conversationId: id, operation })) {
-      throw failure("This conversation is not available to this identity.", "conversation_forbidden", 403);
+    if (!grant?.has(operation)) {
+      if (!await authorize({ context, conversationId: id, operation })) {
+        throw failure("This conversation is not available to this identity.", "conversation_forbidden", 403);
+      }
+      grant?.add(operation);
     }
     if (closed || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_closed");
   }
@@ -145,6 +150,27 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   const readTranscript = entry => entry.conversation
     ? entry.conversation.transcript.readConversationLog() : transcript.readConversationLog(entry.id);
+
+  // Identity lookups avoid reading the whole log when the transcript supports
+  // them. A bound host may supply findSubmittedTurn(messageId) and readTurn(turnId).
+  async function findSubmittedTurn(entry, messageId) {
+    const find = entry.conversation ? entry.conversation.transcript.findSubmittedTurn : transcript.findSubmittedTurn &&
+      (id => transcript.findSubmittedTurn(entry.id, id));
+    if (typeof find === "function") return (await find(messageId)) || null;
+    return (await readTranscript(entry)).find(turn => submittedMessage(turn)?.messageId === messageId) || null;
+  }
+
+  async function readBoundTurn(entry, turnId) {
+    if (typeof entry.conversation.transcript.readTurn === "function") return (await entry.conversation.transcript.readTurn(turnId)) || null;
+    return (await readTranscript(entry)).find(turn => turn.turnId === turnId) || null;
+  }
+
+  async function lastTranscriptTurn(entry) {
+    const page = entry.conversation && typeof entry.conversation.transcript.readConversationLogPage !== "function" ? null
+      : entry.conversation ? await entry.conversation.transcript.readConversationLogPage({ limit: 1 })
+        : await transcript.readConversationLogPage(entry.id, { limit: 1 });
+    return page?.conversationLog.at(-1) || (await readTranscript(entry)).at(-1);
+  }
 
   function readTranscriptPage(entry, query) {
     if (!entry.conversation) return transcript.readConversationLogPage(entry.id, { ...query, presentation: completedEnvelope });
@@ -827,13 +853,15 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
     async function admit(request, seen, { nativeDelivery = false, conversationTurn } = {}) {
       await access(request.context, entry.id, request.operation, entry);
+      request.deliveryTiming?.("admission-authorized");
       if (!conversationTurn) active.controller.signal.throwIfAborted();
       if (request.input.goal) request.goalMessageId = request.input.messageId;
       else if (goalOwner) request.goalMessageId = goalOwner.input.messageId;
       const nativeTurnId = active.nativeTurnId;
       const previous = current;
       if (entry.conversation) {
-        const saved = (await readTranscript(entry)).find(turn => turn.turnId === conversationTurn?.turnId);
+        const saved = conversationTurn?.turnId ? await readBoundTurn(entry, conversationTurn.turnId) : null;
+        request.deliveryTiming?.("turn-located");
         if (submittedMessage(saved || {})?.messageId !== request.input.messageId) {
           throw new Error("The native receipt does not belong to this authored request.");
         }
@@ -1011,7 +1039,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
 
     async function deliverNative(request, dispatch) {
-      const history = (await readTranscript(entry)).filter(turn => !turn.metadata?.runtime?.supersededBy);
+      // A bound conversation supplies its own native history below.
+      const history = entry.conversation ? [] : (await readTranscript(entry)).filter(turn => !turn.metadata?.runtime?.supersededBy);
       let completion;
       let committed;
       let rendered;
@@ -1029,10 +1058,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         const readAttachments = attachmentReader(request);
         // The bound host has already resolved its original attachment records;
         // the production preparation owner keeps their manifest/native mapping.
-        const boundInput = entry.conversation ? await entry.conversation.prepareInput(input, request.context) : null;
+        const boundInput = entry.conversation
+          ? await entry.conversation.prepareInput(input, request.context, { deliveryTiming: request.deliveryTiming }) : null;
         const files = boundInput ? { attachments: boundInput.displayAttachments || [], localFiles: [], content: [] }
           : await readAttachments((input.attachmentIds || []).map(attachmentId => ({ attachmentId })));
         const contextFiles = boundInput ? { localFiles: [], content: [] } : await readAttachments(input.contextAttachments || []);
+        request.deliveryTiming?.("input-prepared");
         const localFiles = [...contextFiles.localFiles, ...files.localFiles];
         if (request.input.goal && localFiles.length) {
           throw failure("Native goals require extracted text or supported image bytes for attachments.", "conversation_unsupported", 400);
@@ -1066,6 +1097,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             text: input.message, contextText: input.contextText || "",
             content: [...contextFiles.content, ...files.content], localFiles, attachmentManifest },
           signal: active.controller.signal,
+          deliveryTiming: request.deliveryTiming,
           onNativeReceipt: () => request.deliveryTiming?.("native-acknowledged"),
           onReceiptPersisted: () => request.deliveryTiming?.("receipt-persisted"),
           ...(engine === "opencode" ? { deliveryCommitted: committed.promise } : {}),
@@ -1170,7 +1202,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         }
         if (request.accepted) await publishAdmission(request, nativeResult);
         else {
-          const saved = (await readTranscript(entry)).find(turn => submittedMessage(turn)?.messageId === request.input.messageId);
+          const saved = await findSubmittedTurn(entry, request.input.messageId);
           if (!saved && entry.conversation) {
             // An original native-history duplicate need not have an authored
             // application row. Preserve its exact result without inventing a
@@ -1226,7 +1258,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
     try {
       await setPhase(entry, "preparing");
-      const recordedHistory = await readTranscript(entry);
+      // Only the API engine sends the application transcript as history.
+      const recordedHistory = engine === "api" ? await readTranscript(entry) : [];
       const activeHistory = recordedHistory.filter(turn => !turn.metadata?.runtime?.supersededBy);
       const metadata = { runtime: await readState(entry) };
       const continuity = metadata.runtime.continuity;
@@ -1438,8 +1471,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const deliveryTiming = createConversationDeliveryTiming({ engine: entry.engine,
       conversationId: entry.id, messageId: input?.messageId, report: onDeliveryTiming });
     deliveryTiming("received");
+    const grant = new Set();
     try {
-      await access(context, entry.id, goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send", entry);
+      await access(context, entry.id, goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send", entry, grant);
       if (entry.conversation?.commands) {
         if (origin !== "user" || goal) throw failure("This conversation supports its original application Send operation.", "conversation_unsupported", 400);
         return entry.conversation.commands.send(input, context);
@@ -1447,7 +1481,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       if (entry.conversation?.native?.scoped) return entry.provider.sendNative({ input, context });
       const originalInput = representation === "native" ? input : undefined;
       const message = originalInput ? { ...input, text: input.displayMessage ?? input.message ?? input.text ?? "" } : input;
-      const admission = await serial(entry, () => admitSend(entry, context, message, origin, goal, originalInput, wakeOptions, deliveryTiming));
+      const admission = await serial(entry, () => admitSend(entry, context, message, origin, goal, originalInput, wakeOptions, deliveryTiming, grant));
       const result = await (admission.receipt || admission.promise);
       if (!entry.conversation) return result;
       if (representation === "native") return result.nativeResult;
@@ -1461,11 +1495,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   // Called while holding the conversation queue, including Claude's existing
   // stop-then-Send goal commands. All commands retain the ordinary receipt path.
-  async function admitSend(entry, context, input, origin = "user", goal, originalInput, wakeOptions, deliveryTiming) {
+  async function admitSend(entry, context, input, origin = "user", goal, originalInput, wakeOptions, deliveryTiming, grant) {
     deliveryTiming?.("preparation-started");
     const operation = goal ? "goal" : input?.steer === true ? "steer" : origin === "application" ? "wake" : "send";
-    await access(context, entry.id, operation, entry);
+    await access(context, entry.id, operation, entry, grant);
     await entry.conversation?.admission(context, operation);
+    deliveryTiming?.("authorized");
     if (goal) context?.signal?.throwIfAborted();
     let suppliedExclusions;
     if (wakeOptions !== undefined) {
@@ -1512,9 +1547,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       if (!entry.conversation && !sameRequest(pending.input, message)) throw failure("This messageId already belongs to different content.", "conversation_message_conflict");
       return { promise: pending.admission.promise };
     }
-    const history = await readTranscript(entry);
-    const existing = history.find(turn => submittedMessage(turn)?.messageId === message.messageId);
+    const existing = await findSubmittedTurn(entry, message.messageId);
+    deliveryTiming?.("history-read");
     const nativeState = entry.engine !== "api" && (await readState(entry));
+    deliveryTiming?.("state-read");
     const nativePending = nativeState?.request;
     if (existing) {
       const previous = submittedMessage(existing);
@@ -1533,7 +1569,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       // No native dispatch has occurred for this request. Finish the previous
       // waiter before reserving the same authored message or goal request.
       await working.done;
-      return admitSend(entry, context, input, origin, goal, originalInput, wakeOptions, deliveryTiming);
+      return admitSend(entry, context, input, origin, goal, originalInput, wakeOptions, deliveryTiming, grant);
     }
     const nativeSteering = !working && (nativeState.nativeTurn?.active || entry.driver.canonicalTranscript && nativeState.binding?.codexAppServerRun &&
       codexAppServerTurnStateFromAgentRun(nativeState.binding.codexAppServerRun).active);
@@ -1544,7 +1580,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     }
     if (working && !input.steer && !goal && !entry.conversation) throw failure("Wait for this answer or use steer to send another instruction.", "conversation_busy");
     if (input.steer && (!working && !nativeSteering || working?.finishing) && !(nativePending?.attempted || nativePending?.inspectionOnly)) {
-      const previousState = nativeState?.nativeTurn?.runState || nativeState?.nativeTurn?.state || history.at(-1)?.metadata?.runtime?.status;
+      const previousState = nativeState?.nativeTurn?.runState || nativeState?.nativeTurn?.state ||
+        (await lastTranscriptTurn(entry))?.metadata?.runtime?.status;
       const completed = working ? !working.controller.signal.aborted && !working.timedOut : ["complete", "completed"].includes(previousState);
       throw Object.assign(failure("There is no active native turn to steer. Send a new message.",
         completed ? "conversation_steer_turn_finished" : "conversation_not_steerable"), { delivery: "not-sent" });
@@ -1562,7 +1599,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     let nativeToolAttempt;
     let excludedMessageIds;
     let requestAt = new Date().toISOString();
-    try { configuration = entry.conversation ? (await readState(entry)).configuration : await storage.write(entry.id, async transaction => {
+    // The bound state was read above unless this is an API conversation.
+    try { configuration = entry.conversation ? (nativeState || await readState(entry)).configuration : await storage.write(entry.id, async transaction => {
       const metadata = await transaction.readMetadata();
       if (metadata.runtime.replacement) throw failure("Finish the pending native replacement before sending another message.", "conversation_replacement_pending");
       if (retainedSegments(metadata.runtime).some(segment => segment.segmentId !== entry.segmentId && segment.request?.messageId === message.messageId)) {
@@ -1591,6 +1629,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await transaction.writeMetadata(metadata);
       return metadata.runtime.configuration;
     }); } catch (error) { release(); throw error; }
+    deliveryTiming?.("request-saved");
     const request = { input: message, originalInput, operation, context, at: requestAt, deliveryTiming,
       ...(markedResponse ? { completedEnvelope: true, excludedMessageIds } : {}),
       ...(typeof nativeToolAttempt === "boolean" ? { nativeToolAttempt } : {}), steering: Boolean(working || input.steer && nativeSteering),

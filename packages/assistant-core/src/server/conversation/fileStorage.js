@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createConversationStorage } from "./storage.js";
 
@@ -34,6 +34,17 @@ export function createFileConversationStorage({ directory } = {}) {
 
   return createConversationStorage({
     readRecord,
+    // Atomic replacement gives every save a new inode; size and modification
+    // time also change for an in-place external edit.
+    async recordVersion(id) {
+      try {
+        const info = await stat(filename(id), { bigint: true });
+        return `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}`;
+      } catch (error) {
+        if (error.code === "ENOENT") return "absent";
+        throw error;
+      }
+    },
     async writeRecord(id, { turns, metadata }) {
       // Serialize before touching the filesystem: failed transactions cannot
       // replace the last saved conversation or leave a partial document.

@@ -561,12 +561,15 @@ export function createClaudeConversationOwner({
     const context = entry.context;
     const messageId = command ? input.messageId : text(input.messageId) || randomUUID();
     const uuid = claudeNativeMessageId(messageId);
+    const deliveryTiming = (command || input).deliveryTiming;
     if (!command) {
       if (entry.main && await store.hasMessage(context, messageId)) {
         return { ok: true, delivered: true, duplicate: true, thread: { id: entry.id }, turn: snapshot(entry) };
       }
+      deliveryTiming?.("duplicate-checked");
       preparation.check(entry, context);
       const history = await readHistory(entry);
+      deliveryTiming?.("native-history-read");
       if (history.userIds.includes(uuid)) {
         return { ok: true, delivered: true, duplicate: true, thread: { id: entry.id }, turn: snapshot(entry) };
       }
@@ -587,6 +590,7 @@ export function createClaudeConversationOwner({
       // authored input. Keep its failure distinct from a lost native receipt.
       throw Object.assign(error, { delivery: "not-sent" });
     }
+    deliveryTiming?.("process-ready");
     if (command && !command.steering) command.signal.throwIfAborted();
     const steering = command ? command.steering === true : Boolean(entry.turn?.active);
     const sendNow = steering && native.client.supportsSendNow?.() === true;
@@ -607,7 +611,8 @@ export function createClaudeConversationOwner({
         throw Object.assign(error, { delivery: "not-sent" });
       }
     }
-    const prompt = command ? undefined : await preparation.message(entry, input, { context, message, steering, renewal });
+    const prompt = command ? undefined : await preparation.message(entry, input, { context, message, steering, renewal, deliveryTiming });
+    if (!command) deliveryTiming?.("prompt-rendered");
     if (command) {
       await command.beforeDispatch({ threadId: entry.id });
       command.signal.throwIfAborted();
@@ -623,6 +628,7 @@ export function createClaudeConversationOwner({
     entry.onEvent = context.onEvent;
     entry.lastMessageId = uuid;
     const actorMetadata = command ? undefined : await onEvent(entry, { type: "message-metadata", input, context });
+    if (!command) deliveryTiming?.("metadata-ready");
     const nativeOwner = applicationCommand ? { process: native, executionId: entry.executionId,
       accountIdentity: entry.accountIdentity, threadId: entry.id, turnId: entry.turn.id } : null;
     let conversationTurn;
@@ -646,8 +652,12 @@ export function createClaudeConversationOwner({
       } else {
         const admission = onEvent(entry, { type: "admit-message", input, context, renewal, message, messageId, uuid, actorMetadata });
         if (admission) conversationTurn = await admission;
+        deliveryTiming?.("receipt-written");
       }
-      if (!command) await entry.nativeTurn.updateState("active");
+      if (!command) {
+        await entry.nativeTurn.updateState("active");
+        deliveryTiming?.("state-active");
+      }
       (command || input).onReceiptPersisted?.();
       if (applicationCommand && conversationTurn) {
         const value = deliveryResult();
@@ -982,7 +992,8 @@ export function createClaudeConversationOwner({
       entry.toolSchemas = active.tools?.schemas || [];
     }
     const value = await send(entry, { ...command.input.nativeMessage, signal: command.input.signal, onPromptSending: command.beforeDispatch,
-      onNativeReceipt: command.onNativeReceipt, onReceiptPersisted: command.onReceiptPersisted }, { applicationCommand });
+      onNativeReceipt: command.onNativeReceipt, onReceiptPersisted: command.onReceiptPersisted, deliveryTiming: command.deliveryTiming },
+    { applicationCommand });
     const completion = value.conversationTurn ? entry.completion?.promise : null;
     const delivered = { value, completion };
     if (!applicationCommand && value.delivered === true && value.conversationTurn) {
@@ -1012,9 +1023,9 @@ export function createClaudeConversationOwner({
     control.current = active;
     const ready = Promise.withResolvers();
     ready.promise.catch(() => {});
-    active.steer = async ({ input, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted }) => {
+    active.steer = async ({ input, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted, deliveryTiming }) => {
       await ready.promise;
-      const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted,
+      const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted, deliveryTiming,
         timeoutMs, steering: true, interrupted: false, attempted: false, admitted: false };
       try { await dispatch(control, { input, context, signal }, { acquire, entry, dispatch: nativeDispatch }); }
       catch (error) {
@@ -1024,7 +1035,7 @@ export function createClaudeConversationOwner({
       }
     };
     const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt: command.onNativeReceipt,
-      onReceiptPersisted: command.onReceiptPersisted, timeoutMs, maximumOutput, attempted: false, admitted: false };
+      onReceiptPersisted: command.onReceiptPersisted, deliveryTiming: command.deliveryTiming, timeoutMs, maximumOutput, attempted: false, admitted: false };
     let entry;
     let cancellation;
     let problem;

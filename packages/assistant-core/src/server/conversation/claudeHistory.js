@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { lstat, readdir, realpath, rm, stat } from "node:fs/promises";
+import { lstat, open, readdir, realpath, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { readClaudeJsonFrames } from "./claudeClient.js";
 import { createNativeHistoryExport, retireNativeConversation } from "./nativeHistoryExport.js";
@@ -63,7 +63,7 @@ async function claudeHistoryPath({ configRoot, workdir, conversationId }) {
       if (error.code === "ENOENT") return null;
       throw error;
     });
-    if (info?.isFile()) return { path: candidate, size: info.size };
+    if (info?.isFile()) return { path: candidate, size: info.size, dev: info.dev, ino: info.ino };
   }
   return null;
 }
@@ -95,6 +95,82 @@ function claudeMessageBlocks(frame, { includeNested = false, commentary = false 
   });
 }
 
+// Claude appends to its native history. Live reads keep the parsed complete
+// frames per file and parse only bytes appended since the previous read. A
+// replaced, truncated or rewritten file is parsed again from the start.
+const HISTORY_CACHE_LIMIT = 8;
+const HISTORY_CHECK_BYTES = 256;
+const historyCache = new Map();
+
+// Retain only the fields the history projection reads. Tool results and tool
+// inputs can be large and are never part of the projection.
+function retainedClaudeFrame(frame) {
+  if (!["user", "assistant", "system", "attachment", "result", "last-prompt"].includes(frame.type)) {
+    return { type: frame.type, uuid: frame.uuid, parentUuid: frame.parentUuid };
+  }
+  const content = frame.message?.content;
+  if (!Array.isArray(content) || !["user", "assistant"].includes(frame.type)) {
+    if (frame.type !== "user" || frame.toolUseResult === undefined) return frame;
+    const { toolUseResult: _result, ...retained } = frame;
+    return retained;
+  }
+  const blocks = frame.type === "user"
+    ? content.filter(block => block?.type === "text")
+    : content.map(block => block?.type === "tool_use" && block.name !== "StructuredOutput"
+      ? { type: "tool_use", id: block.id, name: block.name } : block);
+  const { toolUseResult: _result, ...retained } = frame;
+  return { ...retained, message: { ...frame.message, content: blocks } };
+}
+
+function claudeHistoryFrames(file) {
+  // Reads of one file are serialized so each extends the same parsed prefix.
+  const previous = historyCache.get(file.path);
+  const reading = Promise.resolve(previous?.reading).catch(() => {}).then(() => readClaudeHistoryFrames(file));
+  historyCache.delete(file.path);
+  historyCache.set(file.path, { ...previous?.value && { value: previous.value }, reading });
+  while (historyCache.size > HISTORY_CACHE_LIMIT) historyCache.delete(historyCache.keys().next().value);
+  return reading;
+}
+
+async function readClaudeHistoryFrames(file) {
+  const cached = historyCache.get(file.path)?.value;
+  const handle = await open(file.path, "r");
+  try {
+    let reusable = cached && cached.dev === file.dev && cached.ino === file.ino && cached.offset <= file.size;
+    if (reusable) {
+      const check = Buffer.alloc(cached.check.length);
+      await handle.read(check, 0, check.length, cached.offset - check.length);
+      reusable = check.equals(cached.check);
+    }
+    const start = reusable ? cached.offset : 0;
+    const appended = Buffer.alloc(file.size - start);
+    if (appended.length) await handle.read(appended, 0, appended.length, start);
+    // Only newline-terminated frames are complete; a writer may still be
+    // writing the unfinished tail, which the next read parses.
+    const complete = appended.lastIndexOf(10) + 1;
+    const added = [];
+    if (complete) {
+      for await (const frame of readClaudeJsonFrames([appended.subarray(0, complete)])) {
+        if (!frame.isSidechain) added.push(retainedClaudeFrame(frame));
+      }
+    }
+    const offset = start + complete;
+    const check = Buffer.alloc(Math.min(HISTORY_CHECK_BYTES, offset));
+    await handle.read(check, 0, check.length, offset - check.length);
+    const value = { dev: file.dev, ino: file.ino, offset, check,
+      frames: reusable ? cached.frames.concat(added) : added };
+    const current = historyCache.get(file.path);
+    if (current) current.value = value;
+    return value.frames;
+  } catch (error) {
+    const current = historyCache.get(file.path);
+    if (current) delete current.value;
+    throw error;
+  } finally {
+    await handle.close();
+  }
+}
+
 async function readClaudeHistory(options) {
   const file = await claudeHistoryPath(options);
   const inspected = {
@@ -110,18 +186,20 @@ async function readClaudeHistory(options) {
   let goal = null;
   let goalStartId = "";
   let goalCommandId = "";
-  const frames = [];
+  let frames = [];
   const byId = new Map();
   let leafUuid = "";
   let rewound = false;
   // Snapshot the file length. A writer can be in the middle of its last frame;
   // Live history reads allow that unfinished tail. Stopped maintenance can
   // require the existing strict parser without changing live observation.
-  for await (const frame of readClaudeJsonFrames(createReadStream(file.path, { end: file.size - 1 }), {
-    allowIncompleteTail: options.allowIncompleteTail ?? true
-  })) {
-    if (frame.isSidechain) continue;
-    frames.push(frame);
+  if (options.allowIncompleteTail ?? true) frames = await claudeHistoryFrames(file);
+  else {
+    for await (const frame of readClaudeJsonFrames(createReadStream(file.path, { end: file.size - 1 }))) {
+      if (!frame.isSidechain) frames.push(frame);
+    }
+  }
+  for (const frame of frames) {
     if (frame.uuid) byId.set(frame.uuid, frame);
     if (["user", "assistant"].includes(frame.type) && frame.uuid) leafUuid = frame.uuid;
     if (frame.type === "last-prompt" && frame.leafUuid) {

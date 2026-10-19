@@ -50,6 +50,14 @@ Claude and OpenCode use the same milestones: `received`, `preparation-started`,
 `receipt-persisted`, `accepted`, `first-response` and `failed` when applicable.
 `provider-started` to `runtime-ready` includes the provider's acquisition,
 startup or reuse and prompt preparation; it is not an inference timer.
+Finer milestones divide those phases when they occur: `authorized`,
+`history-read`, `state-read`, `request-saved` and `input-prepared` during
+admission; Claude's `duplicate-checked`, `native-history-read`, `process-ready`,
+`prompt-rendered`, `metadata-ready`, `receipt-written` and `state-active`; and
+`admission-authorized` and `turn-located` before `accepted`. A bound host's
+`prepareInput(input, context, { deliveryTiming })` and Claude's
+`preparation.message(..., { deliveryTiming })` receive the same observer and may
+mark `git-actor` and `genesis-rendered`. Unknown stage names are ignored.
 Native acknowledgement precedes the application's receipt write. Accepted delivery
 still waits for the existing durable receipt contract.
 
@@ -1417,6 +1425,7 @@ transcript service. All nine are mandatory for `createConversationRuntime()`:
 | `readTurn(id)` | Detached turn snapshot in the client model above, or null if absent. |
 | `nextTurnId()` | Allocate an ID after the current tail under the write lock. |
 | `hasMessage(messageId)` | Check uniqueness across the whole scoped conversation. |
+| `findMessageTurnId(messageId)` | Optional. The turn ID holding that message, or an empty string; lets identity lookups avoid reading every turn. |
 | `appendMessage(turnId, message)` | Save `{ role, text, messageId, at }` and any supplied `attachments`, `origin` and `turnMetadata`; user or application messages may start turns. |
 | `replaceAssistant(turnId, message)` | Idempotently replace the final answer for that exact turn, preserving its existing timestamp/identity. |
 | `readMetadata()` | Detached conversation metadata object; return `{}` for an empty scope. |
@@ -2317,10 +2326,15 @@ storage transactions. Runtime state occupies `metadata.runtime` at conversation
 and turn level. Custom adapters must commit that state with accepted messages in
 the same transaction. The file adapter remains one-writer storage.
 
-`createConversationStorage({ readRecord, writeRecord, deleteRecord })` is exported
+`createConversationStorage({ readRecord, writeRecord, deleteRecord, recordVersion })` is exported
 for custom single-writer record stores. Each record contains `{ turns: Map,
 metadata: object }`; a missing record uses an empty map and metadata object. Its
-copy-on-write transaction methods match the supplied memory/file adapters. It
+copy-on-write transaction methods match the supplied memory/file adapters. Saved
+records are shared and never changed in place; a transaction copies only the turn
+map and the turns it changes. The optional `recordVersion(id)` returns a cheap
+token (the file adapter uses device, inode, size and modification time) that
+changes whenever the saved record changes; the parsed record and its message index
+are then reused until the token changes. It
 calls `writeRecord(id, draft, transaction)` to commit a successful transaction.
 Record formats that store the canonical transcript can use `transaction.readTurn()`
 while serializing, without copying the transcript's ordering and role logic.

@@ -1265,8 +1265,10 @@ test("Codex delivery timing uses the common native receipt and first-response st
   assert.equal((await f.conversation.send({ messageId: "timed-request", text: "Private message" })).status, "accepted");
   await f.conversation.wait();
   const stages = timings.map(event => event.stage);
-  assert.deepEqual(stages.slice(0, 8), ["received", "preparation-started", "provider-started", "runtime-ready",
-    "dispatch-started", "native-acknowledged", "receipt-persisted", "accepted"]);
+  const common = ["received", "preparation-started", "provider-started", "runtime-ready", "dispatch-started",
+    "native-acknowledged", "receipt-persisted", "accepted"];
+  assert.deepEqual(stages.filter(stage => common.includes(stage)).slice(0, 8), common);
+  assert.deepEqual(stages.slice(2, 7), ["authorized", "history-read", "state-read", "request-saved", "input-prepared"]);
   assert.equal(stages.filter(stage => stage === "first-response").length, 1);
   assert.equal(JSON.stringify(timings).includes("Private message"), false);
 });

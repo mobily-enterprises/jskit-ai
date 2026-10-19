@@ -1,6 +1,11 @@
+// Finer marks within each phase locate slow work. Hosts may mark git-actor
+// and genesis-rendered while preparing a native prompt.
 const stages = new Set([
-  "received", "preparation-started", "provider-started", "runtime-ready", "dispatch-started",
-  "native-acknowledged", "receipt-persisted", "accepted", "first-response", "failed"
+  "received", "preparation-started", "authorized", "history-read", "state-read", "request-saved",
+  "input-prepared", "provider-started", "duplicate-checked", "native-history-read", "process-ready",
+  "git-actor", "genesis-rendered", "prompt-rendered", "metadata-ready", "runtime-ready", "dispatch-started",
+  "native-acknowledged", "receipt-written", "state-active", "receipt-persisted", "admission-authorized",
+  "turn-located", "accepted", "first-response", "failed"
 ]);
 
 // Observer results are never awaited and failures cannot change delivery.
