@@ -210,6 +210,12 @@ has a native ID. Stopping its idle main turn is a no-op; session closure still
 drains owned helpers and releases the process without interrupting peer sessions.
 An active turn with a missing native identity remains an error, never a
 successful Stop.
+OpenCode applies an agent's last matching permission rule, so a guarded agent's
+`"*": "ask"` restates two denials: an agent without application tools is not
+offered the discovery tools, and no agent waits for the unanswerable
+repeated-call approval. A model that keeps calling refused native tools ends its
+turn with a visible failure, through the same stop path as an exceeded output
+limit.
 Shared acquisition and readiness propagate an expired health probe without
 stopping the server. Main and temporary conversations retain their ownership;
 a later readiness check can reuse the same process. Connection failures other

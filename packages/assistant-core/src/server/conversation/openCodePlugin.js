@@ -1,5 +1,6 @@
 import { createOpenCodeConversationAdapter } from "./providers/opencode.js";
 import { wrapNativeCommand } from "./commandWrapper.js";
+import { OPENCODE_REFUSED_TOOL_ERROR } from "./openCodeTurn.js";
 import { readOpenCodeEnvironments, openCodeEnvironmentForSession, openCodeEnvironmentForDirectory,
   assertOpenCodeModelProvider, limitOpenCodeModelOutput } from "./openCodeRuntime.js";
 
@@ -44,7 +45,7 @@ export default async function conversationInstructions({ client, registryPath = 
         ? conversation?.tools?.schemas.some(({ function: definition }) => definition.name === tool)
         : conversation?.nativeTools;
       if (!allowed) {
-        throw new Error("This conversation has no authorization for that native tool.");
+        throw new Error(OPENCODE_REFUSED_TOOL_ERROR);
       }
       if (tool === "bash" && conversation.commandWrapper) {
         output.args.command = wrapNativeCommand(conversation.commandWrapper, output.args.command);
@@ -70,7 +71,7 @@ export default async function conversationInstructions({ client, registryPath = 
         }
         const connection = (await readBinding(context.sessionID)).conversation?.tools;
         if (!connection?.schemas.some(({ function: definition }) => definition.name === name)) {
-          throw new Error("This conversation has no authorization for that native tool.");
+          throw new Error(OPENCODE_REFUSED_TOOL_ERROR);
         }
         const response = await fetch(connection.url, { method: "POST", signal: context.abort,
           headers: { authorization: `Bearer ${connection.token}`, "content-type": "application/json" },

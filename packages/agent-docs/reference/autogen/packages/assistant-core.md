@@ -945,6 +945,8 @@ Local functions
 - `text(value = "")`
 - `availableLoopbackPort()`
 - `waitForOpenCodeReady({ client, expectedVersion = OPENCODE_EXPECTED_VERSION, processHandle, timeoutMs = OPENCODE_READY_TIMEOUT_MS, signal } = {})`
+- `actionPermission(action)`
+- `agentPermission(ask, nativeTools, tools)`
 - `openCodeZenCatalogError(cause = null)`
 
 ### `src/server/conversation/openCodeRuntime.js`
@@ -989,6 +991,7 @@ Exports
 - `observeOpenCodeTurnCompletion(runtime, target, conversationId, turn, { events, signal, timeoutMs, finalResponse, projectResult = value => value, afterClose, ...waitOptions } = {})`
 - `runOpenCodeConversationTurn(client, conversationId, input = {}, { expectedThreadId = "", forbiddenThreadId = "", requireFreshHistory = false, completeResult, close } = {})`
 - `OPENCODE_INTERRUPT_TIMEOUT_MS`
+- `OPENCODE_REFUSED_TOOL_ERROR`
 Local functions
 - `text(value)`
 - `record(value = null)`

@@ -194,6 +194,18 @@ async function fixture(t, options = {}) {
             session.messages.push(row("assistant", randomUUID(), [], { error: { data: { message: error.message } } })); save(); return;
           }
         }
+        if (text === "refused-tools") {
+          // A model that keeps retrying an ungranted native tool and never answers.
+          while (busy.has(session.id)) {
+            const part = { type: "tool", callID: randomUUID(), tool: "assistant_action_search", state: { status: "running", input: {} } };
+            session.messages.push(row("assistant", randomUUID(), [part], { parentID: body.messageID, finish: "tool-calls" }));
+            try { await hooks["tool.execute.before"]({ tool: part.tool, sessionID: session.id }, { args: {} }); }
+            catch (error) { part.state = { ...part.state, status: "error", error: error.message }; }
+            save();
+            await new Promise(resolve => setTimeout(resolve, 20));
+          }
+          return;
+        }
         if (text === "compact") {
           session.messages.push(row("user", randomUUID(), [{ type: "compaction", auto: true }]));
           session.messages.push(row("assistant", randomUUID(), [{ type: "text", text: "Native summary" }], { summary: true, finish: "stop" }));
@@ -327,7 +339,8 @@ test("OpenCode admits once, streams and saves native reasoning through the commo
   assert.equal(trace.find(item => item.url === "/api/session").body.model.id, "test-model");
   assert.equal(trace.find(item => item.url?.endsWith("/prompt_async")).body.model.modelID, "test-model");
   assert.equal(trace[0].inheritedSecret, null);
-  assert.deepEqual(trace[0].configuration.agent[trace.find(item => item.url?.endsWith("/prompt_async")).body.agent].permission, { "*": "ask" });
+  assert.deepEqual(trace[0].configuration.agent[trace.find(item => item.url?.endsWith("/prompt_async")).body.agent].permission, { "*": "ask",
+    assistant_action_search: "deny", assistant_action_contract: "deny", assistant_action_execute: "deny", doom_loop: "deny" });
   assert.match(trace[0].configuration.plugin[0], /openCodePlugin\.js$/u);
   assert.deepEqual(trace[0].configuration.provider.test.models["test-model"].limit, { context: 32000, output: 4000 });
   assert.equal(trace[0].configuration.provider.test.models["test-model"].id, "test-model");
@@ -421,6 +434,17 @@ test("the production recovery stops after two reasoning-only completions through
   assert.equal(state.conversationLog[0].metadata.runtime.status, "failed");
   assert.equal(state.error, "OpenCode finished without a user-facing final response. Please send your message again.");
   assert.equal(state.conversationLog[0].assistant, null);
+});
+
+test("a model that keeps calling refused native tools fails visibly and stops its native turn", async t => {
+  const f = await fixture(t);
+  await f.conversation.send({ messageId: "client-message-refused-tools", text: "refused-tools" });
+  const state = await f.conversation.wait();
+  assert.equal(state.conversationLog.length, 1);
+  assert.equal(state.conversationLog[0].metadata.runtime.status, "failed");
+  assert.equal(state.error, "The model kept calling tools that this conversation does not provide and gave no answer. No tool ran. Your message is kept; retry or choose another model.");
+  assert.equal(state.conversationLog[0].assistant, null);
+  assert.ok((await f.trace()).some(row => row.url?.endsWith("/abort")), "The refused native loop is stopped");
 });
 
 test("OpenCode steering follows the newly admitted input in the same native conversation", async t => {
@@ -520,7 +544,7 @@ test("OpenCode shares discovery, saved results and current permissions across na
   assert.equal(executions, 1);
   const trace = await f.trace();
   assert.deepEqual(trace[0].configuration.agent[trace.find(item => item.url?.endsWith("/prompt_async")).body.agent].permission, { "*": "ask", assistant_action_search: "allow",
-    assistant_action_contract: "allow", assistant_action_execute: "allow" });
+    assistant_action_contract: "allow", assistant_action_execute: "allow", doom_loop: "deny" });
   const original = await f.binding();
   await f.first.close();
   const resumed = await f.runtime().open({ id: "conversation", context });
@@ -1625,7 +1649,8 @@ test("completed OpenCode caller markers preserve ordinary native discovery witho
     assert.equal(ordinaryPrompt.body.agent, "jskit-assistant-actions");
     assert.match(ordinaryPrompt.body.parts[0].text, /\[Application data\]/);
     assert.deepEqual(initialTrace[0].configuration.agent[ordinaryPrompt.body.agent].permission, {
-      "*": "ask", assistant_action_search: "allow", assistant_action_contract: "allow", assistant_action_execute: "allow"
+      "*": "ask", assistant_action_search: "allow", assistant_action_contract: "allow", assistant_action_execute: "allow",
+      doom_loop: "deny"
     });
     await assert.rejects(f.prepare({ messageId: "ordinary-opencode", turnId: receipt.turnId }), /no current verified receipt/);
     // The original native fixture invokes discovery only for exact plain tools.

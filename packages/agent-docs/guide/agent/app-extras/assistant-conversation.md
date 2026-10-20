@@ -4103,7 +4103,11 @@ rejected steering preserves the previous active request. `/server/opencode-proce
 `createOpenCodeServerProcess` and the existing `openCodeConversationAgent`
 selector for advanced managed integration. The selector returns the matching
 original native agent identity for explicit native-tool and application-tool
-capabilities; it does not change a saved model or launch inference. The common driver's internal configuration
+capabilities; it does not change a saved model or launch inference. An agent
+without the application-tool capability is not offered the three discovery tools,
+and no conversation agent waits for OpenCode's repeated-call approval. A turn whose
+model keeps calling native tools that the conversation was not granted stops with
+a visible failure and keeps the authored message instead of running without an answer. The common driver's internal configuration
 uses that same server startup, authentication, version, observation and cleanup
 implementation. `openCodeProcessEnvironment(baseEnv, { cacheRoot, dbPath,
 inlineConfig, outputTokenMax, password })` assembles native flags, cache,

@@ -118,7 +118,7 @@ async function waitForOpenCodeReady({
   throw error;
 }
 
-const actionPermission = Object.fromEntries(DISCOVERY_TOOL_DESCRIPTORS.map(tool => [tool.name, "allow"]));
+const actionPermission = action => Object.fromEntries(DISCOVERY_TOOL_DESCRIPTORS.map(tool => [tool.name, action]));
 const nativePermission = { bash: "allow", read: "allow", write: "allow", edit: "allow",
   glob: "allow", grep: "allow", list: "allow", patch: "allow", apply_patch: "allow", todoread: "allow", todowrite: "allow" };
 export const openCodeApplicationToolSchemas = DISCOVERY_TOOL_DESCRIPTORS.map(({ name, description, parameters }) => ({
@@ -136,10 +136,18 @@ export function openCodeConversationAgents({ sessionEnvironmentRegistry = "" } =
       hidden: true, mode: "primary",
       // Keep native definitions behind approval, as in the original host agents.
       // The registered plugin rejects every ungranted native call before execution.
-      permission: nativeTools || tools || guarded ? { "*": !nativeTools && guarded ? "ask" : "deny",
-        ...(nativeTools ? nativePermission : {}), ...(tools ? actionPermission : {}) } : "deny"
+      permission: nativeTools || tools || guarded ? agentPermission(!nativeTools && guarded, nativeTools, tools) : "deny"
     }
   ])));
+}
+
+// OpenCode applies an agent's last matching rule, so its "*": "ask" overrides the
+// global policy. Restate two denials after it: application tools the agent does not
+// own are not offered to the model, and the repeated-call check does not wait for
+// an approval that no unattended conversation can give.
+function agentPermission(ask, nativeTools, tools) {
+  return { "*": ask ? "ask" : "deny", ...(nativeTools ? nativePermission : {}),
+    ...(tools ? actionPermission("allow") : ask ? actionPermission("deny") : {}), ...(ask ? { doom_loop: "deny" } : {}) };
 }
 
 /** Shared conversation configuration around the extracted server lifecycle. */

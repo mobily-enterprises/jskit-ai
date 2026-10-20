@@ -242,6 +242,16 @@ test("non-project common OpenCode tools stay behind approval and require the exe
   const guarded = openCodeConversationAgents({ sessionEnvironmentRegistry: "/private/sessions.json" });
   assert.equal(guarded["jskit-assistant"].permission["*"], "ask");
   assert.equal(guarded["jskit-assistant-actions"].permission["*"], "ask");
+  // OpenCode applies the agent's last matching rule: an agent without application
+  // tools must not be offered them, and no agent waits on a repeated-call approval.
+  for (const name of ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"]) {
+    assert.equal(guarded["jskit-assistant"].permission[name], "deny");
+    assert.equal(guarded["jskit-assistant-actions"].permission[name], "allow");
+    assert.equal(Object.keys(guarded["jskit-assistant"].permission).indexOf(name) > 0, true);
+  }
+  assert.equal(guarded["jskit-assistant"].permission.doom_loop, "deny");
+  assert.equal(guarded["jskit-assistant-actions"].permission.doom_loop, "deny");
+  assert.equal(guarded["jskit-assistant-coding"].permission["*"], "deny");
 });
 
 test("common non-project OpenCode calls retain the original fail-closed execution guard", async t => {

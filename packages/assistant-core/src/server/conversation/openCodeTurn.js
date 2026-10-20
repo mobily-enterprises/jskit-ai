@@ -223,10 +223,21 @@ export function openCodePersistentConversationMessages(rows, conversationMessage
   });
 }
 
+// The plugin refuses every native call this conversation was not granted. OpenCode
+// returns each refusal to the model, which can keep retrying without ever answering.
+export const OPENCODE_REFUSED_TOOL_ERROR = "This conversation has no authorization for that native tool.";
+const OPENCODE_REFUSED_TOOL_LIMIT = 5;
+
 export async function projectOpenCodeConversationMessages(messages, expectedId, {
   maximumOutput, outputSchema, previous, onMessage
 }) {
-  for (const message of openCodeRowsForInput(messages, expectedId)) {
+  const rows = openCodeRowsForInput(messages, expectedId);
+  const refused = rows.flatMap(message => message.content || []).filter(part =>
+    part.type === "tool" && part.state?.status === "error" && part.state.error === OPENCODE_REFUSED_TOOL_ERROR).length;
+  if (refused >= OPENCODE_REFUSED_TOOL_LIMIT) {
+    throw new Error("The model kept calling tools that this conversation does not provide and gave no answer. No tool ran. Your message is kept; retry or choose another model.");
+  }
+  for (const message of rows) {
     if (message.type !== "assistant" || message.summary || message.error) continue;
     const text = assistantMessageText(message);
     const thinking = (message.content || []).filter(part => part.type === "reasoning").map(part => part.text || "").join("\n\n");
@@ -243,7 +254,7 @@ export async function projectOpenCodeConversationMessages(messages, expectedId, 
       }
     }
   }
-  const result = openCodeLastAssistantResult(openCodeRowsForInput(messages, expectedId));
+  const result = openCodeLastAssistantResult(rows);
   return { failure: result.error, providerApiFailure: text(result.message?.error?.name) === "APIError" };
 }
 
