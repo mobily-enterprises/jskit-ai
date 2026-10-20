@@ -146,6 +146,23 @@ test("a failed message retains its retry identity while later guidance is pendin
   assert.equal(delivery.state.sending, false);
 });
 
+test("a failed client-only message keeps its time while newer saved turns and pending messages follow it", async () => {
+  const delivery = createAssistantMessageDelivery({ deliver: async () => ({ ok: false, error: "Unavailable" }) });
+  await delivery.send({ message: "Lost" }, { messageId: "lost" });
+  const sentAt = delivery.find("lost").createdAtMs;
+  const earlier = { turnId: "1", user: { messageId: "earlier", text: "Earlier", at: new Date(sentAt - 1000).toISOString() } };
+  const newer = { turnId: "2", user: { messageId: "newer", text: "Newer", at: new Date(sentAt + 1000).toISOString() }, pending: true };
+  assert.deepEqual(delivery.turns([earlier, newer]).map(turn => turn.turnId), ["1", "lost", "2"]);
+  assert.deepEqual(delivery.turns([earlier]).map(turn => turn.turnId), ["1", "lost"]);
+  const waiting = Promise.withResolvers();
+  const queued = createAssistantMessageDelivery({ deliver: () => waiting.promise });
+  const sending = queued.send({ message: "Queued" }, { messageId: "queued" });
+  assert.deepEqual(queued.turns([{ ...newer, user: { ...newer.user, at: new Date(Date.now() + 60000).toISOString() } }])
+    .map(turn => turn.turnId), ["2", "queued"]);
+  waiting.resolve({ ok: true });
+  await sending;
+});
+
 test("reset discards queued delivery without waiting for the old transport", async () => {
   const request = Promise.withResolvers();
   const sent = [];

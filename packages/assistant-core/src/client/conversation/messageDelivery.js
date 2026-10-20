@@ -59,7 +59,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   }
 
   function turns(savedTurns = []) {
-    return [
+    const shown = [
       ...savedTurns.map(turn => {
         const message = state.messages.find(message => message.status !== "accepted" &&
           turnMatchesOptimisticMessage(turn, message) &&
@@ -67,9 +67,19 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
         if (!message) return turn;
         const pending = optimisticTurn(message);
         return { ...turn, optimistic: pending.optimistic, ...(pending.system ? { system: pending.system } : {}) };
-      }),
-      ...unmatchedOptimisticMessages(savedTurns, state.messages).map(optimisticTurn)
+      })
     ];
+    // Pending and uncertain messages follow the saved history. A failed message
+    // never reached the conversation, so it keeps its own time: newer saved turns
+    // and the working indicator stay below it instead of looking blocked by it.
+    for (const message of unmatchedOptimisticMessages(savedTurns, state.messages)) {
+      const turn = optimisticTurn(message);
+      const later = message.status !== "failed" ? -1 : shown.findIndex(saved => !saved.optimistic &&
+        Date.parse((saved.user || saved.system)?.at || "") > message.createdAtMs);
+      if (later < 0) shown.push(turn);
+      else shown.splice(later, 0, turn);
+    }
+    return shown;
   }
 
   function optimisticTurn(message) {

@@ -846,6 +846,9 @@ text messages while delivery is outstanding. Custom composers call
 own captured payload and ID; transports run in submission order. `state.sending`
 stays true until all queued deliveries settle. A failed message remains retryable
 while later messages continue; `resend(id, { queue: true })` queues that exact retry.
+`turns(saved)` keeps a failed message at its own send time among the saved turns,
+so newer history and the working indicator follow it; pending and uncertain
+messages stay after the saved history.
 An in-flight or queued message ID cannot be submitted again. The default still
 allows only one pending submission. The shared composer does not queue another
 message with attachments while an earlier delivery is pending.
