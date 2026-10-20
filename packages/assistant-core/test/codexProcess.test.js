@@ -38,5 +38,14 @@ test("an empty umask inherits the host's own and emits no umask line", async (t)
     assert.doesNotMatch(request.args[1], /umask/);
     assert.equal(request.processProfile.startup, request.args[1]);
   }
+  assert.doesNotMatch((await launchRequest(t, { umask: null })).args[1], /umask/);
   assert.match((await launchRequest(t, { umask: "0022" })).args[1], /^umask 0022\n/);
+});
+
+test("a non-octal umask is refused before it reaches the startup script", () => {
+  assert.throws(() => createCodexAppServerRuntime({
+    configuration: { umask: "0007; touch /tmp/x" },
+    credentials: {},
+    execution: {}
+  }), /umask must be octal/);
 });

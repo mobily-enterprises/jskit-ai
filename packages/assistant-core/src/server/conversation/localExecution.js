@@ -187,7 +187,8 @@ export function createConversationProcessIdentity({
   ps = runPs
 } = {}) {
   const PROCESS_IDENTITY_SETTLE_TIMEOUT_MS = 1000;
-  const PROCESS_IDENTITY_SETTLE_POLL_MS = 25;
+  // Darwin inspection spawns ps instead of reading /proc, so it polls less often.
+  const PROCESS_IDENTITY_SETTLE_POLL_MS = platform === "darwin" ? 100 : 25;
   const PROCESS_IDENTITY_VERSION = 1;
   const PROCESS_IDENTITY_PLATFORMS = Object.freeze({ linux: "linux-proc", darwin: "darwin" });
   const hostIdentityPlatform = PROCESS_IDENTITY_PLATFORMS[platform] || "";
@@ -362,29 +363,59 @@ export function createConversationProcessIdentity({
     return String(Date.UTC(year, month, day, hours, minutes, seconds) / 1000);
   }
 
-  // `ps -E` appends the environment after the command; the last assignment wins.
-  function darwinEnvironmentValue(commandLine = "", name = "") {
-    const matches = [...commandLine.matchAll(new RegExp(`(?:^|\\s)${name}=(\\S*)`, "gu"))];
-    return matches.length ? matches.at(-1)[1] : "";
+  function darwinCommandsByPid(output = "") {
+    const commands = new Map();
+    for (const line of String(output).split("\n")) {
+      const match = /^\s*(\d+) (.*)$/u.exec(line);
+      if (match) {
+        commands.set(Number(match[1]), match[2]);
+      }
+    }
+    return commands;
   }
 
-  /** The darwin counterpart of the /proc scan; only the current user's environments are readable. */
+  /** The `ps -E` text after the argument list, as its assignments, or null when no environment is shown. */
+  function darwinEnvironment(command, commandWithEnvironment) {
+    if (command === undefined || commandWithEnvironment === undefined || !commandWithEnvironment.startsWith(command)) {
+      return null;
+    }
+    const assignments = commandWithEnvironment.slice(command.length).split(/\s+/u).filter((entry) => /^[^=\s]+=/u.test(entry));
+    return assignments.length ? assignments : null;
+  }
+
+  function darwinEnvironmentValue(assignments = [], name = "") {
+    const entry = assignments.find((assignment) => assignment.startsWith(`${name}=`));
+    return entry ? entry.slice(name.length + 1) : "";
+  }
+
+  /** The darwin counterpart of the /proc scan. Only the current user's environments are readable;
+   * a listing without a separate environment section stays unreadable so inspection degrades to ambiguous. */
   async function darwinProcessRecords() {
-    const output = await ps(["-ax", "-ww", "-E", "-o", "pid=,pgid=,uid=,stat=,lstart=,command="]);
     const currentUid = process.getuid();
+    const ownProcesses = ["-x", "-U", String(currentUid), "-ww", "-o", "pid=,command="];
+    const [table, commandOutput, environmentOutput] = await Promise.all([
+      ps(["-ax", "-o", "pid=,pgid=,uid=,stat=,lstart="]),
+      ps(ownProcesses),
+      ps(["-E", ...ownProcesses])
+    ]);
+    const commands = darwinCommandsByPid(commandOutput);
+    const commandsWithEnvironment = darwinCommandsByPid(environmentOutput);
     const records = [];
-    for (const line of String(output).split("\n")) {
-      const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+[\d:]{8}\s+\d{4})(.*)$/u.exec(line);
+    for (const line of String(table).split("\n")) {
+      const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+[\d:]{8}\s+\d{4})\s*$/u.exec(line);
       if (!match || match[4].startsWith("Z")) {
         continue;
       }
-      const environmentReadable = Number(match[3]) === currentUid;
+      const pid = Number(match[1]);
+      const environment = Number(match[3]) === currentUid
+        ? darwinEnvironment(commands.get(pid), commandsWithEnvironment.get(pid))
+        : null;
       records.push({
-        commandHash: environmentReadable ? darwinEnvironmentValue(match[6], commandHashEnvironmentName) : "",
-        environmentReadable,
-        pid: Number(match[1]),
+        commandHash: environment ? darwinEnvironmentValue(environment, commandHashEnvironmentName) : "",
+        environmentReadable: Boolean(environment),
+        pid,
         processGroupId: Number(match[2]),
-        runtimeToken: environmentReadable ? darwinEnvironmentValue(match[6], runtimeTokenEnvironmentName) : "",
+        runtimeToken: environment ? darwinEnvironmentValue(environment, runtimeTokenEnvironmentName) : "",
         startTimeTicks: darwinStartTime(match[5])
       });
     }
@@ -668,12 +699,9 @@ export function createConversationProcessIdentity({
     if (platform !== "darwin") {
       return linuxProcessStat(await readFile(`/proc/${pid}/stat`, "utf8").catch(() => ""));
     }
-    const output = String(await ps(["-o", "pgid=,lstart=", "-p", String(pid)]).catch(() => "")).trim();
-    const separator = output.search(/\s/u);
-    return separator < 0 ? null : {
-      processGroupId: Number(output.slice(0, separator)),
-      startTimeTicks: darwinStartTime(output.slice(separator))
-    };
+    const output = String(await ps(["-o", "pgid=,lstart=", "-p", String(pid)]).catch(() => ""));
+    const match = /^\s*(\d+)\s+(.+?)\s*$/u.exec(output);
+    return match ? { processGroupId: Number(match[1]), startTimeTicks: darwinStartTime(match[2]) } : null;
   }
 
   async function captureProcessIdentity({

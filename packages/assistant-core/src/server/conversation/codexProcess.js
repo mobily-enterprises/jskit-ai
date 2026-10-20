@@ -572,8 +572,12 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     return acquireCodexRuntimeLock(runtimeDir, { ...options, busyCode: `${errorPrefix}codex_app_server_runtime_busy` });
   }
 
-  // An empty umask inherits the host's own; hosts that share files set one.
-  const CODEX_APP_SERVER_UMASK_LINES = umask === "" ? [] : [`umask ${umask}`];
+  // An empty or null umask inherits the host's own; hosts that share files set one.
+  const startupUmask = normalizeText(umask);
+  if (startupUmask && !/^[0-7]{3,4}$/u.test(startupUmask)) {
+    throw new TypeError(`Codex app-server umask must be octal, not ${JSON.stringify(startupUmask)}.`);
+  }
+  const CODEX_APP_SERVER_UMASK_LINES = startupUmask ? [`umask ${startupUmask}`] : [];
 
   const CODEX_APP_SERVER_MANAGED_SHELL = "/bin/sh";
 

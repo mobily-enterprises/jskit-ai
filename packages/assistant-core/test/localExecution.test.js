@@ -15,8 +15,21 @@ const STARTED = "Wed Oct 21 10:00:00 2026";
 const STARTED_SECONDS = String(Date.UTC(2026, 9, 21, 10, 0, 0) / 1000);
 const uid = process.getuid?.() ?? 0;
 
-function row(pid, pgid, { owner = uid, stat = "Ss", started = STARTED, env = `${TOKEN_ENV}=${runtimeToken} ${HASH_ENV}=${commandHash}` } = {}) {
-  return `${String(pid).padStart(7)} ${String(pgid).padStart(7)} ${owner} ${stat.padEnd(4)} ${started} /usr/bin/codex app-server PATH=/usr/bin ${env}`;
+const IDENTITY_ENV = `PATH=/usr/bin ${TOKEN_ENV}=${runtimeToken} ${HASH_ENV}=${commandHash}`;
+
+function row(pid, pgid, { owner = uid, stat = "Ss", started = STARTED, args = "/usr/bin/codex app-server", env = IDENTITY_ENV } = {}) {
+  return { pid, pgid, owner, stat, started, args, env };
+}
+
+/** Renders the three darwin listings: every process, then the user's commands without and with `-E`. */
+function psListing(rows, args) {
+  if (args[0] === "-ax") {
+    return rows.map(({ pid, pgid, owner, stat, started }) =>
+      `${String(pid).padStart(7)} ${String(pgid).padStart(7)} ${String(owner).padStart(5)} ${stat.padEnd(4)} ${started}`).join("\n");
+  }
+  const withEnvironment = args[0] === "-E";
+  return rows.filter(({ owner }) => owner === uid).map(({ pid, args: command, env }) =>
+    `${String(pid).padStart(7)} ${command}${withEnvironment && env ? ` ${env}` : ""}`).join("\n");
 }
 
 function darwinIdentity(table, captureOutput = `${LEADER} ${STARTED}`) {
@@ -27,7 +40,7 @@ function darwinIdentity(table, captureOutput = `${LEADER} ${STARTED}`) {
       calls.push(args);
       if (args.includes("-p")) return captureOutput;
       if (table instanceof Error) throw table;
-      return table.join("\n");
+      return psListing(table, args);
     }
   });
   return { calls, identity };
@@ -47,10 +60,26 @@ test("darwin capture records the group leader's ps start time as epoch seconds",
   assert.equal(identity.isValid(captured), true);
 });
 
-test("darwin capture refuses a process that does not lead its own group", async () => {
-  const { identity } = darwinIdentity([], `${CHILD} ${STARTED}`);
-  await assert.rejects(identity.capture({ commandHash, pid: LEADER, runtimeToken }),
-    { code: "native_process_identity_unavailable" });
+test("darwin capture parses the padded BSD ps `pgid= lstart=` line", async () => {
+  // BSD ps prints lstart with strftime("%c"), which space-pads single-digit days in the C locale.
+  const { identity } = darwinIdentity([], `   ${LEADER} Tue Oct  7 09:05:03 2026\n`);
+  const captured = await identity.capture({ commandHash, pid: LEADER, runtimeToken });
+  assert.equal(captured.startTimeTicks, String(Date.UTC(2026, 9, 7, 9, 5, 3) / 1000));
+});
+
+test("darwin capture refuses a non-leader, an unparsable line or a failed ps", async (t) => {
+  for (const [name, output] of [
+    ["another group", `${CHILD} ${STARTED}`],
+    ["a non-numeric group", `pgid ${STARTED}`],
+    ["an unknown start format", `${LEADER} 2026-10-21T10:00:00Z`],
+    ["empty output", ""]
+  ]) {
+    await t.test(name, async () => {
+      const { identity } = darwinIdentity([], output);
+      await assert.rejects(identity.capture({ commandHash, pid: LEADER, runtimeToken }),
+        { code: "native_process_identity_unavailable" });
+    });
+  }
 });
 
 test("darwin inspection is exact only when every group member carries the identity", async () => {
@@ -60,19 +89,30 @@ test("darwin inspection is exact only when every group member carries the identi
     row(9_000_003, 9_000_003, { env: "" })
   ]);
   assert.deepEqual(await identity.inspect(metadata()), { processGroupIds: [LEADER, CHILD], status: "exact" });
-  assert.deepEqual(calls[0], ["-ax", "-ww", "-E", "-o", "pid=,pgid=,uid=,stat=,lstart=,command="]);
+  assert.deepEqual(calls, [
+    ["-ax", "-o", "pid=,pgid=,uid=,stat=,lstart="],
+    ["-x", "-U", String(uid), "-ww", "-o", "pid=,command="],
+    ["-E", "-x", "-U", String(uid), "-ww", "-o", "pid=,command="]
+  ]);
 });
 
 test("darwin inspection keeps the absent, mismatch and ambiguous outcomes", async (t) => {
   const cases = [
     ["no process in the group", [], {}, "absent"],
     ["zombies are ignored", [row(LEADER, LEADER, { stat: "Z" })], {}, "absent"],
-    ["an unrelated process reuses the group", [row(LEADER, LEADER, { env: "" })], {}, "mismatch"],
+    ["an unrelated process reuses the group", [row(LEADER, LEADER, { env: "PATH=/usr/bin" })], {}, "mismatch"],
+    ["the token only in the arguments", [row(LEADER, LEADER, {
+      args: `/usr/bin/env -i ${TOKEN_ENV}=${runtimeToken} ${HASH_ENV}=${commandHash} codex`, env: "PATH=/usr/bin"
+    })], {}, "mismatch"],
+    ["a hidden environment", [row(LEADER, LEADER, { env: "" })], {}, "ambiguous"],
+    ["the token only in the arguments of a hidden environment", [row(LEADER, LEADER, {
+      args: `/usr/bin/env ${TOKEN_ENV}=${runtimeToken} ${HASH_ENV}=${commandHash} codex`, env: ""
+    })], {}, "ambiguous"],
     ["another runtime token", [row(LEADER, LEADER)], { runtimeToken: randomUUID() }, "mismatch"],
     ["the leader restarted", [row(LEADER, LEADER, { started: "Wed Oct 21 10:00:01 2026" })], {}, "ambiguous"],
     ["another user's process shares the group", [row(LEADER, LEADER), row(CHILD, LEADER, { owner: uid + 1 })], {}, "ambiguous"],
     ["another user's environment is not trusted", [row(LEADER, LEADER, { owner: uid + 1 })], {}, "ambiguous"],
-    ["an unmarked member shares the group", [row(LEADER, LEADER), row(CHILD, LEADER, { env: "" })], {}, "ambiguous"],
+    ["an unmarked member shares the group", [row(LEADER, LEADER), row(CHILD, LEADER, { env: "PATH=/usr/bin" })], {}, "ambiguous"],
     ["ps fails", new Error("ps unavailable"), {}, "ambiguous"],
     ["a Linux identity", [row(LEADER, LEADER)], { platform: "linux-proc" }, "ambiguous"]
   ];
