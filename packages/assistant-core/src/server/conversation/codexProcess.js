@@ -572,18 +572,19 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     return acquireCodexRuntimeLock(runtimeDir, { ...options, busyCode: `${errorPrefix}codex_app_server_runtime_busy` });
   }
 
-  const CODEX_APP_SERVER_MANAGED_UMASK = umask;
+  // An empty umask inherits the host's own; hosts that share files set one.
+  const CODEX_APP_SERVER_UMASK_LINES = umask === "" ? [] : [`umask ${umask}`];
 
   const CODEX_APP_SERVER_MANAGED_SHELL = "/bin/sh";
 
   const CODEX_APP_SERVER_MANAGED_STARTUP_SCRIPT = [
-    `umask ${CODEX_APP_SERVER_MANAGED_UMASK}`,
+    ...CODEX_APP_SERVER_UMASK_LINES,
     `unset ${[...CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES].join(" ")}`,
     'exec "$@"'
   ].join("\n");
 
   const CODEX_APP_SERVER_HELPER_STARTUP_SCRIPT = [
-    `umask ${CODEX_APP_SERVER_MANAGED_UMASK}`,
+    ...CODEX_APP_SERVER_UMASK_LINES,
     "exec /usr/bin/env -i \\",
     '  HOME="$HOME" LOGNAME="$LOGNAME" USER="$USER" PATH="$PATH" \\',
     '  CODEX_HOME="$CODEX_HOME" LANG="$LANG" LC_ALL="$LC_ALL" LC_CTYPE="$LC_CTYPE" \\',

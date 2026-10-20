@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync } from "node:fs";
 import { mkdtemp, open, readFile, readdir, rm } from "node:fs/promises";
@@ -6,6 +6,18 @@ import { isPlainObject, normalizeText } from "./normalize.js";
 import { isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+
+// Fixed locale and zone make `lstart` parseable and stable across restarts.
+async function runPs(args) {
+  const { stdout } = await execFileAsync("ps", args, {
+    env: { ...process.env, LC_ALL: "C", TZ: "UTC" },
+    maxBuffer: 64 * 1024 * 1024
+  });
+  return stdout;
+}
 
 /** Owned POSIX process groups for a trusted, single-user application.
  * Managed hosts replace this facility to enforce resource and identity policy.
@@ -170,12 +182,15 @@ export function createConversationProcessIdentity({
   runtimeTokenEnvironmentName = "JSKIT_EXECUTION_RUNTIME_TOKEN",
   commandHashEnvironmentName = "JSKIT_EXECUTION_COMMAND_HASH",
   label = "Native",
-  unavailableCode = "native_process_identity_unavailable"
+  unavailableCode = "native_process_identity_unavailable",
+  platform = process.platform,
+  ps = runPs
 } = {}) {
   const PROCESS_IDENTITY_SETTLE_TIMEOUT_MS = 1000;
   const PROCESS_IDENTITY_SETTLE_POLL_MS = 25;
   const PROCESS_IDENTITY_VERSION = 1;
-  const PROCESS_IDENTITY_PLATFORM = "linux-proc";
+  const PROCESS_IDENTITY_PLATFORMS = Object.freeze({ linux: "linux-proc", darwin: "darwin" });
+  const hostIdentityPlatform = PROCESS_IDENTITY_PLATFORMS[platform] || "";
   const PROCESS_STATE = Object.freeze({ RUNNING: "running", STOPPED: "stopped" });
   const PROCESS_IDENTITY_STATUS = Object.freeze({
     ABSENT: "absent", AMBIGUOUS: "ambiguous", EXACT: "exact", INVALID: "invalid", MISMATCH: "mismatch"
@@ -281,7 +296,7 @@ export function createConversationProcessIdentity({
     const identity = normalizeProcessIdentity(value);
     return Boolean(
       identity.version === PROCESS_IDENTITY_VERSION &&
-      identity.platform === PROCESS_IDENTITY_PLATFORM &&
+      Object.values(PROCESS_IDENTITY_PLATFORMS).includes(identity.platform) &&
       /^[a-f0-9]{12}$/u.test(identity.commandHash) &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(identity.runtimeToken) &&
       /^\d+$/u.test(identity.startTimeTicks)
@@ -325,9 +340,52 @@ export function createConversationProcessIdentity({
       }
       records.push({
         ...processStat,
-        environment,
+        commandHash: environmentReadable ? linuxProcessEnvironmentValue(environment, commandHashEnvironmentName) : "",
         environmentReadable,
-        pid
+        pid,
+        runtimeToken: environmentReadable ? linuxProcessEnvironmentValue(environment, runtimeTokenEnvironmentName) : ""
+      });
+    }
+    return records;
+  }
+
+  const DARWIN_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  /** `ps -o lstart=` in the C locale and UTC, as whole epoch seconds. */
+  function darwinStartTime(value = "") {
+    const match = /^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})$/u.exec(String(value).trim());
+    const month = match ? DARWIN_MONTHS.indexOf(match[1]) : -1;
+    if (month < 0) {
+      return "";
+    }
+    const [, , day, hours, minutes, seconds, year] = match.map(Number);
+    return String(Date.UTC(year, month, day, hours, minutes, seconds) / 1000);
+  }
+
+  // `ps -E` appends the environment after the command; the last assignment wins.
+  function darwinEnvironmentValue(commandLine = "", name = "") {
+    const matches = [...commandLine.matchAll(new RegExp(`(?:^|\\s)${name}=(\\S*)`, "gu"))];
+    return matches.length ? matches.at(-1)[1] : "";
+  }
+
+  /** The darwin counterpart of the /proc scan; only the current user's environments are readable. */
+  async function darwinProcessRecords() {
+    const output = await ps(["-ax", "-ww", "-E", "-o", "pid=,pgid=,uid=,stat=,lstart=,command="]);
+    const currentUid = process.getuid();
+    const records = [];
+    for (const line of String(output).split("\n")) {
+      const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\w{3}\s+\w{3}\s+\d{1,2}\s+[\d:]{8}\s+\d{4})(.*)$/u.exec(line);
+      if (!match || match[4].startsWith("Z")) {
+        continue;
+      }
+      const environmentReadable = Number(match[3]) === currentUid;
+      records.push({
+        commandHash: environmentReadable ? darwinEnvironmentValue(match[6], commandHashEnvironmentName) : "",
+        environmentReadable,
+        pid: Number(match[1]),
+        processGroupId: Number(match[2]),
+        runtimeToken: environmentReadable ? darwinEnvironmentValue(match[6], runtimeTokenEnvironmentName) : "",
+        startTimeTicks: darwinStartTime(match[5])
       });
     }
     return records;
@@ -347,7 +405,7 @@ export function createConversationProcessIdentity({
     };
   }
 
-  async function inspectLinuxProcessIdentity(metadata = {}) {
+  async function inspectHostProcessIdentity(metadata = {}) {
     if (!processMetadataIsIdentifiable(metadata)) {
       return {
         processGroupIds: [],
@@ -360,14 +418,18 @@ export function createConversationProcessIdentity({
         status: PROCESS_IDENTITY_STATUS.ABSENT
       };
     }
-    if (process.platform !== "linux") {
+    const identity = metadata.processIdentity;
+    const records = identity.platform !== hostIdentityPlatform
+      ? null
+      : platform === "darwin"
+        ? await darwinProcessRecords().catch(() => null)
+        : await linuxProcessRecords();
+    if (!records) {
       return {
         processGroupIds: [],
         status: PROCESS_IDENTITY_STATUS.AMBIGUOUS
       };
     }
-    const identity = metadata.processIdentity;
-    const records = await linuxProcessRecords();
     const rootProcessGroupId = Number(metadata.pid);
     const rootGroupMembers = records.filter(({ processGroupId }) => processGroupId === rootProcessGroupId);
     const exactRecords = [];
@@ -376,15 +438,7 @@ export function createConversationProcessIdentity({
       if (!record.environmentReadable) {
         continue;
       }
-      const runtimeToken = linuxProcessEnvironmentValue(
-        record.environment,
-        runtimeTokenEnvironmentName
-      );
-      const commandHash = linuxProcessEnvironmentValue(
-        record.environment,
-        commandHashEnvironmentName
-      );
-      if (runtimeToken === identity.runtimeToken && commandHash === identity.commandHash) {
+      if (record.runtimeToken === identity.runtimeToken && record.commandHash === identity.commandHash) {
         exactRecords.push(record);
       }
     }
@@ -438,7 +492,7 @@ export function createConversationProcessIdentity({
   async function inspectProcessIdentity(metadata = {}, options = {}) {
     const inspector = typeof options.processIdentityInspector === "function"
       ? options.processIdentityInspector
-      : inspectLinuxProcessIdentity;
+      : inspectHostProcessIdentity;
     return normalizeProcessIdentityInspection(await inspector(metadata));
   }
 
@@ -610,6 +664,18 @@ export function createConversationProcessIdentity({
     };
   }
 
+  async function captureProcessStart(pid) {
+    if (platform !== "darwin") {
+      return linuxProcessStat(await readFile(`/proc/${pid}/stat`, "utf8").catch(() => ""));
+    }
+    const output = String(await ps(["-o", "pgid=,lstart=", "-p", String(pid)]).catch(() => "")).trim();
+    const separator = output.search(/\s/u);
+    return separator < 0 ? null : {
+      processGroupId: Number(output.slice(0, separator)),
+      startTimeTicks: darwinStartTime(output.slice(separator))
+    };
+  }
+
   async function captureProcessIdentity({
     commandHash = "",
     pid = null,
@@ -627,26 +693,17 @@ export function createConversationProcessIdentity({
       return reported;
     }
     const normalizedPid = Number(pid);
-    if (
-      process.platform !== "linux" ||
-      !Number.isSafeInteger(normalizedPid) ||
-      normalizedPid <= 0
-    ) {
-      const error = new Error(`${label} process identity could not be captured.`);
-      error.code = unavailableCode;
-      throw error;
-    }
-    const processStat = linuxProcessStat(
-      await readFile(`/proc/${normalizedPid}/stat`, "utf8").catch(() => "")
-    );
-    if (!processStat || processStat.processGroupId !== normalizedPid) {
+    const processStat = hostIdentityPlatform && Number.isSafeInteger(normalizedPid) && normalizedPid > 0
+      ? await captureProcessStart(normalizedPid)
+      : null;
+    if (!processStat?.startTimeTicks || processStat.processGroupId !== normalizedPid) {
       const error = new Error(`${label} process identity could not be captured.`);
       error.code = unavailableCode;
       throw error;
     }
     return {
       commandHash: expectedCommandHash,
-      platform: PROCESS_IDENTITY_PLATFORM,
+      platform: hostIdentityPlatform,
       runtimeToken: expectedRuntimeToken,
       startTimeTicks: processStat.startTimeTicks,
       version: PROCESS_IDENTITY_VERSION
