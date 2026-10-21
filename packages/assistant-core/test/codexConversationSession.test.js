@@ -842,7 +842,7 @@ test("Codex receives authorized image content and retains receipts through uncer
 
 function apiOptions() {
   return { connections: createAiConnectionResolver({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
-    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/big-pickle" } }
+    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/mimo-v2.5-free" } }
   } }, authorize: () => ({ applicationId: "test", subjectId: "owner" }) }), fetch: async () => {
     const chunk = { choices: [{ index: 0, delta: { content: "API answer" }, finish_reason: "stop" }] };
     return new Response(`data: ${JSON.stringify(chunk)}\n\n`, { headers: { "content-type": "text/event-stream" } });
@@ -1998,7 +1998,7 @@ test("a failed write while recording rejected steering can be recovered when the
 test("one logical conversation switches between Codex and API across restart without duplicating the displayed history", async t => {
   const requests = [];
   const connections = createAiConnectionResolver({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
-    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/big-pickle" } }
+    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/mimo-v2.5-free" } }
   } }, authorize: () => ({ applicationId: "test", subjectId: "owner" }) });
   const f = await fixture(t, { connections, fetch: async (_url, init) => {
     requests.push(JSON.parse(init.body));

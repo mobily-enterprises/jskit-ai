@@ -21,7 +21,7 @@ async function fixture(t, options = {}) {
   const storage = options.storage || createMemoryConversationStorage();
   const connections = createAiConnectionResolver({
     configuration: { schemaVersion: 1, registrations: {}, integrations: {
-      assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/big-pickle" } }
+      assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/mimo-v2.5-free" } }
     } },
     authorize: actor => actor === context && state.modelAllowed ? actor : null
   });
@@ -96,10 +96,10 @@ test("saved history and current instructions use the existing authorized model c
 
 test("API configuration uses the common model and effort fields without overriding the authorized selection", async t => {
   const f = await fixture(t);
-  await f.conversation.configure({ model: "big-pickle", effort: "high" });
+  await f.conversation.configure({ model: "mimo-v2.5-free", effort: "high" });
   await f.conversation.send(input);
   assert.equal((await f.conversation.wait()).conversationLog[0].metadata.runtime.status, "complete");
-  assert.equal(f.requests[0].model, "big-pickle");
+  assert.equal(f.requests[0].model, "mimo-v2.5-free");
   assert.equal(f.requests[0].reasoning_effort, "high");
   await assert.rejects(f.conversation.configure({ effort: "arbitrary" }), /does not support/);
   await assert.rejects(f.conversation.configure({ systemPrompt: "a".repeat(128001) }), /configuration requires/);

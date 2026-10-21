@@ -60,7 +60,7 @@ async function fixture(t, { port = 0 } = {}) {
     let output;
     const stream = new ReadableStream({ start(controller) { output = controller; } });
     const push = (delta, finish_reason = null) => output.enqueue(encoder.encode(`data: ${JSON.stringify({
-      id: replyId, object: "chat.completion.chunk", created: 1, model: "big-pickle",
+      id: replyId, object: "chat.completion.chunk", created: 1, model: "mimo-v2.5-free",
       choices: [{ index: 0, delta, finish_reason }]
     })}\n\n`));
     const aborted = () => {
@@ -76,7 +76,7 @@ async function fixture(t, { port = 0 } = {}) {
   });
   await writeFile(integrationsPath, JSON.stringify({ schemaVersion: 1, registrations: {}, integrations: {
     assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" },
-      settings: { model: "opencode/big-pickle" } }
+      settings: { model: "opencode/mimo-v2.5-free" } }
   } }));
   application = await createExampleServer({ env: {
     APP_ORIGIN: origin, ASSISTANT_ENGINE: "api", ASSISTANT_STORAGE_DIRECTORY: storageDirectory,
@@ -158,7 +158,7 @@ test("voice example streams five chats, stops one independently and reconnects w
   const inference = new Map(ids.map(id => [id, f.requests.find(request => request.body.messages.at(-1).content === inputs.get(id).text)]));
   for (const [id, request] of inference) {
     assert.ok(request, `The actual ${id} send reached the configured inference endpoint`);
-    assert.equal(request.body.model, "big-pickle");
+    assert.equal(request.body.model, "mimo-v2.5-free");
     request.text(`Partial ${id}.`);
   }
   await f.until(() => [...views].every(([id, view]) => view.state.status === "working" &&

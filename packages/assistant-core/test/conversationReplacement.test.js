@@ -9,7 +9,7 @@ import { createAiConnectionResolver } from "../../connectors-catalog/src/server/
 const configuration = { systemPrompt: "Answer the current question.", integrationId: "assistant" };
 const connections = createAiConnectionResolver({
   configuration: { schemaVersion: 1, registrations: {}, integrations: {
-    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/big-pickle" } }
+    assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model: "opencode/mimo-v2.5-free" } }
   } }, authorize: () => ({ applicationId: "test", subjectId: "owner" })
 });
 

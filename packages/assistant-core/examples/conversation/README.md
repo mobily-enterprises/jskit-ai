@@ -29,8 +29,11 @@ The example uses JSKIT's existing `ai` integration configuration and authorized
 connection resolver. To call the explicitly selected model in `integrations.json`:
 
 ```sh
-ASSISTANT_INTEGRATIONS=./integrations.json npm run server
+APP_AI_API_KEY=... ASSISTANT_INTEGRATIONS=./integrations.json npm run server
 ```
+
+The sample selects Z.AI's GLM-4.7-Flash, which needs a regular Z.AI API key in
+`APP_AI_API_KEY`. Choose your own provider, model and key; none is preselected.
 
 Edit that portable configuration through JSKIT's integration editor or its JSON
 contract. Shared keys use `env:NAME` references; the key stays in the server's

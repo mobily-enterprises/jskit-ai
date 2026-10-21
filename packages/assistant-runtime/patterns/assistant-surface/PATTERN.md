@@ -52,8 +52,9 @@ and `assistantServer` in server config.
 semantic placements, an AI integration and its server resolver for an `admin` surface.
 Install `@jskit-ai/connectors-catalog` and `@jskit-ai/connectors-core` and register
 `ApplicationAiFeature` in the ordinary server feature list. Set its application ID
-and AI-use policy. The example explicitly selects the catalogue's no-key model;
-provider availability is independent of configuration. Adapt the complete files to the
+and AI-use policy. The example selects Z.AI's GLM-4.7-Flash with a regular Z.AI key
+in `APP_AI_API_KEY`; choose the application's own provider, model and key.
+Provider availability is independent of configuration. Adapt the complete files to the
 application's existing config and placement registries.
 
 ## Variation points

@@ -924,7 +924,6 @@ Exports
 - `aiCatalogue`
 - `aiAccessLabels`
 - `aiDefinition`
-- `DEFAULT_AI_MODEL`
 - `getAiModel(key)`
 - `listAiModels({ providerId, access, includeDeprecated = false, configurableOnly = false } = {})`
 

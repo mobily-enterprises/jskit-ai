@@ -22,10 +22,15 @@ model and `env:NAME` reference and use its own environment/configuration and AI
 client. Framework-independent facts in this guide are usable by its coding AI;
 PHP code and a parallel PHP package are not part of JSKIT.
 
-## Default and catalogue
+## Model selection and catalogue
 
-Import `aiCatalogue`, `listAiModels`, `getAiModel`, `aiAccessLabels` and
-`DEFAULT_AI_MODEL` from `@jskit-ai/connectors-catalog/shared/ai`.
+Import `aiCatalogue`, `listAiModels`, `getAiModel` and `aiAccessLabels` from
+`@jskit-ai/connectors-catalog/shared/ai`.
+
+There is no default model. The connector's first authentication method is a
+provider API key, and an integration without a model is invalid. Free
+access without an account or key is used only for a model explicitly chosen
+from the `free-no-setup` list.
 
 The one-time 10 September 2026 extraction contains 213 provider records and
 7,614 model records from models.dev, the catalogue used by OpenCode. There is
@@ -49,9 +54,8 @@ the provider has peak and off-peak rates. See the
 [model details](https://api-docs.deepseek.com/quick_start/pricing/), including
 [exact model metadata](https://api-docs.deepseek.com/api/list-models/).
 
-`listAiModels()` hides deprecated entries and sorts free choices first, with
-`opencode/big-pickle` first. `includeDeprecated: true` exposes retained upstream
-history; `providerId`, `access` and `configurableOnly` filter the list.
+`listAiModels()` hides deprecated entries and sorts free choices first.
+`includeDeprecated: true` exposes retained upstream history; `providerId`, `access` and `configurableOnly` filter the list.
 Models retain limits, modality and cost metadata as dated information, not a
 promise of current availability or a billing calculator. An explicit unknown
 or deprecated model fails validation; it is never replaced automatically.
@@ -63,9 +67,9 @@ or deprecated model fails validation; it is never replaced automatically.
 | `paid` | Declared positive input or output charges |
 | `unknown` | Insufficient pricing information; check the provider |
 
-The snapshot's seven active public choices are Big Pickle, MiMo-V2.5 Free,
-Ling3.0 FlashFin Free, Nemotron 3 Ultra Free, Nemotron 3.5 Lightning Free,
-Muse Spark 1.2 Contributor Free and Muse Spark 1.3 Contributor Free.
+The snapshot's active public choices include MiMo-V2.5 Free, Ling3.0 FlashFin
+Free, Nemotron 3 Ultra Free, Nemotron 3.5 Lightning Free, Muse Spark 1.2
+Contributor Free and Muse Spark 1.3 Contributor Free.
 This is a source-derived eligibility list, **not live inference verification**.
 Provider capacity, free offers and data-use terms can change. A failure stays
 with the selected provider/model; the application decides how to explain it.
@@ -73,7 +77,7 @@ with the selected provider/model; the application decides how to explain it.
 Zen's no-account protocol uses the fixed string `public` in its API-key
 position. The resolver supplies it. Nobody needs to enter it, create an account
 or create an environment variable for this mode. The Muse models use the
-OpenAI Responses SDK route, whereas Big Pickle uses OpenAI-compatible chat;
+OpenAI Responses SDK route, whereas MiMo uses OpenAI-compatible chat;
 the model's `sdkPackage` preserves that distinction.
 
 The initial configuration form and resolver support regular direct API-key
@@ -86,7 +90,7 @@ claim that a URL and API key can configure them.
 
 ## Portable configuration and Env
 
-This is enough to select the no-setup default:
+An administrator-funded Z.AI model:
 
 ```json
 {
@@ -97,15 +101,14 @@ This is enough to select the no-setup default:
       "provider": "ai",
       "accountMode": "shared",
       "scopes": [],
-      "authentication": { "method": "none" },
-      "settings": { "model": "opencode/big-pickle" }
+      "authentication": { "method": "api-key", "secretRef": "env:APP_AI_API_KEY" },
+      "settings": { "model": "zai/glm-4.7-flash" }
     }
   }
 }
 ```
 
-For an administrator-funded model, select `authentication.method: "api-key"`
-and `authentication.secretRef: "env:APP_AI_API_KEY"`. Store the **value** in the
+Store the key's **value** in the
 existing Env screen or the application's normal private environment. The host's
 existing launch/deployment environment mechanism supplies it to the backend;
 this integration adds no token delivery service. Do not use `VITE_` or another
@@ -159,9 +162,10 @@ There are no `vibe64-online`/`vibe64-public` OAuth registrations or universal
 callbacks for this AI integration. Regular keys belong to the app administrator
 or individual app user and are billed directly by that provider.
 
-For the no-setup default: choose AI, keep Big Pickle selected and save. No
-provider-side action is needed. For API-key routes, follow the provider's current
-dashboard documentation linked in `aiCatalogue.providers[].documentationUrl`:
+Choose AI, then choose a provider and model; nothing is preselected. For an
+explicitly chosen model labelled no account or key, no provider-side action is
+needed. For API-key routes, follow the provider's current dashboard
+documentation linked in `aiCatalogue.providers[].documentationUrl`:
 
 1. The account owner signs in to the provider and selects the organization or
    project that should own usage. This is a human account/terms/billing step.
@@ -190,7 +194,7 @@ authorization merely by editing this JSON.
 
 ## Evidence and limits
 
-Focused tests cover snapshot integrity, free/default classification, strict
+Focused tests cover snapshot integrity, free classification, no default model, strict
 selection, authorized environment and individual-key resolution, rotation,
 disconnect, redacted failures and SDK parameter handoff. Browser fixtures cover
 the editor's default, searchable model change, credential ownership, persistence
@@ -199,7 +203,7 @@ account creation or generated-application execution.
 
 ## Existing-scope closeout — 13 September 2026
 
-A static, attributed September 10 provider/model catalogue, searchable free/paid model configuration and a backend-only authorized credential/SDK-parameter resolver. The default is the snapshot's Zen Big Pickle no-account route; administrator keys resolve through Env, and individual keys through an app-supplied user/provider-scoped reference resolver.
+A static, attributed September 10 provider/model catalogue, searchable free/paid model configuration and a backend-only authorized credential/SDK-parameter resolver. No model is preselected and the first authentication method is a provider API key. Administrator keys resolve through Env, and individual keys through an app-supplied user/provider-scoped reference resolver.
 
 No inference engine, streaming, tools, conversation storage, provider OAuth/login screens, account/key provisioning, live credential verification, usage metering, billing, token resale or Vibe64 AI gateway. No automatic SDK installation, catalogue updates, model replacement or paid fallback. Only the 13 explicitly supported direct-key routes are configurable; other catalogue entries are framework metadata, not implemented cloud/coding-subscription authentication. Model availability, pricing/free classification and endpoint operation are dated source information, not live proof; even no-setup choices can be unavailable or capacity-limited. Detailed provider-specific personal-key entry, verification, encrypted storage, rotation/disconnect and authorization remain application work; the resolver only consumes those bindings. The app/framework owns SDK installation, protocol selection, requests, errors and UI. Generic key-creation guidance and linked provider documentation are supplied; bespoke audited login/key-creation screens for every catalogue provider are not. To extend: deliberately refresh the static snapshot, improve selected provider-specific instructions, and wire any desired app-native key-entry/inference features. This intentionally differs from Lovable managed AI; coding-agent credentials and runtimes remain separate from direct-provider API authentication.
 

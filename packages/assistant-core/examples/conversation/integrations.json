@@ -7,10 +7,11 @@
       "accountMode": "shared",
       "scopes": [],
       "settings": {
-        "model": "opencode/big-pickle"
+        "model": "zai/glm-4.7-flash"
       },
       "authentication": {
-        "method": "none"
+        "method": "api-key",
+        "secretRef": "env:APP_AI_API_KEY"
       }
     },
     "suggestions": {
@@ -18,10 +19,11 @@
       "accountMode": "shared",
       "scopes": [],
       "settings": {
-        "model": "opencode/big-pickle"
+        "model": "zai/glm-4.7-flash"
       },
       "authentication": {
-        "method": "none"
+        "method": "api-key",
+        "secretRef": "env:APP_AI_API_KEY"
       }
     }
   }

@@ -59,7 +59,7 @@ Add Supabase authentication through normal npm composition, explicit environment
 Resolve an administrator environment key or an individual user's grant, then use the application's chosen AI SDK directly.
 
 - Id: `connectors/ai-connections`
-- Keywords: `ai`, `api-key`, `big-pickle`, `cli`, `environment`, `free`, `models`, `ownership`, `zai`, `zen`
+- Keywords: `ai`, `api-key`, `cli`, `environment`, `free`, `models`, `ownership`, `zai`, `zen`
 - Owner: `@jskit-ai/connectors-catalog@0.1.61`
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
 

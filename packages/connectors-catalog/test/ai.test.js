@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { aiCatalogue, aiDefinition, DEFAULT_AI_MODEL, getAiModel, listAiModels } from "../src/shared/ai.js";
+import { aiCatalogue, aiDefinition, getAiModel, listAiModels } from "../src/shared/ai.js";
 import { createAiConnectionResolver } from "../src/server/ai.js";
 import { createEnvironmentReferenceResolver } from "../../connectors-core/src/server/environmentReferences.js";
 import { parseIntegrationConfiguration, validateIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
@@ -49,8 +49,8 @@ test("DeepSeek retains provider-supported saved aliases and exact current model 
   assert.deepEqual(pro.modalities.input, ["text"]);
 });
 
-test("AI lists every active Zen public model first and uses Big Pickle as the explicit default", () => {
-  assert.equal(listAiModels()[0].key, DEFAULT_AI_MODEL);
+test("AI lists every active Zen public model first", () => {
+  assert.equal(listAiModels()[0].access, "free-no-setup");
   assert.deepEqual(listAiModels({ access: "free-no-setup" }).map((model) => model.id).sort(), [
     "big-pickle", "ling-3.0-flash-fin-free", "mimo-v2.5-free", "muse-spark-1.2-contributor-free",
     "muse-spark-1.3-contributor-free", "nemotron-3-ultra-free", "nemotron-3.5-lightning-free"
@@ -63,11 +63,17 @@ test("AI lists every active Zen public model first and uses Big Pickle as the ex
   }
 });
 
-test("AI JSON defaults agree with the form and preserve explicit free model choices", () => {
-  const config = validate(configuration());
-  assert.deepEqual(config.integrations.suggestions.settings, { model: "opencode/big-pickle" });
-  assert.deepEqual(config.integrations.suggestions.authentication, { method: "none" });
-  config.integrations.suggestions.settings.model = "opencode/mimo-v2.5-free";
+test("AI has no default model or keyless default and preserves explicit free model choices", () => {
+  assert.equal(aiDefinition.authenticationMethods[0], "api-key");
+  assert.deepEqual(aiDefinition.authenticationMethodsForSettings({}), ["api-key"]);
+  assert.throws(() => validate(configuration()), (error) => {
+    assert.ok(error.fieldErrors["integrations.suggestions.settings.model"]);
+    assert.ok(error.fieldErrors["integrations.suggestions.authentication.method"]); return true;
+  });
+  assert.throws(() => validate(configuration({ authentication: { method: "api-key", secretRef: "env:KEY" } })), (error) => {
+    assert.deepEqual(Object.keys(error.fieldErrors), ["integrations.suggestions.settings.model"]); return true;
+  });
+  const config = validate(configuration({ settings: { model: "opencode/mimo-v2.5-free" } }));
   assert.deepEqual(parseIntegrationConfiguration(JSON.stringify(config), { providers: [aiDefinition] }), config);
   assert.equal(JSON.stringify(config).includes("public"), false);
 });
@@ -87,12 +93,12 @@ test("AI refuses missing models, deprecated models, coding subscriptions and uns
   }
 });
 
-test("AI resolves no-account SDK parameters without environment, network or an OpenCode runtime", async (t) => {
+test("AI resolves explicit no-account SDK parameters without environment, network or an OpenCode runtime", async (t) => {
   t.mock.method(globalThis, "fetch", () => { throw new Error("Network is forbidden in this resolver."); });
-  const resolver = createAiConnectionResolver({ configuration: configuration(), authorize,
+  const resolver = createAiConnectionResolver({ configuration: configuration({ settings: { model: "opencode/mimo-v2.5-free" } }), authorize,
     resolveReference: () => { throw new Error("Free mode must not resolve credentials."); } });
-  assert.deepEqual(await resolver.resolve(request), { providerId: "opencode", model: "big-pickle",
-    modelLimits: getAiModel(DEFAULT_AI_MODEL).limit,
+  assert.deepEqual(await resolver.resolve(request), { providerId: "opencode", model: "mimo-v2.5-free",
+    modelLimits: getAiModel("opencode/mimo-v2.5-free").limit,
     sdkPackage: "@ai-sdk/openai-compatible", baseURL: "https://opencode.ai/zen/v1", apiKey: "public", access: "free-no-setup" });
   assert.equal(globalThis.fetch.mock.callCount(), 0);
   assert.equal(Object.hasOwn(resolver, "invoke"), false);
@@ -153,10 +159,11 @@ test("AI denies unauthorized subjects before looking up credentials and redacts 
 });
 
 test("AI can hand parameters to an app-owned SDK without making that SDK a dependency", async () => {
-  const result = await createAiConnectionResolver({ configuration: configuration(), authorize }).resolve(request);
+  const result = await createAiConnectionResolver({ configuration: configuration({ settings: { model: "zai/glm-4.7-flash" },
+    authentication: { method: "api-key", secretRef: "env:KEY" } }), authorize, resolveReference: () => "test-key" }).resolve(request);
   // A controlled SDK factory fixture; no generated application or inference call.
   const createProvider = (options) => ({ model: (id) => ({ endpoint: options.baseURL, id }) });
-  assert.deepEqual(createProvider(result).model(result.model), { endpoint: "https://opencode.ai/zen/v1", id: "big-pickle" });
+  assert.deepEqual(createProvider(result).model(result.model), { endpoint: "https://api.z.ai/api/paas/v4", id: "glm-4.7-flash" });
   const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(Object.keys(pkg.dependencies).some((name) => name.startsWith("@ai-sdk/") || name.includes("opencode")), false);
 });

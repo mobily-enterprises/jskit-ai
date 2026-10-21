@@ -23,10 +23,11 @@ test("assistant surface pattern keeps product config explicit and secrets extern
   const { ApplicationAiFeature } = await import(new URL("src/ApplicationAiFeature.js", exampleRoot));
   const { ai } = await ApplicationAiFeature.setup({ env: {} });
   await assert.rejects(ai.resolve({ context: {}, integrationId: "assistant" }));
-  const client = await createAssistantAiClientFactory({ appConfig: serverConfig, env: {}, aiConnections: ai })
+  const keyed = (await ApplicationAiFeature.setup({ env: { APP_AI_API_KEY: "fixture-key" } })).ai;
+  const client = await createAssistantAiClientFactory({ appConfig: serverConfig, env: {}, aiConnections: keyed })
     .resolveClient("admin", { context: { actor: { id: "fixture-user" } } });
   assert.equal(client.enabled, true);
-  assert.equal(client.defaultModel, "big-pickle");
+  assert.equal(client.defaultModel, "glm-4.7-flash");
   assert.doesNotMatch(JSON.stringify({ publicConfig, serverConfig }), /api[_-]?key|secret/iu);
   assert.doesNotMatch(placementSource, /generator|scaffold|receipt|provenance/u);
 

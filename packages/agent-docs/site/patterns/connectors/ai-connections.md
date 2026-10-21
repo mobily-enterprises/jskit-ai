@@ -11,8 +11,9 @@ description: "Resolve an administrator environment key or an individual user's g
 
 Use the [AI guide](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/docs/ai.md) to choose the model, account owner and
 framework SDK before wiring requests. The shared catalogue is a deliberate
-static extraction, not an OpenCode runtime integration. The default Big Pickle
-route needs no account, user key or environment setup.
+static extraction, not an OpenCode runtime integration. There is no default
+model: choose the provider, model and key. Only an explicitly chosen model
+labelled no account or key needs no account or environment setup.
 
 ## Framework APIs
 

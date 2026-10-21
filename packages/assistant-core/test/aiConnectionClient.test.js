@@ -4,7 +4,7 @@ import { createAiConnectionResolver } from "../../connectors-catalog/src/server/
 import { createAiConnectionClient } from "../src/server/lib/aiConnectionClient.js";
 import { createAiClient } from "../src/server/lib/aiClient.js";
 
-function publicConnection(model = "opencode/big-pickle") {
+function publicConnection(model = "opencode/mimo-v2.5-free") {
   return createAiConnectionResolver({
     configuration: { schemaVersion: 1, registrations: {}, integrations: {
       assistant: { provider: "ai", accountMode: "shared", scopes: [], authentication: { method: "none" }, settings: { model } }
@@ -28,7 +28,7 @@ test("the configured public AI integration streams its first chunk before comple
       assert.equal(String(url), "https://opencode.ai/zen/v1/chat/completions");
       assert.equal(new Headers(options.headers).get("authorization"), "Bearer public");
       const body = JSON.parse(options.body);
-      assert.equal(body.model, "big-pickle");
+      assert.equal(body.model, "mimo-v2.5-free");
       assert.equal(body.stream, true);
       return new Response(source.readable, { headers: { "content-type": "text/event-stream" } });
     }
