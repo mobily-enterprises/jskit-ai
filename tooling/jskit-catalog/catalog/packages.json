@@ -5,11 +5,11 @@
   },
   "release": {
     "packages": {
-      "@jskit-ai/agent-docs": "0.1.235",
-      "@jskit-ai/assistant-core": "0.1.236",
-      "@jskit-ai/assistant-runtime": "0.1.230",
-      "@jskit-ai/assistant-voice": "0.1.37",
-      "@jskit-ai/assistant-voice-sherpa": "0.1.37",
+      "@jskit-ai/agent-docs": "0.1.236",
+      "@jskit-ai/assistant-core": "0.1.237",
+      "@jskit-ai/assistant-runtime": "0.1.231",
+      "@jskit-ai/assistant-voice": "0.1.38",
+      "@jskit-ai/assistant-voice-sherpa": "0.1.38",
       "@jskit-ai/auth-core": "0.1.242",
       "@jskit-ai/auth-provider-local-core": "0.1.145",
       "@jskit-ai/auth-provider-local-db-core": "0.1.136",
@@ -17,7 +17,7 @@
       "@jskit-ai/auth-web": "0.1.245",
       "@jskit-ai/config-eslint": "0.1.241",
       "@jskit-ai/connector-google-calendar": "0.1.61",
-      "@jskit-ai/connectors-catalog": "0.1.61",
+      "@jskit-ai/connectors-catalog": "0.1.62",
       "@jskit-ai/connectors-core": "0.1.61",
       "@jskit-ai/connectors-web": "0.1.61",
       "@jskit-ai/console-core": "0.1.207",
@@ -28,7 +28,7 @@
       "@jskit-ai/database-runtime-postgres": "0.1.241",
       "@jskit-ai/http-runtime": "0.1.242",
       "@jskit-ai/http-web": "0.1.90",
-      "@jskit-ai/jskit-catalog": "0.1.288",
+      "@jskit-ai/jskit-catalog": "0.1.289",
       "@jskit-ai/json-rest-api-core": "0.1.188",
       "@jskit-ai/kernel": "0.1.244",
       "@jskit-ai/mobile-capacitor": "0.1.180",
@@ -67,7 +67,7 @@
   "packages": [
     {
       "packageId": "@jskit-ai/assistant-core",
-      "version": "0.1.236",
+      "version": "0.1.237",
       "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
       "jskit": {
         "kind": "runtime",
@@ -240,7 +240,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-runtime",
-      "version": "0.1.230",
+      "version": "0.1.231",
       "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
       "jskit": {
         "kind": "runtime",
@@ -329,7 +329,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.1.236",
+          "@jskit-ai/assistant-core": "0.1.237",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
@@ -347,7 +347,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-voice",
-      "version": "0.1.37",
+      "version": "0.1.38",
       "description": "Duplex voice conversations with application-owned targets, authorization and speech services.",
       "jskit": {
         "kind": "runtime",
@@ -389,7 +389,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-core": "0.1.236",
+          "@jskit-ai/assistant-core": "0.1.237",
           "@mdi/js": "^7.4.47",
           "ws": "^8.20.1"
         },
@@ -401,7 +401,7 @@
     },
     {
       "packageId": "@jskit-ai/assistant-voice-sherpa",
-      "version": "0.1.37",
+      "version": "0.1.38",
       "description": "Optional native Sherpa speech engine and explicit model preparation for assistant voice.",
       "jskit": {
         "kind": "runtime",
@@ -439,7 +439,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/assistant-voice": "0.1.37",
+          "@jskit-ai/assistant-voice": "0.1.38",
           "sherpa-onnx-node": "1.13.6"
         }
       }
@@ -1027,7 +1027,7 @@
     },
     {
       "packageId": "@jskit-ai/connectors-catalog",
-      "version": "0.1.61",
+      "version": "0.1.62",
       "description": "Provider definitions and focused API operations for JSKIT connectors.",
       "jskit": {
         "kind": "runtime",
@@ -3618,7 +3618,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/assistant-runtime",
-      "packageVersion": "0.1.230",
+      "packageVersion": "0.1.231",
       "documentPath": "patterns/assistant-surface/PATTERN.md",
       "examplePath": "patterns/assistant-surface/example",
       "files": [
@@ -3712,7 +3712,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/ai-connections/PATTERN.md",
       "examplePath": "patterns/ai-connections/example",
       "files": [
@@ -3747,7 +3747,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/api-key-connection/PATTERN.md",
       "examplePath": "patterns/api-key-connection/example",
       "files": [
@@ -3774,7 +3774,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/assistant-mcp/PATTERN.md",
       "examplePath": "patterns/assistant-mcp/example",
       "files": [
@@ -3807,7 +3807,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/assistant-mcp-oauth/PATTERN.md",
       "examplePath": "patterns/assistant-mcp-oauth/example",
       "files": [
@@ -3835,7 +3835,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/aws-storage-queries/PATTERN.md",
       "examplePath": "patterns/aws-storage-queries/example",
       "files": [
@@ -3896,7 +3896,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/event-delivery/PATTERN.md",
       "examplePath": "patterns/event-delivery/example",
       "files": [
@@ -3925,7 +3925,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/firebase-messaging/PATTERN.md",
       "examplePath": "patterns/firebase-messaging/example",
       "files": [
@@ -3950,7 +3950,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/google-ads-search/PATTERN.md",
       "examplePath": "patterns/google-ads-search/example",
       "files": [
@@ -4001,7 +4001,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/oauth-connection/PATTERN.md",
       "examplePath": "patterns/oauth-connection/example",
       "files": [
@@ -4024,7 +4024,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/paddle-catalogue/PATTERN.md",
       "examplePath": "patterns/paddle-catalogue/example",
       "files": [
@@ -4049,7 +4049,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/public-image/PATTERN.md",
       "examplePath": "patterns/public-image/example",
       "files": [
@@ -4078,7 +4078,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/redshift-queries/PATTERN.md",
       "examplePath": "patterns/redshift-queries/example",
       "files": [
@@ -4105,7 +4105,7 @@
         "@jskit-ai/connectors-core"
       ],
       "packageId": "@jskit-ai/connectors-catalog",
-      "packageVersion": "0.1.61",
+      "packageVersion": "0.1.62",
       "documentPath": "patterns/source-scanning/PATTERN.md",
       "examplePath": "patterns/source-scanning/example",
       "files": [

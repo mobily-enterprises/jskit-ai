@@ -861,7 +861,9 @@ Exports
 ### `src/server/conversation/localExecution.js`
 Exports
 - `createLocalConversationExecution()`
-- `createConversationProcessIdentity({ runtimeTokenEnvironmentName = "JSKIT_EXECUTION_RUNTIME_TOKEN", commandHashEnvironmentName = "JSKIT_EXECUTION_COMMAND_HASH", label = "Native", unavailableCode = "native_process_identity_unavailable" } = {})`
+- `createConversationProcessIdentity({ runtimeTokenEnvironmentName = "JSKIT_EXECUTION_RUNTIME_TOKEN", commandHashEnvironmentName = "JSKIT_EXECUTION_COMMAND_HASH", label = "Native", unavailableCode = "native_process_identity_unavailable", platform = process.platform, ps = runPs } = {})`
+Local functions
+- `runPs(args)`
 
 ### `src/server/conversation/memoryStorage.js`
 Exports

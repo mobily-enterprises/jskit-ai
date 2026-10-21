@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.235`
+- Owner: `@jskit-ai/agent-docs@0.1.236`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.235`
+- Owner: `@jskit-ai/agent-docs@0.1.236`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -37,7 +37,7 @@ Configure an assistant runtime for one application surface and expose its chat a
 
 - Id: `assistant/assistant-surface`
 - Keywords: `ai`, `assistant`, `chat`, `config`, `environment`, `page`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/assistant-runtime@0.1.230`
+- Owner: `@jskit-ai/assistant-runtime@0.1.231`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/assistant/assistant-surface/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/assistant/assistant-surface/example/)
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`, `@jskit-ai/shell-web`
@@ -70,7 +70,7 @@ Resolve an administrator environment key or an individual user's grant, then use
 
 - Id: `connectors/ai-connections`
 - Keywords: `ai`, `api-key`, `cli`, `environment`, `free`, `models`, `ownership`, `zai`, `zen`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/ai-connections/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/ai-connections/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -81,7 +81,7 @@ Compose provider operations, authorization and encrypted file storage from a CLI
 
 - Id: `connectors/api-key-connection`
 - Keywords: `api-key`, `clay`, `cli`, `clickhouse`, `connectors`, `dbt`, `files`, `firecrawl`, `granola`, `integrations`, `metrics`, `prestashop`, `resend`, `semantic-layer`, `semrush`, `x-twitter`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/api-key-connection/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/api-key-connection/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -92,7 +92,7 @@ Compose token-based MCP discovery and explicitly authorized tool calls using the
 
 - Id: `connectors/assistant-mcp`
 - Keywords: `assistant`, `cli`, `connectors`, `files`, `integrations`, `mcp`, `n8n`, `sanity`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/assistant-mcp/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/assistant-mcp/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -103,7 +103,7 @@ Configure assistant OAuth clients, then compose existing state, encrypted file g
 
 - Id: `connectors/assistant-mcp-oauth`
 - Keywords: `amplitude`, `assistant`, `atlassian`, `canva`, `cli`, `client metadata`, `confidence`, `connectors`, `figma`, `files`, `granola`, `hex`, `mcp`, `miro`, `oauth`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/assistant-mcp-oauth/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/assistant-mcp-oauth/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -114,7 +114,7 @@ Compose signed AWS operations, file configuration and application authorization 
 
 - Id: `connectors/aws-storage-queries`
 - Keywords: `athena`, `aws`, `cli`, `connectors`, `files`, `iam`, `queries`, `s3`, `storage`, `sts`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/aws-storage-queries/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/aws-storage-queries/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -136,7 +136,7 @@ Compose the shared connector runtime for event delivery while leaving workflow c
 
 - Id: `connectors/event-delivery`
 - Keywords: `cli`, `connectors`, `events`, `files`, `inngest`, `integrations`, `workflows`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/event-delivery/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/event-delivery/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -147,7 +147,7 @@ Wire service-account grants, file storage, explicit message actions and public b
 
 - Id: `connectors/firebase-messaging`
 - Keywords: `cli`, `connectors`, `fcm`, `files`, `firebase`, `integrations`, `jwt`, `notifications`, `push`, `service-account`, `vapid`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/firebase-messaging/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/firebase-messaging/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -158,7 +158,7 @@ Compose reviewed Search campaigns with project-owned Google OAuth and portable s
 
 - Id: `connectors/google-ads-search`
 - Keywords: `ads`, `campaigns`, `cli`, `connectors`, `conversion`, `google`, `search`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/google-ads-search/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/google-ads-search/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -169,7 +169,7 @@ Compose provider consent, verification and encrypted file persistence from an ap
 
 - Id: `connectors/oauth-connection`
 - Keywords: `accounting`, `assistant permissions`, `books`, `cli`, `client credentials`, `connectors`, `consent`, `crm`, `databricks`, `developer token`, `fabric`, `files`, `gaql`, `google ads`, `graphql`, `integrations`, `linkedin`, `microsoft`, `oauth`, `powerpoint`, `salesforce`, `service principal`, `shopify`, `soql`, `staffing`, `tiktok`, `twitch`, `wave`, `word`, `wordpress`, `workday`, `xero`, `zoho`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/oauth-connection/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/oauth-connection/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -180,7 +180,7 @@ Compose a sequential catalogue batch and preserve partial success for applicatio
 
 - Id: `connectors/paddle-catalogue`
 - Keywords: `batch`, `paddle`, `payments`, `prices`, `products`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/paddle-catalogue/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/paddle-catalogue/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -191,7 +191,7 @@ Resolve a publishable image key deliberately and use the shared URL library in a
 
 - Id: `connectors/public-image`
 - Keywords: `cli`, `connectors`, `files`, `images`, `integrations`, `logo-dev`, `public-key`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/public-image/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/public-image/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -202,7 +202,7 @@ Compose file configuration, Redshift Data API operations and application query o
 
 - Id: `connectors/redshift-queries`
 - Keywords: `aws`, `cli`, `connectors`, `files`, `iam`, `provisioned`, `redshift`, `serverless`, `sql`, `warehouse`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/redshift-queries/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/redshift-queries/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -213,7 +213,7 @@ Use the shared scanner runtime from a CLI or a host worker with portable configu
 
 - Id: `connectors/source-scanning`
 - Keywords: `cancellation`, `cli`, `connectors`, `integrations`, `scanning`, `security`, `source`, `wiz`, `worker`
-- Owner: `@jskit-ai/connectors-catalog@0.1.61`
+- Owner: `@jskit-ai/connectors-catalog@0.1.62`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/connectors/source-scanning/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/connectors/source-scanning/example/)
 - Requires: `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`
@@ -323,7 +323,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.235`
+- Owner: `@jskit-ai/agent-docs@0.1.236`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
