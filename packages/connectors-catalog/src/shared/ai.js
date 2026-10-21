@@ -11,9 +11,12 @@ const aiAccessLabels = Object.freeze({
 // exchange. Other upstream entries remain available as framework metadata.
 const directProviders = new Set(["opencode", "zai", "openai", "anthropic", "deepseek", "google", "openrouter",
   "groq", "mistral", "xai", "cerebras", "togetherai", "perplexity"]);
+// Excluded by product decision; the upstream snapshot stays unedited.
+const excludedModels = new Set(["opencode/big-pickle"]);
 const aiCatalogue = Object.freeze({ ...snapshot, providers: Object.freeze(snapshot.providers.map((provider) => Object.freeze({
   ...provider, connection: directProviders.has(provider.id) ? "api-key" : "framework",
-  models: Object.freeze(provider.models.map((model) => Object.freeze({ ...model, key: `${provider.id}/${model.id}`, providerId: provider.id })))
+  models: Object.freeze(provider.models.filter((model) => !excludedModels.has(`${provider.id}/${model.id}`))
+    .map((model) => Object.freeze({ ...model, key: `${provider.id}/${model.id}`, providerId: provider.id })))
 }))) });
 const models = new Map(aiCatalogue.providers.flatMap((provider) => provider.models.map((model) => [model.key, model])));
 

@@ -17,9 +17,10 @@ const validate = (config) => validateIntegrationConfiguration(config, { provider
 test("AI retains the attributed snapshot with reviewed current identities and explicit deprecations", () => {
   assert.equal(aiCatalogue.extractedAt, "2026-09-10");
   assert.equal(aiCatalogue.providers.length, 213);
-  assert.equal(listAiModels({ includeDeprecated: true }).length, 7615);
+  assert.equal(listAiModels({ includeDeprecated: true }).length, 7614);
   assert.match(aiCatalogue.sourceSha256, /^[a-f0-9]{64}$/u);
   assert.equal(getAiModel("opencode/grok-code").status, "deprecated");
+  assert.equal(getAiModel("opencode/big-pickle"), undefined);
   assert.equal(listAiModels().some((model) => model.key === "opencode/grok-code"), false);
   assert.equal(aiCatalogue.providers.find((provider) => provider.id === "amazon-bedrock").connection, "framework");
 });
@@ -52,7 +53,7 @@ test("DeepSeek retains provider-supported saved aliases and exact current model 
 test("AI lists every active Zen public model first", () => {
   assert.equal(listAiModels()[0].access, "free-no-setup");
   assert.deepEqual(listAiModels({ access: "free-no-setup" }).map((model) => model.id).sort(), [
-    "big-pickle", "ling-3.0-flash-fin-free", "mimo-v2.5-free", "muse-spark-1.2-contributor-free",
+    "ling-3.0-flash-fin-free", "mimo-v2.5-free", "muse-spark-1.2-contributor-free",
     "muse-spark-1.3-contributor-free", "nemotron-3-ultra-free", "nemotron-3.5-lightning-free"
   ].sort());
   assert.equal(getAiModel("zai/glm-4.7-flash").access, "free-with-connection");
@@ -79,7 +80,7 @@ test("AI has no default model or keyless default and preserves explicit free mod
 });
 
 test("AI refuses missing models, deprecated models, coding subscriptions and unsupported cloud setup", () => {
-  for (const model of ["opencode/removed", "opencode/grok-code", "zai-coding-plan/glm-4.7", "amazon-bedrock/anthropic.claude-v2", "constructor"]) {
+  for (const model of ["opencode/removed", "opencode/grok-code", "opencode/big-pickle", "zai-coding-plan/glm-4.7", "amazon-bedrock/anthropic.claude-v2", "constructor"]) {
     assert.throws(() => validate(configuration({ settings: { model } })), { code: "integration_configuration_invalid" });
   }
   for (const model of ["zai/glm-4.7-flash", "zai/glm-4.7", "openai/gpt-5.4"]) {
