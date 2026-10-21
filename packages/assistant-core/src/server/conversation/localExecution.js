@@ -304,14 +304,10 @@ export function createConversationProcessIdentity({
     );
   }
 
-  function linuxProcessEnvironmentValue(buffer = Buffer.alloc(0), name = "") {
-    const prefix = `${name}=`;
-    for (const entry of buffer.toString("utf8").split("\0")) {
-      if (entry.startsWith(prefix)) {
-        return entry.slice(prefix.length);
-      }
-    }
-    return "";
+  /** The value of `name` in a list of NAME=value environment entries. */
+  function environmentValue(entries = [], name = "") {
+    const entry = entries.find((assignment) => assignment.startsWith(`${name}=`));
+    return entry ? entry.slice(name.length + 1) : "";
   }
 
   async function linuxProcessRecords() {
@@ -339,12 +335,13 @@ export function createConversationProcessIdentity({
         }
         environmentReadable = false;
       }
+      const entries = environmentReadable ? environment.toString("utf8").split("\0") : [];
       records.push({
         ...processStat,
-        commandHash: environmentReadable ? linuxProcessEnvironmentValue(environment, commandHashEnvironmentName) : "",
+        commandHash: environmentValue(entries, commandHashEnvironmentName),
         environmentReadable,
         pid,
-        runtimeToken: environmentReadable ? linuxProcessEnvironmentValue(environment, runtimeTokenEnvironmentName) : ""
+        runtimeToken: environmentValue(entries, runtimeTokenEnvironmentName)
       });
     }
     return records;
@@ -376,16 +373,11 @@ export function createConversationProcessIdentity({
 
   /** The `ps -E` text after the argument list, as its assignments, or null when no environment is shown. */
   function darwinEnvironment(command, commandWithEnvironment) {
-    if (command === undefined || commandWithEnvironment === undefined || !commandWithEnvironment.startsWith(command)) {
+    if (command === undefined || !commandWithEnvironment?.startsWith(command)) {
       return null;
     }
     const assignments = commandWithEnvironment.slice(command.length).split(/\s+/u).filter((entry) => /^[^=\s]+=/u.test(entry));
     return assignments.length ? assignments : null;
-  }
-
-  function darwinEnvironmentValue(assignments = [], name = "") {
-    const entry = assignments.find((assignment) => assignment.startsWith(`${name}=`));
-    return entry ? entry.slice(name.length + 1) : "";
   }
 
   /** The darwin counterpart of the /proc scan. Only the current user's environments are readable;
@@ -411,11 +403,11 @@ export function createConversationProcessIdentity({
         ? darwinEnvironment(commands.get(pid), commandsWithEnvironment.get(pid))
         : null;
       records.push({
-        commandHash: environment ? darwinEnvironmentValue(environment, commandHashEnvironmentName) : "",
+        commandHash: environmentValue(environment || [], commandHashEnvironmentName),
         environmentReadable: Boolean(environment),
         pid,
         processGroupId: Number(match[2]),
-        runtimeToken: environment ? darwinEnvironmentValue(environment, runtimeTokenEnvironmentName) : "",
+        runtimeToken: environmentValue(environment || [], runtimeTokenEnvironmentName),
         startTimeTicks: darwinStartTime(match[5])
       });
     }
