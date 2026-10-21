@@ -46,9 +46,8 @@ accepts these names and serves their requests with V4.1 Flash. JSKIT sends the
 selected ID unchanged and does not rewrite configuration. All three Flash
 entries accept text and images. They and `deepseek/deepseek-v4-pro` declare
 the provider's exact 1,048,576-token context and 393,216-token output limits;
-Pro accepts text only. The bundled catalogue now has 7,615 model records;
-the connector excludes OpenCode Zen's Big Pickle, leaving 7,614. A saved
-Big Pickle selection fails validation like any other unknown model.
+Pro accepts text only. The bundled catalogue now has 7,614 model records;
+OpenCode Zen's Big Pickle was removed from it.
 The source hashes identify the original 7,614-record extraction, before this
 reviewed update. Flash entries declare paid access without a fixed price because
 the provider has peak and off-peak rates. See the
