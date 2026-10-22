@@ -472,7 +472,7 @@ test("Claude reports common work and compaction phases and clears phase after se
   assert.deepEqual(phases, ["preparing", "working", "compacting", "working", ""]);
 });
 
-test("Claude steering interrupts generation and admits a distinct message without replacing its process", { timeout: 30_000 }, async t => {
+test("Claude steering queues a distinct message on the running process without interrupting it", { timeout: 30_000 }, async t => {
   const f = await fixture(t);
   const started = Promise.withResolvers();
   const events = [];
@@ -493,7 +493,7 @@ test("Claude steering interrupts generation and admits a distinct message withou
   const trace = await f.trace();
   assert.equal(trace.filter(row => row.args?.includes("--print")).length, 1);
   assert.equal(trace.filter(row => row.frame?.type === "user").length, 2);
-  assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 1);
+  assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 0, "Steering queues behind running work and never interrupts it");
   assert.equal((await f.conversation.send(steering)).duplicate, true);
   for (const turn of state.conversationLog) assert.equal(turn.assistant.messageId,
     events.find(event => event.role === "assistant" && event.status === "complete" && event.turnId === turn.turnId).messageId);
@@ -1193,7 +1193,7 @@ test("Claude accepts a goal during an active turn through the existing steering 
   assert.equal(trace.filter(row => row.args?.includes("--print")).length, 1);
   assert.deepEqual(trace.filter(row => row.frame?.type === "user").map(row => row.frame.message.content),
     ["wait", "/goal Finish the current work"]);
-  assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 1);
+  assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 0, "Steering queues behind running work and never interrupts it");
 });
 
 test("Claude rejects reserved goals and waits for ordinary Send to deliver a replacement briefing", async t => {
@@ -2290,7 +2290,7 @@ test("completed Claude native-tool tracking preserves ordinary native steering i
     const trace = await f.trace();
     assert.equal(trace.filter(row => row.args?.includes("--print")).length, 1);
     assert.equal(trace.filter(row => row.frame?.type === "user").length, 2);
-    assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 1);
+    assert.equal(trace.filter(row => row.frame?.request?.subtype === "interrupt").length, 0, "Steering queues behind running work and never interrupts it");
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });

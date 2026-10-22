@@ -163,30 +163,64 @@ test("a pipe write is not admission; queued and replayed acknowledgements persis
   turn.stop();
 });
 
-test("steering waits for the generation's terminal event after the control acknowledgement", async () => {
+for (const lifecycle of [true, false]) test(`steering queues behind the running tool without an interrupt and one joined result completes both inputs, lifecycle=${lifecycle}`, async () => {
   const { turn, send, client, events } = fixture();
-  await send();
-  let interrupted = false;
-  const steering = turn.interruptGeneration(client).then(() => { interrupted = true; });
-  await Promise.resolve();
-  assert.equal(interrupted, false);
-  await turn.receive({ type: "result", subtype: "success", terminal_reason: "aborted_streaming", result: "" });
+  const first = claudeNativeMessageId("first");
+  const followUp = claudeNativeMessageId("follow-up");
+  const writes = [];
+  let interrupts = 0;
+  client.interrupt = async () => { interrupts++; };
+  // Claude Code 2.1.307 acknowledges streamed input as queued at once and
+  // replays it only when its loop reads it; older CLIs only replay it.
+  client.send = async (_message, input) => {
+    writes.push(input);
+    if (lifecycle) await turn.receive({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+  };
+  const sending = send();
+  if (lifecycle) await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "started" });
+  await turn.receive({ type: "user", uuid: first });
+  await sending;
+  await turn.receive({ type: "assistant", uuid: "tool-call", message: { id: "tool-api", stop_reason: "tool_use",
+    content: [{ type: "tool_use", id: "deploy", name: "Bash", input: { command: "eb deploy" } }] } });
+  await turn.prepareSteering();
+  // Without lifecycle frames the replay is the only receipt, so it waits for the tool.
+  const steering = send("follow-up");
+  if (lifecycle) await steering;
+  assert.equal(interrupts, 0, "A mid-turn message never interrupts the running tool");
+  assert.deepEqual(writes.map(input => Object.keys(input).sort()), [["messageId", "sessionId"], ["messageId", "sessionId"]],
+    "The follow-up is a plain user message, never Send now");
+  assert.equal(turn.read().active, true);
+  // Captured order: the tool finishes, Claude reads the queued input inside
+  // the same loop, answers both, then completes the queued and original input.
+  await turn.receive({ type: "user", uuid: "tool-result", message: { content: [{ type: "tool_result", tool_use_id: "deploy", content: "Deployed" }] } });
+  await turn.receive({ type: "user", uuid: followUp });
   await steering;
-  assert.equal(events.some(event => event.type === "settled"), false);
-  await send("follow-up");
-  await turn.receive({ type: "result", subtype: "success", result: "Revised answer" });
-  assert.equal(turn.read().text, "Revised answer");
-  assert.equal(turn.read().status, "completed");
+  if (lifecycle) await turn.receive({ type: "command_lifecycle", command_uuid: followUp, state: "started" });
+  await turn.receive({ type: "assistant", uuid: "answer", message: { id: "answer-api", stop_reason: "end_turn",
+    content: [{ type: "text", text: "Deployed; still on track." }] } });
+  if (lifecycle) {
+    await turn.receive({ type: "command_lifecycle", command_uuid: followUp, state: "completed" });
+    assert.equal(turn.read().active, true, "The queued input's completion cannot settle the running loop");
+  }
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "completed", result: "Deployed; still on track." });
+  if (lifecycle) await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "completed" });
+  assert.deepEqual([turn.read().active, turn.read().status, turn.read().text, turn.read().pendingCommands],
+    [false, "completed", "Deployed; still on track.", 0]);
+  assert.equal(events.filter(event => event.type === "settled").length, 1);
+  const answer = events.findLast(event => event.type === "message" && event.message.complete && event.message.role === "assistant");
+  assert.equal(answer.message.userId, followUp, "The joined answer belongs to the newest accepted input");
+  assert.equal(interrupts, 0);
 });
 
-test("interrupted Claude output keeps its input identity after a follow-up is accepted", async t => {
+test("Claude output before a queued follow-up keeps its input identity after the follow-up is accepted", async t => {
   const f = await publishedClaudeFixture(t);
   await f.owner.send(f.entry, { messageId: "first", message: "First request" });
   const native = f.processes.at(-1);
   await native.options.onEvent({ type: "stream_event", event: { type: "message_start", message: { id: "first-api" } } });
   await native.options.onEvent({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } });
   await native.options.onEvent({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { text: "FIRST-PARTIAL" } } });
-  await native.options.onEvent({ type: "assistant", uuid: "first-output", message: { id: "first-api", content: [{ type: "text", text: "FIRST-PARTIAL" }] } });
+  await native.options.onEvent({ type: "assistant", uuid: "first-output", message: { id: "first-api", stop_reason: "tool_use", content: [{ type: "text", text: "FIRST-PARTIAL" }] } });
+  native.client.interrupt = async () => assert.fail("A follow-up is queued, never an interrupt");
   await f.owner.send(f.entry, { messageId: "second", message: "Second request" });
   await native.options.onEvent({ type: "assistant", uuid: "second-output", message: { id: "second-api", content: [{ type: "text", text: "SECOND-OK" }], stop_reason: "end_turn" } });
   await native.options.onEvent({ type: "result", subtype: "success", result: "SECOND-OK" });
@@ -337,22 +371,34 @@ for (const background of [false, true]) test(`folded native command cannot stran
   assert.equal(events.filter(event => event.type === "settled").length, 1);
 });
 
-test("folded lifecycle completion cannot acknowledge interruption before the generation result", async () => {
-  const { turn, send, client } = fixture();
+test("a steer queued during the final reply runs next; neither that result nor folded work settles it", async () => {
+  const { turn, send, client, events } = fixture();
+  client.interrupt = async () => assert.fail("A mid-turn message never interrupts");
+  client.send = async (_message, input) => {
+    await turn.receive({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+  };
+  const first = claudeNativeMessageId("first");
+  const goal = claudeNativeMessageId("goal");
   await send();
+  await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "started" });
+  await turn.receive({ type: "user", uuid: first });
   await turn.receive({ type: "command_lifecycle", command_uuid: "internal-notification", state: "started" });
-  let confirmed = false;
-  const steering = turn.interruptGeneration(client).then(() => { confirmed = true; });
   await turn.receive({ type: "command_lifecycle", command_uuid: "internal-notification", state: "completed" });
-  await Promise.resolve();
-  assert.equal(confirmed, false);
-  await turn.receive({ type: "result", subtype: "success", terminal_reason: "aborted_streaming", result: "" });
-  await steering;
+  await turn.receive({ type: "assistant", uuid: "story", message: { id: "story-api", stop_reason: "end_turn", content: [{ type: "text", text: "Story" }] } });
+  await turn.prepareSteering();
   await send("goal");
-  await turn.receive({ type: "result", subtype: "success", result: "Goal accepted" });
-  await turn.receive({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("goal"), state: "completed" });
+  // Captured 2.1.307 order when input arrives after the last model request.
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "completed", result: "Story" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: first, state: "completed" });
+  assert.equal(turn.read().active, true, "The queued input still needs its own run");
+  await turn.receive({ type: "command_lifecycle", command_uuid: goal, state: "started" });
+  await turn.receive({ type: "user", uuid: goal });
+  await turn.receive({ type: "assistant", uuid: "goal-answer", message: { id: "goal-api", stop_reason: "end_turn", content: [{ type: "text", text: "Goal accepted" }] } });
+  await turn.receive({ type: "result", subtype: "success", terminal_reason: "completed", result: "Goal accepted" });
+  await turn.receive({ type: "command_lifecycle", command_uuid: goal, state: "completed" });
   assert.equal(turn.read().pendingCommands, 0);
-  assert.equal(turn.read().status, "completed");
+  assert.deepEqual([turn.read().status, turn.read().text], ["completed", "Goal accepted"]);
+  assert.equal(events.filter(event => event.type === "settled").length, 1);
 });
 
 test("late input completion cannot settle a newer native continuation", async () => {
@@ -451,7 +497,7 @@ test("Claude can steer background-only work without waiting for an already compl
   await turn.receive({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
   await turn.receive({ type: "result", subtype: "success", result: "Build started" });
   client.interrupt = () => assert.fail("There is no active generation to interrupt");
-  await turn.interruptGeneration(client, { timeoutMs: 5 });
+  await turn.prepareSteering();
   await send("follow-up");
   await turn.receive({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
   assert.equal(turn.read().active, true, "The new human input still needs its own result");
@@ -483,7 +529,7 @@ test("Claude steering survives background completion while the follow-up is bein
   await turn.receive({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
   await turn.receive({ type: "result", subtype: "success", result: "Build started" });
   client.interrupt = () => assert.fail("The generation has already completed");
-  await turn.interruptGeneration(client);
+  await turn.prepareSteering();
   await turn.receive({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
   assert.equal(events.some(event => event.type === "settled"), false, "The reserved steering input still needs admission");
   await send("follow-up");
@@ -1504,24 +1550,20 @@ for (const tools of [true, false]) test(`Claude supplied common runtime checkpoi
   if (tools) f.admissions.at(-1).assertCompletionCurrent();
 });
 
-for (const sendNow of [false, true]) test(`Claude supplied common completion joins accepted steering and checkpoints only its own final, sendNow=${sendNow}`, { timeout: 10_000 }, async t => {
+for (const worker of [false, true]) test(`Claude supplied common completion joins accepted steering and checkpoints only its own final, worker=${worker}`, { timeout: 10_000 }, async t => {
   const f = await suppliedCommonFixture(t);
   await sendCommon(f, "common-first");
-  if (sendNow) {
-    const native = f.entry.process;
-    const send = native.client.send;
-    native.client.supportsSendNow = () => true;
-    native.client.interrupt = async () => { throw Error("Steering must preserve the background worker"); };
-    await f.frame({ type: "system", subtype: "task_started", task_id: "common-worker" });
-    native.client.send = async (message, input) => {
-      assert.equal(input.sendNow, true);
-      await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
-      await f.frame({ type: "result", subtype: "error_during_execution", is_error: true,
-        terminal_reason: "aborted_tools", user_message_uuid: claudeNativeMessageId("common-first") });
-      await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "started" });
-      await send(message, input);
-    };
-  }
+  const native = f.entry.process;
+  const send = native.client.send;
+  native.client.supportsSendNow = () => true;
+  native.client.interrupt = async () => { throw Error("Steering must not interrupt running tools or workers"); };
+  if (worker) await f.frame({ type: "system", subtype: "task_started", task_id: "common-worker" });
+  native.client.send = async (message, input) => {
+    assert.equal(input.sendNow, undefined, "Steering is a plain queued user message");
+    await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+    await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "started" });
+    await send(message, input);
+  };
   await f.loadContract("first-contract");
   const first = f.admissions.at(-1);
   const legacyCompletion = f.entry.completion.promise;
@@ -1535,7 +1577,7 @@ for (const sendNow of [false, true]) test(`Claude supplied common completion joi
   await f.loadContract("successor-contract");
   assert.throws(() => first.assertCompletionCurrent(), { code: "conversation_tool_request_retired" });
   await f.frame({ type: "result", subtype: "success", result: "The successor question", uuid: "successor-final" });
-  if (sendNow) {
+  if (worker) {
     assert.equal(f.checkpoints.length, 0, "Foreground completion cannot checkpoint live background work");
     await f.frame({ type: "system", subtype: "task_notification", task_id: "common-worker", status: "completed" });
     assert.equal(f.checkpoints.length, 0);
@@ -1758,25 +1800,18 @@ test("only natural completion marks a rejected steer eligible for ordinary Send;
   }
 });
 
-test("interruption before a late steer distinguishes completed work from Stop, cancellation and idle state", async () => {
-  for (const ending of ["complete", "stop", "cancel", "idle", "steering"]) {
+test("a late steer distinguishes completed work from Stop, cancellation and idle state", async () => {
+  for (const ending of ["complete", "stop", "cancel", "idle"]) {
     const f = fixture();
     await f.send();
-    let firstInterrupt;
     if (ending === "complete" || ending === "idle") {
       await f.turn.receive({ type: "result", subtype: "success", result: "Done" });
       if (ending === "idle") f.turn.reset();
     } else if (ending === "stop") f.turn.stop();
-    else if (ending === "cancel") await f.turn.interrupt(f.client);
-    else {
-      const began = Promise.withResolvers();
-      f.client.interrupt = async () => { began.resolve(); };
-      firstInterrupt = f.turn.interruptGeneration(f.client).catch(() => {});
-      await began.promise;
-    }
+    else await f.turn.interrupt(f.client);
     let interrupts = 0;
     f.client.interrupt = async () => { interrupts += 1; };
-    await assert.rejects(f.turn.interruptGeneration(f.client), error => {
+    await assert.rejects(f.turn.prepareSteering(), error => {
       assert.equal(error.delivery, "not-sent");
       assert.equal(error.code, ending === "complete" ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed");
       assert.equal(error.statusCode, ending === "complete" ? 409 : undefined);
@@ -1784,8 +1819,21 @@ test("interruption before a late steer distinguishes completed work from Stop, c
     });
     assert.equal(interrupts, 0);
     f.turn.stop();
-    await firstInterrupt;
   }
+});
+
+test("consecutive steers queue together without waiting for or sending an interrupt", async () => {
+  const { turn, send, client, events } = fixture();
+  client.interrupt = async () => assert.fail("Steering never interrupts");
+  await send();
+  for (const id of ["second", "third"]) {
+    await turn.prepareSteering();
+    await send(id);
+  }
+  assert.equal(turn.read().pendingCommands, 3);
+  await turn.receive({ type: "result", subtype: "success", result: "All three handled" });
+  assert.deepEqual([turn.read().status, turn.read().pendingCommands], ["completed", 0]);
+  assert.deepEqual(events.filter(event => event.type === "diagnostic" && event.stage === "steering_queued").length, 2);
 });
 
 test("folded internal command preserves the original published answer owner", async t => {
@@ -1800,28 +1848,21 @@ test("folded internal command preserves the original published answer owner", as
 });
 
 
-test("failed interruption reports definite non-delivery after the original process cleanup", async t => {
+test("a steer never depends on the interrupt control: an unresponsive interrupt cannot fail or stop it", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send("original-input");
-  let writes = 0;
-  f.entry.process.client.send = async () => { writes++; };
-  f.entry.process.client.interrupt = async () => { throw new Error("Interrupt was not acknowledged"); };
-  await assert.rejects(f.send("goal-input"), error => error.delivery === "not-sent" &&
-    error.message === "Interrupt was not acknowledged");
-  assert.equal(writes, 0);
-  assert.equal(f.entry.process, null, "The original stop owner still proves cleanup before returning");
-});
-
-test("interrupt confirmation timeout is a recoverable typed failure, not a generic server error", async () => {
-  const { turn, send, client } = fixture();
-  await send();
-  await assert.rejects(turn.interruptGeneration(client, { timeoutMs: 5 }), error =>
-    error.code === "assistant_claude_interrupt_timeout" && error.statusCode === 503 && /not sent/.test(error.message));
-  turn.stop();
+  const native = f.entry.process;
+  let interrupts = 0;
+  native.client.interrupt = async () => { interrupts++; throw new Error("Interrupt was not acknowledged"); };
+  const receipt = await f.send("steer-input");
+  assert.deepEqual([receipt.delivered, receipt.deliveryMode], [true, "steer"]);
+  assert.equal(interrupts, 0);
+  assert.equal(f.entry.process, native, "Steering keeps the running process and its tools");
+  assert.equal(f.entry.nativeTurn.read().active, true);
 });
 
 
-test("failed cleanup after interrupt failure retains the cleanup error and execution custody", async t => {
+test("failed Stop cleanup after interrupt failure retains the cleanup error and execution custody", async t => {
   const f = await publishedClaudeFixture(t);
   await f.send("original-input");
   const native = f.entry.process;
@@ -1829,8 +1870,7 @@ test("failed cleanup after interrupt failure retains the cleanup error and execu
   native.client.interrupt = async () => { throw new Error("Interrupt was not acknowledged"); };
   native.stop = async () => ({ scopeEmpty: false, exited: false });
   try {
-    await assert.rejects(f.send("goal-input"), error => error.code === "claude_stop_unconfirmed" &&
-      error.delivery !== "not-sent");
+    await assert.rejects(f.owner.interrupt(f.entry), error => error.code === "claude_stop_unconfirmed");
     assert.equal(f.entry.process, native);
     assert.ok(f.entry.executionId);
   } finally { native.stop = originalStop; }
@@ -2194,7 +2234,7 @@ test("Claude goal command proof survives only evaluations of its own condition",
   assert.equal(changed.goalCommandId, null, "an old command cannot prove a different goal");
 });
 
-for (const action of ["steer", "set", "resume"]) test(`Claude ${action} uses targeted Send now without cancelling background workers`, async t => {
+for (const action of ["steer", "set", "resume"]) test(`Claude ${action} queues a plain message without Stop or Send now, preserving the running tool and background workers`, async t => {
   const f = await publishedClaudeFixture(t);
   if (action === "resume") await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish checks", messageId: "first" });
   else await f.send("first");
@@ -2205,13 +2245,11 @@ for (const action of ["steer", "set", "resume"]) test(`Claude ${action} uses tar
   let stops = 0;
   native.client.interrupt = async () => { stops++; throw Error("A steer must not send Stop"); };
   native.client.send = async (message, input) => {
-    assert.equal(input.sendNow, true);
-    // Native 2.1.289 may end the foreground generation before consuming the
-    // queued goal. Its background task remains alive throughout this sequence.
+    assert.equal(input.sendNow, undefined, "An advertised Send now capability is still not used for steering");
+    // Claude 2.1.307 acknowledges the input as queued and reads it after the
+    // running tool call. Its background task remains alive throughout.
     await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
-    await f.frame({ type: "result", subtype: "error_during_execution", is_error: true,
-      terminal_reason: "aborted_tools", user_message_uuid: claudeNativeMessageId("first") });
-    assert.equal(f.entry.nativeTurn.read().active, true, "Old result cannot finish a queued input or its worker");
+    assert.equal(f.entry.nativeTurn.read().active, true, "Queued input keeps the running turn and its worker");
     await f.frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "started" });
     await send(message, input);
   };

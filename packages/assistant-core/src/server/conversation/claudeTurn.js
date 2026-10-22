@@ -593,21 +593,18 @@ export function createClaudeConversationOwner({
     deliveryTiming?.("process-ready");
     if (command && !command.steering) command.signal.throwIfAborted();
     const steering = command ? command.steering === true : Boolean(entry.turn?.active);
-    const sendNow = steering && native.client.supportsSendNow?.() === true;
     if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
     if (steering) {
       if (command) {
         await command.beforeDispatch({ threadId: entry.id });
         command.signal.throwIfAborted();
       }
-      try {
-        await entry.nativeTurn.interruptGeneration(command ? entry.process.client : native.client,
-          { ...(command ? { timeoutMs: command.timeoutMs } : {}), sendNow });
-        if (command) command.interrupted = !sendNow;
-      } catch (error) {
+      // A mid-turn message is never an interrupt: Claude Code queues it and
+      // reads it after the running tool call. Only explicit Stop interrupts.
+      try { await entry.nativeTurn.prepareSteering(); }
+      catch (error) {
         if (!command) await entry.nativeTurn.stopProcess(error.message);
-        // Interruption precedes this input's pipe write. Preserve that definite
-        // non-delivery so a failed interrupt cannot strand an attempted receipt.
+        // This precedes the input's pipe write: a refused steer is definitely not sent.
         throw Object.assign(error, { delivery: "not-sent" });
       }
     }
@@ -688,7 +685,7 @@ export function createClaudeConversationOwner({
       else await input.onPromptSending?.({ threadId: entry.id, displayAttachments: input.displayAttachments, turnMetadata: actorMetadata });
       if (input.signal?.aborted) throw Object.assign(createError("The goal command was stopped before delivery."), { delivery: "not-sent" });
       await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
-        { messageId: uuid, accept, sendNow, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
+        { messageId: uuid, accept, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
     } catch (error) {
       if (!command) await entry.nativeTurn.stopProcess(error.message);
       throw error;
@@ -1026,11 +1023,11 @@ export function createClaudeConversationOwner({
     active.steer = async ({ input, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted, deliveryTiming }) => {
       await ready.promise;
       const nativeDispatch = { active, signal, beforeDispatch, accept, onNativeReceipt, onReceiptPersisted, deliveryTiming,
-        timeoutMs, steering: true, interrupted: false, attempted: false, admitted: false };
+        timeoutMs, steering: true, attempted: false, admitted: false };
       try { await dispatch(control, { input, context, signal }, { acquire, entry, dispatch: nativeDispatch }); }
       catch (error) {
         if (nativeDispatch.attempted && !nativeDispatch.admitted && error.delivery !== "not-sent") error.delivery = "uncertain";
-        if (nativeDispatch.interrupted || nativeDispatch.attempted) completion.reject(error);
+        if (nativeDispatch.attempted) completion.reject(error);
         throw error;
       }
     };
@@ -1142,6 +1139,9 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   const assistantRoles = new Map();
   const admissions = new Map();
   const inFlight = new Set();
+  // Inputs Claude has begun reading. A queued steer joins the running loop, so
+  // one result can finish several of them; queued-only input stays in flight.
+  const startedInputs = new Set();
   const tasks = new Set();
   let turnId = "";
   let messageId = "";
@@ -1153,7 +1153,6 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
   let generation = 0;
   let stopped = false;
   let cancelling = false;
-  let steering;
   let maximumOutput = 4 * 1024 * 1024;
   let inputOwner = null;
   let acceptedInput = null;
@@ -1418,11 +1417,13 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       if (frame.type === "user" && !inFlight.has(uuid) && !admissions.has(uuid)) return;
       // Native notifications have their own lifecycle UUIDs, including work
       // folded into this input. They must not steal its receipt/result owner.
-      if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) currentCommandId = uuid;
-      if (frame.state === "completed") inFlight.delete(uuid);
-      if (frame.state === "cancelled" && steering) {
+      if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) {
+        currentCommandId = uuid;
+        startedInputs.add(uuid);
+      }
+      if (frame.state === "completed") {
         inFlight.delete(uuid);
-        steering.resolve();
+        startedInputs.delete(uuid);
       }
       if (frame.state === "queued" || frame.type === "user") {
         const pending = admissions.get(uuid);
@@ -1559,10 +1560,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
           } : {}) });
       }
       inFlight.delete(currentCommandId);
-      if (steering) {
-        steering.resolve();
-        return;
-      }
+      for (const uuid of startedInputs) inFlight.delete(uuid);
+      startedInputs.clear();
       if (cancelling) return;
       outcome = { status: interrupted ? "interrupted" : failed ? "failed" : "completed", error: message };
       // The reply is final, but native background tasks still own the turn
@@ -1601,6 +1600,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     }
     admissions.clear();
     inFlight.clear();
+    startedInputs.clear();
     tasks.clear();
     // Verified process cleanup can precede Claude's terminal generation frame.
     // Retain already displayed text for the existing transcript reader, with
@@ -1616,7 +1616,6 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
     }
     pendingAssistantMessages.clear();
     assistantRoles.clear();
-    steering?.reject(failure(reason));
     if (active) outcome = { status: "interrupted", error: reason };
     active = false;
     phase = "";
@@ -1670,7 +1669,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       acceptedInput = null;
       clearFinalAssistantResult();
     },
-    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000, sendNow = false } = {}) {
+    async send(client, message, { messageId: uuid, accept, timeoutMs = 30_000 } = {}) {
       if (!active || stopped || cancelling) throw Object.assign(
         failure("Claude has no active turn for this message.", !active && !stopped && !cancelling
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
@@ -1691,7 +1690,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
       )), timeoutMs);
       admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });
       try {
-        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId, ...(sendNow ? { sendNow: true } : {}) }), admitted.promise]);
+        await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId }), admitted.promise]);
       } catch (error) {
         if (inputOwner === receiptOwner) invalidateFinalAssistantResult();
         throw error;
@@ -1699,49 +1698,22 @@ export function createClaudeConversationTurn({ conversationId, onEvent = async (
         clearTimeout(timer);
       }
     },
-    async interruptGeneration(client, { timeoutMs = 30_000, sendNow = false } = {}) {
-      if (!active || steering || cancelling) {
-        const completed = !active && !steering && !stopped && !cancelling && outcome?.status === "completed";
+    async prepareSteering() {
+      if (!active || cancelling) {
+        const completed = !active && !stopped && !cancelling && outcome?.status === "completed";
         throw Object.assign(failure("This Claude turn cannot accept steering now.", completed
           ? "conversation_steer_turn_finished" : "assistant_claude_turn_failed"),
         { delivery: "not-sent", ...(completed ? { statusCode: 409 } : {}) });
       }
-      // Targeted Send now admits the new input before asking the native loop to
-      // make way; unlike plain Stop it preserves background agents. A completed
-      // main loop also has no further interruption result to wait for.
-      if (sendNow || outcome && inFlight.size === 0) {
-        // The next input owns completion now. A task finishing during host
-        // preparation must not settle this turn using the previous result.
-        outcome = null;
-        acceptedInput = null;
-        clearFinalAssistantResult();
-        await publish({ type: "diagnostic", stage: sendNow ? "steering_send_now" : "steering_background_only", backgroundTasks: tasks.size });
-        return;
-      }
-      // Streaming user input otherwise queues behind the entire running turn.
-      // Claude's supported steering path interrupts generation, then continues
-      // the same native history with the new instruction.
+      // Claude Code acknowledges streamed input as queued and folds it into the
+      // running turn after the current tool call, or starts it once the main
+      // loop is idle. Interrupting instead would kill a running foreground tool.
+      // The next input owns completion now: a result or task finishing before
+      // it starts must not settle this turn with the previous answer.
+      outcome = null;
       acceptedInput = null;
       clearFinalAssistantResult();
-      steering = Promise.withResolvers();
-      let timer;
-      try {
-        await publish({ type: "diagnostic", stage: "steering_requested", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
-        await Promise.all([client.interrupt(), Promise.race([
-          steering.promise,
-          new Promise((_, reject) => {
-            timer = setTimeout(() => reject(Object.assign(failure(
-              "Claude did not confirm the interrupted generation. This instruction was not sent; retry after reconnecting.",
-              "assistant_claude_interrupt_timeout"
-            ), { statusCode: 503 })), timeoutMs);
-          })
-        ])]);
-        await publish({ type: "diagnostic", stage: "steering_confirmed", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
-      } catch (error) {
-        await publish({ type: "diagnostic", stage: "steering_failed", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
-        throw error;
-      }
-      finally { clearTimeout(timer); steering = null; }
+      await publish({ type: "diagnostic", stage: "steering_queued", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
     },
     async cancel(client, stopProcess) {
       try {

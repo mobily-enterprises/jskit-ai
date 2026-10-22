@@ -2520,9 +2520,10 @@ admission. Earlier displayed output retains its identity. Application actions
 already in flight keep their original actor and saved result. A repeated accepted
 message returns its receipt without resending.
 
-Codex uses its active-turn steering operation. Claude interrupts the current
-generation, waits for the native interruption barrier, and sends the instruction
-through the same process. OpenCode admits the instruction in the same session
+Codex uses its active-turn steering operation. Claude writes the instruction as a
+plain user message on the same process; Claude Code acknowledges it as queued and
+reads it after the running tool call, so steering never interrupts a running
+command. OpenCode admits the instruction in the same session
 and follows the new input through completion. No adapter recreates the native
 conversation to imitate steering.
 
@@ -4452,15 +4453,17 @@ receipt identity. The shared native owner clears completed commands while still
 waiting for the generation result and any remaining background work. Hosts should
 keep using the shared owner for steering and goal admission.
 
-For Claude versions advertising `interrupt_send_now_v1` on the native
-`system/init` event, steering and active-turn goal Set/Resume use targeted **Send
-now**: write the new user message first, then send the control with that message's
-UUID. Native background workers continue; foreground generation or foreground
-tools may be interrupted to consume the instruction. The ordinary receipt and
-task-completion owners still determine admission and completion. Explicit **Stop**
-uses the cancellation control. Versions without this capability keep the existing
-interrupt behavior; the client never sends an unsupported Send now control that
-an older CLI could interpret as Stop.
+Claude steering and active-turn goal Set/Resume never interrupt the running turn.
+The new input is written as a plain stream-json user message. Claude Code 2.1.307
+acknowledges it with a `queued` command lifecycle event, finishes the running
+foreground tool, then reads the input in the same loop (or in its next loop when
+it arrives after the final model request). The ordinary receipt owner admits it
+on that acknowledgement or replay. One native result can then finish the original
+and the queued input; inputs not yet started stay in flight until their own result.
+Interrupting for a steer would kill a running foreground tool such as a deploy.
+Only explicit **Stop** (and goal Pause, Block and Cancel) sends the interrupt
+control. The client keeps its capability-gated targeted Send now control for an
+explicit action, but conversation steering does not use it.
 
 Native Claude `system/local_command_output` messages retain their origin in
 `data.native` (`engineId`, `type`, `subtype`). Transcript writers preserve supplied
