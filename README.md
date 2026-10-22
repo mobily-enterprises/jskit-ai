@@ -50,7 +50,10 @@ detached checkouts, uncommitted files, and unpushed or stale commits cannot
 publish. The dry run changes nothing and needs no clean checkout.
 
 The publishable packages are every non-private package among the repository
-root, its workspaces and `file:` dependencies inside the repository. For JSKIT
+root, its workspaces, the package directories listed in the root
+`jskitRelease.manifests` (for packages a repository composes itself instead of
+declaring as workspaces) and `file:` dependencies inside the repository. Private
+ones are not published but `pin` still updates their dependencies. For JSKIT
 these are the `@jskit-ai/*` workspaces. Repository-specific steps are declared
 in the root `package.json` `jskitRelease` field: JSKIT declares
 `prepare` (`scripts/check-generated-files.mjs --regenerate`, which rebuilds the

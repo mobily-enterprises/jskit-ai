@@ -78,12 +78,14 @@ test("version updates keep ^/~ ranges and leave protocol specs alone", () => {
   assert.deepEqual(changes, ["dependencies.a ^0.1.1 -> ^0.2.0", "dependencies.b ~0.1.1 -> ~0.2.0"]);
 });
 
-test("publishable packages are the non-private root, workspaces and in-repository file: dependencies", async () => {
+test("publishable packages are the non-private root, workspaces, declared manifests and in-repository file: dependencies", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "jskit-release-discovery-"));
   try {
     const manifests = {
       "package.json": { name: "root-tool", version: "1.0.0", workspaces: ["packages/*"],
+        jskitRelease: { manifests: ["composed/*"] },
         devDependencies: { "vendored": "file:vendor/vendored", "outside": "file:../outside" } },
+      "composed/extra/package.json": { name: "composed-extra", version: "1.0.0" },
       "packages/public/package.json": { name: "@scope/public", version: "1.0.0" },
       "packages/internal/package.json": { name: "@scope/internal", version: "1.0.0", private: true,
         dependencies: { "nested": "file:../../nested" } },
@@ -99,7 +101,8 @@ test("publishable packages are the non-private root, workspaces and in-repositor
     }
     const records = await discoverReleasePackages(root);
     assert.deepEqual(records.map(record => [record.name, path.relative(root, record.dir)]), [
-      ["@scope/public", "packages/public"], ["nested", "nested"], ["root-tool", ""], ["vendored", "vendor/vendored"]
+      ["@scope/public", "packages/public"], ["composed-extra", "composed/extra"], ["nested", "nested"], ["root-tool", ""],
+      ["vendored", "vendor/vendored"]
     ]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -707,9 +710,10 @@ test("a version file that disagrees with its package stops publication", async t
 async function consumerRepository(f) {
   const consumer = path.join(f.directory, "consumer");
   const manifests = {
-    "package.json": { name: "consumer", private: true, workspaces: ["packages/*"],
+    "package.json": { name: "consumer", private: true, workspaces: ["packages/*"], jskitRelease: { manifests: ["composed/y"] },
       dependencies: { "@jskit-ai/a": "^0.9.0", "@jskit-ai/b": "1.0.0", "left-pad": "^1.0.0", "@jskit-ai/local": "file:vendor/local" } },
-    "packages/x/package.json": { name: "x", private: true, devDependencies: { "@jskit-ai/a": "~0.9.1" } }
+    "packages/x/package.json": { name: "x", private: true, devDependencies: { "@jskit-ai/a": "~0.9.1" } },
+    "composed/y/package.json": { name: "y", private: true, dependencies: { "@jskit-ai/a": "0.9.0" } }
   };
   for (const [file, json] of Object.entries(manifests)) {
     await mkdir(path.dirname(path.join(consumer, file)), { recursive: true });
@@ -735,6 +739,7 @@ test("pin follows released versions, keeps range prefixes, retries npm propagati
   assert.equal(dry.status, 0, dry.stderr);
   assert.match(dry.stdout, /package\.json: dependencies\.@jskit-ai\/a \^0\.9\.0 -> \^1\.0\.0/u);
   assert.match(dry.stdout, /packages\/x\/package\.json: devDependencies\.@jskit-ai\/a ~0\.9\.1 -> ~1\.0\.0/u);
+  assert.match(dry.stdout, /composed\/y\/package\.json: dependencies\.@jskit-ai\/a 0\.9\.0 -> 1\.0\.0/u);
   assert.deepEqual(await snapshotFiles(consumer), before);
   assert.equal((await f.calls()).length, 0);
 
@@ -750,6 +755,7 @@ test("pin follows released versions, keeps range prefixes, retries npm propagati
   const root = JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8"));
   assert.deepEqual(root.dependencies, { "@jskit-ai/a": "^1.0.0", "@jskit-ai/b": "1.0.0", "left-pad": "^1.0.0", "@jskit-ai/local": "file:vendor/local" });
   assert.equal(JSON.parse(await readFile(path.join(consumer, "packages/x/package.json"), "utf8")).devDependencies["@jskit-ai/a"], "~1.0.0");
+  assert.equal(JSON.parse(await readFile(path.join(consumer, "composed/y/package.json"), "utf8")).dependencies["@jskit-ai/a"], "1.0.0");
   assert.equal(git("log", "-1", "--format=%s").toString().trim(), "Consume released packages");
   assert.equal(git("rev-parse", "HEAD").toString(), git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n");
 

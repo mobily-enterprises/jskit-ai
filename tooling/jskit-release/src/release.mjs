@@ -10,6 +10,8 @@ import { createPublicationInspection, planPublication, snapshotFiles } from "./n
 // declared in the root package.json `jskitRelease` field:
 //   prepare          command that regenerates derived files during preparation
 //   nestedManifests  package subdirectories whose package.json pins follow the release
+//   manifests        further package directories (or `*` patterns) the repository owns
+//                    without declaring them as npm workspaces
 // and per package in its own `jskitRelease` field:
 //   pack             command printing a custom tarball path (see npm-publication.mjs)
 //   versionFiles     JSON files whose `version` must equal the package version
@@ -132,12 +134,15 @@ async function expandWorkspacePattern(repoRoot, pattern) {
   return directories;
 }
 
-// Every manifest the repository owns: the root, its workspaces and `file:`
-// dependency directories inside the repository (followed transitively).
+// Every manifest the repository owns: the root, its workspaces, its declared
+// `jskitRelease.manifests` and `file:` dependency directories inside the
+// repository (followed transitively).
 async function discoverManifests(repoRoot) {
   const root = path.resolve(repoRoot);
   const rootJson = await readJsonFile(path.join(root, "package.json"));
-  const patterns = Array.isArray(rootJson.workspaces) ? rootJson.workspaces : rootJson.workspaces?.packages || [];
+  const workspaces = Array.isArray(rootJson.workspaces) ? rootJson.workspaces : rootJson.workspaces?.packages || [];
+  const declared = Array.isArray(rootJson.jskitRelease?.manifests) ? rootJson.jskitRelease.manifests : [];
+  const patterns = [...workspaces, ...declared];
   const queue = [root];
   for (const pattern of patterns) {
     if (!String(pattern).startsWith("!")) queue.push(...(await expandWorkspacePattern(root, pattern)).sort());
