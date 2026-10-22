@@ -20,3 +20,5 @@ docs/.vitepress/dist/
 packages/agent-docs/site/.vitepress/cache/
 packages/agent-docs/site/.vitepress/dist/
 .aider*
+/.genesis/machine-city.json
+/.genesis/program-city.json
