@@ -28,6 +28,7 @@ test("release commands have one explicit intent", () => {
     intent: "prepare",
     cwd: process.cwd(),
     dryRun: false,
+    noCommit: false,
     registry: "https://registry.npmjs.org",
     from: []
   });
@@ -35,10 +36,13 @@ test("release commands have one explicit intent", () => {
     intent: "publish",
     cwd: "/tmp/target",
     dryRun: true,
+    noCommit: false,
     registry: "https://registry.example.test",
     from: []
   });
   assert.deepEqual(parseArgs(["pin", "--from", "/tmp/a", "--from=/tmp/b", "--cwd=/tmp/target"]).from, ["/tmp/a", "/tmp/b"]);
+  assert.equal(parseArgs(["pin", "--from", "/tmp/a", "--no-commit"]).noCommit, true);
+  assert.throws(() => parseArgs(["publish", "--no-commit"]), /Unknown argument: --no-commit/u);
   assert.throws(() => parseArgs([]), /prepare\|publish\|pin/u);
   assert.throws(() => parseArgs(["prepare", "--only", "kernel"]), /Unknown argument/u);
   assert.throws(() => parseArgs(["publish", "--from", "/tmp/a"]), /Unknown argument/u);
@@ -730,6 +734,20 @@ async function consumerRepository(f) {
   git("push", "origin", "main");
   return { consumer, git };
 }
+
+test("pin --no-commit installs the released versions and leaves the edits uncommitted", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const { consumer, git } = await consumerRepository(f);
+  const head = git("rev-parse", "HEAD").toString();
+  const result = f.run(["pin", "--from", f.repo, "--no-commit"], {}, consumer);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /pins installed; not committed/u);
+  assert.equal((await f.calls()).filter(call => call.args[0] === "install").length, 1);
+  assert.equal(JSON.parse(await readFile(path.join(consumer, "package.json"), "utf8")).dependencies["@jskit-ai/a"], "^1.0.0");
+  assert.equal(git("rev-parse", "HEAD").toString(), head);
+  assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", head);
+  assert.match(git("status", "--porcelain").toString(), /package\.json/u);
+});
 
 test("pin follows released versions, keeps range prefixes, retries npm propagation, commits and pushes", async t => {
   const f = await publicationFixture(t, "jskit");

@@ -15,7 +15,7 @@ import { createPublicationInspection, planPublication, snapshotFiles } from "./n
 // and per package in its own `jskitRelease` field:
 //   pack             command printing a custom tarball path (see npm-publication.mjs)
 //   versionFiles     JSON files whose `version` must equal the package version
-const USAGE = "Usage: jskit-release <prepare|publish|pin> [--cwd <dir>] [--dry-run] [--registry <url>] [--from <repoDir>...]";
+const USAGE = "Usage: jskit-release <prepare|publish|pin> [--cwd <dir>] [--dry-run] [--registry <url>] [--from <repoDir>...] [--no-commit]";
 const DEPENDENCY_FIELDS = Object.freeze([
   "dependencies",
   "devDependencies",
@@ -35,6 +35,7 @@ function parseArgs(argv = []) {
     intent,
     cwd: process.cwd(),
     dryRun: false,
+    noCommit: false,
     registry: DEFAULT_REGISTRY,
     from: []
   };
@@ -43,6 +44,10 @@ function parseArgs(argv = []) {
     const argument = String(args.shift() || "");
     if (argument === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+    if (argument === "--no-commit" && intent === "pin") {
+      options.noCommit = true;
       continue;
     }
     const [name, inline] = argument.startsWith("--") && argument.includes("=")
@@ -730,7 +735,9 @@ async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(p
 // pin: make every dependency on a package published from the given
 // repositories follow that package's current version, keeping ^/~, then
 // install, commit and push. Moved from Vibe64 Online's deploy orchestrator.
-async function pinCommand({ cwd: repoRoot, from, dryRun }) {
+// --no-commit stops after the install, leaving the edits for the caller to
+// build from and discard (a deploy rehearsal).
+async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit }) {
   const versions = new Map();
   for (const dir of from) {
     for (const record of await discoverReleasePackages(dir)) versions.set(record.name, record.packageJson.version);
@@ -754,6 +761,10 @@ async function pinCommand({ cwd: repoRoot, from, dryRun }) {
     return;
   }
   await installReleasedPins(repoRoot);
+  if (noCommit) {
+    process.stdout.write(`${path.basename(repoRoot)}: pins installed; not committed\n`);
+    return;
+  }
   commitAndPush(repoRoot, "Consume released packages");
 }
 

@@ -137,11 +137,13 @@ still needs preparation fails there at its push. Successful publication can be
 repeated without creating versions or uploading already matching releases.
 
 Other repositories pin released packages with
-`jskit-release pin --from <repoDir>... [--dry-run]`: every dependency range on a
+`jskit-release pin --from <repoDir>... [--dry-run|--no-commit]`: every dependency range on a
 package published from those repositories follows its current version, keeping
 `^`/`~`. It then runs `npm install` (retrying while npm does not yet serve a new
 version), commits `Consume released packages` and pushes with the same retry.
-A real pin requires the same clean, current `main` checkout.
+A real pin requires the same clean, current `main` checkout. `--no-commit`
+stops after the install and leaves the edits uncommitted, for a caller that
+builds from them and discards them (Vibe64 Online's deploy rehearsal).
 
 Supply `NPM_TOKEN` in the command's environment, with publishing access to the
 JSKIT packages. The same scripts run locally, in CI and in Vibe64. In Vibe64,
