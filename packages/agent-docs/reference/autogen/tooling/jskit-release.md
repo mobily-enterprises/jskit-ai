@@ -69,7 +69,7 @@ Local functions
 - `publishRelease(records, { cwd: repoRoot, dryRun, registry })`
 - `publishCommand(options)`
 - `installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {})`
-- `pinCommand({ cwd: repoRoot, from, dryRun })`
+- `pinCommand({ cwd: repoRoot, from, dryRun, noCommit })`
 
 ### bin
 

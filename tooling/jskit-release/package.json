@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/release",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Selective npm release preparation, publication and dependency pinning for package repositories.",
   "type": "module",
   "files": [
