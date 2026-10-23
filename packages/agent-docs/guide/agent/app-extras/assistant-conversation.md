@@ -485,10 +485,14 @@ and the existing queuing behavior for a runtime that advertises steering.
 Applications may opt into `deferWhileWorking: true` with
 `queueWhileSending: true` for a conversation that cannot steer its active turn.
 Typed and retained voice submissions become pending in the original serial
-queue with their exact message ID, text, attachments and captured data. The
-existing subscription must report ready before each ordinary request reaches
-the API; normal server permissions still apply at dispatch. Show **Send** and
-the existing pending status, not **Steer**, when the runtime cannot steer.
+queue with their exact message ID, text, attachments and captured data. Each
+waits only while the existing subscription reports a working turn that cannot
+take steering, and its pending status says so ("Pending: Waiting for the
+assistant to finish this step"). When that working turn becomes steerable the
+message is sent as steering, keeping the finished-turn fallback to one ordinary
+Send; when the subscription reports ready it is sent as an ordinary request.
+Normal server permissions still apply at dispatch. Show **Send** and the
+pending status, not **Steer**, when the runtime cannot steer.
 Native steering and explicit retries keep their captured intent. Stop aborts
 these local pre-dispatch followers before stopping the original turn; actor
 retirement and lost access cannot dispatch them later. This option defaults to

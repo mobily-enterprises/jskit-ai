@@ -419,20 +419,23 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     }
     return result;
   }
-  function waitUntilReady({ controller }) {
+  // A deferred message waits only while the working turn cannot take it. It
+  // steers as soon as that turn accepts steering, or sends once it is ready.
+  function waitForAdmission({ controller }) {
     return new Promise(resolve => {
       let stop;
-      const finish = ready => {
+      const finish = admission => {
         stop?.();
         controller.signal.removeEventListener("abort", check);
-        resolve(ready);
+        resolve(admission);
       };
       const check = () => {
         if (controller.signal.aborted || !available.value) finish(false);
-        else if (snapshot.value.status === "ready") finish(true);
+        else if (snapshot.value.status === "ready") finish("send");
+        else if (steerable.value) finish("steer");
         else if (snapshot.value.status !== "working") finish(false);
       };
-      stop = watch([available, snapshot], check, { flush: "sync" });
+      stop = watch([available, snapshot, steerable], check, { flush: "sync" });
       controller.signal.addEventListener("abort", check, { once: true });
       check();
     });
@@ -451,19 +454,31 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
         receiptTurns: turns, uncertainOnError: true,
         async deliver(submission) {
           pending.started = true;
+          let admission = null;
           try {
             if (controller.signal.aborted || appAdmission && (!available.value || stopping.value || !workingPolicy.value.admitWhileWorking)) return false;
             if (deferred) {
               // Refresh through the same subscription after a queued predecessor;
               // its receipt may have arrived before the working snapshot.
               await subscription?.reload();
-              if (error.value || !await waitUntilReady(pending)) return false;
-              if (controller.signal.aborted || !available.value || snapshot.value.status !== "ready") return false;
+              if (error.value) return false;
+              if (snapshot.value.status === "working" && !steerable.value) {
+                delivery.wait(messageId, "Waiting for the assistant to finish this step");
+              }
+              admission = await waitForAdmission(pending);
+              delivery.wait(messageId, "");
+              if (!admission || controller.signal.aborted || !available.value ||
+                  snapshot.value.status !== (admission === "steer" ? "working" : "ready")) return false;
               if (submission.displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) {
                 return { ok: false, error: "This conversation no longer accepts attachments." };
               }
             }
             let request = prepare ? await prepare(submission, { signal: controller.signal }) : submission.request;
+            if (admission === "steer") {
+              request = { ...request, steer: true };
+              const retained = delivery.find(messageId);
+              if (retained) retained.payload.request = request;
+            }
             if (prepare) {
               if (!current.value || accessDenied.value || controller.signal.aborted || request === false) return false;
               if (!request || typeof request !== "object" || Array.isArray(request)) {

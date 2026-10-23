@@ -952,6 +952,32 @@ test("opted-in nonsteerable follow-ups use the original serial queue and dispatc
   assert.equal((await f.sent()).at(-1).input.steer, true);
 });
 
+test("a deferred follow-up explains its wait and steers once the working turn accepts steering", options, async t => {
+  const f = await fixture(t);
+  await f.page.evaluate(() => {
+    window.deferredBinding = window.conversationFixture.acquireConversation({
+      conversationId: "chat:2", deferWhileWorking: true, queueWhileSending: true
+    });
+    window.conversationFixture.target("chat:2");
+  });
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current()?.identity.conversationId)).toBe("chat:2");
+  await expect(f.input).toBeEnabled();
+  await f.input.fill("Original nonsteerable request");
+  await f.input.press("Enter");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().snapshot.value.status)).toBe("working");
+  await f.input.fill("Follow-up while the turn starts");
+  await f.input.press("Enter");
+  await expect(f.primary.getByText("Pending: Waiting for the assistant to finish this step")).toHaveCount(1);
+  assert.equal((await f.sent()).length, 1, "the follow-up waits while the turn cannot take steering");
+  await f.command("steering", { id: "chat:2", enabled: true });
+  await f.notify("chat:2");
+  await expect.poll(async () => (await f.sent()).length).toBe(2);
+  const [, followUp] = await f.sent();
+  assert.equal(followUp.input.text, "Follow-up while the turn starts");
+  assert.equal(followUp.input.steer, true, "the waiting follow-up reaches the running turn without waiting for it to finish");
+  await expect(f.primary.getByText(/^Pending/)).toHaveCount(0);
+});
+
 for (const steer of [false, true]) {
   test(`Stop cancels locally queued native ${steer ? "steering" : "startup"} follow-ups`, options, async t => {
     const f = await fixture(t);

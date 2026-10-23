@@ -96,7 +96,8 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
       delivery: { messageId: message.id, error: message.error, checking: message.checking === true }
     } : null;
     return {
-      optimistic: { error: message.error, id: message.id, status: message.status },
+      optimistic: { error: message.error, id: message.id, status: message.status,
+        ...(message.status === "pending" && message.waiting ? { waiting: message.waiting } : {}) },
       turnId: message.id,
       [role]: authored,
       ...(status ? { system: role === "system" ? { ...authored, ...status, text: `${authored.text}\n\n${status.text}` } : status } : {})
@@ -201,6 +202,12 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     }
   }
 
+  // Explains why a pending message is held locally, or clears that reason.
+  function wait(messageId, reason = "") {
+    const message = find(messageId);
+    if (message?.status === "pending") message.waiting = String(reason || "").trim();
+  }
+
   function rejectUnsent(messageId, error) {
     if (find(messageId)?.status !== "uncertain") return false;
     fail(messageId, error);
@@ -253,7 +260,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
     state.sending = false;
   }
 
-  return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, rejectUnsent, send, state, turns };
+  return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, rejectUnsent, send, state, turns, wait };
 }
 
 export { createAssistantMessageDelivery, unmatchedOptimisticMessages };

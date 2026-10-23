@@ -175,7 +175,7 @@
               class="assistant-transcript__message-footer assistant-transcript__message-footer--user"
             >
               <time v-if="entry.message.displayAt">{{ entry.message.displayAt }}</time>
-              <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">Pending</span>
+              <span v-if="entry.turn.optimistic?.status === 'pending'" role="status">{{ entry.turn.optimistic.waiting ? `Pending: ${entry.turn.optimistic.waiting}` : "Pending" }}</span>
             </div>
             <slot name="user-message-actions" :message="entry.message" :turn="entry.turn" />
             <div
