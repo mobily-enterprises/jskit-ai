@@ -323,11 +323,13 @@ function toggleConfirmPasswordVisibility() {
 
 <style scoped>
 .login-screen {
+  /* Start below shell banners shown on a surface without an app bar. */
+  --auth-screen-height: calc(100dvh - var(--shell-error-banners-inline-height, 0px));
   position: fixed;
-  inset: 0;
+  inset: var(--shell-error-banners-inline-height, 0px) 0 0;
   z-index: 1;
   overflow-y: auto;
-  min-height: 100dvh;
+  min-height: var(--auth-screen-height);
   background-color: rgb(var(--v-theme-background));
   background-image: radial-gradient(circle at 15% 12%, rgba(var(--v-theme-primary), 0.14), transparent 32%);
 }
@@ -337,7 +339,7 @@ function toggleConfirmPasswordVisibility() {
 }
 
 .login-shell {
-  min-height: 100dvh;
+  min-height: var(--auth-screen-height);
 }
 
 .login-shell--mobile {
@@ -350,7 +352,7 @@ function toggleConfirmPasswordVisibility() {
 
 .auth-card--mobile {
   width: 100%;
-  min-height: 100dvh;
+  min-height: var(--auth-screen-height);
 }
 
 .auth-content {
@@ -358,7 +360,7 @@ function toggleConfirmPasswordVisibility() {
 }
 
 .auth-content--mobile {
-  min-height: 100dvh;
+  min-height: var(--auth-screen-height);
   padding: calc(24px + env(safe-area-inset-top, 0px)) 20px calc(32px + env(safe-area-inset-bottom, 0px));
 }
 

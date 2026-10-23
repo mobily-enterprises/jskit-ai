@@ -59,6 +59,9 @@ Exports
 Exports
 - None
 Local functions
+- `readLayoutRect()`
+- `publishInlineBannerHeight(height = 0)`
+- `stopObservingBanners()`
 - `isSameSnackbarEntry(left = null, right = null)`
 - `hasSnackbarEntry(entry = null)`
 - `openNextSnackbarEntry()`

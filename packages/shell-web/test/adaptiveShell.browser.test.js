@@ -361,3 +361,81 @@ test("shell-web preserves the active form across responsive changes", {
     await stopProcess(vite);
   }
 });
+
+function overlaps(first, second) {
+  return first.bottom > second.top && first.top < second.bottom &&
+    first.right > second.left && first.left < second.right;
+}
+
+async function reportBannerAndMeasure(page) {
+  await page.evaluate(() => window.__shellFixtureReportBanner("Invalid email or password."));
+  const banner = page.locator(".shell-error-host__banner").first();
+  await expect(banner).toBeVisible();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  return banner.evaluate((element) => {
+    const box = (node) => {
+      const rect = node.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+    };
+    const close = element.querySelector(".v-alert__close .v-btn");
+    const closeColor = window.getComputedStyle(close).color;
+    // A themed button default must not recolour the close mark into the banner colour.
+    close.classList.add("text-error");
+    const closeColorWithThemedDefault = window.getComputedStyle(close).color;
+    close.classList.remove("text-error");
+    const appBar = document.querySelector("[data-testid='jskit-shell-app-bar']");
+    return {
+      banner: box(element),
+      background: window.getComputedStyle(element).backgroundColor,
+      closeColor,
+      closeColorWithThemedDefault,
+      appBar: appBar ? box(appBar) : null,
+      content: Array.from(document.querySelectorAll("main h1, main input, main button"))
+        .map((node) => ({ name: node.textContent.trim() || node.name, rect: box(node) }))
+    };
+  });
+}
+
+test("shell-web error banners never cover content and keep a readable close button", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      for (const theme of ["light", "dark"]) {
+        const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
+        await page.goto(`/sign-in?theme=${theme}`);
+        await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+        await expect(page.getByTestId("jskit-shell-app-bar")).toHaveCount(0);
+        const bare = await reportBannerAndMeasure(page);
+        for (const item of bare.content) {
+          assert.equal(
+            overlaps(bare.banner, item.rect),
+            false,
+            `${viewport.width}px ${theme}: the banner covers "${item.name}" on a surface without an app bar.`
+          );
+        }
+        const background = parseRgb(bare.background);
+        for (const color of [bare.closeColor, bare.closeColorWithThemedDefault]) {
+          const ratio = contrastRatio(parseRgb(color), background);
+          assert.ok(ratio >= 3, `${viewport.width}px ${theme}: banner close contrast was ${ratio.toFixed(2)}:1.`);
+        }
+
+        await page.goto(`/home?theme=${theme}`);
+        await expect(page.getByTestId("jskit-shell-app-bar")).toBeVisible();
+        const shell = await reportBannerAndMeasure(page);
+        assert.ok(
+          shell.banner.top >= shell.appBar.bottom - 1,
+          `${viewport.width}px ${theme}: the banner overlaps the top app bar.`
+        );
+        await page.close();
+      }
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});

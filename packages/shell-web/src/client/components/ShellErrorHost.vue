@@ -1,5 +1,7 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useLayout } from "vuetify";
+import { mdiAlertOutline, mdiCheckCircleOutline, mdiInformationOutline } from "@mdi/js";
 import {
   useShellWebErrorRuntime
 } from "../error/inject.js";
@@ -12,6 +14,75 @@ const snackbarEntries = computed(() => store.channels.snackbar || []);
 const bannerEntries = computed(() => store.channels.banner || []);
 const dialogEntry = computed(() => store.channels.dialog[0] || null);
 const displayedSnackbarEntry = ref(null);
+const layoutRect = readLayoutRect();
+
+function readLayoutRect() {
+  try {
+    return useLayout().mainRect;
+  } catch {
+    return null;
+  }
+}
+
+// Banners float just below a top app bar. A surface without one (sign-in pages)
+// has nothing to float under, so the banners join the page flow above the
+// content instead of covering it, and publish their height so full-viewport
+// surfaces can start below them.
+const BANNER_INLINE_HEIGHT_PROPERTY = "--shell-error-banners-inline-height";
+const bannersElement = ref(null);
+const bannerPlacement = computed(() => {
+  const rect = layoutRect?.value || {};
+  const top = Number(rect.top) || 0;
+  if (top <= 0) {
+    return { inline: true, style: undefined };
+  }
+
+  return {
+    inline: false,
+    style: {
+      top: `calc(env(safe-area-inset-top, 0px) + ${top}px)`,
+      left: `${Number(rect.left) || 0}px`,
+      right: `${Number(rect.right) || 0}px`
+    }
+  };
+});
+let bannerResizeObserver = null;
+
+function publishInlineBannerHeight(height = 0) {
+  const rootStyle = globalThis.document?.documentElement?.style;
+  if (!rootStyle) {
+    return;
+  }
+  if (height > 0) {
+    rootStyle.setProperty(BANNER_INLINE_HEIGHT_PROPERTY, `${Math.ceil(height)}px`);
+  } else {
+    rootStyle.removeProperty(BANNER_INLINE_HEIGHT_PROPERTY);
+  }
+}
+
+function stopObservingBanners() {
+  bannerResizeObserver?.disconnect();
+  bannerResizeObserver = null;
+  publishInlineBannerHeight(0);
+}
+
+watch(
+  [bannersElement, () => bannerPlacement.value.inline],
+  ([element, inline]) => {
+    stopObservingBanners();
+    if (!element || !inline || typeof globalThis.ResizeObserver !== "function") {
+      return;
+    }
+    bannerResizeObserver = new globalThis.ResizeObserver(() => {
+      publishInlineBannerHeight(element.getBoundingClientRect().height);
+    });
+    bannerResizeObserver.observe(element);
+    publishInlineBannerHeight(element.getBoundingClientRect().height);
+  },
+  { flush: "post" }
+);
+
+onBeforeUnmount(stopObservingBanners);
 const snackbarOpen = ref(false);
 
 function isSameSnackbarEntry(left = null, right = null) {
@@ -77,15 +148,12 @@ function resolveSeverityColor(severity = "error") {
 function resolveSeverityIcon(severity = "error") {
   const normalized = String(severity || "error").trim().toLowerCase();
   if (normalized === "info") {
-    return "mdi-information-outline";
+    return mdiInformationOutline;
   }
   if (normalized === "success") {
-    return "mdi-check-circle-outline";
+    return mdiCheckCircleOutline;
   }
-  if (normalized === "warning") {
-    return "mdi-alert-outline";
-  }
-  return "mdi-alert-outline";
+  return mdiAlertOutline;
 }
 
 function resolveTimeout(entry) {
@@ -155,8 +223,19 @@ function onSnackbarAfterLeave() {
 </script>
 
 <template>
-  <div class="shell-error-host" aria-live="polite">
-    <div v-if="bannerEntries.length > 0" class="shell-error-host__banners">
+  <div
+    class="shell-error-host"
+    :class="{ 'shell-error-host--inline-banners': bannerPlacement.inline }"
+    aria-live="polite"
+  >
+    <div
+      v-if="bannerEntries.length > 0"
+      ref="bannersElement"
+      class="shell-error-host__banners"
+      :class="{ 'shell-error-host__banners--inline': bannerPlacement.inline }"
+      :style="bannerPlacement.style"
+      data-testid="shell-error-host-banners"
+    >
       <div class="shell-error-host__banner-stack">
         <v-alert
           v-for="entry in bannerEntries"
@@ -254,14 +333,21 @@ function onSnackbarAfterLeave() {
 </template>
 
 <style scoped>
+.shell-error-host--inline-banners {
+  order: -1;
+}
+
 .shell-error-host__banners {
   position: fixed;
-  top: calc(env(safe-area-inset-top, 0px) + var(--shell-error-banner-offset, 64px));
-  left: 0;
-  right: 0;
   z-index: 2600;
   pointer-events: none;
   padding: 10px 12px;
+}
+
+.shell-error-host__banners--inline {
+  position: relative;
+  z-index: auto;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
 }
 
 .shell-error-host__banner-stack {
@@ -277,10 +363,28 @@ function onSnackbarAfterLeave() {
   box-shadow: var(--v-shadow-4);
 }
 
+/*
+ * The close button always uses the banner's own on-color (the message colour) on
+ * a tonal disc of that colour, so a themed button default can never turn it into
+ * a low-contrast red-on-red mark, in light or dark themes.
+ */
+.shell-error-host__banner :deep(.v-alert__close .v-btn) {
+  color: inherit !important;
+  opacity: 1;
+  background-color: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.shell-error-host__banner :deep(.v-alert__close .v-btn .v-icon) {
+  font-size: 20px;
+}
+
 @media (max-width: 600px) {
   .shell-error-host__banners {
-    top: calc(env(safe-area-inset-top, 0px) + var(--shell-error-banner-offset-mobile, 56px));
     padding: 8px;
+  }
+
+  .shell-error-host__banners--inline {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 8px);
   }
 }
 </style>

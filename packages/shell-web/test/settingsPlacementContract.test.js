@@ -142,7 +142,7 @@ test("shell-web error host uses one explicit close affordance for banner errors"
   const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "ShellErrorHost.vue"), "utf8");
 
   assert.match(source, /function resolveSeverityIcon/);
-  assert.match(source, /mdi-alert-outline/);
+  assert.match(source, /mdiAlertOutline/);
   assert.match(source, /:icon="resolveSeverityIcon\(entry\.severity\)"/);
   assert.match(source, /closable[\s\S]*@click:close="dismiss\(entry\)"/);
   assert.doesNotMatch(source, /mdi-close/);

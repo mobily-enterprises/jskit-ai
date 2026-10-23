@@ -13,6 +13,10 @@ import ShellSurfaceAwareMenuLinkItem from "@jskit-ai/shell-web/client/components
 import ShellTabLinkItem from "@jskit-ai/shell-web/client/components/ShellTabLinkItem";
 import { useShellLayoutStore } from "../../../src/client/stores/useShellLayoutStore.js";
 import { createWebPlacementRuntime } from "../../../src/client/placement/runtime.js";
+import { createErrorRuntime } from "../../../src/client/error/runtime.js";
+import { createDefaultMaterialErrorPresenters } from "../../../src/client/error/presenters.js";
+import { createErrorPresentationStore } from "../../../src/client/error/store.js";
+import { useShellErrorPresentationStore } from "../../../src/client/stores/useShellErrorPresentationStore.js";
 
 const COMPONENTS = new Map([
   ["fixture.menu-link", ShellMenuLinkItem],
@@ -111,7 +115,8 @@ const routes = [
   { path: "/home/settings/general", component: ScreenPage, meta: { title: "General settings" } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
-  { path: "/help", component: ScreenPage, meta: { title: "Help and support" } }
+  { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
+  { path: "/sign-in", component: ScreenPage, meta: { title: "Sign in", bare: true } }
 ];
 const router = createRouter({ history: createWebHistory(), routes });
 const pinia = createPinia();
@@ -179,6 +184,19 @@ app.use(pinia);
 app.use(router);
 app.use(vuetify);
 app.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
+const errorStore = createErrorPresentationStore();
+const errorRuntime = createErrorRuntime({
+  presenters: createDefaultMaterialErrorPresenters({ store: errorStore }),
+  defaultPresenterId: "material.snackbar"
+});
+useShellErrorPresentationStore(pinia).attachRuntimeStore(errorStore);
+app.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
+window.__shellFixtureReportBanner = (message) => errorRuntime.report({
+  source: "shell-web.fixture",
+  message,
+  severity: "error",
+  channel: "banner"
+});
 app.provide("jskit.shell-web.runtime.web-refresh.client", {
   async refresh() {
     await fetch("/api/bootstrap?reason=pull-to-refresh");

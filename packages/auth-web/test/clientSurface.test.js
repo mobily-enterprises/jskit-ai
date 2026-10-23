@@ -92,7 +92,17 @@ test("default login view owns the viewport and becomes a full-screen mobile scre
   assert.match(viewSource, /:elevation="isMobileViewport \? 0 : 1"/);
   assert.match(viewSource, /:border="!isMobileViewport"/);
   assert.match(viewSource, /\.login-screen\s*\{[\s\S]*position:\s*fixed;/);
-  assert.match(viewSource, /\.login-screen\s*\{[\s\S]*inset:\s*0;/);
+  // The full-viewport screen starts below shell banners shown on this bar-less surface.
+  assert.match(viewSource, /\.login-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);
+});
+
+test("default reset view starts below shell banners on its bar-less surface", () => {
+  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultResetPasswordView.vue", import.meta.url));
+  const viewSource = readFileSync(viewPath, "utf8");
+
+  assert.match(viewSource, /\.reset-screen\s*\{[\s\S]*position:\s*fixed;/);
+  assert.match(viewSource, /\.reset-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);
+  assert.doesNotMatch(viewSource, /min-height:\s*100dvh/);
 });
 
 test("default login view avoids decorative login chrome", () => {
