@@ -80,8 +80,19 @@ test("clearSessionCookies preserves secure cookie clearing in production", () =>
 
   authService.clearSessionCookies(reply);
 
-  assert.equal(clearCalls.length, 8);
   assert.equal(clearCalls.every((call) => call.options.secure === true), true);
+  // Production names are host-only __Host- cookies, which only exist at Path=/;
+  // the unprefixed names from before are cleared at both paths.
+  assert.deepEqual(
+    clearCalls.filter((call) => call.name.startsWith("__Host-")).map((call) => `${call.name} ${call.options.path}`),
+    [
+      "__Host-sb_access_token /",
+      "__Host-sb_refresh_token /",
+      "__Host-sb_recovery_access_token /",
+      "__Host-sb_recovery_refresh_token /"
+    ]
+  );
+  assert.equal(clearCalls.filter((call) => call.name === "sb_access_token").length, 2);
 });
 
 test("supabase account flow updateDisplayName accepts the core command payload shape", async () => {

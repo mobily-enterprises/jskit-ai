@@ -8,7 +8,7 @@ import {
   AUTH_METHOD_PASSWORD_PROVIDER,
   buildOAuthMethodId
 } from "@jskit-ai/auth-core/shared/authMethods";
-import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
+import { hostOnlyCookieName, normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import {
   isTransientAuthMessage,
   isTransientSupabaseError,
@@ -68,10 +68,10 @@ import {
   resolveSupabaseOAuthProviderCatalog
 } from "./oauthProviderCatalog.js";
 
-const ACCESS_TOKEN_COOKIE = "sb_access_token";
-const REFRESH_TOKEN_COOKIE = "sb_refresh_token";
-const RECOVERY_ACCESS_TOKEN_COOKIE = "sb_recovery_access_token";
-const RECOVERY_REFRESH_TOKEN_COOKIE = "sb_recovery_refresh_token";
+const ACCESS_TOKEN_COOKIE_NAME = "sb_access_token";
+const REFRESH_TOKEN_COOKIE_NAME = "sb_refresh_token";
+const RECOVERY_ACCESS_TOKEN_COOKIE_NAME = "sb_recovery_access_token";
+const RECOVERY_REFRESH_TOKEN_COOKIE_NAME = "sb_recovery_refresh_token";
 const DEFAULT_AUDIENCE = "authenticated";
 const DEFAULT_AUTH_PROVIDER_ID = "supabase";
 const AUTH_PROVIDER_ID_PATTERN = /^[a-z][a-z0-9_-]{1,63}$/;
@@ -128,6 +128,11 @@ function createService(options) {
     throw new Error("userProfileSyncService with syncIdentityProfile() and findByIdentity() is required.");
   }
   const isProduction = options.nodeEnv === "production";
+  // Production cookies are Secure, so they are also host-only __Host- cookies.
+  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
+  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isProduction);
+  const RECOVERY_ACCESS_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_ACCESS_TOKEN_COOKIE_NAME, isProduction);
+  const RECOVERY_REFRESH_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_REFRESH_TOKEN_COOKIE_NAME, isProduction);
   const jwtAudience = String(authProvider.jwtAudience || DEFAULT_AUDIENCE).trim();
   const devAuthConfig = resolveDevAuthConfig({
     enabled: options.devAuthBypassEnabled,
@@ -501,10 +506,20 @@ function createService(options) {
 
   function clearSessionCookies(reply) {
     for (const clearOptions of cookieClearOptions(isProduction)) {
-      reply.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
-      reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
-      reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE, clearOptions);
-      reply.clearCookie(RECOVERY_REFRESH_TOKEN_COOKIE, clearOptions);
+      // A __Host- cookie only exists at Path=/.
+      if (clearOptions.path === "/" || !isProduction) {
+        reply.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
+        reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
+        reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE, clearOptions);
+        reply.clearCookie(RECOVERY_REFRESH_TOKEN_COOKIE, clearOptions);
+      }
+      if (isProduction) {
+        // Cookies from before the __Host- names.
+        reply.clearCookie(ACCESS_TOKEN_COOKIE_NAME, clearOptions);
+        reply.clearCookie(REFRESH_TOKEN_COOKIE_NAME, clearOptions);
+        reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE_NAME, clearOptions);
+        reply.clearCookie(RECOVERY_REFRESH_TOKEN_COOKIE_NAME, clearOptions);
+      }
     }
   }
 

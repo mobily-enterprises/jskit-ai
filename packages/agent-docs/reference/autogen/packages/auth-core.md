@@ -197,6 +197,7 @@ Exports
 
 ### `src/server/utils.js`
 Exports
+- `hostOnlyCookieName(name, secure)`
 - `normalizeEmail(value)`
 - `normalizeOAuthIntent(value, { fallback = "login" } = {})`
 - `normalizeReturnToPath(value, { fallback = "/", allowedOrigins = [] } = {})`

@@ -7,7 +7,7 @@ import {
   ensureDevAuthExchangeAvailable,
   ensureDevAuthRuntimeAvailable
 } from "@jskit-ai/auth-core/server/devAuth";
-import { normalizeEmail, normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
+import { hostOnlyCookieName, normalizeEmail, normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { AUTH_OIDC_PROVIDER_ID, AUTH_OIDC_REDIRECT_PATH } from "../../shared/index.js";
 import { isLoopbackHostname } from "./config.js";
@@ -83,6 +83,8 @@ function buildResult(identity, { session = null, appProfile = null } = {}) {
 function createOidcAuthService({ config, store, issuer, profileProjector = null, logger = null, now = Date.now }) {
   const sealer = createTransactionSealer({ secret: config.sessionSecret, now });
   const secureCookies = config.isProduction;
+  // Production sessions use a host-only __Host- cookie, like the other providers.
+  const sessionCookie = hostOnlyCookieName(SESSION_COOKIE, secureCookies);
   const projectorSyncs = typeof profileProjector?.syncIdentityProfile === "function";
   const devLoginEnabled = config.devAuth.enabled === true && config.devAuth.isProduction !== true;
   const capabilities = normalizeAuthCapabilities({
@@ -248,12 +250,12 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
   }
 
   async function sessionFromRequest(request) {
-    const token = String(cookiesOf(request)[SESSION_COOKIE] || "").trim();
+    const token = String(cookiesOf(request)[sessionCookie] || "").trim();
     return token ? store.findActiveSessionByTokenHash(sha256(token)) : null;
   }
 
   async function authenticateRequest(request) {
-    const hasCookie = Boolean(cookiesOf(request)[SESSION_COOKIE]);
+    const hasCookie = Boolean(cookiesOf(request)[sessionCookie]);
     const session = await sessionFromRequest(request);
     if (!session) return unauthenticated(hasCookie);
     const identity = { sub: session.sub, email: session.email, displayName: session.displayName };
@@ -303,7 +305,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
 
   function writeSessionCookies(reply, session) {
     if (!reply || !session?.token) return;
-    reply.setCookie(SESSION_COOKIE, session.token, {
+    reply.setCookie(sessionCookie, session.token, {
       path: "/",
       httpOnly: true,
       sameSite: "lax",
@@ -314,7 +316,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
 
   function clearSessionCookies(reply) {
     if (!reply) return;
-    reply.clearCookie(SESSION_COOKIE, { path: "/", httpOnly: true, sameSite: "lax", secure: secureCookies, maxAge: 0 });
+    reply.clearCookie(sessionCookie, { path: "/", httpOnly: true, sameSite: "lax", secure: secureCookies, maxAge: 0 });
   }
 
   async function logout(request) {
@@ -350,8 +352,8 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     isDevAuthBootstrapEnabled: () => devLoginEnabled,
     devLoginAs,
     authenticateRequest,
-    hasAccessTokenCookie: (request) => Boolean(cookiesOf(request)[SESSION_COOKIE]),
-    hasSessionCookie: (request) => Boolean(cookiesOf(request)[SESSION_COOKIE]),
+    hasAccessTokenCookie: (request) => Boolean(cookiesOf(request)[sessionCookie]),
+    hasSessionCookie: (request) => Boolean(cookiesOf(request)[sessionCookie]),
     writeSessionCookies,
     clearSessionCookies,
     writeOAuthStartCookies,

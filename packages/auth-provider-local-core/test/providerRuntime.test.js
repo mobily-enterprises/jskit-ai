@@ -1150,6 +1150,28 @@ test("local file backend replays a pending multi-file transaction journal before
   await assert.rejects(() => fs.stat(path.join(storeDir, "transaction.journal")), { code: "ENOENT" });
 });
 
+test("production sessions use host-only __Host- cookies and ignore the old names", async (t) => {
+  const app = await createStartedApp({
+    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret" }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  const registered = await app.authService.register({ email: "host@example.com", password: "correct horse battery staple" });
+  const reply = createReplyFixture();
+  app.authService.writeSessionCookies(reply, registered.session);
+  assert.deepEqual(Object.keys(reply.cookies).sort(), ["__Host-jskit_local_access_token", "__Host-jskit_local_refresh_token"]);
+  for (const options of Object.values(reply.cookieOptions)) {
+    assert.equal(options.secure, true);
+    assert.equal(options.path, "/");
+    assert.equal(options.domain, undefined);
+  }
+  assert.equal((await app.authService.authenticateRequest({ cookies: reply.cookies })).authenticated, true);
+  const oldNames = {
+    jskit_local_access_token: reply.cookies["__Host-jskit_local_access_token"],
+    jskit_local_refresh_token: reply.cookies["__Host-jskit_local_refresh_token"]
+  };
+  assert.equal((await app.authService.authenticateRequest({ cookies: oldNames })).authenticated, false);
+});
+
 test("local recovery uses the application sender without returning or logging its token", async (t) => {
   const messages = [];
   const logs = [];

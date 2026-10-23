@@ -48,6 +48,38 @@ test("auth policy protects real Fastify requests with CSRF and route rate limits
   assert.equal((await app.inject({ method: "GET", url: "/api/limited" })).statusCode, 429);
 });
 
+test("production CSRF secrets live in a host-only __Host- cookie a sibling host cannot plant", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  await authPolicyPlugin({
+    async resolveActor() {
+      return { authenticated: false, actor: null, transientFailure: false };
+    },
+    hasPermission() {
+      return false;
+    }
+  }, { nodeEnv: "production" })(app);
+  app.get("/api/csrf", { config: { authPolicy: "public" } }, (_request, reply) => ({ token: reply.generateCsrf() }));
+  app.post("/api/write", { config: { authPolicy: "public" } }, () => ({ accepted: true }));
+
+  const csrf = await app.inject({ method: "GET", url: "/api/csrf" });
+  const [secretCookie] = csrf.cookies;
+  assert.equal(secretCookie.name, "__Host-_csrf");
+  assert.equal(secretCookie.path, "/");
+  assert.equal(secretCookie.secure, true);
+  assert.equal(secretCookie.domain, undefined);
+  const token = csrf.json().token;
+  const accepted = await app.inject({
+    method: "POST", url: "/api/write", cookies: { "__Host-_csrf": secretCookie.value }, headers: { "x-csrf-token": token }
+  });
+  assert.equal(accepted.statusCode, 200);
+  // A secret tossed under the old, unprefixed name is never read.
+  const tossed = await app.inject({
+    method: "POST", url: "/api/write", cookies: { _csrf: secretCookie.value }, headers: { "x-csrf-token": token }
+  });
+  assert.equal(tossed.statusCode, 403);
+});
+
 test("requires resolveActor and hasPermission dependencies", () => {
   assert.throws(() => authPolicyPlugin(), /resolveActor is required/);
   assert.throws(() => authPolicyPlugin({ resolveActor() {} }), /hasPermission is required/);

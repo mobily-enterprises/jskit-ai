@@ -28,9 +28,12 @@ function createPolicy({ authService, extensions, env }) {
       nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
       apiPrefix: String(env.AUTH_API_PREFIX || "/api/").trim() || "/api/",
       unsafeMethods: Object.freeze(parseList(env.AUTH_CSRF_UNSAFE_METHODS)),
-      csrfCookieOpts: Object.freeze({
-        secure: parseBooleanFlag(env.AUTH_CSRF_COOKIE_SECURE, false)
-      })
+      // Unset AUTH_CSRF_COOKIE_SECURE follows NODE_ENV (Secure in production).
+      csrfCookieOpts: Object.freeze(
+        String(env.AUTH_CSRF_COOKIE_SECURE ?? "").trim()
+          ? { secure: parseBooleanFlag(env.AUTH_CSRF_COOKIE_SECURE, false) }
+          : {}
+      )
     })
   });
 }

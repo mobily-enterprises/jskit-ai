@@ -2,6 +2,7 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyCsrfProtection from "@fastify/csrf-protection";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { safeRequestUrl } from "@jskit-ai/kernel/server/runtime/requestUrl";
+import { hostOnlyCookieName } from "../utils.js";
 
 import { assertAuthPolicyDeps, normalizeActorResolution } from "./authPolicySupport.js";
 import { AUTH_POLICY_DENY_REASONS, createAuthPolicyError } from "./errors.js";
@@ -101,18 +102,26 @@ function authPolicyPlugin(deps = {}, options = {}) {
       ? options.createError
       : (status, message) => createAuthPolicyError(status, message);
 
+  // CSRF uses tokens checked against a secret cookie, never SameSite alone. In
+  // production that cookie is host-only (__Host-), so a sibling host cannot plant
+  // a secret it knows and forge tokens.
+  const csrfCookieSecure = typeof csrfCookieOpts.secure === "boolean" ? csrfCookieOpts.secure : nodeEnv === "production";
+  const csrfCookieOptions = {
+    path: "/",
+    sameSite: "lax",
+    httpOnly: true,
+    ...csrfCookieOpts,
+    secure: csrfCookieSecure
+  };
+  const csrfCookieHostOnly = csrfCookieSecure && csrfCookieOptions.path === "/" && !csrfCookieOptions.domain;
+
   return async function registerAuthPolicyPlugin(fastify) {
     await fastify.register(fastifyCookie);
     await fastify.register(fastifyRateLimit, rateLimitPluginOptions);
     await fastify.register(fastifyCsrfProtection, {
       getToken: resolveCsrfTokenFn,
-      cookieOpts: {
-        path: "/",
-        sameSite: "lax",
-        secure: nodeEnv === "production",
-        httpOnly: true,
-        ...csrfCookieOpts
-      }
+      cookieKey: hostOnlyCookieName("_csrf", csrfCookieHostOnly),
+      cookieOpts: csrfCookieOptions
     });
 
     fastify.decorateRequest("user", null);

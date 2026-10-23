@@ -12,14 +12,14 @@ import {
   ensureDevAuthRuntimeAvailable,
   resolveDevAuthPolicy
 } from "@jskit-ai/auth-core/server/devAuth";
-import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
+import { hostOnlyCookieName, normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { normalizePasswordStrategy } from "./passwords.js";
 import { randomToken, sha256Base64url, signToken, verifySignedToken } from "./tokens.js";
 
-const ACCESS_TOKEN_COOKIE = "jskit_local_access_token";
-const REFRESH_TOKEN_COOKIE = "jskit_local_refresh_token";
-const RECOVERY_TOKEN_COOKIE = "jskit_local_recovery_token";
+const ACCESS_TOKEN_COOKIE_NAME = "jskit_local_access_token";
+const REFRESH_TOKEN_COOKIE_NAME = "jskit_local_refresh_token";
+const RECOVERY_TOKEN_COOKIE_NAME = "jskit_local_recovery_token";
 const PROVIDER_ID = "local";
 const DEV_AUTH_SESSION_PURPOSE = "dev-auth";
 const ACCESS_TTL_SECONDS = 15 * 60;
@@ -278,6 +278,10 @@ function createLocalAuthService({
 
   const passwords = normalizePasswordStrategy(passwordStrategy);
   const isProduction = config.nodeEnv === "production";
+  // Production cookies are Secure, so they are also host-only __Host- cookies.
+  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
+  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isProduction);
+  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isProduction);
   const devAuth = config.devAuth || resolveDevAuthPolicy({
     nodeEnv: config.nodeEnv
   });
@@ -571,9 +575,18 @@ function createLocalAuthService({
       return;
     }
     for (const options of clearCookieOptions(isProduction)) {
-      reply.clearCookie(ACCESS_TOKEN_COOKIE, options);
-      reply.clearCookie(REFRESH_TOKEN_COOKIE, options);
-      reply.clearCookie(RECOVERY_TOKEN_COOKIE, options);
+      // A __Host- cookie only exists at Path=/.
+      if (options.path === "/" || !isProduction) {
+        reply.clearCookie(ACCESS_TOKEN_COOKIE, options);
+        reply.clearCookie(REFRESH_TOKEN_COOKIE, options);
+        reply.clearCookie(RECOVERY_TOKEN_COOKIE, options);
+      }
+      if (isProduction) {
+        // Cookies from before the __Host- names.
+        reply.clearCookie(ACCESS_TOKEN_COOKIE_NAME, options);
+        reply.clearCookie(REFRESH_TOKEN_COOKIE_NAME, options);
+        reply.clearCookie(RECOVERY_TOKEN_COOKIE_NAME, options);
+      }
     }
   }
 

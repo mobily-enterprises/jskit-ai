@@ -125,3 +125,25 @@ test("RP 17: a logout token naming only the issuer session ends that session", a
   assert.deepEqual(await rp.backchannel.handle(token), { ended: 1 });
   assert.equal((await rp.service.authenticateRequest(requestAt(APP_ORIGIN, { jskit_oidc_session: session.token }))).authenticated, false);
 });
+
+test("production sessions use a host-only __Host- cookie", async (t) => {
+  const issuer = await startMockIssuer();
+  const rp = await createRelyingParty({
+    issuer,
+    env: { NODE_ENV: "production", AUTH_OIDC_SESSION_SECRET: "fixture-oidc-session-secret-0123456789" }
+  });
+  t.after(async () => {
+    await rp.close();
+    await issuer.close();
+  });
+  const written = [];
+  const reply = { setCookie: (name, value, options) => written.push({ name, options }) };
+  rp.service.writeSessionCookies(reply, { token: "opaque-session-token", expires_in: 60 });
+  assert.equal(written.length, 1);
+  assert.equal(written[0].name, "__Host-jskit_oidc_session");
+  assert.equal(written[0].options.secure, true);
+  assert.equal(written[0].options.path, "/");
+  assert.equal(written[0].options.domain, undefined);
+  assert.equal(rp.service.hasSessionCookie({ cookies: { jskit_oidc_session: "x" } }), false);
+  assert.equal(rp.service.hasSessionCookie({ cookies: { "__Host-jskit_oidc_session": "x" } }), true);
+});
