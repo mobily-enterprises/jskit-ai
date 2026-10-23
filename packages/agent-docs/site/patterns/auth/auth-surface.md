@@ -29,16 +29,33 @@ Use the views, auth guard, HTTP client integration, sign-out runtime, providers,
 and Playwright auth helper exported by `@jskit-ai/auth-web`. Use auth policies
 from `@jskit-ai/auth-core` for server authorization.
 
-For a managed preview, copy the app-owned `tools/preview-identity` executable
-and declare it under `#### Preview identity` in the project's web-presented
-Vibe64 `Outputs` target with protocol `vibe64.preview-identity.command.v1`.
-Declare `AUTH_DEV_BYPASS_ENABLED` as its Enabled environment and
-`AUTH_DEV_BYPASS_SECRET` as its Secret environment so the preview host supplies
-fresh output-run-scoped values; users do not set those values by hand. JSKIT
-owns this executable/library pattern, Vibe64 owns the `Outputs` grammar and
-runtime behavior, and Genesis only composes that consumer-owned section as
-opaque text. The executable calls the exported managed-preview identity library
-directly; it does not require a JSKIT CLI.
+Every application with accounts includes the managed-preview login. It is
+standard, not optional: adding this pattern adds it, so a managed host's
+preview can sign its browser in as an existing account without anyone asking
+for it. Copy the app-owned `tools/preview-identity` executable (keep it
+executable) and declare it under `#### Preview identity` in the project's
+web-presented Vibe64 `Outputs` target, exactly:
+
+```markdown
+#### Preview identity
+
+- Command: `tools/preview-identity`
+- Protocol: `vibe64.preview-identity.command.v1`
+- Identity types: `email` `user-id`
+- Enabled environment: `AUTH_DEV_BYPASS_ENABLED`
+- Secret environment: `AUTH_DEV_BYPASS_SECRET`
+- Runtimes: `nodejs`
+```
+
+The preview host supplies fresh output-run-scoped values for both environment
+names; users do not set them by hand, and the exchange stays disabled without
+them. The person using the host chooses which existing accounts the preview may
+sign in as; the application never creates users for it. JSKIT owns this
+executable/library pattern, Vibe64 owns the `Outputs` grammar and runtime
+behavior, and Genesis only composes that consumer-owned section as opaque text.
+The executable calls the exported managed-preview identity library directly; it
+does not require a JSKIT CLI. A project without Genesis or a managed host keeps
+the executable; it is inert unless both environment values are present.
 
 Choose local-auth storage through the installed capability provider. A
 database-backed application installs `@jskit-ai/auth-provider-local-db-core`,
@@ -51,6 +68,8 @@ a user as a side effect.
 ## Invariants
 
 - Credentials and provider secrets come from environment values.
+- An application with accounts ships the executable `tools/preview-identity`
+  and declares it under `#### Preview identity` in its web `Outputs` target.
 - Auth backend selection comes from the installed provider graph, not an
   `AUTH_LOCAL_BACKEND` environment value.
 - The selected auth backend and the storage containing the application's users
@@ -71,7 +90,8 @@ a user as a side effect.
 
 `example/` contains concrete route wrappers, editable view wrappers, and the
 client runtime helpers needed by an authentication surface. It also contains
-the optional app-owned managed-preview identity executable. Compose their
+the standard app-owned managed-preview identity executable,
+`tools/preview-identity`. Compose their
 surface and placement declarations into the application's ordinary config and
 placement files.
 
@@ -86,6 +106,8 @@ Exercise failed and successful login, sign-out, reset, protected navigation,
 keyboard interaction, warm-cache return navigation, and browser refresh.
 Open the login route with an existing authenticated session and confirm it
 returns to the requested screen; repeat signed out and confirm the form remains.
+Confirm `tools/preview-identity` is committed as executable and the web
+`Outputs` target declares the `#### Preview identity` block above.
 
 ## Avoid
 

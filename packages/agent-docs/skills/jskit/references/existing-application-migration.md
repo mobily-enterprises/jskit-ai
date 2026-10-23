@@ -311,9 +311,11 @@ Do not conflate these identities:
   application profile and required workspace membership already exist. It does
   not synthesize any of them as a side effect.
 
-For a managed preview, retain the app-owned `tools/preview-identity`
-executable and declare it under `#### Preview identity` in the web-presented
-Vibe64 `Outputs` target. JSKIT owns the executable/library pattern, Vibe64 owns
+An application with accounts has the standard managed-preview login: retain
+the app-owned `tools/preview-identity` executable, or add it from
+`auth/auth-surface` when it is missing, and declare it under
+`#### Preview identity` in the web-presented Vibe64 `Outputs` target exactly as
+that pattern shows. JSKIT owns the executable/library pattern, Vibe64 owns
 the declaration's grammar and runtime behavior, and Genesis transports the
 consumer-owned section without interpreting it. The executable calls the
 `@jskit-ai/auth-web` server-side managed-preview library; it does not need a

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync, statSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -104,4 +105,23 @@ test("managed preview identity rejects a disabled or non-local exchange", async 
   });
   assert.equal(remote.ok, false);
   assert.equal(remote.code, "jskit_managed_preview_identity_target_invalid");
+});
+
+test("the auth surface pattern ships the managed-preview login as standard", () => {
+  const pattern = readFileSync(new URL("../patterns/auth-surface/PATTERN.md", import.meta.url), "utf8");
+  const executable = new URL("../patterns/auth-surface/example/tools/preview-identity", import.meta.url);
+
+  assert.equal(statSync(executable).mode & 0o111, 0o111);
+  assert.match(readFileSync(executable, "utf8"), /runManagedPreviewIdentityCommand/u);
+  assert.match(pattern, /standard, not optional/u);
+  assert.ok(pattern.includes([
+    "#### Preview identity",
+    "",
+    "- Command: `tools/preview-identity`",
+    `- Protocol: \`${MANAGED_PREVIEW_IDENTITY_PROTOCOL}\``,
+    "- Identity types: `email` `user-id`",
+    "- Enabled environment: `AUTH_DEV_BYPASS_ENABLED`",
+    "- Secret environment: `AUTH_DEV_BYPASS_SECRET`",
+    "- Runtimes: `nodejs`"
+  ].join("\n")));
 });

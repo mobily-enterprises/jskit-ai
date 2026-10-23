@@ -22,7 +22,10 @@ browser-product baseline. It includes:
 - responsive JSKIT shell
 - surfaces, placements, topology, and settings
 - lint, unit, client, build, and browser configuration
-- managed-preview identity support when the host uses it
+
+It has no accounts. Adding authentication through `auth/auth-surface` also adds
+the standard managed-preview login (`tools/preview-identity` and its
+`#### Preview identity` Outputs block).
 
 Use it when navigation and settings are real product requirements. Replace its
 home content and vocabulary; do not preserve the concrete `reading-room` name

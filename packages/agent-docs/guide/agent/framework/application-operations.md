@@ -90,6 +90,9 @@ the npm installation.
 
 Do not add auth, users, workspaces, console, sample data, databases, or AI
 capabilities unless the product choice requires them.
+When accounts are required, `auth/auth-surface` includes the managed-preview
+login as standard: add `tools/preview-identity` and its `#### Preview identity`
+Outputs block together with the rest of the surface.
 
 ## Author database-backed CRUD
 

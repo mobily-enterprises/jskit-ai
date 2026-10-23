@@ -27,8 +27,26 @@ owns permitted login methods, visible OAuth providers, public routes,
 post-login destinations, surface access policy, and secret injection.
 
 Use the `auth/auth-surface` pattern for login, sign-out, reset, guards, profile
-placements, and HTTP integration. Use `auth/supabase-auth` for the Supabase
-environment and configuration shape.
+placements, HTTP integration, and the managed-preview login. Use
+`auth/supabase-auth` for the Supabase environment and configuration shape.
+
+## Managed-preview login is standard
+
+An application with accounts always includes the managed-preview login, whether
+or not anyone asked for it. Adding authentication adds both parts from the
+`auth/auth-surface` pattern:
+
+- the committed, executable `tools/preview-identity` from its example;
+- the `#### Preview identity` block in the web-presented Vibe64 `Outputs`
+  target (Command `tools/preview-identity`, Protocol
+  `vibe64.preview-identity.command.v1`, Identity types `email` `user-id`,
+  Enabled environment `AUTH_DEV_BYPASS_ENABLED`, Secret environment
+  `AUTH_DEV_BYPASS_SECRET`, Runtimes `nodejs`), copied exactly from the pattern.
+
+The preview host supplies both environment values per run, so a managed
+preview can sign its browser in as an existing account. Which accounts it may
+use stays the person's choice; the application never creates users for it, and
+the exchange is inert without both values.
 
 ## Server boundary
 
