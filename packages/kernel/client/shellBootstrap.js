@@ -56,6 +56,38 @@ function installAppPlugins(app, appPlugins = []) {
   }
 }
 
+function isSurfaceRootRecord(record) {
+  return Boolean(record?.meta?.jskit?.surface);
+}
+
+// A page that hosts tabs or sub-views keeps its own record above the changing
+// child, so the two locations share a non-leaf record below the surface root.
+function staysOnSamePage(to, from) {
+  if (to.path === from.path) {
+    return true;
+  }
+  const fromParents = new Set((from.matched || []).slice(0, -1));
+  return (to.matched || []).slice(0, -1).some((record) => fromParents.has(record) && !isSurfaceRootRecord(record));
+}
+
+/**
+ * JSKIT's default router scroll behaviour: Back/Forward restore the saved
+ * position, a new screen opens at the top (or at its hash target), and tab,
+ * query or hash changes within the same page keep the current position.
+ */
+function shellScrollBehavior(to, from, savedPosition) {
+  if (savedPosition) {
+    return savedPosition;
+  }
+  if (staysOnSamePage(to, from)) {
+    return false;
+  }
+  if (to.hash) {
+    return { el: to.hash, top: 0 };
+  }
+  return { top: 0 };
+}
+
 function createSurfaceShellRouter({
   createRouter,
   history,
@@ -64,7 +96,8 @@ function createSurfaceShellRouter({
   surfaceMode,
   fallbackRoute = null,
   notFoundComponent = null,
-  guard = false
+  guard = false,
+  scrollBehavior = shellScrollBehavior
 } = {}) {
   if (typeof createRouter !== "function") {
     throw new TypeError("createSurfaceShellRouter requires createRouter().");
@@ -79,7 +112,8 @@ function createSurfaceShellRouter({
   });
   const router = createRouter({
     history,
-    routes: activeRoutes
+    routes: activeRoutes,
+    ...(typeof scrollBehavior === "function" ? { scrollBehavior } : {})
   });
 
   if (guard !== false) {
@@ -245,6 +279,7 @@ async function bootstrapClientShellApp({
 }
 
 export {
+  shellScrollBehavior,
   resolveClientBootstrapDebugEnabled,
   createClientBootstrapLogger,
   createSurfaceShellRouter,

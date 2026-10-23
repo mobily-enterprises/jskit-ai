@@ -536,6 +536,7 @@ Exports
 - `registerMobileLaunchRouting`
 - `resolveClientBootstrapDebugEnabled`
 - `createShellRouter`
+- `shellScrollBehavior`
 - `bootstrapClientShellApp`
 - `createComponentInteractionEmitter`
 
@@ -588,12 +589,15 @@ Local functions
 
 ### `client/shellBootstrap.js`
 Exports
+- `shellScrollBehavior(to, from, savedPosition)`
 - `resolveClientBootstrapDebugEnabled({ env = {}, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
 - `createClientBootstrapLogger({ env = {}, logger = console, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG" } = {})`
-- `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false } = {})`
+- `createSurfaceShellRouter({ createRouter, history, routes = [], surfaceRuntime, surfaceMode, fallbackRoute = null, notFoundComponent = null, guard = false, scrollBehavior = shellScrollBehavior } = {})`
 - `bootstrapClientShellApp({ createApp, rootComponent, appConfig = {}, appPlugins = [], pinia = null, queryClient = null, router, bootClientModules, surfaceRuntime, surfaceMode, env = {}, fallbackRoute = null, logger = console, createBootstrapLogger = null, debugEnabled = undefined, debugEnvKey = "VITE_JSKIT_CLIENT_DEBUG", debugMessage = "Client modules bootstrapped before router install.", onAfterModulesBootstrapped = null, onAfterRouterReady = null, mountSelector = "#app" } = {})`
 Local functions
 - `installAppPlugins(app, appPlugins = [])`
+- `isSurfaceRootRecord(record)`
+- `staysOnSamePage(to, from)`
 
 ### `client/shellRouting.js`
 Exports

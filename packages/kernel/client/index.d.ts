@@ -91,8 +91,10 @@ export function resolveClientBootstrapDebugEnabled(options?: {
   debugEnvKey?: string;
 }): boolean;
 
+export function shellScrollBehavior(to: any, from: any, savedPosition: any): any;
+
 export function createShellRouter(options?: {
-  createRouter: (options: { history?: any; routes: any[] }) => any;
+  createRouter: (options: { history?: any; routes: any[]; scrollBehavior?: (to: any, from: any, savedPosition: any) => any }) => any;
   history?: any;
   routes?: any[];
   surfaceRuntime: any;
@@ -100,6 +102,8 @@ export function createShellRouter(options?: {
   fallbackRoute?: any;
   notFoundComponent?: any;
   guard?: false | ((to: any) => any) | Record<string, any>;
+  /** Defaults to shellScrollBehavior; pass your own function, or false for none. */
+  scrollBehavior?: false | ((to: any, from: any, savedPosition: any) => any);
 }): Readonly<{
   router: any;
   activeRoutes: readonly any[];

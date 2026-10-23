@@ -4,7 +4,8 @@ import { createSurfaceRuntime } from "../shared/surface/runtime.js";
 import {
   bootstrapClientShellApp,
   createClientBootstrapLogger,
-  createSurfaceShellRouter
+  createSurfaceShellRouter,
+  shellScrollBehavior
 } from "./shellBootstrap.js";
 import { getClientAppConfig } from "./appConfig.js";
 
@@ -68,6 +69,57 @@ test("createSurfaceShellRouter builds active routes and installs a guard", () =>
   assert.equal(activeRoutes.some((route) => route.path === "/admin/home"), false);
   assert.equal(activeRoutes.some((route) => route.path === "/:pathMatch(.*)*"), true);
   assert.equal(fallbackRoute.path, "/:pathMatch(.*)*");
+  assert.equal(routerState.options.scrollBehavior, shellScrollBehavior);
+});
+
+test("createSurfaceShellRouter lets an app replace or disable the scroll behaviour", () => {
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const custom = () => ({ top: 42 });
+  const seen = [];
+  for (const scrollBehavior of [custom, false]) {
+    createSurfaceShellRouter({
+      createRouter(options) {
+        seen.push(options);
+        return {};
+      },
+      routes: [],
+      surfaceRuntime,
+      surfaceMode: "app",
+      notFoundComponent: {},
+      scrollBehavior
+    });
+  }
+  assert.equal(seen[0].scrollBehavior, custom);
+  assert.equal(Object.hasOwn(seen[1], "scrollBehavior"), false);
+});
+
+test("shellScrollBehavior opens new screens at the top and keeps in-page changes still", () => {
+  const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
+  const settings = { path: "/home/settings", meta: {} };
+  const general = { path: "/home/settings/general", meta: {} };
+  const profile = { path: "/home/settings/profile", meta: {} };
+  const contacts = { path: "/home/contacts", meta: {} };
+  const contact = { path: "/home/contacts/:id", meta: {} };
+  const at = (path, matched, extra = {}) => ({ path, matched, hash: "", ...extra });
+
+  const saved = { left: 0, top: 640 };
+  assert.equal(shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home", [surface]), saved), saved);
+  assert.deepEqual(shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home", [surface]), null), { top: 0 });
+  // Another record of the same screen type is still a new screen.
+  assert.deepEqual(
+    shellScrollBehavior(at("/home/contacts/2", [surface, contact]), at("/home/contacts/1", [surface, contact]), null),
+    { top: 0 }
+  );
+  // Query, hash or tab changes within one page keep the position.
+  assert.equal(shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts", [surface, contacts]), null), false);
+  assert.equal(
+    shellScrollBehavior(at("/home/settings/profile", [surface, settings, profile]), at("/home/settings/general", [surface, settings, general]), null),
+    false
+  );
+  assert.deepEqual(
+    shellScrollBehavior(at("/home/contacts", [surface, contacts], { hash: "#recent" }), at("/home", [surface]), null),
+    { el: "#recent", top: 0 }
+  );
 });
 
 test("createClientBootstrapLogger enables debug from env flag", () => {

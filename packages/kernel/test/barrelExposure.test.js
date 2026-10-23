@@ -117,7 +117,8 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "notifyAsyncModuleLoadError",
       "registerMobileLaunchRouting",
       "resolveMobileConfig",
-      "resolveClientBootstrapDebugEnabled"
+      "resolveClientBootstrapDebugEnabled",
+      "shellScrollBehavior"
     ])
   }),
   Object.freeze({
