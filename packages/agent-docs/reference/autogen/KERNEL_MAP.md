@@ -141,6 +141,7 @@ Exports
 - `resolveAllowedOriginsFromSurfaceDefinitions(surfaceDefinitions = {}, { seedOrigins = [] } = {})`
 - `resolveAllowedOriginsFromPlacementContext(contextValue = null, { includeWindowOrigin = true } = {})`
 Local functions
+- `staysOnSameOrigin(path)`
 - `appendNormalizedOrigin(origins, value)`
 - `normalizeBlockedPathnames(blockedPathnames = [])`
 

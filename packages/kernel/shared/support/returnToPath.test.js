@@ -121,3 +121,10 @@ test("resolveAllowedOriginsFromPlacementContext collects current and surface ori
     }
   }
 });
+
+test("normalizeReturnToPath refuses paths a browser reads as another site", () => {
+  for (const value of ["/\\evil.example", "/\\/evil.example/x", "/\t/evil.example", "/\n/evil.example", "\\\\evil.example"]) {
+    assert.equal(normalizeReturnToPath(value, { fallback: "/home" }), "/home", JSON.stringify(value));
+  }
+  assert.equal(normalizeReturnToPath("/a/b?c=1#d", { fallback: "/home" }), "/a/b?c=1#d");
+});

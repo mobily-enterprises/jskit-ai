@@ -1,5 +1,17 @@
 import { normalizePathname } from "../surface/paths.js";
 
+const SAME_ORIGIN_PROBE = "http://return-to.invalid";
+
+// Browsers read "/\\host" and "/<tab>/host" as another site, so a path counts
+// only if it resolves on the page's own origin.
+function staysOnSameOrigin(path) {
+  try {
+    return new URL(path, SAME_ORIGIN_PROBE).origin === SAME_ORIGIN_PROBE;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeHttpOrigin(value = "") {
   const rawValue = String(value || "").trim();
   if (!rawValue) {
@@ -113,6 +125,9 @@ function normalizeReturnToPath(
   const normalizedBlockedPathnames = normalizeBlockedPathnames(blockedPathnames);
 
   if (rawValue.startsWith("/") && !rawValue.startsWith("//")) {
+    if (!staysOnSameOrigin(rawValue)) {
+      return fallback;
+    }
     const normalizedPathname = normalizePathname(rawValue);
     if (normalizedBlockedPathnames.includes(normalizedPathname)) {
       return fallback;
