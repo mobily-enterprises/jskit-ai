@@ -124,6 +124,22 @@ class AuthWebService {
     }
   }
 
+  // Providers that bind an OAuth attempt to the browser (state, nonce, PKCE)
+  // keep it in their own short-lived cookie; others need no hook.
+  writeOAuthStartCookies(reply, result) {
+    const authService = this.resolveAuthService();
+    if (reply && typeof authService.writeOAuthStartCookies === "function") {
+      authService.writeOAuthStartCookies(reply, result);
+    }
+  }
+
+  clearOAuthStartCookies(reply) {
+    const authService = this.resolveAuthService();
+    if (reply && typeof authService.clearOAuthStartCookies === "function") {
+      authService.clearOAuthStartCookies(reply);
+    }
+  }
+
   clearSessionCookies(reply) {
     if (reply) {
       this.resolveAuthService().clearSessionCookies(reply);

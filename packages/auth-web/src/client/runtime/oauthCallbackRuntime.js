@@ -21,6 +21,8 @@ function readOAuthCallbackParamsFromUrl(url = "") {
 
   const { searchParams } = callbackUrlParams;
   const code = readAuthCallbackParam(callbackUrlParams, "code");
+  const state = readAuthCallbackParam(callbackUrlParams, "state");
+  const iss = readAuthCallbackParam(callbackUrlParams, "iss");
   const accessToken = readAuthCallbackParam(callbackUrlParams, "access_token");
   const refreshToken = readAuthCallbackParam(callbackUrlParams, "refresh_token");
   const errorCode = String(
@@ -39,6 +41,8 @@ function readOAuthCallbackParamsFromUrl(url = "") {
 
   return Object.freeze({
     code,
+    state,
+    iss,
     accessToken,
     refreshToken,
     hasSessionPair,
@@ -56,6 +60,12 @@ function buildOAuthCompletePayload({ callbackParams = null, provider = "", hasSe
   }
   if (callbackParams?.code) {
     payload.code = callbackParams.code;
+  }
+  if (callbackParams?.state) {
+    payload.state = callbackParams.state;
+  }
+  if (callbackParams?.iss) {
+    payload.iss = callbackParams.iss;
   }
   if (hasSessionPair) {
     payload.accessToken = callbackParams?.accessToken;
@@ -142,7 +152,10 @@ async function completeOAuthCallbackFromUrl({
     return Object.freeze({
       handled: true,
       completed: true,
-      returnTo,
+      // A provider with one fixed redirect address returns the requested page itself.
+      returnTo: oauthResult?.returnTo && !callbackParams.returnTo
+        ? normalizeAuthReturnToPath(oauthResult.returnTo, fallbackReturnTo, { allowedOrigins: allowedReturnToOrigins })
+        : returnTo,
       callbackParams,
       oauthResult,
       session

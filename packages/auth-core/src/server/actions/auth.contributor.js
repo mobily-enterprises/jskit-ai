@@ -138,8 +138,8 @@ const authActionSpecifications = Object.freeze([
       actionName: "auth.login.oauth.start"
     },
     observability: {},
-    async run(authService, input) {
-      return authService.oauthStart(input);
+    async run(authService, input, context) {
+      return authService.oauthStart(input, context?.requestMeta?.request || null);
     }
   },
   {
@@ -154,8 +154,8 @@ const authActionSpecifications = Object.freeze([
       actionName: "auth.login.oauth.complete"
     },
     observability: {},
-    async run(authService, input) {
-      return authService.oauthComplete(input);
+    async run(authService, input, context) {
+      return authService.oauthComplete(input, context?.requestMeta?.request || null);
     }
   },
   {

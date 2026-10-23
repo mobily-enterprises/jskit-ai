@@ -19,6 +19,7 @@ function stripOAuthParamsFromLocation() {
     "expires_at",
     "token_type",
     "state",
+    "iss",
     "sb",
     "type",
     "error",

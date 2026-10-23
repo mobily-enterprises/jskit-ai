@@ -23,6 +23,12 @@ const AUTH_LOGIN_OAUTH_COMPLETE_MESSAGES = createCommandMessages({
     },
     refreshToken: {
       default: "Refresh token is invalid."
+    },
+    state: {
+      default: "OAuth state is invalid."
+    },
+    iss: {
+      default: "OAuth issuer is invalid."
     }
   }
 });
@@ -33,6 +39,8 @@ const authLoginOAuthCompleteBodyValidator = deepFreeze({
     code: { ...authRecoveryTokenFieldDefinition, required: false },
     accessToken: { ...authAccessTokenFieldDefinition, required: false },
     refreshToken: { ...authRefreshTokenFieldDefinition, required: false },
+    state: { type: "string", required: false, minLength: 1, maxLength: 512 },
+    iss: { type: "string", required: false, minLength: 1, maxLength: 2048 },
     error: { type: "string", required: false, minLength: 1, maxLength: 128 },
     errorDescription: { type: "string", required: false, minLength: 1, maxLength: 1024 },
     error_code: { type: "string", required: false, minLength: 1, maxLength: 128 },

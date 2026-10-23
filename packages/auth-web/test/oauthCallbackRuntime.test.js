@@ -15,6 +15,8 @@ test("readOAuthCallbackParamsFromUrl reads query and hash callback params", () =
     readOAuthCallbackParamsFromUrl("/auth/login?oauthProvider=google&oauthReturnTo=%2Fw%2Facme&code=abc"),
     {
       code: "abc",
+      state: "",
+      iss: "",
       accessToken: "",
       refreshToken: "",
       hasSessionPair: false,
@@ -29,6 +31,8 @@ test("readOAuthCallbackParamsFromUrl reads query and hash callback params", () =
     readOAuthCallbackParamsFromUrl("/auth/login?oauthReturnTo=%2Fhome#access_token=access&refresh_token=refresh"),
     {
       code: "",
+      state: "",
+      iss: "",
       accessToken: "access",
       refreshToken: "refresh",
       hasSessionPair: true,
@@ -207,4 +211,20 @@ test("completeOAuthCallbackFromCurrentLocation reads from window.location.href",
   } finally {
     globalThis.window = originalWindow;
   }
+});
+
+test("completeOAuthCallbackFromUrl forwards state and iss, and takes the page from a fixed-address provider", async () => {
+  const calls = [];
+  const result = await completeOAuthCallbackFromUrl({
+    url: "/auth/login?code=abc&state=st-1&iss=https%3A%2F%2Faccounts.example.test",
+    defaultProvider: "oidc",
+    request: async (path, options) => {
+      calls.push(options.body);
+      return { username: "Ada", email: "ada@example.com", returnTo: "/reports" };
+    },
+    refreshSession: async () => ({ authenticated: true })
+  });
+  assert.deepEqual(calls, [{ provider: "oidc", code: "abc", state: "st-1", iss: "https://accounts.example.test" }]);
+  assert.equal(result.completed, true);
+  assert.equal(result.returnTo, "/reports");
 });

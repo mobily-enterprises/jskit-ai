@@ -183,7 +183,8 @@ const oauthCompleteOutputValidator = deepFreeze({
     ok: { type: "boolean", required: true },
     provider: { ...oauthProviderFieldDefinition, required: false },
     username: { type: "string", required: true, minLength: 1, maxLength: 120 },
-    email: { ...authEmailFieldDefinition, required: true }
+    email: { ...authEmailFieldDefinition, required: true },
+    returnTo: { ...oauthReturnToFieldDefinition, required: false }
   }),
   mode: "replace"
 });

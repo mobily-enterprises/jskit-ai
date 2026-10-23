@@ -1,3 +1,4 @@
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeAuthDenied } from "@jskit-ai/auth-core/shared/authDenied";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 import { AuthWebService } from "../services/AuthWebService.js";
@@ -75,20 +76,34 @@ class AuthController {
   async oauthStart(request, reply) {
     const provider = request.params?.provider;
     const returnTo = request.query?.returnTo;
-    const result = await this.service.oauthStart(request, { provider, returnTo });
+    let result;
+    try {
+      result = await this.service.oauthStart(request, { provider, returnTo });
+    } catch (error) {
+      if (!(error instanceof AppError) || error.statusCode === 500) {
+        throw error;
+      }
+      // The browser navigated here, so the login page explains instead of a JSON body.
+      const explained = new URLSearchParams({ error: "sign_in_unavailable", error_description: error.message });
+      reply.redirect(`/auth/login?${explained}`);
+      return;
+    }
+    this.service.writeOAuthStartCookies(reply, result);
     reply.redirect(result.url);
   }
 
   async oauthComplete(request, reply) {
     const payload = request.body || {};
     const result = await this.service.oauthComplete(request, payload);
+    this.service.clearOAuthStartCookies(reply);
     this.service.writeSessionCookies(reply, result.session);
 
     reply.code(200).send({
       ok: true,
       provider: result.provider,
       username: result.actor.displayName,
-      email: result.actor.email
+      email: result.actor.email,
+      ...(result.returnTo ? { returnTo: result.returnTo } : {})
     });
   }
 
