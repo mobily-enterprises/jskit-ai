@@ -27,7 +27,7 @@ function createTransactionSealer({ secret, now = Date.now }) {
     if (parts.length !== 3) return null;
     try {
       const [iv, encrypted, tag] = parts.map((part) => Buffer.from(part, "base64url"));
-      const decipher = createDecipheriv("aes-256-gcm", key, iv);
+      const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
       decipher.setAuthTag(tag);
       const attempt = JSON.parse(Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8"));
       return Number(attempt?.exp) > now() ? attempt : null;
