@@ -17,6 +17,13 @@ For Supabase authentication:
 npm install @jskit-ai/auth-provider-supabase-core @jskit-ai/auth-web
 ```
 
+To sign in through an accounts hub or another OpenID Connect issuer (see
+[Sign in through an OIDC issuer](/guide/app-setup/sign-in-through-oidc-issuer)):
+
+```bash
+npm install @jskit-ai/auth-provider-oidc-core @jskit-ai/auth-web
+```
+
 The dependency graph supplies `@jskit-ai/auth-core`. Do not install two
 providers for the same `auth.service` capability.
 
@@ -28,7 +35,8 @@ post-login destinations, surface access policy, and secret injection.
 
 Use the `auth/auth-surface` pattern for login, sign-out, reset, guards, profile
 placements, HTTP integration, and the managed-preview login. Use
-`auth/supabase-auth` for the Supabase environment and configuration shape.
+`auth/supabase-auth` for the Supabase environment and configuration shape, and
+`auth/oidc-sign-in` for an OpenID Connect issuer.
 
 ## Managed-preview login is standard
 

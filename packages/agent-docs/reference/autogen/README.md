@@ -19,6 +19,7 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 - [auth-core](/packages/agent-docs/reference/autogen/packages/auth-core.md)
 - [auth-provider-local-core](/packages/agent-docs/reference/autogen/packages/auth-provider-local-core.md)
 - [auth-provider-local-db-core](/packages/agent-docs/reference/autogen/packages/auth-provider-local-db-core.md)
+- [auth-provider-oidc-core](/packages/agent-docs/reference/autogen/packages/auth-provider-oidc-core.md)
 - [auth-provider-supabase-core](/packages/agent-docs/reference/autogen/packages/auth-provider-supabase-core.md)
 - [auth-web](/packages/agent-docs/reference/autogen/packages/auth-web.md)
 - [connector-google-calendar](/packages/agent-docs/reference/autogen/packages/connector-google-calendar.md)

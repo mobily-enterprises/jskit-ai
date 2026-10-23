@@ -33,6 +33,7 @@ export default defineConfig({
             { text: "Migrate an Existing Application", link: "/guide/app-setup/existing-application-migration" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
             { text: "Authentication", link: "/guide/app-setup/authentication" },
+            { text: "Sign In Through an OIDC Issuer", link: "/guide/app-setup/sign-in-through-oidc-issuer" },
             { text: "Run an Accounts Hub", link: "/guide/app-setup/run-an-accounts-hub" },
             { text: "Database Layer", link: "/guide/app-setup/database-layer" },
             { text: "Users", link: "/guide/app-setup/users" },

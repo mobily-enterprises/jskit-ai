@@ -13,6 +13,7 @@
       "@jskit-ai/auth-core": "0.1.242",
       "@jskit-ai/auth-provider-local-core": "0.1.145",
       "@jskit-ai/auth-provider-local-db-core": "0.1.136",
+      "@jskit-ai/auth-provider-oidc-core": "0.1.0",
       "@jskit-ai/auth-provider-supabase-core": "0.1.241",
       "@jskit-ai/auth-web": "0.1.245",
       "@jskit-ai/config-eslint": "0.1.241",
@@ -655,6 +656,87 @@
         "dependencies": {
           "@jskit-ai/auth-provider-local-core": "0.1.145",
           "@jskit-ai/database-runtime": "0.1.244"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/auth-provider-oidc-core",
+      "version": "0.1.0",
+      "description": "Sign in through any OpenID Connect issuer: self-registration or a static client, app-owned sessions, and back-channel logout.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [
+            "auth.service"
+          ],
+          "requires": [
+            "auth.extensions",
+            "runtime.app-root",
+            "runtime.database",
+            "runtime.env",
+            "runtime.fastify",
+            "runtime.logger"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/AuthOidcProvider.js",
+                "export": "AuthOidcProvider"
+              }
+            ]
+          }
+        },
+        "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "auth_oidc_clients"
+                },
+                {
+                  "tableName": "auth_oidc_sessions"
+                },
+                {
+                  "tableName": "auth_oidc_logout_tokens"
+                }
+              ]
+            }
+          },
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server/providers/AuthOidcProvider",
+                "summary": "Provides the OpenID Connect sign-in service and its back-channel and everywhere-logout routes."
+              },
+              {
+                "subpath": "./server/lib/index",
+                "summary": "Exports the OIDC auth service factory, configuration reader, and the local-account export and adopt commands."
+              },
+              {
+                "subpath": "./shared",
+                "summary": "Exports the provider id, redirect path and route paths apps and issuers register."
+              }
+            ],
+            "capability": "auth.service"
+          }
+        },
+        "migrations": {
+          "directories": [
+            "migrations"
+          ]
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "jose": "6.2.12",
+          "knex": "^3.1.0",
+          "openid-client": "6.8.8"
+        },
+        "peerDependencies": {
+          "@jskit-ai/auth-core": "0.1.242",
+          "@jskit-ai/kernel": "0.1.244"
         }
       }
     },
@@ -3784,6 +3866,36 @@
         "src/views/auth/ResetPasswordView.vue",
         "src/views/auth/SignOutView.vue",
         "tools/preview-identity"
+      ]
+    },
+    {
+      "id": "auth/oidc-sign-in",
+      "title": "Sign in through an OIDC issuer",
+      "summary": "Let people sign in with the accounts they already have in an accounts hub or another OpenID Connect issuer, instead of app-local passwords.",
+      "keywords": [
+        "accounts hub",
+        "auth",
+        "authentication",
+        "back-channel logout",
+        "dynamic client registration",
+        "issuer",
+        "master login",
+        "oidc",
+        "openid connect",
+        "single sign-on",
+        "sso"
+      ],
+      "requires": [
+        "@jskit-ai/auth-provider-oidc-core",
+        "@jskit-ai/auth-web"
+      ],
+      "packageId": "@jskit-ai/auth-provider-oidc-core",
+      "packageVersion": "0.1.0",
+      "documentPath": "patterns/oidc-sign-in/PATTERN.md",
+      "examplePath": "patterns/oidc-sign-in/example",
+      "files": [
+        ".env.example",
+        "package.json"
       ]
     },
     {

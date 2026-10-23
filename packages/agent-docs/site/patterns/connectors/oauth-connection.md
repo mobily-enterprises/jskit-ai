@@ -180,6 +180,31 @@ comma-separated permissions. Oura handles reduced callback scopes and rotated
 refresh tokens. Some providers do not return a refresh token; expired access
 then needs consent again. Provider PKCE enforcement needs provider evidence.
 
+## Shared connection from an Env refresh token
+
+When the application's host already holds a long-lived grant for the shared
+account (the owner connected it once with the same OAuth client), skip consent
+in the app: add `refreshTokenRef` to a `shared` oauth2 integration whose
+registration uses the authorization-code flow.
+
+```json
+"authentication": {
+  "method": "oauth2",
+  "registrationRef": "google",
+  "refreshTokenRef": "env:GOOGLE_REFRESH_TOKEN"
+}
+```
+
+The Env value is a seed. On first use, and whenever the value or the OAuth
+client changes, the runtime replaces the shared connection with one built from
+that refresh token. From then on it refreshes and stores rotated tokens in the
+application's own store as usual. `status()` reports `source: "env"` (show it as
+"Connected from Env"). `beginAuthorization()` and `disconnect()` refuse with
+`connector_env_managed`: "This connection comes from an Env value; unlink or
+replace that value instead." A revoked token fails with "The refresh token in
+Env no longer works; replace that Env value." The refresh token must come from
+the same client as `registrationRef`; non-JSKIT apps read the variable directly.
+
 ## Twitch composition
 
 Use `twitchProvider` from `@jskit-ai/connectors-catalog/server/twitch` in the

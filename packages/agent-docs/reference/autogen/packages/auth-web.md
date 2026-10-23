@@ -88,6 +88,8 @@ Exports
 - `AuthProfileMenuLinkItem`
 - `useAuthStore`
 - `useAuthGuardRuntime`
+- `completeOAuthPopupSignIn`
+- `createPopupOAuthLaunchClient`
 - `completeOAuthCallbackFromCurrentLocation`
 - `completeOAuthCallbackFromUrl`
 - `readOAuthCallbackParamsFromUrl`
@@ -190,6 +192,20 @@ Exports
 - `readPasswordRecoveryCallbackPayloadFromUrl(url = "")`
 - `stripPasswordRecoveryCallbackParamsFromLocation()`
 - `stripPasswordRecoveryCallbackParamsFromUrl(url = "")`
+
+### `src/client/runtime/popupOAuthLaunchClient.js`
+Exports
+- `OAUTH_POPUP_BLOCKED_MESSAGE`
+- `OAUTH_POPUP_MESSAGE_TYPE`
+- `completeOAuthPopupSignIn(win = browserWindow())`
+- `createPopupOAuthLaunchClient({ window: win = browserWindow(), fallback = createBrowserOAuthLaunchClient(), onComplete = null } = {})`
+- `isFramedWindow(win)`
+Local functions
+- `browserWindow()`
+- `storageOf(win)`
+- `popupFeatures(win, width = 520, height = 680)`
+- `openChannel(win)`
+- `sameOriginOpener(win)`
 
 ### `src/client/runtime/useLoginView.js`
 Exports

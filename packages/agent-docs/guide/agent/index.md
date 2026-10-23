@@ -14,6 +14,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Migrate an existing application](/guide/app-setup/existing-application-migration)
 - [A more interesting shell](/guide/app-setup/a-more-interesting-shell)
 - [Authentication](/guide/app-setup/authentication)
+- [Sign in through an OIDC issuer](/guide/app-setup/sign-in-through-oidc-issuer)
+- [Run an accounts hub](/guide/app-setup/run-an-accounts-hub)
 - [Database layer](/guide/app-setup/database-layer)
 - [Users](/guide/app-setup/users)
 - [Multi-homing](/guide/app-setup/multi-homing)

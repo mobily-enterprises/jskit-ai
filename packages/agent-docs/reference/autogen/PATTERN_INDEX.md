@@ -64,6 +64,17 @@ Compose JSKIT authentication routes, views, profile controls, and public surface
 - Examples: [example/](../../skills/jskit/references/patterns/auth/auth-surface/example/)
 - Requires: `@jskit-ai/auth-core`, `@jskit-ai/auth-web`, `@jskit-ai/shell-web`
 
+## Sign in through an OIDC issuer
+
+Let people sign in with the accounts they already have in an accounts hub or another OpenID Connect issuer, instead of app-local passwords.
+
+- Id: `auth/oidc-sign-in`
+- Keywords: `accounts hub`, `auth`, `authentication`, `back-channel logout`, `dynamic client registration`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
+- Owner: `@jskit-ai/auth-provider-oidc-core@0.1.0`
+- Read: [PATTERN.md](../../skills/jskit/references/patterns/auth/oidc-sign-in/PATTERN.md)
+- Examples: [example/](../../skills/jskit/references/patterns/auth/oidc-sign-in/example/)
+- Requires: `@jskit-ai/auth-provider-oidc-core`, `@jskit-ai/auth-web`
+
 ## Supabase authentication
 
 Add Supabase authentication through normal npm composition, explicit environment values, and app-owned auth policy.
