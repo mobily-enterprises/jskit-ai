@@ -1967,6 +1967,19 @@
           "directories": [
             "migrations"
           ]
+        },
+        "vite": {
+          "proxy": {
+            "/.well-known": {
+              "changeOrigin": true
+            },
+            "/hub": {
+              "changeOrigin": true
+            },
+            "/oidc": {
+              "changeOrigin": true
+            }
+          }
         }
       },
       "packageJson": {
