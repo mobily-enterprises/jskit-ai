@@ -100,3 +100,14 @@ test("a callback whose state does not match the browser is refused", async () =>
   const callback = await createBrowser().request(atGoogle.headers.get("location"));
   assert.equal(new URL(callback.headers.get("location"), hub.url).searchParams.get("google"), "failed");
 });
+
+test("an account whose email is not confirmed cannot connect Google (pre-hijacking)", async () => {
+  const squatter = createBrowser();
+  await createAccount(squatter, hub.url, { email: "victim@example.test", password: PASSWORD });
+  google.nextIdentity = { sub: "g-squatter", email: "squatter@example.test", emailVerified: true };
+  const { url } = await squatter.follow(`${hub.url}/hub/google/start?intent=link`, (current) =>
+    current.startsWith(hub.url) && !current.includes("/hub/google/"));
+  assert.equal(new URL(url).searchParams.get("google"), "unverified");
+  const row = await hub.knex("oidc_issuer_accounts").where({ email: "victim@example.test" }).first();
+  assert.equal(row.google_sub, null);
+});

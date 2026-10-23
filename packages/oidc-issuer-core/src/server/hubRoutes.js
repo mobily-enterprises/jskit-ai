@@ -141,6 +141,12 @@ function registerHubRoutes(app, hub) {
     });
   }
 
+  /** Ends the account's hub and app sessions everywhere, including apps' own sessions through back-channel logout. */
+  async function endEverySession(accountId) {
+    await sessions.destroyAllForAccount(accountId);
+    await hub.backchannelLogout(accountId);
+  }
+
   async function guardEmailRate(request, email) {
     if (!(await rateLimiter.email(email, clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
   }
@@ -286,7 +292,7 @@ function registerHubRoutes(app, hub) {
     if (!used) throw new HubError(410, "link_expired", "This link has expired or was already used. Ask for a new one.");
     await accounts.setPassword(used.accountId, password);
     const account = await accounts.markEmailVerified(used.accountId);
-    await sessions.destroyAllForAccount(account.id);
+    await endEverySession(account.id);
     await signIn(request, reply, account, "recovery");
     return { account: accountView(account) };
   });
@@ -331,8 +337,7 @@ function registerHubRoutes(app, hub) {
 
   app.post("/hub/api/account/sign-out-everywhere", async (request, reply) => {
     const { account } = await requireAccount(request);
-    await sessions.destroyAllForAccount(account.id);
-    await hub.backchannelLogout(account.id);
+    await endEverySession(account.id);
     setCookie(reply, sessionCookie, "", 0);
     return { ok: true };
   });
@@ -352,6 +357,10 @@ function registerHubRoutes(app, hub) {
     if (!hub.google) throw new HubError(404, "google_disabled", "Continue with Google is not set up on this hub.");
     const intent = request.query.intent === "link" ? "link" : "sign-in";
     const signedIn = intent === "link" ? await requireAccount(request) : null;
+    // Linking needs a confirmed email: otherwise someone could create an
+    // account with another person's email and keep a Google way in after
+    // that person recovers it.
+    if (signedIn && !signedIn.account.emailVerified) return reply.redirect("/account?google=unverified", 303);
     const { url, state } = await hub.google.start({
       intent,
       uid: typeof request.query.interaction === "string" ? request.query.interaction : null,
@@ -383,6 +392,7 @@ function registerHubRoutes(app, hub) {
       if (!signedIn || signedIn.account.id !== outcome.accountId || (owner && owner.id !== signedIn.account.id)) {
         return reply.redirect("/account?google=taken", 303);
       }
+      if (!signedIn.account.emailVerified) return reply.redirect("/account?google=unverified", 303);
       await accounts.linkGoogle(signedIn.account.id, identity.sub);
       return reply.redirect("/account?google=linked", 303);
     }
@@ -458,7 +468,7 @@ function registerHubRoutes(app, hub) {
     await accounts.setPassword(used.accountId, String(request.body?.password ?? ""));
     await accounts.linkGoogle(used.accountId, used.payload.googleSub);
     const account = await accounts.markEmailVerified(used.accountId);
-    await sessions.destroyAllForAccount(account.id);
+    await endEverySession(account.id);
     await signIn(request, reply, account, "google");
     return { account: accountView(account) };
   });
@@ -516,10 +526,7 @@ function registerHubRoutes(app, hub) {
     const target = await accounts.findById(id);
     if (!target) throw new HubError(404, "person_not_found", "This person no longer has an account. Refresh the page.");
     await accounts.setDisabled(id, action === "disable");
-    if (action === "disable") {
-      await sessions.destroyAllForAccount(id);
-      await hub.backchannelLogout(id);
-    }
+    if (action === "disable") await endEverySession(id);
     return { ok: true };
   });
 
