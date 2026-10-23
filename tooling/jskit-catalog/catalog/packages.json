@@ -32,6 +32,7 @@
       "@jskit-ai/json-rest-api-core": "0.1.188",
       "@jskit-ai/kernel": "0.1.244",
       "@jskit-ai/mobile-capacitor": "0.1.180",
+      "@jskit-ai/oidc-issuer-core": "0.1.0",
       "@jskit-ai/payments-core": "0.1.61",
       "@jskit-ai/payments-web": "0.1.61",
       "@jskit-ai/realtime": "0.1.242",
@@ -1807,6 +1808,95 @@
         "peerDependencies": {
           "@jskit-ai/kernel": "0.1.244",
           "@jskit-ai/shell-web": "0.1.249"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/oidc-issuer-core",
+      "version": "0.1.0",
+      "description": "OpenID Connect accounts hub: one sign-in for all of an owner's apps, with approval of every production app.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [
+            "auth.oidc-issuer"
+          ],
+          "requires": [
+            "runtime.app-root",
+            "runtime.database",
+            "runtime.env",
+            "runtime.fastify",
+            "runtime.logger"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/providers/OidcIssuerProvider.js",
+                "export": "OidcIssuerProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "jskit": {
+            "tableOwnership": {
+              "tables": [
+                {
+                  "tableName": "oidc_issuer_accounts"
+                },
+                {
+                  "tableName": "oidc_issuer_models"
+                },
+                {
+                  "tableName": "oidc_issuer_clients"
+                },
+                {
+                  "tableName": "oidc_issuer_signing_keys"
+                },
+                {
+                  "tableName": "oidc_issuer_email_tokens"
+                },
+                {
+                  "tableName": "oidc_issuer_rate_limits"
+                }
+              ]
+            }
+          },
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Exports createOidcIssuer, the account import and key rotation commands, and the shared scrypt password helpers."
+              },
+              {
+                "subpath": "./server/providers/OidcIssuerProvider",
+                "summary": "Mounts the accounts hub (OpenID Connect issuer, hub API and Google sign-in) on the application's Fastify server."
+              }
+            ],
+            "capability": "auth.oidc-issuer"
+          }
+        },
+        "migrations": {
+          "directories": [
+            "migrations"
+          ]
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/database-runtime": "0.1.244",
+          "jose": "6.2.12",
+          "knex": "^3.1.0",
+          "nodemailer": "10.0.2",
+          "oidc-provider": "9.12.2"
+        },
+        "peerDependencies": {
+          "@jskit-ai/kernel": "0.1.244"
         }
       }
     },
@@ -3629,6 +3719,34 @@
         "src/pages/admin/assistant/index.vue",
         "src/pages/admin/settings/assistant/index.vue",
         "src/placement.js"
+      ]
+    },
+    {
+      "id": "auth/accounts-hub",
+      "title": "Accounts hub",
+      "summary": "Run one OpenID Connect sign-in for all of an owner's apps as its own JSKIT project, with production apps approved by the owner.",
+      "keywords": [
+        "accounts hub",
+        "auth",
+        "authentication",
+        "issuer",
+        "master login",
+        "oidc",
+        "openid connect",
+        "single sign-on",
+        "sso"
+      ],
+      "requires": [
+        "@jskit-ai/oidc-issuer-core"
+      ],
+      "packageId": "@jskit-ai/oidc-issuer-core",
+      "packageVersion": "0.1.0",
+      "documentPath": "patterns/accounts-hub/PATTERN.md",
+      "examplePath": "patterns/accounts-hub/example",
+      "files": [
+        ".env.example",
+        "package.json",
+        "server/hubPaths.js"
       ]
     },
     {

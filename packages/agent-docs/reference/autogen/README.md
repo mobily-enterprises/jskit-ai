@@ -36,6 +36,7 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 - [json-rest-api-core](/packages/agent-docs/reference/autogen/packages/json-rest-api-core.md)
 - [kernel](/packages/agent-docs/reference/autogen/packages/kernel.md)
 - [mobile-capacitor](/packages/agent-docs/reference/autogen/packages/mobile-capacitor.md)
+- [oidc-issuer-core](/packages/agent-docs/reference/autogen/packages/oidc-issuer-core.md)
 - [payments-core](/packages/agent-docs/reference/autogen/packages/payments-core.md)
 - [payments-web](/packages/agent-docs/reference/autogen/packages/payments-web.md)
 - [realtime](/packages/agent-docs/reference/autogen/packages/realtime.md)

@@ -36,6 +36,15 @@ Configure an assistant runtime for one application surface and expose its chat a
 - Owner: `@jskit-ai/assistant-runtime@0.1.232`
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`, `@jskit-ai/shell-web`
 
+## [Accounts hub](/patterns/auth/accounts-hub)
+
+Run one OpenID Connect sign-in for all of an owner's apps as its own JSKIT project, with production apps approved by the owner.
+
+- Id: `auth/accounts-hub`
+- Keywords: `accounts hub`, `auth`, `authentication`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
+- Owner: `@jskit-ai/oidc-issuer-core@0.1.0`
+- Requires: `@jskit-ai/oidc-issuer-core`
+
 ## [Authentication surface](/patterns/auth/auth-surface)
 
 Compose JSKIT authentication routes, views, profile controls, and public surface configuration without generated source.
