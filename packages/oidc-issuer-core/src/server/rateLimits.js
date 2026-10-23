@@ -40,4 +40,4 @@ function createRateLimiter(knex, { now = () => new Date() } = {}) {
   });
 }
 
-export { LIMITS, RATE_LIMITS_TABLE, createRateLimiter };
+export { createRateLimiter };

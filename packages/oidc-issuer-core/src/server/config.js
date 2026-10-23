@@ -150,4 +150,4 @@ function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
   });
 }
 
-export { HubConfigError, isLoopbackHostname, parseDevOriginPatterns, resolveHubConfig };
+export { HubConfigError, isLoopbackHostname, resolveHubConfig };

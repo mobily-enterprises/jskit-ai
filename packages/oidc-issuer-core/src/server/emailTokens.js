@@ -38,4 +38,4 @@ function createEmailTokenStore(knex, { now = () => new Date() } = {}) {
   });
 }
 
-export { EMAIL_TOKENS_TABLE, createEmailTokenStore };
+export { createEmailTokenStore };

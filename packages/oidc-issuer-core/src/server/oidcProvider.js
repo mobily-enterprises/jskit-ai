@@ -152,4 +152,4 @@ function createOidcProvider({ config, jwks, Adapter, accounts, clients, onEndSes
   return provider;
 }
 
-export { ACTIVE_STATUSES, HUB_SCOPES, ROUTES, createOidcProvider, interactionPath };
+export { ACTIVE_STATUSES, HUB_SCOPES, createOidcProvider };

@@ -77,4 +77,4 @@ function createSigningKeyStore(knex, { secret, now = () => new Date() }) {
   });
 }
 
-export { SIGNING_KEYS_TABLE, createSigningKeyStore };
+export { createSigningKeyStore };

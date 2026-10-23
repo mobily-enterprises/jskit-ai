@@ -1,10 +1,6 @@
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
+import { escapeHtml } from "./http.js";
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/gu, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
-  })[char]);
-}
+const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 /** One plain message with one button, readable in any mail client. */
 function composeMessage({ heading, body, actionLabel, actionUrl, footer }) {
