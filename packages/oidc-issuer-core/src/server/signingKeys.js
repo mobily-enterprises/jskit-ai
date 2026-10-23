@@ -1,4 +1,5 @@
 import { exportJWK, generateKeyPair } from "jose";
+import { HubConfigError } from "./config.js";
 import { decrypt, deriveKey, encrypt, randomToken } from "./crypto.js";
 
 const SIGNING_KEYS_TABLE = "oidc_issuer_signing_keys";
@@ -54,7 +55,13 @@ function createSigningKeyStore(knex, { secret, now = () => new Date() }) {
       await retireExpired();
       const rows = await table().whereIn("state", ["active", "retiring"]).orderBy("created_at", "desc");
       rows.sort((left, right) => (left.state === "active" ? -1 : 0) - (right.state === "active" ? -1 : 0));
-      return { keys: rows.map((row) => JSON.parse(decrypt(encryptionKey, row.private_jwk_encrypted))) };
+      try {
+        return { keys: rows.map((row) => JSON.parse(decrypt(encryptionKey, row.private_jwk_encrypted))) };
+      } catch {
+        throw new HubConfigError(
+          "The stored signing keys were sealed with a different OIDC_HUB_SECRET. Set OIDC_HUB_SECRET back to the value they were made with."
+        );
+      }
     },
 
     async summary() {
