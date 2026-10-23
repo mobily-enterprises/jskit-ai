@@ -21,7 +21,7 @@ function tamperingFetch(issuer, change) {
 }
 
 async function relyingParty(t, options = {}) {
-  const issuer = await startMockIssuer();
+  const issuer = await startMockIssuer(options.account ? { account: options.account } : {});
   const rp = await createRelyingParty({ issuer, ...(options.change ? { fetchImpl: tamperingFetch(issuer, options.change) } : {}) });
   t.after(async () => {
     await rp.close();
@@ -55,6 +55,16 @@ test("RP 7: an authorization response from another issuer (RFC 9207 iss) is reje
   assert.ok(input.iss, "the issuer sends iss");
   await assert.rejects(rp.service.oauthComplete({ ...input, iss: "https://attacker.example" }, request), VERIFY_FAILED);
   await assert.rejects(rp.service.oauthComplete({ ...input, iss: undefined }, request), VERIFY_FAILED);
+});
+
+test("an email the issuer says is unconfirmed never reaches the app", async (t) => {
+  const { rp } = await relyingParty(t, { account: { sub: "usr_test_eve", email: "ada@example.test", name: "Eve", emailVerified: false } });
+  const { input, request } = await signInAtIssuer(rp);
+  await assert.rejects(rp.service.oauthComplete(input, request), {
+    statusCode: 401,
+    message: "Your account provider has not confirmed your email address yet. Confirm it there, then sign in again."
+  });
+  assert.equal((await rp.knex("auth_oidc_sessions").count({ count: "*" }))[0].count, 0);
 });
 
 test("RP 8: an ID token issued to another app is rejected", async (t) => {

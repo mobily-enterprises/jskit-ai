@@ -23,7 +23,7 @@ async function startMockIssuer({ blocked = false, account = ACCOUNT, staticClien
     clients: staticClients,
     findAccount: async (_ctx, sub) => ({
       accountId: sub,
-      claims: async () => ({ sub, email: account.email, email_verified: true, name: account.name })
+      claims: async () => ({ sub, email: account.email, email_verified: account.emailVerified ?? true, name: account.name })
     }),
     claims: { openid: ["sub"], email: ["email", "email_verified"], profile: ["name"] },
     cookies: { keys: ["mock-issuer-cookie-key"] },

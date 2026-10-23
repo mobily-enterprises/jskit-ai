@@ -23,6 +23,8 @@ const DEV_AUTH_SESSION_PURPOSE = "dev-auth";
 const SIGN_IN_SCOPE = "openid email profile";
 const EXPIRED_ATTEMPT_MESSAGE = "This sign-in took too long or started in another browser. Start again.";
 const UNVERIFIED_MESSAGE = "Your sign-in could not be verified. Start again.";
+const UNCONFIRMED_EMAIL_MESSAGE =
+  "Your account provider has not confirmed your email address yet. Confirm it there, then sign in again.";
 
 function sha256(value) {
   return createHash("sha256").update(value).digest("base64url");
@@ -209,6 +211,9 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
       email = normalizeEmail(source.email);
     }
     if (!email) throw new AppError(401, "Your account provider did not share an email address.");
+    // Apps trust this address (invitations match it), so an issuer's explicit
+    // "not confirmed" stops the sign-in. Issuers that never send the claim pass.
+    if (source.email_verified === false) throw new AppError(401, UNCONFIRMED_EMAIL_MESSAGE);
     return { sub: String(claims.sub), email, displayName: displayNameFrom(source, email), sid: String(claims.sid || "") };
   }
 
