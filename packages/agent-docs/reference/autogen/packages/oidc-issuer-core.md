@@ -55,13 +55,13 @@ Local functions
 Exports
 - `HubConfigError`
 - `isLoopbackHostname(hostname)`
-- `parseDevOriginPatterns(value)`
 - `resolveHubConfig(env = {}, { appRoot = "" } = {})`
 Local functions
 - `text(value)`
 - `resolveIssuer(env, isProduction)`
 - `readOrCreateDevSecret(appRoot)`
 - `resolveSecret(env, { isProduction, appRoot })`
+- `parseDevOriginPatterns(value)`
 - `resolveMail(env, { isProduction })`
 - `resolveGoogle(env)`
 
@@ -79,7 +79,6 @@ Exports
 
 ### `src/server/emailTokens.js`
 Exports
-- `EMAIL_TOKENS_TABLE`
 - `createEmailTokenStore(knex, { now = () => new Date() } = {})`
 
 ### `src/server/google.js`
@@ -144,15 +143,13 @@ Local functions
 Exports
 - `composeMessage({ heading, body, actionLabel, actionUrl, footer })`
 - `createMailer({ mail, logger, isProduction, fetchImpl = globalThis.fetch })`
-Local functions
-- `escapeHtml(value)`
 
 ### `src/server/oidcProvider.js`
 Exports
 - `ACTIVE_STATUSES`
 - `HUB_SCOPES`
-- `ROUTES`
 - `createOidcProvider({ config, jwks, Adapter, accounts, clients, onEndSession })`
+Local functions
 - `interactionPath(uid)`
 
 ### `src/server/previewIdentity.js`
@@ -171,13 +168,10 @@ Exports
 
 ### `src/server/rateLimits.js`
 Exports
-- `LIMITS`
-- `RATE_LIMITS_TABLE`
 - `createRateLimiter(knex, { now = () => new Date() } = {})`
 
 ### `src/server/signingKeys.js`
 Exports
-- `SIGNING_KEYS_TABLE`
 - `createSigningKeyStore(knex, { secret, now = () => new Date() })`
 
 ### bin
