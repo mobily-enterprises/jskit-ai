@@ -655,7 +655,7 @@ const lexwareDefinition = definition("lexware", "Lexware", "Read accounting cont
     "Draft invoices require an existing contact UUID, invoice and service/delivery dates with timezones, and custom lines with quantity, unit, net EUR amount and tax rate. Choose those accounting values in the app; the connector does not infer tax. Review and finalize drafts in Lexware. No email or payment is sent.",
     "An interrupted invoice creation may already have succeeded. Check the voucher list before repeating it. Respect the provider limit of two requests per second across endpoints. The app must authorize each contact/document and approve writes before calling the connector.",
     "This adapter does not create contacts/articles/vouchers, download PDFs, finalize invoices, upload receipts or receive accounting events. For example, it can prepare a draft booking invoice for an existing customer, but receipt intake and signed event processing need native app implementation.",
-    "No OAuth registration or callback URL is needed. Verification reads contacts. Keys expire after at most 24 months: create a replacement and update Env before expiry. Public API does not mean the key is safe to publish."
+    "No OAuth registration or callback URL is needed. Verification reads contacts. Keys expire after at most 24 months: create a replacement and update Env before expiry. Public API does not mean the key is safe to expose."
   ]);
 const sevdeskDefinition = Object.freeze({
   ...definition("sevdesk", "Sevdesk", "Read sevdesk contact organizations and people with offset pagination.",
@@ -683,7 +683,7 @@ const attentionDefinition = definition("attention", "Attention", "Read conversat
     "Sign into app.attention.tech as an organization administrator. Open your profile avatar at the top left, Settings, then Organization > API Keys.",
     "Choose + Create API Key at the top right and give it a name identifying this application. Copy the value in API Key Created before closing; it is shown once.",
     "Enter env:ATTENTION_API_KEY in API key reference here and save. Choose Set credential in Env, paste the key as the ATTENTION_API_KEY value and save it there. Return here and choose Connect account (or Verify again when already connected). Check connection only reloads status.",
-    "An organization key can expose broad read/write and user-management access. Your application must restrict each operation to authorized users; never publish this key in frontend code. New users require an explicit listener or recording seat choice; check your Attention plan before enabling provisioning.",
+    "An organization key can expose broad read/write and user-management access. Your application must restrict each operation to authorized users; never expose this key in frontend code. New users require an explicit listener or recording seat choice; check your Attention plan before enabling provisioning.",
     "No OAuth registration or callback URL is needed. Verification reads a conversation page without changing recordings or CRM data.",
     "To replace access, create a new key and update Env, then verify before opening the old key's three-dot menu and choosing Delete. Deletion immediately stops every application still using that old key. Disconnect here removes the local grant only; revoke the key in Attention to stop provider access."
   ]);

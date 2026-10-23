@@ -26,7 +26,7 @@ const firebaseCloudMessagingDefinition = Object.freeze({
     { name: "projectId", label: "Firebase project ID", placeholder: "my-notifications-app", hint: "The project receiving messages. Usually project_id in your JSON; cross-project access requires an IAM grant on this target project." },
     { name: "clientMode", label: "Client setup", items: [{ value: "server", title: "Server or native only" }, { value: "web", title: "Include web push" }],
       hint: "Existing mobile/browser targets need server credentials. Include web push to configure browser registration too." },
-    { name: "apiKey", label: "Firebase API key", placeholder: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", hint: "Public API key from the Firebase web app configuration. This value is visible in your published app." },
+    { name: "apiKey", label: "Firebase API key", placeholder: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", hint: "Public API key from the Firebase web app configuration. This value is visible in your deployed app." },
     { name: "appId", label: "Firebase App ID", placeholder: "1:123456789012:web:abcdef1234567890", hint: "Public appId from the same Firebase project and web app." },
     { name: "vapidKey", label: "Web Push VAPID key", placeholder: "BEl62...", hint: "Public key from Project settings > Cloud Messaging > Web Push certificates. Never paste the private VAPID key." }
   ],

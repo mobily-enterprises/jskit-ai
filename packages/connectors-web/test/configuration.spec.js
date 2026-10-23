@@ -390,7 +390,7 @@ test("Analytics public setting round-trips without credentials", async ({ page }
   const measurement = page.getByRole("textbox", { name: "Measurement ID", exact: true });
   const save = page.getByRole("button", { name: "Export configuration", exact: true });
   await expect(measurement).toHaveValue("G-ORIGINAL1");
-  await expect(page.getByText("Public: this value will be visible in your published application. Copy it from your GA4 web stream.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Public: this value will be visible in your deployed application. Copy it from your GA4 web stream.", { exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: /secret|callback|client id|API key/i })).toHaveCount(0);
   await measurement.fill("");
   await save.click();

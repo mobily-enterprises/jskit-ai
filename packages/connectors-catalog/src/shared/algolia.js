@@ -12,7 +12,7 @@ const algoliaDefinition = Object.freeze({
   settingsFields: [
     { name: "applicationId", label: "Application ID", hint: "Copy the ID from your Algolia application's API Keys page. This ID can be public." },
     { name: "publicApiKeyRef", environmentCredential: { label: "Public frontend API key", public: true }, label: "Public API key reference (optional)", placeholder: "env:ALGOLIA_SEARCH_KEY",
-      hint: "Optional search-only key for your frontend. Enter its reference; your app decides whether to publish its value." }
+      hint: "Optional search-only key for your frontend. Enter its reference; your app decides whether to expose its value." }
   ],
   setup: {
     url: "https://www.algolia.com/doc/guides/security/api-keys",
@@ -22,7 +22,7 @@ const algoliaDefinition = Object.freeze({
       "Copy the new backend key. Enter env:ALGOLIA_API_KEY in API key reference here and save. Choose Set credential in Env for ALGOLIA_API_KEY, paste its value and save it there.",
       "If the frontend will search Algolia directly, create a separate key with Search (search) access restricted to indices safe for those users to read. Enter env:ALGOLIA_SEARCH_KEY in Public API key reference (optional), save, then use its Set credential in Env link to store that key value.",
       "Return here and choose Connect account (or Verify again for an existing connection). Check connection only reads the application’s saved status. No OAuth registration or callback URL is needed. Verification lists indices with the backend key; it does not validate the optional frontend key.",
-      "If access fails, check the Application ID, selected indices, permissions and key expiry. Your framework owns publishing the optional frontend key; keep the backend key server-side."
+      "If access fails, check the Application ID, selected indices, permissions and key expiry. Your framework owns exposing the optional frontend key; keep the backend key server-side."
     ]
   }
 });

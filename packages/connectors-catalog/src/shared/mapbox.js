@@ -14,7 +14,7 @@ const mapboxDefinition = Object.freeze({
   }),
   settingsFields: [{ name: "usage", label: "Mapbox usage", credentialScope: value => value,
     items: [{ title: "Backend geocoding and optional browser maps", value: "backend" }, { title: "Browser maps only", value: "browser" }] }, { name: "publicTokenRef", environmentCredential: { label: "Public browser token", public: true }, label: "Public browser token reference", placeholder: "env:MAPBOX_PUBLIC_TOKEN",
-    hint: "Required for browser-only mode; optional with backend geocoding. Separate pk. token for Mapbox in your browser. The application may publish this value; backend verification does not verify its restrictions." }],
+    hint: "Required for browser-only mode; optional with backend geocoding. Separate pk. token for Mapbox in your browser. The application may expose this value; backend verification does not verify its restrictions." }],
   setup: {
     url: "https://docs.mapbox.com/accounts/guides/tokens/",
     stepsForSettings(settings) { return settings?.usage === "browser" ? [
@@ -26,7 +26,7 @@ const mapboxDefinition = Object.freeze({
     ] : this.steps; },
     steps: [
       "Sign into Mapbox Developer Console → Access Tokens → Create a token. Name it for this application and environment. Select only the scopes your APIs need; geocoding can use a public pk. token. Copy a secret sk. token immediately: it is shown only once.",
-      "For backend geocoding, enter env:MAPBOX_BACKEND_TOKEN in Backend access token reference. Use a token without browser URL restrictions: backend requests have no browser referrer. Never publish a secret sk. token in browser code.",
+      "For backend geocoding, enter env:MAPBOX_BACKEND_TOKEN in Backend access token reference. Use a token without browser URL restrictions: backend requests have no browser referrer. Never expose a secret sk. token in browser code.",
       "For browser maps, create a separate public pk. token with the SDK’s map scopes, including styles:read and fonts:read. Enter env:MAPBOX_PUBLIC_TOKEN in Public browser token reference. The application must deliberately load this public value; this connector does not render a map.",
       "Restrict the browser token to the deployed application URLs, adding preview, custom domains and localhost when needed. Create a new token rather than using the default public token, which cannot be URL-restricted. Wildcards are unsupported; blocking the Referer header can cause 403 errors.",
       "Save configuration, then use Set credential in Env for MAPBOX_BACKEND_TOKEN and Open Env for MAPBOX_PUBLIC_TOKEN if supplied. Store token values there, not in reference fields. Connect account verifies only the backend token’s validity; it does not test geocoding entitlement or the optional browser token. No OAuth app or callback URL is needed.",

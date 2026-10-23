@@ -84,7 +84,7 @@ const googleSearchConsoleDefinition = definition("google-search-console", "Googl
   "The connecting Google account needs access to the intended Search Console property. A property owner can open that property, choose Settings > Users and permissions > Add user, enter the account email, choose the appropriate role and save.",
   "To add a property, open Search Console > property selector > Add property. Domain properties require your DNS provider's TXT record; URL-prefix properties offer verification methods such as an HTML file or tag. Follow Google's displayed instructions and Verify, or have an existing owner add this account. An OAuth grant does not verify domain ownership.",
   "Search performance uses finalized Pacific-time dates and top rows, not a complete traffic export. URL inspection reports Google's indexed snapshot, not a live page test or request for indexing. Use the exact property identifier returned by the connection.",
-  "To submit or remove sitemaps, select Manage Search Console properties (webmasters), add the scope in Data Access and reconnect. The app must publish a real sitemap URL first. Submission does not create the file, guarantee indexing or change DNS; deletion removes its Search Console entry, not the hosted file.",
+  "To submit or remove sitemaps, select Manage Search Console properties (webmasters), add the scope in Data Access and reconnect. The app must serve a real sitemap URL first. Submission does not create the file, guarantee indexing or change DNS; deletion removes its Search Console entry, not the hosted file.",
   "Keep Read Search Console properties for the initial check, which lists accessible properties. Site Verification permissions alone do not authorize that check or create property access. An empty result can mean this Google account has no properties."
 ]);
 const googleAnalyticsDefinition = Object.freeze({
@@ -98,7 +98,7 @@ const googleAnalyticsDefinition = Object.freeze({
     validator: (value) => /^G-[A-Z0-9]+$/u.test(value) || "Enter the GA4 web stream Measurement ID beginning G-."
   } }),
   settingsFields: [{ name: "measurementId", label: "Measurement ID", required: true,
-    hint: "Public: this value will be visible in your published application. Copy it from your GA4 web stream." }],
+    hint: "Public: this value will be visible in your deployed application. Copy it from your GA4 web stream." }],
   setup: {
     url: "https://support.google.com/analytics/answer/9304153",
     steps: [
