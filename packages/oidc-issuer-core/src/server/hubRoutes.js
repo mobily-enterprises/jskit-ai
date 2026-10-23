@@ -11,6 +11,7 @@ const GOOGLE_LINK_KIND = "GoogleLink";
 const GOOGLE_LINK_TTL_SECONDS = 600;
 const DEV_AUTH_SECRET_HEADER = "x-jskit-dev-auth-secret";
 const PENDING_SENTENCE = "This app is waiting for approval by the hub's owner.";
+const UNCONFIRMED_SENTENCE = "Confirm your email to continue: open the link we sent you, then press Continue.";
 const NO_MATCH_SENTENCE = "That email and password don't match.";
 const TOO_MANY_SENTENCE = "Too many attempts. Wait a little and try again.";
 
@@ -170,6 +171,9 @@ function registerHubRoutes(app, hub) {
   async function finishInteraction(request, reply, account) {
     const { details, appRow } = await loadInteraction(request, reply);
     if (!appRow || !ACTIVE_STATUSES.has(appRow.status)) throw new HubError(409, "app_pending", PENDING_SENTENCE);
+    // Apps trust the email they receive (invitations, for example), so an
+    // address nobody has confirmed never reaches them.
+    if (!account.emailVerified) throw new HubError(409, "email_unconfirmed", UNCONFIRMED_SENTENCE);
     let result = { login: { accountId: account.id } };
     if (details.prompt.name === "consent" && details.session?.accountId === account.id) {
       const grant = new hub.provider.Grant({ accountId: account.id, clientId: appRow.client_id });
@@ -445,6 +449,8 @@ function registerHubRoutes(app, hub) {
     const verified = await accounts.authenticate(account.email, request.body?.password);
     if (!verified) throw new HubError(401, "sign_in_failed", NO_MATCH_SENTENCE);
     await accounts.linkGoogle(account.id, link.googleSub);
+    // Google confirmed this same address, so it counts as confirmed here.
+    await accounts.markEmailVerified(account.id);
     await googleLinks.destroy(id);
     setCookie(reply, GOOGLE_LINK_COOKIE, "", 0);
     await signIn(request, reply, verified, "google");

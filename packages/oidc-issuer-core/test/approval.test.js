@@ -1,24 +1,27 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { createAccount, createBrowser, interactionUid, authorizationUrl, registerApp, signInThroughHub } from "./support/browser.js";
+import {
+  authorizationUrl,
+  confirmLatestEmail,
+  createAccount,
+  createBrowser,
+  createConfirmedAccount,
+  interactionUid,
+  registerApp,
+  signInThroughHub
+} from "./support/browser.js";
 import { OWNER_EMAIL, startHub } from "./support/hub.js";
 
 const PASSWORD = "correct horse battery staple";
 let hub;
 let owner;
 
-async function confirmLatestEmail(browser) {
-  const token = new URL(hub.mailer.lastLink()).searchParams.get("token");
-  const response = await browser.api(`${hub.url}/hub/api/email/confirm`, { body: { token } });
-  assert.equal(response.status, 200);
-}
-
 before(async () => {
   hub = await startHub({ env: { OIDC_HUB_DEV_ORIGIN_PATTERNS: "https://v64preview-*--acme.vibe64.dev" } });
   owner = createBrowser();
   await createAccount(owner, hub.url, { email: OWNER_EMAIL, password: PASSWORD });
-  await confirmLatestEmail(owner);
-  await createAccount(createBrowser(), hub.url, { email: "ada@example.test", password: PASSWORD });
+  assert.equal((await confirmLatestEmail(hub, owner)).status, 200);
+  await createConfirmedAccount(hub, { email: "ada@example.test", password: PASSWORD });
 });
 
 after(async () => {

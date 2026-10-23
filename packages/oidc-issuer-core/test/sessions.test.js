@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { authorizationUrl, createAccount, createBrowser, registerApp, signInThroughHub } from "./support/browser.js";
+import {
+  authorizationUrl,
+  confirmLatestEmail,
+  createAccount,
+  createBrowser,
+  createConfirmedAccount,
+  registerApp,
+  signInThroughHub
+} from "./support/browser.js";
 import { startHub } from "./support/hub.js";
 
 const PASSWORD = "correct horse battery staple";
@@ -18,8 +26,8 @@ after(async () => {
 });
 
 async function signedInPerson(email) {
+  await createConfirmedAccount(hub, { email, password: PASSWORD });
   const browser = createBrowser();
-  await createAccount(browser, hub.url, { email, password: PASSWORD });
   const first = await signInThroughHub(browser, hub.url, client, { email, password: PASSWORD });
   assert.ok(first.callbackUrl, "the first sign-in reaches the app");
   return browser;
@@ -53,4 +61,17 @@ test("ending a device's session from the Account page ends that device's silent 
   const deviceSession = sessions.find((item) => !item.current);
   assert.equal((await other.api(`${hub.url}/hub/api/account/sessions/${deviceSession.id}`, { method: "DELETE" })).status, 200);
   assert.match(await nextSignIn(device), /\/auth\/sign-in\?interaction=/u);
+});
+
+test("an account whose email nobody confirmed reaches no app until it is confirmed", async () => {
+  const browser = createBrowser();
+  await createAccount(browser, hub.url, { email: "victim@example.test", password: PASSWORD });
+  const waiting = await signInThroughHub(browser, hub.url, client, { email: "victim@example.test", password: PASSWORD });
+  assert.equal(waiting.error, "email_unconfirmed");
+  assert.equal(waiting.message, "Confirm your email to continue: open the link we sent you, then press Continue.");
+
+  assert.equal((await confirmLatestEmail(hub)).status, 200);
+  const continued = await browser.api(`${hub.url}/hub/interaction/${waiting.uid}/continue`, { body: {} });
+  assert.equal(continued.status, 200);
+  assert.ok((await continued.json()).redirectTo);
 });

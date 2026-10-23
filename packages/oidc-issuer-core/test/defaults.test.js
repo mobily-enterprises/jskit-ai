@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import {
   authorizationUrl,
-  createAccount,
+  createConfirmedAccount,
   createBrowser,
   redeemCode,
   registerApp,
@@ -19,7 +19,7 @@ let client;
 before(async () => {
   hub = await startHub();
   client = (await registerApp(hub.url)).body;
-  await createAccount(createBrowser(), hub.url, { email: EMAIL, password: PASSWORD });
+  await createConfirmedAccount(hub, { email: EMAIL, password: PASSWORD });
 });
 
 after(async () => {

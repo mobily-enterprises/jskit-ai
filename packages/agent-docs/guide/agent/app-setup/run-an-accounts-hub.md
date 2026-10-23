@@ -44,7 +44,9 @@ ready.
   and back-channel logout.
 - **Accounts.** Email and password (scrypt v1, the same format as JSKIT local
   accounts), email confirmation, password recovery, and optional "Continue with
-  Google" with the owner's own Google client.
+  Google" with the owner's own Google client. An account reaches apps only once
+  its email is confirmed, because apps trust that address. Apps sign in
+  silently only while the browser is signed in to the hub as the same person.
 - **Approval.** Apps register themselves at `/oidc/reg` with the registration
   token. Loopback and development addresses are approved automatically; every
   other address waits until the owner clicks Approve on the hub's Apps page.
@@ -124,7 +126,8 @@ npx jskit-oidc-issuer import-accounts --in accounts.jsonl --apply
 - `import-accounts` reads the JSON Lines written by
   `jskit-oidc-sign-in export-local-accounts`. It keeps each `usr_` id as the
   hub's `sub` and each scrypt password byte for byte, so people sign in with the
-  password they already had. Emails start unconfirmed. Rows that clash with a
+  password they already had. Emails start unconfirmed: each person confirms
+  theirs once, at their first app sign-in. Rows that clash with a
   different hub account are refused and listed. A dry run prints only counts.
 - `preview-identity` implements `vibe64.preview-identity.command.v1` for the
   hub, so an editor's preview can sign in as an existing hub account. It works

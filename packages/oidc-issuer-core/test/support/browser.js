@@ -145,9 +145,25 @@ async function createAccount(browser, hubUrl, { email, password = "correct horse
   return { response, body: await response.json() };
 }
 
+/** Opens the confirmation link in the hub's latest email, as the person would. */
+async function confirmLatestEmail(hub, browser = createBrowser()) {
+  const token = new URL(hub.mailer.lastLink()).searchParams.get("token");
+  return browser.api(`${hub.url}/hub/api/email/confirm`, { body: { token } });
+}
+
+/** Creates an account and confirms its email, ready to sign in to apps. */
+async function createConfirmedAccount(hub, { email, password = "correct horse battery staple", displayName = "" }) {
+  const browser = createBrowser();
+  const created = await createAccount(browser, hub.url, { email, password, displayName });
+  await confirmLatestEmail(hub, browser);
+  return created;
+}
+
 export {
   authorizationUrl,
+  confirmLatestEmail,
   createAccount,
+  createConfirmedAccount,
   createBrowser,
   interactionUid,
   pkcePair,

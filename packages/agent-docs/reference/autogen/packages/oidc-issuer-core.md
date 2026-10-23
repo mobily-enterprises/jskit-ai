@@ -108,6 +108,7 @@ Local functions
 Exports
 - `createHubSessionStore(knex, { now = () => new Date() } = {})`
 - `createSettingStore(knex)`
+- `hubSessionCookieName(config)`
 
 ### `src/server/importAccounts.js`
 Exports
@@ -148,9 +149,10 @@ Exports
 Exports
 - `ACTIVE_STATUSES`
 - `HUB_SCOPES`
-- `createOidcProvider({ config, jwks, Adapter, accounts, clients, onEndSession })`
+- `createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession, onEndSession })`
 Local functions
 - `interactionPath(uid)`
+- `interactionsPolicy(hasHubSession)`
 
 ### `src/server/previewIdentity.js`
 Exports
