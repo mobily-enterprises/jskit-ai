@@ -13,16 +13,6 @@ const ACCEPTED_FIELDS = new Set([
   "grant_types",
   "response_types"
 ]);
-const FORBIDDEN_FIELDS = new Set([
-  "logo_uri",
-  "jwks_uri",
-  "sector_identifier_uri",
-  "request_uris",
-  "software_statement",
-  "client_uri",
-  "policy_uri",
-  "tos_uri"
-]);
 
 class RegistrationError extends Error {
   constructor(error, description, status = 400) {
@@ -63,6 +53,14 @@ function isDevelopmentOrigin(origin, patterns) {
   return patterns.some((pattern) => globToRegExp(pattern).test(origin.toLowerCase()));
 }
 
+/** An optional list field that, when present, may hold only `value`. */
+function assertOnlyValue(body, field, value) {
+  const list = body[field];
+  if (list !== undefined && !(Array.isArray(list) && list.length === 1 && list[0] === value)) {
+    throw invalid(`${field} must be ["${value}"].`);
+  }
+}
+
 /**
  * Validates a registration (RFC 7591) or update (RFC 7592) body against the
  * hub's policy and returns its single origin and display name.
@@ -72,7 +70,6 @@ function validateRegistrationMetadata(body) {
     throw invalid("The registration must be a JSON object.");
   }
   for (const field of Object.keys(body)) {
-    if (FORBIDDEN_FIELDS.has(field)) throw invalid(`${field} is not accepted by this hub.`);
     if (!ACCEPTED_FIELDS.has(field)) throw invalid(`${field} is not accepted by this hub.`);
   }
   const name = String(body.client_name ?? "").trim();
@@ -87,14 +84,8 @@ function validateRegistrationMetadata(body) {
   if (body.token_endpoint_auth_method !== undefined && body.token_endpoint_auth_method !== "client_secret_basic") {
     throw invalid("token_endpoint_auth_method must be client_secret_basic.");
   }
-  if (body.grant_types !== undefined &&
-      !(Array.isArray(body.grant_types) && body.grant_types.length === 1 && body.grant_types[0] === "authorization_code")) {
-    throw invalid("grant_types must be [\"authorization_code\"].");
-  }
-  if (body.response_types !== undefined &&
-      !(Array.isArray(body.response_types) && body.response_types.length === 1 && body.response_types[0] === "code")) {
-    throw invalid("response_types must be [\"code\"].");
-  }
+  assertOnlyValue(body, "grant_types", "authorization_code");
+  assertOnlyValue(body, "response_types", "code");
   const origins = new Set([
     ...body.redirect_uris.map((uri) => originOf(uri, "redirect_uris")),
     ...(body.post_logout_redirect_uris || []).map((uri) => originOf(uri, "post_logout_redirect_uris"))
@@ -114,6 +105,11 @@ function createClientStore(knex, { now = () => new Date() } = {}) {
 
   async function deleteProviderClient(clientId) {
     await knex(MODELS_TABLE).where({ kind: "Client", id: clientId }).delete();
+  }
+
+  async function remove(clientId) {
+    await deleteProviderClient(clientId);
+    return (await table().where({ client_id: clientId }).delete()) > 0;
   }
 
   return Object.freeze({
@@ -168,10 +164,7 @@ function createClientStore(knex, { now = () => new Date() } = {}) {
       return true;
     },
 
-    async remove(clientId) {
-      await deleteProviderClient(clientId);
-      return (await table().where({ client_id: clientId }).delete()) > 0;
-    },
+    remove,
 
     touch(clientId) {
       return table().where({ client_id: clientId }).update({ last_used_at: now() });
@@ -184,10 +177,7 @@ function createClientStore(knex, { now = () => new Date() } = {}) {
         .andWhere((query) => query
           .where("last_used_at", "<", cutoff)
           .orWhere((inner) => inner.whereNull("last_used_at").andWhere("created_at", "<", cutoff)));
-      for (const row of idle) {
-        await deleteProviderClient(row.client_id);
-        await table().where({ client_id: row.client_id }).delete();
-      }
+      for (const row of idle) await remove(row.client_id);
       return idle.length;
     }
   });

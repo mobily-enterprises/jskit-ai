@@ -34,6 +34,13 @@ function sendRegistrationError(reply, error) {
   });
 }
 
+/** Keeps the hub's own client rows in step once oidc-provider has answered with `status`. */
+function onProviderStatus(reply, matches, action) {
+  reply.raw.once("finish", () => {
+    if (matches(reply.raw.statusCode)) action().catch(() => {});
+  });
+}
+
 function parseJsonBody(buffer) {
   try {
     return JSON.parse(Buffer.isBuffer(buffer) ? buffer.toString("utf8") : String(buffer || ""));
@@ -175,9 +182,7 @@ async function createOidcIssuer({
       const clientId = `app_${randomToken(16)}`;
       request.raw.hubClientId = clientId;
       await clients.insert({ clientId, origin, name, status });
-      reply.raw.once("finish", () => {
-        if (reply.raw.statusCode !== 201) clients.remove(clientId).catch(() => {});
-      });
+      onProviderStatus(reply, (status) => status !== 201, () => clients.remove(clientId));
       reply.raw.setHeader("x-hub-client-status", status);
       return forwardToProvider(request, reply);
     } catch (error) {
@@ -196,9 +201,7 @@ async function createOidcIssuer({
         if (origin !== row.origin) {
           throw new RegistrationError("invalid_client_metadata", "A registered app cannot move to another address. Register again instead.");
         }
-        reply.raw.once("finish", () => {
-          if (reply.raw.statusCode === 200) clients.rename(row.client_id, name).catch(() => {});
-        });
+        onProviderStatus(reply, (status) => status === 200, () => clients.rename(row.client_id, name));
       } catch (error) {
         if (error instanceof RegistrationError) return sendRegistrationError(reply, error);
         throw error;
@@ -209,9 +212,7 @@ async function createOidcIssuer({
 
   async function deleteRegistration(request, reply) {
     const clientId = request.params.clientId;
-    reply.raw.once("finish", () => {
-      if (reply.raw.statusCode === 204) clients.remove(clientId).catch(() => {});
-    });
+    onProviderStatus(reply, (status) => status === 204, () => clients.remove(clientId));
     return forwardToProvider(request, reply);
   }
 

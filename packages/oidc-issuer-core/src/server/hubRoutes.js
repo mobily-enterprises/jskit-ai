@@ -148,6 +148,10 @@ function registerHubRoutes(app, hub) {
     await hub.backchannelLogout(accountId);
   }
 
+  async function guardSignInRate(request) {
+    if (!(await rateLimiter.signIn(clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
+  }
+
   async function guardEmailRate(request, email) {
     if (!(await rateLimiter.email(email, clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
   }
@@ -184,8 +188,12 @@ function registerHubRoutes(app, hub) {
     return { redirectTo };
   }
 
+  function signInPage(uid) {
+    return `/auth/sign-in?interaction=${encodeURIComponent(uid)}`;
+  }
+
   app.get("/hub/interaction/:uid", async (request, reply) => {
-    return reply.redirect(`/auth/sign-in?interaction=${encodeURIComponent(request.params.uid)}`, 303);
+    return reply.redirect(signInPage(request.params.uid), 303);
   });
 
   app.get("/hub/interaction/:uid/details", async (request, reply) => {
@@ -214,14 +222,12 @@ function registerHubRoutes(app, hub) {
 
   app.get("/hub/interaction/:uid/resume", async (request, reply) => {
     const signedIn = await current(request);
-    if (!signedIn) return reply.redirect(`/auth/sign-in?interaction=${encodeURIComponent(request.params.uid)}`, 303);
+    if (!signedIn) return reply.redirect(signInPage(request.params.uid), 303);
     try {
       const { redirectTo } = await finishInteraction(request, reply, signedIn.account);
       return reply.redirect(redirectTo, 303);
     } catch (error) {
-      if (error instanceof HubError) {
-        return reply.redirect(`/auth/sign-in?interaction=${encodeURIComponent(request.params.uid)}`, 303);
-      }
+      if (error instanceof HubError) return reply.redirect(signInPage(request.params.uid), 303);
       throw error;
     }
   });
@@ -238,7 +244,7 @@ function registerHubRoutes(app, hub) {
   });
 
   app.post("/hub/api/sign-in", async (request, reply) => {
-    if (!(await rateLimiter.signIn(clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
+    await guardSignInRate(request);
     const account = await accounts.authenticate(request.body?.email, request.body?.password);
     if (!account) throw new HubError(401, "sign_in_failed", NO_MATCH_SENTENCE);
     await signIn(request, reply, account, "password");
@@ -324,7 +330,7 @@ function registerHubRoutes(app, hub) {
   app.post("/hub/api/account/password", async (request) => {
     const { account } = await requireAccount(request);
     if (account.hasPassword) {
-      if (!(await rateLimiter.signIn(clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
+      await guardSignInRate(request);
       if (!(await accounts.checkPassword(account.id, request.body?.currentPassword))) {
         throw new HubError(400, "current_password_wrong", "Your current password is not right.");
       }
@@ -353,12 +359,16 @@ function registerHubRoutes(app, hub) {
 
   /* ---------------- Google ---------------- */
 
+  function requireGoogle() {
+    if (!hub.google) throw new HubError(404, "google_disabled", "Continue with Google is not set up on this hub.");
+  }
+
   function googleDone(uid) {
     return uid ? `/hub/interaction/${encodeURIComponent(uid)}/resume` : "/account";
   }
 
   app.get("/hub/google/start", async (request, reply) => {
-    if (!hub.google) throw new HubError(404, "google_disabled", "Continue with Google is not set up on this hub.");
+    requireGoogle();
     const intent = request.query.intent === "link" ? "link" : "sign-in";
     const signedIn = intent === "link" ? await requireAccount(request) : null;
     // Linking needs a confirmed email: otherwise someone could create an
@@ -375,7 +385,7 @@ function registerHubRoutes(app, hub) {
   });
 
   app.get("/hub/google/callback", async (request, reply) => {
-    if (!hub.google) throw new HubError(404, "google_disabled", "Continue with Google is not set up on this hub.");
+    requireGoogle();
     setCookie(reply, GOOGLE_STATE_COOKIE, "", 0);
     let outcome = null;
     try {
@@ -445,7 +455,7 @@ function registerHubRoutes(app, hub) {
 
   app.post("/hub/api/google/link/password", async (request, reply) => {
     const { id, link, account } = await pendingGoogleLink(request);
-    if (!(await rateLimiter.signIn(clientIp(request)))) throw new HubError(429, "rate_limited", TOO_MANY_SENTENCE);
+    await guardSignInRate(request);
     const verified = await accounts.authenticate(account.email, request.body?.password);
     if (!verified) throw new HubError(401, "sign_in_failed", NO_MATCH_SENTENCE);
     await accounts.linkGoogle(account.id, link.googleSub);

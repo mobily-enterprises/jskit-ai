@@ -260,9 +260,8 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
   }
 
   async function authenticateRequest(request) {
-    const hasCookie = Boolean(cookiesOf(request)[sessionCookie]);
     const session = await sessionFromRequest(request);
-    if (!session) return unauthenticated(hasCookie);
+    if (!session) return unauthenticated(hasSessionCookie(request));
     const identity = { sub: session.sub, email: session.email, displayName: session.displayName };
     let result;
     if (session.purpose === DEV_AUTH_SESSION_PURPOSE) {
@@ -308,20 +307,22 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     return buildResult(identity, { session, appProfile });
   }
 
+  function sessionCookieOptions(maxAge) {
+    return { path: "/", httpOnly: true, sameSite: "lax", secure: secureCookies, maxAge };
+  }
+
   function writeSessionCookies(reply, session) {
     if (!reply || !session?.token) return;
-    reply.setCookie(sessionCookie, session.token, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: secureCookies,
-      maxAge: Number(session.expires_in || SESSION_TTL_SECONDS)
-    });
+    reply.setCookie(sessionCookie, session.token, sessionCookieOptions(Number(session.expires_in || SESSION_TTL_SECONDS)));
   }
 
   function clearSessionCookies(reply) {
     if (!reply) return;
-    reply.clearCookie(sessionCookie, { path: "/", httpOnly: true, sameSite: "lax", secure: secureCookies, maxAge: 0 });
+    reply.clearCookie(sessionCookie, sessionCookieOptions(0));
+  }
+
+  function hasSessionCookie(request) {
+    return Boolean(cookiesOf(request)[sessionCookie]);
   }
 
   async function logout(request) {
@@ -357,8 +358,9 @@ function createOidcAuthService({ config, store, issuer, profileProjector = null,
     isDevAuthBootstrapEnabled: () => devLoginEnabled,
     devLoginAs,
     authenticateRequest,
-    hasAccessTokenCookie: (request) => Boolean(cookiesOf(request)[sessionCookie]),
-    hasSessionCookie: (request) => Boolean(cookiesOf(request)[sessionCookie]),
+    // One cookie carries the session, so both questions read it.
+    hasAccessTokenCookie: hasSessionCookie,
+    hasSessionCookie,
     writeSessionCookies,
     clearSessionCookies,
     writeOAuthStartCookies,
