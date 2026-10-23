@@ -1,4 +1,4 @@
-import Provider from "oidc-provider";
+import Provider, { interactionPolicy } from "oidc-provider";
 import { isLoopbackHostname } from "./config.js";
 import { deriveKey } from "./crypto.js";
 import { hubPage } from "./http.js";
@@ -27,12 +27,35 @@ function interactionPath(uid) {
 }
 
 /**
+ * The hub's own session is the single sign-in state: oidc-provider's session
+ * only counts while this browser is still signed in to the hub as the same
+ * person. Signing out of the hub, or ending this device's session from the
+ * Account page, therefore also ends silent sign-in to apps.
+ */
+function interactionsPolicy(hasHubSession) {
+  const policy = interactionPolicy.base();
+  policy.get("login").checks.add(new interactionPolicy.Check(
+    "hub_session",
+    "The person is no longer signed in to the hub",
+    "login_required",
+    async (ctx) => {
+      const { accountId } = ctx.oidc.session;
+      if (!accountId) return interactionPolicy.Check.NO_NEED_TO_PROMPT;
+      return (await hasHubSession(ctx, accountId))
+        ? interactionPolicy.Check.NO_NEED_TO_PROMPT
+        : interactionPolicy.Check.REQUEST_PROMPT;
+    }
+  ));
+  return policy;
+}
+
+/**
  * Builds the hardened oidc-provider instance. Apps get the authorization code
  * flow with PKCE only, no refresh tokens, exact redirect URIs and a public
  * `sub`. A grant exists only for clients the registration policy marked
  * active: a pending app always reaches the hub's waiting page.
  */
-function createOidcProvider({ config, jwks, Adapter, accounts, clients, onEndSession }) {
+function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSession, onEndSession }) {
   const provider = new Provider(config.issuer, {
     adapter: Adapter,
     jwks,
@@ -108,6 +131,7 @@ function createOidcProvider({ config, jwks, Adapter, accounts, clients, onEndSes
       return globalThis.fetch(url, options);
     },
     interactions: {
+      policy: interactionsPolicy(hasHubSession),
       url: (_ctx, interaction) => interactionPath(interaction.uid)
     },
     async findAccount(_ctx, sub) {

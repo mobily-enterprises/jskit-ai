@@ -1,6 +1,7 @@
 import { AccountError, isEmail, normalizeEmail } from "./accounts.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { HubError, appendCookie, clientIp, parseCookies, serializeCookie } from "./http.js";
+import { hubSessionCookieName } from "./hubSessions.js";
 import { composeMessage } from "./mailer.js";
 import { ACTIVE_STATUSES, HUB_SCOPES } from "./oidcProvider.js";
 
@@ -48,7 +49,7 @@ function isLoopbackRequest(request) {
  */
 function registerHubRoutes(app, hub) {
   const { config, accounts, clients, sessions, settings, emailTokens, rateLimiter, mailer } = hub;
-  const sessionCookie = config.secure ? "__Host-hub_session" : "hub_session";
+  const sessionCookie = hubSessionCookieName(config);
   const googleLinks = new hub.Adapter(GOOGLE_LINK_KIND);
   const hubHost = new URL(config.issuer).host;
 

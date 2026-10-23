@@ -5,6 +5,11 @@ const SESSION_KIND = "HubSession";
 const SETTING_KIND = "HubSetting";
 const SESSION_TTL_SECONDS = 14 * 86400;
 
+/** `__Host-` keeps sibling subdomains from planting the cookie when the hub runs on https. */
+function hubSessionCookieName(config) {
+  return config.secure ? "__Host-hub_session" : "hub_session";
+}
+
 /**
  * The hub's own signed-in state, shared by its pages and by every app's
  * sign-in. The cookie carries a random token; the database keeps its hash.
@@ -80,4 +85,4 @@ function createSettingStore(knex) {
   });
 }
 
-export { createHubSessionStore, createSettingStore };
+export { createHubSessionStore, createSettingStore, hubSessionCookieName };

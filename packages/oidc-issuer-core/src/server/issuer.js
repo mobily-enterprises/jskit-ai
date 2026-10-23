@@ -5,7 +5,7 @@ import { resolveHubConfig } from "./config.js";
 import { constantEquals, randomToken } from "./crypto.js";
 import { createEmailTokenStore } from "./emailTokens.js";
 import { createGoogleSignIn, GOOGLE_ENDPOINTS } from "./google.js";
-import { createHubSessionStore, createSettingStore } from "./hubSessions.js";
+import { createHubSessionStore, createSettingStore, hubSessionCookieName } from "./hubSessions.js";
 import { registerHubRoutes } from "./hubRoutes.js";
 import { createMailer } from "./mailer.js";
 import { ACTIVE_STATUSES, createOidcProvider } from "./oidcProvider.js";
@@ -98,6 +98,10 @@ async function createOidcIssuer({
       Adapter,
       accounts,
       clients,
+      async hasHubSession(ctx, accountId) {
+        const session = await hub.sessions.find(ctx.cookies.get(hubSessionCookieName(config), { signed: false }));
+        return session?.accountId === accountId;
+      },
       onEndSession: (ctx) => hub.onEndSession?.(ctx)
     });
     callback = hub.provider.callback();
