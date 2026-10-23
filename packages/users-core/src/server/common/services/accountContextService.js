@@ -1,4 +1,5 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
+import { isAuthOperationSupported } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { normalizeIdentity } from "../support/identity.js";
 
 async function resolveUserProfile(userProfilesRepository, user) {
@@ -23,6 +24,14 @@ async function resolveUserProfile(userProfilesRepository, user) {
 
 async function resolveSecurityStatus(authService, request) {
   if (!authService || typeof authService.getSecurityStatus !== "function") {
+    return {};
+  }
+  // A provider that keeps passwords elsewhere, such as an accounts hub, has no
+  // security status; its settings pages still load.
+  if (
+    typeof authService.getCapabilities === "function" &&
+    !isAuthOperationSupported(authService.getCapabilities(), "getSecurityStatus")
+  ) {
     return {};
   }
 
