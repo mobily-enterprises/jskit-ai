@@ -233,6 +233,7 @@ import { mdiEye, mdiEyeOff } from "@mdi/js";
 import { useDisplay } from "vuetify";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import { useAuthOAuthLaunchClient } from "../runtime/inject.js";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
 import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
 import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
@@ -250,7 +251,8 @@ const actions = useLoginViewActions({
   state,
   validation,
   queryClient,
-  errorRuntime
+  errorRuntime,
+  oauthLaunchClient: useAuthOAuthLaunchClient()
 });
 
 onMounted(actions.initializeOnMounted);

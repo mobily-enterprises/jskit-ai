@@ -177,3 +177,10 @@ test("default reset password view preserves recovery session-pair callback token
   assert.doesNotMatch(viewSource, /if \(!recoveryPayload\)\s*\{\s*status\.value = "error";/);
   assert.doesNotMatch(viewSource, /hash\.get\("access_token"\)[\s\S]*code:/);
 });
+
+test("default login view hands its OAuth buttons the launch client", () => {
+  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
+  const viewSource = readFileSync(viewPath, "utf8");
+
+  assert.match(viewSource, /oauthLaunchClient: useAuthOAuthLaunchClient\(\)/);
+});
