@@ -1,0 +1,89 @@
+{
+  "name": "@jskit-ai/oidc-issuer-core",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1"
+  },
+  "bin": {
+    "jskit-oidc-issuer": "./bin/jskit-oidc-issuer.js"
+  },
+  "exports": {
+    "./server": "./src/server/index.js",
+    "./server/providers/OidcIssuerProvider": "./src/server/providers/OidcIssuerProvider.js"
+  },
+  "description": "OpenID Connect accounts hub: one sign-in for all of an owner's apps, with approval of every production app.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "auth.oidc-issuer"
+      ],
+      "requires": [
+        "runtime.app-root",
+        "runtime.database",
+        "runtime.env",
+        "runtime.fastify",
+        "runtime.logger"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/providers/OidcIssuerProvider.js",
+            "export": "OidcIssuerProvider"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "jskit": {
+        "tableOwnership": {
+          "tables": [
+            { "tableName": "oidc_issuer_accounts" },
+            { "tableName": "oidc_issuer_models" },
+            { "tableName": "oidc_issuer_clients" },
+            { "tableName": "oidc_issuer_signing_keys" },
+            { "tableName": "oidc_issuer_email_tokens" },
+            { "tableName": "oidc_issuer_rate_limits" }
+          ]
+        }
+      },
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server",
+            "summary": "Exports createOidcIssuer, the account import and key rotation commands, and the shared scrypt password helpers."
+          },
+          {
+            "subpath": "./server/providers/OidcIssuerProvider",
+            "summary": "Mounts the accounts hub (OpenID Connect issuer, hub API and Google sign-in) on the application's Fastify server."
+          }
+        ],
+        "capability": "auth.oidc-issuer"
+      }
+    },
+    "migrations": {
+      "directories": [
+        "migrations"
+      ]
+    }
+  },
+  "dependencies": {
+    "@jskit-ai/database-runtime": "0.1.244",
+    "jose": "6.2.12",
+    "knex": "^3.1.0",
+    "nodemailer": "10.0.2",
+    "oidc-provider": "9.12.2"
+  },
+  "devDependencies": {
+    "@jskit-ai/auth-provider-local-core": "0.1.145"
+  },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.244"
+  }
+}
