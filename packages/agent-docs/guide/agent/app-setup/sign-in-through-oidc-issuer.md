@@ -96,6 +96,10 @@ browser. Start again."
 
 The first sign-in creates the `users` row (`auth_provider` `oidc`,
 `auth_provider_user_sid` the issuer's subject) with the email and name.
+Apps trust that email (invitations match it), so when the issuer says
+`email_verified: false` the sign-in stops with "Your account provider has not
+confirmed your email address yet." An accounts hub never sends an unconfirmed
+email; it asks the person to confirm first.
 
 ## Signing out
 
