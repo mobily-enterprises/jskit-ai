@@ -194,8 +194,8 @@ the local, Supabase and OIDC auth providers and the CSRF secret cookie use the
 `__Host-` prefix, for example `__Host-jskit_local_access_token` and
 `__Host-_csrf`. Browsers accept these only with `Secure`, `Path=/` and no
 `Domain`, so a sibling subdomain cannot plant or overwrite them. The first
-production deploy after updating signs everyone out once; the old unprefixed
-cookies are cleared on logout. Development and tests keep the unprefixed names.
+production deploy after updating signs everyone out once. Development and tests
+keep the unprefixed names.
 Setting `AUTH_CSRF_COOKIE_SECURE=false` keeps the unprefixed CSRF cookie for an
 application deliberately served over plain HTTP. CSRF protection is still the
 token check on every unsafe request; the prefix only hardens the cookie.

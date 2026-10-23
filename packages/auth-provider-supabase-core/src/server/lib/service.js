@@ -513,13 +513,6 @@ function createService(options) {
         reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE, clearOptions);
         reply.clearCookie(RECOVERY_REFRESH_TOKEN_COOKIE, clearOptions);
       }
-      if (isProduction) {
-        // Cookies from before the __Host- names.
-        reply.clearCookie(ACCESS_TOKEN_COOKIE_NAME, clearOptions);
-        reply.clearCookie(REFRESH_TOKEN_COOKIE_NAME, clearOptions);
-        reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE_NAME, clearOptions);
-        reply.clearCookie(RECOVERY_REFRESH_TOKEN_COOKIE_NAME, clearOptions);
-      }
     }
   }
 

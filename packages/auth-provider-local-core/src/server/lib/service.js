@@ -581,12 +581,6 @@ function createLocalAuthService({
         reply.clearCookie(REFRESH_TOKEN_COOKIE, options);
         reply.clearCookie(RECOVERY_TOKEN_COOKIE, options);
       }
-      if (isProduction) {
-        // Cookies from before the __Host- names.
-        reply.clearCookie(ACCESS_TOKEN_COOKIE_NAME, options);
-        reply.clearCookie(REFRESH_TOKEN_COOKIE_NAME, options);
-        reply.clearCookie(RECOVERY_TOKEN_COOKIE_NAME, options);
-      }
     }
   }
 
