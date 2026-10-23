@@ -51,12 +51,24 @@
       "jskit": {
         "tableOwnership": {
           "tables": [
-            { "tableName": "oidc_issuer_accounts" },
-            { "tableName": "oidc_issuer_models" },
-            { "tableName": "oidc_issuer_clients" },
-            { "tableName": "oidc_issuer_signing_keys" },
-            { "tableName": "oidc_issuer_email_tokens" },
-            { "tableName": "oidc_issuer_rate_limits" }
+            {
+              "tableName": "oidc_issuer_accounts"
+            },
+            {
+              "tableName": "oidc_issuer_models"
+            },
+            {
+              "tableName": "oidc_issuer_clients"
+            },
+            {
+              "tableName": "oidc_issuer_signing_keys"
+            },
+            {
+              "tableName": "oidc_issuer_email_tokens"
+            },
+            {
+              "tableName": "oidc_issuer_rate_limits"
+            }
           ]
         }
       },
@@ -81,23 +93,29 @@
     },
     "vite": {
       "proxy": {
-        "/.well-known": { "changeOrigin": true },
-        "/hub": { "changeOrigin": true },
-        "/oidc": { "changeOrigin": true }
+        "/.well-known": {
+          "changeOrigin": true
+        },
+        "/hub": {
+          "changeOrigin": true
+        },
+        "/oidc": {
+          "changeOrigin": true
+        }
       }
     }
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.244",
+    "@jskit-ai/database-runtime": "0.1.245",
     "jose": "6.2.12",
     "knex": "^3.1.0",
     "nodemailer": "10.0.2",
     "oidc-provider": "9.12.2"
   },
   "devDependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.1.145"
+    "@jskit-ai/auth-provider-local-core": "0.1.146"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.1.244"
+    "@jskit-ai/kernel": "0.1.245"
   }
 }

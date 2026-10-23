@@ -50,6 +50,7 @@ Local functions
 - `invalid(description)`
 - `originOf(uri, field)`
 - `globToRegExp(pattern)`
+- `assertOnlyValue(body, field, value)`
 
 ### `src/server/config.js`
 Exports
@@ -138,6 +139,7 @@ Local functions
 - `isHubPath(url)`
 - `bearerToken(request)`
 - `sendRegistrationError(reply, error)`
+- `onProviderStatus(reply, matches, action)`
 - `parseJsonBody(buffer)`
 
 ### `src/server/mailer.js`

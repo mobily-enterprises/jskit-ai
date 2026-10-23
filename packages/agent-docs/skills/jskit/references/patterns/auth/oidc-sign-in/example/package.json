@@ -3,6 +3,6 @@
   "type": "module",
   "dependencies": {
     "@jskit-ai/auth-provider-oidc-core": "0.1.0",
-    "@jskit-ai/auth-web": "0.1.245"
+    "@jskit-ai/auth-web": "0.1.246"
   }
 }
