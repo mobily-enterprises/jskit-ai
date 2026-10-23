@@ -5,6 +5,13 @@
   "scripts": {
     "test": "node --test --test-concurrency=1"
   },
+  "files": [
+    "bin",
+    "data",
+    "migrations",
+    "patterns",
+    "src"
+  ],
   "bin": {
     "jskit-oidc-issuer": "./bin/jskit-oidc-issuer.js"
   },
