@@ -563,10 +563,9 @@ function touchListIncludesActiveTouch(touchList) {
 
 <template>
   <v-app-bar
-    border
     :density="isCompactLayout ? 'compact' : 'comfortable'"
     elevation="0"
-    class="shell-layout__app-bar bg-surface"
+    class="shell-layout__app-bar"
     data-testid="jskit-shell-app-bar"
   >
     <v-app-bar-nav-icon
@@ -619,8 +618,7 @@ function touchListIncludesActiveTouch(touchList) {
     ref="navigationDrawer"
     id="jskit-shell-drawer"
     :model-value="drawerPresentation.visible"
-    border
-    class="shell-layout__drawer bg-surface"
+    class="shell-layout__drawer"
     data-testid="jskit-shell-drawer"
     :data-layout="layoutClass"
     :data-presentation="drawerPresentation.kind"
@@ -670,7 +668,6 @@ function touchListIncludesActiveTouch(touchList) {
     v-if="isCompactLayout"
     class="shell-layout__bottom-nav"
     data-testid="jskit-shell-bottom-nav"
-    bg-color="surface"
     color="primary"
     density="comfortable"
     grow
@@ -716,6 +713,33 @@ function touchListIncludesActiveTouch(touchList) {
 </template>
 
 <style scoped>
+/*
+ * Shell chrome follows the app's Vuetify theme and is restyled through these
+ * custom properties (set them on :root or any ancestor):
+ *   --shell-chrome-border-width / --shell-chrome-border-color   shared dividers
+ *   --shell-app-bar-border-width, --shell-navigation-border-width,
+ *   --shell-bottom-navigation-border-width                       per-edge overrides
+ *   --shell-app-bar-background, --shell-navigation-background,
+ *   --shell-bottom-navigation-background                         surfaces
+ * A Material 3 restyle sets the border widths to 0 and separates surfaces
+ * tonally, e.g. --shell-navigation-background: rgb(var(--v-theme-surface-container-low)).
+ */
+.shell-layout__app-bar {
+  border-style: solid;
+  border-color: var(--shell-chrome-border-color, rgba(var(--v-border-color), var(--v-border-opacity)));
+  border-width: 0 0 var(--shell-app-bar-border-width, var(--shell-chrome-border-width, thin));
+  background: var(--shell-app-bar-background, rgb(var(--v-theme-surface)));
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.shell-layout__drawer {
+  border-style: solid;
+  border-color: var(--shell-chrome-border-color, rgba(var(--v-border-color), var(--v-border-opacity)));
+  border-width: 0;
+  border-inline-end-width: var(--shell-navigation-border-width, var(--shell-chrome-border-width, thin));
+  background: var(--shell-navigation-background, rgb(var(--v-theme-surface)));
+}
+
 .shell-layout__content {
   padding: 0.75rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
 }
@@ -824,7 +848,9 @@ function touchListIncludesActiveTouch(touchList) {
 }
 
 .shell-layout__bottom-nav {
-  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-top: var(--shell-bottom-navigation-border-width, var(--shell-chrome-border-width, thin)) solid
+    var(--shell-chrome-border-color, rgba(var(--v-border-color), var(--v-border-opacity)));
+  background: var(--shell-bottom-navigation-background, rgb(var(--v-theme-surface)));
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 

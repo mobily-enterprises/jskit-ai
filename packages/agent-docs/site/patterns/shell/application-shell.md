@@ -42,6 +42,10 @@ placement registry, topology, and adaptive smoke helper exported by
   above the content so they never cover it. A full-viewport fixed screen on
   such a surface starts at `var(--shell-error-banners-inline-height, 0px)`, as
   `@jskit-ai/auth-web`'s login and reset views do.
+- Restyle shell chrome through its `--shell-chrome-*`, `--shell-app-bar-*`,
+  `--shell-navigation-*` and `--shell-bottom-navigation-*` custom properties,
+  not by overriding Vuetify internals; a Material 3 restyle removes the dividers
+  and separates surfaces tonally.
 - The adaptive browser check closes navigation through its public close control.
 
 ## Example files

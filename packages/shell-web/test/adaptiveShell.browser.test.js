@@ -439,3 +439,40 @@ test("shell-web error banners never cover content and keep a readable close butt
     await stopProcess(vite);
   }
 });
+
+test("shell-web chrome borders and surfaces follow app-supplied tokens", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+    await page.goto("/home?theme=light");
+    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
+    const read = () => page.evaluate(() => {
+      const edges = (testId) => {
+        const style = window.getComputedStyle(document.querySelector(`[data-testid='${testId}']`));
+        return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth,
+          style.backgroundColor];
+      };
+      return { appBar: edges("jskit-shell-app-bar"), drawer: edges("jskit-shell-drawer") };
+    });
+    const defaults = await read();
+    // Only the separating edges carry a divider by default.
+    assert.deepEqual(defaults.appBar.slice(0, 4), ["0px", "0px", "1px", "0px"]);
+    assert.deepEqual(defaults.drawer.slice(0, 4), ["0px", "1px", "0px", "0px"]);
+
+    await page.addStyleTag({
+      content: ":root { --shell-chrome-border-width: 0; --shell-app-bar-background: rgb(1, 2, 3); --shell-navigation-background: rgb(4, 5, 6); }"
+    });
+    const restyled = await read();
+    assert.deepEqual(restyled.appBar, ["0px", "0px", "0px", "0px", "rgb(1, 2, 3)"]);
+    assert.deepEqual(restyled.drawer, ["0px", "0px", "0px", "0px", "rgb(4, 5, 6)"]);
+    await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
