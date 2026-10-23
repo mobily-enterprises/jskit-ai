@@ -11,8 +11,8 @@
     "./client/runtime/globalCapacitorAppAdapter": "./src/client/runtime/globalCapacitorAppAdapter.js"
   },
   "dependencies": {
-    "@capacitor/browser": "^7.0.1",
-    "@capacitor/core": "^7.4.3"
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.5.3"
   },
   "description": "Thin Capacitor client integration for JSKIT mobile-shell launch routing and auth callback completion.",
   "jskit": {
