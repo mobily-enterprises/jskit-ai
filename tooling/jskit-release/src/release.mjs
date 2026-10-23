@@ -713,6 +713,27 @@ async function publishCommand(options) {
   await publishRelease(records, options);
 }
 
+// npm cannot move exactly pinned packages that require each other in
+// lockstep (assistant-core and assistant-runtime, say): the locked old
+// versions still demand the old peers, and install stops with ERESOLVE.
+// Forgetting only the pinned packages' lock entries lets npm resolve them
+// afresh while every other locked dependency stays as it was.
+async function forgetPinnedLockEntries(repoRoot, names) {
+  const lockPath = path.join(repoRoot, "package-lock.json");
+  let lock;
+  try {
+    lock = JSON.parse(await readFile(lockPath, "utf8"));
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  for (const key of Object.keys(lock.packages || {})) {
+    const name = key.split("node_modules/").at(-1);
+    if (key.includes("node_modules/") && names.has(name)) delete lock.packages[key];
+  }
+  await writeFile(lockPath, serializeJson(lock), "utf8");
+}
+
 // npm can take minutes to serve a just-published version everywhere.
 // Moved from Vibe64 Online's deploy orchestrator.
 async function installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {}) {
@@ -760,6 +781,7 @@ async function pinCommand({ cwd: repoRoot, from, dryRun, noCommit }) {
     process.stdout.write("Pin dry-run complete.\n");
     return;
   }
+  await forgetPinnedLockEntries(repoRoot, new Set(versions.keys()));
   await installReleasedPins(repoRoot);
   if (noCommit) {
     process.stdout.write(`${path.basename(repoRoot)}: pins installed; not committed\n`);

@@ -719,6 +719,13 @@ async function consumerRepository(f) {
     "packages/x/package.json": { name: "x", private: true, devDependencies: { "@jskit-ai/a": "~0.9.1" } },
     "composed/y/package.json": { name: "y", private: true, dependencies: { "@jskit-ai/a": "0.9.0" } }
   };
+  manifests["package-lock.json"] = { name: "consumer", lockfileVersion: 3, packages: {
+    "": { name: "consumer" },
+    "node_modules/@jskit-ai/a": { version: "0.9.0" },
+    "node_modules/@jskit-ai/b": { version: "1.0.0" },
+    "packages/x/node_modules/@jskit-ai/a": { version: "0.9.1" },
+    "node_modules/left-pad": { version: "1.0.0" }
+  } };
   for (const [file, json] of Object.entries(manifests)) {
     await mkdir(path.dirname(path.join(consumer, file)), { recursive: true });
     await writeFile(path.join(consumer, file), JSON.stringify(json, null, 2) + "\n");
@@ -747,6 +754,8 @@ test("pin --no-commit installs the released versions and leaves the edits uncomm
   assert.equal(git("rev-parse", "HEAD").toString(), head);
   assert.equal(git("ls-remote", "origin", "refs/heads/main").toString().split("\t")[0] + "\n", head);
   assert.match(git("status", "--porcelain").toString(), /package\.json/u);
+  assert.deepEqual((await f.calls()).find(call => call.args[0] === "install").lockKeys,
+    ["", "node_modules/left-pad"], "pinned packages are resolved afresh; other locked packages stay");
 });
 
 test("pin follows released versions, keeps range prefixes, retries npm propagation, commits and pushes", async t => {

@@ -89,6 +89,7 @@ const args=process.argv.slice(2);
 const config=args.includes('--userconfig')?args[args.indexOf('--userconfig')+1]:null;
 const entry={args,cwd:process.cwd(),config};
 if(config){entry.mode=fs.statSync(config).mode&0o777;entry.tokenPresent=Boolean(process.env.NPM_TOKEN);}
+if(args[0]==='install'&&fs.existsSync('package-lock.json'))entry.lockKeys=Object.keys(JSON.parse(fs.readFileSync('package-lock.json','utf8')).packages||{});
 if(args[0]==='publish')entry.integrity='sha512-'+crypto.createHash('sha512').update(fs.readFileSync(args[1])).digest('base64');
 fs.appendFileSync(process.env.RELEASE_TEST_LOG,JSON.stringify(entry)+'\\n');
 if(args[0]==='install'&&Number(process.env.RELEASE_TEST_INSTALL_FAILURES||0)>=fs.readFileSync(process.env.RELEASE_TEST_LOG,'utf8').trim().split('\\n').filter(line=>JSON.parse(line).args[0]==='install').length){
