@@ -11,6 +11,10 @@ export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkI
 export { useAuthStore } from "./stores/useAuthStore.js";
 export { useAuthGuardRuntime } from "./runtime/inject.js";
 export {
+  completeOAuthPopupSignIn,
+  createPopupOAuthLaunchClient
+} from "./runtime/popupOAuthLaunchClient.js";
+export {
   completeOAuthCallbackFromCurrentLocation,
   completeOAuthCallbackFromUrl,
   readOAuthCallbackParamsFromUrl

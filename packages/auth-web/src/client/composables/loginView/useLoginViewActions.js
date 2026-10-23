@@ -14,6 +14,7 @@ import { normalizeAuthReturnToPath } from "../../lib/returnToPath.js";
 import { normalizeEmailAddress } from "./identityHelpers.js";
 import { readRememberedAccountHint } from "./rememberedAccountStorage.js";
 import { stripOAuthParamsFromLocation } from "./oauthCallbackUrl.js";
+import { completeOAuthPopupSignIn } from "../../runtime/popupOAuthLaunchClient.js";
 import { ensureCommandSectionValid } from "./validationHelpers.js";
 import { resolveRegisterCompletionState } from "./registerCompletion.js";
 
@@ -282,6 +283,9 @@ export function useLoginViewActions({
         shouldRemember: state.rememberAccountOnDevice.value !== false
       });
 
+      // A sign-in window opened by a framed app hands back and closes; if the
+      // browser keeps it open, it continues like an ordinary sign-in.
+      completeOAuthPopupSignIn();
       stripOAuthParamsFromLocation();
       if (typeof window === "object" && window.location) {
         window.location.replace(state.requestedReturnTo.value);

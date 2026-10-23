@@ -3,7 +3,7 @@ import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/sh
 import { resolveAllowedReturnToOriginsFromPlacementContext } from "../lib/returnToPath.js";
 import { createAuthGuardRuntime } from "./authGuardRuntime.js";
 import { completeOAuthCallbackFromUrl } from "./oauthCallbackRuntime.js";
-import { createBrowserOAuthLaunchClient } from "./oauthLaunchClient.js";
+import { createPopupOAuthLaunchClient } from "./popupOAuthLaunchClient.js";
 import {
   AUTH_GUARD_RUNTIME_INJECTION_KEY,
   AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY
@@ -44,7 +44,7 @@ function createAuthClient({ mobile = null, pinia, realtime = null, shell, vueApp
     realtimeSocket: realtime?.socket || null
   });
   const mobileCallback = createMobileCallbackCompleter();
-  const oauthLaunch = mobile?.oauthLaunch || createBrowserOAuthLaunchClient();
+  const oauthLaunch = mobile?.oauthLaunch || createPopupOAuthLaunchClient();
   let stopAuthRefresh = null;
 
   async function initialize() {

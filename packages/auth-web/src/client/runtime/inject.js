@@ -1,7 +1,8 @@
 import { inject } from "vue";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { isAuthGuardRuntime } from "./authGuardRuntime.js";
-import { createBrowserOAuthLaunchClient, isAuthOAuthLaunchClient } from "./oauthLaunchClient.js";
+import { isAuthOAuthLaunchClient } from "./oauthLaunchClient.js";
+import { createPopupOAuthLaunchClient } from "./popupOAuthLaunchClient.js";
 
 const AUTH_GUARD_RUNTIME_INJECTION_KEY = "jskit.auth-web.runtime.auth-guard.client";
 const AUTH_OAUTH_LAUNCH_CLIENT_INJECTION_KEY = "jskit.auth-web.runtime.oauth-launch.client";
@@ -52,7 +53,7 @@ function useAuthOAuthLaunchClient({ required = false } = {}) {
     throw new Error("OAuth launch client is not available in Vue injection context.");
   }
 
-  return createBrowserOAuthLaunchClient();
+  return createPopupOAuthLaunchClient();
 }
 
 export {
