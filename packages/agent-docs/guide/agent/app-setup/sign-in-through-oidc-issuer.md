@@ -10,6 +10,17 @@ Connect issuer, such as Google Workspace or Okta. The app still keeps its own
 
 The pattern is `auth/oidc-sign-in`.
 
+## In order
+
+1. Have the issuer's address and either a registration token (an accounts hub)
+   or a client id and secret (any other issuer). Ask the person; never invent them.
+2. Install the provider and run the migration (below).
+3. Set or link the Env values (below) for development and production.
+4. Sign in once in development. Against a hub, a development address works at
+   once when it is on this computer or matches the hub's development patterns.
+5. Deploy, then ask the hub's owner to approve the app on the hub's Apps page at
+   the app's full address. Until then sign-in shows the hub's waiting page.
+
 ## Install
 
 Replace the local provider; an app has exactly one `auth.service` provider.
@@ -40,9 +51,14 @@ Addresses must be `https`, or `http` on `localhost`/loopback. Without
 back to the login page with "Sign-in is not set up yet: AUTH_OIDC_ISSUER is
 missing." Every sign-in that cannot start is explained there the same way.
 
-In a Vibe64 project, link these from saved values in **Keys & accounts**
-instead of pasting them: `AUTH_OIDC_ISSUER` to the hub's `issuer` and
-`AUTH_OIDC_REGISTRATION_TOKEN` to its `registrationToken`.
+Never invent either value or copy it into source. If the host keeps saved
+values (an editor's saved keys, a deployment secret store), link these two
+variables to the hub's saved address and token instead of pasting them, in
+development and in production.
+
+The issuer must be reachable from the app's server and from the person's
+browser. A hub that runs only on another computer's `localhost` (for example in
+another project's development preview) is not; connect apps to the deployed hub.
 
 ## What the issuer is told
 

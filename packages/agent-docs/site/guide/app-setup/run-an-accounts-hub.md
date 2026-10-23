@@ -16,6 +16,23 @@ Use the `auth/accounts-hub` pattern for the composition rules. Apps connect with
 `@jskit-ai/auth-provider-oidc-core`; see
 [Sign in through an OIDC issuer](/guide/app-setup/sign-in-through-oidc-issuer).
 
+## In order
+
+1. Create the hub from the template, with its own database.
+2. Development: set `OIDC_HUB_OWNER_EMAIL` (ask the person), a random
+   `OIDC_HUB_REGISTRATION_TOKEN` and, if the database is shared or kept,
+   `OIDC_HUB_SECRET`. Start it, create the owner account and confirm it (the
+   link is in the server log without a sender). Run the tests.
+3. Production: choose the hub's own domain and set `APP_PUBLIC_URL`, a new
+   `OIDC_HUB_SECRET`, the same registration token the apps will use, the owner
+   email, an email sender and `OIDC_HUB_DEV_ORIGIN_PATTERNS` for the apps'
+   development previews.
+4. Deploy, then sign in as the owner and follow **Setup** until every item is
+   ready. Only then connect apps (see [Connecting an app](#connecting-an-app)).
+
+Report Setup honestly: do not say email or Google works until its Setup item is
+ready.
+
 ## What the hub does
 
 - **Sign-in for apps.** `/.well-known/openid-configuration` and `/oidc/*` serve a
@@ -38,10 +55,10 @@ Use the `auth/accounts-hub` pattern for the composition rules. Apps connect with
 | Name | Required | Meaning |
 |---|---|---|
 | `APP_PUBLIC_URL` | production | The hub's origin, which is its issuer. https outside this computer, no path. |
-| `OIDC_HUB_SECRET` | production | At least 32 random bytes. Protects cookies and the stored signing keys. Development generates one in `.jskit/oidc-hub/secret`. |
+| `OIDC_HUB_SECRET` | production | At least 32 random bytes. Protects cookies and the stored signing keys; never change it once set. Development generates one in `.jskit/oidc-hub/secret`, so set it explicitly whenever the database outlives that folder (a hosted editor, several checkouts sharing one database). |
 | `OIDC_HUB_REGISTRATION_TOKEN` | yes | At least 24 characters. Apps present it to register. Give the same value to each app as `AUTH_OIDC_REGISTRATION_TOKEN`. |
 | `OIDC_HUB_OWNER_EMAIL` | yes | The owner's email. That account, once its email is confirmed, opens the admin pages. |
-| `OIDC_HUB_DEV_ORIGIN_PATTERNS` | no | Comma-separated `https://` origin globs approved automatically, for example `https://v64preview-*--acme.vibe64.dev`. `*` matches inside one DNS label. Loopback is always approved. |
+| `OIDC_HUB_DEV_ORIGIN_PATTERNS` | no | Comma-separated `https://` origin globs approved automatically, for example `https://preview-*.acme.example.dev`. `*` matches inside one DNS label. Loopback is always approved. |
 | `OIDC_HUB_EMAIL_FROM` with `RESEND_API_KEY` or `SMTP_URL` | production | The owner's own sender. In development, without a sender, emails are written to the server log. |
 | `OIDC_HUB_GOOGLE_CLIENT_ID` and `OIDC_HUB_GOOGLE_CLIENT_SECRET` | no | Turn on "Continue with Google". The Google redirect URI is `{APP_PUBLIC_URL}/hub/google/callback`. |
 
