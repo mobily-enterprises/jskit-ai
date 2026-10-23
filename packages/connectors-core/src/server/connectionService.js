@@ -13,9 +13,12 @@ function publicConnection(connection) {
     integrationId: connection.integrationId,
     grantedScopes: [...connection.grantedScopes],
     verifiedAt: connection.verifiedAt,
-    ...(connection.accountLabel ? { accountLabel: connection.accountLabel } : {})
+    ...(connection.accountLabel ? { accountLabel: connection.accountLabel } : {}),
+    ...(connection.source ? { source: connection.source } : {})
   };
 }
+
+const ENV_SEEDED_MESSAGE = "This connection comes from an Env value; unlink or replace that value instead.";
 
 function validateCallbackUrl(value) {
   let url;
@@ -164,6 +167,38 @@ function createConnectionService({
     } catch {
       throw new ConnectorError("connector_binding_missing", "The service-account credential binding is missing or invalid.");
     }
+  }
+
+  // An Env refresh token seeds the shared connection; the app then refreshes
+  // and stores rotated tokens itself, and reseeds when the value or the OAuth
+  // client changes.
+  async function envRefreshTokenFor(integration) {
+    try {
+      const value = await resolveReference(integration.authentication.refreshTokenRef);
+      const refreshToken = typeof value === "string" ? value.trim() : "";
+      if (!refreshToken || refreshToken === "MISSING" || /\s/u.test(refreshToken)) throw new Error("Invalid token.");
+      return { refreshToken, fingerprint: createHash("sha256").update(refreshToken).digest("hex") };
+    } catch {
+      throw new ConnectorError("connector_binding_missing", "The refresh token binding is missing or invalid.");
+    }
+  }
+
+  function envSeedIsCurrent(connection, seed, registration) {
+    return connection?.seedFingerprint === seed.fingerprint && connection.clientId === registration.client.client_id &&
+      connection.registrationRef === registration.registrationRef &&
+      connection.tokenEndpointAuthMethod === registration.tokenEndpointAuthMethod;
+  }
+
+  function envSeededConnection(integrationId, integration, provider, registration, seed) {
+    return {
+      integrationId, provider: provider.id, registrationRef: registration.registrationRef,
+      grantType: registration.grantType, clientId: registration.client.client_id,
+      tokenEndpointAuthMethod: registration.tokenEndpointAuthMethod, status: "connected", source: "env",
+      seedFingerprint: seed.fingerprint, verifiedAt: now(), settings: structuredClone(integration.settings || {}),
+      ...(provider.refreshRequiresRedirectUri ? { callbackUrl: registration.callbackUrl } : {}),
+      tokens: { accessToken: null, refreshToken: seed.refreshToken, expiresAt: 0 },
+      grantedScopes: [...integration.scopes]
+    };
   }
 
   async function serviceAccountGrant(integration, provider, binding, signal) {
@@ -380,6 +415,9 @@ function createConnectionService({
 
   async function beginAuthorization({ context, integrationId, verificationInput = {}, signal }) {
     const { owner, integration, provider } = await access(context, integrationId, "connect");
+    if (integration.authentication.refreshTokenRef) {
+      throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409 });
+    }
     // Resource-specific providers validate the first document ID before opening consent.
     provider.operations[provider.checkOperation].request(verificationInput, integration.settings || {});
     const registration = await registrationFor(integration, provider);
@@ -544,7 +582,12 @@ function createConnectionService({
     const usesServiceAccount = integration.authentication.method === "service-account";
     const usesOAuth = integration.authentication.method === "oauth2";
     const registration = usesOAuth ? await registrationFor(integration, provider) : null;
+    const seed = integration.authentication.refreshTokenRef ? await envRefreshTokenFor(integration) : null;
     const outcome = await store.withConnection({ owner, integrationId }, async ({ connection, save }) => {
+      if (seed && !envSeedIsCurrent(connection, seed, registration)) {
+        connection = envSeededConnection(integrationId, integration, provider, registration, seed);
+        await save(connection);
+      }
       if (!connection || connection.status !== "connected" || connection.provider !== provider.id ||
         (connection.method || "oauth2") !== integration.authentication.method ||
         !isDeepStrictEqual(connection.settings || {}, integration.settings || {}) ||
@@ -597,8 +640,11 @@ function createConnectionService({
         });
         return { result };
       } catch (error) {
-        const failure = providerError(error);
-        if (failure.code === "connector_reconnect_required") await save({ ...connection, status: "reconnect-required" });
+        let failure = providerError(error);
+        if (failure.code === "connector_reconnect_required") {
+          await save({ ...connection, status: "reconnect-required" });
+          if (seed) failure = new ConnectorError(failure.code, "The refresh token in Env no longer works; replace that Env value.", { statusCode: 401 });
+        }
         // Commit rotated tokens and reconnect state even when the API request fails.
         return { failure };
       }
@@ -611,7 +657,7 @@ function createConnectionService({
     const { owner, integration, provider } = await access(context, integrationId, "status");
     const registration = config.registrations[integration.authentication.registrationRef];
     return store.withConnection({ owner, integrationId }, async ({ connection }) => {
-      if (connection && (connection.provider !== integration.provider ||
+      if (connection && !integration.authentication.refreshTokenRef && (connection.provider !== integration.provider ||
         (connection.method || "oauth2") !== integration.authentication.method ||
         !isDeepStrictEqual(connection.settings || {}, integration.settings || {}) ||
         (["api-key", "service-account"].includes(integration.authentication.method) && connection.secretRef !== integration.authentication.secretRef) ||
@@ -627,6 +673,13 @@ function createConnectionService({
         if (integration.authentication.method === "oauth2") {
           const resolved = await registrationFor(integration, provider);
           callbackUrl = resolved.callbackUrl;
+          if (integration.authentication.refreshTokenRef) {
+            const seed = await envRefreshTokenFor(integration);
+            // A new value is used on the next call; until then it reads as connected from Env.
+            if (!envSeedIsCurrent(connection, seed, resolved)) {
+              return { status: "connected", source: "env", provider: provider.id, integrationId, grantedScopes: [...integration.scopes], callbackUrl };
+            }
+          }
           if (connection && provider.refreshRequiresRedirectUri && resolved.grantType === "authorization_code" &&
               connection.callbackUrl !== resolved.callbackUrl) {
             return publicConnection({ ...connection, status: "reconnect-required" });
@@ -647,7 +700,10 @@ function createConnectionService({
   }
 
   async function disconnect({ context, integrationId }) {
-    const { owner } = await access(context, integrationId, "disconnect");
+    const { owner, integration } = await access(context, integrationId, "disconnect");
+    if (integration.authentication.refreshTokenRef) {
+      throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409 });
+    }
     await store.withConnection({ owner, integrationId }, async ({ remove }) => remove());
     return { status: "disconnected" };
   }

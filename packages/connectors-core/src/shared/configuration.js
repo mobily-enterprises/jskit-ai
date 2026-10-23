@@ -9,7 +9,8 @@ const secretReference = {
 const authenticationSchema = createSchema({
   method: { ...name, enum: ["oauth2", "api-key", "service-account", "none"] },
   registrationRef: { ...name, required: false },
-  secretRef: { ...secretReference, required: false }
+  secretRef: { ...secretReference, required: false },
+  refreshTokenRef: { ...secretReference, required: false }
 });
 const assistantPermission = { type: "string", enum: ["ask", "always", "never"] };
 const assistantPolicySchema = createSchema({
@@ -117,11 +118,19 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
     const provider = definitions.get(integration.provider);
     const registration = config.registrations[auth.registrationRef];
     const grantType = registration?.grantType || "authorization_code";
+    if (auth.refreshTokenRef && auth.method !== "oauth2") {
+      fieldErrors[`${path}.authentication.refreshTokenRef`] = "Only an OAuth connection can start from a refresh token.";
+    }
     if (auth.method === "oauth2") {
       if (!auth.registrationRef || !Object.hasOwn(config.registrations, auth.registrationRef)) {
         fieldErrors[`${path}.authentication.registrationRef`] = "Select a registration defined in this file.";
       }
       if (auth.secretRef) fieldErrors[`${path}.authentication.secretRef`] = "Use the registration's secret reference.";
+      if (auth.refreshTokenRef && integration.accountMode !== "shared") {
+        fieldErrors[`${path}.authentication.refreshTokenRef`] = "Only a shared connection can start from a refresh token in Env.";
+      } else if (auth.refreshTokenRef && grantType !== "authorization_code") {
+        fieldErrors[`${path}.authentication.refreshTokenRef`] = "Client credentials do not use a refresh token.";
+      }
       if (grantType === "client_credentials" && integration.accountMode === "per-user") {
         fieldErrors[`${path}.accountMode`] = "A service account cannot connect as each app user.";
       }
