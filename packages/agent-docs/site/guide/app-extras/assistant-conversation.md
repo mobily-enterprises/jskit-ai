@@ -2848,8 +2848,9 @@ Real account, environment, socket and provider recovery still runs normally.
 Native compaction remains the engine's job.
 JSKIT owns the local history adapter used for model-provider changes. It keeps
 native history intact and translates only outgoing requests. For qualified
-DeepSeek and GLM models, an OpenAI encrypted compaction is supplemented with the
-exact readable records from its saved native boundary. Recovery is bounded and
+models (`codexHistoryRouting`: DeepSeek V4.1 Flash, DeepSeek V4 Pro and GLM 5.3),
+an OpenAI encrypted compaction is supplemented with the exact readable records
+from its saved native boundary. Recovery is bounded and
 excludes only exact user-message copies retained by that same native boundary
 and still present before it in the outgoing request, counting each occurrence.
 Unmatched messages, tool results and images retain their original archive order.

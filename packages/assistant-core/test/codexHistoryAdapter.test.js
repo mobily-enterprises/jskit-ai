@@ -267,7 +267,7 @@ async function compactedFixture(t, { maxRequestBytes } = {}) {
 test("mixed Codex recovery keeps exact text and tool facts without changing native history or current instructions", async (t) => {
   const fixture = await compactedFixture(t);
   const native = await readFile(fixture.historyPath);
-  for (const [destination, model] of [["deepseek", "deepseek-flash"], ["zai-coding-plan", "glm-5.3"]]) {
+  for (const [destination, model] of [["deepseek", "deepseek-flash"], ["deepseek", "deepseek-v4-pro"], ["zai-coding-plan", "glm-5.3"]]) {
     const current = { type: "message", role: "developer", content: [{ type: "input_text", text: "CURRENT_INSTRUCTIONS" }] };
     const body = { model, input: [current, fixture.compacted, foreign], tools: [{ type: "function", name: "exec_command" }] };
     const original = structuredClone(body);
@@ -289,7 +289,7 @@ test("mixed Codex recovery keeps exact text and tool facts without changing nati
     assert.deepEqual(body, original);
   }
   assert.deepEqual(await readFile(fixture.historyPath), native);
-  assert.equal(fixture.calls.length, 2, "one upstream request per user request");
+  assert.equal(fixture.calls.length, 3, "one upstream request per user request");
 });
 
 test("compacted native agent messages retain attribution, readable content and explicit opaque-content markers", async (t) => {
@@ -358,9 +358,11 @@ test("compacted screenshots stay visible and associated with their original mess
   assert.match(content[3].text, /Archived image 2/);
   assert.equal(content.at(-1).text, "[/Archived conversation]");
   assert.deepEqual(await readFile(fixture.historyPath), native);
-  const unsupported = await fixture.send({ model: "glm-5.3", input: [fixture.compacted] }, "zai-coding-plan");
-  assert.equal(unsupported.status, 422);
-  assert.match((await unsupported.json()).error.message, /does not support images/);
+  for (const [model, destination] of [["glm-5.3", "zai-coding-plan"], ["deepseek-v4-pro", "deepseek"]]) {
+    const unsupported = await fixture.send({ model, input: [fixture.compacted] }, destination);
+    assert.equal(unsupported.status, 422);
+    assert.match((await unsupported.json()).error.message, /does not support images/);
+  }
   assert.equal(fixture.calls.length, 1);
 });
 

@@ -10,7 +10,7 @@ const NATIVE_AI_PROVIDERS = Object.freeze([
     claudeAutoCompactWindow: 786432, webSearch: false,
     models: Object.freeze([
       model("deepseek-flash", 1048576, ["low", "high", "max"], { images: true, freeformPatch: true, codexHistoryRouting: true }),
-      model("deepseek-v4-pro", 1048576, ["low", "high", "max"], { freeformPatch: true })
+      model("deepseek-v4-pro", 1048576, ["low", "high", "max"], { freeformPatch: true, codexHistoryRouting: true })
     ])
   }),
   Object.freeze({
