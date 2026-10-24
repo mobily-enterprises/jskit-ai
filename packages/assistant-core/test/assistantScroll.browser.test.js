@@ -418,6 +418,14 @@ test("upward scrolling loads older history once and preserves retry and selectio
       await expect(page.getByText("Conversation line 70:", { exact: false })).toBeVisible();
       await expect(requests).toHaveText("History requests: 3");
       await external("Exhaust history");
+      // Removing the history control re-anchors the scroller, which would
+      // cancel a keyboard scroll already in flight; press Home once it settles.
+      await expect(page.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
+      await expect.poll(() => body.evaluate(async element => {
+        const height = element.scrollHeight;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return element.scrollHeight === height;
+      })).toBe(true);
       await expect.poll(async () => {
         await body.focus();
         return body.evaluate(element => document.activeElement === element);
@@ -425,7 +433,6 @@ test("upward scrolling loads older history once and preserves retry and selectio
       await body.press("Home");
       await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(0);
       await expect(requests).toHaveText("History requests: 3");
-      await expect(page.getByRole("button", { name: "Load older messages", exact: true })).toHaveCount(0);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.deepEqual(errors, []);
       await page.close();
