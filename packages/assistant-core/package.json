@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.1.239",
+  "version": "0.1.240",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"

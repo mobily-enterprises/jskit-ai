@@ -66,7 +66,7 @@
     "@fastify/rate-limit": "^11.2.0",
     "@jskit-ai/auth-core": "0.1.243",
     "@jskit-ai/auth-provider-supabase-core": "0.1.242",
-    "@jskit-ai/auth-web": "0.1.246",
+    "@jskit-ai/auth-web": "0.1.247",
     "@jskit-ai/http-runtime": "0.1.243",
     "@jskit-ai/kernel": "0.1.245",
     "@mdi/js": "^7.4.47",

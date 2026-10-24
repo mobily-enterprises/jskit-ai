@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/realtime",
-  "version": "0.1.243",
+  "version": "0.1.244",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -21,7 +21,7 @@
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.1.245",
-    "@jskit-ai/shell-web": "0.1.250",
+    "@jskit-ai/shell-web": "0.1.251",
     "vue": "^3.5.13"
   },
   "description": "Thin, generic realtime runtime wrappers for socket.io server and client.",

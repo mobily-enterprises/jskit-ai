@@ -118,6 +118,6 @@ Confirm `tools/preview-identity` is committed as executable and the web
 
 ## Packaged source
 
-- Owner: `@jskit-ai/auth-web@0.1.246`
+- Owner: `@jskit-ai/auth-web@0.1.247`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/auth-web/patterns/auth-surface/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/auth-web/patterns/auth-surface/example)
