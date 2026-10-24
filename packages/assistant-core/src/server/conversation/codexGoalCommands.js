@@ -117,7 +117,7 @@ export function createCodexGoalCommands({
       params: { goal: result.goal }
     });
     await publish(sessionId, { reason: "codex-goal", nativeGoal: { threadId, goal: result.goal || null } });
-    return { ok: true, status: "available", goal: result.goal || null };
+    return { ok: true, status: "available", threadId, goal: result.goal || null };
   }
 
 
