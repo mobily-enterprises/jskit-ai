@@ -50,16 +50,8 @@ shared-screen controls; avoid duplicates, drawer-only access, or adding a page
 heading just to house it. Keep its meaning and accessible name clear at every
 supported width.
 
-### Scroll position
-
-`createShellRouter()` from `@jskit-ai/kernel/client` installs
-`shellScrollBehavior` by default: a new screen opens at the top (or at its
-hash target), Back/Forward restore the saved position, and query, hash, tab or
-sub-view changes within the same page keep the current position. A tab or
-sub-view counts as the same page when both locations share a parent page record
-below the surface root. Pass `scrollBehavior` to `createShellRouter()` to
-replace it with your own Vue Router function, or `scrollBehavior: false` to
-disable it. Do not wrap the router or reset scroll in page components.
+`createShellRouter()` owns scroll position (`shell/application-shell`
+pattern); never reset scroll in page components.
 
 ## Application-owned files
 
@@ -70,16 +62,10 @@ hash, pattern receipt, or tool-owned source declaration.
 
 ## Screen behavior
 
-- Keep screens phone/task-first with drawer-independent primary actions and
-  at least 48 CSS-pixel targets.
-- Never add page headers or standalone headings unless the user explicitly asks.
+- Keep screens phone/task-first with drawer-independent primary actions.
 - Use direct surfaces instead of needless nested cards.
 - Render all meaningful loading, empty, error, permission, and retry states.
-- Use structure-matching Material skeletons for visible loading; never use a
-  generic spinner or circular progress indicator.
-- Keep read failures local when the screen cannot render. Present transient
-  command success/failure through shared toast/snackbar feedback so the page
-  does not jump.
+- Follow the Material 3 contract for targets, loading and failure feedback.
 - Extend shared CRUD screens through public slots and composables.
 - Keep row actions and filters near the screen unless the framework owns them.
 - Import neutral request and CRUD UI APIs from `@jskit-ai/http-web`. Install
@@ -99,18 +85,8 @@ icon/label and label/end gaps. The normal 80px rail centres 48px targets;
 `railWidth` and `drawerWidth` are public density/width controls. Do not override
 the shell's private implementation CSS.
 
-The app bar, drawer/rail and compact bottom navigation follow the Vuetify theme
-and expose restyling tokens instead of hard-coded chrome: `--shell-chrome-border-width`
-and `--shell-chrome-border-color` for the shared dividers,
-`--shell-app-bar-border-width`, `--shell-navigation-border-width` and
-`--shell-bottom-navigation-border-width` per edge, and
-`--shell-app-bar-background`, `--shell-navigation-background` and
-`--shell-bottom-navigation-background` for the surfaces. The defaults keep one
-thin divider on each separating edge, because Vuetify's default themes define
-no Material 3 surface-container roles to separate surfaces tonally. A Material 3
-restyle sets the border widths to `0` and gives navigation a tonal surface, for
-example `--shell-navigation-background: rgb(var(--v-theme-surface-container-low))`
-when the theme defines that role.
+Restyle shell chrome only through the `--shell-*` tokens in the
+`shell/application-shell` pattern.
 
 ## Browser verification
 

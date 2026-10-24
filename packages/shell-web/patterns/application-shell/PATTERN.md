@@ -43,10 +43,24 @@ placement registry, topology, and adaptive smoke helper exported by
   above the content so they never cover it. A full-viewport fixed screen on
   such a surface starts at `var(--shell-error-banners-inline-height, 0px)`, as
   `@jskit-ai/auth-web`'s login and reset views do.
-- Restyle shell chrome through its `--shell-chrome-*`, `--shell-app-bar-*`,
-  `--shell-navigation-*` and `--shell-bottom-navigation-*` custom properties,
-  not by overriding Vuetify internals; a Material 3 restyle removes the dividers
-  and separates surfaces tonally.
+- Restyle shell chrome through its custom properties, not by overriding
+  Vuetify internals: `--shell-chrome-border-width` and
+  `--shell-chrome-border-color` for the shared dividers,
+  `--shell-app-bar-border-width`, `--shell-navigation-border-width` and
+  `--shell-bottom-navigation-border-width` per edge, and
+  `--shell-app-bar-background`, `--shell-navigation-background` and
+  `--shell-bottom-navigation-background` for the surfaces. The defaults keep
+  one thin divider on each separating edge, because Vuetify's default themes
+  define no Material 3 surface-container roles. A Material 3 restyle sets the
+  border widths to `0` and gives navigation a tonal surface, for example
+  `rgb(var(--v-theme-surface-container-low))` when the theme defines it.
+- `createShellRouter()` from `@jskit-ai/kernel/client` installs
+  `shellScrollBehavior`: a new screen opens at the top (or its hash target),
+  Back/Forward restore the saved position, and query, hash, tab or sub-view
+  changes within the same page keep it. A tab or sub-view is the same page when
+  both locations share a parent page record below the surface root. Pass
+  `scrollBehavior` to replace it, or `scrollBehavior: false` to disable it; do
+  not wrap the router or reset scroll in page components.
 - The adaptive browser check closes navigation through its public close control.
 
 ## Example files
