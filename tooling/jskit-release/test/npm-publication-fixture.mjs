@@ -73,7 +73,7 @@ async function publicationFixture(t, publisher = "genesis") {
   git("config", "commit.gpgsign", "false");
   git("add", ".");
   git("commit", "-m", "Release fixture");
-  execFileSync("git", ["init", "--bare", path.join(directory, "origin.git")], { stdio: "pipe" });
+  execFileSync("git", ["init", "--bare", "--initial-branch=main", path.join(directory, "origin.git")], { stdio: "pipe" });
   git("remote", "add", "origin", path.join(directory, "origin.git"));
   git("push", "origin", "main");
   const log = path.join(directory, "calls.jsonl");

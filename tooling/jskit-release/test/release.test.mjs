@@ -194,7 +194,7 @@ test("publication requires clean main matching the remote main commit", async (t
       GIT_COMMITTER_EMAIL: "release@example.test"
     }
   });
-  git("init", "--bare", remote);
+  git("init", "--bare", "--initial-branch=main", remote);
   git("init", "--initial-branch=main");
   git("config", "commit.gpgsign", "false");
   await writeFile(path.join(checkout, "release.txt"), "released\n");
@@ -736,7 +736,7 @@ async function consumerRepository(f) {
   git("config", "user.name", "Release test");
   git("config", "commit.gpgsign", "false");
   git("add", "."); git("commit", "-m", "Consumer");
-  execFileSync("git", ["init", "--bare", path.join(f.directory, "consumer.git")], { stdio: "pipe" });
+  execFileSync("git", ["init", "--bare", "--initial-branch=main", path.join(f.directory, "consumer.git")], { stdio: "pipe" });
   git("remote", "add", "origin", path.join(f.directory, "consumer.git"));
   git("push", "origin", "main");
   return { consumer, git };
