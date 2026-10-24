@@ -13,6 +13,19 @@ import {
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/responsive-assistant");
 const RUN_BROWSER_TEST = process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION === "1";
+// Turns use content-visibility estimates. Moving the reader materializes rows
+// near the new position, and Chromium's scroll anchoring then shifts scrollTop
+// to keep the same content in view. Hold a reading position only once that
+// layout has settled, so later checks measure the conversation, not the estimates.
+async function settleReaderAt(body, scrollTop) {
+  await expect.poll(() => body.evaluate(async (element, top) => {
+    element.scrollTop = top;
+    const height = element.scrollHeight;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return element.scrollTop === top && element.scrollHeight === height;
+  }, scrollTop)).toBe(true);
+}
+
 const VIEWPORTS = Object.freeze([
   Object.freeze({ name: "phone", width: 390, height: 844 }),
   Object.freeze({ name: "compact", width: 800, height: 900 }),
@@ -1235,15 +1248,14 @@ test("connection warnings keep avatar controls and Reload reachable without repl
       await body.hover();
       await page.mouse.wheel(0, -1000);
       await expect.poll(() => body.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)).toBeGreaterThan(50);
-      await body.evaluate(element => { element.scrollTop = 420; window.errorAvatarBody = element; });
-      await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+      await settleReaderAt(body, 420);
+      await body.evaluate(element => { window.errorAvatarBody = element; });
       const history = await body.locator(".assistant-transcript__turn").allTextContents();
       let reloads = 0;
       for (const size of ["standard", "large", "hidden"]) {
         await page.getByRole("combobox", { name: "Avatar preference", exact: true }).selectOption(size);
         // Establish the reading position after changing the fixture-only avatar preference.
-        await body.evaluate(element => { element.scrollTop = 420; });
-        await expect.poll(() => body.evaluate(element => element.scrollTop)).toBe(420);
+        await settleReaderAt(body, 420);
         await external("Show update error");
         await expect(conversation).toHaveClass(/assistant-conversation--error/u);
         await expect(avatar).toHaveCSS("position", "absolute");
