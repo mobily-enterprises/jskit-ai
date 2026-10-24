@@ -170,6 +170,8 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
         if (event.type === "message") await current.onMessage({ ...event.message, transient: !event.message.complete });
         else if (event.type === "message-complete") await current.onEvent(event);
         else if ((event.type === "admitted" && current.goal) || event.type === "settled") {
+          // Claude has the authored /goal command; it now owns the goal state.
+          if (event.type === "admitted" && current.goal.action !== "pause") await standalone.releaseRetainedGoal(entry);
           await current.onEvent({ type: "goal", goal: claudeGoalValue(await entry.goals.read(), entry.id) });
         } else if (event.type === "phase") await current.onEvent({ type: "phase", phase: ["compacting", "background"].includes(event.phase) ? event.phase : "working" });
       }

@@ -933,7 +933,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
                   createdAt: goal?.createdAt, objective: input.action === "set" ? input.objective : goal?.objective };
               }
               result = await owner.updateGoal(sessionId, command, {
-                context: nativeContext, signal: context.signal, prepareConversation: () => goalContext(configuration, context, undefined, { prepareThread: true })
+                context: nativeContext, signal: context?.signal, prepareConversation: () => goalContext(configuration, context, undefined, { prepareThread: true })
               });
               if (result.ok !== false) binding.goal = result.goal || null;
             } finally { admission.release(); }
@@ -957,7 +957,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           if ((goalValue(goal)?.id || null) !== (input.expectedGoalId || null)) throw new Error("The native goal changed. Read it again before changing it.");
           const result = await owner.updateGoal(sessionId, { ...input, threadId: binding.threadId,
             createdAt: goal?.createdAt, objective: input.action === "set" ? input.objective : goal?.objective }, {
-            context: nativeContext, signal: context.signal,
+            context: nativeContext, signal: context?.signal,
             prepareConversation: () => goalContext(configuration, context, signal, { prepareThread: true, tools })
           });
           if (result.ok === false) throw new Error(result.error);

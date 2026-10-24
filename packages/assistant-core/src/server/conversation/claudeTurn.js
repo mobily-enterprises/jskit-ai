@@ -893,6 +893,14 @@ export function createClaudeConversationOwner({
     return { status: "available", threadId: entry.id, goal: await entry.goals.read(history), goalCommandId: history.goalCommandId || null };
   }
 
+  // A native Set, Resume or Cancel supersedes a retained Pause or blocker.
+  async function releaseRetainedGoal(entry) {
+    if (!entry.pausedGoal && !entry.blockedGoal) return;
+    entry.pausedGoal = null;
+    entry.blockedGoal = null;
+    await store.save(entry);
+  }
+
   async function updateGoal(entry, input, operations) {
     await bindAccount(entry);
     const call = applicationCall.getStore();
@@ -928,7 +936,7 @@ export function createClaudeConversationOwner({
       for (;;) {
         const history = await readHistory(entry);
         if (history.goalCommandId === claudeNativeMessageId(messageId)) {
-          if (entry.pausedGoal || entry.blockedGoal) { entry.pausedGoal = null; entry.blockedGoal = null; await store.save(entry); }
+          await releaseRetainedGoal(entry);
           result = { status: "available", threadId: entry.id, goal: await entry.goals.read(history), goalCommandId: history.goalCommandId };
           break;
         }
@@ -1124,7 +1132,7 @@ export function createClaudeConversationOwner({
     if (!binding) return { value: delivered.value };
   }
 
-  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, readContextUsage, compactContext, stopForTerminal, prepareTerminal, send, startTurn,
+  return Object.freeze({ applicationToolsSupported: true, entries, closingSessions, get closing() { return closing; }, createAccountQueries, open, acquire, createConversation, snapshot, readRetainedTurn, readFinalAssistantResult, readHistory, ensureReady, ensureProcess, readContextUsage, compactContext, releaseRetainedGoal, stopForTerminal, prepareTerminal, send, startTurn,
     interrupt, read, inspectAdmission, hasActiveTemporaryConversation, hasActiveConversation, retireConversationHistory, reconcileSessions, restoreSessionEntries, closeSession, closeProject, invalidateRuntimes, drain, forget, close, deleteConversation, recover, stopSelected, wait, stopConversation,
     readGoal, updateGoal, renewal, run, steer, cancel });
 }

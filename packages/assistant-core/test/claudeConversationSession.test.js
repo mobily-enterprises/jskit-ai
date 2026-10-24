@@ -320,7 +320,13 @@ async function fixture(t, options = {}) {
           attachment: { type: "goal_status", condition, sentinel: true, met: condition === "clear" } });
         if (process.env.TEST_GOAL_LOST_ACK) return;
         emit(frame);
-        if (condition === "clear") emit({ type: "result", subtype: "success", result: "" });
+        if (condition === "clear") {
+          // Claude 2.1.289 saves the clear's local-command receipt and ends it
+          // with a result naming the command and the authored message.
+          record({ type: "system", subtype: "local_command", uuid: frame.uuid + "-clear", parentUuid: frame.uuid,
+            commandRun: { command: "goal", args: "clear" }, content: "<local-command-stdout>Goal cleared: prior goal</local-command-stdout>" });
+          emit({ type: "result", subtype: "success", result: "", local_command: "goal", user_message_uuid: frame.uuid });
+        }
         return;
       }
       emit(frame);
@@ -1167,8 +1173,9 @@ test("Claude native goal commands use ordinary admission, pause retains the goal
   assert.equal(events.filter(event => event.type === "accepted").length, 3);
   assert.equal(events.some(event => event.type === "goal" && event.goal === null), true);
   const trace = await f.trace();
+  // Resume starts a new process, which first suspends the retained paused checker.
   assert.deepEqual(trace.filter(row => row.frame?.type === "user").map(row => row.frame.message.content),
-    ["/goal Tests pass", "/goal Tests pass", "/goal clear"]);
+    ["/goal Tests pass", "/goal clear", "/goal Tests pass", "/goal clear"]);
   const starts = trace.filter(row => row.args?.includes("--print"));
   assert.equal(starts.length, 3);
   assert.equal(starts[1].args.includes("--resume"), true);
