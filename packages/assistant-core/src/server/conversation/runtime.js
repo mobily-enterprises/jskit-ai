@@ -188,7 +188,12 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       ? await entry.driver.readState({ conversation: entry.conversation, context })
       : await entry.conversation.read(context);
     entry.segmentId = value.threadId ? `${entry.engine}:${value.threadId}` : null;
-    const pending = value.delivery?.engines[entry.engine]?.pending;
+    const saved = value.delivery?.engines[entry.engine]?.pending;
+    // The saved receipt is the delivery proof, as in changeover recovery. A
+    // restart after native admission leaves only a stale attempt marker, which
+    // must not leave the conversation unconfirmed until another message is sent.
+    const pending = saved?.attempted && !saved.inspectionOnly &&
+      await entry.conversation.transcript.hasMessage(saved.messageId) ? null : saved;
     return { engine: entry.engine, configuration: value.configuration, segmentId: entry.segmentId,
       binding: entry.engine === "codex" ? { threadId: value.threadId, codexAppServerRun: value.run }
         : entry.engine === "claude" ? { conversationId: value.threadId } : { sessionId: value.threadId },

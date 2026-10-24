@@ -2394,6 +2394,26 @@ test("bound Main history budget transfers more than 30 complete messages through
   assert.equal(sent[1], "Prepare the question.");
 });
 
+test("bound Main treats a restart-interrupted attempt with a saved receipt as delivered, not uncertain", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  // The application restarted after native admission saved the authored
+  // message, but before the dispatch returned and cleared its attempt marker.
+  const attempt = { messageId: "admitted-before-restart", message: "Check the Preview.", displayMessage: "Check the Preview.",
+    attempted: true, threadId: f.conversationId, seen: {} };
+  await f.binding.state.write({ lastEngine: "claude", engines: { claude: { seen: {}, pending: attempt } } });
+  const unconfirmed = await f.conversation.read();
+  assert.equal(unconfirmed.status, "unconfirmed", "An attempt without a saved receipt stays uncertain");
+  assert.equal(unconfirmed.pendingRequest.messageId, attempt.messageId);
+  await f.binding.transcript.writeUserMessage({ messageId: attempt.messageId, text: attempt.displayMessage });
+  f.binding.transcript.history = async () => [{ id: "000001/user/", version: "v1", role: "user", engineId: "claude",
+    messageId: attempt.messageId, text: attempt.displayMessage }];
+  const settled = await f.conversation.read();
+  assert.equal(settled.status, "ready", "The saved receipt proves delivery, so Send stays available");
+  assert.equal(settled.pendingRequest, null);
+  await sendCommon(f, "after-restart");
+  assert.equal((await f.binding.state.read()).engines.claude.pending, undefined, "The next delivery settles the old marker");
+});
+
 test("bound Main cannot dispatch or retain a pending prompt when its history budget is unavailable", { timeout: 10_000 }, async t => {
   const f = await suppliedCommonFixture(t, { tools: false, representation: "native" });
   f.binding.transcript.history = async () => [{ id: "earlier", version: "v1", role: "user", text: "Earlier work." }];
