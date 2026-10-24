@@ -1229,7 +1229,9 @@ async function fixture(t, options = {}) {
   t.after(async () => {
     try { for (const runtime of runtimes) await runtime.close(); }
     finally {
-      if (!options.execution) await execution.close();
+      // A supplied execution host is closed here too (its test may close it
+      // again): its native processes must stop before their folder is removed.
+      await execution.close();
       await rm(directory, { recursive: true, force: true });
     }
   });
