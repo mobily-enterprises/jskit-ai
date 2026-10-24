@@ -1261,7 +1261,11 @@ test("connection warnings keep avatar controls and Reload reachable without repl
       let reloads = 0;
       for (const size of ["standard", "large", "hidden"]) {
         await page.getByRole("combobox", { name: "Avatar preference", exact: true }).selectOption(size);
-        // Establish the reading position after changing the fixture-only avatar preference.
+        // Establish the reading position after changing the fixture-only avatar
+        // preference. A reader's own wheel detaches the view from the latest
+        // message even if a slow initial bottom scroll resumed following.
+        await body.hover();
+        await page.mouse.wheel(0, -200);
         await settleReaderAt(body, 420);
         await external("Show update error");
         await expect(conversation).toHaveClass(/assistant-conversation--error/u);

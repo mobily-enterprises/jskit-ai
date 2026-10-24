@@ -38,7 +38,11 @@ test("RP 6: a callback with the wrong state is rejected", async (t) => {
   await assert.rejects(rp.service.oauthComplete(input, requestAt()), ATTEMPT_MISMATCH, "no attempt cookie in this browser");
   const other = await rp.service.oauthStart({ provider: "oidc" }, requestAt());
   await assert.rejects(rp.service.oauthComplete(input, requestAt(APP_ORIGIN, { jskit_oidc_attempt: other.attempt })), ATTEMPT_MISMATCH);
-  const forged = `${request.cookies.jskit_oidc_attempt.slice(0, -2)}AA`;
+  // Change one fully significant character of the authentication tag; trailing
+  // base64url characters carry padding bits and can decode to the same tag.
+  const sealed = request.cookies.jskit_oidc_attempt;
+  const at = sealed.lastIndexOf(".") + 1;
+  const forged = `${sealed.slice(0, at)}${sealed[at] === "A" ? "B" : "A"}${sealed.slice(at + 1)}`;
   await assert.rejects(rp.service.oauthComplete(input, requestAt(APP_ORIGIN, { jskit_oidc_attempt: forged })), ATTEMPT_MISMATCH);
 });
 
