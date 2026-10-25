@@ -1,5 +1,5 @@
 {
-  "schema": "vibe64.voice-model-sources.v1",
+  "schema": "jskit.assistant-voice.model-sources.v1",
   "packRevision": 2,
   "models": [
     {

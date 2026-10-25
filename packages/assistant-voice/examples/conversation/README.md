@@ -4,7 +4,7 @@ This Vue/Vuetify and Fastify application uses the supplied JSKIT conversation
 server integration, client binding and shared realtime connection. Planning,
 Notes, Research, Writing and Review have separate file-backed histories. One
 root voice modal retains its target independently of mounted text cards.
-Vibe64, Genesis and a database are not required.
+Genesis and a database are not required.
 
 ## Install and start
 

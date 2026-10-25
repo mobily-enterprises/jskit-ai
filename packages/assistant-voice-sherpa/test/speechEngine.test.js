@@ -23,7 +23,7 @@ test("streaming recognition uses bounded beam search and its installed technical
     isEndpoint() { return true; }
     reset() { resets += 1; result = ""; }
   }
-  const modelsRoot = path.resolve("/tmp/vibe64-voice-models");
+  const modelsRoot = path.resolve("/tmp/jskit-voice-models");
   const engine = await createSherpaSpeechEngine({
     modelsRoot,
     configuration: { recognitionVocabulary: { "acme labs": "Acme Labs" } },
@@ -93,7 +93,7 @@ test("an explicit RMS floor gates only onset and retains configured final lookah
     reset() { resets += 1; result = ""; }
   }
   const engine = await createSherpaSpeechEngine({
-    modelsRoot: path.resolve("/tmp/vibe64-voice-models"),
+    modelsRoot: path.resolve("/tmp/jskit-voice-models"),
     configuration: { recognizerMinimumRms: 0.001, recognizerTailPaddingSeconds: 1 },
     createSynthesizer: async () => ({ sampleRate: 22050, numSpeakers: 1, running: true, async close() {} }),
     sherpa: { OnlineRecognizer }
@@ -131,7 +131,7 @@ test("an explicit RMS floor gates only onset and retains configured final lookah
 });
 
 test("voice model contracts verify every selected file", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-model-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-model-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
@@ -145,7 +145,7 @@ test("voice model contracts verify every selected file", async (context) => {
       path: "stt/tokens.txt",
       sha256: await sha256File(modelFile)
     }],
-    schema: "vibe64.voice-models.v1"
+    schema: "jskit.assistant-voice.models.v1"
   };
   await writeFile(path.join(root, "voice-models.json"), JSON.stringify(contract));
   assert.equal((await verifyVoiceModelContract({ modelsRoot: root })).files.length, 1);

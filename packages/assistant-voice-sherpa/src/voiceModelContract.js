@@ -3,7 +3,7 @@ import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-const VOICE_MODEL_CONTRACT_SCHEMA = "vibe64.voice-models.v1";
+const VOICE_MODEL_CONTRACT_SCHEMA = "jskit.assistant-voice.models.v1";
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
 function modelContractError(code, message) {

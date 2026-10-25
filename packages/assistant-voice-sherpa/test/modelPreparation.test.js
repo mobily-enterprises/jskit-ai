@@ -14,9 +14,9 @@ const recognizerHotwords = path.join(repoRoot,'models/voice-hotwords.txt');
 const voiceCli = path.join(repoRoot,'bin/jskit-assistant-voice.js');
 
 test("voice CLI runs when invoked through the active release symlink", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-cli-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-cli-"));
   context.after(() => rm(root, { force: true, recursive: true }));
-  const linkedCli = path.join(root, "vibe64-online-voice.js");
+  const linkedCli = path.join(root, "linked-assistant-voice.js");
   await symlink(voiceCli, linkedCli);
 
   const result = spawnSync(process.execPath, [linkedCli, "--help"], {
@@ -27,7 +27,7 @@ test("voice CLI runs when invoked through the active release symlink", async (co
 });
 
 test("voice model installation reuses an exact verified pack without downloading", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-pack-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-pack-"));
   context.after(() => rm(root, { force: true, recursive: true }));
   await mkdir(path.join(root, "stt"));
   const modelFile = path.join(root, "stt/tokens.txt");
@@ -40,7 +40,7 @@ test("voice model installation reuses an exact verified pack without downloading
       path: "stt/tokens.txt",
       sha256: crypto.createHash("sha256").update(modelBytes).digest("hex")
     }],
-    schema: "vibe64.voice-models.v1"
+    schema: "jskit.assistant-voice.models.v1"
   })}\n`);
 
   await writeFile(path.join(root, "stt/hotwords.txt"), await readFile(recognizerHotwords));
@@ -61,7 +61,7 @@ test("voice model installation reuses an exact verified pack without downloading
 });
 
 test("voice model CLI builds a repeatable manifest that the verifier checks against the files", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-contract-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-contract-"));
   context.after(() => rm(root, { force: true, recursive: true }));
   const files = [
     ["sources.json", Buffer.from('{"packRevision":2}\n')],
@@ -88,7 +88,7 @@ test("voice model CLI builds a repeatable manifest that the verifier checks agai
       path: relativePath,
       sha256: crypto.createHash("sha256").update(bytes).digest("hex")
     })),
-    schema: "vibe64.voice-models.v1"
+    schema: "jskit.assistant-voice.models.v1"
   });
   const rebuilt = spawnSync(process.execPath, [builder, root], { encoding: "utf8" });
   assert.equal(rebuilt.status, 0, rebuilt.stderr);
@@ -101,6 +101,22 @@ test("voice model CLI builds a repeatable manifest that the verifier checks agai
   const corrupted = spawnSync(process.execPath, [verifier, root], { encoding: "utf8" });
   assert.notEqual(corrupted.status, 0);
   assert.match(corrupted.stderr, /Voice model file hash does not match its contract: stt\/tokens\.txt/u);
+});
+
+test("voice model contracts and source manifests carry only the package's own schema names", async (context) => {
+  const manifests = ["voice-models.json", "voice-models-kitten.json", "voice-models-kokoro.json",
+    "voice-models-kokoro-q8f16.json", "voice-models-piper.json"];
+  for (const name of manifests) {
+    const manifest = JSON.parse(await readFile(path.join(repoRoot, "models", name), "utf8"));
+    assert.equal(manifest.schema, "jskit.assistant-voice.model-sources.v1", name);
+  }
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-foreign-schema-"));
+  context.after(() => rm(root, { force: true, recursive: true }));
+  await writeFile(path.join(root, "voice-models.json"), JSON.stringify({ schema: "another.voice-models.v1", files: [] }));
+  const verifier = path.join(repoRoot, "tooling/verify-voice-models.mjs");
+  const refused = spawnSync(process.execPath, [verifier, root], { encoding: "utf8" });
+  assert.notEqual(refused.status, 0, "a prepared pack under any other schema name must be prepared again");
+  assert.match(refused.stderr, /must use jskit\.assistant-voice\.models\.v1/u);
 });
 
 test("voice model assets provide a bounded tokenizer-backed technical vocabulary", async () => {
@@ -312,7 +328,7 @@ test("combined preset reuses the original Piper and Kitten catalogue and adds na
   await writeFile(path.join(root, "stt/hotwords.txt"), await readFile(recognizerHotwords));
   await writeFile(path.join(root, "stt/bpe.vocab"), await readFile(recognizerBpeVocab));
   await writeFile(path.join(root, "sources.json"), JSON.stringify(expected, null, 2) + "\n");
-  await writeFile(path.join(root, "voice-models.json"), JSON.stringify({ schema: "vibe64.voice-models.v1",
+  await writeFile(path.join(root, "voice-models.json"), JSON.stringify({ schema: "jskit.assistant-voice.models.v1",
     files: [{ bytes: bytes.length, path: "stt/tokens.txt", sha256: crypto.createHash("sha256").update(bytes).digest("hex") }] }));
   const result = spawnSync(process.execPath, [voiceCli, "prepare", "--models-root", root, "--pack", "piper-kitten-kokoro-q8f16"], {
     encoding: "utf8", env: { ...process.env, JSKIT_VOICE_DOWNLOAD_CACHE: path.join(root, "downloads"), JSKIT_VOICE_SOURCES_FILE: "" }

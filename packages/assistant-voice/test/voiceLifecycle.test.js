@@ -194,7 +194,7 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
     }
   });
   const sessionId = vue.ref("session-a");
-  const voiceModule = { useVibe64OnlineVoice: useVoiceTransport };
+  const voiceModule = { useHostVoice: useVoiceTransport };
   let voice;
   const colleagueProps = vue.reactive({ defaults, conversation: { conversationId: "colleague", messages: [], status: "ready" },
     focus: { projectSlug: "example", sessionId: "session-a" }, submit: async () => {} });
@@ -228,7 +228,7 @@ function mountVoice(t, { autoReady = true, colleague = false, callMode = "hands-
     },
     colleague: colleague ? view.value : null, colleagueProps, unmount: view.unmount,
     anotherVoice() {
-      const another = mountSetup(() => voiceModule.useVibe64OnlineVoice({ socketUrl: "/voice/other" }));
+      const another = mountSetup(() => voiceModule.useHostVoice({ socketUrl: "/voice/other" }));
       t.after(another.unmount);
       return another.value;
     },
@@ -273,7 +273,7 @@ async function flushVue() {
 
 test("Colleague can listen during speech and retain its connection across project/session selection", async (t) => {
   const view = mountVoice(t, { speechEnabled: true, voiceOptions: {
-    socketPath: "/api/vibe64/colleague/voice/ws", interruptSpeechOnListen: false
+    socketPath: "/api/assistant/voice/ws", interruptSpeechOnListen: false
   } });
   await view.speak("We can discuss this while I speak.", "speech-1");
   const socket = view.sockets[0];
@@ -308,7 +308,7 @@ test("Colleague can listen during speech and retain its connection across projec
 
 test("finishing either Colleague audio direction does not retire the other", async (t) => {
   const view = mountVoice(t, { speechEnabled: true, voiceOptions: {
-    socketPath: "/api/vibe64/colleague/voice/ws", interruptSpeechOnListen: false
+    socketPath: "/api/assistant/voice/ws", interruptSpeechOnListen: false
   } });
   const starting = view.start();
   await flushVue();
