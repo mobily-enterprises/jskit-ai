@@ -53,6 +53,16 @@ Local functions
 - `normalizeAuthGuardRuntime(value = null)`
 - `isAuthCallbackTargetPath(targetPath = "", mobileConfig = {})`
 
+### `src/client/runtime/mobileLaunchRouting.js`
+Exports
+- `normalizeIncomingAppUrl(url = "", mobileConfig, { currentOrigin = "", allowedHttpOrigins = [] } = {})`
+- `registerMobileLaunchRouting({ router, mobileConfig = {}, getInitialLaunchUrl = async () => "", subscribeToLaunchUrls = () => () => {}, resolveTargetPath = null, currentOrigin = typeof window === "object" && window?.location ? String(window.location.origin || "") : "", allowedHttpOrigins = [], logger = null } = {})`
+Local functions
+- `buildNormalizedRoutePath(pathname = "/", search = "", hash = "")`
+- `normalizeResolvedRoutePath(value = "", fallback = "")`
+- `normalizeAllowedHttpOrigins({ mobileConfig, currentOrigin = "", allowedHttpOrigins = [] } = {})`
+- `normalizeCustomSchemeRoutePath(parsedUrl)`
+
 ### `src/client/runtime/oauthLaunchClient.js`
 Exports
 - `createCapacitorAwareOAuthLaunchClient({ adapter = null, browserPlugin = Browser, location = null, apiBaseUrl = "" } = {})`

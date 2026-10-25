@@ -115,9 +115,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "getClientAppConfig",
       "installAsyncModuleRecoveryHandlers",
       "isDynamicImportError",
-      "normalizeIncomingAppUrl",
       "notifyAsyncModuleLoadError",
-      "registerMobileLaunchRouting",
       "resolveMobileConfig",
       "resolveClientBootstrapDebugEnabled",
       "shellScrollBehavior"

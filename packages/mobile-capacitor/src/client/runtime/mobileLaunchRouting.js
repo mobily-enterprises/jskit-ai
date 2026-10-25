@@ -1,6 +1,7 @@
-import { normalizePathname } from "../shared/surface/paths.js";
-import { normalizeText } from "../shared/support/normalize.js";
-import { resolveMobileConfig } from "./appConfig.js";
+import { resolveMobileConfig } from "@jskit-ai/kernel/client";
+import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeHttpOrigin } from "@jskit-ai/kernel/shared/support/returnToPath";
 
 function buildNormalizedRoutePath(pathname = "/", search = "", hash = "") {
   const normalizedPathname = normalizePathname(pathname);
@@ -24,23 +25,14 @@ function normalizeResolvedRoutePath(value = "", fallback = "") {
   }
 }
 
-function normalizeAllowedHttpOrigins({ mobileConfig = {}, currentOrigin = "", allowedHttpOrigins = [] } = {}) {
+function normalizeAllowedHttpOrigins({ mobileConfig, currentOrigin = "", allowedHttpOrigins = [] } = {}) {
   const origins = new Set();
 
   const maybeAddOrigin = (value = "") => {
-    const normalizedValue = normalizeText(value);
-    if (!normalizedValue) {
-      return;
+    const origin = normalizeHttpOrigin(value);
+    if (origin) {
+      origins.add(origin);
     }
-
-    try {
-      const parsed = new URL(normalizedValue);
-      const protocol = String(parsed.protocol || "").toLowerCase();
-      if (protocol !== "http:" && protocol !== "https:") {
-        return;
-      }
-      origins.add(String(parsed.origin || "").trim().toLowerCase());
-    } catch {}
   };
 
   maybeAddOrigin(currentOrigin);
@@ -50,13 +42,8 @@ function normalizeAllowedHttpOrigins({ mobileConfig = {}, currentOrigin = "", al
     maybeAddOrigin(entry);
   }
 
-  const appLinkDomains = Array.isArray(mobileConfig?.auth?.appLinkDomains) ? mobileConfig.auth.appLinkDomains : [];
-  for (const domain of appLinkDomains) {
-    const normalizedDomain = normalizeText(domain).toLowerCase();
-    if (!normalizedDomain) {
-      continue;
-    }
-    maybeAddOrigin(`https://${normalizedDomain}`);
+  for (const domain of mobileConfig.auth.appLinkDomains) {
+    maybeAddOrigin(`https://${domain}`);
   }
 
   return origins;
@@ -77,7 +64,8 @@ function normalizeCustomSchemeRoutePath(parsedUrl) {
   return normalizePathname(`/${host}${pathname}`);
 }
 
-function normalizeIncomingAppUrl(url = "", mobileConfig = {}, { currentOrigin = "", allowedHttpOrigins = [] } = {}) {
+// mobileConfig is the resolved config from resolveMobileConfig().
+function normalizeIncomingAppUrl(url = "", mobileConfig, { currentOrigin = "", allowedHttpOrigins = [] } = {}) {
   const normalizedUrl = normalizeText(url);
   if (!normalizedUrl) {
     return "";
@@ -99,16 +87,13 @@ function normalizeIncomingAppUrl(url = "", mobileConfig = {}, { currentOrigin = 
     return "";
   }
 
-  const resolvedMobileConfig = resolveMobileConfig({
-    mobile: mobileConfig
-  });
   const allowedOrigins = normalizeAllowedHttpOrigins({
-    mobileConfig: resolvedMobileConfig,
+    mobileConfig,
     currentOrigin,
     allowedHttpOrigins
   });
   const protocol = String(parsedUrl.protocol || "").toLowerCase();
-  const customScheme = normalizeText(resolvedMobileConfig.auth.customScheme).toLowerCase();
+  const customScheme = mobileConfig.auth.customScheme;
 
   if (customScheme && protocol === `${customScheme}:`) {
     return buildNormalizedRoutePath(
@@ -118,7 +103,7 @@ function normalizeIncomingAppUrl(url = "", mobileConfig = {}, { currentOrigin = 
     );
   }
 
-  if ((protocol === "http:" || protocol === "https:") && allowedOrigins.has(String(parsedUrl.origin || "").toLowerCase())) {
+  if (allowedOrigins.has(normalizeHttpOrigin(normalizedUrl))) {
     return buildNormalizedRoutePath(parsedUrl.pathname, parsedUrl.search, parsedUrl.hash);
   }
 

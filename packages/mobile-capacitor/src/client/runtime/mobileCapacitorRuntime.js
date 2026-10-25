@@ -1,4 +1,5 @@
-import { registerMobileLaunchRouting, resolveMobileConfig } from "@jskit-ai/kernel/client";
+import { resolveMobileConfig } from "@jskit-ai/kernel/client";
+import { registerMobileLaunchRouting } from "./mobileLaunchRouting.js";
 import { createNoopCapacitorAppAdapter } from "./globalCapacitorAppAdapter.js";
 
 function extractPathname(value = "") {

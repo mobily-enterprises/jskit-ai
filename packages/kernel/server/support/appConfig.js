@@ -1,4 +1,5 @@
-import { normalizeMobileConfig, normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeObject, normalizeText } from "../../shared/support/normalize.js";
+import { normalizeMobileConfig } from "../../shared/support/mobileConfig.js";
 import { normalizeSurfaceId } from "../../shared/surface/registry.js";
 
 function resolveAppConfig(scope = null) {

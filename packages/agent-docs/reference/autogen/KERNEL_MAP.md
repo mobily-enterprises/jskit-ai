@@ -61,6 +61,14 @@ Exports
 - `subscribeListener(listeners, listener)`
 - `createListenerSubscription(listeners)`
 
+### `support/mobileConfig.js`
+Exports
+- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
+- `normalizeMobileConfig(source = {})`
+Local functions
+- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
+- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
+
 ### `support/normalize.js`
 Exports
 - `TRANSACTION_OUTCOMES`
@@ -85,10 +93,6 @@ Exports
 - `normalizeRecordId(value, { fallback = null } = {})`
 - `normalizeOpaqueId(value, { fallback = null } = {})`
 - `normalizeOneOf(value, allowedValues = [], fallback = "")`
-- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
-- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
-- `normalizeMobileConfig(source = {})`
-- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
 - `ensureNonEmptyText(value, label = "value")`
 
 ### `support/permissions.js`

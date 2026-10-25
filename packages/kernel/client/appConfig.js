@@ -1,4 +1,5 @@
-import { isRecord, normalizeMobileConfig } from "../shared/support/normalize.js";
+import { isRecord } from "../shared/support/normalize.js";
+import { normalizeMobileConfig } from "../shared/support/mobileConfig.js";
 
 const CLIENT_APP_CONFIG_GLOBAL_KEY = "__JSKIT_CLIENT_APP_CONFIG__";
 const EMPTY_CLIENT_APP_CONFIG = Object.freeze({});

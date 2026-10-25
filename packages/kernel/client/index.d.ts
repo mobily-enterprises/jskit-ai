@@ -13,35 +13,6 @@ export const DEFAULT_GUARD_EVALUATOR_KEY: "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 export function getClientAppConfig(): Readonly<Record<string, any>>;
 export function resolveMobileConfig(appConfig?: Record<string, any>): Readonly<Record<string, any>>;
 export function resolveClientAssetMode(appConfig?: Record<string, any>): string;
-export function normalizeIncomingAppUrl(
-  url?: string,
-  mobileConfig?: Record<string, any>,
-  options?: {
-    currentOrigin?: string;
-    allowedHttpOrigins?: string[];
-  }
-): string;
-export function registerMobileLaunchRouting(options?: {
-  router: any;
-  mobileConfig?: Record<string, any>;
-  getInitialLaunchUrl?: () => Promise<string> | string;
-  subscribeToLaunchUrls?: (handler: (url: string) => void) => (() => void) | void;
-  resolveTargetPath?: (context: Readonly<{
-    originalUrl: string;
-    normalizedTargetPath: string;
-    reason: string;
-    mobileConfig: Readonly<Record<string, any>>;
-    router: any;
-  }>) => string | Promise<string>;
-  currentOrigin?: string;
-  allowedHttpOrigins?: string[];
-  logger?: ClientLogger;
-}): Readonly<{
-  initialize: () => Promise<string>;
-  dispose: () => void;
-  applyIncomingUrl: (url?: string, reason?: string) => Promise<string>;
-}>;
-
 export function resolveClientBootstrapDebugEnabled(options?: {
   env?: Record<string, any>;
   debugEnabled?: boolean;

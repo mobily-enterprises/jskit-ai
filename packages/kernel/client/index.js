@@ -8,7 +8,6 @@ export {
   isDynamicImportError,
   notifyAsyncModuleLoadError
 } from "./asyncModuleRecovery.js";
-export { normalizeIncomingAppUrl, registerMobileLaunchRouting } from "./mobileLaunchRouting.js";
 export {
   resolveClientBootstrapDebugEnabled,
   createSurfaceShellRouter as createShellRouter,

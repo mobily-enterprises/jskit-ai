@@ -1,36 +1,41 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeIncomingAppUrl, registerMobileLaunchRouting } from "./mobileLaunchRouting.js";
+import { resolveMobileConfig } from "@jskit-ai/kernel/client";
+import { normalizeIncomingAppUrl, registerMobileLaunchRouting } from "../src/client/runtime/mobileLaunchRouting.js";
+
+function mobile(config) {
+  return resolveMobileConfig({ mobile: config });
+}
 
 test("normalizeIncomingAppUrl normalizes custom-scheme auth callback routes into router paths", () => {
-  const normalized = normalizeIncomingAppUrl("convict://auth/login?code=abc&oauthProvider=google", {
+  const normalized = normalizeIncomingAppUrl("convict://auth/login?code=abc&oauthProvider=google", mobile({
     enabled: true,
     auth: {
       customScheme: "convict"
     }
-  });
+  }));
 
   assert.equal(normalized, "/auth/login?code=abc&oauthProvider=google");
 });
 
 test("normalizeIncomingAppUrl normalizes custom-scheme workspace routes", () => {
-  const normalized = normalizeIncomingAppUrl("convict://w/acme/workouts/2026-05-07?tab=today", {
+  const normalized = normalizeIncomingAppUrl("convict://w/acme/workouts/2026-05-07?tab=today", mobile({
     enabled: true,
     auth: {
       customScheme: "convict"
     }
-  });
+  }));
 
   assert.equal(normalized, "/w/acme/workouts/2026-05-07?tab=today");
 });
 
 test("normalizeIncomingAppUrl normalizes allowed HTTPS app links", () => {
-  const normalized = normalizeIncomingAppUrl("https://app.example.com/auth/login?code=abc", {
+  const normalized = normalizeIncomingAppUrl("https://app.example.com/auth/login?code=abc", mobile({
     enabled: true,
     auth: {
       appLinkDomains: ["app.example.com"]
     }
-  });
+  }));
 
   assert.equal(normalized, "/auth/login?code=abc");
 });
@@ -38,9 +43,9 @@ test("normalizeIncomingAppUrl normalizes allowed HTTPS app links", () => {
 test("normalizeIncomingAppUrl accepts same-origin HTTP URLs when explicitly allowed", () => {
   const normalized = normalizeIncomingAppUrl(
     "http://192.168.1.10:5173/w/acme",
-    {
+    mobile({
       enabled: true
-    },
+    }),
     {
       allowedHttpOrigins: ["http://192.168.1.10:5173"]
     }
@@ -51,22 +56,22 @@ test("normalizeIncomingAppUrl accepts same-origin HTTP URLs when explicitly allo
 
 test("normalizeIncomingAppUrl rejects unowned schemes and domains", () => {
   assert.equal(
-    normalizeIncomingAppUrl("otherapp://auth/login?code=abc", {
+    normalizeIncomingAppUrl("otherapp://auth/login?code=abc", mobile({
       enabled: true,
       auth: {
         customScheme: "convict"
       }
-    }),
+    })),
     ""
   );
 
   assert.equal(
-    normalizeIncomingAppUrl("https://evil.example.com/auth/login?code=abc", {
+    normalizeIncomingAppUrl("https://evil.example.com/auth/login?code=abc", mobile({
       enabled: true,
       auth: {
         appLinkDomains: ["app.example.com"]
       }
-    }),
+    })),
     ""
   );
 });
@@ -227,4 +232,15 @@ test("registerMobileLaunchRouting no-ops when mobile config is disabled", async 
   const targetPath = await runtime.initialize();
   assert.equal(targetPath, "");
   assert.deepEqual(replaceCalls, []);
+});
+
+test("normalizeIncomingAppUrl compares allowed origins by their normalised HTTP origin", () => {
+  const config = mobile({ enabled: true, auth: { appLinkDomains: ["App.Example.com"] } });
+
+  assert.equal(normalizeIncomingAppUrl("HTTPS://APP.example.com:443/w/acme?x=1", config), "/w/acme?x=1");
+  assert.equal(
+    normalizeIncomingAppUrl("http://Localhost:5173/w/acme", config, { allowedHttpOrigins: ["http://localhost:5173/ignored"] }),
+    "/w/acme"
+  );
+  assert.equal(normalizeIncomingAppUrl("ftp://app.example.com/w/acme", config), "");
 });

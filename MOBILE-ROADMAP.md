@@ -128,9 +128,9 @@ This is the minimum core work needed to make mobile-shell real without turning
   - [x] normal web build
   - [x] mobile packaged build
   - [x] mobile dev-server build
-- [x] Add a normalizer:
+- [x] Add a normalizer (owned by `@jskit-ai/mobile-capacitor`):
   - [x] `normalizeIncomingAppUrl(url, mobileConfig)`
-- [x] Add a bootstrap helper:
+- [x] Add a bootstrap helper (owned by `@jskit-ai/mobile-capacitor`):
   - [x] `registerMobileLaunchRouting({ router, mobileConfig, getInitialLaunchUrl, subscribeToLaunchUrls })`
 - [x] Add an auth helper:
   - [x] reusable callback completer for normalized `/auth/login` OAuth callback URLs

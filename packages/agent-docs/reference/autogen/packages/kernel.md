@@ -88,6 +88,14 @@ Exports
 - `subscribeListener(listeners, listener)`
 - `createListenerSubscription(listeners)`
 
+### `shared/support/mobileConfig.js`
+Exports
+- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
+- `normalizeMobileConfig(source = {})`
+Local functions
+- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
+- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
+
 ### `shared/support/normalize.js`
 Exports
 - `TRANSACTION_OUTCOMES`
@@ -112,10 +120,6 @@ Exports
 - `normalizeRecordId(value, { fallback = null } = {})`
 - `normalizeOpaqueId(value, { fallback = null } = {})`
 - `normalizeOneOf(value, allowedValues = [], fallback = "")`
-- `normalizeMobileAssetMode(value = "", { fallback = "bundled" } = {})`
-- `normalizeMobileCallbackPath(value = "", { fallback = "/auth/login" } = {})`
-- `normalizeMobileConfig(source = {})`
-- `normalizeMobileStrategy(value = "", { fallback = "" } = {})`
 - `ensureNonEmptyText(value, label = "value")`
 
 ### `shared/support/permissions.js`
@@ -421,8 +425,6 @@ Exports
 - `installAsyncModuleRecoveryHandlers`
 - `isDynamicImportError`
 - `notifyAsyncModuleLoadError`
-- `normalizeIncomingAppUrl`
-- `registerMobileLaunchRouting`
 - `resolveClientBootstrapDebugEnabled`
 - `createShellRouter`
 - `shellScrollBehavior`
@@ -434,16 +436,6 @@ Exports
 Exports
 - `createStructuredLogger(logger = console)`
 - `summarizeRouterRoutes(router)`
-
-### `client/mobileLaunchRouting.js`
-Exports
-- `normalizeIncomingAppUrl(url = "", mobileConfig = {}, { currentOrigin = "", allowedHttpOrigins = [] } = {})`
-- `registerMobileLaunchRouting({ router, mobileConfig = {}, getInitialLaunchUrl = async () => "", subscribeToLaunchUrls = () => () => {}, resolveTargetPath = null, currentOrigin = typeof window === "object" && window?.location ? String(window.location.origin || "") : "", allowedHttpOrigins = [], logger = null } = {})`
-Local functions
-- `buildNormalizedRoutePath(pathname = "/", search = "", hash = "")`
-- `normalizeResolvedRoutePath(value = "", fallback = "")`
-- `normalizeAllowedHttpOrigins({ mobileConfig = {}, currentOrigin = "", allowedHttpOrigins = [] } = {})`
-- `normalizeCustomSchemeRoutePath(parsedUrl)`
 
 ### `client/moduleBootstrap.js`
 Exports
