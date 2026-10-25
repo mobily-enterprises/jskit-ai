@@ -202,8 +202,8 @@ export function createCodexTurnRecovery({
             status: trackedTurn.status || "completed"
           }
         );
-        const runtime = await createRuntime();
-        return runtime.getSession(sessionId);
+        const activeRuntime = runtime || await createRuntime();
+        return activeRuntime.getSession(sessionId);
       }
       return session;
     }
@@ -321,11 +321,12 @@ export function createCodexTurnRecovery({
         scheduleCodexAppServerActiveRecovery(sessionId);
         return currentSession;
       }
-      if (!promptDeliveryIsLocal && (!providerTurnId || !codexAppServerTurnStatusIsComplete(status))) {
-        return failOrphanedCodexAppServerPromptDelivery(activeRuntime, currentSession, currentTurn);
-      }
+      // A local prompt delivery owns the outcome of its own starting turn.
       if (promptDeliveryIsLocal) {
         return currentSession;
+      }
+      if (!providerTurnId || !codexAppServerTurnStatusIsComplete(status)) {
+        return failOrphanedCodexAppServerPromptDelivery(activeRuntime, currentSession, currentTurn);
       }
       await markCodexAppServerProviderTurnActive(sessionId, {
         source: "active_reconciliation",
@@ -928,9 +929,11 @@ export function createCodexTurnRecovery({
       }
     }
     const runtime = await createRuntime();
-    const session = await runtime.getSession(normalizedSessionId);
-    const turn = turnState(session);
-    if (!codexAppServerTurnCanReceiveProviderCompletion(turn, normalizedThreadId, normalizedTurnId)) {
+    const staleFailure = async () => {
+      const turn = turnState(await runtime.getSession(normalizedSessionId));
+      if (codexAppServerTurnCanReceiveProviderCompletion(turn, normalizedThreadId, normalizedTurnId)) {
+        return null;
+      }
       debugLog("appServerTurn.failure.stale", {
         currentState: turn.state,
         currentStatus: turn.status,
@@ -946,6 +949,10 @@ export function createCodexTurnRecovery({
         processed: false,
         reason: "stale_turn_state"
       };
+    };
+    const staleBeforeRecovery = await staleFailure();
+    if (staleBeforeRecovery) {
+      return staleBeforeRecovery;
     }
     const key = codexAppServerResultFinalizationKey(normalizedSessionId, normalizedThreadId, normalizedTurnId);
     const pendingTimer = codexAppServerFinalizingTimers.get(key);
@@ -980,8 +987,13 @@ export function createCodexTurnRecovery({
         return recovered;
       }
     }
-    // History recovery awaited the provider. Confirm activity again before
-    // publishing a failure, because the goal may have continued in that gap.
+    // History recovery awaited the provider. Confirm ownership and activity
+    // again before publishing a failure: a successor, Stop or goal
+    // continuation may own the run after that gap.
+    const staleAfterRecovery = await staleFailure();
+    if (staleAfterRecovery) {
+      return staleAfterRecovery;
+    }
     if (verifyInactive && await codexAppServerProviderBlocksTurnRelease(normalizedSessionId, provider, normalizedThreadId, normalizedTurnId, {
       source: "provider_failure"
     })) {
@@ -1026,9 +1038,6 @@ export function createCodexTurnRecovery({
     const normalizedThreadId = normalizeCodexRunText(threadId);
     const normalizedStatus = normalizeCodexRunText(status) || "completed";
     const normalizedTurnId = await resolveCodexAppServerTurnId(normalizedSessionId, normalizedThreadId, turnId);
-    const runtime = await createRuntime();
-    const currentSession = await runtime.getSession(normalizedSessionId);
-    const currentTurn = turnState(currentSession);
     const recovered = await recoverCodexAppServerFinalResponseBeforeOutcome(
       normalizedSessionId,
       normalizedThreadId,
@@ -1038,6 +1047,10 @@ export function createCodexTurnRecovery({
     if (recovered?.processed) {
       return recovered;
     }
+    // The history read can outlive this turn: a successor or Stop may own the
+    // run by now, so the outcome is decided against the run read after it.
+    const runtime = await createRuntime();
+    const currentTurn = turnState(await runtime.getSession(normalizedSessionId));
     if (!codexAppServerTurnCanReceiveProviderCompletion(currentTurn, normalizedThreadId, normalizedTurnId)) {
       codexAppServerFinalizedTurns.add(codexAppServerResultFinalizationKey(
         normalizedSessionId,

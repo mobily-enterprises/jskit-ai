@@ -72,7 +72,7 @@ export function createCodexSessionReconciliation({
     const failed = [];
     const seenSessionIds = new Set();
     for (const session of Array.isArray(sessions) ? sessions : []) {
-      const sessionId = normalizeText(session?.sessionId || session?.id || session);
+      const sessionId = codexAppServerReconcileSessionId(session);
       if (!sessionId || seenSessionIds.has(sessionId)) {
         continue;
       }

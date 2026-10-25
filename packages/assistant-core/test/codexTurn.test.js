@@ -9,6 +9,7 @@ import { createConversationTranscript } from "../src/server/conversation/transcr
 import { createConversationStreams } from "../src/server/conversation/streams.js";
 import { sendCodexAppServerPrompt, CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
 import { createCodexHelperThreadLedgerOwner } from "../src/server/conversation/codexHelperThreadLedger.js";
+import { createCodexSessionReconciliation } from "../src/server/conversation/codexSessionReconciliation.js";
 import {
   waitForCodexAppServerTurn,
   createCodexAppServerRunOwner,
@@ -430,6 +431,45 @@ test("native phase changes require the current exact turn and retain its active 
   assert.equal(changed.runPatch.providerPhase, "compacting");
   assert.equal(changed.runPatch.startedAt, "2026-09-30T01:00:00.000Z");
   assert.equal(f.writes.length, 1);
+});
+
+test("a settling write for a predecessor turn cannot end the active successor run", async () => {
+  for (const state of ["active", "finalizing", "starting"]) {
+    const f = runFixture({ state, providerTurnId: "successor" });
+    const owner = createCodexAppServerRunOwner();
+    const successor = f.read();
+    for (const runState of [CODEX_APP_SERVER_RUN_STATE.COMPLETED, CODEX_APP_SERVER_RUN_STATE.FAILED,
+      CODEX_APP_SERVER_RUN_STATE.INTERRUPTED]) {
+      const result = await owner.writeAgentRun(f.runtime, "session-1", { runState, status: runState,
+        threadId: "thread-1", turnId: "turn-1", error: "Predecessor outcome." });
+      assert.equal(result.wrote, false);
+      assert.equal(result.stale.currentTurnId, "successor");
+      assert.equal(result.stale.patchTurnId, "turn-1");
+    }
+    assert.deepEqual(f.read(), successor);
+    assert.deepEqual(f.writes, []);
+    const settled = await owner.writeAgentRun(f.runtime, "session-1", { runState: CODEX_APP_SERVER_RUN_STATE.COMPLETED,
+      status: "completed", threadId: "thread-1", turnId: "successor" });
+    assert.equal(settled.wrote, true, "The successor's own outcome still settles it");
+  }
+});
+
+test("startup unsubscribe skips session records without an identity instead of inventing one", async () => {
+  const prepared = [];
+  const reconciliation = createCodexSessionReconciliation({
+    providerSessions: { owner: { async unsubscribeSessionThread(_key, sessionId) {
+      return { ok: true, sessionId, status: "unsubscribed" };
+    } } },
+    namespace: sessionId => `project:${sessionId}`,
+    debugLog() {}, debugError: error => error
+  });
+  const result = await reconciliation.unsubscribeSessions([{ title: "no identity" }, { id: "session-1" },
+    "session-1", { sessionId: "session-2" }], {
+    enabled: true,
+    async session(sessionId) { prepared.push(sessionId); return { threadId: `thread-${sessionId}` }; }
+  });
+  assert.deepEqual(prepared, ["session-1", "session-2"]);
+  assert.equal(JSON.stringify(result).includes("[object Object]"), false);
 });
 
 test("original pending ownership and terminal outer identity are preserved without weakening run-state errors", () => {
@@ -2373,6 +2413,38 @@ for (const [status, cause, explicit, expected] of [
   });
 }
 
+test("a native stop outcome rereads the run after its history read and leaves an adopted successor running", async () => {
+  const notices = [];
+  const checkpoints = [];
+  const f = await receiptFixture({
+    outcomeNotice(_runtime, sessionId, threadId, turnId, outcome) { notices.push({ sessionId, threadId, turnId, outcome }); },
+    checkpoint(sessionId, value) { checkpoints.push({ sessionId, ...value }); }
+  });
+  f.history = [turn(f.turnId, "interrupted")];
+  const reading = Promise.withResolvers(); const release = Promise.withResolvers();
+  const list = f.provider.listThreadTurns;
+  f.provider.listThreadTurns = async (...args) => {
+    const snapshot = await list(...args);
+    reading.resolve(); await release.promise;
+    return snapshot;
+  };
+  try {
+    const pending = f.owner.stopTurnWithProviderFailure(f.sessionId, f.threadId, f.turnId, {
+      status: "interrupted", provider: f.provider, verifyInactive: false
+    });
+    await reading.promise;
+    f.run = { ...f.run, providerTurnId: "successor", state: "active", providerStatus: "inProgress" };
+    const successorRun = structuredClone(f.run);
+    release.resolve();
+    assert.equal((await pending).reason, "stale_turn_state");
+    assert.deepEqual(f.run, successorRun);
+    assert.deepEqual(notices, []);
+    assert.deepEqual(checkpoints, []);
+  } finally {
+    f.owner.clearSessionRecoveryTimers(f.sessionId);
+  }
+});
+
 test("user Stop records its exact cause before queued native completion while the interrupt reply is held", async () => {
   const notices = [];
   const f = await receiptFixture({ outcomeNotice(_runtime, sessionId, threadId, turnId, outcome) {
@@ -2611,6 +2683,40 @@ for (const change of ["concurrent", "cleanup", "successor"]) {
     if (change === "successor") assert.equal(f.run.providerTurnId, "successor");
   });
 }
+
+test("native delivery failure rereads the run after its last history read and cannot settle an adopted successor", async t => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-07T00:00:00Z") });
+  const f = await settlementFixture();
+  const { sessionId, threadId, turnId } = f;
+  const owner = createCodexAppServerRunOwner({ finalizingGraceMs: 500,
+    createRuntime: async () => ({ store: f.store, getSession: async () => ({ sessionId, agentRuns: [structuredClone(f.run)] }) }),
+    createStore: async () => f.store, acquireProvider: async () => f.provider,
+    checkpoint: async (id, input) => { f.checkpoints.push({ sessionId: id, ...input }); }
+  });
+  t.after(() => owner.clearSessionRecoveryTimers(sessionId));
+  f.run = { ...f.run, state: "finalizing", providerStatus: "completed", finishedAt: new Date().toISOString() };
+  f.history = [turn(turnId, "completed")];
+  t.mock.timers.tick(501);
+  const reading = Promise.withResolvers(); const release = Promise.withResolvers();
+  const list = f.provider.listThreadTurns;
+  let reads = 0;
+  f.provider.listThreadTurns = async (...args) => {
+    const snapshot = await list(...args);
+    reads += 1;
+    if (reads === 2) { reading.resolve(); await release.promise; }
+    return snapshot;
+  };
+  const pending = owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
+  await reading.promise;
+  f.run = { ...f.run, providerTurnId: "successor", state: "active", providerStatus: "inProgress" };
+  const successorRun = structuredClone(f.run);
+  release.resolve();
+  const result = await pending;
+  assert.equal(result.reason, "stale_turn_state");
+  assert.deepEqual(f.run, successorRun, "The predecessor's delivery failure cannot settle the successor");
+  assert.deepEqual(f.checkpoints, []);
+  assert.deepEqual(await f.replies(), []);
+});
 
 
 test("native after-history grace retries a rejected expiry read without granting another interval", async t => {

@@ -9,10 +9,10 @@ import {
   codexAppServerAgentRunPatch,
   codexAppServerRunIdentityForPatch,
   codexAppServerRunPatchIsStaleAfterTerminalState,
+  codexAppServerRunPatchSettlesOtherActiveTurn,
   CODEX_APP_SERVER_AGENT_RUN_ID,
   CODEX_AGENT_PROVIDER,
   CODEX_APP_SERVER_RUN_STATE,
-  CODEX_APP_SERVER_ACTIVE_RUN_STATES,
   codexAppServerRunInputSource,
   codexAppServerTurnStateFromAgentRun
 } from "./codexTurnState.js";
@@ -208,12 +208,18 @@ export function createCodexRunJournal({
         currentTurn.threadId === runPatch.providerThreadId &&
         currentTurn.turnId === runPatch.providerTurnId &&
         runPatch.state === CODEX_APP_SERVER_RUN_STATE.ACTIVE;
+      const observationLostBlocks = currentTurn.status === "observation_lost" && status !== "observation_lost";
+      const phaseTargetsOtherTurn = phase !== undefined && (!normalizeCodexRunText(turnId) ||
+        !codexAppServerTurnCanReceiveProviderActivity(currentTurn, threadId, turnId));
+      const observationExpired = Boolean(observedRun) && !canRecoverStoppedTurn;
+      const terminalAlreadyRecorded = !canRecoverStoppedTurn && runPatchIsStaleAfterTerminalState(currentTurn, runPatch);
+      const settlesOtherActiveTurn = codexAppServerRunPatchSettlesOtherActiveTurn(currentTurn, runPatch);
       if (
-        (currentTurn.status === "observation_lost" && status !== "observation_lost") ||
-        (phase !== undefined && (!normalizeCodexRunText(turnId) ||
-          !codexAppServerTurnCanReceiveProviderActivity(currentTurn, threadId, turnId))) ||
-        (observedRun && !canRecoverStoppedTurn) ||
-        (!canRecoverStoppedTurn && runPatchIsStaleAfterTerminalState(currentTurn, runPatch))
+        observationLostBlocks ||
+        phaseTargetsOtherTurn ||
+        observationExpired ||
+        terminalAlreadyRecorded ||
+        settlesOtherActiveTurn
       ) {
         stale = {
           currentState: currentTurn.state,
@@ -561,7 +567,6 @@ export function createCodexRunJournal({
       nowMs - runUpdatedMs >= CODEX_APP_SERVER_PROMPT_CLAIM_GRACE_MS
     );
     return (
-      (run.active === true || CODEX_APP_SERVER_ACTIVE_RUN_STATES.has(normalizeRunState(run.state))) &&
       normalizeCodexRunText(run.state) === CODEX_APP_SERVER_RUN_STATE.STARTING &&
       !normalizeCodexRunText(run.providerThreadId) &&
       !normalizeCodexRunText(run.providerTurnId) &&

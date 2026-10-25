@@ -395,6 +395,18 @@ export function codexAppServerRunIdentityForPatch(session = {}, {
   };
 }
 
+// A settling writer names the turn it settles. While another turn owns the
+// active run, that write belongs to a predecessor and must not end the run.
+export function codexAppServerRunPatchSettlesOtherActiveTurn(currentTurn = {}, patch = {}) {
+  const currentTurnId = normalizeCodexRunText(currentTurn.turnId);
+  const patchTurnId = normalizeCodexRunText(patch.providerTurnId);
+  return currentTurn.active === true &&
+    !codexAppServerRunStateIsActive(patch.state) &&
+    Boolean(currentTurnId) &&
+    Boolean(patchTurnId) &&
+    currentTurnId !== patchTurnId;
+}
+
 export function codexAppServerRunPatchIsStaleAfterTerminalState(currentTurn = {}, patch = {}, normalizeRunState = normalizeCodexAppServerRunState) {
   const currentRunState = normalizeRunState(currentTurn.runState);
   const patchRunState = normalizeRunState(patch.state);
