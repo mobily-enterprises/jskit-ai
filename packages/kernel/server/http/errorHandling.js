@@ -1,7 +1,7 @@
 import { ActionRuntimeError } from "../actions/actionDefinitions.js";
 import { normalizeTransactionOutcome } from "../../shared/support/normalize.js";
+import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
 
-const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 const JSON_API_CONTENT_TYPE_PARSER_MARKER = Symbol.for("jskit.fastify.jsonApiContentTypeParserRegistered");
 const BODYLESS_CONTENT_TYPE_NORMALIZER_MARKER = Symbol.for("jskit.fastify.bodylessContentTypeNormalizerRegistered");
 
@@ -105,29 +105,8 @@ function resolveValidationFieldErrors(error) {
 }
 
 function resolveRequestRouteTransport(request) {
-  const directTransport =
-    request?.routeTransport && typeof request.routeTransport === "object" && !Array.isArray(request.routeTransport)
-      ? request.routeTransport
-      : null;
-  if (directTransport) {
-    return directTransport;
-  }
-
-  const configTransport =
-    request?.routeOptions?.config?.transport &&
-    typeof request.routeOptions.config.transport === "object" &&
-    !Array.isArray(request.routeOptions.config.transport)
-      ? request.routeOptions.config.transport
-      : null;
-  const runtimeTransport =
-    configTransport?.runtime && typeof configTransport.runtime === "object" && !Array.isArray(configTransport.runtime)
-      ? configTransport.runtime
-      : null;
-  if (runtimeTransport) {
-    return runtimeTransport;
-  }
-
-  return configTransport;
+  const transport = request?.routeOptions?.config?.transport;
+  return transport && typeof transport === "object" && !Array.isArray(transport) ? transport : null;
 }
 
 function applyRouteTransportErrorResponse(reply, request, error, {
@@ -193,6 +172,14 @@ function resolveApiErrorStatus(error, code) {
   }
 }
 
+function applyErrorHeaders(reply, error) {
+  if (error?.headers && typeof error.headers === "object") {
+    for (const [name, value] of Object.entries(error.headers)) {
+      reply.header(name, value);
+    }
+  }
+}
+
 function registerApiErrorHandler(app, { isAppError } = {}) {
   if (!app || typeof app.setErrorHandler !== "function") {
     throw new TypeError("registerApiErrorHandler requires a Fastify instance.");
@@ -233,52 +220,55 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       return;
     }
 
+    applyErrorHeaders(reply, error);
+
     if (isAppError(error) || error instanceof ActionRuntimeError) {
-      if (applyRouteTransportErrorResponse(reply, request, error, {
-        statusCode: error.status,
-        normalizedErrorCode: normalizedErrorCode || "app_error",
-        exposeDetails: shouldExposeAppErrorDetails(normalizedErrorCode)
-      })) {
-        return;
-      }
       if (error.status >= 500) {
         app.log.error({ err: error }, "AppError 5xx");
       }
-
       const appErrorCode = normalizedErrorCode || "app_error";
+      const exposeDetails = shouldExposeAppErrorDetails(appErrorCode);
+      if (applyRouteTransportErrorResponse(reply, request, error, {
+        statusCode: error.status,
+        normalizedErrorCode: appErrorCode,
+        exposeDetails
+      })) {
+        return;
+      }
+
       const payload = {
         error: error.message,
         code: appErrorCode,
         ...outcomeFields
       };
-      if (error.details && shouldExposeAppErrorDetails(appErrorCode)) {
+      if (error.details && exposeDetails) {
         payload.details = error.details;
         if (error.details.fieldErrors) {
           payload.fieldErrors = error.details.fieldErrors;
         }
       }
 
-      if (error.headers && typeof error.headers === "object") {
-        Object.entries(error.headers).forEach(([name, value]) => {
-          reply.header(name, value);
-        });
-      }
-
       reply.code(error.status).send(payload);
       return;
     }
 
-    if (error.headers && typeof error.headers === "object") {
-      Object.entries(error.headers).forEach(([name, value]) => {
-        reply.header(name, value);
-      });
+    if (statusCode >= 500) {
+      app.log.error({ err: error }, "Unhandled error");
+    } else {
+      app.log.info({ err: error, statusCode }, "Request rejected");
     }
-
-    app.log.error({ err: error }, "Unhandled error");
 
     const message = statusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.");
     const fallbackErrorCode =
       normalizedErrorCode || (statusCode >= 500 ? "internal_server_error" : "request_failed");
+    if (applyRouteTransportErrorResponse(reply, request, error, {
+      statusCode,
+      normalizedErrorCode: fallbackErrorCode,
+      message,
+      exposeDetails: statusCode < 500
+    })) {
+      return;
+    }
     const payload = {
       error: message,
       code: fallbackErrorCode,
@@ -288,14 +278,6 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       payload.details = {
         code: normalizedErrorCode
       };
-    }
-    if (applyRouteTransportErrorResponse(reply, request, error, {
-      statusCode,
-      normalizedErrorCode: fallbackErrorCode,
-      message,
-      exposeDetails: statusCode < 500
-    })) {
-      return;
     }
     reply.code(statusCode).send(payload);
   });

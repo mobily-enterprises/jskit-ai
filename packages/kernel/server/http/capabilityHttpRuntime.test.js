@@ -159,3 +159,59 @@ test("direct HTTP action execution preserves request-scoped stream dependencies"
   assert.deepEqual(reply.payload, { writerId: "writer-1", aborted: false });
   await runtime.shutdown();
 });
+
+test("route transport reaches the error handler before the route handler runs, even without a kind", async () => {
+  const fastify = createFastifyStub();
+  const transport = {
+    contentType: "application/vnd.api+json",
+    request: {
+      query: (query) => ({ ...query, steps: [...(query.steps || []), "transport"] })
+    },
+    error(error, { statusCode, code }) {
+      return { errors: [{ status: String(statusCode), code, title: error.message }] };
+    }
+  };
+  const feature = defineFeature({
+    id: "feature.transport-proof",
+    domain: "transport-proof",
+    requires: { http: "runtime.http" },
+    setup({ http }) {
+      http.router.get("/transport-proof/", {
+        surface: "app",
+        visibility: "public",
+        transport
+      }, async (request, reply) => {
+        reply.code(200).send({ query: request.input.query });
+      });
+      return {};
+    },
+    actions: []
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.fastify": fastify },
+    providers: [createActionProvider(), HttpProvider, feature]
+  });
+
+  await runtime.start();
+  const [route] = fastify.routes;
+  assert.equal(route.url, "/transport-proof");
+  assert.equal(typeof route.config.transport.error, "function");
+
+  const errorReply = createReply();
+  fastify.errorHandler(
+    { message: "querystring/limit must be integer", validation: [{ instancePath: "/limit", message: "must be integer" }] },
+    { routeOptions: { config: route.config } },
+    errorReply
+  );
+  assert.equal(errorReply.statusCode, 400);
+  assert.equal(errorReply.headers["content-type"], "application/vnd.api+json");
+  assert.deepEqual(errorReply.payload, {
+    errors: [{ status: "400", code: "validation_failed", title: "querystring/limit must be integer" }]
+  });
+
+  const reply = createReply();
+  await route.handler({ query: { steps: ["client"] }, routeOptions: { config: route.config } }, reply);
+  assert.deepEqual(reply.payload, { query: { steps: ["client", "transport"] } });
+  assert.equal(reply.headers["content-type"], "application/vnd.api+json");
+  await runtime.shutdown();
+});

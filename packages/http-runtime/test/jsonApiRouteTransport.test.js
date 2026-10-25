@@ -247,7 +247,7 @@ test("real HTTP responses classify typed JSON REST read and write errors", async
     for (const wrapped of [false, true]) {
       const prefix = `/${jsonapi ? "jsonapi" : "plain"}/${wrapped ? "write" : "read"}`;
       app.get(`${prefix}/:kind`, {
-        config: jsonapi ? { transport: { runtime: transport } } : {},
+        config: jsonapi ? { transport } : {},
         ...(jsonapi ? {} : { schema: { response: { "4xx": apiErrorTransportSchema, "5xx": apiErrorTransportSchema } } })
       }, async (request) => {
         const [, createError] = cases.find(([name]) => name === request.params.kind);
@@ -311,7 +311,7 @@ test("real resource validation, permission hooks and completion failures retain 
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
   for (const jsonapi of [false, true]) {
     const prefix = `/${jsonapi ? "jsonapi" : "plain"}`;
-    const options = { config: jsonapi ? { transport: { runtime: transport } } : {} };
+    const options = { config: jsonapi ? { transport } : {} };
     app.get(`${prefix}/denied`, options, async () => api.resources.books.query({}, { deny: true }));
     app.post(`${prefix}/invalid`, options, async (request) => api.resources.books.post({ data: request.body }));
     app.post(`${prefix}/committed`, options, async (request) => api.resources.books.post({ data: request.body }, { failAfterCommit: true }));
@@ -341,7 +341,7 @@ test("real resource validation, permission hooks and completion failures retain 
 
 test("error handler, JSON:API transport and client preserve outcomes without disclosing internal failures", () => {
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
-  const app = { log: { error() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
+  const app = { log: { error() {}, info() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
   registerApiErrorHandler(app, { isAppError });
 
   for (const transactionOutcome of ["none", "pending", "committed", "rolledBack", "unknown", "invalid", undefined]) {
@@ -360,7 +360,7 @@ test("error handler, JSON:API transport and client preserve outcomes without dis
         header(name, value) { this.headers[name] = value; return this; },
         send(payload) { this.payload = payload; return this; }
       };
-      app.errorHandler(failure, jsonapi ? { routeTransport: transport } : {}, reply);
+      app.errorHandler(failure, jsonapi ? { routeOptions: { config: { transport } } } : {}, reply);
       assert.equal(reply.statusCode, 500);
       const clientError = createHttpError({ status: reply.statusCode }, reply.payload);
       assert.equal(clientError.message, "Internal server error.");
@@ -387,7 +387,7 @@ test("JSON:API field errors retain outcomes and permission details remain privat
   assert.equal(payload.errors.length, 2);
   assert.ok(payload.errors.every((error) => error.meta.transactionOutcome === "rolledBack"));
 
-  const app = { log: { error() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
+  const app = { log: { error() {}, info() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };
   registerApiErrorHandler(app, { isAppError });
   const reply = {
     code() { return this; },
@@ -397,7 +397,7 @@ test("JSON:API field errors retain outcomes and permission details remain privat
   app.errorHandler(new AppError(403, "Forbidden.", {
     code: "ACTION_PERMISSION_DENIED",
     details: { fieldErrors: { secret: "Required private permission" } }
-  }), { routeTransport: transport }, reply);
+  }), { routeOptions: { config: { transport } } }, reply);
   assert.deepEqual(reply.payload, {
     errors: [{ status: "403", code: "ACTION_PERMISSION_DENIED", title: "Forbidden." }]
   });

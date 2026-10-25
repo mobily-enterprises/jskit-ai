@@ -3,7 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import { createRouter } from "./router.js";
-import { compileRouteValidator, defineRouteValidator, resolveRouteValidatorOptions } from "./routeValidator.js";
+import { compileRouteValidator, resolveRouteValidatorOptions } from "./routeValidator.js";
 
 function stripJsonRestTransportExtensions(value) {
   if (Array.isArray(value)) {
@@ -45,7 +45,7 @@ function createMockJsonRestSchema() {
   });
 }
 
-test("defineRouteValidator compiles body/query/params and maps query schema to querystring", () => {
+test("compileRouteValidator compiles body/query/params and maps query schema to querystring", () => {
   const bodySchema = createSchema({
     name: {
       type: "string",
@@ -82,7 +82,7 @@ test("defineRouteValidator compiles body/query/params and maps query schema to q
     type: "object"
   };
 
-  const validator = defineRouteValidator({
+  const compiled = compileRouteValidator({
     meta: {
       tags: ["contacts", "intake"],
       summary: "Create contact intake"
@@ -103,8 +103,6 @@ test("defineRouteValidator compiles body/query/params and maps query schema to q
       }
     }
   });
-
-  const compiled = validator.toRouteOptions();
 
   assert.deepEqual(compiled.schema, {
     tags: ["contacts", "intake"],
@@ -344,7 +342,7 @@ test("resolveRouteValidatorOptions rejects validator wrapper", () => {
       method: "POST",
       path: "/contacts",
       options: {
-        validator: defineRouteValidator({}),
+        validator: {},
         middleware: ["api"]
       }
     }),
@@ -352,10 +350,10 @@ test("resolveRouteValidatorOptions rejects validator wrapper", () => {
   );
 });
 
-test("defineRouteValidator rejects unsupported advanced.jskitInput", () => {
+test("compileRouteValidator rejects unsupported advanced.jskitInput", () => {
   assert.throws(
     () =>
-      defineRouteValidator({
+      compileRouteValidator({
         advanced: {
           jskitInput: {}
         }
@@ -364,24 +362,24 @@ test("defineRouteValidator rejects unsupported advanced.jskitInput", () => {
   );
 });
 
-test("defineRouteValidator rejects unsupported top-level keys generically", () => {
+test("compileRouteValidator rejects unsupported top-level keys generically", () => {
   assert.throws(
     () =>
-      defineRouteValidator({
+      compileRouteValidator({
         unsupportedContract: {
           schema: {
             type: "object"
           }
         }
       }),
-    /defineRouteValidator\(\)\.unsupportedContract is not supported/
+    /route validator\.unsupportedContract is not supported/
   );
 });
 
-test("defineRouteValidator validates meta fields", () => {
+test("compileRouteValidator validates meta fields", () => {
   assert.throws(
     () =>
-      defineRouteValidator({
+      compileRouteValidator({
         meta: {
           tags: ["ok", ""]
         }
@@ -391,7 +389,7 @@ test("defineRouteValidator validates meta fields", () => {
 
   assert.throws(
     () =>
-      defineRouteValidator({
+      compileRouteValidator({
         meta: {
           summary: ""
         }
@@ -407,7 +405,7 @@ test("HttpRouter.register rejects validator wrapper options", () => {
       "POST",
       "/contacts",
       {
-        validator: defineRouteValidator({})
+        validator: {}
       },
       async () => {}
     ),
@@ -425,7 +423,7 @@ test("HttpRouter.register rejects compiled route option payloads", () => {
     }
   });
 
-  const validator = defineRouteValidator({
+  const compiled = compileRouteValidator({
     query: {
       schema: querySchema
     }
@@ -434,7 +432,7 @@ test("HttpRouter.register rejects compiled route option payloads", () => {
   assert.throws(
     () => router.get(
       "/contacts",
-      validator.toRouteOptions(),
+      compiled,
       async () => {}
     ),
     /uses unsupported validator options: schema, input/

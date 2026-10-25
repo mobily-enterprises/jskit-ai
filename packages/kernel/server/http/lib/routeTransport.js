@@ -1,5 +1,6 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 
+const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
 const ROUTE_TRANSPORT_KINDS = Object.freeze([
   "command",
   "jsonapi-resource"
@@ -120,6 +121,7 @@ function normalizeRouteTransport(value, { context = "route transport", ErrorType
 }
 
 export {
+  JSON_API_CONTENT_TYPE,
   ROUTE_TRANSPORT_KINDS,
   normalizeRouteOutputTransform,
   normalizeRouteTransport

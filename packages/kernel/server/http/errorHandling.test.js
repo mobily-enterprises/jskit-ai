@@ -10,12 +10,18 @@ import {
 } from "./errorHandling.js";
 
 function createFastifyStub() {
-  return {
+  const fastify = {
     errorHandler: null,
     hooks: {},
     contentTypeParsers: new Map(),
+    logged: [],
     log: {
-      error() {}
+      error(fields, message) {
+        this.owner.logged.push({ level: "error", fields, message });
+      },
+      info(fields, message) {
+        this.owner.logged.push({ level: "info", fields, message });
+      }
     },
     setErrorHandler(handler) {
       this.errorHandler = handler;
@@ -34,6 +40,32 @@ function createFastifyStub() {
         options,
         parser
       });
+    }
+  };
+  fastify.log.owner = fastify;
+  return fastify;
+}
+
+function transportRequest() {
+  return {
+    routeOptions: {
+      config: {
+        transport: {
+          kind: "jsonapi-resource",
+          contentType: "application/vnd.api+json",
+          error(currentError, { statusCode, code }) {
+            return {
+              errors: [
+                {
+                  status: String(statusCode),
+                  code,
+                  title: currentError.message
+                }
+              ]
+            };
+          }
+        }
+      }
     }
   };
 }
@@ -229,22 +261,7 @@ test("registerApiErrorHandler uses route transport error serializer when present
 
   fastify.errorHandler(
     error,
-    {
-      routeTransport: {
-        contentType: "application/vnd.api+json",
-        error(currentError, { statusCode, code }) {
-          return {
-            errors: [
-              {
-                status: String(statusCode),
-                code,
-                title: currentError.message
-              }
-            ]
-          };
-        }
-      }
-    },
+    transportRequest(),
     reply
   );
 
@@ -261,55 +278,46 @@ test("registerApiErrorHandler uses route transport error serializer when present
   });
 });
 
-test("registerApiErrorHandler uses route config transport runtime serializer before handler attachment", () => {
+test("transport routes log 5xx AppErrors and keep their headers", () => {
   const fastify = createFastifyStub();
   registerApiErrorHandler(fastify, { isAppError });
 
   const reply = createReplyStub();
-  const error = new AppError(401, "Authentication required.", {
-    code: "AUTH_POLICY_ERROR"
+  const error = new AppError(503, "Try again shortly.", {
+    code: "service_unavailable",
+    headers: {
+      "Retry-After": "5"
+    }
   });
 
-  fastify.errorHandler(
-    error,
-    {
-      routeOptions: {
-        config: {
-          transport: {
-            kind: "jsonapi-resource",
-            contentType: "application/vnd.api+json",
-            runtime: {
-              contentType: "application/vnd.api+json",
-              error(currentError, { statusCode, code }) {
-                return {
-                  errors: [
-                    {
-                      status: String(statusCode),
-                      code,
-                      title: currentError.message
-                    }
-                  ]
-                };
-              }
-            }
-          }
-        }
-      }
-    },
-    reply
-  );
+  fastify.errorHandler(error, transportRequest(), reply);
 
-  assert.equal(reply.statusCode, 401);
+  assert.equal(reply.statusCode, 503);
+  assert.equal(reply.headers["Retry-After"], "5");
   assert.equal(reply.headers["Content-Type"], "application/vnd.api+json");
-  assert.deepEqual(reply.payload, {
-    errors: [
-      {
-        status: "401",
-        code: "AUTH_POLICY_ERROR",
-        title: "Authentication required."
-      }
-    ]
+  assert.equal(reply.payload.errors[0].code, "service_unavailable");
+  assert.deepEqual(fastify.logged.map(({ level, message }) => [level, message]), [["error", "AppError 5xx"]]);
+});
+
+test("Fastify client errors are logged below error level and server errors at error level", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify, { isAppError });
+
+  const tooLarge = Object.assign(new Error("Request body is too large"), {
+    statusCode: 413,
+    code: "FST_ERR_CTP_BODY_TOO_LARGE"
   });
+  const tooLargeReply = createReplyStub();
+  fastify.errorHandler(tooLarge, transportRequest(), tooLargeReply);
+  assert.equal(tooLargeReply.statusCode, 413);
+  assert.equal(tooLargeReply.payload.errors[0].code, "FST_ERR_CTP_BODY_TOO_LARGE");
+
+  fastify.errorHandler(new Error("Unexpected DB failure"), {}, createReplyStub());
+
+  assert.deepEqual(fastify.logged.map(({ level, fields }) => [level, fields.statusCode]), [
+    ["info", 413],
+    ["error", undefined]
+  ]);
 });
 
 test("registerJsonApiContentTypeParser installs the JSON:API media type parser once", () => {

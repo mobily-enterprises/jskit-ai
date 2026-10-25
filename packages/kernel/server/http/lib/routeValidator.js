@@ -7,7 +7,6 @@ import {
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 
-const ROUTE_VALIDATOR_SYMBOL = "@jskit-ai/kernel/http/routeValidator";
 const JSON_REST_TRANSPORT_EXTENSION_KEY = "x-json-rest-schema";
 const VALIDATOR_OPTION_KEYS = Object.freeze([
   "meta",
@@ -306,46 +305,12 @@ function compileNormalizedRouteValidator(normalizedValidator) {
   return Object.freeze(compiled);
 }
 
-function normalizeRouteValidatorSource(validator, { context = "route validator" } = {}) {
-  if (validator && typeof validator === "object") {
-    const precompiled = validator[ROUTE_VALIDATOR_SYMBOL];
-    if (precompiled && typeof precompiled === "object") {
-      return precompiled;
-    }
-  }
-
-  return normalizeRouteValidatorDefinition(validator, {
-    context
-  });
-}
-
 function compileRouteValidator(validator, { context = "route validator" } = {}) {
   return compileNormalizedRouteValidator(
-    normalizeRouteValidatorSource(validator, {
+    normalizeRouteValidatorDefinition(validator, {
       context
     })
   );
-}
-
-function defineRouteValidator(definition = {}) {
-  const normalized = normalizeRouteValidatorDefinition(definition, {
-    context: "defineRouteValidator()"
-  });
-
-  const validator = {
-    toRouteOptions() {
-      return compileNormalizedRouteValidator(normalized);
-    }
-  };
-
-  Object.defineProperty(validator, ROUTE_VALIDATOR_SYMBOL, {
-    value: normalized,
-    enumerable: false,
-    configurable: false,
-    writable: false
-  });
-
-  return Object.freeze(validator);
 }
 
 function resolveRouteValidatorOptions({
@@ -401,4 +366,4 @@ function resolveRouteValidatorOptions({
   };
 }
 
-export { defineRouteValidator, compileRouteValidator, resolveRouteValidatorOptions };
+export { compileRouteValidator, resolveRouteValidatorOptions };

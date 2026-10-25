@@ -7,45 +7,26 @@ import { registerJsonApiContentTypeParser } from "../errorHandling.js";
 import { RouteRegistrationError } from "./errors.js";
 import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
 import { attachDirectRequestActionExecutor } from "../directRequestActionExecutor.js";
-import { normalizeRouteOutputTransform, normalizeRouteTransport } from "./routeTransport.js";
+import { resolveRouteLabel } from "./routeSupport.js";
+import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
 
 const { structuredClone: cloneRouteSchema } = globalThis;
 const UNSAFE_BODY_METHODS = Object.freeze(["POST", "PUT", "PATCH"]);
-const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
+const REQUEST_INPUT_KEYS = Object.freeze(["body", "query", "params"]);
 
 function toFastifyRouteOptions(route) {
-  const sourceRoute = normalizeObject(route);
-  const schema = cloneRouteSchema(sourceRoute.schema);
-  if (shouldStripFastifyBodySchema(sourceRoute, schema)) {
+  const schema = cloneRouteSchema(route.schema);
+  if (shouldStripFastifyBodySchema(route, schema)) {
     delete schema.body;
   }
-  const existingConfig = normalizeObject(sourceRoute.config);
-  const transportKind = normalizeText(sourceRoute?.transport?.kind).toLowerCase();
-  const existingTransportConfig =
-    existingConfig.transport && typeof existingConfig.transport === "object" && !Array.isArray(existingConfig.transport)
-      ? normalizeObject(existingConfig.transport)
-      : {};
   return {
-    method: sourceRoute.method,
-    url: sourceRoute.path,
+    method: route.method,
+    url: route.path,
     ...(schema ? { schema } : {}),
-    ...(sourceRoute.bodyLimit ? { bodyLimit: sourceRoute.bodyLimit } : {}),
+    ...(route.bodyLimit ? { bodyLimit: route.bodyLimit } : {}),
     config: {
-      ...existingConfig,
-      ...(transportKind
-        ? {
-            transport: {
-              ...existingTransportConfig,
-              kind: transportKind,
-              runtime: sourceRoute.transport,
-              ...(normalizeText(sourceRoute?.transport?.contentType)
-                ? {
-                    contentType: normalizeText(sourceRoute.transport.contentType)
-                  }
-                : {})
-            }
-          }
-        : {})
+      ...normalizeObject(route.config),
+      ...(route.transport ? { transport: route.transport } : {})
     }
   };
 }
@@ -112,19 +93,6 @@ function enforceRequestContentType({ request = null, route = null, transport = n
   });
 }
 
-function attachRouteTransport(request, transport = null) {
-  if (!request || !transport) {
-    return;
-  }
-
-  Object.defineProperty(request, "routeTransport", {
-    value: transport,
-    enumerable: false,
-    configurable: true,
-    writable: false
-  });
-}
-
 function replyHasHeader(reply, name = "") {
   const normalizedName = String(name || "").trim().toLowerCase();
   if (!normalizedName || !reply) {
@@ -146,75 +114,21 @@ function replyHasHeader(reply, name = "") {
   return false;
 }
 
-function normalizeRouteInputTransforms(route) {
-  const routeInput = route?.input;
-  if (routeInput == null) {
-    return null;
-  }
-
-  if (!routeInput || typeof routeInput !== "object" || Array.isArray(routeInput)) {
-    throw new RouteRegistrationError(
-      `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} input must be an object.`
-    );
-  }
-
-  const normalized = {};
-  for (const key of ["body", "query", "params"]) {
-    if (!Object.hasOwn(routeInput, key)) {
-      continue;
+async function buildRequestInput(request, { inputTransforms = null, transportInputTransforms = null } = {}) {
+  const input = {};
+  for (const key of REQUEST_INPUT_KEYS) {
+    let value = request?.[key];
+    const transportTransform = transportInputTransforms?.[key];
+    if (typeof transportTransform === "function" && (key !== "body" || value !== undefined)) {
+      value = await transportTransform(value, request);
     }
-
-    const transform = routeInput[key];
-    if (transform == null) {
-      continue;
+    const inputTransform = inputTransforms?.[key];
+    if (typeof inputTransform === "function") {
+      value = await inputTransform(value, request);
     }
-
-    if (typeof transform !== "function") {
-      throw new RouteRegistrationError(
-        `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} input.${key} must be a function.`
-      );
-    }
-
-    normalized[key] = transform;
+    input[key] = value;
   }
-
-  return Object.freeze(normalized);
-}
-
-async function buildRequestInput({ request = null, inputTransforms = null, transportInputTransforms = null } = {}) {
-  const transforms = inputTransforms && typeof inputTransforms === "object" ? inputTransforms : {};
-  const transportTransforms =
-    transportInputTransforms && typeof transportInputTransforms === "object" ? transportInputTransforms : {};
-
-  let body = request?.body;
-  if (body !== undefined && typeof transportTransforms.body === "function") {
-    body = await transportTransforms.body(body, request);
-  }
-  if (typeof transforms.body === "function") {
-    body = await transforms.body(body, request);
-  }
-
-  let query = request?.query;
-  if (typeof transportTransforms.query === "function") {
-    query = await transportTransforms.query(query, request);
-  }
-  if (typeof transforms.query === "function") {
-    query = await transforms.query(query, request);
-  }
-
-  let params = request?.params;
-  if (typeof transportTransforms.params === "function") {
-    params = await transportTransforms.params(params, request);
-  }
-  if (typeof transforms.params === "function") {
-    params = await transforms.params(params, request);
-  }
-
-  return Object.freeze({
-    body,
-    query,
-    params
-  });
+  return Object.freeze(input);
 }
 
 function wrapReplySend({ reply = null, request = null, route = null, outputTransform = null, transport = null } = {}) {
@@ -248,9 +162,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
       });
 
       if (transportedPayload && typeof transportedPayload.then === "function") {
-        throw new RouteRegistrationError(
-          `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} transport.response must return synchronously.`
-        );
+        throw new RouteRegistrationError(`Route ${resolveRouteLabel(route)} transport.response must return synchronously.`);
       }
 
       nextPayload = transportedPayload === undefined ? nextPayload : transportedPayload;
@@ -266,9 +178,7 @@ function wrapReplySend({ reply = null, request = null, route = null, outputTrans
       });
 
       if (transformedPayload && typeof transformedPayload.then === "function") {
-        throw new RouteRegistrationError(
-          `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} output transform must return synchronously.`
-        );
+        throw new RouteRegistrationError(`Route ${resolveRouteLabel(route)} output transform must return synchronously.`);
       }
 
       nextPayload = transformedPayload === undefined ? nextPayload : transformedPayload;
@@ -317,39 +227,17 @@ function registerRoutes(
   }
 
   for (const route of publicRoutes) {
-    const routeTransport = normalizeRouteTransport(route?.transport, {
-      context: `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} transport`,
-      ErrorType: RouteRegistrationError
-    });
-    const routeOutputTransform = normalizeRouteOutputTransform(route?.output, {
-      context: `Route ${String(route?.method || "<unknown>")} ${String(route?.path || "<unknown>")} output`,
-      ErrorType: RouteRegistrationError
-    });
-    const normalizedRoute = {
-      ...route,
-      transport: routeTransport,
-      output: routeOutputTransform
-    };
-    const baseOptions = toFastifyRouteOptions(normalizedRoute);
-    const routeOptions = policyApplier(baseOptions, normalizedRoute);
-    const routeHandler = typeof normalizedRoute?.handler === "function" ? normalizedRoute.handler : fallbackHandler;
-    const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(normalizedRoute, runtimeMiddlewareConfig);
-    const routeInputTransforms = normalizeRouteInputTransforms(normalizedRoute);
+    const routeOptions = policyApplier(toFastifyRouteOptions(route), route);
+    const routeHandler = typeof route.handler === "function" ? route.handler : fallbackHandler;
+    const resolvedMiddlewareHandlers = resolveRouteMiddlewareHandlers(route, runtimeMiddlewareConfig);
+    const routeTransport = route.transport || null;
     const routeActionDefaultSurface = resolveDefaultSurfaceId(null, {
-      defaultSurfaceId: route?.surface || routeOptions?.config?.surface || requestActionDefaultSurface
+      defaultSurfaceId: route.surface || routeOptions?.config?.surface || requestActionDefaultSurface
     });
 
     fastify.route({
       ...routeOptions,
       handler: async (request, reply) => {
-        if (!request.routeOptions || typeof request.routeOptions !== "object") {
-          request.routeOptions = {
-            config: normalizeObject(routeOptions?.config)
-          };
-        } else if (!request.routeOptions.config || typeof request.routeOptions.config !== "object") {
-          request.routeOptions.config = normalizeObject(routeOptions?.config);
-        }
-
         attachDirectRequestActionExecutor({
           actions,
           request,
@@ -358,18 +246,16 @@ function registerRoutes(
           defaultSurfaceId: routeActionDefaultSurface
         });
 
-        attachRouteTransport(request, routeTransport);
         enforceRequestContentType({
           request,
-          route: normalizedRoute,
+          route,
           transport: routeTransport
         });
 
         const transportInputTransforms = routeTransport?.request || null;
-        if (routeInputTransforms || transportInputTransforms) {
-          request.input = await buildRequestInput({
-            request,
-            inputTransforms: routeInputTransforms,
+        if (route.input || transportInputTransforms) {
+          request.input = await buildRequestInput(request, {
+            inputTransforms: route.input,
             transportInputTransforms
           });
         }
@@ -377,8 +263,8 @@ function registerRoutes(
         wrapReplySend({
           reply,
           request,
-          route: normalizedRoute,
-          outputTransform: routeOutputTransform,
+          route,
+          outputTransform: route.output,
           transport: routeTransport
         });
 
