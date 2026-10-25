@@ -1,6 +1,6 @@
 import {
   OPENCODE_INTERRUPT_TIMEOUT_MS, waitForOpenCodeFinalResponse, openCodeLastAssistantResult, inspectOpenCodeMessageAdmission, observeOpenCodeEvents,
-  openCodeMessageRows, openCodeRowsForInput, openCodePersistentConversationMessages, openCodeStructuredOutput, projectOpenCodeConversationMessages, waitForOpenCodeMessages, steerOpenCodeTurn, dispatchOpenCodeTurn, observeOpenCodeTurnCompletion, runOpenCodeConversationTurn
+  openCodeMessageRows, openCodeRowsForInput, readOpenCodeMessagesUntil, openCodePersistentConversationMessages, openCodeStructuredOutput, projectOpenCodeConversationMessages, waitForOpenCodeMessages, steerOpenCodeTurn, dispatchOpenCodeTurn, observeOpenCodeTurnCompletion, runOpenCodeConversationTurn
 } from "./openCodeTurn.js";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -468,7 +468,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         const targets = [...processes.values()];
         const providerId = text(input.modelProviderId);
         if (!providerId || targets.some(target => text(target.modelProviderId) !== providerId || !application.ownsTarget(target))) {
-          throw Object.assign(new Error("Close other OpenCode chats and Colleague conversations, then retry this connection change. The saved connection has not changed."), {
+          throw Object.assign(new Error("Close the other OpenCode conversations that use this connection, then retry this connection change. The saved connection has not changed."), {
             code: "assistant_opencode_connection_in_use", statusCode: 409
           });
         }
@@ -736,11 +736,8 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
   }
 
   async function readConversation(target = {}, conversationId = "", tracked = null, options = {}, readError) {
-    const messages = await target.server.client.messages(conversationId, {
-      limit: 100,
-      order: "desc"
-    }, options);
-    options.signal?.throwIfAborted();
+    const messages = await readOpenCodeMessagesUntil(target.server.client, conversationId,
+      rows => rows.some(row => row?.type === "assistant"), options);
     const result = openCodeLastAssistantResult(messages, { readError });
     return {
       conversationId,

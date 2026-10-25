@@ -8,7 +8,7 @@ import { createOpenCodeConversationServer, openCodeConversationAgent } from "../
 import { createOpenCodeSharedRuntime, ensureOpenCodeSession, openCodeServerForDirectory } from "../openCodeRuntime.js";
 import { openCodeAssistantMessageText, retireOpenCodeConversationHistory } from "../openCodeClient.js";
 import { inspectOpenCodeMessageAdmission, observeOpenCodeEvents, openCodeRowsForInput,
-  openCodeDetachedPrompt, openCodeStructuredOutput } from "../openCodeTurn.js";
+  openCodeDetachedPrompt, openCodeStructuredOutput, readOpenCodeMessagesUntil } from "../openCodeTurn.js";
 import { createOpenCodeToolBridge } from "../openCodeTools.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
 import { createScopedConversationHandle } from "./scoped.js";
@@ -29,7 +29,11 @@ async function executeOpenCodeApplicationTool({ active, turn, target, sessionId,
   const observed = AbortSignal.any([signal, turn.abortController.signal]);
   await turn.admission?.promise;
   observed.throwIfAborted();
-  const messages = await target.server.client.messages(sessionId, { limit: 100 }, { signal: observed });
+  // Read back to an admitted input that precedes the native tool use.
+  const messages = await readOpenCodeMessagesUntil(target.server.client, sessionId, rows => {
+    const index = rows.findIndex(row => row.id === input.messageId);
+    return index >= 0 && rows.slice(0, index).some(row => active.messageIds.has(row.id));
+  }, { signal: observed });
   let message;
   let owner;
   for (const [nativeId, authored] of active.messageIds) {

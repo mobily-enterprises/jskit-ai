@@ -699,3 +699,23 @@ test("stopped native WAL inspection reads newest committed OpenCode rows without
   }), /Native storage changed during inspection/u);
   await assert.rejects(lstat(path.dirname(snapshot)), { code: "ENOENT" });
 });
+
+test("OpenCode message reads continue with older native pages through the before cursor", async () => {
+  const requests = [];
+  const client = createOpenCodeServerClient({ baseUrl: "http://127.0.0.1:4096", password: "private",
+    fetchImpl: async (url) => {
+      requests.push(new URL(url).search);
+      const older = new URL(url).searchParams.get("before");
+      return new Response(JSON.stringify([{ info: { id: older ? "msg_old" : "msg_new", role: "user" }, parts: [] }]), {
+        headers: older ? {} : { "x-next-cursor": "opaque+/=" }
+      });
+    }
+  }).forDirectory("/work/selected");
+  const newest = await client.messages("ses_paged", { limit: 1 });
+  assert.equal(newest.nextCursor, "opaque+/=");
+  assert.equal(newest.data[0].id, "msg_new");
+  const older = await client.messages("ses_paged", { limit: 1, before: newest.nextCursor });
+  assert.equal(older.data[0].id, "msg_old");
+  assert.equal("nextCursor" in older, false);
+  assert.deepEqual(requests, ["?limit=1", `?limit=1&before=${encodeURIComponent("opaque+/=")}`]);
+});

@@ -213,6 +213,10 @@ has a native ID. Stopping its idle main turn is a no-op; session closure still
 drains owned helpers and releases the process without interrupting peer sessions.
 An active turn with a missing native identity remains an error, never a
 successful Stop.
+OpenCode turn reads (completion, admission, application tool ownership) find
+their input through native history pages: `readOpenCodeMessagesUntil` follows
+the native older-page cursor until the input is seen, so a turn with more model
+steps than one page still completes and is not dispatched again.
 OpenCode applies an agent's last matching permission rule, so a guarded agent's
 `"*": "ask"` restates two denials: an agent without application tools is not
 offered the discovery tools, and no agent waits for the unanswerable

@@ -1011,6 +1011,7 @@ Exports
 - `inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, { signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS), wait = false, readFailure = () => null } = {})`
 - `steerOpenCodeTurn(client, conversationId, turn, input, { signal } = {})`
 - `dispatchOpenCodeTurn(turn, input, options = {})`
+- `readOpenCodeMessagesUntil(client, conversationId, found, { signal } = {})`
 - `openCodeMessageRows(value = null)`
 - `openCodePersistentConversationMessages(rows, conversationMessageId)`
 - `projectOpenCodeConversationMessages(messages, expectedId, { maximumOutput, outputSchema, previous, onMessage })`
@@ -1026,6 +1027,7 @@ Local functions
 - `record(value)`
 - `openCodeEventSummary(event = {})`
 - `consumeOpenCodeEvents(client, conversationId, { eventStartedAt = null, onEvent = null, onError = null, onReady = null, readError = openCodeMessageError, signal } = {})`
+- `hasMessage(id)`
 - `openCodeMessageResultForInput(value = null, inputMessageId = "", { readError = openCodeMessageError } = {})`
 - `latestOpenCodeMessageResult(value, readError)`
 

@@ -773,7 +773,7 @@ test("credential publication refuses another provider and unowned consumers befo
     await assert.rejects(runtime.invalidateRuntimes({ modelProviderId: "deepseek", publish() { published = true; } }, {
       release: { ownsTarget: target => !unowned || target !== peer,
         beforeRelease: async target => effects.push(target.key), onRemoved: async () => {}, failure: error => { throw error; } }
-    }), { code: "assistant_opencode_connection_in_use" });
+    }), { code: "assistant_opencode_connection_in_use", message: /^Close the other OpenCode conversations that use this connection, then retry/u });
     assert.equal(published, false);
     assert.deepEqual(effects, []);
     assert.deepEqual(stops, []);

@@ -591,12 +591,14 @@ function createOpenCodeServerClient({
       return statuses?.[text(sessionId)] || { type: "idle" };
     },
     async messages(sessionId = "", input = {}, { signal } = {}) {
-      const result = await request(
+      // A limited read is the newest page; `before` continues with older rows.
+      const { source, headers } = await requestResponse(
         "GET",
-        `${stableSessionPath(sessionId, "/message")}${queryString({ limit: input.limit })}`,
+        `${stableSessionPath(sessionId, "/message")}${queryString({ limit: input.limit, before: input.before })}`,
         { signal }
       );
-      return { data: normalizedMessageRows(result) };
+      const nextCursor = headers.get("x-next-cursor");
+      return { data: normalizedMessageRows(parsedJson(source)), ...(nextCursor ? { nextCursor } : {}) };
     },
     async prompt(sessionId = "", input = {}, { signal } = {}) {
       const body = stablePromptBody(input);

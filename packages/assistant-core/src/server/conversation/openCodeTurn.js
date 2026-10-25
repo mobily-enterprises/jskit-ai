@@ -139,12 +139,11 @@ export async function inspectOpenCodeMessageAdmission(client, conversationId, in
   do {
     if (wait) signal.throwIfAborted();
     try {
-      // Do not create a missing native session or submit another prompt. Absence
-      // from bounded history is uncertainty, not proof of non-admission.
+      // Do not create a missing native session or submit another prompt.
       const readSignal = wait
         ? AbortSignal.any([signal, AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS)])
         : signal;
-      const messages = await client.messages(conversationId, { limit: 100, order: "desc" }, { signal: readSignal });
+      const messages = await readOpenCodeMessagesUntil(client, conversationId, hasMessage(inputMessageId), { signal: readSignal });
       if (wait) signal.throwIfAborted();
       const accepted = openCodeMessageRows(messages).some((message) =>
         message.type === "user" && text(message.id) === inputMessageId);
@@ -203,6 +202,30 @@ export async function dispatchOpenCodeTurn(turn, input, options = {}) {
 }
 
 // Native automatic compaction and its continuation belong to the admitted turn.
+const OPENCODE_MESSAGE_PAGE_SIZE = 100;
+
+// Native history pages run newest first. A long tool-using turn can outgrow one
+// page, so continue with older pages until `found` sees the rows it needs (or
+// history ends). The result keeps the client's `{ data }` message shape.
+export async function readOpenCodeMessagesUntil(client, conversationId, found, { signal } = {}) {
+  let rows = [];
+  let before = "";
+  const cursors = new Set();
+  for (;;) {
+    const page = await client.messages(conversationId, {
+      limit: OPENCODE_MESSAGE_PAGE_SIZE, ...(before ? { before } : {})
+    }, { signal });
+    signal?.throwIfAborted();
+    rows = openCodeMessageRows([...openCodeMessageRows(page), ...rows]);
+    if (found(rows) || !page?.nextCursor) return { data: rows };
+    if (cursors.has(page.nextCursor)) throw new Error("OpenCode repeated a native history cursor.");
+    cursors.add(page.nextCursor);
+    before = page.nextCursor;
+  }
+}
+
+const hasMessage = id => rows => rows.some(message => text(message?.id) === text(id));
+
 export function openCodeMessageRows(value = null) {
   const rows = Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
   return rows
@@ -343,11 +366,8 @@ export async function waitForOpenCodeMessages(client, conversationId = "", input
   while (true) {
     signal?.throwIfAborted();
     const expectedInputMessageId = text(resolveInputMessageId());
-    const messages = await client.messages(conversationId, {
-      limit: 100,
-      order: "desc"
-    }, { signal });
-    signal?.throwIfAborted();
+    const messages = await readOpenCodeMessagesUntil(client, conversationId,
+      expectedInputMessageId ? hasMessage(expectedInputMessageId) : () => true, { signal });
     if (expectedInputMessageId !== text(resolveInputMessageId())) continue;
     if (typeof onMessages === "function") {
       await onMessages(messages, expectedInputMessageId);
@@ -517,10 +537,9 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
   }
   let existingMessages;
   if (requireFreshHistory) {
-    existingMessages = openCodeMessageRows(await client.messages(
-      conversationId,
-      { limit: 100, order: "desc" }
-    ));
+    existingMessages = openCodeMessageRows(await readOpenCodeMessagesUntil(client, conversationId, rows => rows.some(
+      message => message?.type === "user" && text(message.id) !== inputMessageId
+    )));
     const unrelatedUserMessage = existingMessages.find((message) => (
       message?.type === "user" && text(message.id) !== inputMessageId
     ));
@@ -535,10 +554,7 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
   // Hosts may build the approved prompt lazily, after the original identity and
   // freshness checks. The bounded turn keeps its separate receipt-history read.
   const { prompt, agent, model, timeoutMs = 180_000 } = input;
-  let messages = await client.messages(conversationId, {
-    limit: 100,
-    order: "desc"
-  });
+  let messages = await readOpenCodeMessagesUntil(client, conversationId, hasMessage(inputMessageId));
   let result = openCodeMessageResultForInput(messages, inputMessageId, { readError });
   let admitted = null;
   if (!result) {
@@ -568,10 +584,7 @@ export async function runOpenCodeConversationTurn(client, conversationId, input 
       if (!inputAccepted && admitted) {
         try {
           inputAccepted = Boolean(openCodeMessageResultForInput(
-            await client.messages(conversationId, {
-              limit: 100,
-              order: "desc"
-            }),
+            await readOpenCodeMessagesUntil(client, conversationId, hasMessage(inputMessageId)),
             inputMessageId, { readError }
           ));
         } catch {
