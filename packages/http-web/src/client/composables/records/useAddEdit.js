@@ -35,7 +35,7 @@ function useAddEdit({
   requestRecoveryLabel = "Resource",
   placementSource = "http-web.add-edit",
   fallbackLoadError = "Unable to load resource.",
-  fallbackSaveError = "Unable to save resource.",
+  fallbackSaveError = "",
   fieldErrorKeys = [],
   clearOnRouteChange = true,
   model,
@@ -85,13 +85,19 @@ function useAddEdit({
     realtime
   });
   const routeContext = operationScope.routeContext;
-  const effectiveMessages = {
+  const resolvedMessages = {
     ...resolveResourceMessages(resource, {
       validation: "Fix invalid values and try again.",
       saveSuccess: "Saved.",
       saveError: "Unable to save."
     }),
     ...(messages && typeof messages === "object" ? messages : {})
+  };
+  // One save-error string for the endpoint and its feedback: an explicit
+  // fallbackSaveError, otherwise the resolved resource/messages saveError.
+  const effectiveMessages = {
+    ...resolvedMessages,
+    saveError: String(fallbackSaveError || "").trim() || String(resolvedMessages.saveError || "").trim() || "Unable to save."
   };
 
   const canView = operationScope.permissionGate("view");
@@ -124,7 +130,7 @@ function useAddEdit({
     requestRecovery,
     requestRecoveryLabel,
     fallbackLoadError,
-    fallbackSaveError: String(fallbackSaveError || effectiveMessages.saveError || "Unable to save resource.")
+    fallbackSaveError: effectiveMessages.saveError
   });
 
   const feedback = useUiFeedback({

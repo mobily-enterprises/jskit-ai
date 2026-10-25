@@ -18,6 +18,70 @@ import {
 } from "../crud/crudSchemaFormHelpers.js";
 import { hasResolvedQueryData } from "../support/resourceLoadStateHelpers.js";
 
+// addEditOptions that pass unchanged to useAddEdit. client, transport, realtime,
+// fieldErrorKeys, model and onSaveSuccess are read here first. Resource, input,
+// payload building and model mapping have one home each: the top-level options.
+const PASSED_ADD_EDIT_OPTIONS = Object.freeze([
+  "ownershipFilter",
+  "surfaceId",
+  "access",
+  "apiSuffix",
+  "queryKeyFactory",
+  "viewPermissions",
+  "savePermissions",
+  "readMethod",
+  "readEnabled",
+  "writeMethod",
+  "requestRecovery",
+  "requestRecoveryLabel",
+  "placementSource",
+  "fallbackLoadError",
+  "fallbackSaveError",
+  "clearOnRouteChange",
+  "buildSavePayload",
+  "validationFeedback",
+  "requestQueryParams",
+  "recordIdParam",
+  "routeParams",
+  "routeRecordId",
+  "apiUrlTemplate",
+  "viewUrlTemplate",
+  "listUrlTemplate",
+  "saveRecordIdSelector",
+  "messages"
+]);
+const CONSUMED_ADD_EDIT_OPTIONS = Object.freeze([
+  "client",
+  "transport",
+  "realtime",
+  "fieldErrorKeys",
+  "model",
+  "onSaveSuccess"
+]);
+const TOP_LEVEL_ADD_EDIT_OPTIONS = Object.freeze({
+  resource: "resource",
+  input: "input",
+  buildRawPayload: "buildPayload",
+  mapLoadedToModel: "mapPayloadToModel"
+});
+
+function resolvePassedAddEditOptions(addEditOptions = {}) {
+  const passed = {};
+  for (const [key, value] of Object.entries(addEditOptions)) {
+    if (Object.hasOwn(TOP_LEVEL_ADD_EDIT_OPTIONS, key)) {
+      throw new TypeError(
+        `useCrudAddEdit takes ${TOP_LEVEL_ADD_EDIT_OPTIONS[key]} as a top-level option, not addEditOptions.${key}.`
+      );
+    }
+    if (PASSED_ADD_EDIT_OPTIONS.includes(key)) {
+      passed[key] = value;
+    } else if (!CONSUMED_ADD_EDIT_OPTIONS.includes(key)) {
+      throw new TypeError(`useCrudAddEdit does not support addEditOptions.${key}.`);
+    }
+  }
+  return passed;
+}
+
 function normalizeFieldErrorKeys(keys = []) {
   return Array.isArray(keys)
     ? keys.map((entry) => String(entry || "").trim()).filter(Boolean)
@@ -57,10 +121,10 @@ function useCrudAddEdit({
   const route = useRoute();
   const normalizedFields = normalizeCrudFormFields(formFields);
   const normalizedAddEditOptions = asPlainObject(addEditOptions);
-  const resolvedResource = normalizedAddEditOptions.resource || resource;
+  const passedAddEditOptions = resolvePassedAddEditOptions(normalizedAddEditOptions);
   const resolvedTransport = resolveCrudJsonApiTransport(
     normalizedAddEditOptions.transport,
-    resolvedResource,
+    resource,
     {
       mode: "add-edit",
       operationName
@@ -68,8 +132,8 @@ function useCrudAddEdit({
   );
   const resolvedRealtime = resolveOperationRealtimeOptions({
     realtime: normalizedAddEditOptions.realtime,
-    fallbackRealtime: resolvedResource?.operations?.[operationName]?.realtime ||
-      resolvedResource?.operations?.list?.realtime ||
+    fallbackRealtime: resource?.operations?.[operationName]?.realtime ||
+      resource?.operations?.list?.realtime ||
       null
   });
   const saveSuccessOptions = normalizeSaveSuccessOptions(saveSuccess);
@@ -108,18 +172,13 @@ function useCrudAddEdit({
       deep: true
     }
   );
-  const inputOverride = input || normalizedAddEditOptions.input || null;
-  const buildPayloadOverride = typeof buildPayload === "function"
-    ? buildPayload
-    : (typeof normalizedAddEditOptions.buildRawPayload === "function" ? normalizedAddEditOptions.buildRawPayload : null);
-  const mapPayloadToModelOverride = typeof mapPayloadToModel === "function"
-    ? mapPayloadToModel
-    : (typeof normalizedAddEditOptions.mapLoadedToModel === "function" ? normalizedAddEditOptions.mapLoadedToModel : null);
+  const buildPayloadOverride = typeof buildPayload === "function" ? buildPayload : null;
+  const mapPayloadToModelOverride = typeof mapPayloadToModel === "function" ? mapPayloadToModel : null;
   const onSaveSuccessOverride = typeof normalizedAddEditOptions.onSaveSuccess === "function"
     ? normalizedAddEditOptions.onSaveSuccess
     : null;
   const shouldApplyDefaultMapPayload = normalizedAddEditOptions.readEnabled !== false;
-  const resolvedInput = inputOverride || resolvedResource?.operations?.[operationName]?.body || null;
+  const resolvedInput = input || resource?.operations?.[operationName]?.body || null;
 
   function resolveBuildRawPayload(model = {}, context = {}) {
     const payload = buildPayloadOverride
@@ -176,18 +235,16 @@ function useCrudAddEdit({
       return;
     }
 
-    const listUrlTemplate = saveSuccessOptions.listUrlTemplate ||
-      String(normalizedAddEditOptions.listUrlTemplate || "").trim();
-    const listUrl = addEditRuntime?.resolveParams(listUrlTemplate);
+    const listUrl = addEditRuntime?.resolveParams(saveSuccessOptions.listUrlTemplate);
     if (listUrl) {
       await router.push(listUrl);
     }
   }
 
   const addEdit = useAddEdit({
-    ...normalizedAddEditOptions,
-    resource: resolvedResource,
-    client: resolveCrudHttpClient(resolvedResource, {
+    ...passedAddEditOptions,
+    resource,
+    client: resolveCrudHttpClient(resource, {
       client: normalizedAddEditOptions.client
     }),
     transport: resolvedTransport,

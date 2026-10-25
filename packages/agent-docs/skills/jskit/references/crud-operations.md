@@ -145,8 +145,8 @@ need cross-owner denial tests.
 the default behaviour invalidates `saveSuccess.invalidateQueryKey`, navigates
 to a configured record-view URL when one resolves, and otherwise falls back to
 the list URL. For a create-and-list app, use `navigateToView: false` and the
-configured `listUrlTemplate`, as in the public example above. The list URL may
-also come from `addEditOptions.listUrlTemplate`.
+configured `listUrlTemplate`, as in the public example above. Save navigation
+reads the list URL only from `saveSuccess.listUrlTemplate`.
 
 To keep the saved form open, set both `saveSuccess.navigateToView` and
 `saveSuccess.navigateToList` to `false`. `addEditOptions.onSaveSuccess` replaces

@@ -25,7 +25,7 @@ const hooks = registerHooks({
 const { default: CrudAddEditScreen } = await import(componentUrl);
 hooks.deregister();
 
-async function fixture(t, { actions, onSaveSuccess, request, ...options } = {}) {
+async function fixture(t, { actions, onSaveSuccess, request, screenResource = null, ...options } = {}) {
   const node = (type, text = "") => ({ type, text, props: {}, children: [], parent: null });
   const renderer = createRenderer({
     createElement: node,
@@ -71,6 +71,7 @@ async function fixture(t, { actions, onSaveSuccess, request, ...options } = {}) 
     setup() {
       screen = useCrudAddEditScreen({
         mode: "new",
+        resource: screenResource,
         saveLabel: "Save book",
         cancelTo: "/books/:bookId",
         preserveCancelQuery: true,
@@ -320,4 +321,32 @@ test("route cleanup resets validation attempts unless clearOnRouteChange is disa
       if (clearOnRouteChange) assert.deepEqual(screen.resolveFieldErrors("title"), []);
     });
   }
+});
+
+test("a save failure reports the resource's saveError from both the endpoint and the feedback", async (t) => {
+  const { screen, reports } = await fixture(t, {
+    screenResource: { messages: { saveError: "Could not save the book." } },
+    request() { throw Object.assign(new Error(""), { status: 500 }); }
+  });
+  Object.assign(screen.formState, { title: "Book", author: "Author" });
+  await screen.addEdit.submit();
+
+  assert.equal(screen.addEdit.resource.saveError.value, "Could not save the book.");
+  assert.equal(reports.length, 1);
+  assert.equal(reports[0].message, "Could not save the book.");
+});
+
+test("addEditOptions cannot become a second source for top-level form facts", async (t) => {
+  for (const [key, topLevel] of [
+    ["resource", "resource"],
+    ["input", "input"],
+    ["buildRawPayload", "buildPayload"],
+    ["mapLoadedToModel", "mapPayloadToModel"]
+  ]) {
+    await assert.rejects(
+      fixture(t, { [key]: key === "resource" || key === "input" ? {} : () => ({}) }),
+      new RegExp(`takes ${topLevel} as a top-level option, not addEditOptions\\.${key}`)
+    );
+  }
+  await assert.rejects(fixture(t, { listUrlTemplat: "/books" }), /does not support addEditOptions\.listUrlTemplat/);
 });

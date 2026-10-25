@@ -76,9 +76,19 @@ id (or a distinct new-record marker) so form cache entries stay separate.
 The New/Edit examples supply it; list/view screen wrappers derive their
 standard keys from `resourceNamespace`.
 
+Each form fact has one input. `resource`, `input`, `buildPayload`,
+`mapPayloadToModel` and `createModel` are top-level `useCrudAddEditScreen()`
+options; `addEditOptions` carries only request and route options for
+`useAddEdit()` (such as `apiSuffix`, `queryKeyFactory`, `readEnabled`,
+`writeMethod`, URL templates, permissions, `client`, `transport` and
+`onSaveSuccess`) and rejects anything else. The save-error message is
+`addEditOptions.fallbackSaveError` when given, otherwise the resource's
+`messages.saveError`; the request error and its toast use the same string.
+
 Save navigation is configured in the top-level `saveSuccess` object. The default
 prefers a configured record-view URL, then the list. A create-and-list variation
-sets `navigateToView: false` and `listUrlTemplate` to its list route. Set both
+sets `navigateToView: false` and `saveSuccess.listUrlTemplate` to its list
+route; `addEditOptions.listUrlTemplate` does not drive save navigation. Set both
 `navigateToView` and `navigateToList` to `false` to stay on the form. A custom
 `addEditOptions.onSaveSuccess` replaces default invalidation and navigation;
 it is unnecessary for ordinary list navigation. The generic CRUD guide explains
