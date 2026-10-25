@@ -22,6 +22,11 @@ Exports
 Exports
 - None
 Local functions
+- `environmentPrefix(id)`
+- `accountModeForGrant(grant, settings, accountMode)`
+- `settingValue(field)`
+- `settingHint(field)`
+- `settingErrors(field)`
 - `editAssistantPolicy(changes)`
 - `editIntegration(changes)`
 - `editSetting(field, value)`

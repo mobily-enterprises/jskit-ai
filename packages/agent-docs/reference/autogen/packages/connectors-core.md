@@ -19,6 +19,8 @@ Exports
 - `createConnectionService({ configuration, providers, resolveReference, store, authorize, executionMode = "application", fetchImpl = globalThis.fetch, now = Date.now })`
 Local functions
 - `publicConnection(connection)`
+- `requireOperationScope(operation, scopes, message)`
+- `operationRequest(operation, input, settings, providerData)`
 - `validateCallbackUrl(value)`
 - `connectionMatches(connection, integration, providerId, registration)`
 - `callbackMatches(connection, provider, registration)`

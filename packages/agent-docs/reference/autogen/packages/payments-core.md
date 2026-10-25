@@ -18,7 +18,6 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `createPaymentCatalogue({ store, adapter, scope, configuration })`
 Local functions
-- `fingerprint(value)`
 - `priceFields(plan)`
 - `samePrice(a, b)`
 
@@ -26,11 +25,15 @@ Local functions
 Exports
 - `createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize })`
 
+### `src/server/errors.js`
+Exports
+- `PaymentError`
+- `fingerprint(value)`
+
 ### `src/server/knexStore.js`
 Exports
 - `createKnexPaymentStore({ knex })`
 Local functions
-- `hash(value)`
 - `empty()`
 - `merchant(scope)`
 - `identifier(value)`
@@ -59,7 +62,6 @@ Local functions
 - `reference(value)`
 - `units(value)`
 - `timestamp(value)`
-- `fingerprint(value)`
 - `unexpired(lot, now)`
 - `available(lots, now)`
 - `once(tx, key, input, work)`
@@ -75,6 +77,8 @@ Local functions
 ### `src/shared/configuration.js`
 Exports
 - `validatePaymentConfiguration(document)`
+Local functions
+- `configurationError(message, fieldErrors)`
 
 ### migrations
 
