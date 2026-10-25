@@ -235,3 +235,14 @@ for (const phase of ["headers", "body"]) {
     });
   });
 }
+
+test("createTransientRetryHttpClient exposes no request path that bypasses transient retry", async () => {
+  const client = createTransientRetryHttpClient({ fetchImpl: async () => mockResponse() });
+
+  assert.deepEqual(Object.keys(client).sort(), [
+    "clearCsrfTokenCache",
+    "ensureCsrfToken",
+    "request",
+    "requestStream"
+  ]);
+});

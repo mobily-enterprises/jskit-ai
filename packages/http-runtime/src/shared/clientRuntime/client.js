@@ -762,67 +762,11 @@ function createHttpClient(options = {}) {
     csrfTokenCache = "";
   }
 
-  function resetForTests() {
-    csrfTokenCache = "";
-    csrfFetchPromise = null;
-  }
-
-  function get(url, requestOptions = {}) {
-    return request(url, {
-      ...requestOptions,
-      method: "GET"
-    });
-  }
-
-  function post(url, body, requestOptions = {}) {
-    return request(url, {
-      ...requestOptions,
-      method: "POST",
-      body
-    });
-  }
-
-  function put(url, body, requestOptions = {}) {
-    return request(url, {
-      ...requestOptions,
-      method: "PUT",
-      body
-    });
-  }
-
-  function patch(url, body, requestOptions = {}) {
-    return request(url, {
-      ...requestOptions,
-      method: "PATCH",
-      body
-    });
-  }
-
-  function del(url, requestOptions = {}) {
-    return request(url, {
-      ...requestOptions,
-      method: "DELETE"
-    });
-  }
-
   return {
     request,
     requestStream,
     ensureCsrfToken,
-    clearCsrfTokenCache,
-    resetForTests,
-    get,
-    post,
-    put,
-    patch,
-    delete: del,
-    __testables: {
-      fetchSessionForCsrf,
-      updateCsrfTokenFromPayload,
-      createHttpError,
-      createNetworkError,
-      readNdjsonStream
-    }
+    clearCsrfTokenCache
   };
 }
 
