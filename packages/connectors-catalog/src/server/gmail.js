@@ -1,8 +1,6 @@
-import { createSchema } from "json-rest-schema";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { gmailDefinition } from "../shared/google.js";
-import { googleRead, googleProvider, documentId, pageToken } from "./google.js";
+import { googleOperation, googleRead, googleProvider, documentId, pageToken } from "./google.js";
 const origin = "https://gmail.googleapis.com";
 const read = ["gmail.readonly", "gmail.modify", "gmail.metadata", "https://mail.google.com/"];
 const contentScopes = ["gmail.readonly", "gmail.modify", "https://mail.google.com/"];
@@ -16,13 +14,10 @@ const rawField = { type: "string", required: true, minLength: 4, maxLength: 1400
 const labelIds = { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, validator: value => value.length <= 100 || "Supply no more than 100 labels." };
 const listFields = { pageToken, maxResults: { type: "integer", min: 1, max: 500, defaultTo: 100 }, labelIds, includeSpamTrash: { type: "boolean", defaultTo: false } };
 function gmailWrite(scopes, fields, destination, validateResult, method = "POST") {
-  const schema = createSchema(fields);
-  return { scopes: scopes.map(value => value.startsWith("https:") ? value : `https://www.googleapis.com/auth/${value}`), validateResult,
-    request(input) {
-      const values = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      const { path, body } = destination(values);
-      return { method, url: `${origin}/gmail/v1/users/me${path}`, ...(body ? { body } : {}) };
-    } };
+  return googleOperation(scopes, fields, values => {
+    const { path, body } = destination(values);
+    return { method, url: `${origin}/gmail/v1/users/me${path}`, ...(body ? { body } : {}) };
+  }, validateResult);
 }
 const gmailProvider = Object.freeze({ ...googleProvider(gmailDefinition, origin, "profile.read", {
   "messages.read": googleRead(contentScopes, { id: documentId, format: { type: "string", enum: ["full", "raw"], defaultTo: "full" } }, ({ id, format }) => ({ url: `${origin}/gmail/v1/users/me/messages/${encodeURIComponent(id)}`, query: { format } }), messageResult),

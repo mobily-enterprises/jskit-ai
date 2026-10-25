@@ -1,7 +1,6 @@
 import { createSchema } from "json-rest-schema";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { lexwareDefinition } from "../shared/tokens.js";
-import { jsonOperation } from "./jsonOperation.js";
+import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 
 const id = { type: "string", required: true, validator: value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(value) || "Use a Lexware resource UUID." };
 const text = { type: "string", minLength: 1, maxLength: 1000 };
@@ -10,10 +9,6 @@ const paging = { page: { type: "integer", min: 0, max: 100000, defaultTo: 0 }, s
 const pageResult = result => Array.isArray(result?.content) && typeof result.first === "boolean" && typeof result.last === "boolean" &&
   ["totalPages", "totalElements", "numberOfElements", "number"].every(field => Number.isInteger(result[field]) && result[field] >= 0) && Number.isInteger(result.size) && result.size > 0;
 const resourceResult = result => typeof result?.id === "string";
-function operation(fields, build, validateResult = resourceResult) {
-  const schema = createSchema(fields);
-  return { scopes: [], request(input) { return build(validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 })); }, validateResult };
-}
 const line = createSchema({
   name: { ...text, required: true }, description: { ...text, maxLength: 5000 },
   quantity: { type: "number", required: true, min: 0.000001, max: 1000000 },
@@ -31,7 +26,7 @@ const lexwareProvider = Object.freeze({
       ...paging, customer: { type: "boolean" }, vendor: { type: "boolean" }
     }, pageResult),
     ...Object.fromEntries(["contacts", "articles", "invoices", "vouchers"].map(resource => [
-      `${resource}.get`, operation({ id }, ({ id }) => ({ method: "GET", url: `https://api.lexware.io/v1/${resource}/${id}` }))
+      `${resource}.get`, validatedOperation({ id }, ({ id }) => ({ method: "GET", url: `https://api.lexware.io/v1/${resource}/${id}` }), resourceResult)
     ])),
     "articles.list": jsonOperation("https://api.lexware.io/v1/articles", {
       ...paging, articleNumber: text, gtin: text, type: { type: "string", enum: ["PRODUCT", "SERVICE"] }
@@ -42,7 +37,7 @@ const lexwareProvider = Object.freeze({
       voucherStatus: { type: "string", required: true, enum: ["any", "draft", "open", "overdue", "paid", "paidoff", "voided", "transferred", "sepadebit", "unchecked"] },
       contactId: { ...id, required: false }, archived: { type: "boolean" }
     }, pageResult),
-    "invoices.createDraft": operation({
+    "invoices.createDraft": validatedOperation({
       contactId: id, voucherDate: date, shippingDate: date,
       shippingType: { type: "string", required: true, enum: ["service", "delivery"] },
       lineItems: { type: "array", required: true, validator: value => value.length > 0 && value.length <= 100 || "Use 1–100 invoice lines.",
@@ -53,7 +48,7 @@ const lexwareProvider = Object.freeze({
       body: { ...other, voucherDate, address: { contactId },
         lineItems: lineItems.map(({ netAmount, taxRatePercentage, ...item }) => ({ ...item, type: "custom", unitPrice: { currency: "EUR", netAmount, taxRatePercentage } })),
         totalPrice: { currency: "EUR" }, taxConditions: { taxType: "net" }, shippingConditions: { shippingDate, shippingType } }
-    }))
+    }), resourceResult)
   }
 });
 export { lexwareProvider };

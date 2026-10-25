@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { resendDefinition } from "../shared/definitions.js";
+import { validatedOperation, withQuery } from "./jsonOperation.js";
 
 const pagination = createSchema({
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
@@ -32,17 +33,12 @@ const membershipResult = (result) => result?.object === "contact_segment" && typ
 const listResult = (result) => result?.object === "list" && Array.isArray(result.data);
 // Fixed provider routes; the application authorizes each named operation before HTTP.
 function marketingOperation(fields, method, destination, validateResult = hasId, draft = false) {
-  const schema = createSchema(fields);
-  return { scopes: [], request(input) {
-    const values = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
+  return validatedOperation(fields, values => {
     const { id, segmentId, ...body } = values;
-    const url = new URL(`https://api.resend.com/${destination(values)}`);
-    if (method === "GET") {
-      for (const [key, value] of Object.entries(body)) url.searchParams.set(key, String(value));
-      return { method, url: url.href };
-    }
-    return { method, url: url.href, ...(method === "DELETE" ? {} : { body: draft ? { ...body, send: false } : body }) };
-  }, validateResult };
+    const url = `https://api.resend.com/${destination(values)}`;
+    if (method === "GET") return { method, url: withQuery(url, body) };
+    return { method, url: new URL(url).href, ...(method === "DELETE" ? {} : { body: draft ? { ...body, send: false } : body }) };
+  }, validateResult);
 }
 
 const resendProvider = Object.freeze({
@@ -82,9 +78,7 @@ const resendProvider = Object.freeze({
       scopes: [],
       request(input) {
         const query = validateSchemaPayload({ schema: pagination, mode: "replace" }, input, { statusCode: 422 });
-        const url = new URL("https://api.resend.com/domains");
-        for (const [name, value] of Object.entries(query)) url.searchParams.set(name, String(value));
-        return { method: "GET", url: url.href };
+        return { method: "GET", url: withQuery("https://api.resend.com/domains", query) };
       },
       validateResult: (result) => result?.object === "list" && Array.isArray(result.data) && typeof result.has_more === "boolean"
     }

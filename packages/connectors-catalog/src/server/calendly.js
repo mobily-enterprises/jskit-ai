@@ -1,8 +1,7 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { calendlyDefinition } from "../shared/tokens.js";
-import { jsonOperation } from "./jsonOperation.js";
+import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" };
 const text = { type: "string", minLength: 1, maxLength: 1000 };
@@ -14,13 +13,12 @@ const record = result => typeof result?.resource?.uri === "string";
 const collection = result => Array.isArray(result?.collection) && Number.isInteger(result?.pagination?.count);
 function uri(kind) { return { type: "string", maxLength: 2048, pattern: `^https://api\\.calendly\\.com/${kind}/[A-Za-z0-9_-]+$` }; }
 function operation(method, endpoint, fields, scope, validateResult, prepare = value => value) {
-  const schema = createSchema(fields);
-  return { scopes: [scope], request(input) {
-    const { uuid, invitee_uuid, ...values } = prepare(validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 }));
-    const url = new URL(`https://api.calendly.com/${endpoint.replace("{uuid}", uuid || "").replace("{invitee_uuid}", invitee_uuid || "")}`);
-    if (method === "GET") { for (const [key, value] of Object.entries(values)) url.searchParams.set(key, String(value)); return { method, url: url.href }; }
-    return { method, url: url.href, ...(method === "POST" ? { body: values } : {}) };
-  }, validateResult };
+  return validatedOperation(fields, input => {
+    const { uuid, invitee_uuid, ...values } = prepare(input);
+    const url = `https://api.calendly.com/${endpoint.replace("{uuid}", uuid || "").replace("{invitee_uuid}", invitee_uuid || "")}`;
+    if (method === "GET") return { method, url: withQuery(url, values) };
+    return { method, url: new URL(url).href, ...(method === "POST" ? { body: values } : {}) };
+  }, validateResult, [scope]);
 }
 const calendlyProvider = Object.freeze({
   ...calendlyDefinition, apiOrigins: ["https://api.calendly.com"],

@@ -1,8 +1,7 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { attentionDefinition } from "../shared/tokens.js";
-import { jsonOperation } from "./jsonOperation.js";
+import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
 
 const text = { type: "string", minLength: 1, maxLength: 2000 };
 const id = { type: "string", minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" };
@@ -15,16 +14,14 @@ const list = result => Array.isArray(result?.data);
 const record = result => result?.data !== null && typeof result?.data === "object" && !Array.isArray(result.data) && typeof (result.data.uuid ?? result.data.id) === "string";
 const conversation = result => result?.type === "conversations" && typeof result.id === "string" && result.attributes !== null && typeof result.attributes === "object" && !Array.isArray(result.attributes);
 function operation(method, endpoint, fields, validateResult, prepare = value => value) {
-  const schema = createSchema(fields);
-  return { scopes: [], request(input) {
-    const values = prepare(validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 }));
-    const { id: resource, ...body } = values;
-    const url = new URL(`https://api.attention.tech/v2/${endpoint.replace("{id}", resource || "")}`);
-    if (method === "GET") { for (const [key, value] of Object.entries(body)) url.searchParams.set(key, String(value)); return { method, url: url.href }; }
-    if (method === "DELETE") return { method, url: url.href };
+  return validatedOperation(fields, values => {
+    const { id: resource, ...body } = prepare(values);
+    const url = `https://api.attention.tech/v2/${endpoint.replace("{id}", resource || "")}`;
+    if (method === "GET") return { method, url: withQuery(url, body) };
+    if (method === "DELETE") return { method, url: new URL(url).href };
     if (!Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
-    return { method, url: url.href, body };
-  }, validateResult };
+    return { method, url: new URL(url).href, body };
+  }, validateResult);
 }
 const team = { type: "object", schema: createSchema({ uuid: requiredId, primary: bool }) };
 const attentionProvider = Object.freeze({

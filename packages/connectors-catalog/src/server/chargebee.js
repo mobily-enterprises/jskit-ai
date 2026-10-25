@@ -1,8 +1,7 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { chargebeeDefinition } from "../shared/chargebee.js";
-import { jsonOperation } from "./jsonOperation.js";
+import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 
 const origin = ({ siteName }) => `https://${siteName.toLowerCase()}.chargebee.com`;
 const text = { type: "string", minLength: 1, maxLength: 250 };
@@ -20,9 +19,7 @@ const record = key => result => typeof result?.[key]?.id === "string" && result[
 const collection = key => result => Array.isArray(result?.list) && result.list.every(entry => record(key)(entry)) &&
   (result.next_offset === undefined || typeof result.next_offset === "string");
 function operation(method, endpoint, fields, validateResult, defaults = {}) {
-  const schema = createSchema({ ...fields, ...(method === "POST" ? { idempotencyKey: { ...resource } } : {}) });
-  return { scopes: [], request(input, settings) {
-    const { resource: id, idempotencyKey, ...values } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
+  return validatedOperation({ ...fields, ...(method === "POST" ? { idempotencyKey: { ...resource } } : {}) }, ({ resource: id, idempotencyKey, ...values }, settings) => {
     const body = new URLSearchParams();
     for (const [key, value] of Object.entries({ ...values, ...defaults })) {
       if (Array.isArray(value)) value.forEach((entry, index) => { for (const [field, child] of Object.entries(entry)) body.set(`${key}[${field}][${index}]`, String(child)); });
@@ -32,7 +29,7 @@ function operation(method, endpoint, fields, validateResult, defaults = {}) {
     const url = new URL(`${origin(settings)}/api/v2/${endpoint.replace("{resource}", id || "")}`);
     if (method === "GET") { url.search = body.toString(); return { method, url: url.href }; }
     return { method, url: url.href, body: body.toString(), headers: { "Content-Type": "application/x-www-form-urlencoded", "chargebee-idempotency-key": idempotencyKey } };
-  }, validateResult };
+  }, validateResult);
 }
 const chargebeeProvider = Object.freeze({
   ...chargebeeDefinition,

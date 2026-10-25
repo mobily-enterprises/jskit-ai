@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { jsonOperation } from "./jsonOperation.js";
+import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 import { bigqueryDefinition } from "../shared/google.js";
 import { googleRead, googleProvider, pageToken } from "./google.js";
 const origin = "https://bigquery.googleapis.com";
@@ -46,16 +46,12 @@ const validPage = (result, field, reference) => Boolean(result && typeof result 
   (result.nextPageToken === undefined || typeof result.nextPageToken === "string"));
 
 function projectOperation(fields, destination, validateResult, scopes = metadataScopes, method = "GET") {
-  const schema = createSchema(fields);
-  return { scopes, validateResult,
-    request(input, settings) {
-      const values = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      const { path, query = {} } = destination(values);
-      const url = new URL(`${origin}/bigquery/v2/projects/${encodeURIComponent(settings.projectId)}${path}`);
-      for (const [name, value] of Object.entries(query)) if (value !== undefined) url.searchParams.set(name, String(value));
-      return { method, url: url.href };
-    }
-  };
+  return validatedOperation(fields, (values, settings) => {
+    const { path, query = {} } = destination(values);
+    const url = new URL(`${origin}/bigquery/v2/projects/${encodeURIComponent(settings.projectId)}${path}`);
+    for (const [name, value] of Object.entries(query)) if (value !== undefined) url.searchParams.set(name, String(value));
+    return { method, url: url.href };
+  }, validateResult, scopes);
 }
 const bigqueryProvider = googleProvider(bigqueryDefinition, origin, "projects.list", {
   "datasets.list": projectOperation(metadataPage, (query) => ({ path: "/datasets", query }),

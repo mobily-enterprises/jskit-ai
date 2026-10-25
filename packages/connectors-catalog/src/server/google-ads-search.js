@@ -3,6 +3,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { validateGoogleAdsSearchPlan } from "../shared/google-ads-search.js";
+import { validatedOperation } from "./jsonOperation.js";
 
 const api = "https://googleads.googleapis.com/v25";
 const scope = "https://www.googleapis.com/auth/adwords";
@@ -11,11 +12,9 @@ const id = { type: "string", required: true, validator: value => /^[0-9]{1,20}$/
 const error = message => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422 }); };
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 function requestOperation(fields, build, validateResult) {
-  const schema = createSchema(fields);
-  return { scopes: [scope], request(input, settings) {
-    const values = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-    return { method: "POST", ...build(values), headers: settings.loginCustomerId ? { "login-customer-id": settings.loginCustomerId } : {} };
-  }, validateResult };
+  return validatedOperation(fields, (values, settings) => (
+    { method: "POST", ...build(values), headers: settings.loginCustomerId ? { "login-customer-id": settings.loginCustomerId } : {} }
+  ), validateResult, [scope]);
 }
 const mutated = result => result && typeof result === "object" && !Array.isArray(result) && !result.partialFailureError &&
   (result.results === undefined || Array.isArray(result.results)) && (result.mutateOperationResponses === undefined || Array.isArray(result.mutateOperationResponses));

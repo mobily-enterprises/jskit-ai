@@ -1,5 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { validatedOperation } from "./jsonOperation.js";
 
 const oauth = Object.freeze({
   issuer: "https://accounts.google.com",
@@ -11,14 +12,7 @@ const documentId = { type: "string", required: true, minLength: 1, maxLength: 10
 const pageToken = { type: "string", minLength: 1, maxLength: 4096 };
 
 function googleOperation(scopes, fields, request, validateResult) {
-  const schema = createSchema(fields);
-  return {
-    scopes: scopes.map(scope => `https://www.googleapis.com/auth/${scope}`),
-    validateResult,
-    request(input) {
-      return request(validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 }));
-    }
-  };
+  return validatedOperation(fields, request, validateResult, scopes.map(googleScope));
 }
 
 function googleRead(scopes, fields, destination, validateResult) {
@@ -58,4 +52,4 @@ function googleFileVerification(get, field) {
     validateResult: value => get.validateResult(value) || Array.isArray(value?.files)
   };
 }
-export { googleOperation, googleRead, googleProvider, googleFileVerification, documentId, pageToken };
+export { googleScope, googleOperation, googleRead, googleProvider, googleFileVerification, documentId, pageToken };

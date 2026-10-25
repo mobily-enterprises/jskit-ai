@@ -1,8 +1,7 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { brevoDefinition } from "../shared/tokens.js";
-import { jsonOperation } from "./jsonOperation.js";
+import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
 
 const text = { type: "string", minLength: 1, maxLength: 1000 };
 const email = { ...text, maxLength: 320, pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" };
@@ -17,14 +16,12 @@ const domain = { type: "string", minLength: 3, maxLength: 253, pattern: "^(?:[A-
 const empty = result => result === null || result !== null && typeof result === "object" && !Array.isArray(result) && Object.keys(result).length === 0;
 const record = result => Number.isInteger(result?.id);
 function operation(method, endpoint, fields, validateResult, prepare = value => value) {
-  const schema = createSchema(fields);
-  return { scopes: [], request(input) {
-    const values = prepare(validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 }));
-    const { resource, ...body } = values;
-    const url = new URL(`https://api.brevo.com/v3/${endpoint.replace("{resource}", encodeURIComponent(resource ?? ""))}`);
-    if (method === "GET") { for (const [key, value] of Object.entries(body)) url.searchParams.set(key, String(value)); return { method, url: url.href }; }
-    return { method, url: url.href, ...(Object.keys(body).length ? { body } : {}) };
-  }, validateResult };
+  return validatedOperation(fields, values => {
+    const { resource, ...body } = prepare(values);
+    const url = `https://api.brevo.com/v3/${endpoint.replace("{resource}", encodeURIComponent(resource ?? ""))}`;
+    if (method === "GET") return { method, url: withQuery(url, body) };
+    return { method, url: new URL(url).href, ...(Object.keys(body).length ? { body } : {}) };
+  }, validateResult);
 }
 function changed(value) {
   if (Object.keys(value).every(key => key === "resource")) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
