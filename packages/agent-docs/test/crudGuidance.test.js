@@ -10,7 +10,7 @@ test("distributed agent docs publish the current guide, patterns, references, an
   const packageJson = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
   const agentGuide = await readFile(path.join(packageRoot, "guide/agent/index.md"), "utf8");
 
-  assert.deepEqual(packageJson.files, ["guide", "patterns", "reference", "skills", "templates"]);
+  assert.deepEqual(packageJson.files, ["guide", "patterns", "reference", "skills"]);
   assert.match(agentGuide, /^# Guide$/m);
   assert.match(agentGuide, /^## Start here$/m);
 });

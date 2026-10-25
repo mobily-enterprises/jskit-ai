@@ -209,3 +209,25 @@ test("shell foundation demonstrates skeleton loading and public adaptive-shell v
   assert.match(adaptiveTestSource, /runAdaptiveShellSmokeCase/u);
   assert.doesNotMatch(adaptiveTestSource, /scrim|coordinates/u);
 });
+
+test("foundation agent instructions point to public framework docs without requiring agent-docs", async () => {
+  const [minimalAgents, shellAgents] = await Promise.all(FOUNDATION_NAMES.map((patternName) =>
+    readFile(path.join(PATTERNS_ROOT, patternName, "example", "AGENTS.md"), "utf8")
+  ));
+
+  assert.equal(shellAgents, minimalAgents);
+  assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\//u);
+  assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/patterns\//u);
+  assert.match(
+    minimalAgents,
+    /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/ui-operations#browser-verification/u
+  );
+  assert.match(minimalAgents, /prefer that version-matched package-owned copy/u);
+  assert.match(minimalAgents, /Do not install an unrelated runtime package only to read documentation/u);
+  assert.match(minimalAgents, /Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`/u);
+  assert.match(minimalAgents, /Keep verification output small/u);
+  assert.match(minimalAgents, /Do not add generator\s+provenance, receipts/u);
+  assert.doesNotMatch(minimalAgents, /node_modules\/@jskit-ai\/agent-docs|patterns\/ui-testing\.md|in\s+this package/u);
+  assert.doesNotMatch(minimalAgents, /local app scaffold|crud-scaffolding\.md|workflow\/app-state\.md/u);
+  assert.doesNotMatch(minimalAgents, /workflow\/feature-delivery\.md|Mandatory Start Gate|Mandatory Done Gate/u);
+});

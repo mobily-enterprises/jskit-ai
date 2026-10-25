@@ -72,7 +72,6 @@ relied on at the same time, and check every other user of the same resource.
 - Authored agent documentation under these paths is edited directly:
   - `packages/agent-docs/heuristics/`
   - `packages/agent-docs/patterns/`
-  - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
   - `packages/agent-docs/skills/jskit/SKILL.md`
   - `packages/agent-docs/skills/jskit/agents/`
