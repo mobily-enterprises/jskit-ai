@@ -408,7 +408,8 @@ export function createCodexAppServerRunOwner({
     interruptFailedCode,
     namespace,
     providerSessions,
-    steerFailedCode
+    steerFailedCode,
+    turnOutcomes
   });
   const {
     codexAppServerConversations,

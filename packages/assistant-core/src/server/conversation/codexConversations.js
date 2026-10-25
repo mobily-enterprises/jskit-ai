@@ -19,7 +19,8 @@ export function createCodexConversationCommands({
   interruptFailedCode,
   namespace,
   providerSessions,
-  steerFailedCode
+  steerFailedCode,
+  turnOutcomes
 }) {
   const codexAppServerConversations = new Map();
   const codexAppServerConversationTurnStarts = new Map();
@@ -68,7 +69,7 @@ export function createCodexConversationCommands({
     let state = conversations.get(conversationId);
     if (state?.provider === provider && state.unsubscribe) return state;
     state?.unsubscribe?.();
-    state = { conversationId, provider, persistent: true, status: "ready", runId: "", error: "" };
+    state = { conversationId, provider, persistent: true, status: "ready", runId: "", error: "", turnOutcome: "" };
     state.unsubscribe = provider.subscribe((notification) => {
       if (codexAppServerNotificationThreadId(notification) !== conversationId) return;
       const turnId = codexAppServerNotificationTurnId(notification);
@@ -91,11 +92,15 @@ export function createCodexConversationCommands({
         state.onEvent = null;
         const completedTurnId = state.runId;
         const completedStatus = state.status;
+        // A turn the person stopped reaches the checkpoint as cancelled, as Main turns do.
+        const completedOutcome = state.turnOutcome;
+        state.turnOutcome = "";
         void checkpoint(sessionId, {
           outerTurnId: codexAppServerNativeOuterTurnId(conversationId, completedTurnId),
           threadId: conversationId,
           turnId: completedTurnId,
-          status: completedStatus
+          status: completedStatus,
+          turnOutcome: completedOutcome
         }).catch(() => {});
       }
     });
@@ -511,7 +516,9 @@ export function createCodexConversationCommands({
     });
   }
 
-  async function stopCodexAppServerConversation(sessionId, input = {}, options = {}) {
+  async function stopCodexAppServerConversation(sessionId, input = {}, options = {}, {
+    turnOutcome = turnOutcomes.USER_CANCELLED
+  } = {}) {
     const conversationId = normalizeCodexRunText(input.conversationId);
     const conversationState = codexAppServerConversation(sessionId, conversationId);
     if (conversationState?.provider.observationFailure) {
@@ -536,7 +543,8 @@ export function createCodexConversationCommands({
       return stopPersistentCodexConversation({
         conversationId,
         conversationState,
-        provider: context.provider
+        provider: context.provider,
+        turnOutcome
       });
     }
     const result = await interruptDetachedCodexAppServerConversationTurn(sessionId, {
@@ -600,7 +608,9 @@ export function createCodexConversationCommands({
     const key = namespace(sessionId);
     for (const state of codexAppServerConversations.get(key)?.values() || []) {
       if (state.persistent) {
-        await stopCodexAppServerConversation(sessionId, { conversationId: state.conversationId, persistent: true });
+        // Closing is not the person stopping the turn; its status alone decides the outcome.
+        await stopCodexAppServerConversation(sessionId, { conversationId: state.conversationId, persistent: true },
+          {}, { turnOutcome: "" });
         state.unsubscribe?.();
       } else {
         await deleteScopedCodexAppServerConversation(sessionId, { conversationId: state.conversationId }).catch(() => null);
@@ -910,7 +920,7 @@ export function createCodexConversationCommands({
       conversationState.watcher = watcher;
     }
     let delivery = null;
-    if (input.persistent && conversationState) conversationState.onEvent = onEvent;
+    if (input.persistent && conversationState) Object.assign(conversationState, { onEvent, turnOutcome: "" });
     try {
       await input.onPromptSending?.({ threadId: conversationId });
       if (executionProfile) {
@@ -1078,13 +1088,21 @@ export function createCodexConversationCommands({
   async function stopPersistentCodexConversation({
     conversationId,
     conversationState,
-    provider
+    provider,
+    turnOutcome = ""
   } = {}) {
+    // Set before stopping: the provider can report turn/completed while it stops.
+    if (conversationState && codexAppServerConversationTurnIsActive(conversationState.status)) {
+      conversationState.turnOutcome = turnOutcome;
+    }
     try {
       await provider.readThreadStatus(conversationId);
       await provider.stopThreadForObservationLoss(conversationId, "");
     } catch (error) {
-      if (!codexAppServerThreadIsMissing(error, conversationId) || error.message.toLowerCase().startsWith("thread not loaded:")) throw error;
+      if (!codexAppServerThreadIsMissing(error, conversationId) || error.message.toLowerCase().startsWith("thread not loaded:")) {
+        if (conversationState) conversationState.turnOutcome = "";
+        throw error;
+      }
     }
     if (conversationState) {
       conversationState.status = "interrupted";
