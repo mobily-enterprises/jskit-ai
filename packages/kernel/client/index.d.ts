@@ -6,59 +6,9 @@ export type ClientLogger = {
   isDebugEnabled?: boolean;
 };
 
-export type AsyncModuleRecoveryState = {
-  attempt: number;
-  error: any;
-  label: string;
-  message: string;
-  retry: (() => any) | null;
-  stale: boolean;
-  visible: boolean;
-};
+export * from "./asyncModuleRecovery";
 
-export function createAsyncModuleRecoveryState(options?: {
-  label?: string;
-  message?: string;
-  retry?: (() => any) | null;
-}): AsyncModuleRecoveryState;
-
-export function isDynamicImportError(error?: any): boolean;
-
-export function dynamicImportErrorMessage(error?: any, options?: {
-  label?: string;
-  stale?: boolean;
-}): string;
-
-export function notifyAsyncModuleLoadError(
-  state: AsyncModuleRecoveryState,
-  error?: any,
-  options?: {
-    label?: string;
-    message?: string;
-    retry?: (() => any) | null;
-    stale?: boolean;
-  }
-): AsyncModuleRecoveryState;
-
-export function dismissAsyncModuleRecovery(state: AsyncModuleRecoveryState): boolean;
-
-export function guardedReloadApp(options?: {
-  browserWindow?: any;
-  fetchFn?: ((input: string, init?: Record<string, any>) => Promise<any>) | null;
-  state?: AsyncModuleRecoveryState | null;
-  label?: string;
-  message?: string;
-}): Promise<boolean>;
-
-export function installAsyncModuleRecoveryHandlers(options?: {
-  router?: any;
-  state: AsyncModuleRecoveryState;
-  label?: string;
-  onNotify?: (state: AsyncModuleRecoveryState) => void;
-  windowObject?: any;
-}): Readonly<{
-  dispose: () => void;
-}>;
+export const DEFAULT_GUARD_EVALUATOR_KEY: "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 
 export function getClientAppConfig(): Readonly<Record<string, any>>;
 export function resolveMobileConfig(appConfig?: Record<string, any>): Readonly<Record<string, any>>;
@@ -76,6 +26,13 @@ export function registerMobileLaunchRouting(options?: {
   mobileConfig?: Record<string, any>;
   getInitialLaunchUrl?: () => Promise<string> | string;
   subscribeToLaunchUrls?: (handler: (url: string) => void) => (() => void) | void;
+  resolveTargetPath?: (context: Readonly<{
+    originalUrl: string;
+    normalizedTargetPath: string;
+    reason: string;
+    mobileConfig: Readonly<Record<string, any>>;
+    router: any;
+  }>) => string | Promise<string>;
   currentOrigin?: string;
   allowedHttpOrigins?: string[];
   logger?: ClientLogger;
@@ -116,6 +73,7 @@ export function bootstrapClientShellApp(options?: {
   appConfig?: Record<string, any>;
   appPlugins?: any[];
   pinia?: any;
+  queryClient?: any;
   router: any;
   bootClientModules: (context: any) => Promise<any>;
   surfaceRuntime: any;
@@ -140,7 +98,7 @@ export function bootstrapClientShellApp(options?: {
     app: any;
     router: any;
     clientBootstrap: any;
-    logger: Required<ClientLogger>;
+    logger: Required<Omit<ClientLogger, "isDebugEnabled">>;
     debugEnabled: boolean;
   }>
 >;

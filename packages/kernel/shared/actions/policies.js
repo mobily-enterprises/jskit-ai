@@ -108,12 +108,11 @@ function ensureActionPermissionAllowed(definition, context) {
   }
 }
 
-async function normalizeActionInput(definition, input, context) {
+async function normalizeActionInput(definition, input) {
   try {
     return validateSchemaPayload(definition?.input, input, {
       phase: "input",
-      definition,
-      context
+      context: `Action ${definition?.id} input`
     });
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
@@ -137,7 +136,7 @@ async function normalizeActionInput(definition, input, context) {
   }
 }
 
-async function normalizeActionOutput(definition, output, context) {
+async function normalizeActionOutput(definition, output) {
   if (!definition?.output) {
     return output;
   }
@@ -145,8 +144,7 @@ async function normalizeActionOutput(definition, output, context) {
   try {
     return validateSchemaPayload(definition.output, output, {
       phase: "output",
-      definition,
-      context
+      context: `Action ${definition?.id} output`
     });
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {

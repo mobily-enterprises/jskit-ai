@@ -20,7 +20,7 @@ test("plain json-rest-schema action schemas validate input without reshaping it"
     }
   };
 
-  const result = await normalizeActionInput(definition, { workspaceSlug: "  ACME  " }, {});
+  const result = await normalizeActionInput(definition, { workspaceSlug: "  ACME  " });
   assert.deepEqual(result, { workspaceSlug: "ACME" });
 });
 
@@ -41,7 +41,7 @@ test("json-rest-schema input validation surfaces plain field keys", async () => 
   };
 
   await assert.rejects(
-    () => normalizeActionInput(definition, { name: "too long" }, {}),
+    () => normalizeActionInput(definition, { name: "too long" }),
     (error) => {
       const fieldErrors = error.details?.fieldErrors || {};
       assert.equal(typeof fieldErrors.name, "string");
@@ -67,11 +67,11 @@ test("action output validation preserves valid json-rest-schema output", async (
   };
 
   await assert.rejects(
-    () => normalizeActionOutput(definition, { ok: 2 }, {}),
+    () => normalizeActionOutput(definition, { ok: 2 }),
     (error) => error?.code === "ACTION_OUTPUT_VALIDATION_FAILED"
   );
 
-  const result = await normalizeActionOutput(definition, { ok: true }, {});
+  const result = await normalizeActionOutput(definition, { ok: true });
   assert.deepEqual(result, { ok: true });
 });
 
@@ -94,7 +94,7 @@ test("json-rest-schema action validators normalize action input", async () => {
     }
   };
 
-  const result = await normalizeActionInput(definition, { name: "  Acme  " }, {});
+  const result = await normalizeActionInput(definition, { name: "  Acme  " });
   assert.deepEqual(result, { name: "Acme" });
 });
 
@@ -118,7 +118,7 @@ test("json-rest-schema action validators surface field errors", async () => {
   };
 
   await assert.rejects(
-    () => normalizeActionInput(definition, { name: "   " }, {}),
+    () => normalizeActionInput(definition, { name: "   " }),
     (error) => {
       assert.equal(error.code, "ACTION_VALIDATION_FAILED");
       assert.equal(error.details?.fieldErrors?.name, "Name is required.");

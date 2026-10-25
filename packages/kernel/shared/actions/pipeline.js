@@ -114,7 +114,7 @@ async function executeActionPipeline({
     ensureActionSurfaceAllowed(definition, normalizedContext);
     ensureActionPermissionAllowed(definition, normalizedContext);
 
-    const normalizedInput = await normalizeActionInput(definition, input, normalizedContext);
+    const normalizedInput = await normalizeActionInput(definition, input);
 
     idempotencyKey = resolveActionIdempotencyKey(definition, normalizedContext);
     ensureIdempotencyKeyIfRequired(definition, normalizedContext, idempotencyKey);
@@ -180,7 +180,7 @@ async function executeActionPipeline({
     }
 
     const executionResult = await definition.execute(normalizedInput, normalizedContext, deps);
-    const normalizedResult = await normalizeActionOutput(definition, executionResult, normalizedContext);
+    const normalizedResult = await normalizeActionOutput(definition, executionResult);
 
     await publishActionEvents(events, definition.events, Object.freeze({
       definition,

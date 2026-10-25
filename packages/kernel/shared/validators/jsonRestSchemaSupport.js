@@ -64,14 +64,6 @@ function resolveSchemaDefinitionTransportSchema(schemaDefinition = null, options
   return schema.toJsonSchema({ mode });
 }
 
-function executeSchemaDefinition(schemaDefinition = null, payload, options = {}) {
-  const schema = requireJsonRestSchemaInstance(schemaDefinition, {
-    context: `${options?.context || "schema definition"}.schema`
-  });
-  const mode = resolveSchemaDefinitionMode(schemaDefinition, options);
-  return schema[mode](payload);
-}
-
 function resolveJsonRestSchemaFieldMessages(schemaDefinition = null, fieldName = "") {
   const normalizedFieldName = normalizeText(fieldName);
   if (!normalizedFieldName) {
@@ -147,6 +139,5 @@ export {
   isJsonRestSchemaInstance,
   resolveSchemaDefinitionMode,
   resolveSchemaDefinitionTransportSchema,
-  executeSchemaDefinition,
   normalizeJsonRestSchemaFieldErrors
 };

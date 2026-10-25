@@ -1,6 +1,5 @@
 import { normalizeObject, normalizeText } from "../support/normalize.js";
 import {
-  executeSchemaDefinition,
   isJsonRestSchemaInstance,
   normalizeJsonRestSchemaFieldErrors,
   resolveSchemaDefinitionMode,
@@ -109,10 +108,7 @@ function executeJsonRestSchemaDefinition(value, payload, {
     return null;
   }
 
-  return executeSchemaDefinition(normalized, payload, {
-    defaultMode: defaultMode || "patch",
-    context: `${context}.mode`
-  });
+  return normalized.schema[normalized.mode](payload);
 }
 
 export {

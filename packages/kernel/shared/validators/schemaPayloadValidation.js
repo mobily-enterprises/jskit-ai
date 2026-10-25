@@ -44,11 +44,7 @@ function validateSchemaPayload(schemaDefinition, payload, {
     context
   });
 
-  if (!result) {
-    throw new TypeError(`${context}.schema must be a json-rest-schema schema instance.`);
-  }
-
-  const fieldErrors = normalizeJsonRestSchemaFieldErrors(result?.errors, schemaDefinition);
+  const fieldErrors = normalizeJsonRestSchemaFieldErrors(result.errors, schemaDefinition);
   if (Object.keys(fieldErrors).length > 0) {
     throw buildSchemaValidationError({
       fieldErrors,
@@ -56,7 +52,7 @@ function validateSchemaPayload(schemaDefinition, payload, {
     });
   }
 
-  return result?.validatedObject ?? payload;
+  return result.validatedObject ?? payload;
 }
 
 export {

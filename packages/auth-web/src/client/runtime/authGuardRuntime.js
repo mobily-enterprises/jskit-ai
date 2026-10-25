@@ -1,3 +1,4 @@
+import { DEFAULT_GUARD_EVALUATOR_KEY } from "@jskit-ai/kernel/client";
 import { isTransientQueryError } from "@jskit-ai/kernel/shared/support";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { isExternalLinkTarget } from "@jskit-ai/kernel/shared/support/linkPath";
@@ -6,7 +7,6 @@ import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/list
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 
-const GLOBAL_GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = AUTH_PATHS.SESSION;
 const DEFAULT_LOGIN_ROUTE = "/auth/login";
@@ -273,10 +273,10 @@ function installGuardEvaluator({ loginRoute = DEFAULT_LOGIN_ROUTE, getAuthState 
       authState: getAuthState()
     });
   };
-  root[GLOBAL_GUARD_EVALUATOR_KEY] = evaluator;
+  root[DEFAULT_GUARD_EVALUATOR_KEY] = evaluator;
   return () => {
-    if (root[GLOBAL_GUARD_EVALUATOR_KEY] === evaluator) {
-      delete root[GLOBAL_GUARD_EVALUATOR_KEY];
+    if (root[DEFAULT_GUARD_EVALUATOR_KEY] === evaluator) {
+      delete root[DEFAULT_GUARD_EVALUATOR_KEY];
     }
   };
 }

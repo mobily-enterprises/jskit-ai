@@ -15,4 +15,5 @@ export {
   shellScrollBehavior,
   bootstrapClientShellApp
 } from "./shellBootstrap.js";
+export { DEFAULT_GUARD_EVALUATOR_KEY } from "./shellRouting.js";
 export { createComponentInteractionEmitter } from "./componentInteraction.js";
