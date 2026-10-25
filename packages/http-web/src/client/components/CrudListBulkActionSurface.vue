@@ -13,11 +13,8 @@ const props = defineProps({
   }
 });
 
-const display = useDisplay();
-const isCompactLayout = computed(() => {
-  const displayName = String(display?.name?.value || "").trim().toLowerCase();
-  return displayName === "xs" || displayName === "sm";
-});
+const { smAndDown: isCompactLayout } = useDisplay();
+
 const actions = computed(() => Array.isArray(props.runtime?.actions) ? props.runtime.actions : []);
 const selectedCount = computed(() => Number(props.runtime?.selectedCount?.value || 0));
 const shouldRender = computed(() =>

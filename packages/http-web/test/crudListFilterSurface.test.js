@@ -26,10 +26,13 @@ test("http-web exposes client-side CRUD list filter definition helpers", async (
 });
 
 test("CrudListFilterSurface provides adaptive controls without owning server semantics", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "src", "client", "components", "CrudListFilterSurface.vue"),
-    "utf8"
-  );
+  const componentsDir = path.join(PACKAGE_DIR, "src", "client", "components");
+  const surfaceSource = await readFile(path.join(componentsDir, "CrudListFilterSurface.vue"), "utf8");
+  const controlsSource = await readFile(path.join(componentsDir, "CrudListFilterControls.vue"), "utf8");
+  const source = `${surfaceSource}\n${controlsSource}`;
+
+  assert.match(surfaceSource, /<CrudListFilterControls[^>]*:runtime-values="runtimeValues"[^>]*\/>/);
+  assert.match(surfaceSource, /<CrudListFilterControls[^>]*\bstacked\b[^>]*\/>/);
 
   assert.match(source, /defineProps/);
   assert.match(source, /useDisplay/);
