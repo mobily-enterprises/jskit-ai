@@ -6,11 +6,6 @@ import RealtimeConnectionIndicator from "./components/RealtimeConnectionIndicato
 import { createSocketIoClient, disconnectSocketIoClient } from "./runtime.js";
 import { attachSocketConnectionRecovery } from "./connectionRecovery.js";
 
-const REALTIME_RUNTIME_CLIENT_API = Object.freeze({
-  createSocketIoClient,
-  disconnectSocketIoClient
-});
-
 function resolveRealtimeClientConfig({ env = {}, mobile = null } = {}) {
   const appConfig = normalizeObject(getClientAppConfig());
   const realtime = normalizeObject(appConfig.realtime);
@@ -111,7 +106,6 @@ function createRealtimeClient({ config, loggerInput } = {}) {
   }
 
   return Object.freeze({
-    ...REALTIME_RUNTIME_CLIENT_API,
     config,
     dispose,
     initialize,

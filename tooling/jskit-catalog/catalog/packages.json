@@ -2057,7 +2057,7 @@
         "capabilities": {
           "provides": [
             "runtime.realtime",
-            "runtime.realtime.client"
+            "client.realtime"
           ],
           "requires": [
             "runtime.config",
@@ -2097,16 +2097,28 @@
           "apiSummary": {
             "surfaces": [
               {
-                "subpath": "./server",
+                "subpath": "./server/RealtimeProvider",
                 "summary": "Exports the explicit RealtimeProvider capability provider."
               },
               {
-                "subpath": "./client",
-                "summary": "Exports RealtimeClientProvider only."
+                "subpath": "./server/runtime",
+                "summary": "Exports the Socket.IO server and Redis adapter runtime helpers."
               },
               {
-                "subpath": "./client/composables/*",
-                "summary": "Exports realtime socket composables with subscriptions owned by their Vue effect scope."
+                "subpath": "./client",
+                "summary": "Exports RealtimeClientProvider and resolveRealtimeClientConfig."
+              },
+              {
+                "subpath": "./client/RealtimeClientProvider",
+                "summary": "Exports RealtimeClientProvider and resolveRealtimeClientConfig."
+              },
+              {
+                "subpath": "./client/composables/useRealtimeEvent",
+                "summary": "Exports useRealtimeEvent and useRealtimeSocket; listeners are owned by their Vue effect scope."
+              },
+              {
+                "subpath": "./client/runtime",
+                "summary": "Exports createSocketIoClient and disconnectSocketIoClient."
               }
             ],
             "capabilities": {
@@ -2114,8 +2126,7 @@
                 "runtime.realtime"
               ],
               "client": [
-                "client.realtime",
-                "realtime.web.connection.indicator"
+                "client.realtime"
               ]
             }
           },
@@ -2156,7 +2167,6 @@
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.1.245",
-          "@jskit-ai/shell-web": "0.1.251",
           "vue": "^3.5.13"
         }
       }
