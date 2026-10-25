@@ -360,6 +360,14 @@ Local functions
 - `now()`
 - `hasPendingClaudeStartup(entry)`
 
+### `src/server/conversation/codexAuthPreflight.js`
+Exports
+- `assertCodexAuthPreflightReady(options = {}, { reason = "codex-auth-preflight", execution, credentials } = {})`
+Local functions
+- `tailAppend(text = "", chunk = "", maxBytes = CODEX_AUTH_PREFLIGHT_OUTPUT_TAIL_BYTES)`
+- `codexAuthPreflightArgs()`
+- `runCodexAuthPreflight({ codexCommand = "codex", env = process.env, executionRoot = "", runtimeDir = "", terminalEnv = {}, timeoutMs = CODEX_AUTH_PREFLIGHT_TIMEOUT_MS, toolHomeSource = "", workdir = "" } = {}, execution)`
+
 ### `src/server/conversation/codexClient.js`
 Exports
 - `CodexAppServerJsonRpcClient`
@@ -434,6 +442,7 @@ Exports
 - `inspectCodexAppServerRenewalThread(thread = null, { clientMessageId = "", turnId: expectedTurnId = "", requireFresh = false } = {})`
 - `codexAppServerProviderTurnText(thread = null, turnId = "")`
 - `codexAppServerProviderTurnError(turn = {})`
+- `codexAppServerAgentMessageText(payload = {})`
 - `codexAppServerAssistantItemText(item = {})`
 - `codexAppServerContentText(value = null)`
 - `codexAppServerContextRefreshReason(notification = {})`
@@ -470,14 +479,11 @@ Exports
 
 ### `src/server/conversation/codexHelperExecution.js`
 Exports
-- `errorMessage(value, fallback = "Codex could not be prepared.")`
 - `createCodexHelperOwnershipError({ applicationName = "Application", errorPrefix = "" } = {})`
 - `readCodexAppServerAccountIdentity(provider, codexAppServerHelperOwnershipError)`
 - `assertCodexAppServerHelperAccountIdentity(provider, expectedSignature = "", codexAppServerHelperOwnershipError)`
 - `sendPreparedCodexAppServerHelperTurn(provider, prepared, helperIsolation)`
 - `prepareDetachedCodexHelperThread(owner, scope, preparation, { applicationName = "Application" } = {})`
-Local functions
-- `normalizeText(value)`
 
 ### `src/server/conversation/codexHelperThreadLedger.js`
 Exports
@@ -487,8 +493,6 @@ Exports
 
 ### `src/server/conversation/codexHelperThreadRecovery.js`
 Exports
-- `normalizeText(value)`
-- `directoryExists(filePath = "")`
 - `createCodexHelperThreadRecovery(lifecycle, { providerOwner, applicationName, errorPrefix })`
 
 ### `src/server/conversation/codexHelperThreads.js`
@@ -504,6 +508,9 @@ Exports
 - `prepareCodexHistory(params, client, { baseUrl, modelProviderId, ...options } = {})`
 - `readCodexHistoryRows`
 Local functions
+- `unsupportedHistory(message)`
+- `historicalToolOutput(item)`
+- `historicalResultMessage(label, parts, closingTag)`
 - `compactionHistoryError(reason, statusCode = 422)`
 - `retainedUserRecord(item)`
 - `restoreCompactedHistory(body, { destination, historyPath, codexHome, signal, maxRequestBytes })`
@@ -516,6 +523,14 @@ Exports
 ### `src/server/conversation/codexMessageDelivery.js`
 Exports
 - `createCodexAppServerMessageDelivery({ namespace, publish, messageMetadata, createStore, turnStateFromAgentRun, deliveryStateMetadataKey, output, journal, recovery })`
+
+### `src/server/conversation/codexModelCatalog.js`
+Exports
+- `codexAppServerModelCatalogError(message = "", errorPrefix = "")`
+- `codexAppServerProviderConnectionGeneration(provider = null)`
+- `createCodexAppServerModelCatalogCache({ cacheMs = 30_000, errorPrefix = "" } = {})`
+Local functions
+- `codexAppServerModelCatalogSnapshot(value = null, errorPrefix = "")`
 
 ### `src/server/conversation/codexNativeHistoryExport.js`
 Exports
@@ -550,6 +565,7 @@ Exports
 - `fileExists(filePath = "")`
 - `tailTextFile(filePath = "", maxBytes = 4096)`
 - `acquireCodexRuntimeLock(runtimeDir = "", { busyCode = "codex_runtime_busy", timeoutMs = CODEX_APP_SERVER_LOCK_TIMEOUT_MS } = {})`
+- `normalizePositiveInteger(value, fallback)`
 - `codexAppServerExecutionMode(options = {})`
 - `codexAppServerIsHelper(options = {})`
 - `assertExistingDirectory(dirPath = "", label = "directory")`
@@ -561,17 +577,19 @@ Exports
 - `codexAppServerCommandBaseEnv({ env = process.env, terminalEnv = {} } = {})`
 - `codexAppServerCredentialHome(toolHomeSource = "", baseEnv = {})`
 - `codexAppServerTerminalEnvHash(terminalEnv = {})`
+- `codexCommandHookDefinition(command)`
 - `createCodexAppServerRuntime({ execution, credentials, configuration = {} })`
 - `CODEX_APP_SERVER_METADATA_SCHEMA_VERSION`
 - `CODEX_APP_SERVER_TRANSPORT`
 - `CODEX_APP_SERVER_RUNTIME_DIR_NAME`
+- `CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES`
 - `CODEX_APP_SERVER_PROCESS_STATE`
+- `CODEX_APP_SERVER_DEFAULT_ENVIRONMENT`
 Local functions
 - `ensurePrivateDirectory(dirPath = "")`
 - `codexAppServerLockDir(runtimeDir = "")`
 - `readLockOwner(lockDir = "")`
 - `lockIsStale(lockDir = "")`
-- `normalizePositiveInteger(value, fallback)`
 - `stableHash(value)`
 - `codexAppServerHelperCommandBaseEnv(env = process.env, codexHome = "")`
 - `codexAppServerLogPath(runtimeDir = "")`
@@ -587,6 +605,7 @@ Local functions
 - `codexHistoryAdapterUrlIsValid(baseUrl, token)`
 - `codexAppServerLivenessTimeoutMs(options = {})`
 - `codexAppServerProcessCommandHash({ codexArgs = [], codexCommand = "", executionMode = "", processCwd = "", runtimeDir = "" } = {})`
+- `tomlInlineValue(value)`
 
 ### `src/server/conversation/codexProcessLeader.js`
 Exports
@@ -594,19 +613,14 @@ Exports
 
 ### `src/server/conversation/codexProvider.js`
 Exports
+- `CODEX_APP_SERVER_THREAD_INVENTORY_MAX_COUNT`
+- `CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH`
 - `CodexAppServerAgentProvider`
 - `CODEX_APP_SERVER_INVALID_REQUEST_CODE`
-- `assertCodexAuthPreflightReady(options = {}, { reason = "codex-auth-preflight", execution, credentials } = {})`
-- `createCodexAppServerModelCatalogCache({ cacheMs = 30_000, errorPrefix = "" } = {})`
-- `codexAppServerProviderConnectionGeneration(provider = null)`
 - `ensureCodexAppServerThread({ observeThread, provider, settings, projectHooks = false, identity, applicationTools, providerReady, workdir = "", onStage = () => {} } = {})`
 - `codexApplicationToolConfiguration(tools)`
 - `assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity, toolSchemaIdentity)`
 - `sendCodexAppServerPrompt({ attachments = [], clientUserMessageId = "", outputSchema = null, provider, prompt = "", threadId = "", readOnly = false } = {}, authorized = {})`
-- `resumeExactCodexAppServerThread({ expectedThreadId = "", provider, settings, projectHooks = false, workdir = "", errorCode = "codex_renewal_thread_unreadable" } = {})`
-- `startFreshCodexAppServerThread({ provider, settings, projectHooks = false, identity, resumableThreadId = "", forbiddenThreadId = "", operationId = "", workdir = "", errorCode = "codex_renewal_fresh_thread_required", applicationName = "The application" } = {})`
-- `defineCodexRenewalThreadIds(value = [], { errorCode = "codex_renewal_fresh_thread_required" } = {})`
-- `codexRenewalThreadError(code, message, details = {}, { retryable = false } = {})`
 - `codexAppServerEndpointForTarget(endpoint = "")`
 - `codexAppServerRequestIsInvalid(error = null, method = "")`
 - `codexAppServerThreadIsMissing(error = null, threadId = "")`
@@ -626,22 +640,11 @@ Exports
 - `codexAppServerOwnedRuntimeKey`
 - `codexAppServerRuntimeStopWasVerified`
 Local functions
-- `normalizePositiveInteger(value, fallback)`
-- `listCodexRenewalThreadIds(provider, workdir, errorCode)`
-- `assertCodexRenewalThreadSnapshot(threadSnapshot = null, { threadId = "", workdir = "", errorCode } = {})`
-- `codexRenewalThreadNeedsStatusRead(error = null, threadId = "")`
-- `readCodexRenewalSuccessorThreadSnapshot({ provider, threadId = "", workdir = "", errorCode } = {})`
-- `codexAppServerThreadResponseId(thread = null, fallback = "")`
-- `codexAppServerModelCatalogError(message = "", errorPrefix = "")`
-- `codexAppServerModelCatalogSnapshot(value = null, errorPrefix = "")`
 - `codexAppServerHelperLoginParams(auth = {}, errorPrefix = "")`
 - `codexAppServerHelperLoginResponseType(auth = {})`
 - `codexAppServerHelperAccountType(auth = {})`
 - `codexAppServerHelperRequestError(error = null, reason = "", errorPrefix = "")`
 - `normalizeCodexAppServerInfo(initializeResult = null)`
-- `tailAppend(text = "", chunk = "", maxBytes = CODEX_AUTH_PREFLIGHT_OUTPUT_TAIL_BYTES)`
-- `codexAuthPreflightArgs()`
-- `runCodexAuthPreflight({ codexCommand = "codex", env = process.env, executionRoot = "", runtimeDir = "", terminalEnv = {}, timeoutMs = CODEX_AUTH_PREFLIGHT_TIMEOUT_MS, toolHomeSource = "", workdir = "" } = {}, execution)`
 - `codexAppServerThreadRequestParams(params = {}, threadEnv = {})`
 - `codexControlProbeCommand(keys, marker)`
 - `codexAppServerThreadInventoryError(errorCode, label, detail)`
@@ -654,11 +657,10 @@ Local functions
 Exports
 - `codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {})`
 - `codexAppServerRuntimeStopWasVerified(result = {})`
+- `directoryExists(filePath = "")`
 - `createCodexAppServerProviderOwner({ runtimeRoot = "", assertOpen: assertApplicationOpen = () => {}, onRecoveryEvent = () => {}, debugLog = () => {}, debugError = error => error, providerFactory = null, prepareNativeHost = () => ({}), runtimeBusyCode = "codex_app_server_runtime_busy", exitUnverifiedCode = "codex_runtime_exit_unverified", requiredStopCode = "codex_runtime_exit_unverified", runtimeCloseError = "Codex app-server runtime close failed." } = {})`
 Local functions
-- `normalizeText(value)`
 - `withRuntimeLifecycle(runtimeKey, operation)`
-- `directoryExists(filePath = "")`
 
 ### `src/server/conversation/codexProviderSelection.js`
 Exports
@@ -671,6 +673,19 @@ Exports
 ### `src/server/conversation/codexRenewalCommands.js`
 Exports
 - `createCodexRenewalCommands({ claimCodexAppServerTurnStart, codexAppServerNotificationQueue, completeCodexAppServerTurn, errorPrefix, markCodexAppServerTurnActive, markCodexAppServerTurnIdle, observer, selection, turnAlreadyRunningError, writeCodexAppServerUserMessageOwnership })`
+
+### `src/server/conversation/codexRenewalThreads.js`
+Exports
+- `defineCodexRenewalThreadIds(value = [], { errorCode = "codex_renewal_fresh_thread_required" } = {})`
+- `codexRenewalThreadError(code, message, details = {}, { retryable = false } = {})`
+- `resumeExactCodexAppServerThread({ expectedThreadId = "", provider, settings, projectHooks = false, workdir = "", errorCode = "codex_renewal_thread_unreadable" } = {})`
+- `startFreshCodexAppServerThread({ provider, settings, projectHooks = false, identity, resumableThreadId = "", forbiddenThreadId = "", operationId = "", workdir = "", errorCode = "codex_renewal_fresh_thread_required", applicationName = "The application" } = {})`
+Local functions
+- `listCodexRenewalThreadIds(provider, workdir, errorCode)`
+- `assertCodexRenewalThreadSnapshot(threadSnapshot = null, { threadId = "", workdir = "", errorCode } = {})`
+- `codexRenewalThreadNeedsStatusRead(error = null, threadId = "")`
+- `readCodexRenewalSuccessorThreadSnapshot({ provider, threadId = "", workdir = "", errorCode } = {})`
+- `codexAppServerThreadResponseId(thread = null, fallback = "")`
 
 ### `src/server/conversation/codexResultSettlement.js`
 Exports
@@ -769,6 +784,7 @@ Exports
 - `codexAppServerTurnCanReceiveProviderActivity(turn = {}, threadId = "", turnId = "")`
 - `codexAppServerTurnCanAdoptSuccessor(turn = {}, threadId = "", turnId = "")`
 - `codexAppServerTurnKey(threadId = "", turnId = "")`
+- `codexAppServerNativeOuterTurnId(threadId = "", turnId = "")`
 - `codexAppServerAgentRunPatch({ error = "", inputSource = "", outerTurnId = "", phase, runState = CODEX_APP_SERVER_RUN_STATE.COMPLETED, session = {}, status = "", threadId = "", turnId = "", updatedAt = "" } = {}, normalizeRunState = normalizeCodexAppServerRunState)`
 - `codexAppServerRunIdentityForPatch(session = {}, { threadId = "", turnId = "" } = {}, normalizeRunState = normalizeCodexAppServerRunState)`
 - `codexAppServerRunPatchIsStaleAfterTerminalState(currentTurn = {}, patch = {}, normalizeRunState = normalizeCodexAppServerRunState)`
@@ -1238,25 +1254,25 @@ Exports
 Exports
 - `CODEX_APP_SERVER_INVALID_REQUEST_CODE`
 - `CodexAppServerAgentProvider`
-- `assertCodexAuthPreflightReady`
 - `codexAppServerEndpointForTarget`
 - `codexAppServerRequestIsInvalid`
 - `codexAppServerRuntimeStopWasVerified`
 - `codexCliResumeCommand`
-- `codexRenewalThreadError`
 - `codexTextInput`
 - `codexTurnInput`
 - `createCodexAppServerProviderOwner`
-- `defineCodexRenewalThreadIds`
 - `deleteCodexAppServerHelperThread`
 - `deleteCodexAppServerThread`
 - `ensureCodexAppServerThread`
 - `inspectCodexAppServerMessageAdmission`
 - `retireCodexConversationHistory`
 - `readCodexNativeGoal`
-- `resumeExactCodexAppServerThread`
 - `sendCodexAppServerPrompt`
 - `shellQuote`
+- `assertCodexAuthPreflightReady`
+- `codexRenewalThreadError`
+- `defineCodexRenewalThreadIds`
+- `resumeExactCodexAppServerThread`
 - `startFreshCodexAppServerThread`
 - `readCodexHistoryRows`
 

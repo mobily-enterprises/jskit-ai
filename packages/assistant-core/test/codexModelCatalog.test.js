@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { prepareCodexModelCatalog } from "../src/server/conversation/codexConfiguration.js";
-import { createCodexAppServerModelCatalogCache, codexAppServerProviderConnectionGeneration } from "../src/server/conversation/codexProvider.js";
+import { createCodexAppServerModelCatalogCache, codexAppServerProviderConnectionGeneration } from "../src/server/conversation/codexModelCatalog.js";
 import { createCodexAppServerProviderOwner } from "../src/server/conversation/codexProviderOwner.js";
 
 async function fixture(t, source) {

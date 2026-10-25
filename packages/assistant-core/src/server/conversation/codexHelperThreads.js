@@ -1,7 +1,9 @@
 import crypto from "node:crypto";
-import { createCodexHelperOwnershipError, errorMessage, prepareDetachedCodexHelperThread } from "./codexHelperExecution.js";
+import { createCodexHelperOwnershipError, prepareDetachedCodexHelperThread } from "./codexHelperExecution.js";
 import { deleteCodexAppServerHelperThread } from "./codexProvider.js";
-import { createCodexHelperThreadRecovery, directoryExists, normalizeText } from "./codexHelperThreadRecovery.js";
+import { directoryExists } from "./codexProviderOwner.js";
+import { createCodexHelperThreadRecovery } from "./codexHelperThreadRecovery.js";
+import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 import {
   CODEX_HELPER_THREAD_LEDGER_SCHEMA_VERSION,
   CODEX_HELPER_THREAD_LIFECYCLES

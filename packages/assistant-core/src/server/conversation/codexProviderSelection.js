@@ -1,6 +1,6 @@
 import { normalizeCodexRunText } from "./codexTurnState.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
-import { createCodexAppServerModelCatalogCache } from "./codexProvider.js";
+import { createCodexAppServerModelCatalogCache } from "./codexModelCatalog.js";
 import { readCodexAppServerAccountIdentity } from "./codexHelperExecution.js";
 
 // Provider acquisition and per-operation provider contexts for a run owner's

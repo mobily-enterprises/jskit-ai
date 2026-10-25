@@ -1,21 +1,7 @@
-import { stat } from "node:fs/promises";
 import { deleteCodexAppServerThread, codexAppServerRuntimeStopWasVerified } from "./codexProvider.js";
+import { directoryExists } from "./codexProviderOwner.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadLedger.js";
-
-export function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-export async function directoryExists(filePath = "") {
-  try {
-    return (await stat(filePath)).isDirectory();
-  } catch (error) {
-    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
-      return false;
-    }
-    throw error;
-  }
-}
+import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 // Recovery operations of the same Helper lifecycle. All maps and record mutations
 // belong to the supplied lifecycle; this module creates no owner or registry.

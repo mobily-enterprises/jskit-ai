@@ -27,9 +27,17 @@ export function createCodexAppServerMessageDelivery({
   const codexAppServerMessageDeliveries = new Map();
   const codexAppServerPendingUserMessages = new Map();
 
+  function messageDeliveryKey(sessionId, messageId) {
+    return `${namespace(sessionId)}\0${messageId}`;
+  }
+
+  function pendingUserMessage(sessionId, messageId) {
+    return codexAppServerPendingUserMessages.get(messageDeliveryKey(sessionId, messageId));
+  }
+
   async function withCodexAppServerMessageDelivery(sessionId, messageId, pendingMessage, operation) {
     const normalizedMessageId = normalizeCodexRunText(messageId);
-    const deliveryKey = normalizedMessageId ? `${namespace(sessionId)}\0${normalizedMessageId}` : "";
+    const deliveryKey = normalizedMessageId ? messageDeliveryKey(sessionId, normalizedMessageId) : "";
     const existing = deliveryKey ? codexAppServerMessageDeliveries.get(deliveryKey) : null;
     if (existing) {
       return existing;
@@ -73,9 +81,7 @@ export function createCodexAppServerMessageDelivery({
     ) {
       return null;
     }
-    const pendingMessage = codexAppServerPendingUserMessages.get(
-      `${namespace(normalizedSessionId)}\0${normalizeCodexRunText(messageId)}`
-    );
+    const pendingMessage = pendingUserMessage(normalizedSessionId, normalizeCodexRunText(messageId));
     if (pendingMessage?.recording) {
       return pendingMessage.recording;
     }
@@ -127,9 +133,7 @@ export function createCodexAppServerMessageDelivery({
     let ownership = codexAppServerPendingUserMessageOwnership(run, clientId);
     if (!ownership && clientId && await store.conversationMessageIdExists(normalizedSessionId, clientId)) return;
     const receiptId = ownership?.clientId || clientId;
-    const pendingMessage = codexAppServerPendingUserMessages.get(
-      `${namespace(normalizedSessionId)}\0${receiptId}`
-    );
+    const pendingMessage = pendingUserMessage(normalizedSessionId, receiptId);
     let recoveredMessage = null;
     if (receiptId && !pendingMessage) {
       const saved = JSON.parse(await store.readMetadataValue(normalizedSessionId, deliveryStateMetadataKey) || "null");
@@ -211,6 +215,7 @@ export function createCodexAppServerMessageDelivery({
   return {
     messageDeliveries: codexAppServerMessageDeliveries,
     pendingUserMessages: codexAppServerPendingUserMessages,
+    pendingUserMessage,
     withMessageDelivery: withCodexAppServerMessageDelivery,
     writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage,
     mirrorTerminalUserMessage: mirrorCodexAppServerTerminalUserMessage

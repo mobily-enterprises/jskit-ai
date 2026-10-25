@@ -199,7 +199,9 @@ export function codexAppServerTurnState(session = {}, normalizeRunState = normal
     error: "",
     goalStatus: "",
     goalThreadId: "",
+    inputSource: "",
     outerTurnId: "",
+    phase: "",
     runId: "",
     runState: "",
     startedAt: "",
@@ -298,6 +300,12 @@ export function codexAppServerTurnKey(threadId = "", turnId = "") {
   return `${normalizeCodexRunText(threadId)}:${normalizeCodexRunText(turnId)}`;
 }
 
+// Identity of a native outer turn. Terminal turns and persistent-conversation
+// checkpoints must agree on it, so both build it here.
+export function codexAppServerNativeOuterTurnId(threadId = "", turnId = "") {
+  return `codex:${threadId}:${turnId}`;
+}
+
 export function codexAppServerAgentRunPatch({
   error = "",
   inputSource = "",
@@ -336,7 +344,7 @@ export function codexAppServerAgentRunPatch({
   // owner's id would checkpoint two different turns with one identity.
   const normalizedOuterTurnId = normalizeCodexRunText(outerTurnId) ||
     (normalizedInputSource === "terminal" && normalizedRunState === CODEX_APP_SERVER_RUN_STATE.ACTIVE && !sameActiveTurn
-      ? `codex:${normalizeCodexRunText(threadId)}:${normalizeCodexRunText(turnId)}`
+      ? codexAppServerNativeOuterTurnId(normalizeCodexRunText(threadId), normalizeCodexRunText(turnId))
       : normalizeCodexRunText(currentRun?.outerTurnId));
   if (normalizedOuterTurnId) {
     patch.outerTurnId = normalizedOuterTurnId;

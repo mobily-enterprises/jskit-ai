@@ -2,6 +2,7 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { CodexAppServerAgentProvider } from "./codexProvider.js";
 import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
+import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 // Moved from Vibe64's codexTerminal provider owner. Caller-local provider keys
 // are grouped without duplicating the inventory. Recovery and sharing always
@@ -9,7 +10,6 @@ import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 const codexAppServerProviders = new Map();
 const codexAppServerOwnedRuntimes = new Map();
 const codexAppServerRuntimeLifecycles = new Map();
-const normalizeText = value => String(value || "").trim();
 
 export function codexAppServerOwnedRuntimeKey(providerKey = "", providerOptions = {}) {
   const runtimeDir = normalizeText(providerOptions?.runtimeDir);
@@ -36,7 +36,7 @@ export function codexAppServerRuntimeStopWasVerified(result = {}) {
     result?.runtimeDirRemoved === true;
 }
 
-async function directoryExists(filePath = "") {
+export async function directoryExists(filePath = "") {
   try {
     return (await stat(filePath)).isDirectory();
   } catch (error) {

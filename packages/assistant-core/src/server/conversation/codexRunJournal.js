@@ -13,7 +13,8 @@ import {
   CODEX_AGENT_PROVIDER,
   CODEX_APP_SERVER_RUN_STATE,
   CODEX_APP_SERVER_ACTIVE_RUN_STATES,
-  codexAppServerRunInputSource
+  codexAppServerRunInputSource,
+  codexAppServerTurnStateFromAgentRun
 } from "./codexTurnState.js";
 import crypto from "node:crypto";
 import { isPlainObject } from "./normalize.js";
@@ -260,9 +261,9 @@ export function createCodexRunJournal({
 
   function clearCodexAppServerFinalizingTimer(sessionId = "", threadId = "", turnId = "") {
     const key = codexAppServerResultFinalizationKey(sessionId, threadId, turnId);
-    const timer = codexAppServerFinalizingTimers.get(key);
-    if (timer) {
-      clearTimeout(timer);
+    const entry = codexAppServerFinalizingTimers.get(key);
+    if (entry) {
+      clearTimeout(entry.timer);
       codexAppServerFinalizingTimers.delete(key);
     }
   }
@@ -271,9 +272,9 @@ export function createCodexRunJournal({
     const normalizedSessionId = normalizeCodexRunText(sessionId);
     clearCodexAppServerActiveTimer(normalizedSessionId);
     const finalizingKeyPrefix = `${namespace(normalizedSessionId)}:`;
-    for (const [key, timer] of codexAppServerFinalizingTimers.entries()) {
+    for (const [key, entry] of codexAppServerFinalizingTimers.entries()) {
       if (key.startsWith(finalizingKeyPrefix)) {
-        clearTimeout(timer);
+        clearTimeout(entry.timer);
         codexAppServerFinalizingTimers.delete(key);
       }
     }
@@ -291,34 +292,10 @@ export function createCodexRunJournal({
   }
 
   function codexAppServerAgentRunRealtimePayload(runPatch = {}) {
-    const runState = normalizeRunState(runPatch.state);
-    const active = codexAppServerRunStateIsActive(runState);
-    const state = runState === CODEX_APP_SERVER_RUN_STATE.FINALIZING
-      ? "finalizing"
-      : runState === CODEX_APP_SERVER_RUN_STATE.STARTING
-        ? "starting"
-        : active
-          ? "active"
-          : "idle";
-    const turn = {
-      active,
-      completedAt: normalizeCodexRunText(runPatch.finishedAt),
-      error: normalizeCodexRunText(runPatch.error),
-      inputSource: normalizeCodexRunText(runPatch.inputSource),
-      outerTurnId: normalizeCodexRunText(runPatch.outerTurnId),
-      phase: active && runPatch.providerStatus !== "observation_lost" ? normalizeCodexRunText(runPatch.providerPhase) : "",
-      runId: CODEX_APP_SERVER_AGENT_RUN_ID,
-      runState,
-      startedAt: normalizeCodexRunText(runPatch.startedAt),
-      state,
-      status: normalizeCodexRunText(runPatch.providerStatus || runState),
-      threadId: normalizeCodexRunText(runPatch.providerThreadId),
-      turnId: normalizeCodexRunText(runPatch.providerTurnId),
-      updatedAt: normalizeCodexRunText(runPatch.updatedAt)
-    };
+    const turn = codexAppServerTurnStateFromAgentRun({ ...runPatch, id: CODEX_APP_SERVER_AGENT_RUN_ID }, normalizeRunState);
     return {
       agentRun: {
-        active,
+        active: turn.active,
         id: CODEX_APP_SERVER_AGENT_RUN_ID,
         inputSource: turn.inputSource,
         outerTurnId: turn.outerTurnId,
@@ -327,7 +304,7 @@ export function createCodexRunJournal({
         providerStatus: turn.status,
         providerThreadId: turn.threadId,
         providerTurnId: turn.turnId,
-        state: runState,
+        state: turn.runState,
         updatedAt: turn.updatedAt
       },
       agentSession: {

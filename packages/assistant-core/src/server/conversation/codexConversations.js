@@ -1,4 +1,4 @@
-import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
 import { codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
@@ -92,7 +92,7 @@ export function createCodexConversationCommands({
         const completedTurnId = state.runId;
         const completedStatus = state.status;
         void checkpoint(sessionId, {
-          outerTurnId: `codex:${conversationId}:${completedTurnId}`,
+          outerTurnId: codexAppServerNativeOuterTurnId(conversationId, completedTurnId),
           threadId: conversationId,
           turnId: completedTurnId,
           status: completedStatus
@@ -251,21 +251,21 @@ export function createCodexConversationCommands({
       }
     }
     const managedIdentity = prepared.managedIdentity;
-    const restoredAdmissionError = conversationPreparation.admissionError(sessionId);
-    if (restoredAdmissionError) throw restoredAdmissionError;
+    const assertAdmitted = () => {
+      const error = conversationPreparation.admissionError(sessionId);
+      if (error) throw error;
+    };
+    assertAdmitted();
     const activeProvider = prepared.helperTurn
       ? null
       : await ensureCodexAppServerProviderForActiveTurn(context.session, managedIdentity);
-    const activeProviderAdmissionError = conversationPreparation.admissionError(sessionId);
-    if (activeProviderAdmissionError) throw activeProviderAdmissionError;
+    assertAdmitted();
     const providerOptions = activeProvider ? null : await prepared.providerOptions;
-    const providerOptionsAdmissionError = conversationPreparation.admissionError(sessionId);
-    if (providerOptionsAdmissionError) throw providerOptionsAdmissionError;
+    assertAdmitted();
     const provider = activeProvider?.provider || await providerSessions.owner.ensureSession(
       providerSessions.context(normalizeCodexRunText(sessionId), providerOptions)
     );
-    const providerAdmissionError = conversationPreparation.admissionError(sessionId);
-    if (providerAdmissionError) throw providerAdmissionError;
+    assertAdmitted();
     return prepared.project(provider, activeProvider?.providerOptions || providerOptions, helperRestore);
   }
 
@@ -369,11 +369,6 @@ export function createCodexConversationCommands({
         if (helperTurn) {
           try {
             await assertCodexAppServerHelperAccountIdentity(provider, input.expectedAccountIdentitySignature, helperOwnershipError);
-          } catch (error) {
-            await helper.discard();
-            throw error;
-          }
-          try {
             execution.validateOutput(result.text);
           } catch (error) {
             await helper.discard();

@@ -978,9 +978,9 @@ test("original settlement clears the same recovery timers and skips stale idle c
   t.after(() => timers.forEach(clearTimeout));
   owner.activeTimers.set(`project:${sessionId}`, timer());
   owner.activeTimers.set("project:other", timer());
-  owner.finalizingTimers.set(owner.resultFinalizationKey(sessionId, threadId, turnId), timer());
-  owner.finalizingTimers.set(owner.resultFinalizationKey(sessionId, threadId, "older"), timer());
-  owner.finalizingTimers.set(owner.resultFinalizationKey("other", threadId, turnId), timer());
+  owner.finalizingTimers.set(owner.resultFinalizationKey(sessionId, threadId, turnId), { timer: timer() });
+  owner.finalizingTimers.set(owner.resultFinalizationKey(sessionId, threadId, "older"), { timer: timer() });
+  owner.finalizingTimers.set(owner.resultFinalizationKey("other", threadId, turnId), { timer: timer() });
   f.run = { ...f.run, state: "interrupted", providerStatus: "interrupted" };
   const result = await owner.markTurnIdle(sessionId, { threadId, turnId, status: "completed" });
   assert.equal(result.processed, false);
@@ -2595,7 +2595,7 @@ for (const change of ["concurrent", "cleanup", "successor"]) {
     t.mock.timers.tick(20);
     await reading.promise;
     assert.equal(owner.finalizingTimers.size, 1, "Firing does not discard the first post-read clock");
-    const expiry = [...owner.finalizingTimers.values()][0].finalizingRecovery;
+    const expiry = [...owner.finalizingTimers.values()][0].recovery;
     assert.ok(expiry instanceof Promise);
     let pending;
     if (change === "concurrent") pending = owner.completeTurn(sessionId, threadId, turnId, { verifyInactive: false });
@@ -2643,7 +2643,7 @@ test("native after-history grace retries a rejected expiry read without granting
   t.mock.timers.tick(20);
   await failedRead.promise;
   const timer = [...owner.finalizingTimers.values()][0];
-  const expiry = timer.finalizingRecovery;
+  const expiry = timer.recovery;
   const rejected = assert.rejects(expiry, /Controlled transient session read failure/);
   release.resolve();
   await rejected;

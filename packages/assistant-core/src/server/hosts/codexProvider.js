@@ -1,26 +1,28 @@
 export {
   CODEX_APP_SERVER_INVALID_REQUEST_CODE,
   CodexAppServerAgentProvider,
-  assertCodexAuthPreflightReady,
   codexAppServerEndpointForTarget,
   codexAppServerRequestIsInvalid,
   codexAppServerRuntimeStopWasVerified,
   codexCliResumeCommand,
-  codexRenewalThreadError,
   codexTextInput,
   codexTurnInput,
   createCodexAppServerProviderOwner,
-  defineCodexRenewalThreadIds,
   deleteCodexAppServerHelperThread,
   deleteCodexAppServerThread,
   ensureCodexAppServerThread,
   inspectCodexAppServerMessageAdmission,
   retireCodexConversationHistory,
   readCodexNativeGoal,
-  resumeExactCodexAppServerThread,
   sendCodexAppServerPrompt,
-  shellQuote,
-  startFreshCodexAppServerThread
+  shellQuote
 } from "../conversation/codexProvider.js";
+export { assertCodexAuthPreflightReady } from "../conversation/codexAuthPreflight.js";
+export {
+  codexRenewalThreadError,
+  defineCodexRenewalThreadIds,
+  resumeExactCodexAppServerThread,
+  startFreshCodexAppServerThread
+} from "../conversation/codexRenewalThreads.js";
 
 export { readCodexHistoryRows } from "../conversation/codexHistoryAdapter.js";

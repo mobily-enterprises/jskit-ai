@@ -7,7 +7,7 @@ import {
   CODEX_AGENT_PROVIDER,
   CODEX_APP_SERVER_RUN_STATE
 } from "./codexTurnState.js";
-import { codexAppServerProviderConnectionGeneration } from "./codexProvider.js";
+import { codexAppServerProviderConnectionGeneration } from "./codexModelCatalog.js";
 import {
   codexAppServerAssistantItemText,
   codexAppServerNotificationEvent,

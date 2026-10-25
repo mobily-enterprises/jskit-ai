@@ -1,6 +1,9 @@
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Always single-quotes, unlike codexProvider's shellQuote, which leaves plain
+// tokens bare. Wrapped hook commands keep their exact quoted form, which
+// conversationCommandWrapper.test.js asserts, so the two are not merged.
 const shellQuote = value => `'${value.replaceAll("'", `'"'"'`)}'`;
 
 export function validateCommandWrapper(wrapper) {

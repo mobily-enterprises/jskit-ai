@@ -72,7 +72,7 @@ export function createCodexMessageCommands({
   } = observer;
   const {
     writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage,
-    pendingUserMessages: codexAppServerPendingUserMessages
+    pendingUserMessage: pendingCodexAppServerUserMessage
   } = delivery;
 
   async function selectCodexAppServerMessageTurn(sessionId, { messageId = "", startedAt = Date.now() } = {}, context = {}) {
@@ -310,7 +310,7 @@ export function createCodexMessageCommands({
       });
       const prompt = await prepare.prepareMessage(input, prepared, { starting: true });
       const started = await startCodexAppServerTurn(sessionId, input, {
-        runtime, provider, threadId: thread.threadId, promptDeliveryKey, messageId, renderedPrompt: prompt.renderedPrompt, turnMetadata,
+        runtime, provider, threadId: thread.threadId, messageId, renderedPrompt: prompt.renderedPrompt, turnMetadata,
         preparedInput: options.preparedInput,
         get turnSettings() { return prompt.turnSettings; }
       });
@@ -455,9 +455,10 @@ export function createCodexMessageCommands({
   }
 
   async function startCodexAppServerTurn(sessionId, input = {}, context = {}) {
-    const { runtime, provider, threadId, promptDeliveryKey, messageId, renderedPrompt, turnMetadata } = context;
+    const { runtime, provider, threadId, messageId, renderedPrompt, turnMetadata } = context;
     let providerFailure = "";
     let delivery = null;
+    const promptSessionId = normalizeCodexRunText(sessionId);
     const clientUserMessageId = messageId;
     await writeCodexAppServerUserMessageOwnership(runtime.store, sessionId, clientUserMessageId, {
       eventKind: "codex-app-server-user-message-owned",
@@ -472,9 +473,7 @@ export function createCodexMessageCommands({
         provider,
         threadId
       }, context);
-      const receipt = codexAppServerPendingUserMessages.get(
-        `${promptDeliveryKey}\0${clientUserMessageId}`
-      )?.receipt;
+      const receipt = pendingCodexAppServerUserMessage(promptSessionId, clientUserMessageId)?.receipt;
       // An exact, persisted user-message receipt confirms delivery too.
       // Finish bookkeeping once; a late RPC reply must not hold admission
       // or change a turn that has already continued or completed.
@@ -499,7 +498,7 @@ export function createCodexMessageCommands({
     if (!deliveredTurnId) {
       throw new Error("Codex app-server accepted the prompt without returning a turn id.");
     }
-    codexAppServerPendingUserMessages.get(`${promptDeliveryKey}\0${clientUserMessageId}`)?.onNativeReceipt?.();
+    pendingCodexAppServerUserMessage(promptSessionId, clientUserMessageId)?.onNativeReceipt?.();
     await markCodexAppServerTurnActive(sessionId, {
       requireTrackedTurn: true,
       status: "inProgress",
@@ -585,9 +584,7 @@ export function createCodexMessageCommands({
           clientUserMessageId
         }
       );
-      const receipt = codexAppServerPendingUserMessages.get(
-        `${namespace(sessionId)}\0${clientUserMessageId}`
-      )?.receipt;
+      const receipt = pendingCodexAppServerUserMessage(sessionId, clientUserMessageId)?.receipt;
       result = receipt ? await Promise.race([response, receipt.promise]) : await response;
     } catch (error) {
       if (Number.isInteger(error?.code) && error.code < 0) await input.onPromptRejected?.();
@@ -625,7 +622,7 @@ export function createCodexMessageCommands({
         turnId
       } };
     }
-    codexAppServerPendingUserMessages.get(`${namespace(sessionId)}\0${clientUserMessageId}`)?.onNativeReceipt?.();
+    pendingCodexAppServerUserMessage(sessionId, clientUserMessageId)?.onNativeReceipt?.();
     const conversationTurn = await writeCodexAppServerDeliveredUserMessage(
       runtime,
       sessionId,

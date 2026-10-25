@@ -289,7 +289,7 @@ const CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS = Object.freeze({
   MISMATCH: "mismatch"
 });
 
-function normalizePositiveInteger(value, fallback) {
+export function normalizePositiveInteger(value, fallback) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : fallback;
 }

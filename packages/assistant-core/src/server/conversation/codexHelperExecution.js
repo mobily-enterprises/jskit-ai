@@ -1,13 +1,6 @@
 import { deleteCodexAppServerThread } from "./codexProvider.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadLedger.js";
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-export function errorMessage(value, fallback = "Codex could not be prepared.") {
-  return normalizeText(value?.error || value?.message || value) || fallback;
-}
+import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 export function createCodexHelperOwnershipError({ applicationName = "Application", errorPrefix = "" } = {}) {
   return function codexAppServerHelperOwnershipError(message = "", details = {}) {
