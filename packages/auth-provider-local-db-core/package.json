@@ -13,6 +13,9 @@
     "@jskit-ai/auth-provider-local-core": "0.1.146",
     "@jskit-ai/database-runtime": "0.1.245"
   },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.245"
+  },
   "description": "Database-backed local auth storage backend for JSKIT local auth.",
   "jskit": {
     "kind": "runtime",

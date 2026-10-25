@@ -123,7 +123,8 @@
     "@jskit-ai/database-runtime": "0.1.245",
     "@jskit-ai/json-rest-api-core": "0.1.189",
     "@jskit-ai/resource-crud-core": "0.1.187",
-    "@jskit-ai/workspaces-core": "0.1.223"
+    "@jskit-ai/workspaces-core": "0.1.223",
+    "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
     "@jskit-ai/auth-core": "0.1.243",

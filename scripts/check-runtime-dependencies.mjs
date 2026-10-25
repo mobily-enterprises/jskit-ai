@@ -1,52 +1,18 @@
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
+import { isBuiltin } from "node:module";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT_DIR = process.cwd();
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const ROOT_DIR = fileURLToPath(new URL("..", import.meta.url));
 const PACKAGES_DIR = path.join(ROOT_DIR, "packages");
 const SOURCE_ROOT_NAMES = Object.freeze(["src", "client", "server", "shared"]);
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?js|vue)$/;
 const TEST_FILE_PATTERN = /\.(?:test|spec)\.(?:[cm]?js|vue)$/;
 const FORBIDDEN_RUNTIME_DEPENDENCIES = new Set(["genesis-compiler"]);
-const BUILTIN_DEPENDENCIES = new Set([
-  "assert",
-  "buffer",
-  "child_process",
-  "crypto",
-  "events",
-  "fs",
-  "http",
-  "https",
-  "module",
-  "node:assert",
-  "node:buffer",
-  "node:child_process",
-  "node:crypto",
-  "node:events",
-  "node:fs",
-  "node:http",
-  "node:https",
-  "node:module",
-  "node:os",
-  "node:path",
-  "node:process",
-  "node:stream",
-  "node:test",
-  "node:url",
-  "node:util",
-  "node:vm",
-  "os",
-  "path",
-  "process",
-  "stream",
-  "test",
-  "url",
-  "util",
-  "vm"
-]);
-
 const STATIC_IMPORT_PATTERN = /^\s*import\s+[\s\S]*?\s+from\s+["']([^"']+)["']/gm;
 const EXPORT_FROM_PATTERN = /^\s*export\s+[\s\S]*?\s+from\s+["']([^"']+)["']/gm;
-const DYNAMIC_IMPORT_PATTERN = /^\s*import\s*\(\s*["']([^"']+)["']\s*\)/gm;
+const DYNAMIC_IMPORT_PATTERN = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gm;
 
 async function listWorkspacePackageDirs() {
   const entries = await readdir(PACKAGES_DIR, { withFileTypes: true });
@@ -65,7 +31,7 @@ async function listWorkspacePackageDirs() {
 
 async function fileExists(targetPath) {
   try {
-    await readFile(targetPath, "utf8");
+    await access(targetPath);
     return true;
   } catch {
     return false;
@@ -121,7 +87,7 @@ function extractPackageSpecifier(specifier = "") {
   return name || null;
 }
 
-function maskNonCode(source = "") {
+function maskComments(source = "") {
   const characters = Array.from(String(source || ""));
   let index = 0;
   while (index < characters.length) {
@@ -161,29 +127,11 @@ function maskNonCode(source = "") {
     }
 
     if (current === "'" || current === "\"" || current === "`") {
-      const quote = current;
-      characters[index] = " ";
       index += 1;
-      while (index < characters.length) {
-        const value = characters[index];
-        if (value === "\\") {
-          characters[index] = " ";
-          if (index + 1 < characters.length && characters[index + 1] !== "\n") {
-            characters[index + 1] = " ";
-          }
-          index += 2;
-          continue;
-        }
-        if (value === quote) {
-          characters[index] = " ";
-          index += 1;
-          break;
-        }
-        if (value !== "\n") {
-          characters[index] = " ";
-        }
-        index += 1;
+      while (index < characters.length && characters[index] !== current) {
+        index += characters[index] === "\\" ? 2 : 1;
       }
+      index += 1;
       continue;
     }
 
@@ -193,15 +141,18 @@ function maskNonCode(source = "") {
   return characters.join("");
 }
 
-function collectImportedPackages(source = "") {
-  const normalizedSource = maskNonCode(source);
+function collectImportedPackages(source = "", { vue = false } = {}) {
+  const scriptSource = vue
+    ? Array.from(String(source || "").matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g), (match) => match[1]).join("\n")
+    : source;
+  const normalizedSource = maskComments(scriptSource);
   const importedPackages = [];
   for (const pattern of [STATIC_IMPORT_PATTERN, EXPORT_FROM_PATTERN, DYNAMIC_IMPORT_PATTERN]) {
     pattern.lastIndex = 0;
     for (const match of normalizedSource.matchAll(pattern)) {
       const specifier = match[1];
       const packageName = extractPackageSpecifier(specifier);
-      if (!packageName || BUILTIN_DEPENDENCIES.has(packageName)) {
+      if (!packageName || isBuiltin(specifier)) {
         continue;
       }
       importedPackages.push(packageName);
@@ -232,7 +183,7 @@ async function collectRuntimeDependencyProblems(packageDir) {
   const importedDependencies = new Set();
   for (const sourceFile of sourceFiles) {
     const source = await readFile(sourceFile, "utf8");
-    const importedPackages = collectImportedPackages(source);
+    const importedPackages = collectImportedPackages(source, { vue: sourceFile.endsWith(".vue") });
     for (const importedPackage of importedPackages) {
       importedDependencies.add(importedPackage);
       if (declaredImports.has(importedPackage)) {
@@ -296,4 +247,8 @@ async function main() {
   process.exitCode = 1;
 }
 
-await main();
+if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
+  await main();
+}
+
+export { collectImportedPackages };

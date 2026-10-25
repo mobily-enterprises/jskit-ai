@@ -15,6 +15,9 @@
     "@jskit-ai/database-runtime": "0.1.245",
     "pg": "^8.13.1"
   },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.245"
+  },
   "jskit": {
     "kind": "runtime",
     "capabilities": {

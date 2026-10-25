@@ -8,7 +8,7 @@
   "scripts": {
     "lint": "eslint packages tooling scripts --max-warnings=0",
     "lint:packages": "node ./tooling/jskit-catalog/scripts/verify-packages.mjs",
-    "check:runtime-deps": "node ./scripts/check-runtime-dependencies.mjs",
+    "check:runtime-deps": "node --test --test-concurrency=1 ./scripts/check-runtime-dependencies.test.mjs && node ./scripts/check-runtime-dependencies.mjs",
     "check:ci": "node --test --test-concurrency=1 ./scripts/check-ci-contract.test.mjs && node ./scripts/check-ci-contract.mjs",
     "verify": "npm run lint && npm run check:runtime-deps && npm run check:ci && npm run lint:packages && npm run generated:check && npm --workspaces --if-present test",
     "verify:registry": "npm run security:audit && npm --workspaces --if-present run test:registry",
