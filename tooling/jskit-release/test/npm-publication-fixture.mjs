@@ -50,6 +50,7 @@ async function publicationFixture(t, publisher = "genesis") {
   }
   await mkdir(path.join(repo, "packages/kernel/shared"), { recursive: true });
   await mkdir(path.join(repo, "packages/agent-docs/site/guide"), { recursive: true });
+  await mkdir(path.join(repo, "packages/agent-docs/heuristics"), { recursive: true });
   function regenerate() {
     runGenerators(repo, { quiet: true });
   }
