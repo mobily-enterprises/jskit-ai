@@ -218,7 +218,8 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
   return Object.freeze(normalized);
 }
 
-function compileNormalizedRouteValidator(normalizedValidator) {
+function compileRouteValidator(validator, { context = "route validator" } = {}) {
+  const normalizedValidator = normalizeRouteValidatorDefinition(validator, { context });
   const schema = {};
   const input = {};
 
@@ -303,14 +304,6 @@ function compileNormalizedRouteValidator(normalizedValidator) {
   }
 
   return Object.freeze(compiled);
-}
-
-function compileRouteValidator(validator, { context = "route validator" } = {}) {
-  return compileNormalizedRouteValidator(
-    normalizeRouteValidatorDefinition(validator, {
-      context
-    })
-  );
 }
 
 function resolveRouteValidatorOptions({

@@ -730,7 +730,6 @@ Local functions
 - `normalizeAdvancedFastifySchema(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorMeta(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {})`
-- `compileNormalizedRouteValidator(normalizedValidator)`
 
 ### `server/http/responseSerializerFactory.js`
 Exports

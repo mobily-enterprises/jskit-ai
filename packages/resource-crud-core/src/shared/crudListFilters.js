@@ -425,7 +425,7 @@ function normalizeCrudListNumberRangeQueryValue(value) {
 }
 
 function parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues }) {
-  const normalizedEntries = (Array.isArray(value) ? value : [value]).map((entry) => normalizeEntry(entry));
+  const normalizedEntries = (Array.isArray(value) ? value : [value]).map(normalizeEntry);
   const acceptedValues = Array.from(new Set(normalizedEntries.filter(Boolean)));
 
   if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {

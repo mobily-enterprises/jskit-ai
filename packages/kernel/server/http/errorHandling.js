@@ -1,5 +1,5 @@
 import { ActionRuntimeError } from "../actions/actionDefinitions.js";
-import { normalizeTransactionOutcome } from "../../shared/support/normalize.js";
+import { isRecord, normalizeTransactionOutcome } from "../../shared/support/normalize.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
 
 const JSON_API_CONTENT_TYPE_PARSER_MARKER = Symbol.for("jskit.fastify.jsonApiContentTypeParserRegistered");
@@ -106,7 +106,7 @@ function resolveValidationFieldErrors(error) {
 
 function resolveRequestRouteTransport(request) {
   const transport = request?.routeOptions?.config?.transport;
-  return transport && typeof transport === "object" && !Array.isArray(transport) ? transport : null;
+  return isRecord(transport) ? transport : null;
 }
 
 function applyRouteTransportErrorResponse(reply, request, error, {
