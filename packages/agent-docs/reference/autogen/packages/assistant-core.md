@@ -376,7 +376,7 @@ Exports
 - `CodexAppServerJsonRpcClient`
 - `socketPathFromCodexAppServerEndpoint(endpoint = "")`
 Local functions
-- `normalizePositiveInteger(value, fallback)`
+- `messageTooLargeError()`
 - `codexAppServerRequestAbortedError(method = "")`
 - `addSocketListener(socket, eventName, handler)`
 - `socketMessageText(event, maxBytes = Number.POSITIVE_INFINITY)`
@@ -401,7 +401,9 @@ Exports
 - `codexConfiguredModelCatalog(includeModel, model, reasoningEffort)`
 - `codexProviderModelCatalog({ models })`
 - `codexProviderConfiguration(provider, apiKey)`
+- `codexProviderCatalogPath(codexHome)`
 - `codexProviderFileConfiguration(provider, key, codexHome)`
+- `copyCodexProviderHome(sourceHome, targetHome)`
 - `verifyCodexProviderKey(provider, apiKey, fetchImpl = fetch)`
 - `createCodexAccountReader({ errorPrefix = "", identityNamespace = "codex-account-v1", secretNamespace = "codex-auth-secret-v1" } = {})`
 - `codexAuthOutputRequiresReconnect(output = "")`
@@ -410,6 +412,7 @@ Local functions
 - `isPlainRecord(value)`
 - `deepFreezeCodexAppServerHelperConfig(value)`
 - `codexAppServerIsolationPolicyError(message = "", details = {})`
+- `codexProviderCatalogSetting(codexHome)`
 
 ### `src/server/conversation/codexConversations.js`
 Exports
@@ -566,7 +569,6 @@ Exports
 - `fileExists(filePath = "")`
 - `tailTextFile(filePath = "", maxBytes = 4096)`
 - `acquireCodexRuntimeLock(runtimeDir = "", { busyCode = "codex_runtime_busy", timeoutMs = CODEX_APP_SERVER_LOCK_TIMEOUT_MS } = {})`
-- `normalizePositiveInteger(value, fallback)`
 - `codexAppServerExecutionMode(options = {})`
 - `codexAppServerIsHelper(options = {})`
 - `assertExistingDirectory(dirPath = "", label = "directory")`
@@ -1200,6 +1202,7 @@ Exports
 - `codexAuthOutputRequiresReconnect`
 - `codexProviderConfiguration`
 - `codexProviderFileConfiguration`
+- `codexProviderCatalogPath`
 - `verifyCodexProviderKey`
 - `codexProviderModelCatalog`
 - `codexCatalogRows`

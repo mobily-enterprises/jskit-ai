@@ -1,10 +1,13 @@
 import { createConnection } from "node:net";
 import WebSocket from "ws";
+import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 const CODEX_APP_SERVER_REQUEST_TIMEOUT_MS = 60_000;
-function normalizePositiveInteger(value, fallback) {
-  const number = Number(value);
-  return Number.isSafeInteger(number) && number > 0 ? number : fallback;
+
+function messageTooLargeError() {
+  const error = new Error("Codex app-server message exceeded the configured transport limit.");
+  error.code = "assistant_codex_app_server_message_too_large";
+  return error;
 }
 
 function socketPathFromCodexAppServerEndpoint(endpoint = "") {
@@ -56,10 +59,8 @@ class CodexAppServerJsonRpcClient {
     WebSocketImpl = WebSocket
   } = {}) {
     this.endpoint = normalizeAgentText(endpoint);
-    this.maxMessageBytes = Number.isSafeInteger(maxMessageBytes) && maxMessageBytes > 0
-      ? maxMessageBytes
-      : Number.POSITIVE_INFINITY;
-    this.requestTimeoutMs = normalizePositiveInteger(requestTimeoutMs, CODEX_APP_SERVER_REQUEST_TIMEOUT_MS);
+    this.maxMessageBytes = normalizePositiveInteger(maxMessageBytes, { fallback: Number.POSITIVE_INFINITY });
+    this.requestTimeoutMs = normalizePositiveInteger(requestTimeoutMs, { fallback: CODEX_APP_SERVER_REQUEST_TIMEOUT_MS });
     this.WebSocketImpl = WebSocketImpl;
     this.onDisconnect = onDisconnect;
     this.nextRequestId = 1;
@@ -233,11 +234,7 @@ class CodexAppServerJsonRpcClient {
       throw new Error("Codex app-server connection is not open.");
     }
     const serialized = JSON.stringify(payload);
-    if (Buffer.byteLength(serialized, "utf8") > this.maxMessageBytes) {
-      const error = new Error("Codex app-server message exceeded the configured transport limit.");
-      error.code = "assistant_codex_app_server_message_too_large";
-      throw error;
-    }
+    if (Buffer.byteLength(serialized, "utf8") > this.maxMessageBytes) throw messageTooLargeError();
     this.socket.send(serialized);
   }
 
@@ -246,9 +243,7 @@ class CodexAppServerJsonRpcClient {
     try {
       const text = socketMessageText(event, this.maxMessageBytes);
       if (text === null) {
-        const error = new Error("Codex app-server message exceeded the configured transport limit.");
-        error.code = "assistant_codex_app_server_message_too_large";
-        this.disconnect(error);
+        this.disconnect(messageTooLargeError());
         return;
       }
       message = JSON.parse(text);

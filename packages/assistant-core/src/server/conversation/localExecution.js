@@ -2,7 +2,7 @@ import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync } from "node:fs";
 import { mkdtemp, open, readFile, readdir, rm } from "node:fs/promises";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
 import { isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -197,11 +197,6 @@ export function createConversationProcessIdentity({
   const PROCESS_IDENTITY_STATUS = Object.freeze({
     ABSENT: "absent", AMBIGUOUS: "ambiguous", EXACT: "exact", INVALID: "invalid", MISMATCH: "mismatch"
   });
-
-  function normalizePositiveInteger(value, fallback) {
-    const number = Number(value);
-    return Number.isSafeInteger(number) && number > 0 ? number : fallback;
-  }
 
   function processMetadataIsIdentifiable(metadata = {}) {
     return Boolean(
@@ -536,11 +531,11 @@ export function createConversationProcessIdentity({
   async function waitForProcessIdentityToSettle(metadata = {}, options = {}) {
     const timeoutMs = normalizePositiveInteger(
       options.processIdentitySettleTimeoutMs,
-      PROCESS_IDENTITY_SETTLE_TIMEOUT_MS
+      { fallback: PROCESS_IDENTITY_SETTLE_TIMEOUT_MS }
     );
     const pollMs = normalizePositiveInteger(
       options.processIdentitySettlePollMs,
-      PROCESS_IDENTITY_SETTLE_POLL_MS
+      { fallback: PROCESS_IDENTITY_SETTLE_POLL_MS }
     );
     const deadline = Date.now() + timeoutMs;
     let inspection = await inspectProcessIdentity(metadata, options);
@@ -649,7 +644,7 @@ export function createConversationProcessIdentity({
     let after = await waitForProcessIdentityExit(
       metadata,
       options,
-      normalizePositiveInteger(options.termTimeoutMs, 3000)
+      normalizePositiveInteger(options.termTimeoutMs, { fallback: 3000 })
     );
     let signaledProcessGroups = [...term.signaledProcessGroups];
     if (after.status === PROCESS_IDENTITY_STATUS.EXACT) {
@@ -669,7 +664,7 @@ export function createConversationProcessIdentity({
       after = await waitForProcessIdentityExit(
         metadata,
         options,
-        normalizePositiveInteger(options.killTimeoutMs, 1000)
+        normalizePositiveInteger(options.killTimeoutMs, { fallback: 1000 })
       );
     }
     const processExitVerified = [

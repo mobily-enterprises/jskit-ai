@@ -10,7 +10,7 @@ import {
   CODEX_APP_SERVER_PROCESS_STATE, CODEX_APP_SERVER_TRANSPORT,
   codexAppServerExecutionMode, codexAppServerHelperWorkspaceDir, codexAppServerIsHelper,
   codexAppServerRuntimeIdentity, codexAppServerTerminalEnvHash,
-  ensureWritablePrivateDirectory, normalizeCodexAppServerTerminalEnv, normalizePositiveInteger, tailTextFile
+  ensureWritablePrivateDirectory, normalizeCodexAppServerTerminalEnv, tailTextFile
 } from "./codexProcess.js";
 import { assertCodexAuthPreflightReady } from "./codexAuthPreflight.js";
 import { codexAppServerModelCatalogError } from "./codexModelCatalog.js";
@@ -18,7 +18,7 @@ import { prepareCodexHistory } from "./codexHistoryAdapter.js";
 import { createCodexConversationAdapter } from "./providers/codex.js";
 import { exportCodexNativeHistory } from "./codexNativeHistoryExport.js";
 import { retireNativeConversation, readStoppedNativeDatabase } from "./nativeHistoryExport.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 import {
   codexAppServerProviderThreadTurns,
@@ -1942,7 +1942,7 @@ export class CodexAppServerAgentProvider {
     const includeHidden = params.includeHidden === true;
     const limit = normalizePositiveInteger(
       params.limit,
-      CODEX_APP_SERVER_MODEL_CATALOG_PAGE_LIMIT
+      { fallback: CODEX_APP_SERVER_MODEL_CATALOG_PAGE_LIMIT }
     );
     const boundedLimit = Math.min(limit, CODEX_APP_SERVER_MODEL_CATALOG_PAGE_LIMIT);
     let totalBytes = 0;

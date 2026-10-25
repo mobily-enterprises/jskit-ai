@@ -89,3 +89,23 @@ test("transport failure preserves its error code for pending requests", async ()
   await assert.rejects(result, { code: "assistant_codex_app_server_message_too_large" });
   assert.equal(client.isOpen(), false);
 });
+
+test("outgoing messages over the limit fail with the transport-limit code", async () => {
+  const client = new CodexAppServerJsonRpcClient({ endpoint: "ws://fixture", WebSocketImpl: Socket, maxMessageBytes: 10 });
+  await client.connect();
+  assert.throws(() => client.send({ payload: "x".repeat(20) }), {
+    code: "assistant_codex_app_server_message_too_large",
+    message: "Codex app-server message exceeded the configured transport limit."
+  });
+});
+
+test("message and timeout limits accept only positive integers", () => {
+  for (const invalid of [0, -1, 1.5, "abc", Number.NaN]) {
+    const client = new CodexAppServerJsonRpcClient({ maxMessageBytes: invalid, requestTimeoutMs: invalid });
+    assert.equal(client.maxMessageBytes, Number.POSITIVE_INFINITY);
+    assert.equal(client.requestTimeoutMs, 60_000);
+  }
+  const client = new CodexAppServerJsonRpcClient({ maxMessageBytes: 512, requestTimeoutMs: 25 });
+  assert.equal(client.maxMessageBytes, 512);
+  assert.equal(client.requestTimeoutMs, 25);
+});

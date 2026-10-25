@@ -2,8 +2,9 @@ import path from "node:path";
 import { codexAuthOutputRequiresReconnect } from "./codexConfiguration.js";
 import {
   assertExistingDirectory, codexAppServerCommandBaseEnv, codexAppServerCredentialHome,
-  codexAppServerProcessCwd, ensureWritablePrivateDirectory, normalizePositiveInteger
+  codexAppServerProcessCwd, ensureWritablePrivateDirectory
 } from "./codexProcess.js";
+import { normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 
 // Codex auth preflight: one bounded `codex debug models` run whose
@@ -61,7 +62,7 @@ async function runCodexAuthPreflight({
       cwd: processCwd,
       inheritProcessEnv: false,
       mode: "capture",
-      timeout: normalizePositiveInteger(timeoutMs, CODEX_AUTH_PREFLIGHT_TIMEOUT_MS)
+      timeout: normalizePositiveInteger(timeoutMs, { fallback: CODEX_AUTH_PREFLIGHT_TIMEOUT_MS })
     });
     return {
       code: result.exitCode,
