@@ -424,6 +424,19 @@ function normalizeCrudListNumberRangeQueryValue(value) {
   };
 }
 
+function parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues }) {
+  const normalizedEntries = (Array.isArray(value) ? value : [value]).map((entry) => normalizeEntry(entry));
+  const acceptedValues = Array.from(new Set(normalizedEntries.filter(Boolean)));
+
+  if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
+    return acceptedValues.length > 0 ? acceptedValues : null;
+  }
+
+  return acceptedValues.length > 0 && normalizedEntries.every(Boolean)
+    ? acceptedValues
+    : INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
+}
+
 function parseCrudListFilterQueryValue(
   filter = {},
   value,
@@ -468,16 +481,11 @@ function parseCrudListFilterQueryValue(
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_ENUM_MANY) {
-    const values = Array.isArray(value) ? value : [value];
-    const normalizedValues = normalizeAllowedFilterTextValues(value, allowedValues);
-
-    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
-      return normalizedValues.length > 0 ? normalizedValues : null;
-    }
-
-    return normalizedValues.length > 0 && normalizedValues.length === values.length
-      ? normalizedValues
-      : INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
+    return parseCrudListFilterMultiQueryValue(
+      value,
+      (entry) => normalizeAllowedFilterTextValue(entry, allowedValues),
+      { invalidValues }
+    );
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_RECORD_ID) {
@@ -487,16 +495,11 @@ function parseCrudListFilterQueryValue(
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    const values = Array.isArray(value) ? value : [value];
-    const normalizedValues = normalizeCanonicalRecordIdList(value);
-
-    if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {
-      return normalizedValues.length > 0 ? normalizedValues : null;
-    }
-
-    return normalizedValues.length > 0 && normalizedValues.length === values.length
-      ? normalizedValues
-      : INVALID_CRUD_LIST_FILTER_QUERY_VALUE;
+    return parseCrudListFilterMultiQueryValue(
+      value,
+      (entry) => normalizeCanonicalRecordIdText(entry, { fallback: "" }),
+      { invalidValues }
+    );
   }
 
   if (type === CRUD_LIST_FILTER_TYPE_DATE) {

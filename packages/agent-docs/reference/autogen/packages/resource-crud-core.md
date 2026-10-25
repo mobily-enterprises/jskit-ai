@@ -82,6 +82,7 @@ Local functions
 - `rejectInvalidCrudListFilterValue({ invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `normalizeCrudListDateRangeQueryValue(value)`
 - `normalizeCrudListNumberRangeQueryValue(value)`
+- `parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues })`
 - `normalizeCrudListFilterType(value = "")`
 - `normalizeCrudListFilterOption(rawOption = null, { context = "filter option" } = {})`
 - `normalizeCrudListFilterOptions(rawOptions = [], { context = "filter options" } = {})`

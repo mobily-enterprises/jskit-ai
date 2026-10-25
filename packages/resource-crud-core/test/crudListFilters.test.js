@@ -215,6 +215,35 @@ test("crud list range helpers parse and format single-key range expressions", ()
   );
 });
 
+test("multi-value filters accept repeated valid values in reject mode and return them once", () => {
+  const filters = defineCrudListFilters({
+    status: {
+      type: "enumMany",
+      label: "Status",
+      options: [
+        { value: "active", label: "Active" },
+        { value: "archived", label: "Archived" }
+      ]
+    },
+    supplierContactId: {
+      type: "recordIdMany",
+      label: "Supplier"
+    }
+  });
+  const reject = { invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT };
+
+  assert.deepEqual(parseCrudListFilterQueryValue(filters.status, ["active", "active"], reject), ["active"]);
+  assert.deepEqual(parseCrudListFilterQueryValue(filters.supplierContactId, ["5", "5", 7], reject), ["5", "7"]);
+  assert.equal(
+    parseCrudListFilterQueryValue(filters.status, ["active", "active", "unexpected"], reject),
+    INVALID_CRUD_LIST_FILTER_QUERY_VALUE
+  );
+  assert.equal(
+    parseCrudListFilterQueryValue(filters.supplierContactId, ["5", "", "5"], reject),
+    INVALID_CRUD_LIST_FILTER_QUERY_VALUE
+  );
+});
+
 test("crud list filter helpers share canonical UI and query normalization", () => {
   const filters = defineCrudListFilters({
     status: {
