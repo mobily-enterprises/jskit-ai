@@ -399,7 +399,7 @@ reconnection; a Helix 401 likewise requires reconnection without replay. This
 fragment does not implement Twitch's recommended reactive refresh on 401.
 [Refresh behavior](https://dev.twitch.tv/docs/authentication/refresh-tokens/).
 
-## Online, public editor and automation
+## Editors, hosting and automation
 
 Twitch requires a distinct client ID for each application. Each generated app
 owns its registration, whether created with a hosted editor, installed editor or
@@ -417,12 +417,42 @@ The documented registration path is the console. No supported application
 creation API was established in this review. An AI can prepare the JSON,
 environment references, callback wiring and validation job. The owner handles
 account verification, human verification, registration and consent; automation
-must not invent a registration endpoint or bypass those steps. For Online,
-operator-managed credential storage can simplify wiring after the app-specific
-registration exists, but this fragment does not provision that service.
+must not invent a registration endpoint or bypass those steps. A hosting
+platform's operator-managed credential storage can simplify wiring after the
+app-specific registration exists, but this fragment does not provision that service.
 
 Twenty controlled runtime tests cover consent formats and replay, encrypted file
 restart, refresh rotation, owner/client isolation, validation, bounded paging,
 malformed responses, provider failures and interruption. Public-editor tests
 cover the configuration form. No live registration, user data, consent or
 sample application is part of this proof.
+
+## OAuth pattern composition: Twitch
+
+Use `twitchProvider` from `@jskit-ai/connectors-catalog/server/twitch` in the
+provider array of the [OAuth pattern](../patterns/oauth-connection/PATTERN.md) and the portable JSON in this guide. Start with
+`user:read:email` and `user:read:follows` for `profile.read` and
+`channels.followed`; remove any permission whose operation is not used.
+Its normal operations verify the token before data access. The provider also
+exposes `token.validate` for Twitch's required startup/hourly validation of
+maintained sessions, including idle connections:
+
+```js
+// Run from the host's startup and scheduled-job paths. Contexts are derived
+// by its existing authorization owner, never from caller-supplied user IDs.
+for (const context of maintainedTwitchContexts) {
+  try {
+    await connections.invoke({ context, integrationId: "twitch", operation: "token.validate" });
+  } catch (error) {
+    await reportConnectionFailure(context, error);
+  }
+}
+```
+
+The host supplies `maintainedTwitchContexts` and `reportConnectionFailure`;
+these are not JSKIT exports. Its scheduler must prevent overlapping runs and
+surface reconnect state. Merely saving configuration installs no scheduled
+job. Neither the provider nor this composition implements application login.
+Twitch requires an application-specific registration: do not reuse one editor
+client ID across independent generated apps. Register the application's own callback URL. The runtime handles array/string token
+scopes and Client-ID headers; do not duplicate those details in app scaffolding.

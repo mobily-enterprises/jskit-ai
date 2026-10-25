@@ -100,7 +100,7 @@ provider key. API failures are sanitized; 401 requires reconnect, 403 indicates
 missing access, and 429 reports a rate limit without retrying. Malformed result
 fields and input values fail explicitly. Cancellation preserves a verified grant.
 
-## Public, Online and automation
+## Editors, hosting and automation
 
 For this account-key flow, the universal OAuth callback is **not applicable**.
 Customer VPS and custom-domain URLs do not enter the provider authentication
@@ -146,22 +146,9 @@ The runtime's trusted host policy must authorize the actual operation and its
 business object. A shared site key is not proof that an app user owns a booking,
 contact or order. Authorize that relationship before returning data or writing.
 The generated app owns its customer screens, checkout and domain-specific rules.
-Public Vibe64 owns editing this project configuration; Online adds no Wix gateway.
+The editor owns editing this project configuration; no Wix gateway is added.
 
-## Verification status
-
-The controlled provider suite currently passes **40/40**, including identity
-headers, input validation, pagination, exact revisions, write bodies, ownership,
-key rotation and failure handling. These use fixtures, not a live Wix account.
-The expanded and compact editor cases each pass with the current Site ID,
-Selectable Site IDs and setup guidance: invalid input, text configuration save and
-reload, missing credentials, connect, reconnect and local disconnect. These browser
-cases use controlled connection responses. A freshly packed catalog installed
-offline in a standalone consumer passed the same 29 controlled cases through
-public package exports, including this guide’s configuration. This proves the
-implemented operations and configuration/lifecycle UI, not the missing workflows
-below or live provider behavior.
-No generated application, payment, real booking or release has been exercised.
+## Not implemented
 
 The following remain outside the implemented operations and need explicit scope
 reconciliation before acceptance: scheduled session management,

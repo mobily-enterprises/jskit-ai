@@ -100,9 +100,10 @@ caller-selected source identity, impersonation header or Workforce Identity toke
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -222,3 +223,32 @@ internal app can answer leave-policy questions with Google citations, but
 configuring it does not import company files or grant every employee access.
 Controlled fixtures prove request/response handling; real ACLs, licensing,
 relevance and summary quality remain untested.
+
+## OAuth pattern composition: Gemini Enterprise search
+
+Use `geminiEnterpriseProvider` from
+`@jskit-ai/connectors-catalog/server/gemini-enterprise` with the existing core
+connection service. this guide contains the portable file and
+provider setup worksheet. Store `projectId`, `location` (`global`, `us`, `eu`)
+and `engineId` as settings, with a confidential Google OAuth registration and
+the `https://www.googleapis.com/auth/cloud-platform` scope. The settings choose
+the API origin and the engine under `default_collection`; callers cannot change
+the target or supply a source identity in an operation request.
+
+`engine.get` checks metadata access. `search` accepts `query`, `pageSize` (1–25,
+default 10) and optional `pageToken`. Reuse the same query/page size while
+paginating. The result is Google's JSON envelope, not a generated answer. Treat
+document snippets and `redirectUri` as untrusted data; do not follow returned URLs
+automatically. Search permission and source access are separate from engine
+metadata permission. Shared and assistant modes act as one connected Google
+account, so authorize every caller before exposing that account's search results.
+This fragment implements no per-user Google identity, Workforce Identity, widget,
+resource ingestion, app login or chat sessions.
+
+The application implements and registers its own callback. A callback domain
+change requires updating its provider registration and environment binding.
+Independent Google Cloud registration projects can separate some quotas, but
+engine billing and limits also depend on the project hosting the engine. Don't
+claim two OAuth client IDs isolate all paid/free consumption. An authorized AI
+can help prepare resource/IAM configuration; Google Auth Platform client setup,
+verification, consent and licensing remain explicit operator/provider tasks.

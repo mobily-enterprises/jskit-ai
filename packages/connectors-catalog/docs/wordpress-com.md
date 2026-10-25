@@ -112,9 +112,10 @@ supported public API for provisioning OAuth clients. Initial registration and
 provider consent remain owner steps; do not invent a client-creation endpoint.
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -130,16 +131,6 @@ not prove independent quota pools: provider limits can include shared user/site
 or infrastructure boundaries. Automattic's guidelines prohibit excessive API
 traffic and allow access limits.
 [API usage guidance](https://developer.wordpress.com/docs/api/guidelines-for-responsible-use-of-automattics-apis/).
-
-## Focused evidence
-
-Six provider tests use simulated HTTP and real encrypted JSON files. They cover
-client verification, reduced scopes, cancellation, replay, persistence, owner
-isolation, post paging, malformed replies and reconnect/error behavior. The
-shared OAuth test additionally proves that refresh cannot restore permissions
-removed during verification. Editor proof covers registration references,
-permission selections and reload. No live signup, consent, provider calls or
-sample-app generation are included. Login is not supplied. Publishing, media, comments, statistics, taxonomy and bounded batches have additional controlled fixtures; final package/UI acceptance is recorded separately.
 
 ## Post and page publishing
 

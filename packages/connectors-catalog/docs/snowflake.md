@@ -124,8 +124,8 @@ For an application integration, use the application's assigned hosting URL as
 the initial origin and its implemented callback path. Store the exact callback
 in its Env reference and provider registration. A domain change requires updating
 both values if the callback URL changes; retain the application identity and its
-persistent grants when moving hosts. Public Vibe64, Online and CLI users supply
-their own registrations through this same contract.
+persistent grants when moving hosts. Every editor and CLI supplies its own
+registrations through this same contract.
 See the [callback guide](../../connectors-core/docs/oauth-callbacks.md).
 
 A Snowflake security integration belongs to one Snowflake account. Separate
@@ -269,3 +269,28 @@ the confidential-client/PKCE consent and refresh lifecycle there; JSKIT is not a
 remote service. Preserve string-valued numeric results, one explicit statement
 request ID, partition polling and cancellation. Apply the same application
 policy to SQL text, handles and warehouse names before invoking the provider.
+
+## OAuth pattern composition: Snowflake account OAuth
+
+Use `snowflakeProvider` from `@jskit-ai/connectors-catalog/server/snowflake` and
+this guide. Its portable settings are `accountUrl` and optional `role`.
+The shared form and CLI parser derive compatible scope choices from the role.
+Omit the role for the connected user's default and retain `refresh_token`;
+otherwise include the exact required role scope returned by `getProviderScopes`.
+Do not hand-encode a space-containing role twice. Changing role/account requires
+new consent. The registration supports confidential client secret POST or Basic;
+PKCE remains enabled for both.
+
+The useful operation is `databases.list` with `showLimit`, `like`, `startsWith`,
+`fromName` and `history`. It reads one metadata page and pins the configured role
+in the request header. Do not turn user text into SQL or infer table access from
+successful metadata verification. HTTP 202 remains an explicit incomplete
+response, with no polling implementation in this fragment.
+
+An administrator creates the custom OAuth integration inside each customer's
+Snowflake account. AI can assist through authorized SQL/CLI provisioning, but
+reader credentials do not grant that authority. Keep secret results out of chat.
+Register the application's callback and update that registration and its
+environment binding when the callback domain changes. Compute billing belongs
+to the Snowflake account. Use application authorization, reference resolution
+and durable storage; the editor does not hold the grant.

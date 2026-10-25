@@ -116,7 +116,7 @@ Environment ID and backend Env token. They send the documented GraphQL requests
 and implement their own result parsing/access policy. No JSKIT dependency or
 Vibe64 service is required for those applications.
 
-## Public, Online and universal URLs
+## Editors and universal URLs
 
 This service-token variant has **no OAuth registration or callback URL**.
 There is no universal URL to enter in dbt for it. The customer's VM or custom
@@ -139,7 +139,7 @@ provision provider accounts or warehouse capacity.
 | Provision warehouse identities, dbt credentials and service tokens | Account-admin setup is required. The reviewed setup instructions do not establish a complete provisioning API; do not claim automated creation. An authorized operator can follow the portal steps above. |
 | Choose account capacity or grant access | Requires the owner's account and warehouse decisions. No change is made by saving a form. |
 
-## Current limits and evidence
+## Current limits
 
 Queries accept 1–100 metrics (`name`, optional `alias`), up to 100 dimensions
 (`name`, optional `grain`: DAY/WEEK/MONTH/QUARTER/YEAR), and up to 20 trusted
@@ -167,9 +167,3 @@ does not build the chart or a continuous warehouse dashboard. Assistant tool att
 requires explicit host integration. Personal access
 tokens are another documented provider option; the captured service-token setup
 is the supported initial onboarding journey.
-
-Controlled HTTP/file tests cover configuration, host restrictions, precise IDs,
-metadata, empty pages, ownership, restart, rotation, malformed responses,
-permission failures, cancellation and timeout. Live account setup, actual data
-access and generated applications are not exercised. Editor form proof is
-recorded separately when the installed package has passed browser checks.

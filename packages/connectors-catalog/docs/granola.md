@@ -108,7 +108,7 @@ state. Revoke access separately in the personal or workspace API-key page using
 **Revoke**, then its confirmation dialog. [Key management](https://docs.granola.ai/help-center/sharing/integrations/granola-api)
 
 There is no provider OAuth application or universal callback URL for this API-key
-mode. Online VPS and custom-domain changes do not change API authentication.
+mode. Hosting and custom-domain changes do not change API authentication.
 Keep stable application/owner identity and runtime reference bindings.
 
 The application owner supplies its own authorized key through private Env. Do

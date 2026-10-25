@@ -95,7 +95,7 @@ segments. It does not perform DNS filtering. The application controls who can
 edit this credential destination and what networks its backend can reach.
 Operation input cannot substitute a different URL.
 
-## Automation and Online ownership
+## Automation and hosted ownership
 
 An AI can prepare the JSON and runtime wiring. With authorized access to the
 store's PHP runtime, provider APIs can enable `PS_WEBSERVICE`, create a
@@ -129,16 +129,13 @@ writes, order processing, stock changes, additional filters, explicit multistore
 selection per request, webhooks and complete account-connection UI
 remain outside this fragment. The newer Admin API is a separate protocol.
 
-
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 The supported surface is `products.list` and `orders.list` with explicit
 pagination/language, a merchant-owned Webservice key and the configured HTTPS
-store path. Source and offline installed-package tests each pass 7/7. Historical
-editor form checks are retained; no fresh browser run or runtime/form change was
-made for this closeout. This is not full commerce or Lovable parity.
+store path. This is not full commerce.
 
-Full deferred work: product/order writes and XML write composition, customer and
+Not implemented: product/order writes and XML write composition, customer and
 inventory resource operations, stock updates, checkout/payments, fulfilment,
 refunds, carts, additional search/filter/detail operations, automatic traversal
 of associations, webhooks, automatic pagination, retries and newer Admin API
@@ -147,5 +144,4 @@ per-request shop selector. No OAuth, shopper authentication or per-shopper grant
 The application owns business UI, routes, access policy and native framework
 composition. Verification reads products only and cannot establish order access.
 Disconnect removes local state; disable/revoke the key in the merchant back office.
-Editor coding-agent attachment remains deferred. Live store compatibility,
-actual permissions/data and generated-app execution have not been verified.
+Assistant tool attachment requires explicit host integration.

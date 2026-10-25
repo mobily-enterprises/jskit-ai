@@ -2,7 +2,7 @@ import { createSchema } from "json-rest-schema";
 const scope = (name) => name.startsWith("https:") ? name : `https://www.googleapis.com/auth/${name}`;
 function definition(id, name, api, description, recommended, permissions, verificationFields = [], setupNotes = []) {
   return Object.freeze({
-    id, name, description, verificationFields, categories: ["Google", "Productivity"],
+    id, name, description, verificationFields,
     accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
     scopes: permissions.map(([value, label, required = false]) => ({ value: scope(value), label,
       recommended: Array.isArray(recommended) ? recommended.includes(value) : value === recommended, ...(required ? { required: true } : {}) })),
@@ -89,7 +89,7 @@ const googleSearchConsoleDefinition = definition("google-search-console", "Googl
 ]);
 const googleAnalyticsDefinition = Object.freeze({
   id: "google-analytics", name: "Google Analytics", description: "Configure website tracking with your public GA4 Measurement ID.",
-  categories: ["Google", "Marketing"], configurationOnly: true,
+  configurationOnly: true,
   accountModes: ["shared"], authenticationMethods: ["none"], scopes: [],
   authenticationLabels: { none: "Public configuration · no credentials" },
   authenticationHint: "Your application loads the Google tag. This does not grant access to Analytics reports.",

@@ -161,9 +161,10 @@ not exposed as user messages. Cancellation/deadlines do not replay a request.
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -207,17 +208,13 @@ customer data and application generation are outside this delivery's tests.
 Writes, Bulk API, SOAP, streaming, MCP, client-credentials/JWT grants, identity
 login and additional domains remain outside the initial runtime fragment.
 
-
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 Supported operations are `limits.read`, `objects.list`, `objects.describe`,
 `query.read` and `query.next`, through project-owned confidential OAuth on the
-configured production/developer/sandbox My Domain. Source and offline installed
-public-export tests each pass 13/13, including the packaged configuration example.
-Historical editor form proof is retained; no new browser run or runtime/form
-change was needed for this closeout.
+configured production/developer/sandbox My Domain.
 
-Deferred work and limitations: record create/update/delete and relationship
+Not implemented: record create/update/delete and relationship
 mutations, bulk/partial-write handling, SOAP, streaming/events, MCP, automatic
 pagination, query building/parameter binding, client-credentials/JWT or other
 grants, identity login, Experience Cloud/sovereign/legacy instance hosts and API
@@ -229,5 +226,37 @@ does not establish access to a particular object or field. A missing token expir
 uses a five-minute local renewal policy, not a provider lifetime guarantee.
 Disconnect removes local grants only; provider revocation remains an org/admin
 action. Native framework routes, business UI, app sessions and access policy are
-application-owned. Assistant tool attachment requires explicit host integration. Live
-org/consent/data outcomes and generated-app execution remain unverified.
+application-owned. Assistant tool attachment requires explicit host integration.
+
+## OAuth pattern composition: Salesforce
+
+Use `salesforceProvider` from `@jskit-ai/connectors-catalog/server/salesforce`
+and the portable JSON in this guide. Read that guide before provisioning
+an External Client App. Production/Developer Edition and Sandbox have distinct
+My Domain formats. Client credentials remain in references; the runtime pins
+consent, token exchange and APIs to that org and handles undated/rotating grants.
+The ordinary file service, Env resolver and application owner policy of the [OAuth pattern](../patterns/oauth-connection/PATTERN.md) apply.
+
+After consent, `limits.read` verifies API access. A server action can expose an
+approved query through the same library:
+
+```js
+const result = await connections.invoke({
+  context: authenticatedContext, integrationId: "crm", operation: "query.read",
+  input: { q: "SELECT Id, Name FROM Account ORDER BY Id LIMIT 20" }, signal
+});
+```
+
+The application supplies the trusted context and abort signal. It authorizes
+objects, fields and any query parameters in its existing action/policy; avoid
+an unrestricted query endpoint. `api` can authorize writes even though these
+operations only read. Do not use provider connection identity as application
+login. For metadata, call `objects.list` and `objects.describe` with an object
+API name. Keep a returned `nextRecordsUrl` with its original owner/query and pass
+it only to `query.next`. No automatic paging is installed.
+
+Map `connector_cursor_expired` to restarting the authorized query and
+`connector_reconnect_required` to the existing connection UI. Do not retry a
+failed operation in a loop. Register the application's implemented callback and
+follow provider requirements for distributing an app across customer orgs.
+Separate registrations do not divide an org's API allocation.

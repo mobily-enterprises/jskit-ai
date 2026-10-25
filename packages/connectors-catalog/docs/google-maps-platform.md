@@ -132,16 +132,10 @@ editor VM URL does not substitute for either. These API keys are unrelated to
 Google login or OAuth callback registration.
 [Client/server restrictions](https://developers.google.com/maps/api-security-best-practices).
 
-## Focused evidence
+## Result retention
 
-Six fixture tests cover explicit verification input, file restart, rotation,
-owner isolation, separate browser references, input bounds, empty responses,
-HTTP-200 errors and transport failures. Editor browser tests cover both
-reference fields, invalid values, reload and optional-field removal. The runtime
-does not automatically retain geocoding results; applications own display and
-retention behavior under the provider's requirements. No live provider use or
-sample-app generation is part of this evidence.
-
+The runtime does not automatically retain geocoding results; applications own
+display and retention behavior under the provider's requirements.
 
 ## Places, routes and browser composition
 

@@ -41,8 +41,7 @@ the number of received items to retrieve another page.
 Use the [API-key pattern](../patterns/api-key-connection/PATTERN.md) with the file
 store. Application code can use the operations below with the same configured connection. Local disconnect does not revoke the account key. Replace
 the Env value when rotating credentials, and delete obsolete keys in Mailgun.
-Tests cover both regional origins, HTTP Basic headers, pagination, re-verification,
-file restart and rejected responses without accessing a real mailbox or account.
+Verification is a domain-list read; it sends no email and changes no DNS.
 
 ## Automation and application ownership
 
@@ -56,18 +55,6 @@ operation. [Key creation API](https://documentation.mailgun.com/docs/mailgun/api
 Each application supplies credentials for its intended Mailgun account. Keys
 within one account may share capacity and billing. The application operator
 owns account selection and budgets; key names alone do not isolate quotas.
-
-
-## Credential guidance review (2026-09-12)
-
-Current provider key-role, credential-type and domain-list documentation were
-checked against the captured private key and US/EU fields. Inline setup now
-explains the exact dashboard flow, admin requirement, Analyst where available,
-one-time secret display, account-key distinction, region and named Env handoff.
-Verification remains a domain-list read; it sends no email and changes no DNS.
-Three focused test cases passed (1.15s), including the shared regional-destination
-regression: changing region requires verification before credentials reach the
-new allowed origin. No runtime change was needed. The controlled browser review passed: the EU region and MAILGUN_API_KEY reference persist after reload, Env and provider guide links are present, and simulated connect/verify/disconnect work. All six steps were visually inspected at 496px width. No live account, email sending or generated application was exercised.
 
 ## Sending and domain setup
 

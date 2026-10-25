@@ -15,6 +15,8 @@ const aiCatalogue = Object.freeze({ ...snapshot, providers: Object.freeze(snapsh
   ...provider, connection: directProviders.has(provider.id) ? "api-key" : "framework",
   models: Object.freeze(provider.models.map((model) => Object.freeze({ ...model, key: `${provider.id}/${model.id}`, providerId: provider.id })))
 }))) });
+const catalogueDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+  .format(new Date(snapshot.extractedAt));
 const models = new Map(aiCatalogue.providers.flatMap((provider) => provider.models.map((model) => [model.key, model])));
 
 function getAiModel(key) { return models.get(key); }
@@ -44,7 +46,7 @@ const aiDefinition = Object.freeze({
     credentialScope: (key) => getAiModel(key)?.providerId,
     hint: (settings = {}) => {
       const model = getAiModel(settings.model);
-      return `${model ? `${model.name}: ${aiAccessLabels[model.access]}. ` : "Choose a provider and model. "}Search by provider or model. Catalogue dated 10 September 2026; availability can change. No automatic paid fallback.`;
+      return `${model ? `${model.name}: ${aiAccessLabels[model.access]}. ` : "Choose a provider and model. "}Search by provider or model. Catalogue dated ${catalogueDate}; availability can change. No automatic paid fallback.`;
     } }],
   apiKeyReferenceHint: "Use an environment reference for an administrator key. For individual accounts, use a private reference your app resolves for the authenticated user. Never put a key in this file.",
   setup: {

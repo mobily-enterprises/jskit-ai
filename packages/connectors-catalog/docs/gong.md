@@ -143,15 +143,6 @@ This implemented key flow has no callback registration. A separate OAuth
 implementation must use the application's actual registered callback and own
 its grants. It is not implemented by this key adapter.
 
-## Focused evidence
-
-Seven tests use simulated Gong responses and real temporary encrypted JSON state.
-They cover default/customer origins, Basic credentials, file restart, rotation,
-ownership, disconnect, host/key changes, unsafe URL rejection, cursor encoding,
-avatar selection and failures. The public editor check verifies required keys,
-secret references, company URL validation, reload and default restoration.
-No live Gong access, account creation or example application execution is used.
-
 ## Call analysis and linked deal context
 
 `calls.extensive` returns metadata, participants, available call summaries/topics,

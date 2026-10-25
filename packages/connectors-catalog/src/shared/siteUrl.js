@@ -9,4 +9,4 @@ function validSiteUrl(value) {
 const httpsSiteUrlField = { type: "string", required: true, minLength: 1, maxLength: 2048,
   validator: (value) => validSiteUrl(value) || "Use an HTTPS site URL without credentials, a query, fragment or parent-path segments." };
 
-export { httpsSiteUrlField };
+export { httpsSiteUrlField, validSiteUrl };

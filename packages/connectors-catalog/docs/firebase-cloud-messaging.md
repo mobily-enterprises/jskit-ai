@@ -156,7 +156,7 @@ The application's policy must authorize the audience and payload before a
 `messages.send` action. A shared service credential grants no user permission
 to send to arbitrary installations or topics. No login functionality is implied.
 
-## Public, Online and custom domains
+## Editors, hosting and custom domains
 
 **Universal OAuth callback URL: not applicable.** Service-account authorization
 is a server-to-server exchange, with no browser redirect to register. A VPS
@@ -167,8 +167,8 @@ installation association. Existing cookies or browser permissions do not move
 between unrelated domains.
 
 The application owner supplies the Firebase project and sender credentials.
-Online and installed-editor projects use the same configuration and runtime;
-Vibe64 supplies no shared Firebase project or platform sender key. Two service
+Hosted and installed-editor projects use the same configuration and runtime;
+no editor supplies a shared Firebase project or platform sender key. Two service
 accounts or Web apps inside one project do not split its project quota.
 [FCM quota ownership](https://firebase.google.com/docs/cloud-messaging/throttling-and-quotas)
 

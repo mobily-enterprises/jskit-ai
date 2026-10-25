@@ -17,13 +17,13 @@ const mapboxDefinition = Object.freeze({
     hint: "Required for browser-only mode; optional with backend geocoding. Separate pk. token for Mapbox in your browser. The application may expose this value; backend verification does not verify its restrictions." }],
   setup: {
     url: "https://docs.mapbox.com/accounts/guides/tokens/",
-    stepsForSettings(settings) { return settings?.usage === "browser" ? [
+    stepsForSettings: settings => settings?.usage === "browser" ? [
       "In Mapbox Developer Console > Access Tokens > Create a token, create a public pk. token with styles:read and fonts:read for your map. Never use a secret sk. token in browser code.",
       "Choose Browser maps only here, enter env:MAPBOX_PUBLIC_TOKEN in Public browser token reference and Save configuration. Store that pk. value in project Env. Your app deliberately exposes only this public token to its map SDK. No backend token, account verification or OAuth callback is needed.",
       "Restrict the token to the actual app hosting/custom and preview URLs. Include localhost only for development. Default public tokens cannot be URL-restricted; create a new token. Wildcards and missing Referer headers do not work with these restrictions.",
       "Use the framework's Mapbox GL JS integration, import its CSS, give the map container a height and preserve attribution. Set accessToken from this public Env binding; handle SDK errors and call map.remove when the view closes. Saving configuration does not install the SDK or test the token's domain restrictions.",
       "LIMITATIONS: no map editor, turn-by-turn navigation UI, offline tiles or automatic SDK installation. Example: your app can display a map using its native SDK, but saving this form does not create a map page. Rotate the token in Mapbox and update/redeploy the public configuration."
-    ] : this.steps; },
+    ] : undefined,
     steps: [
       "Sign into Mapbox Developer Console → Access Tokens → Create a token. Name it for this application and environment. Select only the scopes your APIs need; geocoding can use a public pk. token. Copy a secret sk. token immediately: it is shown only once.",
       "For backend geocoding, enter env:MAPBOX_BACKEND_TOKEN in Backend access token reference. Use a token without browser URL restrictions: backend requests have no browser referrer. Never expose a secret sk. token in browser code.",

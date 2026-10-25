@@ -1,7 +1,7 @@
 const logoDevDefinition = Object.freeze({
   id: "logo-dev", name: "Logo.dev", description: "Display company logos using a publishable image-service key.",
   accountModes: ["shared", "assistant"], authenticationMethods: ["api-key"], scopes: [],
-  runtimeKind: "public-resource", configurationOnly: true,
+  configurationOnly: true,
   apiKeyReferenceLabel: "Publishable key reference",
   apiKeyReferenceHint: "Reference a pk_ key. Your application exposes its value in image URLs. A private sk_ key cannot be used for this image flow.",
   setup: {

@@ -55,8 +55,8 @@ The shared field component and CLI validator use this same format. The public ID
 framework can expose it through its normal public build configuration. No
 secret-resolution service is needed.
 
-Vibe64 Public owns the editor experience. Online uses that same experience and
-the selected project's configuration. Saving must report **Configured**, with
+The editor owns the configuration experience for the selected project. Saving
+must report **Configured**, with
 an explanation that application wiring and event delivery are separate. It must
 not start OAuth, call a connection-status command, send a test tracking event,
 or show an account as verified. Changing or removing the setting is an ordinary

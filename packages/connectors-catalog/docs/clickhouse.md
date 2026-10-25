@@ -192,7 +192,7 @@ path segments. It does not resolve DNS or impose network policy. The host must
 restrict configuration editing and its backend's network access. Redirects are
 rejected; credentials never go in the URL or browser configuration.
 
-## Automation and Online ownership
+## Automation and hosted ownership
 
 An AI can prepare portable JSON and wire the library. With an authorized
 database administrator connection, it can provision users, grants, profiles and

@@ -133,9 +133,10 @@ Revocation is separate from deleting this integration's configuration.
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -168,17 +169,13 @@ applications are outside this test pass. Complete connection UI, native/self
 client grants, additional regions, arbitrary CRM modules, mutations and provider-side
 revocation remain unfinished; the initial read adapter does not imply full API coverage.
 
-
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 Supported: current user and paged leads, contacts, accounts and deals through
 project-owned server OAuth, seven configured data centres and three environments,
-explicit fields/page tokens, encrypted local grants and refresh. Source and
-offline installed-package tests each pass 11/11. Historical editor form evidence
-is retained; the added inline sentence clarifying read-only operation scope was
-source-reviewed, not freshly browser-tested.
+explicit fields/page tokens, encrypted local grants and refresh.
 
-Full limitations/deferred work: no create/update/delete, relationships mutations,
+Not implemented: create/update/delete, relationships mutations,
 arbitrary modules, required-field/module metadata discovery, search/query APIs,
 bulk jobs, attachments, webhooks or automatic pagination. Full-access scopes do
 not add these operations. Named record lists have the documented field/page
@@ -188,5 +185,32 @@ seven, region auto-discovery or provider-side revocation. Current-user verificat
 does not prove module/field permissions. The application supplies callbacks,
 organisation/user policy, end-user connection screens and native framework wiring;
 connecting CRM is not app sign-in. Disconnect is local. Assistant tool attachment
-requires explicit host integration. Live regional OAuth/permissions/data and
-generated-app execution remain unverified.
+requires explicit host integration.
+
+## OAuth pattern composition: Zoho CRM
+
+Import `zohoCrmProvider` from `@jskit-ai/connectors-catalog/server/zoho-crm` and
+pass it to the existing connection service. Follow this guide for registration, references and portable configuration.
+Choose the account's data center and CRM environment explicitly. Do not follow
+callback-supplied hosts or choose another organisation on the user's behalf.
+
+```js
+const page = await connections.invoke({
+  context: authenticatedOwner,
+  integrationId: "crm",
+  operation: "leads.list",
+  input: { fields: "Last_Name,Email", per_page: 50, page: 1 }
+});
+```
+
+The library owns comma-separated scopes, PKCE, token exchange/refresh, API-domain
+validation and `Zoho-oauthtoken` headers. `users.current` verifies the connection;
+`contacts.list`, `accounts.list` and `deals.list` are also available. Keep page
+tokens associated with the same authenticated owner and query, and request later
+pages explicitly. HTTP204 becomes an empty page. The host owns data presentation,
+record access policy and the OAuth callback. Reference secrets instead of putting
+them in JSON; use the same file and connection service for a trusted CLI.
+
+A shared connection shares one organisation's CRM access. Personal connections
+require the host's per-user policy. The application owns its registration and callback. These data scopes do not
+implement app sign-in or promise independent provider quotas.

@@ -549,3 +549,12 @@ authenticationMethod)` filters these choices; configuration validation uses the
 selected method. Forms remove incompatible scopes on method changes and select
 recommended method-specific scopes when entering that mode. Granola uses this
 to keep OAuth identity scopes out of API-key configuration.
+
+Provider `setup` holds the guide `url` and ordered `steps` shown to whoever
+configures the connection. `urlByAuthentication` and `stepsByAuthentication`
+override them for one authentication method; `urlForSettings(settings, method)`
+and `stepsForSettings(settings, method)` override both and return `undefined`
+to fall through. `getProviderSetup(provider, settings, method)` resolves that
+precedence into `{ url, steps }`. A provider with `configurationOnly`, or whose
+`configurationOnlyForSettings(settings)` returns true, has no account
+connection; `isProviderConfigurationOnly(provider, settings)` resolves both.

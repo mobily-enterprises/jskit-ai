@@ -140,3 +140,28 @@ operations. Example: a booking app can create a linked deal and advance its stag
 but it must supply the trigger and cannot import an entire CRM automatically.
 Assistant tool attachment requires explicit host integration. Fixture success does not prove live CRM
 installation, property availability, subscription features or generated-app use.
+
+## OAuth pattern composition: HubSpot account connections
+
+Import `hubspotProvider` from `@jskit-ai/connectors-catalog/server/hubspot`.
+Use this guide registration instructions. Configure an own
+registration with `clientId`, `clientSecretRef: "env:HUBSPOT_CLIENT_SECRET"`,
+`callbackUrlRef: "env:HUBSPOT_CALLBACK_URL"` and
+`tokenEndpointAuthMethod: "client_secret_post"`. Select scopes `oauth` and
+`crm.objects.contacts.read`; the integration's authentication is
+`{ "method": "oauth2", "registrationRef": "hubspot" }` when that registration
+is named `hubspot`.
+
+Use `beginAuthorization`, the existing application's callback route and
+`completeAuthorization`, then `contacts.list` with optional `limit`, `after`
+and `archived`. Verification reads contacts. The provider implements confidential
+code exchange, scope-array normalization and refresh through HubSpot's current
+token endpoint; do not build another token exchange or gateway.
+
+For `per-user`, the application's authenticated identity owns each local grant.
+HubSpot installations normally expose account-level CRM access; this mode does
+not itself enforce HubSpot record ownership or implement application login.
+For `shared`, only authorized app administrators can connect the shared account.
+Use the [API-key pattern](../patterns/api-key-connection/PATTERN.md) instead for a static/private token, retaining the
+`crm.objects.contacts.read` configuration permission. Disconnect is local;
+provider installation removal is separate.

@@ -146,15 +146,6 @@ Token issuance is documented in [application-only authentication](https://docs.x
 Do not infer unattended account creation or provider approval from an available
 token endpoint.
 
-## Verification boundary
-
-Focused fixtures cover file persistence, ownership, rotation, strict inputs and
-responses, paging, errors, cancellation and the guide's actual JSON. Editor
-checks cover token references, ownership, setup guidance and reload persistence.
-These checks use controlled responses; no live X token, registration, generated
-application has been exercised.
-
-
 ## Recent-search display recipe
 
 ```js

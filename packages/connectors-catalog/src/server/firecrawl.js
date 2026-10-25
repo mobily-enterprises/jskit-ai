@@ -2,7 +2,7 @@ import { validatedOperation } from "./jsonOperation.js";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
-import { firecrawlDefinition } from "../shared/definitions.js";
+import { firecrawlDefinition } from "../shared/firecrawl.js";
 
 const empty = createSchema({});
 const pageUrl = {

@@ -3,7 +3,6 @@ const googleCalendarDefinition = Object.freeze({
   id: "google-calendar",
   name: "Google Calendar",
   description: "Read calendars and create, edit or cancel events.",
-  categories: ["Google", "Productivity"],
   accountModes: ["shared", "per-user", "assistant"],
   authenticationMethods: ["oauth2"],
   setup: {

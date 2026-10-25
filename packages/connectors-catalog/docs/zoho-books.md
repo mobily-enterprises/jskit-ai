@@ -155,9 +155,10 @@ refresh tokens. [Token lifecycle and revocation](https://www.zoho.com/books/api/
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -191,15 +192,13 @@ provider revocation, writes and the remaining Books APIs are separate unfinished
 work. The initial adapter and its broader scope configuration do not imply full
 API coverage.
 
-
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 Supported: regional server OAuth, organisation discovery, configured or explicit
 organisation selection, contact and invoice page reads, encrypted file grants
-and refresh. Source 12/12 and installed-package 12/12 tests passed. Historical
-editor form evidence is retained; no fresh browser run or runtime/form change.
+and refresh.
 
-Deferred work and limitations: no contact/invoice writes, customer payments,
+Not implemented: contact/invoice writes, customer payments,
 credit notes, estimates, sales/purchase orders, bills, expenses, projects or
 other Books resource operations. No record detail/search, attachments, webhooks,
 automatic pagination, accounting calculations or processing of payments. Broader
@@ -209,5 +208,37 @@ Organisation discovery does not prove contact/invoice permissions; an unconfigur
 integration requires an explicit organisation per operation. The host must enforce
 its own organisation/user policy in addition to provider permissions. Callback
 routes, business/end-user connection UI and native framework wiring belong to the
-application. Disconnect is local. Assistant tool attachment requires explicit host integration. Live regional
-consent/permissions/accounting outcomes and generated-app execution remain unverified.
+application. Disconnect is local. Assistant tool attachment requires explicit host integration.
+
+## OAuth pattern composition: Zoho Books
+
+Import `zohoBooksProvider` from `@jskit-ai/connectors-catalog/server/zoho-books`
+and use the same connection service, file store and owner policy of the [OAuth pattern](../patterns/oauth-connection/PATTERN.md). See
+this guide for the JSON and regional client setup. Match the selected
+region to the account. Keep `ZohoBooks.settings.READ` for verification.
+
+```js
+const result = await connections.invoke({
+  context: authenticatedOwner, integrationId: "books", operation: "organizations.list"
+});
+// Present active organisations from result.organizations. The application
+// validates the user's choice and any narrower organisation access policy.
+const invoices = await connections.invoke({
+  context: authenticatedOwner, integrationId: "books", operation: "invoices.list",
+  input: { organization_id: selectedOrganizationId, page: 1, per_page: 50 }
+});
+```
+
+Never pick the first or default organisation automatically. A configured
+`settings.organizationId` fixes the organisation and can supply the operation's
+ID; an input attempting to override it fails. With no configured ID the caller
+must supply one. Zoho enforces resource access; the host must enforce any
+narrower per-user policy, especially when deliberately sharing one connection.
+`organizations.list` verifies access to a configured active organisation but
+returns the account's organisation list for discovery. It does not select one.
+
+The library owns regional OAuth, PKCE, refresh, API-domain validation and token
+headers. Lists make one request and preserve `page_context`; use its
+`has_more_page` value for explicit continued paging. IDs stay strings. The host
+owns callbacks, presentation and selection. Configuration save does not grant
+provider access or implement app login. Registrations remain application-owned.

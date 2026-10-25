@@ -137,9 +137,10 @@ updates, employment changes, bulk sync or automatic pagination.
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -166,7 +167,7 @@ for creating these tenant OAuth clients has not been established by this packet;
 do not promise autonomous registration, licensing or security-policy activation.
 An authorized administrator owns tenant access, consent and policy decisions.
 
-## Evidence and testing boundary
+## Sources
 
 - [Workday REST API fundamentals](https://developer.workday.com/documentation/GUID-85810465-bcfb-4fdf-a26d-55eaff3968a8-enHYPHENus/) documents tenant base paths, paging and worker identifiers.
 - [Workday REST API security](https://developer.workday.com/documentation/dan1370797986071/) distinguishes REST Report/Task policies from SOAP permissions.
@@ -175,9 +176,7 @@ An authorized administrator owns tenant access, consent and policy decisions.
 - [Workday OAuth client setup example](https://doc.workday.com/peakon/en-us/workday-peakon-employee-voice/integrations/workday-integration/nfa1667304944189.html) describes tenant OAuth enablement and registration.
 - [Lovable's Workday setup](https://docs.lovable.dev/integrations/workday) documents the captured per-user fields and non-PKCE confidential registration.
 
-Protocol, storage, ownership, validation and editor tests use controlled fixtures.
-No live Workday account, administrator task, provider consent or generated app is
-part of this proof. The host application must still compose its authentication,
+The host application must compose its authentication,
 callback and connection screens using its framework; saving the editor form does
 not generate or run those screens.
 
@@ -290,3 +289,24 @@ The [OpenAI Workday integration example](https://github.com/openai/openai-cookbo
 documents these OAuth functional-area settings and a RaaS report evaluated as
 the authenticated user. It supports the registration guidance; the operation
 schemas here follow the Workday contracts above, not its illustrative schema.
+
+## OAuth pattern composition: Workday
+
+Import `workdayProvider` from `@jskit-ai/connectors-catalog/server/workday` and
+use the portable file and administrator steps in this guide. This is a
+per-user tenant connection with three endpoint fields, Client ID and secret and
+callback references. Its confidential flow omits PKCE and URL scope strings;
+Staffing functional areas and user domain permissions are configured in Workday.
+Keep that provider exception inside the library. Other providers retain S256.
+
+Use `workers.me` for the connected worker and `workers.list` for explicit pages
+with limit, offset, optional name/worker-ID search and visibility flags. The
+library selects Staffing v7 on the configured API host, path prefix and tenant;
+never substitute another user's token or derive ownership from request input.
+An account without a visible worker record cannot pass the initial check.
+
+Every customer tenant needs its own registration and the application's actual
+callback URL. Distinct client IDs do not imply separate tenant quotas.
+The CLI composes the same server APIs and encrypted file store. App login,
+Workday Extend, ISU, SOAP, writes and bulk sync are outside
+this initial fragment. Consent and live tenant testing require separate access.

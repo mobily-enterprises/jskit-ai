@@ -64,7 +64,7 @@ reader. The editor no longer asks for a token or pilot selection.
 ```
 
 Replace the placeholders with project-owned resources. Secrets and grants stay
-with the application. CLI, public Vibe64 and Online use the same configuration;
+with the application. A CLI and every editor use the same configuration;
 Laravel implements it with its own framework. Host/domain changes require the
 provider registration and callback Env value to match the application's new
 callback. Keep persistent grants and application identity when moving hosts.
@@ -115,16 +115,6 @@ provider error bodies and query echoes are not exposed. Requests respect abort
 signals/timeouts and are not replayed automatically. Disconnect removes local
 access; Google account revocation is a separate owner action.
 
-## Verification boundary
-
-Focused tests use controlled OAuth and Ads HTTP responses with the real shared
-validator and encrypted file store. They cover Cloud-project configuration, OAuth/header
-separation, query/page bounds, int64 preservation, empty/malformed results,
-restart, concurrent refresh/rotation, ownership, policy, denied consent, errors
-and interruption. No live accounts, Cloud-project approvals, reports,
-campaign actions or generated applications are used. Provider approval and live
-consent remain separate acceptance work.
-
 ## Existing-account Search campaign service
 
 `@jskit-ai/connectors-catalog/server/google-ads-search` exports
@@ -154,3 +144,55 @@ live coding-assistant tool attachment. For example, asking chat to create a new
 Ads account and autonomously optimize a PMax campaign remains unsupported. The
 current editor command uses development Env and may affect a real Ads account.
 Fixtures prove composition and request/approval behavior, not Google live approval.
+
+## OAuth pattern composition: Google Ads
+
+Use `googleAdsProvider` from `@jskit-ai/connectors-catalog/server/google-ads`
+with the same file service and owner policy. Start from the actual portable JSON
+in this guide. Setup needs a Web OAuth client in a Cloud project
+with the required Google Ads API access level. Developer tokens were retired
+on September 9, 2026; do not add a developer-token reference or pilot selector.
+The app owns its registration and grants. This does not establish app login
+or make arbitrary reports public.
+
+`customers.listAccessible` verifies the grant and returns directly accessible
+customer resource names. It does not list every manager descendant. Use
+`customers.listClients` for an authorized manager's hierarchy metadata, keeping
+the operation customer ID separate from optional `settings.loginCustomerId`.
+For a useful campaign report, the existing server action can call:
+
+```js
+const report = await connections.invoke({
+  context: authenticatedContext,
+  integrationId: "ads",
+  operation: "reports.search",
+  input: {
+    customerId: authorizedCustomerId,
+    query: "SELECT campaign.id, campaign.name, metrics.impressions, metrics.clicks, metrics.cost_micros FROM campaign WHERE segments.date DURING LAST_7_DAYS LIMIT 100"
+  },
+  signal
+});
+```
+
+Derive `authorizedCustomerId` from the app's existing account-access policy.
+Authorize fields, date ranges and filters too; do not send arbitrary browser/AI
+GAQL to a public server route. The library passes the operation and input
+snapshot to the host policy before credentials or API requests. Google's
+`adwords` permission may allow writes, despite this operation set's reads.
+
+Render `report.results ?? []`; retain integer strings and cost micros without
+rounding. Keep `nextPageToken` with the exact query/customer/owner for an explicit
+next call. No automatic page loop or SearchStream endpoint is installed. API
+errors can reflect developer approval, account relationships or quotas even
+after valid OAuth consent. Map `connector_api_access_invalid` to API setup,
+`connector_scope_missing` and `connector_reconnect_required` to consent recovery,
+and `connector_rate_limited` to the app's bounded usage policy. Never solve API
+approval by repeatedly asking the user to reconnect.
+
+The provider guide includes console clicks, API/CLI automation feasibility,
+application-owned callback configuration and account quota boundaries.
+Different client IDs do not automatically separate developer-token capacity;
+approved pilot projects can have usage caps while organization/account limits
+still apply. The CLI uses exactly this library and file configuration without
+Vibe64. No generated app or live provider operation is required to validate the
+configuration, run the focused provider tests or read the [OAuth pattern](../patterns/oauth-connection/PATTERN.md).

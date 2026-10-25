@@ -1,6 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
-import { resendDefinition } from "../shared/definitions.js";
+import { resendDefinition } from "../shared/resend.js";
 import { validatedOperation, withQuery } from "./jsonOperation.js";
 
 const pagination = createSchema({

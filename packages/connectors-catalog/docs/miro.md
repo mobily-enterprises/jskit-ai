@@ -90,8 +90,8 @@ For an application integration, use the application's assigned hosting URL as
 the initial origin and its implemented callback path. Store the exact callback
 in its Env reference and provider registration. A domain change requires updating
 both values if the callback URL changes; retain the application identity and its
-persistent grants when moving hosts. Public Vibe64, Online and CLI users supply
-their own registrations through this same contract.
+persistent grants when moving hosts. Every editor and CLI supplies its own
+registrations through this same contract.
 See the [callback guide](../../connectors-core/docs/oauth-callbacks.md).
 
 The application or explicitly authorized assistant host owns the client secret

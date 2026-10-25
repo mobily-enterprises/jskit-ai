@@ -134,13 +134,13 @@ There are no automatic retries. A new scan is a separate explicit operation.
 ## Application ownership and custom domains
 
 **Provider callback: not applicable.** Service-account CLI authentication has no
-browser redirect. Do not register `https://connect.vibe64.dev/oauth/wiz/callback`
-or each customer's VPS/custom domain as a Wiz callback for this mode.
+browser redirect. Do not register a hosting platform's shared callback or each
+customer's own domain as a Wiz callback for this mode.
 
 The application or scanning workflow owner supplies an authorized Wiz service
 account scoped to the intended Wiz projects. Store its credentials in private
-worker Env and enforce permission to scan the selected source directory. Public
-Vibe64 and Online do not supply a universal scanning credential. The runtime
+worker Env and enforce permission to scan the selected source directory. No
+editor or hosting platform supplies a universal scanning credential. The runtime
 rejects managed registration assignments; there is no hosted universal scan
 endpoint.
 

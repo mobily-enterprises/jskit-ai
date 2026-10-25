@@ -91,15 +91,6 @@ See the [callback guide](../../connectors-core/docs/oauth-callbacks.md) for doma
 changes and reconnect behavior. Keep the selected Microsoft tenant/audience
 consistent with the provider registration.
 
-## Evidence and limits
-
-Focused fixtures cover consent, cancellation, encrypted restart, refresh,
-reduced permissions, owner isolation, tenant changes, folder paging, empty
-filtered pages, metadata validation and controlled provider failures. Provider
-HTTP is simulated. No live account, provider registration or generated app is
-used. Provider-console administration and live account acceptance remain
-outside this fixture evidence.
-
 ## Editor credential handoff
 
 The inline guide supplies Entra registration, account audience, Web callback,
@@ -110,10 +101,8 @@ delegated permissions, secret Value and expiry steps. Save
 the prepared application runtime. Per-user connections belong to individual
 users inside that application. No Vibe64 gateway or shared registration is used.
 
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 Delegated project-owned OAuth browses default-drive folders and PowerPoint candidate filenames and fetches selected file metadata, with bounded paging, tenant/audience configuration and refreshed private grants.
 
-No slide/presentation content reading, creation/editing, upload/download, conversion, macros, sharing, recursive search, arbitrary drive/site selection or file format validation. Filename extension filtering is not content inspection; filtered empty pages can still have a continuation. No app-only/client-credentials or device-code grant, application login or automatic remote consent revocation. The app owns callback routes, account connection UI, authorization and file-picker/pagination behavior. Exact Lovable shared-form fields/scopes remain unverified because the saved shared-form reference is a loading placeholder. To extend: use supported native presentation tooling and file transfer, proving actual slide changes, conflict handling and format preservation; no invented Graph slide-editing endpoint. No live provider account, provider registration, paid request or generated-application execution was tested. No new editor coding-assistant tool attachment is claimed. Other frameworks use the same project configuration and their own native tools; JSKIT is optional.
-
-7 provider-specific source and 7 installed-package cases passed, plus 2 shared Microsoft tenant checks in each 16-test Word/PowerPoint run on September 13. September 12 rendered guidance/form/lifecycle evidence at 496px is retained; no new phone or browser run.
+No slide/presentation content reading, creation/editing, upload/download, conversion, macros, sharing, recursive search, arbitrary drive/site selection or file format validation. Filename extension filtering is not content inspection; filtered empty pages can still have a continuation. No app-only/client-credentials or device-code grant, application login or automatic remote consent revocation. The app owns callback routes, account connection UI, authorization and file-picker/pagination behavior. To extend: use supported native presentation tooling and file transfer, proving actual slide changes, conflict handling and format preservation; no invented Graph slide-editing endpoint. Assistant tool attachment requires explicit host integration. Other frameworks use the same project configuration and their own native tools; JSKIT is optional.

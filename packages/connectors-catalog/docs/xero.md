@@ -385,12 +385,10 @@ or automatic public invoice attachment sharing. CLI consumers use the same
 base64 input/output contract; other frameworks can use their native byte streams
 against these provider endpoints with the same project-owned credentials.
 
-## Closeout scope and remaining work
+## Not implemented
 
-This provider is being closed against the September 13 existing-capability
-milestone, not complete Xero API coverage or exact Lovable parity. The operation
-index above is the supported runtime surface. The following work remains outside
-that surface:
+The operation index above is the supported runtime surface. The following work
+remains outside that surface:
 
 - Authentication: no secret-free native registration, Custom Connections,
   client-credentials accounting access, or application sign-in. Each project
@@ -420,10 +418,40 @@ that surface:
   business validations and operation calls. Installing the provider or saving the
   editor form does not generate an accounting application. Assistant tool
   attachment requires explicit host integration.
-- Verification: controlled fixtures establish request/response and local lifecycle
-  behavior. Live OAuth, actual Xero organisations, provider tiers, production
-  permissions, accounting outcomes and generated-app execution are unverified.
 
-Future work should address these items only when a concrete application requires
-them. Do not present an unsupported operation as available merely because its
-OAuth scope can be selected.
+Do not present an unsupported operation as available merely because its OAuth
+scope can be selected.
+
+## OAuth pattern composition: Xero
+
+Import `xeroProvider` from `@jskit-ai/connectors-catalog/server/xero` and use
+the exact portable configuration in this guide. Its registration requires
+`tokenEndpointAuthMethod: "client_secret_basic"`; code exchange and refresh
+stay in JSKIT. Use an HTTPS callback or Xero's permitted `http://localhost`
+callback for local CLI work; `127.0.0.1` is not accepted by this provider.
+
+```js
+const tenants = await connections.invoke({
+  context, integrationId: "xero", operation: "connections.list"
+});
+// The app displays permitted ORGANISATION entries, takes an explicit choice,
+// and authorises that choice against its own workspace/account policy.
+const tenantId = await choosePermittedOrganisation(tenants, context);
+const contacts = await connections.invoke({
+  context, integrationId: "xero", operation: "contacts.list",
+  input: { tenantId, page: 1, pageSize: 50 }
+});
+```
+
+`choosePermittedOrganisation` is application-owned selection and policy, not a
+JSKIT export. Never select the first tenant automatically or trust a submitted
+ID merely because it has UUID syntax. Runtime reads additionally check that the
+current token still has an ORGANISATION connection before sending a tenant
+header. This does not replace the application's own authorisation boundary.
+The same pattern applies to `organisation.read` and `invoices.list` with their
+required read scopes. Follow page numbers explicitly; the library performs no
+automatic crawl, calculations, writes or login. Present private data only to
+the authorised caller. Refresh and encrypted file state remain library code.
+
+The guide covers the manual developer-app setup, connection tiers and
+application callback requirements. The application supplies its own registration.

@@ -95,14 +95,6 @@ provides an independent allowance. Apply usage limits in the application and
 confirm provider capacity before claiming quota isolation.
 [API rate limits](https://developers.lexware.io/docs/).
 
-## Focused evidence
-
-Simulated replies and real temporary file state verify authentication, restart,
-rotation, ownership, disconnect, empty/full contact pages, role filters,
-fractional/oversized input rejection and malformed/provider failures. The
-editor check verifies reference-only storage and persistence after reload.
-Live provider accounts, billing changes and sample-app generation are excluded.
-
 ## Accounting operations
 
 `contacts.get`, `articles.get`, `invoices.get`, `vouchers.get` take a resource UUID.

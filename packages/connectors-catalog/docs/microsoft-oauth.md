@@ -141,3 +141,36 @@ Rotate expiring registration secrets in Env before removing old credentials.
 Do not log token exchange bodies. Tests cover code/state consumption, PKCE,
 permission failures, request boundaries, encrypted file restart and refresh
 rotation for all eight providers.
+
+## OAuth pattern composition: Microsoft document
+
+Import `microsoftWordProvider` or `microsoftPowerPointProvider` from the matching
+`@jskit-ai/connectors-catalog/server/microsoft-word` or
+`@jskit-ai/connectors-catalog/server/microsoft-powerpoint` export. Use that provider
+in the [OAuth pattern](../patterns/oauth-connection/PATTERN.md) composition and the [Word](microsoft-word.md) or [PowerPoint](microsoft-powerpoint.md) guide's JSON. A `files` slot requests
+`Files.Read` and, for refresh capability, `offline_access`. Set `settings.tenantId`
+to an allowed audience or directory GUID matching the registration. The shared
+library uses it for authorization, token exchange and refresh; changing the
+tenant requires reconnecting. Never build token URLs from unvalidated user input.
+
+After consent and verification, the host can call the same service:
+
+```js
+const page = await connections.invoke({
+  context, integrationId: "files", operation: "items.list",
+  input: { folderId, pageSize: 25, nextLink }
+});
+const file = await connections.invoke({
+  context, integrationId: "files", operation: "items.get", input: { itemId }
+});
+```
+
+The host supplies authenticated `context`, an optional `folderId`/`nextLink`
+and the chosen `itemId`. Pass the original folder ID with every continuation.
+Keep `page["@odata.nextLink"]` even if `page.value` is empty: the adapter filters
+an upstream page by file extension, so the next page can contain matching files.
+Display folder and file metadata through the app's existing UI. The returned
+`file` is metadata, not document contents; returned web URLs do not authorize
+additional downloads. These adapters implement no document editing, recursive
+crawl or app login. Leave paging and named-operation HTTP ownership in JSKIT;
+the app owns its file selection, presentation and access policy.

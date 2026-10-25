@@ -257,7 +257,7 @@ same account do not establish separate billing or guaranteed quota isolation.
 The application operator selects its account, key and region and owns usage
 limits. This adapter does not provision capacity or enforce a budget. Use
 separate parent accounts where independent billing is required, subject to
-Twilio's account arrangements. Online, installed editor and CLI users configure
+Twilio's account arrangements. Hosted editor, installed editor and CLI users configure
 the same application-owned credentials.
 
 There is no OAuth callback in this API-key flow, so editor VM URLs and custom

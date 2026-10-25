@@ -168,7 +168,7 @@ read the same registration references and ownership/scopes, call GET
 response. It must retain the provider-specific `client_key`, comma scopes and
 refresh-token rules described above. JSKIT supplies no PHP implementation.
 
-## Online, public and custom domains
+## Editors, hosting and custom domains
 
 Each application owns its provider registration, callback route, credentials
 and grants. Hosted and installed editors configure the same app-owned setup;
@@ -199,3 +199,21 @@ The app developer must obtain approval for the actual integration and user flow.
 The initial fragment is tested with controlled token/API responses and the editor
 configuration UI. No live TikTok registration, production approval, provider
 consent or generated application has been exercised.
+
+## OAuth pattern composition: TikTok
+
+Use `tiktokProvider` from `@jskit-ai/connectors-catalog/server/tiktok` and the
+packaged this guide. The portable `clientId` field stores TikTok's Client
+key. The adapter sends `client_key` during authorize/token exchanges, comma
+separated scopes, and requires a static HTTPS Web callback under 512 characters.
+The CLI uses that same callback-owning backend and file runtime; do not embed
+its secret into distributed clients or assume HTTP loopback/native support.
+
+`profile.read` verifies basic access. `profile.extended`, `profile.stats` and
+`videos.list` require their respective optional permissions. Handle declined
+permissions as unavailable operations; never substitute the builder's account
+for an app user's connection. Video reads use explicit pages with string IDs;
+the runtime implements no posting or Research API. Refresh rotates credentials
+and may reduce permissions. Local disconnect does not revoke access at TikTok.
+The application owns its callback and allowed return destination. App login
+remains a separate concern from this data connection.

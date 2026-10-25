@@ -123,14 +123,6 @@ that loads the map. Mapbox does not accept wildcard characters in these
 restrictions; consult its matching rules when adding subdomains or custom
 domains. No OAuth callback is involved in these token operations.
 
-## Focused evidence
-
-Six fixture tests cover file restart, rotation, ownership, optional references,
-HTTP-200 validity failures, coordinates, query bounds, attribution, permanent
-intent and permission/quota failures. The editor test covers both reference
-fields, invalid raw values, save/reload and removing the optional value.
-No live Mapbox account, geocoding use or generated application is exercised.
-
 ## Browser-only maps and native SDK composition
 
 Select **Browser maps only** for `settings.usage: "browser"`, authentication

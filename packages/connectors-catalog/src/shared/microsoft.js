@@ -1,10 +1,12 @@
 import { createSchema } from "json-rest-schema";
 
+const registrationUrl = "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app";
+
 function definition(id, name, description, permission, label, organizationOnly = false, verificationFields = []) {
   const authority = organizationOnly ? "organizations" : "common";
   const audiences = organizationOnly ? ["organizations"] : ["common", "organizations", "consumers"];
   return Object.freeze({
-    id, name, description, verificationFields, categories: ["Microsoft", "Productivity"],
+    id, name, description, verificationFields,
     accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
     scopes: [
       { value: permission, label, recommended: true },
@@ -16,21 +18,7 @@ function definition(id, name, description, permission, label, organizationOnly =
           `Use ${audiences.join(", ")} or your Directory (tenant) ID as a GUID.` }
     }),
     settingsFields: [{ name: "tenantId", label: "Directory (tenant) ID", placeholder: authority,
-      hint: `Use ${authority} for the default audience, or the directory GUID for a single-tenant app. This is not the Application (client) ID.` }],
-    setup: {
-      url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
-      steps: [
-        "In Microsoft Entra admin center, select the directory that owns your app. Open Entra ID > App registrations > New registration.",
-        organizationOnly
-          ? "Choose Multiple Entra ID tenants. This connector requires a work or school account."
-          : "Choose Any Entra ID Tenant + Personal Microsoft accounts for this connector's common sign-in endpoint.",
-        "For a single-tenant registration, choose Single tenant only and copy Directory (tenant) ID into this form. The selected audience must match your app registration.",
-        "Register the app. Under Authentication, add a Web platform with the exact callback URL served by your backend.",
-        `Under API permissions, add Microsoft Graph delegated ${permission} and offline_access permissions. Tenant policy may require administrator consent.`,
-        "Copy Application (client) ID into this form. Under Certificates & secrets, create a client secret and store its Value in the referenced Env variable.",
-        "Store the callback URL in its Env variable, then save configuration. The runtime requests consent and verifies the selected operation."
-      ]
-    }
+      hint: `Use ${authority} for the default audience, or the directory GUID for a single-tenant app. This is not the Application (client) ID.` }]
   });
 }
 
@@ -46,7 +34,7 @@ const microsoftOutlookDefinition = Object.freeze({
     { value: "offline_access", label: "Keep access when you are away", recommended: true }
   ],
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name the application. For common, choose accounts in any organizational directory and personal Microsoft accounts. For single tenant, choose this directory only and enter its Directory (tenant) ID. Select Register and copy Application (client) ID into Client ID.",
       "Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated backend must serve that callback. Directory (tenant) ID identifies the directory, not the application.",
@@ -72,7 +60,7 @@ const microsoftOneDriveDefinition = Object.freeze({
     { value: "offline_access", label: "Keep access when you are away", recommended: true }
   ],
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name the application. For common, select accounts in any organizational directory and personal Microsoft accounts. For single tenant, select this directory only and use its Directory (tenant) ID instead. Select Register.",
       "Copy Application (client) ID from Overview into Client ID. Directory (tenant) ID identifies the directory, not the app. Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated backend must serve that callback.",
@@ -96,7 +84,7 @@ const microsoftExcelDefinition = Object.freeze({
     { value: "offline_access", label: "Keep access when you are away", recommended: true }
   ],
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "Sign into Microsoft Entra admin center → Entra ID → App registrations → New registration. Name your application. For common, choose accounts in any organizational directory and personal Microsoft accounts; for a single directory, choose single tenant and use its Directory (tenant) ID instead.",
       "Select Register. Copy Application (client) ID from Overview into Client ID. Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated application's backend must serve that address.",
@@ -124,7 +112,7 @@ const microsoftTeamsDefinition = Object.freeze({
     { value: "offline_access", label: "Keep access when you are away", recommended: true }
   ],
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name the application and choose accounts in any organizational directory. Select Register and copy Application (client) ID into Client ID. Keep organizations as tenant, or choose single tenant and enter its Directory (tenant) ID. This connector requires a work or school account with Teams access; personal Microsoft accounts are unsupported.",
       "Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated backend must serve this callback. Directory (tenant) ID identifies the directory, not the application.",
@@ -149,7 +137,7 @@ const microsoftOneNoteDefinition = Object.freeze({
     { value: "offline_access", label: "Keep access when you are away", recommended: true }
   ],
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name your application. For common, choose accounts in any organizational directory and personal Microsoft accounts. For single tenant, choose this directory only and use its Directory (tenant) ID. Select Register and copy Application (client) ID into Client ID.",
       "Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated application's backend must serve that address. Directory (tenant) ID is the directory identifier, not the Application (client) ID.",
@@ -178,7 +166,7 @@ const microsoftSharePointDefinition = Object.freeze({
     { value: "offline_access", label: "Keep access when you are away", recommended: true }
   ],
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name the application and choose accounts in any organizational directory. Select Register and copy Application (client) ID into Client ID. Keep organizations as tenant, or choose single tenant and enter that Directory (tenant) ID. SharePoint site search requires a work or school account; personal Microsoft accounts are unsupported.",
       "Open Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL, then Configure. The generated backend must serve this callback. The tenant ID identifies the directory, not the application.",
@@ -196,7 +184,7 @@ const microsoftSharePointDefinition = Object.freeze({
 const microsoftWordDefinition = Object.freeze({
   ...definition("microsoft-word", "Microsoft Word", "Browse Word files and folders in your drive and read document metadata.", "Files.Read", "Read your files"),
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name the application. For common, choose accounts in any organizational directory and personal Microsoft accounts. For single tenant, choose this directory only and enter its Directory (tenant) ID. Select Register and copy Application (client) ID into Client ID.",
       "Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated backend must serve that callback. Directory (tenant) ID identifies the directory, not the app.",
@@ -211,7 +199,7 @@ const microsoftWordDefinition = Object.freeze({
 const microsoftPowerPointDefinition = Object.freeze({
   ...definition("microsoft-powerpoint", "Microsoft PowerPoint", "Browse PowerPoint files and folders in your drive and read presentation metadata.", "Files.Read", "Read your files"),
   setup: {
-    url: "https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app",
+    url: registrationUrl,
     steps: [
       "In Microsoft Entra admin center → Entra ID → App registrations → New registration, name the application. For common, choose accounts in any organizational directory and personal Microsoft accounts. For single tenant, choose this directory only and enter its Directory (tenant) ID. Select Register and copy Application (client) ID into Client ID.",
       "Under Authentication → Redirect URI configuration → Add Redirect URI, choose Web, paste this project's exact Suggested callback URL and select Configure. The generated backend must serve that callback. Directory (tenant) ID identifies the directory, not the app.",

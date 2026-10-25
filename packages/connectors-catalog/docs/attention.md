@@ -100,14 +100,6 @@ provider capacity arrangements for its usage. Each
 customer organization supplies its own authorized key. No OAuth callback is
 used, so VM subdomains and deployed app domains do not change this flow.
 
-## Focused evidence
-
-Simulated protocol tests with real temporary JSON state cover the bearer header,
-current endpoint, title encoding, page bounds, detailed-transcript selection,
-partial metadata, empty results, failures, ownership, restart, rotation and
-disconnect. The editor check verifies reference-only saving and reload.
-Live provider requests, key provisioning and sample-app generation are excluded.
-
 ## Complete app workflows
 
 The provider's [OpenAPI contract](https://docs.attention.com/api-reference/openapi.json)

@@ -111,19 +111,6 @@ Outbound reads need no OAuth callback, so VM subdomains and custom deployment
 domains do not alter authentication. Record the intended application URL in
 provider setup and satisfy its content/attribution agreement in the application.
 
-## Focused evidence
-
-Fixtures check trending verification, search encoding, pagination bounds,
-locale/filter errors, unsuccessful envelopes, key rotation, private file-store
-restart, owner isolation and provider failures. Core tests cover path encoding,
-invalid destinations, ambiguous prefixes and error redaction. The editor test
-checks the secret reference, setup link and reload persistence. No live key,
-production approval, media use or generated sample application is exercised.
-
-The official Partner Panel guide was rechecked on 2026-09-12. Expanded screen
-steps cover Env handoff, connection verification, production approval and local
-disconnect. Updated rendered review passed using simulated connection responses.
-
 ## Embedding and limits
 
 The application supplies its own picker and native HTTP/runtime wiring in any

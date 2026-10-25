@@ -186,25 +186,11 @@ not enable OAuth in the implemented fragment. A separate OAuth implementation
 must register the application's actual callback, bind consent to its authenticated
 user and own its grants. That consent journey remains unfinished.
 
-## Focused evidence
-
-Nine tests exercise simulated PostHog responses with actual temporary encrypted
-JSON files: both regions, restart, rotation, ownership, disconnect, settings,
-explicit verification input, public-token validation, request boundaries,
-flag results, capture acceptance, quota and HTTP errors. No live provider
-account, consent, event submission or generated application is used.
-
-
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 Supported: public Cloud project-token verification through explicit-subject flag
 evaluation, `flags.evaluate` and `events.capture`, EU/US region configuration,
 Env references, encrypted local connection state, token rotation and disconnect.
-Nine controlled source tests and nine installed-package tests pass. Existing
-phone/desktop configuration evidence is retained; no new browser run was made
-for this closeout and no runtime/form behavior changed.
-
-Limitations:
 
 - No private analytics querying, dashboards, project provisioning, personal API
   credentials, OAuth, MCP or self-hosted/custom ingestion domains.
@@ -220,8 +206,7 @@ Limitations:
 - Flag quota or partial-evaluation failures are errors, with no automatic
   fallback value. The backend supplies no visitor IP forwarding.
 - Disconnect removes local state only; rotate the token in PostHog when needed.
-  Assistant tool attachment requires explicit host integration. No live token, tracking,
-  ingestion, provider quota behavior or generated application was exercised.
+  Assistant tool attachment requires explicit host integration.
 
 The application must compose the browser lifecycle and analytics features
 it needs; this connector does not supply a complete analytics product.

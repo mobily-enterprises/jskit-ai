@@ -91,17 +91,6 @@ independent-capacity arrangement need confirmation. The application enforces
 its own usage limits. No callback URL is
 used, so editor VM and app hosting domains do not affect this flow.
 
-## Focused evidence
+## Scope and limitations
 
-Tests use simulated HTTP replies and real temporary encrypted JSON storage.
-They cover raw authorization, page defaults, explicit organization-only reads,
-numeric-string totals, invalid inputs/envelopes, restart, rotation, ownership
-and disconnect. Editor automation verifies the token label, reference-only
-storage and save/reload. Live provider use, account creation and sample-app
-generation are excluded.
-
-## Existing-scope closeout — 13 September 2026
-
-Contact listing only, including people by default (`depth: 1`), explicit organization-only depth, bounded offset pagination and numeric-string totals. The project supplies its existing raw API token through Env. No contact detail/search/create/update/delete, related-object expansion, invoices, orders, vouchers or bookkeeping operations are implemented. There is no OAuth/app registration, application-user login, token-issuance automation, automatic pagination/retry or remote token revocation. Applications still own their UI, authorization and pagination; disconnect removes local connection state. Deferred work is the missing contact/accounting operations and their validation, permissions, setup guidance and tests. No live Sevdesk account, provider-console login or generated-app run was tested.
-
-Three selected source tests and the same three installed-package tests passed on September 13. They cover credential verification, encrypted file restart, rotation, isolation, disconnect, pagination/depth/totals and redacted invalid-input/provider failures. Existing shared business-token UI evidence is retained; no fresh browser run or form change is claimed.
+Contact listing only, including people by default (`depth: 1`), explicit organization-only depth, bounded offset pagination and numeric-string totals. The project supplies its existing raw API token through Env. No contact detail/search/create/update/delete, related-object expansion, invoices, orders, vouchers or bookkeeping operations are implemented. There is no OAuth/app registration, application-user login, token-issuance automation, automatic pagination/retry or remote token revocation. Applications still own their UI, authorization and pagination; disconnect removes local connection state.

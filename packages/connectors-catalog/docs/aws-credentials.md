@@ -36,7 +36,7 @@ Use an IAM identity restricted to the intended resources, not an account root ke
 Account enrollment, billing and administrator access are prerequisites; adding
 an integration does not create an AWS account or confer administrator rights.
 
-## Online, public editor and independent CLI
+## Editors and independent CLI
 
 There is **no OAuth registration, redirect URI or universal callback URL** for
 these credential modes. The app's VPS and custom domain do not change the AWS

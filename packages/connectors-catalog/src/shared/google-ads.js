@@ -6,7 +6,7 @@ const common = {
 };
 const googleAdsDefinition = Object.freeze({
   id: "google-ads", name: "Google Ads", description: "Discover advertising accounts, prepare reviewed Search campaigns and read Google Ads reports.",
-  categories: ["Google", "Marketing"], accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
+  accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   settingsSchema: createSchema(common),
   settingsFields: [
     { name: "loginCustomerId", label: "Manager customer ID (optional)", placeholder: "1234567890",

@@ -268,21 +268,10 @@ application must follow its approved usage and account limits.
   Changed client IDs or callbacks require reconnecting; changing the secret
   binding can support ordinary provider-side secret rotation.
 
-## Verification and remaining scope
+## Limitations
 
-`test/wave.test.js` exercises the real shared service with temporary encrypted
-files and controlled HTTP responses. It covers code consent, restart, named
-queries, input boundaries, scopes, owner policy, callback changes, serialized
-refresh, permission/subscription failures, partial GraphQL errors, cancellation
-and malformed success responses. The guide's JSON is parsed by the same schema.
-The public editor cases passed at desktop and phone widths, checking all ten
-setup steps, configuration/Env references and file persistence, owner-mode
-changes, consent cancellation, reconnect and local disconnect.
-
-These tests use no live Wave account, consent, invoices or registration. They do
-not generate a sample application. Live success, provider PKCE enforcement,
-partner approval and actual quota allocation remain unproven. Full-access
-tokens, webhooks and provider-side revocation are not implemented. The implemented mutations are described below.
+Full-access tokens, webhooks and provider-side revocation are not implemented.
+The implemented mutations are described below.
 
 ## Estimates in the application
 
@@ -438,3 +427,35 @@ view. This hides an account from the default view, rather than deleting it.
 Native frameworks use the same ownership lookup and `AccountArchiveInput`, whose
 output provides `didSucceed` and `inputErrors`, without an account object. See
 [Wave API reference](https://developer.waveapps.com/hc/en-us/articles/360019968212-API-Reference).
+
+## OAuth pattern composition: Wave
+
+Import `waveProvider` from `@jskit-ai/connectors-catalog/server/wave` into the
+same provider array and use this guide for portable JSON and registration
+setup. Keep `client_secret_post` authentication. Grant `user:read` for verification,
+`business:read` for selection, and the matching customer/invoice read permission.
+
+```js
+const businesses = await connections.invoke({
+  context, integrationId: "wave", operation: "businesses.list",
+  input: { page: 1, pageSize: 20 }
+});
+const businessId = await choosePermittedBusiness(businesses.data.businesses, context);
+const customers = await connections.invoke({
+  context, integrationId: "wave", operation: "customers.list",
+  input: { businessId, page: 1, pageSize: 20 }
+});
+```
+
+`choosePermittedBusiness` is the host's selection and authorization function,
+not a JSKIT export. Do not default to the first business or trust an incoming
+business ID without policy checks. Preserve `pageInfo` and nullable edge nodes;
+advance only when the caller requests another page. `invoice:write` alone cannot
+authorize invoice reads. Results with GraphQL errors are rejected even if they
+contain partial data. The library sends fixed queries and owns token refresh,
+including Wave's original redirect URI, under encrypted file storage.
+
+Wave OAuth business access requires Pro or Advisor, and use for other customers
+requires provider approval. This is a data connection, not login. The application must implement and register an actual
+served callback. Do not replace OAuth with a personal full-access token for
+customer applications or copy protocol logic into generated routes.

@@ -110,32 +110,14 @@ domain matters only if it itself loads the images. That differs from an OAuth
 redirect allowlist. Changing application domains can require provider-side
 restriction updates even though the portable reference is unchanged.
 
-## Focused evidence
+## Configuration-only contract
 
-Node tests cover options, encoding boundaries, private-key rejection, portable
-configuration and the absence of false server verification. The ordinary
-source pattern is checked with a supplied resolver. Editor/browser tests cover
-save/reload, reference validation, actual image loading from a simulated CDN
-and a simulated missing-image failure. No live provider use or generated sample
-application is needed.
+Logo.dev sets `configurationOnly`: an editor shows no account-connect controls,
+and setup commands are refused before Env preparation or application execution.
+Constructing an image URL never records Connected; image delivery is observed in
+the browser.
 
-
-## Credential guidance review (2026-09-12)
-
-Current provider key and image documentation were checked against the captured
-publishable-key field. The inline instructions now give the direct dashboard
-URL, exact reference and Env handoff, public/private distinction, domain patterns,
-referrer behavior and support-assisted rotation. The existing image library and
-public-image composition pattern remain the owners of URL generation and wiring.
-The first rendered review exposed an account-connect button because the editor
-consumes configurationOnly metadata rather than runtimeKind. Logo.dev now sets
-that existing flag: the editor omits account controls and the server refuses
-setup commands before Env preparation or application execution. Two targeted
-public-editor tests cover this rule for Logo.dev and Google Analytics.
-All four focused library tests passed, including private-key rejection, fixed-origin URL
-construction, portable configuration and selective reference resolution. Rendered guidance and simulated image delivery passed: the actual editor persists the reference through reload, links to Env and the provider guide, and offers no account-connect controls. Browser image load/error and origin-referrer behavior were checked with a simulated CDN. All five steps were visually reviewed at 496px width; no live provider or generated-app claim.
-
-## Lookup coverage — 2026-09-13
+## Lookup inputs
 
 Supply exactly one of `domain`, `ticker` or `email` to the same URL helper.
 `{ ticker: "SHEL.L" }` uses the provider's ticker endpoint with an exchange suffix;
@@ -143,7 +125,7 @@ Supply exactly one of `domain`, `ticker` or `email` to the same URL helper.
 lookup. The personal part of the email never enters the URL. These are ordinary
 per-image application inputs, not project credential settings. The same source
 pattern resolves the publishable key; other frameworks can construct equivalent
-URLs without a Node runtime or Vibe64 service.
+URLs without a Node runtime.
 [Ticker endpoint](https://www.logo.dev/docs/logo-images/ticker).
 
 **LIMITATIONS:** No private brand search/enrichment, crypto or ISIN lookup, avatar

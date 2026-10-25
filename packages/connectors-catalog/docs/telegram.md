@@ -99,16 +99,6 @@ ownership. The application owner must confirm provider capacity for its usage. D
 outbound API calls; a separately implemented webhook consumer must own its explicit callback and
 delivery lifecycle.
 
-## Focused evidence
-
-Automated fixtures check token validation, fixed destinations, bot-only
-verification, empty webhook URLs, malformed results, unsuccessful HTTP-200
-envelopes, authorization failures, rate limits, file-store restart, isolation,
-rotation and disconnect. The editor test checks the bot-token label, rejection
-of raw credentials, setup link and saved-reference reload. No live bot,
-provider consent, message delivery or sample application is exercised.
-
-
 ## Interactive message workflow
 
 Before polling, call `webhook.read`. A nonempty webhook URL means another

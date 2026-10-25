@@ -1,11 +1,8 @@
 import { createSchema } from "json-rest-schema";
+import { validSiteUrl } from "./siteUrl.js";
 
 function validN8nServerUrl(value) {
-  if (!/^https:\/\//iu.test(value) || /[\s\\?#]/u.test(value) || /\/(?:\.|%2e){1,2}(?:\/|$)/iu.test(value)) return false;
-  try {
-    const url = new URL(value);
-    return !url.username && !url.password && url.pathname.endsWith("/mcp-server/http");
-  } catch { return false; }
+  return validSiteUrl(value) && new URL(value).pathname.endsWith("/mcp-server/http");
 }
 
 function validN8nOAuthDiscovery(value) {

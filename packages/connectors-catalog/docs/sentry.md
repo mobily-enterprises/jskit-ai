@@ -89,16 +89,7 @@ with explicit MCP discovery and authorized tool calls. No alias or automatic
 conversion retains the old connection; remove its local record through its
 owning application and review whether its old Env token is still used elsewhere.
 
-## Verification and limitations
-
-Two focused tests cover resource and registration validation. Seven OAuth/MCP
-tests cover consent, PKCE, encrypted persistence, refresh, owner/resource
-isolation, issue details, exact tool authorization, errors and cancellation;
-those seven also pass through installed public package exports. Public editor
-registration has a passing owner/Env test, and phone/desktop browser checks cover
-registration, consent cancellation, reconnect, reload and disconnect. All use
-controlled fixtures; live tool schemas, consent and account behavior are unverified.
-The previous REST organization probe is replaced without a compatibility alias.
+## Limitations and sources
 
 The official repository also documents a remote `Sentry-Bearer` token alternative,
 distinct from OAuth `Bearer`. That alternative is not implemented here yet.
@@ -108,5 +99,3 @@ Sources: [hosted MCP instructions](https://mcp.sentry.dev/),
 [resource binding](https://github.com/getsentry/sentry-mcp/blob/main/packages/mcp-cloudflare/src/server/protected-resource-metadata.ts),
 [OAuth metadata](https://github.com/getsentry/sentry-mcp/blob/main/packages/mcp-cloudflare/src/server/authorization-server-metadata.ts),
 [scope definitions](https://github.com/getsentry/sentry-mcp/blob/main/packages/mcp-core/src/scopes.ts).
-Public discovery requests returned HTTP 403 from the development environment;
-source evidence does not establish successful live consent.

@@ -40,18 +40,17 @@ const notionDefinition = Object.freeze({
     hint: "Hosted MCP needs its own client registration and consent; REST credentials cannot be reused.",
     items: [{ value: "rest", title: "Application data (REST)" }, { value: "mcp", title: "Hosted assistant tools (MCP)" }] }],
   setup: { ...notionInternalDefinition.setup,
-    urlForSettings: (settings, method) => settings.connectionType === "mcp"
-      ? "https://developers.notion.com/guides/mcp/build-mcp-client"
-      : method === "oauth2" ? "https://developers.notion.com/guides/get-started/public-connections" : notionInternalDefinition.setup.url,
+    urlForSettings: (settings) => settings.connectionType === "mcp" ? "https://developers.notion.com/guides/mcp/build-mcp-client" : undefined,
+    urlByAuthentication: { oauth2: "https://developers.notion.com/guides/get-started/public-connections" },
     clientRegistrationEndpoint: (settings) => settings.connectionType === "mcp" ? "https://mcp.notion.com/register" : undefined,
-    stepsForSettings: (settings, method) => settings.connectionType === "mcp" ? [
+    stepsForSettings: (settings) => settings.connectionType === "mcp" ? [
       "LIMITATIONS: Assistant tool attachment requires explicit host integration. A wired host may call discovered tools after authorizing each call; merely saving this connection does not equip coding chat. REST content operations belong to Application data mode.",
       "Choose Hosted assistant tools (MCP). This uses Notion's hosted MCP service, with a separate OAuth client from a public REST connection. Keep Assistant access and the required Notion MCP access permission.",
       "Use the OAuth client registration request below with the exact callback your assistant host serves. Send its JSON once to https://mcp.notion.com/register, or use registerNotionMcpClient from the JSKIT CLI code. A timeout may still create a client; inspect the result before retrying.",
       "Copy the returned client_id into Client ID. Save client_secret in the referenced Env variable and the registered callback in its callback Env variable. Save configuration. Do not paste the full registration response or secret into configuration or chat.",
       "Choose Connect account, sign into the intended Notion workspace and approve the requested access. The host completes the callback using PKCE. Verification lists tools without running one; your assistant must authorize each tool and its exact arguments.",
       "Reconnect starts new consent. Disconnect removes local grants; manage Notion's provider-side connection separately in Settings → Connections. The host owns tokens and refresh. These credentials cannot authorize the REST operations of Application data mode."
-    ] : notionDefinition.setup.stepsByAuthentication?.[method] || notionInternalDefinition.setup.steps,
+    ] : undefined,
     stepsByAuthentication: { oauth2: [
     "Application data mode reads page properties and block children, queries data sources, creates pages and updates properties or appends blocks. Retrieve a database to find its data_sources IDs, then retrieve that source schema before supplying properties. Follow has_more/next_cursor explicitly, including nested block children. LIMITATIONS: no embedded Notion editor, database-schema editing, file upload or automatic coding-chat attachment. For example, append meeting notes without receiving a full Notion workspace UI.",
     "Open https://www.notion.so/profile/integrations. In Build → Public connections, choose Create new connection. Enter your application's connection name and development workspace.",
@@ -280,7 +279,6 @@ const linearKeyDefinition = definition("linear", "Linear", "Read profiles and is
 const linearDefinition = Object.freeze({
   ...linearKeyDefinition,
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["api-key", "oauth2"],
-  tokenEndpointAuthMethods: ["client_secret_post"],
   scopes: [
     { value: "read", label: "Read your account", recommended: true },
     { value: "write", label: "Write on your behalf" },

@@ -89,7 +89,7 @@ None of these partner operations is implemented or exercised by this fragment.
 An AI can prepare the JSON/environment reference, validate it, compose the
 library calls and check the key through the documented credit endpoint after
 an operator supplies it. Account/team selection, billing and key issuance are
-operator steps for own-key setup. Online can implement partner provisioning
+operator steps for own-key setup. A hosting platform can implement partner provisioning
 after approval; a standard API key cannot substitute for the partner key.
 
 The application owner supplies its Firecrawl key through private Env. Keys for

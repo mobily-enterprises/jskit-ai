@@ -125,12 +125,6 @@ entitlements. Registration acceptance and commercial use need provider proof.
 The editor exposes explicit automatic or manual client registration and the
 application-owned connection lifecycle. Live provider registration and consent remain unverified.
 
-## Evidence
+## Discovery limits
 
-Controlled tests exercise both MCP paths, common resource binding, confidential
-registration, file ownership and restart, refresh, exact tool policy, malformed
-responses, permission errors, cancellation and no request replay. Provider guide
-JSON and responsive editor persistence are checked separately. No live provider
-account, registration, consent, flag mutation, experiment run, database or
-generated application is used. Metadata discovery alone does not prove live
-registration or token acceptance.
+Metadata discovery alone does not prove live registration or token acceptance.

@@ -50,7 +50,7 @@ Provider request validation remains authoritative.
 
 | Provider | Export | Initial operations | Authentication |
 |---|---|---|---|
-| [AI](docs/ai.md) | `createAiConnectionResolver` | Static catalogue and authorized SDK parameters; app-owned inference | Free public Zen default, administrator Env key or private individual grant |
+| [AI](docs/ai.md) | `createAiConnectionResolver` | Static catalogue and authorized SDK parameters; app-owned inference | Explicit model choice; free no-setup models, administrator Env key or private individual grant |
 | [Wiz](docs/wiz.md) | `createWizScanner` | Authorised source-directory scan, policy verdict and report; separate CLI runtime | Own Cognito service account; installed Wiz v1 CLI |
 | [Shopify](docs/shopify.md) | `shopifyProvider` | `products.list`, `products.create`, `products.update`, `products.delete`; assistant policies | Organization client credentials or existing Admin API token |
 | [Confidence Flags](docs/confidence-flags.md) | `confidenceFlagsProvider`, `registerConfidenceClient` | `tools.list`, `tools.call`; explicit client setup | Assistant OAuth for flag management |
@@ -88,13 +88,13 @@ Provider request validation remains authoritative.
 | [Notion](docs/notion.md) | `notionProvider` | Search, page/block reads and writes, data-source queries; separate MCP tools | Own internal token, REST OAuth or separate MCP client |
 | [Brevo](docs/brevo.md) | `brevoProvider` | `contacts.list` | Own API key |
 | [ElevenLabs](docs/elevenlabs.md) | `elevenlabsProvider` | `account.read`, `voices.list` | Own API key |
-| [GitHub API](docs/github-api.md) | `githubApiProvider` | `account.read`, `repositories.list` | Own personal access token |
+| [GitHub API](docs/github-api.md) | `githubApiProvider` | `account.read`, `repositories.list` | Own personal access token or OAuth registration |
 | [Apify](docs/apify.md) | `apifyProvider` | `actors.list` | Own API token |
-| [Calendly](docs/calendly.md) | `calendlyProvider` | `profile.read`, `eventTypes.list` | Own personal access token |
+| [Calendly](docs/calendly.md) | `calendlyProvider` | `profile.read`, `eventTypes.list` | Own personal access token or OAuth registration |
 | [HubSpot](docs/hubspot.md) | `hubspotProvider` | Contact/deal list/get/create/update, relationships and pipeline reads | Own private/static token or project OAuth |
-| [Linear](docs/linear.md) | `linearProvider` | `profile.read`, `issues.list` | Own personal API key |
+| [Linear](docs/linear.md) | `linearProvider` | `profile.read`, `issues.list` | Own personal API key or OAuth registration |
 | [Pipedrive](docs/pipedrive.md) | `pipedriveProvider` | Profile; deals, people, organizations, activities, leads and pipeline reads; basic record create/update | Own user/company API token |
-| [GitLab API](docs/gitlab-api.md) | `gitlabApiProvider` | `profile.read`, `projects.list` | Own GitLab.com personal access token |
+| [GitLab API](docs/gitlab-api.md) | `gitlabApiProvider` | `profile.read`, `projects.list` | Own personal access token or OAuth registration; GitLab.com or own instance URL |
 | [Tally](docs/tally.md) | `tallyProvider` | `forms.list` | Own API key |
 | [Contentful](docs/contentful.md) | `contentfulProvider` | `entries.list` | Own Content Delivery key, space and environment |
 | [Asana](docs/asana.md) | `asanaProvider` | `workspaces.list` | Own personal access token |
@@ -106,14 +106,12 @@ Provider request validation remains authoritative.
 | [Microsoft Word](docs/microsoft-word.md) | `microsoftWordProvider` | `items.list`, `items.get` | Own delegated OAuth registration |
 | [Microsoft PowerPoint](docs/microsoft-powerpoint.md) | `microsoftPowerPointProvider` | `items.list`, `items.get` | Own delegated OAuth registration |
 | [Microsoft SharePoint](docs/microsoft-sharepoint.md) | `microsoftSharePointProvider` | `sites.search` | Own organizational OAuth registration |
-
 | [Stripe](docs/stripe.md) | `stripeProvider` | `balance.read` | Own restricted/secret API key |
 | [Replicate](docs/replicate.md) | `replicateProvider` | Account/hardware, model schema, prediction submit/poll/cancel | Own API token |
-| [Sentry](docs/sentry.md) | `sentryProvider` | `organizations.list` | Own Sentry.io personal token |
+| [Sentry](docs/sentry.md) | `sentryProvider`, `registerSentryClient` | `tools.list`, `tools.call`; explicit client setup | Assistant OAuth to Sentry's hosted MCP |
 | [incident.io](docs/incident-io.md) | `incidentIoProvider` | Incidents/follow-ups, alert resolution, schedule reads, catalogue entries | Own API key |
 | [Fireflies](docs/fireflies.md) | `firefliesProvider` | `profile.read`, `transcripts.list` | Own API key |
-
-| [HeyGen](docs/heygen.md) | `heygenProvider` | `profile.read`, `voices.list` | Own API key |
+| [HeyGen](docs/heygen.md) | `heygenProvider` | `profile.read`, `voices.list` | Own API key or OAuth registration |
 | [Perplexity](docs/perplexity.md) | `perplexityProvider` | `requests.list`, `models.list` | Own project API key |
 | [Supabase](docs/supabase.md) | `supabaseProvider` | `projects.list` | Own Management API personal token |
 | [Google Analytics](docs/google-analytics.md) | `googleAnalyticsDefinition` (shared configuration) | Framework-owned Google tag | Public Measurement ID |
@@ -180,15 +178,12 @@ The [OAuth file-connection pattern](patterns/oauth-connection/PATTERN.md) covers
 consent and callbacks with the same text-based runtime storage.
 The [Microsoft guide](docs/microsoft-oauth.md) adds delegated OAuth wiring,
 registration automation and provider-specific account/permission requirements.
-Focused runtime tests cover the providers' requests, result validation,
-credential changes, isolation, errors and disconnect. Provider calls in those
-tests are simulated; live service use and sample-app generation are outside
-this delivery's test scope. Managed service credentials and sharing grants
-remain host-owned capabilities; an own key is not a managed subscription.
+Managed service credentials and sharing grants remain host-owned
+capabilities; an own key is not a managed subscription.
 
 Logo.dev uses the [public-image pattern](patterns/public-image/PATTERN.md) and
-its client library export. Its `runtimeKind: "public-resource"` metadata
-distinguishes URL construction from the server adapters above. Image delivery
-is observed in the browser; constructing a URL never records Connected.
+its client library export. It is `configurationOnly`: it has no server adapter
+or account connection. Image delivery is observed in the browser; constructing
+a URL never records Connected.
 
 The [AWS pattern](patterns/aws-storage-queries/PATTERN.md) composes the signed S3 and Athena libraries with the same file configuration and host authorization.

@@ -149,15 +149,15 @@ Tokens remain encrypted; source contains references. Disconnect removes the
 local connection and attempts without deleting the principal or revoking the
 provider application globally.
 
-## Public, Online and automation
+## Editors, hosting and automation
 
 Register the real callback implemented by the runtime that owns this connection.
 For an application integration, use the application's assigned hosting URL as
 the initial origin and its implemented callback path. Store the exact callback
 in its Env reference and provider registration. A domain change requires updating
 both values if the callback URL changes; retain the application identity and its
-persistent grants when moving hosts. Public Vibe64, Online and CLI users supply
-their own registrations through this same contract.
+persistent grants when moving hosts. Every editor and CLI supplies its own
+registrations through this same contract.
 See the [callback guide](../../connectors-core/docs/oauth-callbacks.md).
 
 Service principals have no callback. Databricks custom applications are created
@@ -178,3 +178,35 @@ privileges; this fragment does not implement provisioning endpoints.
 Live accounts, consent, private networking, account-level operations, SQL/data
 queries, jobs execution and app login are unverified or
 unfinished. Local proof uses controlled HTTP responses and encrypted files.
+
+## OAuth pattern composition: Databricks user consent and service accounts
+
+Import `databricksProvider` from `@jskit-ai/connectors-catalog/server/databricks`.
+Read this guide for the two portable configurations. A custom OAuth app
+uses `authorization_code`, `client_secret_post`, a callback reference and
+`all-apis offline_access`. A service principal uses `client_credentials`,
+`client_secret_basic` and its Databricks OAuth secret reference; it has no
+callback or user refresh token. Use `jobs` for a suitably scoped service secret.
+Service principals cannot use `per-user` ownership.
+
+Compose the ordinary connections service/Feature and file store. Call
+`connectClientCredentials` or the `connectors.verifyClientCredentials` action
+to verify a service principal. User access still uses `beginAuthorization` and
+`completeAuthorization`. The library owns token requests, renewal, secret
+resolution, state, grant checks and persistence; do not generate replacements
+in the application. The app owns routes, binding values and trusted identity.
+
+`jobs.list` reads one page with `limit`, `name`, `expand_tasks` and `page_token`.
+`jobs.get` reads one job with a safe numeric `job_id` and optional continuation
+token. Empty lists may omit `jobs`; nested job arrays may need further pages.
+No job execution, SQL query, compute startup or write operation is implemented.
+Source permission changes to a service account require reconnecting. The
+runtime renews only its prior grant and commits renewal even if a later API
+read fails. Never supply an arbitrary request URL or reuse a service grant as
+an app user's connection.
+
+Both flows pin requests to the configured per-workspace origin. The application
+implements and registers its own user-consent callback. Its registration belongs
+to its Databricks account; it is not automatically universal across customer
+accounts. Follow the guide for admin provisioning and direct CLI wiring.
+Application login remains separate.

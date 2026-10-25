@@ -67,8 +67,8 @@ and separately configure IAM, Glue/S3 resources and encryption. It cannot grant
 itself account access. Neither provisioning nor credential renewal is part of
 this fragment.
 
-For Online and public operation there is **no OAuth callback URL** in this
-mode. See [AWS ownership and quota isolation](aws-credentials.md#online-public-editor-and-independent-cli).
+For hosted and installed editors there is **no OAuth callback URL** in this
+mode. See [AWS ownership and quota isolation](aws-credentials.md#editors-and-independent-cli).
 Separate workgroups do not isolate account service quotas. The application
 operator supplies AWS credentials, chooses resources and controls their budget.
 The same application-owned setup works from CLI or editor without a Vibe64

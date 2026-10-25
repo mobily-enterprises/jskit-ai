@@ -178,12 +178,12 @@ IAM policies, resource creation, database grants, billing choices and credential
 renewal require the corresponding administrator authority. This connector runs
 Data API operations; it does not provision accounts or warehouses.
 
-There is **no OAuth callback URL** for the implemented credential mode. Online,
-desktop and independent CLI can all use the same JSON and runtime. A customer's
-VPS or custom domain does not change the AWS API endpoint or credential binding.
+There is **no OAuth callback URL** for the implemented credential mode. Hosted
+editors, desktop and independent CLI can all use the same JSON and runtime. A
+customer's server or custom domain does not change the AWS API endpoint or credential binding.
 The application owner supplies AWS credentials through private Env or its
 credential store. Resource names and editable `env:` references do not grant
-AWS permissions. Separate IAM keys alone do not promise isolated service quotas. See [AWS ownership](aws-credentials.md#online-public-editor-and-independent-cli).
+AWS permissions. Separate IAM keys alone do not promise isolated service quotas. See [AWS ownership](aws-credentials.md#editors-and-independent-cli).
 
 ## Per-user federation still to deliver
 
@@ -220,10 +220,8 @@ both target types, invalid-save rejection, inactive-field removal and reload.
 No live AWS registration, warehouse, SQL, generated app or federation flow has
 been exercised.
 
-## Existing-scope closeout — 13 September 2026
+## Scope and limitations
 
 Shared project-owned AWS credentials support serverless/provisioned targets, databases/schemas/tables discovery, table description, parameterized SQL submission, status, typed result pages and cancellation.
 
-No per-user Identity Center/OIDC federation or trusted identity propagation; no role-exchange/automatic credential renewal, default host credential chain, database password or Secrets Manager ARN mode, noncommercial partitions, custom endpoints, warehouse/IAM provisioning, batch SQL, automatic polling/retries or application job-ownership registry. SQL is not SELECT-only: database grants and application authorization enforce allowed work. The host stores request/statement ownership, handles uncertain submission and explicitly cancels remote jobs; local timeout/disconnect cannot do that. Unsafe JavaScript integer results are rejected; cast exact values to text. To extend: implement the already documented federation inputs/exchanges and tests, optional authentication modes and desired orchestration separately. No live provider account, provider registration, paid request or generated-application execution was tested. No new editor coding-assistant tool attachment is claimed. Other frameworks use the same project configuration and their own native tools; JSKIT is optional.
-
-16 source and 16 installed-package tests passed on September 13 using the actual AWS SDK with controlled HTTP and private files. September 12 compact/expanded form/lifecycle evidence is retained; no new UI run.
+No per-user Identity Center/OIDC federation or trusted identity propagation; no role-exchange/automatic credential renewal, default host credential chain, database password or Secrets Manager ARN mode, noncommercial partitions, custom endpoints, warehouse/IAM provisioning, batch SQL, automatic polling/retries or application job-ownership registry. SQL is not SELECT-only: database grants and application authorization enforce allowed work. The host stores request/statement ownership, handles uncertain submission and explicitly cancels remote jobs; local timeout/disconnect cannot do that. Unsafe JavaScript integer results are rejected; cast exact values to text. To extend: implement the already documented federation inputs/exchanges and tests, optional authentication modes and desired orchestration separately. Assistant tool attachment requires explicit host integration. Other frameworks use the same project configuration and their own native tools; JSKIT is optional.

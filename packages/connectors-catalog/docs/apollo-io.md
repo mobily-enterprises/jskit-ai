@@ -101,14 +101,6 @@ The application owner must arrange the capacity and usage limits it needs. The r
 automatically retry requests.
 [Rate limits](https://docs.apollo.io/reference/rate-limits).
 
-## Focused evidence
-
-Tests use simulated provider replies and actual temporary encrypted JSON
-storage. They verify headers, POST bodies, empty accounts, page/name boundaries,
-malformed replies, provider failures, restart, rotation, ownership and
-disconnect. The editor case verifies secret references, setup links and reload.
-Live API calls, provider signup and sample-app generation are excluded.
-
 ## Operations and endpoint permissions
 
 API-key permissions are provider settings, not OAuth scopes in `integrations.json`.

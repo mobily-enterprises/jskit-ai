@@ -55,13 +55,13 @@ do not share one person's token across unrelated applications.
 Automated fixtures cover headers, required inputs, pagination, storage restart,
 rotation, isolation and failure handling. No live scheduling data was accessed.
 
-## Web OAuth setup and delivery status
+## Web OAuth setup
 
 The captured connection experience uses OAuth scopes. Personal tokens above
 are a separate setup choice. OAuth uses the existing connection service and
-the project-owned registration; it needs no Vibe64 authentication gateway.
+the project-owned registration; it needs no authentication gateway.
 
-Provider setup, checked against the official guide on 12 September 2026:
+Provider setup:
 
 1. Open the [developer portal](https://developer.calendly.com/docs/authentication/creating-an-oauth-app)
    and sign in or create a developer account. This is separate from the normal
@@ -84,7 +84,7 @@ Provider setup, checked against the official guide on 12 September 2026:
    confused with the OAuth Client Secret.
 6. Configure the registration with `tokenEndpointAuthMethod: client_secret_basic`
    for a web client. Its secret belongs to the generated app's backend, never
-   the browser or Vibe64's platform account. The shared provider metadata selects Basic authentication for web OAuth.
+   the browser or an editor's platform account. The shared provider metadata selects Basic authentication for web OAuth.
 7. Register a changed custom-domain callback in the provider application before
    reconnecting. The provider application's menu offers **Edit**, including
    Redirect URI, followed by **Save**.
@@ -97,18 +97,8 @@ these web-application instructions. Persist each replacement refresh token
 under the existing grant lock rather than replaying a consumed refresh token.
 The profile and event-type operations retain their current fixed API origin.
 
-Required focused proof before marking this provider complete: OAuth configuration
-and captured scope choices, Basic authentication on code exchange and refresh,
-PKCE/state checks, rotated-token persistence, denial/cancel/reconnect/disconnect,
-and the existing personal-token flow. Live consent and scheduling remain outside
-the controlled-test scope.
-
 Sources: [OAuth app creation](https://developer.calendly.com/docs/authentication/creating-an-oauth-app),
 [token endpoint](https://developer.calendly.com/api-docs/calendly-o-auth/o-auth/post-oauth-refresh-token).
-
-The focused `test/calendly.test.js` fixture passes Basic code exchange, S256
-PKCE, concurrent refresh serialization, replacement refresh persistence across
-a new service instance, personal-token connection and local disconnect. This does not establish live Calendly consent or token issuance.
 
 ## Scheduling operations and application ownership
 

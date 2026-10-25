@@ -155,20 +155,7 @@ Separate client IDs do not establish independent quotas or permission to serve
 unrelated applications. Register and obtain product approval for the actual app.
 Managed assignments are invalid configuration in this runtime.
 
-
-## Credential guidance review (2026-09-12)
-
-The inline setup steps now name the developer portal, product approval, exact
-callback registration and project Env handoff before connection. Current OIDC,
-authorization-code and refresh documentation were checked. The existing adapter
-was retained; no provider-login or publishing implementation was added. Ten
-focused runtime fixtures pass, including expiry without refresh, approved
-refresh, cancellation/replay, encryption, missing permissions and host isolation.
-The cancellation test now expects the callback URL exposed by connection status,
-while retaining the complete assertion that declined replacement consent keeps
-the previous grant. Rendered guidance passed the controlled public-editor journey: saved Client ID/callback, Env links, reload, simulated consent/cancellation/reconnect and disconnect. All six steps were visually reviewed at 496px width. No live provider consent or fresh phone review is claimed.
-
-## Text publishing acceptance — 2026-09-13
+## Text publishing
 
 Use `posts.create` with `{ text, visibility: "PUBLIC" }` or `"CONNECTIONS"` after
 app authorization of the exact message and audience. Text is locally limited to
@@ -192,5 +179,18 @@ request; a timeout does not prove the post was never created.
 
 **LIMITATIONS:** Text only. No images/video, organization posts, scheduling, post
 editing/deletion, analytics or editor-assistant attachment. Example: publish an
-approved announcement, but not a photo campaign. Prior September12 review above
-is historical. Current tests use simulated provider responses, not live publishing.
+approved announcement, but not a photo campaign.
+
+## OAuth pattern composition: LinkedIn
+
+Use `linkedinProvider` from `@jskit-ai/connectors-catalog/server/linkedin` and
+this guide. Both `openid` and `profile` are required; request `email`
+only when needed. `profile.read` accepts no input and reads the connected
+member's userinfo. Optional email fields may be absent. The fragment discards
+ID tokens and does not implement app login or member posting; preserving
+`w_member_social` in configuration does not provide a publishing operation.
+Ordinary expiry requires reconnect unless LinkedIn approved programmatic
+refresh. Keep the confidential client secret on the backend, including when
+composing a CLI; the separately enabled native flow is not implemented.
+Implement and register the application's callback using its assigned app URL
+or explicit host override. Operator setup belongs to the application developer.

@@ -99,13 +99,6 @@ permit writes at Linear. Discovery does not execute tools. Use `tools.list` to
 obtain available schemas rather than maintaining a second catalogue here.
 [Linear MCP authentication](https://linear.app/docs/mcp).
 
-## Review evidence
-
-The focused fixture tests cover OAuth authorization, cancellation/denial, replay,
-refresh rotation after restart, app/user isolation, lost scopes, raw API-key
-GraphQL authorization and Bearer MCP discovery. No real Linear account, issue,
-consent or tool execution was used. Both credential modes passed a controlled public-editor browser review: configuration survives reload, Env links and provider guides resolve to the intended destinations, and simulated connection controls work. The 496px instruction captures were visually inspected; no live provider consent or fresh phone review is claimed.
-
 ## Approved project and issue workflows
 
 The existing MCP transport can discover and invoke the provider's project/issue
@@ -134,3 +127,27 @@ assistant tool attachment. Example: an app can explicitly run an approved
 issue update, but saving a Linear connection alone does not authorize assistant chat to update that issue. Provider permissions and available tools determine what
 can run. Fixture workflows prove argument/result transport and local denial, not
 actual Linear tool schemas or live execution.
+
+## OAuth pattern composition: Linear account connections
+
+Import `linearProvider` from `@jskit-ai/connectors-catalog/server/linear` and
+follow this guide to create the project's own registration. Store its
+Client ID in configuration, Client Secret in `env:LINEAR_CLIENT_SECRET`, and
+callback in `env:LINEAR_CALLBACK_URL`; select `client_secret_post`.
+Use authentication `{ "method": "oauth2", "registrationRef": "linear" }`
+when the registration is named `linear`, and keep `scopes: ["read"]`.
+
+The application calls `beginAuthorization`, handles its registered callback with
+`completeAuthorization`, then invokes `profile.read` or `issues.list` (optional
+`first` and `after`). The provider owns S256, scope delimiter normalization and
+rotating refresh. The caller owns authorization and subject identity. Shared
+connections belong to the application's authorized administrator; per-user
+connections belong to the signed-in application user. Connecting Linear does not
+implement application login. This flow acts as the consenting Linear user.
+
+The same grant supports `tools.list` and `tools.call` against Linear's fixed MCP
+endpoint. Authorize each tool and its arguments before invocation; tools can
+write if the provider permissions allow it. No second MCP registration or Vibe64
+gateway is needed. For personal keys use the [API-key pattern](../patterns/api-key-connection/PATTERN.md), keep the `read`
+configuration scope and restrict the actual key in Linear. Disconnect deletes
+the local grant; provider revocation remains a separate account action.

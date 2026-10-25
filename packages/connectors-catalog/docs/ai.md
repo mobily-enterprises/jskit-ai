@@ -159,8 +159,8 @@ as general app-inference credentials.
 
 ## Provider setup and automation
 
-There are no `vibe64-online`/`vibe64-public` OAuth registrations or universal
-callbacks for this AI integration. Regular keys belong to the app administrator
+There are no shared OAuth registrations or universal callbacks for this AI
+integration. Regular keys belong to the app administrator
 or individual app user and are billed directly by that provider.
 
 Choose AI, then choose a provider and model; nothing is preselected. For an
@@ -193,23 +193,11 @@ automate them. AI can wire environment names, configuration and native SDKs;
 it cannot create somebody's account, accept terms or supply their billing
 authorization merely by editing this JSON.
 
-## Evidence and limits
+## Scope and limitations
 
-Focused tests cover snapshot integrity, free classification, no default model, strict
-selection, authorized environment and individual-key resolution, rotation,
-disconnect, redacted failures and SDK parameter handoff. Browser fixtures cover
-the editor's default, searchable model change, credential ownership, persistence
-and responsive layout. These tests perform no live inference, provider login,
-account creation or generated-application execution.
+A static, attributed provider/model catalogue, searchable free/paid model configuration and a backend-only authorized credential/SDK-parameter resolver. No model is preselected and the first authentication method is a provider API key. Administrator keys resolve through Env, and individual keys through an app-supplied user/provider-scoped reference resolver.
 
-## Existing-scope closeout — 13 September 2026
-
-A static, attributed September 10 provider/model catalogue, searchable free/paid model configuration and a backend-only authorized credential/SDK-parameter resolver. No model is preselected and the first authentication method is a provider API key. Administrator keys resolve through Env, and individual keys through an app-supplied user/provider-scoped reference resolver.
-
-No inference engine, streaming, tools, conversation storage, provider OAuth/login screens, account/key provisioning, live credential verification, usage metering, billing, token resale or Vibe64 AI gateway. No automatic SDK installation, catalogue updates, model replacement or paid fallback. Only the 13 explicitly supported direct-key routes are configurable; other catalogue entries are framework metadata, not implemented cloud/coding-subscription authentication. Model availability, pricing/free classification and endpoint operation are dated source information, not live proof; even no-setup choices can be unavailable or capacity-limited. Detailed provider-specific personal-key entry, verification, encrypted storage, rotation/disconnect and authorization remain application work; the resolver only consumes those bindings. The app/framework owns SDK installation, protocol selection, requests, errors and UI. Generic key-creation guidance and linked provider documentation are supplied; bespoke audited login/key-creation screens for every catalogue provider are not. To extend: deliberately refresh the static snapshot, improve selected provider-specific instructions, and wire any desired app-native key-entry/inference features. This intentionally differs from Lovable managed AI; coding-agent credentials and runtimes remain separate from direct-provider API authentication.
-
-10 source and 10 installed-package tests passed on September 13, proving snapshot/default selection, rejected unsupported modes, no-network public parameters, authorized Env and individual references, rotation/deletion, redaction and SDK handoff. Historical September 10 compact/medium/expanded UI evidence is retained; no fresh browser, live inference, provider account, generated-app execution or release was performed.
-
+No inference engine, streaming, tools, conversation storage, provider OAuth/login screens, account/key provisioning, live credential verification, usage metering, billing, token resale or AI gateway. No automatic SDK installation, catalogue updates, model replacement or paid fallback. Only the 13 explicitly supported direct-key routes are configurable; other catalogue entries are framework metadata, not implemented cloud/coding-subscription authentication. Model availability, pricing/free classification and endpoint operation are dated source information, not live proof; even no-setup choices can be unavailable or capacity-limited. Detailed provider-specific personal-key entry, verification, encrypted storage, rotation/disconnect and authorization remain application work; the resolver only consumes those bindings. The app/framework owns SDK installation, protocol selection, requests, errors and UI. Generic key-creation guidance and linked provider documentation are supplied; bespoke audited login/key-creation screens for every catalogue provider are not. To extend: deliberately refresh the static snapshot, improve selected provider-specific instructions, and wire any desired app-native key-entry/inference features. Coding-agent credentials and runtimes remain separate from direct-provider API authentication.
 
 ## Assistant integration
 

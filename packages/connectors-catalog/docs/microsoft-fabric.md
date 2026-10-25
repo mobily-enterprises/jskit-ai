@@ -199,9 +199,10 @@ the runtime does not perform them automatically or request admin rights.
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -221,16 +222,6 @@ still requires the relevant approval and configuration.
 Separate registrations support different credentials and policies. They do not
 partition a customer's shared Fabric capacity or guarantee separate quotas.
 
-## Verification boundary
-
-Local automated tests use controlled HTTP responses and encrypted temporary files.
-They cover both grants, endpoint/tenant binding, variables, partial errors,
-renewal, authorization, malformed responses, cancellation and configuration.
-They create no Entra applications, service principals, Fabric resources or sample
-apps and execute no live documents. Real tenant policy, consent, capacity, API
-endpoint reachability, root-type verification and customer schemas remain live
-acceptance checks requiring the owner's credentials.
-
 ## Editor credential handoff
 
 Save the Application ID, tenant GUID, endpoint and reference fields first. The
@@ -247,3 +238,49 @@ connections inside the application. Saving alone grants neither API nor source
 access. Both methods use app-owned credentials and persistent grants.
 
 **LIMITATIONS (acceptance review):** No automatic table browser, schema-specific client, subscriptions, automatic pagination or automatic assistant tool attachment. Example: the app can execute an inventory query using its real schema; this does not provide an inventory dashboard. Both authentication modes and operation/error handling have fixture proof, not live Fabric resource proof.
+
+## OAuth pattern composition: Microsoft Fabric GraphQL
+
+Import `microsoftFabricProvider` from
+`@jskit-ai/connectors-catalog/server/microsoft-fabric`. Read the package's
+this guide before wiring it. Use its portable configuration with
+an exact directory GUID, Application (client) ID, secret reference and the
+existing GraphQL API endpoint. Do not reuse the ordinary Microsoft Graph
+providers or their permissions: Fabric uses a different resource.
+
+User consent uses `authorization_code`, the confidential `client_secret_post`
+method, a callback reference, delegated
+`https://analysis.windows.net/powerbi/api/GraphQLApi.Execute.All` and optional
+`offline_access`. Service accounts use `client_credentials`, the same client
+authentication method, and `https://api.fabric.microsoft.com/.default`. They
+have no callback, user refresh token or per-user ownership. Switching grants
+in the shared UI removes incompatible scopes; choose the new permission before
+saving. The CLI parser enforces the same contract.
+
+Reuse `createConnectionService` or `ConnectorsFeature`, the file connection store
+and existing authorization/reference resolver. Call `connectClientCredentials`
+or `connectors.verifyClientCredentials` for a service account; use the ordinary
+authorization start/callback methods for user consent. The library owns token
+exchange, renewal, locking, scope validation and encrypted storage. The app owns
+the authenticated owner mapping and its allowed GraphQL documents.
+
+Verification runs `connection.check`, a fixed root `__typename` query. It does
+not establish access to every table. `schema.types` uses explicit introspection,
+which a Fabric workspace administrator must enable; an exported SDL is an
+alternative for authoring. `graphql.execute` accepts a document, optional JSON
+variables and an operation name and returns one response. It can execute writes.
+Keep documents in app server code, validate the permitted variables, and use
+the shared authorization callback to restrict each operation. Do not present
+this as a read-only proxy or accept arbitrary documents from app users. Request
+pagination in the app's chosen document; no automatic traversal is implemented.
+
+GraphQL errors, including partial successes, fail without exposing provider
+messages. A failed mutation may have changed data; the runtime does not replay
+it. Cancellation is local interruption, not proof of remote rollback. Token
+renewal persists before the document executes, including when that execution
+fails. Changing tenant, API endpoint, client or grant requires reconnecting.
+
+User consent returns to the application's own implemented and registered callback.
+Service access has no callback. Entra registrations, tenant enablement, API
+permissions and source access remain administrator-owned provisioning. Distinct registration names do not isolate Fabric capacity. The application
+owns login separately and keeps its client secret in private Env.

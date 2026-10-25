@@ -87,7 +87,7 @@ An authorized AI can use CreateBucket, IAM policies and
 [PutBucketCors](https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketCors.html)
 to perform these administrative steps. Provisioning is not an adapter operation.
 For application-owned credentials, quota boundaries and the absence of a callback URL,
-see [AWS ownership](aws-credentials.md#online-public-editor-and-independent-cli).
+see [AWS ownership](aws-credentials.md#editors-and-independent-cli).
 
 ## Runtime operations
 

@@ -133,7 +133,7 @@ it does not uninstall the Slack app or revoke every grant in that workspace.
 Socket mode, slash commands, organization-wide
 installs, GovSlack and Sign in with Slack are outside this initial fragment.
 
-## Online, public editor and automation
+## Editors, hosting and automation
 
 Each application owns its provider registration, callback route, credentials
 and grants. Hosted and installed editors configure the same app-owned setup;
@@ -182,20 +182,10 @@ registration provisioner. For a manual manifest path, select **Create New App â†
 From a manifest**, select the workspace, paste JSON/YAML, review and create.
 [Manifest UI](https://docs.slack.dev/app-manifests/configuring-apps-with-app-manifests/).
 
-## Verification boundary
+## Limitations
 
-Controlled local tests exercise both identities, encrypted file restart,
-rotating and non-rotating grants, scope restrictions, cancellation, actor changes,
-bounded paging, HTTP-200 failures, malformed responses and interruption. Shared
-form tests and Vibe64 browser tests cover conditional scopes and file round trips.
-No live Slack registration, provider consent, customer data or generated app is
-part of this proof. Current controlled source and installed-package suites each pass 17/17.
-Current-source compact and expanded editor cases pass separately, including
-actor/scope persistence, signing-secret reference, inline guidance, per-user
-connection instructions and shared connect/cancel/disconnect controls. Registration
-provisioning remains an operator action; assistant tool attachment requires
-explicit host integration.
-
+Registration provisioning remains an operator action; assistant tool attachment
+requires explicit host integration.
 
 ## Message operations
 
@@ -255,3 +245,38 @@ CLI applications use this same code without the editor; other frameworks can use
 native Slack verification support with the same Env and route contract.
 
 [Slack signature contract](https://docs.slack.dev/authentication/verifying-requests-from-slack/).
+
+## OAuth pattern composition: Slack
+
+Import `slackProvider` from `@jskit-ai/connectors-catalog/server/slack` and include
+it in the provider array used for parsing and `createConnectionService`.
+Set `settings.actor` to `user` or `bot`, independently of application ownership.
+Use an own confidential registration and a real registered HTTPS callback;
+plain HTTP loopback is not supported by Slack. The [Slack guide](slack.md)
+contains a complete portable JSON file and manual/API registration instructions.
+
+For channel listing, request `channels:read` and call:
+
+```js
+const firstPage = await connections.invoke({
+  context: authenticatedContext,
+  integrationId: "slack",
+  operation: "channels.list",
+  input: { limit: 50, exclude_archived: true }
+});
+// Retain next_cursor even when filtering leaves this page empty.
+const nextCursor = firstPage.response_metadata?.next_cursor;
+```
+
+The host supplies `authenticatedContext`; user request parameters cannot select
+another owner. The library selects `user_scope` versus `scope`, extracts the
+requested token identity, checks Slack's HTTP-200 errors and refreshes rotating
+grants under the file lock. Do not duplicate that code in generated handlers.
+Add the corresponding read permission before using `groups.list`,
+`directMessages.list` or `groupMessages.list`. `auth.test` returns identity.
+
+An individually owned bot connection still acts as the installed workspace bot.
+It is not a personal account or an application login. Actor changes require
+reconnection and remove incompatible form scopes. Captured permission choices
+do not imply implemented operations: history, sends, events, organization-wide
+installs and Sign in with Slack remain outside this fragment. The application implements and registers its own callback.

@@ -101,14 +101,6 @@ organization capacity or change licensed product access. Application owners
 must arrange the capacity needed for their usage. No callback is used, so editor VM and deployed app
 domains do not change this flow. A jobs result does not establish user login.
 
-## Focused evidence
-
-Simulated provider tests cover Basic headers, POST bodies, explicit paging,
-empty results, invalid envelopes, HTTP-200 failures, input boundaries, real
-temporary file-store restart, rotation, ownership and disconnect. Editor
-automation verifies reference-only configuration and save/reload. Live provider
-use, organization signup and sample-app generation are excluded.
-
 ## Recruiter workflow operations
 
 All calls use the fixed `https://api.ashbyhq.com` origin, Basic key authentication

@@ -12,7 +12,7 @@ const scopes = [
 ];
 
 const microsoftFabricDefinition = Object.freeze({
-  id: "microsoft-fabric", name: "Microsoft Fabric", categories: ["Microsoft", "Productivity"],
+  id: "microsoft-fabric", name: "Microsoft Fabric",
   description: "Access one Fabric GraphQL API using user consent or a service principal.",
   accountModes: ["shared", "per-user", "assistant"], authenticationMethods: ["oauth2"],
   oauthGrantTypes: ["authorization_code", "client_credentials"], oauthClientAuthenticationMethods: ["client_secret_post"],

@@ -100,18 +100,10 @@ Different key names do not establish independent quota allocations.
 For Laravel, use native HTTP/configuration tools and the public application
 setup command contract; this package provides JavaScript code only.
 
-## Version-zero change and evidence
+## Configuration and limitations
 
-The initial unpublished CMA `spaces.list` fragment has been replaced. Existing
-experimental configurations must supply `settings.spaceId`, a Delivery token,
-and use `entries.list`. There is no compatibility alias or automatic token
-conversion. Environment and region default to `master` and `us` respectively.
-
-Focused controlled tests cover delivery headers and paths, EU/environment
-selection, invalid settings before transport, published-entry validation,
-page limits, private file-store restart, token rotation, isolation, disconnect
-and provider failures. No live Contentful account or generated app was used.
-
+Configurations supply `settings.spaceId`, a Delivery token, and use
+`entries.list`. Environment and region default to `master` and `us` respectively.
 
 **LIMITATIONS:** Assistant tool attachment requires explicit host integration: the app can display published
 articles and images, but saving this connection does not let the coding assistant
@@ -119,5 +111,4 @@ browse the space. This connector does not author/publish content or render a CMS
 interface. For example, publish the article and hero asset in Contentful first;
 the app then resolves their IDs and renders them with its native components.
 Cross-space authenticated links, Sync/cursor feeds and asset transformation are
-native extensions, not silently fetched. Controlled tests cover links, locale
-shapes, pagination, resource reads and errors; no live content was accessed.
+native extensions, not silently fetched.

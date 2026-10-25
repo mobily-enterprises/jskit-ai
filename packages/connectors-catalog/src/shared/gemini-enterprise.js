@@ -2,7 +2,7 @@ import { createSchema } from "json-rest-schema";
 
 const geminiEnterpriseScope = "https://www.googleapis.com/auth/cloud-platform";
 const geminiEnterpriseDefinition = Object.freeze({
-  id: "gemini-enterprise", name: "Gemini Enterprise", categories: ["Google", "Productivity"],
+  id: "gemini-enterprise", name: "Gemini Enterprise",
   description: "Search documents in a configured Gemini Enterprise engine.",
   accountModes: ["shared", "assistant"], authenticationMethods: ["oauth2"],
   oauthClientAuthenticationMethods: ["client_secret_post", "client_secret_basic"],

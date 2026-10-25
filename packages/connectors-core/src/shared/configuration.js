@@ -93,6 +93,19 @@ function getProviderClientAuthenticationMethods(provider, grantType = DEFAULT_GR
   return typeof methods === "function" ? methods(grantType, settings) : methods || [DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD];
 }
 
+// Setup text precedence: settings-dependent, then per-authentication-method, then static.
+function getProviderSetup(provider, settings = {}, authenticationMethod) {
+  const setup = provider.setup || {};
+  return {
+    url: setup.urlForSettings?.(settings, authenticationMethod) || setup.urlByAuthentication?.[authenticationMethod] || setup.url,
+    steps: setup.stepsForSettings?.(settings, authenticationMethod) || setup.stepsByAuthentication?.[authenticationMethod] || setup.steps
+  };
+}
+
+function isProviderConfigurationOnly(provider, settings = {}) {
+  return Boolean(provider.configurationOnly || provider.configurationOnlyForSettings?.(settings));
+}
+
 function validateIntegrationConfiguration(input, { providers = [], allowUnknownProviders = false } = {}) {
   if (input?.schemaVersion !== 1) {
     throw new IntegrationConfigurationError({ schemaVersion: "Use numeric schemaVersion 1; other versions require an explicit migration." });
@@ -247,6 +260,8 @@ export {
   getProviderAccountModes,
   getProviderScopes,
   getProviderSettingsSchema,
+  getProviderSetup,
+  isProviderConfigurationOnly,
   secretReference,
   integrationsSchema,
   IntegrationConfigurationError,

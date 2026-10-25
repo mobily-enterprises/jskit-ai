@@ -84,8 +84,8 @@ For an application integration, use the application's assigned hosting URL as
 the initial origin and its implemented callback path. Store the exact callback
 in its Env reference and provider registration. A domain change requires updating
 both values if the callback URL changes; retain the application identity and its
-persistent grants when moving hosts. Public Vibe64, Online and CLI users supply
-their own registrations through this same contract.
+persistent grants when moving hosts. Every editor and CLI supplies its own
+registrations through this same contract.
 See the [callback guide](../../connectors-core/docs/oauth-callbacks.md).
 
 The registration and grants belong to the application or explicitly authorized
@@ -116,10 +116,10 @@ fixed JSKIT design schema; fixtures demonstrate consumption rather than assertin
 an immutable live tool signature. The host chooses the target framework and
 performs code generation itself.
 
-**LIMITATIONS:** This supplies remote MCP only. Installed Vibe64 and Online can
+**LIMITATIONS:** This supplies remote MCP only. Installed and hosted editors can
 both use the remote server with their own approved registration. Desktop MCP is
-local to the machine running Figma Desktop and the consuming client: on Online,
-127.0.0.1 means the VPS, not the user's laptop. Native desktop clients may configure
+local to the machine running Figma Desktop and the consuming client: on a hosted
+editor, 127.0.0.1 means the server, not the user's laptop. Native desktop clients may configure
 Figma Desktop independently; no tunnel/proxy is provided here. Government-only
 desktop deployments are outside this remote connector.
 

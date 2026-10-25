@@ -118,9 +118,10 @@ do not repeatedly retry the spent refresh token.
 ## Application ownership, callbacks and capacity
 
 The application owner creates the provider registration and stores its secret
-in the application's private Env. Public Vibe64, Vibe64 Online and CLI users use
-this same ownership model. The configuration file holds the client ID and Env
-references; the editor does not own the application's grants.
+in the application's private Env. Every editor and CLI uses this same
+[ownership model](../../connectors-core/docs/online-setup.md): the configuration
+file holds the client ID and Env references; the editor does not own the
+application's grants.
 
 Register the exact callback implemented by the application. For a hosted project,
 start with its assigned application URL and append the implemented callback path.
@@ -191,3 +192,31 @@ gift-card/store-credit workflows, webhook receiver or automatic editor tool
 attachment. Example: an app can report low stock and sales totals, but cannot
 replenish a shelf or charge a customer through this adapter. Adding a write scope
 does not implement a write operation. No live retailer or generated app was used.
+
+## OAuth pattern composition: Lightspeed X-Series
+
+Import `lightspeedProvider` from `@jskit-ai/connectors-catalog/server/lightspeed`
+and give it to the existing connection service. Use the JSON and provider setup
+in this guide. The store prefix is required and fixed before consent;
+never route credentials using a callback-supplied domain. Keep `products:read`
+for verification and pass `verificationInput: { page_size: 1 }` when starting it.
+
+```js
+const products = await connections.invoke({
+  context: authenticatedOwner, integrationId: "retail", operation: "products.list",
+  input: { page_size: 50, deleted: false }
+});
+```
+
+`customers.list` and `outlets.list` use the same paging inputs with their own read
+scopes. Request subsequent pages explicitly with version bounds. Preserve null
+customer values and avoid assuming a full page means more records certainly exist.
+The library pins the current API version, validates store-bound token responses,
+and persists each rotated refresh token before reading data. It sends PKCE;
+provider enforcement has not been proven with a live client. Do not add retries
+around authorization codes, refresh or interrupted requests.
+
+The host owns authenticated subjects, shared-store access, callback routes and
+rendering. CLI and UI use the same configuration; no database is required for
+editor configuration. Each application supplies its own registration and callback; app sign-in is a separate concern. Extra
+scope selections do not create write operations or independent provider quotas.

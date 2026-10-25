@@ -118,15 +118,6 @@ The application owns its credential selection and usage policy. Separate
 provider capacity requires the appropriate site/account arrangement. A test
 site is not additional production capacity.
 
-## Focused evidence
-
-Six tests use simulated Chargebee replies and real temporary encrypted JSON
-files. They cover Basic authentication, file restart, rotation, ownership,
-disconnect, unsafe site/credential rejection, site changes, cursors, deleted
-records, page-size limits and failures. The editor check covers site validation,
-reference-only storage and persistence after reload. Provider signup, live API
-requests, billing changes and sample-app generation are excluded.
-
 ## Billing operations and recovery
 
 | Operations | Result / boundary |

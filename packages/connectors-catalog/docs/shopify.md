@@ -96,8 +96,7 @@ operations locally; Shopify remains the authority for the token's actual rights.
 
 ## Application registrations, callbacks and domains
 
-Shopify's word *online* describes a staff-user access token. It is unrelated to
-the Vibe64 Online product.
+Shopify's word *online* describes a staff-user access token.
 
 The application owner creates its Shopify app in the Dev Dashboard, configures
 its distribution, access scopes and application URL, and completes any required
@@ -204,3 +203,37 @@ Operation references: [products](https://shopify.dev/docs/api/admin-graphql/late
 [productCreate](https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate),
 [productUpdate](https://shopify.dev/docs/api/admin-graphql/latest/mutations/productUpdate),
 [productDelete](https://shopify.dev/docs/api/admin-graphql/latest/mutations/productDelete).
+
+## OAuth pattern composition: Shopify product operations and assistant permissions
+
+Import `shopifyProvider` from `@jskit-ai/connectors-catalog/server/shopify` and read
+this guide. The supported new-app flow is an installed app in
+the **same Shopify organization** as its store, with `grantType: "client_credentials"`.
+There is no callback in this flow. Put the client secret in an environment
+reference and configure the permanent `shopDomain`, not a custom storefront URL.
+Call `connectClientCredentials` before the named product operations. Existing
+Admin API tokens use `connectApiKey` instead. Other merchants need the unfinished
+Shopify installation/consent flow; do not pretend client credentials cover them.
+
+The runtime sends Shopify's header and GraphQL Admin API 2026-07 requests. It
+supports bounded product listing, creation, update and deletion. Create defaults
+to draft. Use Product GIDs; price/SKU/variants and publication are separate work.
+Do not retry a mutation blindly after timeout. A store connection is not shopper
+login or an individual staff member's authorized session.
+
+Construct assistant-facing services with `executionMode: "assistant"`; the
+host's trusted authorization callback receives `{ assistantPermission, input }`.
+It must verify real human approval and return `approved: true` for `ask`, together
+with the checked owner identity. The shared runtime denies `never` and does not
+accept a browser-supplied approval flag. `always` still checks application access.
+The host must bind approval to the exact request and supply its existing decision
+UI/storage; the library does not create another approval system.
+
+The portable `assistantPolicy` holds enablement, a default and action overrides.
+It is independent of credentials, provider scopes and connection sharing. Host
+workspace policy may further restrict it. Use `authorizeAssistantAction` only
+before a host-owned lifecycle operation such as enabling or claiming a store;
+it authorizes but does not execute that action. The captured remaining action
+choices do not mean variant/discount/store lifecycle adapters are implemented.
+The application owns its registration and token storage. The editor's
+Connect/approval journey must invoke that application's setup operations.
