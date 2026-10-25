@@ -1,28 +1,16 @@
 import { computed, ref } from "vue";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { defineCrudListRowActions } from "../rowActions.js";
-
-function normalizeRowActionKey(actionOrKey = "") {
-  return normalizeText(
-    actionOrKey && typeof actionOrKey === "object"
-      ? actionOrKey.key
-      : actionOrKey
-  );
-}
-
-function normalizeRowId(value = "") {
-  return normalizeText(value);
-}
+import {
+  normalizeListActionKey,
+  resolveListActionBaseContext,
+  resolveListRecordId
+} from "../support/crudListActionSupport.js";
 
 function createExecutionKey(actionKey = "", recordId = "", index = 0) {
   return [
     actionKey,
     recordId || `index-${index}`
   ].join(":");
-}
-
-function asContextObject(value = null) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function useCrudListRowActions(actions = [], {
@@ -34,16 +22,12 @@ function useCrudListRowActions(actions = [], {
   const hasActions = computed(() => normalizedActions.length > 0);
 
   function getRecordId(record = {}, index = 0) {
-    const resolvedId = typeof resolveRecordId === "function"
-      ? resolveRecordId(record, index)
-      : record?.id ?? record?.attributes?.id ?? index;
-    return normalizeRowId(resolvedId);
+    return resolveListRecordId(record, index, resolveRecordId);
   }
 
   function createActionContext(action = {}, record = {}, index = 0) {
-    const baseContext = typeof resolveContext === "function" ? resolveContext() : {};
     return {
-      ...asContextObject(baseContext),
+      ...resolveListActionBaseContext(resolveContext),
       action,
       record,
       index,
@@ -52,7 +36,7 @@ function useCrudListRowActions(actions = [], {
   }
 
   function findAction(actionOrKey = "") {
-    const actionKey = normalizeRowActionKey(actionOrKey);
+    const actionKey = normalizeListActionKey(actionOrKey);
     return normalizedActions.find((action) => action.key === actionKey) || null;
   }
 

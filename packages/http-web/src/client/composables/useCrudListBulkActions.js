@@ -1,18 +1,10 @@
 import { computed, ref } from "vue";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { defineCrudListBulkActions } from "../bulkActions.js";
-
-function normalizeSelectedId(value = "") {
-  return normalizeText(value);
-}
-
-function resolveActionKey(actionOrKey = "") {
-  return normalizeText(
-    actionOrKey && typeof actionOrKey === "object"
-      ? actionOrKey.key
-      : actionOrKey
-  );
-}
+import {
+  normalizeListActionKey,
+  resolveListActionBaseContext,
+  resolveListRecordId
+} from "../support/crudListActionSupport.js";
 
 function useCrudListBulkActions(actions = [], {
   resolveRecordId = null,
@@ -28,10 +20,7 @@ function useCrudListBulkActions(actions = [], {
   const hasActions = computed(() => normalizedActions.length > 0);
 
   function getRecordId(record = {}, index = 0) {
-    const resolvedId = typeof resolveRecordId === "function"
-      ? resolveRecordId(record, index)
-      : record?.id ?? record?.attributes?.id ?? index;
-    return normalizeSelectedId(resolvedId);
+    return resolveListRecordId(record, index, resolveRecordId);
   }
 
   function setRecordSelected(record = {}, index = 0, selected = true) {
@@ -78,12 +67,12 @@ function useCrudListBulkActions(actions = [], {
   }
 
   function findAction(actionOrKey = "") {
-    const actionKey = resolveActionKey(actionOrKey);
+    const actionKey = normalizeListActionKey(actionOrKey);
     return normalizedActions.find((action) => action.key === actionKey) || null;
   }
 
   function isActionExecuting(actionOrKey = "") {
-    const actionKey = resolveActionKey(actionOrKey);
+    const actionKey = normalizeListActionKey(actionOrKey);
     return Boolean(actionKey && executingActionKey.value === actionKey);
   }
 
@@ -110,9 +99,8 @@ function useCrudListBulkActions(actions = [], {
 
     executingActionKey.value = action.key;
     try {
-      const baseContext = typeof resolveContext === "function" ? resolveContext() : {};
       return await action.run({
-        ...(baseContext && typeof baseContext === "object" && !Array.isArray(baseContext) ? baseContext : {}),
+        ...resolveListActionBaseContext(resolveContext),
         action,
         ids: selectedIds.value.slice(),
         selectedIds: selectedIds.value.slice(),
