@@ -1,3 +1,14 @@
+/** A turn's messages in canonical order: system, user, activity, final assistant. */
+export function conversationTurnMessages(turn) {
+  return turn.messages || [
+    turn.system,
+    turn.user,
+    ...(turn.thinking || []),
+    ...(turn.commentary || []),
+    turn.assistant
+  ].filter(Boolean);
+}
+
 /** Adapt ordered messages to the transcript's turn model without changing their metadata. */
 export function conversationTurnsFromMessages(messages = []) {
   const turns = [];

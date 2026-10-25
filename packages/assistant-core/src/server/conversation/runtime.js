@@ -9,13 +9,14 @@ import { randomUUID } from "node:crypto";
 import { createConversationTranscript, isCompletedEnvelopeTurn } from "./transcript.js";
 import { createConversationStreams } from "./streams.js";
 import { createReentrantConversationStorage } from "./storage.js";
-import { createCodexConversationStore } from "./agentRun.js";
+import { createCodexConversationStore } from "./codexConversationStore.js";
 import { codexAppServerTurnStateFromAgentRun } from "./codexTurn.js";
 import { hasUnfinishedConversationRewind, createConversationRuntimeReplacement,
-  releaseConversationRuntimeBinding, finishConversationRuntimeReplacement } from "./runtimeStateUpgrade.js";
+  releaseConversationRuntimeBinding, finishConversationRuntimeReplacement,
+  conversationNativeIdentity, conversationNativeBinding } from "./runtimeStateUpgrade.js";
 import { createServiceToolCatalog } from "../lib/serviceToolCatalog.js";
 import { createConversationTools } from "./tools.js";
-import { readAssistantResponseEnvelope } from "../lib/assistantToolLoop.js";
+import { readAssistantResponseEnvelope } from "./boundedToolLoop.js";
 import { conversationAttachmentIds, createConversationAttachmentReader } from "./attachments.js";
 import { conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
 import { createConversationChangeover, conversationContinuity, conversationHistoryVersions,
@@ -27,8 +28,6 @@ function failure(message, code, statusCode = 409) {
 
 const submittedMessage = turn => turn.user || turn.system;
 const retainedSegments = state => [...new Map([...state.predecessors, state].map(segment => [segment.segmentId, segment])).values()];
-const nativeIdentity = segment => segment.engine === "codex" ? segment.binding?.threadId
-  : segment.engine === "claude" ? segment.binding?.conversationId : segment.binding?.sessionId;
 const pendingSuccessor = state => state.engine !== "api" && state.predecessors.findLast(segment => segment.successorId === state.segmentId &&
   segment.segmentId !== state.segmentId && segment.replacement?.operation === "replace" && !segment.acceptedAt);
 const sameRequest = (left, right) => left.text === right.text && (left.origin || "user") === right.origin &&
@@ -195,8 +194,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const pending = (saved?.attempted && !saved.inspectionOnly &&
       await entry.conversation.transcript.hasMessage(saved.messageId)) ? null : saved;
     return { engine: entry.engine, configuration: value.configuration, segmentId: entry.segmentId,
-      binding: entry.engine === "codex" ? { threadId: value.threadId, codexAppServerRun: value.run }
-        : entry.engine === "claude" ? { conversationId: value.threadId } : { sessionId: value.threadId },
+      binding: { ...conversationNativeBinding(entry.engine, value.threadId),
+        ...(entry.engine === "codex" ? { codexAppServerRun: value.run } : {}) },
       nativeTurn: value.turn, nativeResult: value.nativeResult,
       lastEngine: value.delivery?.lastEngine ?? entry.engine,
       replacement: ["preparing", "ready"].includes(value.delivery?.replacement?.status) ? value.delivery.replacement : null,
@@ -391,11 +390,11 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         return { lastEngine: runtime.lastEngine, engines,
           ...(preparing ? { replacement: { engineId: preparing.engine, status: "preparing",
             operationId: preparing.request.operationId, handover: preparing.request.briefing || "",
-            bindingNames: ["binding"], previous: { engineId: runtime.engine, conversationId: nativeIdentity(runtime) },
+            bindingNames: ["binding"], previous: { engineId: runtime.engine, conversationId: conversationNativeIdentity(runtime) },
             ...(preparing.preparedAt ? { preparedAt: preparing.preparedAt } : {}) } }
             : predecessor ? { replacement: { engineId: runtime.engine, status: "ready",
             operationId: predecessor.replacement.operationId, handover: predecessor.replacement.briefing || "",
-            previous: { engineId: predecessor.engine, conversationId: nativeIdentity(predecessor) },
+            previous: { engineId: predecessor.engine, conversationId: conversationNativeIdentity(predecessor) },
             ...(predecessor.preparedAt ? { preparedAt: predecessor.preparedAt } : {}) } } : {}) };
       },
       write(value) {
@@ -478,7 +477,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             return { admission: observation.accepted ? "accepted" : "unknown" };
           }
           const { runtime } = await storage.read(entry.id, transaction => transaction.readMetadata());
-          if (!threadId || threadId !== nativeIdentity(runtime) || runtime.request?.messageId !== messageId) return null;
+          if (!threadId || threadId !== conversationNativeIdentity(runtime) || runtime.request?.messageId !== messageId) return null;
           observation = await entry.provider.inspectAdmission({ ...runtime.request, context, configuration: runtime.configuration });
           await access(context, entry.id, request?.operation || "inspectDelivery", entry);
           return { admission: observation.accepted ? "accepted" : "unknown" };
@@ -609,7 +608,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       const authored = submittedMessage(turn || {});
       const saved = turn?.metadata?.runtime;
       if (runtime?.version !== 3 || runtime.engine !== engine || runtime.segmentId !== segmentId ||
-          runtime.replacement || runtime.request || !nativeIdentity(runtime) || authored?.messageId !== messageId ||
+          runtime.replacement || runtime.request || !conversationNativeIdentity(runtime) || authored?.messageId !== messageId ||
           authored.origin !== "application" || saved?.completedEnvelope !== true || saved.engine !== engine ||
           saved.segmentId !== segmentId || saved.status !== "complete" || saved.supersededBy ||
           typeof turn.assistant?.text !== "string" || !turn.assistant.text || !turn.assistant.messageId) {
@@ -649,7 +648,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       await access(context, entry.id, "tool", entry);
       const saved = await storage.read(entry.id, transaction => exact(transaction));
       const observation = await entry.provider.inspectAdmission({ messageId,
-        threadId: nativeIdentity(saved.runtime), nativeTurnId: saved.turn.metadata.runtime.nativeTurnId,
+        threadId: conversationNativeIdentity(saved.runtime), nativeTurnId: saved.turn.metadata.runtime.nativeTurnId,
         configuration: saved.runtime.configuration, receiptBinding: saved.runtime.binding, context, verifyAccount: true });
       signal.throwIfAborted();
       await access(context, entry.id, "tool", entry);
@@ -782,6 +781,13 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     let toolFailure;
     const applicationTools = entry.applicationTools;
     const toolStorage = applicationTools?.storage || storage;
+    // Every saved turn and pending request records its attribution identically.
+    const turnAttribution = (request, extra = {}) => ({ engine, segmentId, origin: request.input.origin,
+      ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
+      ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}), ...extra });
+    const authoredRequestRecord = request => ({ ...request.input, at: request.at,
+      ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}),
+      ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) });
 
     function prepareTools(request) {
       if (request.completedEnvelope || !catalog || entry.conversation && !applicationTools) return;
@@ -827,12 +833,10 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         if (request.answer?.text.trim()) await transaction.replaceAssistant(request.turnId, request.answer);
       }
       const saved = driver.canonicalTranscript ? await transaction.readTurn(request.turnId) : null;
-      await transaction.updateTurnMetadata(request.turnId, { runtime: { ...saved?.metadata?.runtime, status, engine, segmentId, origin: request.input.origin,
-        ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
-        ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
+      await transaction.updateTurnMetadata(request.turnId, { runtime: { ...saved?.metadata?.runtime, status, ...turnAttribution(request, {
         ...(request.nativeTurnId ? { nativeTurnId: request.nativeTurnId } : {}),
         ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
-        ...(request.continuedBy ? { continuedBy: request.continuedBy } : {}), ...extra, ...(error ? { error } : {}) } });
+        ...(request.continuedBy ? { continuedBy: request.continuedBy } : {}) }), ...extra, ...(error ? { error } : {}) } });
       return conversationHistoryVersions([{ turnId: request.turnId,
         messages: [...request.progress.values()].filter(message => !(message.turnId === request.turnId && message.status === "complete"))
           .concat(request.answer?.text.trim() ? [request.answer] : []) }]);
@@ -900,11 +904,9 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         } else {
           id = await transaction.nextTurnId();
           await transaction.appendMessage(id, { role: request.input.origin === "application" ? "system" : "user", ...request.input, at: new Date().toISOString(),
-            turnMetadata: { runtime: { status: "running", engine, segmentId, origin: request.input.origin,
-              ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
-              ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
+            turnMetadata: { runtime: { status: "running", ...turnAttribution(request, {
               ...(request.goalMessageId ? { goalMessageId: request.goalMessageId } : {}),
-              ...(nativeTurnId ? { nativeTurnId } : {}) } } });
+              ...(nativeTurnId ? { nativeTurnId } : {}) }) } } });
         }
         if (engine === "api") {
           metadata.runtime.seen = { ...(seen || metadata.runtime.seen), ...conversationHistoryVersions([await transaction.readTurn(id)]) };
@@ -1090,9 +1092,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             throw failure("Authorized attachment paths changed after this instruction was prepared. Restore the original files or send a new message.", "conversation_attachment_manifest_changed");
           }
           metadata.runtime.request = { ...(pending?.messageId === request.input.messageId ? pending
-            : { ...request.input, at: request.at, attempted: false,
-              ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}),
-              ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) }), attachmentManifest };
+            : { ...authoredRequestRecord(request), attempted: false }), attachmentManifest };
           await transaction.writeMetadata(metadata);
         });
         const admitted = Promise.withResolvers();
@@ -1118,9 +1118,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
             threadId = native?.threadId;
             if (!threadId) throw new Error("Native admission requires the saved conversation identity.");
             await input.onPromptSending(entry.conversation ? native : { threadId, displayAttachments: files.attachments,
-              turnMetadata: { runtime: { engine, segmentId, origin: request.input.origin,
-                ...(request.completedEnvelope ? { completedEnvelope: true } : {}),
-                ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}) } } });
+              turnMetadata: { runtime: turnAttribution(request) } });
             if (request.input.goal && request.context?.signal?.aborted) {
               throw Object.assign(failure("The goal command was stopped before delivery.", "conversation_goal_stopped"), { delivery: "not-sent" });
             }
@@ -1172,9 +1170,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               const metadata = await transaction.readMetadata();
               const pending = metadata.runtime.request;
               if (pending && pending.messageId !== request.input.messageId && (pending.attempted || pending.inspectionOnly)) throw new Error("The pending conversation instruction changed.");
-              metadata.runtime.request = { ...request.input, at: request.at,
-                ...(request.completedEnvelope ? { completedEnvelope: true, excludedMessageIds: request.excludedMessageIds } : {}),
-                ...(typeof request.nativeToolAttempt === "boolean" ? { nativeToolAttempt: request.nativeToolAttempt } : {}),
+              metadata.runtime.request = { ...authoredRequestRecord(request),
                 message: rendered.message, displayMessage: rendered.displayMessage,
                 displayAttachments, attachmentIds: rendered.attachmentIds,
                 attachmentManifest,
@@ -1186,7 +1182,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           },
           async onPromptRejected() {
             if (entry.conversation) return request.originalInput?.onPromptRejected?.();
-            if (!entry.conversation) await storage.write(entry.id, async transaction => {
+            await storage.write(entry.id, async transaction => {
               const metadata = await transaction.readMetadata();
               if (metadata.runtime.request?.messageId === request.input.messageId) {
                 metadata.runtime.request.attempted = false;
@@ -1314,7 +1310,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
               const turn = await transaction.readTurn(initial.turnId);
               const saved = turn?.metadata?.runtime;
               if (metadata.runtime.engine !== engine || metadata.runtime.segmentId !== segmentId ||
-                  nativeIdentity(metadata.runtime) !== threadId || submittedMessage(turn || {})?.messageId !== messageId ||
+                  conversationNativeIdentity(metadata.runtime) !== threadId || submittedMessage(turn || {})?.messageId !== messageId ||
                   saved?.engine !== engine || saved.segmentId !== segmentId || saved.completedEnvelope !== true ||
                   typeof saved.nativeToolAttempt !== "boolean" || saved.status !== "running" || saved.supersededBy ||
                   entry.active !== active || current !== initial || initial.finished || initial.sealed || active.controller.signal.aborted) {
@@ -1706,9 +1702,6 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     await access(context, entry.id, "goal", entry);
     context?.signal?.throwIfAborted();
     if (!capabilities(entry).goals) throw failure("This connection does not support native goals.", "conversation_unsupported", 400);
-    if (representation !== "native" && !capabilities(entry).goals) {
-      throw failure("This bound conversation does not yet map native goal messages to canonical receipts.", "conversation_unsupported", 400);
-    }
     if (representation === "native") {
       const { operation } = await serial(entry, async () => {
         await access(context, entry.id, "goal", entry);
@@ -1822,8 +1815,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       // Release the queue once Send is reserved, just as an ordinary message
       // does. Stop remains available while native acknowledgement is pending.
       if (delivery) return delivery;
-      if (entry.conversation && updated.nativeResult.ok === false) throw Object.assign(new Error(updated.nativeResult.error), updated.nativeResult);
-      entry.goal = entry.conversation ? updated.goal : updated;
+      entry.goal = updated;
       await emit(entry, { type: "goal", goal: entry.goal });
       return { goal: structuredClone(entry.goal) };
     });
@@ -1878,7 +1870,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const request = existing ? submittedMessage(existing) : metadata.runtime.request;
     if (!request || request.messageId !== messageId || !entry.provider.inspectAdmission) return receipt || { status: "unknown", messageId };
     const pending = metadata.runtime.request?.messageId === messageId ? metadata.runtime.request : null;
-    if (pending?.threadId && pending.threadId !== nativeIdentity(metadata.runtime)) return receipt || { status: "unknown", messageId };
+    if (pending?.threadId && pending.threadId !== conversationNativeIdentity(metadata.runtime)) return receipt || { status: "unknown", messageId };
     const observation = suppliedObservation || await entry.provider.inspectAdmission({ ...request, nativeTurnId: existing?.metadata?.runtime?.nativeTurnId,
       context, configuration: metadata.runtime.configuration });
     await access(context, entry.id, "inspectDelivery", entry);
@@ -2003,7 +1995,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       }
       const row = (await readTranscript(entry)).find(turn => submittedMessage(turn)?.messageId === messageId);
       if (row) return { status: "accepted", messageId, turnId: row.turnId, duplicate: true };
-      const threadId = state.request?.messageId === messageId ? state.request.threadId : nativeIdentity(state);
+      const threadId = state.request?.messageId === messageId ? state.request.threadId : conversationNativeIdentity(state);
       if (!threadId) return { status: "unknown", messageId };
       const observation = await entry.provider.inspectAdmission({ messageId, threadId, context });
       await access(context, entry.id, "inspectDelivery", entry);
@@ -2111,7 +2103,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
       ? normalizeConversationConfiguration(input.configuration, { engine, defaultIntegrationId }) : state.configuration);
     const driver = createDriver(engine, entry.host);
     driver.validateConfiguration(configuration);
-    const predecessorId = nativeIdentity(state);
+    const predecessorId = conversationNativeIdentity(state);
     const nativeReplacement = !selection && state.engine !== "api" && predecessorId &&
       (state.engine !== "claude" || state.binding.sent);
     const retainNativeBinding = input.retireNative !== true && engine === state.engine &&
@@ -2194,7 +2186,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
           }
           await callback({
             async releaseBinding(replacement) {
-              if (replacement && nativeIdentity(state) !== replacement.previous.conversationId) {
+              if (replacement && conversationNativeIdentity(state) !== replacement.previous.conversationId) {
                 throw failure("The native predecessor identity changed before its binding was released.", "conversation_replacement_conflict");
               }
               releaseConversationRuntimeBinding(state, pending, request, engine);
@@ -2221,7 +2213,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
         identity: {
           async inspect(expectedId) {
             const { runtime } = await storage.read(entry.id, transaction => transaction.readMetadata());
-            if (runtime.segmentId !== input.expectedSegmentId || nativeIdentity(runtime) !== expectedId) {
+            if (runtime.segmentId !== input.expectedSegmentId || conversationNativeIdentity(runtime) !== expectedId) {
               throw failure("The native predecessor identity changed or is incomplete.", "conversation_replacement_conflict");
             }
             return { bindingNames: ["binding"], previous: { engineId: runtime.engine, conversationId: expectedId } };

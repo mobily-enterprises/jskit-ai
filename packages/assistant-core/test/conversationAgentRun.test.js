@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { conversationAgentRunEvent, conversationAgentRunRecord, createCodexConversationRunStore, createCodexConversationStore } from "../src/server/conversation/agentRun.js";
+import { conversationAgentRunEvent, conversationAgentRunRecord } from "../src/server/conversation/agentRun.js";
+import { createCodexConversationRunStore, createCodexConversationStore } from "../src/server/conversation/codexConversationStore.js";
 import { createMemoryConversationStorage } from "../src/server/conversation/memoryStorage.js";
 import { createReentrantConversationStorage } from "../src/server/conversation/storage.js";
 import { createConversationTranscript } from "../src/server/conversation/transcript.js";

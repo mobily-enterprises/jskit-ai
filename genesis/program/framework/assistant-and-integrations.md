@@ -9,6 +9,7 @@ connector account management, and focused third-party operations.
 - `packages/assistant-core/src/client/conversation/AssistantTranscript.vue`
 - `packages/assistant-core/src/server/conversation/runtimeStateUpgrade.js`
 - `packages/assistant-core/src/server/conversation/agentRun.js`
+- `packages/assistant-core/src/server/conversation/codexConversationStore.js`
 - `packages/assistant-core/src/server/conversation/continuity.js`
 - `packages/assistant-runtime/src/server/AssistantProvider.js`
 - `packages/assistant-voice/src/server/index.js`

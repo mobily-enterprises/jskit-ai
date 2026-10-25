@@ -2820,7 +2820,7 @@ for (const kind of ["tool", "reply"]) test(`completed Claude ${kind} wire preser
     assert.equal(saved.assistant.text, raw);
     const prepared = await f.conversation.prepareCompletedResponse(receipt, { signal: new AbortController().signal });
     assert.equal(prepared.text, raw);
-    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const { readAssistantResponseEnvelope } = await import("../src/server/conversation/boundedToolLoop.js");
     const decoded = readAssistantResponseEnvelope(prepared.text);
     assert.deepEqual(decoded, value);
     if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);

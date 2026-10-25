@@ -31,9 +31,15 @@ function validateSegment(segment) {
   }
 }
 
-function nativeIdentity(segment) {
-  return segment.engine === "codex" ? segment.binding.threadId
-    : segment.engine === "claude" ? segment.binding.conversationId : segment.binding.sessionId;
+const nativeIdentityField = engine => engine === "codex" ? "threadId" : engine === "claude" ? "conversationId" : "sessionId";
+
+/** The saved binding field that holds a native segment's conversation identity. */
+export function conversationNativeIdentity(segment) {
+  return segment.binding?.[nativeIdentityField(segment.engine)];
+}
+
+export function conversationNativeBinding(engine, id) {
+  return { [nativeIdentityField(engine)]: id };
 }
 
 function inspectRequest(request, segment, version, warnings) {
@@ -44,7 +50,7 @@ function inspectRequest(request, segment, version, warnings) {
     invalid("Conversation runtime has an unsupported pending request. Inspect it before upgrading.");
   }
   if (segment.engine === "api") return;
-  const threadId = nativeIdentity(segment);
+  const threadId = conversationNativeIdentity(segment);
   if (version === 3 && !Object.hasOwn(request, "inspectionOnly")) {
     if (typeof request.attempted !== "boolean" || request.attempted &&
         (typeof threadId !== "string" || !threadId || request.threadId !== threadId || typeof request.message !== "string") ||
@@ -143,30 +149,21 @@ function retireCodexBinding(runtime, retirement) {
   finishConversationRuntimeReplacement(runtime, { engine: "codex", selection: true, retireNative: true, pending });
 }
 
-/** Pure offline transform. The application owns enumeration, backups and publication. */
-export function upgradeConversationRuntimeState({ metadata, conversationLog, retirement }) {
-  if (!object(metadata) || !Array.isArray(conversationLog)) {
-    invalid("Conversation runtime upgrade requires metadata and the complete stored transcript.");
-  }
-  if (metadata.runtime === undefined) {
-    if (retirement !== undefined) invalid("Offline native retirement requires the exact saved runtime; it cannot create a historical binding.");
-    return { metadata, changed: false, warnings: [] };
-  }
-  const source = metadata.runtime;
-  if (!object(source) || ![2, 3].includes(source.version) || !Array.isArray(source.predecessors)) {
+/** Validates a saved runtime and its retained requests. A version 2 request is
+ * marked inspection-only in place, so the upgrade passes its own copy. */
+function validateConversationRuntimeState(runtime, warnings) {
+  if (!object(runtime) || ![2, 3].includes(runtime.version) || !Array.isArray(runtime.predecessors)) {
     invalid("This conversation has an unsupported runtime version. Inspect its original format and provide an offline conversion before opening it.");
   }
-  if (hasUnfinishedConversationRewind(source)) {
+  if (hasUnfinishedConversationRewind(runtime)) {
     invalid("This conversation has an unfinished Undo operation from an earlier runtime. Inspect its saved native and local history offline before upgrading; no history was changed.");
   }
-  if (source.version === 3 && (typeof source.lastEngine !== "string" || source.lastEngine && !engines.has(source.lastEngine))) {
+  if (runtime.version === 3 && (typeof runtime.lastEngine !== "string" || runtime.lastEngine && !engines.has(runtime.lastEngine))) {
     invalid("Conversation runtime has an invalid last-delivered engine. Inspect it before upgrading.");
   }
-  const runtime = structuredClone(source);
-  const warnings = [];
   for (const segment of [...runtime.predecessors, runtime]) {
     validateSegment(segment);
-    inspectRequest(segment.request, segment, source.version, warnings);
+    inspectRequest(segment.request, segment, runtime.version, warnings);
   }
   if (runtime.replacement !== undefined) {
     const pending = runtime.replacement;
@@ -177,11 +174,26 @@ export function upgradeConversationRuntimeState({ metadata, conversationLog, ret
     }
     if (pending.binding) {
       validateSegment(pending);
-      inspectRequest(pending.submission, pending, source.version, warnings);
+      inspectRequest(pending.submission, pending, runtime.version, warnings);
     } else if (pending.submission !== undefined) {
       invalid("An unfinished replacement has a request without its exact saved binding. Inspect it before upgrading.");
     }
   }
+}
+
+/** Pure offline transform. The application owns enumeration, backups and publication. */
+export function upgradeConversationRuntimeState({ metadata, conversationLog, retirement }) {
+  if (!object(metadata) || !Array.isArray(conversationLog)) {
+    invalid("Conversation runtime upgrade requires metadata and the complete stored transcript.");
+  }
+  if (metadata.runtime === undefined) {
+    if (retirement !== undefined) invalid("Offline native retirement requires the exact saved runtime; it cannot create a historical binding.");
+    return { metadata, changed: false, warnings: [] };
+  }
+  const source = metadata.runtime;
+  const runtime = structuredClone(source);
+  const warnings = [];
+  validateConversationRuntimeState(runtime, warnings);
   if (retirement !== undefined) {
     retireCodexBinding(runtime, retirement);
     return { metadata: { ...metadata, runtime }, changed: true, warnings };
@@ -211,7 +223,7 @@ export async function prepareConversationRuntimeCopy(transaction, { at }) {
   const runtime = metadata.runtime;
   if (runtime) {
     if (runtime.version !== 3) invalid("Upgrade the parent conversation before copying its runtime state.");
-    upgradeConversationRuntimeState({ metadata, conversationLog: turns });
+    validateConversationRuntimeState(runtime, []);
     if (runtime.replacement) invalid("Finish the parent conversation changeover before copying it.");
     for (const segment of [...runtime.predecessors, runtime]) {
       if (segment.binding) {

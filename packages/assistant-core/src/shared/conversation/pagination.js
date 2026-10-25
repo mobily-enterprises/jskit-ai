@@ -1,3 +1,5 @@
+import { conversationTurnMessages } from "./turns.js";
+
 // Original paged transcript representation, shared by all browser bindings.
 const CONVERSATION_LOG_PAGE_LIMIT = 10;
 
@@ -57,8 +59,7 @@ function conversationLogPage(turns, { beforeTurnId = "", limit = 0 } = {}) {
     const result = { ...turn, paginationPartial: true,
       thinking: keepActivity ? turn.thinking : [], commentary: keepActivity ? turn.commentary : [] };
     for (const role of messageRoles) if (!keep.includes(role)) result[role] = null;
-    result.messages = (turn.messages || [turn.system, turn.user, ...(turn.thinking || []),
-      ...(turn.commentary || []), turn.assistant].filter(Boolean))
+    result.messages = conversationTurnMessages(turn)
       .filter(message => keep.includes(message.role) || (keepActivity && !messageRoles.includes(message.role)));
     return result;
   }).filter(turn => messageRoles.some(role => turn[role]) || turn.thinking?.length || turn.commentary?.length);

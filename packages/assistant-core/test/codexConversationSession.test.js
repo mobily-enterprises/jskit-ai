@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { createConversationRuntime, createFileConversationStorage } from "../src/server/conversation/index.js";
-import { createCodexConversationStore } from "../src/server/conversation/agentRun.js";
+import { createCodexConversationStore } from "../src/server/conversation/codexConversationStore.js";
 import { createReentrantConversationStorage } from "../src/server/conversation/storage.js";
 import { createConversationTranscript } from "../src/server/conversation/transcript.js";
 import { createConversationStreams } from "../src/server/conversation/streams.js";
@@ -3668,7 +3668,7 @@ for (const kind of ["tool", "reply"]) test(`completed Codex ${kind} wire preserv
     assert.equal(run.outerTurnId, receipt.messageId);
     const prepared = await f.conversation.prepareCompletedResponse(receipt, { signal: new AbortController().signal });
     assert.equal(prepared.text, raw);
-    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const { readAssistantResponseEnvelope } = await import("../src/server/conversation/boundedToolLoop.js");
     const decoded = readAssistantResponseEnvelope(prepared.text);
     assert.deepEqual(decoded, value);
     if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);

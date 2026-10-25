@@ -279,8 +279,6 @@ Exports
 - `conversationAgentRunRecord(record, normalizedRunId, { normalizeState = normalizeRunState, isActive = runStateIsActive } = {})`
 - `conversationAgentRunEvent(previous, normalizedRunId, { event = {}, patch = {} } = {}, { now = () => new Date(), normalizeState = normalizeRunState, isTerminal = runStateIsTerminal } = {})`
 - `prepareCopiedConversationAgentRun(run, { at })`
-- `createCodexConversationRunStore({ storage, scope, segmentId, isCurrent, clock = () => new Date() } = {})`
-- `createCodexConversationStore({ storage, scope, segmentId, isCurrent, transcript, streams } = {})`
 Local functions
 - `normalizeRunState(state)`
 - `runStateIsActive(state)`
@@ -292,6 +290,14 @@ Exports
 - `createConversationAttachmentReader({ attachments, context, conversationId, signal, authorize, types, maximumBytes })`
 Local functions
 - `invalid(message)`
+
+### `src/server/conversation/boundedToolLoop.js`
+Exports
+- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = new Error("The assistant returned an invalid response."), failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext, completedEnvelope = false, settle })`
+- `readAssistantResponseEnvelope(text)`
+- `readPartialAssistantReply(text)`
+Local functions
+- `boundedResponseSchema(outputSchema, descriptors)`
 
 ### `src/server/conversation/claudeClient.js`
 Exports
@@ -397,6 +403,11 @@ Local functions
 ### `src/server/conversation/codexConversations.js`
 Exports
 - `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, steerFailedCode })`
+
+### `src/server/conversation/codexConversationStore.js`
+Exports
+- `createCodexConversationRunStore({ storage, scope, segmentId, isCurrent, clock = () => new Date() } = {})`
+- `createCodexConversationStore({ storage, scope, segmentId, isCurrent, transcript, streams } = {})`
 
 ### `src/server/conversation/codexDetachedTurn.js`
 Exports
@@ -1073,13 +1084,14 @@ Local functions
 - `failure(message, code, statusCode = 409)`
 - `submittedMessage(turn)`
 - `retainedSegments(state)`
-- `nativeIdentity(segment)`
 - `pendingSuccessor(state)`
 - `sameRequest(left, right)`
 
 ### `src/server/conversation/runtimeStateUpgrade.js`
 Exports
 - `hasUnfinishedConversationRewind(runtime)`
+- `conversationNativeIdentity(segment)`
+- `conversationNativeBinding(engine, id)`
 - `createConversationRuntimeReplacement({ request, engine, configuration, reason, segmentId, continuity, seen, destination })`
 - `releaseConversationRuntimeBinding(state, pending, request, engine)`
 - `finishConversationRuntimeReplacement(state, { engine, selection, retireNative, pending, value })`
@@ -1090,9 +1102,10 @@ Local functions
 - `object(value)`
 - `invalid(message)`
 - `validateSegment(segment)`
-- `nativeIdentity(segment)`
+- `nativeIdentityField(engine)`
 - `inspectRequest(request, segment, version, warnings)`
 - `retireCodexBinding(runtime, retirement)`
+- `validateConversationRuntimeState(runtime, warnings)`
 
 ### `src/server/conversation/storage.js`
 Exports
@@ -1364,9 +1377,6 @@ Local functions
 ### `src/server/lib/assistantToolLoop.js`
 Exports
 - `runAssistantToolLoop({ messages, input, toolSet, toToolSchema, complete, executeToolCalls, finish, preserveWhitespace = false })`
-- `runBoundedAssistantToolLoop({ prompt, signal, policy, complete, outputSchema, limitError, invalidResponseError = new Error("The assistant returned an invalid response."), failureError = new Error("The assistant could not complete this request."), toolCatalog, toolContext, completedEnvelope = false, settle })`
-- `readAssistantResponseEnvelope(text)`
-- `readPartialAssistantReply(text)`
 Local functions
 - `requiresCurrentTime(value = "")`
 - `resolvePreflightTools(toolDescriptors = [], input = "")`
@@ -1375,7 +1385,6 @@ Local functions
 - `toSafeToolResultText(value)`
 - `buildToolOutcomeFallbackAnswer({ toolFailures = [], toolSuccesses = [] } = {})`
 - `buildAssistantToolCallMessage(toolCalls = [])`
-- `boundedResponseSchema(outputSchema, descriptors)`
 
 ### `src/server/lib/ndjson.js`
 Exports
@@ -1609,8 +1618,6 @@ Local functions
 ### `src/shared/conversation/streaming.js`
 Exports
 - `mergeConversationStream(turns = [], snapshot = {})`
-Local functions
-- `messagesForTurn(turn)`
 
 ### `src/shared/conversation/thinkingText.js`
 Exports
@@ -1618,6 +1625,7 @@ Exports
 
 ### `src/shared/conversation/turns.js`
 Exports
+- `conversationTurnMessages(turn)`
 - `conversationTurnsFromMessages(messages = [])`
 
 ### `src/shared/index.js`

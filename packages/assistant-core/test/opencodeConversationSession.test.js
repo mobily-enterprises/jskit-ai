@@ -1813,7 +1813,7 @@ for (const kind of ["tool", "reply"]) test(`completed OpenCode ${kind} wire reta
     assert.equal(saved.assistant.messageId, `${receipt.turnId}:${answer.info.id}:assistant`);
     const prepared = await f.prepare(receipt);
     assert.equal(prepared.text, raw);
-    const { readAssistantResponseEnvelope } = await import("../src/server/lib/assistantToolLoop.js");
+    const { readAssistantResponseEnvelope } = await import("../src/server/conversation/boundedToolLoop.js");
     const decoded = readAssistantResponseEnvelope(prepared.text);
     assert.deepEqual(decoded, value);
     if (kind === "tool") assert.equal(JSON.parse(decoded.arguments).value, handover);

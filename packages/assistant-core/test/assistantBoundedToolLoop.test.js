@@ -3,7 +3,7 @@ import test from "node:test";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createSchema } from "@jskit-ai/kernel/shared/validators";
 
-import { runBoundedAssistantToolLoop } from "../src/server/lib/assistantToolLoop.js";
+import { runBoundedAssistantToolLoop } from "../src/server/conversation/boundedToolLoop.js";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 import { parseConversationOutput, validateConversationOutputSchema } from "../src/server/conversation/structuredOutput.js";
 
@@ -286,7 +286,7 @@ test("bounded structured alternatives keep exact output bounds and reject open o
 
 // Original fixed-envelope policy: Public 869ebb69 protocol.js:7–39 and
 // colleague/service.js:221–224,364–431. Existing default assertions above stay intact.
-import { readAssistantResponseEnvelope, readPartialAssistantReply } from "../src/server/lib/assistantToolLoop.js";
+import { readAssistantResponseEnvelope, readPartialAssistantReply } from "../src/server/conversation/boundedToolLoop.js";
 import { createConversationTools } from "../src/server/conversation/tools.js";
 
 const envelopeReply = text => JSON.stringify({ kind: "reply", text, toolName: "", arguments: "" });
