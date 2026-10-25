@@ -481,7 +481,7 @@ test("Calendar event writes preserve ownership, recurrence, notifications and co
   request = f.requests.at(-1); assert.equal(request.init.method, "PATCH"); assert.deepEqual(JSON.parse(request.init.body), { attendees: [] });
   assert.equal(new Headers(request.init.headers).get("if-match"), '"version1"');
   const count = f.requests.length;
-  for (const input of [{ ...target, event: { ...event, end: event.start } }, { ...target, event: { ...event, start: { dateTime: "2026-10-05T09:00:00" } } }, { ...target, event: { start: { date: "2026-02-30" }, end: { date: "2026-03-02" } } }, { ...target, event: { ...event, recurrence: ["BEGIN:VEVENT"] } }, { event }]) await assert.rejects(invoke("events.create", input));
+  for (const input of [{ ...target, event: { ...event, end: event.start } }, { ...target, event: { ...event, start: { dateTime: "2026-10-05T09:00:00" } } }, { ...target, event: { start: { date: "2026-02-30" }, end: { date: "2026-03-02" } } }, { ...target, event: { ...event, recurrence: ["BEGIN:VEVENT"] } }, { event }]) await assert.rejects(invoke("events.create", input), { code: "connector_input_invalid", statusCode: 422 });
   assert.equal(f.requests.length, count);
   f.state.response = { kind: "calendar#event", id: "all-day" };
   await invoke("events.create", { ...target, event: { start: { date: "2026-10-05" }, end: { date: "2026-10-06" } } });

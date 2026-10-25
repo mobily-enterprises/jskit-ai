@@ -1,5 +1,6 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleCalendarDefinition, googleScope } from "../shared/definition.js";
 
 const calendarIdField = { type: "string", minLength: 1, maxLength: 1024, defaultTo: "primary" };
@@ -30,7 +31,7 @@ const targetSchema = createSchema({
   calendarId: calendarIdField,
   eventId: { type: "string", minLength: 1, maxLength: 1024, required: true }
 });
-function invalid(message) { throw Object.assign(new Error(message), { statusCode: 422 }); }
+function invalid(message) { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422 }); }
 function validateEventTime(point) {
   if (typeof point !== "object" || Array.isArray(point) || Object.keys(point).some(key => !["date", "dateTime", "timeZone"].includes(key))) invalid("Use date or dateTime and optional timeZone.");
   if (Boolean(point.date) === Boolean(point.dateTime)) invalid("Choose an all-day date or a timed dateTime.");
