@@ -314,6 +314,8 @@ export function createCodexAppServerRunOwner({
     interruptFailedCode,
     namespace,
     providerSessions,
+    sessionConnection: codexProviderSelection.sessionConnection,
+    ensureSessionProvider: codexProviderSelection.ensureSessionProvider,
     steerFailedCode,
     turnOutcomes
   });

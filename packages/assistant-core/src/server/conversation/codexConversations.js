@@ -19,6 +19,8 @@ export function createCodexConversationCommands({
   interruptFailedCode,
   namespace,
   providerSessions,
+  sessionConnection,
+  ensureSessionProvider,
   steerFailedCode,
   turnOutcomes
 }) {
@@ -234,9 +236,7 @@ export function createCodexConversationCommands({
     const { context } = prepared;
     if (context.assistantScope) {
       const providerOptions = prepared.providerOptions;
-      const provider = await providerSessions.owner.ensureSession(
-        providerSessions.context(normalizeCodexRunText(sessionId), providerOptions)
-      );
+      const provider = await ensureSessionProvider(sessionId, providerOptions);
       const result = prepared.project(provider);
       result.isolationConfig = await readCodexToolFreeConfiguration(
         provider, context.workdir, conversationPreparation.isolation.assertCompatibility
@@ -267,9 +267,7 @@ export function createCodexConversationCommands({
     assertAdmitted();
     const providerOptions = activeProvider ? null : await prepared.providerOptions;
     assertAdmitted();
-    const provider = activeProvider?.provider || await providerSessions.owner.ensureSession(
-      providerSessions.context(normalizeCodexRunText(sessionId), providerOptions)
-    );
+    const provider = activeProvider?.provider || await ensureSessionProvider(sessionId, providerOptions);
     assertAdmitted();
     return prepared.project(provider, activeProvider?.providerOptions || providerOptions, helperRestore);
   }
@@ -589,7 +587,7 @@ export function createCodexConversationCommands({
       if (context.ok === false) {
         return context;
       }
-      const connection = providerSessions.context(normalizeCodexRunText(sessionId), context.providerOptions);
+      const connection = sessionConnection(sessionId, context.providerOptions);
       providerExit = await providerSessions.owner.stopProvider(connection.providerKey, context.providerOptions, {
         preserveProcessExitProof: false,
         requireStopped: true,
