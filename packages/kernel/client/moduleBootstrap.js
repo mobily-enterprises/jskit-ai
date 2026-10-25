@@ -136,16 +136,18 @@ function registerClientModuleRoutes({
     surfaceMode
   });
   const log = createStructuredLogger(logger);
-  log.debug(
-    {
-      packageId: normalizedPackageId,
-      source,
-      surfaceMode: String(surfaceMode || "").trim(),
-      declaredRoutes: normalizedRoutes.map(toRouteSnapshot),
-      activeRoutes: activeRoutes.map(toRouteSnapshot)
-    },
-    "Client route registration analysis."
-  );
+  if (log.isDebugEnabled) {
+    log.debug(
+      {
+        packageId: normalizedPackageId,
+        source,
+        surfaceMode: String(surfaceMode || "").trim(),
+        declaredRoutes: normalizedRoutes.map(toRouteSnapshot),
+        activeRoutes: activeRoutes.map(toRouteSnapshot)
+      },
+      "Client route registration analysis."
+    );
+  }
 
   const declaredPaths = normalizedRoutes.map((route) => route.path);
   const activePaths = activeRoutes.map((route) => route.path);
@@ -167,14 +169,16 @@ function registerClientModuleRoutes({
 
     seenRoutePaths.add(normalizedPath);
     router.addRoute(toVueRouteRecord(route));
-    log.debug(
-      {
-        packageId: normalizedPackageId,
-        source,
-        route: toRouteSnapshot(route)
-      },
-      "Added client route to router."
-    );
+    if (log.isDebugEnabled) {
+      log.debug(
+        {
+          packageId: normalizedPackageId,
+          source,
+          route: toRouteSnapshot(route)
+        },
+        "Added client route to router."
+      );
+    }
     registeredCount += 1;
   }
 
@@ -560,14 +564,16 @@ async function bootClientModules({
       },
       "Registered client module routes."
     );
-    log.debug(
-      {
-        packageId,
-        source,
-        routerRoutes: summarizeRouterRoutes(router)
-      },
-      "Router route table after client route registration."
-    );
+    if (log.isDebugEnabled) {
+      log.debug(
+        {
+          packageId,
+          source,
+          routerRoutes: summarizeRouterRoutes(router)
+        },
+        "Router route table after client route registration."
+      );
+    }
     routeResults.push(result);
     return result;
   };
@@ -599,13 +605,15 @@ async function bootClientModules({
       },
       "Booted JSKIT client modules."
     );
-    log.debug(
-      {
-        routerRoutes: summarizeRouterRoutes(router),
-        currentPath: typeof window !== "undefined" ? String(window.location?.pathname || "") : ""
-      },
-      "JSKIT client bootstrap final route table."
-    );
+    if (log.isDebugEnabled) {
+      log.debug(
+        {
+          routerRoutes: summarizeRouterRoutes(router),
+          currentPath: typeof window !== "undefined" ? String(window.location?.pathname || "") : ""
+        },
+        "JSKIT client bootstrap final route table."
+      );
+    }
   }
 
   return Object.freeze({

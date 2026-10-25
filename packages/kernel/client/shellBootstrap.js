@@ -204,14 +204,7 @@ async function bootstrapClientShellApp({
     logger: bootstrapLogger
   });
 
-  const isDebugEnabled =
-    typeof resolvedLogger?.isDebugEnabled === "boolean"
-      ? resolvedLogger.isDebugEnabled
-      : resolveClientBootstrapDebugEnabled({
-          env,
-          debugEnabled,
-          debugEnvKey
-        });
+  const { isDebugEnabled } = bootstrapLogger;
   if (isDebugEnabled) {
     bootstrapLogger.info(
       {

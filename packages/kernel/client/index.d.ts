@@ -60,6 +60,7 @@ export function bootstrapClientShellApp(options?: {
   env?: Record<string, any>;
   fallbackRoute?: any;
   logger?: ClientLogger;
+  /** Its isDebugEnabled decides whether bootstrap builds debug payloads; without it, a debug method means enabled. */
   createBootstrapLogger?: (options: {
     env?: Record<string, any>;
     logger?: ClientLogger;
@@ -77,7 +78,7 @@ export function bootstrapClientShellApp(options?: {
     app: any;
     router: any;
     clientBootstrap: any;
-    logger: Required<Omit<ClientLogger, "isDebugEnabled">>;
+    logger: Required<ClientLogger>;
     debugEnabled: boolean;
   }>
 >;

@@ -1,12 +1,17 @@
 import { isRecord } from "../shared/support/normalize.js";
 
+// isDebugEnabled tells callers whether debug output goes anywhere, so they
+// can skip building debug payloads. A logger may state it; otherwise it is
+// true exactly when the logger has its own debug method.
 function createStructuredLogger(logger = console) {
   if (isRecord(logger)) {
+    const hasDebug = typeof logger.debug === "function";
     return Object.freeze({
       info: typeof logger.info === "function" ? logger.info.bind(logger) : console.info.bind(console),
       warn: typeof logger.warn === "function" ? logger.warn.bind(logger) : console.warn.bind(console),
       error: typeof logger.error === "function" ? logger.error.bind(logger) : console.error.bind(console),
-      debug: typeof logger.debug === "function" ? logger.debug.bind(logger) : () => {}
+      debug: hasDebug ? logger.debug.bind(logger) : () => {},
+      isDebugEnabled: typeof logger.isDebugEnabled === "boolean" ? logger.isDebugEnabled : hasDebug
     });
   }
 
@@ -14,7 +19,8 @@ function createStructuredLogger(logger = console) {
     info: console.info.bind(console),
     warn: console.warn.bind(console),
     error: console.error.bind(console),
-    debug: () => {}
+    debug: () => {},
+    isDebugEnabled: false
   });
 }
 

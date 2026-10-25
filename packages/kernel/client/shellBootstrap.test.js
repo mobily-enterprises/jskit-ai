@@ -127,6 +127,38 @@ test("createClientBootstrapLogger enables debug from env flag", () => {
   assert.equal(logger.isDebugEnabled, true);
 });
 
+test("bootstrapClientShellApp hands hooks and modules one logger that carries its debug flag", async () => {
+  for (const debugEnabled of [false, true]) {
+    let routeTableReads = 0;
+    const seenLoggers = [];
+    const router = {
+      addRoute() {},
+      getRoutes() {
+        routeTableReads += 1;
+        return [];
+      },
+      async isReady() {}
+    };
+    const result = await bootstrapClientShellApp({
+      createApp: () => ({ use() {}, mount() {} }),
+      router,
+      surfaceRuntime: createSurfaceRuntimeFixture(),
+      logger: { info() {}, warn() {}, error() {} },
+      debugEnabled,
+      bootClientModules: async ({ logger }) => {
+        seenLoggers.push(logger);
+        return {};
+      },
+      onAfterRouterReady: ({ logger }) => seenLoggers.push(logger)
+    });
+
+    assert.equal(result.debugEnabled, debugEnabled);
+    assert.equal(result.logger.isDebugEnabled, debugEnabled);
+    assert.deepEqual(seenLoggers, [result.logger, result.logger]);
+    assert.equal(routeTableReads > 0, debugEnabled);
+  }
+});
+
 test("bootstrapClientShellApp boots modules, reinstalls fallback route, and mounts app", async () => {
   const calls = [];
   const logs = [];

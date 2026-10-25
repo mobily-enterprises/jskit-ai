@@ -433,3 +433,38 @@ test("bootClientModules throws when packageMetadataClientProviders export is mis
     /packageMetadata provider export "MissingProvider" must be a capability provider/
   );
 });
+
+test("bootClientModules builds route debug payloads only when the logger's debug is enabled", async () => {
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const clientModules = [
+    {
+      packageId: "@example/auth",
+      packageMetadataUiRoutes: [{ id: "auth.login", path: "/auth/login", scope: "global", autoRegister: false }],
+      module: {
+        clientRoutes: [{ id: "auth.login", name: "auth-login", path: "/auth/login", scope: "global", component: {} }]
+      }
+    }
+  ];
+
+  for (const isDebugEnabled of [false, true]) {
+    const router = createRouterStub();
+    let routeTableReads = 0;
+    router.getRoutes = () => {
+      routeTableReads += 1;
+      return [...router.routes];
+    };
+    const messages = [];
+    await bootClientModules({
+      clientModules,
+      router,
+      surfaceRuntime,
+      surfaceMode: "all",
+      logger: { info() {}, warn() {}, error() {}, debug: (_payload, message) => messages.push(message), isDebugEnabled }
+    });
+
+    assert.equal(router.routes.length, 1);
+    assert.equal(routeTableReads > 0, isDebugEnabled);
+    assert.equal(messages.includes("Added client route to router."), isDebugEnabled);
+    assert.equal(messages.includes("JSKIT client bootstrap final route table."), isDebugEnabled);
+  }
+});
