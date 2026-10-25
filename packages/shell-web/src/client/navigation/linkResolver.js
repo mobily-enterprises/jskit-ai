@@ -6,26 +6,19 @@ import {
   resolveSurfaceDefinitionFromPlacementContext,
   resolveSurfaceRootPathFromPlacementContext
 } from "../placement/surfaceContext.js";
-
-function normalizeParamsMap(params = null) {
-  if (!params || typeof params !== "object" || Array.isArray(params)) {
-    return {};
-  }
-  return params;
-}
+import { normalizeRouteParams } from "../support/routeParams.js";
 
 function materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {}) {
-  const normalizedParams = normalizeParamsMap(params);
+  const normalizedParams = normalizeRouteParams(params);
   const missingParams = new Set();
   const outputPath = String(routeBaseTemplate || "/").replace(/:([A-Za-z0-9_]+)/g, (_full, rawName) => {
     const paramName = String(rawName || "").trim();
     const paramValue = normalizedParams[paramName];
-    const normalizedValue = String(paramValue ?? "").trim();
-    if (!normalizedValue) {
+    if (!paramValue) {
       missingParams.add(paramName);
       return `:${paramName}`;
     }
-    return encodeURIComponent(normalizedValue);
+    return encodeURIComponent(paramValue);
   });
 
   if (strictParams && missingParams.size > 0) {
@@ -94,23 +87,8 @@ function useShellLinkResolver({ surface = "" } = {}) {
     });
   }
 
-  function toSurface(relativePath = "/", options = {}) {
-    return resolve(relativePath, options);
-  }
-
-  function toWorkspace(relativePath = "/", options = {}) {
-    return resolve(relativePath, options);
-  }
-
-  function toAuto(relativePath = "/", options = {}) {
-    return resolve(relativePath, options);
-  }
-
   return Object.freeze({
-    resolve,
-    toSurface,
-    toWorkspace,
-    toAuto
+    resolve
   });
 }
 

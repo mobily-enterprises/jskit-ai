@@ -4,6 +4,7 @@ import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { resolveSurfaceDefinitionFromPlacementContext } from "../placement/index.js";
 import { useShellLinkResolver } from "./linkResolver.js";
 import { useSurfaceRouteContext } from "./useSurfaceRouteContext.js";
+import { normalizeRouteParams } from "../support/routeParams.js";
 
 function normalizePathSuffix(value = "") {
   const raw = normalizeText(unref(value));
@@ -30,27 +31,6 @@ function resolveSurfaceId(value, fallback = "") {
 
 function resolveDefaultSurfaceIdFromPlacementContext(placementContext = null) {
   return resolveSurfaceId(placementContext?.surfaceConfig?.defaultSurfaceId, "");
-}
-
-function normalizeRouteParams(params = null) {
-  if (!params || typeof params !== "object" || Array.isArray(params)) {
-    return {};
-  }
-
-  const output = {};
-  for (const [rawKey, rawValue] of Object.entries(params)) {
-    const key = normalizeText(rawKey);
-    if (!key) {
-      continue;
-    }
-
-    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
-    const normalizedValue = normalizeText(value);
-    if (normalizedValue) {
-      output[key] = normalizedValue;
-    }
-  }
-  return output;
 }
 
 function resolveRouteParams(baseParams = {}, overrideParams = null) {

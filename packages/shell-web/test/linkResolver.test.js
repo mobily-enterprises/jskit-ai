@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveShellLinkPath } from "../src/client/navigation/linkResolver.js";
+import { createApp } from "vue";
+import { resolveShellLinkPath, useShellLinkResolver } from "../src/client/navigation/linkResolver.js";
 
 function createPlacementContext() {
   return {
@@ -109,4 +110,25 @@ test("resolveShellLinkPath uses deterministic surface fallback when context is m
   });
 
   assert.equal(to, "/admin/contacts/5");
+});
+
+test("resolveShellLinkPath uses the first value of a repeated route param", () => {
+  const to = resolveShellLinkPath({
+    context: createPlacementContext(),
+    surface: "app",
+    params: {
+      workspaceSlug: [" acme ", "other"]
+    },
+    relativePath: "/projects"
+  });
+
+  assert.equal(to, "/w/acme/projects");
+});
+
+test("useShellLinkResolver exposes only surface-relative resolve", () => {
+  const app = createApp({ render: () => null });
+  const resolver = app.runWithContext(() => useShellLinkResolver({ surface: "console" }));
+
+  assert.deepEqual(Object.keys(resolver), ["resolve"]);
+  assert.equal(resolver.resolve("/reports"), "/console/reports");
 });
