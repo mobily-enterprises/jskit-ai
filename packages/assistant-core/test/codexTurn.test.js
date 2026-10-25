@@ -10,6 +10,7 @@ import { createConversationStreams } from "../src/server/conversation/streams.js
 import { sendCodexAppServerPrompt, CodexAppServerAgentProvider, codexAppServerDeliveredTurn } from "../src/server/conversation/codexProvider.js";
 import { createCodexHelperThreadLedgerOwner } from "../src/server/conversation/codexHelperThreadLedger.js";
 import { createCodexSessionReconciliation } from "../src/server/conversation/codexSessionReconciliation.js";
+import { createCodexSessionCleanup } from "../src/server/conversation/codexSessionCleanup.js";
 import {
   waitForCodexAppServerTurn,
   createCodexAppServerRunOwner,
@@ -470,6 +471,81 @@ test("startup unsubscribe skips session records without an identity instead of i
   });
   assert.deepEqual(prepared, ["session-1", "session-2"]);
   assert.equal(JSON.stringify(result).includes("[object Object]"), false);
+});
+
+test("session cleanup owns its single-flight closures and restricted record without consumer state", async () => {
+  const sessionClosures = new Map();
+  const releases = [];
+  const held = [];
+  const cleanupOwner = createCodexSessionCleanup({
+    namespace: id => `project:${id}`,
+    runOwner: {},
+    sessionClosures,
+    providerSessions: { owner: {
+      async drainThreadEnvironmentTasks() {},
+      async releaseSession(sessionKey) {
+        const gate = Promise.withResolvers();
+        held.push(gate);
+        await gate.promise;
+        releases.push(sessionKey);
+        return { exitFailure: null };
+      }
+    } },
+    helperLifecycle: { assertRestored() {}, async restoreThreads() {}, assertRetired() {}, async retireAll() {} },
+    journal: { clearSessionRecoveryTimers() {} },
+    conversations: { async closeCodexAppServerConversations() {} },
+    debugLog() {}, debugError: error => error
+  });
+  const reads = [];
+  const publicChecks = [];
+  const cleanup = (label, restricted = false) => ({
+    sessionKey: "project:session-1",
+    restricted,
+    async assertPublicAccess() { publicChecks.push(label); },
+    async read() {
+      reads.push(label);
+      return { helpers: {}, projectRuntimeRoot: "", session: {}, async complete() {} };
+    }
+  });
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+
+  const first = cleanupOwner.closeSession("session-1", cleanup("public"));
+  const joined = cleanupOwner.closeSession("session-1", cleanup("joined"));
+  assert.equal(sessionClosures.size, 1, "One closure per session key");
+  const restricted = cleanupOwner.closeSession("session-1", cleanup("restricted", true));
+  await flush();
+  held.shift().resolve();
+  await Promise.all([first, joined]);
+  await flush();
+  assert.deepEqual(reads, ["public", "restricted"], "A restricted close waits for the public one, then runs its own");
+  const publicAfterRestricted = cleanupOwner.closeSession("session-1", cleanup("late-public"));
+  await flush();
+  assert.deepEqual(publicChecks, ["late-public"], "Joining a restricted close proves public access first");
+  held.shift().resolve();
+  await Promise.all([restricted, publicAfterRestricted]);
+  assert.deepEqual(reads, ["public", "restricted"]);
+  assert.deepEqual(releases, ["project:session-1", "project:session-1"]);
+  assert.equal(sessionClosures.size, 0);
+});
+
+test("the run owner's session closures are the ones its runtime lifecycle drains", async () => {
+  const draining = Promise.withResolvers();
+  const owner = createCodexAppServerRunOwner({ providerSessions: { owner: { drainThreadEnvironmentTasks: () => draining.promise } } });
+  const closing = owner.closeSession("session-1", { sessionKey: "project:session-1",
+    async read() { throw new Error("Controlled preparation stop"); } });
+  assert.ok(owner.runtimeLifecycle.sessionClosures.get("project:session-1") instanceof Promise);
+  draining.resolve();
+  await assert.rejects(closing, /Controlled preparation stop/);
+  assert.equal(owner.runtimeLifecycle.sessionClosures.size, 0);
+});
+
+test("the run owner exposes only operations its consumers use, not facet recovery state", () => {
+  const owner = createCodexAppServerRunOwner();
+  for (const internal of ["completedTurns", "automaticHookThreads", "conversationTurnStarts", "reasoningPersistQueues",
+    "threadReconciliations", "reasoningTurns", "finalAssistantResults", "mirroredTerminalItems", "clearActiveTimer",
+    "clearFinalizingTimer", "adoptSuccessorTurn", "markTurnActive", "markTurnFinalizing", "checkManagedConnection"]) {
+    assert.equal(Object.hasOwn(owner, internal), false, internal);
+  }
 });
 
 test("original pending ownership and terminal outer identity are preserved without weakening run-state errors", () => {

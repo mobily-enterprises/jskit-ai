@@ -4,7 +4,7 @@ import { isPlainObject as isRecord } from "./normalize.js";
 // Original batch restoration, prune and startup unsubscribe. The run owner's
 // existing lifecycle and per-thread readiness retain all state and coordination.
 export function createCodexSessionReconciliation({
-  runOwner, providerSessions, helperLifecycle, lifecycle, createRuntime,
+  readiness, recoverSessionObservationLoss, providerSessions, helperLifecycle, lifecycle, createRuntime,
   namespace, turnState, sessionIdRequiredError, debugLog, debugError
 }) {
   async function pruneCodexAppServerManagedSessions({
@@ -131,7 +131,7 @@ export function createCodexSessionReconciliation({
     if (prepared.result) return prepared.result;
     const { context } = prepared;
     if (turnState(context.session).status === "observation_lost") {
-      const recovered = await prepared.recover(runOwner.recoverSessionObservationLoss);
+      const recovered = await prepared.recover(recoverSessionObservationLoss);
       const turn = turnState(recovered);
       return prepared.stopped({
         ok: !turn.active,
@@ -140,7 +140,7 @@ export function createCodexSessionReconciliation({
         threadId: turn.threadId
       }, recovered);
     }
-    return runOwner.reconcileThread(normalizedSessionId, context, prepared.thread);
+    return readiness.reconcileThread(normalizedSessionId, context, prepared.thread);
   }
 
   async function reconcileCodexAppServerThreads(sessions = [], {
@@ -227,7 +227,7 @@ export function createCodexSessionReconciliation({
       }
     }
     if (reconcileGeneration === lifecycle.reconcileGeneration) {
-      await runOwner.waitForThreadReconciliations({
+      await readiness.waitForThreadReconciliations({
         keepProviderKeys,
         projectContextRoot
       });

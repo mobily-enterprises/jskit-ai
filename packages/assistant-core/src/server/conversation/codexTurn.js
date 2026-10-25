@@ -64,8 +64,7 @@ export { createCodexAppServerDetachedTurnWatcher, waitForCodexAppServerTurn } fr
 export { createCodexAppServerNotificationQueue } from "./codexNotificationQueue.js";
 import {
   assertCodexAppServerHelperAccountIdentity,
-  createCodexHelperOwnershipError,
-  readCodexAppServerAccountIdentity
+  createCodexHelperOwnershipError
 } from "./codexHelperExecution.js";
 export { sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
 import { createCodexHelperThreadLifecycle } from "./codexHelperThreads.js";
@@ -168,19 +167,11 @@ export function createCodexAppServerRunOwner({
     modelCatalogCacheMs,
     errorPrefix
   });
-  const {
-    ensureCodexAppServerProviderForActiveTurn,
-    acquireCodexAppServerOutputProvider,
-    codexAppServerRuntimeForVisibleTerminal,
-    codexAppServerMessageContext,
-    codexAppServerControlContext,
-    codexAppServerObservationRecoveryContext
-  } = codexProviderSelection;
   const acquireOutputProvider = providerSessions?.outputContext
     ? async ({ sessionId, runtime, session }) => {
       const prepared = await providerSessions.outputContext({ sessionId, runtime, session });
       if (!prepared) return null;
-      return acquireCodexAppServerOutputProvider(
+      return codexProviderSelection.acquireCodexAppServerOutputProvider(
         sessionId, session, prepared.managedIdentity, prepared.providerOptions
       );
     }
@@ -202,31 +193,6 @@ export function createCodexAppServerRunOwner({
     messageMetadata,
     snapshotRecoveryItemLimit
   });
-  const {
-    finalizedTurns: codexAppServerFinalizedTurns,
-    finalAssistantResults: codexAppServerFinalAssistantResults,
-    reasoningTurns: codexAppServerReasoningTurns,
-    reasoningPersistQueues: codexAppServerReasoningPersistQueues,
-    liveProgressItems: codexAppServerLiveProgressItems,
-    liveProgressFingerprints: codexAppServerLiveProgressFingerprints,
-    mirroredTerminalItems: codexAppServerMirroredTerminalItems,
-    resultFinalizationKey: codexAppServerResultFinalizationKey,
-    liveProgressCandidate: codexAppServerLiveProgressCandidate,
-    conversationMessageId: codexAppServerConversationMessageId,
-    readAgentRunForSession: readCodexAppServerAgentRunForSession,
-    readFinalAssistantResult: readCodexAppServerFinalAssistantResult,
-    persistAssistantReply: persistCodexAppServerAssistantReply,
-    recordFinalAssistantResult: recordCodexAppServerFinalAssistantResult,
-    recordReasoningForSession: recordCodexAppServerReasoningForSession,
-    flushReasoningPersist: flushCodexAppServerReasoningPersist,
-    splitReasoningTurn: splitCodexAppServerReasoningTurn,
-    cleanupUntrackedTurn: cleanupCodexAppServerUntrackedTurn,
-    streamMessage: codexAppServerStreamMessage,
-    writeStream: writeCodexAppServerStream,
-    writeLiveProgress: writeCodexAppServerLiveProgress,
-    submitAssistantResult: submitCodexAppServerAssistantResult,
-    reconcileObservedTurnItems: reconcileCodexAppServerObservedTurnItems
-  } = codexAppServerOutput;
 
   const codexRunJournal = createCodexRunJournal({
     namespace,
@@ -247,25 +213,6 @@ export function createCodexAppServerRunOwner({
     admissionTaskFinished,
     orphanedPromptMessage
   });
-  const {
-    completedTurns: codexAppServerCompletedTurns,
-    processedTurns: codexAppServerProcessedTurns,
-    activeTimers: codexAppServerActiveTimers,
-    finalizingTimers: codexAppServerFinalizingTimers,
-    turnResultWasProcessed: codexAppServerTurnResultWasProcessed,
-    claimTurnStart: claimCodexAppServerTurnStart,
-    claimMessageStart: claimCodexAppServerMessageStart,
-    writeAgentRun: writeCodexAppServerAgentRun,
-    clearActiveTimer: clearCodexAppServerActiveTimer,
-    clearFinalizingTimer: clearCodexAppServerFinalizingTimer,
-    clearSessionRecoveryTimers: clearCodexAppServerSessionRecoveryTimers,
-    agentRunRealtimePayload: codexAppServerAgentRunRealtimePayload,
-    publishAgentRun: publishCodexAppServerAgentRun,
-    markTurnFinalizing: markCodexAppServerTurnFinalizing,
-    markTurnIdle: markCodexAppServerTurnIdle,
-    resolveTurnId: resolveCodexAppServerTurnId,
-    writeUserMessageOwnership: writeCodexAppServerUserMessageOwnership
-  } = codexRunJournal;
 
   const codexResultSettlement = createCodexResultSettlement({
     journal: codexRunJournal,
@@ -276,12 +223,6 @@ export function createCodexAppServerRunOwner({
     debugError,
     turnState
   });
-  const {
-    resultFinalizations: codexAppServerResultFinalizations,
-    finalizeAssistantResult: finalizeCodexAppServerAssistantResult,
-    recoverFinalResponseBeforeOutcome: recoverCodexAppServerFinalResponseBeforeOutcome,
-    adoptSuccessorTurn: adoptCodexAppServerSuccessorTurn
-  } = codexResultSettlement;
 
   const codexTurnRecovery = createCodexTurnRecovery({
     journal: codexRunJournal,
@@ -308,13 +249,6 @@ export function createCodexAppServerRunOwner({
     outcomeNotice,
     resultDeliveryFailureMessage
   });
-  const {
-    scheduleActiveRecovery: scheduleCodexAppServerActiveRecovery,
-    markTurnActive: markCodexAppServerTurnActive,
-    recoverActiveTurn: recoverCodexAppServerActiveTurn,
-    completeTurn: completeCodexAppServerTurn,
-    stopTurnWithProviderFailure: stopCodexAppServerTurnWithProviderFailure
-  } = codexTurnRecovery;
 
   const codexThreadStatus = createCodexThreadStatus({
     journal: codexRunJournal,
@@ -327,10 +261,6 @@ export function createCodexAppServerRunOwner({
     debugLog,
     debugError
   });
-  const {
-    reconcileThreadStatus: reconcileCodexAppServerThreadStatus,
-    reconcileLoadedThreadStatus: reconcileCodexAppServerLoadedThreadStatus
-  } = codexThreadStatus;
 
   const codexMessageDelivery = createCodexAppServerMessageDelivery({
     namespace,
@@ -343,13 +273,6 @@ export function createCodexAppServerRunOwner({
     journal: codexRunJournal,
     recovery: codexTurnRecovery
   });
-  const {
-    messageDeliveries: codexAppServerMessageDeliveries,
-    pendingUserMessages: codexAppServerPendingUserMessages,
-    withMessageDelivery: withCodexAppServerMessageDelivery,
-    writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage,
-    mirrorTerminalUserMessage: mirrorCodexAppServerTerminalUserMessage
-  } = codexMessageDelivery;
 
   const codexNotificationObserver = createCodexNotificationObserver({
     journal: codexRunJournal,
@@ -367,15 +290,6 @@ export function createCodexAppServerRunOwner({
     onNotificationSignal,
     turnStateFromAgentRun
   });
-  const {
-    eventSubscriptions: codexAppServerEventSubscriptions,
-    automaticHookThreads: codexAppServerAutomaticHookThreads,
-    eventSubscriptionKey: codexAppServerEventSubscriptionKey,
-    eventSubscriptionIsCurrent: codexAppServerEventSubscriptionIsCurrent,
-    unsubscribeEventSubscription: unsubscribeCodexAppServerEventSubscription,
-    reconcileGoalUpdated: reconcileCodexAppServerGoalUpdated,
-    subscribeEvents: subscribeCodexAppServerEvents
-  } = codexNotificationObserver;
 
   const codexThreadReadiness = createCodexThreadReadiness({
     providerSessions,
@@ -387,21 +301,13 @@ export function createCodexAppServerRunOwner({
     debugLog,
     debugError
   });
-  const {
-    threadReconciliations: codexAppServerThreadReconciliations,
-    ensureThreadReady: ensureCodexAppServerThreadReady,
-    reconcileThread: reconcileCodexAppServerThreadForSession,
-    waitForThreadReconciliations: waitForOtherCodexAppServerThreadReconciliations,
-    checkManagedConnection: checkCodexAppServerManagedConnection,
-    restoreLoadedThread: restoreCodexAppServerLoadedThread
-  } = codexThreadReadiness;
 
   const codexConversations = createCodexConversationCommands({
     checkpoint,
-    codexAppServerConversationMessageId,
-    codexAppServerStreamMessage,
+    codexAppServerConversationMessageId: codexAppServerOutput.conversationMessageId,
+    codexAppServerStreamMessage: codexAppServerOutput.streamMessage,
     conversationPreparation,
-    ensureCodexAppServerProviderForActiveTurn,
+    ensureCodexAppServerProviderForActiveTurn: codexProviderSelection.ensureCodexAppServerProviderForActiveTurn,
     errorPrefix,
     helperLifecycle,
     helperOwnershipError,
@@ -411,35 +317,6 @@ export function createCodexAppServerRunOwner({
     steerFailedCode,
     turnOutcomes
   });
-  const {
-    codexAppServerConversations,
-    codexAppServerConversationTurnStarts,
-    codexAppServerConversation,
-    withCodexAppServerConversationTurnStart,
-    observeCodexConversation,
-    readPersistentCodexConversation,
-    codexAppServerEphemeralConversationSnapshot,
-    prepareCodexAppServerConversationThread,
-    codexAppServerConversationContext,
-    codexAppServerEphemeralScopeContext,
-    createCodexAppServerConversation,
-    runDetachedCodexAppServerConversation,
-    startCodexAppServerConversationTurn,
-    readCodexAppServerConversation,
-    waitForCodexAppServerConversationTurn,
-    stopCodexAppServerConversation,
-    deleteScopedCodexAppServerConversation,
-    closeCodexAppServerConversations,
-    interruptDetachedCodexAppServerConversationTurn,
-    deleteDetachedCodexAppServerConversationThread,
-    steerCodexAppServerConversationTurn,
-    acquireCodexAppServerDetachedThread,
-    codexAppServerDetachedThreadId,
-    dispatchCodexAppServerDetachedTurn,
-    runDetachedCodexAppServerTurn,
-    interruptCodexAppServerConversation,
-    stopPersistentCodexConversation
-  } = codexConversations;
 
   const codexObservationControl = createCodexObservationControl({
     conversations: codexConversations,
@@ -452,11 +329,6 @@ export function createCodexAppServerRunOwner({
     turnState,
     errorPrefix
   });
-  const {
-    assertThreadCanResume: assertCodexAppServerThreadCanResume,
-    createObservation: createCodexAppServerObservation,
-    recoverObservationLoss: recoverCodexAppServerObservationLoss
-  } = codexObservationControl;
 
   const codexTurnControl = createCodexTurnControl({
     journal: codexRunJournal,
@@ -470,7 +342,6 @@ export function createCodexAppServerRunOwner({
     turnOutcomes,
     turnState
   });
-  const { interruptTurn: interruptCodexAppServerTurn } = codexTurnControl;
 
   const codexMessageCommands = createCodexMessageCommands({
     output: codexAppServerOutput,
@@ -494,47 +365,34 @@ export function createCodexAppServerRunOwner({
     turnAlreadyRunningError,
     turnState
   });
-  const {
-    selectMessageTurn: selectCodexAppServerMessageTurn,
-    dispatchMessage: dispatchCodexAppServerMessage,
-    startTurn: startCodexAppServerTurn,
-    steerTurn: steerCodexAppServerTurn
-  } = codexMessageCommands;
 
-  const {
-    runCodexAppServerRenewalHandover,
-    runCodexAppServerRenewalSeed
-  } = createCodexRenewalCommands({
-    claimCodexAppServerTurnStart,
+  const codexRenewalCommands = createCodexRenewalCommands({
+    claimCodexAppServerTurnStart: codexRunJournal.claimTurnStart,
     codexAppServerNotificationQueue,
-    completeCodexAppServerTurn,
+    completeCodexAppServerTurn: codexTurnRecovery.completeTurn,
     errorPrefix,
-    markCodexAppServerTurnActive,
-    markCodexAppServerTurnIdle,
+    markCodexAppServerTurnActive: codexTurnRecovery.markTurnActive,
+    markCodexAppServerTurnIdle: codexRunJournal.markTurnIdle,
     observer: codexNotificationObserver,
     selection: codexProviderSelection,
     turnAlreadyRunningError,
-    writeCodexAppServerUserMessageOwnership
+    writeCodexAppServerUserMessageOwnership: codexRunJournal.writeUserMessageOwnership
   });
 
-  const {
-    prepareCodexAppServerGoalContext,
-    validateCodexAppServerGoalInput,
-    updateCodexAppServerGoal
-  } = createCodexGoalCommands({
-    conversationContext: codexAppServerConversationContext,
-    ensureThreadReady: ensureCodexAppServerThreadReady,
+  const codexGoalCommands = createCodexGoalCommands({
+    conversationContext: codexConversations.codexAppServerConversationContext,
+    ensureThreadReady: codexThreadReadiness.ensureThreadReady,
     publish,
-    readCodexAppServerAgentRunForSession,
-    reconcileCodexAppServerGoalUpdated,
-    submitCodexAppServerAssistantResult,
-    subscribeCodexAppServerEvents,
+    readCodexAppServerAgentRunForSession: codexAppServerOutput.readAgentRunForSession,
+    reconcileCodexAppServerGoalUpdated: codexNotificationObserver.reconcileGoalUpdated,
+    submitCodexAppServerAssistantResult: codexAppServerOutput.submitAssistantResult,
+    subscribeCodexAppServerEvents: codexNotificationObserver.subscribeEvents,
     turnState
   });
 
   function recoverSessionObservationLoss(sessionId, runtime, session, preparation) {
-    return recoverCodexAppServerObservationLoss(runtime, session,
-      codexAppServerObservationRecoveryContext(sessionId, preparation));
+    return codexObservationControl.recoverObservationLoss(runtime, session,
+      codexProviderSelection.codexAppServerObservationRecoveryContext(sessionId, preparation));
   }
 
   async function ensureSessionReadiness(sessionId, prepared) {
@@ -547,7 +405,7 @@ export function createCodexAppServerRunOwner({
         turn = turnState(session);
       }
       if (!turn.active) {
-        const recovered = await submitCodexAppServerAssistantResult(sessionId, turn.threadId, turn.turnId, { recoverFromProvider: true });
+        const recovered = await codexAppServerOutput.submitAssistantResult(sessionId, turn.threadId, turn.turnId, { recoverFromProvider: true });
         if (recovered.reason === "error") throw new Error(recovered.error);
       }
       // A verified stop is a usable composer state, not a reconnect loop.
@@ -558,18 +416,18 @@ export function createCodexAppServerRunOwner({
     if (threadId && connection.available && turnState(session).state !== "starting") {
       const providerKey = codexProviderSelection.managedProviderKeyForThread(sessionId, workdir, threadId);
       if (providerKey !== null) {
-        const observed = await checkCodexAppServerManagedConnection(providerKey, { reconnect: false });
+        const observed = await codexThreadReadiness.checkManagedConnection(providerKey, { reconnect: false });
         if (!observed.requiresPreparation) {
           return prepared.ready(threadId);
         }
       }
     }
-    return prepared.prepare(ensureCodexAppServerThreadReady);
+    return prepared.prepare(codexThreadReadiness.ensureThreadReady);
   }
 
   async function readExecutionProfileModelCatalog(sessionId, preparation) {
     if (preparation.assistantScope) {
-      const context = await codexAppServerEphemeralScopeContext(
+      const context = await codexConversations.codexAppServerEphemeralScopeContext(
         sessionId, { agentSettings: preparation.agentSettings }, preparation.assistantScope
       );
       if (context.ok === false) return context;
@@ -584,153 +442,105 @@ export function createCodexAppServerRunOwner({
 
   const runOwner = {
     helperThreads: helperLifecycle,
-    readAccountIdentity: provider => readCodexAppServerAccountIdentity(provider, helperOwnershipError),
     assertAccountIdentity: (provider, expectedSignature) => assertCodexAppServerHelperAccountIdentity(
       provider, expectedSignature, helperOwnershipError
     ),
-    checkManagedConnection: checkCodexAppServerManagedConnection,
     ensureSessionReadiness,
-    recoverSessionObservationLoss,
-    restoreLoadedThread: restoreCodexAppServerLoadedThread,
-    reconcileThread: reconcileCodexAppServerThreadForSession,
-    threadReconciliations: codexAppServerThreadReconciliations,
-    waitForThreadReconciliations: waitForOtherCodexAppServerThreadReconciliations,
-    conversations: codexAppServerConversations,
+    conversations: codexConversations.codexAppServerConversations,
     hasActiveTemporaryConversation: codexConversations.hasActiveConversation,
     readExecutionProfileModelCatalog,
     readProviderAccountIdentity: codexProviderSelection.readProviderAccountIdentity,
-    conversationTurnStarts: codexAppServerConversationTurnStarts,
-    conversation: codexAppServerConversation,
-    conversationSnapshot: codexAppServerEphemeralConversationSnapshot,
-    withConversationTurnStart: withCodexAppServerConversationTurnStart,
-    observeConversation: observeCodexConversation,
-    readPersistentConversation: readPersistentCodexConversation,
-    createConversation: createCodexAppServerConversation,
-    runDetachedConversation: runDetachedCodexAppServerConversation,
-    steerConversationTurn: steerCodexAppServerConversationTurn,
-    startConversationTurn: startCodexAppServerConversationTurn,
-    acquireDetachedThread: acquireCodexAppServerDetachedThread,
-    detachedThreadId: codexAppServerDetachedThreadId,
-    dispatchDetachedTurn: dispatchCodexAppServerDetachedTurn,
-    runDetachedTurn: runDetachedCodexAppServerTurn,
-    interruptConversation: interruptCodexAppServerConversation,
-    deleteConversation: deleteScopedCodexAppServerConversation,
-    readConversation: readCodexAppServerConversation,
-    stopConversation: stopCodexAppServerConversation,
-    closeConversations: closeCodexAppServerConversations,
-    conversationContext: codexAppServerConversationContext,
-    ephemeralScopeContext: codexAppServerEphemeralScopeContext,
-    prepareConversationThread: prepareCodexAppServerConversationThread,
-    interruptDetachedTurn: interruptDetachedCodexAppServerConversationTurn,
-    deleteDetachedThread: deleteDetachedCodexAppServerConversationThread,
-    stopPersistentConversation: stopPersistentCodexConversation,
-    waitForConversationTurn: waitForCodexAppServerConversationTurn,
-    withMessageDelivery: withCodexAppServerMessageDelivery,
-    dispatchMessage: dispatchCodexAppServerMessage,
-    ensureThreadReady: ensureCodexAppServerThreadReady,
-    messageContext: codexAppServerMessageContext,
-    outputProvider: acquireCodexAppServerOutputProvider,
-    runtimeForVisibleTerminal: codexAppServerRuntimeForVisibleTerminal,
-    controlContext: codexAppServerControlContext,
-    observationRecoveryContext: codexAppServerObservationRecoveryContext,
-    claimMessageStart: claimCodexAppServerMessageStart,
-    assertThreadCanResume: assertCodexAppServerThreadCanResume,
+    conversation: codexConversations.codexAppServerConversation,
+    readPersistentConversation: codexConversations.readPersistentCodexConversation,
+    createConversation: codexConversations.createCodexAppServerConversation,
+    runDetachedConversation: codexConversations.runDetachedCodexAppServerConversation,
+    startConversationTurn: codexConversations.startCodexAppServerConversationTurn,
+    acquireDetachedThread: codexConversations.acquireCodexAppServerDetachedThread,
+    detachedThreadId: codexConversations.codexAppServerDetachedThreadId,
+    dispatchDetachedTurn: codexConversations.dispatchCodexAppServerDetachedTurn,
+    runDetachedTurn: codexConversations.runDetachedCodexAppServerTurn,
+    deleteConversation: codexConversations.deleteScopedCodexAppServerConversation,
+    readConversation: codexConversations.readCodexAppServerConversation,
+    stopConversation: codexConversations.stopCodexAppServerConversation,
+    conversationContext: codexConversations.codexAppServerConversationContext,
+    prepareConversationThread: codexConversations.prepareCodexAppServerConversationThread,
+    interruptDetachedTurn: codexConversations.interruptDetachedCodexAppServerConversationTurn,
+    deleteDetachedThread: codexConversations.deleteDetachedCodexAppServerConversationThread,
+    stopPersistentConversation: codexConversations.stopPersistentCodexConversation,
+    waitForConversationTurn: codexConversations.waitForCodexAppServerConversationTurn,
+    withMessageDelivery: codexMessageDelivery.withMessageDelivery,
+    dispatchMessage: codexMessageCommands.dispatchMessage,
+    ensureThreadReady: codexThreadReadiness.ensureThreadReady,
+    runtimeForVisibleTerminal: codexProviderSelection.codexAppServerRuntimeForVisibleTerminal,
+    controlContext: codexProviderSelection.codexAppServerControlContext,
+    assertThreadCanResume: codexObservationControl.assertThreadCanResume,
     createObservation(sessionId, context = {}) {
-      if (!providerSessions) return createCodexAppServerObservation(sessionId, context);
+      if (!providerSessions) return codexObservationControl.createObservation(sessionId, context);
       const { providerKey } = context;
-      return createCodexAppServerObservation(sessionId, {
+      return codexObservationControl.createObservation(sessionId, {
         ...context,
         retireProvider: () => runOwner.runtimeLifecycle.retireProvider(providerKey)
       });
     },
-    selectMessageTurn: selectCodexAppServerMessageTurn,
-    interruptTurn: interruptCodexAppServerTurn,
-    recoverObservationLoss: recoverCodexAppServerObservationLoss,
-    runRenewalHandover: runCodexAppServerRenewalHandover,
-    runRenewalSeed: runCodexAppServerRenewalSeed,
-    startTurn: startCodexAppServerTurn,
-    steerTurn: steerCodexAppServerTurn,
-    prepareGoalContext: prepareCodexAppServerGoalContext,
-    validateGoalInput: validateCodexAppServerGoalInput,
-    updateGoal: updateCodexAppServerGoal,
+    selectMessageTurn: codexMessageCommands.selectMessageTurn,
+    interruptTurn: codexTurnControl.interruptTurn,
+    recoverObservationLoss: codexObservationControl.recoverObservationLoss,
+    runRenewalHandover: codexRenewalCommands.runCodexAppServerRenewalHandover,
+    runRenewalSeed: codexRenewalCommands.runCodexAppServerRenewalSeed,
+    startTurn: codexMessageCommands.startTurn,
+    steerTurn: codexMessageCommands.steerTurn,
+    prepareGoalContext: codexGoalCommands.prepareCodexAppServerGoalContext,
+    validateGoalInput: codexGoalCommands.validateCodexAppServerGoalInput,
+    updateGoal: codexGoalCommands.updateCodexAppServerGoal,
     notificationQueue: codexAppServerNotificationQueue,
-    messageDeliveries: codexAppServerMessageDeliveries,
-    pendingUserMessages: codexAppServerPendingUserMessages,
-    eventSubscriptions: codexAppServerEventSubscriptions,
-    completedTurns: codexAppServerCompletedTurns,
+    messageDeliveries: codexMessageDelivery.messageDeliveries,
+    pendingUserMessages: codexMessageDelivery.pendingUserMessages,
+    eventSubscriptions: codexNotificationObserver.eventSubscriptions,
     promptDeliveries: codexAppServerPromptDeliveries,
-    automaticHookThreads: codexAppServerAutomaticHookThreads,
-    eventSubscriptionKey: codexAppServerEventSubscriptionKey,
-    eventSubscriptionIsCurrent: codexAppServerEventSubscriptionIsCurrent,
-    unsubscribeEventSubscription: unsubscribeCodexAppServerEventSubscription,
-    scheduleActiveRecovery: scheduleCodexAppServerActiveRecovery,
-    reconcileThreadStatus: reconcileCodexAppServerThreadStatus,
-    reconcileLoadedThreadStatus: reconcileCodexAppServerLoadedThreadStatus,
-    writeUserMessageOwnership: writeCodexAppServerUserMessageOwnership,
-    mirrorTerminalUserMessage: mirrorCodexAppServerTerminalUserMessage,
-    reconcileObservedTurnItems: reconcileCodexAppServerObservedTurnItems,
-    markTurnActive: markCodexAppServerTurnActive,
-    adoptSuccessorTurn: adoptCodexAppServerSuccessorTurn,
-    recoverActiveTurn: recoverCodexAppServerActiveTurn,
-    completeTurn: completeCodexAppServerTurn,
-    stopTurnWithProviderFailure: stopCodexAppServerTurnWithProviderFailure,
-    reconcileGoalUpdated: reconcileCodexAppServerGoalUpdated,
-    writeDeliveredUserMessage: writeCodexAppServerDeliveredUserMessage,
-    subscribeEvents: subscribeCodexAppServerEvents,
-    activeTimers: codexAppServerActiveTimers,
-    finalizingTimers: codexAppServerFinalizingTimers,
-    resultFinalizations: codexAppServerResultFinalizations,
-    clearActiveTimer: clearCodexAppServerActiveTimer,
-    clearFinalizingTimer: clearCodexAppServerFinalizingTimer,
-    clearSessionRecoveryTimers: clearCodexAppServerSessionRecoveryTimers,
-    agentRunRealtimePayload: codexAppServerAgentRunRealtimePayload,
-    publishAgentRun: publishCodexAppServerAgentRun,
-    markTurnFinalizing: markCodexAppServerTurnFinalizing,
-    markTurnIdle: markCodexAppServerTurnIdle,
-    resolveTurnId: resolveCodexAppServerTurnId,
-    finalizeAssistantResult: finalizeCodexAppServerAssistantResult,
-    recoverFinalResponseBeforeOutcome: recoverCodexAppServerFinalResponseBeforeOutcome,
-    finalizedTurns: codexAppServerFinalizedTurns,
-    finalAssistantResults: codexAppServerFinalAssistantResults,
-    reasoningTurns: codexAppServerReasoningTurns,
-    reasoningPersistQueues: codexAppServerReasoningPersistQueues,
-    liveProgressItems: codexAppServerLiveProgressItems,
-    liveProgressFingerprints: codexAppServerLiveProgressFingerprints,
-    mirroredTerminalItems: codexAppServerMirroredTerminalItems,
-    liveProgressCandidate: codexAppServerLiveProgressCandidate,
-    conversationMessageId: codexAppServerConversationMessageId,
-    readAgentRunForSession: readCodexAppServerAgentRunForSession,
-    readFinalAssistantResult: readCodexAppServerFinalAssistantResult,
-    persistAssistantReply: persistCodexAppServerAssistantReply,
-    recordFinalAssistantResult: recordCodexAppServerFinalAssistantResult,
-    recordReasoningForSession: recordCodexAppServerReasoningForSession,
-    flushReasoningPersist: flushCodexAppServerReasoningPersist,
-    splitReasoningTurn: splitCodexAppServerReasoningTurn,
-    cleanupUntrackedTurn: cleanupCodexAppServerUntrackedTurn,
-    writeStream: writeCodexAppServerStream,
-    writeLiveProgress: writeCodexAppServerLiveProgress,
-    submitAssistantResult: submitCodexAppServerAssistantResult,
-    processedTurns: codexAppServerProcessedTurns,
-    resultFinalizationKey: codexAppServerResultFinalizationKey,
-    turnResultWasProcessed: codexAppServerTurnResultWasProcessed,
-    claimTurnStart: claimCodexAppServerTurnStart,
-    writeAgentRun: writeCodexAppServerAgentRun
+    unsubscribeEventSubscription: codexNotificationObserver.unsubscribeEventSubscription,
+    scheduleActiveRecovery: codexTurnRecovery.scheduleActiveRecovery,
+    reconcileThreadStatus: codexThreadStatus.reconcileThreadStatus,
+    mirrorTerminalUserMessage: codexMessageDelivery.mirrorTerminalUserMessage,
+    recoverActiveTurn: codexTurnRecovery.recoverActiveTurn,
+    completeTurn: codexTurnRecovery.completeTurn,
+    stopTurnWithProviderFailure: codexTurnRecovery.stopTurnWithProviderFailure,
+    writeDeliveredUserMessage: codexMessageDelivery.writeDeliveredUserMessage,
+    subscribeEvents: codexNotificationObserver.subscribeEvents,
+    activeTimers: codexRunJournal.activeTimers,
+    finalizingTimers: codexRunJournal.finalizingTimers,
+    resultFinalizations: codexResultSettlement.resultFinalizations,
+    clearSessionRecoveryTimers: codexRunJournal.clearSessionRecoveryTimers,
+    publishAgentRun: codexRunJournal.publishAgentRun,
+    markTurnIdle: codexRunJournal.markTurnIdle,
+    finalizeAssistantResult: codexResultSettlement.finalizeAssistantResult,
+    finalizedTurns: codexAppServerOutput.finalizedTurns,
+    liveProgressItems: codexAppServerOutput.liveProgressItems,
+    liveProgressFingerprints: codexAppServerOutput.liveProgressFingerprints,
+    readAgentRunForSession: codexAppServerOutput.readAgentRunForSession,
+    readFinalAssistantResult: codexAppServerOutput.readFinalAssistantResult,
+    persistAssistantReply: codexAppServerOutput.persistAssistantReply,
+    recordFinalAssistantResult: codexAppServerOutput.recordFinalAssistantResult,
+    recordReasoningForSession: codexAppServerOutput.recordReasoningForSession,
+    writeStream: codexAppServerOutput.writeStream,
+    writeLiveProgress: codexAppServerOutput.writeLiveProgress,
+    submitAssistantResult: codexAppServerOutput.submitAssistantResult,
+    processedTurns: codexRunJournal.processedTurns,
+    resultFinalizationKey: codexAppServerOutput.resultFinalizationKey,
+    claimTurnStart: codexRunJournal.claimTurnStart,
+    writeAgentRun: codexRunJournal.writeAgentRun
   };
-  const cleanup = createCodexSessionCleanup({
-    namespace,
-    runOwner,
-    providerSessions,
-    helperLifecycle,
-    journal: codexRunJournal,
-    conversations: codexConversations,
-    debugLog,
-    debugError
-  });
-  runOwner.closeSession = cleanup.closeSession;
-  runOwner.closeProject = cleanup.closeProject;
   if (providerSessions) {
     runOwner.runtimeLifecycle = createCodexRuntimeLifecycle({
-      runOwner,
+      pendingWork: {
+        conversationTurnStarts: codexConversations.codexAppServerConversationTurnStarts,
+        messageDeliveries: codexMessageDelivery.messageDeliveries,
+        reasoningPersistQueues: codexAppServerOutput.reasoningPersistQueues,
+        resultFinalizations: codexResultSettlement.resultFinalizations,
+        threadReconciliations: codexThreadReadiness.threadReconciliations,
+        notificationTasks: codexAppServerNotificationQueue.tasks
+      },
+      observer: codexNotificationObserver,
+      checkManagedConnection: codexThreadReadiness.checkManagedConnection,
       providerSessions,
       helperLifecycle,
       captureContext,
@@ -745,9 +555,23 @@ export function createCodexAppServerRunOwner({
     }
     runOwner.invalidateRuntimes = runOwner.runtimeLifecycle.invalidateRuntimes;
     Object.assign(runOwner, createCodexSessionReconciliation({
-      runOwner, providerSessions, helperLifecycle, lifecycle: runOwner.runtimeLifecycle,
+      readiness: codexThreadReadiness, recoverSessionObservationLoss,
+      providerSessions, helperLifecycle, lifecycle: runOwner.runtimeLifecycle,
       createRuntime, namespace, turnState, sessionIdRequiredError, debugLog, debugError
     }));
   }
+  const cleanup = createCodexSessionCleanup({
+    namespace,
+    runOwner,
+    providerSessions,
+    sessionClosures: runOwner.runtimeLifecycle?.sessionClosures,
+    helperLifecycle,
+    journal: codexRunJournal,
+    conversations: codexConversations,
+    debugLog,
+    debugError
+  });
+  runOwner.closeSession = cleanup.closeSession;
+  runOwner.closeProject = cleanup.closeProject;
   return runOwner;
 }

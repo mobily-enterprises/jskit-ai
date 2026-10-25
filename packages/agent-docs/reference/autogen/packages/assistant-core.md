@@ -701,15 +701,15 @@ Exports
 
 ### `src/server/conversation/codexRuntimeLifecycle.js`
 Exports
-- `createCodexRuntimeLifecycle({ runOwner, providerSessions, helperLifecycle, captureContext, runInContext, debugLog, debugError, closingError = null })`
+- `createCodexRuntimeLifecycle({ pendingWork, observer, checkManagedConnection, providerSessions, helperLifecycle, captureContext, runInContext, debugLog, debugError, closingError = null })`
 
 ### `src/server/conversation/codexSessionCleanup.js`
 Exports
-- `createCodexSessionCleanup({ namespace, runOwner, providerSessions, helperLifecycle, journal, conversations, debugLog, debugError })`
+- `createCodexSessionCleanup({ namespace, runOwner, providerSessions, sessionClosures, helperLifecycle, journal, conversations, debugLog, debugError })`
 
 ### `src/server/conversation/codexSessionReconciliation.js`
 Exports
-- `createCodexSessionReconciliation({ runOwner, providerSessions, helperLifecycle, lifecycle, createRuntime, namespace, turnState, sessionIdRequiredError, debugLog, debugError })`
+- `createCodexSessionReconciliation({ readiness, recoverSessionObservationLoss, providerSessions, helperLifecycle, lifecycle, createRuntime, namespace, turnState, sessionIdRequiredError, debugLog, debugError })`
 
 ### `src/server/conversation/codexThreadReadiness.js`
 Exports

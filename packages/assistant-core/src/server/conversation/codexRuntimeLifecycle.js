@@ -2,8 +2,12 @@ import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
 // Shutdown, wellbeing timers and managed-session records for shared Codex
 // runtimes. It works on the run/provider owners' collections; it owns no servers.
+// `pendingWork` names the run owner's in-flight task collections that shutdown
+// drains; `observer` owns the event subscriptions a released provider ends.
 export function createCodexRuntimeLifecycle({
-  runOwner,
+  pendingWork,
+  observer,
+  checkManagedConnection,
   providerSessions,
   helperLifecycle,
   captureContext,
@@ -58,16 +62,16 @@ export function createCodexRuntimeLifecycle({
   function codexAppServerProviderResources(providerKey) {
     const normalizedProviderKey = normalizeText(providerKey);
     return {
-      retire: runOwner.helperThreads.retireProvider,
-      reconcileRetirement: runOwner.helperThreads.reconcileProviderRetirement,
+      retire: helperLifecycle.retireProvider,
+      reconcileRetirement: helperLifecycle.reconcileProviderRetirement,
       release(provider) {
-        runOwner.helperThreads.assertProviderReleased(provider);
+        helperLifecycle.assertProviderReleased(provider);
         stopCodexAppServerWellbeing(normalizedProviderKey);
         providerSessions.managed.delete(normalizedProviderKey);
         const subscriptionPrefix = `${normalizedProviderKey}:`;
-        for (const key of [...runOwner.eventSubscriptions.keys()]) {
+        for (const key of [...observer.eventSubscriptions.keys()]) {
           if (key.startsWith(subscriptionPrefix)) {
-            runOwner.unsubscribeEventSubscription(key);
+            observer.unsubscribeEventSubscription(key);
           }
         }
       }
@@ -156,21 +160,21 @@ export function createCodexRuntimeLifecycle({
   async function drainCodexAppServerControllerTasks() {
     while (true) {
       const pending = new Set([
-        ...runOwner.conversationTurnStarts.values(),
+        ...pendingWork.conversationTurnStarts.values(),
         ...helperLifecycle.projectOperations.values(),
         ...helperLifecycle.cleanups.values(),
         ...helperLifecycle.mutations.values(),
         ...helperLifecycle.restores.values(),
         ...helperLifecycle.turnStarts.values(),
-        ...runOwner.messageDeliveries.values(),
-        ...runOwner.reasoningPersistQueues.values(),
-        ...runOwner.resultFinalizations.values(),
+        ...pendingWork.messageDeliveries.values(),
+        ...pendingWork.reasoningPersistQueues.values(),
+        ...pendingWork.resultFinalizations.values(),
         ...providerSessions.owner.lifecycleTasks,
         ...providerSessions.owner.runtimeAcquisitions,
         ...codexAppServerReconcileTasks,
         ...codexAppServerSessionClosures.values(),
-        ...runOwner.threadReconciliations.values(),
-        ...runOwner.notificationQueue.tasks.values()
+        ...pendingWork.threadReconciliations.values(),
+        ...pendingWork.notificationTasks.values()
       ]);
       if (pending.size === 0) {
         return;
@@ -194,7 +198,7 @@ export function createCodexRuntimeLifecycle({
           return;
         }
         await runInContext(current.projectContext, async () => {
-          await runOwner.checkManagedConnection(normalizedProviderKey);
+          await checkManagedConnection(normalizedProviderKey);
         });
       })()
         .catch((error) => {
