@@ -2,21 +2,12 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { AGENT_DOCS_OUTPUT_PATHS } from "./agent-docs-outputs.mjs";
 import { validateGeneratedReferencePaths } from "./check-generated-reference-paths.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const GENERATED_PATHS = Object.freeze([
-  "packages/agent-docs/reference/autogen",
-  "packages/agent-docs/guide/agent",
-  "packages/agent-docs/site/patterns",
-  "packages/agent-docs/skills/jskit/references/app-operations.md",
-  "packages/agent-docs/skills/jskit/references/crud-operations.md",
-  "packages/agent-docs/skills/jskit/references/material-3.md",
-  "packages/agent-docs/skills/jskit/references/ui-operations.md",
-  "packages/agent-docs/skills/jskit/references/pattern-index.md",
-  "packages/agent-docs/skills/jskit/references/existing-application-migration.md",
-  "packages/agent-docs/skills/jskit/references/multi-homing.md",
-  "packages/agent-docs/skills/jskit/references/patterns",
+  ...AGENT_DOCS_OUTPUT_PATHS.map((outputPath) => path.relative(REPO_ROOT, outputPath).split(path.sep).join("/")),
   "tooling/jskit-catalog/catalog/packages.json"
 ]);
 const GENERATORS = Object.freeze([

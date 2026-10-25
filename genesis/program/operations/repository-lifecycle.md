@@ -8,6 +8,7 @@ and the versioned publication of all public JSKIT packages.
 - Main: `package.json`
 - `tooling/jskit-release/src/release.mjs`
 - `tooling/jskit-release/src/npm-publication.mjs`
+- `scripts/agent-docs-outputs.mjs`
 - `scripts/build-agent-docs.mjs`
 - `scripts/check-generated-files.mjs`
 - `.github/workflows/verify.yml`

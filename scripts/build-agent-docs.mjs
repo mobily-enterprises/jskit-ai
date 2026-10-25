@@ -7,34 +7,28 @@ import {
   writeFile
 } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import {
+  AGENT_DOCS_OUTPUT_PATHS,
+  AGENT_DOCS_ROOT,
+  GUIDE_AGENT_ROOT,
+  JSKIT_SKILL_GUIDES,
+  JSKIT_SKILL_PATTERN_INDEX_PATH,
+  JSKIT_SKILL_PATTERNS_ROOT,
+  JSKIT_SKILL_REFERENCES_ROOT,
+  PUBLIC_PATTERN_ROOT,
+  REFERENCE_AUTOGEN_ROOT,
+  REPO_ROOT
+} from "./agent-docs-outputs.mjs";
 import {
   assertUniquePatternIds,
   discoverPackagePatterns
 } from "../tooling/jskit-catalog/scripts/pattern-assets.mjs";
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
-const AGENT_DOCS_ROOT = path.join(REPO_ROOT, "packages", "agent-docs");
-const REFERENCE_AUTOGEN_ROOT = path.join(AGENT_DOCS_ROOT, "reference", "autogen");
 const STARTUP_KERNEL_MAP_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "KERNEL_MAP.md");
 const PATTERN_INDEX_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "PATTERN_INDEX.md");
 const REFERENCE_README_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "README.md");
 const GUIDE_SITE_ROOT = path.join(AGENT_DOCS_ROOT, "site");
 const GUIDE_SOURCE_ROOT = path.join(GUIDE_SITE_ROOT, "guide");
-const GUIDE_AGENT_ROOT = path.join(AGENT_DOCS_ROOT, "guide", "agent");
-const PUBLIC_PATTERN_ROOT = path.join(GUIDE_SITE_ROOT, "patterns");
-const JSKIT_SKILL_REFERENCES_ROOT = path.join(AGENT_DOCS_ROOT, "skills", "jskit", "references");
-const JSKIT_SKILL_PATTERN_INDEX_PATH = path.join(JSKIT_SKILL_REFERENCES_ROOT, "pattern-index.md");
-const JSKIT_SKILL_PATTERNS_ROOT = path.join(JSKIT_SKILL_REFERENCES_ROOT, "patterns");
-const JSKIT_SKILL_GUIDES = Object.freeze({
-  "app-setup/existing-application-migration.md": "existing-application-migration.md",
-  "app-setup/multi-homing.md": "multi-homing.md",
-  "framework/application-operations.md": "app-operations.md",
-  "framework/crud-operations.md": "crud-operations.md",
-  "framework/material-3.md": "material-3.md",
-  "framework/ui-operations.md": "ui-operations.md"
-});
 const REPOSITORY_WEB_ROOT = "https://github.com/mobily-enterprises/jskit-ai";
 const KERNEL_SHARED_ROOT = path.join(REPO_ROOT, "packages", "kernel", "shared");
 const PACKAGE_ROOTS = Object.freeze([
@@ -57,10 +51,6 @@ const SECTION_ORDER = Object.freeze([
   "scripts",
   "root"
 ]);
-const GUIDE_SECTION_PATTERNS_TO_DROP = [
-  /^Recap\b/i,
-  /^Recap From Previous Chapters\b/i
-];
 const SKIP_DIRECTORY_NAMES = new Set([
   ".build",
   ".git",
@@ -501,118 +491,14 @@ function rewriteSkillGuideLinks(sourceText = "") {
     .replace(/\(\.\/material-3\)/gu, "(material-3.md)");
 }
 
-function extractQuotedAttribute(source = "", attributeName = "") {
-  const pattern = new RegExp(`${attributeName}="([^"]*)"`);
-  const match = String(source || "").match(pattern);
-  return String(match?.[1] || "").trim();
-}
-
-function renderDocsTerminalTip(attributes = "", content = "") {
-  const label = extractQuotedAttribute(attributes, "label");
-  const title = extractQuotedAttribute(attributes, "title");
-  const heading = [label, title].filter(Boolean).join(": ") || "Note";
-  const normalizedContent = String(content || "").trim();
-  return `**${heading}**\n\n${normalizedContent}`;
-}
-
-function stripMarkdownSections(sourceText = "", titlePatterns = []) {
-  const lines = String(sourceText || "").split("\n");
-  const results = [];
-  let inCodeFence = false;
-  let skipHeadingLevel = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("```")) {
-      inCodeFence = !inCodeFence;
-      if (skipHeadingLevel === null) {
-        results.push(line);
-      }
-      continue;
-    }
-
-    if (!inCodeFence) {
-      const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
-      if (headingMatch) {
-        const headingLevel = headingMatch[1].length;
-        const headingTitle = String(headingMatch[2] || "").trim();
-
-        if (skipHeadingLevel !== null && headingLevel <= skipHeadingLevel) {
-          skipHeadingLevel = null;
-        }
-
-        if (skipHeadingLevel === null && titlePatterns.some((pattern) => pattern.test(headingTitle))) {
-          skipHeadingLevel = headingLevel;
-          continue;
-        }
-      }
-    }
-
-    if (skipHeadingLevel !== null) {
-      continue;
-    }
-
-    results.push(line);
-  }
-
-  return results.join("\n");
-}
-
-function stripDecorativeHtmlLines(sourceText = "") {
-  const lines = String(sourceText || "").split("\n");
-  const results = [];
-  let inCodeFence = false;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("```")) {
-      inCodeFence = !inCodeFence;
-      results.push(line);
-      continue;
-    }
-
-    if (!inCodeFence) {
-      const isDecorativeHtml =
-        trimmed.startsWith("<figure") ||
-        trimmed.startsWith("</figure") ||
-        trimmed.startsWith("<div ") ||
-        trimmed === "</div>" ||
-        trimmed.startsWith("<img ") ||
-        trimmed.startsWith("<span") ||
-        trimmed === "</span>";
-
-      if (isDecorativeHtml) {
-        continue;
-      }
-    }
-
-    results.push(line);
-  }
-
-  return results.join("\n");
-}
-
 function compressGuideMarkdown(sourceText = "") {
-  let output = String(sourceText || "").replace(/\r\n/g, "\n");
-  output = output.replace(/<figure[\s\S]*?<\/figure>/g, "");
-  output = output.replace(
-    /<DocsTerminalTip([^>]*)>([\s\S]*?)<\/DocsTerminalTip>/g,
-    (_, attributes = "", content = "") => renderDocsTerminalTip(attributes, content)
-  );
-  output = stripMarkdownSections(output, GUIDE_SECTION_PATTERNS_TO_DROP);
-  output = stripDecorativeHtmlLines(output);
-  output = output.replace(/\n{3,}/g, "\n\n").trim();
+  const output = String(sourceText || "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   return `${output}\n`;
 }
 
 async function clearAgentDocsOutputs() {
-  await rm(REFERENCE_AUTOGEN_ROOT, { recursive: true, force: true });
-  await rm(GUIDE_AGENT_ROOT, { recursive: true, force: true });
-  await rm(PUBLIC_PATTERN_ROOT, { recursive: true, force: true });
-  await rm(JSKIT_SKILL_PATTERN_INDEX_PATH, { force: true });
-  await rm(JSKIT_SKILL_PATTERNS_ROOT, { recursive: true, force: true });
-  for (const targetFile of Object.values(JSKIT_SKILL_GUIDES)) {
-    await rm(path.join(JSKIT_SKILL_REFERENCES_ROOT, targetFile), { force: true });
+  for (const outputPath of AGENT_DOCS_OUTPUT_PATHS) {
+    await rm(outputPath, { recursive: true, force: true });
   }
 }
 
@@ -936,12 +822,10 @@ async function main() {
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, STARTUP_KERNEL_MAP_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, PATTERN_INDEX_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, REFERENCE_README_PATH))}\n`);
-  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, GUIDE_AGENT_ROOT))}\n`);
-  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, PUBLIC_PATTERN_ROOT))}\n`);
-  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, JSKIT_SKILL_PATTERN_INDEX_PATH))}\n`);
-  process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, JSKIT_SKILL_PATTERNS_ROOT))}\n`);
-  for (const targetFile of Object.values(JSKIT_SKILL_GUIDES)) {
-    process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, path.join(JSKIT_SKILL_REFERENCES_ROOT, targetFile)))}\n`);
+  for (const outputPath of AGENT_DOCS_OUTPUT_PATHS) {
+    if (outputPath !== REFERENCE_AUTOGEN_ROOT) {
+      process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, outputPath))}\n`);
+    }
   }
 }
 

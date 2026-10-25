@@ -277,14 +277,6 @@ Local functions
 Exports
 - None
 
-### `site/.vitepress/theme/components/DocsInDepth.vue`
-Exports
-- None
-
-### `site/.vitepress/theme/components/DocsTerminalTip.vue`
-Exports
-- None
-
 ### `site/.vitepress/theme/index.js`
 Exports
 - `default`

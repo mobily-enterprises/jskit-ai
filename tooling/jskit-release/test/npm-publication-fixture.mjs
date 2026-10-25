@@ -22,7 +22,7 @@ async function publicationFixture(t, publisher = "genesis") {
   await mkdir(path.join(repo, "scripts"), { recursive: true });
   await mkdir(path.join(repo, "tooling"));
   await mkdir(tools);
-  for (const file of ["check-generated-files.mjs", "check-generated-reference-paths.mjs", "build-agent-docs.mjs"]) {
+  for (const file of ["agent-docs-outputs.mjs", "check-generated-files.mjs", "check-generated-reference-paths.mjs", "build-agent-docs.mjs"]) {
     await copyFile(path.join(sourceRoot, "scripts", file), path.join(repo, "scripts", file));
   }
   await symlink(path.join(sourceRoot, "node_modules"), path.join(repo, "node_modules"), "dir");
