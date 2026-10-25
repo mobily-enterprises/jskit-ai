@@ -19,6 +19,24 @@ function publicConnection(connection) {
 }
 
 const ENV_SEEDED_MESSAGE = "This connection comes from an Env value; unlink or replace that value instead.";
+const VERIFICATION_SCOPE_MESSAGE = "Connection verification requires a permission absent from the application's configuration.";
+
+// An operation without scopes always runs; otherwise one of its scopes must be present.
+function requireOperationScope(operation, scopes, message) {
+  if (operation.scopes.length && !operation.scopes.some((scope) => scopes.includes(scope))) {
+    throw new ConnectorError("connector_scope_missing", message, { statusCode: 403 });
+  }
+}
+
+// Builds the provider request, reporting schema input errors as connector_input_invalid.
+function operationRequest(operation, input, settings, providerData) {
+  try { return operation.request(input, settings || {}, providerData); } catch (error) {
+    if (!error.fieldErrors) throw error;
+    const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422 });
+    failure.fieldErrors = error.fieldErrors;
+    throw failure;
+  }
+}
 
 function validateCallbackUrl(value) {
   let url;
@@ -258,11 +276,8 @@ function createConnectionService({
     if (integration.authentication.method !== "service-account" || typeof provider.serviceAccountGrant !== "function") {
       throw new ConnectorError("connector_mode_unavailable", "Select service-account credentials to verify this connection.");
     }
-    provider.operations[provider.checkOperation].request(verificationInput, integration.settings || {});
-    const required = provider.operations[provider.checkOperation].scopes;
-    if (required.length && !required.some((scope) => integration.scopes.includes(scope))) {
-      throw new ConnectorError("connector_scope_missing", "Connection verification requires a permission absent from the application's configuration.", { statusCode: 403 });
-    }
+    operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
+    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       try {
         const binding = await serviceAccountCredentialFor(integration);
@@ -296,16 +311,10 @@ function createConnectionService({
     if (!operation || !Object.hasOwn(provider.operations, operationId)) {
       throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.");
     }
-    if (["oauth2", "service-account"].includes(connection.method || "oauth2") && operation.scopes.length && !operation.scopes.some((scope) => connection.grantedScopes.includes(scope))) {
-      throw new ConnectorError("connector_scope_missing", "Connect again with the permission required for this operation.", { statusCode: 403 });
+    if (["oauth2", "service-account"].includes(connection.method || "oauth2")) {
+      requireOperationScope(operation, connection.grantedScopes, "Connect again with the permission required for this operation.");
     }
-    let descriptor;
-    try { descriptor = operation.request(input, connection.settings || {}, connection.providerData); } catch (error) {
-      if (!error.fieldErrors) throw error;
-      const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422 });
-      failure.fieldErrors = error.fieldErrors;
-      throw failure;
-    }
+    const descriptor = operationRequest(operation, input, connection.settings, connection.providerData);
     const url = new URL(descriptor.url);
     const origins = typeof provider.apiOrigins === "function" ? provider.apiOrigins(connection.settings || {}, connection.providerData) : provider.apiOrigins;
     if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
@@ -387,10 +396,7 @@ function createConnectionService({
       throw new ConnectorError("connector_response_invalid", "The provider returned an invalid permission grant.", { statusCode: 502 });
     }
     connection.grantedScopes = connection.grantedScopes.filter((scope) => requestedScopes.includes(scope) && scopes.includes(scope));
-    const required = provider.operations[provider.checkOperation].scopes;
-    if (required.length && !required.some((scope) => connection.grantedScopes.includes(scope))) {
-      throw new ConnectorError("connector_scope_missing", "Connect again with the permission required for verification.", { statusCode: 403 });
-    }
+    requireOperationScope(provider.operations[provider.checkOperation], connection.grantedScopes, "Connect again with the permission required for verification.");
   }
 
   async function clientCredentialsGrant(registration, provider, settings, scopes, signal) {
@@ -415,11 +421,8 @@ function createConnectionService({
     if (registration.grantType !== "client_credentials") {
       throw new ConnectorError("connector_mode_unavailable", "Select client credentials to connect a service account.");
     }
-    provider.operations[provider.checkOperation].request(verificationInput, integration.settings || {});
-    const required = provider.operations[provider.checkOperation].scopes;
-    if (required.length && !required.some((scope) => integration.scopes.includes(scope))) {
-      throw new ConnectorError("connector_scope_missing", "Connection verification requires a permission absent from the application's configuration.", { statusCode: 403 });
-    }
+    operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
+    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       try {
         const connection = {
@@ -442,7 +445,7 @@ function createConnectionService({
       throw new ConnectorError("connector_env_managed", ENV_SEEDED_MESSAGE, { statusCode: 409 });
     }
     // Resource-specific providers validate the first document ID before opening consent.
-    provider.operations[provider.checkOperation].request(verificationInput, integration.settings || {});
+    operationRequest(provider.operations[provider.checkOperation], verificationInput, integration.settings);
     const registration = await registrationFor(integration, provider);
     if (registration.grantType !== "authorization_code") {
       throw new ConnectorError("connector_mode_unavailable", "Service accounts connect without browser consent.");
@@ -568,10 +571,7 @@ function createConnectionService({
         !provider.apiKey?.bodyParameter && typeof provider.apiKey?.pathPrefix !== "function"))) {
       throw new ConnectorError("connector_mode_unavailable", "Select the matching credential mode to verify this connection.");
     }
-    const requiredScopes = provider.operations[provider.checkOperation].scopes;
-    if (requiredScopes.length && !requiredScopes.some((scope) => integration.scopes.includes(scope))) {
-      throw new ConnectorError("connector_scope_missing", "Connection verification requires a permission absent from the application's configuration.", { statusCode: 403 });
-    }
+    requireOperationScope(provider.operations[provider.checkOperation], integration.scopes, VERIFICATION_SCOPE_MESSAGE);
     return store.withConnection({ owner, integrationId }, async ({ save }) => {
       const connection = {
         integrationId, provider: provider.id, method,
@@ -598,9 +598,7 @@ function createConnectionService({
     if (!Object.hasOwn(provider.operations, operation)) {
       throw new ConnectorError("connector_operation_unknown", "This provider operation is not available.");
     }
-    if (provider.operations[operation].scopes.length && !provider.operations[operation].scopes.some((scope) => integration.scopes.includes(scope))) {
-      throw new ConnectorError("connector_scope_missing", "This operation requires a permission absent from the application's configuration.", { statusCode: 403 });
-    }
+    requireOperationScope(provider.operations[operation], integration.scopes, "This operation requires a permission absent from the application's configuration.");
     const usesApiKey = integration.authentication.method === "api-key";
     const usesServiceAccount = integration.authentication.method === "service-account";
     const usesOAuth = integration.authentication.method === "oauth2";

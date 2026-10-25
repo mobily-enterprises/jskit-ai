@@ -735,6 +735,16 @@ test("invalid operation input remains a field error and never reaches the provid
     return true;
   });
   assert.equal(requests.length, count);
+  // Preflight verification input reports the same field error before consent opens.
+  await assert.rejects(service.beginAuthorization({
+    context: owner, integrationId: "calendar", verificationInput: { maxResults: -1 }
+  }), (error) => {
+    assert.equal(error.code, "connector_input_invalid");
+    assert.equal(error.statusCode, 422);
+    assert.ok(error.fieldErrors.maxResults);
+    return true;
+  });
+  assert.equal(requests.length, count);
 });
 
 test("saved grants cannot override permissions removed from application source", async () => {
