@@ -292,6 +292,10 @@ Provider `settingsFields[].authenticationMethods` restricts fields to particular
 credential modes; the shared parser rejects values left in an incompatible mode.
 
 Provider operations receive `(input, settings)` when constructing a request.
+An operation's `validateResult(result, request)` receives the parsed result and
+the request object its own `request` returned (`method`, `url`, `body`,
+`headers`), so it can confirm the provider returned the record, page or range
+that request asked for; a false return reports `connector_response_invalid`.
 OAuth providers may supply `oauth(settings)` to select regional authorization
 metadata. `oauthResource` may be a string or function of those settings; when
 present, it is sent as `resource` in consent, code exchange and refresh. The

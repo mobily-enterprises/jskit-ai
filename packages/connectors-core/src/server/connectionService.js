@@ -361,7 +361,8 @@ function createConnectionService({
       options.signal.throwIfAborted();
       throw error;
     }
-    if (typeof operation.validateResult === "function" && !operation.validateResult(result)) {
+    // The validator also receives the operation's own request, so it can check the provider answered what was asked.
+    if (typeof operation.validateResult === "function" && !operation.validateResult(result, descriptor)) {
       throw new ConnectorError("connector_response_invalid", "The provider returned an unexpected response.", { statusCode: 502 });
     }
     return result;

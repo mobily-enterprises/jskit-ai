@@ -60,6 +60,8 @@ function semrushKeywordReport(target, kind) {
   };
 }
 
+const trackingObject = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value) && value.error === undefined);
+
 function semrushTrackingReport(type, positions = false) {
   const operation = jsonOperation("https://api.semrush.com/", {
     campaignId: { type: "string", required: true, pattern: /^\d+(?:_\d+)?$/u, maxLength: 80 },
@@ -72,7 +74,14 @@ function semrushTrackingReport(type, positions = false) {
       display_filter: { type: "string", minLength: 1, maxLength: 4000 }
     } : {})
   });
-  return { scopes: [], request(input, settings) {
+  return { scopes: [], validateResult(value, request) {
+    const url = new URL(request.url);
+    return trackingObject(value) && value.data !== null && typeof value.data === "object" && /^(0|[1-9]\d*)$/u.test(String(value.total)) &&
+      (type === "tracking_campaign_dates" ? Object.values(value.data).every((entry) => /^\d{8}$/u.test(String(entry?.Dt))) :
+        String(value.limit) === url.searchParams.get("display_limit") && String(value.offset) === url.searchParams.get("display_offset") &&
+        Object.values(value.data).length <= Number(url.searchParams.get("display_limit")) &&
+        Object.values(value.data).every((entry) => typeof entry?.Ph === "string" && typeof entry.Pi === "string" && entry.Dt !== null && typeof entry.Dt === "object"));
+  }, request(input, settings) {
     if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the Semrush V3 key for position tracking.");
     const result = operation.request(input);
     const url = new URL(result.url);
@@ -118,6 +127,32 @@ function validProject(project) {
     Array.isArray(project.tools) && project.tools.every((tool) => typeof tool?.name === "string" && tool.name.length > 0);
 }
 
+// Every V4 answer carries a successful envelope; each operation then checks it answered its own request.
+function v4Result(check, status = 200) {
+  return (value, request) => value?.meta?.success === true && value.meta.status_code === status &&
+    typeof value.meta.request_id === "string" && value.meta.request_id.length > 0 && value.error === undefined &&
+    Boolean(check(value, new URL(request.url), request));
+}
+const count = (value) => Number.isSafeInteger(value) && value >= 0;
+// Backlink reports keep the requested scope and, when Semrush supplies them, the requested page bounds.
+function backlinkResult(report) {
+  return v4Result((value, url) => {
+    const { meta, data } = value;
+    if (meta.scope !== undefined && meta.scope !== url.searchParams.get("scope")) return false;
+    if (report === "overview") return ["backlinks_count", "domains_count", "urls_count", "score"].every((field) => count(data?.[field]));
+    // Some report envelopes omit pagination metadata; validate it when supplied.
+    return Array.isArray(data) && data.length <= Number(url.searchParams.get("limit")) && data.every((row) => {
+      if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+      if (report === "links") return typeof row.source_url === "string" && typeof row.target_url === "string" &&
+        typeof row.anchor === "string" && typeof row.is_nofollow === "boolean";
+      if (report === "ref-domains") return typeof row.domain === "string" && count(row.backlinks_count) && count(row.domain_score);
+      return typeof row.anchor === "string" && count(row.backlinks_count) && count(row.domains_count);
+    }) && ["limit", "offset"].every((field) => meta[field] === undefined || String(meta[field]) === url.searchParams.get(field)) &&
+      (meta.total === undefined || count(meta.total));
+  });
+}
+const requestedProject = (url) => Number(url.pathname.split("/").at(-1));
+
 const semrushProvider = Object.freeze({
   ...semrushDefinition, apiOrigins: ["https://api.semrush.com"],
   apiKey: { headers: (key) => {
@@ -128,7 +163,11 @@ const semrushProvider = Object.freeze({
   } },
   checkOperation: "projects.list",
   operations: {
-    "tracking.campaigns": { scopes: [], request(input, settings) {
+    "tracking.campaigns": { scopes: [], validateResult: (value, request) => trackingObject(value) &&
+      String(value.project_id) === new URL(request.url).pathname.split("/")[4] && Array.isArray(value.campaigns) &&
+      value.campaigns.every((campaign) => typeof campaign?.id === "string" && /^\d+(?:_\d+)?$/u.test(campaign.id) &&
+        typeof campaign.url === "string" && typeof campaign.device === "string" && typeof campaign.isGathering === "boolean"),
+    request(input, settings) {
       const { projectId } = validateSchemaPayload({ schema: projectSchema, mode: "replace" }, input, { statusCode: 422 });
       if (!settings.v3ApiKeyRef) throw new ConnectorError("connector_binding_missing", "Configure the Semrush V3 key for campaign discovery.");
       return { method: "GET", url: `https://api.semrush.com/management/v1/projects/${projectId}/tracking/campaigns` };
@@ -159,10 +198,10 @@ const semrushProvider = Object.freeze({
         return { ...result, url: url.href };
       }
     },
-    "backlinks.overview": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/overview", backlinkTarget),
-    "backlinks.list": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/links", backlinkPage),
-    "backlinks.referringDomains": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/ref-domains", backlinkPage),
-    "backlinks.anchors": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/anchors", backlinkPage),
+    "backlinks.overview": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/overview", backlinkTarget, backlinkResult("overview")),
+    "backlinks.list": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/links", backlinkPage, backlinkResult("links")),
+    "backlinks.referringDomains": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/ref-domains", backlinkPage, backlinkResult("ref-domains")),
+    "backlinks.anchors": jsonOperation("https://api.semrush.com/apis/v4/backlinks/v1/anchors", backlinkPage, backlinkResult("anchors")),
     "keywords.metrics": {
       scopes: [],
       request(input) {
@@ -179,39 +218,57 @@ const semrushProvider = Object.freeze({
         }
         url.searchParams.set("format", "json");
         return { ...result, url: url.href };
-      }
+      },
+      validateResult: v4Result(({ meta, data }, url) => meta.keyword === url.searchParams.get("keyword") && meta.country === url.searchParams.get("country") &&
+        typeof meta.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/u.test(meta.month) &&
+        (!url.searchParams.has("month") || meta.month === url.searchParams.get("month")) &&
+        data !== null && typeof data === "object" && !Array.isArray(data) &&
+        ["cpc", "number_of_results", "search_volume"].every((key) => typeof data[key] === "string" && /^\d+$/u.test(data[key])) &&
+        ["competitive_density", "keyword_difficulty"].every((key) => Number.isFinite(data[key])) &&
+        ["intents", "serp_features"].every((key) => Array.isArray(data[key]) && data[key].every((value) => typeof value === "string")) &&
+        Array.isArray(data.trends) && data.trends.every(Number.isFinite))
     },
     "projects.create": jsonOperation(projectsUrl, {
       domain: { type: "string", required: true, minLength: 1, maxLength: 253, pattern: /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/iu },
       project_name: projectName
-    }, undefined, "POST"),
+    }, v4Result(({ data }, url, request) => validProject(data) && data.project_name === request.body.project_name &&
+      data.domain.toLowerCase() === request.body.domain.toLowerCase(), 201), "POST"),
     "projects.update": {
       scopes: [],
       request(input) {
         const { projectId, project_name } = validateSchemaPayload({ schema: renameSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "PATCH", url: `${projectsUrl}/${projectId}`, body: { project_name } };
-      }
+      },
+      validateResult: v4Result(({ data }, url, request) => validProject(data) && data.project_id === requestedProject(url) &&
+        data.project_name === request.body.project_name)
     },
     "projects.list": jsonOperation(projectsUrl, {
       scope: { type: "string", enum: ["OWN", "ALL", "SHARED", "CORPORATE"], defaultTo: "OWN" },
       limit: { type: "integer", min: 1, max: 1000, defaultTo: 100 },
       offset: { type: "integer", min: 0, max: Number.MAX_SAFE_INTEGER, defaultTo: 0 }
-    }),
+    }, v4Result(({ meta, data }, url) => {
+      const limit = Number(url.searchParams.get("limit"));
+      return meta.scope === url.searchParams.get("scope") && meta.limit === limit && meta.offset === Number(url.searchParams.get("offset")) &&
+        count(meta.total_count) && Array.isArray(data) && data.length <= limit && data.length <= meta.total_count && data.every(validProject);
+    })),
     "projects.delete": {
       scopes: [],
       request(input) {
         const { projectId } = validateSchemaPayload({ schema: projectSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "DELETE", url: `${projectsUrl}/${projectId}` };
-      }
+      },
+      validateResult: v4Result(({ data }, url) => Number.isSafeInteger(data?.project_id) && data.project_id === requestedProject(url))
     },
     "projects.get": {
       scopes: [],
       request(input) {
         const { projectId } = validateSchemaPayload({ schema: projectSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `${projectsUrl}/${projectId}` };
-      }
+      },
+      validateResult: v4Result(({ data }, url) => validProject(data) && data.project_id === requestedProject(url))
     }
   },
+  // V3 reports need their own key and CSV/JSON decoding; V4 maps Semrush's error envelope. Operations validate results.
   async exchange(address, options, { request, fetchImpl, settings, resolveReference }) {
     const path = new URL(address).pathname;
     if (path === "/" || path.startsWith("/management/v1/projects/") || path.startsWith("/reports/v1/projects/")) {
@@ -238,28 +295,9 @@ const semrushProvider = Object.freeze({
       }
       if (text.length > 2_000_000) throw new ConnectorError("connector_response_invalid", "Semrush returned an oversized V3 report.", { statusCode: 502 });
       if (path !== "/") {
-        let result;
-        try { result = JSON.parse(text); } catch {
+        try { return JSON.parse(text); } catch {
           throw new ConnectorError("connector_response_invalid", "Semrush returned invalid tracking JSON.", { statusCode: 502 });
         }
-        let valid = result && typeof result === "object" && !Array.isArray(result) && result.error === undefined;
-        if (path.endsWith("/campaigns")) {
-          valid &&= String(result.project_id) === path.split("/")[4] && Array.isArray(result.campaigns) &&
-            result.campaigns.every((campaign) => typeof campaign?.id === "string" && /^\d+(?:_\d+)?$/u.test(campaign.id) &&
-              typeof campaign.url === "string" && typeof campaign.device === "string" && typeof campaign.isGathering === "boolean");
-        } else {
-          valid &&= result.data !== null && typeof result.data === "object" &&
-            /^(0|[1-9]\d*)$/u.test(String(result.total));
-          if (url.searchParams.get("type") === "tracking_campaign_dates") {
-            valid &&= Object.values(result.data).every((entry) => /^\d{8}$/u.test(String(entry?.Dt)));
-          } else {
-            valid &&= String(result.limit) === url.searchParams.get("display_limit") && String(result.offset) === url.searchParams.get("display_offset") &&
-              Object.values(result.data).length <= Number(url.searchParams.get("display_limit")) &&
-              Object.values(result.data).every((entry) => typeof entry?.Ph === "string" && typeof entry.Pi === "string" && entry.Dt !== null && typeof entry.Dt === "object");
-          }
-        }
-        if (!valid) throw new ConnectorError("connector_response_invalid", "Semrush returned unexpected tracking data.", { statusCode: 502 });
-        return result;
       }
       const columns = url.searchParams.get("type") === "domain_rank" ? domainColumns : keywordColumns;
       const rowLimit = columns === domainColumns ? 1 : Number(url.searchParams.get("display_limit")) - Number(url.searchParams.get("display_offset"));
@@ -295,63 +333,6 @@ const semrushProvider = Object.freeze({
         throw new ConnectorError("connector_resource_not_found", "The Semrush project was not found or is not accessible.", { statusCode: 404 });
       }
       throw new ConnectorError("connector_provider_failed", "Semrush could not complete this request.", { statusCode: 502 });
-    }
-    const url = new URL(address);
-    const meta = result?.meta;
-    const creating = options.method === "POST" && url.pathname === "/apis/v4/projects/v1/projects";
-    let valid = meta?.success === true && meta.status_code === (creating ? 201 : 200) &&
-      typeof meta.request_id === "string" && meta.request_id.length > 0 && result.error === undefined;
-    if (url.pathname === "/apis/v4/keywords/v1/metrics") {
-      const data = result?.data;
-      valid &&= meta.keyword === url.searchParams.get("keyword") && meta.country === url.searchParams.get("country") &&
-        typeof meta.month === "string" && /^\d{4}-(0[1-9]|1[0-2])$/u.test(meta.month) &&
-        (!url.searchParams.has("month") || meta.month === url.searchParams.get("month")) &&
-        data !== null && typeof data === "object" && !Array.isArray(data) &&
-        ["cpc", "number_of_results", "search_volume"].every((key) => typeof data[key] === "string" && /^\d+$/u.test(data[key])) &&
-        ["competitive_density", "keyword_difficulty"].every((key) => Number.isFinite(data[key])) &&
-        ["intents", "serp_features"].every((key) => Array.isArray(data[key]) && data[key].every((value) => typeof value === "string")) &&
-        Array.isArray(data.trends) && data.trends.every(Number.isFinite);
-    } else if (url.pathname.startsWith("/apis/v4/backlinks/v1/")) {
-      const report = url.pathname.split("/").at(-1);
-      const count = (value) => Number.isSafeInteger(value) && value >= 0;
-      if (report === "overview") {
-        valid &&= ["backlinks_count", "domains_count", "urls_count", "score"].every((field) => count(result.data?.[field]));
-      } else {
-        valid &&= Array.isArray(result.data) && result.data.length <= Number(url.searchParams.get("limit")) &&
-          result.data.every((row) => {
-            if (!row || typeof row !== "object" || Array.isArray(row)) return false;
-            if (report === "links") return typeof row.source_url === "string" && typeof row.target_url === "string" &&
-              typeof row.anchor === "string" && typeof row.is_nofollow === "boolean";
-            if (report === "ref-domains") return typeof row.domain === "string" && count(row.backlinks_count) && count(row.domain_score);
-            return typeof row.anchor === "string" && count(row.backlinks_count) && count(row.domains_count);
-          });
-        // Some report envelopes omit pagination metadata; validate it when supplied.
-        for (const field of ["limit", "offset"]) {
-          if (meta?.[field] !== undefined) valid &&= String(meta[field]) === url.searchParams.get(field);
-        }
-        if (meta?.total !== undefined) valid &&= count(meta.total);
-      }
-      if (meta?.scope !== undefined) valid &&= meta.scope === url.searchParams.get("scope");
-    } else if (creating) {
-      const submitted = options.body;
-      valid &&= validProject(result.data) && result.data.project_name === submitted.project_name &&
-        result.data.domain.toLowerCase() === submitted.domain.toLowerCase();
-    } else if (url.pathname === "/apis/v4/projects/v1/projects") {
-      const limit = Number(url.searchParams.get("limit"));
-      valid &&= meta.scope === url.searchParams.get("scope") && meta.limit === limit &&
-        meta.offset === Number(url.searchParams.get("offset")) &&
-        Number.isSafeInteger(meta.total_count) && meta.total_count >= 0 &&
-        Array.isArray(result.data) && result.data.length <= limit && result.data.length <= meta.total_count &&
-        result.data.every(validProject);
-    } else if (options.method === "DELETE") {
-      valid &&= Number.isSafeInteger(result.data?.project_id) &&
-        result.data.project_id === Number(url.pathname.split("/").at(-1));
-    } else {
-      valid &&= validProject(result.data) && result.data.project_id === Number(url.pathname.split("/").at(-1));
-      if (options.method === "PATCH") valid &&= result.data.project_name === options.body.project_name;
-    }
-    if (!valid) {
-      throw new ConnectorError("connector_response_invalid", "Semrush returned unexpected report or project data.", { statusCode: 502 });
     }
     return result;
   }

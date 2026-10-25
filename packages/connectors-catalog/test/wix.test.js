@@ -383,6 +383,8 @@ test("Wix class availability uses event APIs and explicit party-size filtering",
   assert.deepEqual(JSON.parse(requests.at(-1).init.body), { ...rest, serviceIds: [serviceId], includeNonBookable: false, cursorPaging: { limit: 100 } });
   await service.invoke({ ...input, operation: "classAvailability.list", input: { cursor: "next" } });
   assert.deepEqual(JSON.parse(requests.at(-1).init.body), { cursorPaging: { limit: 100, cursor: "next" } });
+  state.response = { timeSlots: [{ ...slot, serviceId: siteId }], timeZone: args.timeZone };
+  await assert.rejects(service.invoke({ ...input, operation: "classAvailability.list", input: args }), { code: "connector_response_invalid", message: "Wix returned a class slot for a different service." });
   state.response = { timeSlot: slot, timeZone: args.timeZone };
   await service.invoke({ ...input, operation: "classAvailability.get", input: { eventId: siteId, timeZone: args.timeZone } });
   assert.equal(requests.at(-1).init.method, "GET");

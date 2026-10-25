@@ -13,6 +13,12 @@ function serializeNativeJson(value) {
 }
 
 const guid = (value) => typeof value === "string" && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu.test(value);
+// Results are checked against the operation's own request; a different record is reported with what Wix got wrong.
+const requestPath = (request, index) => decodeURIComponent(new URL(request.url).pathname.split("/").at(index));
+function sameRecord(matches, message) {
+  if (!matches) throw new ConnectorError("connector_response_invalid", message, { statusCode: 502 });
+  return true;
+}
 const cursor = (value) => typeof value === "string" && value.length > 0 && value.length <= 16000 && !/[\p{Cc}]/u.test(value);
 const querySchema = createSchema({
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
@@ -77,7 +83,8 @@ function contactOperation(action) {
         url: `https://www.wixapis.com/contacts/v4/contacts${contactId ? `/${contactId}` : ""}`,
         ...(action === "get" ? {} : { body }) };
     },
-    validateResult: value => validContact(value?.contact)
+    validateResult: (value, request) => validContact(value?.contact) && (action === "create" ||
+      sameRecord(value.contact.id === requestPath(request, -1), "Wix returned a different contact. Check the operation outcome before retrying."))
   };
 }
 const servicePagingSchema = createSchema({ limit: { type: "integer", min: 1, max: 100, defaultTo: 20 }, offset: { type: "integer", min: 0, max: 100000, defaultTo: 0 } });
@@ -113,6 +120,14 @@ const availabilityLocationSchema = createSchema({
   locationType: { type: "string", required: true, enum: ["BUSINESS", "CUSTOM", "CUSTOMER"] },
   name: { type: "string", maxLength: 1000 }, formattedAddress: { type: "string", maxLength: 4000 }
 });
+// Availability must answer for the requested service, local time window and time zone.
+function requestedAvailability(value, requested, events) {
+  const slots = value.timeSlots ?? [value.timeSlot];
+  sameRecord(!(requested.timeZone && value.timeZone !== requested.timeZone || slots.some(slot => requested.serviceId && slot.serviceId !== requested.serviceId ||
+    requested.localStartDate && (slot.localStartDate !== requested.localStartDate || slot.localEndDate !== requested.localEndDate))),
+  "Wix returned availability for a different service, time or time zone.");
+  return !events || !requested.serviceIds || sameRecord(slots.every(slot => requested.serviceIds.includes(slot.serviceId)), "Wix returned a class slot for a different service.");
+}
 function availabilityOperation(action, events = false) {
   const schema = createSchema({
     ...(!events ? {
@@ -160,11 +175,12 @@ function availabilityOperation(action, events = false) {
       return { method: "POST", url: `https://www.wixapis.com/_api/service-availability/v2/time-slots${events ? "/event" : action === "get" ? "/get" : ""}`,
         body: action === "get" ? body : next ? { cursorPaging: { limit, cursor: next } } : { ...(events ? { ...eventBody, serviceIds: [serviceId], includeNonBookable: false } : { ...body, bookable: true }), cursorPaging: { limit } } };
     },
-    validateResult: value => typeof value?.timeZone === "string" && (action === "get" ? validSlot(value.timeSlot) :
+    validateResult: (value, request) => typeof value?.timeZone === "string" && (action === "get" ? validSlot(value.timeSlot) :
       Array.isArray(value.timeSlots) && value.timeSlots.length <= 1000 && value.timeSlots.every(slot => validSlot(slot) && (!events || typeof slot.eventInfo?.eventId === "string" && slot.eventInfo.eventId.length >= 36 && slot.eventInfo.eventId.length <= 250)) &&
       (value[events ? "pagingMetadata" : "cursorPagingMetadata"] === undefined || value[events ? "pagingMetadata" : "cursorPagingMetadata"] && typeof value[events ? "pagingMetadata" : "cursorPagingMetadata"] === "object" && !Array.isArray(value[events ? "pagingMetadata" : "cursorPagingMetadata"]) &&
         (value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors === undefined || value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors && typeof value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors === "object" && !Array.isArray(value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors) &&
-          ["next", "prev"].every(key => value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors[key] === undefined || cursor(value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors[key])))))
+          ["next", "prev"].every(key => value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors[key] === undefined || cursor(value[events ? "pagingMetadata" : "cursorPagingMetadata"].cursors[key]))))) &&
+      requestedAvailability(value, request.body, events)
   };
 }
 const eventSlotSchema = createSchema({
@@ -192,7 +208,7 @@ function productReadOperation(version, action) {
       return { method: "POST", url: `${base}/query`,
         body: version === 1 ? { query: { paging }, includeVariants } : { query: { cursorPaging: paging } } };
     },
-    validateResult: value => action === "get" ? validProduct(value?.product) : Array.isArray(value?.products) && value.products.length <= 100 && value.products.every(validProduct) &&
+    validateResult: (value, request) => action === "get" ? validProduct(value?.product) && sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.") : Array.isArray(value?.products) && value.products.length <= 100 && value.products.every(validProduct) &&
       (version === 1 ? (value.totalResults === undefined || Number.isSafeInteger(value.totalResults) && value.totalResults >= 0) &&
         (value.metadata === undefined || value.metadata && typeof value.metadata === "object" && !Array.isArray(value.metadata) &&
           ["items", "offset"].every(key => value.metadata[key] === undefined || Number.isSafeInteger(value.metadata[key]) && value.metadata[key] >= 0)) :
@@ -314,7 +330,8 @@ function locationWriteOperation(action) {
       return { method: action === "create" ? "POST" : "PUT", url: `https://www.wixapis.com/locations/v1/locations${locationId ? `/${locationId}` : ""}`,
         body: { location: { ...(locationId ? { id: locationId } : {}), ...location } } };
     },
-    validateResult: value => validLocation(value?.location) && typeof value.location.revision === "string" && /^\d{1,19}$/u.test(value.location.revision)
+    validateResult: (value, request) => validLocation(value?.location) && typeof value.location.revision === "string" && /^\d{1,19}$/u.test(value.location.revision) &&
+      (action === "create" || sameRecord(value.location.id === requestPath(request, -1), "Wix returned a different business location."))
   };
 }
 function locationActionOperation(action) {
@@ -326,7 +343,8 @@ function locationActionOperation(action) {
       return { method: "POST", url: `https://www.wixapis.com/locations/v1/locations/${locationId}/${action}`,
         body: {} };
     },
-    validateResult: value => validLocation(value?.location) && (action === "archive" ? value.location.archived === true : value.location.default === true)
+    validateResult: (value, request) => validLocation(value?.location) && sameRecord(value.location.id === requestPath(request, -2), "Wix returned a different business location.") &&
+      (action === "archive" ? value.location.archived === true : value.location.default === true)
   };
 }
 const locationQuerySchema = createSchema({
@@ -454,7 +472,9 @@ function bookingConfirmationOperation(action) {
         `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/${action}`,
         body: automatic ? { paymentStatus } : { revision, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
     },
-    validateResult: value => guid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
+    validateResult: (value, request) => guid(value?.booking?.id) &&
+      sameRecord(value.booking.id === (automatic ? requestPath(request, -1).split(":")[0] : requestPath(request, -2)), "Wix returned a different booking. Check the operation outcome before retrying.") &&
+      typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && (automatic ? ["CONFIRMED", "PENDING", "DECLINED"].includes(value.booking.status) : value.booking.status === (action === "confirm" ? "CONFIRMED" : "DECLINED"))
   };
 }
@@ -493,93 +513,25 @@ function fulfillmentWriteOperation(update) {
         : `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}/create-fulfillment`,
         body: { fulfillment } };
     },
-    validateResult: value => typeof value?.orderWithFulfillments?.orderId === "string" && Array.isArray(value.orderWithFulfillments.fulfillments) &&
+    validateResult: (value, request) => typeof value?.orderWithFulfillments?.orderId === "string" &&
+      sameRecord(value.orderWithFulfillments.orderId === requestPath(request, update ? -1 : -2), "Wix returned fulfillments for a different order.") &&
+      Array.isArray(value.orderWithFulfillments.fulfillments) &&
       value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
         item.lineItems.every(line => guid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000)) &&
-      (update || guid(value.fulfillmentId) && value.orderWithFulfillments.fulfillments.some(item => item.id === value.fulfillmentId))
+      (update ? sameRecord(value.orderWithFulfillments.fulfillments.some(item => item.id === requestPath(request, -3)),
+        "Wix did not return the updated fulfillment. Inspect the order before retrying.") :
+        guid(value.fulfillmentId) && value.orderWithFulfillments.fulfillments.some(item => item.id === value.fulfillmentId))
   };
 }
 const wixRuntime = {
   ...wixDefinition, apiOrigins: ["https://www.wixapis.com"],
   apiKey: { headers: (key, settings) => ({ Authorization: key, "wix-account-id": settings.accountId }) },
   checkOperation: "sites.list",
+  // Site-scoped calls authenticate by site, so the account header is dropped when a site is addressed.
   async exchange(address, options, { request }) {
     const headers = { ...options.headers };
     if (headers["wix-site-id"]) delete headers["wix-account-id"];
-    const result = await request(address, { ...options, headers });
-    const contactMatch = /\/contacts\/v4\/contacts\/([a-f0-9-]{36})$/iu.exec(new URL(address).pathname);
-    if (contactMatch && result?.contact?.id !== contactMatch[1]) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different contact. Check the operation outcome before retrying.", { statusCode: 502 });
-    }
-    const serviceMatch = /\/_api\/bookings\/v2\/services\/([a-f0-9-]{36})(?:\/locations)?$/iu.exec(new URL(address).pathname);
-    if (serviceMatch && result?.service?.id !== serviceMatch[1]) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different booking service. Check the outcome before retrying.", { statusCode: 502 });
-    }
-    const bookingMatch = /\/_api\/bookings-service\/v2\/bookings\/([a-f0-9-]{36})\/(?:cancel|confirm|decline|reschedule)$/iu.exec(new URL(address).pathname) ??
-      /^\/bookings\/v2\/confirmation\/([a-f0-9-]{36}):confirmOrDecline$/iu.exec(new URL(address).pathname);
-    const variantsMatch = /^\/bookings\/v1\/serviceOptionsAndVariants\/service_id\/([a-f0-9-]{36})$/iu.exec(new URL(address).pathname);
-    if (variantsMatch && result?.serviceVariants?.serviceId !== variantsMatch[1]) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned variants for a different service.", { statusCode: 502 });
-    }
-    if (bookingMatch && result?.booking?.id !== bookingMatch[1]) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different booking. Check the operation outcome before retrying.", { statusCode: 502 });
-    }
-    if (new URL(address).pathname === "/_api/bookings-reader/v2/extended-bookings/query") {
-      const id = options.body?.query?.filter?.id;
-      if (id && Array.isArray(result?.extendedBookings) && (result.extendedBookings.length > 1 || result.extendedBookings.some(value => value?.booking?.id !== id))) {
-        throw new ConnectorError("connector_response_invalid", "Wix returned an unexpected booking for the requested ID.", { statusCode: 502 });
-      }
-    }
-    if (new URL(address).pathname.startsWith("/_api/service-availability/v2/time-slots")) {
-      const requested = options.body;
-      const slots = result?.timeSlots ?? (result?.timeSlot ? [result.timeSlot] : []);
-      if (Array.isArray(slots) && (requested?.timeZone && result?.timeZone !== requested.timeZone || slots.some(slot =>
-        requested?.serviceId && slot?.serviceId !== requested.serviceId || requested?.localStartDate && (slot?.localStartDate !== requested.localStartDate || slot?.localEndDate !== requested.localEndDate)))) {
-        throw new ConnectorError("connector_response_invalid", "Wix returned availability for a different service, time or time zone.", { statusCode: 502 });
-      }
-    }
-    const formMatch = /\/form-schema-service\/v4\/forms\/([a-f0-9-]{36})\/summary$/iu.exec(new URL(address).pathname);
-    if (formMatch && result?.formSummary?.id !== formMatch[1]) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different form summary.", { statusCode: 502 });
-    }
-    const eventMatch = /\/_api\/service-availability\/v2\/time-slots\/event\/(.+)$/u.exec(new URL(address).pathname);
-    if (eventMatch && (result?.timeSlot?.eventInfo?.eventId !== decodeURIComponent(eventMatch[1]) || result?.timeZone !== new URL(address).searchParams.get("timeZone"))) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different event slot or time zone.", { statusCode: 502 });
-    }
-    if (new URL(address).pathname === "/_api/service-availability/v2/time-slots/event" && options.body?.serviceIds && Array.isArray(result?.timeSlots) &&
-        result.timeSlots.some(slot => !options.body.serviceIds.includes(slot?.serviceId))) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a class slot for a different service.", { statusCode: 502 });
-    }
-    const orderMatch = /\/ecom\/v1\/orders\/([^/]+)$/u.exec(new URL(address).pathname);
-    if (options.method === "GET" && orderMatch && result?.order?.id !== decodeURIComponent(orderMatch[1])) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different order.", { statusCode: 502 });
-    }
-    const fulfillmentOrderMatch = /\/ecom\/v1\/fulfillments(?:\/[a-f0-9-]{36})?\/orders\/([^/]+)(?:\/create-fulfillment)?$/iu.exec(new URL(address).pathname);
-    if (fulfillmentOrderMatch && result?.orderWithFulfillments?.orderId !== decodeURIComponent(fulfillmentOrderMatch[1])) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned fulfillments for a different order.", { statusCode: 502 });
-    }
-    const updatedFulfillmentMatch = /^\/ecom\/v1\/fulfillments\/([a-f0-9-]{36})\/orders\//iu.exec(new URL(address).pathname);
-    if (options.method === "PATCH" && updatedFulfillmentMatch &&
-        (!Array.isArray(result?.orderWithFulfillments?.fulfillments) || !result.orderWithFulfillments.fulfillments.some(item => item?.id === updatedFulfillmentMatch[1]))) {
-      throw new ConnectorError("connector_response_invalid", "Wix did not return the updated fulfillment. Inspect the order before retrying.", { statusCode: 502 });
-    }
-    const productMatch = /\/(?:stores-reader\/v1|stores\/v1|stores\/v3)\/products\/([a-f0-9-]{36})$/iu.exec(new URL(address).pathname);
-    if (productMatch && result?.product?.id !== productMatch[1]) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different product.", { statusCode: 502 });
-    }
-    const locationMatch = /\/locations\/v1\/locations\/([a-f0-9-]{36})(?:\/(?:archive|set-default))?$/iu.exec(new URL(address).pathname);
-    if (locationMatch && result?.location?.id !== locationMatch[1]) throw new ConnectorError("connector_response_invalid", "Wix returned a different business location.", { statusCode: 502 });
-    const collectionMatch = /^\/wix-data\/v2\/collections\/(.+)$/u.exec(new URL(address).pathname);
-    if (collectionMatch && result?.collection?.id !== decodeURIComponent(collectionMatch[1])) throw new ConnectorError("connector_response_invalid", "Wix returned a different CMS collection.", { statusCode: 502 });
-    if (new URL(address).pathname === "/wix-data/v2/items/query" && Array.isArray(result?.dataItems) &&
-        result.dataItems.some(item => item?.dataCollectionId !== options.body.dataCollectionId)) throw new ConnectorError("connector_response_invalid", "Wix returned items from a different CMS collection.", { statusCode: 502 });
-    const itemMatch = /^\/wix-data\/v2\/items\/([^/]+)$/u.exec(new URL(address).pathname);
-    if (itemMatch && ["GET", "PATCH"].includes(options.method) &&
-        (result?.dataItem?.id !== decodeURIComponent(itemMatch[1]) || result?.dataItem?.dataCollectionId !==
-          (options.method === "GET" ? new URL(address).searchParams.get("dataCollectionId") : options.body.dataCollectionId))) {
-      throw new ConnectorError("connector_response_invalid", "Wix returned a different CMS item or collection. Check write outcomes before retrying.", { statusCode: 502 });
-    }
-    return result;
+    return request(address, { ...options, headers });
   },
   operations: {
     "carts.create": {
@@ -622,7 +574,7 @@ const wixRuntime = {
         return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/reschedule`,
           body: { revision, slot, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
       },
-      validateResult: value => guid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
+      validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.") && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
         BigInt(value.booking.revision) <= 9223372036854775807n && typeof value.booking.status === "string" && value.booking.status.length > 0
     },
     "bookings.confirm": bookingConfirmationOperation("confirm"),
@@ -646,9 +598,9 @@ const wixRuntime = {
         const { serviceId } = validateSchemaPayload({ schema: serviceIdSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/bookings/v1/serviceOptionsAndVariants/service_id/${serviceId}` };
       },
-      validateResult(value) {
+      validateResult(value, request) {
         const variants = value?.serviceVariants;
-        return guid(variants?.id) && guid(variants.serviceId) &&
+        return guid(variants?.id) && guid(variants.serviceId) && sameRecord(variants.serviceId === requestPath(request, -1), "Wix returned variants for a different service.") &&
           Array.isArray(variants.options?.values) && variants.options.values.every(option => guid(option?.id) && typeof option.type === "string") &&
           Array.isArray(variants.variants?.values) && variants.variants.values.every(variant =>
             Array.isArray(variant?.choices) && variant.choices.every(choice => guid(choice?.optionId)));
@@ -674,7 +626,7 @@ const wixRuntime = {
           participantNotification: { notifyParticipants, ...(notificationMessage !== undefined ? { message: notificationMessage } : {}) }
         } };
       },
-      validateResult: value => validService(value?.service)
+      validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -2), "Wix returned a different booking service. Check the outcome before retrying.")
     },
     "bookingServices.create": {
       scopes: [],
@@ -715,7 +667,8 @@ const wixRuntime = {
         url.searchParams.set("dataCollectionId", dataCollectionId); url.searchParams.set("consistentRead", String(consistentRead));
         return { method: "GET", url: url.href };
       },
-      validateResult: value => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data)
+      validateResult: (value, request) => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data) &&
+        sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === new URL(request.url).searchParams.get("dataCollectionId"), "Wix returned a different CMS item or collection. Check write outcomes before retrying.")
     },
     "cmsItems.patch": {
       scopes: [],
@@ -724,7 +677,8 @@ const wixRuntime = {
         return { method: "PATCH", url: `https://www.wixapis.com/wix-data/v2/items/${encodeURIComponent(itemId)}`,
           body: { dataCollectionId, patch: { dataItemId: itemId, fieldModifications }, ...(conditionFilter !== undefined ? { condition: { filter: conditionFilter } } : {}) } };
       },
-      validateResult: value => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data)
+      validateResult: (value, request) => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data) &&
+        sameRecord(value.dataItem.id === requestPath(request, -1) && value.dataItem.dataCollectionId === request.body.dataCollectionId, "Wix returned a different CMS item or collection. Check write outcomes before retrying.")
     },
     "cmsItems.list": {
       scopes: [],
@@ -735,9 +689,10 @@ const wixRuntime = {
             ...(returnTotalCount !== undefined ? { returnTotalCount } : {}), ...(includeReferences !== undefined ? { includeReferences } : {}),
             query: { paging, ...(filter !== undefined ? { filter } : {}), ...(sort !== undefined ? { sort } : {}), ...(fields !== undefined ? { fields } : {}) } } };
       },
-      validateResult: value => Array.isArray(value?.dataItems) && value.dataItems.length <= 100 && value.dataItems.every(item =>
+      validateResult: (value, request) => Array.isArray(value?.dataItems) && value.dataItems.length <= 100 && value.dataItems.every(item =>
         typeof item?.id === "string" && item.id.length > 0 && collectionId(item.dataCollectionId) && item.data && typeof item.data === "object" && !Array.isArray(item.data)) &&
-        (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata))
+        (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata)) &&
+        sameRecord(value.dataItems.every(item => item.dataCollectionId === request.body.dataCollectionId), "Wix returned items from a different CMS collection.")
     },
     "cmsCollections.list": {
       scopes: [],
@@ -758,7 +713,8 @@ const wixRuntime = {
         const id = value.collectionId.split("/").map(encodeURIComponent).join("/");
         return { method: "GET", url: `https://www.wixapis.com/wix-data/v2/collections/${id}?consistentRead=${value.consistentRead}` };
       },
-      validateResult: value => validCollection(value?.collection)
+      validateResult: (value, request) => validCollection(value?.collection) &&
+        sameRecord(value.collection.id === new URL(request.url).pathname.split("/").slice(4).map(decodeURIComponent).join("/"), "Wix returned a different CMS collection.")
     },
     "locations.archive": locationActionOperation("archive"),
     "locations.setDefault": locationActionOperation("set-default"),
@@ -781,7 +737,7 @@ const wixRuntime = {
         const { locationId } = validateSchemaPayload({ schema: locationGetSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/locations/v1/locations/${locationId}` };
       },
-      validateResult: value => validLocation(value?.location)
+      validateResult: (value, request) => validLocation(value?.location) && sameRecord(value.location.id === requestPath(request, -1), "Wix returned a different business location.")
     },
     "productsV1.list": productReadOperation(1, "list"),
     "productsV1.get": productReadOperation(1, "get"),
@@ -793,7 +749,8 @@ const wixRuntime = {
         return { method: "PATCH", url: `https://www.wixapis.com/stores/v1/products/${productId}`,
           body: { product: { ...changes, ...(price === undefined ? {} : { priceData: { price } }) } } };
       },
-      validateResult: value => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0
+      validateResult: (value, request) => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
+        sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.")
     },
     "productsV3.list": productReadOperation(3, "list"),
     "productsV3.get": productReadOperation(3, "get"),
@@ -805,7 +762,8 @@ const wixRuntime = {
         return { method: "PATCH", url: `https://www.wixapis.com/stores/v3/products/${productId}`,
           body: { product: { id: productId, revision, ...changes } } };
       },
-      validateResult: value => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
+      validateResult: (value, request) => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
+        sameRecord(value.product.id === requestPath(request, -1), "Wix returned a different product.") &&
         typeof value.product.revision === "string" && /^\d{1,19}$/u.test(value.product.revision) && BigInt(value.product.revision) <= 9223372036854775807n
     },
     "catalog.version": {
@@ -836,7 +794,7 @@ const wixRuntime = {
       request(input, settings) {
         const { orderId } = validateSchemaPayload({ schema: orderIdSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/ecom/v1/orders/${encodeURIComponent(orderId)}` };
-      }, validateResult: value => validOrder(value?.order)
+      }, validateResult: (value, request) => validOrder(value?.order) && sameRecord(value.order.id === requestPath(request, -1), "Wix returned a different order.")
     },
     "orderFulfillments.create": fulfillmentWriteOperation(false),
     "orderFulfillments.update": fulfillmentWriteOperation(true),
@@ -846,7 +804,9 @@ const wixRuntime = {
         const { orderId } = validateSchemaPayload({ schema: orderIdSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}` };
       },
-      validateResult: value => guid(value?.orderWithFulfillments?.orderId) && Array.isArray(value.orderWithFulfillments.fulfillments) &&
+      validateResult: (value, request) => guid(value?.orderWithFulfillments?.orderId) &&
+        sameRecord(value.orderWithFulfillments.orderId === requestPath(request, -1), "Wix returned fulfillments for a different order.") &&
+        Array.isArray(value.orderWithFulfillments.fulfillments) &&
         value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
           item.lineItems.every(line => guid(line?.id) && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 100000))
     },
@@ -858,7 +818,8 @@ const wixRuntime = {
         const url = new URL(`https://www.wixapis.com/_api/service-availability/v2/time-slots/event/${encodeURIComponent(eventId)}`);
         url.searchParams.set("timeZone", timeZone);
         return { method: "GET", url: url.href };
-      }, validateResult: value => validSlot(value?.timeSlot) && typeof value.timeSlot.eventInfo?.eventId === "string" && typeof value.timeZone === "string"
+      }, validateResult: (value, request) => validSlot(value?.timeSlot) && typeof value.timeSlot.eventInfo?.eventId === "string" && typeof value.timeZone === "string" &&
+        sameRecord(value.timeSlot.eventInfo.eventId === requestPath(request, -1) && value.timeZone === new URL(request.url).searchParams.get("timeZone"), "Wix returned a different event slot or time zone.")
     },
     "forms.summary": {
       scopes: [],
@@ -866,7 +827,8 @@ const wixRuntime = {
         const { formId } = validateSchemaPayload({ schema: formSummarySchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/form-schema-service/v4/forms/${formId}/summary` };
       },
-      validateResult: value => guid(value?.formSummary?.id) && Array.isArray(value.formSummary.fields) && value.formSummary.fields.length <= 500 &&
+      validateResult: (value, request) => guid(value?.formSummary?.id) && sameRecord(value.formSummary.id === requestPath(request, -2), "Wix returned a different form summary.") &&
+        Array.isArray(value.formSummary.fields) && value.formSummary.fields.length <= 500 &&
         value.formSummary.fields.every(field => guid(field?.id) && typeof field.target === "string" && field.target.length > 0 && field.target.length <= 200 &&
           typeof field.type === "string" && field.type.length > 0 && (field.label === undefined || typeof field.label === "string" && field.label.length <= 350) &&
           (field.deleted === undefined || typeof field.deleted === "boolean") && (field.options === undefined || Array.isArray(field.options) && field.options.length <= 400))
@@ -907,14 +869,16 @@ const wixRuntime = {
         return { method: "POST", url: "https://www.wixapis.com/_api/bookings-reader/v2/extended-bookings/query",
           body: { query: { paging, ...(bookingId ? { filter: { id: bookingId } } : {}) }, withBookingAllowedActions: true } };
       },
-      validateResult: value => Array.isArray(value?.extendedBookings) && value.extendedBookings.length <= 100 && value.extendedBookings.every(record =>
+      validateResult: (value, request) => Array.isArray(value?.extendedBookings) && value.extendedBookings.length <= 100 && value.extendedBookings.every(record =>
         guid(record?.booking?.id) && typeof record.booking.revision === "string" && /^\d{1,19}$/u.test(record.booking.revision) && BigInt(record.booking.revision) <= 9223372036854775807n &&
         typeof record.booking.status === "string" && record.booking.status.length > 0 &&
         (record.allowedActions === undefined || record.allowedActions && typeof record.allowedActions === "object" && !Array.isArray(record.allowedActions) &&
           ["cancel", "reschedule"].every(key => record.allowedActions[key] === undefined || typeof record.allowedActions[key] === "boolean"))) &&
         (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
           ["count", "offset", "total"].every(key => value.pagingMetadata[key] === undefined || Number.isSafeInteger(value.pagingMetadata[key]) && value.pagingMetadata[key] >= 0) &&
-          (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.extendedBookings.length))
+          (value.pagingMetadata.count === undefined || value.pagingMetadata.count === value.extendedBookings.length)) &&
+        (!request.body.query.filter?.id || sameRecord(value.extendedBookings.length <= 1 && value.extendedBookings.every(record => record.booking.id === request.body.query.filter.id),
+          "Wix returned an unexpected booking for the requested ID."))
     },
     "bookings.cancel": {
       scopes: [],
@@ -925,7 +889,7 @@ const wixRuntime = {
           body: { revision, waiveCharges,
             participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
       },
-      validateResult: value => guid(value?.booking?.id) && value.booking.status === "CANCELED" &&
+      validateResult: (value, request) => guid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.") && value.booking.status === "CANCELED" &&
         typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) && BigInt(value.booking.revision) <= 9223372036854775807n
     },
     "bookingServices.list": {
@@ -944,7 +908,7 @@ const wixRuntime = {
       request(input, settings) {
         const { serviceId } = validateSchemaPayload({ schema: serviceIdSchema, mode: "replace" }, input, { statusCode: 422 });
         return { method: "GET", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}` };
-      }, validateResult: value => validService(value?.service)
+      }, validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -1), "Wix returned a different booking service. Check the outcome before retrying.")
     },
     "bookingServices.update": {
       scopes: [],
@@ -956,7 +920,7 @@ const wixRuntime = {
           throw new ConnectorError("connector_input_invalid", "Provide the selected service settings instead of an empty object.", { statusCode: 422 });
         }
         return { method: "PATCH", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}`, body: { service: { id: serviceId, ...service } } };
-      }, validateResult: value => validService(value?.service)
+      }, validateResult: (value, request) => validService(value?.service) && sameRecord(value.service.id === requestPath(request, -1), "Wix returned a different booking service. Check the outcome before retrying.")
     },
     "contacts.get": contactOperation("get"),
     "contacts.create": contactOperation("create"),

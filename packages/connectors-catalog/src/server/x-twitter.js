@@ -21,6 +21,20 @@ const searchSchema = createSchema({
   nextToken: { type: "string", noTrim: true, validator: (value) => validCursor(value) || "Use the returned next token." }
 });
 
+const validEnvelope = (value) => value && typeof value === "object" && !Array.isArray(value) && (value.errors === undefined || Array.isArray(value.errors));
+// The profile must be the username the request asked for.
+const validUser = (value, request) => validEnvelope(value) && validId(value.data?.id) && validUsername(value.data?.username) &&
+  typeof value.data.name === "string" && value.data.username.toLowerCase() === new URL(request.url).pathname.split("/").at(-1).toLowerCase();
+// A post page holds at most the requested max_results posts, with consistent counts and cursors.
+function validPostPage(value, request) {
+  const count = value?.meta?.result_count;
+  return Boolean(validEnvelope(value) && Number.isSafeInteger(count) && count >= 0 && count <= Number(new URL(request.url).searchParams.get("max_results")) &&
+    (value.data === undefined ? count === 0 : Array.isArray(value.data) && value.data.length === count &&
+      value.data.every((post) => validId(post?.id) && typeof post.text === "string")) &&
+    ["next_token", "previous_token"].every((field) => value.meta[field] === undefined || validCursor(value.meta[field])) &&
+    ["newest_id", "oldest_id"].every((field) => value.meta[field] === undefined || validId(value.meta[field])));
+}
+
 const xTwitterProvider = Object.freeze({
   ...xTwitterDefinition, apiOrigins: ["https://api.x.com"],
   apiKey: { headers: (key) => {
@@ -44,7 +58,8 @@ const xTwitterProvider = Object.freeze({
         url.searchParams.set("user.fields", "name,username,profile_image_url");
         url.searchParams.set("media.fields", "type,url,preview_image_url,alt_text");
         return { method: "GET", url: url.href };
-      }
+      },
+      validateResult: validPostPage
     },
     "users.lookup": {
       scopes: [],
@@ -53,7 +68,8 @@ const xTwitterProvider = Object.freeze({
         const url = new URL(`https://api.x.com/2/users/by/username/${username}`);
         url.searchParams.set("user.fields", "description,profile_image_url,public_metrics");
         return { method: "GET", url: url.href };
-      }
+      },
+      validateResult: validUser
     },
     "users.posts": {
       scopes: [],
@@ -69,9 +85,11 @@ const xTwitterProvider = Object.freeze({
         url.searchParams.set("max_results", String(values.maxResults));
         if (values.paginationToken !== undefined) url.searchParams.set("pagination_token", values.paginationToken);
         return { method: "GET", url: url.href };
-      }
+      },
+      validateResult: validPostPage
     }
   },
+  // Maps X's HTTP and partial-error answers; each operation validates its own result.
   async exchange(address, options, { request }) {
     let result;
     try { result = await request(address, options); } catch (error) {
@@ -88,21 +106,6 @@ const xTwitterProvider = Object.freeze({
       }
       throw new ConnectorError("connector_response_incomplete", "X could not return the complete requested data.", { statusCode: 502 });
     }
-    const url = new URL(address);
-    let valid = result && typeof result === "object" && !Array.isArray(result) &&
-      (result.errors === undefined || Array.isArray(result.errors));
-    if (url.pathname.startsWith("/2/users/by/username/")) {
-      valid &&= validId(result.data?.id) && validUsername(result.data?.username) && typeof result.data.name === "string" &&
-        result.data.username.toLowerCase() === url.pathname.split("/").at(-1).toLowerCase();
-    } else {
-      const count = result?.meta?.result_count;
-      valid &&= Number.isSafeInteger(count) && count >= 0 && count <= Number(url.searchParams.get("max_results")) &&
-        (result.data === undefined ? count === 0 : Array.isArray(result.data) && result.data.length === count &&
-          result.data.every((post) => validId(post?.id) && typeof post.text === "string")) &&
-        ["next_token", "previous_token"].every((field) => result.meta[field] === undefined || validCursor(result.meta[field])) &&
-        ["newest_id", "oldest_id"].every((field) => result.meta[field] === undefined || validId(result.meta[field]));
-    }
-    if (!valid) throw new ConnectorError("connector_response_invalid", "X returned unexpected data.", { statusCode: 502 });
     return result;
   }
 });

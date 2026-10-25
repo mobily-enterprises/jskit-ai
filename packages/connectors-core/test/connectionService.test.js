@@ -79,6 +79,26 @@ test("credential-free grants require verification, authorize access and invalida
   assert.equal((await restart.status(input)).status, "disconnected");
 });
 
+test("result validation sees the request its operation built and rejects a mismatched answer", async () => {
+  const check = clickhouseProvider.operations["connection.check"];
+  const seen = [];
+  let expectedUser = "default";
+  const provider = { ...clickhouseProvider, operations: { ...clickhouseProvider.operations, "connection.check": { ...check,
+    validateResult: (value, request) => { seen.push(request); return check.validateResult(value) && value.data[0].user === expectedUser; } } } };
+  const service = createConnectionService({
+    configuration: databaseConfiguration({ method: "none" }), providers: [provider], store: memoryStore(),
+    authorize: async (context) => context, resolveReference: async () => "secret",
+    fetchImpl: async () => Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 })
+  });
+  const input = { context: owner, integrationId: "database" };
+  await service.connectWithoutCredentials(input);
+  const built = check.request({}, { httpUrl: "https://database.example:8443/" });
+  assert.equal(seen[0].url, built.url);
+  assert.equal(seen[0].method, built.method);
+  expectedUser = "someone-else";
+  await assert.rejects(service.invoke({ ...input, operation: "connection.check" }), { code: "connector_response_invalid", statusCode: 502 });
+});
+
 test("the ordinary credential-free Feature action verifies without resolving references", async () => {
   const contexts = [];
   let actions;
