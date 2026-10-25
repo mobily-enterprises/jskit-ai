@@ -8,7 +8,6 @@ import {
   apiErrorTransportSchema,
   apiValidationErrorTransportSchema,
   fastifyDefaultErrorTransportSchema,
-  enumSchema,
   createTransportResponseSchema,
   withStandardErrorResponses
 } from "../src/shared/validators/errorResponses.js";
@@ -91,16 +90,6 @@ test("withStandardErrorResponses does not override existing error schemas", () =
   );
 
   assert.equal(responses[400].transportSchema, custom400);
-});
-
-test("enumSchema creates a literal union", () => {
-  const schema = enumSchema(["one", "two", "three"]);
-
-  assert.equal(schema.anyOf.length, 3);
-  assert.deepEqual(
-    schema.anyOf.map((entry) => entry.const),
-    ["one", "two", "three"]
-  );
 });
 
 test("error response validators export transport schemas from the same contracts", () => {

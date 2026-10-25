@@ -38,8 +38,7 @@
         "runtime.config",
         "runtime.env",
         "runtime.http",
-        "runtime.http-web",
-        "runtime.http-client"
+        "runtime.http-web"
       ]
     },
     "runtime": {

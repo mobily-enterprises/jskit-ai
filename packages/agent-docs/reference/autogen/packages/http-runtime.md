@@ -29,16 +29,6 @@ Exports
 - `normalizeHeaderName`
 - `hasHeader`
 - `setHeaderIfMissing`
-- `HttpValidatorsClientProvider`
-- `HttpClientRuntimeClientProvider`
-
-### `src/client/providers/HttpClientRuntimeClientProvider.js`
-Exports
-- `HttpClientRuntimeClientProvider`
-
-### `src/client/providers/HttpValidatorsClientProvider.js`
-Exports
-- `HttpValidatorsClientProvider`
 
 ### `src/client/transientRetryHttpClient.js`
 Exports
@@ -53,14 +43,6 @@ Exports
 - `normalizeFieldErrors`
 - `resolveFieldErrors`
 - `createValidationFailure({ error = "Validation failed.", code = "validation_failed", fieldErrors = {} } = {})`
-
-### `src/server/providers/HttpClientProvider.js`
-Exports
-- `HttpClientProvider`
-
-### `src/server/providers/HttpValidatorsProvider.js`
-Exports
-- `HttpValidatorsProvider`
 
 ### `src/shared/clientRuntime/client.js`
 Exports
@@ -94,17 +76,6 @@ Exports
 - `hasHeader(headers, name)`
 - `setHeaderIfMissing(headers, name, value)`
 
-### `src/shared/clientRuntime/index.js`
-Exports
-- `createHttpClient`
-- `createHttpError`
-- `createNetworkError`
-- `DEFAULT_RETRYABLE_CSRF_ERROR_CODES`
-- `shouldRetryForCsrfFailure`
-- `normalizeHeaderName`
-- `hasHeader`
-- `setHeaderIfMissing`
-
 ### `src/shared/clientRuntime/jsonApiResourceTransport.js`
 Exports
 - `JSON_API_CONTENT_TYPE`
@@ -133,7 +104,6 @@ Local functions
 
 ### `src/shared/index.js`
 Exports
-- `createPaginationQuerySchema`
 - `fieldErrorsFieldDefinition`
 - `apiErrorDetailsSchema`
 - `apiValidationErrorDetailsSchema`
@@ -144,20 +114,8 @@ Exports
 - `fastifyDefaultErrorTransportSchema`
 - `STANDARD_ERROR_STATUS_CODES`
 - `createTransportResponseSchema`
-- `passthroughErrorResponses`
 - `withStandardErrorResponses`
-- `enumSchema`
-- `createCursorPagedListResponseSchema`
-- `createResource`
-- `createCommand`
-- `resolveSchemaMessages`
-- `resolveFieldSchema`
-- `resolveIssueField`
-- `resolveMissingRequiredFields`
-- `resolveIssueMessageFromSchema`
-- `mapOperationIssues`
 - `validateOperationSection`
-- `validateOperationInput`
 - `JSON_API_CONTENT_TYPE`
 - `createJsonApiDocument`
 - `createJsonApiErrorDocumentFromFailure`
@@ -209,10 +167,6 @@ Exports
 - `resolveRelationshipFieldKey(relationshipName = "", lookupFieldMap = null)`
 - `simplifyJsonApiResourceWithRelationshipIds(resource = {}, { lookupFieldMap = null } = {})`
 
-### `src/shared/validators/command.js`
-Exports
-- `createCommand({ input, output, idempotent = null, invalidates = [] } = {})`
-
 ### `src/shared/validators/errorResponses.js`
 Exports
 - `fieldErrorsFieldDefinition`
@@ -225,13 +179,7 @@ Exports
 - `fastifyDefaultErrorTransportSchema`
 - `STANDARD_ERROR_STATUS_CODES`
 - `createTransportResponseSchema(schema = {})`
-- `passthroughErrorResponses(successResponses)`
 - `withStandardErrorResponses(successResponses, { includeValidation400 = false } = {})`
-- `enumSchema(values)`
-
-### `src/shared/validators/httpValidatorsApi.js`
-Exports
-- `HTTP_VALIDATORS_API`
 
 ### `src/shared/validators/jsonApiQueryTransport.js`
 Exports
@@ -320,42 +268,12 @@ Local functions
 - `resolveJsonApiValidationSource(issue = {}, validationContext = "")`
 - `simplifyJsonApiResourceObject(resource = {})`
 
-### `src/shared/validators/operationMessages.js`
-Exports
-- `resolveSchemaMessages(schema = {})`
-- `resolveFieldSchema(schema = {}, field = "")`
-- `resolveIssueField(issue = {})`
-- `resolveMissingRequiredFields(issue = {})`
-- `resolveIssueMessageFromSchema(field, issue, schema = {})`
-- `mapOperationIssues(issues = [], schema = {})`
-Local functions
-- `decodePointerSegment(value = "")`
-- `resolveSchemaPathSegments(schemaPath = "")`
-- `resolveFieldFromSchemaPath(schemaPath = "")`
-- `resolveSchemaNode(schema = {}, schemaPath = "")`
-- `collectSchemaFieldCandidates(schema = {})`
-- `resolveConditionalIssueField(issue = {}, schema = {})`
-- `resolveFallbackIssueField(issue = {}, schema = {})`
-- `shouldSuppressRootUnionGlobalIssue(issue = {}, fieldErrors = {})`
-
 ### `src/shared/validators/operationValidation.js`
 Exports
-- `validateOperationSection({ operation = {}, section = "body", value, context = {} } = {})`
-- `validateOperationInput({ operation = {}, input = {}, context = {} } = {})`
+- `validateOperationSection({ operation = {}, section = "body", value } = {})`
 Local functions
 - `resolveOperationSection(operation = {}, section = "body")`
-- `buildValidationSuccessResult(value)`
 - `isFieldValidationError(error)`
-- `buildValidationFailureResult(error, normalized)`
-
-### `src/shared/validators/paginationQuery.js`
-Exports
-- `createPaginationQuerySchema({ defaultPage = 1, defaultPageSize = 10, minPage = 1, minPageSize = 1, maxPageSize = 100 } = {})`
-
-### `src/shared/validators/resource.js`
-Exports
-- `createCursorPagedListResponseSchema(itemSchema)`
-- `createResource({ record, create, replace, patch, list = null, listItem = null } = {})`
 
 ### `src/shared/validators/schemaUtils.js`
 Exports

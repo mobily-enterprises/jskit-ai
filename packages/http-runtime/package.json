@@ -11,10 +11,6 @@
     "./shared/validators/errorResponses": "./src/shared/validators/errorResponses.js",
     "./shared/validators/jsonApiResult": "./src/shared/validators/jsonApiResult.js",
     "./shared/validators/jsonApiRouteTransport": "./src/shared/validators/jsonApiRouteTransport.js",
-    "./shared/validators/paginationQuery": "./src/shared/validators/paginationQuery.js",
-    "./shared/validators/command": "./src/shared/validators/command.js",
-    "./shared/validators/resource": "./src/shared/validators/resource.js",
-    "./shared/validators/operationMessages": "./src/shared/validators/operationMessages.js",
     "./shared/validators/operationValidation": "./src/shared/validators/operationValidation.js"
   },
   "dependencies": {
@@ -23,36 +19,15 @@
   "jskit": {
     "kind": "runtime",
     "capabilities": {
-      "provides": [
-        "validators.http",
-        "runtime.http-client"
-      ],
+      "provides": [],
       "requires": []
     },
     "runtime": {
       "server": {
-        "providers": [
-          {
-            "entrypoint": "src/server/providers/HttpValidatorsProvider.js",
-            "export": "HttpValidatorsProvider"
-          },
-          {
-            "entrypoint": "src/server/providers/HttpClientProvider.js",
-            "export": "HttpClientProvider"
-          }
-        ]
+        "providers": []
       },
       "client": {
-        "providers": [
-          {
-            "entrypoint": "src/client/providers/HttpValidatorsClientProvider.js",
-            "export": "HttpValidatorsClientProvider"
-          },
-          {
-            "entrypoint": "src/client/providers/HttpClientRuntimeClientProvider.js",
-            "export": "HttpClientRuntimeClientProvider"
-          }
-        ]
+        "providers": []
       }
     },
     "metadata": {
@@ -60,11 +35,7 @@
         "surfaces": [
           {
             "subpath": "./client",
-            "summary": "Exports HTTP client runtime APIs (createHttpClient and transport helpers) plus client providers."
-          },
-          {
-            "subpath": "./server",
-            "summary": "Provides named HTTP validation and server-side HTTP client capabilities."
+            "summary": "Exports HTTP client runtime APIs (createHttpClient, createTransientRetryHttpClient and transport helpers)."
           },
           {
             "subpath": "./shared",

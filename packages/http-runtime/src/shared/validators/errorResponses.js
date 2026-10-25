@@ -114,10 +114,6 @@ const sharedErrorTransportDefinitions = {
   ...embeddedApiErrorTransportSchema.definitions
 };
 
-function passthroughErrorResponses(successResponses) {
-  return successResponses;
-}
-
 function withStandardErrorResponses(successResponses, { includeValidation400 = false } = {}) {
   const responses = {
     ...successResponses
@@ -152,12 +148,6 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
   return responses;
 }
 
-function enumSchema(values) {
-  return {
-    anyOf: values.map((value) => ({ const: value }))
-  };
-}
-
 export {
   fieldErrorsFieldDefinition,
   apiErrorDetailsSchema,
@@ -169,7 +159,5 @@ export {
   fastifyDefaultErrorTransportSchema,
   STANDARD_ERROR_STATUS_CODES,
   createTransportResponseSchema,
-  passthroughErrorResponses,
-  withStandardErrorResponses,
-  enumSchema
+  withStandardErrorResponses
 };

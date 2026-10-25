@@ -4,8 +4,6 @@ import test from "node:test";
 
 import * as clientApi from "../src/client/index.js";
 import * as sharedApi from "../src/shared/index.js";
-import { HttpValidatorsProvider } from "../src/server/providers/HttpValidatorsProvider.js";
-import { HttpClientProvider } from "../src/server/providers/HttpClientProvider.js";
 
 test("package exports include explicit shared entrypoint and no server barrel", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -14,24 +12,25 @@ test("package exports include explicit shared entrypoint and no server barrel", 
   assert.equal(exportsMap["./shared"], "./src/shared/index.js");
 });
 
-test("client entrypoint exports client runtime helpers and client providers only", () => {
-  assert.equal(typeof clientApi.createHttpClient, "function");
-  assert.equal(typeof clientApi.createTransientRetryHttpClient, "function");
-  assert.equal(clientApi.HttpValidatorsClientProvider.id, "validators.http.client");
-  assert.equal(clientApi.HttpClientRuntimeClientProvider.id, "runtime.http-client.client");
-  assert.equal(typeof clientApi.withStandardErrorResponses, "undefined");
+test("package registers no container providers; callers import its functions directly", async () => {
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.deepEqual(packageJson.jskit.capabilities.provides, []);
+  assert.deepEqual(packageJson.jskit.runtime.server.providers, []);
+  assert.deepEqual(packageJson.jskit.runtime.client.providers, []);
+  for (const surface of packageJson.jskit.metadata.apiSummary.surfaces) {
+    assert.ok(packageJson.exports[surface.subpath], `apiSummary names a real export: ${surface.subpath}`);
+  }
 });
 
-test("server provider modules export declarative providers only", () => {
-  assert.equal(HttpValidatorsProvider.id, "validators.http");
-  assert.equal(HttpClientProvider.id, "runtime.http-client");
+test("client entrypoint exports client runtime helpers only", () => {
+  assert.equal(typeof clientApi.createHttpClient, "function");
+  assert.equal(typeof clientApi.createTransientRetryHttpClient, "function");
+  assert.equal(typeof clientApi.withStandardErrorResponses, "undefined");
 });
 
 test("shared entrypoint exports shared validators only", () => {
   assert.equal(typeof sharedApi.withStandardErrorResponses, "function");
-  assert.equal(typeof sharedApi.enumSchema, "function");
-  assert.equal(typeof sharedApi.createResource, "function");
-  assert.equal(typeof sharedApi.createCommand, "function");
+  assert.equal(typeof sharedApi.validateOperationSection, "function");
   assert.equal(typeof sharedApi.createJsonApiDocument, "function");
   assert.equal(typeof sharedApi.createJsonApiErrorDocumentFromFailure, "function");
   assert.equal(typeof sharedApi.normalizeJsonApiDocument, "function");
@@ -41,5 +40,7 @@ test("shared entrypoint exports shared validators only", () => {
   assert.equal(typeof sharedApi.createJsonApiResourceRouteContract, "function");
   assert.equal(typeof sharedApi.withJsonApiErrorResponses, "function");
   assert.equal(typeof sharedApi.createHttpClient, "undefined");
-  assert.equal(typeof sharedApi.HttpValidatorsProvider, "undefined");
+  for (const removed of ["createResource", "createCommand", "createPaginationQuerySchema", "mapOperationIssues", "enumSchema", "passthroughErrorResponses"]) {
+    assert.equal(typeof sharedApi[removed], "undefined", removed);
+  }
 });
