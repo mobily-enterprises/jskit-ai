@@ -119,9 +119,7 @@ function workspaceInvitePath(inviteId) {
 }
 
 const access = useAccess({
-  scopeParamValue: workspaceSlugFromRoute,
-  enabled: hasRouteWorkspaceSlug,
-  placementSource: "workspaces-web.workspace-members-view"
+  enabled: hasRouteWorkspaceSlug
 });
 
 const matchesWorkspaceRealtime = createWorkspaceRealtimeMatcher(workspaceSlugFromRoute);
@@ -454,7 +452,7 @@ const loadError = computed(() => {
   }
 
   return (
-    access.bootstrapError.value ||
+    access.permissionsUnavailableError.value ||
     workspaceSettingsView.loadError ||
     workspaceRolesView.loadError ||
     workspaceMembersList.loadError ||
@@ -462,7 +460,7 @@ const loadError = computed(() => {
     ""
   );
 });
-const canRetryLoad = computed(() => Boolean(hasRouteWorkspaceSlug.value && !access.bootstrapError.value));
+const canRetryLoad = computed(() => Boolean(hasRouteWorkspaceSlug.value && !access.permissionsUnavailableError.value));
 const isRetryingLoad = computed(() =>
   Boolean(
     workspaceSettingsView.isFetching ||

@@ -111,7 +111,6 @@ function useList({
     ownershipFilter,
     surfaceId,
     access,
-    placementSource,
     apiSuffix,
     readEnabled,
     queryKeyFactory,

@@ -78,7 +78,6 @@ function useAddEdit({
     ownershipFilter,
     surfaceId,
     access,
-    placementSource,
     apiSuffix: effectiveApiSuffix,
     model,
     readEnabled,

@@ -191,7 +191,7 @@ Local functions
 
 ### `src/client/composables/internal/useOperationScope.js`
 Exports
-- `useOperationScope({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", placementSource = "http-web.operation", apiSuffix = "", model, readEnabled = true, queryKeyFactory = null, permissionSets = {}, realtime = null } = {})`
+- `useOperationScope({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", model, readEnabled = true, queryKeyFactory = null, permissionSets = {}, realtime = null } = {})`
 Local functions
 - `normalizePermissionSets(permissionSets = {})`
 - `hasAnyPermissions(permissionSets = {})`
@@ -417,7 +417,7 @@ Exports
 
 ### `src/client/composables/useAccess.js`
 Exports
-- `useAccess({ scopeParamValue = "", enabled = true, access = "always", hasPermissionRequirements = false } = {})`
+- `useAccess({ enabled = true, access = "always", hasPermissionRequirements = false } = {})`
 Local functions
 - `asPermissionList(value)`
 
@@ -517,7 +517,7 @@ Local functions
 
 ### `src/client/composables/useScopeRuntime.js`
 Exports
-- `useScopeRuntime({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", accessMode = "auto", hasPermissionRequirements = false, placementSource = "http-web.scope-runtime" } = {})`
+- `useScopeRuntime({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", accessMode = "auto", hasPermissionRequirements = false } = {})`
 Local functions
 - `resolveScopedRouteParamNames(placementContext = null, surfaceId = "")`
 

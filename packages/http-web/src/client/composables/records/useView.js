@@ -62,7 +62,6 @@ function useView({
     ownershipFilter,
     surfaceId,
     access,
-    placementSource,
     apiSuffix: effectiveApiSuffix,
     readEnabled,
     queryKeyFactory,

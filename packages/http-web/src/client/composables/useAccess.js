@@ -1,6 +1,6 @@
 import { computed } from "vue";
 import { hasPermission, normalizePermissionList } from "../lib/permissions.js";
-import { resolveEnabledRef, resolveTextRef } from "./support/refValueHelpers.js";
+import { resolveEnabledRef } from "./support/refValueHelpers.js";
 import {
   normalizeAccessMode,
   resolveAccessModeEnabled
@@ -19,8 +19,10 @@ function asPermissionList(value) {
   return [value];
 }
 
+// Permissions come only from the web placement context, which the shell fills
+// from its bootstrap. Until that context carries a `permissions` key, access is
+// awaiting placement permissions and reports them as unavailable.
 function useAccess({
-  scopeParamValue = "",
   enabled = true,
   access = "always",
   hasPermissionRequirements = false
@@ -30,9 +32,8 @@ function useAccess({
     hasPermissionRequirements: hasPermissionRequirements === true
   });
   const { context: placementContext } = useWebPlacementContext();
-  const normalizedScopeParamValue = computed(() => resolveTextRef(scopeParamValue));
   const queryEnabled = computed(() => resolveEnabledRef(enabled) && accessRequired);
-  const hasPlacementBootstrapPermissions = computed(() => {
+  const hasPlacementPermissions = computed(() => {
     const source = placementContext.value;
     if (!source || typeof source !== "object") {
       return false;
@@ -41,18 +42,18 @@ function useAccess({
   });
   const placementPermissions = computed(() => normalizePermissionList(placementContext.value?.permissions));
   const permissions = computed(() => {
-    if (!queryEnabled.value || !hasPlacementBootstrapPermissions.value) {
+    if (!queryEnabled.value || !hasPlacementPermissions.value) {
       return [];
     }
     return placementPermissions.value;
   });
-  const bootstrapError = computed(() => {
-    if (!queryEnabled.value || hasPlacementBootstrapPermissions.value) {
+  const permissionsUnavailableError = computed(() => {
+    if (!queryEnabled.value || hasPlacementPermissions.value) {
       return "";
     }
     return "Permissions are unavailable in placement context.";
   });
-  const isBootstrapping = computed(() => queryEnabled.value && !hasPlacementBootstrapPermissions.value);
+  const awaitingPlacementPermissions = computed(() => queryEnabled.value && !hasPlacementPermissions.value);
 
   function can(permission) {
     return hasPermission(permissions.value, permission);
@@ -88,21 +89,15 @@ function useAccess({
     return true;
   }
 
-  async function refreshBootstrap() {
-    return null;
-  }
-
   return Object.freeze({
     accessMode: normalizedAccessMode,
     accessRequired,
-    scopeParamValue: normalizedScopeParamValue,
     permissions,
-    bootstrapError,
-    isBootstrapping,
+    permissionsUnavailableError,
+    awaitingPlacementPermissions,
     can,
     canAny,
-    canAll,
-    refreshBootstrap
+    canAll
   });
 }
 

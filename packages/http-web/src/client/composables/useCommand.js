@@ -40,7 +40,6 @@ function useCommand({
     ownershipFilter,
     surfaceId,
     access,
-    placementSource,
     apiSuffix,
     model,
     readEnabled: false,

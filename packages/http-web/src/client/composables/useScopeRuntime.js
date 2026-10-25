@@ -25,8 +25,7 @@ function useScopeRuntime({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   accessMode = "auto",
-  hasPermissionRequirements = false,
-  placementSource = "http-web.scope-runtime"
+  hasPermissionRequirements = false
 } = {}) {
   const normalizedOwnershipFilter = normalizeOwnershipFilter(ownershipFilter);
   const normalizedAccessMode = ensureAccessModeCompatibility({
@@ -83,11 +82,9 @@ function useScopeRuntime({
   });
 
   const accessRuntime = useAccess({
-    scopeParamValue,
     enabled: computed(() => accessRequired && hasRequiredRouteScope.value),
     access: normalizedAccessMode,
-    hasPermissionRequirements,
-    placementSource: String(placementSource || "http-web.scope-runtime")
+    hasPermissionRequirements
   });
 
   function resolveApiPath(apiSuffix = "", context = {}) {

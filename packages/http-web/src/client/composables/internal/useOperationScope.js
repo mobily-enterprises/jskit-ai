@@ -36,7 +36,6 @@ function useOperationScope({
   ownershipFilter = ROUTE_VISIBILITY_WORKSPACE,
   surfaceId = "",
   access = "auto",
-  placementSource = "http-web.operation",
   apiSuffix = "",
   model,
   readEnabled = true,
@@ -49,8 +48,7 @@ function useOperationScope({
     ownershipFilter,
     surfaceId,
     accessMode: access,
-    hasPermissionRequirements: hasAnyPermissions(normalizedPermissionSets),
-    placementSource
+    hasPermissionRequirements: hasAnyPermissions(normalizedPermissionSets)
   });
   const normalizedOwnershipFilter = scopeRuntime.normalizedOwnershipFilter;
   const routeContext = scopeRuntime.routeContext;
@@ -106,9 +104,9 @@ function useOperationScope({
         return scopeRuntime.routeScopeError.value;
       }
 
-      const bootstrapError = String(accessRuntime.bootstrapError.value || "").trim();
-      if (bootstrapError) {
-        return bootstrapError;
+      const permissionsError = String(accessRuntime.permissionsUnavailableError.value || "").trim();
+      if (permissionsError) {
+        return permissionsError;
       }
 
       if (baseError === undefined || baseError === null || baseError === "") {
@@ -120,7 +118,7 @@ function useOperationScope({
   }
 
   function isLoading(baseLoading = false) {
-    return computed(() => Boolean(unref(baseLoading)) || accessRuntime.isBootstrapping.value);
+    return computed(() => Boolean(unref(baseLoading)) || accessRuntime.awaitingPlacementPermissions.value);
   }
 
   return Object.freeze({
