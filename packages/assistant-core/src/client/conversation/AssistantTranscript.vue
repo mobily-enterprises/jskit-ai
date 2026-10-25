@@ -1269,7 +1269,7 @@ watch(() => props.visible, (visible) => {
   flex-direction: column;
   gap: 0.28rem;
   justify-self: start;
-  max-width: min(42rem, 94%);
+  max-width: min(52rem, 94%);
   margin-right: auto;
 }
 
