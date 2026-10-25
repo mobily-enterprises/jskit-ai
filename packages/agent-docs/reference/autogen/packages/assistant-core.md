@@ -198,6 +198,7 @@ Local functions
 ### `src/client/conversation/messageDelivery.js`
 Exports
 - `createAssistantMessageDelivery({ deliver: defaultDeliver } = {})`
+- `draftWithRestoredMessage(text = "", draft = "")`
 - `unmatchedOptimisticMessages(turns = [], optimisticMessages = [], { receiptsOnly = false } = {})`
 - `retainAssistantConversation`
 Local functions

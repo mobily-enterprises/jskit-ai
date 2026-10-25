@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { nextTick, ref } from "vue";
-import { createAssistantMessageDelivery, unmatchedOptimisticMessages } from "../src/client/conversation/messageDelivery.js";
+import { createAssistantMessageDelivery, draftWithRestoredMessage, unmatchedOptimisticMessages } from "../src/client/conversation/messageDelivery.js";
 import { normalizeConversationTurn } from "../src/shared/conversation/patches.js";
 
 test("proven no-admission releases only the exact uncertain message without accepting or losing its payload", async () => {
@@ -428,4 +428,10 @@ test("a deliberate new message can follow known uncertainty without resending th
   assert.deepEqual(sent.map(message => message.messageId), ["old", "new"]);
   assert.equal(delivery.find("old").status, "uncertain");
   assert.equal(delivery.find("new").status, "accepted");
+});
+
+test("a restored message leads the draft once", () => {
+  assert.equal(draftWithRestoredMessage("First", ""), "First");
+  assert.equal(draftWithRestoredMessage("First", "New draft"), "First\n\nNew draft");
+  assert.equal(draftWithRestoredMessage("First", "First\n\nNew draft"), "First\n\nNew draft");
 });

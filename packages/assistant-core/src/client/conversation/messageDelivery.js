@@ -240,7 +240,7 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   function edit(messageId, draft = "") {
     const message = find(messageId);
     if (!message || !cancel(messageId)) return null;
-    return !draft || draft.startsWith(message.text) ? draft || message.text : `${message.text}\n\n${draft}`;
+    return draftWithRestoredMessage(message.text, draft);
   }
 
   function resend(messageId, { queue = false } = {}) {
@@ -263,5 +263,11 @@ function createAssistantMessageDelivery({ deliver: defaultDeliver } = {}) {
   return { accept, cancel, edit, find, reconcile, remove, resend, reset, restoreUncertain, rejectUnsent, send, state, turns, wait };
 }
 
-export { createAssistantMessageDelivery, unmatchedOptimisticMessages };
+// The composer text after a failed or cancelled message returns to it: the
+// message leads unless the draft already starts with it.
+function draftWithRestoredMessage(text = "", draft = "") {
+  return !draft || draft.startsWith(text) ? draft || text : `${text}\n\n${draft}`;
+}
+
+export { createAssistantMessageDelivery, draftWithRestoredMessage, unmatchedOptimisticMessages };
 export { retainAssistantConversation } from "./retainedConversation.js";
