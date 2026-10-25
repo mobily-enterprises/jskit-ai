@@ -9,7 +9,7 @@ export function conversationAttachmentIds(value = []) {
   if (!Array.isArray(value) || value.length > ASSISTANT_ATTACHMENT_MAX_ITEMS ||
       value.some(id => typeof id !== "string" || !id.trim() || id.length > ASSISTANT_ATTACHMENT_ID_MAX_LENGTH) ||
       new Set(value).size !== value.length) {
-    throw invalid("Attachments require at most ten distinct, nonempty attachment IDs.");
+    throw invalid(`Attachments require at most ${ASSISTANT_ATTACHMENT_MAX_ITEMS} distinct, nonempty attachment IDs.`);
   }
   return [...value];
 }
@@ -27,8 +27,8 @@ export function createConversationAttachmentReader({ attachments, context, conve
     const localFiles = [];
     // Continuity may retain files from several earlier messages. Each resolver
     // call uses the same bounded batch as a new user message.
-    for (let offset = 0; offset < references.length; offset += 10) {
-      const attachmentIds = conversationAttachmentIds(references.slice(offset, offset + 10).map(file => file.attachmentId));
+    for (let offset = 0; offset < references.length; offset += ASSISTANT_ATTACHMENT_MAX_ITEMS) {
+      const attachmentIds = conversationAttachmentIds(references.slice(offset, offset + ASSISTANT_ATTACHMENT_MAX_ITEMS).map(file => file.attachmentId));
       signal.throwIfAborted();
       await authorize();
       const resolved = await attachments.resolve({ attachmentIds, context, conversationId, signal });

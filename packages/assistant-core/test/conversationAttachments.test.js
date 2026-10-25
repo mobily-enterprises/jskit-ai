@@ -257,7 +257,7 @@ test("attachment validation displays the application's configured binary or deci
   }
 });
 
-test("one attachment-ID limit governs the schema field, the server check and the composer", () => {
+test("one attachment-ID limit governs the schema field, the server check, continuity batches and the composer", async () => {
   assert.equal(attachmentIdsField.maxItems, ASSISTANT_ATTACHMENT_MAX_ITEMS);
   assert.equal(attachmentIdsField.items.maxLength, ASSISTANT_ATTACHMENT_ID_MAX_LENGTH);
   assert.equal(CLIENT_ATTACHMENT_MAX_ITEMS, ASSISTANT_ATTACHMENT_MAX_ITEMS);
@@ -266,4 +266,15 @@ test("one attachment-ID limit governs the schema field, the server check and the
   assert.throws(() => conversationAttachmentIds([...ids, "one-too-many"]), { code: "conversation_invalid_attachments" });
   assert.deepEqual(conversationAttachmentIds(["x".repeat(ASSISTANT_ATTACHMENT_ID_MAX_LENGTH)]).length, 1);
   assert.throws(() => conversationAttachmentIds(["x".repeat(ASSISTANT_ATTACHMENT_ID_MAX_LENGTH + 1)]), { code: "conversation_invalid_attachments" });
+  const batches = [];
+  const reader = createConversationAttachmentReader({ context, conversationId: "one", signal: new AbortController().signal,
+    authorize: async () => {}, types: ["text"], maximumBytes: 1024 * 1024,
+    attachments: { resolve: ({ attachmentIds }) => {
+      batches.push(attachmentIds.length);
+      return { attachments: attachmentIds.map(attachmentId => ({ attachmentId, fileName: `${attachmentId}.txt`, size: 1 })),
+        content: [{ type: "text", text: "x" }] };
+    } } });
+  const continued = await reader([...ids, "one-more"].map(attachmentId => ({ attachmentId })));
+  assert.deepEqual(batches, [ASSISTANT_ATTACHMENT_MAX_ITEMS, 1]);
+  assert.equal(continued.attachments.length, ASSISTANT_ATTACHMENT_MAX_ITEMS + 1);
 });

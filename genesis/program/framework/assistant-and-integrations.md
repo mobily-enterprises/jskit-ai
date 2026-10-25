@@ -30,8 +30,9 @@ a workspace segment, so HTTP requests and realtime subscriptions always name the
 same route; a workspace slug supplied for a surface without workspaces is
 ignored. Client runtime code names no application surface. Assistant-core owns
 the attachment-ID limits (ten distinct, nonempty IDs of at most 256 characters):
-its schema field, server check and composer default are the single definition
-that the assistant runtime reuses for its request bodies and pre-admission check.
+its schema field, server check, continuity resolver batches and composer default
+are the single definition that the assistant runtime reuses for its request
+bodies and pre-admission check.
 
 Realtime subscription setup checks its original socket-owned liveness between
 opening, observer attachment and snapshot reading. Released setup cannot start
