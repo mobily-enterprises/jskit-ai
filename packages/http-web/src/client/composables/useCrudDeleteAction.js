@@ -1,4 +1,4 @@
-import { computed, proxyRefs, ref, unref } from "vue";
+import { computed, nextTick, proxyRefs, ref, unref } from "vue";
 import { useRouter } from "vue-router";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudJsonApiTransport } from "./crud/crudJsonApiTransportSupport.js";
@@ -62,17 +62,19 @@ function useCrudDeleteAction({
   const deleteApiSuffix = computed(() => resolveDeleteApiSuffix(resolvedScreen, apiUrlTemplate));
 
   async function handleDeleteSuccess(_response, context = {}) {
-    await context?.queryClient?.invalidateQueries?.({
-      queryKey: ["crud", namespace]
-    });
-
     const listLocation = resolveListLocation(resolvedScreen);
     if (!listLocation) {
       throw new Error("Deleted the record, but the generated list route is unavailable.");
     }
 
     isOpen.value = false;
+    // Leave the deleted record's view before invalidating: while its view query is
+    // still observed, invalidation would refetch it and report "Record not found.".
     await activeRouter.push(listLocation);
+    await nextTick();
+    await context?.queryClient?.invalidateQueries?.({
+      queryKey: ["crud", namespace]
+    });
   }
 
   function handleDeleteError(cause) {

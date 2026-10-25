@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
-import { createSSRApp, h, nextTick, ref } from "vue";
+import { QueryClient, QueryObserver, VueQueryPlugin } from "@tanstack/vue-query";
+import { createSSRApp, effectScope, h, nextTick, ref, watch } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { configureHttpWebClient, resetHttpWebClientForTests } from "../src/client/lib/httpClient.js";
@@ -109,6 +109,61 @@ test("useCrudDeleteAction confirms one DELETE, invalidates CRUD state, and retur
   assert.deepEqual(invalidations, [
     { queryKey: ["crud", "notes"] }
   ]);
+});
+
+test("useCrudDeleteAction leaves the deleted record's view before CRUD state is refetched", async () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  });
+  const viewQueryKey = ["crud", "notes", "view", "42"];
+  let viewFetches = 0;
+  let recordDeleted = false;
+  const viewObserver = new QueryObserver(queryClient, {
+    queryKey: viewQueryKey,
+    async queryFn() {
+      viewFetches += 1;
+      if (recordDeleted) {
+        throw Object.assign(new Error("Record not found."), { status: 404 });
+      }
+      return { id: "42" };
+    }
+  });
+  const stopObservingView = viewObserver.subscribe(() => {});
+  await queryClient.fetchQuery({ queryKey: viewQueryKey, queryFn: () => ({ id: "42" }) });
+  viewFetches = 0;
+
+  const client = {
+    async request() {
+      recordDeleted = true;
+      return null;
+    }
+  };
+  const { deleteAction, router } = await renderDeleteAction({ client, queryClient });
+
+  // The view screen unmounts (stops observing its query) when the route leaves it,
+  // in the same scheduler flush that re-renders the router view.
+  const scope = effectScope();
+  scope.run(() => {
+    watch(() => router.currentRoute.value.path, (path) => {
+      if (path === "/notes") {
+        stopObservingView();
+      }
+    });
+  });
+
+  try {
+    deleteAction.request();
+    await deleteAction.confirm();
+
+    assert.equal(router.currentRoute.value.path, "/notes");
+    assert.equal(viewFetches, 0);
+    assert.equal(queryClient.getQueryState(viewQueryKey)?.isInvalidated, true);
+    assert.equal(queryClient.getQueryState(viewQueryKey)?.error, null);
+  } finally {
+    scope.stop();
+    stopObservingView();
+    queryClient.clear();
+  }
 });
 
 test("useCrudDeleteAction keeps the record dialog open with useful error feedback", async () => {

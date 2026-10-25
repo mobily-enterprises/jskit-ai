@@ -307,7 +307,10 @@ this raw test encoding into page code.
 Deletion requires an explicit shared `DELETE` operation and confirmation
 decision. Use `CrudDeleteAction` and `useCrudDeleteAction()` through the view
 actions slot; do not rebuild their confirmation, request, invalidation, and
-navigation flow.
+navigation flow. After a successful delete the action returns to the list first
+and only then invalidates the resource's `["crud", namespace]` queries, so the
+deleted record's view query is no longer observed and never refetches into a
+"Record not found." state.
 
 The delete action resolves its HTTP client from the resource's `apiAccess`, just
 like the list, view and form helpers. For `apiAccess: "public"`, DELETE requests
