@@ -1,4 +1,4 @@
-import { deleteCodexAppServerThread } from "./codexProvider.js";
+import { codexAppServerDeliveredTurn, deleteCodexAppServerThread } from "./codexProvider.js";
 import { CODEX_HELPER_THREAD_LIFECYCLES } from "./codexHelperThreadLedger.js";
 import { codexAppServerErrorMessage as errorMessage, normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
@@ -246,10 +246,7 @@ export async function prepareDetachedCodexHelperThread(owner, scope, preparation
         const currentDelivery = await sendPreparedCodexAppServerHelperTurn(
           provider, preparation.turn(threadId), preparation.isolation
         );
-        const currentTurnId = normalizeText(currentDelivery.turn?.id);
-        const currentStatus = normalizeText(
-          currentDelivery.turn?.status || currentDelivery.turn?.raw?.status
-        );
+        const { turnId: currentTurnId, status: currentStatus } = codexAppServerDeliveredTurn(currentDelivery);
         helperThreadRecord = await updateCodexAppServerHelperThread(
           helperThreadRecord,
           {

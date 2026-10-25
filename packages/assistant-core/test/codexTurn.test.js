@@ -7,7 +7,7 @@ import test from "node:test";
 import { createMemoryConversationStorage } from "../src/server/conversation/memoryStorage.js";
 import { createConversationTranscript } from "../src/server/conversation/transcript.js";
 import { createConversationStreams } from "../src/server/conversation/streams.js";
-import { sendCodexAppServerPrompt, CodexAppServerAgentProvider } from "../src/server/conversation/codexProvider.js";
+import { sendCodexAppServerPrompt, CodexAppServerAgentProvider, codexAppServerDeliveredTurn } from "../src/server/conversation/codexProvider.js";
 import { createCodexHelperThreadLedgerOwner } from "../src/server/conversation/codexHelperThreadLedger.js";
 import { createCodexSessionReconciliation } from "../src/server/conversation/codexSessionReconciliation.js";
 import {
@@ -2442,6 +2442,32 @@ test("a native stop outcome rereads the run after its history read and leaves an
     assert.deepEqual(checkpoints, []);
   } finally {
     f.owner.clearSessionRecoveryTimers(f.sessionId);
+  }
+});
+
+test("a delivered native turn reads its identity, status and provider error from the one sendTurn shape", async () => {
+  const provider = new CodexAppServerAgentProvider({}, { credentials: { assertCurrent() {} } });
+  const responses = [
+    { turn: { id: "turn-failed", status: "failed", error: { message: "You've hit your usage limit." } } },
+    { turnId: "turn-flat", status: "failed", error: "Flat provider failure." },
+    { turn: { id: "turn-running", status: "inProgress" } }
+  ];
+  provider.client = { isOpen: () => true, close() {}, async request(method) {
+    assert.equal(method, "turn/start");
+    return responses.shift();
+  } };
+  try {
+    const delivered = [];
+    for (let index = 0; index < 3; index += 1) {
+      delivered.push(codexAppServerDeliveredTurn(await sendCodexAppServerPrompt({ provider, prompt: "Go", threadId: "thread-1" })));
+    }
+    assert.deepEqual(delivered, [
+      { turnId: "turn-failed", status: "failed", error: "You've hit your usage limit." },
+      { turnId: "turn-flat", status: "failed", error: "Flat provider failure." },
+      { turnId: "turn-running", status: "inProgress", error: "" }
+    ]);
+  } finally {
+    provider.close();
   }
 });
 

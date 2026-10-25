@@ -15,6 +15,7 @@ import {
   codexAppServerThreadIsMissing,
   codexLocalImageInput,
   ensureCodexAppServerThread,
+  codexAppServerDeliveredTurn,
   sendCodexAppServerPrompt
 } from "./codexProvider.js";
 import crypto from "node:crypto";
@@ -493,8 +494,7 @@ export function createCodexMessageCommands({
       });
       return { error, turnFailureHandled: true };
     }
-    const deliveredTurnId = normalizeCodexRunText(delivery.turn?.id);
-    const deliveredTurnStatus = normalizeCodexRunText(delivery.turn?.status || delivery.turn?.raw?.status);
+    const { turnId: deliveredTurnId, status: deliveredTurnStatus } = codexAppServerDeliveredTurn(delivery);
     if (!deliveredTurnId) {
       throw new Error("Codex app-server accepted the prompt without returning a turn id.");
     }

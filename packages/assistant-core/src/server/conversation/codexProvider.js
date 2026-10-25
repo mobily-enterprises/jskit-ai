@@ -23,7 +23,8 @@ import {
   codexAppServerProviderThreadTurns,
   codexAppServerProviderTurnItems,
   codexAppServerProviderTurnClientIds,
-  codexAppServerThreadRawValue
+  codexAppServerThreadRawValue,
+  codexAppServerErrorText
 } from "./codexEvents.js";
 
 const CODEX_APP_SERVER_PROVIDER_ID = "codex_app_server";
@@ -699,6 +700,17 @@ function normalizeAgentTurn(value = {}) {
     provider: normalizeAgentText(turn.provider),
     raw: turn.raw || turn,
     status: normalizeAgentText(turn.status || turn.raw?.status)
+  };
+}
+
+// The one reading of a sendTurn delivery. Its turn is already normalized; the
+// provider's own error stays on the raw native turn.
+function codexAppServerDeliveredTurn(delivery = {}) {
+  const turn = delivery?.turn || {};
+  return {
+    turnId: normalizeAgentText(turn.id),
+    status: normalizeAgentText(turn.status),
+    error: codexAppServerErrorText(turn.raw?.error || turn.response?.turn?.error || turn.error)
   };
 }
 
@@ -2268,6 +2280,7 @@ export class CodexAppServerAgentProvider {
 export {
   CODEX_APP_SERVER_INVALID_REQUEST_CODE,
   ensureCodexAppServerThread, codexApplicationToolConfiguration, assertCodexApplicationToolSchemaIdentity, sendCodexAppServerPrompt,
+  codexAppServerDeliveredTurn,
   codexAppServerEndpointForTarget, codexAppServerRequestIsInvalid, codexAppServerThreadIsMissing,
   codexAppServerThreadHasReadableHistory, deleteCodexAppServerThread, deleteCodexAppServerHelperThread,
   inspectCodexAppServerMessageAdmission,

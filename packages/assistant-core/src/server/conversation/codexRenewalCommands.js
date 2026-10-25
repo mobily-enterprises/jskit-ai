@@ -1,8 +1,8 @@
-import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, normalizeCodexRunText, codexAppServerErrorMessage } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage } from "./codexTurnState.js";
 import { createCodexAppServerDetachedTurnWatcher, waitForCodexAppServerTurn } from "./codexDetachedTurn.js";
-import { sendCodexAppServerPrompt } from "./codexProvider.js";
+import { codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { resumeExactCodexAppServerThread, startFreshCodexAppServerThread } from "./codexRenewalThreads.js";
-import { codexAppServerProviderTurnId, codexAppServerProviderTurnError, inspectCodexAppServerRenewalThread } from "./codexEvents.js";
+import { codexAppServerProviderTurnId, inspectCodexAppServerRenewalThread } from "./codexEvents.js";
 
 // Private composition of unchanged operations from the original run owner.
 export function createCodexRenewalCommands({
@@ -113,8 +113,8 @@ export function createCodexRenewalCommands({
           provider,
           threadId
         }, context);
-        turnId = normalizeCodexRunText(delivery.turn?.id);
-        status = normalizeCodexRunText(delivery.turn?.status || delivery.turn?.raw?.status);
+        const delivered = codexAppServerDeliveredTurn(delivery);
+        ({ turnId, status } = delivered);
         if (!turnId) {
           throw errors.create("handover_identity_missing");
         }
@@ -130,7 +130,7 @@ export function createCodexRenewalCommands({
           watcher.failAfterDetailGrace(errors.create(
             "failed",
             { status },
-            codexAppServerProviderTurnError(delivery.turn || {})
+            delivered.error
           ));
         } else if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
           await watcher.completeNow(status);
@@ -251,8 +251,8 @@ export function createCodexRenewalCommands({
           readOnly: true,
           threadId
         }, context);
-        turnId = normalizeCodexRunText(delivery.turn?.id);
-        status = normalizeCodexRunText(delivery.turn?.status || delivery.turn?.raw?.status);
+        const delivered = codexAppServerDeliveredTurn(delivery);
+        ({ turnId, status } = delivered);
         if (!turnId) {
           throw errors.create("seed_identity_missing");
         }
@@ -263,7 +263,7 @@ export function createCodexRenewalCommands({
           watcher.failAfterDetailGrace(errors.create(
             "failed",
             { status },
-            codexAppServerProviderTurnError(delivery.turn || {})
+            delivered.error
           ));
         } else if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
           await watcher.completeNow(status);

@@ -1,9 +1,9 @@
 import { codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, normalizeCodexRunText, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerInterruptFailure, codexAppServerConversationTurnIsActive, codexAppServerNativeOuterTurnId } from "./codexTurnState.js";
 import { CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS, createCodexAppServerDetachedTurnWatcher } from "./codexDetachedTurn.js";
 import { assertCodexAppServerHelperAccountIdentity, readCodexAppServerAccountIdentity, sendPreparedCodexAppServerHelperTurn } from "./codexHelperExecution.js";
-import { codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
+import { codexAppServerDeliveredTurn, codexAppServerRequestIsInvalid, codexAppServerThreadHasReadableHistory, codexAppServerThreadIsMissing, codexLocalImageInput, sendCodexAppServerPrompt } from "./codexProvider.js";
 import { codexAppServerProjectHookTrustConfig, readCodexToolFreeConfiguration } from "./codexConfiguration.js";
-import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerErrorText, codexAppServerThreadRawValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnItems, codexAppServerProviderTurnClientIds, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexEvents.js";
+import { codexAppServerAssistantItemText, codexAppServerContentText, classifyCodexAppServerEvent, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerThreadRawValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnItems, codexAppServerProviderTurnClientIds, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexEvents.js";
 
 // Internal command facet of the original run owner; the same native conversation
 // and turn-start collections retain their original lifetime and public references.
@@ -776,9 +776,7 @@ export function createCodexConversationCommands({
 
   async function dispatchCodexAppServerDetachedTurn({ provider, prompt, threadId }, authorized) {
     const delivery = await sendCodexAppServerPrompt({ provider, prompt, threadId }, authorized);
-    const turnId = normalizeCodexRunText(delivery.turn?.id);
-    const status = normalizeCodexRunText(delivery.turn?.status || delivery.turn?.raw?.status);
-    return { delivery, status, turnId };
+    return { delivery, ...codexAppServerDeliveredTurn(delivery) };
   }
 
   async function runDetachedCodexAppServerTurn({
@@ -824,12 +822,7 @@ export function createCodexConversationCommands({
       type: "turn"
     });
     if (codexAppServerTurnStatusIsProviderFailure(status)) {
-      const providerError = codexAppServerErrorText(
-        delivery.turn?.raw?.error ||
-        delivery.turn?.response?.turn?.error ||
-        delivery.turn?.error
-      );
-      const error = new Error(providerError || `Codex app-server turn ${status}.`);
+      const error = new Error(codexAppServerDeliveredTurn(delivery).error || `Codex app-server turn ${status}.`);
       await throwWatcherFailure(error, status, {
         waitForDetail: true
       });
@@ -950,8 +943,7 @@ export function createCodexConversationCommands({
       }
       throw error;
     }
-    const runId = normalizeCodexRunText(delivery.turn?.id);
-    const status = normalizeCodexRunText(delivery.turn?.status || delivery.turn?.raw?.status);
+    const { turnId: runId, status } = codexAppServerDeliveredTurn(delivery);
     if (!runId) {
       watcher?.failNow(new Error("Codex app-server accepted a conversation turn without returning its id."));
       await waitForResult?.catch(() => null);

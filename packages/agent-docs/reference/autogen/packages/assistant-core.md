@@ -624,6 +624,7 @@ Exports
 - `codexApplicationToolConfiguration(tools)`
 - `assertCodexApplicationToolSchemaIdentity(threadId, savedIdentity, toolSchemaIdentity)`
 - `sendCodexAppServerPrompt({ attachments = [], clientUserMessageId = "", outputSchema = null, provider, prompt = "", threadId = "", readOnly = false } = {}, authorized = {})`
+- `codexAppServerDeliveredTurn(delivery = {})`
 - `codexAppServerEndpointForTarget(endpoint = "")`
 - `codexAppServerRequestIsInvalid(error = null, method = "")`
 - `codexAppServerThreadIsMissing(error = null, threadId = "")`
@@ -790,6 +791,7 @@ Exports
 - `codexAppServerNativeOuterTurnId(threadId = "", turnId = "")`
 - `codexAppServerAgentRunPatch({ error = "", inputSource = "", outerTurnId = "", phase, runState = CODEX_APP_SERVER_RUN_STATE.COMPLETED, session = {}, status = "", threadId = "", turnId = "", updatedAt = "" } = {}, normalizeRunState = normalizeCodexAppServerRunState)`
 - `codexAppServerRunIdentityForPatch(session = {}, { threadId = "", turnId = "" } = {}, normalizeRunState = normalizeCodexAppServerRunState)`
+- `codexAppServerRunPatchSettlesOtherActiveTurn(currentTurn = {}, patch = {})`
 - `codexAppServerRunPatchIsStaleAfterTerminalState(currentTurn = {}, patch = {}, normalizeRunState = normalizeCodexAppServerRunState)`
 - `codexAppServerSteerFailure(result = {}, steerFailedCode = "codex_turn_steer_failed")`
 - `codexAppServerMessageRequiresNewTurn({ reason = "provider_idle", threadId = "", turnId = "" } = {})`
