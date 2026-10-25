@@ -2,6 +2,7 @@ import { computed, unref } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { useRealtimeEvent } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import { resolveEnabledRef } from "./support/refValueHelpers.js";
 
 function normalizeRealtimeOptions(value = {}) {
   if (value === null || value === undefined || value === false) {
@@ -39,14 +40,6 @@ function resolveOperationRealtimeOptions({
   });
 }
 
-function resolveEnabled(value) {
-  if (typeof value === "undefined") {
-    return true;
-  }
-
-  return Boolean(unref(value));
-}
-
 function toQueryKeyList(value) {
   const resolved = typeof value === "function" ? value() : unref(value);
   if (!Array.isArray(resolved) || resolved.length < 1) {
@@ -71,7 +64,7 @@ function useRealtimeQueryInvalidation({
 } = {}) {
   const queryClient = useQueryClient();
   const normalizedEvent = computed(() => normalizeText(unref(event)));
-  const active = computed(() => resolveEnabled(enabled) && Boolean(normalizedEvent.value));
+  const active = computed(() => resolveEnabledRef(enabled) && Boolean(normalizedEvent.value));
 
   const listener = useRealtimeEvent({
     event: normalizedEvent,
@@ -131,7 +124,7 @@ function useOperationRealtime({
   const resolvedQueryKey = Object.hasOwn(source, "queryKey") ? source.queryKey : queryKey;
   const active = computed(() => {
     const sourceEnabled = Object.hasOwn(source, "enabled") ? source.enabled : true;
-    return resolveEnabled(enabled) && resolveEnabled(sourceEnabled);
+    return resolveEnabledRef(enabled) && resolveEnabledRef(sourceEnabled);
   });
 
   const bindings = eventList.map((event) =>

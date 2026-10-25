@@ -1,4 +1,5 @@
 import { normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY } from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 import { resolveLookupItemLabel } from "../crud/crudLookupFieldLabelSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 
@@ -58,7 +59,7 @@ function normalizeLookupRequestQueryParamsMap(value = {}) {
 }
 
 function resolveLookupSelectedValues(filter = {}, rawValue = undefined) {
-  if (filter?.type === "recordIdMany") {
+  if (filter?.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
     return normalizeUniqueTextList(rawValue, {
       acceptSingle: true
     });

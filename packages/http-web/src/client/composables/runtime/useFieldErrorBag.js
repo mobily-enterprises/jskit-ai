@@ -1,13 +1,13 @@
 import { reactive } from "vue";
 
-function normalizeKeys(keys) {
+function normalizeFieldErrorKeys(keys) {
   return Array.isArray(keys)
     ? keys.map((entry) => String(entry || "").trim()).filter(Boolean)
     : [];
 }
 
 function useFieldErrorBag(keys = []) {
-  const normalizedKeys = normalizeKeys(keys);
+  const normalizedKeys = normalizeFieldErrorKeys(keys);
   const hasFixedKeys = normalizedKeys.length > 0;
   const errors = reactive(
     Object.fromEntries(normalizedKeys.map((key) => [key, ""]))
@@ -58,4 +58,4 @@ function useFieldErrorBag(keys = []) {
   });
 }
 
-export { useFieldErrorBag };
+export { normalizeFieldErrorKeys, useFieldErrorBag };

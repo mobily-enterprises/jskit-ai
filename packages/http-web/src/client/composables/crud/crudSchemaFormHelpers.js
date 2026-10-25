@@ -443,13 +443,7 @@ function resolveCrudFieldErrors(fieldErrors = {}, fieldKey = "") {
     return [];
   }
 
-  const source = asPlainObject(fieldErrors);
-  const message = String(source[key] || "").trim();
-
-  if (!message) {
-    return resolveStableFieldErrorList(key, "");
-  }
-
+  const message = String(asPlainObject(fieldErrors)[key] || "").trim();
   return resolveStableFieldErrorList(key, message);
 }
 

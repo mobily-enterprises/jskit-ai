@@ -4,6 +4,7 @@ import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
 import { useAddEdit } from "./useAddEdit.js";
+import { normalizeFieldErrorKeys } from "../runtime/useFieldErrorBag.js";
 import {
   resolveCrudBoundValues,
 } from "../crud/crudBindingSupport.js";
@@ -80,12 +81,6 @@ function resolvePassedAddEditOptions(addEditOptions = {}) {
     }
   }
   return passed;
-}
-
-function normalizeFieldErrorKeys(keys = []) {
-  return Array.isArray(keys)
-    ? keys.map((entry) => String(entry || "").trim()).filter(Boolean)
-    : [];
 }
 
 function normalizeSaveSuccessOptions(options = {}) {

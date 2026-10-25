@@ -1,4 +1,4 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { hasValue, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeCrudLookupContainerKey } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { asPlainObject } from "../support/scopeHelpers.js";
 
@@ -11,17 +11,6 @@ const LOOKUP_LABEL_COMPOSITION_CANDIDATES = Object.freeze([
   Object.freeze(["firstName"])
 ]);
 const DEFAULT_RECORD_TITLE = "-";
-
-function hasDisplayValue(value) {
-  if (value == null) {
-    return false;
-  }
-  if (typeof value === "string") {
-    return normalizeText(value).length > 0;
-  }
-
-  return true;
-}
 
 function resolveComposedLabel(source = {}, candidates = LOOKUP_LABEL_COMPOSITION_CANDIDATES) {
   for (const candidate of candidates) {
@@ -137,7 +126,7 @@ function resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = 
   }
 
   const lookupValue = lookupRecord[descriptor.relation.valueKey];
-  if (hasDisplayValue(lookupValue)) {
+  if (hasValue(lookupValue)) {
     return lookupValue;
   }
 

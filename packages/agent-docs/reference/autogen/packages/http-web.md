@@ -128,7 +128,6 @@ Exports
 - `resolveLookupFieldDisplayValue(record = {}, field = {}, relationKind = "", valueKey = "", labelKey = "")`
 - `resolveRecordTitle(record = {}, { fallbackKey = "", defaultValue = DEFAULT_RECORD_TITLE } = {})`
 Local functions
-- `hasDisplayValue(value)`
 - `resolveComposedLabel(source = {}, candidates = LOOKUP_LABEL_COMPOSITION_CANDIDATES)`
 - `resolveLookupFieldDescriptor(field = {}, relationKind = "", valueKey = "", labelKey = "")`
 - `resolveFallbackLookupKey(key = "")`
@@ -205,7 +204,6 @@ Exports
 - `useCrudAddEdit({ resource = null, operationName = "", formFields = [], addEditOptions = {}, saveSuccess = {}, fieldBinding = null, createModel = null, buildPayload = null, mapPayloadToModel = null, input = null } = {})`
 Local functions
 - `resolvePassedAddEditOptions(addEditOptions = {})`
-- `normalizeFieldErrorKeys(keys = [])`
 - `normalizeSaveSuccessOptions(options = {})`
 
 ### `src/client/composables/records/useCrudList.js`
@@ -277,9 +275,8 @@ Local functions
 
 ### `src/client/composables/runtime/useFieldErrorBag.js`
 Exports
+- `normalizeFieldErrorKeys(keys)`
 - `useFieldErrorBag(keys = [])`
-Local functions
-- `normalizeKeys(keys)`
 
 ### `src/client/composables/runtime/useListCore.js`
 Exports
@@ -501,7 +498,6 @@ Exports
 Local functions
 - `normalizeRealtimeOptions(value = {})`
 - `hasRealtimeEventConfig(value = {})`
-- `resolveEnabled(value)`
 - `toQueryKeyList(value)`
 
 ### `src/client/composables/useScopeRuntime.js`

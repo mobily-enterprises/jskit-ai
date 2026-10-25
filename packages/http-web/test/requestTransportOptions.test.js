@@ -293,6 +293,30 @@ test("endpoint resource reads attach request recovery metadata to query options"
   });
 });
 
+test("realtime invalidation honours a function-form enabled option like the other operation options", async () => {
+  const subscribed = [];
+  const socket = {
+    on(eventName) { subscribed.push(eventName); },
+    off() {}
+  };
+  const app = createSSRApp({
+    setup() {
+      useEndpointResource({
+        queryKey: ["realtime-disabled"],
+        path: "/api/realtime-disabled",
+        client: { async request() { return {}; } },
+        realtime: { event: "records.changed", enabled: () => false }
+      });
+      return () => h("div");
+    }
+  });
+  app.use(VueQueryPlugin, { queryClient: new QueryClient() });
+  app.provide("jskit.realtime.runtime.client.socket", socket);
+  await renderToString(app);
+
+  assert.deepEqual(subscribed, []);
+});
+
 for (const kind of ["endpoint", "list", "list with caller signal"]) {
   test(`repeated ${kind} refreshes abort superseded HTTP requests`, async (t) => {
     const paginated = kind !== "endpoint";
