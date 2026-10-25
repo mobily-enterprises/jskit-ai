@@ -3,19 +3,19 @@
 Use when:
 
 - adding a new screen or feature
-- generating pages
+- adding pages
 - adding menu entries or widgets
 - deciding whether something belongs in `home`, `app`, `admin`, `console`, or another surface
 
 Check first:
 
-- the app blueprint surface plan
+- the project's product documentation and existing routes
 - existing route roots under `src/pages`
 - placement visibility by `surfaces`
 
 Rules:
 
-- Always ask which surface the feature belongs to before generating routes, placements, or related UI.
+- Always ask which surface the feature belongs to before adding routes, placements, or related UI.
 - Do not silently default new functionality to `app`.
 - Surface choice is architectural, not cosmetic. It controls routes, access, placement visibility, and often data ownership expectations.
 - When a link or widget should only appear on certain surfaces, use placement `surfaces` first and keep runtime `when` conditions for behavior-specific gating.

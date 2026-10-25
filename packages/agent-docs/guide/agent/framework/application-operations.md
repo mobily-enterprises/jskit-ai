@@ -13,7 +13,7 @@ Adopt the foundation's accessible HTML skeleton, inline styles, Reload link and
 startup-error message; package updates do not rewrite existing app HTML. Follow
 its cold-browser proof at compact, medium and expanded widths: delay JavaScript,
 check loading feedback, then release it and check app mount, including production
-builds. Compression belongs to hosting, not Genesis.
+builds. Response compression belongs to hosting.
 
 ## Establish a new application
 

@@ -128,3 +128,15 @@ test("generated reference maps state the exclusions the generator actually appli
     assert.ok(excludesLine(kernelMap).includes(`\`${excluded}\``), `Excludes line is missing ${excluded}.`);
   }
 });
+
+test("JSKIT guidance does not assume a Genesis blueprint", async () => {
+  for (const relativePath of [
+    "heuristics/surfaces.md",
+    "heuristics/page-scaffolding.md",
+    "site/guide/framework/application-operations.md",
+    "skills/jskit/references/app-operations.md"
+  ]) {
+    const source = await readFile(path.join(packageRoot, relativePath), "utf8");
+    assert.doesNotMatch(source, /blueprint|Genesis|generating (?:pages|routes)/iu, relativePath);
+  }
+});
