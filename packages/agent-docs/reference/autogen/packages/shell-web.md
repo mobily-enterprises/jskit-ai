@@ -22,12 +22,66 @@ Exports
 Exports
 - `inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "" })`
 Local functions
-- `hash(source)`
-- `canonical(value)`
-- `property(node, key)`
-- `nodes(root)`
+- `hashBytes(source)`
+- `isCanonicalPath(value)`
+- `propertyKey(entry)`
+- `isStaticObjectProperty(entry)`
+- `objectProperty(node, key)`
+- `hasOnlyStaticProperties(node)`
+- `isFunctionNode(node)`
+- `directoryPrefixes(filePath)`
+- `collectNodes(root)`
 - `staticValue(node, bindings, seen = new Set())`
+- `staticObjectValue(node, bindings, seen)`
 - `bindingNode(node, bindings, seen = new Set())`
+- `isShadowed({ ancestors }, name)`
+- `isLocalCall(record, names)`
+- `importedNames(module, source, imported)`
+- `findRecord(module, node)`
+- `kebabCase(name)`
+- `templateTagImport(module, tag)`
+- `sourcePoint(module, index)`
+- `sourceEvidence(module, node, offset = 0)`
+- `pageTitle(file)`
+- `validateInput({ projectRoot, input, aliases })`
+- `createOutput({ input, httpScope })`
+- `warn(inspection, code, message, source)`
+- `loadModule(inspection, filePath)`
+- `scriptUnits(inspection, module)`
+- `indexScriptUnit(inspection, module, unit)`
+- `indexDeclaration(module, node)`
+- `resolveImport(inspection, from, specifier)`
+- `resolvePackageEntryFile(inspection, from, specifier)`
+- `resolvePackageImport(inspection, from, specifier)`
+- `resolveCrudResource(inspection, module, node, seen = new Set())`
+- `resolveExportedCrudResource(inspection, module, name, seen)`
+- `crudOperationKey(inspection, surface, namespace, operation, apiSuffix)`
+- `recordPage(inspection, { file, discovery, identity, registrationModule, registrationNode, parentId = null })`
+- `isSupportedFilesystemOptions(options)`
+- `discoverFilesystemPages(inspection, discovery, module, registrationPath)`
+- `recordFilesystemRoutes(inspection, { tree, discovery, module, node })`
+- `discoverRegisteredPages(inspection, discovery, module, registrationPath)`
+- `routeComponentSpecifier(module, component)`
+- `recordRegisteredRoutes(inspection, { routes, discovery, module, registrationPath })`
+- `discoverPages(inspection, discoveries)`
+- `readTemplate(module)`
+- `discoverComponents(inspection)`
+- `recordComponentUse(inspection, { module, file, parentId, tag, pending })`
+- `recordPackageComponent(inspection, { module, file, tag, imported })`
+- `crudScreenKind(component)`
+- `crudScreenCall(module, tag, list)`
+- `hasDynamicScreenTransport(module, config)`
+- `hasCustomScreenClient(options)`
+- `recordCrudScreenUse(inspection, { module, file, parentId, tag })`
+- `isGlobalFetchCall(module, { node, ancestors })`
+- `recordFetchUses(inspection, { module, parentId, eventHandlers })`
+- `discoverEntryOperations(inspection)`
+- `crudControllerOperations(module, config, resource)`
+- `recordCrudController(inspection, { module, file, record })`
+- `recordFeatureRoute(inspection, { module, file, record, featureFactories })`
+- `importSpecifierName(specifier)`
+- `isTypeOnlyImport(node)`
+- `collectImports(inspection)`
 
 ### `src/client/asyncModuleRecovery/index.js`
 Exports
@@ -94,27 +148,7 @@ Local functions
 - `scheduleDrawerWidthMeasurement()`
 - `measureDrawerContentWidth()`
 - `measureRenderedText(element)`
-- `handlePullPointerDown(event)`
 - `handleDrawerVisibilityChange(open)`
-- `handlePullPointerMove(event)`
-- `handlePullPointerEnd(event)`
-- `handlePullPointerCancel(event)`
-- `handlePullTouchStart(event)`
-- `handlePullTouchMove(event)`
-- `handlePullTouchEnd(event)`
-- `handlePullTouchCancel(event)`
-- `updatePullGesture(clientX, clientY, event)`
-- `finishPullGesture()`
-- `cancelPullRefresh()`
-- `refreshFromPullGesture()`
-- `canStartPullRefresh(event)`
-- `canStartTouchPullRefresh(event)`
-- `canStartPullRefreshFromTarget(target)`
-- `isPrimaryTouchPointer(event)`
-- `isAtPageTop()`
-- `isPullRefreshIgnoredTarget(target)`
-- `findActiveTouch(touchList)`
-- `touchListIncludesActiveTouch(touchList)`
 
 ### `src/client/components/ShellMenuLinkItem.vue`
 Exports
@@ -141,11 +175,8 @@ Local functions
 - `handlePointerEnd(event)`
 - `handlePointerCancel(event)`
 - `navigateBySwipe(offset = 0)`
-- `isAcceptedSwipe({ deltaX = 0, deltaY = 0, elapsed = 1, velocity = null } = {})`
 - `normalizeComparablePathname(value = "")`
 - `pathMatchesNavigationEntry(pathname = "", entry = {})`
-- `isPrimaryPointerEvent(event)`
-- `isSwipeIgnoredTarget(target)`
 
 ### `src/client/components/ShellSurfaceAwareMenuLinkItem.vue`
 Exports
@@ -171,6 +202,12 @@ Local functions
 Exports
 - `shellNavigationLinkProps`
 - `useShellNavigationLink(props)`
+
+### `src/client/composables/useShellPullToRefresh.js`
+Exports
+- `useShellPullToRefresh({ enabled, refreshRuntime = null } = {})`
+Local functions
+- `isAtPageTop()`
 
 ### `src/client/error/index.js`
 Exports
@@ -210,7 +247,7 @@ Exports
 
 ### `src/client/error/presenters.js`
 Exports
-- `createStoreBackedPresenter({ id, channel, store, defaultPersist = false } = {})`
+- `createStoreBackedPresenter({ id, channel, store } = {})`
 - `createMaterialSnackbarPresenter({ store } = {})`
 - `createMaterialBannerPresenter({ store } = {})`
 - `createMaterialDialogPresenter({ store } = {})`
@@ -270,7 +307,6 @@ Exports
 - `resolveShellLinkPath({ context = null, surface = "", explicitTo = "", relativePath = "/", surfaceRelativePath = "", params = {}, strictParams = true } = {})`
 - `useShellLinkResolver({ surface = "" } = {})`
 Local functions
-- `normalizeParamsMap(params = null)`
 - `materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {})`
 - `resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {})`
 
@@ -281,7 +317,6 @@ Local functions
 - `normalizePathSuffix(value = "")`
 - `resolveSurfaceId(value, fallback = "")`
 - `resolveDefaultSurfaceIdFromPlacementContext(placementContext = null)`
-- `normalizeRouteParams(params = null)`
 - `resolveRouteParams(baseParams = {}, overrideParams = null)`
 
 ### `src/client/navigation/useSurfaceRouteContext.js`
@@ -478,6 +513,11 @@ Exports
 Local functions
 - `clampNumber(value, minimum, maximum)`
 
+### `src/client/support/gestureTargets.js`
+Exports
+- `isPrimaryTouchPointer(event)`
+- `isShellGestureIgnoredTarget(target, { extraSelectors = [] } = {})`
+
 ### `src/client/support/menuLinkTarget.js`
 Exports
 - `normalizeMenuLinkPathname(pathname = "")`
@@ -493,9 +533,25 @@ Local functions
 Exports
 - `activateShellNavigationLinkOnSpace(event)`
 
+### `src/client/support/routeParams.js`
+Exports
+- `normalizeRouteParams(params = null)`
+
+### `src/client/support/routeSwipeGesture.js`
+Exports
+- `createRouteSwipeGesture({ now = () => performance.now() } = {})`
+Local functions
+- `isAcceptedSwipe({ deltaX = 0, deltaY = 0, elapsed = 1 } = {})`
+- `isVerticalDrift(absX, absY)`
+
 ### `src/client/support/routeTransitionKey.js`
 Exports
 - `resolveShellRouteTransitionKey({ routePathKey = "", routeTransitionName = "", surfaceId = "" } = {})`
+
+### `src/client/support/shellLayoutClass.js`
+Exports
+- `readViewportWidth()`
+- `resolveShellLayoutClass(displayName = "", viewportWidth = 0)`
 
 ### fixtures
 
