@@ -6,6 +6,7 @@ import { compileScript, parse } from "@vue/compiler-sfc";
 import { createRenderer, defineComponent, h, nextTick } from "vue";
 import { createPinia } from "pinia";
 import { createErrorRuntime } from "../src/client/error/runtime.js";
+import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../src/client/error/inject.js";
 import { createDefaultMaterialErrorPresenters } from "../src/client/error/presenters.js";
 import { createErrorPresentationStore } from "../src/client/error/store.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
@@ -48,7 +49,7 @@ function fixture(t) {
   const pinia = createPinia();
   app.use(pinia);
   useShellErrorPresentationStore(pinia).attachRuntimeStore(store);
-  app.provide("jskit.shell-web.runtime.web-error.client", runtime);
+  app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, runtime);
   for (const name of ["VSnackbar", "VDialog", "VCard", "VCardTitle", "VCardText", "VCardActions", "VSpacer", "VAlert", "VBtn"]) {
     app.component(name, defineComponent({ setup: (_props, { slots }) => () =>
       h(name, {}, [slots.default?.(), slots.actions?.()]) }));

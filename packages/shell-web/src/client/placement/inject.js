@@ -5,6 +5,8 @@ import {
   shallowRef
 } from "vue";
 
+const SHELL_WEB_PLACEMENT_RUNTIME_KEY = "jskit.shell-web.runtime.web-placement.client";
+
 const EMPTY_WEB_PLACEMENT_RUNTIME = Object.freeze({
   getContext() {
     return Object.freeze({});
@@ -36,7 +38,7 @@ const EMPTY_WEB_PLACEMENT_CONTEXT = Object.freeze({
 });
 
 function useWebPlacementRuntime({ required = false } = {}) {
-  const runtime = inject("jskit.shell-web.runtime.web-placement.client", null);
+  const runtime = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, null);
   if (runtime && typeof runtime.getPlacements === "function") {
     return runtime;
   }
@@ -96,6 +98,7 @@ function useWebPlacementContext({ required = false } = {}) {
 }
 
 export {
+  SHELL_WEB_PLACEMENT_RUNTIME_KEY,
   EMPTY_WEB_PLACEMENT_RUNTIME,
   EMPTY_WEB_PLACEMENT_CONTEXT,
   useWebPlacementRuntime,

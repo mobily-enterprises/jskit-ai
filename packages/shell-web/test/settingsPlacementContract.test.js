@@ -83,7 +83,9 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /target="shell-layout:supporting-side-panel"/);
   assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);
   assert.match(source, /data-testid="jskit-shell-supporting-side-panel"/);
-  assert.match(source, /inject\("jskit\.shell-web\.runtime\.web-refresh\.client", null\)/);
+  assert.match(source, /inject\(SHELL_WEB_REFRESH_RUNTIME_KEY, null\)/);
+  const refreshRuntimeSource = await readFile(path.join(PACKAGE_DIR, "src", "client", "runtime", "refreshRuntime.js"), "utf8");
+  assert.match(refreshRuntimeSource, /SHELL_WEB_REFRESH_RUNTIME_KEY = "jskit\.shell-web\.runtime\.web-refresh\.client"/);
   assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
   assert.match(source, /window\.addEventListener\("touchmove", handlePullTouchMove/);
   assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);

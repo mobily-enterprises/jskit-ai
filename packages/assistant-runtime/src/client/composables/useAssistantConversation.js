@@ -10,6 +10,7 @@ import {
   normalizeConversationLogPage, normalizeConversationLogPagination
 } from "@jskit-ai/assistant-core/shared/conversation";
 import { useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
+import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
@@ -804,7 +805,7 @@ function conversationBindingSetup({ socket, boundedTask = null } = {}) {
   if (!app) throw new Error("Conversation binding must be acquired from the application setup.");
   if (boundedTask !== null) return { app };
   const routeContext = useSurfaceRouteContext();
-  const placement = inject("jskit.shell-web.runtime.web-placement.client", null);
+  const placement = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, null);
   if (typeof placement?.getContext !== "function" || typeof placement?.subscribe !== "function") {
     throw new Error("Conversation binding requires the application's placement runtime.");
   }

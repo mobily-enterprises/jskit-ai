@@ -40,6 +40,10 @@ Exports
 - `isShellAsyncModuleRecoveryRuntime(value)`
 - `useShellAsyncModuleRecoveryRuntime()`
 
+### `src/client/asyncModuleRecovery/runtime.js`
+Exports
+- `createShellAsyncModuleRecoveryRuntime({ router = null, errorRuntime = null, logger = null } = {})`
+
 ### `src/client/bootstrap/bootstrapErrorStatus.js`
 Exports
 - `resolveBootstrapErrorStatusCode(error)`
@@ -163,14 +167,21 @@ Exports
 Local functions
 - `toSurfaceLabel(surfaceId = "")`
 
+### `src/client/composables/useShellNavigationLink.js`
+Exports
+- `shellNavigationLinkProps`
+- `useShellNavigationLink(props)`
+
 ### `src/client/error/index.js`
 Exports
 - `createDefaultErrorPolicy`
+- `SHELL_WEB_ERROR_RUNTIME_KEY`
 - `useShellWebErrorRuntime`
 - `useShellErrorPresentationStore`
 
 ### `src/client/error/inject.js`
 Exports
+- `SHELL_WEB_ERROR_RUNTIME_KEY`
 - `EMPTY_ERROR_RUNTIME`
 - `useShellWebErrorRuntime({ required = false } = {})`
 
@@ -290,6 +301,7 @@ Exports
 - `createPlacementRegistry`
 - `definePlacement`
 - `definePlacementTopology`
+- `SHELL_WEB_PLACEMENT_RUNTIME_KEY`
 - `useWebPlacementContext`
 - `resolveRuntimePathname`
 - `readPlacementSurfaceConfig`
@@ -303,6 +315,7 @@ Exports
 
 ### `src/client/placement/inject.js`
 Exports
+- `SHELL_WEB_PLACEMENT_RUNTIME_KEY`
 - `EMPTY_WEB_PLACEMENT_RUNTIME`
 - `EMPTY_WEB_PLACEMENT_CONTEXT`
 - `useWebPlacementRuntime({ required = false } = {})`
@@ -354,7 +367,6 @@ Local functions
 
 ### `src/client/placement/validators.js`
 Exports
-- `isRecord`
 - `isRenderableComponent(value)`
 - `normalizeSurface(value)`
 - `normalizePlacementSurface(value, { strict = false, source = "placement" } = {})`
@@ -363,9 +375,7 @@ Exports
 - `normalizePlacementDefinition(value, { strict = false, source = "placement" } = {})`
 - `definePlacement(value = {})`
 - `definePlacementTopology(value = {})`
-- `normalizeSemanticPlacementId`
 Local functions
-- `isValidSurfaceIdToken(value = "")`
 - `toInteger(value, fallback = 1000)`
 
 ### `src/client/providers/appModuleLoadFailure.js`
@@ -378,16 +388,13 @@ Exports
 - `ShellWebClientProvider`
 - `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
+- `loadAppModule({ importModule, specifier, label, resolve, invalidExportMessage = "", loadFailureMessage, fallback, logger, asyncModuleRecoveryRuntime = null })`
 - `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null)`
 - `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null)`
 - `createErrorConfigToolkit(errorRuntime)`
 - `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null)`
-- `applyAppErrorConfig(errorRuntime, errorConfig = {})`
-- `isPullRefreshQuery(query = null)`
-- `createShellRefreshRuntime({ bootstrapRuntime = null, queryClient = null, errorRuntime = null, logger = null } = {})`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(router, errorRuntime, logger)`
-- `createShellAsyncModuleRecoveryRuntime({ router = null, errorRuntime = null, logger = null } = {})`
 
 ### `src/client/requestRecovery/index.js`
 Exports
@@ -404,24 +411,18 @@ Exports
 
 ### `src/client/requestRecovery/runtime.js`
 Exports
+- `APP_RELOAD_FAILURE_MESSAGE`
 - `createShellRequestRecoveryRuntime({ queryClient = null, errorRuntime = null, logger = null } = {})`
 - `isRecoverableRequestError(error = null)`
 - `requestRecoveryMessage(error = null, { label = "Request", message = "" } = {})`
 Local functions
-- `normalizeText(value, fallback = "")`
 - `errorMessage(error = null)`
 - `errorCode(error = null)`
 - `errorName(error = null)`
 - `normalizeRequestErrorStatus(error = null)`
 - `isCanceledRequestError(error = null)`
 - `resolveQueryMeta(query = null)`
-- `isRequestRecoveryDisabled(query = null)`
-- `resolveQueryRecoveryLabel(query = null)`
-- `resolveQueryRecoverySource(query = null)`
-- `resolveQueryRecoveryDedupeKey(query = null, fallback = "")`
-- `resolveQueryRecoveryDedupeWindowMs(query = null)`
-- `resolveQueryRecoveryMethod(query = null)`
-- `isSafeQueryRecoveryMethod(query = null)`
+- `readQueryRecoveryMeta(query = null)`
 - `isActiveQuery(query = null)`
 - `recoverableQueryError(query = null)`
 - `createQueryRetry(queryClient, query = null)`
@@ -435,6 +436,13 @@ Local functions
 - `normalizeObject(value)`
 - `buildBootstrapUrl({ path = DEFAULT_BOOTSTRAP_PATH, query = {} } = {})`
 - `normalizeBootstrapResponseError(response, url)`
+
+### `src/client/runtime/refreshRuntime.js`
+Exports
+- `SHELL_WEB_REFRESH_RUNTIME_KEY`
+- `createShellRefreshRuntime({ bootstrapRuntime = null, queryClient = null, errorRuntime = null, logger = null } = {})`
+Local functions
+- `isPullRefreshQuery(query = null)`
 
 ### `src/client/stores/useShellErrorPresentationStore.js`
 Exports
@@ -471,7 +479,8 @@ Local functions
 ### `src/client/support/menuLinkTarget.js`
 Exports
 - `normalizeMenuLinkPathname(pathname = "")`
-- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, scopedSuffix = "/", unscopedSuffix = "/", routeParams = {}, resolvePagePath = null } = {})`
+- `resolveMenuLinkHref(placementContext = null, target = "")`
+- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, scopedSuffix = "/", unscopedSuffix = "/", routeParams = {} } = {})`
 Local functions
 - `resolveMenuLinkSurfaceId(surface = "", fallbackSurfaceId = "")`
 - `interpolateBracketParams(pathTemplate = "", params = {})`
@@ -485,8 +494,6 @@ Exports
 ### `src/client/support/routeTransitionKey.js`
 Exports
 - `resolveShellRouteTransitionKey({ routePathKey = "", routeTransitionName = "", surfaceId = "" } = {})`
-Local functions
-- `normalizeText(value = "")`
 
 ### fixtures
 

@@ -5,11 +5,13 @@ import {
   onMounted,
   ref
 } from "vue";
-import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  SHELL_WEB_PLACEMENT_RUNTIME_KEY,
+  useWebPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 
 const ACCOUNT_SETTINGS_SECTION_TARGET = "account-settings:sections";
 const EMPTY_ACCOUNT_SETTINGS_SECTIONS = Object.freeze([]);
-const WEB_PLACEMENT_RUNTIME_INJECTION_KEY = "jskit.shell-web.runtime.web-placement.client";
 
 function normalizeAccountSettingsSectionEntry(entry = null) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
@@ -75,7 +77,7 @@ function resolveAccountSettingsSections(entries = []) {
 }
 
 function useAccountSettingsSections() {
-  const placementRuntime = inject(WEB_PLACEMENT_RUNTIME_INJECTION_KEY, null);
+  const placementRuntime = inject(SHELL_WEB_PLACEMENT_RUNTIME_KEY, null);
   const { context: placementContext } = useWebPlacementContext();
   const revision = ref(
     placementRuntime && typeof placementRuntime.getRevision === "function"

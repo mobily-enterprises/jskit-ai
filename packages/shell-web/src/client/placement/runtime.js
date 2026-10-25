@@ -2,6 +2,7 @@ import { DEFAULT_DEBUG_DEPTH, explodePayload } from "./debug.js";
 import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/listenerSet";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  WEB_PLACEMENT_SURFACE_ANY,
   normalizePlacementLayoutClass,
   normalizePlacementTopologyDefinition
 } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
@@ -24,7 +25,6 @@ function ensureArray(value) {
 
 const PLACEMENT_DEBUG_PREFIX = "[placement-debug]";
 const PLACEMENT_DEBUG_FLAG = "__JSKIT_PLACEMENT_DEBUG__";
-const WEB_PLACEMENT_SURFACE_ANY = "*";
 const NOOP = () => {};
 
 function isPlacementDebugEnabled() {
@@ -480,9 +480,7 @@ function createWebPlacementRuntime({ components, contextContributors = [], logge
       if (!renderablePlacement) {
         continue;
       }
-      const placementSurfaces = Array.isArray(renderablePlacement.surfaces)
-        ? renderablePlacement.surfaces
-        : [WEB_PLACEMENT_SURFACE_ANY];
+      const placementSurfaces = renderablePlacement.surfaces;
 
       if (!matchesSurface(placementSurfaces, normalizedSurface)) {
         debugLog("getPlacements:skip-surfaces", {

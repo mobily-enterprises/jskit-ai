@@ -2,6 +2,8 @@ import {
   inject
 } from "vue";
 
+const SHELL_WEB_ERROR_RUNTIME_KEY = "jskit.shell-web.runtime.web-error.client";
+
 const EMPTY_ERROR_RUNTIME = Object.freeze({
   report() {
     return Object.freeze({
@@ -49,7 +51,7 @@ const EMPTY_ERROR_RUNTIME = Object.freeze({
 });
 
 function useShellWebErrorRuntime({ required = false } = {}) {
-  const runtime = inject("jskit.shell-web.runtime.web-error.client", null);
+  const runtime = inject(SHELL_WEB_ERROR_RUNTIME_KEY, null);
   if (runtime && typeof runtime.report === "function") {
     return runtime;
   }
@@ -62,6 +64,7 @@ function useShellWebErrorRuntime({ required = false } = {}) {
 }
 
 export {
+  SHELL_WEB_ERROR_RUNTIME_KEY,
   EMPTY_ERROR_RUNTIME,
   useShellWebErrorRuntime
 };

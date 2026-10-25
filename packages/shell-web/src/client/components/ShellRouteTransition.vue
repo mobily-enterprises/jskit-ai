@@ -9,7 +9,6 @@ import {
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { normalizePathname } from "@jskit-ai/kernel/shared";
-import { resolveShellLinkPath } from "../navigation/linkResolver.js";
 import {
   useWebPlacementContext,
   useWebPlacementRuntime
@@ -158,16 +157,7 @@ const primaryNavEntries = computed(() => {
         placementContext: contextValue,
         scopedSuffix: entryProps.scopedSuffix,
         unscopedSuffix: entryProps.unscopedSuffix,
-        routeParams,
-        resolvePagePath(relativePath, options = {}) {
-          return resolveShellLinkPath({
-            context: contextValue,
-            surface: options.surface,
-            relativePath,
-            params: routeParams,
-            strictParams: options.strictParams !== false
-          });
-        }
+        routeParams
       });
       const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(contextValue, {
         path: target,

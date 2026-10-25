@@ -1,8 +1,8 @@
 import { guardedReloadApp } from "@jskit-ai/kernel/client/asyncModuleRecovery";
-import { isRecord } from "@jskit-ai/kernel/shared/support";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger as createSharedProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
 
-const REQUEST_RECOVERY_RELOAD_FAILURE_MESSAGE =
+const APP_RELOAD_FAILURE_MESSAGE =
   "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.";
 
 const RECOVERABLE_REQUEST_ERROR_MESSAGES = Object.freeze([
@@ -35,11 +35,6 @@ const SAFE_REQUEST_RECOVERY_METHODS = Object.freeze(new Set([
   "GET",
   "HEAD"
 ]));
-
-function normalizeText(value, fallback = "") {
-  const normalized = String(value || "").trim();
-  return normalized || String(fallback || "").trim();
-}
 
 function errorMessage(error = null) {
   return normalizeText(error?.message || error?.cause?.message || error);
@@ -106,7 +101,7 @@ function requestRecoveryMessage(error = null, {
     return explicitMessage;
   }
 
-  const requestLabel = normalizeText(label, "Request");
+  const requestLabel = normalizeText(label, { fallback: "Request" });
   if (requestLabel === "Request") {
     return "The app could not reach the server or network. Check the connection and try again.";
   }
@@ -123,59 +118,19 @@ function resolveQueryMeta(query = null) {
   return {};
 }
 
-function isRequestRecoveryDisabled(query = null) {
+function readQueryRecoveryMeta(query = null) {
   const meta = resolveQueryMeta(query);
   const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-  return jskitMeta.requestRecovery === false;
-}
+  const dedupeWindowMs = jskitMeta.requestRecoveryDedupeWindowMs;
 
-function resolveQueryRecoveryLabel(query = null) {
-  const meta = resolveQueryMeta(query);
-  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-
-  return normalizeText(
-    jskitMeta.requestRecoveryLabel,
-    "Request"
-  );
-}
-
-function resolveQueryRecoverySource(query = null) {
-  const meta = resolveQueryMeta(query);
-  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-
-  return normalizeText(
-    jskitMeta.requestRecoverySource,
-    "shell-web.request-recovery.query"
-  );
-}
-
-function resolveQueryRecoveryDedupeKey(query = null, fallback = "") {
-  const meta = resolveQueryMeta(query);
-  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-
-  return normalizeText(
-    jskitMeta.requestRecoveryDedupeKey,
-    fallback
-  );
-}
-
-function resolveQueryRecoveryDedupeWindowMs(query = null) {
-  const meta = resolveQueryMeta(query);
-  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-  const value = jskitMeta.requestRecoveryDedupeWindowMs;
-
-  return Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : null;
-}
-
-function resolveQueryRecoveryMethod(query = null) {
-  const meta = resolveQueryMeta(query);
-  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-
-  return normalizeText(jskitMeta.requestRecoveryMethod).toUpperCase();
-}
-
-function isSafeQueryRecoveryMethod(query = null) {
-  return SAFE_REQUEST_RECOVERY_METHODS.has(resolveQueryRecoveryMethod(query));
+  return Object.freeze({
+    disabled: jskitMeta.requestRecovery === false,
+    label: normalizeText(jskitMeta.requestRecoveryLabel, { fallback: "Request" }),
+    source: normalizeText(jskitMeta.requestRecoverySource, { fallback: "shell-web.request-recovery.query" }),
+    dedupeKey: normalizeText(jskitMeta.requestRecoveryDedupeKey),
+    dedupeWindowMs: Number.isFinite(Number(dedupeWindowMs)) ? Math.max(0, Number(dedupeWindowMs)) : null,
+    method: normalizeText(jskitMeta.requestRecoveryMethod).toUpperCase()
+  });
 }
 
 function isActiveQuery(query = null) {
@@ -273,10 +228,11 @@ function installRecoverableQueryObserver({
 
   function inspectQuery(query = null) {
     const queryHash = resolveQueryHash(query);
+    const recoveryMeta = readQueryRecoveryMeta(query);
     if (
       !query ||
-      isRequestRecoveryDisabled(query) ||
-      !isSafeQueryRecoveryMethod(query) ||
+      recoveryMeta.disabled ||
+      !SAFE_REQUEST_RECOVERY_METHODS.has(recoveryMeta.method) ||
       !isActiveQuery(query)
     ) {
       if (queryHash) {
@@ -300,18 +256,13 @@ function installRecoverableQueryObserver({
       return;
     }
 
-    const source = resolveQueryRecoverySource(query);
-    const dedupeKey = resolveQueryRecoveryDedupeKey(
-      query,
-      `shell-web.request-recovery.query.${queryHash}.${errorUpdateCount}`
-    );
-    const dedupeWindowMs = resolveQueryRecoveryDedupeWindowMs(query);
+    const { dedupeWindowMs } = recoveryMeta;
     const result = runtime.report(error, {
-      label: resolveQueryRecoveryLabel(query),
+      label: recoveryMeta.label,
       retry: createQueryRetry(queryClient, query),
-      source,
+      source: recoveryMeta.source,
       stale: query?.state?.data !== undefined,
-      dedupeKey,
+      dedupeKey: recoveryMeta.dedupeKey || `shell-web.request-recovery.query.${queryHash}.${errorUpdateCount}`,
       ...(dedupeWindowMs !== null ? { dedupeWindowMs } : {})
     });
 
@@ -376,7 +327,7 @@ function createShellRequestRecoveryRuntime({
 
   async function reload({
     label = "App",
-    message = REQUEST_RECOVERY_RELOAD_FAILURE_MESSAGE
+    message = APP_RELOAD_FAILURE_MESSAGE
   } = {}) {
     const reloaded = await guardedReloadApp({
       label,
@@ -396,9 +347,9 @@ function createShellRequestRecoveryRuntime({
     return reloaded;
   }
 
-  function retryAction(error, options, retry) {
+  function retryAction(options, retry) {
     return {
-      label: normalizeText(options.actionLabel, "Retry"),
+      label: normalizeText(options.actionLabel, { fallback: "Retry" }),
       dismissOnRun: true,
       async handler() {
         try {
@@ -415,12 +366,12 @@ function createShellRequestRecoveryRuntime({
 
   function reloadAction(options) {
     return {
-      label: normalizeText(options.actionLabel, "Reload"),
+      label: normalizeText(options.actionLabel, { fallback: "Reload" }),
       dismissOnRun: true,
       handler() {
         return reload({
           label: options.label,
-          message: options.reloadFailureMessage || REQUEST_RECOVERY_RELOAD_FAILURE_MESSAGE
+          message: options.reloadFailureMessage || APP_RELOAD_FAILURE_MESSAGE
         });
       }
     };
@@ -438,7 +389,7 @@ function createShellRequestRecoveryRuntime({
       return null;
     }
 
-    const source = normalizeText(options.source, "shell-web.request-recovery");
+    const source = normalizeText(options.source, { fallback: "shell-web.request-recovery" });
     if (!errorRuntime || typeof errorRuntime.report !== "function") {
       runtimeLogger.warn(
         {
@@ -452,7 +403,7 @@ function createShellRequestRecoveryRuntime({
 
     const retry = typeof options.retry === "function" ? options.retry : null;
     const action = retry
-      ? retryAction(error, options, retry)
+      ? retryAction(options, retry)
       : options.reload === true
         ? reloadAction(options)
         : null;
@@ -463,7 +414,7 @@ function createShellRequestRecoveryRuntime({
         message: requestRecoveryMessage(error, options),
         cause: error || null,
         intent: "app-recoverable",
-        severity: normalizeText(options.severity, options.stale ? "warning" : "error"),
+        severity: normalizeText(options.severity, { fallback: options.stale ? "warning" : "error" }),
         dedupeKey: normalizeText(options.dedupeKey),
         dedupeWindowMs: Number.isFinite(Number(options.dedupeWindowMs))
           ? Math.max(0, Number(options.dedupeWindowMs))
@@ -513,6 +464,7 @@ function createShellRequestRecoveryRuntime({
 }
 
 export {
+  APP_RELOAD_FAILURE_MESSAGE,
   createShellRequestRecoveryRuntime,
   isRecoverableRequestError,
   requestRecoveryMessage

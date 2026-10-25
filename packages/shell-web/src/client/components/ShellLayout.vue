@@ -23,6 +23,7 @@ import {
   normalizeShellRailWidth,
   resolveContentAwareDrawerWidth
 } from "../support/drawerWidth.js";
+import { SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
 import ShellOutlet from "./ShellOutlet.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
 
@@ -74,7 +75,7 @@ const {
   resolvedSurfaceLabel
 } = useShellLayoutState(props);
 const display = useDisplay();
-const refreshRuntime = inject("jskit.shell-web.runtime.web-refresh.client", null);
+const refreshRuntime = inject(SHELL_WEB_REFRESH_RUNTIME_KEY, null);
 const pullDistance = ref(0);
 const pullRefreshing = ref(false);
 const wideDrawerOpen = ref(Boolean(drawerDefaultOpen.value));

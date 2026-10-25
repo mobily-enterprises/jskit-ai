@@ -1,5 +1,9 @@
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveSurfaceDefinitionFromPlacementContext } from "../placement/surfaceContext.js";
+import { resolveShellLinkPath } from "../navigation/linkResolver.js";
+import {
+  resolveSurfaceDefinitionFromPlacementContext,
+  resolveSurfaceNavigationTargetFromPlacementContext
+} from "../placement/surfaceContext.js";
 
 function normalizeMenuLinkPathname(pathname = "") {
   const source = String(pathname || "").trim();
@@ -61,8 +65,7 @@ function resolveMenuLinkTarget({
   placementContext = null,
   scopedSuffix = "/",
   unscopedSuffix = "/",
-  routeParams = {},
-  resolvePagePath = null
+  routeParams = {}
 } = {}) {
   const explicitTarget = normalizeText(to);
   const targetSurfaceId = resolveMenuLinkSurfaceId(surface, currentSurfaceId);
@@ -70,13 +73,15 @@ function resolveMenuLinkTarget({
   const suffixTemplate = normalizeText(scopedRouteRequired ? scopedSuffix : unscopedSuffix) || "/";
   const interpolatedSuffix = interpolateBracketParams(suffixTemplate, routeParams);
   const resolvedSuffixTarget =
-    typeof resolvePagePath === "function" &&
     targetSurfaceId &&
     interpolatedSuffix &&
     !interpolatedSuffix.includes("[")
-      ? normalizeText(resolvePagePath(interpolatedSuffix, {
+      ? normalizeText(resolveShellLinkPath({
+          context: placementContext,
           surface: targetSurfaceId,
-          mode: "auto"
+          relativePath: interpolatedSuffix,
+          params: routeParams,
+          strictParams: true
         }))
       : "";
 
@@ -91,7 +96,25 @@ function resolveMenuLinkTarget({
   return explicitTarget;
 }
 
+// Menu and tab links render nothing for an empty target.
+function resolveMenuLinkHref(placementContext = null, target = "") {
+  const path = String(target || "").trim();
+  if (!path) {
+    return {
+      href: "",
+      sameOrigin: true
+    };
+  }
+
+  const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext, { path });
+  return {
+    href: navigationTarget.href,
+    sameOrigin: navigationTarget.sameOrigin
+  };
+}
+
 export {
   normalizeMenuLinkPathname,
+  resolveMenuLinkHref,
   resolveMenuLinkTarget
 };

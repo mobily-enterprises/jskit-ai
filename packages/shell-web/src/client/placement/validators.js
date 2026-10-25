@@ -1,12 +1,12 @@
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  WEB_PLACEMENT_SURFACE_ANY,
   normalizePlacementKind,
+  normalizePlacementSurfaceId,
+  normalizePlacementSurfaces as normalizeKernelPlacementSurfaces,
   normalizePlacementTopologyDefinition,
-  normalizeSemanticPlacementId,
   resolvePlacementTargetReference
 } from "@jskit-ai/kernel/shared/support/shellLayoutTargets";
-
-const WEB_PLACEMENT_SURFACE_ANY = "*";
 
 function isRenderableComponent(value) {
   if (typeof value === "function") {
@@ -16,41 +16,16 @@ function isRenderableComponent(value) {
 }
 
 function normalizeSurface(value) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) {
-    return WEB_PLACEMENT_SURFACE_ANY;
-  }
-  if (normalized === WEB_PLACEMENT_SURFACE_ANY) {
-    return WEB_PLACEMENT_SURFACE_ANY;
-  }
-  return normalized;
-}
-
-function isValidSurfaceIdToken(value = "") {
-  return /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value);
+  return normalizeText(value).toLowerCase() || WEB_PLACEMENT_SURFACE_ANY;
 }
 
 function normalizePlacementSurface(value, { strict = false, source = "placement" } = {}) {
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) {
-    if (strict) {
-      throw new TypeError(`${source} requires surface id or "*".`);
-    }
-    return "";
+  const surface = normalizePlacementSurfaceId(value);
+  if (!surface && strict) {
+    const normalized = normalizeText(value).toLowerCase();
+    throw new TypeError(normalized ? `${source} surface "${normalized}" is invalid.` : `${source} requires surface id or "*".`);
   }
-
-  if (normalized === WEB_PLACEMENT_SURFACE_ANY) {
-    return WEB_PLACEMENT_SURFACE_ANY;
-  }
-
-  if (isValidSurfaceIdToken(normalized)) {
-    return normalized;
-  }
-
-  if (strict) {
-    throw new TypeError(`${source} surface "${normalized}" is invalid.`);
-  }
-  return "";
+  return surface;
 }
 
 function toInteger(value, fallback = 1000) {
@@ -74,36 +49,16 @@ function normalizePlacementTarget(value, { strict = false, source = "placement" 
 }
 
 function normalizePlacementSurfaces(value, { strict = false, source = "placement" } = {}) {
-  const candidates = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
-  if (candidates.length < 1) {
-    return Object.freeze([WEB_PLACEMENT_SURFACE_ANY]);
-  }
-
-  const normalized = [];
-  const seen = new Set();
-  for (const candidate of candidates) {
-    const surface = normalizePlacementSurface(candidate, {
-      strict,
-      source
-    });
-    if (!surface || seen.has(surface)) {
-      continue;
+  if (strict) {
+    // Strict callers fail on the first invalid surface the kernel would otherwise drop; "*" ends the list.
+    const candidates = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
+    for (const candidate of candidates) {
+      if (normalizePlacementSurface(candidate, { strict, source }) === WEB_PLACEMENT_SURFACE_ANY) {
+        break;
+      }
     }
-    if (surface === WEB_PLACEMENT_SURFACE_ANY) {
-      return Object.freeze([WEB_PLACEMENT_SURFACE_ANY]);
-    }
-    seen.add(surface);
-    normalized.push(surface);
   }
-
-  if (normalized.length < 1) {
-    if (strict) {
-      throw new TypeError(`${source} requires at least one valid surface id.`);
-    }
-    return Object.freeze([WEB_PLACEMENT_SURFACE_ANY]);
-  }
-
-  return Object.freeze(normalized);
+  return normalizeKernelPlacementSurfaces(value);
 }
 
 function normalizePlacementDefinition(value, { strict = false, source = "placement" } = {}) {
@@ -186,7 +141,6 @@ function definePlacementTopology(value = {}) {
 }
 
 export {
-  isRecord,
   isRenderableComponent,
   normalizeSurface,
   normalizePlacementSurface,
@@ -194,6 +148,5 @@ export {
   normalizePlacementSurfaces,
   normalizePlacementDefinition,
   definePlacement,
-  definePlacementTopology,
-  normalizeSemanticPlacementId
+  definePlacementTopology
 };

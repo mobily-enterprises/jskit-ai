@@ -148,6 +148,7 @@ Local functions
 ### `support/shellLayoutTargets.js`
 Exports
 - `PLACEMENT_LAYOUT_CLASSES`
+- `WEB_PLACEMENT_SURFACE_ANY`
 - `describeShellOutletTargets(targets = [])`
 - `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
 - `findShellOutletTargetById(targets = [], targetId = "")`
@@ -319,7 +320,6 @@ Exports
 - `isJsonRestSchemaInstance(value)`
 - `resolveSchemaDefinitionMode(schemaDefinition = null, { defaultMode = "create", context = "schema definition.mode" } = {})`
 - `resolveSchemaDefinitionTransportSchema(schemaDefinition = null, options = {})`
-- `executeSchemaDefinition(schemaDefinition = null, payload, options = {})`
 - `normalizeJsonRestSchemaFieldErrors(errors = {}, schemaDefinition = null)`
 Local functions
 - `requireJsonRestSchemaInstance(schemaDefinition = null, { context = "schema definition.schema" } = {})`
@@ -440,8 +440,8 @@ Exports
 - `ensureActionChannelAllowed(definition, context)`
 - `ensureActionSurfaceAllowed(definition, context)`
 - `ensureActionPermissionAllowed(definition, context)`
-- `normalizeActionInput(definition, input, context)`
-- `normalizeActionOutput(definition, output, context)`
+- `normalizeActionInput(definition, input)`
+- `normalizeActionOutput(definition, output)`
 - `__testables`
 Local functions
 - `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`

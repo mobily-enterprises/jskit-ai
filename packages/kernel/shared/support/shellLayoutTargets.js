@@ -367,6 +367,7 @@ function discoverShellOutletTargetsFromVueSource(
 
 export {
   PLACEMENT_LAYOUT_CLASSES,
+  WEB_PLACEMENT_SURFACE_ANY,
   describeShellOutletTargets,
   discoverShellOutletTargetsFromVueSource,
   findShellOutletTargetById,

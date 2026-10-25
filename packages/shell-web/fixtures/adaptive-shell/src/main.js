@@ -13,6 +13,9 @@ import ShellSurfaceAwareMenuLinkItem from "@jskit-ai/shell-web/client/components
 import ShellTabLinkItem from "@jskit-ai/shell-web/client/components/ShellTabLinkItem";
 import { useShellLayoutStore } from "../../../src/client/stores/useShellLayoutStore.js";
 import { createWebPlacementRuntime } from "../../../src/client/placement/runtime.js";
+import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "../../../src/client/placement/inject.js";
+import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../../../src/client/error/inject.js";
+import { SHELL_WEB_REFRESH_RUNTIME_KEY } from "../../../src/client/runtime/refreshRuntime.js";
 import { createErrorRuntime } from "../../../src/client/error/runtime.js";
 import { createDefaultMaterialErrorPresenters } from "../../../src/client/error/presenters.js";
 import { createErrorPresentationStore } from "../../../src/client/error/store.js";
@@ -183,21 +186,21 @@ const app = createApp(App);
 app.use(pinia);
 app.use(router);
 app.use(vuetify);
-app.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
+app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placementRuntime);
 const errorStore = createErrorPresentationStore();
 const errorRuntime = createErrorRuntime({
   presenters: createDefaultMaterialErrorPresenters({ store: errorStore }),
   defaultPresenterId: "material.snackbar"
 });
 useShellErrorPresentationStore(pinia).attachRuntimeStore(errorStore);
-app.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
+app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, errorRuntime);
 window.__shellFixtureReportBanner = (message) => errorRuntime.report({
   source: "shell-web.fixture",
   message,
   severity: "error",
   channel: "banner"
 });
-app.provide("jskit.shell-web.runtime.web-refresh.client", {
+app.provide(SHELL_WEB_REFRESH_RUNTIME_KEY, {
   async refresh() {
     await fetch("/api/bootstrap?reason=pull-to-refresh");
   }

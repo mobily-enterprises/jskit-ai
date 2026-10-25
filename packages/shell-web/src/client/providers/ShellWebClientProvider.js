@@ -1,12 +1,6 @@
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import {
-  createAsyncModuleRecoveryState,
-  guardedReloadApp,
-  installAsyncModuleRecoveryHandlers,
-  isDynamicImportError,
-  notifyAsyncModuleLoadError
-} from "@jskit-ai/kernel/client/asyncModuleRecovery";
+import { isDynamicImportError } from "@jskit-ai/kernel/client/asyncModuleRecovery";
 import {
   isMissingDynamicModule,
   notifyDynamicImportFailure
@@ -14,6 +8,7 @@ import {
 import {
   SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY
 } from "../asyncModuleRecovery/inject.js";
+import { createShellAsyncModuleRecoveryRuntime } from "../asyncModuleRecovery/runtime.js";
 import {
   SHELL_REQUEST_RECOVERY_RUNTIME_KEY
 } from "../requestRecovery/inject.js";
@@ -33,85 +28,104 @@ import {
   createMaterialDialogPresenter,
   createMaterialSnackbarPresenter
 } from "../error/presenters.js";
+import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../error/inject.js";
 import {
   createErrorRuntime
 } from "../error/runtime.js";
 import {
   createErrorPresentationStore
 } from "../error/store.js";
+import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "../placement/inject.js";
 import { createWebPlacementRuntime } from "../placement/runtime.js";
 import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 import { createShellBootstrapRuntime } from "../runtime/bootstrapRuntime.js";
+import {
+  SHELL_WEB_REFRESH_RUNTIME_KEY,
+  createShellRefreshRuntime
+} from "../runtime/refreshRuntime.js";
 import { createBootstrapPayloadHandlerRegistry } from "../bootstrap/bootstrapPayloadHandlerRegistry.js";
 import { resolveBootstrapErrorStatusCode } from "../bootstrap/bootstrapErrorStatus.js";
 
-// Keep this constant for diagnostics, but keep import() below as a literal string so Vite can statically analyze it.
+// Keep these constants for diagnostics, but keep each import() below as a literal string so Vite can statically analyze it.
 const APP_PLACEMENT_MODULE_SPECIFIER = "/src/placement.js";
 const APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER = "/src/placementTopology.js";
 const APP_ERROR_MODULE_SPECIFIER = "/src/error.js";
-const ASYNC_MODULE_RELOAD_FAILURE_MESSAGE =
-  "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.";
 
-async function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null) {
+// Loads an optional app module's default export. `resolve` returns the usable value, or undefined when the
+// export has the wrong shape. A missing module silently yields `fallback`; any other failure is reported.
+async function loadAppModule({
+  importModule,
+  specifier,
+  label,
+  resolve,
+  invalidExportMessage = "",
+  loadFailureMessage,
+  fallback,
+  logger,
+  asyncModuleRecoveryRuntime = null
+}) {
   try {
-    const moduleNamespace = await import("/src/placement.js");
+    const moduleNamespace = await importModule();
     const exported = moduleNamespace?.default;
-    const resolved = typeof exported === "function" ? exported() : exported;
-    if (Array.isArray(resolved)) {
+    const resolved = await resolve(exported);
+    if (resolved !== undefined) {
       return resolved;
     }
 
     logger.warn(
       {
-        module: APP_PLACEMENT_MODULE_SPECIFIER,
+        module: specifier,
         exportedType: typeof exported
       },
-      "App placement module default export did not resolve to an array; using empty list."
+      invalidExportMessage
     );
   } catch (error) {
-    if (isMissingDynamicModule(error, APP_PLACEMENT_MODULE_SPECIFIER)) {
-      return [];
+    if (isMissingDynamicModule(error, specifier)) {
+      return fallback;
     }
-    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
-      label: "Placement config"
-    });
+    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, { label });
 
     logger.warn(
       {
-        module: APP_PLACEMENT_MODULE_SPECIFIER,
+        module: specifier,
         error: String(error?.message || error || "unknown error")
       },
-      "Failed to load app placement module; using empty list."
+      loadFailureMessage
     );
   }
 
-  return [];
+  return fallback;
 }
 
-async function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null) {
-  try {
-    const moduleNamespace = await import("/src/placementTopology.js");
-    const exported = moduleNamespace?.default;
-    return resolveAppPlacementTopologyExport(exported, logger);
-  } catch (error) {
-    if (isMissingDynamicModule(error, APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER)) {
-      return [];
-    }
-    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
-      label: "Placement topology"
-    });
+function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime = null) {
+  return loadAppModule({
+    importModule: () => import("/src/placement.js"),
+    specifier: APP_PLACEMENT_MODULE_SPECIFIER,
+    label: "Placement config",
+    resolve(exported) {
+      const resolved = typeof exported === "function" ? exported() : exported;
+      return Array.isArray(resolved) ? resolved : undefined;
+    },
+    invalidExportMessage: "App placement module default export did not resolve to an array; using empty list.",
+    loadFailureMessage: "Failed to load app placement module; using empty list.",
+    fallback: [],
+    logger,
+    asyncModuleRecoveryRuntime
+  });
+}
 
-    logger.warn(
-      {
-        module: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
-        error: String(error?.message || error || "unknown error")
-      },
-      "Failed to load app placement topology module; using empty topology."
-    );
-  }
-
-  return [];
+function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime = null) {
+  return loadAppModule({
+    importModule: () => import("/src/placementTopology.js"),
+    specifier: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
+    label: "Placement topology",
+    resolve: (exported) => resolveAppPlacementTopologyExport(exported, logger),
+    loadFailureMessage: "Failed to load app placement topology module; using empty topology.",
+    fallback: [],
+    logger,
+    asyncModuleRecoveryRuntime
+  });
 }
 
 function resolveAppPlacementTopologyExport(exported, logger) {
@@ -146,178 +160,21 @@ function createErrorConfigToolkit(errorRuntime) {
   });
 }
 
-async function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null) {
-  try {
-    const moduleNamespace = await import("/src/error.js");
-    const exported = moduleNamespace?.default;
-    const toolkit = createErrorConfigToolkit(errorRuntime);
-    const resolved = typeof exported === "function" ? await exported(toolkit) : exported;
-
-    if (isRecord(resolved)) {
-      return resolved;
-    }
-
-    logger.warn(
-      {
-        module: APP_ERROR_MODULE_SPECIFIER,
-        exportedType: typeof exported
-      },
-      "App error module default export did not resolve to an object; using shell-web defaults."
-    );
-  } catch (error) {
-    if (isMissingDynamicModule(error, APP_ERROR_MODULE_SPECIFIER)) {
-      return {};
-    }
-    notifyDynamicImportFailure(asyncModuleRecoveryRuntime, error, {
-      label: "Error config"
-    });
-
-    logger.warn(
-      {
-        module: APP_ERROR_MODULE_SPECIFIER,
-        error: String(error?.message || error || "unknown error")
-      },
-      "Failed to load app error module; using shell-web defaults."
-    );
-  }
-
-  return {};
-}
-
-function applyAppErrorConfig(errorRuntime, errorConfig = {}) {
-  const source = isRecord(errorConfig) ? errorConfig : {};
-  const configPayload = {};
-
-  if (Array.isArray(source.presenters) && source.presenters.length > 0) {
-    configPayload.presenters = source.presenters;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(source, "policy")) {
-    configPayload.policy = source.policy;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(source, "defaultPresenterId")) {
-    configPayload.defaultPresenterId = source.defaultPresenterId;
-  }
-
-  if (Object.keys(configPayload).length > 0) {
-    errorRuntime.configure(configPayload);
-    return;
-  }
-
-  errorRuntime.assertBootReady();
-}
-
-function isPullRefreshQuery(query = null) {
-  const meta = isRecord(query?.meta) ? query.meta : {};
-  if (meta.jskitRefresh === "pull") {
-    return true;
-  }
-  if (meta.jskitRefresh === false) {
-    return false;
-  }
-
-  const jskitMeta = isRecord(meta.jskit) ? meta.jskit : {};
-  return jskitMeta.refreshOnPull !== false;
-}
-
-function createShellRefreshRuntime({
-  bootstrapRuntime = null,
-  queryClient = null,
-  errorRuntime = null,
-  logger = null
-} = {}) {
-  const runtimeLogger = createSharedProviderLogger(logger);
-  let refreshQueue = Promise.resolve(null);
-
-  async function refreshBootstrap(reason) {
-    if (!bootstrapRuntime || typeof bootstrapRuntime.refresh !== "function") {
-      return false;
-    }
-
-    await bootstrapRuntime.refresh(reason);
-    return true;
-  }
-
-  async function refetchPullQueries() {
-    if (!queryClient || typeof queryClient.refetchQueries !== "function") {
-      return false;
-    }
-
-    await queryClient.refetchQueries(
-      {
-        type: "active",
-        predicate: isPullRefreshQuery
-      },
-      {
-        throwOnError: false
-      }
-    );
-    return true;
-  }
-
-  function reportRefreshFailure(error) {
-    runtimeLogger.warn(
-      {
-        error: String(error?.message || error || "unknown error")
-      },
-      "Shell refresh failed."
-    );
-
-    if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      return;
-    }
-
-    errorRuntime.report({
-      source: "shell-web.refresh",
-      message: "Unable to refresh. Check the connection and try again.",
-      intent: "app-recoverable",
-      severity: "error",
-      dedupeKey: "shell-web.refresh.failed",
-      dedupeWindowMs: 2000,
-      action: {
-        label: "Retry",
-        dismissOnRun: true,
-        handler() {
-          void refresh("retry");
-        }
-      }
-    });
-  }
-
-  async function performRefresh(reason = "manual") {
-    const normalizedReason = String(reason || "manual").trim() || "manual";
-    try {
-      const [bootstrapRefreshed, queriesRefetched] = await Promise.all([
-        refreshBootstrap(normalizedReason),
-        refetchPullQueries()
-      ]);
-
-      return Object.freeze({
-        reason: normalizedReason,
-        bootstrapRefreshed,
-        queriesRefetched
-      });
-    } catch (error) {
-      reportRefreshFailure(error);
-      return Object.freeze({
-        reason: normalizedReason,
-        bootstrapRefreshed: false,
-        queriesRefetched: false,
-        error
-      });
-    }
-  }
-
-  function refresh(reason = "manual") {
-    refreshQueue = refreshQueue
-      .catch(() => null)
-      .then(() => performRefresh(reason));
-    return refreshQueue;
-  }
-
-  return Object.freeze({
-    refresh
+function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime = null) {
+  return loadAppModule({
+    importModule: () => import("/src/error.js"),
+    specifier: APP_ERROR_MODULE_SPECIFIER,
+    label: "Error config",
+    async resolve(exported) {
+      const toolkit = createErrorConfigToolkit(errorRuntime);
+      const resolved = typeof exported === "function" ? await exported(toolkit) : exported;
+      return isRecord(resolved) ? resolved : undefined;
+    },
+    invalidExportMessage: "App error module default export did not resolve to an object; using shell-web defaults.",
+    loadFailureMessage: "Failed to load app error module; using shell-web defaults.",
+    fallback: {},
+    logger,
+    asyncModuleRecoveryRuntime
   });
 }
 
@@ -385,109 +242,6 @@ function installRouterErrorBridge(router, errorRuntime, logger) {
         "Shell web error runtime failed to report a router error."
       );
     }
-  });
-}
-
-function createShellAsyncModuleRecoveryRuntime({
-  router = null,
-  errorRuntime = null,
-  logger = null
-} = {}) {
-  const runtimeLogger = createSharedProviderLogger(logger);
-  const state = createAsyncModuleRecoveryState();
-  let installedRecovery = null;
-
-  function report(nextState = state) {
-    if (!errorRuntime || typeof errorRuntime.report !== "function") {
-      runtimeLogger.warn(
-        {
-          label: String(nextState?.label || "")
-        },
-        "Async module recovery could not report because the shell error runtime is unavailable."
-      );
-      return null;
-    }
-
-    try {
-      return errorRuntime.report({
-        source: "shell-web.async-module-recovery",
-        message: String(nextState?.message || "A required app module could not load."),
-        cause: nextState?.error || null,
-        intent: "app-recoverable",
-        severity: "warning",
-        dedupeKey: `shell-web.async-module-recovery.${Number(nextState?.attempt || 0)}`,
-        action: {
-          label: "Reload",
-          dismissOnRun: true,
-          handler() {
-            return reload();
-          }
-        }
-      });
-    } catch (error) {
-      runtimeLogger.error(
-        {
-          label: String(nextState?.label || ""),
-          error: String(error?.message || error || "unknown error")
-        },
-        "Async module recovery could not report through the shell error runtime."
-      );
-      return null;
-    }
-  }
-
-  async function reload() {
-    const reloaded = await guardedReloadApp({
-      state,
-      label: "App",
-      message: ASYNC_MODULE_RELOAD_FAILURE_MESSAGE
-    });
-    if (!reloaded) {
-      report(state);
-    }
-    return reloaded;
-  }
-
-  function notify(error = null, {
-    label = "App module",
-    message = "",
-    stale = isDynamicImportError(error)
-  } = {}) {
-    notifyAsyncModuleLoadError(state, error, {
-      label,
-      message,
-      retry: state.retry,
-      stale
-    });
-    return report(state);
-  }
-
-  function install() {
-    if (installedRecovery) {
-      return installedRecovery;
-    }
-
-    installedRecovery = installAsyncModuleRecoveryHandlers({
-      state,
-      label: "App module",
-      router,
-      onNotify: report
-    });
-    return installedRecovery;
-  }
-
-  function dispose() {
-    installedRecovery?.dispose?.();
-    installedRecovery = null;
-  }
-
-  return Object.freeze({
-    dispose,
-    install,
-    notify,
-    reload,
-    report,
-    state
   });
 }
 
@@ -588,39 +342,33 @@ const ShellWebClientProvider = defineProvider({
     } = outputs.shell;
     asyncModuleRecoveryRuntime.install();
 
-    if (placementRuntime && typeof placementRuntime.replacePlacements === "function") {
-      const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime);
-      if (typeof placementRuntime.replacePlacementTopology === "function") {
-        placementRuntime.replacePlacementTopology(placementTopology, { source: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER });
+    const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime);
+    placementRuntime.replacePlacementTopology(placementTopology, { source: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER });
+    const placements = await loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime);
+    placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
+    const appConfig = getClientAppConfig();
+    const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
+      tenancyMode: appConfig?.tenancyMode
+    });
+    const surfaceAccessPolicies =
+      appConfig?.surfaceAccessPolicies && typeof appConfig.surfaceAccessPolicies === "object"
+        ? appConfig.surfaceAccessPolicies
+        : {};
+    placementRuntime.setContext(
+      {
+        surfaceConfig,
+        surfaceAccessPolicies
+      },
+      {
+        source: "shell-web.surface-config"
       }
-      const placements = await loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime);
-      placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
-      const appConfig = getClientAppConfig();
-      const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
-        tenancyMode: appConfig?.tenancyMode
-      });
-      const surfaceAccessPolicies =
-        appConfig?.surfaceAccessPolicies && typeof appConfig.surfaceAccessPolicies === "object"
-          ? appConfig.surfaceAccessPolicies
-          : {};
-      placementRuntime.setContext(
-        {
-          surfaceConfig,
-          surfaceAccessPolicies
-        },
-        {
-          source: "shell-web.surface-config"
-        }
-      );
-    }
+    );
 
     const errorConfig = await loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime);
-    applyAppErrorConfig(errorRuntime, errorConfig);
+    errorRuntime.configure(errorConfig);
     requestRecoveryRuntime.install();
 
-    if (bootstrapRuntime && typeof bootstrapRuntime.initialize === "function") {
-      await bootstrapRuntime.initialize();
-    }
+    await bootstrapRuntime.initialize();
 
     if (!vueApp || typeof vueApp.provide !== "function" || typeof vueApp.use !== "function") {
       return;
@@ -630,15 +378,11 @@ const ShellWebClientProvider = defineProvider({
     }
     useShellErrorPresentationStore(pinia).attachRuntimeStore(errorPresentationStore);
 
-    vueApp.provide("jskit.shell-web.runtime.web-placement.client", placementRuntime);
-    vueApp.provide("jskit.shell-web.runtime.web-refresh.client", refreshRuntime);
-    vueApp.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
+    vueApp.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placementRuntime);
+    vueApp.provide(SHELL_WEB_REFRESH_RUNTIME_KEY, refreshRuntime);
+    vueApp.provide(SHELL_WEB_ERROR_RUNTIME_KEY, errorRuntime);
     vueApp.provide(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY, asyncModuleRecoveryRuntime);
     vueApp.provide(SHELL_REQUEST_RECOVERY_RUNTIME_KEY, requestRecoveryRuntime);
-    vueApp.provide(
-      "jskit.shell-web.runtime.web-error.presentation-store.client",
-      errorPresentationStore
-    );
 
     installVueErrorBridge(vueApp, errorRuntime, logger);
     installRouterErrorBridge(router, errorRuntime, logger);

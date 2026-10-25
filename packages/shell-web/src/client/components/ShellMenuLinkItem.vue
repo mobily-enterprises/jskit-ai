@@ -1,10 +1,8 @@
 <script setup>
 import { computed } from "vue";
-import {
-  resolveSurfaceNavigationTargetFromPlacementContext,
-  useWebPlacementContext
-} from "../placement/index.js";
+import { useWebPlacementContext } from "../placement/index.js";
 import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
+import { resolveMenuLinkHref } from "../support/menuLinkTarget.js";
 import { activateShellNavigationLinkOnSpace } from "../support/navigationLinkKeyboard.js";
 import ShellNavigationTooltip from "./ShellNavigationTooltip.vue";
 
@@ -33,23 +31,7 @@ const props = defineProps({
 
 const { context: placementContext } = useWebPlacementContext();
 
-const resolvedTarget = computed(() => {
-  const target = String(props.to || "").trim();
-  if (!target) {
-    return {
-      href: "",
-      sameOrigin: true
-    };
-  }
-
-  const navigationTarget = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
-    path: target
-  });
-  return {
-    href: navigationTarget.href,
-    sameOrigin: navigationTarget.sameOrigin
-  };
-});
+const resolvedTarget = computed(() => resolveMenuLinkHref(placementContext.value, props.to));
 
 const resolvedIcon = computed(() =>
   resolveMenuLinkIcon({
