@@ -30,6 +30,13 @@
             :text="item.text"
             @link-click="emit('link-click', $event)"
           />
+          <LongTextPreviewBlocks
+            v-if="item.blocks?.length"
+            class="studio-long-text-review__nested-list"
+            :compact="compact"
+            :blocks="item.blocks"
+            @link-click="emit('link-click', $event)"
+          />
         </li>
       </component>
       <pre
@@ -215,6 +222,10 @@ h5.studio-long-text-review__heading {
   overflow-wrap: anywhere;
   padding-inline-start: 0.1rem;
   word-break: break-word;
+}
+
+.studio-long-text-review__nested-list {
+  margin-block-start: 0.16rem;
 }
 
 .studio-long-text-review__blocks--compact .studio-long-text-review__list li {

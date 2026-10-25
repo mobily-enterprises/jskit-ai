@@ -3,6 +3,7 @@ function parseLongTextReviewBlocks(value, options = {}) {
   const blocks = [];
   let paragraphLines = [];
   let listBlock = null;
+  let listLevels = [];
   let codeLines = null;
   let detailsBlock = null;
   const preserveParagraphLineBreaks = options.preserveParagraphLineBreaks === true;
@@ -51,6 +52,38 @@ function parseLongTextReviewBlocks(value, options = {}) {
       blocks.push(listBlock);
     }
     listBlock = null;
+    listLevels = [];
+  };
+
+  const pushListItem = ({ indent, markerWidth, text, type }) => {
+    while (listLevels.length > 1 && indent < listLevels.at(-2).contentIndent) {
+      listLevels.pop();
+    }
+    let level = listLevels.at(-1);
+    if (level && indent >= level.contentIndent) {
+      const nested = { items: [], type };
+      const parentItem = level.block.items.at(-1);
+      parentItem.blocks = [...(parentItem.blocks || []), nested];
+      level = { block: nested, contentIndent: 0 };
+      listLevels.push(level);
+    } else if (level && level.block.type !== type) {
+      if (listLevels.length === 1) {
+        flushList();
+        level = null;
+      } else {
+        const nested = { items: [], type };
+        const parentItem = listLevels.at(-2).block.items.at(-1);
+        parentItem.blocks.push(nested);
+        level.block = nested;
+      }
+    }
+    if (!level) {
+      listBlock = { items: [], type };
+      level = { block: listBlock, contentIndent: 0 };
+      listLevels = [level];
+    }
+    level.block.items.push({ text });
+    level.contentIndent = indent + markerWidth;
   };
 
   const flushCode = () => {
@@ -155,26 +188,21 @@ function parseLongTextReviewBlocks(value, options = {}) {
       continue;
     }
 
-    const unorderedMatch = trimmed.match(/^[-*+•]\s+(.*)$/u);
-    const orderedMatch = trimmed.match(/^\d+[.)]\s+(.*)$/u);
-    if (unorderedMatch || orderedMatch) {
+    const listItemMatch = line.match(/^(\s*)(?:([-*+•])|(\d+[.)]))(\s+)(.*)$/u);
+    if (listItemMatch) {
       flushParagraph();
-      const type = orderedMatch ? "ol" : "ul";
-      if (!listBlock || listBlock.type !== type) {
-        flushList();
-        listBlock = {
-          items: [],
-          type
-        };
-      }
-      listBlock.items.push({
-        text: (orderedMatch?.[1] || unorderedMatch?.[1] || "").trim()
+      const [, leading, bullet, ordinal, spacing, text] = listItemMatch;
+      pushListItem({
+        indent: indentWidth(leading),
+        markerWidth: (bullet || ordinal).length + Math.min(spacing.length, 4),
+        text: text.trim(),
+        type: ordinal ? "ol" : "ul"
       });
       continue;
     }
 
     if (listBlock) {
-      listBlock.items.at(-1).text += ` ${trimmed}`;
+      listLevels.at(-1).block.items.at(-1).text += ` ${trimmed}`;
       continue;
     }
     paragraphLines.push(trimmed);
@@ -185,6 +213,14 @@ function parseLongTextReviewBlocks(value, options = {}) {
   flushCode();
   flushDetails();
   return blocks;
+}
+
+function indentWidth(leading = "") {
+  let width = 0;
+  for (const character of leading) {
+    width = character === "\t" ? width + 4 - (width % 4) : width + 1;
+  }
+  return width;
 }
 
 function expandCompactPipeTableLines(lines = []) {

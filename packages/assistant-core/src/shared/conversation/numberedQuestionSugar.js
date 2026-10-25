@@ -115,24 +115,34 @@ function questionForMarkerMatch(match = [], index = 0) {
   };
 }
 
+function rawMarkdownLines(rawLines = [], start = 0, end = rawLines.length) {
+  return rawLines.slice(start, end).join("\n").replace(/^(?:[ \t]*\n)+/u, "").trimEnd();
+}
+
 function parseLineNumberedQuestionPrompt(value = "") {
-  const lines = String(value || "")
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const rawLines = String(value || "").split(/\r?\n/u);
+  const lines = [];
+  const rawIndexes = [];
+  rawLines.forEach((rawLine, rawIndex) => {
+    const line = rawLine.trim();
+    if (line) {
+      lines.push(line);
+      rawIndexes.push(rawIndex);
+    }
+  });
   if (!lines.length) {
     return inactiveNumberedQuestionSugar();
   }
 
-  const intro = [];
-  const outro = [];
+  // Intro and outro keep their original lines so blank lines and list indentation still read as Markdown.
+  let introEnd = rawLines.length;
+  let outroStart = rawLines.length;
   const questions = [];
   for (let index = 0; index < lines.length;) {
     const line = lines[index];
     const match = numberedQuestionMarkerMatch(line);
     if (!match) {
       if (!questions.length) {
-        intro.push(line);
         index += 1;
         continue;
       }
@@ -153,13 +163,16 @@ function parseLineNumberedQuestionPrompt(value = "") {
       ) {
         return inactiveNumberedQuestionSugar();
       }
-      outro.push(...trailingLines);
+      outroStart = rawIndexes[index];
       break;
     }
 
     const question = questionForMarkerMatch(match, questions.length);
     if (!question) {
       return inactiveNumberedQuestionSugar();
+    }
+    if (!questions.length) {
+      introEnd = rawIndexes[index];
     }
     questions.push(question);
     index += 1;
@@ -169,8 +182,8 @@ function parseLineNumberedQuestionPrompt(value = "") {
     return inactiveNumberedQuestionSugar();
   }
   return {
-    intro: intro.join("\n"),
-    outro: outro.join("\n"),
+    intro: rawMarkdownLines(rawLines, 0, introEnd),
+    outro: rawMarkdownLines(rawLines, outroStart),
     questions
   };
 }
