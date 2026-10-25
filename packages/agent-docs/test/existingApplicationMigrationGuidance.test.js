@@ -39,7 +39,9 @@ test("the JSKIT skill routes existing-app ports to the distributed migration gui
     assert.match(guide, /decorateRepository/u);
     assert.match(guide, /Preserve the basename of every applied/u);
     assert.match(guide, /one isolated mutable development database per\s+session/u);
-    assert.match(guide, /process umask `0007`/u);
+    assert.match(guide, /inherited default\s+ACL, and restrictive umask/u);
+    assert.match(guide, /recursive ownership or mode repair afterward/u);
+    assert.doesNotMatch(guide, /group `vibe64`|vibe64:rwx|v64d_|`2770`|umask `0007`/u);
     assert.match(guide, /managed preview identity selects an existing auth-backend user/u);
     assert.match(guide, /patterns as examples, not regeneration input/iu);
     assert.match(guide, /Five finish gates/u);

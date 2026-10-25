@@ -292,13 +292,6 @@ ACL, and restrictive umask. Setup must fail if it cannot establish that
 contract. Do not make package installation, Git, agents, or preview startup run
 recursive ownership or mode repair afterward.
 
-For Vibe64-managed workspaces, the concrete contract is group `vibe64`,
-directory mode `2770`, access and inherited default group ACL `vibe64:rwx`, no
-access for other users, and process umask `0007`. The enabled human user and
-`v64d_<workspace>` identity both belong to the group. Other hosts may use
-different concrete identities, but they must provide the same creation-time
-guarantee.
-
 Do not conflate these identities:
 
 - The filesystem identity controls who may create and replace source files.
