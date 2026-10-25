@@ -220,6 +220,62 @@ function resolveRouteTemplateLocation(routeTemplate = "", { params = {}, current
   return resolvedPathname;
 }
 
+function createRouteTemplateResolver({
+  recordIdParam,
+  routeParams = null,
+  routeParamNames = null,
+  routePath = "",
+  routeRecordId = null,
+  anchorMode = "at",
+  anchorOnTargetRecord = false,
+  fillRecordId = true
+} = {}) {
+  function resolveCurrentRecordId(currentRouteParams = resolveRouteParamsSource(routeParams)) {
+    const explicitRecordId = toRouteParamValue(resolveRouteSourceValue(routeRecordId));
+    if (explicitRecordId) {
+      return explicitRecordId;
+    }
+
+    return toRouteParamValue(currentRouteParams[recordIdParam]);
+  }
+
+  function resolveTemplatePath(urlTemplate = "", extraParams = {}) {
+    const normalizedTemplate = String(urlTemplate || "").trim();
+    if (!normalizedTemplate) {
+      return "";
+    }
+
+    const currentRouteParams = resolveRouteParamsSource(routeParams);
+    const sourceParams = {
+      ...currentRouteParams,
+      ...asPlainObject(extraParams)
+    };
+    const currentRecordId = resolveCurrentRecordId(currentRouteParams);
+    const targetRecordId = toRouteParamValue(sourceParams[recordIdParam]) || currentRecordId;
+    if (fillRecordId) {
+      sourceParams[recordIdParam] = targetRecordId;
+    }
+    const currentPathname = resolveScopedRoutePathname({
+      currentPathname: routePath,
+      params: currentRouteParams,
+      orderedParamNames: routeParamNames,
+      anchorParamName: recordIdParam,
+      anchorParamValue: anchorOnTargetRecord ? targetRecordId : currentRecordId,
+      anchorMode
+    });
+
+    return resolveRouteTemplateLocation(normalizedTemplate, {
+      params: sourceParams,
+      currentPathname
+    });
+  }
+
+  return Object.freeze({
+    resolveRecordId: () => resolveCurrentRecordId(),
+    resolveTemplatePath
+  });
+}
+
 function extractRouteParamNames(pathTemplate = "") {
   const normalizedTemplate = String(pathTemplate || "").trim();
   if (!normalizedTemplate) {
@@ -280,6 +336,7 @@ export {
   resolveScopedRoutePathname,
   resolveRouteTemplatePath,
   resolveRouteTemplateLocation,
+  createRouteTemplateResolver,
   extractRouteParamNames,
   resolveRouteParamNamesInOrder
 };

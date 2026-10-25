@@ -1,11 +1,9 @@
 import { computed } from "vue";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import {
+  createRouteTemplateResolver,
   normalizeRouteParamName,
-  toRouteParamValue,
-  resolveRouteParamsSource,
-  resolveScopedRoutePathname,
-  resolveRouteTemplateLocation
+  toRouteParamValue
 } from "../support/routeTemplateHelpers.js";
 
 function resolveRecordId(record, recordIdSelector) {
@@ -39,35 +37,14 @@ function createListUiRuntime({
   const normalizedItems = computed(() => (Array.isArray(items?.value) ? items.value : []));
   const showListSkeleton = computed(() => Boolean(isInitialLoading?.value && normalizedItems.value.length < 1));
 
-  function resolveTemplatePath(urlTemplate = "", extraParams = {}) {
-    const normalizedTemplate = String(urlTemplate || "").trim();
-    if (!normalizedTemplate) {
-      return "";
-    }
-
-    const currentRouteParams = resolveRouteParamsSource(routeParams);
-    const sourceParams = {
-      ...currentRouteParams,
-      ...asPlainObject(extraParams)
-    };
-    const currentPathname = resolveScopedRoutePathname({
-      currentPathname: routePath,
-      params: currentRouteParams,
-      orderedParamNames: routeParamNames,
-      anchorParamName: normalizedRecordIdParam,
-      anchorParamValue: currentRouteParams[normalizedRecordIdParam],
-      anchorMode: "before"
-    });
-
-    return resolveRouteTemplateLocation(normalizedTemplate, {
-      params: sourceParams,
-      currentPathname
-    });
-  }
-
-  function resolveParams(urlTemplate = "", extraParams = {}) {
-    return resolveTemplatePath(urlTemplate, extraParams);
-  }
+  const { resolveTemplatePath } = createRouteTemplateResolver({
+    recordIdParam: normalizedRecordIdParam,
+    routeParams,
+    routeParamNames,
+    routePath,
+    anchorMode: "before",
+    fillRecordId: false
+  });
 
   function resolveRowKey(record, index) {
     const recordId = resolveRecordId(record, recordIdSelector);
@@ -113,7 +90,7 @@ function createListUiRuntime({
     hasEditUrl,
     actionColumnCount,
     showListSkeleton,
-    resolveParams,
+    resolveParams: resolveTemplatePath,
     resolveRowKey,
     resolveViewUrl,
     resolveEditUrl

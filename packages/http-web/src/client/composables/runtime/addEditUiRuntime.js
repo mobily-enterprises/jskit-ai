@@ -1,23 +1,10 @@
-import { computed, unref } from "vue";
+import { computed } from "vue";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import {
+  createRouteTemplateResolver,
   normalizeRouteParamName,
-  resolveRouteParamsSource,
-  resolveScopedRoutePathname,
-  resolveRouteTemplateLocation,
   toRouteParamValue
 } from "../support/routeTemplateHelpers.js";
-
-function toResolvedRecordId({ routeParams, recordIdParam, routeRecordId }) {
-  const explicitRecordId = toRouteParamValue(
-    typeof routeRecordId === "function" ? routeRecordId() : unref(routeRecordId)
-  );
-  if (explicitRecordId) {
-    return explicitRecordId;
-  }
-
-  return toRouteParamValue(routeParams[recordIdParam]);
-}
 
 function resolveSavedRecordId(payload, saveRecordIdSelector) {
   const sourcePayload = asPlainObject(payload);
@@ -46,55 +33,20 @@ function createAddEditUiRuntime({
   const normalizedViewUrlTemplate = String(viewUrlTemplate || "").trim();
   const normalizedListUrlTemplate = String(listUrlTemplate || "").trim();
 
-  function resolveTemplatePath(urlTemplate = "", extraParams = {}) {
-    const normalizedTemplate = String(urlTemplate || "").trim();
-    if (!normalizedTemplate) {
-      return "";
-    }
+  const { resolveRecordId, resolveTemplatePath } = createRouteTemplateResolver({
+    recordIdParam: normalizedRecordIdParam,
+    routeParams,
+    routeParamNames,
+    routePath,
+    routeRecordId,
+    anchorMode: "after"
+  });
 
-    const currentRouteParams = resolveRouteParamsSource(routeParams);
-    const sourceParams = {
-      ...currentRouteParams,
-      ...asPlainObject(extraParams)
-    };
-    const currentRouteRecordId = toResolvedRecordId({
-      routeParams: currentRouteParams,
-      recordIdParam: normalizedRecordIdParam,
-      routeRecordId
-    });
-    const resolvedRecordId = toRouteParamValue(sourceParams[normalizedRecordIdParam]) ||
-      currentRouteRecordId;
-    sourceParams[normalizedRecordIdParam] = resolvedRecordId;
-    const currentPathname = resolveScopedRoutePathname({
-      currentPathname: routePath,
-      params: currentRouteParams,
-      orderedParamNames: routeParamNames,
-      anchorParamName: normalizedRecordIdParam,
-      anchorParamValue: currentRouteRecordId,
-      anchorMode: "after"
-    });
-
-    return resolveRouteTemplateLocation(normalizedTemplate, {
-      params: sourceParams,
-      currentPathname
-    });
-  }
-
-  const recordId = computed(() =>
-    toResolvedRecordId({
-      routeParams: resolveRouteParamsSource(routeParams),
-      recordIdParam: normalizedRecordIdParam,
-      routeRecordId
-    })
-  );
+  const recordId = computed(() => resolveRecordId());
 
   const apiSuffix = computed(() => resolveTemplatePath(normalizedApiUrlTemplate));
   const listUrl = computed(() => resolveTemplatePath(normalizedListUrlTemplate));
   const cancelUrl = computed(() => resolveTemplatePath(normalizedViewUrlTemplate) || listUrl.value);
-
-  function resolveParams(urlTemplate = "", extraParams = {}) {
-    return resolveTemplatePath(urlTemplate, extraParams);
-  }
 
   function resolveViewUrl(recordIdLike = "") {
     const targetRecordId = toRouteParamValue(recordIdLike);
@@ -121,7 +73,7 @@ function createAddEditUiRuntime({
     apiSuffix,
     listUrl,
     cancelUrl,
-    resolveParams,
+    resolveParams: resolveTemplatePath,
     resolveViewUrl,
     resolveSavedViewUrl
   });
