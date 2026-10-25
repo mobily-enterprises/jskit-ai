@@ -1533,6 +1533,7 @@ Exports
 - `parseLongTextInlineParts(value = "")`
 - `parseLongTextReviewBlocks(value, options = {})`
 Local functions
+- `indentWidth(leading = "")`
 - `expandCompactPipeTableLines(lines = [])`
 - `parsePipeTableAt(lines = [], startIndex = 0)`
 - `parsePipeTableRow(value = "")`
@@ -1565,6 +1566,7 @@ Local functions
 - `numberedQuestionChoice(line = "")`
 - `trailingAnswerChoiceBlock(lines = [], startIndex = 0)`
 - `questionForMarkerMatch(match = [], index = 0)`
+- `rawMarkdownLines(rawLines = [], start = 0, end = rawLines.length)`
 - `parseLineNumberedQuestionPrompt(value = "")`
 - `parseInlineNumberedQuestionPrompt(value = "")`
 
