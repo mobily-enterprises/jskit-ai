@@ -112,7 +112,6 @@ Exports
 - `decodeJsonApiErrorFieldErrors(payload = {})`
 - `createJsonApiClientErrorPayload(payload = {})`
 Local functions
-- `isRecord(value)`
 - `normalizeTransportKind(transport = null)`
 - `defaultEncodeAttributes(body = {})`
 - `createIncludedResourceIndex(document = {})`
@@ -242,17 +241,12 @@ Exports
 - `decodeJsonApiResourceQueryObject(query = {}, { responseType = "" } = {})`
 - `createJsonApiResourceQueryTransportSchema({ query, responseType = "" } = {})`
 Local functions
-- `isRecord(value)`
 - `normalizeQueryKey(key = "")`
 - `buildFieldsTransportKey(responseType = "")`
 - `parseFieldsTransportType(key = "")`
 - `addJsonApiFieldset(fieldsets, type = "", value = [])`
 - `createJsonApiFieldsTransportValueSchema()`
 - `normalizeTransportQueryScalar(value)`
-
-### `src/shared/validators/jsonApiResponses.js`
-Exports
-- `simplifyJsonApiDocument`
 
 ### `src/shared/validators/jsonApiResult.js`
 Exports
@@ -280,7 +274,6 @@ Exports
 - `createJsonApiResourceRouteTransport({ type = "", requestType = "", responseType = "", query = null, allowBodyId = false, successKind = "record", pointerPrefix = "/data/attributes", mapRequestRelationships = null, getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null } = {})`
 - `createJsonApiResourceRouteContract({ type = "", requestType = "", responseType = "", body = null, query = null, output = null, outputKind = "record", successStatus = 200, includeValidation400 = false, allowSparseFields = false, allowBodyId = false, pointerPrefix = "/data/attributes", bodyAttributeExcludeKeys = [], outputAttributeExcludeKeys = [], bodyRelationshipEntries = [], outputRelationshipEntries = [], getRecordType = null, getRecordId = null, getRecordAttributes = null, getRecordRelationships = null, getRecordLinks = null, getRecordMeta = null, getIncluded = null, getDocumentLinks = null, getDocumentMeta = null, getCollectionItems = null, mapRequestRelationships = null } = {})`
 Local functions
-- `isRecord(value)`
 - `createJsonApiTransportError(statusCode, message, code)`
 - `resolveRouteType(type = "")`
 - `resolveRouteTypes(value = {})`
@@ -313,7 +306,6 @@ Exports
 - `normalizeJsonApiResourceObject(resource = {})`
 - `simplifyJsonApiDocument(payload = {})`
 Local functions
-- `isRecord(value)`
 - `normalizeMediaType(contentType = "")`
 - `normalizeJsonApiResourceArray(value)`
 - `normalizeJsonApiLinks(value)`

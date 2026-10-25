@@ -1,4 +1,4 @@
-import { normalizeArray, normalizeObject, normalizeText, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeArray, normalizeObject, normalizeText, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
@@ -11,10 +11,6 @@ import {
   resolveRelationshipFieldKey,
   simplifyJsonApiResourceWithRelationshipIds
 } from "../support/jsonApiSimplify.js";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeTransportKind(transport = null) {
   return String(transport?.kind || "").trim().toLowerCase();
@@ -234,6 +230,18 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
   }
 
   const document = normalizeJsonApiDocument(payload);
+  if (document.kind === "unknown") {
+    throw new Error("Expected JSON:API response document.");
+  }
+
+  if (normalizedTransport.responseKind === "meta") {
+    if (document.kind !== "meta") {
+      throw new Error("Expected JSON:API meta document.");
+    }
+
+    return isRecord(document.meta) ? document.meta : {};
+  }
+
   const simplifyOptions = {
     lookupContainerKey: normalizedTransport.lookupContainerKey,
     lookupFieldMap: normalizedTransport.lookupFieldMap,
@@ -241,9 +249,6 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
     resourceCache: new Map(),
     inFlightKeys: new Set()
   };
-  if (document.kind === "unknown") {
-    throw new Error("Expected JSON:API response document.");
-  }
 
   if (normalizedTransport.responseKind === "collection") {
     if (document.kind !== "collection") {
@@ -260,26 +265,8 @@ function decodeJsonApiResourceResponse(payload, transport = null) {
     };
   }
 
-  if (normalizedTransport.responseKind === "meta") {
-    if (document.kind !== "meta") {
-      throw new Error("Expected JSON:API meta document.");
-    }
-
-    return isRecord(document.meta) ? document.meta : {};
-  }
-
-  if (normalizedTransport.responseKind === "nullable-record") {
-    if (document.kind !== "resource") {
-      throw new Error("Expected JSON:API resource document.");
-    }
-
-    if (document.data != null) {
-      assertPrimaryDataType(document.data, normalizedTransport.responseType);
-    }
-
-    return document.data == null ? null : simplifyResourceObject(document.data, simplifyOptions);
-  }
-
+  // "record" and "nullable-record" (and any other kind) decode the same resource document;
+  // the server success schema, not this decoder, is what forbids null data for "record".
   if (document.kind !== "resource") {
     throw new Error("Expected JSON:API resource document.");
   }

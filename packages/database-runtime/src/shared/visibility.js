@@ -61,10 +61,10 @@ function applyVisibilityOwners(payload = {}, visibilityContext = {}) {
   };
 
   if (context.scopeOwnerId) {
-    ownedPayload.workspace_id = context.scopeOwnerId;
+    ownedPayload[DEFAULT_VISIBILITY_COLUMNS.scopeOwnerId] = context.scopeOwnerId;
   }
   if (context.userId) {
-    ownedPayload.user_id = context.userId;
+    ownedPayload[DEFAULT_VISIBILITY_COLUMNS.userId] = context.userId;
   }
 
   return ownedPayload;

@@ -1,11 +1,7 @@
-import { normalizeArray, normalizeObject, normalizeText, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeArray, normalizeObject, normalizeText, normalizeTransactionOutcome } from "@jskit-ai/kernel/shared/support/normalize";
 import { simplifyJsonApiResourceWithRelationshipIds } from "../support/jsonApiSimplify.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeMediaType(contentType = "") {
   return String(contentType || "")

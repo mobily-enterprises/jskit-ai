@@ -105,15 +105,15 @@ test("createHttpError preserves standard error envelopes that also contain an er
       status: 409
     },
     {
-      code: "vibe64_repository_flip_active_sessions",
+      code: "resource_conflict",
       details: {
-        code: "vibe64_repository_flip_active_sessions"
+        code: "resource_conflict"
       },
-      error: "Finish or abandon active sessions before changing this project's repository mode.",
+      error: "Finish the pending operation first.",
       errors: [
         {
-          code: "vibe64_repository_flip_active_sessions",
-          message: "Finish or abandon active sessions before changing this project's repository mode."
+          code: "resource_conflict",
+          message: "Finish the pending operation first."
         }
       ],
       ok: false
@@ -121,13 +121,13 @@ test("createHttpError preserves standard error envelopes that also contain an er
   );
 
   assert.equal(error.status, 409);
-  assert.equal(error.code, "vibe64_repository_flip_active_sessions");
+  assert.equal(error.code, "resource_conflict");
   assert.equal(
     error.message,
-    "Finish or abandon active sessions before changing this project's repository mode."
+    "Finish the pending operation first."
   );
   assert.deepEqual(error.details, {
-    code: "vibe64_repository_flip_active_sessions"
+    code: "resource_conflict"
   });
 });
 

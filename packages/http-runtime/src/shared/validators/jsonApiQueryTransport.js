@@ -1,4 +1,4 @@
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   normalizeJsonApiFieldList,
   normalizeJsonApiFieldsets
@@ -11,10 +11,6 @@ const JSON_API_QUERY_INCLUDE_KEY = "include";
 const JSON_API_QUERY_SORT_KEY = "sort";
 const JSON_API_FILTER_PREFIX = "filter[";
 const JSON_API_FIELDS_PREFIX = "fields[";
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeQueryKey(key = "") {
   return String(key || "").trim();

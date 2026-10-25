@@ -119,10 +119,10 @@ Exports
 - `defineCrudResource(resource = {})`
 Local functions
 - `createCrudRecordIdFieldDefinition()`
-- `resolveCrudLookupContainerKey(resource = {})`
+- `resolveConfiguredLookupContainerKey(resource = {})`
 - `resolveFieldEntries(resource = {}, operationName = "output")`
 - `createDerivedCrudRecordOutputDefinition(resource = {})`
-- `createDerivedCrudBodyDefinition(resource = {}, operationName = "patch")`
+- `createDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch")`
 - `createCrudDeleteOutputDefinition()`
 - `requireCrudOperationName(value = "", { context = "crud operation name" } = {})`
 - `requireCrudOperationSpec(operationName = "")`

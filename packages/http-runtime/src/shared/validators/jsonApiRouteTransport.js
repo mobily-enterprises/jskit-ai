@@ -1,5 +1,4 @@
-import { normalizeArray } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeArray, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveSchemaTransportSchemaDefinition
 } from "@jskit-ai/kernel/shared/validators";
@@ -133,10 +132,6 @@ const JSON_API_ERROR_DOCUMENT_SCHEMA = Object.freeze({
     meta: JSON_API_META_SCHEMA
   }
 });
-
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function createJsonApiTransportError(statusCode, message, code) {
   const error = new Error(String(message || "JSON:API transport error."));
@@ -683,6 +678,35 @@ function createJsonApiResourceRouteTransport({
     return createJsonApiResourceObject(resourceOptions);
   }
 
+  // Collections always resolve meta (falling back to the nextCursor page meta); records add
+  // meta only when the caller supplies getDocumentMeta.
+  function buildDocumentOptions(sourcePayload, context, data, { resolveMeta = null } = {}) {
+    const documentOptions = { data };
+
+    if (typeof getIncluded === "function") {
+      const included = normalizeArray(getIncluded(sourcePayload, context));
+      if (included.length > 0) {
+        documentOptions.included = included;
+      }
+    }
+
+    if (typeof getDocumentLinks === "function") {
+      const links = getDocumentLinks(sourcePayload, context);
+      if (links !== undefined) {
+        documentOptions.links = links;
+      }
+    }
+
+    if (typeof resolveMeta === "function") {
+      const meta = resolveMeta(sourcePayload, context);
+      if (meta !== undefined) {
+        documentOptions.meta = meta;
+      }
+    }
+
+    return documentOptions;
+  }
+
   return Object.freeze({
     kind: "jsonapi-resource",
     contentType: JSON_API_CONTENT_TYPE,
@@ -801,26 +825,12 @@ function createJsonApiResourceRouteTransport({
 
       if (normalizedSuccessKind === "collection") {
         const items = normalizeArray(resolveCollectionItems(sourcePayload, context));
-        const documentOptions = {
-          data: items.map((entry) => buildResourceObject(entry, context))
-        };
-
-        if (typeof getIncluded === "function") {
-          const included = normalizeArray(getIncluded(sourcePayload, context));
-          if (included.length > 0) {
-            documentOptions.included = included;
-          }
-        }
-
-        const links = typeof getDocumentLinks === "function" ? getDocumentLinks(sourcePayload, context) : undefined;
-        if (links !== undefined) {
-          documentOptions.links = links;
-        }
-
-        const meta = resolveDocumentMeta(sourcePayload, context);
-        if (meta !== undefined) {
-          documentOptions.meta = meta;
-        }
+        const documentOptions = buildDocumentOptions(
+          sourcePayload,
+          context,
+          items.map((entry) => buildResourceObject(entry, context)),
+          { resolveMeta: resolveDocumentMeta }
+        );
 
         return createJsonApiDocument(documentOptions);
       }
@@ -835,30 +845,12 @@ function createJsonApiResourceRouteTransport({
         throw createJsonApiTransportError(500, "JSON:API resource response requires a record payload.", "jsonapi_record_missing");
       }
 
-      const documentOptions = {
-        data: buildResourceObject(sourcePayload, context)
-      };
-
-      if (typeof getIncluded === "function") {
-        const included = normalizeArray(getIncluded(sourcePayload, context));
-        if (included.length > 0) {
-          documentOptions.included = included;
-        }
-      }
-
-      if (typeof getDocumentLinks === "function") {
-        const links = getDocumentLinks(sourcePayload, context);
-        if (links !== undefined) {
-          documentOptions.links = links;
-        }
-      }
-
-      if (typeof getDocumentMeta === "function") {
-        const meta = getDocumentMeta(sourcePayload, context);
-        if (meta !== undefined) {
-          documentOptions.meta = meta;
-        }
-      }
+      const documentOptions = buildDocumentOptions(
+        sourcePayload,
+        context,
+        buildResourceObject(sourcePayload, context),
+        { resolveMeta: getDocumentMeta }
+      );
 
       return createJsonApiDocument(documentOptions);
     },

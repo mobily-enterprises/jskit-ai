@@ -3,7 +3,7 @@ import {
   createCursorListValidator,
   RECORD_ID_PATTERN
 } from "@jskit-ai/kernel/shared/validators";
-import { buildCrudOperationSchemaFields } from "@jskit-ai/resource-crud-core/shared/crudFieldContract";
+import { buildCrudOperationSchemaFields } from "./crudFieldContract.js";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
@@ -76,7 +76,9 @@ function createCrudRecordIdFieldDefinition() {
   };
 }
 
-function resolveCrudLookupContainerKey(resource = {}) {
+// Only an explicitly configured container key adds a lookup field to the derived output;
+// unlike crudLookup.js resolveCrudLookupContainerKey, the default "lookups" key is not applied.
+function resolveConfiguredLookupContainerKey(resource = {}) {
   return normalizeText(resource?.contract?.lookup?.containerKey);
 }
 
@@ -96,7 +98,7 @@ function createDerivedCrudRecordOutputDefinition(resource = {}) {
     id: createCrudRecordIdFieldDefinition(),
     ...outputFields
   };
-  const lookupContainerKey = resolveCrudLookupContainerKey(resource);
+  const lookupContainerKey = resolveConfiguredLookupContainerKey(resource);
 
   if (lookupContainerKey) {
     fields[lookupContainerKey] = {
@@ -110,7 +112,7 @@ function createDerivedCrudRecordOutputDefinition(resource = {}) {
   });
 }
 
-function createDerivedCrudBodyDefinition(resource = {}, operationName = "patch") {
+function createDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch") {
   let fields = resolveFieldEntries(resource, operationName);
 
   if (operationName === "replace" && Object.keys(fields).length === 0) {
@@ -126,13 +128,7 @@ function createDerivedCrudBodyDefinition(resource = {}, operationName = "patch")
     );
   }
 
-  const defaultMode = operationName === "create"
-    ? "create"
-    : operationName === "replace"
-      ? "replace"
-      : "patch";
-
-  return createSchemaDefinition(createSchema(fields), defaultMode, {
+  return createSchemaDefinition(createSchema(fields), bodyMode, {
     context: `defineCrudResource derived ${operationName} body`
   });
 }
@@ -169,8 +165,7 @@ function requireCrudOperationSpec(operationName = "") {
 }
 
 function resolveCrudOperationNames(resource = {}) {
-  const hasConfiguredOperations = Array.isArray(resource?.crudOperations);
-  const configuredOperations = hasConfiguredOperations
+  const configuredOperations = Array.isArray(resource?.crudOperations)
     ? resource.crudOperations
     : DEFAULT_CRUD_OPERATION_NAMES;
   const names = [];
@@ -187,11 +182,7 @@ function resolveCrudOperationNames(resource = {}) {
     names.push(operationName);
   }
 
-  if (hasConfiguredOperations) {
-    return names;
-  }
-
-  return names.length > 0 ? names : [...DEFAULT_CRUD_OPERATION_NAMES];
+  return names;
 }
 
 function resolveFirstPresentValue(source = {}, keys = []) {
@@ -271,7 +262,7 @@ function resolveCrudBodyDefinition(spec, resource = {}, crudConfig = {}) {
     return explicitBody;
   }
 
-  return createDerivedCrudBodyDefinition(resource, spec.bodyOperation);
+  return createDerivedCrudBodyDefinition(resource, spec.bodyOperation, spec.bodyMode);
 }
 
 function resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig = {}) {
