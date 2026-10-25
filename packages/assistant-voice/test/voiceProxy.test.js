@@ -1,8 +1,21 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import { registerVoiceProxyRoute } from '../src/server/voiceProxy.js';
-import { VOICE_INPUT_SAMPLE_RATE, VOICE_MAX_AUDIO_FRAME_BYTES } from '../src/shared/protocol.js';
+import { closeSocket, registerVoiceProxyRoute } from '../src/server/voiceProxy.js';
+import { VOICE_INPUT_SAMPLE_RATE, VOICE_MAX_AUDIO_FRAME_BYTES, VOICE_PROTOCOL_VERSION } from '../src/shared/protocol.js';
+test("voice proxy safely translates peer close metadata", () => {
+  const closeWith = (code, reason) => {
+    const closes = [];
+    closeSocket({ readyState: 1, close: (...args) => closes.push(args) }, code, reason);
+    return closes[0];
+  };
+  assert.deepEqual(closeWith(1006, "abnormal browser close"), [1000, "abnormal browser close"]);
+  assert.deepEqual(closeWith(1013, "Voice service unavailable"), [1013, "Voice service unavailable"]);
+  const [invalidCode, longReason] = closeWith(5000, "\u{1F642}".repeat(120));
+  assert.equal(invalidCode, 1000);
+  assert.ok(Buffer.byteLength(longReason, "utf8") <= 123);
+});
+
 for (const state of ["connecting", "open"]) {
   for (const bytes of [0, 3]) {
     test(`voice proxy rejects ${bytes === 0 ? "empty" : "odd-length"} PCM while upstream is ${state}`, async (t) => {
@@ -10,9 +23,9 @@ for (const state of ["connecting", "open"]) {
       if (state === "open") view.metal.open();
       view.browser.emit("message", Buffer.alloc(bytes), true);
       const immediateErrors = view.browser.sent.map(({ frame }) => JSON.parse(frame.toString()));
-      assert.deepEqual(immediateErrors.map(({ type, code }) => ({ type, code })), [
-        { type: "error", code: "voice_audio_frame_invalid" }
-      ], "the proxy must reject invalid PCM before any upstream admission can occur");
+      assert.deepEqual(immediateErrors.map(({ type, code, protocolVersion }) => ({ type, code, protocolVersion })), [
+        { type: "error", code: "voice_audio_frame_invalid", protocolVersion: VOICE_PROTOCOL_VERSION }
+      ], "the proxy must reject invalid PCM, in the daemon's frame shape, before any upstream admission can occur");
       assert.deepEqual(view.metal.sent, [], "invalid PCM must not be forwarded");
       assert.equal(view.browser.readyState, 1);
       assert.equal(view.metal.readyState, state === "connecting" ? 0 : 1);

@@ -123,7 +123,6 @@ Exports
 - `createVoiceAccessToken`
 - `verifyVoiceAccessToken`
 - `bearerVoiceAccessToken`
-- `normalizeVoiceCloseMetadata`
 
 ### `src/server/voiceAccessToken.js`
 Exports
@@ -153,6 +152,9 @@ Exports
 - `readVoiceCatalogue(config, { fetchImpl = fetch } = {})`
 - `registerVoiceProxyRoute(fastify, { proxyConfig, route, authorize = null, WebSocketCtor = WebSocket } = {})`
 Local functions
+- `proxyCloseCode(code)`
+- `proxyCloseReason(reason)`
+- `normalizeVoiceCloseMetadata(code, reason)`
 - `sendSocketError(socket, code, message)`
 
 ### `src/server/voiceProxyConfig.js`
@@ -160,13 +162,6 @@ Exports
 - `readVoiceAccessToken(filePath = "")`
 - `resolveVoiceProxyConfig({ endpoint: value = "", accessTokenFile = "" } = {})`
 - `voiceEndpoint(value = "")`
-
-### `src/server/voiceSocketClose.js`
-Exports
-- `normalizeVoiceCloseMetadata(code, reason)`
-Local functions
-- `proxyCloseCode(code)`
-- `proxyCloseReason(reason)`
 
 ### `src/shared/protocol.js`
 Exports

@@ -669,6 +669,30 @@ test("host app grants share their workspace connection limit and revocation canc
   await replacement.messages.next(value => value?.code === "voice_access_revoked");
 });
 
+test("the catalogue and the WebSocket accept exactly the same host principals", async t => {
+  const results = { good: { tenant: "good" }, tenantless: { ok: true }, pending: Promise.resolve({ tenant: "pending" }) };
+  const engine = fakeSpeechEngine();
+  const daemon = createVoiceDaemon({ engine, host: "127.0.0.1", port: 0, authorize: token => {
+    if (token === "throws") throw new Error("bad grant");
+    return results[token];
+  } });
+  const address = await daemon.start(); t.after(() => daemon.close());
+  async function socketStatus(token) {
+    const socket = new WebSocket(`ws://127.0.0.1:${address.port}/v1/voice`, { headers: { authorization: `Bearer ${token}` } });
+    socket.on("error", () => {}); t.after(() => socket.terminate());
+    return await new Promise(resolve => {
+      socket.once("open", () => resolve(101));
+      socket.once("unexpected-response", (_request, response) => { resolve(response.statusCode); response.destroy(); });
+    });
+  }
+  for (const token of ["good", "tenantless", "pending", "throws", "missing"]) {
+    const catalogue = await fetch(`http://127.0.0.1:${address.port}/voices`, { headers: { authorization: `Bearer ${token}` } });
+    const expected = token === "good";
+    assert.equal(catalogue.status, expected ? 200 : 401, `catalogue for ${token}`);
+    assert.equal(await socketStatus(token), expected ? 101 : 401, `socket for ${token}`);
+  }
+});
+
 test("voice selection is advertised, validated and retained for every streamed phrase", async t => {
   const selected = [];
   const engine = fakeSpeechEngine();

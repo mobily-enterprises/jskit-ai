@@ -148,6 +148,13 @@ function createVoiceDaemon({
   const sockets = new Set();
   const principals = new WeakMap();
   const speechQueue = createBoundedSerialQueue({ maximumQueued: maximumQueuedSpeech });
+  // One acceptance rule for every request: the host authorizer is synchronous
+  // and must name a tenant; anything else, including a thrown error, denies.
+  function principalFor(request) {
+    let principal;
+    try { principal = authorize(bearerVoiceAccessToken(request.headers), request); } catch { return null; }
+    return principal && typeof principal.tenant === "string" && principal.tenant ? principal : null;
+  }
   let ready = false;
   let startedAt = "";
   let stopping = false;
@@ -168,9 +175,7 @@ function createVoiceDaemon({
     }
     try {
       if (request.method === "GET" && requestPathname(request) === "/voices") {
-        let principal;
-        try { principal = await authorize(bearerVoiceAccessToken(request.headers), request); } catch { /* Deny invalid credentials. */ }
-        if (!principal) { writeJsonResponse(response, 401, { ok: false }); return; }
+        if (!principalFor(request)) { writeJsonResponse(response, 401, { ok: false }); return; }
         if (!ready || stopping) { writeJsonResponse(response, 503, { ok: false }); return; }
         writeJsonResponse(response, 200, voiceCatalogue());
         return;
@@ -512,10 +517,8 @@ function createVoiceDaemon({
       socket.destroy();
       return;
     }
-    let verified;
-    try { verified = authorize(bearerVoiceAccessToken(request.headers), request); }
-    catch { verified = null; }
-    if (!verified || typeof verified.tenant !== "string" || !verified.tenant) {
+    const verified = principalFor(request);
+    if (!verified) {
       socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       socket.destroy();
       return;

@@ -4,12 +4,40 @@ import {
   VOICE_MAX_AUDIO_FRAME_BYTES,
   VOICE_MAX_CONTROL_BYTES,
   assertVoiceAudioFrame,
-  parseVoiceClientControl
+  parseVoiceClientControl,
+  voiceServerMessage
 } from "../shared/protocol.js";
-import { normalizeVoiceCloseMetadata } from "./voiceSocketClose.js";
 
 const WEBSOCKET_CONNECTING = 0;
 const WEBSOCKET_OPEN = 1;
+
+const RESERVED_CLOSE_CODES = new Set([1004, 1005, 1006, 1015]);
+
+function proxyCloseCode(code) {
+  const numericCode = Number(code);
+  const isStandardCode = Number.isInteger(numericCode)
+    && numericCode >= 1000
+    && numericCode <= 1014
+    && !RESERVED_CLOSE_CODES.has(numericCode);
+  const isApplicationCode = Number.isInteger(numericCode)
+    && numericCode >= 3000
+    && numericCode <= 4999;
+  return isStandardCode || isApplicationCode ? numericCode : 1000;
+}
+
+function proxyCloseReason(reason) {
+  const encoded = Buffer.from(String(reason || ""), "utf8");
+  return encoded.byteLength <= 123
+    ? encoded.toString("utf8")
+    : encoded.subarray(0, 120).toString("utf8");
+}
+
+function normalizeVoiceCloseMetadata(code, reason) {
+  return Object.freeze({
+    code: proxyCloseCode(code),
+    reason: proxyCloseReason(reason)
+  });
+}
 
 async function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
   try {
@@ -39,7 +67,7 @@ function closeSocket(socket, code, reason) {
 
 function sendSocketError(socket, code, message) {
   if (socket?.readyState === WEBSOCKET_OPEN) {
-    socket.send(JSON.stringify({ code, message, type: "error" }));
+    socket.send(voiceServerMessage("error", { code, message }));
   }
 }
 

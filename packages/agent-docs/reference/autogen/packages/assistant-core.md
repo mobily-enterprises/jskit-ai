@@ -416,7 +416,7 @@ Local functions
 
 ### `src/server/conversation/codexConversations.js`
 Exports
-- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, steerFailedCode, turnOutcomes })`
+- `createCodexConversationCommands({ checkpoint, codexAppServerConversationMessageId, codexAppServerStreamMessage, conversationPreparation, ensureCodexAppServerProviderForActiveTurn, errorPrefix, helperLifecycle, helperOwnershipError, interruptFailedCode, namespace, providerSessions, sessionConnection, ensureSessionProvider, steerFailedCode, turnOutcomes })`
 
 ### `src/server/conversation/codexConversationStore.js`
 Exports

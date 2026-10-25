@@ -2,7 +2,7 @@
 
 Optional duplex voice for Vue 3/Vuetify applications. One shell controller owns
 microphone, playback, active destination and modal. Applications retain their
-conversations, permissions, message admission and history. No Vibe64 or Genesis
+conversations, permissions, message admission and history. No Genesis
 runtime is required.
 
 Install `@jskit-ai/assistant-voice` with Vue and Vuetify. Run your own speech
@@ -186,6 +186,8 @@ The engine supplies a recognizer, asynchronous synthesis and optionally a public
 voice catalogue. A host may supply synchronous `authorize(token)` and
 `handleRequest(request, response)` for its own grant policy. An authorized
 principal has `tenant` and optional `parentTenant`; both connection quotas apply.
+The catalogue and the WebSocket apply the same rule: any other result, a
+Promise or a thrown error denies.
 `revokeTenant(id)` ends current child or parent sessions as well as pending work.
 The host must reject future requests for revoked grants in its authorizer.
 
@@ -195,7 +197,7 @@ The host must reject future requests for revoked grants in its authorizer.
 client binding and one shared realtime connection for five file-backed chats.
 Text and voice retain the same conversation; an optional headless task uses the
 same runtime directly. Its README covers packed-package setup, launch and the
-local origin policy. No Vibe64, Genesis or database runtime is required.
+local origin policy. No Genesis or database runtime is required.
 
 Focused package checks run one file at a time, for example:
 `npm test --workspace packages/assistant-voice -- test/voiceController.test.js`.

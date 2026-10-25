@@ -7,22 +7,6 @@ import { VOICE_INPUT_SAMPLE_RATE, normalizeRecognizedText, parseVoiceClientContr
 import { visemeCuesFromText, visemeUnitsFromText } from '../src/shared/visemes.js';
 import { createVoiceAccessToken, verifyVoiceAccessToken, voiceTenant } from '../src/server/voiceAccessToken.js';
 import { readVoiceAccessToken, resolveVoiceProxyConfig, voiceEndpoint } from '../src/server/voiceProxyConfig.js';
-import { normalizeVoiceCloseMetadata } from '../src/server/voiceSocketClose.js';
-
-test("voice proxy safely translates peer close metadata", () => {
-  assert.deepEqual(
-    normalizeVoiceCloseMetadata(1006, "abnormal browser close"),
-    { code: 1000, reason: "abnormal browser close" }
-  );
-  assert.deepEqual(
-    normalizeVoiceCloseMetadata(1013, "Voice service unavailable"),
-    { code: 1013, reason: "Voice service unavailable" }
-  );
-
-  const invalidLongClose = normalizeVoiceCloseMetadata(5000, "🙂".repeat(120));
-  assert.equal(invalidLongClose.code, 1000);
-  assert.ok(Buffer.byteLength(invalidLongClose.reason, "utf8") <= 123);
-});
 
 test("voice control messages are strict, bounded, and turn scoped", () => {
   assert.deepEqual(parseVoiceClientControl(JSON.stringify({
@@ -150,7 +134,7 @@ test("tenant access tokens are scoped and authenticated", () => {
 });
 
 test("voice proxy configuration is explicit and reads a private credential file", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-config-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-config-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
@@ -197,7 +181,7 @@ for (const protocol of ["ws", "wss"]) {
 }
 
 test("voice proxy credentials preserve generated boundary tenants and trimmed tokens", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-token-valid-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-token-valid-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
@@ -216,7 +200,7 @@ test("voice proxy credentials preserve generated boundary tenants and trimmed to
 });
 
 test("voice proxy credentials reject impossible signed token shapes", async (context) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "vibe64-voice-token-invalid-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-voice-token-invalid-"));
   context.after(async () => {
     const { rm } = await import("node:fs/promises");
     await rm(root, { force: true, recursive: true });
