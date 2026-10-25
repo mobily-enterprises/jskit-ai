@@ -98,11 +98,8 @@ function submitMessage({ attachments = [], retryMessageId = "" }) {
 }
 
 function conversationSubtitle(entry) {
-  const details = [runtime.meta.normalizeConversationStatus(entry.status), runtime.meta.formatConversationStartedAt(entry.startedAt), `${Number(entry.messageCount || 0)} messages`];
-  if (state.isAdminSurface) {
-    details.push(entry.createdByUserDisplayName || entry.createdByUserEmail || (entry.createdByUserId ? `User #${entry.createdByUserId}` : "Unknown user"));
-  }
-  return details.join(" · ");
+  return [runtime.meta.normalizeConversationStatus(entry.status), runtime.meta.formatConversationStartedAt(entry.startedAt),
+    `${Number(entry.messageCount || 0)} messages`].join(" · ");
 }
 
 async function selectConversation(entry) {

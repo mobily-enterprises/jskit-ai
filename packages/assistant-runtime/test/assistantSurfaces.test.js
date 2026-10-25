@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   defineAssistantSurface,
   normalizeAssistantConfigScope,
+  resolveAssistantRuntimeRoute,
   resolveAssistantSurfaceConfig
 } from "../src/shared/assistantSurfaces.js";
 
@@ -70,4 +72,31 @@ test("single-surface shorthand preserves explicit routing, scope and disabled su
   assert.equal(resolveAssistantSurfaceConfig(defineAssistantSurface("home", { enabled: false }), "home"), null);
   assert.equal(resolveAssistantSurfaceConfig(defineAssistantSurface("home", { configScope: "workspace" }), "home"), null);
   assert.throws(() => defineAssistantSurface(""), /surface id is required/u);
+});
+
+test("only the surface decides the runtime route, so HTTP and realtime name the same one", () => {
+  const home = resolveAssistantSurfaceConfig(defineAssistantSurface("home"), "home");
+  const admin = resolveAssistantSurfaceConfig(defineAssistantSurface("admin", { requiresWorkspace: true }), "admin");
+  // A slug offered to a surface without workspaces is ignored rather than
+  // producing a workspace URL the server answers with 404.
+  assert.deepEqual(resolveAssistantRuntimeRoute(home, "acme"),
+    { workspaceSlug: "", configured: true, endpoint: "/api/assistant/home" });
+  assert.deepEqual(resolveAssistantRuntimeRoute(admin, " acme "),
+    { workspaceSlug: "acme", configured: true, endpoint: "/api/w/acme/assistant/admin" });
+  assert.equal(resolveAssistantRuntimeRoute(admin, "").configured, false);
+  assert.equal(resolveAssistantRuntimeRoute(null, "acme").configured, false);
+});
+
+test("client runtime code routes from surface configuration and names no application surface", async () => {
+  const root = new URL("../src/client/", import.meta.url);
+  const files = (await readdir(root, { recursive: true })).filter(file => /\.(js|vue)$/u.test(file));
+  for (const file of files) {
+    const source = await readFile(new URL(file, root), "utf8");
+    assert.doesNotMatch(source, /["']admin["']|isAdminSurface/u, `${file} hard-codes an application surface`);
+  }
+  for (const file of ["composables/useAssistantConversation.js", "composables/useAssistantRuntime.js"]) {
+    const source = await readFile(new URL(file, root), "utf8");
+    assert.match(source, /resolveAssistantRuntimeRoute\(/u);
+    assert.doesNotMatch(source, /buildAssistantApiPath\(/u, `${file} must route through resolveAssistantRuntimeRoute`);
+  }
 });

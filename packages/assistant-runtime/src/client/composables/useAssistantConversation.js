@@ -4,7 +4,6 @@ import { createAssistantMessageDelivery, retainAssistantConversation, unmatchedO
 import { createAssistantTextSubmission } from "@jskit-ai/assistant-core/client/conversation";
 import { useAssistantQuestions } from "@jskit-ai/assistant-core/client/conversation-questions";
 import { assistantHttpClient, createAssistantApi } from "@jskit-ai/assistant-core/client";
-import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import {
   conversationTurnMessages, conversationTurnsFromMessages, latestAssistantMessageAwaitingUserReply, mergeConversationLogPages, mergeConversationStream,
   normalizeConversationLogPage, normalizeConversationLogPagination
@@ -12,7 +11,7 @@ import {
 import { useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
-import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
 import { isAccessDenied } from "../support/accessDenied.js";
 import { subscribeAssistantConversation, refreshedHistoryPages, patchLoadedHistoryPages } from "../support/subscribeAssistantConversation.js";
@@ -863,15 +862,13 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const host = (text(hostSurfaceId) || text(routeContext.currentSurfaceId)).toLowerCase();
     const target = (text(surfaceId) || host).toLowerCase();
     const surface = resolveAssistantSurfaceConfig(config, target);
-    const workspace = toValue(workspaceSlug) === undefined
-      ? surface?.runtimeSurfaceRequiresWorkspace ? workspaceScope.readRouteScope(routeContext).workspaceSlug : ""
-      : text(workspaceSlug);
+    const route = resolveAssistantRuntimeRoute(surface, toValue(workspaceSlug) === undefined
+      ? workspaceScope.readRouteScope(routeContext).workspaceSlug : text(workspaceSlug));
     const actor = toValue(actorKey);
     return Object.freeze({ conversationId: text(conversationId), targetSurfaceId: target, hostSurfaceId: host || target,
-      workspaceSlug: workspace || "", configured: Boolean(surface) && (!surface.runtimeSurfaceRequiresWorkspace || Boolean(workspace)),
+      workspaceSlug: route.workspaceSlug, configured: route.configured,
       actorKey: actor === undefined ? String(routeContext.placementContext.value?.user?.id || "") : text(actor),
-      endpoint: text(endpoint) || buildAssistantApiPath({ requiresWorkspace: Boolean(workspace), workspaceSlug: workspace,
-        suffix: `/${target}` }) });
+      endpoint: text(endpoint) || route.endpoint });
   });
   // The original composer owns input before a conversation ID is available.
   // It is scoped to the real actor/surface/workspace, never a placeholder ID.

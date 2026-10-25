@@ -318,6 +318,7 @@ Exports
 Exports
 - `defineAssistantSurface(surfaceId, { pagesRoot = "", requiresWorkspace = false, configScope = requiresWorkspace ? "workspace" : "global", ...definition } = {})`
 - `normalizeAssistantConfigScope(value = "")`
+- `resolveAssistantRuntimeRoute(surface, workspaceSlug = "")`
 - `resolveAssistantSurfaceConfig(appConfig = {}, targetSurfaceId = "")`
 - `resolveAssistantSurfacesConfig(appConfig = {})`
 - `resolveSurfaceDefinitions(appConfig = {})`

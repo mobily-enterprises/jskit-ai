@@ -1,3 +1,4 @@
+import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -102,9 +103,26 @@ function resolveAssistantSurfaceConfig(appConfig = {}, targetSurfaceId = "") {
   });
 }
 
+/**
+ * The runtime route of one resolved surface. Only the surface decides whether
+ * a workspace segment exists, so HTTP and realtime always name the same route;
+ * a workspace slug offered for a surface without workspaces is ignored.
+ */
+function resolveAssistantRuntimeRoute(surface, workspaceSlug = "") {
+  const requiresWorkspace = surface?.runtimeSurfaceRequiresWorkspace === true;
+  const workspace = requiresWorkspace ? normalizeText(workspaceSlug) : "";
+  return Object.freeze({
+    workspaceSlug: workspace,
+    configured: Boolean(surface) && (!requiresWorkspace || Boolean(workspace)),
+    endpoint: buildAssistantApiPath({ requiresWorkspace, workspaceSlug: workspace,
+      suffix: `/${normalizeText(surface?.targetSurfaceId)}` })
+  });
+}
+
 export {
   defineAssistantSurface,
   normalizeAssistantConfigScope,
+  resolveAssistantRuntimeRoute,
   resolveAssistantSurfaceConfig,
   resolveAssistantSurfacesConfig,
   resolveSurfaceDefinitions

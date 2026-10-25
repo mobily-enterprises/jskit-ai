@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/vue-query";
 import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createAssistantMessageDelivery } from "@jskit-ai/assistant-core/client/conversation-delivery";
-import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import {
   ASSISTANT_STREAM_EVENT_TYPES,
   MAX_INPUT_CHARS,
@@ -21,7 +20,7 @@ import {
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { usePagedCollection } from "@jskit-ai/http-web/client/composables/usePagedCollection";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
-import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { resolveAssistantRuntimeRoute, resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import {
   buildHistory,
   buildId,
@@ -162,35 +161,22 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
     resolveAssistantSurfaceConfig(appConfig, toValue(surfaceId))
   );
   const routeScope = computed(() => workspaceScopeSupport.readRouteScope(routeContext));
-  const runtimeScope = computed(() => {
-    const workspaceSlug = assistantSurface.value?.runtimeSurfaceRequiresWorkspace
-      ? normalizeText(routeScope.value.workspaceSlug).toLowerCase()
-      : "";
-
-    return {
-      targetSurfaceId: normalizeText(assistantSurface.value?.targetSurfaceId).toLowerCase(),
-      userId: normalizeRecordId(placementSnapshot.value?.user?.id, { fallback: null }),
-      workspaceSlug
-    };
-  });
-  const hasRuntimeScope = computed(() =>
-    Boolean(assistantSurface.value && runtimeScope.value.userId) &&
-    (assistantSurface.value?.runtimeSurfaceRequiresWorkspace ? Boolean(runtimeScope.value.workspaceSlug) : true)
-  );
+  const runtimeRoute = computed(() => resolveAssistantRuntimeRoute(assistantSurface.value,
+    normalizeText(routeScope.value.workspaceSlug).toLowerCase()));
+  const runtimeScope = computed(() => ({
+    targetSurfaceId: normalizeText(assistantSurface.value?.targetSurfaceId).toLowerCase(),
+    userId: normalizeRecordId(placementSnapshot.value?.user?.id, { fallback: null }),
+    workspaceSlug: runtimeRoute.value.workspaceSlug
+  }));
+  const hasRuntimeScope = computed(() => runtimeRoute.value.configured && Boolean(runtimeScope.value.userId));
 
   const runtimeApi = createRuntimeApi({
     overrideApi: api,
-    resolveBasePath: () =>
-      buildAssistantApiPath({
-        requiresWorkspace: assistantSurface.value?.runtimeSurfaceRequiresWorkspace === true,
-        workspaceSlug: runtimeScope.value.workspaceSlug,
-        suffix: `/${runtimeScope.value.targetSurfaceId}`
-      }),
+    resolveBasePath: () => runtimeRoute.value.endpoint,
     resolveSurfaceId: () => normalizeText(currentSurfaceId.value).toLowerCase()
   });
 
   const activeConversationId = computed(() => normalizeRecordId(conversationId.value, { fallback: "" }));
-  const isAdminSurface = computed(() => normalizeText(currentSurfaceId.value).toLowerCase() === "admin");
   const canSend = computed(() => {
     return Boolean(
       hasRuntimeScope.value &&
@@ -673,7 +659,6 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
       conversationHistoryLoadingMore,
       conversationHistoryHasMore,
       conversationHistoryError,
-      isAdminSurface,
       canSend,
       canStartNewConversation
     },

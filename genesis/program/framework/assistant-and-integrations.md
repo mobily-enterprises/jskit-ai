@@ -12,6 +12,7 @@ connector account management, and focused third-party operations.
 - `packages/assistant-core/src/server/conversation/codexConversationStore.js`
 - `packages/assistant-core/src/server/conversation/continuity.js`
 - `packages/assistant-runtime/src/server/AssistantProvider.js`
+- `packages/assistant-runtime/src/shared/assistantSurfaces.js`
 - `packages/assistant-voice/src/server/index.js`
 - `packages/connectors-core/src/server/ConnectorsFeature.js`
 - `packages/connectors-catalog/src/shared/definitions.js`
@@ -23,6 +24,14 @@ own conversation and connection identities, and supply credentials through
 server-side environment references. Conversations preserve provider lifecycle,
 streaming, attachment, recovery, and storage contracts. Connector operations
 remain scoped to the application and user or workspace that owns the account.
+
+An assistant surface's configuration alone decides whether its runtime route has
+a workspace segment, so HTTP requests and realtime subscriptions always name the
+same route; a workspace slug supplied for a surface without workspaces is
+ignored. Client runtime code names no application surface. Assistant-core owns
+the attachment-ID limits (ten distinct, nonempty IDs of at most 256 characters):
+its schema field, server check and composer default are the single definition
+that the assistant runtime reuses for its request bodies and pre-admission check.
 
 Realtime subscription setup checks its original socket-owned liveness between
 opening, observer attachment and snapshot reading. Released setup cannot start
