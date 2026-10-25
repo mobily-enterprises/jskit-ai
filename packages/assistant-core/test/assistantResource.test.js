@@ -1,18 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { assistantResource } from "../src/shared/assistantResource.js";
 
 test("assistant output schemas accept normalized paginated payloads", () => {
-  const conversationsListSchema = resolveStructuredSchemaTransportSchema(
+  const conversationsListSchema = resolveSchemaTransportSchemaDefinition(
     assistantResource.operations.conversationsList.output,
     {
       context: "assistant conversations list output",
       defaultMode: "replace"
     }
   );
-  const conversationMessagesSchema = resolveStructuredSchemaTransportSchema(
+  const conversationMessagesSchema = resolveSchemaTransportSchemaDefinition(
     assistantResource.operations.conversationMessagesList.output,
     {
       context: "assistant conversation messages output",
@@ -52,7 +52,7 @@ test("assistant output schemas accept normalized paginated payloads", () => {
 });
 
 test("assistant conversation message params accept numeric path strings", async () => {
-  const params = resolveStructuredSchemaTransportSchema(
+  const params = resolveSchemaTransportSchemaDefinition(
     assistantResource.operations.conversationMessagesList.params,
     {
       context: "assistant conversation message params",

@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
 
 function resolveOutputSchema(operationName) {
-  return resolveStructuredSchemaTransportSchema(workspaceMembersResource.operations[operationName].output, {
+  return resolveSchemaTransportSchemaDefinition(workspaceMembersResource.operations[operationName].output, {
     context: `workspaceMembers.${operationName}.output`,
     defaultMode: "replace"
   });

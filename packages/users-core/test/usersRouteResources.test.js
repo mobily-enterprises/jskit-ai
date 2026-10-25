@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 
@@ -27,7 +27,7 @@ function assertResourceShape(resource, label) {
       `${label}.operations.${operationName} must resolve messages from operation.messages or resource.messages.`
     );
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(operation.output, {
+      typeof resolveSchemaTransportSchemaDefinition(operation.output, {
         context: `${label}.operations.${operationName}.output`,
         defaultMode: "replace"
       }),
@@ -71,7 +71,7 @@ test("specialized settings and invite operations expose canonical validators", (
   for (const { label, operation } of operationSpecs) {
     assert.equal(typeof operation?.method, "string", `${label}.method must exist.`);
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(operation?.output, {
+      typeof resolveSchemaTransportSchemaDefinition(operation?.output, {
         context: `${label}.output`,
         defaultMode: "replace"
       }),

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 
@@ -61,7 +61,7 @@ test("users-core specialized resource operations expose messages and validators"
   for (const { label, operation } of operationSpecs) {
     assert.equal(typeof operation?.messages, "object", `${label}.messages must be an object.`);
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(operation?.output, {
+      typeof resolveSchemaTransportSchemaDefinition(operation?.output, {
         context: `${label}.output`,
         defaultMode: "replace"
       }),

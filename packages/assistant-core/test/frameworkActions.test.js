@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readdir } from "node:fs/promises";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 import { createAssistantActions } from "../../assistant-runtime/src/server/actions.js";
@@ -95,7 +95,7 @@ test("every account, workspace, console and assistant automation action has a co
     direct++;
     assert.ok(assistant.description, spec.id);
     assert.equal(typeof assistant.transformResult, "function", spec.id);
-    assert.ok(resolveStructuredSchemaTransportSchema(assistant.output), spec.id);
+    assert.ok(resolveSchemaTransportSchemaDefinition(assistant.output), spec.id);
     assert.ok(fixtures[spec.id], `Add execution coverage for ${spec.id}`);
   }
   assert.equal(direct, 22);

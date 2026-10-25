@@ -7,8 +7,6 @@ import {
   normalizeFiniteInteger,
   normalizeFiniteNumber,
   normalizeIfInSource,
-  normalizeIfPresent,
-  normalizeOrNull,
   normalizeRecordId,
   normalizeOpaqueId,
   normalizePositiveInteger,
@@ -160,26 +158,6 @@ test("normalizeIfInSource validates target and function arguments", () => {
   );
   assert.throws(
     () => normalizeIfInSource({ firstName: "Ada" }, {}, "firstName", null),
-    /requires normalizer function/
-  );
-});
-
-test("normalizeIfPresent normalizes non-nullish values and preserves nullish values", () => {
-  assert.equal(normalizeIfPresent("  Ada  ", normalizeText), "Ada");
-  assert.equal(normalizeIfPresent(null, normalizeText), null);
-  assert.equal(normalizeIfPresent(undefined, normalizeText), undefined);
-  assert.throws(
-    () => normalizeIfPresent("Ada", null),
-    /requires normalizer function/
-  );
-});
-
-test("normalizeOrNull normalizes non-nullish values and coerces nullish to null", () => {
-  assert.equal(normalizeOrNull("  Ada  ", normalizeText), "Ada");
-  assert.equal(normalizeOrNull(null, normalizeText), null);
-  assert.equal(normalizeOrNull(undefined, normalizeText), null);
-  assert.throws(
-    () => normalizeOrNull("Ada", null),
     /requires normalizer function/
   );
 });

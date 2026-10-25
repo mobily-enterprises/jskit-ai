@@ -2,7 +2,7 @@ import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  resolveStructuredSchemaTransportSchema,
+  resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
 } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
@@ -542,11 +542,11 @@ function resolveActionBackedToolEntries(actions) {
     }
 
     const outputDefinition = assistantExtension.output || action.output;
-    const inputSchema = resolveStructuredSchemaTransportSchema(action.input, {
+    const inputSchema = resolveSchemaTransportSchemaDefinition(action.input, {
       context: `Action definition "${actionId}" input`,
       defaultMode: "patch"
     }) || null;
-    const outputSchema = resolveStructuredSchemaTransportSchema(outputDefinition, {
+    const outputSchema = resolveSchemaTransportSchemaDefinition(outputDefinition, {
       context: `Action definition "${actionId}" assistant output`,
       defaultMode: "replace"
     }) || null;

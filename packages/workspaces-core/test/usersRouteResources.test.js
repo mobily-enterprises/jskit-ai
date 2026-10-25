@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
@@ -29,7 +29,7 @@ function assertResourceShape(resource, label) {
       `${label}.operations.${operationName} must resolve messages from operation.messages or resource.messages.`
     );
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(operation.output, {
+      typeof resolveSchemaTransportSchemaDefinition(operation.output, {
         context: `${label}.operations.${operationName}.output`,
         defaultMode: "replace"
       }),
@@ -76,7 +76,7 @@ test("workspace settings and invite operations expose canonical validators", () 
   for (const { label, operation } of operationSpecs) {
     assert.equal(typeof operation?.method, "string", `${label}.method must exist.`);
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(operation?.output, {
+      typeof resolveSchemaTransportSchemaDefinition(operation?.output, {
         context: `${label}.output`,
         defaultMode: "replace"
       }),

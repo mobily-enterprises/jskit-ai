@@ -1,4 +1,4 @@
-import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import {
   normalizeObject,
   normalizeText
@@ -71,7 +71,7 @@ function resolveCrudFieldSchemaProperties(value, { context = "crud resource fiel
     return {};
   }
 
-  const normalized = normalizeSchemaDefinition(value, {
+  const normalized = normalizeSingleSchemaDefinition(value, {
     context,
     defaultMode: "patch"
   });

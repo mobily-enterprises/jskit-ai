@@ -4,7 +4,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { consoleSettingsResource } from "../src/shared/resources/consoleSettingsResource.js";
 
 function assertResourceShape(resource, label) {
@@ -26,7 +26,7 @@ function assertResourceShape(resource, label) {
       `${label}.operations.${operationName} must resolve messages from operation.messages or resource.messages.`
     );
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(operation.output, {
+      typeof resolveSchemaTransportSchemaDefinition(operation.output, {
         context: `${label}.operations.${operationName}.output`,
         defaultMode: "replace"
       }),
@@ -35,15 +35,15 @@ function assertResourceShape(resource, label) {
     );
   }
 
-  assert.equal(typeof resolveStructuredSchemaTransportSchema(resource.operations.create.body, {
+  assert.equal(typeof resolveSchemaTransportSchemaDefinition(resource.operations.create.body, {
     context: `${label}.operations.create.body`,
     defaultMode: "create"
   }), "object", `${label}.operations.create.body.schema is required.`);
-  assert.equal(typeof resolveStructuredSchemaTransportSchema(resource.operations.replace.body, {
+  assert.equal(typeof resolveSchemaTransportSchemaDefinition(resource.operations.replace.body, {
     context: `${label}.operations.replace.body`,
     defaultMode: "replace"
   }), "object", `${label}.operations.replace.body.schema is required.`);
-  assert.equal(typeof resolveStructuredSchemaTransportSchema(resource.operations.patch.body, {
+  assert.equal(typeof resolveSchemaTransportSchemaDefinition(resource.operations.patch.body, {
     context: `${label}.operations.patch.body`,
     defaultMode: "patch"
   }), "object", `${label}.operations.patch.body.schema is required.`);
@@ -62,12 +62,12 @@ test("console settings operations expose canonical validators", () => {
   for (const operationName of ["view", "list", "create", "replace", "patch"]) {
     const operation = consoleSettingsResource.operations?.[operationName];
     assert.equal(typeof operation?.method, "string", `${operationName}.method must exist.`);
-    assert.equal(typeof resolveStructuredSchemaTransportSchema(operation?.output, {
+    assert.equal(typeof resolveSchemaTransportSchemaDefinition(operation?.output, {
       context: `${operationName}.output`,
       defaultMode: "replace"
     }), "object", `${operationName}.output.schema must exist.`);
     if (operation?.body) {
-      assert.equal(typeof resolveStructuredSchemaTransportSchema(operation.body, {
+      assert.equal(typeof resolveSchemaTransportSchemaDefinition(operation.body, {
         context: `${operationName}.body`,
         defaultMode: operationName === "create" ? "create" : operationName === "replace" ? "replace" : "patch"
       }), "object", `${operationName}.body.schema must exist.`);

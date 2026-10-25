@@ -12,9 +12,7 @@ export { isJsonRestSchemaInstance } from "./jsonRestSchemaSupport.js";
 export {
   hasJsonRestSchemaDefinition,
   normalizeSingleSchemaDefinition,
-  normalizeSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
-  resolveStructuredSchemaTransportSchema,
   executeJsonRestSchemaDefinition
 } from "./schemaDefinitions.js";
 export {
@@ -24,9 +22,7 @@ export {
 export {
   RECORD_ID_PATTERN,
   recordIdSchema,
-  recordIdInputSchema,
   nullableRecordIdSchema,
-  nullableRecordIdInputSchema,
   recordIdParamsValidator
 } from "./recordIdParamsValidator.js";
 export {

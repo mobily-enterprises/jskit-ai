@@ -48,21 +48,11 @@ function normalizeSingleSchemaDefinition(value, { context = "schema definition",
   return Object.freeze(normalized);
 }
 
-function normalizeSchemaDefinition(value, {
-  context = "schema definition",
-  defaultMode = ""
-} = {}) {
-  return normalizeSingleSchemaDefinition(value, {
-    context,
-    defaultMode
-  });
-}
-
 function resolveSchemaTransportSchemaDefinition(value, {
   context = "schema definition",
   defaultMode = ""
 } = {}) {
-  const normalized = normalizeSchemaDefinition(value, {
+  const normalized = normalizeSingleSchemaDefinition(value, {
     context,
     defaultMode
   });
@@ -77,19 +67,9 @@ function resolveSchemaTransportSchemaDefinition(value, {
   });
 }
 
-function resolveStructuredSchemaTransportSchema(value, {
-  context = "schema definition",
-  defaultMode = ""
-} = {}) {
-  return resolveSchemaTransportSchemaDefinition(value, {
-    context,
-    defaultMode
-  });
-}
-
 function hasJsonRestSchemaDefinition(value) {
   try {
-    return Boolean(normalizeSchemaDefinition(value));
+    return Boolean(normalizeSingleSchemaDefinition(value));
   } catch {
     return false;
   }
@@ -99,7 +79,7 @@ function executeJsonRestSchemaDefinition(value, payload, {
   context = "schema definition",
   defaultMode = ""
 } = {}) {
-  const normalized = normalizeSchemaDefinition(value, {
+  const normalized = normalizeSingleSchemaDefinition(value, {
     context,
     defaultMode
   });
@@ -114,9 +94,7 @@ function executeJsonRestSchemaDefinition(value, payload, {
 export {
   hasJsonRestSchemaDefinition,
   normalizeSingleSchemaDefinition,
-  normalizeSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
-  resolveStructuredSchemaTransportSchema,
   executeJsonRestSchemaDefinition,
   normalizeJsonRestSchemaFieldErrors
 };

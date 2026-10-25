@@ -234,11 +234,6 @@ function resolveInstalledViteProxyEntries(installedPackages = [], { proxyTarget 
   return proxyEntries;
 }
 
-async function resolveInstalledClientPackageIds(options) {
-  const modules = await resolveInstalledClientModules(options);
-  return Object.freeze(modules.map((entry) => entry.packageId));
-}
-
 async function resolveLocalScopePackageIds({ appRoot }) {
   const appPackageJson = await readJsonFile(path.resolve(appRoot, "package.json"), {});
   return Object.freeze(
@@ -487,7 +482,6 @@ export {
   resolveCanonicalLocalPackageId,
   resolveLocalPackageForSpecifier,
   resolveLocalPackageSources,
-  resolveInstalledClientPackageIds,
   resolveLocalScopePackageIds,
   resolveInstalledClientModules,
   resolveInstalledViteProxyEntries,

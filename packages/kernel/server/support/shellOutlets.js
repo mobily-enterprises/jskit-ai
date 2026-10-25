@@ -56,9 +56,7 @@ function normalizeAppRouteOutletTarget({
   outlet = {},
   sourcePath = ""
 } = {}) {
-  const normalizedTarget = normalizeShellOutletTargetRecord(outlet, {
-    context: sourcePath || "route meta"
-  });
+  const normalizedTarget = normalizeShellOutletTargetRecord(outlet);
   if (!normalizedTarget) {
     return null;
   }
@@ -183,9 +181,7 @@ function normalizePackageOutletTarget({
     return null;
   }
 
-  const normalizedTarget = normalizeShellOutletTargetRecord(outlet, {
-    context: `package:${normalizedPackageId}`
-  });
+  const normalizedTarget = normalizeShellOutletTargetRecord(outlet);
   if (!normalizedTarget) {
     return null;
   }

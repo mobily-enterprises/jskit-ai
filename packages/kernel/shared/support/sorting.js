@@ -4,12 +4,4 @@ function sortStrings(values = []) {
   );
 }
 
-function sortById(items = [], { idSelector = (item) => item?.id } = {}) {
-  return [...(Array.isArray(items) ? items : [])].sort((left, right) => {
-    const leftId = String(idSelector(left) || "").trim();
-    const rightId = String(idSelector(right) || "").trim();
-    return leftId.localeCompare(rightId);
-  });
-}
-
-export { sortStrings, sortById };
+export { sortStrings };

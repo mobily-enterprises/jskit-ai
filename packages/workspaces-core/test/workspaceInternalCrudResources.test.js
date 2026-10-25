@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { workspaceInvitesResource } from "../src/shared/resources/workspaceInvitesResource.js";
 import { workspaceMembershipsResource } from "../src/shared/resources/workspaceMembershipsResource.js";
 
@@ -24,7 +24,7 @@ test("workspace internal CRUD resources expose canonical derived operation sets"
     assert.equal(typeof resource.operations.create.body?.schema, "object", `${label}.operations.create.body.schema is required.`);
     assert.equal(typeof resource.operations.patch.body?.schema, "object", `${label}.operations.patch.body.schema is required.`);
     assert.equal(
-      typeof resolveStructuredSchemaTransportSchema(resource.operations.view.output, {
+      typeof resolveSchemaTransportSchemaDefinition(resource.operations.view.output, {
         context: `${label}.operations.view.output`,
         defaultMode: "replace"
       }),

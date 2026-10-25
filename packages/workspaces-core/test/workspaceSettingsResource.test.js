@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
 import {
   WORKSPACE_SETTINGS_FIELD_KEYS,
@@ -102,7 +102,7 @@ test("workspace settings create body requires full-write fields", async () => {
 });
 
 test("workspace settings output schema accepts already-shaped service payloads", () => {
-  const outputSchema = resolveStructuredSchemaTransportSchema(workspaceSettingsResource.operations.view.output, {
+  const outputSchema = resolveSchemaTransportSchemaDefinition(workspaceSettingsResource.operations.view.output, {
     context: "workspaceSettings.view.output",
     defaultMode: "replace"
   });

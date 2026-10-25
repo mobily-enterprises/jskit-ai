@@ -81,8 +81,6 @@ Exports
 - `normalizeQueryToken(value, { fallback = "__none__" } = {})`
 - `normalizeObject(value, { fallback = {} } = {})`
 - `normalizeIfInSource(source, normalized, fieldName, normalizer = (value) => value)`
-- `normalizeIfPresent(value, normalizer = (entry) => entry)`
-- `normalizeOrNull(value, normalizer = (entry) => entry)`
 - `isRecord(value)`
 - `normalizeArray(value)`
 - `normalizeUniqueTextList(value, { acceptSingle = false } = {})`
@@ -162,9 +160,8 @@ Exports
 - `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
 - `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
-- `normalizeShellOutletTargetRecord(value = {}, { context = "shell layout" } = {})`
+- `normalizeShellOutletTargetRecord(value = {})`
 - `resolvePlacementTargetReference(value = "")`
-- `resolveShellOutletTargetParts({ target = "" } = {})`
 Local functions
 - `parseTagAttributes(attributesSource = "")`
 - `normalizePlacementRenderers(value = {})`
@@ -173,7 +170,6 @@ Local functions
 ### `support/sorting.js`
 Exports
 - `sortStrings(values = [])`
-- `sortById(items = [], { idSelector = (item) => item?.id } = {})`
 
 ### `support/stringCase.js`
 Exports
@@ -283,17 +279,13 @@ Exports
 - `isJsonRestSchemaInstance`
 - `hasJsonRestSchemaDefinition`
 - `normalizeSingleSchemaDefinition`
-- `normalizeSchemaDefinition`
 - `resolveSchemaTransportSchemaDefinition`
-- `resolveStructuredSchemaTransportSchema`
 - `executeJsonRestSchemaDefinition`
 - `buildSchemaValidationError`
 - `validateSchemaPayload`
 - `RECORD_ID_PATTERN`
 - `recordIdSchema`
-- `recordIdInputSchema`
 - `nullableRecordIdSchema`
-- `nullableRecordIdInputSchema`
 - `recordIdParamsValidator`
 - `normalizeRequiredFieldList`
 - `deriveRequiredFieldsFromSchema`
@@ -326,9 +318,7 @@ Local functions
 Exports
 - `RECORD_ID_PATTERN`
 - `recordIdSchema`
-- `recordIdInputSchema`
 - `nullableRecordIdSchema`
-- `nullableRecordIdInputSchema`
 - `recordIdParamsValidator`
 
 ### `validators/resourceRequiredMetadata.js`
@@ -341,9 +331,7 @@ Exports
 Exports
 - `hasJsonRestSchemaDefinition(value)`
 - `normalizeSingleSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
-- `normalizeSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
 - `resolveSchemaTransportSchemaDefinition(value, { context = "schema definition", defaultMode = "" } = {})`
-- `resolveStructuredSchemaTransportSchema(value, { context = "schema definition", defaultMode = "" } = {})`
 - `executeJsonRestSchemaDefinition(value, payload, { context = "schema definition", defaultMode = "" } = {})`
 - `normalizeJsonRestSchemaFieldErrors`
 Local functions

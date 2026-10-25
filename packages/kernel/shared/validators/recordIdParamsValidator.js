@@ -9,14 +9,10 @@ const recordIdSchema = deepFreeze({
   pattern: RECORD_ID_PATTERN
 });
 
-const recordIdInputSchema = recordIdSchema;
-
 const nullableRecordIdSchema = deepFreeze({
   ...recordIdSchema,
   nullable: true
 });
-
-const nullableRecordIdInputSchema = nullableRecordIdSchema;
 
 const recordIdParamsValidator = deepFreeze({
   schema: createSchema({
@@ -34,8 +30,6 @@ const recordIdParamsValidator = deepFreeze({
 export {
   RECORD_ID_PATTERN,
   recordIdSchema,
-  recordIdInputSchema,
   nullableRecordIdSchema,
-  nullableRecordIdInputSchema,
   recordIdParamsValidator
 };

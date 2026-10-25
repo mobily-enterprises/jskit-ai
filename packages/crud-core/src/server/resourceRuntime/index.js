@@ -20,7 +20,7 @@ import {
   resolveCrudIdColumn
 } from "../repositorySupport.js";
 import {
-  resolveStructuredSchemaTransportSchema,
+  resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
 } from "@jskit-ai/kernel/shared/validators";
 import {
@@ -297,7 +297,7 @@ function resolveRecordOutputValidator(resource = {}, { context = "crudRepository
   if (!output || typeof output !== "object" || Array.isArray(output)) {
     throw new TypeError(`${context} requires operations.view.output.`);
   }
-  const schema = resolveStructuredSchemaTransportSchema(output, {
+  const schema = resolveSchemaTransportSchemaDefinition(output, {
     context: `${context} operations.view.output`,
     defaultMode: "replace"
   });

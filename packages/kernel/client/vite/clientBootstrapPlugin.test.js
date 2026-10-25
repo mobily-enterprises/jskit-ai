@@ -14,7 +14,6 @@ import {
   resolveClientOptimizeIncludeSpecifiers,
   resolveClientOptimizeExcludeSpecifiers,
   resolveLocalScopePackageIds,
-  resolveInstalledClientPackageIds,
   resolveInstalledClientModules,
   resolveInstalledViteProxyEntries
 } from "./clientBootstrapPlugin.js";
@@ -260,7 +259,7 @@ test("resolveClientOptimizeIncludeSpecifiers omits excluded package clients", ()
   assert.deepEqual(include, ["@c/pkg/client"]);
 });
 
-test("resolveInstalledClientPackageIds returns only installed packages with a client export", async () => {
+test("resolveInstalledClientModules returns only installed packages with a client export", async () => {
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-"));
   const appRoot = tempRoot;
 
@@ -289,7 +288,7 @@ test("resolveInstalledClientPackageIds returns only installed packages with a cl
     }
   });
 
-  const packageIds = await resolveInstalledClientPackageIds({ appRoot });
+  const packageIds = (await resolveInstalledClientModules({ appRoot })).map((entry) => entry.packageId);
 
   assert.deepEqual(packageIds, ["@example/has-client"]);
 });

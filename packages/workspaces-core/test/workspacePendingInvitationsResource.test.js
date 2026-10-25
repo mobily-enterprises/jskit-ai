@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 
 test("workspacePendingInvitationsResource output schema accepts already-shaped invite payloads", () => {
-  const outputSchema = resolveStructuredSchemaTransportSchema(workspacePendingInvitationsResource.operations.list.output, {
+  const outputSchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsResource.operations.list.output, {
     context: "workspacePendingInvitations.list.output",
     defaultMode: "replace"
   });
@@ -33,11 +33,11 @@ test("workspacePendingInvitationsResource output schema accepts already-shaped i
 });
 
 test("workspacePendingInvitationsResource exposes public resolve query and terminal statuses", () => {
-  const querySchema = resolveStructuredSchemaTransportSchema(workspacePendingInvitationsResource.operations.resolve.query, {
+  const querySchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsResource.operations.resolve.query, {
     context: "workspacePendingInvitations.resolve.query",
     defaultMode: "replace"
   });
-  const outputSchema = resolveStructuredSchemaTransportSchema(workspacePendingInvitationsResource.operations.resolve.output, {
+  const outputSchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsResource.operations.resolve.output, {
     context: "workspacePendingInvitations.resolve.output",
     defaultMode: "replace"
   });

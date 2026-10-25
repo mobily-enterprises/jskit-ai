@@ -1,6 +1,6 @@
 import { normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import {
-  normalizeSchemaDefinition,
+  normalizeSingleSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
 } from "../../../shared/validators/index.js";
@@ -50,7 +50,7 @@ function stripJsonRestTransportExtensions(value) {
 
 function normalizeRouteSchemaSection(value, { context = "route section", defaultMode = "patch" } = {}) {
   try {
-    return normalizeSchemaDefinition(value, {
+    return normalizeSingleSchemaDefinition(value, {
       context,
       defaultMode
     });

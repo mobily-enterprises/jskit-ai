@@ -250,21 +250,6 @@ function normalizePlacementTopologyDefinition(
   });
 }
 
-function resolveShellOutletTargetParts(
-  {
-    target = ""
-  } = {}
-) {
-  const normalizedTargetId = normalizeShellOutletTargetId(target);
-  if (!normalizedTargetId) {
-    return null;
-  }
-
-  return Object.freeze({
-    id: normalizedTargetId
-  });
-}
-
 function findShellOutletTargetById(targets = [], targetId = "") {
   const entries = Array.isArray(targets) ? targets : [];
   const normalizedTargetId = normalizeShellOutletTargetId(targetId);
@@ -295,26 +280,15 @@ function isDefaultAttributeEnabled(value) {
   return normalized !== "false" && normalized !== "0" && normalized !== "no" && normalized !== "off";
 }
 
-function normalizeShellOutletTargetRecord(
-  value = {},
-  {
-    context = "shell layout"
-  } = {}
-) {
+function normalizeShellOutletTargetRecord(value = {}) {
   const record = normalizeObject(value);
-  const resolvedContext = normalizeText(context) || "shell layout";
-  const targetParts = resolveShellOutletTargetParts(
-    {
-      target: record.target
-    },
-    { context: resolvedContext }
-  );
-  if (!targetParts) {
+  const id = normalizeShellOutletTargetId(record.target);
+  if (!id) {
     return null;
   }
 
   return Object.freeze({
-    ...targetParts,
+    id,
     default:
       Object.hasOwn(record, "default") &&
       isDefaultAttributeEnabled(record.default)
@@ -335,9 +309,7 @@ function discoverShellOutletTargetsFromVueSource(
 
   for (const tagMatch of sourceText.matchAll(SHELL_OUTLET_TAG_PATTERN)) {
     const attributes = parseTagAttributes(tagMatch[1]);
-    const normalizedTarget = normalizeShellOutletTargetRecord(attributes, {
-      context: resolvedContext
-    });
+    const normalizedTarget = normalizeShellOutletTargetRecord(attributes);
     if (!normalizedTarget) {
       continue;
     }
@@ -382,6 +354,5 @@ export {
   normalizeSemanticPlacementId,
   normalizeShellOutletTargetId,
   normalizeShellOutletTargetRecord,
-  resolvePlacementTargetReference,
-  resolveShellOutletTargetParts
+  resolvePlacementTargetReference
 };

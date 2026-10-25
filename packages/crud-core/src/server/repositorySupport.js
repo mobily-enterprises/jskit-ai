@@ -9,7 +9,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObjectInput } from "@jskit-ai/kernel/shared/validators/inputNormalization";
-import { normalizeSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
+import { normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import {
   buildCrudFieldContractMap,
   resolveCrudFieldSchemaProperties,
@@ -138,7 +138,7 @@ function requireFieldDefinitions(definition, {
   schemaLabel = "schema definition",
   defaultMode = "patch"
 } = {}) {
-  const normalized = normalizeSchemaDefinition(definition, {
+  const normalized = normalizeSingleSchemaDefinition(definition, {
     context: `${context} ${schemaLabel}`,
     defaultMode
   });

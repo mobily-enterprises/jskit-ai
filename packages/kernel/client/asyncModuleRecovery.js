@@ -1,3 +1,5 @@
+import { isRecord } from "../shared/support/normalize.js";
+
 const DYNAMIC_IMPORT_ERROR_PATTERNS = Object.freeze([
   /ChunkLoadError/iu,
   /Failed to fetch dynamically imported module/iu,
@@ -6,10 +8,6 @@ const DYNAMIC_IMPORT_ERROR_PATTERNS = Object.freeze([
   /Loading chunk .+ failed/iu,
   /Unable to preload CSS/iu
 ]);
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
 
 function errorText(error = null) {
   return String(error?.message || error || "").trim();

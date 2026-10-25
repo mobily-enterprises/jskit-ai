@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveStructuredSchemaTransportSchema } from "@jskit-ai/kernel/shared/validators";
+import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { authRegisterCommand } from "../src/shared/commands/authRegisterCommand.js";
 import { authRegisterConfirmationResendCommand } from "../src/shared/commands/authRegisterConfirmationResendCommand.js";
 import { authLoginPasswordCommand } from "../src/shared/commands/authLoginPasswordCommand.js";
@@ -36,7 +36,7 @@ test("auth commands expose canonical operation validator messages", () => {
 });
 
 test("oauth complete command allows provider-less session-pair callbacks", () => {
-  const bodySchema = resolveStructuredSchemaTransportSchema(
+  const bodySchema = resolveSchemaTransportSchemaDefinition(
     authLoginOAuthCompleteCommand.operation.body,
     {
       context: "auth login oauth complete body",
@@ -46,7 +46,7 @@ test("oauth complete command allows provider-less session-pair callbacks", () =>
   const bodyRequired = Array.isArray(bodySchema?.required) ? bodySchema.required : [];
   assert.equal(bodyRequired.includes("provider"), false);
 
-  const responseSchema = resolveStructuredSchemaTransportSchema(
+  const responseSchema = resolveSchemaTransportSchemaDefinition(
     authLoginOAuthCompleteCommand.operation.response,
     {
       context: "auth login oauth complete response",
@@ -78,21 +78,21 @@ test("auth command body validators lowercase email inputs", () => {
 });
 
 test("auth session and oauth start commands expose explicit nested response schemas", () => {
-  const sessionResponseSchema = resolveStructuredSchemaTransportSchema(
+  const sessionResponseSchema = resolveSchemaTransportSchemaDefinition(
     authSessionReadCommand.operation.response,
     {
       context: "auth session read response",
       defaultMode: "replace"
     }
   );
-  const sessionUnavailableSchema = resolveStructuredSchemaTransportSchema(
+  const sessionUnavailableSchema = resolveSchemaTransportSchemaDefinition(
     authSessionReadCommand.operation.unavailableResponse,
     {
       context: "auth session read unavailable response",
       defaultMode: "replace"
     }
   );
-  const oauthStartResponseSchema = resolveStructuredSchemaTransportSchema(
+  const oauthStartResponseSchema = resolveSchemaTransportSchemaDefinition(
     authLoginOAuthStartCommand.operation.response,
     {
       context: "auth login oauth start response",
