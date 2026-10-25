@@ -133,24 +133,25 @@ function simplifyRelationshipResource(linkage = {}, options = {}) {
 
 function simplifyResourceObject(resource = {}, options = {}) {
   const normalizedResource = isRecord(resource) ? normalizeObject(resource) : {};
-  const simplified = simplifyJsonApiResourceWithRelationshipIds(normalizedResource, {
-    lookupFieldMap: options.lookupFieldMap || null
-  });
-  const lookupContainerKey = normalizeText(options.lookupContainerKey, {
-    fallback: "lookups"
-  });
-  const lookupFieldMap = options.lookupFieldMap || null;
-  const resourceKey = `${normalizeText(normalizedResource.type)}:${normalizeText(normalizedResource.id)}`;
-  if (resourceKey && options.inFlightKeys?.has(resourceKey)) {
-    return simplified;
-  }
+  const type = normalizeText(normalizedResource.type);
+  const id = normalizeText(normalizedResource.id);
+  const resourceKey = type && id ? `${type}:${id}` : "";
   if (resourceKey && options.resourceCache?.has(resourceKey)) {
     return options.resourceCache.get(resourceKey);
   }
 
+  const lookupFieldMap = options.lookupFieldMap || null;
+  const simplified = simplifyJsonApiResourceWithRelationshipIds(normalizedResource, { lookupFieldMap });
+  if (resourceKey && options.inFlightKeys?.has(resourceKey)) {
+    return simplified;
+  }
   if (resourceKey) {
     options.inFlightKeys?.add(resourceKey);
   }
+
+  const lookupContainerKey = normalizeText(options.lookupContainerKey, {
+    fallback: "lookups"
+  });
 
   const lookups = {};
   for (const [relationshipName, relationshipValue] of Object.entries(normalizeObject(normalizedResource.relationships))) {

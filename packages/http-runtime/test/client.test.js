@@ -665,6 +665,35 @@ test("request decodes json:api collection responses into JSKIT paged-list shape"
   });
 });
 
+test("request keeps collection resources without ids as distinct records", async () => {
+  const fetchImpl = async () =>
+    mockResponse({
+      contentType: "application/vnd.api+json",
+      data: {
+        data: [
+          { type: "books", attributes: { title: "First" } },
+          { type: "books", attributes: { title: "Second" } }
+        ]
+      }
+    });
+
+  const client = createHttpClient({ fetchImpl });
+  const payload = await client.request("/api/books", {
+    method: "GET",
+    transport: {
+      kind: "jsonapi-resource",
+      responseType: "books",
+      responseKind: "collection"
+    }
+  });
+
+  assert.deepEqual(
+    payload.items.map((item) => item.title),
+    ["First", "Second"]
+  );
+  assert.notEqual(payload.items[0], payload.items[1]);
+});
+
 test("request decodes native json-rest-api collection pagination metadata into JSKIT nextCursor", async () => {
   const fetchImpl = async () =>
     mockResponse({
