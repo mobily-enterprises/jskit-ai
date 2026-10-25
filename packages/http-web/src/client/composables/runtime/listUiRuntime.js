@@ -33,7 +33,6 @@ function createListUiRuntime({
   const normalizedEditUrlTemplate = String(editUrlTemplate || "").trim();
   const hasViewUrl = Boolean(normalizedViewUrlTemplate);
   const hasEditUrl = Boolean(normalizedEditUrlTemplate);
-  const actionColumnCount = (hasViewUrl ? 1 : 0) + (hasEditUrl ? 1 : 0);
   const normalizedItems = computed(() => (Array.isArray(items?.value) ? items.value : []));
   const showListSkeleton = computed(() => Boolean(isInitialLoading?.value && normalizedItems.value.length < 1));
 
@@ -88,7 +87,6 @@ function createListUiRuntime({
   return Object.freeze({
     hasViewUrl,
     hasEditUrl,
-    actionColumnCount,
     showListSkeleton,
     resolveParams: resolveTemplatePath,
     resolveRowKey,

@@ -476,7 +476,6 @@ function useList({
     loadMore: list.loadMore,
     hasViewUrl: listUiRuntime.hasViewUrl,
     hasEditUrl: listUiRuntime.hasEditUrl,
-    actionColumnCount: listUiRuntime.actionColumnCount,
     showListSkeleton: listUiRuntime.showListSkeleton,
     resolveRowKey: listUiRuntime.resolveRowKey,
     resolveParams: listUiRuntime.resolveParams,

@@ -15,7 +15,9 @@ test("createListUiRuntime resolves row keys and relative route templates from st
     editUrlTemplate: "./:contactId/edit"
   });
 
-  assert.equal(runtime.actionColumnCount, 2);
+  assert.equal(runtime.hasViewUrl, true);
+  assert.equal(runtime.hasEditUrl, true);
+  assert.equal(Object.hasOwn(runtime, "actionColumnCount"), false);
   assert.equal(runtime.resolveRowKey(items.value[0], 0), "abc 123");
   assert.equal(runtime.resolveParams("./new"), "/w/acme/admin/contacts/new");
   assert.equal(runtime.resolveViewUrl(items.value[0]), "/w/acme/admin/contacts/abc%20123");

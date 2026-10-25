@@ -4,6 +4,7 @@ import { useCrudListBulkActions } from "./useCrudListBulkActions.js";
 import { useCrudListFilters } from "./useCrudListFilters.js";
 import { useCrudListRowActions } from "./useCrudListRowActions.js";
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
+import { resolveRecordTitle as resolveCrudRecordTitle } from "./crud/crudLookupFieldLabelSupport.js";
 
 function buildCrudListActionContext(records, client) {
   return Object.freeze({
@@ -205,7 +206,7 @@ function useCrudListScreen({
   );
 
   function resolveRecordTitle(record) {
-    return records.resolveRecordTitle(record, {
+    return resolveCrudRecordTitle(record, {
       fallbackKey: titleFallbackFieldKey,
       defaultValue: "Record"
     });
@@ -221,8 +222,8 @@ function useCrudListScreen({
     displayRows,
     selectableRows,
     listPrimaryAction,
-    hasViewUrl: Boolean(viewUrlTemplate),
-    hasEditUrl: Boolean(editUrlTemplate),
+    hasViewUrl: records.hasViewUrl,
+    hasEditUrl: records.hasEditUrl,
     resolveRecordTitle,
     formatListCardValue: formatCrudListCardValue
   });

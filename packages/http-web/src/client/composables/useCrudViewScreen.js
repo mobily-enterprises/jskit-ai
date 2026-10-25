@@ -1,6 +1,7 @@
 import { computed, unref } from "vue";
 import { useRoute } from "vue-router";
 import { useCrudView } from "./records/useCrudView.js";
+import { resolveRecordTitle } from "./crud/crudLookupFieldLabelSupport.js";
 
 function useCrudViewScreen({
   resource = null,
@@ -50,7 +51,7 @@ function useCrudViewScreen({
       : null
   });
   const recordTitle = computed(() =>
-    view.resolveRecordTitle(view.record, {
+    resolveRecordTitle(view.record, {
       fallbackKey: titleFallbackFieldKey,
       defaultValue: "Record"
     })
