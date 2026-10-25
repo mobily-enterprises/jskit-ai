@@ -121,15 +121,9 @@ function rawMarkdownLines(rawLines = [], start = 0, end = rawLines.length) {
 
 function parseLineNumberedQuestionPrompt(value = "") {
   const rawLines = String(value || "").split(/\r?\n/u);
-  const lines = [];
-  const rawIndexes = [];
-  rawLines.forEach((rawLine, rawIndex) => {
-    const line = rawLine.trim();
-    if (line) {
-      lines.push(line);
-      rawIndexes.push(rawIndex);
-    }
-  });
+  // Questions are matched on trimmed non-blank lines; rawIndexes maps each back to rawLines.
+  const rawIndexes = rawLines.flatMap((rawLine, rawIndex) => (rawLine.trim() ? [rawIndex] : []));
+  const lines = rawIndexes.map((rawIndex) => rawLines[rawIndex].trim());
   if (!lines.length) {
     return inactiveNumberedQuestionSugar();
   }

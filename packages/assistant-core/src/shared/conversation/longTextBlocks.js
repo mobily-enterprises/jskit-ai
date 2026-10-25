@@ -2,7 +2,6 @@ function parseLongTextReviewBlocks(value, options = {}) {
   const lines = expandCompactPipeTableLines(String(value || "").replace(/\r\n/gu, "\n").split("\n"));
   const blocks = [];
   let paragraphLines = [];
-  let listBlock = null;
   let listLevels = [];
   let codeLines = null;
   let detailsBlock = null;
@@ -47,12 +46,19 @@ function parseLongTextReviewBlocks(value, options = {}) {
     }
   };
 
+  // listLevels[0].block is the top-level list; each deeper level is a list
+  // nested in the last item of the level above it.
   const flushList = () => {
-    if (listBlock?.items.length) {
-      blocks.push(listBlock);
+    if (listLevels[0]?.block.items.length) {
+      blocks.push(listLevels[0].block);
     }
-    listBlock = null;
     listLevels = [];
+  };
+
+  const nestListIn = (parentItem, type) => {
+    const nested = { items: [], type };
+    parentItem.blocks = [...(parentItem.blocks || []), nested];
+    return nested;
   };
 
   const pushListItem = ({ indent, markerWidth, text, type }) => {
@@ -61,25 +67,18 @@ function parseLongTextReviewBlocks(value, options = {}) {
     }
     let level = listLevels.at(-1);
     if (level && indent >= level.contentIndent) {
-      const nested = { items: [], type };
-      const parentItem = level.block.items.at(-1);
-      parentItem.blocks = [...(parentItem.blocks || []), nested];
-      level = { block: nested, contentIndent: 0 };
+      level = { block: nestListIn(level.block.items.at(-1), type), contentIndent: 0 };
       listLevels.push(level);
     } else if (level && level.block.type !== type) {
       if (listLevels.length === 1) {
         flushList();
         level = null;
       } else {
-        const nested = { items: [], type };
-        const parentItem = listLevels.at(-2).block.items.at(-1);
-        parentItem.blocks.push(nested);
-        level.block = nested;
+        level.block = nestListIn(listLevels.at(-2).block.items.at(-1), type);
       }
     }
     if (!level) {
-      listBlock = { items: [], type };
-      level = { block: listBlock, contentIndent: 0 };
+      level = { block: { items: [], type }, contentIndent: 0 };
       listLevels = [level];
     }
     level.block.items.push({ text });
@@ -201,7 +200,7 @@ function parseLongTextReviewBlocks(value, options = {}) {
       continue;
     }
 
-    if (listBlock) {
+    if (listLevels.length) {
       listLevels.at(-1).block.items.at(-1).text += ` ${trimmed}`;
       continue;
     }

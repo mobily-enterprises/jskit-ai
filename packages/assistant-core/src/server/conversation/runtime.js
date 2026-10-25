@@ -192,8 +192,8 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     // The saved receipt is the delivery proof, as in changeover recovery. A
     // restart after native admission leaves only a stale attempt marker, which
     // must not leave the conversation unconfirmed until another message is sent.
-    const pending = saved?.attempted && !saved.inspectionOnly &&
-      await entry.conversation.transcript.hasMessage(saved.messageId) ? null : saved;
+    const pending = (saved?.attempted && !saved.inspectionOnly &&
+      await entry.conversation.transcript.hasMessage(saved.messageId)) ? null : saved;
     return { engine: entry.engine, configuration: value.configuration, segmentId: entry.segmentId,
       binding: entry.engine === "codex" ? { threadId: value.threadId, codexAppServerRun: value.run }
         : entry.engine === "claude" ? { conversationId: value.threadId } : { sessionId: value.threadId },
