@@ -18,6 +18,13 @@ test("toDatabaseDateTimeUtc formats DATETIME(3) UTC string", () => {
   assert.equal(toDatabaseDateTimeUtc(new Date("2024-01-01T01:02:03.045Z")), "2024-01-01 01:02:03.045");
 });
 
+test("toDatabaseDateTimeUtc pads years below 1000 and rejects years outside 0..9999", () => {
+  assert.equal(toDatabaseDateTimeUtc("0999-01-01T00:00:00.000Z"), "0999-01-01 00:00:00.000");
+  assert.equal(toDatabaseDateTimeUtc(new Date("0005-01-01T00:00:00.000Z")), "0005-01-01 00:00:00.000");
+  assert.throws(() => toDatabaseDateTimeUtc(new Date("+010000-01-01T00:00:00.000Z")), /Invalid date-time value/);
+  assert.throws(() => toDatabaseDateTimeUtc(new Date("-000001-01-01T00:00:00.000Z")), /Invalid date-time value/);
+});
+
 test("toDatabaseDateTimeUtc preserves nullable empty values", () => {
   assert.equal(toDatabaseDateTimeUtc(null), null);
   assert.equal(toDatabaseDateTimeUtc(undefined), null);
