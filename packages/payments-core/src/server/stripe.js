@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { PaymentError } from "./service.js";
+import { createPriceBindings } from "./priceBindings.js";
 
 const id = (value) => typeof value === "string" ? value : value?.id;
 const invalid = () => { throw new PaymentError("payment_provider_result_invalid", "Check the Stripe account, price mapping and subscription shape.", 502); };
@@ -7,16 +8,7 @@ const invalid = () => { throw new PaymentError("payment_provider_result_invalid"
 function createStripePaymentAdapter({ apiKey, webhookSecret, environment, providerAccountId, priceBindings, historicalPriceBindings = {}, client = new Stripe(apiKey, { maxNetworkRetries: 0 }) }) {
   if (!["sandbox", "live"].includes(environment) || typeof webhookSecret !== "string" || !webhookSecret || !providerAccountId) throw new TypeError("Supply Stripe credentials, environment and account identity.");
   const live = environment === "live";
-  const prices = structuredClone(priceBindings);
-  const planFor = (priceId) => {
-    const matches = Object.entries(prices).filter(([, value]) => value === priceId);
-    if (!matches.length && Object.hasOwn(historicalPriceBindings, priceId)) return historicalPriceBindings[priceId];
-    if (matches.length !== 1) invalid();
-    return matches[0][0];
-  };
-  function validatePlan(planId) {
-    if (!Object.hasOwn(prices, planId)) throw new PaymentError("payment_plan_unknown", "Select a published payment plan.");
-  }
+  const { validatePlan, priceFor, planFor } = createPriceBindings({ priceBindings, historicalPriceBindings, invalid });
   async function verifyAccount() {
     const account = await client.accounts.retrieve();
     const balance = await client.balance.retrieve();
@@ -76,10 +68,10 @@ function createStripePaymentAdapter({ apiKey, webhookSecret, environment, provid
     return customer.id;
   }
   async function createCheckout({ customerId, planId, returnUrl, requestId }) {
-    if (!Object.hasOwn(prices, planId)) throw new PaymentError("payment_plan_unknown", "Select a published payment plan.");
+    const price = priceFor(planId);
     await verifyAccount();
     const result = await client.checkout.sessions.create({ mode: "subscription", customer: customerId,
-      line_items: [{ price: prices[planId], quantity: 1 }], success_url: returnUrl, cancel_url: returnUrl
+      line_items: [{ price, quantity: 1 }], success_url: returnUrl, cancel_url: returnUrl
     }, { idempotencyKey: requestId });
     if (typeof result.url !== "string") invalid();
     return { id: result.id, url: result.url };

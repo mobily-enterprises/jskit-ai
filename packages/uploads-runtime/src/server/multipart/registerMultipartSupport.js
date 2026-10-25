@@ -1,26 +1,21 @@
 import fastifyMultipart from "@fastify/multipart";
 
+const MULTIPART_MARKER = "jskit.uploads-runtime.multipart.support";
+
 async function registerMultipartSupport(fastify) {
   if (!fastify || typeof fastify.register !== "function") {
     throw new Error("registerMultipartSupport requires Fastify.");
   }
 
-  if (fastify["jskit.uploads-runtime.multipart.support"] === true) {
+  if (fastify[MULTIPART_MARKER] === true) {
     return;
   }
 
-  if (typeof fastify.hasContentTypeParser === "function" && fastify.hasContentTypeParser("multipart")) {
-    Object.defineProperty(fastify, "jskit.uploads-runtime.multipart.support", {
-      value: true,
-      configurable: false,
-      enumerable: false,
-      writable: false
-    });
-    return;
+  const hasMultipartParser = typeof fastify.hasContentTypeParser === "function" && fastify.hasContentTypeParser("multipart");
+  if (!hasMultipartParser) {
+    await fastify.register(fastifyMultipart);
   }
-
-  await fastify.register(fastifyMultipart);
-  Object.defineProperty(fastify, "jskit.uploads-runtime.multipart.support", {
+  Object.defineProperty(fastify, MULTIPART_MARKER, {
     value: true,
     configurable: false,
     enumerable: false,

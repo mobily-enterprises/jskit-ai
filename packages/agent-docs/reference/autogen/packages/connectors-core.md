@@ -20,6 +20,8 @@ Exports
 Local functions
 - `publicConnection(connection)`
 - `validateCallbackUrl(value)`
+- `connectionMatches(connection, integration, providerId, registration)`
+- `callbackMatches(connection, provider, registration)`
 
 ### `src/server/ConnectorsFeature.js`
 Exports
@@ -67,10 +69,15 @@ Exports
 
 ### `src/shared/configuration.js`
 Exports
+- `DEFAULT_GRANT_TYPE`
+- `DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD`
+- `registrationGrantType(record)`
+- `registrationClientAuthentication(record)`
+- `providerGrantTypes(provider)`
 - `getProviderAuthenticationMethods(provider, settings = {})`
-- `getProviderClientAuthenticationMethods(provider, grantType = "authorization_code", settings = {})`
+- `getProviderClientAuthenticationMethods(provider, grantType = DEFAULT_GRANT_TYPE, settings = {})`
 - `getProviderAccountModes(provider, settings = {})`
-- `getProviderScopes(provider, settings = {}, grantType = "authorization_code", authenticationMethod)`
+- `getProviderScopes(provider, settings = {}, grantType = DEFAULT_GRANT_TYPE, authenticationMethod)`
 - `getProviderSettingsSchema(provider, settings = {})`
 - `secretReference`
 - `integrationsSchema`

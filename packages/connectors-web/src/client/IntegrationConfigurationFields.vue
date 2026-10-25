@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-import { getProviderAccountModes, getProviderAuthenticationMethods, getProviderClientAuthenticationMethods, getProviderScopes, getProviderSettingsSchema } from "@jskit-ai/connectors-core/shared/configuration";
+import { DEFAULT_GRANT_TYPE, DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD, getProviderAccountModes, getProviderAuthenticationMethods, getProviderClientAuthenticationMethods, getProviderScopes, getProviderSettingsSchema, providerGrantTypes, registrationClientAuthentication, registrationGrantType } from "@jskit-ai/connectors-core/shared/configuration";
 
 const props = defineProps({
   modelValue: { type: Object, required: true },
@@ -15,8 +15,8 @@ const panels = ref(["details", "credentials"]);
 const integration = computed(() => props.modelValue.integrations[props.integrationId]);
 const registrationId = computed(() => integration.value?.authentication.registrationRef);
 const registration = computed(() => props.modelValue.registrations[registrationId.value]);
-const grantType = computed(() => registration.value?.grantType || "authorization_code");
-const grantOptions = computed(() => (props.provider.oauthGrantTypes || ["authorization_code"]).map((value) => ({
+const grantType = computed(() => registrationGrantType(registration.value));
+const grantOptions = computed(() => providerGrantTypes(props.provider).map((value) => ({
   value, title: { authorization_code: "User consent", client_credentials: "Service account" }[value] || value
 })));
 const modes = computed(() => getProviderAccountModes(props.provider, integration.value.settings || {}).filter((mode) =>
@@ -91,14 +91,14 @@ function editAuthentication(method, current = integration.value) {
   for (const field of props.provider.settingsFields || []) {
     if (field.authenticationMethods && !field.authenticationMethods.includes(method)) delete settings[field.name];
   }
-  const availableScopes = getProviderScopes(props.provider, settings, "authorization_code", method);
+  const availableScopes = getProviderScopes(props.provider, settings, DEFAULT_GRANT_TYPE, method);
   const scopes = availableScopes.filter(scope => current.scopes.includes(scope.value) || scope.required || (scope.authenticationMethods && scope.recommended)).map(scope => scope.value);
   if (method === "oauth2") {
     let id = props.integrationId;
     let suffix = 2;
     while (Object.hasOwn(props.modelValue.registrations, id)) id = `${props.integrationId}-${suffix++}`;
     const prefix = id.toUpperCase().replaceAll("-", "_");
-    const grant = props.provider.oauthGrantTypes?.[0] || "authorization_code";
+    const grant = props.provider.oauthGrantTypes?.[0] || DEFAULT_GRANT_TYPE;
     const clientAuthentication = getProviderClientAuthenticationMethods(props.provider, grant, settings)[0];
     emit("update:modelValue", {
       ...props.modelValue,
@@ -109,7 +109,7 @@ function editAuthentication(method, current = integration.value) {
       registrations: { ...props.modelValue.registrations, [id]: {
         source: "own", clientId: "",
         ...(grant === "authorization_code" ? { callbackUrlRef: `env:${prefix}_CALLBACK_URL` } : { grantType: grant }),
-        ...(clientAuthentication !== "client_secret_post" ? { tokenEndpointAuthMethod: clientAuthentication } : {}),
+        ...(clientAuthentication !== DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD ? { tokenEndpointAuthMethod: clientAuthentication } : {}),
         ...(clientAuthentication !== "none" ? { clientSecretRef: `env:${prefix}_CLIENT_SECRET` } : {})
       } }
     });
@@ -137,7 +137,7 @@ function editRegistration(field, value) {
 function editGrantType(value) {
   const nextRegistration = { ...registration.value, grantType: value };
   const methods = getProviderClientAuthenticationMethods(props.provider, value, integration.value.settings || {});
-  if (!methods.includes(nextRegistration.tokenEndpointAuthMethod || "client_secret_post")) nextRegistration.tokenEndpointAuthMethod = methods[0];
+  if (!methods.includes(registrationClientAuthentication(nextRegistration))) nextRegistration.tokenEndpointAuthMethod = methods[0];
   if (nextRegistration.tokenEndpointAuthMethod === "none") delete nextRegistration.clientSecretRef;
   if (value === "client_credentials") delete nextRegistration.callbackUrlRef;
   const allowed = getProviderScopes(props.provider, integration.value.settings || {}, value, integration.value.authentication.method).map((scope) => scope.value);

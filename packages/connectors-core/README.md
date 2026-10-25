@@ -392,8 +392,7 @@ the core and provider contracts are verified with controlled service-account fix
 ## File storage
 
 Import `createFileConnectionStore` and `createCredentialProtection` from
-`@jskit-ai/connectors-core/server/file-storage`. This entry point does not import
-or require database-runtime. Use `createFileConnectionStore({ directory,
+`@jskit-ai/connectors-core/server/file-storage`. Use `createFileConnectionStore({ directory,
 protection })` with an absolute private directory outside application source.
 Each connection uses an encrypted JSON record containing its grant and pending
 authorization attempts. The same protection contract is described below.
@@ -434,9 +433,8 @@ an old key before those rows are rewritten makes them unreadable. Applications
 with an existing vault can instead provide compatible `seal(value, binding)`
 and `open(ciphertext, binding)` methods.
 
-Install `@jskit-ai/database-runtime` explicitly when using the Knex store. It is
-an optional peer: editing portable configuration does not install or activate a
-database provider. Applications using another store do not need this peer.
+The Knex store uses the application's own Knex client and its `transaction()`;
+editing portable configuration does not install or activate a database provider.
 
 The package declares its authoritative migration directory in `package.json`.
 Use the normal app-owned `knexfile.js` and migration scripts described by the

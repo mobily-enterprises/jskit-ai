@@ -2,7 +2,7 @@ import * as oauth from "oauth4webapi";
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { validateIntegrationConfiguration } from "../shared/configuration.js";
+import { registrationClientAuthentication, registrationGrantType, validateIntegrationConfiguration } from "../shared/configuration.js";
 import { ConnectorError, providerError } from "./errors.js";
 
 function publicConnection(connection) {
@@ -28,6 +28,29 @@ function validateCallbackUrl(value) {
     throw new ConnectorError("connector_callback_invalid", "Configure an HTTPS callback URL, or a local development callback.");
   }
   return url.href;
+}
+
+// Whether a stored connection still belongs to the configured integration and
+// OAuth client. `registration` is { registrationRef, clientId, grantType,
+// tokenEndpointAuthMethod } with defaults applied; only OAuth reads it.
+function connectionMatches(connection, integration, providerId, registration) {
+  const method = integration.authentication.method;
+  return connection.provider === providerId &&
+    (connection.method || "oauth2") === method &&
+    isDeepStrictEqual(connection.settings || {}, integration.settings || {}) &&
+    (!["api-key", "service-account"].includes(method) || connection.secretRef === integration.authentication.secretRef) &&
+    (method !== "service-account" || isDeepStrictEqual(connection.requestedScopes, integration.scopes)) &&
+    (method !== "oauth2" || (connection.registrationRef === registration.registrationRef &&
+      connection.clientId === registration.clientId &&
+      registrationGrantType(connection) === registration.grantType &&
+      (registration.grantType !== "client_credentials" || isDeepStrictEqual(connection.requestedScopes, integration.scopes)) &&
+      registrationClientAuthentication(connection) === registration.tokenEndpointAuthMethod));
+}
+
+// Providers that resend redirect_uri on refresh need the callback the grant was issued for.
+function callbackMatches(connection, provider, registration) {
+  return registration.grantType !== "authorization_code" || !provider.refreshRequiresRedirectUri ||
+    connection.callbackUrl === registration.callbackUrl;
 }
 
 function createConnectionService({
@@ -105,8 +128,8 @@ function createConnectionService({
     if (registration.clientId.trim() === "MISSING") {
       throw new ConnectorError("connector_binding_missing", "The provider client ID is not configured.");
     }
-    const grantType = registration.grantType || "authorization_code";
-    const tokenEndpointAuthMethod = registration.tokenEndpointAuthMethod || "client_secret_post";
+    const grantType = registrationGrantType(registration);
+    const tokenEndpointAuthMethod = registrationClientAuthentication(registration);
     if (provider.oauthPkce === false && tokenEndpointAuthMethod === "none") {
       throw new ConnectorError("connector_mode_unavailable", "This provider's non-PKCE flow requires a confidential client.");
     }
@@ -276,14 +299,14 @@ function createConnectionService({
     if (["oauth2", "service-account"].includes(connection.method || "oauth2") && operation.scopes.length && !operation.scopes.some((scope) => connection.grantedScopes.includes(scope))) {
       throw new ConnectorError("connector_scope_missing", "Connect again with the permission required for this operation.", { statusCode: 403 });
     }
-    let request;
-    try { request = operation.request(input, connection.settings || {}, connection.providerData); } catch (error) {
+    let descriptor;
+    try { descriptor = operation.request(input, connection.settings || {}, connection.providerData); } catch (error) {
       if (!error.fieldErrors) throw error;
       const failure = new ConnectorError("connector_input_invalid", "Check the operation's input values.", { statusCode: 422 });
       failure.fieldErrors = error.fieldErrors;
       throw failure;
     }
-    const url = new URL(request.url);
+    const url = new URL(descriptor.url);
     const origins = typeof provider.apiOrigins === "function" ? provider.apiOrigins(connection.settings || {}, connection.providerData) : provider.apiOrigins;
     if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
       throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.");
@@ -300,17 +323,17 @@ function createConnectionService({
     if (connection.method === "api-key" && provider.apiKey.queryParameter) {
       url.searchParams.set(provider.apiKey.queryParameter, connection.apiKey);
     }
-    let body = request.body;
+    let body = descriptor.body;
     if (connection.method === "api-key" && provider.apiKey.bodyParameter) {
-      if (!body || typeof body !== "object" || Array.isArray(body) || ["GET", "HEAD"].includes(request.method)) {
+      if (!body || typeof body !== "object" || Array.isArray(body) || ["GET", "HEAD"].includes(descriptor.method)) {
         throw new ConnectorError("connector_request_invalid", "This provider requires a JSON request body.");
       }
       body = { ...body, [provider.apiKey.bodyParameter]: connection.apiKey };
     }
     const options = {
-      method: request.method,
+      method: descriptor.method,
       body,
-      headers: { ...request.headers, Accept: "application/json", ...(connection.method === "api-key"
+      headers: { ...descriptor.headers, Accept: "application/json", ...(connection.method === "api-key"
         ? provider.apiKey.headers?.(connection.apiKey, connection.settings || {})
         : connection.method === "none" ? {} : {
           ...provider.oauthHeaders?.({ clientId: connection.clientId }), Authorization: `Bearer ${connection.tokens.accessToken}`
@@ -494,8 +517,8 @@ function createConnectionService({
         if (!attempt || attempt.expiresAt <= now() || attempt.provider !== provider.id ||
           (attempt.codeVerifier === null) !== (provider.oauthPkce === false) ||
           attempt.clientId !== registration.client.client_id || attempt.registrationRef !== registration.registrationRef ||
-          (attempt.grantType || "authorization_code") !== registration.grantType ||
-          (attempt.tokenEndpointAuthMethod || "client_secret_post") !== registration.tokenEndpointAuthMethod ||
+          registrationGrantType(attempt) !== registration.grantType ||
+          registrationClientAuthentication(attempt) !== registration.tokenEndpointAuthMethod ||
           attempt.callbackUrl !== registration.callbackUrl || JSON.stringify(attempt.scopes) !== JSON.stringify(integration.scopes) ||
           !isDeepStrictEqual(attempt.settings || {}, integration.settings || {})) {
           throw new ConnectorError("connector_attempt_invalid", "The authorization attempt is invalid or has expired.");
@@ -588,16 +611,9 @@ function createConnectionService({
         connection = envSeededConnection(integrationId, integration, provider, registration, seed);
         await save(connection);
       }
-      if (!connection || connection.status !== "connected" || connection.provider !== provider.id ||
-        (connection.method || "oauth2") !== integration.authentication.method ||
-        !isDeepStrictEqual(connection.settings || {}, integration.settings || {}) ||
-        ((usesApiKey || usesServiceAccount) && connection.secretRef !== integration.authentication.secretRef) ||
-        (usesServiceAccount && !isDeepStrictEqual(connection.requestedScopes, integration.scopes)) ||
-        (usesOAuth && (connection.registrationRef !== registration.registrationRef || connection.clientId !== registration.client.client_id ||
-            (connection.grantType || "authorization_code") !== registration.grantType ||
-            (registration.grantType === "client_credentials" && !isDeepStrictEqual(connection.requestedScopes, integration.scopes)) ||
-            (registration.grantType === "authorization_code" && provider.refreshRequiresRedirectUri && connection.callbackUrl !== registration.callbackUrl) ||
-            (connection.tokenEndpointAuthMethod || "client_secret_post") !== registration.tokenEndpointAuthMethod))) {
+      if (!connection || connection.status !== "connected" ||
+        !connectionMatches(connection, integration, provider.id, usesOAuth ? { ...registration, clientId: registration.client.client_id } : null) ||
+        (usesOAuth && !callbackMatches(connection, provider, registration))) {
         throw new ConnectorError("connector_reconnect_required", "Connect this account again.", { statusCode: 401 });
       }
       try {
@@ -655,17 +671,14 @@ function createConnectionService({
 
   async function status({ context, integrationId }) {
     const { owner, integration, provider } = await access(context, integrationId, "status");
+    // Compare against the configured registration without resolving its secrets.
     const registration = config.registrations[integration.authentication.registrationRef];
+    const configured = {
+      registrationRef: integration.authentication.registrationRef, clientId: registration?.clientId,
+      grantType: registrationGrantType(registration), tokenEndpointAuthMethod: registrationClientAuthentication(registration)
+    };
     return store.withConnection({ owner, integrationId }, async ({ connection }) => {
-      if (connection && !integration.authentication.refreshTokenRef && (connection.provider !== integration.provider ||
-        (connection.method || "oauth2") !== integration.authentication.method ||
-        !isDeepStrictEqual(connection.settings || {}, integration.settings || {}) ||
-        (["api-key", "service-account"].includes(integration.authentication.method) && connection.secretRef !== integration.authentication.secretRef) ||
-        (integration.authentication.method === "service-account" && !isDeepStrictEqual(connection.requestedScopes, integration.scopes)) ||
-        (integration.authentication.method === "oauth2" && (connection.registrationRef !== integration.authentication.registrationRef || connection.clientId !== registration?.clientId ||
-            (connection.grantType || "authorization_code") !== (registration?.grantType || "authorization_code") ||
-            (registration?.grantType === "client_credentials" && !isDeepStrictEqual(connection.requestedScopes, integration.scopes)) ||
-            (connection.tokenEndpointAuthMethod || "client_secret_post") !== (registration?.tokenEndpointAuthMethod || "client_secret_post"))))) {
+      if (connection && !integration.authentication.refreshTokenRef && !connectionMatches(connection, integration, integration.provider, configured)) {
         return publicConnection({ ...connection, status: "reconnect-required" });
       }
       let callbackUrl;
@@ -680,8 +693,7 @@ function createConnectionService({
               return { status: "connected", source: "env", provider: provider.id, integrationId, grantedScopes: [...integration.scopes], callbackUrl };
             }
           }
-          if (connection && provider.refreshRequiresRedirectUri && resolved.grantType === "authorization_code" &&
-              connection.callbackUrl !== resolved.callbackUrl) {
+          if (connection && !callbackMatches(connection, provider, resolved)) {
             return publicConnection({ ...connection, status: "reconnect-required" });
           }
         } else if (integration.authentication.method === "api-key") {

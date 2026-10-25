@@ -54,6 +54,22 @@ class IntegrationConfigurationError extends Error {
   }
 }
 
+// Registrations, attempts and stored connections omit these when they use the defaults.
+const DEFAULT_GRANT_TYPE = "authorization_code";
+const DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD = "client_secret_post";
+
+function registrationGrantType(record) {
+  return record?.grantType || DEFAULT_GRANT_TYPE;
+}
+
+function registrationClientAuthentication(record) {
+  return record?.tokenEndpointAuthMethod || DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD;
+}
+
+function providerGrantTypes(provider) {
+  return provider.oauthGrantTypes || [DEFAULT_GRANT_TYPE];
+}
+
 function getProviderSettingsSchema(provider, settings = {}) {
   return typeof provider.settingsSchema === "function" ? provider.settingsSchema(settings) : provider.settingsSchema;
 }
@@ -66,15 +82,15 @@ function getProviderAccountModes(provider, settings = {}) {
   return provider.accountModesForSettings ? provider.accountModesForSettings(settings) : provider.accountModes;
 }
 
-function getProviderScopes(provider, settings = {}, grantType = "authorization_code", authenticationMethod) {
+function getProviderScopes(provider, settings = {}, grantType = DEFAULT_GRANT_TYPE, authenticationMethod) {
   const scopes = provider.scopesForGrantType ? provider.scopesForGrantType(grantType, settings)
     : provider.scopesForSettings ? provider.scopesForSettings(settings) : provider.scopes;
   return authenticationMethod ? scopes.filter(scope => !scope.authenticationMethods || scope.authenticationMethods.includes(authenticationMethod)) : scopes;
 }
 
-function getProviderClientAuthenticationMethods(provider, grantType = "authorization_code", settings = {}) {
+function getProviderClientAuthenticationMethods(provider, grantType = DEFAULT_GRANT_TYPE, settings = {}) {
   const methods = provider.oauthClientAuthenticationMethods;
-  return typeof methods === "function" ? methods(grantType, settings) : methods || ["client_secret_post"];
+  return typeof methods === "function" ? methods(grantType, settings) : methods || [DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD];
 }
 
 function validateIntegrationConfiguration(input, { providers = [], allowUnknownProviders = false } = {}) {
@@ -117,7 +133,7 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
     const auth = integration.authentication;
     const provider = definitions.get(integration.provider);
     const registration = config.registrations[auth.registrationRef];
-    const grantType = registration?.grantType || "authorization_code";
+    const grantType = registrationGrantType(registration);
     if (auth.refreshTokenRef && auth.method !== "oauth2") {
       fieldErrors[`${path}.authentication.refreshTokenRef`] = "Only an OAuth connection can start from a refresh token.";
     }
@@ -181,11 +197,11 @@ function validateIntegrationConfiguration(input, { providers = [], allowUnknownP
       }
       if (auth.method === "oauth2" && registration?.source === "own") {
         const registrationPath = `registrations.${auth.registrationRef}`;
-        if (!(provider.oauthGrantTypes || ["authorization_code"]).includes(grantType)) {
+        if (!providerGrantTypes(provider).includes(grantType)) {
           fieldErrors[`${registrationPath}.grantType`] = "This provider does not support this OAuth flow.";
         }
         const methods = getProviderClientAuthenticationMethods(provider, grantType, integration.settings || {});
-        if (!methods.includes(registration.tokenEndpointAuthMethod || "client_secret_post")) {
+        if (!methods.includes(registrationClientAuthentication(registration))) {
           fieldErrors[`${registrationPath}.tokenEndpointAuthMethod`] = "This provider does not support this client authentication method.";
         }
         if (registration.clientId && provider.validateClientId) {
@@ -221,6 +237,11 @@ function parseIntegrationConfiguration(text, options) {
 }
 
 export {
+  DEFAULT_GRANT_TYPE,
+  DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD,
+  registrationGrantType,
+  registrationClientAuthentication,
+  providerGrantTypes,
   getProviderAuthenticationMethods,
   getProviderClientAuthenticationMethods,
   getProviderAccountModes,

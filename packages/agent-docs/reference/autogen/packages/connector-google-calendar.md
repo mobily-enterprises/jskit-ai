@@ -18,15 +18,19 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `googleCalendarProvider`
 Local functions
-- `scope(name)`
 - `queryUrl(path, input)`
 - `invalid(message)`
+- `validateEventTime(point)`
+- `validateRecurrence(body)`
+- `validAttendee(person)`
+- `validateAttendees(attendees)`
 - `eventBody(body, creating)`
 - `writeEvent(method)`
 
 ### `src/shared/definition.js`
 Exports
 - `googleCalendarDefinition`
+- `googleScope(name)`
 
 ### patterns
 

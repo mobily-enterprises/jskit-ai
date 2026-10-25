@@ -1,20 +1,12 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 import { PaymentError } from "./service.js";
+import { createPriceBindings } from "./priceBindings.js";
 
 const invalid = () => { throw new PaymentError("payment_provider_result_invalid", "Check the Paddle account, price mapping and subscription shape.", 502); };
 
 function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceBindings, taxCategory, historicalPriceBindings = {}, client = new Paddle(apiKey, { environment: environment === "live" ? Environment.production : Environment.sandbox }) }) {
   if (!["sandbox", "live"].includes(environment) || typeof webhookSecret !== "string" || !webhookSecret) throw new TypeError("Supply Paddle credentials and environment.");
-  const prices = structuredClone(priceBindings);
-  const planFor = (priceId) => {
-    const matches = Object.entries(prices).filter(([, value]) => value === priceId);
-    if (!matches.length && Object.hasOwn(historicalPriceBindings, priceId)) return historicalPriceBindings[priceId];
-    if (matches.length !== 1) invalid();
-    return matches[0][0];
-  };
-  function validatePlan(planId) {
-    if (!Object.hasOwn(prices, planId)) throw new PaymentError("payment_plan_unknown", "Select a published payment plan.");
-  }
+  const { validatePlan, priceFor, planFor } = createPriceBindings({ priceBindings, historicalPriceBindings, invalid });
   async function verifyAccount() {
     await client.products.list({ perPage: 1 }).next();
     // A successful catalogue read cannot prove merchant verification or identify
@@ -61,10 +53,10 @@ function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceB
     return customer.id;
   }
   async function createCheckout({ customerId, planId, returnUrl }) {
-    if (!Object.hasOwn(prices, planId)) throw new PaymentError("payment_plan_unknown", "Select a published payment plan.");
+    const priceId = priceFor(planId);
     // This URL is an app-owned Paddle.js checkout page, approved in Paddle.
     const result = await client.transactions.create({ customerId, collectionMode: "automatic",
-      items: [{ priceId: prices[planId], quantity: 1 }], checkout: { url: returnUrl } });
+      items: [{ priceId, quantity: 1 }], checkout: { url: returnUrl } });
     if (typeof result.checkout?.url !== "string") invalid();
     return { id: result.id, url: result.checkout.url };
   }

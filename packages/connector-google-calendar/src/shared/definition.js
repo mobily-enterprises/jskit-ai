@@ -1,4 +1,4 @@
-const GOOGLE_SCOPE_BASE = "https://www.googleapis.com/auth/";
+const googleScope = (name) => `https://www.googleapis.com/auth/${name}`;
 const googleCalendarDefinition = Object.freeze({
   id: "google-calendar",
   name: "Google Calendar",
@@ -24,29 +24,29 @@ const googleCalendarDefinition = Object.freeze({
     ]
   },
   scopes: [
-    { value: `${GOOGLE_SCOPE_BASE}calendar.calendarlist.readonly`, label: "List calendars", recommended: true },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.events.readonly`, label: "Read events", recommended: true },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.readonly`, label: "Read all calendar data" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar`, label: "Manage calendars and events" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.calendarlist`, label: "Manage calendar subscriptions" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.events`, label: "Manage events" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.freebusy`, label: "Read your availability" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.settings.readonly`, label: "Read calendar settings" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.events.owned`, label: "Manage events in calendars you own" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.events.owned.readonly`, label: "Read events in calendars you own" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.events.freebusy`, label: "Read availability in accessible calendars" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.app.created`, label: "Create and manage app-created calendars" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.calendars`, label: "Manage calendar properties" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.calendars.readonly`, label: "Read calendar properties" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.acls`, label: "Manage calendar sharing permissions" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.acls.readonly`, label: "Read calendar sharing permissions" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.events.public.readonly`, label: "Read public calendar events" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.addons.execute`, label: "Run a Calendar add-on" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.addons.current.event.read`, label: "Read the event open in a Calendar add-on" },
-    { value: `${GOOGLE_SCOPE_BASE}calendar.addons.current.event.write`, label: "Edit the event open in a Calendar add-on" }
+    { value: googleScope("calendar.calendarlist.readonly"), label: "List calendars", recommended: true },
+    { value: googleScope("calendar.events.readonly"), label: "Read events", recommended: true },
+    { value: googleScope("calendar.readonly"), label: "Read all calendar data" },
+    { value: googleScope("calendar"), label: "Manage calendars and events" },
+    { value: googleScope("calendar.calendarlist"), label: "Manage calendar subscriptions" },
+    { value: googleScope("calendar.events"), label: "Manage events" },
+    { value: googleScope("calendar.freebusy"), label: "Read your availability" },
+    { value: googleScope("calendar.settings.readonly"), label: "Read calendar settings" },
+    { value: googleScope("calendar.events.owned"), label: "Manage events in calendars you own" },
+    { value: googleScope("calendar.events.owned.readonly"), label: "Read events in calendars you own" },
+    { value: googleScope("calendar.events.freebusy"), label: "Read availability in accessible calendars" },
+    { value: googleScope("calendar.app.created"), label: "Create and manage app-created calendars" },
+    { value: googleScope("calendar.calendars"), label: "Manage calendar properties" },
+    { value: googleScope("calendar.calendars.readonly"), label: "Read calendar properties" },
+    { value: googleScope("calendar.acls"), label: "Manage calendar sharing permissions" },
+    { value: googleScope("calendar.acls.readonly"), label: "Read calendar sharing permissions" },
+    { value: googleScope("calendar.events.public.readonly"), label: "Read public calendar events" },
+    { value: googleScope("calendar.addons.execute"), label: "Run a Calendar add-on" },
+    { value: googleScope("calendar.addons.current.event.read"), label: "Read the event open in a Calendar add-on" },
+    { value: googleScope("calendar.addons.current.event.write"), label: "Edit the event open in a Calendar add-on" }
   ],
   settingsFields: [],
   documentationUrl: "https://developers.google.com/workspace/calendar/api/guides/overview"
 });
 
-export { googleCalendarDefinition };
+export { googleCalendarDefinition, googleScope };

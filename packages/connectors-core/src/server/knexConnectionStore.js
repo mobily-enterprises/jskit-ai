@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
@@ -10,12 +9,10 @@ function createKnexConnectionStore({ knex, protection }) {
   if (typeof protection?.seal !== "function" || typeof protection?.open !== "function") {
     throw new TypeError("Connector storage requires credential protection.");
   }
-  const transaction = createWithTransaction(knex);
-
   async function withConnection({ owner, integrationId }, work) {
     const connectionKey = hash(JSON.stringify([owner.applicationId, owner.subjectId, integrationId]));
     const connectionBinding = `connection:${connectionKey}`;
-    return transaction(async (trx) => {
+    return knex.transaction(async (trx) => {
       // Retain this row on disconnect so other processes continue to lock the same identity.
       await trx("connector_connections").insert({ connection_key: connectionKey })
         .onConflict("connection_key").merge({ connection_key: connectionKey });

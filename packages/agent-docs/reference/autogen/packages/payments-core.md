@@ -42,6 +42,10 @@ Exports
 Local functions
 - `invalid()`
 
+### `src/server/priceBindings.js`
+Exports
+- `createPriceBindings({ priceBindings, historicalPriceBindings = {}, invalid })`
+
 ### `src/server/readiness.js`
 Exports
 - `createPaymentReadiness({ adapter, catalogue, scope, inspectApplication })`

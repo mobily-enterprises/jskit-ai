@@ -53,13 +53,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.245",
     "@jskit-ai/http-runtime": "0.1.243",
     "@jskit-ai/kernel": "0.1.245"
-  },
-  "peerDependenciesMeta": {
-    "@jskit-ai/database-runtime": {
-      "optional": true
-    }
   }
 }
