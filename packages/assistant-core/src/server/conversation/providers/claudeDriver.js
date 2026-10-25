@@ -1,4 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { jsonHash as hash } from "../normalize.js";
 import { homedir } from "node:os";
 import path from "node:path";
 import { realpath } from "node:fs/promises";
@@ -10,8 +11,8 @@ import { createClaudeConversationOwner, claudeNativeMessageId } from "../claudeT
 import { CLAUDE_APPLICATION_TOOL_SERVER } from "../claudeTools.js";
 import { createLocalConversationExecution } from "../localExecution.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
+import { SCOPED_CONVERSATION_CAPABILITIES, scopedConversationInput, unsupportedScopedConversation } from "./scoped.js";
 
-const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const nativeInput = input => input.content?.length ? [...(input.text ? [{ type: "text", text: input.text }] : []),
   ...input.content.map(part => part.type === "text" ? part : { type: "image",
     source: { type: "base64", media_type: part.mediaType, data: part.image.toString("base64") } })] : input.text;
@@ -364,18 +365,9 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
       const control = { current: null, disposed: false, cleanupFailure: null };
       const commandOptions = { acquire, reportFailure, entry,
         maximumOutput, maximumToolCalls: limits.maxToolCalls ?? 32, timeoutMs: limits.admissionTimeoutMs };
-      const scopedInput = (input = {}) => {
-        if (input.conversationId && String(input.conversationId).trim() !== scoped.conversationId) {
-          throw new TypeError("This operation belongs to a different scoped conversation.");
-        }
-        return { ...input, conversationId: scoped.conversationId };
-      };
-      const unsupported = () => { throw Object.assign(new Error("This original scoped conversation has no canonical message or goal receipt."), {
-        code: "conversation_unsupported"
-      }); };
+      const scopedInput = scopedConversationInput(scoped?.conversationId);
       return Object.freeze({
-        ...(scoped ? { capabilities: Object.freeze({ streaming: false, instructions: false, configuration: false,
-          goals: false, goalBudgets: false, goalCommands: Object.freeze({}), attachments: false, tools: false, nativeTools: false }),
+        ...(scoped ? { capabilities: SCOPED_CONVERSATION_CAPABILITIES,
           async sendNative({ input, context }) {
             input = scopedInput(input);
             return owner.startTurn(await acquire(context, input.conversationId, { operation: "start", input }), input);
@@ -393,7 +385,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
           publishNative: event => conversation.publish({ ...event, goalChanged: event.reason === "claude-goal" })
         } : {}),
         async readGoal({ configuration, context }) {
-          if (scoped) return unsupported();
+          if (scoped) return unsupportedScopedConversation();
           if (supplied) {
             await acquire(context);
             const completeResult = supplied.completeResult?.(context);
@@ -407,7 +399,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
           return claudeGoalValue(await entry.goals.read(), entry.id);
         },
         async updateGoal({ configuration, context, input, representation, interrupt, send }) {
-          if (scoped) return unsupported();
+          if (scoped) return unsupportedScopedConversation();
           if (supplied) {
             await acquire(context);
             const completeResult = supplied.completeResult?.(context);
@@ -436,7 +428,7 @@ export function createClaudeConversationDriver({ connections, host = {}, limits 
           return claudeGoalValue(await entry.goals.read(), entry.id);
         },
         async inspectAdmission({ context, representation, verifyAccount = false, ...input }) {
-          if (scoped) return unsupported();
+          if (scoped) return unsupportedScopedConversation();
           if (supplied) {
             await acquire(context);
             const result = await owner.inspectAdmission(await acquire(context), input);

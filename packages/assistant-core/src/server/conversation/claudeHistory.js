@@ -5,10 +5,22 @@ import { readClaudeJsonFrames } from "./claudeClient.js";
 import { createNativeHistoryExport, retireNativeConversation } from "./nativeHistoryExport.js";
 
 const UUID_PATTERN = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/iu;
+const TRANSCRIPT_PATH_PATTERN = /\.jsonl(?:\.(?:superseded|orphaned)-.*)?$/u;
 
 function requireClaudeSessionId(id) {
   if (!UUID_PATTERN.test(id)) throw new TypeError("Invalid Claude conversation id.");
   return id;
+}
+
+// Claude's project directory name for a canonical working directory.
+function claudeProjectDirectoryName(canonical) {
+  return canonical.normalize("NFC").replace(/[^a-zA-Z0-9]/gu, "-");
+}
+
+// Text the person authored in a user frame: plain content or its text blocks.
+function claudeUserText(content) {
+  return typeof content === "string" ? content : (Array.isArray(content) ? content : [])
+    .filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n\n");
 }
 
 async function archivedClaudeProjectDirectory(workdir) {
@@ -16,7 +28,7 @@ async function archivedClaudeProjectDirectory(workdir) {
     if (error.code === "ENOENT") return workdir;
     throw error;
   });
-  return canonical.normalize("NFC").replace(/[^a-zA-Z0-9]/gu, "-");
+  return claudeProjectDirectoryName(canonical);
 }
 
 function matchingClaudeProjectDirectories(names, directory) {
@@ -37,7 +49,7 @@ export async function listClaudeConversationStorage({ configRoot, binding }) {
     const entries = await readdir(path.join(projects, name), { withFileTypes: true });
     if (entries.length > 10000) throw new Error("Claude conversation inventory exceeds its limit.");
     for (const entry of entries) {
-      const id = entry.name.replace(/\.jsonl(?:\.(?:superseded|orphaned)-.*)?$/u, "");
+      const id = entry.name.replace(TRANSCRIPT_PATH_PATTERN, "");
       if (UUID_PATTERN.test(id) && entry.isFile()) ids.add(id);
     }
   }
@@ -49,14 +61,13 @@ export async function listClaudeConversationStorage({ configRoot, binding }) {
 // lookup because its native and Node builds use different hash suffixes.
 async function claudeHistoryPath({ configRoot, workdir, conversationId }) {
   requireClaudeSessionId(conversationId);
-  const canonical = (await realpath(workdir)).normalize("NFC");
-  const directory = canonical.replace(/[^a-zA-Z0-9]/gu, "-");
+  const directory = claudeProjectDirectoryName(await realpath(workdir));
   const projects = path.join(configRoot, "projects");
-  const candidates = directory.length <= 200 ? [directory] :
-    (await readdir(projects).catch((error) => {
+  const candidates = directory.length <= 200 ? [directory] : matchingClaudeProjectDirectories(
+    await readdir(projects).catch((error) => {
       if (error.code === "ENOENT") return [];
       throw error;
-    })).filter((name) => name.startsWith(`${directory.slice(0, 200)}-`));
+    }), directory);
   for (const name of candidates) {
     const candidate = path.join(projects, name, `${conversationId}.jsonl`);
     const info = await stat(candidate).catch((error) => {
@@ -283,10 +294,7 @@ async function readClaudeHistory(options) {
       userIds.push(frame.uuid);
       lastUserId = frame.uuid;
       if (options.includeUserMessages && !frame.parent_tool_use_id) {
-        const content = frame.message.content;
-        const text = typeof content === "string" ? content : content
-          .filter(block => block.type === "text" && typeof block.text === "string").map(block => block.text).join("\n\n");
-        inspected.userMessages.push({ id: frame.uuid, text });
+        inspected.userMessages.push({ id: frame.uuid, text: claudeUserText(frame.message.content) });
       }
     }
     if (options.includeFinalCarriers && !frame.parent_tool_use_id && !frame.isMeta) {
@@ -332,8 +340,6 @@ export async function deleteClaudeConversationHistory({ configRoot, workdir, con
 }
 
 export { claudeHistoryPath, claudeMessageBlocks, readClaudeHistory, requireClaudeSessionId, archivedClaudeProjectDirectory, matchingClaudeProjectDirectories };
-
-const TRANSCRIPT_PATH_PATTERN = /\.jsonl(?:\.(?:superseded|orphaned)-.*)?$/u;
 
 export async function retireClaudeConversationHistory({ configRoot, binding, beforeDelete, requireIdle, signal }) {
   const id = requireClaudeSessionId(binding.conversationId);
@@ -411,9 +417,7 @@ export async function retireClaudeConversationHistory({ configRoot, binding, bef
             .filter((message) => message.role !== "thinking")
             .map((message) => ({ ...provenance, role: "assistant", text: message.text }));
           if (frame.type === "user") {
-            const content = frame.message?.content;
-            const user = typeof content === "string" ? content : (Array.isArray(content) ? content : [])
-              .filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n\n");
+            const user = claudeUserText(frame.message?.content);
             if (user) text.push({ ...provenance, role: "user", text: user });
           }
           if (frame.attachment?.type === "goal_status" && typeof frame.attachment.condition === "string") {

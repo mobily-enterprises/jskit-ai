@@ -1,4 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { jsonHash as hash } from "../normalize.js";
 import { mkdir, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -10,8 +11,8 @@ import { inspectOpenCodeMessageAdmission, observeOpenCodeEvents, openCodeRowsFor
   openCodeDetachedPrompt, openCodeStructuredOutput } from "../openCodeTurn.js";
 import { createOpenCodeToolBridge } from "../openCodeTools.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
+import { createScopedConversationHandle } from "./scoped.js";
 
-const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const nativeMessageId = id => `msg_jskit_${hash(id).slice(0, 40)}`;
 
 // Original standalone native-use validation and authored admission, shared by
@@ -159,44 +160,14 @@ export function createOpenCodeConversationDriver({ connections, host = {}, limit
         const supplied = conversation.native;
         const { owner, preparation } = supplied;
         const { conversationId, context: openingContext } = supplied.scoped;
-        const inputFor = (input = {}) => {
-          if (input.conversationId && String(input.conversationId).trim() !== conversationId) {
-            throw new TypeError("This operation belongs to a different scoped conversation.");
-          }
-          return { ...input, conversationId };
-        };
-        const unsupported = () => { throw Object.assign(new Error("This original scoped conversation has no canonical message or goal receipt."), {
-          code: "conversation_unsupported"
-        }); };
-        return Object.freeze({
-          capabilities: Object.freeze({ streaming: false, instructions: false, configuration: false,
-            goals: false, goalBudgets: false, goalCommands: Object.freeze({}), attachments: false, tools: false, nativeTools: false }),
-          async sendNative({ input, context }) {
-            return owner.runPreparedConversationTurn(await preparation.turn(inputFor(input), context));
-          },
-          async readNative({ input, context }) {
-            const request = inputFor(input);
-            return owner.readPreparedConversation(await preparation.existing(request, context), request);
-          },
-          async waitNative({ input, context }) {
-            const request = inputFor(input);
-            return owner.waitPreparedConversationTurn(await preparation.existing(request, context), request);
-          },
-          async cancel({ input, context }) {
-            const request = inputFor(input);
-            return owner.stopPreparedConversation(await preparation.existing(request, context), request);
-          },
-          readGoal: unsupported, updateGoal: unsupported, inspectAdmission: unsupported,
-          async dispose(options) {
-            if (options) {
-              const request = inputFor(options.input);
-              const prepared = await preparation.existing(request, options.context, { operation: "delete" });
-              return owner.deletePreparedConversation(prepared, request);
-            }
-            const result = await disposeNative({ native: supplied, options: openingContext });
-            if (result?.ok === false) throw Object.assign(new Error(result.error || "Scoped cleanup could not be confirmed."), result);
-            return result;
-          }
+        return createScopedConversationHandle({ conversationId,
+          sendNative: async (input, context) => owner.runPreparedConversationTurn(await preparation.turn(input, context)),
+          readNative: async (input, context) => owner.readPreparedConversation(await preparation.existing(input, context), input),
+          waitNative: async (input, context) => owner.waitPreparedConversationTurn(await preparation.existing(input, context), input),
+          cancel: async (input, context) => owner.stopPreparedConversation(await preparation.existing(input, context), input),
+          deleteConversation: async (input, context) => owner.deletePreparedConversation(
+            await preparation.existing(input, context, { operation: "delete" }), input),
+          disposeOpening: () => disposeNative({ native: supplied, options: openingContext })
         });
       }
       if (conversation?.native) {

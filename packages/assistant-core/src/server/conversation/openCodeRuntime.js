@@ -3,15 +3,16 @@ import {
   openCodeMessageRows, openCodeRowsForInput, openCodePersistentConversationMessages, openCodeStructuredOutput, projectOpenCodeConversationMessages, waitForOpenCodeMessages, steerOpenCodeTurn, dispatchOpenCodeTurn, observeOpenCodeTurnCompletion, runOpenCodeConversationTurn
 } from "./openCodeTurn.js";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
+import { isPlainObject, normalizeText } from "./normalize.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const text = value => String(value ?? "").trim();
+const text = normalizeText;
 const sharedRuntimes = new Map();
 
 function openCodeTurnSnapshot(turn = null, threadId = "") {
-  const source = turn && typeof turn === "object" && !Array.isArray(turn) ? turn : {};
+  const source = isPlainObject(turn) ? turn : {};
   const active = source.active === true;
   return active || text(source.id)
     ? {
@@ -829,7 +830,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
       : options.observe(observedTarget, turnAbort, signal);
     let admitted;
     try {
-      admitted = await dispatchOpenCodeTurn(null, null, tracked, {
+      admitted = await dispatchOpenCodeTurn(tracked, {
         get agent() { return input.agent; },
         id: inputMessageId,
         get model() { return input.model; },
@@ -1160,7 +1161,7 @@ export function createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {}) {
         }, application.monitor);
         dispatchTurn = turns.get(key);
       }
-      admitted = await dispatchOpenCodeTurn(null, null, dispatchTurn, {
+      admitted = await dispatchOpenCodeTurn(dispatchTurn, {
         get agent() { return prompt.agent; },
         delivery: currentMonitor ? "steer" : "queue",
         id: providerMessageId,

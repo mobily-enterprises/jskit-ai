@@ -56,6 +56,50 @@ export async function runScopedConversationTurn({ operations, scope = {}, input 
       error: result.error || "The helper stopped before completing its answer." } : {}) };
 }
 
+export const SCOPED_CONVERSATION_CAPABILITIES = Object.freeze({ streaming: false, instructions: false, configuration: false,
+  goals: false, goalBudgets: false, goalCommands: Object.freeze({}), attachments: false, tools: false, nativeTools: false });
+
+/** Bind an operation's input to this scoped conversation, refusing another one. */
+export function scopedConversationInput(conversationId) {
+  return (input = {}) => {
+    if (input.conversationId && String(input.conversationId).trim() !== conversationId) {
+      throw new TypeError("This operation belongs to a different scoped conversation.");
+    }
+    return { ...input, conversationId };
+  };
+}
+
+export function unsupportedScopedConversation() {
+  throw Object.assign(new Error("This original scoped conversation has no canonical message or goal receipt."), {
+    code: "conversation_unsupported"
+  });
+}
+
+/**
+ * Driver handle for an original scoped conversation. Each engine supplies its
+ * native owner calls; every call receives input bound to `conversationId`.
+ * `disposeOpening` releases the opening without deleting the native conversation.
+ */
+export function createScopedConversationHandle({ conversationId, sendNative, readNative, waitNative, cancel,
+  deleteConversation, disposeOpening }) {
+  const inputFor = scopedConversationInput(conversationId);
+  return Object.freeze({
+    capabilities: SCOPED_CONVERSATION_CAPABILITIES,
+    sendNative: async ({ input, context }) => sendNative(inputFor(input), context),
+    readNative: async ({ input, context }) => readNative(inputFor(input), context),
+    waitNative: async ({ input, context }) => waitNative(inputFor(input), context),
+    cancel: async ({ input, context }) => cancel(inputFor(input), context),
+    readGoal: unsupportedScopedConversation, updateGoal: unsupportedScopedConversation,
+    inspectAdmission: unsupportedScopedConversation,
+    async dispose(options) {
+      if (options) return deleteConversation(inputFor(options.input), options.context);
+      const result = await disposeOpening();
+      if (result?.ok === false) throw Object.assign(new Error(result.error || "Scoped cleanup could not be confirmed."), result);
+      return result;
+    }
+  });
+}
+
 const messageWriters = {
   assistant: "writeConversationAssistantMessage",
   commentary: "writeConversationCommentaryMessage",

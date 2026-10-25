@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { jsonHash as hash } from "../normalize.js";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { open, realpath } from "node:fs/promises";
@@ -11,11 +11,11 @@ import { nativeAiProvider, nativeAiModel } from "../../../shared/nativeProviders
 import { createCodexAppServerRunOwner, codexAppServerTurnState, codexAppServerFrozenTurnInterruptResponse } from "../codexTurn.js";
 import { createLocalConversationExecution } from "../localExecution.js";
 import { validateConversationConfiguration, validateConnectionModel } from "../configuration.js";
+import { createScopedConversationHandle } from "./scoped.js";
 import { codexCommandHookCommand } from "../commandWrapper.js";
 import { isCompletedEnvelopeTurn } from "../transcript.js";
 import { createInertCodexConversationBinding } from "../runtimeStateUpgrade.js";
 
-const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const goalValue = goal => goal ? {
   id: hash([goal.threadId, goal.createdAt, goal.objective]), objective: goal.objective, status: goal.status,
   tokenBudget: goal.tokenBudget ?? null, tokensUsed: goal.tokensUsed, timeUsedSeconds: goal.timeUsedSeconds,
@@ -237,34 +237,18 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
         const { conversationId, context: openingContext } = supplied.scoped;
         const { runOwner: owner } = supplied;
         const sessionId = conversation.sessionId;
-        const inputFor = (input = {}) => {
-          if (input.conversationId && String(input.conversationId).trim() !== conversationId) {
-            throw new TypeError("This operation belongs to a different scoped conversation.");
-          }
-          return { ...input, conversationId };
-        };
-        const unsupported = () => { throw Object.assign(new Error("This original scoped conversation has no canonical message or goal receipt."), {
-          code: "conversation_unsupported"
-        }); };
-        return Object.freeze({
-          capabilities: Object.freeze({ streaming: false, instructions: false, configuration: false,
-            goals: false, goalBudgets: false, goalCommands: Object.freeze({}), attachments: false, tools: false, nativeTools: false }),
-          // These are the original scoped commands, including their native
-          // start dedup, watcher/deadline and Stop/delete proof. No main journal
-          // or additional command queue is introduced for this representation.
-          sendNative: ({ input, context }) => owner.startConversationTurn(sessionId, inputFor(input), context),
-          readNative: ({ input, context }) => owner.readConversation(sessionId, inputFor(input), context),
-          waitNative: ({ input, context }) => owner.waitForConversationTurn(sessionId, inputFor(input), context),
-          cancel: ({ input, context }) => owner.stopConversation(sessionId, inputFor(input), context),
-          readGoal: unsupported, updateGoal: unsupported, inspectAdmission: unsupported,
-          async dispose(options) {
-            if (options) return owner.deleteConversation(sessionId, inputFor(options.input), options.context);
-            // Runtime shutdown retains the parent's cleanup receipt. Explicit
-            // scoped deletion above owns native deletion and its proof.
-            const result = await disposeNative({ sessionId, namespace: conversation.namespace, native: supplied, options: openingContext });
-            if (result?.ok === false) throw Object.assign(new Error(result.error || "Scoped cleanup could not be confirmed."), result);
-            return result;
-          }
+        // These are the original scoped commands, including their native
+        // start dedup, watcher/deadline and Stop/delete proof. No main journal
+        // or additional command queue is introduced for this representation.
+        return createScopedConversationHandle({ conversationId,
+          sendNative: (input, context) => owner.startConversationTurn(sessionId, input, context),
+          readNative: (input, context) => owner.readConversation(sessionId, input, context),
+          waitNative: (input, context) => owner.waitForConversationTurn(sessionId, input, context),
+          cancel: (input, context) => owner.stopConversation(sessionId, input, context),
+          deleteConversation: (input, context) => owner.deleteConversation(sessionId, input, context),
+          // Runtime shutdown retains the parent's cleanup receipt. Explicit
+          // scoped deletion above owns native deletion and its proof.
+          disposeOpening: () => disposeNative({ sessionId, namespace: conversation.namespace, native: supplied, options: openingContext })
         });
       }
       if (!supplied && (!binding || typeof binding.threadId !== "string" || binding.workdir !== await realpath(workdir) || binding.configRoot !== configRoot)) {

@@ -1,7 +1,8 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
+import { isPlainObject, normalizeText } from "./normalize.js";
 
-const text = value => String(value ?? "").trim();
+const text = normalizeText;
 export const OPENCODE_INTERRUPT_TIMEOUT_MS = 5_000;
 const OPENCODE_EVENT_READY_TIMEOUT_MS = 120_000;
 
@@ -24,10 +25,7 @@ export function openCodeStructuredOutput(value = "") {
   return match ? match[1].trim() : original;
 }
 
-
-function record(value = null) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
+const record = value => isPlainObject(value) ? value : {};
 
 function openCodeEventSummary(event = {}) {
   const payload = record(event.data);
@@ -178,7 +176,9 @@ export async function steerOpenCodeTurn(client, conversationId, turn, input, { s
   }
 }
 
-export async function dispatchOpenCodeTurn(client, conversationId, turn, input, options = {}) {
+// options.client and options.conversationId are read at each use, so callers can
+// pass getters that follow a replaced server.
+export async function dispatchOpenCodeTurn(turn, input, options = {}) {
   const { events, beforeDispatch, readiness, promptTimeoutMs } = options;
   turn.promptAttempted = false;
   if (events) await events.waitUntilReady(readiness);
@@ -188,13 +188,13 @@ export async function dispatchOpenCodeTurn(client, conversationId, turn, input, 
   if (options.authorizeAttachments) {
     signal.throwIfAborted();
     if (input.attachments?.length) {
-      await (options.client ?? client).allowConversationAttachments(options.conversationId ?? conversationId, input.attachments);
+      await options.client.allowConversationAttachments(options.conversationId, input.attachments);
     }
     signal.throwIfAborted();
   }
   turn.promptAttempted = true;
   turn.mayBeRunning = true;
-  return (options.client ?? client).prompt(options.conversationId ?? conversationId, {
+  return options.client.prompt(options.conversationId, {
     ...input,
     delivery: input.delivery === "steer" ? "steer" : "queue",
     resume: true

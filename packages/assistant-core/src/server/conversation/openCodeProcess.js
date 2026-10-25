@@ -5,6 +5,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createOpenCodeServerClient, readBoundedResponse } from "./openCodeClient.js";
 import { createLocalConversationExecution } from "./localExecution.js";
+import { normalizeText } from "./normalize.js";
 import { DISCOVERY_TOOL_DESCRIPTORS } from "../lib/serviceToolCatalog.js";
 export { createOpenCodeSharedRuntime, openCodeServerForDirectory, readOpenCodeEnvironments, openCodeEnvironmentForDirectory,
   openCodeEnvironmentForSession, assertOpenCodeModelProvider, limitOpenCodeModelOutput,
@@ -25,9 +26,7 @@ const OPENCODE_ZEN_MODELS_URL = "https://opencode.ai/zen/v1/models";
 const OPENCODE_ZEN_PROVIDER_ID = "opencode";
 const OPENCODE_ZEN_PUBLIC_API_KEY = "public";
 
-function text(value = "") {
-  return String(value ?? "").trim();
-}
+const text = normalizeText;
 
 export function openCodeProcessEnvironment(baseEnv = {}, {
   cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, password = ""
@@ -348,6 +347,11 @@ export async function readOpenCodeZenModelIds({
   }
 }
 
+/**
+ * Read OpenCode's provider and agent catalogue through a temporary server.
+ * `createServerProcess({ dbPath, privateRoot, providerConnections, workdir })`
+ * starts the host's server; it must resolve to `{ client, stop }`.
+ */
 export async function readOpenCodeCatalog({
   createServerProcess,
   privateRoot = "",
@@ -380,8 +384,8 @@ export async function readOpenCodeCatalog({
   let readError;
   try {
     const [providers, agents] = await Promise.all([
-      server.client.providers({ directory: server.workdir }),
-      server.client.agents({ directory: server.workdir })
+      server.client.providers({ directory: normalizedWorkdir }),
+      server.client.agents({ directory: normalizedWorkdir })
     ]);
     catalog = { agents, providers };
   } catch (error) {
