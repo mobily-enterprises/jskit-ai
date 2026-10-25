@@ -25,6 +25,8 @@ import {
 } from "../support/menuLinkTarget.js";
 import { resolveShellRouteTransitionKey } from "../support/routeTransitionKey.js";
 import { createRouteSwipeGesture } from "../support/routeSwipeGesture.js";
+import { isPrimaryTouchPointer, isShellGestureIgnoredTarget } from "../support/gestureTargets.js";
+import { readViewportWidth, resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 
 const props = defineProps({
   enabled: {
@@ -107,16 +109,7 @@ onBeforeUnmount(() => {
   }
 });
 
-const resolvedLayoutClass = computed(() => {
-  const displayName = String(display?.name?.value || "").trim().toLowerCase();
-  if (displayName === "xs" || displayName === "sm") {
-    return "compact";
-  }
-  if (displayName === "md") {
-    return "medium";
-  }
-  return "expanded";
-});
+const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display?.name?.value, readViewportWidth()));
 
 const currentPathname = computed(() =>
   normalizeComparablePathname(resolveRuntimePathname(route?.path || route?.fullPath || "/"))
@@ -246,7 +239,7 @@ const swipeNavigationEnabled = computed(() =>
 );
 
 function handlePointerDown(event) {
-  if (!swipeNavigationEnabled.value || !isPrimaryPointerEvent(event) || isSwipeIgnoredTarget(event.target)) {
+  if (!swipeNavigationEnabled.value || !isPrimaryTouchPointer(event) || isShellGestureIgnoredTarget(event.target)) {
     swipeGesture.reset();
     return;
   }
@@ -316,30 +309,6 @@ function pathMatchesNavigationEntry(pathname = "", entry = {}) {
     return pathname === target;
   }
   return pathname === target || pathname.startsWith(`${target}/`);
-}
-
-function isPrimaryPointerEvent(event) {
-  return event?.isPrimary !== false && event?.button === 0 && event?.pointerType !== "mouse";
-}
-
-function isSwipeIgnoredTarget(target) {
-  return Boolean(
-    target?.closest?.(
-      [
-        "a",
-        "button",
-        "input",
-        "select",
-        "textarea",
-        "summary",
-        "[role='button']",
-        "[role='link']",
-        "[role='slider']",
-        "[contenteditable='true']",
-        "[data-shell-swipe-ignore]"
-      ].join(",")
-    )
-  );
 }
 </script>
 

@@ -13,6 +13,7 @@ import {
   readPlacementSurfaceConfig,
   resolveSurfaceIdFromPlacementPathname
 } from "../placement/surfaceContext.js";
+import { readViewportWidth, resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 
 const props = defineProps({
   target: {
@@ -86,30 +87,7 @@ const resolvedTargetId = computed(() => {
   return String(props.target || "").trim();
 });
 
-const resolvedLayoutClass = computed(() => {
-  const displayName = String(display?.name?.value || "").trim().toLowerCase();
-  if (displayName === "xs" || displayName === "sm") {
-    return "compact";
-  }
-  if (displayName === "md") {
-    return "medium";
-  }
-  if (displayName === "lg" || displayName === "xl" || displayName === "xxl") {
-    return "expanded";
-  }
-
-  const viewportWidth =
-    typeof window === "object" && window?.innerWidth
-      ? Number(window.innerWidth)
-      : 0;
-  if (viewportWidth > 0 && viewportWidth < 600) {
-    return "compact";
-  }
-  if (viewportWidth > 0 && viewportWidth < 1280) {
-    return "medium";
-  }
-  return "expanded";
-});
+const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display?.name?.value, readViewportWidth()));
 
 const placements = computed(() => {
   void revision.value;

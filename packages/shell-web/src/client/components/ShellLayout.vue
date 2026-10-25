@@ -10,6 +10,7 @@ import {
 } from "vue";
 import { useDisplay } from "vuetify";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
+import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
 import {
   resolveShellDrawerPresentation,
   resolveShellDrawerToggleLabel
@@ -23,6 +24,7 @@ import {
   normalizeShellRailWidth,
   resolveContentAwareDrawerWidth
 } from "../support/drawerWidth.js";
+import { readViewportWidth, resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 import { SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
 import ShellOutlet from "./ShellOutlet.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
@@ -76,31 +78,23 @@ const {
 } = useShellLayoutState(props);
 const display = useDisplay();
 const refreshRuntime = inject(SHELL_WEB_REFRESH_RUNTIME_KEY, null);
-const pullDistance = ref(0);
-const pullRefreshing = ref(false);
 const wideDrawerOpen = ref(Boolean(drawerDefaultOpen.value));
 const navigationToggle = ref(null);
 const navigationDrawer = ref(null);
 const measuredDrawerWidth = ref(DEFAULT_SHELL_DRAWER_WIDTH);
-let activePull = null;
 let drawerContentObserver = null;
 let drawerMeasurementFrame = null;
 let shellMounted = false;
 
-const PULL_REFRESH_TRIGGER_DISTANCE = 72;
-const PULL_REFRESH_MAX_DISTANCE = 112;
-
-const layoutClass = computed(() => {
-  const displayName = String(display?.name?.value || "").trim().toLowerCase();
-  if (displayName === "xs" || displayName === "sm") {
-    return "compact";
-  }
-  if (displayName === "md") {
-    return "medium";
-  }
-  return "expanded";
-});
+const layoutClass = computed(() => resolveShellLayoutClass(display?.name?.value, readViewportWidth()));
 const isCompactLayout = computed(() => layoutClass.value === "compact");
+const {
+  pullRefreshing,
+  pullProgress,
+  pullIndicatorVisible,
+  pullRefreshLabel,
+  pullRefreshStyle
+} = useShellPullToRefresh({ enabled: isCompactLayout, refreshRuntime });
 const drawerPresentation = computed(() => resolveShellDrawerPresentation({
   compact: isCompactLayout.value,
   open: drawerOpen.value,
@@ -110,32 +104,14 @@ const drawerToggleLabel = computed(() => resolveShellDrawerToggleLabel({
   compact: isCompactLayout.value,
   open: drawerOpen.value
 }));
-const resolvedDrawerWidth = computed(() => {
-  if (props.drawerWidth !== null && props.drawerWidth !== undefined) {
-    return normalizeShellDrawerWidth(props.drawerWidth);
-  }
-  return normalizeShellDrawerWidth(measuredDrawerWidth.value);
-});
+const fixedDrawerWidth = computed(() => props.drawerWidth !== null && props.drawerWidth !== undefined);
+const resolvedDrawerWidth = computed(() =>
+  normalizeShellDrawerWidth(fixedDrawerWidth.value ? props.drawerWidth : measuredDrawerWidth.value)
+);
 const resolvedRailWidth = computed(() => normalizeShellRailWidth(props.railWidth));
 const resolvedNavigationItemSpacing = computed(() =>
   normalizeShellNavigationItemSpacing(props.navigationItemSpacing)
 );
-const pullProgress = computed(() =>
-  Math.min(100, Math.round((pullDistance.value / PULL_REFRESH_TRIGGER_DISTANCE) * 100))
-);
-const pullIndicatorVisible = computed(() =>
-  Boolean(isCompactLayout.value && (pullDistance.value > 0 || pullRefreshing.value))
-);
-const pullRefreshLabel = computed(() => {
-  if (pullRefreshing.value) {
-    return "Refreshing";
-  }
-  return pullProgress.value >= 100 ? "Release to refresh" : "Pull to refresh";
-});
-const pullRefreshStyle = computed(() => ({
-  "--shell-pull-refresh-distance": `${Math.round(Math.min(pullDistance.value, PULL_REFRESH_MAX_DISTANCE))}px`
-}));
-
 watch(
   drawerOpen,
   handleDrawerOpenChange
@@ -162,14 +138,6 @@ function attachShellListeners() {
 
   window.addEventListener("keydown", handleShellKeydown);
   window.addEventListener("resize", scheduleDrawerWidthMeasurement, { passive: true });
-  window.addEventListener("pointerdown", handlePullPointerDown, { capture: true, passive: true });
-  window.addEventListener("pointermove", handlePullPointerMove, { capture: true, passive: false });
-  window.addEventListener("pointerup", handlePullPointerEnd, { capture: true, passive: true });
-  window.addEventListener("pointercancel", handlePullPointerCancel, { capture: true, passive: true });
-  window.addEventListener("touchstart", handlePullTouchStart, { capture: true, passive: true });
-  window.addEventListener("touchmove", handlePullTouchMove, { capture: true, passive: false });
-  window.addEventListener("touchend", handlePullTouchEnd, { capture: true, passive: true });
-  window.addEventListener("touchcancel", handlePullTouchCancel, { capture: true, passive: true });
 
   if (document?.fonts) {
     void document.fonts.ready.then(scheduleDrawerWidthMeasurement);
@@ -186,14 +154,6 @@ function detachShellListeners() {
 
   window.removeEventListener("keydown", handleShellKeydown);
   window.removeEventListener("resize", scheduleDrawerWidthMeasurement);
-  window.removeEventListener("pointerdown", handlePullPointerDown, { capture: true });
-  window.removeEventListener("pointermove", handlePullPointerMove, { capture: true });
-  window.removeEventListener("pointerup", handlePullPointerEnd, { capture: true });
-  window.removeEventListener("pointercancel", handlePullPointerCancel, { capture: true });
-  window.removeEventListener("touchstart", handlePullTouchStart, { capture: true });
-  window.removeEventListener("touchmove", handlePullTouchMove, { capture: true });
-  window.removeEventListener("touchend", handlePullTouchEnd, { capture: true });
-  window.removeEventListener("touchcancel", handlePullTouchCancel, { capture: true });
   document?.fonts?.removeEventListener?.("loadingdone", scheduleDrawerWidthMeasurement);
   drawerContentObserver?.disconnect();
   drawerContentObserver = null;
@@ -262,7 +222,7 @@ function resolveNavigationDrawerElement() {
 function scheduleDrawerWidthMeasurement() {
   if (
     !shellMounted ||
-    props.drawerWidth !== null && props.drawerWidth !== undefined ||
+    fixedDrawerWidth.value ||
     !drawerPresentation.value.visible ||
     drawerPresentation.value.rail ||
     typeof window !== "object"
@@ -324,241 +284,10 @@ function measureRenderedText(element) {
   return rect;
 }
 
-function handlePullPointerDown(event) {
-  if (!canStartPullRefresh(event)) {
-    activePull = null;
-    return;
-  }
-
-  activePull = {
-    pointerId: event.pointerId,
-    touchIdentifier: null,
-    startX: event.clientX,
-    startY: event.clientY,
-    pointerCancelled: false
-  };
-}
-
 function handleDrawerVisibilityChange(open) {
   if (isCompactLayout.value || drawerPresentation.value.closedMode === "hidden" || open === false) {
     setDrawerOpen(open);
   }
-}
-
-function handlePullPointerMove(event) {
-  if (!activePull || event.pointerId !== activePull.pointerId) {
-    return;
-  }
-
-  updatePullGesture(event.clientX, event.clientY, event);
-}
-
-function handlePullPointerEnd(event) {
-  if (!activePull || event.pointerId !== activePull.pointerId) {
-    return;
-  }
-
-  finishPullGesture();
-}
-
-function handlePullPointerCancel(event) {
-  if (!activePull || event.pointerId !== activePull.pointerId) {
-    return;
-  }
-
-  activePull.pointerId = null;
-  activePull.pointerCancelled = true;
-}
-
-function handlePullTouchStart(event) {
-  if (activePull || !canStartTouchPullRefresh(event)) {
-    return;
-  }
-
-  const touch = event.touches?.[0] || null;
-  if (!touch) {
-    return;
-  }
-
-  activePull = {
-    pointerId: null,
-    touchIdentifier: touch.identifier,
-    startX: touch.clientX,
-    startY: touch.clientY,
-    pointerCancelled: false
-  };
-}
-
-function handlePullTouchMove(event) {
-  const touch = findActiveTouch(event.touches);
-  if (!activePull || !touch) {
-    return;
-  }
-
-  updatePullGesture(touch.clientX, touch.clientY, event);
-}
-
-function handlePullTouchEnd(event) {
-  if (!activePull || !touchListIncludesActiveTouch(event.changedTouches)) {
-    return;
-  }
-
-  finishPullGesture();
-}
-
-function handlePullTouchCancel(event) {
-  if (activePull && touchListIncludesActiveTouch(event.changedTouches)) {
-    cancelPullRefresh();
-  }
-}
-
-function updatePullGesture(clientX, clientY, event) {
-  if (!activePull) {
-    return;
-  }
-
-  const deltaX = clientX - activePull.startX;
-  const deltaY = clientY - activePull.startY;
-  const absX = Math.abs(deltaX);
-
-  if (deltaY < -4 || (absX > 24 && absX > deltaY * 1.15)) {
-    cancelPullRefresh();
-    return;
-  }
-
-  if (deltaY <= 6 || !isAtPageTop()) {
-    return;
-  }
-
-  if (event?.cancelable) {
-    event.preventDefault();
-  }
-  pullDistance.value = Math.min(PULL_REFRESH_MAX_DISTANCE, Math.round(deltaY * 0.55));
-}
-
-function finishPullGesture() {
-  const shouldRefresh = pullDistance.value >= PULL_REFRESH_TRIGGER_DISTANCE;
-  activePull = null;
-
-  if (!shouldRefresh) {
-    pullDistance.value = 0;
-    return;
-  }
-
-  void refreshFromPullGesture();
-}
-
-function cancelPullRefresh() {
-  activePull = null;
-  if (!pullRefreshing.value) {
-    pullDistance.value = 0;
-  }
-}
-
-async function refreshFromPullGesture() {
-  if (!refreshRuntime || typeof refreshRuntime.refresh !== "function" || pullRefreshing.value) {
-    pullDistance.value = 0;
-    return;
-  }
-
-  pullRefreshing.value = true;
-  pullDistance.value = PULL_REFRESH_TRIGGER_DISTANCE;
-  try {
-    await refreshRuntime.refresh("pull-to-refresh");
-  } finally {
-    pullRefreshing.value = false;
-    pullDistance.value = 0;
-  }
-}
-
-function canStartPullRefresh(event) {
-  return Boolean(
-    canStartPullRefreshFromTarget(event.target) &&
-    isPrimaryTouchPointer(event)
-  );
-}
-
-function canStartTouchPullRefresh(event) {
-  return Boolean(
-    event?.touches?.length === 1 &&
-    canStartPullRefreshFromTarget(event.target)
-  );
-}
-
-function canStartPullRefreshFromTarget(target) {
-  return Boolean(
-    isCompactLayout.value &&
-    refreshRuntime &&
-    typeof refreshRuntime.refresh === "function" &&
-    !pullRefreshing.value &&
-    isAtPageTop() &&
-    !isPullRefreshIgnoredTarget(target)
-  );
-}
-
-function isPrimaryTouchPointer(event) {
-  return event?.isPrimary !== false && event?.button === 0 && event?.pointerType !== "mouse";
-}
-
-function isAtPageTop() {
-  if (typeof window !== "object" || typeof document !== "object") {
-    return false;
-  }
-
-  const documentScrollTop = Number(document.documentElement?.scrollTop || 0);
-  const bodyScrollTop = Number(document.body?.scrollTop || 0);
-  return Math.max(Number(window.scrollY || 0), documentScrollTop, bodyScrollTop) <= 0;
-}
-
-function isPullRefreshIgnoredTarget(target) {
-  return Boolean(
-    target?.closest?.(
-      [
-        "a",
-        "button",
-        "input",
-        "select",
-        "textarea",
-        "summary",
-        "[role='button']",
-        "[role='link']",
-        "[role='slider']",
-        "[contenteditable='true']",
-        "[data-shell-pull-refresh-ignore]",
-        "[data-shell-swipe-ignore]"
-      ].join(",")
-    )
-  );
-}
-
-function findActiveTouch(touchList) {
-  if (!activePull || !touchList || touchList.length < 1) {
-    return null;
-  }
-
-  if (activePull.touchIdentifier === null && touchList.length === 1) {
-    return touchList[0];
-  }
-
-  for (const touch of touchList) {
-    if (touch.identifier === activePull.touchIdentifier) {
-      return touch;
-    }
-  }
-
-  return null;
-}
-
-function touchListIncludesActiveTouch(touchList) {
-  if (!activePull) {
-    return false;
-  }
-
-  if (activePull.touchIdentifier === null) {
-    return !touchList || touchList.length <= 1;
-  }
-
-  return Boolean(findActiveTouch(touchList));
 }
 </script>
 
@@ -623,7 +352,7 @@ function touchListIncludesActiveTouch(touchList) {
     data-testid="jskit-shell-drawer"
     :data-layout="layoutClass"
     :data-presentation="drawerPresentation.kind"
-    :data-drawer-width-mode="props.drawerWidth === null || props.drawerWidth === undefined ? 'content' : 'fixed'"
+    :data-drawer-width-mode="fixedDrawerWidth ? 'fixed' : 'content'"
     :data-drawer-width="resolvedDrawerWidth"
     :data-navigation-item-spacing="resolvedNavigationItemSpacing"
     :data-rail-width="resolvedRailWidth"

@@ -86,9 +86,14 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /inject\(SHELL_WEB_REFRESH_RUNTIME_KEY, null\)/);
   const refreshRuntimeSource = await readFile(path.join(PACKAGE_DIR, "src", "client", "runtime", "refreshRuntime.js"), "utf8");
   assert.match(refreshRuntimeSource, /SHELL_WEB_REFRESH_RUNTIME_KEY = "jskit\.shell-web\.runtime\.web-refresh\.client"/);
-  assert.match(source, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
-  assert.match(source, /window\.addEventListener\("touchmove", handlePullTouchMove/);
-  assert.match(source, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
+  assert.match(source, /useShellPullToRefresh\(\{ enabled: isCompactLayout, refreshRuntime \}\)/);
+  const pullToRefreshSource = await readFile(
+    path.join(PACKAGE_DIR, "src", "client", "composables", "useShellPullToRefresh.js"),
+    "utf8"
+  );
+  assert.match(pullToRefreshSource, /window\.addEventListener\("pointerdown", handlePullPointerDown/);
+  assert.match(pullToRefreshSource, /window\.addEventListener\("touchmove", handlePullTouchMove/);
+  assert.match(pullToRefreshSource, /refreshRuntime\.refresh\("pull-to-refresh"\)/);
   assert.match(source, /data-testid="jskit-shell-pull-refresh"/);
   assert.match(source, /target="shell-layout:primary-menu"[\s\S]*default/);
   assert.doesNotMatch(source, /target="shell-layout:primary-bottom-nav"[\s\S]*default/);
@@ -260,7 +265,7 @@ test("shell-web route transition keeps mobile route motion placement-driven", as
   assert.match(source, /createRouteSwipeGesture\(\)/);
   assert.match(source, /const offset = swipeGesture\.end\(event\);[\s\S]*navigateBySwipe\(offset\)/);
   assert.match(source, /router\.push\(nextEntry\.href\)/);
-  assert.match(source, /isSwipeIgnoredTarget/);
+  assert.match(source, /isShellGestureIgnoredTarget\(event\.target\)/);
   assert.match(source, /touch-action:\s*pan-y/);
   assert.match(source, /\.shell-route-transition\s*\{[\s\S]*display:\s*flex/);
   assert.match(source, /\.shell-route-transition\s*\{[\s\S]*min-height:\s*0/);
