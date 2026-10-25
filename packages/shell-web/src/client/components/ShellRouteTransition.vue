@@ -24,6 +24,7 @@ import {
   resolveMenuLinkTarget
 } from "../support/menuLinkTarget.js";
 import { resolveShellRouteTransitionKey } from "../support/routeTransitionKey.js";
+import { createRouteSwipeGesture } from "../support/routeSwipeGesture.js";
 
 const props = defineProps({
   enabled: {
@@ -54,12 +55,8 @@ const revision = ref(
 );
 const transitionDirection = ref("none");
 let unsubscribe = null;
-let activeSwipe = null;
+const swipeGesture = createRouteSwipeGesture();
 let stopSwipeClassWatch = null;
-
-const SWIPE_MIN_DISTANCE = 36;
-const SWIPE_MAX_VERTICAL_DRIFT = 120;
-const SWIPE_MIN_VELOCITY = 0.08;
 
 onMounted(() => {
   if (typeof placementRuntime.subscribe !== "function") {
@@ -250,17 +247,11 @@ const swipeNavigationEnabled = computed(() =>
 
 function handlePointerDown(event) {
   if (!swipeNavigationEnabled.value || !isPrimaryPointerEvent(event) || isSwipeIgnoredTarget(event.target)) {
-    activeSwipe = null;
+    swipeGesture.reset();
     return;
   }
 
-  activeSwipe = {
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-    startTime: performance.now(),
-    cancelled: false
-  };
+  swipeGesture.start(event);
   try {
     event.target?.setPointerCapture?.(event.pointerId);
   } catch {
@@ -269,60 +260,24 @@ function handlePointerDown(event) {
 }
 
 function handlePointerMove(event) {
-  if (!activeSwipe || event.pointerId !== activeSwipe.pointerId) {
-    return;
-  }
-
-  const deltaX = event.clientX - activeSwipe.startX;
-  const deltaY = event.clientY - activeSwipe.startY;
-  const absX = Math.abs(deltaX);
-  const absY = Math.abs(deltaY);
-
-  if (absY > SWIPE_MAX_VERTICAL_DRIFT || (absY > 28 && absY > absX * 1.3)) {
-    activeSwipe.cancelled = true;
-    return;
-  }
-
-  if (absX > 10 && absX > absY) {
+  const { claim, offset } = swipeGesture.move(event);
+  if (claim) {
     event.preventDefault();
   }
-
-  if (isAcceptedSwipe({ deltaX, deltaY, elapsed: Math.max(performance.now() - activeSwipe.startTime, 1) })) {
-    const offset = deltaX < 0 ? 1 : -1;
-    activeSwipe = null;
+  if (offset) {
     navigateBySwipe(offset);
   }
 }
 
 function handlePointerEnd(event) {
-  if (!activeSwipe || event.pointerId !== activeSwipe.pointerId) {
-    return;
+  const offset = swipeGesture.end(event);
+  if (offset && swipeNavigationEnabled.value) {
+    navigateBySwipe(offset);
   }
-
-  const swipe = activeSwipe;
-  activeSwipe = null;
-
-  if (swipe.cancelled || !swipeNavigationEnabled.value) {
-    return;
-  }
-
-  const deltaX = event.clientX - swipe.startX;
-  const deltaY = event.clientY - swipe.startY;
-  const elapsed = Math.max(performance.now() - swipe.startTime, 1);
-  const absX = Math.abs(deltaX);
-  const velocity = absX / elapsed;
-
-  if (!isAcceptedSwipe({ deltaX, deltaY, elapsed, velocity })) {
-    return;
-  }
-
-  navigateBySwipe(deltaX < 0 ? 1 : -1);
 }
 
 function handlePointerCancel(event) {
-  if (activeSwipe && event.pointerId === activeSwipe.pointerId) {
-    activeSwipe = null;
-  }
+  swipeGesture.cancel(event);
 }
 
 function navigateBySwipe(offset = 0) {
@@ -333,18 +288,6 @@ function navigateBySwipe(offset = 0) {
   }
 
   void router.push(nextEntry.href).catch(() => {});
-}
-
-function isAcceptedSwipe({ deltaX = 0, deltaY = 0, elapsed = 1, velocity = null } = {}) {
-  const absX = Math.abs(deltaX);
-  const absY = Math.abs(deltaY);
-  const resolvedVelocity = velocity == null ? absX / Math.max(elapsed, 1) : velocity;
-  return Boolean(
-    absX >= SWIPE_MIN_DISTANCE &&
-    absY <= SWIPE_MAX_VERTICAL_DRIFT &&
-    absX > absY &&
-    resolvedVelocity >= SWIPE_MIN_VELOCITY
-  );
 }
 
 function normalizeComparablePathname(value = "") {

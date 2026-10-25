@@ -257,7 +257,8 @@ test("shell-web route transition keeps mobile route motion placement-driven", as
   assert.match(source, /swipeEnabled:\s*\{[\s\S]*default:\s*true/);
   assert.match(source, /window\.addEventListener\("pointerdown", handlePointerDown/);
   assert.match(source, /document\.documentElement\.classList\.toggle\("shell-route-swipe-enabled", enabled\)/);
-  assert.match(source, /navigateBySwipe\(deltaX < 0 \? 1 : -1\)/);
+  assert.match(source, /createRouteSwipeGesture\(\)/);
+  assert.match(source, /const offset = swipeGesture\.end\(event\);[\s\S]*navigateBySwipe\(offset\)/);
   assert.match(source, /router\.push\(nextEntry\.href\)/);
   assert.match(source, /isSwipeIgnoredTarget/);
   assert.match(source, /touch-action:\s*pan-y/);
