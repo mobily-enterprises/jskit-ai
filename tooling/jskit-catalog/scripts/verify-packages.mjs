@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   assertUniquePatternIds,
   discoverPackagePatterns
 } from "./pattern-assets.mjs";
+import { collectSingletonPackageIds, discoverFrameworkPackages } from "./framework-packages.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "../../..");
@@ -32,7 +33,6 @@ const BUILTIN_CAPABILITIES = new Set([
   "runtime.http",
   "runtime.logger"
 ]);
-const BUILTIN_SINGLETON_PACKAGE_IDS = new Set(["@jskit-ai/kernel"]);
 const ALLOWED_JSKIT_FIELDS = new Set([
   "capabilities",
   "kind",
@@ -56,26 +56,6 @@ async function fileExists(filePath) {
   } catch {
     return false;
   }
-}
-
-async function discoverFrameworkPackages() {
-  const packages = [];
-  for (const entry of await readdir(PACKAGES_ROOT, { withFileTypes: true })) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    const packageRoot = path.join(PACKAGES_ROOT, entry.name);
-    const manifestPath = path.join(packageRoot, "package.json");
-    if (!(await fileExists(manifestPath))) {
-      continue;
-    }
-    const packageJson = JSON.parse(await readFile(manifestPath, "utf8"));
-    if (!packageJson.jskit) {
-      continue;
-    }
-    packages.push({ packageRoot, manifestPath, packageJson });
-  }
-  return packages.sort((left, right) => left.packageJson.name.localeCompare(right.packageJson.name));
 }
 
 function requireStringArray(value, label) {
@@ -324,14 +304,7 @@ function validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAP
 }
 
 function validateSingletonPeerDependencies(packages) {
-  const singletonPackageIds = new Set(
-    [
-      ...BUILTIN_SINGLETON_PACKAGE_IDS,
-      ...packages
-      .filter(({ packageJson }) => packageJson.jskit?.metadata?.client?.singleton === true)
-      .map(({ packageJson }) => packageJson.name)
-    ]
-  );
+  const singletonPackageIds = new Set(collectSingletonPackageIds(packages.map(({ packageJson }) => packageJson)));
 
   for (const { packageJson } of packages) {
     for (const section of ["dependencies", "optionalDependencies"]) {
@@ -349,7 +322,7 @@ function validateSingletonPeerDependencies(packages) {
 }
 
 async function main() {
-  const packages = await discoverFrameworkPackages();
+  const packages = await discoverFrameworkPackages(PACKAGES_ROOT);
   const localVersions = new Map(packages.map(({ packageJson }) => [packageJson.name, packageJson.version]));
   const migrationOwners = new Map();
   const patterns = [];

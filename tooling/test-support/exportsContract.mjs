@@ -102,7 +102,7 @@ function collectPackageImportUsages({
       let match = null;
       while ((match = pattern.exec(fileContent))) {
         const specifier = String(match[1] || "");
-        if (!specifier.startsWith(packageId)) {
+        if (specifier !== packageId && !specifier.startsWith(`${packageId}/`)) {
           continue;
         }
 
@@ -126,11 +126,7 @@ function evaluatePackageExportsContract({
   packageDir,
   packageId,
   requiredExports = [],
-  scanRoots = [
-    path.join(repoRoot, "packages"),
-    path.join(repoRoot, "packages", "agent-docs", "patterns", "minimal-foundation", "example"),
-    path.join(repoRoot, "packages", "agent-docs", "patterns", "shell-foundation", "example")
-  ]
+  scanRoots = [path.join(repoRoot, "packages")]
 }) {
   const packageJsonPath = path.join(packageDir, "package.json");
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));

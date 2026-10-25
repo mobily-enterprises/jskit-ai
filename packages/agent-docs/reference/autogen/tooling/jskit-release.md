@@ -52,7 +52,6 @@ Local functions
 - `followVersion(declared, version)`
 - `expandWorkspacePattern(repoRoot, pattern)`
 - `releaseConfig(repoRoot)`
-- `hydrateLocalDependencies(records)`
 - `currentVersionMap(records)`
 - `prepareManifests(records, versions, repoRoot, config)`
 - `versionFilePaths(record)`
@@ -66,7 +65,7 @@ Local functions
 - `createNpmUserConfig(registry, directory, records = [])`
 - `git(repoRoot, args)`
 - `releaseCommitMessage(entries)`
-- `publishRelease(records, { cwd: repoRoot, dryRun, registry })`
+- `publishRelease(records, { cwd: repoRoot, registry })`
 - `publishCommand(options)`
 - `forgetPinnedLockEntries(repoRoot, names)`
 - `installReleasedPins(repoRoot, { attempts = 20, delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {})`

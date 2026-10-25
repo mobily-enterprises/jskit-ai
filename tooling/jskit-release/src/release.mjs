@@ -178,8 +178,10 @@ async function discoverReleasePackages(repoRoot) {
     const name = String(manifest.packageJson.name || "").trim();
     if (!name || manifest.packageJson.private === true) continue;
     if (records.some(record => record.name === name)) throw new Error(`${name} is declared by more than one package directory.`);
-    records.push({ name, ...manifest, localDependencies: new Set() });
+    records.push({ name, ...manifest });
   }
+  const localNames = new Set(records.map(record => record.name));
+  for (const record of records) record.localDependencies = collectPublishDependencies(record.packageJson, localNames);
   return records.sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -201,13 +203,6 @@ function collectPublishDependencies(packageJson, localNames) {
     }
   }
   return dependencies;
-}
-
-function hydrateLocalDependencies(records) {
-  const localNames = new Set(records.map((record) => record.name));
-  for (const record of records) {
-    record.localDependencies = collectPublishDependencies(record.packageJson, localNames);
-  }
 }
 
 function currentVersionMap(records) {
@@ -497,7 +492,6 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
       }
     }
     if (!staged.length) throw new Error(`No publishable packages found in ${repoRoot}.`);
-    hydrateLocalDependencies(staged);
     topologicalPublishOrder(staged);
     const current = currentVersionMap(staged);
     const versions = new Map(current);
@@ -660,23 +654,20 @@ function releaseCommitMessage(entries) {
   return `Release ${subject}${names.length > 4 ? `\n\n${names.join("\n")}` : ""}`;
 }
 
-async function publishRelease(records, { cwd: repoRoot, dryRun, registry }) {
-  if (!dryRun) {
-    assertMainReleaseCheckout(repoRoot);
-  }
+async function publishRelease(records, { cwd: repoRoot, registry }) {
+  assertMainReleaseCheckout(repoRoot);
   await validateReleaseState(records, repoRoot);
   const order = topologicalPublishOrder(records);
   const recordsByName = new Map(records.map((record) => [record.name, record]));
   const directory = await mkdtemp(path.join(tmpdir(), "jskit-release-"));
   try {
-    const configPath = !dryRun || String(process.env.NPM_TOKEN || "").trim()
-      ? await createNpmUserConfig(registry, directory, records) : "";
-    if (!dryRun) await runCommand("npm", ["whoami", "--registry", registry, "--userconfig", configPath]);
+    const configPath = await createNpmUserConfig(registry, directory, records);
+    await runCommand("npm", ["whoami", "--registry", registry, "--userconfig", configPath]);
     const inspection = createPublicationInspection({ directory, registry, configPath });
     await assertNoNewerVersions(records, inspection);
     const plan = await planPublication(order.map(name => recordsByName.get(name)), { inspection });
     for (const entry of plan) {
-      if (dryRun || entry.state === "skip") continue;
+      if (entry.state === "skip") continue;
       const args = [
         "publish",
         entry.tarball,
@@ -694,7 +685,7 @@ async function publishRelease(records, { cwd: repoRoot, dryRun, registry }) {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
-  process.stdout.write(dryRun ? "Publish dry-run complete.\n" : "Publish complete.\n");
+  process.stdout.write("Publish complete.\n");
 }
 
 // publish: prepare the clean, current main checkout, commit and push the
@@ -708,9 +699,7 @@ async function publishCommand(options) {
   assertMainReleaseCheckout(options.cwd);
   const { plan } = await prepareRelease(options);
   commitAndPush(options.cwd, releaseCommitMessage(plan));
-  const records = await discoverReleasePackages(options.cwd);
-  hydrateLocalDependencies(records);
-  await publishRelease(records, options);
+  await publishRelease(await discoverReleasePackages(options.cwd), options);
 }
 
 // npm cannot move exactly pinned packages that require each other in

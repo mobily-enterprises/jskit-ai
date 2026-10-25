@@ -1,16 +1,17 @@
 import path from "node:path";
 import process from "node:process";
-import { access, readdir, readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { collectSingletonPackageIds, discoverFrameworkPackages } from "./framework-packages.mjs";
 import {
   assertUniquePatternIds,
   discoverPackagePatterns
 } from "./pattern-assets.mjs";
+import { discoverProjectManifests } from "./project-packages.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
 const DEFAULT_REPO_ROOT = path.resolve(PACKAGE_ROOT, "../..");
-const BUILTIN_SINGLETON_PACKAGE_IDS = Object.freeze(["@jskit-ai/kernel"]);
 
 function parseInlineArg(name) {
   const args = process.argv.slice(2);
@@ -31,120 +32,13 @@ function parseInlineArg(name) {
   return "";
 }
 
-function toSortedUniqueStrings(values) {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
-}
-
-async function fileExists(absolutePath) {
-  try {
-    await access(absolutePath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function collectPackageRoots(packagesRoot) {
-  const directories = [];
-  const levelOne = await readdir(packagesRoot, { withFileTypes: true });
-
-  for (const entry of levelOne) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-    if (entry.name.startsWith(".")) {
-      continue;
-    }
-
-    const absolute = path.join(packagesRoot, entry.name);
-    const packageJsonPath = path.join(absolute, "package.json");
-    if (await fileExists(packageJsonPath) && Object.keys((await readJson(packageJsonPath)).jskit || {}).length > 0) {
-      directories.push(absolute);
-      continue;
-    }
-
-    const nested = await readdir(absolute, { withFileTypes: true }).catch(() => []);
-    for (const child of nested) {
-      if (!child.isDirectory() || child.name.startsWith(".")) {
-        continue;
-      }
-      const nestedAbsolute = path.join(absolute, child.name);
-      const nestedPackageJsonPath = path.join(nestedAbsolute, "package.json");
-      if (
-        await fileExists(nestedPackageJsonPath) &&
-        Object.keys((await readJson(nestedPackageJsonPath)).jskit || {}).length > 0
-      ) {
-        directories.push(nestedAbsolute);
-      }
-    }
-  }
-
-  return toSortedUniqueStrings(directories);
-}
-
-function normalizeWorkspacePatterns(value) {
-  if (Array.isArray(value)) {
-    return value;
-  }
-  if (value && typeof value === "object" && Array.isArray(value.packages)) {
-    return value.packages;
-  }
-  return [];
-}
-
-function createWorkspaceSegmentPattern(segment = "") {
-  const escaped = String(segment || "").replace(/[.+^${}()|[\]\\]/gu, "\\$&");
-  return new RegExp(`^${escaped.replace(/\*/gu, "[^/]*").replace(/\?/gu, "[^/]")}$`, "u");
-}
-
-async function expandWorkspacePattern(repoRoot, workspacePattern = "") {
-  const segments = String(workspacePattern || "")
-    .replace(/\\/gu, "/")
-    .replace(/^\.\//u, "")
-    .split("/")
-    .filter(Boolean);
-  if (segments.length < 1 || segments.includes("**")) {
-    return [];
-  }
-
-  let directories = [repoRoot];
-  for (const segment of segments) {
-    const matcher = createWorkspaceSegmentPattern(segment);
-    const nextDirectories = [];
-    for (const directory of directories) {
-      for (const entry of await readdir(directory, { withFileTypes: true }).catch(() => [])) {
-        if (entry.isDirectory() && matcher.test(entry.name)) {
-          nextDirectories.push(path.join(directory, entry.name));
-        }
-      }
-    }
-    directories = nextDirectories;
-  }
-  return directories;
-}
-
 async function collectReleasePackageVersions(repoRoot) {
-  const rootPackageJson = await readJson(path.join(repoRoot, "package.json"));
-  const workspacePatterns = normalizeWorkspacePatterns(rootPackageJson.workspaces)
-    .map((entry) => String(entry || "").trim())
-    .filter((entry) => entry && !entry.startsWith("!"));
-  const workspaceDirectories = new Set();
-  for (const workspacePattern of workspacePatterns) {
-    for (const directory of await expandWorkspacePattern(repoRoot, workspacePattern)) {
-      workspaceDirectories.add(directory);
-    }
-  }
-
+  const rootManifestPath = path.join(repoRoot, "package.json");
   const versions = new Map();
-  for (const directory of [...workspaceDirectories].sort()) {
-    const packageJsonPath = path.join(directory, "package.json");
-    if (!(await fileExists(packageJsonPath))) {
-      continue;
-    }
-    const packageJson = await readJson(packageJsonPath);
+  for (const { absolutePath, value: packageJson } of await discoverProjectManifests(repoRoot)) {
     const packageId = String(packageJson?.name || "").trim();
     const version = String(packageJson?.version || "").trim();
-    if (!packageId.startsWith("@jskit-ai/") || packageJson.private === true) {
+    if (absolutePath === rootManifestPath || !packageId.startsWith("@jskit-ai/") || packageJson.private === true) {
       continue;
     }
     if (!/^\d+\.\d+\.\d+$/u.test(version)) {
@@ -156,19 +50,12 @@ async function collectReleasePackageVersions(repoRoot) {
   return Object.fromEntries([...versions].sort(([left], [right]) => left.localeCompare(right)));
 }
 
-async function readJson(absolutePath) {
-  const raw = await readFile(absolutePath, "utf8");
-  return JSON.parse(raw);
-}
-
 async function buildCatalog({ repoRoot, packagesRoot, outputPath }) {
-  const packageRoots = await collectPackageRoots(packagesRoot);
+  const frameworkPackages = await discoverFrameworkPackages(packagesRoot);
   const entries = [];
   const patterns = [];
 
-  for (const packageRoot of packageRoots) {
-    const packageJsonPath = path.join(packageRoot, "package.json");
-    const packageJson = await readJson(packageJsonPath);
+  for (const { packageRoot, manifestPath: packageJsonPath, packageJson } of frameworkPackages) {
     const packageId = String(packageJson?.name || "").trim();
     const version = String(packageJson?.version || "").trim();
     const jskit = packageJson?.jskit && typeof packageJson.jskit === "object" && !Array.isArray(packageJson.jskit)
@@ -214,12 +101,7 @@ async function buildCatalog({ repoRoot, packagesRoot, outputPath }) {
     },
     release: {
       packages: await collectReleasePackageVersions(repoRoot),
-      singletonPackages: toSortedUniqueStrings([
-        ...BUILTIN_SINGLETON_PACKAGE_IDS,
-        ...entries
-          .filter((entry) => entry?.jskit?.metadata?.client?.singleton === true)
-          .map((entry) => entry.packageId)
-      ])
+      singletonPackages: collectSingletonPackageIds(frameworkPackages.map(({ packageJson }) => packageJson))
     },
     packages: entries.sort((left, right) => left.packageId.localeCompare(right.packageId)),
     patterns: patterns.sort((left, right) => left.id.localeCompare(right.id))

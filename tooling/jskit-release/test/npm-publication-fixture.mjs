@@ -45,7 +45,7 @@ async function publicationFixture(t, publisher = "genesis") {
   }
   const catalogScripts = path.join(repo, "tooling/jskit-catalog/scripts");
   await mkdir(catalogScripts, { recursive: true });
-  for (const file of ["build-catalog.mjs", "pattern-assets.mjs"]) {
+  for (const file of ["build-catalog.mjs", "framework-packages.mjs", "pattern-assets.mjs", "project-packages.mjs"]) {
     await copyFile(path.join(sourceRoot, "tooling/jskit-catalog/scripts", file), path.join(catalogScripts, file));
   }
   await mkdir(path.join(repo, "packages/kernel/shared"), { recursive: true });

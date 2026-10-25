@@ -19,16 +19,16 @@ Exports
 - None
 Local functions
 - `parseInlineArg(name)`
-- `toSortedUniqueStrings(values)`
-- `fileExists(absolutePath)`
-- `collectPackageRoots(packagesRoot)`
-- `normalizeWorkspacePatterns(value)`
-- `createWorkspaceSegmentPattern(segment = "")`
-- `expandWorkspacePattern(repoRoot, workspacePattern = "")`
 - `collectReleasePackageVersions(repoRoot)`
-- `readJson(absolutePath)`
 - `buildCatalog({ repoRoot, packagesRoot, outputPath })`
 - `main()`
+
+### `scripts/framework-packages.mjs`
+Exports
+- `collectSingletonPackageIds(packageJsons)`
+- `discoverFrameworkPackages(packagesRoot)`
+Local functions
+- `fileExists(filePath)`
 
 ### `scripts/jskit.mjs`
 Exports
@@ -102,7 +102,6 @@ Exports
 - `validateSingletonPeerDependencies(packages)`
 Local functions
 - `fileExists(filePath)`
-- `discoverFrameworkPackages()`
 - `requireStringArray(value, label)`
 - `requireArchitectureId(value, label)`
 - `validateCapabilityMap(value, label)`

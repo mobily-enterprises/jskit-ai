@@ -9,7 +9,7 @@ shared ESLint presets, and workspace test helpers.
 - `tooling/jskit-catalog/scripts/project-packages.mjs`
 - `tooling/jskit-catalog/scripts/verify-packages.mjs`
 - `tooling/config-eslint/src/index.js`
-- `tooling/testUtils/patternApp.mjs`
+- `tooling/testUtils/browserFixture.mjs`
 
 ## Public contract
 

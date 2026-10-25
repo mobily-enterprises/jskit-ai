@@ -22,33 +22,6 @@ Exports
 - `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {}, port: requestedPort } = {})`
 - `stopProcess(runtime)`
 
-### `currentJskitWorkspaces.mjs`
-Exports
-- `CURRENT_JSKIT_WORKSPACE_NPM_ENV`
-- `restoreCurrentJskitDependencyVersions(appRoot, packages)`
-- `stageCurrentJskitWorkspaces(appRoot)`
-Local functions
-- `readJson(filePath)`
-- `collectCurrentJskitPackages()`
-
 ### `fakeFastify.mjs`
 Exports
 - `createFakeFastifyPolicyRuntime({ csrfHandler, autoRunPlugin = null } = {})`
-
-### `jskitPackage.mjs`
-Exports
-- `writeJskitConfig(packageRoot, jskitOrSource)`
-Local functions
-- `resolveJskitConfig(jskitOrSource)`
-
-### `patternApp.mjs`
-Exports
-- `copyFoundationPattern({ cwd, name, pattern = "shell-foundation" } = {})`
-
-### `runCli.js`
-Exports
-- `createCliRunner(cliPath)`
-
-### `tempDir.mjs`
-Exports
-- `withTempDir(run, { prefix = "jskit-test-" } = {})`
