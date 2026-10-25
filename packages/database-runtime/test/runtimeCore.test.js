@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  BaseRepository,
-  buildPaginationMeta,
-  createTransactionManager,
-  createWithTransaction
-} from "../src/shared/index.js";
+import { createWithTransaction } from "../src/shared/index.js";
+import { createTransactionManager } from "../src/shared/transactionManager.js";
 
 function createKnexStub() {
   return {
@@ -23,15 +19,6 @@ test("transaction manager wraps callback in knex transaction", async () => {
   assert.equal(result.trx.trxId, "trx-1");
 });
 
-test("base repository withTransaction delegates to transaction manager", async () => {
-  const knex = createKnexStub();
-  const transactionManager = createTransactionManager({ knex });
-  const repo = new BaseRepository({ knex, transactionManager });
-
-  const result = await repo.withTransaction(async (trx) => ({ id: trx.trxId }));
-  assert.deepEqual(result, { id: "trx-1" });
-});
-
 test("createWithTransaction creates a reusable withTransaction function", async () => {
   const knex = Object.assign(() => {
     throw new Error("query execution not expected");
@@ -39,16 +26,4 @@ test("createWithTransaction creates a reusable withTransaction function", async 
   const withTransaction = createWithTransaction(knex);
   const result = await withTransaction(async (trx) => ({ id: trx.trxId }));
   assert.deepEqual(result, { id: "trx-1" });
-});
-
-test("pagination helpers generate stable metadata", () => {
-  const meta = buildPaginationMeta({ total: 51, page: 2, pageSize: 25 });
-  assert.deepEqual(meta, {
-    total: 51,
-    page: 2,
-    pageSize: 25,
-    pageCount: 3,
-    hasPrev: true,
-    hasNext: true
-  });
 });

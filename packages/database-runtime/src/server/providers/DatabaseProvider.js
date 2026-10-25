@@ -1,5 +1,4 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import * as databaseUtilities from "../../shared/index.js";
 import { normalizeDatabaseClient, toKnexClientId } from "../../shared/databaseClient.js";
 import { resolveKnexConnectionFromEnvironment } from "../../shared/databaseConnection.js";
 import { createTransactionManager } from "../../shared/transactionManager.js";
@@ -34,7 +33,6 @@ function createDatabase({ driver, env }) {
   const transactionManager = createTransactionManager({ knex });
 
   return Object.freeze({
-    ...databaseUtilities,
     driver,
     knex,
     transactionManager

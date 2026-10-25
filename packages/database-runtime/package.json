@@ -6,7 +6,6 @@
     "test": "node --test --test-concurrency=1"
   },
   "exports": {
-    "./client": "./src/client/index.js",
     "./server/providers/DatabaseProvider": "./src/server/providers/DatabaseProvider.js",
     "./server/databaseSetup": "./src/server/databaseSetup.js",
     "./server/knexMigrationConfig": "./src/server/knexMigrationConfig.js",
@@ -15,15 +14,8 @@
     "./shared/databaseClient": "./src/shared/databaseClient.js",
     "./shared/dialect": "./src/shared/dialect.js",
     "./shared/duplicateEntry": "./src/shared/duplicateEntry.js",
-    "./shared/json": "./src/shared/json.js",
-    "./shared/repository": "./src/shared/repository.js",
-    "./shared/repositoryScope": "./src/shared/repositoryScope.js",
     "./shared/repositoryOptions": "./src/shared/repositoryOptions.js",
-    "./shared/visibility": "./src/shared/visibility.js",
-    "./shared/retention": "./src/shared/retention.js",
-    "./shared/runtimeErrors": "./src/shared/runtimeErrors.js",
-    "./shared/transactionManager": "./src/shared/transactionManager.js",
-    "./shared/transactions": "./src/shared/transactions.js"
+    "./shared/visibility": "./src/shared/visibility.js"
   },
   "dependencies": {
     "knex": "^3.1.0"
@@ -55,8 +47,8 @@
       "apiSummary": {
         "surfaces": [
           {
-            "subpath": "./server",
-            "summary": "Provides the cohesive runtime.database capability with Knex, transactions, the selected driver, and repository utilities."
+            "subpath": "./server/providers/DatabaseProvider",
+            "summary": "Provides the runtime.database capability: the selected driver, its Knex client and a transaction manager."
           },
           {
             "subpath": "./server/databaseSetup",
@@ -68,11 +60,7 @@
           },
           {
             "subpath": "./shared",
-            "summary": "Exports shared Knex runtime utilities (transaction manager, repository helpers, retention/json/date/dialect helpers)."
-          },
-          {
-            "subpath": "./client",
-            "summary": "Exports no runtime API today (reserved client entrypoint)."
+            "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
           }
         ]
       }

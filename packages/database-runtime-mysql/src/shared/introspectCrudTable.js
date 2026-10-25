@@ -1,4 +1,4 @@
-import { normalizeText } from "@jskit-ai/database-runtime/shared";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toCamelCase } from "@jskit-ai/kernel/shared/support/stringCase";
 
 const BOOLEAN_TINYINT_PATTERN = /^tinyint\(1\)/;

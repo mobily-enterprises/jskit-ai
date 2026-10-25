@@ -1,4 +1,5 @@
-import { normalizeDatabaseClient, normalizeText } from "./databaseClient.js";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeDatabaseClient } from "./databaseClient.js";
 
 const DATABASE_URL_PROTOCOL_TO_CLIENT = Object.freeze({
   "mysql:": "mysql2",

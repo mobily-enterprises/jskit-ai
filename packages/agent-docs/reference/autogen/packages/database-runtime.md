@@ -14,10 +14,6 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/client/index.js`
-Exports
-- None
-
 ### `src/server/databaseSetup.js`
 Exports
 - `prepareDatabaseFromApp({ client, appRoot = process.cwd(), environment = process.env, migrationsDirectory = "migrations", seed } = {})`
@@ -46,7 +42,6 @@ Local functions
 
 ### `src/shared/databaseClient.js`
 Exports
-- `normalizeText`
 - `normalizeDatabaseClient(value, { allowEmpty = false } = {})`
 - `toKnexClientId(databaseClient)`
 
@@ -61,15 +56,14 @@ Local functions
 
 ### `src/shared/dateUtils.js`
 Exports
-- `normalizeDateInput(value)`
 - `toIsoString(value)`
 - `toInsertDateTime(dateLike, fallback = new Date())`
-- `toNullableDateTime(value)`
 - `toDatabaseDateTimeUtc(value)`
 - `toJsonDate(value)`
 - `toJsonTime(value, { temporalPrecision } = {})`
 - `toJsonDateTime(value, { temporalPrecision } = {})`
 Local functions
+- `normalizeDateInput(value)`
 - `toDateOrThrow(value)`
 - `pad(value, size = 2)`
 - `requireValidDateParts(year, month, day)`
@@ -94,129 +88,51 @@ Local functions
 
 ### `src/shared/index.js`
 Exports
-- `DatabaseRuntimeError`
-- `TransactionManagerError`
-- `RepositoryError`
-- `TransactionManager`
-- `createTransactionManager`
-- `BaseRepository`
-- `buildPaginationMeta`
-- `normalizeDateInput`
 - `toIsoString`
 - `toInsertDateTime`
-- `toNullableDateTime`
 - `toDatabaseDateTimeUtc`
 - `toJsonDate`
 - `toJsonTime`
 - `toJsonDateTime`
 - `normalizeDialect`
 - `detectDialectFromClient`
-- `normalizeText`
 - `normalizeDatabaseClient`
 - `toKnexClientId`
-- `parseDatabaseUrl`
-- `resolveDatabaseClientFromEnvironment`
-- `resolveDatabaseConnectionFromEnvironment`
-- `resolveKnexConnectionFromEnvironment`
 - `findDuplicateEntryError`
 - `isDuplicateEntryError`
-- `normalizePath`
-- `jsonTextExpression`
-- `whereJsonTextEquals`
 - `DEFAULT_VISIBILITY_COLUMNS`
 - `applyVisibility`
 - `applyVisibilityOwners`
-- `createRepositoryScope`
 - `resolveQueryOptions`
 - `resolveRepoClient`
 - `applyForUpdate`
-- `mapRowNullable`
 - `parseJsonObject`
 - `stringifyJsonObject`
-- `parseMetadataJson`
-- `stringifyMetadataJson`
-- `normalizeMetadataJsonInput`
 - `normalizeNullableString`
 - `normalizeDbRecordId`
 - `resolveInsertedRecordId`
-- `normalizeIdList`
-- `normalizeCountRow`
-- `parseJsonValue`
 - `toDbJson`
 - `runInTransaction`
 - `createWithTransaction`
-- `lockScopedRecordId`
-- `normalizeBatchSize`
-- `normalizeCutoffDateOrThrow`
-- `normalizeDeletedRowCount`
-- `deleteRowsOlderThan`
-- `retentionTestables`
-- `createRepoTransaction`
-
-### `src/shared/json.js`
-Exports
-- `normalizePath(path)`
-- `jsonTextExpression({ client, column, path })`
-- `whereJsonTextEquals(query, { column, path, value })`
-
-### `src/shared/repository.js`
-Exports
-- `BaseRepository`
-- `buildPaginationMeta({ total, page, pageSize } = {})`
 
 ### `src/shared/repositoryOptions.js`
 Exports
 - `resolveQueryOptions(options = {})`
 - `resolveRepoClient(dbClient, options = {})`
 - `applyForUpdate(query, options = {})`
-- `mapRowNullable(mapper)`
 - `parseJsonObject(value, fallback = {})`
 - `stringifyJsonObject(value, fallback = "{}")`
-- `parseMetadataJson(value, fallback = {})`
-- `stringifyMetadataJson(metadata, fallback = "{}")`
-- `normalizeMetadataJsonInput(value, fallback = null)`
 - `normalizeNullableString(value, { trim = true } = {})`
 - `normalizeDbRecordId(value, { fallback = null } = {})`
 - `resolveInsertedRecordId(insertResult, { fallback = null } = {})`
-- `normalizeIdList(values, { parseValue } = {})`
-- `normalizeCountRow(row)`
-- `parseJsonValue(value, fallback = null, options = {})`
 - `toDbJson(value)`
 - `runInTransaction(knex, callback)`
 - `createWithTransaction(knex)`
-- `lockScopedRecordId({ trx, tableName, recordId, scopeId, idColumn = "id", scopeColumn = "workspace_id" } = {})`
-Local functions
-- `requireSqlIdentifier(value, label)`
-
-### `src/shared/repositoryScope.js`
-Exports
-- `createRepositoryScope(knex, tableName, options = {})`
-Local functions
-- `normalizeTableName(value)`
-- `normalizeIdColumn(value)`
-
-### `src/shared/retention.js`
-Exports
-- `normalizeBatchSize(value, { fallback = 1000, max = 10_000 } = {})`
-- `normalizeCutoffDateOrThrow(value)`
-- `normalizeDeletedRowCount(value)`
-- `deleteRowsOlderThan({ client, tableName, dateColumn, cutoffDate, batchSize, applyFilters })`
-- `__testables`
-
-### `src/shared/runtimeErrors.js`
-Exports
-- `DatabaseRuntimeError`
-- `TransactionManagerError`
-- `RepositoryError`
 
 ### `src/shared/transactionManager.js`
 Exports
 - `TransactionManager`
 - `createTransactionManager(options = {})`
-
-### `src/shared/transactions.js`
-Exports
-- `createRepoTransaction(dbClient)`
 
 ### `src/shared/visibility.js`
 Exports

@@ -110,7 +110,7 @@ test("DatabaseProvider exposes one cohesive database capability", async () => {
       timezone: "Z"
     });
     assert.equal(typeof database.transactionManager.inTransaction, "function");
-    assert.equal(typeof database.resolveRepoClient, "function");
+    assert.deepEqual(Object.keys(database).sort(), ["driver", "knex", "transactionManager"]);
 
     await runtime.shutdown();
     assert.equal(database.knex.destroyCalls, 1);

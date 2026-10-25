@@ -1493,8 +1493,8 @@
           "apiSummary": {
             "surfaces": [
               {
-                "subpath": "./server",
-                "summary": "Provides the cohesive runtime.database capability with Knex, transactions, the selected driver, and repository utilities."
+                "subpath": "./server/providers/DatabaseProvider",
+                "summary": "Provides the runtime.database capability: the selected driver, its Knex client and a transaction manager."
               },
               {
                 "subpath": "./server/databaseSetup",
@@ -1506,11 +1506,7 @@
               },
               {
                 "subpath": "./shared",
-                "summary": "Exports shared Knex runtime utilities (transaction manager, repository helpers, retention/json/date/dialect helpers)."
-              },
-              {
-                "subpath": "./client",
-                "summary": "Exports no runtime API today (reserved client entrypoint)."
+                "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
               }
             ]
           }

@@ -25,7 +25,6 @@ function toKnexClientId(databaseClient) {
 }
 
 export {
-  normalizeText,
   normalizeDatabaseClient,
   toKnexClientId
 };

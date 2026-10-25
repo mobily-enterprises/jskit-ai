@@ -203,14 +203,6 @@ function toInsertDateTime(dateLike, fallback = new Date()) {
   return toDatabaseDateTimeUtc(normalized);
 }
 
-function toNullableDateTime(value) {
-  const normalized = normalizeDateInput(value);
-  if (!normalized) {
-    return null;
-  }
-  return toDatabaseDateTimeUtc(normalized);
-}
-
 function toDatabaseDateTimeUtc(value) {
   if (value == null) {
     return null;
@@ -236,10 +228,8 @@ function toDatabaseDateTimeUtc(value) {
 }
 
 export {
-  normalizeDateInput,
   toIsoString,
   toInsertDateTime,
-  toNullableDateTime,
   toDatabaseDateTimeUtc,
   toJsonDate,
   toJsonTime,

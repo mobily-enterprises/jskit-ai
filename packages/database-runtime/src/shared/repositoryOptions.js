@@ -28,19 +28,6 @@ function applyForUpdate(query, options = {}) {
   return query;
 }
 
-function mapRowNullable(mapper) {
-  if (typeof mapper !== "function") {
-    throw new TypeError("mapRowNullable requires a mapper function.");
-  }
-
-  return function mapNullableRow(row) {
-    if (!row) {
-      return null;
-    }
-    return mapper(row);
-  };
-}
-
 function parseJsonObject(value, fallback = {}) {
   const source = String(value || "").trim();
   if (!source) {
@@ -62,47 +49,6 @@ function parseJsonObject(value, fallback = {}) {
 function stringifyJsonObject(value, fallback = "{}") {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return fallback;
-  }
-
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return fallback;
-  }
-}
-
-function parseMetadataJson(value, fallback = {}) {
-  const source = String(value || "").trim();
-  if (!source) {
-    return fallback;
-  }
-
-  try {
-    const parsed = JSON.parse(source);
-    return parsed && typeof parsed === "object" ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function stringifyMetadataJson(metadata, fallback = "{}") {
-  if (!metadata || typeof metadata !== "object") {
-    return fallback;
-  }
-
-  try {
-    return JSON.stringify(metadata);
-  } catch {
-    return fallback;
-  }
-}
-
-function normalizeMetadataJsonInput(value, fallback = null) {
-  if (value == null) {
-    return fallback;
-  }
-  if (typeof value === "string") {
-    return value;
   }
 
   try {
@@ -160,58 +106,6 @@ function resolveInsertedRecordId(insertResult, { fallback = null } = {}) {
   return normalizeDbRecordId(insertResult, { fallback });
 }
 
-function normalizeIdList(values, { parseValue } = {}) {
-  const source = Array.isArray(values) ? values : [];
-  const parser = typeof parseValue === "function" ? parseValue : (value) => value;
-  const normalized = source.map((value) => parser(value)).filter(Boolean);
-  return Array.from(new Set(normalized));
-}
-
-function normalizeCountRow(row) {
-  const values = Object.values(row || {});
-  if (values.length < 1) {
-    return 0;
-  }
-
-  const parsed = Number(values[0]);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
-
-function parseJsonValue(value, fallback = null, options = {}) {
-  const source = options && typeof options === "object" ? options : {};
-  const effectiveFallback = Object.hasOwn(source, "fallback") ? source.fallback : fallback;
-  const allowNull = source.allowNull === true;
-  const allowObject = source.allowObject !== false;
-  const trim = source.trim !== false;
-
-  if (value == null) {
-    return effectiveFallback;
-  }
-
-  if (allowObject && typeof value === "object") {
-    return value;
-  }
-
-  let text = String(value || "");
-  if (trim) {
-    text = text.trim();
-  }
-
-  if (!text) {
-    return effectiveFallback;
-  }
-
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed == null && !allowNull) {
-      return effectiveFallback;
-    }
-    return parsed;
-  } catch {
-    return effectiveFallback;
-  }
-}
-
 function toDbJson(value) {
   if (value == null) {
     return JSON.stringify({});
@@ -242,60 +136,16 @@ function createWithTransaction(knex) {
   };
 }
 
-function requireSqlIdentifier(value, label) {
-  const identifier = String(value || "").trim();
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(identifier)) {
-    throw new TypeError(`${label} must be a safe SQL identifier.`);
-  }
-  return identifier;
-}
-
-async function lockScopedRecordId({
-  trx,
-  tableName,
-  recordId,
-  scopeId,
-  idColumn = "id",
-  scopeColumn = "workspace_id"
-} = {}) {
-  if (typeof trx !== "function") {
-    throw new TypeError("lockScopedRecordId requires a transaction.");
-  }
-  const table = requireSqlIdentifier(tableName, "lockScopedRecordId tableName");
-  const recordKey = requireSqlIdentifier(idColumn, "lockScopedRecordId idColumn");
-  const scopeKey = requireSqlIdentifier(scopeColumn, "lockScopedRecordId scopeColumn");
-  const normalizedRecordId = normalizeDbRecordId(recordId);
-  const normalizedScopeId = normalizeDbRecordId(scopeId);
-  if (!normalizedRecordId || !normalizedScopeId) {
-    return null;
-  }
-  const row = await trx(table)
-    .select(recordKey)
-    .where(recordKey, normalizedRecordId)
-    .andWhere(scopeKey, normalizedScopeId)
-    .forUpdate()
-    .first();
-  return normalizeDbRecordId(row?.[recordKey]);
-}
-
 export {
   resolveQueryOptions,
   resolveRepoClient,
   applyForUpdate,
-  mapRowNullable,
   parseJsonObject,
   stringifyJsonObject,
-  parseMetadataJson,
-  stringifyMetadataJson,
-  normalizeMetadataJsonInput,
   normalizeNullableString,
   normalizeDbRecordId,
   resolveInsertedRecordId,
-  normalizeIdList,
-  normalizeCountRow,
-  parseJsonValue,
   toDbJson,
   runInTransaction,
-  createWithTransaction,
-  lockScopedRecordId
+  createWithTransaction
 };
