@@ -135,7 +135,7 @@ Local functions
 
 ### `src/client/composables/crud/crudLookupFieldRuntime.js`
 Exports
-- `createCrudLookupFieldRuntime({ formFields = [], adapter = null, recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", lookupContainerKey = "lookups" } = {})`
+- `createCrudLookupFieldRuntime({ formFields = [], recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", lookupContainerKey = "lookups" } = {})`
 Local functions
 - `normalizeQueryKeyPrefix(value)`
 - `normalizeLookupValue(value)`
@@ -198,7 +198,7 @@ Local functions
 
 ### `src/client/composables/records/useAddEdit.js`
 Exports
-- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "http-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null, adapter = null } = {})`
+- `useAddEdit({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", resource = null, apiSuffix = "", queryKeyFactory = null, viewPermissions = [], savePermissions = [], readMethod = "GET", readEnabled = true, writeMethod = "PATCH", client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "http-web.add-edit", fallbackLoadError = "Unable to load resource.", fallbackSaveError = "Unable to save resource.", fieldErrorKeys = [], clearOnRouteChange = true, model, input, mapLoadedToModel, buildRawPayload, buildSavePayload, onSaveSuccess, validationFeedback = true, requestQueryParams = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null, messages = {}, realtime = null } = {})`
 
 ### `src/client/composables/records/useCrudAddEdit.js`
 Exports
@@ -220,11 +220,11 @@ Exports
 
 ### `src/client/composables/records/useList.js`
 Exports
-- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "http-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, client = null, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = "List", realtime = null, adapter = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, routeQueryValueResolvers = null, requestQueryParams = null, requestFieldsets = null, syncToRoute = false } = {})`
+- `useList({ ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readEnabled = true, placementSource = "http-web.list", fallbackLoadError = "Unable to load list.", initialPageParam = null, getNextPageParam, selectItems, client = null, transport = null, requestOptions, queryOptions, requestRecovery, requestRecoveryLabel = "List", realtime = null, recordIdParam = "recordId", recordIdSelector = null, viewUrlTemplate = "", editUrlTemplate = "", search = null, queryParams = null, routeQueryValueResolvers = null, requestQueryParams = null, requestFieldsets = null, syncToRoute = false } = {})`
 
 ### `src/client/composables/records/useView.js`
 Exports
-- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "http-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, requestFieldsets = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined, adapter = null } = {})`
+- `useView({ resource = null, ownershipFilter = ROUTE_VISIBILITY_WORKSPACE, surfaceId = "", access = "auto", apiSuffix = "", queryKeyFactory = null, viewPermissions = [], readMethod = "GET", readEnabled = true, client = null, transport = null, requestRecovery = null, requestRecoveryLabel = "Resource", placementSource = "http-web.view", fallbackLoadError = "Unable to load resource.", notFoundStatuses = [404], notFoundMessage = "Record not found.", model, mapLoadedToModel, requestQueryParams = null, requestFieldsets = null, recordIdParam = "recordId", routeParams = null, routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "", includeRecordIdInQueryKey = false, realtime = undefined } = {})`
 
 ### `src/client/composables/runtime/addEditUiRuntime.js`
 Exports
@@ -246,11 +246,6 @@ Exports
 Local functions
 - `isObjectLike(value)`
 - `deepClone(value)`
-
-### `src/client/composables/runtime/operationAdapters.js`
-Exports
-- `createWebOperationAdapter()`
-- `resolveOperationAdapter(adapter, { context = "http-web operation adapter" } = {})`
 
 ### `src/client/composables/runtime/operationUiHelpers.js`
 Exports
@@ -446,7 +441,7 @@ Exports
 
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports
-- `useCrudListFilterLookups(definitions = {}, { values = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", requestQueryParams = {}, labelResolvers = {} } = {})`
+- `useCrudListFilterLookups(definitions = {}, { values = {}, recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", requestQueryParams = {}, labelResolvers = {} } = {})`
 
 ### `src/client/composables/useCrudListFilters.js`
 Exports
@@ -467,7 +462,7 @@ Local functions
 
 ### `src/client/composables/useCrudListParentTitle.js`
 Exports
-- `useCrudListParentTitle({ listRuntime = null, resource = {}, adapter = null, recordIdParam = "recordId", queryKeyPrefix = ["http-web", "crud-list-parent-title"], placementSource = "http-web.crud-list-parent-title", fallbackLoadError = "Unable to load parent record.", notFoundMessage = "Parent record not found.", route = null, viewRuntimeFactory = useView } = {})`
+- `useCrudListParentTitle({ listRuntime = null, resource = {}, recordIdParam = "recordId", queryKeyPrefix = ["http-web", "crud-list-parent-title"], placementSource = "http-web.crud-list-parent-title", fallbackLoadError = "Unable to load parent record.", notFoundMessage = "Parent record not found.", route = null, viewRuntimeFactory = useView } = {})`
 Local functions
 - `normalizeQueryKeyPrefix(value = [])`
 
@@ -480,7 +475,7 @@ Local functions
 ### `src/client/composables/useCrudListScreen.js`
 Exports
 - `__testables`
-- `useCrudListScreen({ adapter = null, client = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
+- `useCrudListScreen({ client = null, resource = null, resourceNamespace = "resource", apiSuffix = "", recordIdParam = "recordId", recordIdSelector = null, titleFallbackFieldKey = "", viewUrlTemplate = "", editUrlTemplate = "", newUrlTemplate = "", recordChangedEvents = [], listFilters = {}, listBulkActions = [], listRowActions = [], syntheticRows = null, routeQueryBlacklist = Object.freeze(["include", "cursor", "limit"]), requestQueryParams = null, requestFieldsets = null, readEnabled = true, requestRecoveryLabel = "Records", fallbackLoadError = "Unable to load records." } = {})`
 Local functions
 - `buildCrudListActionContext(records, client)`
 - `formatCrudListCardValue(value)`
@@ -493,7 +488,7 @@ Local functions
 
 ### `src/client/composables/useCrudViewScreen.js`
 Exports
-- `useCrudViewScreen({ adapter = null, resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams = null, requestFieldsets = null, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = "Record", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
+- `useCrudViewScreen({ resource = null, resourceNamespace = "resource", apiUrlTemplate = "", recordIdParam = "recordId", titleFallbackFieldKey = "", listUrlTemplate = "", editUrlTemplate = "", recordChangedEvent = "", requestQueryParams = null, requestFieldsets = null, readEnabled = true, queryKeyFactory = null, requestRecoveryLabel = "Record", fallbackLoadError = "Unable to load record.", notFoundMessage = "Record not found." } = {})`
 
 ### `src/client/composables/usePagedCollection.js`
 Exports

@@ -21,7 +21,6 @@ function useCrudListFilterLookups(
   definitions = {},
   {
     values = {},
-    adapter = null,
     recordIdParam = "recordId",
     queryKeyPrefix = [],
     placementSourcePrefix = "",
@@ -52,7 +51,6 @@ function useCrudListFilterLookups(
     });
 
     const runtime = useList({
-      adapter: adapter || undefined,
       apiSuffix: filter.lookup.apiSuffix,
       ...(transport ? { transport } : {}),
       queryKeyFactory: (surfaceId = "", scopeParamValue = "") => [

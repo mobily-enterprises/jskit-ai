@@ -3,7 +3,7 @@ import { useRouter } from "vue-router";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useListCore } from "../runtime/useListCore.js";
-import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
+import { useOperationScope } from "../internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createListUiRuntime } from "../runtime/listUiRuntime.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
@@ -53,7 +53,6 @@ function useList({
   requestRecovery,
   requestRecoveryLabel = "List",
   realtime = null,
-  adapter = null,
   recordIdParam = "recordId",
   recordIdSelector = null,
   viewUrlTemplate = "",
@@ -104,10 +103,7 @@ function useList({
     searchDebounceTimer = null;
   });
 
-  const operationAdapter = resolveOperationAdapter(adapter, {
-    context: "useList adapter"
-  });
-  const operationScope = operationAdapter.useOperationScope({
+  const operationScope = useOperationScope({
     ownershipFilter,
     surfaceId,
     access,

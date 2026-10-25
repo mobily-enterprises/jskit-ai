@@ -4,9 +4,10 @@ import { registerHooks } from "node:module";
 import test from "node:test";
 import { compileScript, parse } from "@vue/compiler-sfc";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
-import { computed, createRenderer, defineComponent, h, nextTick, ref, unref } from "vue";
-import { createMemoryHistory, createRouter, useRoute } from "vue-router";
+import { createRenderer, defineComponent, h, nextTick, ref } from "vue";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { createSchema } from "json-rest-schema";
+import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
 import { useCrudAddEditScreen } from "../src/client/composables/useCrudAddEditScreen.js";
 
 const componentUrl = new URL("../src/client/components/CrudAddEditScreen.vue", import.meta.url).href;
@@ -51,7 +52,18 @@ async function fixture(t, { actions, onSaveSuccess, request, ...options } = {}) 
   });
   await router.push("/books/new?source=list");
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const canSave = ref(true);
+  // Save permission comes from the web placement context, as in a real shell.
+  let placementContext = Object.freeze({ permissions: ["books.save"] });
+  const placementListeners = new Set();
+  const canSave = {
+    get value() {
+      return placementContext.permissions.includes("books.save");
+    },
+    set value(allowed) {
+      placementContext = Object.freeze({ permissions: allowed ? ["books.save"] : [] });
+      for (const listener of placementListeners) listener();
+    }
+  };
   const reports = [];
   const calls = [];
   let screen;
@@ -80,21 +92,10 @@ async function fixture(t, { actions, onSaveSuccess, request, ...options } = {}) 
               return request ? request(path, requestOptions) : { id: calls.length, ...requestOptions.body };
             }
           },
-          adapter: {
-            useOperationScope() {
-              return {
-                routeContext: { route: useRoute(), currentSurfaceId: ref("admin") },
-                scopeParamValue: ref(""),
-                normalizedOwnershipFilter: "none",
-                apiPath: ref("/api/books"),
-                queryKey: ref(["books", "new"]),
-                queryCanRun: () => ref(false),
-                permissionGate: (key) => key === "save" ? canSave : ref(true),
-                loadError: (value) => computed(() => unref(value)),
-                isLoading: (value) => computed(() => unref(value))
-              };
-            }
-          },
+          apiSuffix: "/books",
+          queryKeyFactory: () => ["books", "new"],
+          ownershipFilter: "public",
+          savePermissions: ["books.save"],
           onSaveSuccess: onSaveSuccess ? (payload, context) => onSaveSuccess(screen, payload, context) : undefined,
           ...options
         },
@@ -111,6 +112,16 @@ async function fixture(t, { actions, onSaveSuccess, request, ...options } = {}) 
   });
   app.use(router);
   app.use(VueQueryPlugin, { queryClient });
+  app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, {
+    getContext: () => placementContext,
+    getPlacements: () => [],
+    setContext: () => placementContext,
+    subscribe(listener) {
+      placementListeners.add(listener);
+      return () => placementListeners.delete(listener);
+    },
+    getRevision: () => 0
+  });
   app.provide("jskit.shell-web.runtime.web-error.client", {
     report(value) { reports.push(value); },
     dismiss() {}

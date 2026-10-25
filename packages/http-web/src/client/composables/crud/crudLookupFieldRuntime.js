@@ -67,7 +67,6 @@ function createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {}
 
 function createCrudLookupFieldRuntime({
   formFields = [],
-  adapter = null,
   recordIdParam = "recordId",
   queryKeyPrefix = [],
   placementSourcePrefix = "",
@@ -113,7 +112,6 @@ function createCrudLookupFieldRuntime({
     }
 
     const runtime = useList({
-      adapter: adapter || undefined,
       ...(relationSurfaceId ? { surfaceId: relationSurfaceId } : {}),
       apiSuffix: apiPath,
       ...(transport ? { transport } : {}),

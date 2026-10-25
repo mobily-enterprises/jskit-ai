@@ -3,7 +3,6 @@ import { useRoute } from "vue-router";
 import { useCrudView } from "./records/useCrudView.js";
 
 function useCrudViewScreen({
-  adapter = null,
   resource = null,
   resourceNamespace = "resource",
   apiUrlTemplate = "",
@@ -30,7 +29,6 @@ function useCrudViewScreen({
     String(workspaceSlug || "")
   ];
   const view = useCrudView({
-    adapter: adapter || undefined,
     resource,
     apiUrlTemplate,
     recordIdParam,

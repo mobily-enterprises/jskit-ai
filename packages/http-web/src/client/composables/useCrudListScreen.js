@@ -110,7 +110,6 @@ function createCrudListDisplayRow(record = {}, index = 0, records = {}) {
 }
 
 function useCrudListScreen({
-  adapter = null,
   client = null,
   resource = null,
   resourceNamespace = "resource",
@@ -140,7 +139,6 @@ function useCrudListScreen({
     : [];
   const normalizedResourceNamespace = String(resourceNamespace || "resource").trim() || "resource";
   const records = useCrudList({
-    adapter: adapter || undefined,
     client: crudHttpClient,
     resource,
     apiSuffix,

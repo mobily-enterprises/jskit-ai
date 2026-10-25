@@ -3,7 +3,7 @@ import { useRoute } from "vue-router";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useViewCore } from "../runtime/useViewCore.js";
 import { useEndpointResource } from "../runtime/useEndpointResource.js";
-import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
+import { useOperationScope } from "../internal/useOperationScope.js";
 import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
 import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
@@ -39,8 +39,7 @@ function useView({
   listUrlTemplate = "",
   editUrlTemplate = "",
   includeRecordIdInQueryKey = false,
-  realtime = undefined,
-  adapter = null
+  realtime = undefined
 } = {}) {
   const route = useRoute();
   const viewUiRuntime = createViewUiRuntime({
@@ -55,10 +54,7 @@ function useView({
   });
   const normalizedApiUrlTemplate = String(apiUrlTemplate || "").trim();
   const effectiveApiSuffix = normalizedApiUrlTemplate ? viewUiRuntime.apiSuffix : apiSuffix;
-  const operationAdapter = resolveOperationAdapter(adapter, {
-    context: "useView adapter"
-  });
-  const operationScope = operationAdapter.useOperationScope({
+  const operationScope = useOperationScope({
     ownershipFilter,
     surfaceId,
     access,

@@ -27,7 +27,6 @@ function normalizeQueryKeyPrefix(value = []) {
 function useCrudListParentTitle({
   listRuntime = null,
   resource = {},
-  adapter = null,
   recordIdParam = "recordId",
   queryKeyPrefix = ["http-web", "crud-list-parent-title"],
   placementSource = "http-web.crud-list-parent-title",
@@ -93,7 +92,6 @@ function useCrudListParentTitle({
   });
 
   const parentView = viewRuntimeFactory({
-    adapter,
     apiUrlTemplate: normalizeText(initialParentDescriptor.apiUrlTemplate),
     transport: parentTransport,
     readEnabled: shouldLoadParentRecord,

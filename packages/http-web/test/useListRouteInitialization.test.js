@@ -1,17 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
-import {
-  computed,
-  createRenderer,
-  h,
-  unref
-} from "vue";
-import {
-  createMemoryHistory,
-  createRouter,
-  useRoute
-} from "vue-router";
+import { createRenderer, h } from "vue";
+import { createMemoryHistory, createRouter } from "vue-router";
 
 import { useList } from "../src/client/composables/records/useList.js";
 import { useCrudListFilters } from "../src/client/composables/useCrudListFilters.js";
@@ -137,37 +128,6 @@ function createTestRenderer() {
   });
 }
 
-function createListTestAdapter() {
-  return Object.freeze({
-    useOperationScope() {
-      const route = useRoute();
-
-      return Object.freeze({
-        routeContext: Object.freeze({
-          route,
-          currentSurfaceId: computed(() => "admin")
-        }),
-        scopeParamValue: computed(() => ""),
-        normalizedOwnershipFilter: "none",
-        apiPath: computed(() => "/contacts"),
-        queryKey: computed(() => ["contacts"]),
-        queryCanRun(gate = true) {
-          return computed(() => Boolean(unref(gate)));
-        },
-        permissionGate() {
-          return computed(() => true);
-        },
-        loadError(error = "") {
-          return computed(() => String(unref(error) || ""));
-        },
-        isLoading(loading = false) {
-          return computed(() => Boolean(unref(loading)));
-        }
-      });
-    }
-  });
-}
-
 async function mountRouteSynchronizedList(initialLocation) {
   const calls = [];
   const client = {
@@ -206,7 +166,8 @@ async function mountRouteSynchronizedList(initialLocation) {
     setup() {
       filterRuntime = useCrudListFilters(CURRENTNESS_FILTERS);
       useList({
-        adapter: createListTestAdapter(),
+        apiSuffix: "/contacts",
+        ownershipFilter: "public",
         client,
         queryKeyFactory: () => ["contacts"],
         queryParams: filterRuntime.queryParams,
@@ -260,7 +221,7 @@ test("route-synchronized lists make one initial request with the hydrated route 
   assert.ok(signal instanceof AbortSignal);
   assert.equal(signal.aborted, false);
   assert.deepEqual(runtime.calls[0], {
-    path: "/contacts",
+    path: "/api/contacts",
     options: {
       method: "GET",
       signal,

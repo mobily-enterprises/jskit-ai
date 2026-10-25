@@ -3,7 +3,7 @@ import { useRoute } from "vue-router";
 import { ROUTE_VISIBILITY_WORKSPACE } from "@jskit-ai/kernel/shared/support/visibility";
 import { useAddEditCore } from "../runtime/useAddEditCore.js";
 import { useEndpointResource } from "../runtime/useEndpointResource.js";
-import { resolveOperationAdapter } from "../runtime/operationAdapters.js";
+import { useOperationScope } from "../internal/useOperationScope.js";
 import { createAddEditUiRuntime } from "../runtime/addEditUiRuntime.js";
 import { useUiFeedback } from "../runtime/useUiFeedback.js";
 import { useFieldErrorBag } from "../runtime/useFieldErrorBag.js";
@@ -54,8 +54,7 @@ function useAddEdit({
   listUrlTemplate = "",
   saveRecordIdSelector = null,
   messages = {},
-  realtime = null,
-  adapter = null
+  realtime = null
 } = {}) {
   const route = useRoute();
   const addEditUiRuntime = createAddEditUiRuntime({
@@ -71,10 +70,7 @@ function useAddEdit({
   });
   const normalizedApiUrlTemplate = String(apiUrlTemplate || "").trim();
   const effectiveApiSuffix = normalizedApiUrlTemplate ? addEditUiRuntime.apiSuffix : apiSuffix;
-  const operationAdapter = resolveOperationAdapter(adapter, {
-    context: "useAddEdit adapter"
-  });
-  const operationScope = operationAdapter.useOperationScope({
+  const operationScope = useOperationScope({
     ownershipFilter,
     surfaceId,
     access,

@@ -19,8 +19,8 @@ const UI_ADAPTERS = Object.freeze(["jskit", "vue-filesystem-router", "vue-regist
 const FILESYSTEM_ROUTER_OPTIONS = Object.freeze(["routesFolder", "extensions", "exclude", "dts", "nestedChildren"]);
 const CRUD_RESOURCE_OPERATIONS = Object.freeze(["list", "view", "create", "patch", "delete"]);
 const CRUD_CONTROLLER_OPERATIONS = Object.freeze(["list", "view", "create", "update", "delete"]);
-const CRUD_SCREEN_TRANSPORT_KEYS = Object.freeze(["screen", "adapter", "client", "surfaceId", "transport"]);
-const CRUD_SCREEN_CLIENT_KEYS = Object.freeze(["client", "adapter", "surfaceId", "transport", "resource"]);
+const CRUD_SCREEN_TRANSPORT_KEYS = Object.freeze(["screen", "client", "surfaceId", "transport"]);
+const CRUD_SCREEN_CLIENT_KEYS = Object.freeze(["client", "surfaceId", "transport", "resource"]);
 
 // Framework sources whose declarations this inspector reads statically.
 const SOURCES = Object.freeze({
