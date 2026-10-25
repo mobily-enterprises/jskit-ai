@@ -231,3 +231,44 @@ test("foundation agent instructions point to public framework docs without requi
   assert.doesNotMatch(minimalAgents, /local app scaffold|crud-scaffolding\.md|workflow\/app-state\.md/u);
   assert.doesNotMatch(minimalAgents, /workflow\/feature-delivery\.md|Mandatory Start Gate|Mandatory Done Gate/u);
 });
+
+test("shell foundation reuses the shell-web application shell and the minimal foundation byte for byte", async () => {
+  const shellRoot = path.join(PATTERNS_ROOT, "shell-foundation", "example");
+  const minimalRoot = path.join(PATTERNS_ROOT, "minimal-foundation", "example");
+  const applicationShellRoot = path.join(REPOSITORY_ROOT, "packages", "shell-web", "patterns", "application-shell", "example");
+  const relativeFiles = async (root) => (await collectFiles(root)).map((filePath) => path.relative(root, filePath));
+  const shellFiles = new Set(await relativeFiles(shellRoot));
+  const readPair = (leftRoot, rightRoot, relativePath) => Promise.all([
+    readFile(path.join(leftRoot, relativePath)),
+    readFile(path.join(rightRoot, relativePath))
+  ]);
+
+  const applicationShellFiles = (await relativeFiles(applicationShellRoot))
+    .filter((relativePath) => !relativePath.startsWith(`expected-existing${path.sep}`));
+  assert.ok(applicationShellFiles.length > 10);
+  for (const relativePath of applicationShellFiles) {
+    assert.ok(shellFiles.has(relativePath), `shell-foundation is missing ${relativePath}.`);
+    const [shellSource, applicationShellSource] = await readPair(shellRoot, applicationShellRoot, relativePath);
+    assert.ok(shellSource.equals(applicationShellSource), `${relativePath} drifted from shell-web's application shell.`);
+  }
+
+  const expectedExistingRoot = path.join(applicationShellRoot, "expected-existing");
+  for (const relativePath of await relativeFiles(expectedExistingRoot)) {
+    const [minimalSource, expectedSource] = await readPair(minimalRoot, expectedExistingRoot, relativePath);
+    assert.ok(minimalSource.equals(expectedSource), `expected-existing ${relativePath} drifted from minimal-foundation.`);
+  }
+
+  const foundationSpecificFiles = new Set([
+    "package.json",
+    path.join("packages", "main", "package.json"),
+    path.join("tests", "e2e", "base-shell.spec.ts")
+  ]);
+  for (const relativePath of await relativeFiles(minimalRoot)) {
+    if (foundationSpecificFiles.has(relativePath) || applicationShellFiles.includes(relativePath)) {
+      continue;
+    }
+    assert.ok(shellFiles.has(relativePath), `shell-foundation is missing ${relativePath}.`);
+    const [shellSource, minimalSource] = await readPair(shellRoot, minimalRoot, relativePath);
+    assert.ok(shellSource.equals(minimalSource), `${relativePath} drifted from minimal-foundation.`);
+  }
+});

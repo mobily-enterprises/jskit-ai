@@ -74,6 +74,10 @@ source files.
 `.gitignore` when copying it to an app. Managed preview identity belongs to the
 authentication surface pattern, not the shell foundation.
 
+The shell files are the `shell/application-shell` pattern's example from
+`@jskit-ai/shell-web`, and the remaining files are the minimal foundation's,
+byte for byte. Change those owners first and keep the copies identical.
+
 Read these together before adapting the shell:
 
 - `example/src/App.vue`
@@ -94,29 +98,16 @@ Do not preinstall capabilities solely because they appear in another app.
 
 ## Development warmup
 
-Keep development-server warmup limited to the selected application entry.
-Warming every page and component transforms and caches screens before they are
-visited, increasing startup work and memory as the application grows. Add a
-specific frequently used file only when a measured loading delay justifies it.
-Keep dependency optimization separate: reducing warmup does not require disabling
-the dependency scanner or JSKIT's installed-package optimization settings.
-The bootstrap plugin scans local client entries and their shared imports before
-page loading. Do not exclude local package roots from optimization: Vite already
-keeps their real paths as source, and exclusions hide their dependency imports.
-Keep the example's Vuetify component/directive includes because auto-imports are
-introduced after the initial scan.
+Keep the development-server warmup, dependency optimization, and Vuetify
+includes exactly as the
+[minimal foundation](../minimal-foundation/PATTERN.md) describes in its
+Development warmup section.
 
 ## Verification
 
-Keep the initial loading shell in `index.html`, with its critical inline styles
-and Reload link. It must not depend on JavaScript, external fonts, or framework
-components. Adapt its skeleton to the product without adding host branding.
-Vue replaces it on mount; the bootstrap failure handler retains an actionable
-error. A failed module download still leaves the static Reload link available.
-Preserve `tests/e2e/startup.spec.ts`: it holds JavaScript requests while proving
-visible loading feedback at three widths, then releases them and proves mounting.
-Run this check against the production build as part of the application's release
-verification, not only against Vite development mode.
+Keep the initial loading shell in `index.html` and preserve
+`tests/e2e/startup.spec.ts` as the minimal foundation's Verification section
+describes, including its production-build check.
 
 Install the declared packages once, run `npm run develop` for the live
 application, then run lint, server tests, client tests, the production build,

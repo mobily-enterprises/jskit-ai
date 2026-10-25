@@ -573,6 +573,8 @@ test("shell-web pattern home page relies on adaptive navigation instead of dead 
   assert.match(source, /--home-surface-panel-padding/);
   assert.doesNotMatch(source, /generated-ui/u);
   assert.match(source, /Service health/);
+  assert.match(source, /<v-skeleton-loader/u);
+  assert.doesNotMatch(source, /loading\.\.\.|v-progress-circular/u);
   assert.match(source, /to="\/home\/settings\/general"/);
   assert.doesNotMatch(source, /Use bottom navigation|Replace this content|Main public surface/);
   assert.doesNotMatch(source, /\/console/);

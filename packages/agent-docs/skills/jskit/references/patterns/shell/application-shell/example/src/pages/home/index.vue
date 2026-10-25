@@ -15,16 +15,16 @@ const healthQuery = useQuery({
 });
 
 const health = computed(() => {
-  if (healthQuery.isPending.value || healthQuery.isFetching.value) {
-    return "loading...";
-  }
-
   if (healthQuery.error.value) {
     return "unreachable";
   }
 
   return healthQuery.data.value?.ok ? "ok" : "unhealthy";
 });
+
+const healthPending = computed(
+  () => healthQuery.isPending.value || healthQuery.isFetching.value
+);
 </script>
 
 <template>
@@ -36,7 +36,13 @@ const health = computed(() => {
     <v-sheet rounded="lg" border class="home-surface-screen__panel">
       <div class="home-surface-screen__status">
         <span class="text-caption text-medium-emphasis">Service health</span>
-        <strong>{{ health }}</strong>
+        <v-skeleton-loader
+          v-if="healthPending"
+          aria-label="Loading service health"
+          class="home-surface-screen__health-skeleton"
+          type="text"
+        />
+        <strong v-else>{{ health }}</strong>
       </div>
       <v-divider vertical class="d-none d-sm-block" />
       <div class="home-surface-screen__status">
@@ -69,6 +75,10 @@ const health = computed(() => {
   display: grid;
   gap: 0.15rem;
   min-width: 9rem;
+}
+
+.home-surface-screen__health-skeleton {
+  max-width: 5rem;
 }
 
 @media (max-width: 640px) {

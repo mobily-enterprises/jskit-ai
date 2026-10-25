@@ -23,7 +23,7 @@ import { RouterView } from "vue-router";
 
 <style scoped>
 .settings-shell {
-  --settings-panel-padding: 1rem;
+  --settings-shell-panel-padding: 1rem;
 }
 
 .settings-shell__panel {
@@ -34,7 +34,7 @@ import { RouterView } from "vue-router";
   display: grid;
   gap: 1rem;
   grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
-  padding: var(--settings-panel-padding);
+  padding: var(--settings-shell-panel-padding);
 }
 
 .settings-shell__content {
