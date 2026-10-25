@@ -1,3 +1,7 @@
+/** One message carries at most this many distinct attachment IDs of bounded length. */
+export const ASSISTANT_ATTACHMENT_MAX_ITEMS = 10;
+export const ASSISTANT_ATTACHMENT_ID_MAX_LENGTH = 256;
+
 export function attachmentSizeLabel(size) {
   const bytes = Number(size);
   if (!Number.isFinite(bytes) || bytes < 0) {

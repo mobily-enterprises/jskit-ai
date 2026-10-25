@@ -14,3 +14,4 @@ export { createConversationHookBridge } from "./hookBridge.js";
 export { nativeConversationStoragePolicy } from "./nativeStorage.js";
 export { createConversationProcessIdentity } from "./localExecution.js";
 export { validateConversationOutputSchema } from "./structuredOutput.js";
+export { conversationAttachmentIds } from "./attachments.js";

@@ -2,13 +2,12 @@ import { isDeepStrictEqual } from "node:util";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
-import { ASSISTANT_STREAM_EVENT_TYPES, isAssistantProgressOnlyText } from "@jskit-ai/assistant-core/shared";
+import { conversationAttachmentIds } from "@jskit-ai/assistant-core/server/conversation";
+import { ASSISTANT_STREAM_EVENT_TYPES, MAX_HISTORY_MESSAGES, MAX_INPUT_CHARS, isAssistantProgressOnlyText } from "@jskit-ai/assistant-core/shared";
 import { exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWriter.js";
 
-const MAX_HISTORY_MESSAGES = 20;
-const MAX_INPUT_CHARS = 8000;
 const CLOCK_INSTRUCTION = "For current or relative date and time questions, first use any available authoritative workspace clock action; never infer the current date or time from model knowledge.";
 
 function normalizeConversationId(value) {
@@ -287,10 +286,8 @@ function createChatService({
       const resolvedAttachments = [];
       async function prepareAttachments(attachmentIds) {
         if (attachmentIds === undefined || (Array.isArray(attachmentIds) && !attachmentIds.length)) return;
-        if (!Array.isArray(attachmentIds) || attachmentIds.length > 10 ||
-            attachmentIds.some(id => typeof id !== "string" || !id || id.length > 256)) {
-          throw new AppError(400, "Invalid attachment identifiers.");
-        }
+        try { conversationAttachmentIds(attachmentIds); }
+        catch { throw new AppError(400, "Invalid attachment identifiers."); }
         if (!attachments?.resolve || !aiClient.supportsAttachments) {
           throw new AppError(400, "File attachments are not configured for this assistant.");
         }

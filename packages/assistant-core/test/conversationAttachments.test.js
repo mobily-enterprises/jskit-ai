@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
 import { codexLocalImageInput, codexTurnInput } from "../src/server/conversation/codexProvider.js";
-import { createConversationAttachmentReader } from "../src/server/conversation/attachments.js";
-import { conversationAttachmentManifest, prepareConversationAttachmentMessage } from "../src/shared/conversation/attachments.js";
+import { conversationAttachmentIds, createConversationAttachmentReader } from "../src/server/conversation/attachments.js";
+import { attachmentIdsField } from "../src/shared/index.js";
+import { ASSISTANT_ATTACHMENT_MAX_ITEMS as CLIENT_ATTACHMENT_MAX_ITEMS } from "../src/client/conversation/useAssistantAttachments.js";
+import { ASSISTANT_ATTACHMENT_ID_MAX_LENGTH, ASSISTANT_ATTACHMENT_MAX_ITEMS, conversationAttachmentManifest,
+  prepareConversationAttachmentMessage } from "../src/shared/conversation/attachments.js";
 
 const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN7sAAAAASUVORK5CYII=", "base64");
 const receipt = { attachmentId: "picture", fileName: "picture.png", size: image.length };
@@ -252,4 +255,15 @@ test("attachment validation displays the application's configured binary or deci
       await attachments.disposeAttachments();
     }
   }
+});
+
+test("one attachment-ID limit governs the schema field, the server check and the composer", () => {
+  assert.equal(attachmentIdsField.maxItems, ASSISTANT_ATTACHMENT_MAX_ITEMS);
+  assert.equal(attachmentIdsField.items.maxLength, ASSISTANT_ATTACHMENT_ID_MAX_LENGTH);
+  assert.equal(CLIENT_ATTACHMENT_MAX_ITEMS, ASSISTANT_ATTACHMENT_MAX_ITEMS);
+  const ids = Array.from({ length: ASSISTANT_ATTACHMENT_MAX_ITEMS }, (_, index) => `file-${index}`);
+  assert.deepEqual(conversationAttachmentIds(ids), ids);
+  assert.throws(() => conversationAttachmentIds([...ids, "one-too-many"]), { code: "conversation_invalid_attachments" });
+  assert.deepEqual(conversationAttachmentIds(["x".repeat(ASSISTANT_ATTACHMENT_ID_MAX_LENGTH)]).length, 1);
+  assert.throws(() => conversationAttachmentIds(["x".repeat(ASSISTANT_ATTACHMENT_ID_MAX_LENGTH + 1)]), { code: "conversation_invalid_attachments" });
 });

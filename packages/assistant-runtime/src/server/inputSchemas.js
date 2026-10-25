@@ -1,6 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
+import { attachmentIdsField } from "@jskit-ai/assistant-core/shared";
 
 const assistantSurfaceRouteParamsSchema = createSchema({
   surfaceId: {
@@ -65,10 +66,7 @@ const assistantConversationSendBodyValidator = deepFreeze({
   schema: createSchema({
     messageId: { type: "string", required: true, minLength: 1, maxLength: 128 },
     text: { type: "string", required: true },
-    attachmentIds: {
-      type: "array", required: false, maxItems: 10,
-      items: { type: "string", minLength: 1, maxLength: 256 }
-    },
+    attachmentIds: attachmentIdsField,
     steer: { type: "boolean", required: false }
   }),
   mode: "patch"
@@ -111,10 +109,7 @@ const assistantConversationGoalBodyValidator = deepFreeze({
     messageId: { type: "string", required: false, minLength: 1, maxLength: 128 },
     objective: { type: "string", required: false, minLength: 1, maxLength: 4000 },
     tokenBudget: { type: "integer", required: false, nullable: true, min: 1, max: Number.MAX_SAFE_INTEGER },
-    attachmentIds: {
-      type: "array", required: false, maxItems: 10,
-      items: { type: "string", minLength: 1, maxLength: 256 }
-    }
+    attachmentIds: attachmentIdsField
   }),
   mode: "replace"
 });

@@ -890,6 +890,7 @@ Exports
 - `nativeConversationStoragePolicy`
 - `createConversationProcessIdentity`
 - `validateConversationOutputSchema`
+- `conversationAttachmentIds`
 
 ### `src/server/conversation/localExecution.js`
 Exports
@@ -1518,6 +1519,7 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
 - `MAX_MESSAGE_PAGE_SIZE`
+- `attachmentIdsField`
 - `assistantResource`
 - `assistantConversationOutputValidator`
 
@@ -1553,6 +1555,8 @@ Exports
 - `attachmentSizeLabel(size)`
 - `conversationAttachmentManifest(attachments = [])`
 - `prepareConversationAttachmentMessage(input, attachments, displayAttachments)`
+- `ASSISTANT_ATTACHMENT_MAX_ITEMS`
+- `ASSISTANT_ATTACHMENT_ID_MAX_LENGTH`
 
 ### `src/shared/conversation/index.js`
 Exports
@@ -1669,6 +1673,7 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_HISTORY_MESSAGES`
 - `MAX_MESSAGE_PAGE_SIZE`
+- `attachmentIdsField`
 - `assistantResource`
 - `assistantConversationOutputValidator`
 - `MAX_SYSTEM_PROMPT_CHARS`

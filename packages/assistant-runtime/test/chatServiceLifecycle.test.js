@@ -543,3 +543,15 @@ test("application-authorized attachments reach the model and survive transcript 
   const legacy = createHarness([textCompletion("Must not run")], { attachments, supportsAttachments: false });
   await assert.rejects(legacy.run("Read this", { attachmentIds: ["file-one"] }), /not configured/);
 });
+
+test("attachment identifiers use the conversation runtime's shape before any file is resolved", async () => {
+  const calls = [];
+  const attachments = { async resolve(request) { calls.push(request); return { attachments: [], content: [] }; } };
+  for (const attachmentIds of [["file-one", "file-one"], ["  "], Array.from({ length: 11 }, (_, index) => `file-${index}`)]) {
+    const harness = createHarness([textCompletion("Must not run")], { attachments });
+    await assert.rejects(harness.run("Read this", { attachmentIds }), error =>
+      error.status === 400 && /Invalid attachment identifiers/u.test(error.message));
+    assert.deepEqual(harness.completionRequests, []);
+  }
+  assert.deepEqual(calls, []);
+});

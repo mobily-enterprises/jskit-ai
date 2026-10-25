@@ -1,12 +1,13 @@
 import path from "node:path";
-import { conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
+import { ASSISTANT_ATTACHMENT_ID_MAX_LENGTH, ASSISTANT_ATTACHMENT_MAX_ITEMS, conversationAttachmentManifest } from "../../shared/conversation/attachments.js";
 
 function invalid(message) {
   return Object.assign(new Error(message), { code: "conversation_invalid_attachments", statusCode: 400 });
 }
 
 export function conversationAttachmentIds(value = []) {
-  if (!Array.isArray(value) || value.length > 10 || value.some(id => typeof id !== "string" || !id.trim() || id.length > 256) ||
+  if (!Array.isArray(value) || value.length > ASSISTANT_ATTACHMENT_MAX_ITEMS ||
+      value.some(id => typeof id !== "string" || !id.trim() || id.length > ASSISTANT_ATTACHMENT_ID_MAX_LENGTH) ||
       new Set(value).size !== value.length) {
     throw invalid("Attachments require at most ten distinct, nonempty attachment IDs.");
   }

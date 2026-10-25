@@ -7,6 +7,7 @@ import {
   toValue,
   watch
 } from "vue";
+import { ASSISTANT_ATTACHMENT_MAX_ITEMS } from "../../shared/conversation/attachments.js";
 
 function assistantAttachmentSessionId(sessionId) {
   return String(toValue(sessionId) || "").trim();
@@ -102,7 +103,6 @@ function attachmentIdentity(attachment = {}) {
 }
 
 const ASSISTANT_ATTACHMENT_MAX_BYTES = 100_000_000;
-const ASSISTANT_ATTACHMENT_MAX_ITEMS = 10;
 const ASSISTANT_ATTACHMENT_UPLOAD_CONCURRENCY = 2;
 const ASSISTANT_ATTACHMENT_UNRESOLVED_PHASES = new Set([
   "preparing",
