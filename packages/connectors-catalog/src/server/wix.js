@@ -29,9 +29,8 @@ function bookingDirectoryOperation(kind) {
     scopes: [],
     request(input, settings) {
       const cursorPaging = validateSchemaPayload({ schema: querySchema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       return { method: "POST", url: staff ? "https://www.wixapis.com/bookings/v1/staff-members/query" : "https://www.wixapis.com/bookings/v2/categories/query",
-        headers: { "wix-site-id": settings.siteId }, body: {
+        body: {
           query: { cursorPaging, sort: [{ fieldName: "id", order: "ASC" }], ...(staff ? { filter: { serviceProvider: true } } : {}) },
           ...(staff ? { fields: ["RESOURCE_DETAILS"] } : {})
         } };
@@ -70,14 +69,13 @@ function contactOperation(action) {
     scopes: [],
     request(input, settings) {
       const { contactId, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the project's Wix Site ID first.", { statusCode: 422 });
       if (action !== "get" && (!Object.keys(body.info).length || (action === "create" &&
           !(body.info.name?.first || body.info.name?.last || body.info.emails?.items?.length || body.info.phones?.items?.length)))) {
         throw new ConnectorError("connector_input_invalid", "Provide contact details; creation requires a name, email or phone.", { statusCode: 422 });
       }
       return { method: action === "get" ? "GET" : action === "create" ? "POST" : "PATCH",
         url: `https://www.wixapis.com/contacts/v4/contacts${contactId ? `/${contactId}` : ""}`,
-        headers: { "wix-site-id": settings.siteId }, ...(action === "get" ? {} : { body }) };
+        ...(action === "get" ? {} : { body }) };
     },
     validateResult: value => validContact(value?.contact)
   };
@@ -151,7 +149,6 @@ function availabilityOperation(action, events = false) {
     scopes: [],
     request(input, settings) {
       const { limit, cursor: next, ...body } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       if (next && Object.keys(body).length) throw new ConnectorError("connector_input_invalid", "Use only cursor and limit for the next availability page.", { statusCode: 422 });
       if (body.customerChoices && !Object.keys(body.customerChoices).length) throw new ConnectorError("connector_input_invalid", "Select a duration or add-ons before supplying customer choices.", { statusCode: 422 });
       if (!next && (!body.serviceId || !body.timeZone || (action === "list" ? !body.fromLocalDate || !body.toLocalDate || body.fromLocalDate >= body.toLocalDate : body.localStartDate >= body.localEndDate))) {
@@ -161,7 +158,7 @@ function availabilityOperation(action, events = false) {
       if (locations.some(location => location.locationType === "BUSINESS" && !location.id)) throw new ConnectorError("connector_input_invalid", "Choose the business location ID.", { statusCode: 422 });
       const { serviceId, ...eventBody } = body;
       return { method: "POST", url: `https://www.wixapis.com/_api/service-availability/v2/time-slots${events ? "/event" : action === "get" ? "/get" : ""}`,
-        headers: { "wix-site-id": settings.siteId }, body: action === "get" ? body : next ? { cursorPaging: { limit, cursor: next } } : { ...(events ? { ...eventBody, serviceIds: [serviceId], includeNonBookable: false } : { ...body, bookable: true }), cursorPaging: { limit } } };
+        body: action === "get" ? body : next ? { cursorPaging: { limit, cursor: next } } : { ...(events ? { ...eventBody, serviceIds: [serviceId], includeNonBookable: false } : { ...body, bookable: true }), cursorPaging: { limit } } };
     },
     validateResult: value => typeof value?.timeZone === "string" && (action === "get" ? validSlot(value.timeSlot) :
       Array.isArray(value.timeSlots) && value.timeSlots.length <= 1000 && value.timeSlots.every(slot => validSlot(slot) && (!events || typeof slot.eventInfo?.eventId === "string" && slot.eventInfo.eventId.length >= 36 && slot.eventInfo.eventId.length <= 250)) &&
@@ -189,11 +186,10 @@ function productReadOperation(version, action) {
     scopes: [],
     request(input, settings) {
       const value = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       const base = version === 1 ? "https://www.wixapis.com/stores-reader/v1/products" : "https://www.wixapis.com/stores/v3/products";
-      if (action === "get") return { method: "GET", url: `${base}/${value.productId}`, headers: { "wix-site-id": settings.siteId } };
+      if (action === "get") return { method: "GET", url: `${base}/${value.productId}` };
       const { includeVariants, ...paging } = value;
-      return { method: "POST", url: `${base}/query`, headers: { "wix-site-id": settings.siteId },
+      return { method: "POST", url: `${base}/query`,
         body: version === 1 ? { query: { paging }, includeVariants } : { query: { cursorPaging: paging } } };
     },
     validateResult: value => action === "get" ? validProduct(value?.product) : Array.isArray(value?.products) && value.products.length <= 100 && value.products.every(validProduct) &&
@@ -309,7 +305,6 @@ function locationWriteOperation(action) {
     scopes: [],
     request(input, settings) {
       const { locationId, ...location } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       if (!Object.keys(location.address).length) throw new ConnectorError("connector_input_invalid", "Provide the location address.", { statusCode: 422 });
       if (location.businessSchedule && (["periods", "specialHourPeriod"].some(key => location.businessSchedule[key] !== undefined &&
           (!Array.isArray(location.businessSchedule[key]) || location.businessSchedule[key].length > 100)) ||
@@ -317,7 +312,7 @@ function locationWriteOperation(action) {
         throw new ConnectorError("connector_input_invalid", "Use native businessSchedule periods and specialHourPeriod arrays with at most 100 entries each.", { statusCode: 422 });
       }
       return { method: action === "create" ? "POST" : "PUT", url: `https://www.wixapis.com/locations/v1/locations${locationId ? `/${locationId}` : ""}`,
-        headers: { "wix-site-id": settings.siteId }, body: { location: { ...(locationId ? { id: locationId } : {}), ...location } } };
+        body: { location: { ...(locationId ? { id: locationId } : {}), ...location } } };
     },
     validateResult: value => validLocation(value?.location) && typeof value.location.revision === "string" && /^\d{1,19}$/u.test(value.location.revision)
   };
@@ -328,9 +323,8 @@ function locationActionOperation(action) {
     scopes: [],
     request(input, settings) {
       const { locationId } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       return { method: "POST", url: `https://www.wixapis.com/locations/v1/locations/${locationId}/${action}`,
-        headers: { "wix-site-id": settings.siteId }, body: {} };
+        body: {} };
     },
     validateResult: value => validLocation(value?.location) && (action === "archive" ? value.location.archived === true : value.location.default === true)
   };
@@ -455,10 +449,9 @@ function bookingConfirmationOperation(action) {
     scopes: [],
     request(input, settings) {
       const { bookingId, paymentStatus, revision, notifyParticipants, message } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       if (message !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422 });
       return { method: "POST", url: automatic ? `https://www.wixapis.com/bookings/v2/confirmation/${bookingId}:confirmOrDecline` :
-        `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/${action}`, headers: { "wix-site-id": settings.siteId },
+        `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/${action}`,
         body: automatic ? { paymentStatus } : { revision, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
     },
     validateResult: value => guid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
@@ -487,7 +480,6 @@ function fulfillmentWriteOperation(update) {
     scopes: [],
     request(input, settings) {
       const { orderId, fulfillmentId, ...fulfillment } = validateSchemaPayload({ schema, mode: "replace" }, input, { statusCode: 422 });
-      if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
       if (!Object.keys(fulfillment).length || fulfillment.trackingInfo && !Object.keys(fulfillment.trackingInfo).length) {
         throw new ConnectorError("connector_input_invalid", "Supply the fulfillment properties to write.", { statusCode: 422 });
       }
@@ -499,7 +491,7 @@ function fulfillmentWriteOperation(update) {
       return { method: update ? "PATCH" : "POST", url: update
         ? `https://www.wixapis.com/ecom/v1/fulfillments/${fulfillmentId}/orders/${encodeURIComponent(orderId)}`
         : `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}/create-fulfillment`,
-        headers: { "wix-site-id": settings.siteId }, body: { fulfillment } };
+        body: { fulfillment } };
     },
     validateResult: value => typeof value?.orderWithFulfillments?.orderId === "string" && Array.isArray(value.orderWithFulfillments.fulfillments) &&
       value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
@@ -594,8 +586,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { note, catalogItems } = validateSchemaPayload({ schema: cartCreateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "POST", url: "https://www.wixapis.com/ecom/v2/carts", headers: { "wix-site-id": settings.siteId },
+        return { method: "POST", url: "https://www.wixapis.com/ecom/v2/carts",
           body: { cart: { source: { channelType: "WEB" }, ...(note === undefined ? {} : { note }) }, catalogItems } };
       },
       validateResult: value => guid(value?.cart?.id) && Array.isArray(value.cart.lineItems) && value.cart.lineItems.length <= 300 &&
@@ -605,8 +596,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { cartId } = validateSchemaPayload({ schema: cartIdSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "POST", url: `https://www.wixapis.com/ecom/v2/carts/${cartId}/get-checkout-url`, headers: { "wix-site-id": settings.siteId }, body: {} };
+        return { method: "POST", url: `https://www.wixapis.com/ecom/v2/carts/${cartId}/get-checkout-url`, body: {} };
       },
       validateResult(value) {
         if (typeof value?.checkoutUrl !== "string" || value.checkoutUrl.length > 8000 || /[\p{Cc}]/u.test(value.checkoutUrl)) return false;
@@ -617,7 +607,6 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { bookingId, revision, slot, notifyParticipants, message } = validateSchemaPayload({ schema: bookingRescheduleSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if (message !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422 });
         if (slot.eventId !== undefined) {
           if (Object.keys(slot).length !== 1 || typeof slot.eventId !== "string" || slot.eventId.length < 36 || slot.eventId.length > 250 || /[\p{Cc}]/u.test(slot.eventId)) {
@@ -630,7 +619,7 @@ const wixRuntime = {
             throw new ConnectorError("connector_input_invalid", "For an appointment, supply its service/schedule IDs, increasing local slot dates and IANA timezone. Courses cannot be rescheduled.", { statusCode: 422 });
           }
         }
-        return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/reschedule`, headers: { "wix-site-id": settings.siteId },
+        return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/reschedule`,
           body: { revision, slot, participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
       },
       validateResult: value => guid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
@@ -643,9 +632,8 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const value = validateSchemaPayload({ schema: serviceIdSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services/add-on-groups/list-add-on-groups-by-service-id",
-          headers: { "wix-site-id": settings.siteId }, body: value };
+          body: value };
       },
       validateResult: value => Array.isArray(value?.addOnGroupsDetails) && value.addOnGroupsDetails.length <= 3 &&
         value.addOnGroupsDetails.every(group => guid(group?.groupId) && typeof group.groupName === "string" &&
@@ -656,8 +644,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { serviceId } = validateSchemaPayload({ schema: serviceIdSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: `https://www.wixapis.com/bookings/v1/serviceOptionsAndVariants/service_id/${serviceId}`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/bookings/v1/serviceOptionsAndVariants/service_id/${serviceId}` };
       },
       validateResult(value) {
         const variants = value?.serviceVariants;
@@ -673,7 +660,6 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { serviceId, locations, removedLocationAction: action, moveToLocation, notifyParticipants, notificationMessage } = validateSchemaPayload({ schema: setServiceLocationsSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if ((action === "MOVE_TO_LOCATION") !== (moveToLocation !== undefined)) throw new ConnectorError("connector_input_invalid", "Provide a destination only when moving future sessions.", { statusCode: 422 });
         if (notificationMessage !== undefined && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification before supplying a message.", { statusCode: 422 });
         for (const location of [...locations, ...(moveToLocation ? [moveToLocation] : [])]) {
@@ -683,7 +669,7 @@ const wixRuntime = {
             throw new ConnectorError("connector_input_invalid", "Supply the details matching each service location type.", { statusCode: 422 });
           }
         }
-        return { method: "POST", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}/locations`, headers: { "wix-site-id": settings.siteId }, body: {
+        return { method: "POST", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}/locations`, body: {
           locations, removedLocationSessionsAction: { action, ...(moveToLocation ? { moveToLocationOptions: { newLocation: moveToLocation } } : {}) },
           participantNotification: { notifyParticipants, ...(notificationMessage !== undefined ? { message: notificationMessage } : {}) }
         } };
@@ -695,7 +681,6 @@ const wixRuntime = {
       request(input, settings) {
         const { service } = validateSchemaPayload({ schema: serviceCreateSchema, mode: "replace" }, input, { statusCode: 422 });
         const invalid = message => { throw new ConnectorError("connector_input_invalid", message, { statusCode: 422 }); };
-        if (!guid(settings.siteId)) invalid("Configure the Wix Site ID first.");
         if (!["APPOINTMENT", "CLASS", "COURSE"].includes(service.type) || typeof service.name !== "string" || !service.name.trim() || service.name.length > 400) invalid("Provide a service type and name of up to 400 characters.");
         if (["id", "revision", "createdByAppId", "createdDate", "updatedDate", "addOnGroups"].some(key => Object.hasOwn(service, key))) invalid("Do not send generated service identity fields or existing add-on groups when creating a service.");
         if (!Number.isInteger(service.defaultCapacity) || service.defaultCapacity < 1 || service.defaultCapacity > 1000 || service.type === "APPOINTMENT" && service.defaultCapacity !== 1) invalid("Set appointment capacity to 1, or class/course capacity from 1 to 1000.");
@@ -718,7 +703,7 @@ const wixRuntime = {
           if (!Array.isArray(service.staffMemberIds) || !service.staffMemberIds.length || !service.staffMemberIds.every(guid)) invalid("Select at least one staff resource ID for the appointment service.");
           if (!Array.isArray(durations) || !durations.length || !durations.every(value => Number.isInteger(value) && value > 0)) invalid("Provide appointment session durations in minutes.");
         } else if (durations !== undefined) invalid("Class/course session durations belong to their sessions, not service availability constraints.");
-        return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services", headers: { "wix-site-id": settings.siteId }, body: { service } };
+        return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services", body: { service } };
       },
       validateResult: value => validService(value?.service)
     },
@@ -726,10 +711,9 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { collectionId: dataCollectionId, itemId, consistentRead } = validateSchemaPayload({ schema: cmsItemGetSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         const url = new URL(`https://www.wixapis.com/wix-data/v2/items/${encodeURIComponent(itemId)}`);
         url.searchParams.set("dataCollectionId", dataCollectionId); url.searchParams.set("consistentRead", String(consistentRead));
-        return { method: "GET", url: url.href, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: url.href };
       },
       validateResult: value => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data)
     },
@@ -737,8 +721,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { collectionId: dataCollectionId, itemId, fieldModifications, conditionFilter } = validateSchemaPayload({ schema: cmsItemPatchSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "PATCH", url: `https://www.wixapis.com/wix-data/v2/items/${encodeURIComponent(itemId)}`, headers: { "wix-site-id": settings.siteId },
+        return { method: "PATCH", url: `https://www.wixapis.com/wix-data/v2/items/${encodeURIComponent(itemId)}`,
           body: { dataCollectionId, patch: { dataItemId: itemId, fieldModifications }, ...(conditionFilter !== undefined ? { condition: { filter: conditionFilter } } : {}) } };
       },
       validateResult: value => value?.dataItem?.data && typeof value.dataItem.data === "object" && !Array.isArray(value.dataItem.data)
@@ -747,8 +730,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { collectionId: dataCollectionId, consistentRead, filter, sort, fields, returnTotalCount, includeReferences, ...paging } = validateSchemaPayload({ schema: cmsItemQuerySchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "POST", url: "https://www.wixapis.com/wix-data/v2/items/query", headers: { "wix-site-id": settings.siteId },
+        return { method: "POST", url: "https://www.wixapis.com/wix-data/v2/items/query",
           body: { dataCollectionId, consistentRead,
             ...(returnTotalCount !== undefined ? { returnTotalCount } : {}), ...(includeReferences !== undefined ? { includeReferences } : {}),
             query: { paging, ...(filter !== undefined ? { filter } : {}), ...(sort !== undefined ? { sort } : {}), ...(fields !== undefined ? { fields } : {}) } } };
@@ -761,11 +743,10 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const value = validateSchemaPayload({ schema: collectionListSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         const url = new URL("https://www.wixapis.com/wix-data/v2/collections");
         url.searchParams.set("paging.limit", String(value.limit)); url.searchParams.set("paging.offset", String(value.offset));
         url.searchParams.set("consistentRead", String(value.consistentRead));
-        return { method: "GET", url: url.href, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: url.href };
       },
       validateResult: value => Array.isArray(value?.collections) && value.collections.length <= 100 && value.collections.every(validCollection) &&
         (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata))
@@ -774,9 +755,8 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const value = validateSchemaPayload({ schema: collectionGetSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         const id = value.collectionId.split("/").map(encodeURIComponent).join("/");
-        return { method: "GET", url: `https://www.wixapis.com/wix-data/v2/collections/${id}?consistentRead=${value.consistentRead}`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/wix-data/v2/collections/${id}?consistentRead=${value.consistentRead}` };
       },
       validateResult: value => validCollection(value?.collection)
     },
@@ -788,8 +768,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { archived, ...paging } = validateSchemaPayload({ schema: locationQuerySchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "POST", url: "https://www.wixapis.com/locations/v1/locations/query", headers: { "wix-site-id": settings.siteId },
+        return { method: "POST", url: "https://www.wixapis.com/locations/v1/locations/query",
           body: { query: { filter: { archived }, paging }, filterAuthorizedLocationEntities: true } };
       },
       validateResult: value => Array.isArray(value?.locations) && value.locations.length <= 100 && value.locations.every(validLocation) &&
@@ -800,8 +779,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { locationId } = validateSchemaPayload({ schema: locationGetSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: `https://www.wixapis.com/locations/v1/locations/${locationId}`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/locations/v1/locations/${locationId}` };
       },
       validateResult: value => validLocation(value?.location)
     },
@@ -811,10 +789,9 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { productId, price, ...changes } = validateSchemaPayload({ schema: productV1UpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if (!Object.keys(changes).length && price === undefined) throw new ConnectorError("connector_input_invalid", "Provide a product name, visibility or base-price change.", { statusCode: 422 });
         return { method: "PATCH", url: `https://www.wixapis.com/stores/v1/products/${productId}`,
-          headers: { "wix-site-id": settings.siteId }, body: { product: { ...changes, ...(price === undefined ? {} : { priceData: { price } }) } } };
+          body: { product: { ...changes, ...(price === undefined ? {} : { priceData: { price } }) } } };
       },
       validateResult: value => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0
     },
@@ -824,10 +801,9 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { productId, revision, ...changes } = validateSchemaPayload({ schema: productV3UpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if (!Object.keys(changes).length) throw new ConnectorError("connector_input_invalid", "Provide a product name or visibility change.", { statusCode: 422 });
         return { method: "PATCH", url: `https://www.wixapis.com/stores/v3/products/${productId}`,
-          headers: { "wix-site-id": settings.siteId }, body: { product: { id: productId, revision, ...changes } } };
+          body: { product: { id: productId, revision, ...changes } } };
       },
       validateResult: value => guid(value?.product?.id) && typeof value.product.name === "string" && value.product.name.length > 0 &&
         typeof value.product.revision === "string" && /^\d{1,19}$/u.test(value.product.revision) && BigInt(value.product.revision) <= 9223372036854775807n
@@ -836,18 +812,16 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         validateSchemaPayload({ schema: catalogVersionSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: "https://www.wixapis.com/stores/v3/provision/version", headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: "https://www.wixapis.com/stores/v3/provision/version" };
       }, validateResult: value => ["V1_CATALOG", "V3_CATALOG", "STORES_NOT_INSTALLED"].includes(value?.catalogVersion)
     },
     "orders.list": {
       scopes: [],
       request(input, settings) {
         const { status, contactId, ...cursorPaging } = validateSchemaPayload({ schema: orderSearchSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if (cursorPaging.cursor && (status || contactId)) throw new ConnectorError("connector_input_invalid", "Use only cursor and limit for the next order page.", { statusCode: 422 });
         const filter = { ...(status ? { status } : {}), ...(contactId ? { "buyerInfo.contactId": contactId } : {}) };
-        return { method: "POST", url: "https://www.wixapis.com/ecom/v1/orders/search", headers: { "wix-site-id": settings.siteId },
+        return { method: "POST", url: "https://www.wixapis.com/ecom/v1/orders/search",
           body: { search: { cursorPaging, ...(Object.keys(filter).length ? { filter } : {}) } } };
       },
       validateResult: value => Array.isArray(value?.orders) && value.orders.length <= 100 && value.orders.every(validOrder) &&
@@ -861,8 +835,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { orderId } = validateSchemaPayload({ schema: orderIdSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: `https://www.wixapis.com/ecom/v1/orders/${encodeURIComponent(orderId)}`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/ecom/v1/orders/${encodeURIComponent(orderId)}` };
       }, validateResult: value => validOrder(value?.order)
     },
     "orderFulfillments.create": fulfillmentWriteOperation(false),
@@ -871,8 +844,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { orderId } = validateSchemaPayload({ schema: orderIdSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/ecom/v1/fulfillments/orders/${encodeURIComponent(orderId)}` };
       },
       validateResult: value => guid(value?.orderWithFulfillments?.orderId) && Array.isArray(value.orderWithFulfillments.fulfillments) &&
         value.orderWithFulfillments.fulfillments.every(item => guid(item?.id) && Array.isArray(item.lineItems) && item.lineItems.length <= 300 &&
@@ -883,18 +855,16 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { eventId, timeZone } = validateSchemaPayload({ schema: eventSlotSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         const url = new URL(`https://www.wixapis.com/_api/service-availability/v2/time-slots/event/${encodeURIComponent(eventId)}`);
         url.searchParams.set("timeZone", timeZone);
-        return { method: "GET", url: url.href, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: url.href };
       }, validateResult: value => validSlot(value?.timeSlot) && typeof value.timeSlot.eventInfo?.eventId === "string" && typeof value.timeZone === "string"
     },
     "forms.summary": {
       scopes: [],
       request(input, settings) {
         const { formId } = validateSchemaPayload({ schema: formSummarySchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: `https://www.wixapis.com/form-schema-service/v4/forms/${formId}/summary`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/form-schema-service/v4/forms/${formId}/summary` };
       },
       validateResult: value => guid(value?.formSummary?.id) && Array.isArray(value.formSummary.fields) && value.formSummary.fields.length <= 500 &&
         value.formSummary.fields.every(field => guid(field?.id) && typeof field.target === "string" && field.target.length > 0 && field.target.length <= 200 &&
@@ -905,7 +875,6 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const value = validateSchemaPayload({ schema: bookingCreateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         const { kind, serviceId, timeZone, startDate, endDate, eventId, scheduleId, resourceId, location, totalParticipants, participantsChoices, bookedAddOns, formSubmission, notifyParticipants, sendSmsReminder } = value;
         if (participantsChoices) {
           if (totalParticipants !== undefined) throw new ConnectorError("connector_input_invalid", "Use participant choices or a fixed participant total, not both.", { statusCode: 422 });
@@ -922,7 +891,7 @@ const wixRuntime = {
         if (location?.locationType === "OWNER_BUSINESS" && !location.id) throw new ConnectorError("connector_input_invalid", "Choose the business location ID.", { statusCode: 422 });
         const bookedEntity = kind === "COURSE" ? { schedule: { scheduleId, serviceId, timezone: timeZone } } :
           { slot: { serviceId, timezone: timeZone, ...(kind === "CLASS" ? { eventId } : { startDate, endDate, resource: { id: resourceId }, location }) } };
-        return { method: "POST", url: "https://www.wixapis.com/_api/bookings-service/v2/bookings", headers: { "wix-site-id": settings.siteId },
+        return { method: "POST", url: "https://www.wixapis.com/_api/bookings-service/v2/bookings",
           body: { booking: { bookedEntity, ...(participantsChoices ? { participantsChoices } : { totalParticipants: totalParticipants ?? 1 }),
             ...(bookedAddOns ? { bookedAddOns } : {}) }, formSubmission, participantNotification: { notifyParticipants }, sendSmsReminder } };
       },
@@ -935,9 +904,8 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { bookingId, ...paging } = validateSchemaPayload({ schema: bookingQuerySchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         return { method: "POST", url: "https://www.wixapis.com/_api/bookings-reader/v2/extended-bookings/query",
-          headers: { "wix-site-id": settings.siteId }, body: { query: { paging, ...(bookingId ? { filter: { id: bookingId } } : {}) }, withBookingAllowedActions: true } };
+          body: { query: { paging, ...(bookingId ? { filter: { id: bookingId } } : {}) }, withBookingAllowedActions: true } };
       },
       validateResult: value => Array.isArray(value?.extendedBookings) && value.extendedBookings.length <= 100 && value.extendedBookings.every(record =>
         guid(record?.booking?.id) && typeof record.booking.revision === "string" && /^\d{1,19}$/u.test(record.booking.revision) && BigInt(record.booking.revision) <= 9223372036854775807n &&
@@ -952,10 +920,9 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { bookingId, revision, notifyParticipants, message, waiveCharges } = validateSchemaPayload({ schema: bookingCancelSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if (message && !notifyParticipants) throw new ConnectorError("connector_input_invalid", "Enable participant notification to send a cancellation message.", { statusCode: 422 });
         return { method: "POST", url: `https://www.wixapis.com/_api/bookings-service/v2/bookings/${bookingId}/cancel`,
-          headers: { "wix-site-id": settings.siteId }, body: { revision, waiveCharges,
+          body: { revision, waiveCharges,
             participantNotification: { notifyParticipants, ...(message === undefined ? {} : { message }) } } };
       },
       validateResult: value => guid(value?.booking?.id) && value.booking.status === "CANCELED" &&
@@ -965,8 +932,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const paging = validateSchemaPayload({ schema: servicePagingSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services/query", headers: { "wix-site-id": settings.siteId }, body: { query: { paging } } };
+        return { method: "POST", url: "https://www.wixapis.com/_api/bookings/v2/services/query", body: { query: { paging } } };
       },
       validateResult: value => Array.isArray(value?.services) && value.services.length <= 100 && value.services.every(validService) &&
         (value.pagingMetadata === undefined || value.pagingMetadata && typeof value.pagingMetadata === "object" && !Array.isArray(value.pagingMetadata) &&
@@ -977,21 +943,19 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { serviceId } = validateSchemaPayload({ schema: serviceIdSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
-        return { method: "GET", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}`, headers: { "wix-site-id": settings.siteId } };
+        return { method: "GET", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}` };
       }, validateResult: value => validService(value?.service)
     },
     "bookingServices.update": {
       scopes: [],
       request(input, settings) {
         const { serviceId, ...service } = validateSchemaPayload({ schema: serviceUpdateSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
         if (Object.keys(service).length < 2) throw new ConnectorError("connector_input_invalid", "Choose a service field to update.", { statusCode: 422 });
         if (["payment", "onlineBooking"].some(key => service[key] !== undefined && !Object.keys(service[key]).length) ||
             service.schedule && !Object.keys(service.schedule.availabilityConstraints).length) {
           throw new ConnectorError("connector_input_invalid", "Provide the selected service settings instead of an empty object.", { statusCode: 422 });
         }
-        return { method: "PATCH", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}`, headers: { "wix-site-id": settings.siteId }, body: { service: { id: serviceId, ...service } } };
+        return { method: "PATCH", url: `https://www.wixapis.com/_api/bookings/v2/services/${serviceId}`, body: { service: { id: serviceId, ...service } } };
       }, validateResult: value => validService(value?.service)
     },
     "contacts.get": contactOperation("get"),
@@ -1001,9 +965,7 @@ const wixRuntime = {
       scopes: [],
       request(input, settings) {
         const { search, ...paging } = validateSchemaPayload({ schema: contactsSchema, mode: "replace" }, input, { statusCode: 422 });
-        if (!guid(settings.siteId)) throw new ConnectorError("connector_input_invalid", "Configure the project's Wix Site ID before querying contacts.", { statusCode: 422 });
         return { method: "POST", url: "https://www.wixapis.com/contacts/v4/contacts/query",
-          headers: { "wix-site-id": settings.siteId },
           body: { query: { paging }, ...(search === undefined ? {} : { search }) } };
       },
       validateResult: value => Array.isArray(value?.contacts) && value.contacts.length <= 100 &&
@@ -1028,16 +990,20 @@ const wixRuntime = {
     }
   }
  };
+// Every operation except sites.list addresses one site: this resolves it, requires it and sends it.
 function wixSiteOperation(operation) {
   return {
     ...operation,
     request(input, settings) {
-      if (!input || !Object.hasOwn(input, "siteId")) return operation.request(input, settings);
-      const { siteId, ...values } = input;
-      if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Choose a valid Wix Site ID.", { statusCode: 422 });
-      const allowed = (settings.selectableSiteIds || "").split(",").map(id => id.trim().toLowerCase());
-      if (!allowed.includes(siteId.toLowerCase())) throw new ConnectorError("connector_input_invalid", "This site is not enabled in the project's Selectable Site IDs.", { statusCode: 422 });
-      return operation.request(values, { ...settings, siteId });
+      let siteId = settings.siteId, values = input;
+      if (input && Object.hasOwn(input, "siteId")) {
+        ({ siteId, ...values } = input);
+        if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Choose a valid Wix Site ID.", { statusCode: 422 });
+        const allowed = (settings.selectableSiteIds || "").split(",").map(id => id.trim().toLowerCase());
+        if (!allowed.includes(siteId.toLowerCase())) throw new ConnectorError("connector_input_invalid", "This site is not enabled in the project's Selectable Site IDs.", { statusCode: 422 });
+      } else if (!guid(siteId)) throw new ConnectorError("connector_input_invalid", "Configure the Wix Site ID first.", { statusCode: 422 });
+      const request = operation.request(values, { ...settings, siteId });
+      return { ...request, headers: { ...request.headers, "wix-site-id": siteId } };
     }
   };
 }

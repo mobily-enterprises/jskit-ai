@@ -1097,3 +1097,14 @@ test("Wix fulfillment writes preserve explicit quantities and partial tracking u
   await assert.rejects(service.invoke(call));
   assert.equal(requests.length, count + 1);
 });
+
+test("every site operation requires one resolved Site ID and sends it as wix-site-id", () => {
+  for (const [name, operation] of Object.entries(provider.operations)) {
+    if (name === "sites.list") continue;
+    assert.throws(() => operation.request({}, { accountId }), { code: "connector_input_invalid", statusCode: 422, message: "Configure the Wix Site ID first." }, name);
+  }
+  assert.equal(provider.operations["catalog.version"].request({}, { accountId, siteId }).headers["wix-site-id"], siteId);
+  const selectable = { accountId, siteId, selectableSiteIds: `${siteId}, ${accountId}` };
+  assert.equal(provider.operations["catalog.version"].request({ siteId: accountId }, selectable).headers["wix-site-id"], accountId);
+  assert.equal(provider.operations["sites.list"].request({}, { accountId }).headers, undefined);
+});
