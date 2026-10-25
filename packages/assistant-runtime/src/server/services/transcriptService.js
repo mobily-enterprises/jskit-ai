@@ -2,12 +2,12 @@ import { AppError, parsePositiveInteger } from "@jskit-ai/kernel/server/runtime"
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeConversationStatus } from "@jskit-ai/assistant-core/shared";
+import { DEFAULT_CONVERSATION_TITLE } from "../../shared/assistantRuntimeConfig.js";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 200;
 const DEFAULT_MESSAGES_PAGE_SIZE = 200;
 const MAX_MESSAGES_PAGE_SIZE = 500;
-const DEFAULT_CONVERSATION_TITLE = "New conversation";
 const MAX_CONVERSATION_TITLE_LENGTH = 80;
 
 function resolveWorkspaceId(workspace, { required = false } = {}) {
@@ -141,58 +141,6 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
     };
   }
 
-  async function appendMessage(assistantSurface, conversationId, payload = {}, options = {}) {
-    const resolvedAssistantSurface = requireAssistantSurface(assistantSurface);
-    const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
-    if (!normalizedConversationId) {
-      throw new TypeError("appendMessage requires conversationId.");
-    }
-
-    const source = normalizeObject(payload);
-    const context = normalizeObject(options.context);
-    const actorUserId = normalizeRecordId(source.actorUserId, { fallback: null }) || resolveActorUserId(context.actor);
-    const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);
-    return conversationsRepository.transaction(async trx => {
-      const conversation = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
-        workspaceId,
-        actorUserId,
-        surfaceId: resolvedAssistantSurface.targetSurfaceId
-      }, { trx, forUpdate: true });
-      if (!conversation) {
-        throw new AppError(404, "Conversation not found.");
-      }
-
-      const createdMessage = await messagesRepository.create({
-        conversationId: normalizedConversationId,
-        workspaceId: conversation.workspaceId,
-        role: normalizeText(source.role).toLowerCase(),
-        kind: normalizeText(source.kind).toLowerCase() || "chat",
-        clientMessageSid: normalizeText(source.clientMessageSid),
-        actorUserId,
-        contentText: source.contentText == null ? null : String(source.contentText),
-        metadata: normalizeObject(source.metadata)
-      }, { trx });
-
-      await conversationsRepository.updateById(normalizedConversationId, { messageCount: conversation.messageCount + 1 }, { trx });
-
-      const messageRole = normalizeText(source.role).toLowerCase();
-      const messageKind = normalizeText(source.kind).toLowerCase() || "chat";
-      if (messageRole === "user" && messageKind === "chat" && isDefaultConversationTitle(conversation.title)) {
-        const derivedTitle = deriveConversationTitleFromMessage(source.contentText);
-        if (derivedTitle) {
-          await conversationsRepository.updateById(normalizedConversationId, {
-            title: derivedTitle
-          }, { trx });
-        }
-      }
-
-      return {
-        conversationId: normalizedConversationId,
-        message: createdMessage
-      };
-    });
-  }
-
   async function completeConversation(assistantSurface, conversationId, payload = {}, options = {}) {
     const resolvedAssistantSurface = requireAssistantSurface(assistantSurface);
     const normalizedConversationId = normalizeRecordId(conversationId, { fallback: null });
@@ -323,7 +271,6 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
 
   return Object.freeze({
     createConversationForTurn,
-    appendMessage,
     completeConversation,
     listConversationsForUser,
     getConversationMessagesForUser

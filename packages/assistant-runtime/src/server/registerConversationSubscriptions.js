@@ -3,7 +3,8 @@ import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http"
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { actionIds } from "./actionIds.js";
 import { resolveRouteRequestState } from "./support/assistantRouteContext.js";
-import { resolveAssistantSurfaceConfig } from "../shared/assistantSurfaces.js";
+import { errorStatus } from "./support/assistantErrors.js";
+import { requireAssistantSurface } from "./support/assistantSurface.js";
 import {
   ASSISTANT_CONVERSATION_EVENT,
   ASSISTANT_CONVERSATION_SUBSCRIBE,
@@ -18,7 +19,7 @@ function requireSubscriptionId(input) {
 }
 
 function subscriptionError(error) {
-  const status = Number(error?.status || error?.statusCode || 500);
+  const status = errorStatus(error);
   return {
     ok: false,
     error: status < 500 ? String(error.message || "Conversation subscription failed.") : "Conversation subscription failed.",
@@ -69,14 +70,16 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
       let stage = "request-admission";
       let observedConversationId;
       let diagnosticTimer;
+      function stageRecord(stageName, fields, now) {
+        return { event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
+          ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
+          stage: stageName, previousStage: stage, durationMs: now - stageStartedAt, elapsedMs: now - startedAt, ...fields };
+      }
       function diagnostic(stageName, fields = {}) {
         if (!diagnostics) return;
         const now = performance.now();
         try {
-          logger?.warn?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
-            ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
-            stage: stageName, previousStage: stage, durationMs: now - stageStartedAt,
-            elapsedMs: now - startedAt, ...fields }, "Assistant conversation subscription diagnostic.");
+          logger?.warn?.(stageRecord(stageName, fields, now), "Assistant conversation subscription diagnostic.");
         } catch { /* Diagnostics never change admission or cleanup. */ }
       }
       function onStage(next, fields = {}) {
@@ -86,11 +89,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         try {
           const slowOutcome = now - startedAt >= 5_000 && ["acknowledgement", "abandoned"].includes(next);
           const level = diagnostics || next === "failed" || slowOutcome ? "warn" : "info";
-          logger?.[level]?.({ event: "assistant.conversation.subscription", subscriptionEpoch: subscription?.epoch,
-            ...(typeof observedConversationId === "string" ? { conversationId: observedConversationId } : {}),
-            stage: next, previousStage: stage,
-            durationMs: now - stageStartedAt, elapsedMs: now - startedAt, ...fields },
-          "Assistant conversation subscription stage");
+          logger?.[level]?.(stageRecord(next, fields, now), "Assistant conversation subscription stage");
         } catch { /* Diagnostics must not change conversation admission or cleanup. */ }
         stage = next;
         stageStartedAt = now;
@@ -113,8 +112,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         const request = await (requestPolicy === "host" ? readRequest() : authenticate());
         if (!current()) { onStage("abandoned"); return; }
         onStage("action-admission");
-        const assistantSurface = resolveAssistantSurfaceConfig(config, input.targetSurfaceId);
-        if (!assistantSurface) throw new AppError(404, "Assistant not found.");
+        const assistantSurface = requireAssistantSurface(config, input.targetSurfaceId);
         const requiresWorkspace = assistantSurface.runtimeSurfaceRequiresWorkspace;
         request.headers = { ...request.headers, "x-jskit-surface": input.hostSurfaceId };
         request.input = { params: {
@@ -155,7 +153,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         function onEvent(event) {
           if (!current()) return;
           const revision = ++subscription.revision;
-          // The Colleague publisher already coalesces transient full-text replies.
+          // Conversation runtimes publish full-text in-progress replies; only the latest per message needs delivery.
           if (event.type === "message" && event.status === "inProgress") {
             subscription.pending.set(event.messageId, { event, revision });
             subscription.timer ||= setTimeout(flush, 25);
@@ -187,7 +185,7 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         onStage("acknowledgement-sent");
       } catch (error) {
         onStage("failed", { code: String(error?.code || "assistant_subscription_failed"),
-          status: Number(error?.status || error?.statusCode || 500) });
+          status: errorStatus(error) });
         if (subscriptions.get(subscriptionId) === subscription) release(subscriptionId);
         if (!closed && socket.connected) acknowledge(subscriptionError(error));
       } finally {

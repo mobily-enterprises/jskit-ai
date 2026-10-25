@@ -44,6 +44,8 @@ Local functions
 - `text(value)`
 - `compareTurnIds(left, right)`
 - `isQuestionConfiguration(value)`
+- `questionsAnswered(prompts)`
+- `authoredRequest(payload, { attachmentIds, steer })`
 - `draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "")`
 - `resolveWorkingPolicy(snapshot, { deferWhileWorking, admitWhileWorking })`
 - `createConversation(identity, { api, socket, actorKey, placement, readers, queueWhileSending, deferWhileWorking, admitWhileWorking, draftStorage, application, goalReadEnabled })`
@@ -78,6 +80,10 @@ Exports
 ### `src/client/providers/AssistantClientProvider.js`
 Exports
 - `AssistantClientProvider`
+
+### `src/client/support/accessDenied.js`
+Exports
+- `isAccessDenied(error)`
 
 ### `src/client/support/assistantRuntimeState.js`
 Exports
@@ -172,7 +178,6 @@ Exports
 Exports
 - `registerRoutes(router, { config = {}, workspaceScopeSupport = null, conversationRuntime = null, conversationAccess = null, conversationDataSchema = null, conversationConfigurationSchema = null, conversationSelectionSchema = null, conversationReplacementSchema = null, assistantConfigService = null } = {})`
 Local functions
-- `shouldExposeAppErrorDetails(errorCode = "")`
 - `sendPreStreamErrorResponse(reply, error)`
 - `buildChatStreamActionInput(routeInput = {}, requestBody = {})`
 - `resolveAssistantConversationMessagesRecordId(record = {})`
@@ -200,11 +205,7 @@ Local functions
 Exports
 - `createRepository(knex)`
 Local functions
-- `normalizeWorkspaceId(value)`
-- `normalizeDbWorkspaceId(value)`
-- `normalizeInputRecordId(value)`
 - `normalizeRequiredSurfaceId(value)`
-- `applyWorkspaceScope(query, columnName, workspaceId)`
 - `mapConversationRow(row = {})`
 - `normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {})`
 - `createConversationBaseQuery(client)`
@@ -213,16 +214,16 @@ Local functions
 Exports
 - `createRepository(knex)`
 Local functions
-- `normalizeWorkspaceId(value)`
-- `normalizeDbWorkspaceId(value)`
-- `normalizeInputRecordId(value)`
-- `applyWorkspaceScope(query, columnName, workspaceId)`
 - `mapMessageRow(row = {})`
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
 - `resolveNextSequence(client, conversationId)`
 
 ### `src/server/repositories/repositoryPersistenceUtils.js`
 Exports
+- `applyWorkspaceScope(query, columnName, workspaceId)`
+- `normalizeDbWorkspaceId(value)`
+- `normalizeInputRecordId(value)`
+- `normalizeWorkspaceId(value)`
 - `parseJsonObject`
 - `stringifyJsonObject(value)`
 - `toIso(value)`
@@ -234,11 +235,11 @@ Exports
 
 ### `src/server/services/assistantConfigService.js`
 Exports
-- `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
+- `createService({ assistantConfigRepository, consoleService = null, appConfig = {}, workspaceScopeSupport = null } = {})`
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, resolveAppConfig = null, workspaceScopeSupport = null } = {})`
+- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig = {}, workspaceScopeSupport = null } = {})`
 Local functions
 - `normalizeConversationId(value)`
 - `normalizeHistory(history = [])`
@@ -248,7 +249,6 @@ Local functions
 - `toCompactJson(value, fallback = "{}")`
 - `buildToolContractLine(toolDescriptor = {})`
 - `buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspaceSlug = "", customSystemPrompt = "" } = {})`
-- `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `buildAssistantActionContext(context = {}, assistantSurface = {})`
 
 ### `src/server/services/transcriptService.js`
@@ -273,13 +273,17 @@ Local functions
 - `messageFromRow(row)`
 - `requireUnambiguous(projection)`
 
+### `src/server/support/assistantErrors.js`
+Exports
+- `errorStatus(error)`
+- `exposedAppErrorDetails(error)`
+
 ### `src/server/support/assistantRouteContext.js`
 Exports
 - `requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null)`
 - `resolveRouteRequestState(request, { resolveCurrentAppConfig = () => ({}), kind = "runtime", requiresWorkspace = false, workspaceScopeSupport = null } = {})`
 Local functions
 - `readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = null)`
-- `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
 - `requireHostSurfaceId(request)`
 
 ### `src/server/support/assistantServerConfig.js`
@@ -290,15 +294,24 @@ Exports
 Local functions
 - `readPrefixedEnvValue(env = {}, prefix = "", key = "")`
 
+### `src/server/support/assistantStreamWriter.js`
+Exports
+- `ASSISTANT_STREAM_WRITER_METHODS`
+
+### `src/server/support/assistantSurface.js`
+Exports
+- `requireAssistantSurface(appConfig = {}, targetSurfaceId = "")`
+
 ### `src/server/support/createSurfaceAwareToolCatalog.js`
 Exports
-- `createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConfig = null, createCatalog = createServiceToolCatalog } = {})`
+- `createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog = createServiceToolCatalog } = {})`
 Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context = {})`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports
+- `DEFAULT_CONVERSATION_TITLE`
 - `assistantRuntimeConfig`
 
 ### `src/shared/assistantSurfaces.js`

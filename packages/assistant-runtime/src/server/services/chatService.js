@@ -3,7 +3,9 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import { ASSISTANT_STREAM_EVENT_TYPES, isAssistantProgressOnlyText } from "@jskit-ai/assistant-core/shared";
-import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { exposedAppErrorDetails, errorStatus } from "../support/assistantErrors.js";
+import { requireAssistantSurface } from "../support/assistantSurface.js";
+import { ASSISTANT_STREAM_WRITER_METHODS } from "../support/assistantStreamWriter.js";
 
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_INPUT_CHARS = 8000;
@@ -71,16 +73,7 @@ function normalizeStreamInput(payload = {}) {
 }
 
 function hasStreamWriter(streamWriter) {
-  return Boolean(
-    streamWriter &&
-      typeof streamWriter.sendMeta === "function" &&
-      typeof streamWriter.sendAssistantDelta === "function" &&
-      typeof streamWriter.sendAssistantMessage === "function" &&
-      typeof streamWriter.sendToolCall === "function" &&
-      typeof streamWriter.sendToolResult === "function" &&
-      typeof streamWriter.sendError === "function" &&
-      typeof streamWriter.sendDone === "function"
-  );
+  return ASSISTANT_STREAM_WRITER_METHODS.every(name => typeof streamWriter?.[name] === "function");
 }
 
 function isAbortError(error) {
@@ -157,15 +150,6 @@ function buildSystemPrompt({ targetSurfaceId = "", toolDescriptors = [], workspa
   return promptSegments.join(" ");
 }
 
-function requireAssistantSurface(appConfig = {}, targetSurfaceId = "") {
-  const assistantSurface = resolveAssistantSurfaceConfig(appConfig, targetSurfaceId);
-  if (assistantSurface) {
-    return assistantSurface;
-  }
-
-  throw new AppError(404, "Assistant not found.");
-}
-
 function buildAssistantActionContext(context = {}, assistantSurface = {}) {
   return {
     ...normalizeObject(context),
@@ -182,7 +166,6 @@ function createChatService({
   serviceToolCatalog,
   assistantConfigService,
   appConfig = {},
-  resolveAppConfig = null,
   workspaceScopeSupport = null
 } = {}) {
   if (!aiClientFactory || typeof aiClientFactory.resolveClient !== "function" || !turnRequests || !transcriptService || !serviceToolCatalog || !assistantConfigService) {
@@ -190,9 +173,6 @@ function createChatService({
       "createChatService requires aiClientFactory.resolveClient(), turnRequests, transcriptService, serviceToolCatalog, and assistantConfigService."
     );
   }
-
-  const resolveCurrentAppConfig =
-    typeof resolveAppConfig === "function" ? resolveAppConfig : () => appConfig;
 
   function resolveRuntimeWorkspace(assistantSurface, context = {}, input = {}) {
     if (assistantSurface?.runtimeSurfaceRequiresWorkspace !== true) {
@@ -230,7 +210,7 @@ function createChatService({
   }
 
   async function streamChat(payload = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), payload?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, payload?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, payload);
@@ -270,9 +250,9 @@ function createChatService({
       result = await executeTurn();
     } catch (error) {
       response.failure = { message: String(error?.message || "Assistant request failed."),
-        status: Number(error?.status || error?.statusCode || 500),
+        status: errorStatus(error),
         ...(error instanceof AppError ? { code: error.code,
-          ...(error.details && String(error.code).trim() !== "ACTION_PERMISSION_DENIED" ? { details: error.details } : {}) } : {}) };
+          ...(exposedAppErrorDetails(error) ? { details: error.details } : {}) } : {}) };
       await turnRequests.update(claim, response, "failed");
       throw error;
     }
@@ -402,7 +382,7 @@ function createChatService({
         streamWriter.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, messageId: source.messageId,
           code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),
           message: aborted ? "Assistant request was cancelled." : String(error?.message || "Assistant request failed."),
-          status: aborted ? 499 : Number(error?.status || error?.statusCode || 500) });
+          status: aborted ? 499 : errorStatus(error) });
         streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status });
         return { conversationId, messageId: source.messageId, status };
       } finally {
@@ -414,7 +394,7 @@ function createChatService({
   }
 
   async function listConversations(query = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), options?.input?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, options?.input?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, options.input || {});
@@ -424,7 +404,7 @@ function createChatService({
   }
 
   async function getConversationMessages(conversationId, query = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(resolveCurrentAppConfig(), options?.input?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, options?.input?.targetSurfaceId);
     const context = normalizeObject(options.context);
     const assistantContext = buildAssistantActionContext(context, assistantSurface);
     const workspace = resolveRuntimeWorkspace(assistantSurface, assistantContext, options.input || {});

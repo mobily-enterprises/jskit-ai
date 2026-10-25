@@ -1,25 +1,17 @@
 import { applyForUpdate, createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  applyWorkspaceScope,
+  normalizeDbWorkspaceId,
+  normalizeInputRecordId,
+  normalizeWorkspaceId,
   parseJsonObject,
   resolveInsertedId,
   stringifyJsonObject,
   toIso
 } from "./repositoryPersistenceUtils.js";
-import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
-
-function normalizeWorkspaceId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
-
-function normalizeDbWorkspaceId(value) {
-  return normalizeDbRecordId(value, { fallback: null });
-}
-
-function normalizeInputRecordId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
+import { DEFAULT_CONVERSATION_TITLE, assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
 function normalizeRequiredSurfaceId(value) {
   const normalizedSurfaceId = normalizeSurfaceId(value);
@@ -30,20 +22,11 @@ function normalizeRequiredSurfaceId(value) {
   return normalizedSurfaceId;
 }
 
-function applyWorkspaceScope(query, columnName, workspaceId) {
-  const normalizedWorkspaceId = normalizeWorkspaceId(workspaceId);
-  if (normalizedWorkspaceId) {
-    return query.where(columnName, normalizedWorkspaceId);
-  }
-
-  return query.whereNull(columnName);
-}
-
 function mapConversationRow(row = {}) {
   return {
     id: normalizeDbRecordId(row.id, { fallback: "" }),
     workspaceId: normalizeDbWorkspaceId(row.workspace_id),
-    title: String(row.title || "New conversation"),
+    title: String(row.title || DEFAULT_CONVERSATION_TITLE),
     createdByUserId: row.created_by_user_id == null ? null : normalizeDbRecordId(row.created_by_user_id, { fallback: null }),
     status: String(row.status || "active"),
     provider: String(row.provider || ""),
@@ -132,7 +115,7 @@ function createRepository(knex) {
     const insertResult = await client(assistantRuntimeConfig.conversationsTable).insert({
       workspace_id: normalizeWorkspaceId(payload.workspaceId),
       created_by_user_id: normalizeInputRecordId(payload.createdByUserId),
-      title: normalizeText(payload.title) || "New conversation",
+      title: normalizeText(payload.title) || DEFAULT_CONVERSATION_TITLE,
       status: normalizeText(payload.status).toLowerCase() || "active",
       provider: normalizeText(payload.provider),
       model: normalizeText(payload.model),
@@ -164,7 +147,7 @@ function createRepository(knex) {
     const updatePatch = {};
 
     if (Object.hasOwn(patch, "title")) {
-      updatePatch.title = normalizeText(patch.title) || "New conversation";
+      updatePatch.title = normalizeText(patch.title) || DEFAULT_CONVERSATION_TITLE;
     }
     if (Object.hasOwn(patch, "status")) {
       updatePatch.status = normalizeText(patch.status).toLowerCase() || "active";
@@ -194,26 +177,6 @@ function createRepository(knex) {
         .where({ id: normalizedConversationId })
         .update(updatePatch);
     }
-
-    return findById(normalizedConversationId, {
-      trx: client
-    });
-  }
-
-  async function incrementMessageCount(conversationId, delta = 1, options = {}) {
-    const normalizedConversationId = normalizeInputRecordId(conversationId);
-    if (!normalizedConversationId) {
-      return null;
-    }
-
-    const client = options?.trx || knex;
-    const incrementBy = Number.isInteger(Number(delta)) ? Number(delta) : 1;
-    await client(assistantRuntimeConfig.conversationsTable)
-      .where({ id: normalizedConversationId })
-      .update({
-        message_count: client.raw("GREATEST(0, message_count + ?)", [incrementBy]),
-        updated_at: new Date()
-      });
 
     return findById(normalizedConversationId, {
       trx: client
@@ -275,7 +238,6 @@ function createRepository(knex) {
     findByIdForActorScope,
     create,
     updateById,
-    incrementMessageCount,
     listForActorScope,
     transaction
   });

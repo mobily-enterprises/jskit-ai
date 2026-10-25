@@ -122,9 +122,6 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
           }
         };
       },
-      async appendMessage(_surface, _conversationId, message) {
-        transcriptMessages.push(structuredClone(message));
-      },
       async completeConversation(_surface, _conversationId, completion) {
         completedConversations.push(structuredClone(completion));
       }

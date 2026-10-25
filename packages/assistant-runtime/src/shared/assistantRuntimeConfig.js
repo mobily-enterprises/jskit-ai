@@ -5,4 +5,6 @@ const assistantRuntimeConfig = Object.freeze({
   turnRequestsTable: "assistant_turn_requests"
 });
 
-export { assistantRuntimeConfig };
+const DEFAULT_CONVERSATION_TITLE = "New conversation";
+
+export { DEFAULT_CONVERSATION_TITLE, assistantRuntimeConfig };

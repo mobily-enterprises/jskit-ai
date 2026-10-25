@@ -1,9 +1,10 @@
-import { applyConversationLogPatch, mergeConversationStream } from "@jskit-ai/assistant-core/shared/conversation";
+import { applyConversationLogPatch, conversationTurnMessages, mergeConversationStream } from "@jskit-ai/assistant-core/shared/conversation";
 import {
   ASSISTANT_CONVERSATION_EVENT,
   ASSISTANT_CONVERSATION_SUBSCRIBE,
   ASSISTANT_CONVERSATION_UNSUBSCRIBE
 } from "../../shared/conversationRealtime.js";
+import { isAccessDenied } from "./accessDenied.js";
 
 // Private to the original client history/subscription coordination. Symbols
 // survive local snapshot spreads but never enter the conversation wire format.
@@ -44,9 +45,7 @@ function subscribeAssistantConversation({
   const pendingReads = new Set();
 
   function savedMessageIds() {
-    return new Set((state?.conversationLog || []).flatMap(turn => turn.messages || [
-      turn.system, turn.user, ...(turn.thinking || []), ...(turn.commentary || []), turn.assistant
-    ].filter(Boolean)).map(message => message.messageId));
+    return new Set((state?.conversationLog || []).flatMap(conversationTurnMessages).map(message => message.messageId));
   }
   function receiveStreaming(snapshot) {
     if (!Number.isSafeInteger(snapshot?.revision) || (streaming && snapshot.revision <= streaming.revision)) return false;
@@ -97,7 +96,7 @@ function subscribeAssistantConversation({
       receiveState(snapshot);
     }).catch(error => {
       if (current()) {
-        if ([401, 403].includes(Number(error.status || error.statusCode))) {
+        if (isAccessDenied(error)) {
           if (epoch === null) {
             disconnected();
             if (socket.connected) socket.emit(ASSISTANT_CONVERSATION_UNSUBSCRIBE, { subscriptionId });

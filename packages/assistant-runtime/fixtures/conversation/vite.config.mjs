@@ -1,5 +1,6 @@
 import { createMemoryTurnRequests } from "../../test/support/memoryTurnRequests.js";
 import { createChatService } from "../../src/server/services/chatService.js";
+import { ASSISTANT_STREAM_WRITER_METHODS } from "../../src/server/support/assistantStreamWriter.js";
 import { createAssistantConversationRuntime } from "../../src/server/createAssistantRuntime.js";
 import { createMemoryAssistantRows } from "../../test/support/memoryAssistantRows.js";
 import { defineConfig } from "vite";
@@ -81,7 +82,6 @@ export default defineConfig({
               } },
               transcriptService: {
                 async createConversationForTurn() { return { conversation: { id: "100" } }; },
-                async appendMessage(_surface, _id, message) { transcript.push(message); },
                 async completeConversation() {}
               },
               serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
@@ -96,7 +96,7 @@ export default defineConfig({
               attachments: dependencies.attachments
             });
             const service = createChatService({ ...dependencies, conversationRuntime });
-            const streamWriter = Object.fromEntries(["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"].map(method => [method, event => send(stream, event)]));
+            const streamWriter = Object.fromEntries(ASSISTANT_STREAM_WRITER_METHODS.map(method => [method, event => send(stream, event)]));
             try { await service.streamChat({ ...payload, targetSurfaceId: "admin" }, { streamWriter, abortSignal: controller.signal, context: { actor: { id: "1" } } }); }
             catch (error) { if (!res.destroyed) send(stream, { type: "error", message: error.message }); }
             finally { res.end(); }

@@ -21,13 +21,12 @@ function requireContextSurfaceId(context = {}) {
   throw new Error("assistant surface-aware tool catalog requires context.surface.");
 }
 
-function createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConfig = null, createCatalog = createServiceToolCatalog } = {}) {
+function createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog = createServiceToolCatalog } = {}) {
   if (!actions || typeof actions.listDefinitions !== "function") {
     throw new Error("createSurfaceAwareToolCatalog requires runtime.actions.");
   }
 
-  const resolveCurrentAppConfig =
-    typeof resolveAppConfig === "function" ? () => normalizeObject(resolveAppConfig()) : () => normalizeObject(appConfig);
+  const normalizedAppConfig = normalizeObject(appConfig);
   const cache = new Map();
   let schemaCatalog = null;
 
@@ -36,14 +35,14 @@ function createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConf
       return cache.get(surfaceId);
     }
 
-    const nextCatalog = createCatalog(actions, buildCatalogOptions(resolveCurrentAppConfig(), surfaceId));
+    const nextCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, surfaceId));
     cache.set(surfaceId, nextCatalog);
     return nextCatalog;
   }
 
   return Object.freeze({
     get limits() {
-      if (!schemaCatalog) schemaCatalog = createCatalog(actions, buildCatalogOptions(resolveCurrentAppConfig(), ""));
+      if (!schemaCatalog) schemaCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, ""));
       return schemaCatalog.limits;
     },
     resolveToolSet(context = {}, options) {
@@ -52,7 +51,7 @@ function createSurfaceAwareToolCatalog(actions, { appConfig = {}, resolveAppConf
     },
     toOpenAiToolSchema(tool) {
       if (!schemaCatalog) {
-        schemaCatalog = createCatalog(actions, buildCatalogOptions(resolveCurrentAppConfig(), ""));
+        schemaCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, ""));
       }
 
       return schemaCatalog.toOpenAiToolSchema(tool);

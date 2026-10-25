@@ -12,6 +12,7 @@ import {
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
 import { createAssistantSettingsActions } from "./createAssistantSettingsActions.js";
+import { requireAssistantSurface } from "./support/assistantSurface.js";
 import {
   assistantConversationIdInputValidator,
   assistantConversationGoalBodyValidator,
@@ -109,8 +110,7 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
     { mode: "patch", context: "assistant-runtime conversation send action input" }
   );
   async function openConversation(input, context) {
-    const assistantSurface = resolveAssistantSurfaceConfig(config, input.targetSurfaceId);
-    if (!assistantSurface) throw new AppError(404, "Assistant not found.");
+    const assistantSurface = requireAssistantSurface(config, input.targetSurfaceId);
     let conversationContext = context;
     if (assistantSurface.runtimeSurfaceRequiresWorkspace) {
       if (typeof workspaceScopeSupport?.resolveWorkspace !== "function") {

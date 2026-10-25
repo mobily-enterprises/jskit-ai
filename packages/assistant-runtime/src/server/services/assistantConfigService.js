@@ -1,12 +1,11 @@
 import { AppError, requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { requireAssistantSurface } from "../support/assistantSurface.js";
 
 function createService({
   assistantConfigRepository,
   consoleService = null,
   appConfig = {},
-  resolveAppConfig = null,
   workspaceScopeSupport = null
 } = {}) {
   if (!assistantConfigRepository || typeof assistantConfigRepository.findByScope !== "function") {
@@ -17,18 +16,6 @@ function createService({
   }
   if (typeof assistantConfigRepository.createDefaultRecord !== "function") {
     throw new Error("assistantConfigService requires assistantConfigRepository.createDefaultRecord().");
-  }
-
-  const resolveCurrentAppConfig =
-    typeof resolveAppConfig === "function" ? resolveAppConfig : () => appConfig;
-
-  function requireAssistantSurface(targetSurfaceId = "") {
-    const assistantSurface = resolveAssistantSurfaceConfig(resolveCurrentAppConfig(), targetSurfaceId);
-    if (assistantSurface) {
-      return assistantSurface;
-    }
-
-    throw new AppError(404, "Assistant not found.");
   }
 
   async function requireSettingsAccess(assistantSurface, context = {}, { mode = "read" } = {}) {
@@ -82,7 +69,7 @@ function createService({
   }
 
   async function getSettings(input = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(input?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, input?.targetSurfaceId);
     await requireSettingsAccess(assistantSurface, options?.context, {
       mode: "read"
     });
@@ -100,7 +87,7 @@ function createService({
   }
 
   async function updateSettings(input = {}, patch = {}, options = {}) {
-    const assistantSurface = requireAssistantSurface(input?.targetSurfaceId);
+    const assistantSurface = requireAssistantSurface(appConfig, input?.targetSurfaceId);
     await requireSettingsAccess(assistantSurface, options?.context, {
       mode: "write"
     });
@@ -116,7 +103,7 @@ function createService({
   }
 
   async function resolveSystemPrompt(assistantSurface, workspace = null, _options = {}, serviceOptions = {}) {
-    const resolvedAssistantSurface = requireAssistantSurface(assistantSurface?.targetSurfaceId);
+    const resolvedAssistantSurface = requireAssistantSurface(appConfig, assistantSurface?.targetSurfaceId);
     const workspaceId = resolveConfigWorkspaceId(
       resolvedAssistantSurface,
       workspace,

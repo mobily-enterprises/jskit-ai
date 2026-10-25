@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
+import { requireAssistantSurface } from "./assistantSurface.js";
 import { assistantSurfaceRouteParamsValidator } from "../inputSchemas.js";
 
 function requireWorkspaceAssistantRouteParams(workspaceScopeSupport = null) {
@@ -28,15 +28,6 @@ function readWorkspaceInput(request, requiresWorkspace, workspaceScopeSupport = 
   }
 
   return workspaceScopeSupport.buildInputFromRouteParams(request?.input?.params);
-}
-
-function requireAssistantSurface(appConfig = {}, targetSurfaceId = "") {
-  const assistantSurface = resolveAssistantSurfaceConfig(appConfig, targetSurfaceId);
-  if (assistantSurface) {
-    return assistantSurface;
-  }
-
-  throw new AppError(404, "Assistant not found.");
 }
 
 function requireHostSurfaceId(request) {

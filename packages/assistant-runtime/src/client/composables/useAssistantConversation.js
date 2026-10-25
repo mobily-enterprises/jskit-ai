@@ -6,7 +6,7 @@ import { useAssistantQuestions } from "@jskit-ai/assistant-core/client/conversat
 import { assistantHttpClient, createAssistantApi } from "@jskit-ai/assistant-core/client";
 import { buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import {
-  conversationTurnsFromMessages, latestAssistantMessageAwaitingUserReply, mergeConversationLogPages, mergeConversationStream,
+  conversationTurnMessages, conversationTurnsFromMessages, latestAssistantMessageAwaitingUserReply, mergeConversationLogPages, mergeConversationStream,
   normalizeConversationLogPage, normalizeConversationLogPagination
 } from "@jskit-ai/assistant-core/shared/conversation";
 import { useRealtimeSocket } from "@jskit-ai/realtime/client/composables/useRealtimeEvent";
@@ -14,6 +14,7 @@ import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/plac
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
 import { useWorkspaceWebScopeSupport } from "../support/workspaceScopeSupport.js";
+import { isAccessDenied } from "../support/accessDenied.js";
 import { subscribeAssistantConversation, refreshedHistoryPages, patchLoadedHistoryPages } from "../support/subscribeAssistantConversation.js";
 
 const text = value => String(toValue(value) ?? "").trim();
@@ -39,6 +40,20 @@ const SEND_REJECTIONS = new Set([
 function isQuestionConfiguration(value) {
   return value === true || Boolean(value && typeof value === "object" &&
     !["questions", "choices", "capture"].some(key => key in value));
+}
+
+function questionsAnswered(prompts) {
+  return prompts.questions.every(question => String(prompts.answers[question.name] || "").trim());
+}
+
+/** The authored conversation request for a composer payload without one. */
+function authoredRequest(payload, { attachmentIds, steer }) {
+  return {
+    text: String(payload.message || ""),
+    ...(payload.data !== undefined ? { data: payload.data } : {}),
+    ...(attachmentIds?.length ? { attachmentIds } : {}),
+    ...(steer ? { steer: true } : {})
+  };
 }
 
 function draftAfterAcceptedSubmission(currentDraft = "", submittedDraft = "") {
@@ -104,9 +119,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     ]).conversationLog;
     // Use the original overlay against the full loaded saved span. A synthetic
     // live older turn must not replace its authored request or saved progress.
-    const messages = (snapshot.value?.turns || []).flatMap(turn => turn.messages || [
-      turn.system, turn.user, ...(turn.thinking || []), ...(turn.commentary || []), turn.assistant
-    ].filter(Boolean));
+    const messages = (snapshot.value?.turns || []).flatMap(conversationTurnMessages);
     return mergeConversationStream(saved, { messages });
   });
   const oldestLoadedPage = computed(() => olderPages.value[0] || snapshot.value);
@@ -232,23 +245,28 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     if (!current.value) return;
     loading.value = false;
     error.value = failure.message;
-    accessDenied.value = [401, 403].includes(Number(failure.status || failure.statusCode));
+    accessDenied.value = isAccessDenied(failure);
     if (accessDenied.value) {
       deniedHistoryRevision += 1;
-      snapshot.value = null;
-      historyRevision += 1;
-      olderPages.value = [];
-      draft.value = "";
-      draftMessageId.value = "";
-      draftAttachments.value = [];
-      draftRetry.value = null;
-      delivery.reset();
-      goalError.value = "";
-      goalView.value = null;
+      clearConversationView();
       goalTargetCurrent.value = false;
-      goalLoadError.value = "";
-      goalReadController?.abort();
     }
+  }
+  // Shared by access denial and actor change. Access denial keeps the open goal
+  // command, queued goal read and question form; an actor change clears them.
+  function clearConversationView() {
+    delivery.reset();
+    snapshot.value = null;
+    historyRevision += 1;
+    olderPages.value = [];
+    draft.value = "";
+    draftMessageId.value = "";
+    draftAttachments.value = [];
+    draftRetry.value = null;
+    goalError.value = "";
+    goalView.value = null;
+    goalLoadError.value = "";
+    goalReadController?.abort();
   }
   function receiveEvent(event) {
     if (event.type === "transcript" && olderPages.value.some(page =>
@@ -331,20 +349,9 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
   watch(current, value => {
     if (value) return;
     for (const pending of pendingMessages.values()) if (!pending.dispatched) pending.controller.abort();
-    delivery.reset();
-    snapshot.value = null;
-    historyRevision += 1;
-    olderPages.value = [];
-    draft.value = "";
-    draftMessageId.value = "";
-    draftAttachments.value = [];
-    draftRetry.value = null;
-    goalError.value = "";
+    clearConversationView();
     goalAction.value = "";
-    goalView.value = null;
-    goalLoadError.value = "";
     goalReadQueued = false;
-    goalReadController?.abort();
     questions.reset();
   }, { flush: "sync" });
   onScopeDispose(() => {
@@ -375,12 +382,11 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     const appAdmission = policy.admitWhileWorking && !steering;
     if ((snapshot.value.status === "working" || delivery.state.sending) && !steering && !deferred && !appAdmission) return false;
     if ((retry?.payload || payload).displayAttachments?.length && snapshot.value.capabilities?.attachments !== true) return false;
-    const captured = retry?.payload?.request ? retry.payload : { ...(retry?.payload || payload), request: payload.request || {
-      text: String(payload.message || ""),
-      ...(payload.data !== undefined ? { data: payload.data } : {}),
-      ...(payload.displayAttachments?.length ? { attachmentIds: payload.displayAttachments.map(file => file.attachmentId) } : {}),
-      ...(steerable.value ? { steer: true } : {})
-    } };
+    const captured = retry?.payload?.request ? retry.payload : { ...(retry?.payload || payload), request: payload.request ||
+      authoredRequest(payload, {
+        attachmentIds: payload.displayAttachments?.map(file => file.attachmentId),
+        steer: steerable.value
+      }) };
     return submitRequest(captured, { messageId, onAccepted, queue: queueWhileSending !== false && (steering || deferred || appAdmission), deferred, appAdmission });
   }
   function submitPrepared(payload, { messageId = crypto.randomUUID(), onAccepted, prepare } = {}) {
@@ -584,7 +590,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     } catch (failure) {
       if (current.value) {
         loadMoreError.value = String(failure?.message || failure || "Older conversation history could not be loaded.");
-        if ([401, 403].includes(Number(failure.status || failure.statusCode))) receiveError(failure);
+        if (isAccessDenied(failure)) receiveError(failure);
       }
       finish({ changed: false, loaded: false });
       return false;
@@ -666,7 +672,7 @@ function createConversation(identity, { api, socket, actorKey, placement, reader
     } catch (failure) {
       if (current.value) {
         goalError.value = failure.message;
-        if ([401, 403].includes(Number(failure.status || failure.statusCode))) receiveError(failure);
+        if (isAccessDenied(failure)) receiveError(failure);
       }
       return false;
     } finally {
@@ -923,7 +929,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const prompts = questionOwner.value;
     const formatsQuestions = typeof prompts?.capture === "function";
     if (!retry && formatsQuestions && prompts.questions?.length &&
-        !prompts.questions.every(question => String(prompts.answers[question.name] || "").trim())) return false;
+        !questionsAnswered(prompts)) return false;
     const answer = !retry && formatsQuestions ? prompts.capture(current.draft.value) : null;
     const captured = retry?.payload || { message: answer?.message ?? current.draft.value, displayAttachments: files,
       ...(waitForAcceptance ? { draft: current.draft.value } : {}),
@@ -949,13 +955,11 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
       return false;
     }
     const captured = previous?.payload?.request ? previous.payload : payload;
-    const authored = captured.request ? captured : { ...captured, request: {
-      text: String(captured.message || ""),
-      ...(captured.data !== undefined ? { data: captured.data } : {}),
-      ...(captured.attachmentIds?.length ? { attachmentIds: captured.attachmentIds }
-        : captured.displayAttachments?.length ? { attachmentIds: captured.displayAttachments.map(file => file.attachmentId) } : {}),
-      ...((previous ? captured.submissionKind === "steer" : working) ? { steer: true } : {})
-    } };
+    const authored = captured.request ? captured : { ...captured, request: authoredRequest(captured, {
+      attachmentIds: captured.attachmentIds?.length ? captured.attachmentIds
+        : captured.displayAttachments?.map(file => file.attachmentId),
+      steer: previous ? captured.submissionKind === "steer" : working
+    }) };
     return submitCaptured(current, authored, { messageId: id, retry: previous, clearDraft,
       attachments, isCurrent, onSubmit, onAccepted, prepare });
   }
@@ -1017,7 +1021,7 @@ function createConversationBinding({ conversationId, endpoint = "", surfaceId = 
     const editable = canDraftWhileLoading.value ? !current || current.editable.value : current?.available.value;
     const message = formatsQuestions ? prompts.capture(draft).message : draft;
     const answered = !formatsQuestions || !prompts.questions?.length ||
-      prompts.questions.every(question => String(prompts.answers[question.name] || "").trim());
+      questionsAnswered(prompts);
     const canSend = current?.canSubmit.value || false;
     return {
       delivery: current?.delivery,

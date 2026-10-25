@@ -324,13 +324,14 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
     return messages.value.find((entry) => entry.id === messageId) || null;
   }
 
-  async function invalidateConversationScope() {
+  // Invalidation refetches the active conversation list; a turn never changes the scope's settings.
+  async function invalidateConversations() {
     if (!hasRuntimeScope.value) {
       return;
     }
 
     await queryClient.invalidateQueries({
-      queryKey: assistantScopeQueryKey(runtimeScope.value)
+      queryKey: [...assistantScopeQueryKey(runtimeScope.value), "conversations"]
     });
   }
 
@@ -634,8 +635,7 @@ function useAssistantRuntime({ api = null, surfaceId = "", integrationId = "" } 
         isStreaming.value = false;
         isCanceling.value = false;
         if (accepted) {
-          await invalidateConversationScope();
-          await refreshConversationHistory();
+          await invalidateConversations();
         }
       }
     }

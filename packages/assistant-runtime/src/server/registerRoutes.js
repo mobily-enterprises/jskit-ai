@@ -27,14 +27,12 @@ import {
   assistantSurfaceRouteParamsValidator
 } from "./inputSchemas.js";
 import { registerSettingsRoutes } from "./registerSettingsRoutes.js";
+import { errorStatus, exposedAppErrorDetails } from "./support/assistantErrors.js";
+import { ASSISTANT_STREAM_WRITER_METHODS } from "./support/assistantStreamWriter.js";
 import { requireWorkspaceAssistantRouteParams, resolveRouteRequestState } from "./support/assistantRouteContext.js";
 
-function shouldExposeAppErrorDetails(errorCode = "") {
-  return String(errorCode || "").trim() !== "ACTION_PERMISSION_DENIED";
-}
-
 function sendPreStreamErrorResponse(reply, error) {
-  const statusCode = Number(error?.status || error?.statusCode || 500);
+  const statusCode = errorStatus(error);
   const safeStatusCode = Number.isInteger(statusCode) && statusCode >= 400 && statusCode <= 599 ? statusCode : 500;
 
   if (error instanceof AppError) {
@@ -44,10 +42,11 @@ function sendPreStreamErrorResponse(reply, error) {
       code: appErrorCode
     };
 
-    if (error.details && shouldExposeAppErrorDetails(appErrorCode)) {
-      payload.details = error.details;
-      if (error.details.fieldErrors) {
-        payload.fieldErrors = error.details.fieldErrors;
+    const details = exposedAppErrorDetails(error);
+    if (details) {
+      payload.details = details;
+      if (details.fieldErrors) {
+        payload.fieldErrors = details.fieldErrors;
       }
     }
 
@@ -156,36 +155,13 @@ function registerRuntimeRoutes(
         streamStarted = true;
       }
 
-      const streamWriter = Object.freeze({
-        sendMeta(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        },
-        sendAssistantDelta(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        },
-        sendAssistantMessage(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        },
-        sendToolCall(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        },
-        sendToolResult(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        },
-        sendError(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        },
-        sendDone(payload = {}) {
-          ensureStreamStarted();
-          writeNdjson(reply, payload);
-        }
-      });
+      function sendStreamEvent(payload = {}) {
+        ensureStreamStarted();
+        writeNdjson(reply, payload);
+      }
+      const streamWriter = Object.freeze(
+        Object.fromEntries(ASSISTANT_STREAM_WRITER_METHODS.map(name => [name, sendStreamEvent]))
+      );
 
       try {
         request.raw.on("close", closeListener);

@@ -892,6 +892,27 @@ function visibleHistoryAnchor(element) {
   return null;
 }
 
+// Offscreen turns use estimated heights. Preserve the visible anchor row instead
+// of moving by the total height difference, which can change during layout.
+function restoreAnchoredScroll(element, snapshot) {
+  const anchor = snapshot.anchor;
+  if (anchor && element.contains(anchor.element)) {
+    // Materialize the anchor row before reading the browser's adjusted scrollTop.
+    const offset = anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top;
+    previousScrollTop = element.scrollTop + offset - anchor.offset;
+  } else {
+    previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
+  }
+  element.scrollTop = previousScrollTop;
+}
+
+// Reopening materializes previously hidden content-visibility estimates.
+async function waitForTwoFrames() {
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+  }
+}
+
 async function restoreRetainedReaderScroll() {
   const snapshot = retainedReaderScrollSnapshot;
   snapshot.restoring = true;
@@ -910,18 +931,8 @@ async function restoreRetainedReaderScroll() {
       if (retainedReaderScrollSnapshot === snapshot) retainedReaderScrollSnapshot = null;
       return;
     }
-    const anchor = snapshot.anchor;
-    if (anchor && element.contains(anchor.element)) {
-      // Materialize the retained row before reading the browser's adjusted scrollTop.
-      const offset = anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top;
-      previousScrollTop = element.scrollTop + offset - anchor.offset;
-    } else {
-      previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
-    }
-    element.scrollTop = previousScrollTop;
-    if (pass === 0 && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
-    }
+    restoreAnchoredScroll(element, snapshot);
+    if (pass === 0) await waitForTwoFrames();
   }
   if (retainedReaderScrollSnapshot === snapshot) retainedReaderScrollSnapshot = null;
 }
@@ -981,22 +992,8 @@ async function completeLoadMoreRequest(version, changed) {
       return;
     }
     const element = bodyElement.value;
-    if (element) {
-      // Offscreen turns use estimated heights. Preserve the visible turn instead
-      // of moving by the total height difference, which can change during layout.
-      const anchor = snapshot.anchor;
-      if (anchor && element.contains(anchor.element)) {
-        const offset = anchor.element.getBoundingClientRect().top - element.getBoundingClientRect().top;
-        previousScrollTop = element.scrollTop + offset - anchor.offset;
-      } else {
-        previousScrollTop = snapshot.scrollTop + (element.scrollHeight - snapshot.scrollHeight);
-      }
-      element.scrollTop = previousScrollTop;
-    }
-    if (pass + 1 < passes && typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-      // Reopening materializes previously hidden content-visibility estimates.
-      await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
-    }
+    if (element) restoreAnchoredScroll(element, snapshot);
+    if (pass + 1 < passes) await waitForTwoFrames();
   }
   clearLoadMoreScrollSnapshot();
 }

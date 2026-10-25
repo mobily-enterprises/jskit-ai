@@ -148,6 +148,8 @@ Local functions
 - `clearLiveBottomScroll()`
 - `updateLatestFollowFromScroll(event = {})`
 - `visibleHistoryAnchor(element)`
+- `restoreAnchoredScroll(element, snapshot)`
+- `waitForTwoFrames()`
 - `restoreRetainedReaderScroll()`
 - `requestLoadMore()`
 - `clearLoadMoreScrollSnapshot()`
@@ -319,6 +321,8 @@ Exports
 - `archivedClaudeProjectDirectory(workdir)`
 - `matchingClaudeProjectDirectories(names, directory)`
 Local functions
+- `claudeProjectDirectoryName(canonical)`
+- `claudeUserText(content)`
 - `retainedClaudeFrame(frame)`
 - `claudeHistoryFrames(file)`
 - `readClaudeHistoryFrames(file)`
@@ -353,10 +357,9 @@ Exports
 - `runClaudeRenewalTurn(conversation, { clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId, requireFreshHistory = false, timeoutMs = 180_000 }, { createError = failure, unreadableCode = "assistant_claude_turn_unreadable", failedCode = "assistant_claude_turn_failed", acceptedField = "inputAccepted" } = {})`
 - `createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal })`
 - `createClaudeConversationOwner({ configRoot, store, preparation, process, onEvent, createError = failure, disconnectedMessage = "Claude was interrupted when the application disconnected." })`
-- `createClaudeConversationTurn({ conversationId, onEvent = async () => {}, process, entry } = {})`
+- `createClaudeConversationTurn({ conversationId, onEvent = async () => {}, process, entry, bound = false } = {})`
 Local functions
 - `failure(message, code = "assistant_claude_turn_failed")`
-- `text(value)`
 - `now()`
 - `hasPendingClaudeStartup(entry)`
 
@@ -911,6 +914,7 @@ Exports
 Exports
 - `normalizeText(value)`
 - `isPlainObject(value)`
+- `jsonHash(value)`
 
 ### `src/server/conversation/openCodeClient.js`
 Exports
@@ -921,8 +925,7 @@ Exports
 - `createOpenCodeServerClient({ allowAttachmentDirectories = false, baseUrl = "", directory = "", fetchImpl = globalThis.fetch, password = "", username = "opencode" } = {})`
 - `readBoundedResponse(response, limitBytes = OPENCODE_RESPONSE_LIMIT_BYTES)`
 Local functions
-- `text(value = "")`
-- `record(value = null)`
+- `record(value)`
 - `openCodeServerError(message, { body = null, code = "assistant_opencode_server_request_failed", method = "", path = "", status = 0 } = {})`
 - `parsedJson(value = "")`
 - `responseErrorMessage(payload = null, fallback = "OpenCode rejected the request.")`
@@ -971,7 +974,6 @@ Exports
 - `sameOpenCodeSelection`
 - `createOpenCodeConversationPlugin`
 Local functions
-- `text(value = "")`
 - `availableLoopbackPort()`
 - `waitForOpenCodeReady({ client, expectedVersion = OPENCODE_EXPECTED_VERSION, processHandle, timeoutMs = OPENCODE_READY_TIMEOUT_MS, signal } = {})`
 - `actionPermission(action)`
@@ -991,7 +993,6 @@ Exports
 - `ensureOpenCodeSession(target, { selection, model, workdir = target.workdir, identity = {}, signal, invalidIdentity = () => new Error("OpenCode did not return a native conversation ID.") })`
 - `createOpenCodeSharedRuntime({ onStop = () => {}, scope } = {})`
 Local functions
-- `text(value)`
 - `openCodeTurnSnapshot(turn = null, threadId = "")`
 - `openCodeCredentialFailure(value = "")`
 - `openCodeProviderApiFailure(error = {})`
@@ -1009,7 +1010,7 @@ Exports
 - `openCodeMessageError(message = {})`
 - `inspectOpenCodeMessageAdmission(client, conversationId, inputMessageId, { signal = AbortSignal.timeout(OPENCODE_INTERRUPT_TIMEOUT_MS), wait = false, readFailure = () => null } = {})`
 - `steerOpenCodeTurn(client, conversationId, turn, input, { signal } = {})`
-- `dispatchOpenCodeTurn(client, conversationId, turn, input, options = {})`
+- `dispatchOpenCodeTurn(turn, input, options = {})`
 - `openCodeMessageRows(value = null)`
 - `openCodePersistentConversationMessages(rows, conversationMessageId)`
 - `projectOpenCodeConversationMessages(messages, expectedId, { maximumOutput, outputSchema, previous, onMessage })`
@@ -1022,8 +1023,7 @@ Exports
 - `OPENCODE_INTERRUPT_TIMEOUT_MS`
 - `OPENCODE_REFUSED_TOOL_ERROR`
 Local functions
-- `text(value)`
-- `record(value = null)`
+- `record(value)`
 - `openCodeEventSummary(event = {})`
 - `consumeOpenCodeEvents(client, conversationId, { eventStartedAt = null, onEvent = null, onError = null, onReady = null, readError = openCodeMessageError, signal } = {})`
 - `openCodeMessageResultForInput(value = null, inputMessageId = "", { readError = openCodeMessageError } = {})`
@@ -1047,7 +1047,6 @@ Exports
 Exports
 - `createClaudeConversationDriver({ connections, host = {}, limits = {} } = {})`
 Local functions
-- `hash(value)`
 - `nativeInput(input)`
 - `claudeGoalValue(goal, conversationId)`
 
@@ -1059,7 +1058,6 @@ Exports
 Exports
 - `createCodexConversationDriver({ connections, host = {}, limits = {} } = {})`
 Local functions
-- `hash(value)`
 - `goalValue(goal)`
 - `nativeInput(input)`
 
@@ -1071,13 +1069,15 @@ Exports
 Exports
 - `createOpenCodeConversationDriver({ connections, host = {}, limits = {} } = {})`
 Local functions
-- `hash(value)`
 - `nativeMessageId(id)`
 - `executeOpenCodeApplicationTool({ active, turn, target, sessionId, assertCurrent }, input, signal)`
 
 ### `src/server/conversation/providers/scoped.js`
 Exports
 - `runScopedConversationTurn({ operations, scope = {}, input = {}, context: options = {}, executionProfile: profileSnapshot } = {})`
+- `scopedConversationInput(conversationId)`
+- `unsupportedScopedConversation()`
+- `createScopedConversationHandle({ conversationId, sendNative, readNative, waitNative, cancel, deleteConversation, disposeOpening })`
 - `projectStoredPersistentConversation(options)`
 - `readPersistentConversation(options)`
 - `startPersistentConversationTurn(options)`
@@ -1086,6 +1086,7 @@ Exports
 - `inspectPersistentConversationDelivery(options)`
 - `stopPersistentConversation({ sessionId, record, context, operations, records, projection })`
 - `deletePersistentConversation({ sessionId, record, context, operations, records, projection })`
+- `SCOPED_CONVERSATION_CAPABILITIES`
 Local functions
 - `requireSuccess(result)`
 - `qualifyTranscript(turns, record, response, receipts)`

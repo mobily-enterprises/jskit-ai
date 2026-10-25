@@ -1,33 +1,16 @@
 import { createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
+  applyWorkspaceScope,
+  normalizeDbWorkspaceId,
+  normalizeInputRecordId,
+  normalizeWorkspaceId,
   parseJsonObject,
   resolveInsertedId,
   stringifyJsonObject,
   toIso
 } from "./repositoryPersistenceUtils.js";
 import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
-
-function normalizeWorkspaceId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
-
-function normalizeDbWorkspaceId(value) {
-  return normalizeDbRecordId(value, { fallback: null });
-}
-
-function normalizeInputRecordId(value) {
-  return normalizeRecordId(value, { fallback: null });
-}
-
-function applyWorkspaceScope(query, columnName, workspaceId) {
-  const normalizedWorkspaceId = normalizeWorkspaceId(workspaceId);
-  if (normalizedWorkspaceId) {
-    return query.where(columnName, normalizedWorkspaceId);
-  }
-
-  return query.whereNull(columnName);
-}
 
 function mapMessageRow(row = {}) {
   return {

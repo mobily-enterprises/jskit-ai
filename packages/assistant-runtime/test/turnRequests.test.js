@@ -52,7 +52,6 @@ function service(repository, { provider, transcript = [] } = {}) {
     aiClientFactory: { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "test", createChatCompletionStream: provider }) },
     transcriptService: {
       async createConversationForTurn() { return { conversation: { id: "100" } }; },
-      async appendMessage(_surface, _id, message) { transcript.push(message); },
       async completeConversation() {}
     },
     serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
