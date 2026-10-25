@@ -1,7 +1,10 @@
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import {
+  isJsonRestSchemaInstance,
+  normalizeSingleSchemaDefinition
+} from "@jskit-ai/kernel/shared/validators";
 
-const SCHEMA_DEFINITION_MODES = new Set(["create", "replace", "patch"]);
 const OPERATION_SCHEMA_SECTION_NAMES = Object.freeze([
   "body",
   "query",
@@ -10,53 +13,10 @@ const OPERATION_SCHEMA_SECTION_NAMES = Object.freeze([
   "output"
 ]);
 
-function isJsonRestSchemaInstance(value) {
-  return Boolean(value) &&
-    typeof value === "object" &&
-    typeof value.create === "function" &&
-    typeof value.replace === "function" &&
-    typeof value.patch === "function" &&
-    typeof value.toJsonSchema === "function";
-}
-
-function isSchemaDefinitionLike(value) {
-  return Boolean(value) &&
-    typeof value === "object" &&
-    !Array.isArray(value) &&
-    (
-      Object.hasOwn(value, "schema") ||
-      Object.hasOwn(value, "mode")
-    );
-}
-
-function resolveSchemaDefinitionMode(mode, {
-  context = "schema definition.mode",
-  defaultMode = "patch"
-} = {}) {
-  const fallbackMode = normalizeText(defaultMode).toLowerCase() || "patch";
-  const normalizedMode = normalizeText(mode).toLowerCase() || fallbackMode;
-
-  if (!SCHEMA_DEFINITION_MODES.has(normalizedMode)) {
-    throw new TypeError(`${context} must be one of: create, replace, patch.`);
-  }
-
-  return normalizedMode;
-}
-
 function createSchemaDefinition(schema, mode = "patch", {
   context = "schema definition"
 } = {}) {
-  if (!isJsonRestSchemaInstance(schema)) {
-    throw new TypeError(`${context}.schema must be a json-rest-schema schema instance.`);
-  }
-
-  return Object.freeze({
-    schema,
-    mode: resolveSchemaDefinitionMode(mode, {
-      context: `${context}.mode`,
-      defaultMode: "patch"
-    })
-  });
+  return normalizeSingleSchemaDefinition({ schema, mode }, { context, defaultMode: "patch" });
 }
 
 function normalizeSchemaDefinitionLike(value, {
@@ -67,27 +27,8 @@ function normalizeSchemaDefinitionLike(value, {
     return value;
   }
 
-  if (isJsonRestSchemaInstance(value)) {
-    return createSchemaDefinition(value, defaultMode, { context });
-  }
-
-  if (!isSchemaDefinitionLike(value)) {
-    throw new TypeError(
-      `${context} must be a json-rest-schema schema instance or schema definition object.`
-    );
-  }
-
-  const source = normalizeObject(value);
-
-  if (!Object.hasOwn(source, "schema")) {
-    throw new TypeError(`${context}.schema is required.`);
-  }
-
-  return createSchemaDefinition(
-    source.schema,
-    Object.hasOwn(source, "mode") ? source.mode : defaultMode,
-    { context }
-  );
+  const definition = isJsonRestSchemaInstance(value) ? { schema: value, mode: defaultMode } : value;
+  return normalizeSingleSchemaDefinition(definition, { context, defaultMode });
 }
 
 function resolveDefaultOperationSchemaMode(sectionName, operation = {}) {

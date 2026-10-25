@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createSchema } from "@jskit-ai/kernel/shared/validators";
+import { createSchema, normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import {
   createSchemaDefinition,
   defineResource,
@@ -91,7 +91,7 @@ test("defineResource rejects invalid operation schema section values eagerly", (
         output: true
       }
     }
-  }), /operations\.view\.output must be a json-rest-schema schema instance or schema definition object/);
+  }), /operations\.view\.output must be a schema definition object/);
 
   assert.throws(() => defineResource({
     namespace: "assistantConfig",
@@ -101,5 +101,28 @@ test("defineResource rejects invalid operation schema section values eagerly", (
         body: "invalid"
       }
     }
-  }), /operations\.patch\.body must be a json-rest-schema schema instance or schema definition object/);
+  }), /operations\.patch\.body must be a schema definition object/);
+});
+
+test("resource schema definitions follow the kernel's definition rules", () => {
+  const schema = createSchema({ ok: { type: "boolean", required: true } });
+
+  assert.deepEqual(
+    normalizeSchemaDefinitionLike({ schema, mode: "replace" }, { context: "output" }),
+    normalizeSingleSchemaDefinition({ schema, mode: "replace" }, { context: "output" })
+  );
+  assert.deepEqual(normalizeSchemaDefinitionLike(schema, { defaultMode: "create" }), { schema, mode: "create" });
+  assert.equal(normalizeSchemaDefinitionLike(null), null);
+
+  const kernelModeError = (() => {
+    try {
+      normalizeSingleSchemaDefinition({ schema, mode: "upsert" }, { context: "body" });
+    } catch (error) {
+      return error.message;
+    }
+    return "";
+  })();
+  assert.ok(kernelModeError);
+  assert.throws(() => createSchemaDefinition(schema, "upsert", { context: "body" }), { message: kernelModeError });
+  assert.throws(() => normalizeSchemaDefinitionLike({ schema, mode: "upsert" }, { context: "body" }), { message: kernelModeError });
 });

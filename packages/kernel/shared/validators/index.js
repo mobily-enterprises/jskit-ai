@@ -8,6 +8,7 @@ export {
   NULLABLE_HTML_TIME_STRING_SCHEMA
 } from "./htmlTimeSchemas.js";
 export { mergeObjectSchemas } from "./mergeObjectSchemas.js";
+export { isJsonRestSchemaInstance } from "./jsonRestSchemaSupport.js";
 export {
   hasJsonRestSchemaDefinition,
   normalizeSingleSchemaDefinition,

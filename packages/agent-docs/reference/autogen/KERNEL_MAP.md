@@ -282,6 +282,7 @@ Exports
 - `HTML_TIME_STRING_SCHEMA`
 - `NULLABLE_HTML_TIME_STRING_SCHEMA`
 - `mergeObjectSchemas`
+- `isJsonRestSchemaInstance`
 - `hasJsonRestSchemaDefinition`
 - `normalizeSingleSchemaDefinition`
 - `normalizeSchemaDefinition`

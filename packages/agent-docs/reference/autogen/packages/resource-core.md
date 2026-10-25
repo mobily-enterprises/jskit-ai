@@ -20,9 +20,6 @@ Exports
 - `defineResource(resource = {})`
 - `normalizeSchemaDefinitionLike(value, { context = "schema definition", defaultMode = "patch" } = {})`
 Local functions
-- `isJsonRestSchemaInstance(value)`
-- `isSchemaDefinitionLike(value)`
-- `resolveSchemaDefinitionMode(mode, { context = "schema definition.mode", defaultMode = "patch" } = {})`
 - `resolveDefaultOperationSchemaMode(sectionName, operation = {})`
 - `normalizeOperationDefinition(operationName, operation = null, resourceMessages = null)`
 - `normalizeResourceOperations(operations = null, resourceMessages = null)`
