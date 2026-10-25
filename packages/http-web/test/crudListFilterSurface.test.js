@@ -31,7 +31,7 @@ test("CrudListFilterSurface provides adaptive controls without owning server sem
   const controlsSource = await readFile(path.join(componentsDir, "CrudListFilterControls.vue"), "utf8");
   const source = `${surfaceSource}\n${controlsSource}`;
 
-  assert.match(surfaceSource, /<CrudListFilterControls[^>]*:runtime-values="runtimeValues"[^>]*\/>/);
+  assert.match(surfaceSource, /<CrudListFilterControls[^>]*:runtime="runtime"[^>]*\/>/);
   assert.match(surfaceSource, /<CrudListFilterControls[^>]*\bstacked\b[^>]*\/>/);
 
   assert.match(source, /defineProps/);

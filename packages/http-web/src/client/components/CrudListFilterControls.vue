@@ -1,20 +1,23 @@
 <script setup>
+import { computed } from "vue";
 import CrudListDateFilterControl from "./CrudListDateFilterControl.vue";
 
-defineProps({
+const props = defineProps({
   filters: {
     type: Array,
     default: () => []
   },
-  runtimeValues: {
+  runtime: {
     type: Object,
-    required: true
+    default: null
   },
   stacked: {
     type: Boolean,
     default: false
   }
 });
+
+const runtimeValues = computed(() => props.runtime?.values || {});
 
 function optionItems(filter = {}) {
   return Array.isArray(filter.options) ? filter.options : [];

@@ -28,7 +28,6 @@ const filterEntries = computed(() =>
     : {})
     .filter((filter) => filter?.key && filter?.type)
 );
-const runtimeValues = computed(() => props.runtime?.values || {});
 const activeChips = computed(() => Array.isArray(props.runtime?.activeChips?.value) ? props.runtime.activeChips.value : []);
 const hasActiveFilters = computed(() => Boolean(props.runtime?.hasActiveFilters?.value));
 const shouldRender = computed(() => filterEntries.value.length > 0 && Boolean(props.runtime?.values));
@@ -74,7 +73,7 @@ function clearFilters() {
     </div>
 
     <v-sheet v-if="!isCompactLayout" rounded="lg" border class="crud-list-filter-surface__panel">
-      <CrudListFilterControls :filters="filterEntries" :runtime-values="runtimeValues" />
+      <CrudListFilterControls :filters="filterEntries" :runtime="runtime" />
     </v-sheet>
 
     <v-dialog v-model="sheetOpen" max-width="640" location="bottom">
@@ -84,7 +83,7 @@ function clearFilters() {
           <v-btn variant="text" @click="sheetOpen = false">Close</v-btn>
         </v-card-title>
         <v-card-text>
-          <CrudListFilterControls :filters="filterEntries" :runtime-values="runtimeValues" stacked />
+          <CrudListFilterControls :filters="filterEntries" :runtime="runtime" stacked />
         </v-card-text>
         <v-card-actions class="justify-space-between">
           <v-btn variant="text" @click="clearFilters">Clear all</v-btn>
