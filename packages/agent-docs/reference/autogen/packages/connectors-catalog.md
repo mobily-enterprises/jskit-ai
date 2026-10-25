@@ -377,11 +377,15 @@ Local functions
 Exports
 - `googleScope(name)`
 - `googleOperation(scopes, fields, request, validateResult)`
+- `googleBatchRequests(requests, product)`
+- `inputInvalid(message, statusCode = 422)`
 - `googleRead(scopes, fields, destination, validateResult)`
 - `googleProvider(definition, origin, checkOperation, operations)`
 - `googleFileVerification(get, field)`
 - `documentId`
 - `pageToken`
+Local functions
+- `nativeRequest(request)`
 
 ### `src/server/granola.js`
 Exports
@@ -661,9 +665,14 @@ Exports
 - `semrushProvider`
 Local functions
 - `semrushKeywordReport(target, kind)`
+- `trackingObject(value)`
 - `semrushTrackingReport(type, positions = false)`
 - `parseSemrushCsv(text)`
 - `validProject(project)`
+- `v4Result(check, status = 200)`
+- `count(value)`
+- `backlinkResult(report)`
+- `requestedProject(url)`
 
 ### `src/server/sentry.js`
 Exports
@@ -792,6 +801,8 @@ Exports
 Local functions
 - `serializeNativeJson(value)`
 - `guid(value)`
+- `requestPath(request, index)`
+- `sameRecord(matches, message)`
 - `cursor(value)`
 - `bookingDirectoryOperation(kind)`
 - `validContact(value)`
@@ -799,6 +810,7 @@ Local functions
 - `validService(value)`
 - `localDate(value)`
 - `validSlot(value)`
+- `requestedAvailability(value, requested, events)`
 - `availabilityOperation(action, events = false)`
 - `productReadOperation(version, action)`
 - `collectionId(value)`
@@ -874,6 +886,9 @@ Local functions
 - `validId(value)`
 - `validUsername(value)`
 - `validCursor(value)`
+- `validEnvelope(value)`
+- `validUser(value, request)`
+- `validPostPage(value, request)`
 
 ### `src/server/xero.js`
 Exports
