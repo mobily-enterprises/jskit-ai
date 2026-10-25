@@ -12,6 +12,7 @@ shared action feedback.
 - `packages/users-web/src/client/index.js`
 - `packages/workspaces-web/src/client/index.js`
 - `packages/uploads-image-web/src/client/index.js`
+- `packages/shell-web/src/architecture/inspectVueArchitecture.js`
 
 ## Public contract
 
@@ -20,3 +21,13 @@ themes. Standard resource screens expose loading, empty, error, permission,
 filtering, navigation, and mutation states through shared composables. The
 application remains responsible for route policy, product vocabulary, and the
 server authorization behind every visible action.
+
+`@jskit-ai/shell-web` also ships `jskit-inspect-vue`, an optional static
+inspector for the portable architecture-inspection command contract. It reads
+one `vibe64.architecture-inspection-input.v1` request on stdin and prints one
+`genesis.architecture-observations.v1` document: routed pages, the components
+their templates use, literal `fetch` and JSKIT CRUD screen operation uses,
+`defineFeature` and `defineCrudJsonApiFeature` entry operations, and source
+imports. It parses only indexed, hash-matching project files, never imports
+application code or Genesis or Vibe64, and reports dynamic declarations as
+diagnostics instead of guessing.
