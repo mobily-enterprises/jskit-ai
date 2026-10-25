@@ -491,3 +491,34 @@ test("BigQuery query project validates and round-trips through CLI configuration
   await expect(project).toHaveValue("cli-project");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("a client-credentials-first provider gets its own flow's permissions, setting hints and account modes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Edit Probe", exact: true }).click();
+  await expect(page.getByText("The basic tier decides which accounts can connect.", { exact: true })).toBeVisible();
+  await page.getByText("API key", { exact: true }).click();
+  await page.getByRole("option", { name: "OAuth", exact: true }).click();
+  const flow = page.getByRole("combobox", { name: "OAuth flow", exact: true });
+  const account = page.getByRole("combobox", { name: "Account used by the application", exact: true });
+  await expect(flow).toHaveValue("Service account");
+  await expect(account).toHaveValue("Assistant access");
+  await expect(page.getByText("Use an environment reference such as env:PROBE_CLIENT_SECRET. Keep the value outside this file.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Permissions", exact: true }).click();
+  await expect(page.getByRole("checkbox", { name: "Service read", exact: true })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "User read", exact: true })).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Client ID", exact: true }).fill("probe-client");
+  const save = page.getByRole("button", { name: "Export configuration", exact: true });
+  await save.click();
+  const exported = JSON.parse(await page.getByTestId("export").textContent());
+  expect(exported.integrations.probe).toMatchObject({ accountMode: "assistant", scopes: ["service.read"], authentication: { method: "oauth2", registrationRef: "probe" } });
+  expect(exported.registrations.probe).toMatchObject({ grantType: "client_credentials", clientSecretRef: "env:PROBE_CLIENT_SECRET" });
+  await page.getByText("Service account", { exact: true }).click();
+  await page.getByRole("option", { name: "User consent", exact: true }).click();
+  await page.getByText("Assistant access", { exact: true }).click();
+  await page.getByRole("option", { name: "Each app user's own account", exact: true }).click();
+  await expect(account).toHaveValue("Each app user's own account");
+  await page.getByText("User consent", { exact: true }).click();
+  await page.getByRole("option", { name: "Service account", exact: true }).click();
+  await expect(account).toHaveValue("Assistant access");
+});

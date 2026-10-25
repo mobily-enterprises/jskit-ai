@@ -10,6 +10,7 @@ import { slackDefinition } from "../../../connectors-catalog/src/shared/slack.js
 import { amazonRedshiftDefinition } from "../../../connectors-catalog/src/shared/amazon-redshift.js";
 import { snowflakeDefinition } from "../../../connectors-catalog/src/shared/snowflake.js";
 import { databricksDefinition } from "../../../connectors-catalog/src/shared/databricks.js";
+import { probeDefinition, probeIntegration } from "./probe.js";
 import { parseIntegrationConfiguration, validateIntegrationConfiguration } from "../../../connectors-core/src/shared/configuration.js";
 
 const configuration = ref({
@@ -63,7 +64,7 @@ const configuration = ref({
     provider: "databricks", accountMode: "per-user", scopes: ["all-apis", "offline_access"],
     authentication: { method: "oauth2", registrationRef: "databricks" },
     settings: { workspaceUrl: "https://dbc-abc123.cloud.databricks.com" }, extensions: { keep: "workspace" }
-  } },
+  }, probe: probeIntegration },
   registrations: {
     snowflake: { source: "own", clientId: "snowflake-client", clientSecretRef: "env:SNOWFLAKE_SECRET", callbackUrlRef: "env:SNOWFLAKE_CALLBACK" },
     google: { source: "own", clientId: "original-client", clientSecretRef: "env:GOOGLE_SECRET", callbackUrlRef: "env:CALLBACK" },
@@ -77,7 +78,7 @@ const exported = ref("");
 const source = ref("");
 const locked = ref(false);
 const activeId = ref("calendar");
-const providers = [bigqueryDefinition, gmailDefinition, googleDriveDefinition, googleAnalyticsDefinition, contentfulDefinition, snowflakeDefinition, googleCalendarDefinition, mailgunDefinition, algoliaDefinition, clickhouseDefinition, slackDefinition, amazonRedshiftDefinition, databricksDefinition];
+const providers = [bigqueryDefinition, gmailDefinition, googleDriveDefinition, googleAnalyticsDefinition, contentfulDefinition, snowflakeDefinition, googleCalendarDefinition, mailgunDefinition, algoliaDefinition, clickhouseDefinition, slackDefinition, amazonRedshiftDefinition, databricksDefinition, probeDefinition];
 const provider = computed(() => providers.find((entry) => entry.id === configuration.value.integrations[activeId.value].provider));
 function save() {
   try {
@@ -112,6 +113,7 @@ function importSource() {
         <v-btn class="mb-4" min-height="48" @click="activeId = 'redshift'">Edit Redshift</v-btn>
         <v-btn class="mb-4" min-height="48" @click="activeId = 'databricks'">Edit Databricks</v-btn>
         <v-btn class="mb-4" min-height="48" @click="activeId = 'snowflake'">Edit Snowflake</v-btn>
+        <v-btn class="mb-4" min-height="48" @click="activeId = 'probe'">Edit Probe</v-btn>
         <IntegrationConfigurationFields
           v-if="visible" v-model="configuration" :integration-id="activeId"
           :provider="provider" :field-errors="errors" :disabled="locked"

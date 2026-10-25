@@ -37,9 +37,34 @@ const visibleSettings = computed(() => (props.provider.settingsFields || []).fil
   (!field.authenticationMethods || field.authenticationMethods.includes(integration.value.authentication.method))
 ));
 const visibleScopes = computed(() => getProviderScopes(props.provider, integration.value.settings || {}, grantType.value, integration.value.authentication.method));
+const clientSecretHint = computed(() =>
+  `Use an environment reference such as env:${environmentPrefix(registrationId.value || props.integrationId)}_CLIENT_SECRET. Keep the value outside this file.`);
 const assistantPermissions = [
   { value: "ask", title: "Ask each time" }, { value: "always", title: "Always allow" }, { value: "never", title: "Never allow" }
 ];
+
+// The environment-variable prefix editAuthentication uses for a new registration's references.
+function environmentPrefix(id) {
+  return id.toUpperCase().replaceAll("-", "_");
+}
+
+// A service account cannot connect as each app user; fall back to a mode these settings allow.
+function accountModeForGrant(grant, settings, accountMode) {
+  return grant === "client_credentials" && accountMode === "per-user"
+    ? getProviderAccountModes(props.provider, settings || {}).find((mode) => mode !== "per-user") : accountMode;
+}
+
+function settingValue(field) {
+  return integration.value.settings?.[field.name] ?? settingProperties.value[field.name]?.defaultTo;
+}
+
+function settingHint(field) {
+  return typeof field.hint === "function" ? field.hint(integration.value.settings) : field.hint;
+}
+
+function settingErrors(field) {
+  return props.fieldErrors[`${integrationPath.value}.settings.${field.name}`];
+}
 
 function editAssistantPolicy(changes) {
   editIntegration({ assistantPolicy: { enabled: true, defaultPermission: "ask", actions: {}, ...integration.value.assistantPolicy, ...changes } });
@@ -91,19 +116,20 @@ function editAuthentication(method, current = integration.value) {
   for (const field of props.provider.settingsFields || []) {
     if (field.authenticationMethods && !field.authenticationMethods.includes(method)) delete settings[field.name];
   }
-  const availableScopes = getProviderScopes(props.provider, settings, DEFAULT_GRANT_TYPE, method);
+  const grant = method === "oauth2" ? props.provider.oauthGrantTypes?.[0] || DEFAULT_GRANT_TYPE : DEFAULT_GRANT_TYPE;
+  const availableScopes = getProviderScopes(props.provider, settings, grant, method);
   const scopes = availableScopes.filter(scope => current.scopes.includes(scope.value) || scope.required || (scope.authenticationMethods && scope.recommended)).map(scope => scope.value);
   if (method === "oauth2") {
     let id = props.integrationId;
     let suffix = 2;
     while (Object.hasOwn(props.modelValue.registrations, id)) id = `${props.integrationId}-${suffix++}`;
-    const prefix = id.toUpperCase().replaceAll("-", "_");
-    const grant = props.provider.oauthGrantTypes?.[0] || DEFAULT_GRANT_TYPE;
+    const prefix = environmentPrefix(id);
     const clientAuthentication = getProviderClientAuthenticationMethods(props.provider, grant, settings)[0];
     emit("update:modelValue", {
       ...props.modelValue,
       integrations: { ...props.modelValue.integrations, [props.integrationId]: {
         ...current, scopes, authentication: { method, registrationRef: id },
+        accountMode: accountModeForGrant(grant, settings, current.accountMode),
         ...(current.settings ? { settings } : {})
       } },
       registrations: { ...props.modelValue.registrations, [id]: {
@@ -146,8 +172,7 @@ function editGrantType(value) {
     registrations: { ...props.modelValue.registrations, [registrationId.value]: nextRegistration },
     integrations: { ...props.modelValue.integrations, [props.integrationId]: {
       ...integration.value,
-      accountMode: value === "client_credentials" && integration.value.accountMode === "per-user"
-        ? props.provider.accountModes.find((mode) => mode !== "per-user") : integration.value.accountMode,
+      accountMode: accountModeForGrant(value, integration.value.settings, integration.value.accountMode),
       scopes: integration.value.scopes.filter((scope) => allowed.includes(scope))
     } }
   });
@@ -185,22 +210,22 @@ function editGrantType(value) {
             <v-autocomplete
               v-if="field.searchable"
               :label="field.label" :items="field.items" :disabled="disabled" auto-select-first
-              :model-value="integration.settings?.[field.name] ?? settingProperties[field.name]?.defaultTo"
-              :hint="typeof field.hint === 'function' ? field.hint(integration.settings) : field.hint" persistent-hint :error-messages="fieldErrors[`${integrationPath}.settings.${field.name}`]"
+              :model-value="settingValue(field)"
+              :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
               @update:model-value="editSetting(field.name, $event)"
             />
             <v-select
               v-else-if="field.items"
               :label="field.label" :items="field.items" :disabled="disabled"
-              :model-value="integration.settings?.[field.name] ?? settingProperties[field.name]?.defaultTo"
-              :hint="field.hint" persistent-hint :error-messages="fieldErrors[`${integrationPath}.settings.${field.name}`]"
+              :model-value="settingValue(field)"
+              :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
               @update:model-value="editSetting(field.name, $event)"
             />
             <v-text-field
               v-else
               :label="field.label" :disabled="disabled" :placeholder="field.placeholder"
-              :model-value="integration.settings?.[field.name] ?? settingProperties[field.name]?.defaultTo ?? ''"
-              :hint="field.hint" persistent-hint :error-messages="fieldErrors[`${integrationPath}.settings.${field.name}`]"
+              :model-value="settingValue(field) ?? ''"
+              :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
               @update:model-value="editSetting(field.name, $event)"
             />
           </template>
@@ -236,7 +261,7 @@ function editGrantType(value) {
               <slot v-if="registration.tokenEndpointAuthMethod !== 'none'" name="credential" :reference="registration.clientSecretRef" :disabled="disabled">
                 <v-text-field
                   label="Client secret reference" :model-value="registration.clientSecretRef" :disabled="disabled"
-                  hint="Use an environment reference such as env:GOOGLE_CLIENT_SECRET. Keep the value outside this file."
+                  :hint="clientSecretHint"
                   persistent-hint :error-messages="fieldErrors[`${registrationPath}.clientSecretRef`]"
                   @update:model-value="editRegistration('clientSecretRef', $event)"
                 />

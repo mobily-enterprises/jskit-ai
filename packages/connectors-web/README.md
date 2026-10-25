@@ -22,6 +22,7 @@ preserve other integration slots, registrations and extension values.
 
 Provider `settingsFields` metadata supplies labelled select controls when `items`
 are provided and text controls otherwise, with optional hints and placeholders.
+A hint may be text or a function of the current settings.
 Defaults and applicable fields come from
 `getProviderSettingsSchema(provider, settings).getFieldDefinitions()`, which also
 supports schemas containing custom validators. A provider may select a schema
