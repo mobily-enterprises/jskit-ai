@@ -2547,6 +2547,14 @@ test("a delivered native turn reads its identity, status and provider error from
   }
 });
 
+test("a host provider that returns its raw turn unnormalized still delivers its status and error", async () => {
+  const provider = { async sendTurn() {
+    return { id: "t", raw: { status: "failed", error: { message: "boom" } } };
+  } };
+  const delivered = codexAppServerDeliveredTurn(await sendCodexAppServerPrompt({ provider, prompt: "Go", threadId: "thread-1" }));
+  assert.deepEqual(delivered, { turnId: "t", status: "failed", error: "boom" });
+});
+
 test("user Stop records its exact cause before queued native completion while the interrupt reply is held", async () => {
   const notices = [];
   const f = await receiptFixture({ outcomeNotice(_runtime, sessionId, threadId, turnId, outcome) {

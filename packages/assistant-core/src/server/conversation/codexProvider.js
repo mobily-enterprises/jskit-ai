@@ -710,7 +710,7 @@ function codexAppServerDeliveredTurn(delivery = {}) {
   const turn = delivery?.turn || {};
   return {
     turnId: normalizeAgentText(turn.id),
-    status: normalizeAgentText(turn.status),
+    status: normalizeAgentText(turn.status || turn.raw?.status),
     error: codexAppServerErrorText(turn.raw?.error || turn.response?.turn?.error || turn.error)
   };
 }
