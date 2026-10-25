@@ -259,41 +259,24 @@ function resolveUniqueToolName(baseName, used) {
   return candidate;
 }
 
+// Empty arguments mean "no input"; anything else must be one JSON object, so a
+// truncated or malformed call fails instead of running the action with {}.
 function parseToolPayload(argumentsText) {
   const source = String(argumentsText || "").trim();
   if (!source) {
     return {};
   }
 
+  let parsed;
   try {
-    const parsed = JSON.parse(source);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    if (Array.isArray(parsed.args) || Object.hasOwn(parsed, "options")) {
-      const args = Array.isArray(parsed.args) ? parsed.args : [];
-      const options = parsed.options && typeof parsed.options === "object" && !Array.isArray(parsed.options)
-        ? parsed.options
-        : {};
-
-      if (args.length === 1 && args[0] && typeof args[0] === "object" && !Array.isArray(args[0])) {
-        return {
-          ...args[0],
-          ...options
-        };
-      }
-
-      return {
-        args,
-        ...options
-      };
-    }
-
-    return parsed;
+    parsed = JSON.parse(source);
   } catch {
-    return {};
+    parsed = null;
   }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw createToolError(400, "assistant_tool_arguments_invalid", "Tool arguments must be a JSON object.");
+  }
+  return parsed;
 }
 
 function normalizeNonNegativeInteger(value, fallback) {

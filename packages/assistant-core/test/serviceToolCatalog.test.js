@@ -618,6 +618,33 @@ test("assistant tools reject unknown tools and return safe action failures", asy
   });
 });
 
+test("malformed tool arguments fail without running the action", async () => {
+  let executions = 0;
+  const actions = createActions([action({
+    kind: "command",
+    input: schema({ title: { type: "string" } }),
+    execute: async () => {
+      executions += 1;
+      return { ok: true };
+    }
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  const toolName = toolSet.tools[0].name;
+
+  for (const argumentsText of ['{"title":"x"', "[]", '"x"', "null", "7"]) {
+    assert.deepEqual(await catalog.executeToolCall({ toolName, context, toolSet, argumentsText }), {
+      ok: false,
+      error: { code: "assistant_tool_arguments_invalid", message: "Tool arguments must be a JSON object.", status: 400 }
+    }, argumentsText);
+  }
+  assert.equal(executions, 0);
+
+  assert.equal((await catalog.executeToolCall({ toolName, context, toolSet, argumentsText: "  " })).ok, true);
+  assert.equal(executions, 1);
+});
+
 test("wildcard and empty surfaces match named surfaces without bypassing permissions", async () => {
   for (const [surfaces, allowed] of [
     [["*"], ["admin", "app", "console", "custom"]],
