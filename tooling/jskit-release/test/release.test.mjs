@@ -47,6 +47,9 @@ test("release commands have one explicit intent", () => {
   assert.throws(() => parseArgs(["prepare", "--only", "kernel"]), /Unknown argument/u);
   assert.throws(() => parseArgs(["publish", "--from", "/tmp/a"]), /Unknown argument/u);
   assert.throws(() => parseArgs(["pin"]), /requires at least one --from/u);
+  assert.equal(parseArgs(["publish", "--registry=registry.example.test"]).registry, "https://registry.example.test");
+  assert.throws(() => parseArgs(["publish", "--registry"]), /--registry requires a URL/u);
+  assert.throws(() => parseArgs(["publish", "--registry="]), /--registry requires a URL/u);
 });
 
 test("prepare increments exact patch versions", () => {

@@ -59,12 +59,8 @@ function parseArgs(argv = []) {
       else options.from.push(path.resolve(value));
       continue;
     }
-    if (argument === "--registry") {
-      options.registry = normalizeRegistryUrl(args.shift());
-      continue;
-    }
-    if (argument.startsWith("--registry=")) {
-      options.registry = normalizeRegistryUrl(argument.slice("--registry=".length));
+    if (name === "--registry") {
+      options.registry = normalizeRegistryUrl(inline ?? args.shift() ?? "");
       continue;
     }
     throw new Error(`Unknown argument: ${argument}`);
@@ -76,7 +72,7 @@ function parseArgs(argv = []) {
   return options;
 }
 
-function normalizeRegistryUrl(value = DEFAULT_REGISTRY) {
+function normalizeRegistryUrl(value) {
   const registry = String(value || "").trim();
   if (!registry) {
     throw new Error("--registry requires a URL.");
