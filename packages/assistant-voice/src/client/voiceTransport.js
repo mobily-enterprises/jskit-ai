@@ -1,6 +1,12 @@
 import { computed, onScopeDispose, ref, watch } from "vue";
 
-import { VOICE_MAX_SYNTHESIS_TIMEOUT_MS, speechTextFromAssistant } from "../shared/protocol.js";
+import {
+  VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS,
+  VOICE_INPUT_SAMPLE_RATE,
+  VOICE_MAX_SYNTHESIS_TIMEOUT_MS,
+  VOICE_OUTPUT_SAMPLE_RATE,
+  speechTextFromAssistant
+} from "../shared/protocol.js";
 import { createMicrophoneCapture } from "./audioCapture.js";
 import {
   normalizeSpeechSegment,
@@ -8,12 +14,11 @@ import {
   visemeCueAtTime
 } from "./voicePlayback.js";
 
-const INPUT_SAMPLE_RATE = 16_000;
 const WEBSOCKET_OPEN = 1;
 let microphoneOwner = null;
 const speechOwner = ref(null);
 
-function voiceTurnId(prefix = "turn") {
+function createVoiceTurnId(prefix = "turn") {
   const id = globalThis.crypto?.randomUUID?.() ||
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${id}`;
@@ -63,7 +68,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   let heartbeatTimer;
   let lastPongAt = 0;
   let lastSpeechProgressAt = 0;
-  let synthesisTimeoutMs = 20_000;
+  let synthesisTimeoutMs = VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS;
   let lastStartedSegmentIndex = -1;
   let microphone = null;
   let preserveBufferedMicrophone = false;
@@ -83,7 +88,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   let playbackQueue = Promise.resolve();
   let queuedPlaybackFrames = 0;
   let speechStreamEnded = false;
-  let speechSampleRate = 22_050;
+  let speechSampleRate = VOICE_OUTPUT_SAMPLE_RATE;
   let receivingTurnId = "";
   let receivingSegment = null;
   const speechInputEnded = ref(true);
@@ -407,7 +412,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     stopAfterSegment = Infinity;
     bufferedSeconds.value = 0;
     synthesisPending.value = 0;
-    synthesisTimeoutMs = 20_000;
+    synthesisTimeoutMs = VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS;
     lastStartedSegmentIndex = -1;
     receivingTurnId = "";
     receivingSegment = null;
@@ -474,7 +479,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       if (!message.turnId || message.turnId !== activeSpeechTurnId.value) {
         return;
       }
-      speechSampleRate = Number(message.sampleRate) || 22_050;
+      speechSampleRate = Number(message.sampleRate) || VOICE_OUTPUT_SAMPLE_RATE;
       speechStreamEnded = false;
       speechState.value = "thinking";
       nextPlaybackTime = 0;
@@ -484,8 +489,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       if (!speechStreamEnded && Number.isSafeInteger(message.segmentIndex) &&
           message.segmentIndex > lastStartedSegmentIndex) {
         lastStartedSegmentIndex = message.segmentIndex;
-        synthesisTimeoutMs = 20_000;
-        if (Number.isSafeInteger(message.synthesisTimeoutMs) && message.synthesisTimeoutMs > 20_000 &&
+        synthesisTimeoutMs = VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS;
+        if (Number.isSafeInteger(message.synthesisTimeoutMs) && message.synthesisTimeoutMs > VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS &&
             message.synthesisTimeoutMs <= VOICE_MAX_SYNTHESIS_TIMEOUT_MS) {
           // The engine acquired its queue slot. Allow its bounded cold job until
           // first PCM; repeated metadata and pongs are not synthesis progress.
@@ -498,7 +503,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return;
     }
     if (type === "speech.chunk.end" && message.turnId === activeSpeechTurnId.value) {
-      synthesisTimeoutMs = 20_000;
+      synthesisTimeoutMs = VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS;
       lastSpeechProgressAt = Date.now();
       synthesisPending.value = Math.max(0, synthesisPending.value - 1);
       return;
@@ -532,7 +537,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   function handleSocketMessage(event) {
     if (event.data instanceof ArrayBuffer) {
       if (speechOutputEnabled.value && activeSpeechTurnId.value && receivingTurnId === activeSpeechTurnId.value && !speechStreamEnded) {
-        synthesisTimeoutMs = 20_000;
+        synthesisTimeoutMs = VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS;
         lastSpeechProgressAt = Date.now();
         enqueuePcm(event.data);
       }
@@ -652,7 +657,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     microphoneClaim = Symbol("voice microphone");
     microphoneOwner = microphoneClaim;
     preserveBufferedMicrophone = false;
-    const turnId = voiceTurnId("listen");
+    const turnId = createVoiceTurnId("listen");
     pendingListenTurnId = turnId;
     if (interruptSpeechOnListen) stopSpeaking();
     captureState.value = "connecting";
@@ -678,7 +683,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
               socket.send(frame);
             }
           },
-          targetSampleRate: INPUT_SAMPLE_RATE
+          targetSampleRate: VOICE_INPUT_SAMPLE_RATE
         });
         openingMicrophones.add(opening);
         try { capture = await opening; }
@@ -703,7 +708,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       try {
         endpoint.value = null;
         completedUtterance.value = null;
-        sendControl({ sampleRate: INPUT_SAMPLE_RATE, turnId, type: "listen.start", ...(continuous ? { continuous: true } : {}) });
+        sendControl({ sampleRate: VOICE_INPUT_SAMPLE_RATE, turnId, type: "listen.start", ...(continuous ? { continuous: true } : {}) });
         captureState.value = "listening";
       } catch (controlError) {
         activeListenTurnId.value = "";
@@ -738,7 +743,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     sendControl({ turnId, type: "listen.stop" });
   }
 
-  async function speak(text, turnId = voiceTurnId("speak"), { stream = false } = {}) {
+  async function speak(text, turnId = createVoiceTurnId("speak"), { stream = false } = {}) {
     const speechText = speechTextFromAssistant(text);
     if (unmounted || !speechOutputEnabled.value || !speechText) {
       return false;
@@ -958,6 +963,6 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
 }
 
 export {
-  useVoiceTransport,
-  voiceTurnId
+  createVoiceTurnId,
+  useVoiceTransport
 };

@@ -70,8 +70,8 @@ outside its screen. `available = false` releases the active voice session. Dispo
 the controller on app teardown or identity replacement. IDs must include the
 identity scope when different people can use the same conversation ID.
 
-Optional defaults: `mode` (`push-to-talk` or `hands-free`), `talkMode` (`tap` or
-`hold` for one-off recording), `reviewBeforeSend`, and an installed `voiceId`.
+Optional defaults: `mode` (`push-to-talk` or `hands-free`), `reviewBeforeSend`,
+and an installed `voiceId`.
 One-off recordings started through `startHeldRecording()` require review; the
 modal's push-to-talk gesture uses `reviewBeforeSend`. `avatar` and `onVisual`/`onTranscript`
 allow presentation in the surrounding app without adding another audio owner.

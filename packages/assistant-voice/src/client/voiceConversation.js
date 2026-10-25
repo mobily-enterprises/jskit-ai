@@ -1,11 +1,10 @@
 import { computed, onScopeDispose, ref, watch } from "vue";
-import { useVoiceTransport } from "./voiceTransport.js";
+import { createVoiceTurnId, useVoiceTransport } from "./voiceTransport.js";
 import { speechTextFromAssistant, takeStreamingSpeech, VOICE_MAX_SPEECH_TEXT_CHARACTERS } from "../shared/protocol.js";
 import { createConversationNarrationTracker } from "./conversationNarration.js";
 
 /** Created inside the controller's effect scope, independent of a mounted screen. */
 export function useVoiceConversation(binding, { socketUrl, createTransport = useVoiceTransport } = {}) {
-  const oneOffTalkMode = computed(() => binding.defaults?.talkMode === "hold" ? "hold" : "tap");
   const targetLabel = computed(() => binding.label || "Assistant");
   const readAloud = ref(binding.defaults?.readAloud === true);
   const readAloudChangePending = computed(() => binding.readAloudChangePending === true);
@@ -43,9 +42,6 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   const microphoneMuted = voice.microphoneMuted;
   const capturing = computed(() => voice.captureState.value !== "idle");
   const speechActive = computed(() => Boolean(voice.activeSpeechTurnId.value));
-  const talkLabel = computed(() => voice.listening.value ? "Send recording"
-    : capturing.value ? "Cancel recording" : `Talk to ${targetLabel.value}`);
-  const liveLabel = computed(() => starting.value ? "Cancel voice startup" : live.value ? "End voice" : "Start voice");
   const callConnection = computed(() => {
     if (voice.reconnecting.value) return "Voice interrupted";
     if (error.value || voice.error.value) return "Voice needs attention";
@@ -71,19 +67,8 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (voice.listening.value) return "Listening to you";
     return callMode.value === "push-to-talk" ? "Hold to speak" : "Preparing microphone…";
   });
-  const callDetail = computed(() => {
-    if (voice.reconnecting.value) return "Waiting for the voice connection. Your unfinished words remain available for review.";
-    if (error.value || voice.error.value) return "Review your message below or try voice again.";
-    if (starting.value || live.value && ["connecting", "opening"].includes(voice.captureState.value)) return "Allow microphone access if your browser asks.";
-    if (!live.value) return "";
-    if (microphoneMuted.value) return "Unmute when you want to speak. You can still listen.";
-    if (!readAloud.value) return "Sound is off. Answers still appear in chat.";
-    if (callMode.value === "push-to-talk") return "Hold to speak. Release to send. The conversation stays open.";
-    return "You can speak naturally, including while I reply.";
-  });
   const callModeBusy = computed(() => starting.value || changingCallMode.value || pushHolding.value || sending.value || Boolean(pendingTranscript.value)
     || capturing.value && Boolean(voice.partialTranscript.value.trim()) || capturing.value && !voice.listening.value);
-  const microphoneStatus = computed(() => microphoneMuted.value ? "Microphone muted" : voice.listening.value ? "Microphone on" : "Microphone off");
   const avatarVisual = computed(() => ({
     avatar: binding.avatar,
     state: voice.speaking.value ? "speaking" : pushHolding.value && voice.listening.value ? "listening" : binding.state.status === "working" ? "thinking"
@@ -274,7 +259,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         if (!text) continue;
         if (!reply.started) {
           reply.started = true;
-          reply.turnId = crypto.randomUUID();
+          reply.turnId = createVoiceTurnId("speak");
           const accepted = await voice.speak(text, reply.turnId, { stream: true });
           if (disposed) return;
           if (reply.cancelled) {
@@ -872,10 +857,10 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       (sending.value || Boolean(pendingTranscript.value) || capturing.value));
   const hasUnsentSpeech = computed(() => capturing.value || starting.value || sending.value || Boolean(pendingTranscript.value));
   return {
-    oneOffTalkMode, targetLabel, voice, readAloud, readAloudChangePending, error, pendingTranscript, heldReview, holding, sending,
+    targetLabel, voice, readAloud, readAloudChangePending, error, pendingTranscript, heldReview, holding, sending,
     live, starting, callMode, changingCallMode, pushHolding, microphoneMuted, capturing,
-    speechActive, talkLabel, liveLabel, callConnection, callStatus, callDetail, callModeBusy,
-    microphoneStatus, avatarVisual, callAudioLevel, status, heldTranscript, voiceWords, voiceAnswer,
+    speechActive, callConnection, callStatus, callModeBusy,
+    avatarVisual, callAudioLevel, status, heldTranscript, voiceWords, voiceAnswer,
     stopSpeech, inviteSpeech, toggleReadAloud, enableSound, soundPreparing, deliverTranscript, cancelRecording,
     discardRecording, dismissTranscript, talk, toggleMicrophoneMuted, changeCallMode,
     startPushToTalk, finishPushToTalk, cancelPushToTalk, toggleLive, toggleHandsFree, startHeldRecording,

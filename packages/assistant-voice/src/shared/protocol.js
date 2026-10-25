@@ -5,6 +5,7 @@ const VOICE_OUTPUT_SAMPLE_RATE = 22_050;
 const VOICE_MAX_CONTROL_BYTES = 16 * 1024;
 const VOICE_MAX_AUDIO_FRAME_BYTES = 64 * 1024;
 const VOICE_MAX_UTTERANCE_SECONDS = 60;
+const VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS = 20_000;
 const VOICE_MAX_SYNTHESIS_TIMEOUT_MS = 120_000;
 const VOICE_MAX_SPEECH_TEXT_CHARACTERS = 4_000;
 const VOICE_MAX_SPEECH_CHUNK_CHARACTERS = 280;
@@ -12,6 +13,7 @@ const VOICE_SPEECH_EM_DASH_PAUSE_MS = 140;
 const VOICE_SPEECH_SENTENCE_PAUSE_MS = 220;
 const VOICE_SPEECH_LINE_PAUSE_MS = 350;
 const VOICE_SPEECH_PARAGRAPH_PAUSE_MS = 650;
+const VOICE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 const VOICE_TURN_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/u;
 const VOICE_CLIENT_CONTROL_TYPES = new Set([
   "cancel",
@@ -95,7 +97,7 @@ function parseVoiceClientControl(raw = "") {
     return Object.freeze({ type, turnId, revision: input.revision });
   }
   if (type === "speak.start" || type === "speak.append") {
-    if (input.voiceId !== undefined && (type !== "speak.start" || typeof input.voiceId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u.test(input.voiceId))) {
+    if (input.voiceId !== undefined && (type !== "speak.start" || typeof input.voiceId !== "string" || !VOICE_ID_PATTERN.test(input.voiceId))) {
       throw voiceProtocolError("voice_selection_invalid", "Choose an available voice before starting speech.");
     }
     const text = String(input.text || "");
@@ -150,6 +152,56 @@ function float32ToPcm16Le(samples = new Float32Array()) {
   return bytes;
 }
 
+const BUILT_IN_RECOGNITION_PHRASES = Object.freeze([
+  [/\bc plus plus\b/giu, "C++"],
+  [/\b(?:j|jay)\s+(?:s|ess)\s+kit\b/giu, "JSKIT"],
+  [/\bnode\s+(?:(?:j|jay)\s+(?:s|ess)|js)\b/giu, "Node.js"],
+  [/\bpostgres\s+(?:s\s+)?q\s+l\b/giu, "PostgreSQL"],
+  [/\bweb socket\b/giu, "WebSocket"],
+  [/\bsherpa onnx\b/giu, "sherpa-onnx"]
+]);
+const BUILT_IN_RECOGNITION_SPELLINGS = Object.freeze({
+  acl: "ACL",
+  ai: "AI",
+  api: "API",
+  cmake: "CMake",
+  codex: "Codex",
+  env: "ENV",
+  erd: "ERD",
+  fastify: "Fastify",
+  git: "Git",
+  github: "GitHub",
+  http: "HTTP",
+  https: "HTTPS",
+  hmac: "HMAC",
+  id: "ID",
+  javascript: "JavaScript",
+  jskit: "JSKIT",
+  json: "JSON",
+  mariadb: "MariaDB",
+  mysql: "MySQL",
+  npm: "npm",
+  onnx: "ONNX",
+  opencode: "OpenCode",
+  openai: "OpenAI",
+  playwright: "Playwright",
+  postgresql: "PostgreSQL",
+  pty: "PTY",
+  sql: "SQL",
+  systemd: "systemd",
+  typescript: "TypeScript",
+  uuid: "UUID",
+  vitest: "Vitest",
+  vue: "Vue",
+  vuetify: "Vuetify",
+  websocket: "WebSocket",
+  zipformer: "Zipformer"
+});
+const BUILT_IN_RECOGNITION_WORD_PATTERN = new RegExp(
+  `\\b(?:${Object.keys(BUILT_IN_RECOGNITION_SPELLINGS).join("|")})\\b`,
+  "giu"
+);
+
 function normalizeRecognizedText(value = "", vocabulary = {}) {
   const text = String(value || "").replace(/\s+/gu, " ").trim();
   if (!text || text !== text.toUpperCase() || !/[A-Z]/u.test(text)) {
@@ -158,50 +210,13 @@ function normalizeRecognizedText(value = "", vocabulary = {}) {
   const normalized = text.toLowerCase().replace(/(^|[.!?]\s+)([a-z])/gu, (_match, prefix, letter) => (
     `${prefix}${letter.toUpperCase()}`
   ));
-  let result = normalized
-    .replace(/\bc plus plus\b/giu, "C++")
-    .replace(/\b(?:j|jay)\s+(?:s|ess)\s+kit\b/giu, "JSKIT")
-    .replace(/\bnode\s+(?:(?:j|jay)\s+(?:s|ess)|js)\b/giu, "Node.js")
-    .replace(/\bpostgres\s+(?:s\s+)?q\s+l\b/giu, "PostgreSQL")
-    .replace(/\bweb socket\b/giu, "WebSocket")
-    .replace(/\bsherpa onnx\b/giu, "sherpa-onnx")
-    .replace(/\b(?:ai|sql|api|json|http|https|mysql|mariadb|postgresql|erd|id|uuid|env|pty|acl|hmac|onnx|npm|jskit|opencode|openai|javascript|typescript|vue|vuetify|fastify|playwright|vitest|github|git|systemd|cmake|codex|zipformer|websocket)\b/giu, (word) => ({
-    acl: "ACL",
-    ai: "AI",
-    api: "API",
-    cmake: "CMake",
-    codex: "Codex",
-    env: "ENV",
-    erd: "ERD",
-    fastify: "Fastify",
-    git: "Git",
-    github: "GitHub",
-    http: "HTTP",
-    https: "HTTPS",
-    hmac: "HMAC",
-    id: "ID",
-    javascript: "JavaScript",
-    jskit: "JSKIT",
-    json: "JSON",
-    mariadb: "MariaDB",
-    mysql: "MySQL",
-    npm: "npm",
-    onnx: "ONNX",
-    opencode: "OpenCode",
-    openai: "OpenAI",
-    playwright: "Playwright",
-    postgresql: "PostgreSQL",
-    pty: "PTY",
-    sql: "SQL",
-    systemd: "systemd",
-    typescript: "TypeScript",
-    uuid: "UUID",
-    vitest: "Vitest",
-    vue: "Vue",
-    vuetify: "Vuetify",
-    websocket: "WebSocket",
-    zipformer: "Zipformer"
-  })[word.toLowerCase()] || word);
+  let result = normalized;
+  for (const [pattern, spelling] of BUILT_IN_RECOGNITION_PHRASES) {
+    result = result.replace(pattern, spelling);
+  }
+  result = result.replace(BUILT_IN_RECOGNITION_WORD_PATTERN, (word) => (
+    BUILT_IN_RECOGNITION_SPELLINGS[word.toLowerCase()] || word
+  ));
   for (const [phrase, spelling] of Object.entries(vocabulary)) {
     const literal = phrase.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
     result = result.replace(new RegExp(`\\b${literal}\\b`, "giu"), () => spelling);
@@ -416,6 +431,8 @@ function voiceServerMessage(type = "", fields = {}) {
 
 export {
   VOICE_DAEMON_WEBSOCKET_PATH,
+  VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS,
+  VOICE_ID_PATTERN,
   VOICE_INPUT_SAMPLE_RATE,
   VOICE_MAX_AUDIO_FRAME_BYTES,
   VOICE_MAX_CONTROL_BYTES,

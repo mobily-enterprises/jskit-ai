@@ -95,7 +95,7 @@ Exports
 ### `src/client/voicePlayback.js`
 Exports
 - `MOUTH_POSES`
-- `normalizeSpeechSegment(message = {}, sampleRate = 22_050)`
+- `normalizeSpeechSegment(message = {}, sampleRate = VOICE_OUTPUT_SAMPLE_RATE)`
 - `pcm16ArrayBufferToFloat32(buffer)`
 - `visemeCueAtTime(segments = [], currentTime = 0)`
 
@@ -107,8 +107,8 @@ Local functions
 
 ### `src/client/voiceTransport.js`
 Exports
+- `createVoiceTurnId(prefix = "turn")`
 - `useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "", onPlayback } = {})`
-- `voiceTurnId(prefix = "turn")`
 Local functions
 - `resolveWebSocketUrl(value)`
 
@@ -171,6 +171,8 @@ Local functions
 ### `src/shared/protocol.js`
 Exports
 - `VOICE_DAEMON_WEBSOCKET_PATH`
+- `VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS`
+- `VOICE_ID_PATTERN`
 - `VOICE_INPUT_SAMPLE_RATE`
 - `VOICE_MAX_AUDIO_FRAME_BYTES`
 - `VOICE_MAX_CONTROL_BYTES`

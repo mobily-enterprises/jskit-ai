@@ -19,6 +19,7 @@ Exports
 - `argumentMap(values = [])`
 - `runVoiceCli(argv = process.argv.slice(2), { createDaemon = createVoiceDaemon, recognitionVocabulary = {} } = {})`
 Local functions
+- `mergeVoiceModelSources([base, kitten, kokoro])`
 - `requiredOption(options, key, environmentKey = "")`
 - `accessKeyFromFile(filePath)`
 - `positiveInteger(value, fallback)`

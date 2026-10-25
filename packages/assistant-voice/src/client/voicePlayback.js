@@ -1,3 +1,5 @@
+import { VOICE_OUTPUT_SAMPLE_RATE } from "../shared/protocol.js";
+
 const MOUTH_POSES = new Set(["closed", "open", "round", "small", "wide"]);
 
 function pcm16ArrayBufferToFloat32(buffer) {
@@ -9,10 +11,10 @@ function pcm16ArrayBufferToFloat32(buffer) {
   return samples;
 }
 
-function normalizeSpeechSegment(message = {}, sampleRate = 22_050) {
+function normalizeSpeechSegment(message = {}, sampleRate = VOICE_OUTPUT_SAMPLE_RATE) {
   const sampleCount = Math.max(0, Math.floor(Number(message.sampleCount) || 0));
   const durationMs = sampleCount
-    ? (sampleCount / Math.max(1, Number(sampleRate) || 22_050)) * 1_000
+    ? (sampleCount / Math.max(1, Number(sampleRate) || VOICE_OUTPUT_SAMPLE_RATE)) * 1_000
     : Math.max(0, Number(message.durationMs) || 0);
   const cues = (Array.isArray(message.cues) ? message.cues : [])
     .map((cue) => ({

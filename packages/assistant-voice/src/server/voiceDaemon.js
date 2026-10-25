@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 
 import {
   VOICE_DAEMON_WEBSOCKET_PATH,
+  VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS,
   VOICE_INPUT_SAMPLE_RATE,
   VOICE_MAX_AUDIO_FRAME_BYTES,
   VOICE_MAX_CONTROL_BYTES,
@@ -359,7 +360,7 @@ function createVoiceDaemon({
               const segmentIndex = active.segmentIndex++;
               const synthesisTimeoutMs = engine.synthesisTimeoutMs;
               sendJson(socket, "speech.segment.start", { segmentIndex, turnId,
-                ...(Number.isSafeInteger(synthesisTimeoutMs) && synthesisTimeoutMs > 20_000 &&
+                ...(Number.isSafeInteger(synthesisTimeoutMs) && synthesisTimeoutMs > VOICE_DEFAULT_SYNTHESIS_TIMEOUT_MS &&
                     synthesisTimeoutMs <= VOICE_MAX_SYNTHESIS_TIMEOUT_MS ? { synthesisTimeoutMs } : {}) });
               let sampleCount = 0;
               const result = text.trim() ? await engine.synthesize(text.trim(), {

@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { createSynthesisProcess, SYNTHESIS_REQUEST_TIMEOUT_MS } from "./synthesisProcess.js";
 
 import {
+  VOICE_ID_PATTERN,
   VOICE_INPUT_SAMPLE_RATE,
   normalizeRecognizedText,
   pcm16LeToFloat32
@@ -105,7 +106,7 @@ async function createSherpaSpeechEngine({
     ? [{ id: "default", label: "Default voice", speakerId: 0 }]
     : [{ id: "cori", label: "Cori · female · British English · Piper", language: "en-GB", speakerId: 0 }]);
   if (!Array.isArray(voices) || !voices.length || voices.length > 128 || new Set(voices.map(voice => voice?.id)).size !== voices.length ||
-      voices.some(voice => !voice || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u.test(voice.id) || typeof voice.label !== "string" || !voice.label.trim() || voice.label.length > 100 ||
+      voices.some(voice => !voice || !VOICE_ID_PATTERN.test(voice.id) || typeof voice.label !== "string" || !voice.label.trim() || voice.label.length > 100 ||
         !Number.isSafeInteger(voice.speakerId) || voice.speakerId < 0)) {
     throw new TypeError("Configure unique voice IDs, names and valid model speaker IDs.");
   }
