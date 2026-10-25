@@ -187,3 +187,35 @@ test("mergeRequestRecoveryQueryMeta preserves disabled recovery metadata", () =>
     }
   );
 });
+
+test("request recovery accepts only its short option names", () => {
+  assert.deepEqual(buildRequestRecoveryMeta({ enabled: false, label: "Ignored" }), {
+    jskit: { requestRecovery: false }
+  });
+  assert.deepEqual(buildRequestRecoveryMeta({ dedupeWindowMs: "-5" }, { label: "Default" }), {
+    jskit: { requestRecoveryLabel: "Default", requestRecoveryDedupeWindowMs: 0 }
+  });
+  assert.throws(
+    () => buildRequestRecoveryMeta({ requestRecoveryLabel: "Long name" }),
+    /requestRecovery\.requestRecoveryLabel is not supported/
+  );
+});
+
+test("composable defaults fill only the recovery hints the query options leave unset", () => {
+  assert.deepEqual(
+    mergeRequestRecoveryQueryMeta(
+      { meta: { jskit: { requestRecoveryDedupeWindowMs: 250 } } },
+      null,
+      { label: "Default label", method: "get", dedupeWindowMs: 5000 }
+    ),
+    {
+      meta: {
+        jskit: {
+          requestRecoveryDedupeWindowMs: 250,
+          requestRecoveryLabel: "Default label",
+          requestRecoveryMethod: "GET"
+        }
+      }
+    }
+  );
+});

@@ -1,4 +1,5 @@
 import { unref } from "vue";
+import { hasValue, isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 function hasResolvedQueryData({ query = null, data = null } = {}) {
   const querySucceeded = Boolean(unref(query?.isSuccess));
@@ -8,20 +9,8 @@ function hasResolvedQueryData({ query = null, data = null } = {}) {
 }
 
 function mergeQueryMeta(queryOptions = null, meta = {}) {
-  const sourceOptions =
-    queryOptions && typeof queryOptions === "object" && !Array.isArray(queryOptions) ? queryOptions : {};
-  const sourceMeta =
-    sourceOptions.meta && typeof sourceOptions.meta === "object" && !Array.isArray(sourceOptions.meta)
-      ? sourceOptions.meta
-      : {};
-  const sourceJskitMeta =
-    sourceMeta.jskit && typeof sourceMeta.jskit === "object" && !Array.isArray(sourceMeta.jskit)
-      ? sourceMeta.jskit
-      : {};
-  const nextJskitMeta =
-    meta.jskit && typeof meta.jskit === "object" && !Array.isArray(meta.jskit)
-      ? meta.jskit
-      : {};
+  const sourceOptions = isRecord(queryOptions) ? queryOptions : {};
+  const sourceMeta = isRecord(sourceOptions.meta) ? sourceOptions.meta : {};
 
   return {
     ...sourceOptions,
@@ -29,175 +18,97 @@ function mergeQueryMeta(queryOptions = null, meta = {}) {
       ...sourceMeta,
       ...meta,
       jskit: {
-        ...sourceJskitMeta,
-        ...nextJskitMeta
+        ...(isRecord(sourceMeta.jskit) ? sourceMeta.jskit : {}),
+        ...(isRecord(meta.jskit) ? meta.jskit : {})
       }
     }
   };
 }
 
-function normalizeText(value = "") {
-  return String(value || "").trim();
-}
-
-function firstNormalizedText(...values) {
-  for (const value of values) {
-    const normalized = normalizeText(value);
-    if (normalized) {
-      return normalized;
-    }
-  }
-  return "";
-}
-
-function firstNonNegativeFiniteNumber(...values) {
-  for (const value of values) {
-    const numberValue = Number(value);
-    if (Number.isFinite(numberValue)) {
-      return Math.max(0, numberValue);
-    }
-  }
-  return null;
-}
-
-function normalizePlainObject(value = null) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
+// Each requestRecovery option and the query meta key shell-web's request
+// recovery reads for it.
+const REQUEST_RECOVERY_META_KEYS = Object.freeze({
+  label: "requestRecoveryLabel",
+  source: "requestRecoverySource",
+  dedupeKey: "requestRecoveryDedupeKey",
+  method: "requestRecoveryMethod",
+  dedupeWindowMs: "requestRecoveryDedupeWindowMs"
+});
+const DISABLED_REQUEST_RECOVERY_META = Object.freeze({
+  jskit: Object.freeze({ requestRecovery: false })
+});
 
 function normalizeRequestRecoveryInput(requestRecovery = null) {
   if (typeof requestRecovery === "string") {
-    return {
-      label: requestRecovery
-    };
+    return { label: requestRecovery };
   }
-  return normalizePlainObject(requestRecovery);
+  const source = isRecord(requestRecovery) ? requestRecovery : {};
+  for (const key of Object.keys(source)) {
+    if (key !== "enabled" && !Object.hasOwn(REQUEST_RECOVERY_META_KEYS, key)) {
+      throw new TypeError(
+        `requestRecovery.${key} is not supported; use ${Object.keys(REQUEST_RECOVERY_META_KEYS).join(", ")} or enabled.`
+      );
+    }
+  }
+  return source;
 }
 
-function normalizeRequestRecoveryMethod(value = "") {
-  return normalizeText(value).toUpperCase();
+function normalizeRequestRecoveryValue(name, value) {
+  if (name === "dedupeWindowMs") {
+    const numberValue = value == null || value === "" ? Number.NaN : Number(value);
+    return Number.isFinite(numberValue) ? Math.max(0, numberValue) : null;
+  }
+  const text = normalizeText(value);
+  if (!text) {
+    return null;
+  }
+  return name === "method" ? text.toUpperCase() : text;
 }
 
-function isRequestRecoveryMetaDisabled(sourceJskitMeta = {}) {
-  return sourceJskitMeta.requestRecovery === false;
-}
-
-function hasUsableMetaValue(source = {}, key = "") {
-  return Object.hasOwn(source, key) && source[key] !== undefined && source[key] !== null && source[key] !== "";
-}
-
+// requestRecovery is `false`, a label string, or an object of the short option
+// names above (plus `enabled: false`); missing values come from `defaults`.
 function buildRequestRecoveryMeta(requestRecovery = null, defaults = {}) {
   if (requestRecovery === false) {
-    return {
-      jskit: {
-        requestRecovery: false
-      }
-    };
+    return DISABLED_REQUEST_RECOVERY_META;
   }
-
-  const fallback = normalizePlainObject(defaults);
   const source = normalizeRequestRecoveryInput(requestRecovery);
-  if (source.requestRecovery === false || source.enabled === false) {
-    return {
-      jskit: {
-        requestRecovery: false
-      }
-    };
+  if (source.enabled === false) {
+    return DISABLED_REQUEST_RECOVERY_META;
   }
 
-  const label = firstNormalizedText(
-    source.requestRecoveryLabel,
-    source.label,
-    fallback.requestRecoveryLabel,
-    fallback.label
-  );
-  const recoverySource = firstNormalizedText(
-    source.requestRecoverySource,
-    source.source,
-    fallback.requestRecoverySource,
-    fallback.source
-  );
-  const dedupeKey = firstNormalizedText(
-    source.requestRecoveryDedupeKey,
-    source.dedupeKey,
-    fallback.requestRecoveryDedupeKey,
-    fallback.dedupeKey
-  );
-  const method = normalizeRequestRecoveryMethod(
-    firstNormalizedText(
-      source.requestRecoveryMethod,
-      source.method,
-      fallback.requestRecoveryMethod,
-      fallback.method
-    )
-  );
-  const dedupeWindowMs = firstNonNegativeFiniteNumber(
-    source.requestRecoveryDedupeWindowMs,
-    source.dedupeWindowMs,
-    fallback.requestRecoveryDedupeWindowMs,
-    fallback.dedupeWindowMs
-  );
-
+  const fallback = isRecord(defaults) ? defaults : {};
   const jskit = {};
-  if (label) {
-    jskit.requestRecoveryLabel = label;
+  for (const [name, metaKey] of Object.entries(REQUEST_RECOVERY_META_KEYS)) {
+    const value = normalizeRequestRecoveryValue(name, source[name]) ??
+      normalizeRequestRecoveryValue(name, fallback[name]);
+    if (value !== null) {
+      jskit[metaKey] = value;
+    }
   }
-  if (recoverySource) {
-    jskit.requestRecoverySource = recoverySource;
-  }
-  if (dedupeKey) {
-    jskit.requestRecoveryDedupeKey = dedupeKey;
-  }
-  if (method) {
-    jskit.requestRecoveryMethod = method;
-  }
-  if (dedupeWindowMs !== null) {
-    jskit.requestRecoveryDedupeWindowMs = dedupeWindowMs;
-  }
-
   return Object.keys(jskit).length > 0 ? { jskit } : {};
 }
 
-function resolveRequestRecoveryDefaults(queryOptions = null, defaults = {}) {
-  const sourceOptions = normalizePlainObject(queryOptions);
-  const sourceMeta = normalizePlainObject(sourceOptions.meta);
-  const sourceJskitMeta = normalizePlainObject(sourceMeta.jskit);
-  const fallback = normalizePlainObject(defaults);
-  if (isRequestRecoveryMetaDisabled(sourceJskitMeta)) {
-    return {};
-  }
-
-  const hasExplicitLabel = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryLabel");
-  const hasExplicitSource = hasUsableMetaValue(sourceJskitMeta, "requestRecoverySource");
-  const hasExplicitDedupeKey = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryDedupeKey");
-  const hasExplicitDedupeWindowMs = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryDedupeWindowMs");
-  const hasExplicitMethod = hasUsableMetaValue(sourceJskitMeta, "requestRecoveryMethod");
-
-  return {
-    ...fallback,
-    requestRecoveryLabel: hasExplicitLabel ? "" : fallback.requestRecoveryLabel,
-    label: hasExplicitLabel ? "" : fallback.label,
-    requestRecoverySource: hasExplicitSource ? "" : fallback.requestRecoverySource,
-    source: hasExplicitSource ? "" : fallback.source,
-    requestRecoveryDedupeKey: hasExplicitDedupeKey ? "" : fallback.requestRecoveryDedupeKey,
-    dedupeKey: hasExplicitDedupeKey ? "" : fallback.dedupeKey,
-    requestRecoveryDedupeWindowMs: hasExplicitDedupeWindowMs ? "" : fallback.requestRecoveryDedupeWindowMs,
-    dedupeWindowMs: hasExplicitDedupeWindowMs ? "" : fallback.dedupeWindowMs,
-    requestRecoveryMethod: hasExplicitMethod ? "" : fallback.requestRecoveryMethod,
-    method: hasExplicitMethod ? "" : fallback.method
-  };
-}
-
 function mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = null, defaults = {}) {
-  const sourceOptions = normalizePlainObject(queryOptions);
-  const effectiveDefaults =
-    requestRecovery == null
-      ? resolveRequestRecoveryDefaults(sourceOptions, defaults)
-      : normalizePlainObject(defaults);
-  const meta = buildRequestRecoveryMeta(requestRecovery, effectiveDefaults);
-  if (Object.keys(meta).length < 1) {
-    return sourceOptions;
+  const sourceOptions = isRecord(queryOptions) ? queryOptions : {};
+  let meta;
+  if (requestRecovery == null) {
+    const presetMeta = isRecord(sourceOptions.meta?.jskit) ? sourceOptions.meta.jskit : {};
+    if (presetMeta.requestRecovery === false) {
+      return sourceOptions;
+    }
+    // Composable defaults never replace a hint the query options already set.
+    const fallback = isRecord(defaults) ? defaults : {};
+    const unsetDefaults = {};
+    for (const [name, metaKey] of Object.entries(REQUEST_RECOVERY_META_KEYS)) {
+      if (!hasValue(presetMeta[metaKey])) {
+        unsetDefaults[name] = fallback[name];
+      }
+    }
+    meta = buildRequestRecoveryMeta(null, unsetDefaults);
+  } else {
+    meta = buildRequestRecoveryMeta(requestRecovery, defaults);
   }
-  return mergeQueryMeta(sourceOptions, meta);
+  return Object.keys(meta).length > 0 ? mergeQueryMeta(sourceOptions, meta) : sourceOptions;
 }
 
 export {

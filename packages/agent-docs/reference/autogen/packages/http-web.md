@@ -364,15 +364,8 @@ Exports
 - `mergeQueryMeta(queryOptions = null, meta = {})`
 - `mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = null, defaults = {})`
 Local functions
-- `normalizeText(value = "")`
-- `firstNormalizedText(...values)`
-- `firstNonNegativeFiniteNumber(...values)`
-- `normalizePlainObject(value = null)`
 - `normalizeRequestRecoveryInput(requestRecovery = null)`
-- `normalizeRequestRecoveryMethod(value = "")`
-- `isRequestRecoveryMetaDisabled(sourceJskitMeta = {})`
-- `hasUsableMetaValue(source = {}, key = "")`
-- `resolveRequestRecoveryDefaults(queryOptions = null, defaults = {})`
+- `normalizeRequestRecoveryValue(name, value)`
 
 ### `src/client/composables/support/routeTemplateHelpers.js`
 Exports
