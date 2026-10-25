@@ -99,29 +99,30 @@ then needs consent again. Provider PKCE enforcement needs provider evidence.
 
 ## Provider specifics
 
-Each provider's guide holds its OAuth registration, portable configuration and
-runtime composition:
+Each provider's guide in the packaged `docs/` folder of
+`@jskit-ai/connectors-catalog` holds its OAuth registration, portable
+configuration and runtime composition:
 
-- [shopify](../../docs/shopify.md)
-- [hubspot](../../docs/hubspot.md)
-- [linear](../../docs/linear.md)
-- [twitch](../../docs/twitch.md)
-- [slack](../../docs/slack.md)
-- [microsoft-oauth](../../docs/microsoft-oauth.md)
-- [xero](../../docs/xero.md)
-- [wave](../../docs/wave.md)
-- [zoho-crm](../../docs/zoho-crm.md)
-- [zoho-books](../../docs/zoho-books.md)
-- [lightspeed](../../docs/lightspeed.md)
-- [databricks](../../docs/databricks.md)
-- [microsoft-fabric](../../docs/microsoft-fabric.md)
-- [salesforce](../../docs/salesforce.md)
-- [google-ads](../../docs/google-ads.md)
-- [linkedin](../../docs/linkedin.md)
-- [tiktok](../../docs/tiktok.md)
-- [snowflake](../../docs/snowflake.md)
-- [gemini-enterprise](../../docs/gemini-enterprise.md)
-- [workday](../../docs/workday.md)
+- `docs/shopify.md`
+- `docs/hubspot.md`
+- `docs/linear.md`
+- `docs/twitch.md`
+- `docs/slack.md`
+- `docs/microsoft-oauth.md`
+- `docs/xero.md`
+- `docs/wave.md`
+- `docs/zoho-crm.md`
+- `docs/zoho-books.md`
+- `docs/lightspeed.md`
+- `docs/databricks.md`
+- `docs/microsoft-fabric.md`
+- `docs/salesforce.md`
+- `docs/google-ads.md`
+- `docs/linkedin.md`
+- `docs/tiktok.md`
+- `docs/snowflake.md`
+- `docs/gemini-enterprise.md`
+- `docs/workday.md`
 
 ## Shared connection from an Env refresh token
 
