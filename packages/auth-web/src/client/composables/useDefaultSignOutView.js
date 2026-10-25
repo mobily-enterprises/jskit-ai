@@ -2,14 +2,12 @@ import { computed, onMounted, ref } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import {
   useWebPlacementContext,
+  resolveAllowedOriginsFromPlacementContext,
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { performSignOutRequest } from "../runtime/useSignOut.js";
 import { useAuthGuardRuntime } from "../runtime/inject.js";
-import {
-  normalizeAuthReturnToPath,
-  resolveAllowedReturnToOriginsFromPlacementContext
-} from "../lib/returnToPath.js";
+import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 
 function readReturnToPathFromLocation({ allowedOrigins = [] } = {}) {
   if (typeof window !== "object" || !window.location) {
@@ -42,7 +40,7 @@ export function useDefaultSignOutView() {
   const errorMessage = ref("");
   const returnToPath = ref("/");
   const allowedReturnToOrigins = computed(() =>
-    resolveAllowedReturnToOriginsFromPlacementContext(placementContext.value)
+    resolveAllowedOriginsFromPlacementContext(placementContext.value)
   );
 
   function setErrorMessage(message, dedupeKey = "") {

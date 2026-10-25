@@ -106,7 +106,6 @@ Local functions
 ### `src/client/lib/returnToPath.js`
 Exports
 - `normalizeAuthReturnToPath(value, fallback = "/", { allowedOrigins = [] } = {})`
-- `resolveAllowedReturnToOriginsFromPlacementContext(contextValue = null)`
 
 ### `src/client/lib/surfaceLinkTarget.js`
 Exports

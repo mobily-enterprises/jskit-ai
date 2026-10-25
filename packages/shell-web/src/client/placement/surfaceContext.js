@@ -7,6 +7,7 @@ import {
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
+import { resolveAllowedOriginsFromSurfaceDefinitions } from "@jskit-ai/kernel/shared/support/returnToPath";
 
 const EMPTY_SURFACE_CONFIG = Object.freeze({
   tenancyMode: "",
@@ -117,6 +118,14 @@ function buildSurfaceConfigContext(surfaceRuntime = null, { tenancyMode = "" } =
 function readPlacementSurfaceConfig(contextValue = null) {
   const contextRecord = isRecord(contextValue) ? contextValue : {};
   return normalizeSurfaceConfig(contextRecord.surfaceConfig);
+}
+
+// Origins a return-to URL may point at: this page plus every surface origin.
+function resolveAllowedOriginsFromPlacementContext(contextValue = null) {
+  const seedOrigins = typeof window === "object" && window?.location?.origin ? [window.location.origin] : [];
+  return resolveAllowedOriginsFromSurfaceDefinitions(readPlacementSurfaceConfig(contextValue).surfacesById, {
+    seedOrigins
+  });
 }
 
 function resolveSurfaceDefinitionFromPlacementContext(contextValue = null, surfaceId = "") {
@@ -273,6 +282,7 @@ export {
   EMPTY_SURFACE_CONFIG,
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
+  resolveAllowedOriginsFromPlacementContext,
   resolveSurfaceDefinitionFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,

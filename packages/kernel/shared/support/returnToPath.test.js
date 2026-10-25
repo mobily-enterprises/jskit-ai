@@ -5,8 +5,7 @@ import {
   normalizeAllowedOrigins,
   normalizeHttpOrigin,
   normalizeReturnToPath,
-  resolveAllowedOriginsFromSurfaceDefinitions,
-  resolveAllowedOriginsFromPlacementContext
+  resolveAllowedOriginsFromSurfaceDefinitions
 } from "./returnToPath.js";
 
 test("normalizeHttpOrigin keeps valid http origins only", () => {
@@ -86,40 +85,6 @@ test("resolveAllowedOriginsFromSurfaceDefinitions includes seed origins and surf
     "https://home.example.com",
     "https://app.example.com"
   ]);
-});
-
-test("resolveAllowedOriginsFromPlacementContext collects current and surface origins", () => {
-  const originalWindow = globalThis.window;
-  globalThis.window = {
-    location: {
-      origin: "https://current.example.com"
-    }
-  };
-
-  try {
-    const origins = resolveAllowedOriginsFromPlacementContext({
-      surfaceConfig: {
-        surfacesById: {
-          home: { origin: "https://home.example.com" },
-          app: { origin: "https://app.example.com" },
-          duplicate: { origin: "https://home.example.com" },
-          invalid: { origin: "mailto:hello@example.com" }
-        }
-      }
-    });
-
-    assert.deepEqual(origins, [
-      "https://current.example.com",
-      "https://home.example.com",
-      "https://app.example.com"
-    ]);
-  } finally {
-    if (typeof originalWindow === "undefined") {
-      delete globalThis.window;
-    } else {
-      globalThis.window = originalWindow;
-    }
-  }
 });
 
 test("normalizeReturnToPath refuses paths a browser reads as another site", () => {

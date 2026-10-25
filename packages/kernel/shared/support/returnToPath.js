@@ -89,24 +89,6 @@ function normalizeBlockedPathnames(blockedPathnames = []) {
   return normalizedPathnames;
 }
 
-function resolveAllowedOriginsFromPlacementContext(contextValue = null, { includeWindowOrigin = true } = {}) {
-  const seedOrigins = [];
-
-  if (includeWindowOrigin && typeof window === "object" && window?.location?.origin) {
-    appendNormalizedOrigin(seedOrigins, window.location.origin);
-  }
-
-  const surfaceConfig =
-    contextValue && typeof contextValue === "object" && contextValue.surfaceConfig && typeof contextValue.surfaceConfig === "object"
-      ? contextValue.surfaceConfig
-      : {};
-  const surfacesById =
-    surfaceConfig.surfacesById && typeof surfaceConfig.surfacesById === "object" ? surfaceConfig.surfacesById : {};
-  return resolveAllowedOriginsFromSurfaceDefinitions(surfacesById, {
-    seedOrigins
-  });
-}
-
 function normalizeReturnToPath(
   value,
   {
@@ -163,6 +145,5 @@ export {
   normalizeAllowedOrigins,
   normalizeHttpOrigin,
   normalizeReturnToPath,
-  resolveAllowedOriginsFromSurfaceDefinitions,
-  resolveAllowedOriginsFromPlacementContext
+  resolveAllowedOriginsFromSurfaceDefinitions
 };

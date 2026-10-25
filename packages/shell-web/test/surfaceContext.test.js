@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildSurfaceConfigContext,
   readPlacementSurfaceConfig,
+  resolveAllowedOriginsFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext,
@@ -181,4 +182,56 @@ test("resolveSurfaceNavigationTargetFromPlacementContext resolves cross-origin t
     surfaceId: "admin",
     external: false
   });
+});
+
+test("resolveAllowedOriginsFromPlacementContext collects current and surface origins", () => {
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    location: {
+      origin: "https://current.example.com"
+    }
+  };
+
+  try {
+    const origins = resolveAllowedOriginsFromPlacementContext({
+      surfaceConfig: {
+        surfacesById: {
+          home: { origin: "https://home.example.com" },
+          app: { origin: "https://app.example.com" },
+          duplicate: { origin: "https://home.example.com" },
+          invalid: { origin: "mailto:hello@example.com" }
+        }
+      }
+    });
+
+    assert.deepEqual(origins, [
+      "https://current.example.com",
+      "https://home.example.com",
+      "https://app.example.com"
+    ]);
+  } finally {
+    if (typeof originalWindow === "undefined") {
+      delete globalThis.window;
+    } else {
+      globalThis.window = originalWindow;
+    }
+  }
+});
+
+test("resolveAllowedOriginsFromPlacementContext reads surfaces through the placement surface config", () => {
+  const originalWindow = globalThis.window;
+  delete globalThis.window;
+  try {
+    assert.deepEqual(resolveAllowedOriginsFromPlacementContext(null), []);
+    assert.deepEqual(
+      resolveAllowedOriginsFromPlacementContext({
+        surfaceConfig: { surfacesById: { Admin: { origin: "https://ADMIN.example.com/x" } } }
+      }),
+      ["https://admin.example.com"]
+    );
+  } finally {
+    if (typeof originalWindow !== "undefined") {
+      globalThis.window = originalWindow;
+    }
+  }
 });

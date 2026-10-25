@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  normalizeAuthReturnToPath,
-  resolveAllowedReturnToOriginsFromPlacementContext
-} from "../src/client/lib/returnToPath.js";
+import { normalizeAuthReturnToPath } from "../src/client/lib/returnToPath.js";
 
 test("normalizeAuthReturnToPath keeps valid internal paths", () => {
   assert.equal(normalizeAuthReturnToPath("/dashboard"), "/dashboard");
@@ -36,37 +33,4 @@ test("normalizeAuthReturnToPath falls back for invalid or auth-loop paths", () =
     }),
     "/"
   );
-});
-
-test("resolveAllowedReturnToOriginsFromPlacementContext collects current + surface origins", () => {
-  const originalWindow = globalThis.window;
-  globalThis.window = {
-    location: {
-      origin: "https://current.example.com"
-    }
-  };
-
-  try {
-    const origins = resolveAllowedReturnToOriginsFromPlacementContext({
-      surfaceConfig: {
-        surfacesById: {
-          home: { origin: "https://home.example.com" },
-          app: { origin: "https://app.example.com" },
-          auth: { origin: "https://home.example.com" }
-        }
-      }
-    });
-
-    assert.deepEqual(origins, [
-      "https://current.example.com",
-      "https://home.example.com",
-      "https://app.example.com"
-    ]);
-  } finally {
-    if (typeof originalWindow === "undefined") {
-      delete globalThis.window;
-    } else {
-      globalThis.window = originalWindow;
-    }
-  }
 });

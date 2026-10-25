@@ -1,13 +1,11 @@
 import { computed, ref } from "vue";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import {
+  resolveAllowedOriginsFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
-import {
-  normalizeAuthReturnToPath,
-  resolveAllowedReturnToOriginsFromPlacementContext
-} from "../../lib/returnToPath.js";
+import { normalizeAuthReturnToPath } from "../../lib/returnToPath.js";
 import {
   LOGIN_MODE,
   REGISTER_MODE,
@@ -100,7 +98,7 @@ export function useLoginViewState({ placementContext } = {}) {
   });
   const submitLabel = computed(() => SUBMIT_LABEL_BY_MODE[mode.value] || SUBMIT_LABEL_BY_MODE[LOGIN_MODE]);
   const allowedReturnToOrigins = computed(() =>
-    resolveAllowedReturnToOriginsFromPlacementContext(placementContext?.value)
+    resolveAllowedOriginsFromPlacementContext(placementContext?.value)
   );
   const requestedReturnTo = ref(
     normalizeAuthReturnToPath(

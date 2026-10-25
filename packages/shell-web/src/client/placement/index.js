@@ -18,6 +18,7 @@ export {
 
 export {
   readPlacementSurfaceConfig,
+  resolveAllowedOriginsFromPlacementContext,
   resolveSurfaceDefinitionFromPlacementContext,
   joinSurfacePath,
   resolveSurfaceIdFromPlacementPathname,

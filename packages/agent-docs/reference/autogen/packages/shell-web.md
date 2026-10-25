@@ -305,6 +305,7 @@ Exports
 - `useWebPlacementContext`
 - `resolveRuntimePathname`
 - `readPlacementSurfaceConfig`
+- `resolveAllowedOriginsFromPlacementContext`
 - `resolveSurfaceDefinitionFromPlacementContext`
 - `joinSurfacePath`
 - `resolveSurfaceIdFromPlacementPathname`
@@ -352,6 +353,7 @@ Exports
 - `EMPTY_SURFACE_CONFIG`
 - `buildSurfaceConfigContext(surfaceRuntime = null, { tenancyMode = "" } = {})`
 - `readPlacementSurfaceConfig(contextValue = null)`
+- `resolveAllowedOriginsFromPlacementContext(contextValue = null)`
 - `resolveSurfaceDefinitionFromPlacementContext(contextValue = null, surfaceId = "")`
 - `joinSurfacePath(surfacePrefix = "", pathname = "")`
 - `resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "")`

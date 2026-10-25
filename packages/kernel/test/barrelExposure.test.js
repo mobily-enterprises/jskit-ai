@@ -62,7 +62,6 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "normalizePermissionList",
       "normalizeReturnToPath",
       "pickOwnProperties",
-      "resolveAllowedOriginsFromPlacementContext",
       "splitPathQueryAndHash",
       "toCamelCase",
       "toSnakeCase",

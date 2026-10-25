@@ -1,6 +1,8 @@
-import { resolveSurfaceNavigationTargetFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
+import {
+  resolveAllowedOriginsFromPlacementContext,
+  resolveSurfaceNavigationTargetFromPlacementContext
+} from "@jskit-ai/shell-web/client/placement";
 
-import { resolveAllowedReturnToOriginsFromPlacementContext } from "../lib/returnToPath.js";
 import { createAuthGuardRuntime } from "./authGuardRuntime.js";
 import { completeOAuthCallbackFromUrl } from "./oauthCallbackRuntime.js";
 import { createPopupOAuthLaunchClient } from "./popupOAuthLaunchClient.js";
@@ -23,7 +25,7 @@ function createMobileCallbackCompleter() {
       return completeOAuthCallbackFromUrl({
         url,
         fallbackReturnTo,
-        allowedReturnToOrigins: resolveAllowedReturnToOriginsFromPlacementContext(placementContext),
+        allowedReturnToOrigins: resolveAllowedOriginsFromPlacementContext(placementContext),
         defaultProvider,
         ...(typeof request === "function" ? { request } : {}),
         refreshSession

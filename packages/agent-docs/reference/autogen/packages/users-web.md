@@ -64,7 +64,6 @@ Exports
 
 ### `src/client/composables/account-settings/accountSettingsRuntimeHelpers.js`
 Exports
-- `resolveAllowedReturnToOrigins(contextValue = null)`
 - `normalizeAvatarSize(value)`
 - `normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account", allowedOrigins = [] } = {})`
 - `normalizeSettingsPayload(value)`

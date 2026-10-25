@@ -4,7 +4,9 @@ import { useTheme } from "vuetify";
 import { useRoute } from "vue-router";
 import {
   useWebPlacementContext,
-  resolveSurfaceNavigationTargetFromPlacementContext
+  resolveAllowedOriginsFromPlacementContext,
+  resolveSurfaceNavigationTargetFromPlacementContext,
+  resolveSurfacePathFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
@@ -18,7 +20,6 @@ import {
   resolveThemeNameForPreference,
   setVuetifyThemeName
 } from "../lib/theme.js";
-import { resolveSurfacePathFromPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import {
   ACCOUNT_SETTINGS_DEFAULTS,
   AVATAR_DEFAULT_SIZE,
@@ -33,8 +34,7 @@ import {
 import {
   normalizeAvatarSize,
   normalizeReturnToPath,
-  normalizeSettingsPayload,
-  resolveAllowedReturnToOrigins
+  normalizeSettingsPayload
 } from "./account-settings/accountSettingsRuntimeHelpers.js";
 import { createAccountSettingsAvatarUploadRuntime } from "./account-settings/accountSettingsAvatarUploadRuntime.js";
 
@@ -73,7 +73,7 @@ function useAccountSettingsRuntime() {
   const accountSettingsPath = computed(() =>
     resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
   );
-  const allowedReturnToOrigins = computed(() => resolveAllowedReturnToOrigins(placementContext.value));
+  const allowedReturnToOrigins = computed(() => resolveAllowedOriginsFromPlacementContext(placementContext.value));
   const backTarget = computed(() =>
     normalizeReturnToPath(route?.query?.returnTo, {
       fallback: "/",

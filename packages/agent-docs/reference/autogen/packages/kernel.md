@@ -64,7 +64,6 @@ Exports
 - `normalizePermissionList`
 - `hasPermission`
 - `normalizeReturnToPath`
-- `resolveAllowedOriginsFromPlacementContext`
 - `toCamelCase`
 - `toSnakeCase`
 - `isTransientQueryError`
@@ -168,7 +167,6 @@ Exports
 - `normalizeHttpOrigin(value = "")`
 - `normalizeReturnToPath(value, { fallback = "/", allowedOrigins = [], blockedPathnames = [], pickFirstArrayValue = false } = {})`
 - `resolveAllowedOriginsFromSurfaceDefinitions(surfaceDefinitions = {}, { seedOrigins = [] } = {})`
-- `resolveAllowedOriginsFromPlacementContext(contextValue = null, { includeWindowOrigin = true } = {})`
 Local functions
 - `staysOnSameOrigin(path)`
 - `appendNormalizedOrigin(origins, value)`

@@ -1,9 +1,5 @@
 import { ACCOUNT_SETTINGS_DEFAULTS } from "./accountSettingsRuntimeConstants.js";
-import {
-  isRecord,
-  normalizeReturnToPath as normalizeSharedReturnToPath,
-  resolveAllowedOriginsFromPlacementContext
-} from "@jskit-ai/kernel/shared/support";
+import { isRecord, normalizeReturnToPath as normalizeSharedReturnToPath } from "@jskit-ai/kernel/shared/support";
 
 function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/account", allowedOrigins = [] } = {}) {
   return normalizeSharedReturnToPath(value, {
@@ -12,10 +8,6 @@ function normalizeReturnToPath(value, { fallback = "/", accountSettingsPath = "/
     blockedPathnames: [accountSettingsPath],
     pickFirstArrayValue: true
   });
-}
-
-function resolveAllowedReturnToOrigins(contextValue = null) {
-  return resolveAllowedOriginsFromPlacementContext(contextValue);
 }
 
 function normalizeSettingsPayload(value) {
@@ -33,7 +25,6 @@ function normalizeAvatarSize(value) {
 }
 
 export {
-  resolveAllowedReturnToOrigins,
   normalizeAvatarSize,
   normalizeReturnToPath,
   normalizeSettingsPayload
