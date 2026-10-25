@@ -123,7 +123,7 @@ test("Gong preserves paged users and encodes opaque cursors with explicit avatar
   assert.deepEqual(Object.fromEntries(requests.at(-1).url.searchParams), { cursor: "next+&=token", includeAvatars: "true" });
   assert.equal(requests.length, 2);
   for (const invalid of [{ cursor: "" }, { cursor: "x".repeat(8193) }, { includeAvatars: "perhaps" }, { page: 2 }, { apiBaseUrl: "https://company-18.api.gong.io" }, { url: "https://attacker.invalid" }]) {
-    await assert.rejects(service.invoke({ ...input, operation: "users.list", input: invalid }), { code: "connector_input_invalid" });
+    await assert.rejects(service.invoke({ ...input, operation: "users.list", input: invalid }), { code: "connector_input_invalid", statusCode: 422 });
   }
   assert.equal(requests.length, 2);
   state.response = { users: [], records: { totalRecords: 0, currentPageSize: 0, currentPageNumber: 0 } };
@@ -183,7 +183,7 @@ test("Gong call content preserves speaker, CRM context, statistics and opaque pa
   assert.equal(JSON.parse(requests.at(-1).init.body).contentSelector.exposedFields.media, true);
   assert.equal(requests.some(request => request.url.origin === "https://media.example.test"), false);
   const count = requests.length;
-  for (const [operation, values] of [["calls.extensive", {}], ["calls.transcripts", { callIds: [Number(callId)] }], ["calls.transcripts", { fromDateTime: "2026-09-01T00:00:00Z" }], ["stats.interaction", { fromDate: "2026-02-30", toDate: "2026-03-01" }], ["stats.interaction", { fromDate: "2026-09-03", toDate: "2026-09-01" }]]) await assert.rejects(service.invoke({ ...input, operation, input: values }), { code: "connector_input_invalid" });
+  for (const [operation, values] of [["calls.extensive", {}], ["calls.transcripts", { callIds: [Number(callId)] }], ["calls.transcripts", { fromDateTime: "2026-09-01T00:00:00Z" }], ["stats.interaction", { fromDate: "2026-02-30", toDate: "2026-03-01" }], ["stats.interaction", { fromDate: "2026-09-03", toDate: "2026-09-01" }]]) await assert.rejects(service.invoke({ ...input, operation, input: values }), { code: "connector_input_invalid", statusCode: 422 });
   assert.equal(requests.length, count);
   state.response = { records: { totalRecords: 0, currentPageSize: 0, currentPageNumber: 0 }, callTranscripts: [] };
   assert.deepEqual((await service.invoke({ ...input, operation: "calls.transcripts", input: { callIds: [callId] } })).callTranscripts, []);

@@ -154,7 +154,8 @@ test("GitHub repository reads and issue/PR writes preserve paths, pagination and
     assert.deepEqual(JSON.parse(requests.at(-1).init.body), { state: "closed" });
   }
   const before = requests.length;
-  for (const [operation, input] of [["contents.get", { path: "../secret" }], ["repositories.get", { owner: "other/owner" }], ["issues.list", { per_page: 101 }], ["issues.update", { number: 7 }], ["pulls.create", { title: "x", head: "x" }]]) await assert.rejects(invoke(operation, input));
+  for (const [operation, input] of [["contents.get", { path: "../secret" }], ["repositories.get", { owner: "other/owner" }], ["issues.list", { per_page: 101 }], ["pulls.create", { title: "x", head: "x" }]]) await assert.rejects(invoke(operation, input));
+  await assert.rejects(invoke("issues.update", { number: 7 }), { code: "connector_input_invalid", statusCode: 422, message: "Supply at least one change." });
   assert.equal(requests.length, before);
   malformed = true; await assert.rejects(invoke("issues.create", { title: "x" }), { code: "connector_response_invalid" }); malformed = false;
   for (const [httpStatus, code] of [[403, "connector_permission_denied"], [429, "connector_rate_limited"], [500, "connector_provider_failed"]]) { status = httpStatus; await assert.rejects(invoke("issues.create", { title: "x" }), { code }); }

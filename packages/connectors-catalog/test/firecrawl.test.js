@@ -52,7 +52,7 @@ test("Firecrawl searches and imports bounded crawl pages without leaking the key
   assert.equal((await invoke("crawls.errors", { id: job.id })).errors[0].error, "404");
   assert.equal((await invoke("crawls.cancel", { id: job.id })).status, "cancelled");
   const before = requests.length;
-  for (const next of ["https://evil.example/v2/crawl/job-one", "https://api.firecrawl.dev/v2/crawl/another", "https://key@api.firecrawl.dev/v2/crawl/job-one"]) await assert.rejects(invoke("crawls.get", { id: job.id, next }), { code: "connector_input_invalid" });
+  for (const next of ["https://evil.example/v2/crawl/job-one", "https://api.firecrawl.dev/v2/crawl/another", "https://key@api.firecrawl.dev/v2/crawl/job-one"]) await assert.rejects(invoke("crawls.get", { id: job.id, next }), { code: "connector_input_invalid", statusCode: 422 });
   for (const input of [{ url: "https://example.com" }, { url: "file:///secret", limit: 1 }, { url: "https://user:pass@example.com", limit: 1 }, { url: "https://example.com", limit: 1001 }]) await assert.rejects(invoke("crawls.start", input), { code: "connector_input_invalid" });
   deny = true; await assert.rejects(invoke("pages.search", { query: "docs" })); deny = false;
   assert.equal(requests.length, before);

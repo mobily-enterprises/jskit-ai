@@ -21,7 +21,7 @@ function projectOperation(suffix, fields, validateResult, method = "GET") {
       for (const [key, value] of Object.entries(values)) url.searchParams.set(key, String(value));
       return { method, url: url.href };
     }
-    if (!Object.keys(values).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.");
+    if (!Object.keys(values).length) throw new ConnectorError("connector_input_invalid", "Supply at least one change.", { statusCode: 422 });
     return { method, url: url.href, body: values };
   }, validateResult };
 }

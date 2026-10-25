@@ -1,7 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { googleSheetsDefinition } from "../shared/google.js";
-import { googleOperation, googleRead, googleProvider, googleFileVerification, documentId } from "./google.js";
+import { googleOperation, googleBatchRequests, inputInvalid, googleRead, googleProvider, googleFileVerification, documentId } from "./google.js";
 const origin = "https://sheets.googleapis.com";
 const scopes = ["spreadsheets.readonly", "spreadsheets", "drive.readonly", "drive.file", "drive"];
 const writable = ["spreadsheets", "drive.file", "drive"];
@@ -13,7 +13,7 @@ const sheetUrl = id => `${origin}/v4/spreadsheets/${encodeURIComponent(id)}`;
 const get = googleRead(scopes, { spreadsheetId: documentId }, ({ spreadsheetId }) => ({ url: sheetUrl(spreadsheetId), query: { includeGridData: false } }), validSheet);
 function checkValues(rows) {
   if (!rows.length || rows.length > 10000 || rows.some(row => !Array.isArray(row) || row.some(cell => cell !== null && typeof cell !== "string" && typeof cell !== "boolean" && !(typeof cell === "number" && Number.isFinite(cell)))) || rows.reduce((count, row) => count + row.length, 0) > 10000 || Buffer.byteLength(JSON.stringify(rows)) > 1048576) {
-    throw Object.assign(new Error("Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null."), { statusCode: 422 });
+    throw inputInvalid("Supply a matrix of at most 10,000 cells and 1 MiB, containing strings, finite numbers, booleans or null.");
   }
   return rows;
 }
@@ -38,7 +38,7 @@ const base = googleProvider(googleSheetsDefinition, origin, "connection.verify",
   "values.clear": googleOperation(writable, { spreadsheetId: documentId, range }, ({ spreadsheetId, range }) => ({ method: "POST", url: `${sheetUrl(spreadsheetId)}/values/${encodeURIComponent(range)}:clear`, body: {} }), value => typeof value?.spreadsheetId === "string" && typeof value.clearedRange === "string"),
   "values.batchUpdate": googleOperation(writable, { spreadsheetId: documentId, data: { type: "array", required: true }, valueInputOption: inputOption }, ({ spreadsheetId, data, valueInputOption }) => {
     const schema = createSchema({ range, values });
-    if (!data.length || data.length > 100 || Buffer.byteLength(JSON.stringify(data)) > 1048576) throw Object.assign(new Error("Supply 1–100 ranges within 1 MiB."), { statusCode: 422 });
+    if (!data.length || data.length > 100 || Buffer.byteLength(JSON.stringify(data)) > 1048576) throw inputInvalid("Supply 1–100 ranges within 1 MiB.");
     const ranges = data.map(value => {
       const parsed = validateSchemaPayload({ schema, mode: "replace" }, value, { statusCode: 422 });
       return { ...parsed, majorDimension: "ROWS", values: checkValues(parsed.values) };
@@ -46,7 +46,7 @@ const base = googleProvider(googleSheetsDefinition, origin, "connection.verify",
     return { method: "POST", url: `${sheetUrl(spreadsheetId)}/values:batchUpdate`, body: { data: ranges, valueInputOption } };
   }, value => typeof value?.spreadsheetId === "string" && Array.isArray(value.responses)),
   "spreadsheets.batchUpdate": googleOperation(writable, { spreadsheetId: documentId, requests: { type: "array", required: true } }, ({ spreadsheetId, requests }) => {
-    if (!requests.length || requests.length > 100 || Buffer.byteLength(JSON.stringify(requests)) > 1048576 || requests.some(request => !request || typeof request !== "object" || Array.isArray(request) || Object.keys(request).length !== 1 || !/^[a-zA-Z][a-zA-Z0-9]+$/.test(Object.keys(request)[0]) || !Object.values(request)[0] || typeof Object.values(request)[0] !== "object" || Array.isArray(Object.values(request)[0]))) throw Object.assign(new Error("Supply 1–100 native Sheets request objects, one operation per object, within 1 MiB."), { statusCode: 422 });
+    googleBatchRequests(requests, "Sheets");
     return { method: "POST", url: `${sheetUrl(spreadsheetId)}:batchUpdate`, body: { requests } };
   }, value => typeof value?.spreadsheetId === "string" && (value.replies === undefined || Array.isArray(value.replies)))
 });

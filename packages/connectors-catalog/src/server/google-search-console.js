@@ -1,5 +1,5 @@
 import { googleSearchConsoleDefinition } from "../shared/google.js";
-import { googleOperation, googleRead, googleProvider } from "./google.js";
+import { googleOperation, googleRead, googleProvider, inputInvalid } from "./google.js";
 const origin = "https://searchconsole.googleapis.com";
 const readScopes = ["webmasters.readonly", "webmasters"];
 const website = value => { try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !url.hash; } catch { return false; } };
@@ -17,7 +17,7 @@ const googleSearchConsoleProvider = googleProvider(googleSearchConsoleDefinition
     type: { type: "string", enum: ["web", "image", "video", "news", "discover", "googleNews"], defaultTo: "web" },
     rowLimit: { type: "integer", min: 1, max: 25000, defaultTo: 1000 }, startRow: { type: "integer", min: 0, defaultTo: 0 }
   }, ({ siteUrl, filters, ...body }) => {
-    if (body.startDate > body.endDate) throw Object.assign(new Error("startDate must not follow endDate."), { statusCode: 422 });
+    if (body.startDate > body.endDate) throw inputInvalid("startDate must not follow endDate.");
     return { method: "POST", url: `${propertyPath(siteUrl)}/searchAnalytics/query`, body: { ...body, dataState: "final", ...(filters?.length ? { dimensionFilterGroups: [{ groupType: "and", filters }] } : {}) } };
   }, value => plain(value) && (value.rows === undefined || Array.isArray(value.rows))),
   "urlInspection.inspect": googleOperation(readScopes, { siteUrl, inspectionUrl: { ...feedpath }, languageCode: { type: "string", minLength: 2, maxLength: 35 } }, body => ({ method: "POST", url: `${origin}/v1/urlInspection/index:inspect`, body }), value => plain(value?.inspectionResult)),

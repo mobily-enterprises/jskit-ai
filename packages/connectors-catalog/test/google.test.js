@@ -442,7 +442,7 @@ test("Gmail reads full MIME bodies, attachments and search and gates explicit ma
   const noContent = createConnectionService({ ...options, fetchImpl: async (url, init) => { requests.push({ url: new URL(url), init }); assert.equal(init.method, "DELETE"); return new Response(null, { status: 204 }); } });
   for (const operation of ["drafts.delete", "labels.delete"]) assert.equal(await noContent.invoke({ ...input, operation, input: { id: "draft_or_label" } }), null);
   const before = requests.length;
-  for (const [operation, values] of [["messages.send", { raw: "not MIME + /" }], ["messages.modify", { id: "msg_1" }], ["attachments.get", { messageId: "../other", id: "attachment_1" }]]) await assert.rejects(service.invoke({ ...input, operation, input: values }), { code: "connector_input_invalid" });
+  for (const [operation, values] of [["messages.send", { raw: "not MIME + /" }], ["messages.modify", { id: "msg_1" }], ["attachments.get", { messageId: "../other", id: "attachment_1" }]]) await assert.rejects(service.invoke({ ...input, operation, input: values }), { code: "connector_input_invalid", statusCode: 422 });
   await assert.rejects(service.invoke({ ...input, context: { ...owner, subjectId: "other" }, operation: "messages.read", input: { id: "msg_1" } }));
   assert.equal(requests.length, before);
   for (const [status, code] of [[403, "connector_permission_denied"], [429, "connector_rate_limited"], [503, "connector_provider_failed"]]) {
@@ -519,7 +519,10 @@ test("Docs create-first access creates and edits without an existing document", 
   assert.equal(f.requests.at(-1).url.pathname, "/v1/documents/new-doc:batchUpdate");
   assert.deepEqual(JSON.parse(f.requests.at(-1).init.body), { requests, writeControl: { requiredRevisionId: "rev1" } });
   const before = f.requests.length;
-  for (const requests of [[], [{}], [{ insertText: {}, deleteContentRange: {} }], ["insertText"]]) await assert.rejects(invoke("documents.batchUpdate", { documentId: "new-doc", requests }));
+  const invalidDocs = { code: "connector_input_invalid", statusCode: 422, message: "Supply 1–100 native Google Docs request objects, one operation per object, within 1 MiB." };
+  // 600,000 two-byte characters fit 1 MiB of UTF-16 code units but not 1 MiB of bytes.
+  const multibyte = [{ insertText: { location: { index: 1 }, text: "é".repeat(600000) } }];
+  for (const requests of [[], [{}], [{ insertText: {}, deleteContentRange: {} }], ["insertText"], multibyte]) await assert.rejects(invoke("documents.batchUpdate", { documentId: "new-doc", requests }), invalidDocs);
   assert.equal(f.requests.length, before);
   f.state.status = 400; f.state.response = { error: { message: "revision conflict" } };
   await assert.rejects(invoke("documents.batchUpdate", { documentId: "new-doc", requests, requiredRevisionId: "old" }));
@@ -566,8 +569,11 @@ test("Drive transfers preserve bytes and scope boundaries with bounded native mu
   delete f.state.bytes;
   const before = f.requests.length;
   for (const input of [{ fileId: "https://evil.test" }, { fileId: "../other" }]) await assert.rejects(invoke("files.download", input));
-  await assert.rejects(invoke("files.upload", { name: "Bad", contentType: "text/plain\r\nX: evil", bodyBase64: "aGVsbG8=" }));
-  await assert.rejects(invoke("files.upload", { name: "Bad", contentType: "text/plain", bodyBase64: "not base64" }));
+  await assert.rejects(invoke("files.upload", { name: "Bad", contentType: "text/plain\r\nX: evil", bodyBase64: "aGVsbG8=" }), { code: "connector_input_invalid", statusCode: 422, message: "Use a MIME type without header parameters." });
+  await assert.rejects(invoke("files.upload", { name: "Bad", contentType: "text/plain", bodyBase64: "not base64" }), { code: "connector_input_invalid", statusCode: 422, message: "Use standard padded base64 file data." });
+  await assert.rejects(invoke("files.upload", { name: "Big", contentType: "text/plain", bodyBase64: Buffer.alloc(5_000_001).toString("base64") }), { code: "connector_input_invalid", statusCode: 413 });
+  await assert.rejects(invoke("files.upload", { fileId: "uploaded", parentId: "folder-one", name: "Moved", contentType: "text/plain", bodyBase64: "aGVsbG8=" }), { code: "connector_input_invalid", statusCode: 422 });
+  await assert.rejects(invoke("files.update", { fileId: "uploaded" }), { code: "connector_input_invalid", statusCode: 422, message: "Supply a name, description or trashed value." });
   assert.equal(f.requests.length, before);
   f.state.status = 403;
   await assert.rejects(invoke("files.download", { fileId: "uploaded" }), { code: "connector_permission_denied" });
@@ -608,7 +614,7 @@ test("Search Console queries performance and manages sitemap entries without cla
   assert.equal(await invoke("sitemaps.delete", { siteUrl, feedpath }), null);
   assert.equal(f.requests.at(-1).init.method, "DELETE");
   const before = f.requests.length;
-  await assert.rejects(invoke("searchAnalytics.query", { ...query, endDate: "2026-08-01" }));
+  await assert.rejects(invoke("searchAnalytics.query", { ...query, endDate: "2026-08-01" }), { code: "connector_input_invalid", statusCode: 422, message: "startDate must not follow endDate." });
   await assert.rejects(invoke("searchAnalytics.query", { ...query, startDate: "2026-02-30" }));
   await assert.rejects(invoke("searchAnalytics.query", { ...query, dimensions: ["query", "query"] }));
   await assert.rejects(invoke("sitemaps.submit", { siteUrl, feedpath: "file:///etc/passwd" }));
@@ -656,9 +662,11 @@ test("Sheets creates files and writes ranges with explicit formula parsing and n
   await invoke("values.get", { spreadsheetId, range, valueRenderOption: "FORMULA" });
   assert.equal(f.requests.at(-1).url.searchParams.get("valueRenderOption"), "FORMULA");
   const before = f.requests.length;
-  for (const values of [[], ["bad row"], [[{}]], [[Infinity]], [Array(10001).fill(1)]]) await assert.rejects(invoke("values.update", { spreadsheetId, range, values }));
-  await assert.rejects(invoke("values.batchUpdate", { spreadsheetId, data: [] }));
-  await assert.rejects(invoke("spreadsheets.batchUpdate", { spreadsheetId, requests: [{ addSheet: {}, deleteSheet: {} }] }));
+  const invalid = { code: "connector_input_invalid", statusCode: 422 };
+  for (const values of [[], ["bad row"], [[{}]], [[Infinity]], [Array(10001).fill(1)]]) await assert.rejects(invoke("values.update", { spreadsheetId, range, values }), invalid);
+  await assert.rejects(invoke("values.batchUpdate", { spreadsheetId, data: [] }), { ...invalid, message: "Supply 1–100 ranges within 1 MiB." });
+  await assert.rejects(invoke("values.batchUpdate", { spreadsheetId, data: [{ range, values: [] }] }), invalid);
+  await assert.rejects(invoke("spreadsheets.batchUpdate", { spreadsheetId, requests: [{ addSheet: {}, deleteSheet: {} }] }), { ...invalid, message: "Supply 1–100 native Sheets request objects, one operation per object, within 1 MiB." });
   assert.equal(f.requests.length, before);
   f.state.status = 503; f.state.response = { error: {} };
   await assert.rejects(invoke("values.append", { spreadsheetId, range, values: [["Uncertain", 40]] }));
@@ -692,7 +700,9 @@ test("Slides creates first, edits with revision control and retrieves temporary 
   assert.equal((await invoke("pages.getThumbnail", { presentationId, pageObjectId: "slide:one", size: "LARGE" })).width, 800);
   assert.equal(f.requests.at(-1).url.searchParams.get("thumbnailProperties.thumbnailSize"), "LARGE");
   const before = f.requests.length;
-  for (const requests of [[], [{}], [{ createSlide: {}, deleteObject: {} }]]) await assert.rejects(invoke("presentations.batchUpdate", { presentationId, requests }));
+  for (const requests of [[], [{}], [{ createSlide: {}, deleteObject: {} }], Array.from({ length: 101 }, () => ({ createSlide: {} }))]) {
+    await assert.rejects(invoke("presentations.batchUpdate", { presentationId, requests }), { code: "connector_input_invalid", statusCode: 422, message: "Supply 1–100 native Slides request objects, one operation per object, within 1 MiB." });
+  }
   await assert.rejects(invoke("pages.get", { presentationId, pageObjectId: "../other" }));
   assert.equal(f.requests.length, before);
   f.state.response = { contentUrl: "javascript:alert(1)", width: 800, height: 450 };

@@ -1,5 +1,5 @@
 import { googleSlidesDefinition } from "../shared/google.js";
-import { googleOperation, googleRead, googleProvider, googleFileVerification, documentId } from "./google.js";
+import { googleOperation, googleBatchRequests, googleRead, googleProvider, googleFileVerification, documentId } from "./google.js";
 const origin = "https://slides.googleapis.com";
 const readScopes = ["presentations.readonly", "presentations", "drive.readonly", "drive.file", "drive"];
 const writable = ["presentations", "drive.file", "drive"];
@@ -16,7 +16,7 @@ const base = googleProvider(googleSlidesDefinition, origin, "connection.verify",
   "presentations.batchUpdate": googleOperation(writable,
     { presentationId: documentId, requests: { type: "array", required: true }, requiredRevisionId: { type: "string", minLength: 1, maxLength: 1024 } },
     ({ presentationId, requests, requiredRevisionId }) => {
-      if (!requests.length || requests.length > 100 || Buffer.byteLength(JSON.stringify(requests)) > 1048576 || requests.some(request => !request || typeof request !== "object" || Array.isArray(request) || Object.keys(request).length !== 1 || !/^[a-zA-Z][a-zA-Z0-9]+$/.test(Object.keys(request)[0]) || !Object.values(request)[0] || typeof Object.values(request)[0] !== "object" || Array.isArray(Object.values(request)[0]))) throw Object.assign(new Error("Supply 1–100 native Slides request objects, one operation per object, within 1 MiB."), { statusCode: 422 });
+      googleBatchRequests(requests, "Slides");
       return { method: "POST", url: `${origin}/v1/presentations/${encodeURIComponent(presentationId)}:batchUpdate`, body: { requests, ...(requiredRevisionId ? { writeControl: { requiredRevisionId } } : {}) } };
     },
     value => typeof value?.presentationId === "string" && (value.replies === undefined || Array.isArray(value.replies))),

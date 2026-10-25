@@ -149,7 +149,8 @@ test("GitLab project paths, content and issue/MR writes use the selected host wi
     assert.deepEqual(JSON.parse(requests.at(-1).init.body), { state_event: "close" });
   }
   const before = requests.length;
-  for (const [operation, input] of [["files.get", { filePath: "../secret", ref: "main" }], ["projects.get", { project: "team/../another" }], ["issues.list", { per_page: 101 }], ["issues.update", { iid: 7 }], ["mergeRequests.create", { title: "x", source_branch: "fix" }]]) await assert.rejects(invoke(operation, input));
+  for (const [operation, input] of [["files.get", { filePath: "../secret", ref: "main" }], ["projects.get", { project: "team/../another" }], ["issues.list", { per_page: 101 }], ["mergeRequests.create", { title: "x", source_branch: "fix" }]]) await assert.rejects(invoke(operation, input));
+  await assert.rejects(invoke("issues.update", { iid: 7 }), { code: "connector_input_invalid", statusCode: 422, message: "Supply at least one change." });
   assert.equal(requests.length, before);
   for (const [httpStatus, code] of [[403, "connector_permission_denied"], [429, "connector_rate_limited"], [500, "connector_provider_failed"]]) { status = httpStatus; await assert.rejects(invoke("issues.create", { title: "x" }), { code }); }
   status = 200; fail = true; const failedBefore = requests.length;

@@ -855,7 +855,7 @@ test("GatewayAPI sends regional SMS/RCS batches and verifies current Messaging c
     const rawBody = Buffer.from(JSON.stringify(event));
     const signature = "v1=" + createHmac("sha256", secret).update(rawBody).digest("hex");
     assert.deepEqual(verifyGatewayApiEvent({ rawBody, signature, secret }), event);
-    for (const override of [{ secret: "wrong" }, { rawBody: Buffer.from("{}") }, { signature: "legacy.jwt.value" }]) assert.throws(() => verifyGatewayApiEvent({ rawBody, signature, secret, ...override }), { code: "connector_webhook_invalid" });
+    for (const override of [{ secret: "wrong" }, { rawBody: Buffer.from("{}") }, { signature: "legacy.jwt.value" }]) assert.throws(() => verifyGatewayApiEvent({ rawBody, signature, secret, ...override }), { code: "connector_webhook_invalid", statusCode: 401 });
   }
 });
 

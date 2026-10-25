@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { googleDriveDefinition } from "../shared/google.js";
-import { googleOperation, googleRead, googleProvider, pageToken } from "./google.js";
+import { googleOperation, googleRead, googleProvider, inputInvalid, pageToken } from "./google.js";
 const origin = "https://www.googleapis.com";
 const fileId = { type: "string", required: true, minLength: 1, maxLength: 1024, validator: value => /^[A-Za-z0-9_-]+$/.test(value) || "Use a Drive file ID, not a URL." };
 const contentScopes = ["drive", "drive.file", "drive.readonly"];
@@ -20,7 +20,7 @@ const baseProvider = googleProvider(googleDriveDefinition, origin, "files.list",
   "files.export": googleRead(contentScopes, { fileId, mimeType: { type: "string", required: true, minLength: 1, maxLength: 200 } }, ({ fileId, mimeType }) => ({ url: url(fileId, { mimeType }, "/export") }), validBytes),
   "files.create": googleOperation(writeScopes, { name: { type: "string", required: true, minLength: 1, maxLength: 1024 }, parentId: { ...fileId, required: false }, folder: { type: "boolean", defaultTo: false } }, ({ name, parentId, folder }) => ({ method: "POST", url: url(undefined, { supportsAllDrives: true, fields }), body: { name, ...(parentId ? { parents: [parentId] } : {}), ...(folder ? { mimeType: "application/vnd.google-apps.folder" } : {}) } }), validFile),
   "files.update": googleOperation([...writeScopes, "drive.metadata"], { fileId, name: { type: "string", minLength: 1, maxLength: 1024 }, description: { type: "string", maxLength: 16384 }, trashed: { type: "boolean" } }, ({ fileId, ...body }) => {
-    if (!Object.keys(body).length) throw Object.assign(new Error("Supply a name, description or trashed value."), { statusCode: 422 });
+    if (!Object.keys(body).length) throw inputInvalid("Supply a name, description or trashed value.");
     return { method: "PATCH", url: url(fileId, { supportsAllDrives: true, fields }), body };
   }, validFile),
   "files.upload": googleOperation(writeScopes, {
@@ -28,11 +28,11 @@ const baseProvider = googleProvider(googleDriveDefinition, origin, "files.list",
     parentId: { ...fileId, required: false }, contentType: { type: "string", required: true, minLength: 3, maxLength: 200 },
     bodyBase64: { type: "string", required: true, maxLength: 6666668, noTrim: true }
   }, ({ fileId, name, parentId, contentType, bodyBase64 }) => {
-    if (!/^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/.test(contentType)) throw Object.assign(new Error("Use a MIME type without header parameters."), { statusCode: 422 });
+    if (!/^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/.test(contentType)) throw inputInvalid("Use a MIME type without header parameters.");
     const data = Buffer.from(bodyBase64, "base64");
-    if (data.toString("base64") !== bodyBase64) throw Object.assign(new Error("Use standard padded base64 file data."), { statusCode: 422 });
-    if (data.byteLength > 5_000_000) throw Object.assign(new Error("Uploads above 5 MB require the framework's native resumable client."), { statusCode: 413 });
-    if (fileId && parentId) throw Object.assign(new Error("parentId applies to new files; moving files requires native addParents/removeParents wiring."), { statusCode: 422 });
+    if (data.toString("base64") !== bodyBase64) throw inputInvalid("Use standard padded base64 file data.");
+    if (data.byteLength > 5_000_000) throw inputInvalid("Uploads above 5 MB require the framework's native resumable client.", 413);
+    if (fileId && parentId) throw inputInvalid("parentId applies to new files; moving files requires native addParents/removeParents wiring.");
     const boundary = `drive_${randomUUID()}`;
     const metadata = { name, ...(parentId ? { parents: [parentId] } : {}) };
     const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: ${contentType}\r\n\r\n`), data, Buffer.from(`\r\n--${boundary}--\r\n`)]);

@@ -34,14 +34,14 @@ const gatewayApiProvider = Object.freeze({
 // Call at the application's webhook route before trusting or persisting its body.
 function verifyGatewayApiEvent({ rawBody, signature, secret }) {
   if (!(rawBody instanceof Uint8Array) || rawBody.byteLength > 1048576 || typeof secret !== "string" || secret.length < 1 || typeof signature !== "string" || !/^v1=[a-fA-F0-9]{64}$/.test(signature)) {
-    throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook signature.");
+    throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook signature.", { statusCode: 401 });
   }
   const expected = createHmac("sha256", secret).update(rawBody).digest();
-  if (!timingSafeEqual(expected, Buffer.from(signature.slice(3), "hex"))) throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook signature.");
+  if (!timingSafeEqual(expected, Buffer.from(signature.slice(3), "hex"))) throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook signature.", { statusCode: 401 });
   let event;
-  try { event = JSON.parse(Buffer.from(rawBody).toString("utf8")); } catch { throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook event."); }
+  try { event = JSON.parse(Buffer.from(rawBody).toString("utf8")); } catch { throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook event.", { statusCode: 401 }); }
   if (typeof event?.event_id !== "string" || !event.event_id || typeof event.event_type !== "string" || !Number.isFinite(Date.parse(event.timestamp)) || !event.event || typeof event.event !== "object" || Array.isArray(event.event)) {
-    throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook event.");
+    throw new ConnectorError("connector_webhook_invalid", "Invalid GatewayAPI webhook event.", { statusCode: 401 });
   }
   return event;
 }
