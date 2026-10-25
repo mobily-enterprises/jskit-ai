@@ -399,7 +399,9 @@ catalog, the runtime automatically exposes compact paged action search, exact
 one-action contract lookup, and contract-gated execution tools. Search returns
 at most 20 compact matches and never includes schemas. Tool arguments and
 results are byte-bounded; an oversized result returns a controlled error so it
-cannot overflow assistant transcript storage.
+cannot overflow assistant transcript storage. Empty tool arguments mean no
+input; any other arguments must be one JSON object, so truncated JSON, arrays
+and scalars return `assistant_tool_arguments_invalid` without running the action.
 
 The runtime tells the model that discovery tools are entry points into the
 authorized action catalog. Before claiming a capability or dataset is missing,
