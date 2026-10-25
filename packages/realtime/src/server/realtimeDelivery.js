@@ -19,7 +19,7 @@ function publicRealtimePayload(event) {
   return Object.freeze({ ...(payload || {}), ...canonical });
 }
 
-function createRealtimeDelivery({ io, database = null, logger, authService = null, workspaces = null }) {
+function createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null }) {
   if (!io || typeof io.emit !== "function" || typeof io.to !== "function") {
     throw new TypeError("Realtime delivery requires a Socket.IO server.");
   }
@@ -40,7 +40,7 @@ function createRealtimeDelivery({ io, database = null, logger, authService = nul
 
   async function revalidate(socket) {
     try {
-      return await revalidateSocket({ socket, authService, workspaces });
+      return await revalidateSocket({ socket, authService, audiences });
     } catch (error) {
       socket.disconnect(true);
       logger.warn({ error: String(error?.message || error) }, "Realtime socket revalidation failed.");

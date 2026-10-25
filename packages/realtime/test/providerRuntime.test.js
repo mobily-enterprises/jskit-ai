@@ -8,19 +8,27 @@ import { CLIENT_APP_CONFIG_GLOBAL_KEY, setClientAppConfig } from "../../kernel/c
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
 import { RealtimeProvider } from "../src/server/RealtimeProvider.js";
 import { createSocketIoClient } from "../src/client/runtime.js";
-import { registerSocketAudienceBootstrap } from "../src/server/realtimeAudience.js";
+import {
+  createAudienceContributors,
+  registerSocketAudienceBootstrap,
+  revalidateSocket
+} from "../src/server/realtimeAudience.js";
 import { createRealtimeDelivery } from "../src/server/realtimeDelivery.js";
 import { attachDeferredAuthService, createDeferredAuthService } from "../../auth-core/src/server/deferredAuthService.js";
 
 const logger = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
 
-async function connectionRequestFixture(t, authService = null) {
+async function connectionRequestFixture(t, authService = null, audienceContributor = null) {
   const http = createServer();
   const connections = [];
   const clients = [];
   let realtime;
   const probe = defineProvider({ id: "test.connection.request", requires: { realtime: "runtime.realtime" },
-    setup(dependencies) { realtime = dependencies.realtime; return {}; } });
+    setup(dependencies) {
+      realtime = dependencies.realtime;
+      if (audienceContributor) realtime.registerAudienceContributor(audienceContributor);
+      return {};
+    } });
   const runtime = createCapabilityRuntime({ providers: [EventProvider, RealtimeProvider, probe], inputs: {
     "runtime.config": {}, "runtime.env": {}, "runtime.fastify": { server: http }, "runtime.logger": logger,
     ...(authService ? { "auth.service": authService } : {})
@@ -97,6 +105,19 @@ test("connection request access revalidates required hosted sessions and retires
   }
   assert.ok(reads.length >= 8, "Every request facility call rechecks the current session");
   assert.ok(reads.every(value => value === "fixture-session"));
+});
+
+test("RealtimeProvider joins the rooms a registered audience contributor names", async t => {
+  const f = await connectionRequestFixture(t, {
+    async authenticateRequest() { return { authenticated: true, actor: { id: "42" } }; }
+  }, {
+    id: "test.memberships",
+    resolveActorScopes: (actorId) => [{ kind: "workspace_user", workspaceId: "7", userId: actorId }]
+  });
+  const { connection } = await f.connect();
+  assert.equal((await connection.readRequest()).user.id, "42");
+  assert.equal(connection.socket.rooms.has("workspace:7:user:42"), true);
+  assert.equal(connection.socket.rooms.has("user:42"), true);
 });
 
 test("RealtimeProvider waits for authentication boot before accessing the auth service", async () => {
@@ -234,7 +255,18 @@ test("realtime delivery resolves an explicit database-backed audience without ex
   assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
 });
 
-test("socket audience bootstrap authenticates explicitly and joins actor workspace rooms", async () => {
+test("socket audience bootstrap authenticates explicitly and joins contributed scope rooms", async () => {
+  const audiences = createAudienceContributors();
+  audiences.register({
+    id: "test.memberships",
+    async resolveActorScopes(actorId) {
+      assert.equal(actorId, "9");
+      return [11, 12].flatMap((workspaceId) => [
+        { kind: "workspace", id: workspaceId },
+        { kind: "workspace_user", workspaceId, userId: actorId }
+      ]);
+    }
+  });
   let connectionHandler = null;
   const io = {
     on(eventName, handler) {
@@ -251,16 +283,7 @@ test("socket audience bootstrap authenticates explicitly and joins actor workspa
         return { authenticated: true, actor: { id: 9 } };
       }
     },
-    workspaces: {
-      repositories: {
-        workspaceMemberships: {
-          async listActiveWorkspaceIdsByUserId(userId) {
-            assert.equal(userId, "9");
-            return [11, 12];
-          }
-        }
-      }
-    }
+    audiences
   });
   const joinedRooms = [];
   const socket = {
@@ -286,6 +309,41 @@ test("socket audience bootstrap authenticates explicitly and joins actor workspa
     "workspace:11", "workspace:11:user:9",
     "workspace:12", "workspace:12:user:9"
   ]);
+});
+
+test("socket revalidation leaves only the contributed rooms the actor lost", async () => {
+  let memberships = [11, 12];
+  const audiences = createAudienceContributors();
+  audiences.register({
+    id: "test.memberships",
+    resolveActorScopes: () => memberships.map((id) => ({ kind: "workspace", id }))
+  });
+  assert.throws(() => audiences.register({ id: "test.memberships", resolveActorScopes() {} }), /already registered/);
+  assert.throws(() => audiences.register({ id: "test.other" }), /requires resolveActorScopes/);
+  const rooms = new Set(["clients", "users", "user:9", "workspace:legacy-app-room"]);
+  const socket = {
+    data: {},
+    rooms,
+    disconnect() { assert.fail("The same actor must stay connected."); },
+    async join(room) { rooms.add(room); },
+    async leave(room) { rooms.delete(room); }
+  };
+  const authService = {
+    async authenticateRequest() {
+      return { authenticated: true, actor: { id: 9 } };
+    }
+  };
+
+  await revalidateSocket({ socket, authService, audiences, request: {} });
+  assert.deepEqual(socket.data.contributedRooms, ["workspace:11", "workspace:12"]);
+
+  memberships = [12];
+  const actor = await revalidateSocket({ socket, authService, audiences, request: {} });
+  assert.equal(actor.id, "9");
+  assert.deepEqual([...rooms].sort(), [
+    "clients", "user:9", "users", "workspace:12", "workspace:legacy-app-room"
+  ]);
+  assert.deepEqual(socket.data.contributedRooms, ["workspace:12"]);
 });
 
 test("socket audience bootstrap rejects unauthenticated handshakes when the auth service requires them", async () => {

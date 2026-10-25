@@ -48,19 +48,20 @@ Exports
 
 ### `src/server/realtimeAudience.js`
 Exports
+- `createAudienceContributors()`
 - `createSocketRequest(socket)`
 - `realtimeAuthenticationRequired(authService = null)`
-- `revalidateSocket({ socket, authService, workspaces = null, request })`
-- `registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null })`
+- `revalidateSocket({ socket, authService, audiences = null, request })`
+- `registerSocketAudienceBootstrap({ io, logger, authService = null, audiences = null })`
 - `resolveAudienceTargets(audience, event, { database = null, logger })`
 Local functions
 - `normalizeArray(value)`
 - `roomForUser(userId)`
 - `roomForWorkspace(workspaceId)`
 - `roomForWorkspaceUser(workspaceId, userId)`
-- `workspaceAudienceRooms(workspaceIds, actorId)`
 - `resolveScopeWorkspaceId(scope = {})`
 - `resolveScopeUserId(scope = {})`
+- `roomForScope(scope = {})`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
 - `collectUserIds(rows)`
@@ -69,10 +70,11 @@ Local functions
 - `authenticationRequiredError()`
 - `rememberSocketActorId(socket, actorId)`
 - `registerRequiredSocketAuthentication({ io, logger, authService })`
+- `joinContributedRooms(socket, actorId, audiences)`
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, database = null, logger, authService = null, workspaces = null })`
+- `createRealtimeDelivery({ io, database = null, logger, authService = null, audiences = null })`
 Local functions
 - `publicRealtimePayload(event)`
 

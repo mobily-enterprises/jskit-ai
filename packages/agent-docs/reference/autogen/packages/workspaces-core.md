@@ -244,6 +244,8 @@ Local functions
 ### `src/server/WorkspacesIntegrationsProvider.js`
 Exports
 - `WorkspacesIntegrationsProvider`
+Local functions
+- `resolveWorkspaceRealtimeScopes(workspaceMemberships, actorId)`
 
 ### `src/shared/jsonApiTransports.js`
 Exports

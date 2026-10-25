@@ -3,6 +3,7 @@ import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLo
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createRealtimeDelivery } from "./realtimeDelivery.js";
 import {
+  createAudienceContributors,
   createSocketRequest,
   realtimeAuthenticationRequired,
   registerSocketAudienceBootstrap,
@@ -45,7 +46,7 @@ function createRealtimeCapability({ io }) {
         async function readRequest() {
           const request = createSocketRequest(socket);
           const actor = await revalidateSocket({
-            socket, request, authService: state.authService, workspaces: state.workspaces
+            socket, request, authService: state.authService, audiences: state.audiences
           });
           if (!socket.connected || (!actor && realtimeAuthenticationRequired(state.authService))) {
             throw Object.assign(new Error("Authentication required."), { statusCode: 401 });
@@ -92,6 +93,14 @@ function createRealtimeCapability({ io }) {
       for (const socket of io.sockets.sockets.values()) attach(socket);
       return stop;
     },
+    // A package that knows which scopes (kind "user", "workspace" or
+    // "workspace_user") an actor belongs to registers them during setup; sockets
+    // join, and on revalidation leave, exactly the rooms its scopes name.
+    registerAudienceContributor(contributor) {
+      const state = stateByCapability.get(capability);
+      if (!state) throw new Error("Realtime runtime state is unavailable.");
+      state.audiences.register(contributor);
+    },
     diagnostics() {
       const state = stateByCapability.get(capability);
       return Object.freeze({
@@ -117,8 +126,7 @@ const RealtimeProvider = defineProvider({
   },
   optional: {
     authService: "auth.service",
-    database: "runtime.database",
-    workspaces: "workspaces.core"
+    database: "runtime.database"
   },
   provides: {
     realtime: "runtime.realtime"
@@ -129,8 +137,8 @@ const RealtimeProvider = defineProvider({
     const realtime = createRealtimeCapability({ io });
     stateByCapability.set(realtime, {
       authenticationRequired: false,
+      audiences: createAudienceContributors(),
       authService: null,
-      workspaces: null,
       connectionListeners: new Set(),
       delivery: null,
       io,
@@ -139,20 +147,19 @@ const RealtimeProvider = defineProvider({
     });
     return { realtime };
   },
-  async boot({ authService, database, env, events, workspaces }, { outputs }) {
+  async boot({ authService, database, env, events }, { outputs }) {
     const state = stateByCapability.get(outputs.realtime);
     if (!state) throw new Error("Realtime runtime state is unavailable.");
     state.authService = authService;
-    state.workspaces = workspaces;
     state.delivery = createRealtimeDelivery({
-      io: state.io, database, logger: state.providerLogger, authService, workspaces
+      io: state.io, database, logger: state.providerLogger, authService, audiences: state.audiences
     });
     state.authenticationRequired = realtimeAuthenticationRequired(authService);
     registerSocketAudienceBootstrap({
       io: state.io,
       logger: state.providerLogger,
       authService,
-      workspaces
+      audiences: state.audiences
     });
     state.redisConnection = await configureSocketIoRedisAdapter(state.io, {
       logger: state.providerLogger,

@@ -50,6 +50,7 @@ function runtimeConfig() {
 test("WorkspacesFeature assembles workspace behavior and explicit integrations", async () => {
   const routes = [];
   const visibilityResolvers = [];
+  const audienceContributors = [];
   const bootstrap = createBootstrapRuntime();
   const authExtensions = createAuthExtensions();
   const usersExtensions = createUsersExtensions();
@@ -86,6 +87,11 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
         }
       },
       "runtime.json-rest-api": jsonRestApi,
+      "runtime.realtime": {
+        registerAudienceContributor(contributor) {
+          audienceContributors.push(contributor);
+        }
+      },
       "users.core": {
         repositories: {
           userProfiles: { async findById() { return null; } }
@@ -117,4 +123,37 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
   assert.deepEqual(usersExtensions.diagnostics().profileSyncLifecycleContributorIds, ["workspaces.provisioning"]);
   assert.deepEqual(authExtensions.diagnostics().invitationContextResolverIds, ["workspaces.invitation"]);
   assert.deepEqual(authExtensions.diagnostics().policyContextResolverIds, ["workspaces.policy"]);
+  assert.deepEqual(audienceContributors.map((entry) => entry.id), ["workspaces.memberships"]);
+});
+
+test("workspace realtime audiences are the actor's active memberships", async () => {
+  const audienceContributors = [];
+  const noop = () => {};
+  WorkspacesIntegrationsProvider.setup({
+    actions: { registerContextContributor: noop },
+    authExtensions: { registerPolicyContextResolver: noop },
+    config: runtimeConfig(),
+    http: { registerVisibilityResolver: noop },
+    realtime: { registerAudienceContributor: (entry) => audienceContributors.push(entry) },
+    usersExtensions: { registerProfileSyncLifecycleContributor: noop },
+    workspaces: {
+      invitationsEnabled: false,
+      services: { directory: { async resolveWorkspaceContextForUserBySlug() { return null; } } },
+      repositories: {
+        workspaceMemberships: {
+          async listActiveWorkspaceIdsByUserId(userId) {
+            assert.equal(userId, "9");
+            return ["11", "12"];
+          }
+        }
+      }
+    }
+  });
+  assert.equal(audienceContributors.length, 1);
+  assert.deepEqual(await audienceContributors[0].resolveActorScopes("9"), [
+    { kind: "workspace", id: "11" },
+    { kind: "workspace_user", workspaceId: "11", userId: "9" },
+    { kind: "workspace", id: "12" },
+    { kind: "workspace_user", workspaceId: "12", userId: "9" }
+  ]);
 });

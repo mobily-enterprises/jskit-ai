@@ -7,6 +7,16 @@ import {
   resolveWorkspaceSurfaceIdsFromAppConfig
 } from "./support/workspaceActionSurfaces.js";
 
+// Every active membership puts the actor in the workspace audience and in its
+// own workspace-user audience.
+async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorId) {
+  const workspaceIds = await workspaceMemberships.listActiveWorkspaceIdsByUserId(actorId);
+  return workspaceIds.flatMap((workspaceId) => [
+    { kind: "workspace", id: workspaceId },
+    { kind: "workspace_user", workspaceId, userId: actorId }
+  ]);
+}
+
 const WorkspacesIntegrationsProvider = defineProvider({
   id: "workspaces.integrations",
   requires: {
@@ -17,7 +27,10 @@ const WorkspacesIntegrationsProvider = defineProvider({
     usersExtensions: "users.extensions",
     workspaces: "workspaces.core"
   },
-  setup({ actions, authExtensions, config, http, usersExtensions, workspaces }) {
+  optional: {
+    realtime: "runtime.realtime"
+  },
+  setup({ actions, authExtensions, config, http, realtime, usersExtensions, workspaces }) {
     const workspaceService = workspaces.services.directory;
     const membershipOptionalSurfaceIds = resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(config);
     const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(config);
@@ -56,6 +69,14 @@ const WorkspacesIntegrationsProvider = defineProvider({
       async afterIdentityProfileSynced({ profile, options } = {}) {
         await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options);
       }
+    });
+
+    realtime?.registerAudienceContributor({
+      id: "workspaces.memberships",
+      resolveActorScopes: (actorId) => resolveWorkspaceRealtimeScopes(
+        workspaces.repositories.workspaceMemberships,
+        actorId
+      )
     });
 
     if (workspaces.invitationsEnabled) {

@@ -38,9 +38,18 @@ new handshake establishes the current actor.
 
 When `auth.service.authenticateRequest()` is present, delivery reauthenticates
 each socket before sending and rechecks idle sockets every 30 seconds. Revoked,
-expired, or changed actors are disconnected. Workspace membership rooms are
-refreshed from the current membership repository. Authentication lookup errors
-fail closed.
+expired, or changed actors are disconnected. Authentication lookup errors fail
+closed.
+
+Packages that know which scopes an actor belongs to contribute them through
+`runtime.realtime.registerAudienceContributor({ id, resolveActorScopes })` during
+setup. `resolveActorScopes(actorId)` returns event scopes (`{ kind: "user", id }`,
+`{ kind: "workspace", id }` or `{ kind: "workspace_user", workspaceId, userId }`);
+realtime turns each into the same room an `event_scope` audience targets. Sockets
+join those rooms on connection and, on every revalidation, leave the contributed
+rooms the actor no longer belongs to; rooms joined by anything else are left
+alone. `@jskit-ai/workspaces-core` contributes the actor's active workspace
+memberships this way when realtime is installed.
 
 The authentication request includes parsed cookies, the `Host`, `Origin` and
 `X-Forwarded-Proto` headers when present, and the socket address and TLS state.

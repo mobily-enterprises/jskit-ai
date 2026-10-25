@@ -26,17 +26,6 @@ function roomForWorkspaceUser(workspaceId, userId) {
   return `workspace:${String(workspaceId || "").trim()}:user:${String(userId || "").trim()}`;
 }
 
-function workspaceAudienceRooms(workspaceIds, actorId) {
-  const rooms = [];
-  for (const rawId of normalizeArray(workspaceIds)) {
-    const workspaceId = normalizeRecordId(rawId, { fallback: null });
-    if (workspaceId) {
-      rooms.push(roomForWorkspace(workspaceId), roomForWorkspaceUser(workspaceId, actorId));
-    }
-  }
-  return rooms;
-}
-
 function resolveScopeWorkspaceId(scope = {}) {
   const kind = normalizeText(scope?.kind).toLowerCase();
   if (kind === "workspace") return normalizeRecordId(scope.id, { fallback: null });
@@ -50,6 +39,47 @@ function resolveScopeUserId(scope = {}) {
   const kind = normalizeText(scope?.kind).toLowerCase();
   if (kind === "user") return normalizeRecordId(scope.id, { fallback: null });
   return normalizeRecordId(scope?.userId, { fallback: null });
+}
+
+// The single mapping from a kernel event scope ({ kind: "user" | "workspace" |
+// "workspace_user" }) to its Socket.IO room; null when the scope names no room.
+function roomForScope(scope = {}) {
+  const kind = normalizeText(scope?.kind).toLowerCase();
+  const workspaceId = resolveScopeWorkspaceId(scope);
+  const userId = resolveScopeUserId(scope);
+  if (kind === "workspace" && workspaceId) return roomForWorkspace(workspaceId);
+  if (kind === "workspace_user" && workspaceId && userId) return roomForWorkspaceUser(workspaceId, userId);
+  if (kind === "user" && userId) return roomForUser(userId);
+  return null;
+}
+
+// Packages that know which scopes an actor belongs to (for example workspace
+// memberships) contribute them here; realtime only turns scopes into rooms.
+function createAudienceContributors() {
+  const contributors = new Map();
+  return Object.freeze({
+    register({ id, resolveActorScopes } = {}) {
+      const contributorId = normalizeText(id);
+      if (!contributorId) throw new TypeError("Realtime audience contributors require an id.");
+      if (typeof resolveActorScopes !== "function") {
+        throw new TypeError(`Realtime audience contributor "${contributorId}" requires resolveActorScopes().`);
+      }
+      if (contributors.has(contributorId)) {
+        throw new Error(`Realtime audience contributor "${contributorId}" is already registered.`);
+      }
+      contributors.set(contributorId, resolveActorScopes);
+    },
+    async resolveActorRooms(actorId) {
+      const rooms = new Set();
+      for (const resolveActorScopes of contributors.values()) {
+        for (const scope of normalizeArray(await resolveActorScopes(actorId))) {
+          const room = roomForScope(scope);
+          if (room) rooms.add(room);
+        }
+      }
+      return rooms;
+    }
+  });
 }
 
 function applyAudiencePreset(preset, { event, rooms, flags, logger }) {
@@ -75,14 +105,7 @@ function applyAudiencePreset(preset, { event, rooms, flags, logger }) {
     return;
   }
   if (normalized === "event_scope") {
-    const scopeKind = normalizeText(event?.scope?.kind).toLowerCase();
-    const workspaceId = resolveScopeWorkspaceId(event?.scope);
-    const userId = resolveScopeUserId(event?.scope);
-    if (scopeKind === "workspace" && workspaceId) rooms.add(roomForWorkspace(workspaceId));
-    else if (scopeKind === "workspace_user" && workspaceId && userId) {
-      rooms.add(roomForWorkspaceUser(workspaceId, userId));
-    } else if (scopeKind === "user" && userId) rooms.add(roomForUser(userId));
-    else rooms.add(ALL_USERS_ROOM);
+    rooms.add(roomForScope(event?.scope) || ALL_USERS_ROOM);
     return;
   }
   logger.warn({ audience: normalized }, "Realtime ignored an unknown audience preset.");
@@ -247,7 +270,16 @@ function registerRequiredSocketAuthentication({ io, logger, authService }) {
   });
 }
 
-function registerSocketAudienceBootstrap({ io, logger, authService = null, workspaces = null }) {
+async function joinContributedRooms(socket, actorId, audiences) {
+  const rooms = audiences ? await audiences.resolveActorRooms(actorId) : new Set();
+  for (const room of normalizeArray(socket.data?.contributedRooms)) {
+    if (!rooms.has(room)) await socket.leave(room);
+  }
+  for (const room of rooms) await socket.join(room);
+  socket.data.contributedRooms = [...rooms];
+}
+
+function registerSocketAudienceBootstrap({ io, logger, authService = null, audiences = null }) {
   if (typeof io?.on !== "function") return;
   registerRequiredSocketAuthentication({ io, logger, authService });
   io.on("connection", async (socket) => {
@@ -259,20 +291,14 @@ function registerSocketAudienceBootstrap({ io, logger, authService = null, works
       rememberSocketActorId(socket, actorId);
       socket.join(ALL_USERS_ROOM);
       socket.join(roomForUser(actorId));
-      const repository = workspaces?.repositories?.workspaceMemberships;
-      const workspaceIds = typeof repository?.listActiveWorkspaceIdsByUserId === "function"
-        ? await repository.listActiveWorkspaceIdsByUserId(actorId)
-        : [];
-      for (const room of workspaceAudienceRooms(workspaceIds, actorId)) {
-        socket.join(room);
-      }
+      await joinContributedRooms(socket, actorId, audiences);
     } catch (error) {
       logger.warn({ error: String(error?.message || error) }, "Realtime socket audience bootstrap failed.");
     }
   });
 }
 
-async function revalidateSocket({ socket, authService, workspaces = null, request }) {
+async function revalidateSocket({ socket, authService, audiences = null, request }) {
   const actor = await resolveSocketActor(authService, socket, request);
   const previousActorId = socket.data?.actorId;
   if ((!actor && realtimeAuthenticationRequired(authService)) ||
@@ -283,19 +309,12 @@ async function revalidateSocket({ socket, authService, workspaces = null, reques
   if (!actor) return null;
 
   rememberSocketActorId(socket, actor.id);
-  const repository = workspaces?.repositories?.workspaceMemberships;
-  if (typeof repository?.listActiveWorkspaceIdsByUserId !== "function") return actor;
-
-  const workspaceIds = await repository.listActiveWorkspaceIdsByUserId(actor.id);
-  const rooms = new Set(workspaceAudienceRooms(workspaceIds, actor.id));
-  for (const room of socket.rooms) {
-    if (room.startsWith("workspace:") && !rooms.has(room)) await socket.leave(room);
-  }
-  for (const room of rooms) await socket.join(room);
+  await joinContributedRooms(socket, actor.id, audiences);
   return actor;
 }
 
 export {
+  createAudienceContributors,
   createSocketRequest,
   realtimeAuthenticationRequired,
   revalidateSocket,
