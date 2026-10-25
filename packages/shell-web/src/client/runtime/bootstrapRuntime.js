@@ -139,10 +139,11 @@ function createShellBootstrapRuntime({
       throw new Error("Bootstrap payload fetch requires a fetch implementation.");
     }
 
-    const request = await resolveBootstrapRequest(reason);
-    const url = buildBootstrapUrl(request);
+    let request = Object.freeze({ path: bootstrapPath, query: Object.freeze({}), meta: Object.freeze({}) });
 
     try {
+      request = await resolveBootstrapRequest(reason);
+      const url = buildBootstrapUrl(request);
       const response = await fetchImplementation(url, {
         method: "GET",
         credentials: "include",
@@ -156,7 +157,7 @@ function createShellBootstrapRuntime({
       }
 
       const payload = await response.json();
-      return applyBootstrapPayload(payload, reason, request);
+      return await applyBootstrapPayload(payload, reason, request);
     } catch (error) {
       await applyBootstrapError(error, reason, request);
       requestRecoveryRuntime?.report?.(error, {
@@ -177,7 +178,7 @@ function createShellBootstrapRuntime({
   }
 
   function refresh(reason = "manual") {
-    refreshQueue = refreshQueue.then(() => performRefresh(reason));
+    refreshQueue = refreshQueue.catch(() => null).then(() => performRefresh(reason));
     return refreshQueue;
   }
 

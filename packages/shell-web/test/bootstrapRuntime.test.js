@@ -134,3 +134,101 @@ test("shell bootstrap runtime refreshes /api/bootstrap on init and applies regis
     consoleowner: true
   });
 });
+
+test("shell bootstrap runtime reports a failing payload handler and keeps refreshing afterwards", async () => {
+  const placementRuntime = createPlacementRuntime({});
+  const calls = [];
+  const handledErrors = [];
+  const reported = [];
+  let failNextApply = true;
+  let failNextResolve = false;
+  const handlers = createBootstrapPayloadHandlerRegistry();
+  handlers.register(Object.freeze({
+    handlerId: "test.bootstrap.flaky",
+    order: 0,
+    resolveBootstrapRequest() {
+      if (failNextResolve) {
+        failNextResolve = false;
+        throw new Error("resolve failed");
+      }
+      return {};
+    },
+    applyBootstrapPayload() {
+      if (failNextApply) {
+        failNextApply = false;
+        throw new Error("apply failed");
+      }
+    },
+    handleBootstrapError({ error, request }) {
+      handledErrors.push({ message: error.message, path: request.path });
+    }
+  }));
+
+  const runtime = createShellBootstrapRuntime({
+    handlers,
+    placementRuntime,
+    requestRecoveryRuntime: {
+      report(error, options) {
+        reported.push({ message: error.message, source: options.source });
+      }
+    },
+    logger: { warn() {}, info() {}, error() {}, debug() {} },
+    fetchImplementation: async (url) => {
+      calls.push(String(url || ""));
+      return {
+        ok: true,
+        async json() {
+          return { ok: true };
+        }
+      };
+    }
+  });
+
+  assert.equal(await runtime.refresh("manual"), null);
+  assert.deepEqual(handledErrors, [{ message: "apply failed", path: "/api/bootstrap" }]);
+  assert.deepEqual(reported, [{ message: "apply failed", source: "shell-web.bootstrap" }]);
+
+  failNextResolve = true;
+  assert.equal(await runtime.refresh("manual"), null);
+  assert.deepEqual(handledErrors[1], { message: "resolve failed", path: "/api/bootstrap" });
+
+  assert.deepEqual(await runtime.refresh("manual"), { ok: true });
+  assert.deepEqual(calls, ["/api/bootstrap", "/api/bootstrap"]);
+});
+
+test("shell bootstrap runtime queue recovers after a refresh rejects", async () => {
+  const handlers = createBootstrapPayloadHandlerRegistry();
+  let failErrorHandler = true;
+  handlers.register(Object.freeze({
+    handlerId: "test.bootstrap.error-handler",
+    order: 0,
+    applyBootstrapPayload() {},
+    handleBootstrapError() {
+      if (failErrorHandler) {
+        failErrorHandler = false;
+        throw new Error("error handler failed");
+      }
+    }
+  }));
+  let fail = true;
+  const runtime = createShellBootstrapRuntime({
+    handlers,
+    placementRuntime: createPlacementRuntime({}),
+    logger: { warn() {}, info() {}, error() {}, debug() {} },
+    fetchImplementation: async () => {
+      if (fail) {
+        fail = false;
+        return { ok: false, status: 503 };
+      }
+      return {
+        ok: true,
+        async json() {
+          return { recovered: true };
+        }
+      };
+    }
+  });
+
+  await assert.rejects(runtime.refresh("manual"), /error handler failed/);
+  assert.deepEqual(await runtime.refresh("manual"), { recovered: true });
+});
