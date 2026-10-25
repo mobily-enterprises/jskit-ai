@@ -68,32 +68,25 @@ function resolveMenuLinkTarget({
   routeParams = {}
 } = {}) {
   const explicitTarget = normalizeText(to);
+  if (explicitTarget && !isRelativeMenuLinkTarget(explicitTarget)) {
+    return explicitTarget;
+  }
+
   const targetSurfaceId = resolveMenuLinkSurfaceId(surface, currentSurfaceId);
   const scopedRouteRequired = surfaceRequiresWorkspaceFromPlacementContext(placementContext, targetSurfaceId);
   const suffixTemplate = normalizeText(scopedRouteRequired ? scopedSuffix : unscopedSuffix) || "/";
   const interpolatedSuffix = interpolateBracketParams(suffixTemplate, routeParams);
-  const resolvedSuffixTarget =
-    targetSurfaceId &&
-    interpolatedSuffix &&
-    !interpolatedSuffix.includes("[")
-      ? normalizeText(resolveShellLinkPath({
-          context: placementContext,
-          surface: targetSurfaceId,
-          relativePath: interpolatedSuffix,
-          params: routeParams,
-          strictParams: true
-        }))
-      : "";
-
-  if (!explicitTarget) {
-    return resolvedSuffixTarget;
+  if (!targetSurfaceId || !interpolatedSuffix || interpolatedSuffix.includes("[")) {
+    return "";
   }
 
-  if (isRelativeMenuLinkTarget(explicitTarget)) {
-    return resolvedSuffixTarget;
-  }
-
-  return explicitTarget;
+  return normalizeText(resolveShellLinkPath({
+    context: placementContext,
+    surface: targetSurfaceId,
+    relativePath: interpolatedSuffix,
+    params: routeParams,
+    strictParams: true
+  }));
 }
 
 // Menu and tab links render nothing for an empty target.
