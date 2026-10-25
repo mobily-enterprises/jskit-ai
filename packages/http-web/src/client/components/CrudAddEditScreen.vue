@@ -116,14 +116,6 @@ function resolveCancelTo(target = cancelTo.value) {
 </template>
 
 <style scoped>
-.crud-screen {
-  --crud-screen-state-padding: 2.5rem 1.25rem;
-}
-
-.crud-screen--operator {
-  --crud-screen-state-padding: 2rem 1rem;
-}
-
 .crud-add-edit-form__actions {
   display: flex;
   flex-wrap: wrap;
@@ -138,7 +130,7 @@ function resolveCancelTo(target = cancelTo.value) {
 .crud-add-edit-form__state {
   margin-inline: auto;
   max-width: 30rem;
-  padding: var(--crud-screen-state-padding);
+  padding: 2rem 1rem;
   text-align: center;
 }
 

@@ -93,14 +93,6 @@ const editLocation = computed(() => unref(props.screen?.editLocation) || null);
 </template>
 
 <style scoped>
-.crud-screen {
-  --crud-screen-state-padding: 2.5rem 1.25rem;
-}
-
-.crud-screen--operator {
-  --crud-screen-state-padding: 2rem 1rem;
-}
-
 .crud-view-actions {
   display: flex;
   flex-wrap: wrap;
@@ -115,7 +107,7 @@ const editLocation = computed(() => unref(props.screen?.editLocation) || null);
 .crud-view-state {
   margin-inline: auto;
   max-width: 30rem;
-  padding: var(--crud-screen-state-padding);
+  padding: 2rem 1rem;
   text-align: center;
 }
 

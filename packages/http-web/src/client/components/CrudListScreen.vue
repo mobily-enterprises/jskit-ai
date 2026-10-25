@@ -320,14 +320,6 @@ function setSelectableRowsSelected(selected = true) {
 </template>
 
 <style scoped>
-.crud-screen {
-  --crud-screen-state-padding: 2.5rem 1.25rem;
-}
-
-.crud-screen--operator {
-  --crud-screen-state-padding: 2rem 1rem;
-}
-
 .crud-list-actions {
   display: flex;
   flex-wrap: wrap;
@@ -350,7 +342,7 @@ function setSelectableRowsSelected(selected = true) {
 .crud-list-state {
   margin-inline: auto;
   max-width: 30rem;
-  padding: var(--crud-screen-state-padding);
+  padding: 2rem 1rem;
   text-align: center;
 }
 
@@ -389,25 +381,6 @@ function setSelectableRowsSelected(selected = true) {
   display: grid;
   gap: 0.65rem;
   margin-top: 0.85rem;
-}
-
-.crud-list-card__field {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.crud-list-card__field-label {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.crud-list-card__field-value {
-  font-size: 0.95rem;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
 }
 
 .crud-list-table {
