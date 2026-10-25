@@ -44,7 +44,7 @@ Exports
 - `updatePatternPackageJsonContents(contents, versions)`
 - `validateReleaseState(records, repoRoot)`
 Local functions
-- `normalizeRegistryUrl(value = DEFAULT_REGISTRY)`
+- `normalizeRegistryUrl(value)`
 - `fileExists(absolutePath)`
 - `readJsonFile(absolutePath)`
 - `serializeJson(value)`
