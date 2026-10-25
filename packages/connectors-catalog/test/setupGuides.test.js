@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import * as definitions from "../src/shared/definitions.js";
+import { connectorDefinitions } from "../src/shared/definitions.js";
 import { workdayDefinition } from "../src/shared/workday.js";
 
 test("every provider setup guide is the provider's own HTTPS documentation, never another builder's", () => {
-  for (const [name, definition] of Object.entries(definitions)) {
+  for (const definition of connectorDefinitions) {
     const url = definition?.setup?.url;
     if (!url) continue;
     const { protocol, hostname } = new URL(url);
-    assert.equal(protocol, "https:", name);
-    assert.doesNotMatch(hostname, /(?:^|\.)lovable\.dev$/u, `${name} links a competitor's setup page`);
+    assert.equal(protocol, "https:", definition.id);
+    assert.doesNotMatch(hostname, /(?:^|\.)lovable\.dev$/u, `${definition.id} links a competitor's setup page`);
   }
 });
 
