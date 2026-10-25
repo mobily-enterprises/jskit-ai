@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AppError, isAppError } from "./errors.js";
+import { AppError, isAppError } from "../runtime/errors.js";
 import {
   normalizeBodylessContentTypeHeader,
   registerApiErrorHandler,
   registerBodylessContentTypeNormalizer,
-  registerJsonApiContentTypeParser,
-  registerRequestLoggingHooks
-} from "./fastifyBootstrap.js";
+  registerJsonApiContentTypeParser
+} from "./errorHandling.js";
 
 function createFastifyStub() {
   return {
@@ -23,6 +22,9 @@ function createFastifyStub() {
     },
     addHook(name, handler) {
       this.hooks[name] = handler;
+    },
+    getDefaultJsonParser() {
+      return function parseJsonBody() {};
     },
     hasContentTypeParser(contentType) {
       return this.contentTypeParsers.has(String(contentType || "").trim().toLowerCase());
@@ -357,62 +359,4 @@ test("registerBodylessContentTypeNormalizer installs the request hook once", asy
   assert.deepEqual(request.headers, {
     "content-length": "0"
   });
-});
-
-test("registerRequestLoggingHooks uses configured default surface when getSurface is absent", async () => {
-  const fastify = createFastifyStub();
-  let loggedPayload = null;
-
-  registerRequestLoggingHooks(fastify, {
-    defaultSurfaceId: "home"
-  });
-
-  const request = {
-    id: "req-home",
-    method: "GET",
-    routeOptions: {
-      url: "/status"
-    },
-    log: {
-      info(payload) {
-        loggedPayload = payload;
-      }
-    }
-  };
-  const reply = {
-    statusCode: 204
-  };
-
-  await fastify.hooks.onRequest(request);
-  await fastify.hooks.onResponse(request, reply);
-
-  assert.equal(loggedPayload.surface, "home");
-});
-
-test("registerRequestLoggingHooks leaves surface empty when no surface default is configured", async () => {
-  const fastify = createFastifyStub();
-  let loggedPayload = null;
-
-  registerRequestLoggingHooks(fastify);
-
-  const request = {
-    id: "req-public",
-    method: "GET",
-    routeOptions: {
-      url: "/status"
-    },
-    log: {
-      info(payload) {
-        loggedPayload = payload;
-      }
-    }
-  };
-  const reply = {
-    statusCode: 204
-  };
-
-  await fastify.hooks.onRequest(request);
-  await fastify.hooks.onResponse(request, reply);
-
-  assert.equal(loggedPayload.surface, "");
 });

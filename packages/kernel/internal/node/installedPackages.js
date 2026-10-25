@@ -1,8 +1,8 @@
-import { readFile, realpath } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
-import { fileExists } from "./fileSystem.js";
+import { fileExists, readJsonFile } from "./fileSystem.js";
 
 const ROOT_DEPENDENCY_SECTIONS = Object.freeze([
   "dependencies",
@@ -17,14 +17,6 @@ const JSKIT_PACKAGE_CONFIG_KEYS = Object.freeze([
   "runtime",
   "vite"
 ]);
-
-async function readJsonFile(filePath, fallback = {}) {
-  try {
-    return JSON.parse(await readFile(filePath, "utf8"));
-  } catch {
-    return fallback;
-  }
-}
 
 function collectRootDependencySpecifiers(packageJson = {}) {
   const specifiers = new Map();
@@ -42,7 +34,7 @@ function collectRootDependencySpecifiers(packageJson = {}) {
 
 function collectPackageDependencyIds(packageJson = {}) {
   const dependencyIds = new Set();
-  for (const sectionName of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+  for (const sectionName of ROOT_DEPENDENCY_SECTIONS) {
     for (const packageId of Object.keys(normalizeObject(packageJson?.[sectionName]))) {
       const normalizedPackageId = String(packageId || "").trim();
       if (normalizedPackageId) {
@@ -175,56 +167,27 @@ async function discoverInstalledPackages({ appRoot } = {}) {
   const rootPackageJson = await readJsonFile(path.resolve(normalizedAppRoot, "package.json"), {});
   const directSpecifiers = collectRootDependencySpecifiers(rootPackageJson);
   const directPackageIds = new Set(directSpecifiers.keys());
-  const runtimeRootPackageIds = new Set(
-    ["dependencies", "optionalDependencies", "peerDependencies"]
-      .flatMap((sectionName) => Object.keys(normalizeObject(rootPackageJson?.[sectionName])))
-  );
   const visited = new Set();
+  // Breadth-first walk of the dependency graph; the queue stays ordered by packageId.
   const queue = [];
-  const queued = new Map();
+  const queued = new Set();
   const packages = [];
 
-  const sortQueue = () => {
-    queue.sort((left, right) => {
-      if (left.traverseDependencies !== right.traverseDependencies) {
-        return left.traverseDependencies ? -1 : 1;
-      }
-      return left.packageId.localeCompare(right.packageId);
-    });
-  };
-  const enqueue = ({ packageId, parentPackageRoot = "", traverseDependencies = false }) => {
-    const normalizedPackageId = String(packageId || "").trim();
-    if (!normalizedPackageId || visited.has(normalizedPackageId)) {
+  const enqueue = ({ packageId, parentPackageRoot = "" }) => {
+    if (!packageId || visited.has(packageId) || queued.has(packageId)) {
       return;
     }
-    const existing = queued.get(normalizedPackageId);
-    if (existing) {
-      if (traverseDependencies && !existing.traverseDependencies) {
-        existing.traverseDependencies = true;
-        existing.parentPackageRoot = parentPackageRoot || existing.parentPackageRoot;
-        sortQueue();
-      }
-      return;
-    }
-    const entry = {
-      packageId: normalizedPackageId,
-      parentPackageRoot,
-      traverseDependencies: Boolean(traverseDependencies)
-    };
-    queue.push(entry);
-    queued.set(normalizedPackageId, entry);
-    sortQueue();
+    queue.push({ packageId, parentPackageRoot });
+    queued.add(packageId);
+    queue.sort((left, right) => left.packageId.localeCompare(right.packageId));
   };
 
   for (const packageId of sortStrings([...directPackageIds])) {
-    enqueue({
-      packageId,
-      traverseDependencies: runtimeRootPackageIds.has(packageId)
-    });
+    enqueue({ packageId });
   }
 
   while (queue.length > 0) {
-    const { packageId, parentPackageRoot, traverseDependencies } = queue.shift();
+    const { packageId, parentPackageRoot } = queue.shift();
     queued.delete(packageId);
     if (!packageId || visited.has(packageId)) {
       continue;
@@ -252,15 +215,8 @@ async function discoverInstalledPackages({ appRoot } = {}) {
     }
 
     const dependencyIds = collectPackageDependencyIds(packageJson);
-    if (traverseDependencies) {
-      for (const dependencyId of dependencyIds) {
-        const normalizedDependencyId = String(dependencyId || "").trim();
-        enqueue({
-          packageId: normalizedDependencyId,
-          parentPackageRoot: roots.packageRoot,
-          traverseDependencies: true
-        });
-      }
+    for (const dependencyId of dependencyIds) {
+      enqueue({ packageId: dependencyId, parentPackageRoot: roots.packageRoot });
     }
 
     const packageMetadata = createPackageMetadata(packageJson);

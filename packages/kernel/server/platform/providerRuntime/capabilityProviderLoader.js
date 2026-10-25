@@ -1,7 +1,8 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { defineProvider } from "../../../shared/capabilities/defineProvider.js";
-import { fileExists, isIdentifier, isInsidePackageRoot } from "./helpers.js";
+import { fileExists } from "../../../internal/node/fileSystem.js";
+import { isIdentifier, isInsidePackageRoot } from "./helpers.js";
 
 function declaredProviderEntrypoints(packageEntry) {
   const runtime = packageEntry?.packageMetadata?.runtime;

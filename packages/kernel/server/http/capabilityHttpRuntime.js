@@ -9,7 +9,7 @@ import { registerRoutes } from "./lib/routeRegistration.js";
 import {
   registerApiErrorHandler,
   registerBodylessContentTypeNormalizer
-} from "../runtime/fastifyBootstrap.js";
+} from "./errorHandling.js";
 import { isAppError } from "../runtime/errors.js";
 
 function normalizeResolver({ id, resolve } = {}) {

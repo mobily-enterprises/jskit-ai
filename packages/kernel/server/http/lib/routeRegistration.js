@@ -3,7 +3,7 @@ import { AppError } from "../../runtime/errors.js";
 import { defaultApplyRoutePolicy } from "../../support/routePolicyConfig.js";
 import { resolveDefaultSurfaceId } from "../../support/appConfig.js";
 import { defaultMissingHandler } from "../../support/defaultMissingHandler.js";
-import { registerJsonApiContentTypeParser } from "../../runtime/fastifyBootstrap.js";
+import { registerJsonApiContentTypeParser } from "../errorHandling.js";
 import { RouteRegistrationError } from "./errors.js";
 import { executeMiddlewareStack, normalizeRuntimeMiddlewareConfig, resolveRouteMiddlewareHandlers } from "./middlewareRuntime.js";
 import { attachDirectRequestActionExecutor } from "../directRequestActionExecutor.js";

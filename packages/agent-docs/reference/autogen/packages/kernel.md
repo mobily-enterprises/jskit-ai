@@ -710,6 +710,20 @@ Local functions
 - `resolveSurface(request, explicitSurface = "", defaultSurfaceId = "")`
 - `routeVisibility(request, payload = {})`
 
+### `server/http/errorHandling.js`
+Exports
+- `registerJsonApiContentTypeParser(fastify)`
+- `normalizeBodylessContentTypeHeader(request = null)`
+- `registerBodylessContentTypeNormalizer(fastify)`
+- `registerApiErrorHandler(app, { isAppError } = {})`
+Local functions
+- `hasHeaderValue(headers = {}, key = "")`
+- `hasRequestBody(headers = {})`
+- `resolveValidationFieldErrors(error)`
+- `resolveRequestRouteTransport(request)`
+- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true } = {})`
+- `resolveApiErrorStatus(error, code)`
+
 ### `server/http/HttpProvider.js`
 Exports
 - `HttpProvider`
@@ -721,39 +735,11 @@ Exports
 - `attachDirectRequestActionExecutor`
 - `createCachedResponseSerializerFactory`
 
-### `server/http/lib/controller.js`
-Exports
-- `BaseController`
-- `DEFAULT_DOMAIN_ERROR_STATUS_BY_CODE`
-- `resolveDomainErrorStatus({ status, code, domainErrorStatusByCode = DEFAULT_DOMAIN_ERROR_STATUS_BY_CODE, fallbackStatus = 422 } = {})`
-Local functions
-- `normalizeStatus(status, fallbackStatus)`
-- `normalizeCode(code)`
-- `ensureReply(reply, methodName)`
-- `applyHeaders(reply, headers)`
-
 ### `server/http/lib/errors.js`
 Exports
 - `HttpKernelError`
 - `RouteDefinitionError`
 - `RouteRegistrationError`
-
-### `server/http/lib/index.js`
-Exports
-- `HttpKernelError`
-- `RouteDefinitionError`
-- `RouteRegistrationError`
-- `HttpRouter`
-- `createRouter`
-- `joinPath`
-- `defineRouteValidator`
-- `compileRouteValidator`
-- `resolveRouteValidatorOptions`
-- `BaseController`
-- `DEFAULT_DOMAIN_ERROR_STATUS_BY_CODE`
-- `resolveDomainErrorStatus`
-- `defaultMissingHandler`
-- `registerRoutes`
 
 ### `server/http/lib/middlewareRuntime.js`
 Exports
@@ -855,11 +841,7 @@ Local functions
 ### `server/platform/providerRuntime/helpers.js`
 Exports
 - `isIdentifier(value)`
-- `createWildcardMatcher(pattern)`
-- `normalizeRelativePath(fromPath, targetPath)`
-- `fileExists`
 - `isInsidePackageRoot(packageRoot, candidatePath)`
-- `toAbsoluteSortedUniquePaths(values)`
 
 ### `server/platform/providerRuntime/packageCatalog.js`
 Exports
@@ -884,17 +866,6 @@ Local functions
 Exports
 - `BootstrapProvider`
 - `createBootstrapRuntime()`
-
-### `server/runtime/canonicalJson.js`
-Exports
-- `toCanonicalJson(value)`
-- `toSha256Hex(value)`
-- `toHmacSha256Hex(secret, value)`
-- `safeParseJson(value, fallback = null)`
-- `__testables`
-Local functions
-- `isPlainObject(value)`
-- `sortValue(value)`
 
 ### `server/runtime/entityChangeEvents.js`
 Exports
@@ -931,27 +902,6 @@ Local functions
 - `normalizeListener(value)`
 - `normalizeEvent(value)`
 
-### `server/runtime/fastifyBootstrap.js`
-Exports
-- `resolveLoggerLevel({ configuredLevel = "", nodeEnv = "development", allowedLevels = [] } = {})`
-- `createFastifyLoggerOptions({ configuredLevel = "", nodeEnv = "development", allowedLevels = [], redactPaths = [], redactCensor = "[REDACTED]" } = {})`
-- `registerJsonApiContentTypeParser(fastify)`
-- `normalizeBodylessContentTypeHeader(request = null)`
-- `registerBodylessContentTypeNormalizer(fastify)`
-- `registerRequestLoggingHooks(app, { requestStartedAtSymbol, getPathname, getSurface, observeRequest, enableRequestLogs = true, defaultSurfaceId = "" } = {})`
-- `registerApiErrorHandler(app, { isAppError, onRecordDbError, onCaptureServerError, appErrorLogMessage = "AppError 5xx", unhandledErrorLogMessage = "Unhandled error" } = {})`
-- `resolveDatabaseErrorCode(error)`
-- `recordDbErrorBestEffort(observabilityService, error)`
-- `runGracefulShutdown({ signal = "", exitProcess = false, exitCode = 0, timeoutMs = 10_000, appInstance = null, stopBackgroundRuntimes = () => {}, closeDatabase = async () => {}, logger = console } = {})`
-Local functions
-- `createFallbackJsonBodyParser()`
-- `hasHeaderValue(headers = {}, key = "")`
-- `hasRequestBody(headers = {})`
-- `resolveValidationFieldErrors(error)`
-- `resolveRequestRouteTransport(request)`
-- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true } = {})`
-- `resolveApiErrorStatus(error, code)`
-
 ### `server/runtime/index.js`
 Exports
 - `AppError`
@@ -966,28 +916,6 @@ Exports
 ### `server/runtime/integers.js`
 Exports
 - `parsePositiveInteger(value)`
-- `normalizeNullablePositiveInteger(value)`
-
-### `server/runtime/moduleConfig.js`
-Exports
-- `ModuleConfigError`
-- `defineModuleConfig({ moduleId, schema, load = ({ env }) => env, transform = null, validate = null, coerce = false, freeze = true } = {})`
-Local functions
-- `normalizeModuleId(value)`
-- `normalizeSchema(value)`
-- `formatIssues(issues = [])`
-- `buildInvalidConfigMessage(moduleId, issues = [])`
-- `normalizeCustomValidationIssues(result)`
-- `validateSchemaOrThrow({ moduleId, schema, value, coerce = false })`
-
-### `server/runtime/pagination.js`
-Exports
-- `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 20, maxPageSize = 100 } = {})`
-
-### `server/runtime/realtimeNormalization.js`
-Exports
-- `normalizePositiveIntegerOrNull(value)`
-- `normalizeScopeKind(value)`
 
 ### `server/runtime/requestUrl.js`
 Exports
@@ -995,38 +923,13 @@ Exports
 - `safePathnameFromRequest(request)`
 - `resolveClientIpAddress(request)`
 
-### `server/runtime/routeUtils.js`
-Exports
-- `defaultMissingHandler`
-- `normalizeIdempotencyKey(value)`
-- `requireIdempotencyKey(request)`
-
-### `server/runtime/securityAudit.js`
-Exports
-- `buildAuditEventBase(request, { resolveSurfaceFromPathname = null, defaultSurfaceId = "" } = {})`
-- `buildAuditError(error)`
-- `recordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null, defaultSurfaceId = "" })`
-- `withAuditEvent({ auditService, request, action, execute, shared, metadata, onSuccess, onFailure, resolveSurfaceFromPathname = null, defaultSurfaceId = "" })`
-- `__testables`
-Local functions
-- `resolveAuditSurface(pathnameValue, explicitSurface = "", resolveSurfaceFromPathname = null, defaultSurfaceId = "")`
-- `normalizeObjectPayload(value)`
-- `resolveObjectPayload(value, context)`
-- `mergeMetadataPayloads(...payloads)`
-- `buildEventPayload({ action, outcome, shared, event, metadata, context })`
-- `mergeFailureMetadata(error, metadata)`
-- `logAuditFailure(request, payload, message)`
-- `safeBuildEventPayload({ request, action, outcome, shared, event, metadata, context, stage })`
-- `safeRecordAuditEvent({ auditService, request, event, resolveSurfaceFromPathname = null, defaultSurfaceId = "" })`
-
 ### `server/runtime/serviceAuthorization.js`
 Exports
 - `resolveServiceContext(source = {})`
-- `hasPermission`
 - `requireAuth(source = {}, options = {})`
 Local functions
 - `resolveRequireMode(value)`
-- `normalizeRequireAuthOptions(options = {}, { context = "requireAuth options" } = {})`
+- `normalizeRequireAuthOptions(options = {})`
 - `requireAuthenticatedActor(context = {}, options = {})`
 
 ### `server/support/appConfig.js`
@@ -1186,27 +1089,6 @@ Local functions
 - `createEntryScriptRequire()`
 - `uniqueRequireChain(candidates = [])`
 
-### `server/surface/index.js`
-Exports
-- `createSurfaceRegistry`
-- `normalizeSurfaceId`
-- `createSurfacePathHelpers`
-- `createSurfaceRuntime`
-- `filterRoutesBySurface`
-- `escapeRegExp`
-- `API_BASE_PATH`
-- `API_PREFIX`
-- `API_PREFIX_SLASH`
-- `API_DOCS_PATH`
-- `API_REALTIME_PATH`
-- `normalizePathname`
-- `isApiPath`
-- `isVersionedApiPath`
-- `toVersionedApiPath`
-- `toVersionedApiPrefix`
-- `buildVersionedApiPath`
-- `isVersionedApiPrefixMatch`
-
 ### _testable
 
 ### `_testable/index.js`
@@ -1230,7 +1112,6 @@ Exports
 - `createPackageMetadata(packageJson = {})`
 - `discoverInstalledPackages({ appRoot } = {})`
 Local functions
-- `readJsonFile(filePath, fallback = {})`
 - `resolveFileDependencyRoot(appRoot, specifier = "")`
 - `resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRoot = "" })`
 - `resolvePackageRoots({ appRoot, packageId, directSpecifier = "", parentPackageRoot = "" })`

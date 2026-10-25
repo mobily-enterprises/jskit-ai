@@ -26,7 +26,7 @@ function resolveRequireMode(value) {
   return mode;
 }
 
-function normalizeRequireAuthOptions(options = {}, { context = "requireAuth options" } = {}) {
+function normalizeRequireAuthOptions(options = {}) {
   const source = normalizeObject(options);
   const mode = resolveRequireMode(source.require);
   const permissions = normalizePermissionList(source.permissions);
@@ -35,8 +35,7 @@ function normalizeRequireAuthOptions(options = {}, { context = "requireAuth opti
     require: mode,
     permissions: Object.freeze(permissions),
     message: normalizeText(source.message),
-    code: normalizeText(source.code),
-    context
+    code: normalizeText(source.code)
   });
 }
 
@@ -71,7 +70,7 @@ function requireAuth(source = {}, options = {}) {
     return actor;
   }
 
-  const requiredPermissions = normalizePermissionList(settings.permissions);
+  const requiredPermissions = settings.permissions;
   if (requiredPermissions.length < 1) {
     return actor;
   }
@@ -108,6 +107,5 @@ function requireAuth(source = {}, options = {}) {
 
 export {
   resolveServiceContext,
-  hasPermission,
   requireAuth
 };

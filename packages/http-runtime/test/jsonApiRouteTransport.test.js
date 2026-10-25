@@ -29,7 +29,7 @@ import {
 } from "../src/shared/index.js";
 import { createSchema } from "../../kernel/shared/validators/index.js";
 import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/routeValidator.js";
-import { registerApiErrorHandler } from "../../kernel/server/runtime/fastifyBootstrap.js";
+import { registerApiErrorHandler } from "../../kernel/server/http/errorHandling.js";
 import { AppError, isAppError } from "../../kernel/server/runtime/errors.js";
 import { createHttpError } from "../src/shared/clientRuntime/errors.js";
 import { createJsonRestApiHost } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";

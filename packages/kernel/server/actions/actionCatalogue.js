@@ -104,40 +104,31 @@ function createActionCatalogue({
     return Object.freeze(enriched);
   }
 
-  async function execute(payload = {}) {
+  async function run(method, payload = {}) {
     const source = payload && typeof payload === "object" ? payload : {};
     const input = source.input && typeof source.input === "object" ? source.input : {};
+    const version = source.version == null ? null : source.version;
     const context = await buildExecutionContext({
       actionId: source.actionId,
-      version: source.version == null ? null : source.version,
+      version,
       input,
       context: source.context
     });
-    return currentRegistry().execute({
+    return currentRegistry()[method]({
       actionId: source.actionId,
-      version: source.version == null ? null : source.version,
+      version,
       input,
       context,
       deps: isRecord(source.deps) ? source.deps : {}
     });
   }
 
-  async function executeStream(payload = {}) {
-    const source = payload && typeof payload === "object" ? payload : {};
-    const input = source.input && typeof source.input === "object" ? source.input : {};
-    const context = await buildExecutionContext({
-      actionId: source.actionId,
-      version: source.version == null ? null : source.version,
-      input,
-      context: source.context
-    });
-    return currentRegistry().executeStream({
-      actionId: source.actionId,
-      version: source.version == null ? null : source.version,
-      input,
-      context,
-      deps: isRecord(source.deps) ? source.deps : {}
-    });
+  function execute(payload) {
+    return run("execute", payload);
+  }
+
+  function executeStream(payload) {
+    return run("executeStream", payload);
   }
 
   function listDefinitions() {
