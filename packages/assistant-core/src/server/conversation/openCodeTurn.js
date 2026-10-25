@@ -201,7 +201,6 @@ export async function dispatchOpenCodeTurn(turn, input, options = {}) {
   }, { signal: promptTimeoutMs ? AbortSignal.any([signal, AbortSignal.timeout(promptTimeoutMs)]) : signal });
 }
 
-// Native automatic compaction and its continuation belong to the admitted turn.
 const OPENCODE_MESSAGE_PAGE_SIZE = 100;
 
 // Native history pages run newest first. A long tool-using turn can outgrow one
@@ -282,6 +281,7 @@ export async function projectOpenCodeConversationMessages(messages, expectedId, 
   return { failure: result.error, providerApiFailure: text(result.message?.error?.name) === "APIError" };
 }
 
+// Native automatic compaction and its continuation belong to the admitted turn.
 export function openCodeRowsForInput(value = null, inputMessageId = "") {
   const rows = openCodeMessageRows(value);
   const index = rows.findIndex((message) => text(message?.id) === text(inputMessageId));
