@@ -180,9 +180,6 @@ async function submit() {
   });
   if (!validation.ok) {
     fieldErrors.systemPrompt = String(validation.fieldErrors.systemPrompt || "");
-    if (validation.globalErrors.length > 0) {
-      reportAssistantSettingsError(validation.globalErrors[0], "assistant.settings:validation");
-    }
     return;
   }
 

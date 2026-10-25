@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
-import {
-  validateOperationInput,
-  validateOperationSection
-} from "../src/shared/validators/operationValidation.js";
+import { validateOperationSection } from "../src/shared/validators/operationValidation.js";
 
 const patchOperation = Object.freeze({
   method: "PATCH",
@@ -194,66 +191,21 @@ test("validateOperationSection surfaces custom validator failures as field error
 
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.adenovirusValidTo, "Adenovirus valid-to date is required when vaccinated.");
-  assert.deepEqual(parsed.globalErrors, []);
+  assert.deepEqual(Object.keys(parsed).sort(), ["fieldErrors", "ok", "value"]);
 });
 
-test("validateOperationInput validates params/query/body together", () => {
-  const viewOperation = Object.freeze({
-    method: "GET",
-    params: {
-      schema: createSchema({
-        workspaceSlug: { type: "string", required: true, minLength: 1 }
-      }),
-      mode: "patch"
-    },
-    query: {
-      schema: createSchema({
-        includeArchived: { type: "boolean", strictBoolean: true }
-      }),
-      mode: "patch"
-    }
+test("validateOperationSection returns only ok, value and fieldErrors", () => {
+  const valid = validateOperationSection({
+    operation: patchOperation,
+    section: "body",
+    value: { name: "Acme" }
+  });
+  const missingSection = validateOperationSection({
+    operation: patchOperation,
+    section: "query",
+    value: { page: "1" }
   });
 
-  const parsed = validateOperationInput({
-    operation: viewOperation,
-    input: {
-      params: {
-        workspaceSlug: "acme"
-      },
-      query: {}
-    }
-  });
-
-  assert.equal(parsed.ok, true);
-  assert.equal(parsed.value.params.workspaceSlug, "acme");
-  assert.deepEqual(parsed.value.query, {});
-  assert.equal(parsed.value.body, undefined);
-});
-
-test("validateOperationInput collects json-rest-schema field errors", () => {
-  const parsed = validateOperationInput({
-    operation: {
-      body: {
-        schema: createSchema({
-          name: {
-            type: "string",
-            required: true,
-            minLength: 1,
-            messages: {
-              minLength: "Name is required."
-            }
-          }
-        }),
-        mode: "patch"
-      }
-    },
-    input: {
-      body: {
-        name: "   "
-      }
-    }
-  });
-
-  assert.equal(parsed.ok, false);
-  assert.equal(parsed.fieldErrors.name, "Name is required.");
+  assert.deepEqual(valid, { ok: true, value: { name: "Acme" }, fieldErrors: {} });
+  assert.deepEqual(missingSection, { ok: true, value: { page: "1" }, fieldErrors: {} });
 });

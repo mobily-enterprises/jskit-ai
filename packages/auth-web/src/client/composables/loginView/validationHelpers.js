@@ -4,8 +4,8 @@ function validateCommandSection(commandResource, section, payload) {
   if (!commandResource || !commandResource.operation) {
     return {
       ok: true,
-      fieldErrors: {},
-      globalErrors: []
+      value: payload,
+      fieldErrors: {}
     };
   }
 
@@ -27,12 +27,6 @@ function resolveValidationMessage(validationResult, fallbackMessage = "Validatio
   const firstFieldError = Object.values(fieldErrors).find((entry) => String(entry || "").trim().length > 0);
   if (firstFieldError) {
     return String(firstFieldError);
-  }
-
-  const globalErrors = Array.isArray(validationResult.globalErrors) ? validationResult.globalErrors : [];
-  const firstGlobalError = globalErrors.find((entry) => String(entry || "").trim().length > 0);
-  if (firstGlobalError) {
-    return String(firstGlobalError);
   }
 
   return String(fallbackMessage || "Validation failed.");

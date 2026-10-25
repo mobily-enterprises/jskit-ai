@@ -27,10 +27,7 @@ export {
   resolveIssueMessageFromSchema,
   mapOperationIssues
 } from "./validators/operationMessages.js";
-export {
-  validateOperationSection,
-  validateOperationInput
-} from "./validators/operationValidation.js";
+export { validateOperationSection } from "./validators/operationValidation.js";
 export {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,

@@ -27,10 +27,7 @@ import {
   resolveIssueMessageFromSchema,
   mapOperationIssues
 } from "./operationMessages.js";
-import {
-  validateOperationSection,
-  validateOperationInput
-} from "./operationValidation.js";
+import { validateOperationSection } from "./operationValidation.js";
 import {
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
@@ -93,7 +90,6 @@ const HTTP_VALIDATORS_API = Object.freeze({
   resolveIssueMessageFromSchema,
   mapOperationIssues,
   validateOperationSection,
-  validateOperationInput,
   JSON_API_CONTENT_TYPE,
   createJsonApiDocument,
   createJsonApiErrorDocumentFromFailure,
