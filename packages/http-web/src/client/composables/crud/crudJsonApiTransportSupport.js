@@ -1,9 +1,12 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeCrudLookupNamespace } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+const CRUD_RESPONSE_KIND_BY_MODE = Object.freeze({
+  list: "collection",
+  view: "record",
+  delete: "record",
+  "add-edit": "record"
+});
 
 function resolveSchemaFieldDefinitions(definition = null) {
   const schema = definition?.schema;
@@ -73,41 +76,20 @@ function inferCrudJsonApiTransport(resource = null, { mode = "", operationName =
   }
 
   const normalizedMode = normalizeText(mode).toLowerCase();
-  const normalizedOperationName = normalizeText(operationName).toLowerCase();
-  if (normalizedMode === "list") {
-    return Object.freeze({
-      kind: "jsonapi-resource",
-      responseType: resourceType,
-      responseKind: "collection"
-    });
+  const responseKind = Object.hasOwn(CRUD_RESPONSE_KIND_BY_MODE, normalizedMode)
+    ? CRUD_RESPONSE_KIND_BY_MODE[normalizedMode]
+    : "";
+  if (!responseKind) {
+    return null;
   }
 
-  if (normalizedMode === "view") {
-    return Object.freeze({
-      kind: "jsonapi-resource",
-      responseType: resourceType,
-      responseKind: "record"
-    });
-  }
-
-  if (normalizedMode === "delete") {
-    return Object.freeze({
-      kind: "jsonapi-resource",
-      responseType: resourceType,
-      responseKind: "record"
-    });
-  }
-
-  if (normalizedMode === "add-edit") {
-    return Object.freeze({
-      kind: "jsonapi-resource",
-      ...(normalizedOperationName ? { requestType: resourceType } : {}),
-      responseType: resourceType,
-      responseKind: "record"
-    });
-  }
-
-  return null;
+  const hasRequestType = normalizedMode === "add-edit" && Boolean(normalizeText(operationName));
+  return Object.freeze({
+    kind: "jsonapi-resource",
+    ...(hasRequestType ? { requestType: resourceType } : {}),
+    responseType: resourceType,
+    responseKind
+  });
 }
 
 function resolveCrudJsonApiTransport(transport = null, resource = null, options = {}) {
@@ -126,14 +108,10 @@ function resolveCrudJsonApiTransport(transport = null, resource = null, options 
   const lookupContainerKey = normalizeText(resource?.contract?.lookup?.containerKey, {
     fallback: "lookups"
   });
-  if (Object.keys(lookupFieldMap).length < 1 && !lookupContainerKey) {
-    return baseTransport;
-  }
-
   return Object.freeze({
     ...baseTransport,
     ...(Object.keys(lookupFieldMap).length > 0 ? { lookupFieldMap } : {}),
-    ...(lookupContainerKey ? { lookupContainerKey } : {})
+    lookupContainerKey
   });
 }
 
