@@ -23,7 +23,9 @@ export function createCodexThreadReadiness({
   const {
     ensureCodexAppServerProviderForActiveTurn,
     codexAppServerSessionObserverOptions,
-    rememberCodexAppServerPreparedThread
+    sessionConnection,
+    ensureSessionProvider,
+    rememberManagedSession
   } = selection;
   const {
     eventSubscriptionKey: codexAppServerEventSubscriptionKey,
@@ -47,10 +49,8 @@ export function createCodexThreadReadiness({
     if (!providerOptions) {
       providerOptions = await preparation.providerOptions(session);
     }
-    const provider = activeProvider?.provider || await providerSessions.owner.ensureSession(
-      providerSessions.context(normalizeCodexRunText(sessionId), providerOptions),
-      preparation.threadId(session)
-    );
+    const provider = activeProvider?.provider ||
+      await ensureSessionProvider(sessionId, providerOptions, preparation.threadId(session));
     const { currentSession: preparedSession, thread } = await preparation.gate(async currentSession => {
       const thread = await ensureCodexAppServerThread({
         ...preparation.preparation(currentSession),
@@ -63,7 +63,9 @@ export function createCodexThreadReadiness({
     });
     subscribeCodexAppServerEvents(sessionId, provider, thread.threadId,
       codexAppServerSessionObserverOptions(sessionId, providerOptions));
-    rememberCodexAppServerPreparedThread(sessionId, providerOptions, context, thread);
+    rememberManagedSession(sessionId, providerOptions, {
+      executionRoot: context.executionRoot, workdir: context.workdir, threadId: thread.threadId
+    });
     await reconcileCodexAppServerThreadStatus(sessionId, provider, thread.threadId, {
       failUnconfirmedTrackedTurn: true,
       observeLatestTurn: true,
@@ -87,14 +89,9 @@ export function createCodexThreadReadiness({
     const threadId = preparation.threadId(session);
     if (!threadId) {
       const providerOptions = await preparation.providerOptions(session);
-      const providerKey = providerSessions.context(normalizedSessionId, providerOptions).providerKey;
-      await providerSessions.owner.ensureSession(providerSessions.context(normalizedSessionId, providerOptions));
-      providerSessions.context(normalizedSessionId, providerOptions).runOwner.runtimeLifecycle.rememberManagedSession(providerKey, {
-        providerOptions,
-        sessionId: normalizedSessionId,
-        executionRoot,
-        workdir
-      });
+      const { providerKey } = sessionConnection(normalizedSessionId, providerOptions);
+      await ensureSessionProvider(normalizedSessionId, providerOptions);
+      rememberManagedSession(normalizedSessionId, providerOptions, { executionRoot, workdir });
       return {
         ok: true,
         providerKey,
@@ -105,32 +102,23 @@ export function createCodexThreadReadiness({
     }
     const activeProvider = await ensureCodexAppServerProviderForActiveTurn(session, preparation.managedIdentity);
     const providerOptions = activeProvider?.providerOptions || await preparation.providerOptions(session);
-    const providerKey = activeProvider?.providerKey || providerSessions.context(normalizedSessionId, providerOptions).providerKey;
+    const providerKey = activeProvider?.providerKey || sessionConnection(normalizedSessionId, providerOptions).providerKey;
     const existing = codexAppServerThreadReconciliations.get(providerKey);
     if (existing) {
       return existing;
     }
     const reconciliation = (async () => {
-      const provider = activeProvider?.provider || await providerSessions.owner.ensureSession(
-        providerSessions.context(normalizedSessionId, providerOptions), threadId
-      );
+      const provider = activeProvider?.provider ||
+        await ensureSessionProvider(normalizedSessionId, providerOptions, threadId);
       try {
         const restored = await restoreCodexAppServerLoadedThread(normalizedSessionId, {
           runtime, provider, providerKey, threadId,
-          subscriptionOptions: {
-            get providerKey() { return providerSessions.context(normalizeCodexRunText(normalizedSessionId), providerOptions).providerKey; }
-          },
+          subscriptionOptions: codexAppServerSessionObserverOptions(normalizedSessionId, providerOptions),
           get resumeOptions() {
             return preparation.resumeOptions;
           },
           remember() {
-            providerSessions.context(normalizedSessionId, providerOptions).runOwner.runtimeLifecycle.rememberManagedSession(providerKey, {
-              providerOptions,
-              sessionId: normalizedSessionId,
-              executionRoot,
-              threadId,
-              workdir
-            });
+            rememberManagedSession(normalizedSessionId, providerOptions, { executionRoot, threadId, workdir });
           },
           ready() { return preparation.ready(); }
         });
@@ -207,9 +195,7 @@ export function createCodexThreadReadiness({
     return maintainCodexAppServerManagedConnection(sessionId, {
       provider, providerKey: normalizedProviderKey, threadId, reconnect,
       get workdir() { return managed.workdir; },
-      subscriptionOptions: {
-        get providerKey() { return providerSessions.context(normalizeCodexRunText(sessionId), managed.providerOptions || {}).providerKey; }
-      }
+      subscriptionOptions: codexAppServerSessionObserverOptions(sessionId, managed.providerOptions || {})
     }, current);
   }
 

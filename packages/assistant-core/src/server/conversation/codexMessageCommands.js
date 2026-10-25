@@ -66,7 +66,8 @@ export function createCodexMessageCommands({
   const {
     codexAppServerMessageContext,
     codexAppServerSessionObserverOptions,
-    rememberCodexAppServerPreparedThread
+    sessionConnection,
+    rememberManagedSession
   } = selection;
   const {
     subscribeEvents: subscribeCodexAppServerEvents
@@ -199,9 +200,7 @@ export function createCodexMessageCommands({
     const { messageId, startedAt, workdir } = prepared;
     const operation = async currentSession => {
       const source = await facility.provider(currentSession);
-      const connection = source.provider ? null : providerSessions.context(
-        normalizeCodexRunText(sessionId), source.providerOptions
-      );
+      const connection = source.provider ? null : sessionConnection(sessionId, source.providerOptions);
       const providerAlreadyAvailable = source.provider
         ? source.providerAlreadyAvailable
         : providerSessions.owner.providers.get(connection.providerKey)?.isAvailable?.() === true;
@@ -241,7 +240,11 @@ export function createCodexMessageCommands({
       });
       if (!Object.hasOwn(facility, "failureThreadId")) prepared.activeThreadId = thread.threadId;
       subscribeCodexAppServerEvents(sessionId, provider, thread.threadId, observerOptions);
-      if (connection) rememberCodexAppServerPreparedThread(sessionId, providerOptions, prepared, thread);
+      if (connection) {
+        rememberManagedSession(sessionId, providerOptions, {
+          executionRoot: prepared.executionRoot, workdir: prepared.workdir, threadId: thread.threadId
+        });
+      }
       if (facility.ready) await facility.ready();
       return { preparedSession, provider, providerAlreadyAvailable, providerOptions, thread, ...settings };
     } finally {

@@ -17,6 +17,25 @@ export function createCodexProviderSelection({
     cacheMs: modelCatalogCacheMs,
     errorPrefix
   });
+  function sessionConnection(sessionId, providerOptions) {
+    return providerSessions.context(normalizeCodexRunText(sessionId), providerOptions);
+  }
+
+  function ensureSessionProvider(sessionId, providerOptions, threadId) {
+    return providerSessions.owner.ensureSession(sessionConnection(sessionId, providerOptions), threadId);
+  }
+
+  function rememberManagedSession(sessionId, providerOptions, { executionRoot, workdir, threadId } = {}) {
+    const connection = sessionConnection(sessionId, providerOptions);
+    connection.runOwner.runtimeLifecycle.rememberManagedSession(connection.providerKey, {
+      providerOptions,
+      sessionId: normalizeCodexRunText(sessionId),
+      executionRoot,
+      threadId,
+      workdir
+    });
+  }
+
   function managedProviderKeyForThread(sessionId, workdir, threadId) {
     for (const [providerKey, managed] of providerSessions.managed) {
       const provider = providerSessions.owner.providers.get(providerKey);
@@ -55,9 +74,7 @@ export function createCodexProviderSelection({
       const provider = providerSessions.owner.providers.get(providerKey);
       if (provider) {
         return {
-          provider: await providerSessions.owner.ensureSession(
-            providerSessions.context(normalizedSessionId, managed.providerOptions)
-          ),
+          provider: await ensureSessionProvider(normalizedSessionId, managed.providerOptions),
           providerKey,
           providerOptions: managed.providerOptions
         };
@@ -77,22 +94,18 @@ export function createCodexProviderSelection({
     const activeProvider = await ensureCodexAppServerProviderForActiveTurn(session, managedIdentity);
     const provider = activeProvider?.provider;
     if (provider) return provider;
-    const providerOptions = await prepareProviderOptions();
-    return await providerSessions.owner.ensureSession(
-      providerSessions.context(normalizeCodexRunText(sessionId), providerOptions)
-    );
+    return await ensureSessionProvider(sessionId, await prepareProviderOptions());
   }
 
-  async function codexAppServerRuntimeForVisibleTerminal(sessionId, session, options, managedIdentity, prepareProviderOptions) {
+  async function codexAppServerRuntimeForVisibleTerminal(rawSessionId, session, options, managedIdentity, prepareProviderOptions) {
+    const sessionId = normalizeCodexRunText(rawSessionId);
     const activeProvider = await ensureCodexAppServerProviderForActiveTurn(session, managedIdentity);
     const providerOptions = activeProvider?.providerOptions || await prepareProviderOptions();
-    const provider = activeProvider?.provider || await providerSessions.owner.ensureSession(
-      providerSessions.context(normalizeCodexRunText(sessionId), providerOptions)
-    );
+    const provider = activeProvider?.provider || await ensureSessionProvider(sessionId, providerOptions);
     await codexAppServerProjectHookTrustConfig(provider, options.workdir, {
       persist: true
     });
-    const providerKey = activeProvider?.providerKey || providerSessions.context(sessionId, providerOptions).providerKey;
+    const providerKey = activeProvider?.providerKey || sessionConnection(sessionId, providerOptions).providerKey;
     return providerSessions.owner.acquireRuntime({
       operation: () => provider.ensureRuntime(),
       provider,
@@ -113,9 +126,7 @@ export function createCodexProviderSelection({
         );
         if (activeProvider) return { provider: activeProvider.provider || null, reused: true };
         return {
-          provider: await providerSessions.owner.ensureSession(providerSessions.context(
-            normalizeCodexRunText(sessionId), await context.providerOptions(currentSession)
-          )),
+          provider: await ensureSessionProvider(sessionId, await context.providerOptions(currentSession)),
           reused: false
         };
       }
@@ -131,9 +142,8 @@ export function createCodexProviderSelection({
         const activeProvider = await ensureCodexAppServerProviderForActiveTurn(
           currentSession, context.managedIdentity(currentSession)
         );
-        return activeProvider?.provider || await providerSessions.owner.ensureSession(
-          providerSessions.context(normalizeCodexRunText(sessionId), await context.providerOptions(currentSession))
-        );
+        return activeProvider?.provider ||
+          await ensureSessionProvider(sessionId, await context.providerOptions(currentSession));
       },
       observationOwner(threadId) {
         for (const [key, managed] of providerSessions.managed) {
@@ -151,9 +161,7 @@ export function createCodexProviderSelection({
     return {
       threadId: context.threadId,
       async acquireProvider(current) {
-        return providerSessions.owner.ensureSession(providerSessions.context(
-          normalizeCodexRunText(sessionId), await context.providerOptions(current)
-        ));
+        return ensureSessionProvider(sessionId, await context.providerOptions(current));
       }
     };
   }
@@ -161,20 +169,9 @@ export function createCodexProviderSelection({
   function codexAppServerSessionObserverOptions(sessionId, providerOptions) {
     return {
       get providerKey() {
-        return providerSessions.context(normalizeCodexRunText(sessionId), providerOptions).providerKey;
+        return sessionConnection(sessionId, providerOptions).providerKey;
       }
     };
-  }
-
-  function rememberCodexAppServerPreparedThread(sessionId, providerOptions, context, thread) {
-    const connection = providerSessions.context(sessionId, providerOptions);
-    connection.runOwner.runtimeLifecycle.rememberManagedSession(connection.providerKey, {
-      providerOptions,
-      sessionId,
-      executionRoot: context.executionRoot,
-      threadId: thread.threadId,
-      workdir: context.workdir
-    });
   }
 
 
@@ -185,9 +182,7 @@ export function createCodexProviderSelection({
         restoration.projectRuntimeRoot, restoration.context
       ));
     }
-    const provider = preparation.provider || await providerSessions.owner.ensureSession(
-      providerSessions.context(normalizeCodexRunText(sessionId), await preparation.providerOptions)
-    );
+    const provider = preparation.provider || await ensureSessionProvider(sessionId, await preparation.providerOptions);
     return readCodexAppServerModelCatalog(provider, { signal: preparation.signal });
   }
 
@@ -197,7 +192,7 @@ export function createCodexProviderSelection({
       restoration.projectRuntimeRoot, restoration.context
     ));
     const providerOptions = await preparation.providerOptions;
-    const context = providerSessions.context(sessionId, providerOptions);
+    const context = sessionConnection(sessionId, providerOptions);
     const provider = await providerSessions.owner.withLifecycle(
       () => providerSessions.owner.providerForSession(context),
       context.providerKey,
@@ -217,6 +212,8 @@ export function createCodexProviderSelection({
     codexAppServerControlContext,
     codexAppServerObservationRecoveryContext,
     codexAppServerSessionObserverOptions,
-    rememberCodexAppServerPreparedThread
+    sessionConnection,
+    ensureSessionProvider,
+    rememberManagedSession
   };
 }

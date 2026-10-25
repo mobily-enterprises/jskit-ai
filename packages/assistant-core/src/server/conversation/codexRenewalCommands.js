@@ -42,7 +42,9 @@ export function createCodexRenewalCommands({
 
     observer.subscribeEvents(sessionId, provider, threadId,
       selection.codexAppServerSessionObserverOptions(sessionId, context.providerOptions));
-    selection.rememberCodexAppServerPreparedThread(sessionId, context.providerOptions, context, resumed);
+    selection.rememberManagedSession(sessionId, context.providerOptions, {
+      executionRoot: context.executionRoot, workdir: context.workdir, threadId: resumed.threadId
+    });
 
     let result = null;
     let reconciled = Boolean(targetTurn);
