@@ -9,6 +9,42 @@ function standardErrorMessage(payload = {}) {
   return String(payload.error || payload.message || nestedMessage || "").trim();
 }
 
+function genericHttpErrorMessage(status) {
+  return `Request failed with status ${status}.`;
+}
+
+function resolveErrorStatus(error) {
+  if (error == null || typeof error !== "object") {
+    return null;
+  }
+
+  const hasStatus = Object.prototype.hasOwnProperty.call(error, "status");
+  const hasStatusCode = Object.prototype.hasOwnProperty.call(error, "statusCode");
+  if (!hasStatus && !hasStatusCode) {
+    return null;
+  }
+
+  const status = Number(hasStatus ? error.status : error.statusCode);
+  return Number.isInteger(status) ? status : null;
+}
+
+// True when the error carries only the transport's own wording (a network
+// failure or the status-only message createHttpError falls back to), so a
+// caller's specific fallback copy is more useful than the message.
+function isGenericHttpErrorMessage(error) {
+  const normalizedMessage = String(error?.message || "").trim();
+  if (!normalizedMessage) {
+    return false;
+  }
+
+  const status = resolveErrorStatus(error);
+  if (status === 0) {
+    return true;
+  }
+
+  return status != null && status >= 400 && normalizedMessage === genericHttpErrorMessage(status);
+}
+
 function createHttpError(response, data = {}) {
   const payload = isRecord(data) ? data : {};
   const message = standardErrorMessage(payload);
@@ -17,7 +53,7 @@ function createHttpError(response, data = {}) {
     return createHttpError(response, jsonApiPayload);
   }
 
-  const error = new Error(message || `Request failed with status ${response.status}.`);
+  const error = new Error(message || genericHttpErrorMessage(response.status));
   const normalizedFieldErrors = resolveFieldErrors(payload);
   error.status = Number(response?.status || 0);
   error.code = String(payload.code || "").trim() || null;
@@ -50,5 +86,6 @@ function createNetworkError(cause) {
 
 export {
   createHttpError,
-  createNetworkError
+  createNetworkError,
+  isGenericHttpErrorMessage
 };

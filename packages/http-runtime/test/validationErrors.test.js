@@ -5,7 +5,9 @@ import {
   normalizeFieldErrors,
   resolveFieldErrors,
   createValidationFailure,
-  createHttpError
+  createHttpError,
+  createNetworkError,
+  isGenericHttpErrorMessage
 } from "../src/client/index.js";
 
 test("normalizeFieldErrors trims keys and stringifies values", () => {
@@ -180,4 +182,13 @@ test("createHttpError decodes json:api error documents into the existing fieldEr
       name: "Name is required."
     }
   });
+});
+
+test("isGenericHttpErrorMessage recognises only the transport's own wording", () => {
+  assert.equal(isGenericHttpErrorMessage(createHttpError({ status: 500 }, {})), true);
+  assert.equal(isGenericHttpErrorMessage(createNetworkError(new Error("offline"))), true);
+  assert.equal(isGenericHttpErrorMessage(createHttpError({ status: 500 }, { error: "Server exploded" })), false);
+  assert.equal(isGenericHttpErrorMessage({ statusCode: 404, message: "Request failed with status 404." }), true);
+  assert.equal(isGenericHttpErrorMessage({ message: "Request failed with status 500." }), false);
+  assert.equal(isGenericHttpErrorMessage(null), false);
 });

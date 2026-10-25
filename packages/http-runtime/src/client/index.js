@@ -7,7 +7,8 @@ export {
 } from "./validationErrors.js";
 export {
   createHttpError,
-  createNetworkError
+  createNetworkError,
+  isGenericHttpErrorMessage
 } from "../shared/clientRuntime/errors.js";
 export { DEFAULT_RETRYABLE_CSRF_ERROR_CODES, shouldRetryForCsrfFailure } from "../shared/clientRuntime/retry.js";
 export { normalizeHeaderName, hasHeader, setHeaderIfMissing } from "../shared/clientRuntime/headers.js";
