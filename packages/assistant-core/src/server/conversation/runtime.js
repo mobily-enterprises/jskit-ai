@@ -1848,13 +1848,16 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
     const history = await readTranscript(entry);
     const existing = history.find(turn => submittedMessage(turn)?.messageId === messageId);
     const receipt = existing && { status: "accepted", messageId, turnId: existing.turnId, duplicate: true };
-    const goalMessageId = existing?.metadata.runtime.goalMessageId;
+    // Turns written before the first runtime segment carry no runtime metadata.
+    const existingRuntime = existing?.metadata?.runtime;
+    const goalMessageId = existingRuntime?.goalMessageId;
     const goalRequest = Boolean(submittedMessage(existing || {})?.goal || goalMessageId === messageId);
-    if (existing && (existing.metadata?.runtime?.segmentId !== entry.segmentId || existing.metadata.runtime.supersededBy ||
-        existing.metadata.runtime.status === "complete" && !goalRequest)) return receipt;
+    if (existing && (existingRuntime?.segmentId !== entry.segmentId || existingRuntime.supersededBy ||
+        existingRuntime.status === "complete" && !goalRequest)) return receipt;
     if (goalMessageId && goalMessageId !== messageId) {
       const owner = history.find(turn => submittedMessage(turn)?.messageId === goalMessageId);
-      if (owner?.metadata.runtime.goalMessageId !== goalMessageId || owner.metadata.runtime.segmentId !== entry.segmentId) throw new Error("The goal command for this native continuation is missing.");
+      const ownerRuntime = owner?.metadata?.runtime;
+      if (ownerRuntime?.goalMessageId !== goalMessageId || ownerRuntime.segmentId !== entry.segmentId) throw new Error("The goal command for this native continuation is missing.");
       const result = await inspectDelivery(entry, context, goalMessageId);
       return { ...receipt, recovered: result.recovered === true };
     }

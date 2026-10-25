@@ -2573,6 +2573,16 @@ async function completedReplyFixture(t, options = {}) {
     prepare: receipt => conversation.prepareCompletedResponse(receipt, { signal: controller.signal }) };
 }
 
+test("delivery inspection of a turn without runtime metadata returns its duplicate receipt", async t => {
+  const f = await completedReplyFixture(t);
+  try {
+    const plain = await f.plain("pre-runtime-turn");
+    assert.equal(plain.metadata?.runtime, undefined);
+    assert.deepEqual(await f.conversation.inspectDelivery({ messageId: "pre-runtime-turn" }),
+      { status: "accepted", messageId: "pre-runtime-turn", turnId: plain.turnId, duplicate: true });
+  } finally { await f.close(); }
+});
+
 test("completed Claude prepared reply atomically publishes one plain final across handles and restart", async t => {
   const f = await completedReplyFixture(t);
   try {
