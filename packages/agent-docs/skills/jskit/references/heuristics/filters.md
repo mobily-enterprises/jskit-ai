@@ -1,3 +1,5 @@
+<!-- Generated from `packages/agent-docs/heuristics/filters.md` by `npm run agent-docs:build`. -->
+
 # Structured Filters
 
 Use when:
@@ -6,7 +8,7 @@ Use when:
 - a screen mixes free-text search with structured facets
 
 Server-side note:
-- for the current CRUD server contract on the JSON REST path, see `server-search.md`
+- for the current CRUD server contract on the JSON REST path, see [server search](./server-search.md)
 - this file is about the shared structured-filter runtime used by CRUD list pages and explicit list-filter modules
 
 Ask first:

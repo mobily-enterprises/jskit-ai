@@ -6,7 +6,7 @@ generated agent documentation used to apply JSKIT consistently.
 ## Sources
 
 - Main: `packages/agent-docs/site/guide/index.md`
-- `packages/agent-docs/patterns/INDEX.md`
+- `packages/agent-docs/heuristics/INDEX.md`
 - `packages/agent-docs/skills/jskit/SKILL.md`
 - `packages/agent-docs/site/.vitepress/config.mjs`
 
@@ -14,5 +14,6 @@ generated agent documentation used to apply JSKIT consistently.
 
 Readers can browse the documentation site or consume the distributed agent-docs
 package. Human guide sources define architectural meaning; the documented build
-generates packaged references and pattern projections. Generated outputs must
+generates packaged references and pattern projections, and bundles the authored
+implementation heuristics into the JSKIT skill. Generated outputs must
 remain reproducible from their authored sources.

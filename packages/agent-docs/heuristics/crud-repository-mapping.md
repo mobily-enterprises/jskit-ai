@@ -3,7 +3,7 @@
 Use when:
 - a CRUD resource needs explicit DB column mapping
 - a field should exist in API output but is not a real DB column
-- the user mentions computed fields, projections, or `remainingBatchWeight`
+- the user mentions computed fields or projections
 
 Default JSKIT pattern:
 1. Treat the schema as the API contract only.

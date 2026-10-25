@@ -14,7 +14,7 @@ and action UI.
 - Check every page for Back to the previous page unless returning makes no
   product sense. Use the existing navigation owner; fixed destinations are
   deliberate, explicitly labelled exceptions. Follow the
-  [Back navigation contract](../guide/agent/framework/ui-operations.md#back-navigation)
+  [Back navigation contract](../site/guide/framework/ui-operations.md#back-navigation)
   for history, direct-entry fallback, retained context, and consistent placement.
 - Pages do not stack decorative cards inside structural cards.
 - Pages do not include a header, title block, welcome heading, or standalone

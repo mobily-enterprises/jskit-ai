@@ -76,7 +76,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   ]);
   assert.deepEqual(
     referenceEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(),
-    ["patterns"]
+    ["heuristics", "patterns"]
   );
   for (const file of referenceFiles) {
     assert.match(skill, new RegExp(`\\(references/${file.replace(".", "\\.")}\\)`, "u"));
@@ -88,7 +88,26 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     );
   }
   const localLinks = [...skill.matchAll(/\[[^\]\n]*\]\(([^)]+)\)/gu)].map((match) => match[1]);
-  assert.deepEqual(localLinks.sort(), referenceFiles.map((file) => `references/${file}`).sort());
+  assert.deepEqual(
+    localLinks.sort(),
+    [...referenceFiles.map((file) => `references/${file}`), "references/heuristics/INDEX.md"].sort()
+  );
+  const heuristicSources = (await readdir(path.join(packageRoot, "heuristics"))).sort();
+  assert.deepEqual((await readdir(path.join(referencesRoot, "heuristics"))).sort(), heuristicSources);
+  assert.deepEqual(
+    (await readdir(path.join(packageRoot, "patterns"), { withFileTypes: true }))
+      .filter((entry) => !entry.isDirectory())
+      .map((entry) => entry.name),
+    []
+  );
+  const heuristicsIndex = await readFile(path.join(referencesRoot, "heuristics/INDEX.md"), "utf8");
+  for (const file of heuristicSources.filter((name) => name !== "INDEX.md")) {
+    assert.equal(
+      heuristicsIndex.split(`(./${file})`).length,
+      2,
+      `The heuristics index must link ${file} exactly once.`
+    );
+  }
   assert.match(operationalSource, /\[bundled source pattern index\]\(pattern-index\.md\)/u);
 
   assert.match(operationalSource, /current diff/);
@@ -160,7 +179,7 @@ test("the published JSKIT skill remains self-contained after relocation", async 
 });
 
 test("UI testing guidance uses private local exchange support and managed storage state", async () => {
-  const pattern = await readFile(path.join(packageRoot, "patterns/ui-testing.md"), "utf8");
+  const pattern = await readFile(path.join(packageRoot, "heuristics/ui-testing.md"), "utf8");
   const humanGuide = await readFile(path.join(packageRoot, "site/guide/app-setup/authentication.md"), "utf8");
   const distributedGuide = await readFile(path.join(packageRoot, "guide/agent/app-setup/authentication.md"), "utf8");
 
@@ -175,7 +194,7 @@ test("UI testing guidance uses private local exchange support and managed storag
 
 test("app-owned baseline tests are customizable but remain verified", async () => {
   const relativePaths = [
-    "patterns/ui-testing.md",
+    "heuristics/ui-testing.md",
     "skills/jskit/references/ui-operations.md"
   ];
   const sources = await Promise.all(

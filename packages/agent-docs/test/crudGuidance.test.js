@@ -17,8 +17,8 @@ test("distributed agent docs publish the current guide, patterns, references, an
 
 test("CRUD guidance is source-pattern-first and contains no generator workflow", async () => {
   const relativePaths = [
-    "patterns/crud-authoring.md",
-    "patterns/INDEX.md",
+    "heuristics/crud-authoring.md",
+    "heuristics/INDEX.md",
     "skills/jskit/references/crud-operations.md"
   ];
   const sources = await Promise.all(

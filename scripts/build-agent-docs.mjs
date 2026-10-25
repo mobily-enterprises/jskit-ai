@@ -11,7 +11,9 @@ import {
   AGENT_DOCS_OUTPUT_PATHS,
   AGENT_DOCS_ROOT,
   GUIDE_AGENT_ROOT,
+  HEURISTICS_SOURCE_ROOT,
   JSKIT_SKILL_GUIDES,
+  JSKIT_SKILL_HEURISTICS_ROOT,
   JSKIT_SKILL_PATTERN_INDEX_PATH,
   JSKIT_SKILL_PATTERNS_ROOT,
   JSKIT_SKILL_REFERENCES_ROOT,
@@ -30,6 +32,7 @@ const REFERENCE_README_PATH = path.join(REFERENCE_AUTOGEN_ROOT, "README.md");
 const GUIDE_SITE_ROOT = path.join(AGENT_DOCS_ROOT, "site");
 const GUIDE_SOURCE_ROOT = path.join(GUIDE_SITE_ROOT, "guide");
 const REPOSITORY_WEB_ROOT = "https://github.com/mobily-enterprises/jskit-ai";
+const PUBLIC_GUIDE_WEB_ROOT = "https://mobily-enterprises.github.io/jskit-ai/guide";
 const KERNEL_SHARED_ROOT = path.join(REPO_ROOT, "packages", "kernel", "shared");
 const PACKAGE_ROOTS = Object.freeze([
   { groupName: "packages", rootDir: path.join(REPO_ROOT, "packages") },
@@ -470,6 +473,20 @@ function rewriteSkillGuideLinks(sourceText = "") {
     .replace(/\(\.\/material-3\)/gu, "(material-3.md)");
 }
 
+// Heuristics link guide chapters by their source path; a bundled copy points at
+// the matching skill reference, or at the published chapter when none is bundled.
+function rewriteHeuristicGuideLinks(sourceText = "") {
+  return String(sourceText || "").replace(
+    /\]\(\.\.\/site\/guide\/([^)#]+\.md)(#[^)]*)?\)/gu,
+    (link, guidePath, anchor = "") => {
+      const skillTarget = JSKIT_SKILL_GUIDES[guidePath];
+      return skillTarget
+        ? `](../${skillTarget}${anchor})`
+        : `](${PUBLIC_GUIDE_WEB_ROOT}/${guidePath.replace(/\.md$/u, "")}${anchor})`;
+    }
+  );
+}
+
 function compressGuideMarkdown(sourceText = "") {
   const output = String(sourceText || "").replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   return `${output}\n`;
@@ -783,6 +800,20 @@ async function buildGuideOutputs(commandName) {
   }
 }
 
+async function buildSkillHeuristics(commandName) {
+  for (const sourceFilePath of await collectFiles(HEURISTICS_SOURCE_ROOT, isMarkdownFileName)) {
+    const relativePath = normalizeMarkdownPath(path.relative(HEURISTICS_SOURCE_ROOT, sourceFilePath));
+    const sourceText = await readFile(sourceFilePath, "utf8");
+    await writeTextFile(
+      path.join(JSKIT_SKILL_HEURISTICS_ROOT, relativePath),
+      toGeneratedSkillReference(rewriteHeuristicGuideLinks(sourceText), {
+        commandName,
+        sourcePath: normalizeMarkdownPath(path.relative(REPO_ROOT, sourceFilePath))
+      })
+    );
+  }
+}
+
 async function main() {
   const commandName = "npm run agent-docs:build";
   await clearAgentDocsOutputs();
@@ -790,6 +821,7 @@ async function main() {
   await buildPatternIndex(commandName);
   await buildReferenceMaps(commandName);
   await buildGuideOutputs(commandName);
+  await buildSkillHeuristics(commandName);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, STARTUP_KERNEL_MAP_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, PATTERN_INDEX_PATH))}\n`);
   process.stdout.write(`Wrote ${normalizeMarkdownPath(path.relative(REPO_ROOT, REFERENCE_README_PATH))}\n`);

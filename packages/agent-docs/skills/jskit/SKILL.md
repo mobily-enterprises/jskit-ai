@@ -27,7 +27,7 @@ options, routing, package discovery, transport, or lifecycle behaviour before
 trying the documented API. Inspect implementation source only for a concrete
 failure or an API question the guide and example cannot answer. Name that
 failure or question first, inspect only its relevant owner, then return to
-implementation and verification. Do not tour a dependency tree for confidence.
+implementation and verification.
 
 Do not write or consult receipts, provenance, completion ledgers, or other
 durable bookkeeping for pattern or authoring-tool runs. Current source,
@@ -42,6 +42,7 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    own a second project brain or prescribe a particular agent orchestrator.
 4. Load only relevant references:
    - [port guide](references/existing-application-migration.md) for existing apps.
+   - For recurring implementation traps, the [heuristics index](references/heuristics/INDEX.md).
    - [Workspace invitations](references/multi-homing.md).
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
@@ -75,9 +76,9 @@ example. Before inspecting an unfamiliar package, use `rg --files` on its
 observed directory and select the relevant files from that inventory; do not
 try guessed source directories. Import subpaths are `exports` aliases, not
 physical paths: resolve them through installed `package.json#exports` or
-`import.meta.resolve()` when following an import. This rule applies to every
-package and task, not only CRUDs. Use the documented option when the guide or
-pattern already explains the behaviour instead of inspecting internals.
+`import.meta.resolve()` when following an import. Use the documented option
+when the guide or pattern already explains the behaviour instead of inspecting
+internals.
 
 ## Implement a change
 

@@ -68,7 +68,9 @@ relied on at the same time, and check every other user of the same resource.
   - `packages/agent-docs/skills/jskit/references/pattern-index.md`
   - `packages/agent-docs/skills/jskit/references/existing-application-migration.md`
   - `packages/agent-docs/skills/jskit/references/patterns/`
+  - `packages/agent-docs/skills/jskit/references/heuristics/`
 - Authored agent documentation under these paths is edited directly:
+  - `packages/agent-docs/heuristics/`
   - `packages/agent-docs/patterns/`
   - `packages/agent-docs/templates/`
   - `packages/agent-docs/site/guide/`
@@ -96,12 +98,12 @@ When asked to create or refresh distributed agent docs:
 
 ## JSKIT Patterns
 
-- `packages/agent-docs/patterns/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
-- When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the pattern index for matching keywords and read only the relevant pattern files.
+- `packages/agent-docs/heuristics/INDEX.md` is the keyword index for recurring JSKIT implementation heuristics and workflow traps.
+- When a request involves JSKIT UI, routing, surfaces, CRUDs, filters, placements, live actions, or similar implementation details, scan the heuristics index for matching keywords and read only the relevant heuristic files.
 - Prefer the highest-level existing JSKIT client composable that fits, especially `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useCrudList()`, `useCrudView()`, `useCrudAddEdit()`, `useList()`, `useView()`, `useAddEdit()`, `useCommand()`, and `useEndpointResource()`, instead of inventing custom local request helpers or bespoke command flows.
 - For collection UIs, prefer standard list elements and list runtimes over custom “submit the whole list” command patterns when the normal list/add-edit seams fit.
 - When building those elements, the normal end state should be a slim `use***()` composable call plus the template, with at most one or two small local helpers. Avoid building large local orchestration layers around standard JSKIT seams.
 - For generated CRUD list/view/form route screens, prefer the shared `users-web` screen composables/components before editing page-local shell chrome.
 - When editing the JSON:API CRUD route/service/repository flow, read `packages/crud-core/src/server/jsonApiModule/`, `packages/crud-core/test/defineCrudJsonApiFeature.test.js`, and `packages/crud-core/test/jsonApiRepository.test.js` first. These define the contract for `Document` / `Documents` method names, forwarded options, 404 behavior, tagged JSON:API results, and transaction ownership. Application composition lives in `packages/crud-core/patterns/json-api-resource-package/`.
 - Page and surface extension goes through placements. Do not invent alternate page-extension seams (custom registries, tags, injection-only hooks, provider-owned section systems) unless the user explicitly asks for a new pattern.
-- Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/patterns/`, not as one-off bullets here.
+- Keep `AGENTS.md` short. Add recurring JSKIT heuristics to `packages/agent-docs/heuristics/`, not as one-off bullets here.
