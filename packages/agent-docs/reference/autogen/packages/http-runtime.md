@@ -23,6 +23,7 @@ Exports
 - `createValidationFailure`
 - `createHttpError`
 - `createNetworkError`
+- `isGenericHttpErrorMessage`
 - `DEFAULT_RETRYABLE_CSRF_ERROR_CODES`
 - `shouldRetryForCsrfFailure`
 - `normalizeHeaderName`
@@ -81,8 +82,11 @@ Local functions
 Exports
 - `createHttpError(response, data = {})`
 - `createNetworkError(cause)`
+- `isGenericHttpErrorMessage(error)`
 Local functions
 - `standardErrorMessage(payload = {})`
+- `genericHttpErrorMessage(status)`
+- `resolveErrorStatus(error)`
 
 ### `src/shared/clientRuntime/headers.js`
 Exports

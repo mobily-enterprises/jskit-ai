@@ -17,8 +17,6 @@ Use this on demand; do not load the full index at startup.
 ### `src/client/bulkActions.js`
 Exports
 - `defineCrudListBulkActions(actions = [])`
-Local functions
-- `normalizeCrudListBulkAction(rawAction = {}, index = 0)`
 
 ### `src/client/components/CrudAddEditScreen.vue`
 Exports
@@ -54,12 +52,17 @@ Local functions
 - `selectDate(value)`
 - `handleActivatorKeydown(event)`
 
-### `src/client/components/CrudListFilterSurface.vue`
+### `src/client/components/CrudListFilterControls.vue`
 Exports
 - None
 Local functions
 - `optionItems(filter = {})`
 - `placeholder(filter = {}, fallback = "")`
+
+### `src/client/components/CrudListFilterSurface.vue`
+Exports
+- None
+Local functions
 - `clearChip(chip = {})`
 - `clearFilters()`
 
@@ -115,7 +118,6 @@ Exports
 - `resolveCrudJsonApiTransport(transport = null, resource = null, options = {})`
 - `resolveLookupFieldMap(resource = null)`
 Local functions
-- `isRecord(value)`
 - `resolveSchemaFieldDefinitions(definition = null)`
 - `isJsonApiResourceTransport(transport = null)`
 - `resolveCrudJsonApiResourceType(resource = null)`
@@ -136,7 +138,6 @@ Exports
 - `createCrudLookupFieldRuntime({ formFields = [], adapter = null, recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", lookupContainerKey = "lookups" } = {})`
 Local functions
 - `normalizeQueryKeyPrefix(value)`
-- `isSameLookupValue(left, right)`
 - `normalizeLookupValue(value)`
 - `createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {})`
 
@@ -229,7 +230,6 @@ Exports
 Exports
 - `createAddEditUiRuntime({ recordIdParam = "recordId", routeParams = null, routeParamNames = null, routePath = "", routeRecordId = null, apiUrlTemplate = "", viewUrlTemplate = "", listUrlTemplate = "", saveRecordIdSelector = null } = {})`
 Local functions
-- `toResolvedRecordId({ routeParams, recordIdParam, routeRecordId })`
 - `resolveSavedRecordId(payload, saveRecordIdSelector)`
 
 ### `src/client/composables/runtime/listUiRuntime.js`
@@ -306,16 +306,11 @@ Local functions
 ### `src/client/composables/runtime/viewUiRuntime.js`
 Exports
 - `createViewUiRuntime({ recordIdParam = "recordId", routeParams = null, routeParamNames = null, routePath = "", routeRecordId = null, apiUrlTemplate = "", listUrlTemplate = "", editUrlTemplate = "" } = {})`
-Local functions
-- `resolveRecordId({ routeParams, recordIdParam, routeRecordId })`
 
 ### `src/client/composables/support/errorMessageHelpers.js`
 Exports
 - `toQueryErrorMessage(error, fallbackMessage = "", defaultMessage = "Request failed.")`
 - `toUiErrorMessage(error, fallbackMessage = "", defaultMessage = "Request failed.")`
-Local functions
-- `normalizeErrorStatus(error)`
-- `isGenericTransportMessage(error)`
 
 ### `src/client/composables/support/listQueryParamSupport.js`
 Exports
@@ -393,6 +388,7 @@ Exports
 - `resolveScopedRoutePathname({ currentPathname = "/", params = {}, orderedParamNames = [], anchorParamName = "", anchorParamValue = "", anchorMode = "at" } = {})`
 - `resolveRouteTemplatePath(routeTemplate = "", params = {})`
 - `resolveRouteTemplateLocation(routeTemplate = "", { params = {}, currentPathname = "/" } = {})`
+- `createRouteTemplateResolver({ recordIdParam, routeParams = null, routeParamNames = null, routePath = "", routeRecordId = null, anchorMode = "at", anchorOnTargetRecord = false, fillRecordId = true } = {})`
 - `extractRouteParamNames(pathTemplate = "")`
 - `resolveRouteParamNamesInOrder(route = null)`
 Local functions
@@ -447,9 +443,6 @@ Local functions
 ### `src/client/composables/useCrudListBulkActions.js`
 Exports
 - `useCrudListBulkActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
-Local functions
-- `normalizeSelectedId(value = "")`
-- `resolveActionKey(actionOrKey = "")`
 
 ### `src/client/composables/useCrudListFilterLookups.js`
 Exports
@@ -482,10 +475,7 @@ Local functions
 Exports
 - `useCrudListRowActions(actions = [], { resolveRecordId = null, resolveContext = null } = {})`
 Local functions
-- `normalizeRowActionKey(actionOrKey = "")`
-- `normalizeRowId(value = "")`
 - `createExecutionKey(actionKey = "", recordId = "", index = 0)`
-- `asContextObject(value = null)`
 
 ### `src/client/composables/useCrudListScreen.js`
 Exports
@@ -593,14 +583,19 @@ Local functions
 ### `src/client/rowActions.js`
 Exports
 - `defineCrudListRowActions(actions = [])`
-Local functions
-- `normalizeCrudListRowAction(rawAction = {}, index = 0)`
 
 ### `src/client/support/contractGuards.js`
 Exports
 - `requireRecord(value, label = "value", owner = "Contract")`
 - `requireBoolean(value, label = "value", owner = "Contract")`
 - `requireFunction(value, label = "value", owner = "Contract")`
+
+### `src/client/support/crudListActionSupport.js`
+Exports
+- `defineCrudListActions(actions, { name, createAction })`
+- `normalizeListActionKey(actionOrKey = "")`
+- `resolveListRecordId(record = {}, index = 0, resolveRecordId = null)`
+- `resolveListActionBaseContext(resolveContext = null)`
 
 ### `src/client/support/crudListDateFilterSupport.js`
 Exports
