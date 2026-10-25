@@ -3,8 +3,7 @@ import { normalizeText } from "./normalize.js";
 function createStoreBackedPresenter({
   id,
   channel,
-  store,
-  defaultPersist = false
+  store
 } = {}) {
   const normalizedId = normalizeText(id);
   const normalizedChannel = normalizeText(channel).toLowerCase();
@@ -26,7 +25,6 @@ function createStoreBackedPresenter({
     present(payload = {}) {
       return store.present(normalizedChannel, {
         ...payload,
-        persist: typeof payload.persist === "boolean" ? payload.persist : defaultPersist,
         presenterId: normalizedId
       });
     },
@@ -40,8 +38,7 @@ function createMaterialSnackbarPresenter({ store } = {}) {
   return createStoreBackedPresenter({
     id: "material.snackbar",
     channel: "snackbar",
-    store,
-    defaultPersist: false
+    store
   });
 }
 
@@ -49,8 +46,7 @@ function createMaterialBannerPresenter({ store } = {}) {
   return createStoreBackedPresenter({
     id: "material.banner",
     channel: "banner",
-    store,
-    defaultPersist: true
+    store
   });
 }
 
@@ -58,8 +54,7 @@ function createMaterialDialogPresenter({ store } = {}) {
   return createStoreBackedPresenter({
     id: "material.dialog",
     channel: "dialog",
-    store,
-    defaultPersist: true
+    store
   });
 }
 

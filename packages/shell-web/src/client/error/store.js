@@ -80,7 +80,7 @@ function createErrorPresentationStore({
       channel: normalizedChannel,
       message: normalizeText(payload.message, "Request failed."),
       severity: normalizeSeverity(payload.severity, "error"),
-      persist: typeof payload.persist === "boolean" ? payload.persist : normalizedChannel !== "snackbar",
+      persist: payload.persist === true,
       action: normalizeAction(payload.action),
       additionalActions: normalizeAdditionalActions(payload.additionalActions),
       presenterId: normalizeText(payload.presenterId),

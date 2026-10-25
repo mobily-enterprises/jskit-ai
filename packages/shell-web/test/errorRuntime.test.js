@@ -231,3 +231,33 @@ test("error runtime throws when no presenter supports channel", () => {
     /No error presenter supports channel "dialog"/,
   );
 });
+
+test("error runtime honours an explicit persist on any channel and defaults by channel otherwise", async () => {
+  const { createErrorPresentationStore } = await import("../src/client/error/store.js");
+  const { createDefaultMaterialErrorPresenters } = await import("../src/client/error/presenters.js");
+  const store = createErrorPresentationStore({ now: () => 1000 });
+  const runtime = createErrorRuntime({
+    presenters: createDefaultMaterialErrorPresenters({ store }),
+    moduleDefaultPresenterId: "material.snackbar"
+  });
+
+  const persistentSnackbar = runtime.report({ message: "Keep me", channel: "snackbar", persist: true });
+  const transientSnackbar = runtime.report({ message: "Drop me", channel: "snackbar" });
+  const defaultBanner = runtime.report({ message: "Offline", intent: "app-recoverable" });
+  const transientDialog = runtime.report({ message: "Heads up", channel: "dialog", persist: false });
+
+  assert.equal(persistentSnackbar.decision.persist, true);
+  assert.equal(transientSnackbar.decision.persist, false);
+  assert.equal(defaultBanner.decision.persist, true);
+  assert.equal(transientDialog.decision.persist, false);
+  const { channels } = store.getState();
+  assert.deepEqual(channels.snackbar.map((entry) => [entry.message, entry.persist]), [["Keep me", true], ["Drop me", false]]);
+  assert.deepEqual(channels.banner.map((entry) => [entry.message, entry.persist]), [["Offline", true]]);
+  assert.deepEqual(channels.dialog.map((entry) => [entry.message, entry.persist]), [["Heads up", false]]);
+});
+
+test("default error policy decides only channel and severity", () => {
+  const policy = createDefaultErrorPolicy({ defaultSeverity: "warning" });
+
+  assert.deepEqual(policy({ message: "Saved?", action: { label: "Retry" } }), { channel: "snackbar", severity: "warning" });
+});

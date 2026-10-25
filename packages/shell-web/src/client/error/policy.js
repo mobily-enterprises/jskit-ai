@@ -1,10 +1,7 @@
 import {
-  normalizeAction,
-  normalizeAdditionalActions,
   normalizeChannel,
   normalizeErrorIntent,
-  normalizeSeverity,
-  normalizeText
+  normalizeSeverity
 } from "./normalize.js";
 
 function createDefaultErrorPolicy({
@@ -46,17 +43,11 @@ function createDefaultErrorPolicy({
       }
     }
 
-    const message = normalizeText(event.userMessage || event.message, "Request failed.");
-
+    // The runtime owns every other default, including message, actions,
+    // presenter, dedupe and persistence.
     return Object.freeze({
       channel,
-      message,
-      severity: normalizeSeverity(event.severity, normalizedDefaultSeverity),
-      presenterId: normalizeText(event.presenterId),
-      action: normalizeAction(event.action),
-      additionalActions: normalizeAdditionalActions(event.additionalActions),
-      persist: channel !== "snackbar",
-      dedupeKey: normalizeText(event.dedupeKey)
+      severity: normalizeSeverity(event.severity, normalizedDefaultSeverity)
     });
   };
 }
