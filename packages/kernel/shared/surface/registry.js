@@ -81,7 +81,8 @@ function createSurfaceRegistry(options = {}) {
           ...sourceDefinition,
           id: normalizedId,
           pagesRoot,
-          routeBase: deriveSurfaceRouteBaseFromPagesRoot(pagesRoot)
+          routeBase: deriveSurfaceRouteBaseFromPagesRoot(pagesRoot),
+          enabled: sourceDefinition.enabled !== false
         })
       ];
     })

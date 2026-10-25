@@ -223,23 +223,11 @@ Local functions
 
 ### `shared/surface/apiPaths.js`
 Exports
-- `API_BASE_PATH`
-- `API_PREFIX`
-- `API_PREFIX_SLASH`
-- `API_DOCS_PATH`
-- `API_REALTIME_PATH`
-- `materializeRouteTemplate(routeTemplate = "/", { params = {}, strictParams = true, context = "materializeRouteTemplate" } = {})`
-- `normalizePathname`
-- `isApiPath(pathname)`
-- `isVersionedApiPath(pathname)`
-- `toVersionedApiPath(pathname)`
-- `toVersionedApiPrefix(pathnameOrPrefix)`
-- `buildVersionedApiPath(suffix)`
-- `isVersionedApiPrefixMatch(pathname)`
 - `resolveScopedRouteBase(routeBase = "/")`
 - `resolveScopedApiBasePath({ routeBase = "/", relativePath = "/", params = {}, strictParams = true } = {})`
 Local functions
 - `normalizeRouteTemplateParams(params = null)`
+- `materializeRouteTemplate(routeTemplate = "/", { params = {}, strictParams = true, context = "materializeRouteTemplate" } = {})`
 
 ### `shared/surface/escapeRegExp.js`
 Exports
@@ -256,7 +244,8 @@ Exports
 
 ### `shared/surface/paths.js`
 Exports
-- `createSurfacePathHelpers(options = {})`
+- `API_BASE_PATH`
+- `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH } = {})`
 - `normalizePathname(pathname)`
 - `matchesPathPrefix(pathname, prefix)`
 Local functions
@@ -277,8 +266,6 @@ Exports
 - `createSurfaceRuntime(options = {})`
 - `filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {})`
 Local functions
-- `uniqueSurfaceIds(ids)`
-- `resolveSurfaceIds({ surfaces = {} } = {})`
 - `normalizeRoutePath(pathLike = "")`
 - `resolveAbsoluteRoutePath(parentAbsolutePath = "/", routePath = "")`
 - `readRouteJskitMeta(route)`
@@ -511,17 +498,14 @@ Exports
 - `DEFAULT_GUARD_EVALUATOR_KEY`
 - `createFallbackNotFoundRoute(component)`
 - `buildSurfaceAwareRoutes({ routes = [], surfaceRuntime, surfaceMode, fallbackRoute, notFoundComponent } = {})`
-- `createShellBeforeEachGuard({ surfaceRuntime, surfaceDefinitions, defaultSurfaceId, webRootAllowed = WEB_ROOT_ALLOW_YES, guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC } = {})`
+- `createShellBeforeEachGuard({ surfaceRuntime, webRootAllowed = WEB_ROOT_ALLOW_YES, guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC } = {})`
 Local functions
 - `normalizeGuardPolicy(value)`
 - `resolveRouteGuardFromMeta(meta)`
 - `resolveRouteGuard(to)`
 - `resolveSearchFromFullPath(fullPath)`
-- `resolveSurfaceDefinition(surfaceDefinitions, surfaceId)`
 - `normalizeWebRootAllowed(value)`
-- `resolveDefaultSurfaceRootPath({ surfaceDefinitions, defaultSurfaceId })`
-- `resolveSurfaceRequiresAuth({ pathname, surfaceRuntime, surfaceDefinitions })`
-- `resolveEffectiveRouteGuard({ to, surfaceRuntime, surfaceDefinitions, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC })`
+- `resolveEffectiveRouteGuard({ to, surfaceRuntime, authenticatedPolicy, publicPolicy })`
 - `resolveGuardEvaluator(guardEvaluatorKey)`
 - `normalizeGuardOutcome(outcome)`
 - `evaluateShellGuard({ guard, to, guardEvaluatorKey })`

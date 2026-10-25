@@ -35,8 +35,6 @@ const { router, fallbackRoute } = createShellRouter({
   surfaceMode,
   notFoundComponent: NotFoundView,
   guard: {
-    surfaceDefinitions: config.surfaceDefinitions,
-    defaultSurfaceId: config.surfaceDefaultId,
     webRootAllowed: config.webRootAllowed
   }
 });

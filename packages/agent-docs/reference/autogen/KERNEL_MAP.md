@@ -198,23 +198,11 @@ Local functions
 
 ### `surface/apiPaths.js`
 Exports
-- `API_BASE_PATH`
-- `API_PREFIX`
-- `API_PREFIX_SLASH`
-- `API_DOCS_PATH`
-- `API_REALTIME_PATH`
-- `materializeRouteTemplate(routeTemplate = "/", { params = {}, strictParams = true, context = "materializeRouteTemplate" } = {})`
-- `normalizePathname`
-- `isApiPath(pathname)`
-- `isVersionedApiPath(pathname)`
-- `toVersionedApiPath(pathname)`
-- `toVersionedApiPrefix(pathnameOrPrefix)`
-- `buildVersionedApiPath(suffix)`
-- `isVersionedApiPrefixMatch(pathname)`
 - `resolveScopedRouteBase(routeBase = "/")`
 - `resolveScopedApiBasePath({ routeBase = "/", relativePath = "/", params = {}, strictParams = true } = {})`
 Local functions
 - `normalizeRouteTemplateParams(params = null)`
+- `materializeRouteTemplate(routeTemplate = "/", { params = {}, strictParams = true, context = "materializeRouteTemplate" } = {})`
 
 ### `surface/escapeRegExp.js`
 Exports
@@ -231,7 +219,8 @@ Exports
 
 ### `surface/paths.js`
 Exports
-- `createSurfacePathHelpers(options = {})`
+- `API_BASE_PATH`
+- `createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH } = {})`
 - `normalizePathname(pathname)`
 - `matchesPathPrefix(pathname, prefix)`
 Local functions
@@ -252,8 +241,6 @@ Exports
 - `createSurfaceRuntime(options = {})`
 - `filterRoutesBySurface(routeList, { surfaceRuntime, surfaceMode } = {})`
 Local functions
-- `uniqueSurfaceIds(ids)`
-- `resolveSurfaceIds({ surfaces = {} } = {})`
 - `normalizeRoutePath(pathLike = "")`
 - `resolveAbsoluteRoutePath(parentAbsolutePath = "/", routePath = "")`
 - `readRouteJskitMeta(route)`

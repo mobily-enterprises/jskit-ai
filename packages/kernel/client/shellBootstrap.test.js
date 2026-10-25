@@ -53,11 +53,6 @@ test("createSurfaceShellRouter builds active routes and installs a guard", () =>
     surfaceMode: "app",
     notFoundComponent: {},
     guard: {
-      surfaceDefinitions: {
-        app: { id: "app", pagesRoot: "app", requiresAuth: false },
-        admin: { id: "admin", pagesRoot: "admin", requiresAuth: false }
-      },
-      defaultSurfaceId: "app",
       webRootAllowed: "yes"
     }
   });

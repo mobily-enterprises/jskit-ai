@@ -58,7 +58,15 @@ export function createShellRouter(options?: {
   surfaceMode?: string;
   fallbackRoute?: any;
   notFoundComponent?: any;
-  guard?: false | ((to: any) => any) | Record<string, any>;
+  guard?:
+    | false
+    | ((to: any) => any)
+    | {
+        webRootAllowed?: "yes" | "no";
+        guardEvaluatorKey?: string;
+        authenticatedPolicy?: string;
+        publicPolicy?: string;
+      };
   /** Defaults to shellScrollBehavior; pass your own function, or false for none. */
   scrollBehavior?: false | ((to: any, from: any, savedPosition: any) => any);
 }): Readonly<{

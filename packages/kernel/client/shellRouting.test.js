@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
-import { buildSurfaceAwareRoutes } from "./shellRouting.js";
+import { DEFAULT_GUARD_EVALUATOR_KEY, buildSurfaceAwareRoutes, createShellBeforeEachGuard } from "./shellRouting.js";
 
 test("buildSurfaceAwareRoutes keeps declared route paths and filters by surface mode", () => {
   const surfaceRuntime = createSurfaceRuntime({
@@ -110,4 +110,33 @@ test("buildSurfaceAwareRoutes preserves parent path when nested descendants are 
 
   const routePaths = routes.map((route) => route.path);
   assert.equal(routePaths.includes("/account"), true);
+});
+
+test("createShellBeforeEachGuard reads surfaces and the default root from the surface runtime", () => {
+  const surfaceRuntime = createSurfaceRuntime({
+    defaultSurfaceId: "app",
+    surfaces: {
+      home: { pagesRoot: "" },
+      app: { pagesRoot: "w/app", requiresAuth: true }
+    }
+  });
+  const evaluations = [];
+  const previousEvaluator = globalThis[DEFAULT_GUARD_EVALUATOR_KEY];
+  globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = ({ guard, context }) => {
+    evaluations.push({ policy: guard.policy, pathname: context.location.pathname });
+    return { allow: false, redirectTo: "/auth/login" };
+  };
+
+  try {
+    const guard = createShellBeforeEachGuard({ surfaceRuntime, webRootAllowed: "no" });
+    assert.equal(guard({ path: "/", fullPath: "/?next=1#top", hash: "#top" }), "/w/app?next=1#top");
+    assert.equal(guard({ path: "/about", fullPath: "/about", matched: [] }), true);
+    assert.equal(guard({ path: "/w/app/projects", fullPath: "/w/app/projects", matched: [] }), "/auth/login");
+    assert.deepEqual(evaluations, [{ policy: "authenticated", pathname: "/w/app/projects" }]);
+
+    const openGuard = createShellBeforeEachGuard({ surfaceRuntime });
+    assert.equal(openGuard({ path: "/", fullPath: "/", matched: [] }), true);
+  } finally {
+    globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = previousEvaluator;
+  }
 });

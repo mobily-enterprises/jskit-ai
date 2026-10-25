@@ -1,4 +1,7 @@
 import { escapeRegExp } from "./escapeRegExp.js";
+import { normalizeSurfaceId } from "./registry.js";
+
+const API_BASE_PATH = "/api";
 
 function normalizePathname(pathname) {
   const rawValue = String(pathname || "/").trim();
@@ -73,201 +76,65 @@ function compareSurfaceRouteSpecificity(left, right) {
   return String(left.id || "").localeCompare(String(right.id || ""));
 }
 
-function createSurfacePathHelpers(options = {}) {
-  const normalizeSurfaceId = options?.normalizeSurfaceId;
-  const resolveSurfaceRouteBaseFromRegistry = options?.resolveSurfaceRouteBase;
-  const listSurfaceDefinitions = options?.listSurfaceDefinitions;
-
-  if (typeof normalizeSurfaceId !== "function") {
-    throw new Error("createSurfacePathHelpers requires normalizeSurfaceId.");
-  }
-  if (typeof resolveSurfaceRouteBaseFromRegistry !== "function") {
-    throw new Error("createSurfacePathHelpers requires resolveSurfaceRouteBase.");
-  }
-  if (typeof listSurfaceDefinitions !== "function") {
-    throw new Error("createSurfacePathHelpers requires listSurfaceDefinitions.");
-  }
-
-  const defaultSurfaceId = normalizeSurfaceId(options?.defaultSurfaceId);
-  if (!defaultSurfaceId) {
+function createSurfacePathHelpers({ defaultSurfaceId, surfaceDefinitions, apiBasePath = API_BASE_PATH } = {}) {
+  const normalizedDefaultSurfaceId = normalizeSurfaceId(defaultSurfaceId);
+  if (!normalizedDefaultSurfaceId) {
     throw new Error("createSurfacePathHelpers requires defaultSurfaceId.");
   }
-
-  const apiBasePath = normalizePathname(options?.apiBasePath || "/api");
-  const routeConfig = options?.routes && typeof options.routes === "object" && !Array.isArray(options.routes) ? options.routes : {};
-
-  function normalizeSurface(surface) {
-    return normalizeSurfaceId(surface);
+  if (!Array.isArray(surfaceDefinitions)) {
+    throw new Error("createSurfacePathHelpers requires a surfaceDefinitions array.");
   }
 
-  function resolveSurfaceRouteBase(surface) {
-    return normalizePathname(resolveSurfaceRouteBaseFromRegistry(surface));
-  }
+  const normalizedApiBasePath = normalizePathname(apiBasePath);
+  const routedSurfaces = surfaceDefinitions
+    .map((definition) => {
+      const surfaceId = normalizeSurfaceId(definition?.id);
+      if (!surfaceId) {
+        return null;
+      }
 
-  function surfaceDefinitions() {
-    return listSurfaceDefinitions().filter(
-      (surface) => surface && typeof surface === "object" && !Array.isArray(surface)
-    );
-  }
+      const matcher = compileSurfaceRouteMatcher(definition.routeBase || "/");
+      return {
+        id: surfaceId,
+        routeBase: matcher.routeBase,
+        segmentCount: matcher.segmentCount,
+        staticSegmentCount: matcher.staticSegmentCount,
+        matcher
+      };
+    })
+    .filter(Boolean)
+    .sort(compareSurfaceRouteSpecificity);
 
-  function routedSurfaceDefinitions() {
-    return surfaceDefinitions()
-      .map((definition) => {
-        const surfaceId = normalizeSurface(definition?.id);
-        if (!surfaceId) {
-          return null;
-        }
-
-        const routeBase = resolveSurfaceRouteBase(surfaceId);
-        const matcher = compileSurfaceRouteMatcher(routeBase);
-        return {
-          id: surfaceId,
-          routeBase,
-          segmentCount: matcher.segmentCount,
-          staticSegmentCount: matcher.staticSegmentCount,
-          matcher
-        };
-      })
-      .filter(Boolean)
-      .sort(compareSurfaceRouteSpecificity);
+  function matchSurface(pathname) {
+    return routedSurfaces.find((surface) => surface.matcher.test(pathname))?.id || normalizedDefaultSurfaceId;
   }
 
   function resolveApiNamespace(pathname) {
-    const normalizedPathname = normalizePathname(pathname);
-    if (!matchesPathPrefix(normalizedPathname, apiBasePath)) {
+    if (!matchesPathPrefix(pathname, normalizedApiBasePath)) {
       return "";
     }
 
-    if (normalizedPathname === apiBasePath) {
-      return apiBasePath;
-    }
-
-    const remainder = normalizedPathname.slice(apiBasePath.length);
-    if (!remainder || remainder === "/") {
-      return apiBasePath;
-    }
-
-    const versionMatch = remainder.match(/^\/v[0-9]+(?:$|\/)/);
+    const versionMatch = pathname.slice(normalizedApiBasePath.length).match(/^\/v[0-9]+(?:$|\/)/);
     if (!versionMatch) {
-      return apiBasePath;
+      return normalizedApiBasePath;
     }
 
-    const versionPath = String(versionMatch[0]).replace(/\/$/, "");
-    return normalizePathname(`${apiBasePath}${versionPath}`);
-  }
-
-  function resolveSurfaceFromApiPathname(pathname) {
-    const apiNamespace = resolveApiNamespace(pathname);
-    if (!apiNamespace) {
-      return "";
-    }
-
-    const normalizedPathname = normalizePathname(pathname);
-    const remainder = normalizedPathname.slice(apiNamespace.length) || "/";
-    const apiRelativePath = normalizePathname(remainder.startsWith("/") ? remainder : `/${remainder}`);
-
-    for (const surface of routedSurfaceDefinitions()) {
-      if (surface.matcher.test(apiRelativePath)) {
-        return surface.id;
-      }
-    }
-
-    return defaultSurfaceId;
+    return normalizePathname(`${normalizedApiBasePath}${versionMatch[0]}`);
   }
 
   function resolveSurfaceFromPathname(pathname) {
     const normalizedPathname = normalizePathname(pathname);
-    const apiSurface = resolveSurfaceFromApiPathname(normalizedPathname);
-    if (apiSurface) {
-      return apiSurface;
+    const apiNamespace = resolveApiNamespace(normalizedPathname);
+    if (!apiNamespace) {
+      return matchSurface(normalizedPathname);
     }
 
-    for (const surface of routedSurfaceDefinitions()) {
-      if (surface.matcher.test(normalizedPathname)) {
-        return surface.id;
-      }
-    }
-
-    return defaultSurfaceId;
-  }
-
-  function withSurfaceRouteBase(surface, path) {
-    const normalizedPath = normalizePathname(path);
-    const routeBase = resolveSurfaceRouteBase(surface);
-    if (normalizedPath === "/") {
-      return routeBase || "/";
-    }
-
-    if (routeBase === "/") {
-      return normalizedPath;
-    }
-    return normalizePathname(`${routeBase}${normalizedPath}`);
-  }
-
-  function normalizeOptionalRoutePath(path) {
-    const normalizedPath = String(path || "").trim();
-    if (!normalizedPath) {
-      return "";
-    }
-
-    return normalizePathname(normalizedPath);
-  }
-
-  function createSurfacePaths(surface) {
-    const normalizedSurface = normalizeSurface(surface);
-    const routeBase = resolveSurfaceRouteBase(normalizedSurface);
-
-    const rootPath = routeBase || "/";
-    const namedPaths = {};
-    for (const [routeName, routePath] of Object.entries(routeConfig)) {
-      const normalizedRouteName = String(routeName || "").trim();
-      if (!normalizedRouteName) {
-        continue;
-      }
-      const normalizedRoutePath = normalizeOptionalRoutePath(routePath);
-      if (!normalizedRoutePath) {
-        continue;
-      }
-      namedPaths[normalizedRouteName] = withSurfaceRouteBase(normalizedSurface, normalizedRoutePath);
-    }
-
-    const frozenNamedPaths = Object.freeze({
-      ...namedPaths
-    });
-
-    return {
-      surface: normalizedSurface,
-      routeBase,
-      rootPath,
-      namedPaths: frozenNamedPaths,
-      isNamedPath(routeName, pathname) {
-        const normalizedRouteName = String(routeName || "").trim();
-        if (!normalizedRouteName || !Object.hasOwn(frozenNamedPaths, normalizedRouteName)) {
-          return false;
-        }
-        return normalizePathname(pathname) === frozenNamedPaths[normalizedRouteName];
-      }
-    };
-  }
-
-  function resolveSurfacePaths(pathname) {
-    const browserPathname =
-      typeof window !== "undefined" && window?.location?.pathname ? String(window.location.pathname) : "";
-    const effectivePathname = browserPathname || pathname;
-    return createSurfacePaths(resolveSurfaceFromPathname(effectivePathname));
+    return matchSurface(normalizePathname(normalizedPathname.slice(apiNamespace.length)));
   }
 
   return Object.freeze({
-    normalizePathname,
-    matchesPathPrefix,
-    compileSurfaceRouteMatcher,
-    resolveSurfaceFromApiPathname,
-    resolveSurfaceFromPathname,
-    resolveSurfaceRouteBase,
-    withSurfaceRouteBase,
-    createSurfacePaths,
-    resolveSurfacePaths
+    resolveSurfaceFromPathname
   });
 }
 
-export { createSurfacePathHelpers, normalizePathname, matchesPathPrefix };
+export { API_BASE_PATH, createSurfacePathHelpers, normalizePathname, matchesPathPrefix };

@@ -1,4 +1,3 @@
-import { deriveSurfaceRouteBaseFromPagesRoot } from "../shared/surface/index.js";
 import { filterRoutesBySurface } from "../shared/surface/runtime.js";
 import { isExternalLinkTarget } from "../shared/support/linkPath.js";
 import { AUTH_POLICY_AUTHENTICATED, AUTH_POLICY_PUBLIC } from "../shared/support/policies.js";
@@ -101,20 +100,6 @@ function resolveSearchFromFullPath(fullPath) {
   return hashStart < 0 ? rawFullPath.slice(queryStart) : rawFullPath.slice(queryStart, hashStart);
 }
 
-function resolveSurfaceDefinition(surfaceDefinitions, surfaceId) {
-  const normalizedSurfaceId = String(surfaceId || "")
-    .trim()
-    .toLowerCase();
-  if (!normalizedSurfaceId) {
-    return null;
-  }
-  const definition = surfaceDefinitions[normalizedSurfaceId];
-  if (!definition || typeof definition !== "object") {
-    return null;
-  }
-  return definition;
-}
-
 function normalizeWebRootAllowed(value) {
   const normalizedValue = String(value || "")
     .trim()
@@ -125,27 +110,7 @@ function normalizeWebRootAllowed(value) {
   return WEB_ROOT_ALLOW_YES;
 }
 
-function resolveDefaultSurfaceRootPath({ surfaceDefinitions, defaultSurfaceId }) {
-  const defaultSurface = resolveSurfaceDefinition(surfaceDefinitions, defaultSurfaceId);
-  return String(
-    defaultSurface?.routeBase || deriveSurfaceRouteBaseFromPagesRoot(defaultSurface?.pagesRoot || "")
-  ).trim() || "/";
-}
-
-function resolveSurfaceRequiresAuth({ pathname, surfaceRuntime, surfaceDefinitions }) {
-  const normalizedPathname = String(pathname || "/").trim() || "/";
-  const surfaceId = surfaceRuntime.resolveSurfaceFromPathname(normalizedPathname);
-  const surfaceDefinition = resolveSurfaceDefinition(surfaceDefinitions, surfaceId);
-  return Boolean(surfaceDefinition?.requiresAuth);
-}
-
-function resolveEffectiveRouteGuard({
-  to,
-  surfaceRuntime,
-  surfaceDefinitions,
-  authenticatedPolicy = AUTH_POLICY_AUTHENTICATED,
-  publicPolicy = AUTH_POLICY_PUBLIC
-}) {
+function resolveEffectiveRouteGuard({ to, surfaceRuntime, authenticatedPolicy, publicPolicy }) {
   const routeGuard = resolveRouteGuard(to);
   const routePolicy = normalizeGuardPolicy(routeGuard?.policy);
   if (routePolicy) {
@@ -154,13 +119,8 @@ function resolveEffectiveRouteGuard({
     };
   }
 
-  if (
-    resolveSurfaceRequiresAuth({
-      pathname: to?.path || "/",
-      surfaceRuntime,
-      surfaceDefinitions
-    })
-  ) {
+  const surfaceId = surfaceRuntime.resolveSurfaceFromPathname(String(to?.path || "/").trim() || "/");
+  if (surfaceRuntime.getSurfaceDefinition(surfaceId)?.requiresAuth) {
     return {
       policy: authenticatedPolicy
     };
@@ -245,31 +205,27 @@ function evaluateShellGuard({ guard, to, guardEvaluatorKey }) {
 
 function createShellBeforeEachGuard({
   surfaceRuntime,
-  surfaceDefinitions,
-  defaultSurfaceId,
   webRootAllowed = WEB_ROOT_ALLOW_YES,
   guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY,
   authenticatedPolicy = AUTH_POLICY_AUTHENTICATED,
   publicPolicy = AUTH_POLICY_PUBLIC
 } = {}) {
-  if (!surfaceRuntime || typeof surfaceRuntime.resolveSurfaceFromPathname !== "function") {
-    throw new TypeError("createShellBeforeEachGuard requires surfaceRuntime.resolveSurfaceFromPathname().");
-  }
-  if (!surfaceDefinitions || typeof surfaceDefinitions !== "object" || Array.isArray(surfaceDefinitions)) {
-    throw new TypeError("createShellBeforeEachGuard requires a surfaceDefinitions object.");
+  if (
+    !surfaceRuntime ||
+    typeof surfaceRuntime.resolveSurfaceFromPathname !== "function" ||
+    typeof surfaceRuntime.getSurfaceDefinition !== "function"
+  ) {
+    throw new TypeError(
+      "createShellBeforeEachGuard requires surfaceRuntime.resolveSurfaceFromPathname() and getSurfaceDefinition()."
+    );
   }
 
+  const defaultSurfaceRootPath =
+    surfaceRuntime.getSurfaceDefinition(surfaceRuntime.DEFAULT_SURFACE_ID)?.routeBase || "/";
+  const redirectWebRoot = normalizeWebRootAllowed(webRootAllowed) === WEB_ROOT_ALLOW_NO && defaultSurfaceRootPath !== "/";
+
   return (to) => {
-    const normalizedWebRootAllowed = normalizeWebRootAllowed(webRootAllowed);
-    const defaultSurfaceRootPath = resolveDefaultSurfaceRootPath({
-      surfaceDefinitions,
-      defaultSurfaceId
-    });
-    if (
-      normalizedWebRootAllowed === WEB_ROOT_ALLOW_NO &&
-      String(to?.path || "/").trim() === "/" &&
-      defaultSurfaceRootPath !== "/"
-    ) {
+    if (redirectWebRoot && String(to?.path || "/").trim() === "/") {
       const search = resolveSearchFromFullPath(to?.fullPath || "");
       const hash = String(to?.hash || "").trim();
       return `${defaultSurfaceRootPath}${search}${hash}`;
@@ -278,7 +234,6 @@ function createShellBeforeEachGuard({
     const guard = resolveEffectiveRouteGuard({
       to,
       surfaceRuntime,
-      surfaceDefinitions,
       authenticatedPolicy,
       publicPolicy
     });

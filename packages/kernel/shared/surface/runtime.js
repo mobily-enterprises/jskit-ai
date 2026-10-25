@@ -1,41 +1,9 @@
 import { createSurfacePathHelpers } from "./paths.js";
-import {
-  createSurfaceRegistry,
-  deriveSurfaceRouteBaseFromPagesRoot,
-  normalizeSurfaceId,
-  normalizeSurfacePagesRoot
-} from "./registry.js";
+import { createSurfaceRegistry, normalizeSurfaceId } from "./registry.js";
 import { isRecord } from "../support/normalize.js";
 
-function uniqueSurfaceIds(ids) {
-  const seen = new Set();
-  const ordered = [];
-  for (const id of ids) {
-    const normalizedId = normalizeSurfaceId(id);
-    if (!normalizedId || seen.has(normalizedId)) {
-      continue;
-    }
-    seen.add(normalizedId);
-    ordered.push(normalizedId);
-  }
-  return ordered;
-}
-
-function resolveSurfaceIds({ surfaces = {} } = {}) {
-  const surfaceCandidates = [];
-  for (const [key, value] of Object.entries(isRecord(surfaces) ? surfaces : {})) {
-    const record = isRecord(value) ? value : {};
-    surfaceCandidates.push(record.id || key);
-  }
-
-  const fromSurfaces = uniqueSurfaceIds(surfaceCandidates);
-  if (fromSurfaces.length > 0) {
-    return fromSurfaces;
-  }
-
-  throw new Error("createSurfaceRuntime requires at least one surface id.");
-}
-
+// Unlike normalizePathname, this keeps "?" so vue-router optional params
+// such as "/users/:id?" survive when a route is hoisted to an absolute path.
 function normalizeRoutePath(pathLike = "") {
   const rawPath = String(pathLike || "").trim();
   if (!rawPath || rawPath === "/") {
@@ -44,9 +12,6 @@ function normalizeRoutePath(pathLike = "") {
 
   const withLeadingSlash = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
   const compacted = withLeadingSlash.replace(/\/{2,}/g, "/");
-  if (compacted === "/") {
-    return "/";
-  }
   return compacted.replace(/\/+$/, "") || "/";
 }
 
@@ -99,16 +64,7 @@ function resolveRouteSurface(route, inheritedSurfaceId = "", { surfaceRuntime, a
     return normalizedInheritedSurface;
   }
 
-  const routePath = String(route?.path || "").trim();
-  if (routePath && routePath.startsWith("/")) {
-    return surfaceRuntime.resolveSurfaceFromPathname(routePath);
-  }
-
-  if (absolutePath) {
-    return surfaceRuntime.resolveSurfaceFromPathname(absolutePath);
-  }
-
-  return surfaceRuntime.DEFAULT_SURFACE_ID;
+  return surfaceRuntime.resolveSurfaceFromPathname(absolutePath);
 }
 
 function normalizeRoutesBySurfaceBoundaries(routeList = [], { surfaceRuntime } = {}) {
@@ -186,48 +142,19 @@ function normalizeRoutesBySurfaceBoundaries(routeList = [], { surfaceRuntime } =
 
 function createSurfaceRuntime(options = {}) {
   const allMode = normalizeSurfaceId(options?.allMode || "all") || "all";
-  const sourceSurfaces = isRecord(options?.surfaces) ? options.surfaces : {};
-  const surfaceIds = resolveSurfaceIds({
-    surfaces: sourceSurfaces
-  });
-
-  const normalizedSurfaces = {};
-  for (const surfaceId of surfaceIds) {
-    const source = isRecord(sourceSurfaces[surfaceId]) ? sourceSurfaces[surfaceId] : {};
-    if (!Object.prototype.hasOwnProperty.call(source, "pagesRoot")) {
-      throw new Error(`Surface "${surfaceId}" requires pagesRoot (use "" for root).`);
-    }
-    const pagesRoot = normalizeSurfacePagesRoot(source.pagesRoot);
-    normalizedSurfaces[surfaceId] = {
-      ...source,
-      id: surfaceId,
-      pagesRoot,
-      routeBase: deriveSurfaceRouteBaseFromPagesRoot(pagesRoot),
-      enabled: source.enabled !== false
-    };
-  }
-
-  const defaultSurfaceId = normalizeSurfaceId(options?.defaultSurfaceId) || surfaceIds[0];
   const registry = createSurfaceRegistry({
-    surfaces: normalizedSurfaces,
-    defaultSurfaceId
+    surfaces: isRecord(options?.surfaces) ? options.surfaces : {},
+    defaultSurfaceId: options?.defaultSurfaceId
   });
+  const { SURFACE_REGISTRY, DEFAULT_SURFACE_ID } = registry;
+  const surfaceDefinitions = registry.listSurfaceDefinitions();
+  const surfaceIds = surfaceDefinitions.map((definition) => definition.id);
+  const enabledSurfaceIds = surfaceDefinitions.filter((definition) => definition.enabled).map((definition) => definition.id);
 
   const pathHelpers = createSurfacePathHelpers({
-    apiBasePath: String(options?.apiBasePath || "/api"),
-    defaultSurfaceId: registry.DEFAULT_SURFACE_ID,
-    normalizeSurfaceId: registry.normalizeSurfaceId,
-    resolveSurfaceRouteBase: registry.resolveSurfaceRouteBase,
-    listSurfaceDefinitions: registry.listSurfaceDefinitions,
-    routes: options?.routes
-  });
-
-  const enabledSurfaceIds = surfaceIds.filter((surfaceId) => normalizedSurfaces[surfaceId]?.enabled !== false);
-  const defaultSurfaceSource = isRecord(normalizedSurfaces[registry.DEFAULT_SURFACE_ID])
-    ? normalizedSurfaces[registry.DEFAULT_SURFACE_ID]
-    : {};
-  const defaultSurfaceDefinition = Object.freeze({
-    ...defaultSurfaceSource
+    apiBasePath: options?.apiBasePath,
+    defaultSurfaceId: DEFAULT_SURFACE_ID,
+    surfaceDefinitions
   });
 
   function normalizeSurfaceMode(value) {
@@ -236,7 +163,7 @@ function createSurfaceRuntime(options = {}) {
       return allMode;
     }
 
-    return registry.SURFACE_REGISTRY[normalized] ? normalized : allMode;
+    return SURFACE_REGISTRY[normalized] ? normalized : allMode;
   }
 
   function listEnabledSurfaceIds() {
@@ -244,29 +171,11 @@ function createSurfaceRuntime(options = {}) {
   }
 
   function getSurfaceDefinition(surfaceId) {
-    const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
-    const definition = normalizedSurfaces[normalizedSurfaceId];
-    if (!definition) {
-      return null;
-    }
-
-    return Object.freeze({
-      ...definition
-    });
+    return SURFACE_REGISTRY[normalizeSurfaceId(surfaceId)] || null;
   }
 
   function listSurfaceDefinitions({ enabledOnly = false } = {}) {
-    const ids = enabledOnly ? enabledSurfaceIds : surfaceIds;
-    const definitions = [];
-    for (const surfaceId of ids) {
-      const source = isRecord(normalizedSurfaces[surfaceId]) ? normalizedSurfaces[surfaceId] : {};
-      definitions.push(
-        Object.freeze({
-          ...source
-        })
-      );
-    }
-    return definitions;
+    return enabledOnly ? surfaceDefinitions.filter((definition) => definition.enabled) : [...surfaceDefinitions];
   }
 
   function isSurfaceEnabled(surfaceId) {
@@ -281,8 +190,8 @@ function createSurfaceRuntime(options = {}) {
   return {
     SURFACE_MODE_ALL: allMode,
     SURFACE_IDS: [...surfaceIds],
-    DEFAULT_SURFACE_ID: registry.DEFAULT_SURFACE_ID,
-    DEFAULT_SURFACE: defaultSurfaceDefinition,
+    DEFAULT_SURFACE_ID,
+    DEFAULT_SURFACE: SURFACE_REGISTRY[DEFAULT_SURFACE_ID],
     normalizeSurfaceMode,
     resolveSurfaceFromPathname: pathHelpers.resolveSurfaceFromPathname,
     getSurfaceDefinition,

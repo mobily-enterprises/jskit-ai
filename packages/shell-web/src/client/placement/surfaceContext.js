@@ -253,14 +253,7 @@ function createPlacementSurfacePathHelpers(surfaceConfig = EMPTY_SURFACE_CONFIG)
 
   return createSurfacePathHelpers({
     defaultSurfaceId: resolvedDefaultSurfaceId,
-    normalizeSurfaceId,
-    resolveSurfaceRouteBase(surfaceId) {
-      const normalizedSurfaceId = normalizeSurfaceId(surfaceId);
-      return String(surfacesById[normalizedSurfaceId]?.routeBase || "/").trim() || "/";
-    },
-    listSurfaceDefinitions() {
-      return Object.values(surfacesById);
-    }
+    surfaceDefinitions: Object.values(surfacesById)
   });
 }
 

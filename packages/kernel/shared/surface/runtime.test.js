@@ -317,3 +317,60 @@ test("filterRoutesBySurface hoists cross-surface nested route wrappers to top-le
     ["", "members"]
   );
 });
+
+test("createSurfaceRuntime reads every definition from its one surface registry", () => {
+  const runtime = createSurfaceRuntime({
+    defaultSurfaceId: "APP",
+    surfaces: {
+      app: { pagesRoot: "", requiresAuth: false },
+      admin: { pagesRoot: "w/[workspaceSlug]/admin", requiresAuth: true },
+      console: { pagesRoot: "console", enabled: false }
+    }
+  });
+
+  const admin = runtime.getSurfaceDefinition(" Admin ");
+  assert.equal(admin.routeBase, "/w/:workspaceSlug/admin");
+  assert.equal(admin.enabled, true);
+  assert.equal(admin.requiresAuth, true);
+  assert.equal(Object.isFrozen(admin), true);
+  assert.equal(runtime.getSurfaceDefinition("console").enabled, false);
+  assert.equal(runtime.DEFAULT_SURFACE, runtime.getSurfaceDefinition("app"));
+  assert.deepEqual(runtime.SURFACE_IDS, ["app", "admin", "console"]);
+  assert.deepEqual(runtime.listSurfaceDefinitions().map((entry) => entry.id), ["app", "admin", "console"]);
+  assert.throws(
+    () => createSurfaceRuntime({ surfaces: { app: {} } }),
+    /Surface "app" requires pagesRoot/
+  );
+});
+
+test("createSurfaceRuntime resolves API pathnames by the surface-relative path", () => {
+  const runtime = createSurfaceRuntime({
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { pagesRoot: "" },
+      admin: { pagesRoot: "admin" }
+    }
+  });
+
+  assert.equal(runtime.resolveSurfaceFromPathname("/api/admin/users?x=1"), "admin");
+  assert.equal(runtime.resolveSurfaceFromPathname("/api/v2/admin/users"), "admin");
+  assert.equal(runtime.resolveSurfaceFromPathname("/api"), "app");
+  assert.equal(runtime.resolveSurfaceFromPathname("/apiary/admin"), "app");
+});
+
+test("filterRoutesBySurface keeps optional route params when hoisting a surface boundary", () => {
+  const runtime = createSurfaceRuntime({
+    defaultSurfaceId: "app",
+    surfaces: {
+      app: { pagesRoot: "" },
+      admin: { pagesRoot: "admin" }
+    }
+  });
+
+  const routes = filterRoutesBySurface(
+    [{ path: "/", children: [{ path: "admin/users/:id?", meta: { jskit: { surface: "admin" } } }] }],
+    { surfaceRuntime: runtime, surfaceMode: "all" }
+  );
+
+  assert.deepEqual(routes.map((route) => route.path), ["/", "/admin/users/:id?"]);
+});
