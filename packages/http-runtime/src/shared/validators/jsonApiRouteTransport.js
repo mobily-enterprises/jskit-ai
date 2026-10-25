@@ -487,10 +487,7 @@ function createJsonApiResourceSuccessTransportSchema({
   );
 
   const documentProperties = {};
-  const documentDefinitions = {
-    ...resourceTransport.definitions,
-    ...embeddedResource.definitions
-  };
+  const documentDefinitions = { ...embeddedResource.definitions };
 
   if (normalizedKind === "collection") {
     documentProperties.data = {

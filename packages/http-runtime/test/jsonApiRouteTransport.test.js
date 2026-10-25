@@ -141,6 +141,11 @@ test("createJsonApiResourceSuccessTransportSchema wraps plain record schema in a
   const resourceSchema = schema.definitions.contactsSuccessResource;
   assert.deepEqual(resourceSchema.required, ["type", "attributes", "id"]);
   assert.equal(resourceSchema.properties.type.const, "contacts");
+
+  const referencedNames = new Set(
+    [...JSON.stringify(schema).matchAll(/"#\/definitions\/([^"]+)"/g)].map((match) => match[1])
+  );
+  assert.deepEqual(Object.keys(schema.definitions).sort(), [...referencedNames].sort());
 });
 
 test("createJsonApiResourceRouteTransport unwraps request payloads and wraps resource/error responses", () => {
