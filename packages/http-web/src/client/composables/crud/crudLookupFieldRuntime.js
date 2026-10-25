@@ -21,14 +21,6 @@ function normalizeQueryKeyPrefix(value) {
     .filter(Boolean);
 }
 
-function isSameLookupValue(left, right) {
-  if (left === right) {
-    return true;
-  }
-
-  return String(left ?? "") === String(right ?? "");
-}
-
 function normalizeLookupValue(value) {
   if (value == null) {
     return "";
@@ -192,22 +184,7 @@ function createCrudLookupFieldRuntime({
       return items;
     }
 
-    if (items.some((item) => item?.value === selectedItem.value)) {
-      return items;
-    }
-
-    const matchingItem = items.find((item) => isSameLookupValue(item?.value, selectedItem.value));
-    if (matchingItem) {
-      return [
-        {
-          ...selectedItem,
-          label: String(matchingItem.label ?? selectedItem.label ?? "")
-        },
-        ...items
-      ];
-    }
-
-    return [selectedItem, ...items];
+    return items.some((item) => item.value === selectedItem.value) ? items : [selectedItem, ...items];
   }
 
   function resolveLookupLoading(fieldKey = "") {
@@ -217,7 +194,7 @@ function createCrudLookupFieldRuntime({
       return false;
     }
 
-    return Boolean(entry.runtime.isInitialLoading || entry.runtime.isFetching || entry.runtime.isRefetching);
+    return Boolean(entry.runtime.isInitialLoading || entry.runtime.isFetching);
   }
 
   function resolveLookupSearch(fieldKey = "") {

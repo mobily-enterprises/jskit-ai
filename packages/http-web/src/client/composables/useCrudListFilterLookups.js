@@ -106,7 +106,7 @@ function useCrudListFilterLookups(
       options,
       searchQuery: computed(() => String(runtime.searchQuery || "")),
       isLoading: computed(() => {
-        return Boolean(runtime.isInitialLoading || runtime.isFetching || runtime.isRefetching || runtime.isSearchDebouncing);
+        return Boolean(runtime.isInitialLoading || runtime.isFetching || runtime.isSearchDebouncing);
       }),
       resolveLabel(value, fallback = filter.label || "Option") {
         return resolveLookupOptionLabel(options.value, cachedOptions.value, value, fallback);
