@@ -36,6 +36,21 @@ test("portable configuration rejects secret literals, invalid prices and mismatc
   }
 });
 
+test("configuration reports binding problems in every environment at once", () => {
+  const value = structuredClone(document);
+  value.integrations.billing.accountMode = "per-user";
+  value.integrations.production.authentication.secretRef = "sk_live_pasted";
+  assert.throws(() => validatePaymentConfiguration(value), (error) => {
+    assert.equal(error.code, "payment_configuration_invalid");
+    assert.equal(error.statusCode, 422);
+    assert.deepEqual(error.fieldErrors.map(({ path }) => path), [
+      "extensions.payments/environments/sandbox/integrationId", "extensions.payments/environments/live/integrationId"
+    ]);
+    assert.equal(error.message, error.fieldErrors[0].message);
+    return true;
+  });
+});
+
 test("configuration accepts reactive objects and returns an independent plain snapshot", () => {
   const input = structuredClone(document);
   input.extensions.payments = new Proxy(input.extensions.payments, {});
