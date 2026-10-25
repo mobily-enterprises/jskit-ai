@@ -1361,7 +1361,7 @@ test("Claude verified native cleanup retains interrupted checkpoint refusal with
 
 // Retain the original supplied-store/native process fixture and drive it through
 // the actual common runtime, including its completion-only admitted receipt.
-async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, representation = "canonical", beforeToolWrite, signal, executeTool = async () => ({}) } = {}) {
+async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, hostDeliveryStages, representation = "canonical", beforeToolWrite, signal, executeTool = async () => ({}) } = {}) {
   const f = await publishedClaudeFixture(t, { canonicalAdmission: true });
   const storage = createMemoryConversationStorage();
   const transcript = createConversationTranscript({ storage });
@@ -1390,7 +1390,7 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, repres
     native: { owner: f.owner, preparation: { cleanup: () => ({ context: f.context, application: {
       readContext: async () => f.context, terminals: { close: async () => ({ ok: true }) }
     } }) } },
-    admission() {}, prepareInput: async input => input,
+    admission() {}, prepareInput: async (input, _context, { deliveryTiming } = {}) => { deliveryTiming?.("host-prepared"); return input; },
     read: async () => ({ threadId: f.conversationId, configuration: { model: "native" },
       turn: f.owner.snapshot(f.entry), delivery }),
     readStream: async () => ({ messages: [] }),
@@ -1404,7 +1404,7 @@ async function suppliedCommonFixture(t, { tools = true, onDeliveryTiming, repres
       admissions.push(admission); return actual;
     } } } : {}) };
   const runtime = createConversationRuntime({ ...(tools ? { actions } : {}), authorize: () => true, onDeliveryTiming,
-    host: { conversation: () => binding } });
+    hostDeliveryStages, host: { conversation: () => binding } });
   t.after(() => runtime.close());
   const conversation = await runtime.open({ id: "lesson", context, representation });
   f.setBeforeState((entry, event) => {
@@ -1511,20 +1511,20 @@ for (const failedSave of [false, true]) test(`Claude goal waits for common final
 
 test("Claude delivery timing separates native acknowledgement from the held canonical receipt", { timeout: 10_000 }, async t => {
   const timings = [];
-  const f = await suppliedCommonFixture(t, { onDeliveryTiming: event => timings.push(event) });
+  const f = await suppliedCommonFixture(t, { onDeliveryTiming: event => timings.push(event), hostDeliveryStages: ["host-prepared"] });
   const writing = Promise.withResolvers();
   const release = Promise.withResolvers();
   f.behavior.beforeAdmit = async () => { writing.resolve(); await release.promise; };
   const sending = f.conversation.send({ messageId: "timed-request", text: "Private message" });
   await writing.promise;
   assert.deepEqual(timings.map(event => event.stage), [
-    "received", "preparation-started", "authorized", "history-read", "state-read", "request-saved", "input-prepared",
-    "provider-started", "duplicate-checked", "native-history-read", "process-ready", "prompt-rendered", "metadata-ready",
+    "received", "preparation-started", "authorized", "history-read", "state-read", "request-saved", "host-prepared",
+    "input-prepared", "provider-started", "duplicate-checked", "native-history-read", "process-ready", "prompt-rendered", "metadata-ready",
     "runtime-ready", "dispatch-started", "native-acknowledged"
   ]);
   release.resolve();
   assert.equal((await sending).status, "accepted");
-  const admitted = timings.map(event => event.stage).slice(16);
+  const admitted = timings.map(event => event.stage).slice(17);
   assert.deepEqual(admitted, ["receipt-written", "state-active", "receipt-persisted", "admission-authorized", "turn-located", "accepted"]);
   await f.frame({ type: "result", subtype: "success", result: "Public answer" });
   await f.conversation.wait();

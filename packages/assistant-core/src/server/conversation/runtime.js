@@ -1,5 +1,5 @@
 import { createConversationProviderFactory } from "./provider.js";
-import { createConversationDeliveryTiming } from "./deliveryTiming.js";
+import { createConversationDeliveryTiming, normalizeConversationDeliveryHostStages } from "./deliveryTiming.js";
 import { normalizeConversationConfiguration } from "./configuration.js";
 import { runScopedConversationTurn, readPersistentConversation, projectStoredPersistentConversation, startPersistentConversationTurn,
   inspectPersistentConversationAdmission, preparePersistentConversationChangeover,
@@ -36,9 +36,10 @@ const sameRequest = (left, right) => left.text === right.text && (left.origin ||
 
 /** One application conversation API. Storage and authorization remain host facilities. */
 export function createConversationRuntime({ engine: defaultEngine = "api", defaultIntegrationId, storage, authorize, connections, apiClientFactory, apiHistory,
-  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, onDeliveryTiming, persistCommentary = true, completedEnvelope = false, limits = {} } = {}) {
+  actions, toolPolicy, toolCatalog, attachments, fetch, host: defaultHost, onDeliveryTiming, hostDeliveryStages, persistCommentary = true, completedEnvelope = false, limits = {} } = {}) {
   if (typeof authorize !== "function") throw new TypeError("Conversation access requires an authorize function.");
   if (onDeliveryTiming !== undefined && typeof onDeliveryTiming !== "function") throw new TypeError("Delivery timing requires a server-owned observer.");
+  const deliveryHostStages = normalizeConversationDeliveryHostStages(hostDeliveryStages);
   if (typeof completedEnvelope !== "boolean") throw new TypeError("Completed envelope policy requires a server-side boolean.");
   if (typeof persistCommentary !== "boolean") throw new TypeError("Conversation commentary persistence requires an explicit server-side boolean.");
   if (apiHistory !== undefined && typeof apiHistory !== "function") throw new TypeError("API request history requires a server-owned selector.");
@@ -1476,7 +1477,7 @@ export function createConversationRuntime({ engine: defaultEngine = "api", defau
 
   async function send(entry, context, input, origin = "user", goal, representation, wakeOptions) {
     const deliveryTiming = createConversationDeliveryTiming({ engine: entry.engine,
-      conversationId: entry.id, messageId: input?.messageId, report: onDeliveryTiming });
+      conversationId: entry.id, messageId: input?.messageId, report: onDeliveryTiming, hostStages: deliveryHostStages });
     deliveryTiming("received");
     const grant = new Set();
     try {

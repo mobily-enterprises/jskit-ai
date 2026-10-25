@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createConversationDeliveryTiming } from "../src/server/conversation/deliveryTiming.js";
+import { createConversationRuntime, createMemoryConversationStorage } from "../src/server/conversation/index.js";
 
 test("native engines share bounded, content-free timing and independent message identities", () => {
   for (const engine of ["codex", "claude", "opencode"]) {
@@ -47,4 +48,24 @@ test("diagnostic failures and unfinished asynchronous observers never block deli
   assert.equal(calls, 4);
   await Promise.resolve();
   pending.resolve();
+});
+
+test("host preparation stages are reported only when the host declares them", () => {
+  const events = [];
+  const report = event => events.push(event.stage);
+  const plain = createConversationDeliveryTiming({ engine: "claude", conversationId: "chat", messageId: "one", report });
+  plain("received"); plain("host-step");
+  assert.deepEqual(events, ["received"]);
+  const declared = createConversationDeliveryTiming({ engine: "claude", conversationId: "chat", messageId: "two", report,
+    hostStages: ["host-step"] });
+  declared("host-step"); declared("other-step");
+  assert.deepEqual(events, ["received", "host-step"]);
+});
+
+test("conversation runtimes reject malformed host delivery stage names", () => {
+  for (const hostDeliveryStages of ["host-step", ["Host"], ["host step"], [7], ["-step"]]) {
+    assert.throws(() => createConversationRuntime({ authorize: () => true, hostDeliveryStages }),
+      { name: "TypeError", message: "Host delivery stages must be lowercase hyphenated names." });
+  }
+  createConversationRuntime({ authorize: () => true, storage: createMemoryConversationStorage(), hostDeliveryStages: ["git-step"] });
 });

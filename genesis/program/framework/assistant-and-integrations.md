@@ -72,8 +72,10 @@ that receives its native timestamp later; receipts restore normal history orderi
 Native conversations optionally report content-free delivery timings through
 `onDeliveryTiming`. One shared observer supplies milestone names, monotonic
 durations and message attribution for Codex, Claude and OpenCode; their original
-native owners mark acknowledgement before receipt persistence. Observer work
-does not block dispatch or alter saved conversation data.
+native owners mark acknowledgement before receipt persistence. Hosts declare
+the names of their own preparation marks through `hostDeliveryStages`; the
+runtime knows none of them. Observer work does not block dispatch or alter saved
+conversation data.
 
 Claude status reads and ordinary Main steering retain the active process's instruction installation;
 changed host guidance is applied at the next idle admission. Account identity is

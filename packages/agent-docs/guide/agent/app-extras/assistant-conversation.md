@@ -56,8 +56,10 @@ admission; Claude's `duplicate-checked`, `native-history-read`, `process-ready`,
 `prompt-rendered`, `metadata-ready`, `receipt-written` and `state-active`; and
 `admission-authorized` and `turn-located` before `accepted`. A bound host's
 `prepareInput(input, context, { deliveryTiming })` and Claude's
-`preparation.message(..., { deliveryTiming })` receive the same observer and may
-mark `git-actor` and `genesis-rendered`. Unknown stage names are ignored.
+`preparation.message(..., { deliveryTiming })` receive the same observer. A host
+that marks stages of its own preparation declares them with
+`createConversationRuntime({ hostDeliveryStages: ["my-step"] })`; each name is
+lowercase letters and hyphens. Undeclared stage names are ignored.
 Native acknowledgement precedes the application's receipt write. Accepted delivery
 still waits for the existing durable receipt contract.
 
