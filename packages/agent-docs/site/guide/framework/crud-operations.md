@@ -148,16 +148,15 @@ need cross-owner denial tests.
 `useCrudAddEditScreen()` accepts `saveSuccess` at the top level. After saving,
 the default behaviour invalidates `saveSuccess.invalidateQueryKey`, navigates
 to a configured record-view URL when one resolves, and otherwise falls back to
-the list URL. For a create-and-list app, use `navigateToView: false` and the
-configured `listUrlTemplate`, as in the public example above. Save navigation
-reads the list URL only from `saveSuccess.listUrlTemplate`.
+the list URL. For a create-and-list app, use `navigateToView: false` and
+`saveSuccess.listUrlTemplate`, the only list URL save navigation reads, as in the
+public example above.
 
 To keep the saved form open, set both `saveSuccess.navigateToView` and
 `saveSuccess.navigateToList` to `false`. `addEditOptions.onSaveSuccess` replaces
 the default success handling, including query invalidation and navigation;
 reserve it for custom success behaviour. Returning to the list needs only the
-documented `saveSuccess` options, not a custom router callback or inspection of
-the shared form implementation.
+`saveSuccess` options, not a router callback.
 
 ## Browser routes and responsive lists
 
@@ -305,17 +304,15 @@ this raw test encoding into page code.
 Deletion requires an explicit shared `DELETE` operation and confirmation
 decision. Use `CrudDeleteAction` and `useCrudDeleteAction()` through the view
 actions slot; do not rebuild their confirmation, request, invalidation, and
-navigation flow. After a successful delete the action returns to the list first
-and only then invalidates the resource's `["crud", namespace]` queries, so the
-deleted record's view query is no longer observed and never refetches into a
-"Record not found." state.
+navigation flow. After a delete it returns to the list before invalidating the
+resource's queries, so the deleted record never refetches as "Record not found."
 
 The delete action resolves its HTTP client from the resource's `apiAccess`, just
 like the list, view and form helpers. For `apiAccess: "public"`, DELETE requests
 skip session CSRF discovery; no `/api/session` endpoint or page-local client
 wiring is required. Authenticated resources retain the configured client's CSRF
-behavior. An explicit `client` override is supported and receives the same
-resource-aware public request options. This does not change server authorization.
+behavior. An explicit `client` override receives the same request options.
+Server authorization is unchanged.
 
 For custom form actions, see
 [record form actions](./crud-form-actions.md).
