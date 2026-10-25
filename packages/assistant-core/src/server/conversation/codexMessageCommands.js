@@ -19,7 +19,7 @@ import {
   sendCodexAppServerPrompt
 } from "./codexProvider.js";
 import crypto from "node:crypto";
-import { isPlainObject } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Original Main message admission, preparation, dispatch and steering.
 // Prompt delivery and receipt state remain the same run-owner references.
@@ -253,9 +253,9 @@ export function createCodexMessageCommands({
 
   async function startCodexAppServerMessage(sessionId, input = {}, options = {}, prepare) {
     const startedAt = Date.now();
-    const agentSettings = isPlainObject(options.agentSettings)
+    const agentSettings = isRecord(options.agentSettings)
       ? options.agentSettings
-      : isPlainObject(input.agentSettings) ? input.agentSettings : {};
+      : isRecord(input.agentSettings) ? input.agentSettings : {};
     const actorContext = options.actorContext || null;
     const messageId = normalizeCodexRunText(input.messageId) ||
       `${messageIdPrefix}${crypto.randomUUID()}`;
@@ -411,7 +411,7 @@ export function createCodexMessageCommands({
     const message = codexAppServerMessageText(input);
     const messageId = normalizeCodexRunText(input?.messageId) ||
       `${messageIdPrefix}${crypto.randomUUID()}`;
-    const started = await startCodexAppServerMessage(sessionId, isPlainObject(input) ? {
+    const started = await startCodexAppServerMessage(sessionId, isRecord(input) ? {
       ...input,
       message,
       messageId

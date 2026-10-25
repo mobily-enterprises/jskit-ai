@@ -1,20 +1,21 @@
-import { isPlainObject, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { normalizeCodexAppServerRunState, codexAppServerRunStateIsActive,
   codexAppServerRunStateIsTerminal } from "./codexTurn.js";
 
-const normalizeRunState = state => normalizeCodexAppServerRunState(normalizeText(state));
-const runStateIsActive = state => codexAppServerRunStateIsActive(normalizeText(state));
-const runStateIsTerminal = state => codexAppServerRunStateIsTerminal(normalizeText(state));
+const normalizeRunState = state => normalizeCodexAppServerRunState(normalizeNullableText(state));
+const runStateIsActive = state => codexAppServerRunStateIsActive(normalizeNullableText(state));
+const runStateIsTerminal = state => codexAppServerRunStateIsTerminal(normalizeNullableText(state));
 
 export function conversationAgentRunRecord(record, normalizedRunId, {
   normalizeState = normalizeRunState,
   isActive = runStateIsActive
 } = {}) {
-  return isPlainObject(record)
+  return isRecord(record)
     ? {
         ...record,
         active: isActive(record.state),
-        events: Array.isArray(record.events) ? record.events.filter(isPlainObject) : [],
+        events: Array.isArray(record.events) ? record.events.filter(isRecord) : [],
         id: normalizedRunId,
         state: normalizeState(record.state)
       }
@@ -29,14 +30,14 @@ export function conversationAgentRunEvent(previous, normalizedRunId, {
   normalizeState = normalizeRunState,
   isTerminal = runStateIsTerminal
 } = {}) {
-  const eventAt = normalizeText(event.at || patch.updatedAt) || now().toISOString();
+  const eventAt = normalizeNullableText(event.at || patch.updatedAt) || now().toISOString();
   const state = normalizeState(patch.state || event.state || previous.state);
   const terminalState = isTerminal(state);
   const eventRecord = {
     ...event,
     at: eventAt,
-    kind: normalizeText(event.kind || state || "updated"),
-    message: normalizeText(event.message || patch.message),
+    kind: normalizeNullableText(event.kind || state || "updated"),
+    message: normalizeNullableText(event.message || patch.message),
     state
   };
   const record = {
@@ -48,10 +49,10 @@ export function conversationAgentRunEvent(previous, normalizedRunId, {
       eventRecord
     ],
     finishedAt: terminalState
-      ? normalizeText(patch.finishedAt || previous.finishedAt) || eventAt
+      ? normalizeNullableText(patch.finishedAt || previous.finishedAt) || eventAt
       : "",
     id: normalizedRunId,
-    startedAt: normalizeText(previous.startedAt || patch.startedAt) || eventAt,
+    startedAt: normalizeNullableText(previous.startedAt || patch.startedAt) || eventAt,
     state,
     updatedAt: eventAt
   };

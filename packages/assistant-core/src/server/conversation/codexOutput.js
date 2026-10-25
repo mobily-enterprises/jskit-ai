@@ -10,7 +10,7 @@ import {
   codexAppServerRunInputSource
 } from "./codexTurnState.js";
 import crypto from "node:crypto";
-import { isPlainObject } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   codexAppServerAgentMessageText,
   codexAppServerAssistantItemText,
@@ -73,7 +73,7 @@ export function createCodexAppServerOutput({
   function codexAppServerLiveProgressCandidate(notification = {}) {
     const method = normalizeCodexRunText(notification.method);
     const event = codexAppServerNotificationEvent(notification);
-    if (isPlainObject(event)) {
+    if (isRecord(event)) {
       const eventType = codexAppServerNotificationEventType(notification, event);
       const payload = codexAppServerNotificationEventPayload(notification, event);
       const payloadType = normalizeCodexRunText(payload.type);
@@ -787,7 +787,7 @@ export function createCodexAppServerOutput({
 
   function codexAppServerSnapshotCursor(run = {}) {
     const cursor = run?.providerSnapshotCursor;
-    if (!isPlainObject(cursor)) {
+    if (!isRecord(cursor)) {
       return {
         itemId: "",
         turnId: ""
@@ -840,7 +840,7 @@ export function createCodexAppServerOutput({
     const normalizedThreadId = normalizeCodexRunText(threadId);
     const normalizedTurnId = normalizeCodexRunText(observedTurn?.id);
     const items = (Array.isArray(observedTurn?.items) ? observedTurn.items : [])
-      .filter((item) => isPlainObject(item) && normalizeCodexRunText(item.id));
+      .filter((item) => isRecord(item) && normalizeCodexRunText(item.id));
     if (!normalizedSessionId || !normalizedThreadId || !normalizedTurnId || !items.length) {
       return;
     }

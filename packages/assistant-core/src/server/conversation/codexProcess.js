@@ -8,7 +8,8 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { CodexAppServerJsonRpcClient, socketPathFromCodexAppServerEndpoint } from "./codexClient.js";
 import { createConversationProcessIdentity } from "./localExecution.js";
-import { isPlainObject, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { prepareCodexModelCatalog } from "./codexConfiguration.js";
 import { startCodexHistoryAdapter } from "./codexHistoryAdapter.js";
 
@@ -100,34 +101,34 @@ function codexAppServerLockDir(runtimeDir = "") {
 }
 
 export function normalizeCodexAppServerMetadata(metadata = {}) {
-  const normalized = isPlainObject(metadata) ? metadata : {};
-  const endpoint = normalizeText(normalized.endpoint);
+  const normalized = isRecord(metadata) ? metadata : {};
+  const endpoint = normalizeNullableText(normalized.endpoint);
   return {
-    accountIdentitySignature: normalizeText(normalized.accountIdentitySignature),
-    attachmentHostRoot: normalizeText(normalized.attachmentHostRoot),
-    authStateSignature: normalizeText(normalized.authStateSignature),
+    accountIdentitySignature: normalizeNullableText(normalized.accountIdentitySignature),
+    attachmentHostRoot: normalizeNullableText(normalized.attachmentHostRoot),
+    authStateSignature: normalizeNullableText(normalized.authStateSignature),
     endpoint,
-    executionId: normalizeText(normalized.executionId),
-    executionMode: normalizeText(normalized.executionMode) || CODEX_APP_SERVER_EXECUTION_MODES.INTERACTIVE,
-    executionContextHash: normalizeText(normalized.executionContextHash),
-    healthz: normalizeText(normalized.healthz),
-    historyAdapterBaseUrl: normalizeText(normalized.historyAdapterBaseUrl),
-    logPath: normalizeText(normalized.logPath),
+    executionId: normalizeNullableText(normalized.executionId),
+    executionMode: normalizeNullableText(normalized.executionMode) || CODEX_APP_SERVER_EXECUTION_MODES.INTERACTIVE,
+    executionContextHash: normalizeNullableText(normalized.executionContextHash),
+    healthz: normalizeNullableText(normalized.healthz),
+    historyAdapterBaseUrl: normalizeNullableText(normalized.historyAdapterBaseUrl),
+    logPath: normalizeNullableText(normalized.logPath),
     pid: Number.isSafeInteger(Number(normalized.pid)) ? Number(normalized.pid) : null,
-    processCwd: normalizeText(normalized.processCwd),
-    processExitVerifiedAt: normalizeText(normalized.processExitVerifiedAt),
+    processCwd: normalizeNullableText(normalized.processCwd),
+    processExitVerifiedAt: normalizeNullableText(normalized.processExitVerifiedAt),
     processIdentity: runtimeProcessIdentity.normalize(normalized.processIdentity),
-    processState: normalizeText(normalized.processState),
-    provider: normalizeText(normalized.provider),
-    readyz: normalizeText(normalized.readyz),
-    runtimeDir: normalizeText(normalized.runtimeDir),
-    runtimesHash: normalizeText(normalized.runtimesHash),
+    processState: normalizeNullableText(normalized.processState),
+    provider: normalizeNullableText(normalized.provider),
+    readyz: normalizeNullableText(normalized.readyz),
+    runtimeDir: normalizeNullableText(normalized.runtimeDir),
+    runtimesHash: normalizeNullableText(normalized.runtimesHash),
     schemaVersion: Number(normalized.schemaVersion || 0),
-    socketPath: normalizeText(normalized.socketPath),
-    startedAt: normalizeText(normalized.startedAt),
-    terminalEnvHash: normalizeText(normalized.terminalEnvHash),
-    toolHomeSource: normalizeText(normalized.toolHomeSource),
-    transport: normalizeText(normalized.transport)
+    socketPath: normalizeNullableText(normalized.socketPath),
+    startedAt: normalizeNullableText(normalized.startedAt),
+    terminalEnvHash: normalizeNullableText(normalized.terminalEnvHash),
+    toolHomeSource: normalizeNullableText(normalized.toolHomeSource),
+    transport: normalizeNullableText(normalized.transport)
   };
 }
 
@@ -302,7 +303,7 @@ function stableHash(value) {
 }
 
 export function codexAppServerExecutionMode(options = {}) {
-  return normalizeText(options.executionMode) === CODEX_APP_SERVER_EXECUTION_MODES.HELPER
+  return normalizeNullableText(options.executionMode) === CODEX_APP_SERVER_EXECUTION_MODES.HELPER
     ? CODEX_APP_SERVER_EXECUTION_MODES.HELPER
     : CODEX_APP_SERVER_EXECUTION_MODES.INTERACTIVE;
 }
@@ -312,7 +313,7 @@ export function codexAppServerIsHelper(options = {}) {
 }
 
 export async function assertExistingDirectory(dirPath = "", label = "directory") {
-  const normalizedPath = normalizeText(dirPath);
+  const normalizedPath = normalizeNullableText(dirPath);
   if (!normalizedPath) {
     return;
   }
@@ -331,7 +332,7 @@ export function codexAppServerHelperWorkspaceDir(runtimeDir = "") {
 }
 
 function codexAppServerHelperCommandBaseEnv(env = process.env, codexHome = "") {
-  const source = isPlainObject(env) ? env : {};
+  const source = isRecord(env) ? env : {};
   const cleared = Object.fromEntries(Object.keys({
     ...process.env,
     ...source
@@ -377,7 +378,7 @@ function codexAppServerUnixEndpoint(socketPath = "") {
 }
 
 function codexAppServerProjectTrustOverride(workdir = "") {
-  const normalizedWorkdir = normalizeText(workdir);
+  const normalizedWorkdir = normalizeNullableText(workdir);
   if (!normalizedWorkdir) {
     return "";
   }
@@ -390,19 +391,19 @@ export function codexAppServerProcessCwd({
   runtimeDir = "",
   workdir = ""
 } = {}) {
-  const normalizedWorkdir = normalizeText(workdir) ? path.resolve(workdir) : "";
+  const normalizedWorkdir = normalizeNullableText(workdir) ? path.resolve(workdir) : "";
   if (normalizedWorkdir) {
     return normalizedWorkdir;
   }
-  const normalizedExecutionRoot = normalizeText(executionRoot) ? path.resolve(executionRoot) : "";
+  const normalizedExecutionRoot = normalizeNullableText(executionRoot) ? path.resolve(executionRoot) : "";
   if (normalizedExecutionRoot) {
     return normalizedExecutionRoot;
   }
-  return normalizeText(runtimeDir) ? path.resolve(runtimeDir) : "";
+  return normalizeNullableText(runtimeDir) ? path.resolve(runtimeDir) : "";
 }
 
 function codexAppServerRuntimeDirIsManaged(runtimeDir = "") {
-  const normalizedRuntimeDir = normalizeText(runtimeDir);
+  const normalizedRuntimeDir = normalizeNullableText(runtimeDir);
   if (!normalizedRuntimeDir) {
     return false;
   }
@@ -412,7 +413,7 @@ function codexAppServerRuntimeDirIsManaged(runtimeDir = "") {
 }
 
 async function removeCodexAppServerRuntimeDir(runtimeDir = "") {
-  const normalizedRuntimeDir = normalizeText(runtimeDir);
+  const normalizedRuntimeDir = normalizeNullableText(runtimeDir);
   if (!codexAppServerRuntimeDirIsManaged(normalizedRuntimeDir)) {
     return false;
   }
@@ -441,26 +442,26 @@ function codexAppServerRuntimeCleanupCanSkip(error) {
 
 export function codexAppServerRuntimeIdentity(runtime = {}) {
   return [
-    normalizeText(runtime.accountIdentitySignature),
-    normalizeText(runtime.authStateSignature),
-    normalizeText(runtime.endpoint),
-    normalizeText(runtime.executionId),
-    normalizeText(runtime.executionMode),
-    normalizeText(runtime.runtimesHash),
-    normalizeText(runtime.terminalEnvHash),
-    normalizeText(runtime.socketPath),
-    normalizeText(runtime.startedAt),
-    normalizeText(runtime.pid)
+    normalizeNullableText(runtime.accountIdentitySignature),
+    normalizeNullableText(runtime.authStateSignature),
+    normalizeNullableText(runtime.endpoint),
+    normalizeNullableText(runtime.executionId),
+    normalizeNullableText(runtime.executionMode),
+    normalizeNullableText(runtime.runtimesHash),
+    normalizeNullableText(runtime.terminalEnvHash),
+    normalizeNullableText(runtime.socketPath),
+    normalizeNullableText(runtime.startedAt),
+    normalizeNullableText(runtime.pid)
   ].join("\0");
 }
 
 export function normalizeCodexAppServerTerminalEnv(terminalEnv = {}) {
-  if (!isPlainObject(terminalEnv)) {
+  if (!isRecord(terminalEnv)) {
     return {};
   }
   return Object.fromEntries(Object.entries(terminalEnv)
     .map(([name, value]) => [
-      normalizeText(name),
+      normalizeNullableText(name),
       String(value ?? "")
     ])
     .filter(([name, value]) => (
@@ -485,13 +486,13 @@ export function codexAppServerCommandBaseEnv({
 }
 
 export function codexAppServerCredentialHome(toolHomeSource = "", baseEnv = {}) {
-  const home = normalizeText(toolHomeSource);
+  const home = normalizeNullableText(toolHomeSource);
   if (!home) {
     return {};
   }
   return {
     home,
-    username: normalizeText(baseEnv.USER || baseEnv.LOGNAME)
+    username: normalizeNullableText(baseEnv.USER || baseEnv.LOGNAME)
   };
 }
 
@@ -524,10 +525,10 @@ function codexAppServerProcessCommandHash({
 } = {}) {
   return stableHash(JSON.stringify({
     codexArgs,
-    codexCommand: normalizeText(codexCommand),
+    codexCommand: normalizeNullableText(codexCommand),
     executionMode: codexAppServerExecutionMode({ executionMode }),
-    processCwd: normalizeText(processCwd),
-    runtimeDir: normalizeText(runtimeDir)
+    processCwd: normalizeNullableText(processCwd),
+    runtimeDir: normalizeNullableText(runtimeDir)
   }));
 }
 
@@ -553,7 +554,7 @@ function tomlInlineValue(value) {
   if (Array.isArray(value)) {
     return `[${value.map(tomlInlineValue).join(",")}]`;
   }
-  if (isPlainObject(value)) {
+  if (isRecord(value)) {
     return `{${Object.entries(value).map(([key, item]) => `${key}=${tomlInlineValue(item)}`).join(",")}}`;
   }
   return JSON.stringify(value);
@@ -596,7 +597,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   }
 
   // An empty or null umask inherits the host's own; hosts that share files set one.
-  const startupUmask = normalizeText(umask);
+  const startupUmask = normalizeNullableText(umask);
   if (startupUmask && !/^[0-7]{3,4}$/u.test(startupUmask)) {
     throw new TypeError(`Codex app-server umask must be octal, not ${JSON.stringify(startupUmask)}.`);
   }
@@ -621,7 +622,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   ].join("\n");
 
   function codexAppServerProcessMetadataIsIdentifiable(metadata = {}, runtimeDir = "") {
-    const normalizedRuntimeDir = normalizeText(runtimeDir);
+    const normalizedRuntimeDir = normalizeNullableText(runtimeDir);
     return Boolean(
       Number(metadata.schemaVersion) === CODEX_APP_SERVER_METADATA_SCHEMA_VERSION &&
       metadata.provider === CODEX_APP_SERVER_PROVIDER_ID &&
@@ -677,7 +678,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     ) {
       return stopCodexAppServerProcessGroup(metadata, options);
     }
-    const executionId = normalizeText(metadata.executionId);
+    const executionId = normalizeNullableText(metadata.executionId);
     if (executionId) {
       const stopExecution = typeof options.stopExecution === "function"
         ? options.stopExecution
@@ -721,7 +722,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   }
 
   async function stopCodexAppServerProcess(runtimeDir = "", options = {}) {
-    const normalizedRuntimeDir = normalizeText(runtimeDir);
+    const normalizedRuntimeDir = normalizeNullableText(runtimeDir);
     if (!normalizedRuntimeDir) {
       return {
         processExitVerified: false,
@@ -755,12 +756,12 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     if (!neverStarted) {
       try {
         processStop = await stopOwnedCodexAppServerExecution({
-          executionId: normalizeText(executionId),
+          executionId: normalizeNullableText(executionId),
           pid: Number(pid),
           processIdentity,
           processState: CODEX_APP_SERVER_PROCESS_STATE.RUNNING,
           provider: CODEX_APP_SERVER_PROVIDER_ID,
-          runtimeDir: normalizeText(runtimeDir),
+          runtimeDir: normalizeNullableText(runtimeDir),
           schemaVersion: CODEX_APP_SERVER_METADATA_SCHEMA_VERSION
         }, options);
       } catch {
@@ -793,7 +794,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   }
 
   async function stopCodexAppServerRuntime(options = {}) {
-    const runtimeDir = normalizeText(options.runtimeDir);
+    const runtimeDir = normalizeNullableText(options.runtimeDir);
     const preserveProcessExitProof = options.preserveProcessExitProof === true;
     if (!runtimeDir || !codexAppServerRuntimeDirIsManaged(runtimeDir)) {
       return {
@@ -829,7 +830,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     };
     try {
       const existing = await readCodexAppServerMetadata(runtimeDir);
-      const expectedAccount = normalizeText(options.expectedAccountIdentitySignature);
+      const expectedAccount = normalizeNullableText(options.expectedAccountIdentitySignature);
       const ownedRuntime = options.ownedRuntime;
       if (
         ownedRuntime &&
@@ -854,7 +855,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
           ? await execution.stopOwned({
             kind: "assistant",
             operationId: "codex-app-server",
-            ownerId: normalizeText(options.ownerId) || stableHash(runtimeDir)
+            ownerId: normalizeNullableText(options.ownerId) || stableHash(runtimeDir)
           }, { reason: "codex-app-server-changeover" })
           : null;
         const ownerExitVerified = owned?.supported === true && owned?.ok === true && owned?.scopeEmpty === true;
@@ -919,9 +920,9 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
 
   function codexAppServerMetadataIsWellFormed(metadata = {}, options = {}) {
     const expectedAttachmentHostRoot = options.compatibility.attachmentHostRoot;
-    const expectedAccountIdentitySignature = normalizeText(options.accountIdentitySignature);
+    const expectedAccountIdentitySignature = normalizeNullableText(options.accountIdentitySignature);
     const expectedExecutionMode = codexAppServerExecutionMode(options);
-    const expectedToolHomeSource = codexAppServerIsHelper(options) ? "" : normalizeText(options.toolHomeSource);
+    const expectedToolHomeSource = codexAppServerIsHelper(options) ? "" : normalizeNullableText(options.toolHomeSource);
     const expectedTerminalEnvHash = codexAppServerTerminalEnvHash(codexAppServerIsHelper(options) ? {} : options.terminalEnv);
     const expectedRuntimesHash = options.compatibility.runtimesHash;
     const expectedExecutionContextHash = options.compatibility.executionContextHash;
@@ -956,7 +957,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     timeoutMs = CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS,
     WebSocketImpl = WebSocket
   } = {}) {
-    const normalizedEndpoint = normalizeText(endpoint);
+    const normalizedEndpoint = normalizeNullableText(endpoint);
     const socketPath = socketPathFromCodexAppServerEndpoint(normalizedEndpoint);
     if (!socketPath || !await fileExists(socketPath)) {
       return {
@@ -1153,7 +1154,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     await ensureWritablePrivateDirectory(runtimeDir);
     const helper = codexAppServerExecutionMode({ executionMode }) ===
       CODEX_APP_SERVER_EXECUTION_MODES.HELPER;
-    const normalizedToolHomeSource = normalizeText(toolHomeSource);
+    const normalizedToolHomeSource = normalizeNullableText(toolHomeSource);
     if (normalizedToolHomeSource) {
       await assertExistingDirectory(normalizedToolHomeSource, "Codex credential home");
     }
@@ -1280,7 +1281,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         label: "Codex assistant",
         lifecycle: "service",
         operationId: "codex-app-server",
-        ownerId: normalizeText(ownerId) || stableHash(runtimeDir)
+        ownerId: normalizeNullableText(ownerId) || stableHash(runtimeDir)
       },
       processProfile: profileBinary?.isFile() ? {
         command: codexCommand, helper, executionMode,
@@ -1413,11 +1414,11 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
     }
 
     return {
-      accountIdentitySignature: normalizeText(accountIdentitySignature),
+      accountIdentitySignature: normalizeNullableText(accountIdentitySignature),
       attachmentHostRoot: compatibility.attachmentHostRoot,
       authStateSignature: resolvedAuthStateSignature,
       endpoint,
-      executionId: normalizeText(startResult.execution?.id),
+      executionId: normalizeNullableText(startResult.execution?.id),
       executionMode: helper
         ? CODEX_APP_SERVER_EXECUTION_MODES.HELPER
         : CODEX_APP_SERVER_EXECUTION_MODES.INTERACTIVE,

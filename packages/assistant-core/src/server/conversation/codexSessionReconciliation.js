@@ -1,5 +1,5 @@
 import { normalizeCodexRunText as normalizeText, codexAppServerErrorMessage as errorMessage } from "./codexTurnState.js";
-import { isPlainObject as isRecord } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Original batch restoration, prune and startup unsubscribe. The run owner's
 // existing lifecycle and per-thread readiness retain all state and coordination.

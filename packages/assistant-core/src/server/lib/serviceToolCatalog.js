@@ -1,6 +1,6 @@
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
@@ -282,11 +282,6 @@ function parseToolPayload(argumentsText) {
 function normalizeNonNegativeInteger(value, fallback) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
-}
-
-function normalizePositiveInteger(value, fallback) {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function serializedByteLength(value) {
@@ -639,13 +634,10 @@ function createServiceToolCatalog(
   const maxDirectTools = normalizeNonNegativeInteger(rawMaxDirectTools, DEFAULT_MAX_DIRECT_TOOLS);
   const discoveryPageSize = Math.min(
     MAX_DISCOVERY_PAGE_SIZE,
-    normalizePositiveInteger(rawDiscoveryPageSize, DEFAULT_DISCOVERY_PAGE_SIZE)
+    normalizePositiveInteger(rawDiscoveryPageSize, { fallback: DEFAULT_DISCOVERY_PAGE_SIZE })
   );
-  const maxToolArgumentBytes = normalizePositiveInteger(
-    rawMaxToolArgumentBytes,
-    DEFAULT_MAX_TOOL_ARGUMENT_BYTES
-  );
-  const maxToolResultBytes = normalizePositiveInteger(rawMaxToolResultBytes, DEFAULT_MAX_TOOL_RESULT_BYTES);
+  const maxToolArgumentBytes = normalizePositiveInteger(rawMaxToolArgumentBytes, { fallback: DEFAULT_MAX_TOOL_ARGUMENT_BYTES });
+  const maxToolResultBytes = normalizePositiveInteger(rawMaxToolResultBytes, { fallback: DEFAULT_MAX_TOOL_RESULT_BYTES });
   const toolSetStates = new WeakMap();
   let methodEntries = null;
 
@@ -769,7 +761,7 @@ function createServiceToolCatalog(
           return terms.every((term) => searchable.includes(term));
         });
     const offset = decodeDiscoveryCursor(payload.cursor, query);
-    const requestedLimit = normalizePositiveInteger(payload.limit, discoveryPageSize);
+    const requestedLimit = normalizePositiveInteger(payload.limit, { fallback: discoveryPageSize });
     const limit = Math.min(MAX_DISCOVERY_PAGE_SIZE, requestedLimit);
     const page = matches.slice(offset, offset + limit);
     const nextOffset = offset + page.length;

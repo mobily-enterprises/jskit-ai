@@ -1,3 +1,4 @@
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { conversationTurnMessages } from "./turns.js";
 
 // Original paged transcript representation, shared by all browser bindings.
@@ -73,10 +74,6 @@ function conversationLogPage(turns, { beforeTurnId = "", limit = 0 } = {}) {
     hasMoreBefore: start > 0,
     nextBeforeTurnId
   };
-}
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function normalizeConversationLogPagination(pagination = {}) {

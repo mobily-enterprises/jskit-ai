@@ -1,4 +1,4 @@
-import { normalizeText } from "../normalize.js";
+import { normalizeNullableText } from "../normalize.js";
 import { createConversationChangeover } from "../continuity.js";
 
 // The host retains profile authority and durable parent receipts. This original
@@ -7,11 +7,11 @@ export async function runScopedConversationTurn({ operations, scope = {}, input 
   executionProfile: profileSnapshot } = {}) {
   const request = { ...input, ephemeral: true, message: input.prompt || input.message };
   options.signal?.throwIfAborted();
-  let conversationId = normalizeText(input.conversationId || input.threadId);
+  let conversationId = normalizeNullableText(input.conversationId || input.threadId);
   if (!conversationId) {
     const created = await operations.createEphemeralConversation(scope, request, options);
     if (created?.ok === false) return created;
-    conversationId = normalizeText(created.conversationId);
+    conversationId = normalizeNullableText(created.conversationId);
     if (!conversationId) throw new Error("The helper did not return its conversation identity.");
   }
   // Await ownership before starting: Stop or a failed parent write must not
@@ -20,7 +20,7 @@ export async function runScopedConversationTurn({ operations, scope = {}, input 
   options.signal?.throwIfAborted();
   const started = await operations.startEphemeralConversationTurn(scope, { ...request, conversationId }, options);
   if (started?.ok === false) return { ...started, threadId: conversationId };
-  const runId = normalizeText(started.runId);
+  const runId = normalizeNullableText(started.runId);
   await options.onEvent?.({ type: "turn", threadId: conversationId, turnId: runId, status: started.status });
   if (options.signal?.aborted) {
     const stopped = await operations.stopEphemeralConversation(scope, { ...request, conversationId, runId }, options);

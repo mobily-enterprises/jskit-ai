@@ -3,16 +3,17 @@ import {
   openCodeMessageRows, openCodeRowsForInput, openCodePersistentConversationMessages, openCodeStructuredOutput, projectOpenCodeConversationMessages, waitForOpenCodeMessages, steerOpenCodeTurn, dispatchOpenCodeTurn, observeOpenCodeTurnCompletion, runOpenCodeConversationTurn
 } from "./openCodeTurn.js";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
-import { isPlainObject, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const text = normalizeText;
+const text = normalizeNullableText;
 const sharedRuntimes = new Map();
 
 function openCodeTurnSnapshot(turn = null, threadId = "") {
-  const source = isPlainObject(turn) ? turn : {};
+  const source = isRecord(turn) ? turn : {};
   const active = source.active === true;
   return active || text(source.id)
     ? {

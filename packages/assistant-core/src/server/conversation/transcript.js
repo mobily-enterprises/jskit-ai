@@ -1,4 +1,4 @@
-import { normalizeText } from "./normalize.js";
+import { normalizeNullableText } from "./normalize.js";
 import { conversationLogPage } from "../../shared/conversation/pagination.js";
 
 /** Conversation policy, independent of database, filesystem, identity and HTTP. */
@@ -25,7 +25,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
         ? (await Promise.all(allIds.map(id => transaction.readTurn(id))))
           .filter(turn => hasMessages(turn) && (!presentation || !isCompletedEnvelopeTurn(turn))) : null;
       const ids = visible ? visible.map(turn => turn.turnId) : allIds;
-      const before = normalizeText(beforeTurnId);
+      const before = normalizeNullableText(beforeTurnId);
       const requestedLimit = Number.parseInt(String(limit || ""), 10);
       const pageLimit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 0;
       let page;
@@ -66,13 +66,13 @@ export function createConversationTranscript({ storage, clock = () => new Date()
   }
 
   async function append(scope, role, { text = "", messageId = "", at = "", attachments = [], data, turnMetadata = null, requireOpenTurn = false, outputId = "", turnId: requestedTurnId = "" } = {}) {
-    const messageText = normalizeText(text);
-    const id = normalizeText(messageId);
+    const messageText = normalizeNullableText(text);
+    const id = normalizeNullableText(messageId);
     if (!messageText && !(role === "user" && Array.isArray(attachments) && attachments.length)) return null;
     return storage.write(scope, async (transaction) => {
       if (id && await transaction.hasMessage(id)) return null;
       const createdAt = new Date(at || clock());
-      const targetId = ["assistant", "commentary", "thinking"].includes(role) ? normalizeText(requestedTurnId) : "";
+      const targetId = ["assistant", "commentary", "thinking"].includes(role) ? normalizeNullableText(requestedTurnId) : "";
       const target = targetId ? await transaction.readTurn(targetId) : null;
       if (targetId && !target) throw new Error("The native output's original turn no longer exists.");
       const tail = target || (["assistant", "commentary", "thinking"].includes(role) ? await tailTurn(transaction) : null);
@@ -84,7 +84,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
       const turnId = target?.turnId || open?.turnId || (thinkingOnly ? tail.turnId : await transaction.nextTurnId());
       await transaction.appendMessage(turnId, {
         role, text: messageText, messageId: id, at: createdAt.toISOString(),
-        ...(["assistant", "commentary", "thinking"].includes(role) && normalizeText(outputId) ? { outputId: normalizeText(outputId) } : {}),
+        ...(["assistant", "commentary", "thinking"].includes(role) && normalizeNullableText(outputId) ? { outputId: normalizeNullableText(outputId) } : {}),
         ...(role === "user" ? { attachments, turnMetadata } : {}),
         ...(data !== undefined ? { data: structuredClone(data) } : {})
       });
@@ -94,7 +94,7 @@ export function createConversationTranscript({ storage, clock = () => new Date()
 
   // The first turn whose submitted (user or application) message has this ID.
   async function findSubmittedTurn(scope, messageId) {
-    const id = normalizeText(messageId);
+    const id = normalizeNullableText(messageId);
     if (!id) return null;
     return storage.read(scope, async (transaction) => {
       const submitted = turn => hasMessages(turn) && (turn.user || turn.system)?.messageId === id ? turn : null;
@@ -116,17 +116,17 @@ export function createConversationTranscript({ storage, clock = () => new Date()
     readConversationLog,
     findSubmittedTurn,
     readConversationLogPage,
-    conversationMessageIdExists: (scope, messageId) => storage.read(scope, (transaction) => transaction.hasMessage(normalizeText(messageId))),
+    conversationMessageIdExists: (scope, messageId) => storage.read(scope, (transaction) => transaction.hasMessage(normalizeNullableText(messageId))),
     writeConversationUserMessage: (scope, input) => append(scope, "user", input),
     writeConversationAssistantMessage: (scope, input) => append(scope, "assistant", input),
     writeConversationCommentaryMessage: (scope, input) => append(scope, "commentary", input),
     writeConversationThinkingMessage: (scope, input) => append(scope, "thinking", input),
     writeConversationSystemMessage: (scope, input) => append(scope, "system", input),
     async upsertConversationAssistantMessage(scope, { turnId = "", text = "" } = {}) {
-      const messageText = normalizeText(text);
+      const messageText = normalizeNullableText(text);
       if (!messageText) return null;
       return storage.write(scope, async (transaction) => {
-        const id = normalizeText(turnId);
+        const id = normalizeNullableText(turnId);
         await transaction.replaceAssistant(id, { role: "assistant", text: messageText, at: new Date(clock()).toISOString() });
         return transaction.readTurn(id);
       });

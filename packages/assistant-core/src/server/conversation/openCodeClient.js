@@ -1,15 +1,16 @@
 import { pathToFileURL } from "node:url";
 import { Buffer } from "node:buffer";
 import path from "node:path";
-import { isPlainObject, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { createNativeHistoryExport, readStoppedNativeDatabase, retireNativeConversation } from "./nativeHistoryExport.js";
 
 const OPENCODE_RESPONSE_LIMIT_BYTES = 2 * 1024 * 1024;
 const OPENCODE_CATALOG_LIMIT_BYTES = 32 * 1024 * 1024;
 const OPENCODE_EVENT_LIMIT_BYTES = 2 * 1024 * 1024;
 
-const text = normalizeText;
-const record = value => isPlainObject(value) ? value : {};
+const text = normalizeNullableText;
+const record = value => isRecord(value) ? value : {};
 
 function openCodeServerError(message, {
   body = null,

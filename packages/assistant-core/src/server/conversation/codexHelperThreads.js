@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createCodexHelperOwnershipError, prepareDetachedCodexHelperThread } from "./codexHelperExecution.js";
 import { deleteCodexAppServerHelperThread } from "./codexProvider.js";
 import { directoryExists } from "./codexProviderOwner.js";
@@ -10,10 +11,6 @@ import {
 } from "./codexHelperThreadLedger.js";
 
 const CODEX_APP_SERVER_PROVIDER_ID = "codex_app_server";
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
 
 // Internal facet of the original run owner. Public supplies policy and authorized
 // scope inputs; native ownership, pending work and retirement have one owner.

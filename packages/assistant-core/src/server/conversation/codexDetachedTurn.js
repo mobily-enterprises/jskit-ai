@@ -1,4 +1,5 @@
-import { normalizeText, isPlainObject } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { classifyCodexAppServerEvent, codexAppServerNotificationParams, codexAppServerNotificationThreadId, codexAppServerNotificationTurnId, codexAppServerNotificationTurnStatus, codexAppServerNotificationError, codexAppServerStatusFromValue, codexAppServerProviderThreadAssistantSegments, codexAppServerProviderTurnId, codexAppServerProviderTurnStatus, codexAppServerProviderTurnForOperation, codexAppServerProviderTurnText, codexAppServerProviderTurnError } from "./codexEvents.js";
 import { codexAppServerTurnStatusIsProviderFailure, codexAppServerTurnStatusIsSuccessfulComplete } from "./codexTurnState.js";
 
@@ -6,12 +7,12 @@ const CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS = 180_000;
 const CODEX_APP_SERVER_DETACHED_FAILURE_DETAIL_GRACE_MS = 500;
 
 function codexAppServerTurnTokenUsage(notification = {}) {
-  if (normalizeText(notification.method) !== "thread/tokenUsage/updated") {
+  if (normalizeNullableText(notification.method) !== "thread/tokenUsage/updated") {
     return null;
   }
   const params = codexAppServerNotificationParams(notification);
-  const tokenUsage = isPlainObject(params.tokenUsage) ? params.tokenUsage : {};
-  const turnUsage = isPlainObject(tokenUsage.last) ? tokenUsage.last : tokenUsage;
+  const tokenUsage = isRecord(params.tokenUsage) ? params.tokenUsage : {};
+  const turnUsage = isRecord(tokenUsage.last) ? tokenUsage.last : tokenUsage;
   const snapshot = {};
   for (const field of [
     "cachedInputTokens",
@@ -35,7 +36,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
   onEvent = null,
   timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS
 } = {}) {
-  const normalizedThreadId = normalizeText(threadId);
+  const normalizedThreadId = normalizeNullableText(threadId);
   let targetTurnId = "";
   let finalText = "";
   let usage = null;
@@ -106,7 +107,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
     const rawStatus = thread.raw?.status || thread.response?.thread?.status;
     return {
       status: codexAppServerStatusFromValue(rawStatus),
-      statusType: normalizeText(typeof rawStatus === "string" ? rawStatus : rawStatus?.type),
+      statusType: normalizeNullableText(typeof rawStatus === "string" ? rawStatus : rawStatus?.type),
       text: codexAppServerProviderThreadAssistantSegments(thread, targetTurnId)
         .map((segment) => segment.text)
         .join("\n\n")
@@ -126,7 +127,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
   async function finishFromCompletion(status = "completed") {
     try {
       if (!targetTurnId) {
-        pendingCompletionStatus = normalizeText(status) || "completed";
+        pendingCompletionStatus = normalizeNullableText(status) || "completed";
         return;
       }
       const authoritative = await resultFromThread().catch(() => ({
@@ -136,7 +137,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
       }));
       finalText = authoritative.text || finalText;
       if (!finalText && !allowEmptyResponse) {
-        pendingCompletionStatus = normalizeText(status) || "completed";
+        pendingCompletionStatus = normalizeNullableText(status) || "completed";
         const systemError = authoritative.statusType === "systemError" || authoritative.status === "failed";
         failAfterDetailGrace(new Error(systemError
           ? "Codex app-server thread entered a system error before producing an assistant response."
@@ -175,7 +176,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
       failAfterDetailGrace(error);
     },
     setTurnId(turnId = "") {
-      targetTurnId = normalizeText(turnId);
+      targetTurnId = normalizeNullableText(turnId);
       if (pendingFailure) {
         failAfterDetailGrace(pendingFailure);
         return;
@@ -240,7 +241,7 @@ function createCodexAppServerDetachedTurnWatcher(provider = null, threadId = "",
                   void finishFromCompletion(status);
                 }
               }
-              const method = normalizeText(notification.method);
+              const method = normalizeNullableText(notification.method);
               if (method !== "turn/completed" && method !== "thread/status/changed") {
                 return;
               }
@@ -279,7 +280,7 @@ async function waitForCodexAppServerTurn(provider, threadId = "", turn = null, {
   timeoutMs = CODEX_APP_SERVER_DETACHED_TURN_TIMEOUT_MS,
   createError = codexAppServerTurnError
 } = {}) {
-  const normalizedThreadId = normalizeText(threadId || "");
+  const normalizedThreadId = normalizeNullableText(threadId || "");
   const turnId = codexAppServerProviderTurnId(turn || {});
   const status = codexAppServerProviderTurnStatus(turn || {});
   if (!normalizedThreadId || !turnId) {

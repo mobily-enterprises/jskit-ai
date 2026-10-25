@@ -1,6 +1,6 @@
 import { createConnection } from "node:net";
 import WebSocket from "ws";
-import { normalizeText as normalizeAgentText } from "./normalize.js";
+import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 const CODEX_APP_SERVER_REQUEST_TIMEOUT_MS = 60_000;
 function normalizePositiveInteger(value, fallback) {
   const number = Number(value);

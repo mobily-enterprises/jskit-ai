@@ -4,7 +4,7 @@ import {
   assertExistingDirectory, codexAppServerCommandBaseEnv, codexAppServerCredentialHome,
   codexAppServerProcessCwd, ensureWritablePrivateDirectory, normalizePositiveInteger
 } from "./codexProcess.js";
-import { normalizeText as normalizeAgentText } from "./normalize.js";
+import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 
 // Codex auth preflight: one bounded `codex debug models` run whose
 // reconnect-required output marks the stored credentials invalid.

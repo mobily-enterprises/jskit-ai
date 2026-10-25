@@ -1,4 +1,4 @@
-import { normalizeText as normalizeAgentText } from "./normalize.js";
+import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 import { codexAppServerProjectHookTrustConfig, codexAppServerTextHasControlCharacters } from "./codexConfiguration.js";
 import {
   codexAppServerRequestIsInvalid,

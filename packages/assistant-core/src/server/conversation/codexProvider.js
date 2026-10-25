@@ -18,7 +18,8 @@ import { prepareCodexHistory } from "./codexHistoryAdapter.js";
 import { createCodexConversationAdapter } from "./providers/codex.js";
 import { exportCodexNativeHistory } from "./codexNativeHistoryExport.js";
 import { retireNativeConversation, readStoppedNativeDatabase } from "./nativeHistoryExport.js";
-import { isPlainObject, normalizeText as normalizeAgentText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 import {
   codexAppServerProviderThreadTurns,
   codexAppServerProviderTurnItems,
@@ -199,7 +200,7 @@ async function inspectCodexAppServerMessageAdmission({ provider, threadId, messa
 // proof and durable cleanup receipt.
 async function deleteCodexAppServerThread({ provider, threadId } = {}) {
   const result = await provider.deleteThread(threadId);
-  if (!isPlainObject(result)) {
+  if (!isRecord(result)) {
     const error = new Error("Codex app-server returned an invalid thread deletion result.");
     error.code = "codex_helper_thread_delete_unconfirmed";
     throw error;
@@ -399,7 +400,7 @@ function codexAppServerHelperRequestError(error = null, reason = "", errorPrefix
 }
 
 function normalizeCodexAppServerInfo(initializeResult = null) {
-  if (!isPlainObject(initializeResult)) {
+  if (!isRecord(initializeResult)) {
     return null;
   }
   const rawUserAgent = initializeResult.userAgent;
@@ -425,8 +426,8 @@ function codexAppServerEndpointForTarget(endpoint = "") {
 }
 
 function codexAppServerThreadRequestParams(params = {}, threadEnv = {}) {
-  const source = isPlainObject(params) ? params : {};
-  const config = isPlainObject(source.config) ? source.config : {};
+  const source = isRecord(params) ? params : {};
+  const config = isRecord(source.config) ? source.config : {};
   if (Object.hasOwn(config, "shell_environment_policy")) {
     return source;
   }
@@ -498,13 +499,13 @@ async function sendCodexAppServerPrompt({
 function codexTurnInput(input = []) {
   const values = Array.isArray(input) ? input : [input];
   return values.map((item) => {
-    if (isPlainObject(item) && item.type === "localImage" && typeof item.path === "string") {
+    if (isRecord(item) && item.type === "localImage" && typeof item.path === "string") {
       return { type: "localImage", path: item.path };
     }
-    if (isPlainObject(item) && item.type === "image" && typeof item.url === "string") {
+    if (isRecord(item) && item.type === "image" && typeof item.url === "string") {
       return { type: "image", url: item.url };
     }
-    if (isPlainObject(item) && item.type === "text") {
+    if (isRecord(item) && item.type === "text") {
       return codexTextInput(item.text);
     }
     return codexTextInput(item);
@@ -623,7 +624,7 @@ async function listBoundedCodexAppServerThreadIds({
         entryBytes = CODEX_APP_SERVER_THREAD_INVENTORY_MAX_ENTRY_BYTES + 1;
       }
       if (
-        !isPlainObject(entry) ||
+        !isRecord(entry) ||
         !threadId ||
         threadId.length > CODEX_APP_SERVER_THREAD_INVENTORY_ID_MAX_LENGTH ||
         codexAppServerTextHasControlCharacters(threadId) ||
@@ -1980,7 +1981,7 @@ export class CodexAppServerAgentProvider {
         throw this.modelCatalogError("Codex model catalog exceeded its entry limit.");
       }
       for (const entry of response.data) {
-        if (!isPlainObject(entry)) {
+        if (!isRecord(entry)) {
           throw this.modelCatalogError("Codex model catalog contained an invalid entry.");
         }
         let entryBytes = 0;
@@ -2069,7 +2070,7 @@ export class CodexAppServerAgentProvider {
   }
 
   async writeHookTrustState(state = {}) {
-    if (!isPlainObject(state) || Object.keys(state).length === 0) {
+    if (!isRecord(state) || Object.keys(state).length === 0) {
       return null;
     }
     const client = await this.activeClient();

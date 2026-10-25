@@ -1,11 +1,9 @@
 import { createHash } from "node:crypto";
 
-export function normalizeText(value) {
+// Unlike the kernel's normalizeText, only null and undefined become blank:
+// 0 and false keep their text, as native protocol fields require.
+export function normalizeNullableText(value) {
   return String(value ?? "").trim();
-}
-
-export function isPlainObject(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 /** SHA-256 of the value's JSON text, used for stable configuration identities. */

@@ -1,4 +1,4 @@
-import { normalizeText as normalizeAgentText } from "./normalize.js";
+import { normalizeNullableText as normalizeAgentText } from "./normalize.js";
 
 // Bounded live model catalog, cached per provider connection generation.
 export function codexAppServerModelCatalogError(message = "", errorPrefix = "") {

@@ -1,7 +1,5 @@
-import {
-  isPlainObject,
-  normalizeText
-} from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 
 const CODEX_TOKEN_USAGE_METHOD = "thread/tokenUsage/updated";
 
@@ -14,7 +12,7 @@ function nonNegativeInteger(value) {
 }
 
 function codexContextUsageFromNotification(notification = {}) {
-  if (normalizeText(notification?.method) !== CODEX_TOKEN_USAGE_METHOD) {
+  if (normalizeNullableText(notification?.method) !== CODEX_TOKEN_USAGE_METHOD) {
     return null;
   }
   const params = notification?.params && typeof notification.params === "object"
@@ -33,8 +31,8 @@ function codexContextUsageFromNotification(notification = {}) {
   const inputTokens = nonNegativeInteger(last.inputTokens);
   const cumulativeTokens = nonNegativeInteger(total.totalTokens);
   const windowTokens = nonNegativeInteger(tokenUsage.modelContextWindow);
-  const threadId = normalizeText(params.threadId);
-  const turnId = normalizeText(params.turnId);
+  const threadId = normalizeNullableText(params.threadId);
+  const turnId = normalizeNullableText(params.turnId);
   if (
     !threadId ||
     !turnId ||
@@ -75,7 +73,7 @@ const CODEX_APP_SERVER_CONTEXT_REFRESH_SIGNALS = new Set([
 
 function codexAppServerStatusFromValue(status = null) {
   if (typeof status === "string") {
-    const normalized = normalizeText(status);
+    const normalized = normalizeNullableText(status);
     if (normalized === "active") {
       return "inProgress";
     }
@@ -87,10 +85,10 @@ function codexAppServerStatusFromValue(status = null) {
     }
     return normalized;
   }
-  if (!isPlainObject(status)) {
+  if (!isRecord(status)) {
     return "";
   }
-  const type = normalizeText(status.type);
+  const type = normalizeNullableText(status.type);
   if (type === "active") {
     return "inProgress";
   }
@@ -107,11 +105,11 @@ function codexAppServerStatusFromValue(status = null) {
 }
 
 function codexAppServerNotificationParams(notification = {}) {
-  return isPlainObject(notification?.params) ? notification.params : {};
+  return isRecord(notification?.params) ? notification.params : {};
 }
 
 function codexAppServerNotificationEvent(notification = {}) {
-  const method = normalizeText(notification.method);
+  const method = normalizeNullableText(notification.method);
   const params = codexAppServerNotificationParams(notification);
   const candidates = [
     params.event,
@@ -124,17 +122,17 @@ function codexAppServerNotificationEvent(notification = {}) {
     notification.record
   ];
   for (const candidate of candidates) {
-    if (isPlainObject(candidate)) {
+    if (isRecord(candidate)) {
       return candidate;
     }
   }
-  if (isPlainObject(params.payload) || normalizeText(params.type)) {
+  if (isRecord(params.payload) || normalizeNullableText(params.type)) {
     return params;
   }
-  if (isPlainObject(notification.payload) || normalizeText(notification.type)) {
+  if (isRecord(notification.payload) || normalizeNullableText(notification.type)) {
     return notification;
   }
-  if (["event_msg", "response_item", "task_complete"].includes(method) && isPlainObject(params)) {
+  if (["event_msg", "response_item", "task_complete"].includes(method) && isRecord(params)) {
     return params;
   }
   return null;
@@ -142,33 +140,33 @@ function codexAppServerNotificationEvent(notification = {}) {
 
 function codexAppServerNotificationEventType(notification = {}, event = null) {
   const params = codexAppServerNotificationParams(notification);
-  return normalizeText(event?.type || params.type || notification.type || notification.method);
+  return normalizeNullableText(event?.type || params.type || notification.type || notification.method);
 }
 
 function codexAppServerNotificationEventPayload(notification = {}, event = null) {
-  if (isPlainObject(event?.payload)) {
+  if (isRecord(event?.payload)) {
     return event.payload;
   }
   const params = codexAppServerNotificationParams(notification);
-  if (isPlainObject(params.payload)) {
+  if (isRecord(params.payload)) {
     return params.payload;
   }
-  if (isPlainObject(notification.payload)) {
+  if (isRecord(notification.payload)) {
     return notification.payload;
   }
-  return isPlainObject(event) ? event : {};
+  return isRecord(event) ? event : {};
 }
 
 function codexAppServerNotificationItem(notification = {}) {
   const item = codexAppServerNotificationParams(notification).item;
-  return isPlainObject(item) ? item : null;
+  return isRecord(item) ? item : null;
 }
 
 function codexAppServerNotificationThreadId(notification = {}) {
   const params = codexAppServerNotificationParams(notification);
   const event = codexAppServerNotificationEvent(notification);
   const payload = codexAppServerNotificationEventPayload(notification, event);
-  return normalizeText(
+  return normalizeNullableText(
     params.threadId ||
     params.thread_id ||
     params.thread?.id ||
@@ -184,7 +182,7 @@ function codexAppServerNotificationTurnId(notification = {}) {
   const event = codexAppServerNotificationEvent(notification);
   const payload = codexAppServerNotificationEventPayload(notification, event);
   const item = codexAppServerNotificationItem(notification);
-  return normalizeText(
+  return normalizeNullableText(
     params.turnId ||
     params.turn_id ||
     params.turn?.id ||
@@ -199,7 +197,7 @@ function codexAppServerNotificationTurnId(notification = {}) {
 
 function codexAppServerNotificationTurnStatus(notification = {}) {
   const params = codexAppServerNotificationParams(notification);
-  const turnStatus = normalizeText(params.turn?.status);
+  const turnStatus = normalizeNullableText(params.turn?.status);
   return turnStatus || codexAppServerStatusFromValue(params.status);
 }
 
@@ -208,7 +206,7 @@ function codexAppServerErrorText(value = null, seen = new Set()) {
     return "";
   }
   if (typeof value === "string") {
-    const text = normalizeText(value);
+    const text = normalizeNullableText(value);
     if (text.startsWith("{") || text.startsWith("[")) {
       try {
         const parsed = JSON.parse(text);
@@ -222,7 +220,7 @@ function codexAppServerErrorText(value = null, seen = new Set()) {
     }
     return text;
   }
-  if (!isPlainObject(value)) {
+  if (!isRecord(value)) {
     return "";
   }
   if (seen.has(value)) {
@@ -238,16 +236,16 @@ function codexAppServerErrorText(value = null, seen = new Set()) {
     codexAppServerErrorText(value.codexErrorInfo || value.codex_error_info, seen)
   ].filter(Boolean);
   if (!messages.length) {
-    return normalizeText(value.code);
+    return normalizeNullableText(value.code);
   }
   return [...new Set(messages)].join(" ");
 }
 
 function codexAppServerNotificationError(notification = {}) {
   const params = codexAppServerNotificationParams(notification);
-  const status = isPlainObject(params.status) ? params.status : {};
-  const turn = isPlainObject(params.turn) ? params.turn : {};
-  return normalizeText(
+  const status = isRecord(params.status) ? params.status : {};
+  const turn = isRecord(params.turn) ? params.turn : {};
+  return normalizeNullableText(
     codexAppServerErrorText(params.error) ||
     params.message ||
     codexAppServerErrorText(status.error) ||
@@ -259,23 +257,23 @@ function codexAppServerNotificationError(notification = {}) {
 
 function codexAppServerNotificationUsageLimitExceeded(notification = {}) {
   const params = codexAppServerNotificationParams(notification);
-  const status = isPlainObject(params.status) ? params.status : {};
-  const turn = isPlainObject(params.turn) ? params.turn : {};
+  const status = isRecord(params.status) ? params.status : {};
+  const turn = isRecord(params.turn) ? params.turn : {};
   return [params.error, status.error, turn.error].some((error) => (
-    isPlainObject(error) &&
-    normalizeText(error.codexErrorInfo || error.codex_error_info) === "usageLimitExceeded"
+    isRecord(error) &&
+    normalizeNullableText(error.codexErrorInfo || error.codex_error_info) === "usageLimitExceeded"
   ));
 }
 
 function codexAppServerTextInputText(input = {}) {
-  if (!isPlainObject(input) || normalizeText(input.type) !== "text") {
+  if (!isRecord(input) || normalizeNullableText(input.type) !== "text") {
     return "";
   }
-  return normalizeText(input.text);
+  return normalizeNullableText(input.text);
 }
 
 function codexAppServerUserMessageText(item = {}) {
-  if (!isPlainObject(item) || normalizeText(item.type) !== "userMessage") {
+  if (!isRecord(item) || normalizeNullableText(item.type) !== "userMessage") {
     return "";
   }
   return (Array.isArray(item.content) ? item.content : [])
@@ -291,7 +289,7 @@ function codexAppServerContentText(value = null) {
   if (Array.isArray(value)) {
     return value.map((entry) => codexAppServerContentText(entry)).filter(Boolean).join("");
   }
-  if (!isPlainObject(value)) {
+  if (!isRecord(value)) {
     return "";
   }
   if (typeof value.text === "string") {
@@ -306,18 +304,18 @@ function codexAppServerContentText(value = null) {
   if (typeof value.message === "string" || Array.isArray(value.message)) {
     return codexAppServerContentText(value.message);
   }
-  if (isPlainObject(value.message)) {
+  if (isRecord(value.message)) {
     return codexAppServerContentText(value.message.content || value.message.text);
   }
   return "";
 }
 
 function codexAppServerAssistantItemText(item = {}) {
-  if (!isPlainObject(item)) {
+  if (!isRecord(item)) {
     return "";
   }
-  const type = normalizeText(item.type);
-  const role = normalizeText(item.role || item.author?.role);
+  const type = normalizeNullableText(item.type);
+  const role = normalizeNullableText(item.role || item.author?.role);
   const isAssistant = role === "assistant" ||
     type === "agentMessage" ||
     type === "assistantMessage" ||
@@ -327,7 +325,7 @@ function codexAppServerAssistantItemText(item = {}) {
   if (!isAssistant) {
     return "";
   }
-  return normalizeText(
+  return normalizeNullableText(
     codexAppServerContentText(item.content) ||
     codexAppServerContentText(item.text) ||
     codexAppServerContentText(item.message)
@@ -335,11 +333,11 @@ function codexAppServerAssistantItemText(item = {}) {
 }
 
 function codexAppServerHookPromptText(item = {}) {
-  if (!isPlainObject(item) || normalizeText(item.type) !== "hookPrompt") {
+  if (!isRecord(item) || normalizeNullableText(item.type) !== "hookPrompt") {
     return "";
   }
   return (Array.isArray(item.fragments) ? item.fragments : [])
-    .map((fragment) => normalizeText(fragment?.text))
+    .map((fragment) => normalizeNullableText(fragment?.text))
     .filter(Boolean)
     .join("\n\n");
 }
@@ -349,7 +347,7 @@ function codexAppServerNotificationItemId(notification = {}) {
   const item = codexAppServerNotificationItem(notification);
   const event = codexAppServerNotificationEvent(notification);
   const payload = codexAppServerNotificationEventPayload(notification, event);
-  return normalizeText(
+  return normalizeNullableText(
     item?.id ||
     params.itemId ||
     params.item_id ||
@@ -363,7 +361,7 @@ function codexAppServerNotificationItemId(notification = {}) {
 
 // Text of an event_msg agent_message payload.
 function codexAppServerAgentMessageText(payload = {}) {
-  return normalizeText(
+  return normalizeNullableText(
     codexAppServerContentText(payload.message) ||
     codexAppServerContentText(payload.text) ||
     codexAppServerContentText(payload.content)
@@ -372,10 +370,10 @@ function codexAppServerAgentMessageText(payload = {}) {
 
 function codexAppServerFinalEventText(notification = {}, event = null, payload = {}) {
   const eventType = codexAppServerNotificationEventType(notification, event);
-  const payloadType = normalizeText(payload.type);
-  const phase = normalizeText(payload.phase || event?.phase);
+  const payloadType = normalizeNullableText(payload.type);
+  const phase = normalizeNullableText(payload.phase || event?.phase);
   if (eventType === "task_complete") {
-    return normalizeText(
+    return normalizeNullableText(
       codexAppServerContentText(payload.last_agent_message) ||
       codexAppServerContentText(payload.lastAgentMessage)
     );
@@ -390,15 +388,15 @@ function codexAppServerFinalEventText(notification = {}, event = null, payload =
 }
 
 function classifyCodexAppServerEvent(notification = {}) {
-  const method = normalizeText(notification.method);
+  const method = normalizeNullableText(notification.method);
   const event = codexAppServerNotificationEvent(notification);
   const payload = codexAppServerNotificationEventPayload(notification, event);
   const eventType = event ? codexAppServerNotificationEventType(notification, event) : "";
-  const payloadType = normalizeText(payload.type);
+  const payloadType = normalizeNullableText(payload.type);
   const item = codexAppServerNotificationItem(notification);
-  const itemType = normalizeText(item?.type);
+  const itemType = normalizeNullableText(item?.type);
   const itemText = codexAppServerAssistantItemText(item);
-  const phase = normalizeText(payload.phase || event?.phase || item?.phase || item?.purpose || item?.category);
+  const phase = normalizeNullableText(payload.phase || event?.phase || item?.phase || item?.purpose || item?.category);
   const base = {
     itemId: codexAppServerNotificationItemId(notification),
     source: method || eventType || "notification",
@@ -442,7 +440,7 @@ function classifyCodexAppServerEvent(notification = {}) {
       ...base,
       kind: "reasoning_summary",
       delta: codexAppServerContentText(codexAppServerNotificationParams(notification).delta),
-      text: normalizeText(codexAppServerContentText(codexAppServerNotificationParams(notification).delta))
+      text: normalizeNullableText(codexAppServerContentText(codexAppServerNotificationParams(notification).delta))
     };
   }
 
@@ -536,7 +534,7 @@ function classifyCodexAppServerEvent(notification = {}) {
 }
 
 function codexAppServerSignalName(value = "") {
-  return normalizeText(value)
+  return normalizeNullableText(value)
     .toLowerCase()
     .replaceAll("-", "_")
     .replaceAll("/", "_");
@@ -552,7 +550,7 @@ function codexAppServerSignalNames(value = null) {
   if (Array.isArray(value)) {
     return value.flatMap((entry) => codexAppServerSignalNames(entry));
   }
-  if (!isPlainObject(value)) {
+  if (!isRecord(value)) {
     return [];
   }
   return [
@@ -568,12 +566,12 @@ function codexAppServerSignalNames(value = null) {
 }
 
 function codexAppServerContextRefreshReason(notification = {}) {
-  const method = normalizeText(notification.method);
+  const method = normalizeNullableText(notification.method);
   const item = codexAppServerNotificationItem(notification);
   const event = codexAppServerNotificationEvent(notification);
   const payload = codexAppServerNotificationEventPayload(notification, event);
   const eventType = codexAppServerNotificationEventType(notification, event);
-  const payloadType = normalizeText(payload.type);
+  const payloadType = normalizeNullableText(payload.type);
   const signals = [
     method,
     item?.type,
@@ -596,25 +594,25 @@ function codexAppServerContextRefreshReason(notification = {}) {
 // Like codexAppServerThreadRawValue, but provider results may also wrap the
 // thread once more under `thread`, checked after raw and response.thread.
 function codexAppServerProviderThread(value = {}) {
-  if (!isPlainObject(value?.raw) && !isPlainObject(value?.response?.thread) && isPlainObject(value?.thread)) {
+  if (!isRecord(value?.raw) && !isRecord(value?.response?.thread) && isRecord(value?.thread)) {
     return value.thread;
   }
   return codexAppServerThreadRawValue(value || {});
 }
 
 function codexAppServerProviderTurnId(turn = {}) {
-  return normalizeText(turn.id || turn.turnId || turn.turn_id || turn.turn?.id || "");
+  return normalizeNullableText(turn.id || turn.turnId || turn.turn_id || turn.turn?.id || "");
 }
 
 function codexAppServerProviderTurnItems(turn = {}) {
   return [
     ...(Array.isArray(turn.items) ? turn.items : []),
     ...(Array.isArray(turn.itemsView) ? turn.itemsView : [])
-  ].filter(isPlainObject);
+  ].filter(isRecord);
 }
 
 function codexAppServerProviderThreadTurn(value = {}, turnId = "") {
-  const normalizedTurnId = normalizeText(turnId);
+  const normalizedTurnId = normalizeNullableText(turnId);
   if (!normalizedTurnId) {
     return null;
   }
@@ -634,11 +632,11 @@ function codexAppServerProviderTurnAssistantSegments(turn = {}) {
   const active = ["inProgress", "starting"].includes(codexAppServerStatusFromValue(turn.status));
   return items
     .filter((item, index) => {
-      const phase = normalizeText(item.phase);
+      const phase = normalizeNullableText(item.phase);
       return phase === "final_answer" || (!phase && !active && index >= responseStart);
     })
     .map((item) => {
-      const itemId = normalizeText(item.id);
+      const itemId = normalizeNullableText(item.id);
       const text = codexAppServerAssistantItemText(item);
       if (
         !itemId ||
@@ -669,37 +667,37 @@ function codexAppServerOutputOwnerTurnId({
   trackedThreadId = "",
   trackedTurnId = ""
 } = {}) {
-  const normalizedNotificationThreadId = normalizeText(notificationThreadId);
-  const normalizedTrackedThreadId = normalizeText(trackedThreadId);
-  const normalizedTrackedTurnId = normalizeText(trackedTurnId);
+  const normalizedNotificationThreadId = normalizeNullableText(notificationThreadId);
+  const normalizedTrackedThreadId = normalizeNullableText(trackedThreadId);
+  const normalizedTrackedTurnId = normalizeNullableText(trackedTurnId);
   const trackedTurnOwnsResult = trackedActive === true &&
-    ["active", "finalizing"].includes(normalizeText(trackedState)) &&
+    ["active", "finalizing"].includes(normalizeNullableText(trackedState)) &&
     Boolean(normalizedTrackedTurnId) &&
     Boolean(normalizedNotificationThreadId) &&
     normalizedNotificationThreadId === normalizedTrackedThreadId;
   return trackedTurnOwnsResult
     ? normalizedTrackedTurnId
-    : normalizeText(notificationTurnId);
+    : normalizeNullableText(notificationTurnId);
 }
 
 function codexAppServerThreadRawValue(thread = {}) {
-  if (isPlainObject(thread.raw)) {
+  if (isRecord(thread.raw)) {
     return thread.raw;
   }
-  if (isPlainObject(thread.response?.thread)) {
+  if (isRecord(thread.response?.thread)) {
     return thread.response.thread;
   }
-  return isPlainObject(thread) ? thread : {};
+  return isRecord(thread) ? thread : {};
 }
 
 function codexAppServerThreadTurnId(thread = {}) {
-  const observedTurnId = normalizeText(thread.observedTurn?.id || "");
+  const observedTurnId = normalizeNullableText(thread.observedTurn?.id || "");
   if (observedTurnId) {
     return observedTurnId;
   }
   const rawThread = codexAppServerThreadRawValue(thread);
-  const status = isPlainObject(rawThread.status) ? rawThread.status : {};
-  return normalizeText(
+  const status = isRecord(rawThread.status) ? rawThread.status : {};
+  return normalizeNullableText(
     thread.turnId ||
     thread.turn_id ||
     thread.turn?.id ||
@@ -723,14 +721,14 @@ function codexAppServerThreadTurnId(thread = {}) {
 
 function codexAppServerThreadError(thread = {}) {
   const rawThread = codexAppServerThreadRawValue(thread);
-  const status = isPlainObject(rawThread.status) ? rawThread.status : {};
+  const status = isRecord(rawThread.status) ? rawThread.status : {};
   return codexAppServerErrorText(rawThread.error || status.error);
 }
 
 function codexAppServerProviderThreadTurns(thread = null) {
   const rawThread = codexAppServerThreadRawValue(thread || {});
   return (Array.isArray(rawThread.turns) ? rawThread.turns : [])
-    .filter((turn) => isPlainObject(turn));
+    .filter((turn) => isRecord(turn));
 }
 
 function codexAppServerProviderTurnStatus(turn = {}) {
@@ -739,7 +737,7 @@ function codexAppServerProviderTurnStatus(turn = {}) {
 
 function codexAppServerProviderTurnClientIds(turn = {}) {
   return codexAppServerProviderTurnItems(turn)
-    .map((item) => normalizeText(
+    .map((item) => normalizeNullableText(
       item.clientId ||
       item.client_id ||
       item.clientUserMessageId ||
@@ -753,8 +751,8 @@ function codexAppServerProviderTurnForOperation(thread = null, {
   clientMessageId = "",
   turnId = ""
 } = {}) {
-  const normalizedTurnId = normalizeText(turnId || "");
-  const normalizedClientMessageId = normalizeText(clientMessageId || "");
+  const normalizedTurnId = normalizeNullableText(turnId || "");
+  const normalizedClientMessageId = normalizeNullableText(clientMessageId || "");
   const turns = codexAppServerProviderThreadTurns(thread);
   if (normalizedTurnId) {
     return turns.find((turn) => (

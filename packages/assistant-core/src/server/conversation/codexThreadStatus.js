@@ -11,7 +11,7 @@ import {
   codexAppServerTurnCanAdoptSuccessor,
   codexAppServerErrorMessage
 } from "./codexTurnState.js";
-import { isPlainObject } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   codexAppServerStatusFromValue,
   codexAppServerThreadRawValue,
@@ -278,7 +278,7 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
     }
     if (
       codexAppServerTurnStatusIsComplete(status) &&
-      isPlainObject(thread?.observedTurn) &&
+      isRecord(thread?.observedTurn) &&
       turnId
     ) {
       const currentSession = await runtime.getSession(normalizedSessionId);

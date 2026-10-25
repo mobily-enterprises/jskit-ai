@@ -17,7 +17,7 @@ import {
   codexAppServerTurnStateFromAgentRun
 } from "./codexTurnState.js";
 import crypto from "node:crypto";
-import { isPlainObject } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 const CODEX_APP_SERVER_PROMPT_CLAIM_GRACE_MS = 15000;
 
@@ -373,7 +373,7 @@ export function createCodexRunJournal({
       payload: {
         ...codexAppServerAgentRunRealtimePayload(runPatch),
         ...(conversationStream ? { conversationStream } : {}),
-        ...(isPlainObject(publishPayload) ? publishPayload : {})
+        ...(isRecord(publishPayload) ? publishPayload : {})
       },
       reason: publishReason || "codex-app-server-turn-state",
       session: updatedSession

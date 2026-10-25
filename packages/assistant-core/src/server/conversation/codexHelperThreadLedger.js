@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import { link, mkdir, open, readdir, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 
 import { tryAcquireExclusiveFileLock } from "@jskit-ai/kernel/server/support";
 
@@ -72,16 +74,8 @@ function createCodexHelperThreadLedgerOwner({
   const codexHelperThreadLedgerMutationQueues = new Map();
   const codexHelperThreadLedgerProcessId = crypto.randomUUID();
 
-  function normalizeText(value) {
-    return String(value ?? "").trim();
-  }
-
-  function isRecord(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
-  }
-
   function ledgerError(message = "", code = `${errorPrefix}ledger_invalid`) {
-    const error = new Error(normalizeText(message) || "Codex helper ownership record is invalid.");
+    const error = new Error(normalizeNullableText(message) || "Codex helper ownership record is invalid.");
     error.code = code;
     error.retryable = true;
     return error;
@@ -102,7 +96,7 @@ function createCodexHelperThreadLedgerOwner({
   }
 
   function requiredText(value, label, maxLength = 4096) {
-    const normalized = normalizeText(value);
+    const normalized = normalizeNullableText(value);
     if (!normalized) {
       throw ledgerError(`${label} is required.`);
     }
@@ -137,7 +131,7 @@ function createCodexHelperThreadLedgerOwner({
   }
 
   function optionalText(value, label = "value", maxLength = 4096) {
-    const normalized = normalizeText(value);
+    const normalized = normalizeNullableText(value);
     if (normalized.length > maxLength) {
       throw ledgerError(`${label} exceeds ${maxLength} characters.`);
     }
@@ -635,8 +629,8 @@ function createCodexHelperThreadLedgerOwner({
           records.push(await readRecordFile(filePath));
         } catch (error) {
           failures.push(Object.freeze({
-            code: normalizeText(error?.code),
-            error: normalizeText(error?.message || error),
+            code: normalizeNullableText(error?.code),
+            error: normalizeNullableText(error?.message || error),
             fileName: entry.name,
             retryable: true
           }));

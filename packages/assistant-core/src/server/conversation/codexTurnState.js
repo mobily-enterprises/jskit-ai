@@ -1,20 +1,21 @@
-import { normalizeText, isPlainObject } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { codexAppServerStatusFromValue, codexAppServerThreadRawValue } from "./codexEvents.js";
 
 function codexAppServerTurnStatusIsActive(status = "") {
-  return normalizeText(status) === "inProgress";
+  return normalizeNullableText(status) === "inProgress";
 }
 
 function codexAppServerTurnStatusIsComplete(status = "") {
-  return ["completed", "interrupted", "failed"].includes(normalizeText(status));
+  return ["completed", "interrupted", "failed"].includes(normalizeNullableText(status));
 }
 
 function codexAppServerTurnStatusIsSuccessfulComplete(status = "") {
-  return normalizeText(status) === "completed";
+  return normalizeNullableText(status) === "completed";
 }
 
 function codexAppServerTurnStatusIsProviderFailure(status = "") {
-  return ["failed", "interrupted"].includes(normalizeText(status));
+  return ["failed", "interrupted"].includes(normalizeNullableText(status));
 }
 
 function codexAppServerThreadStatus(thread = {}) {
@@ -26,7 +27,7 @@ function codexAppServerThreadStatus(thread = {}) {
   if (codexAppServerTurnStatusIsActive(liveStatus)) {
     return liveStatus;
   }
-  if (isPlainObject(thread.observedTurn)) {
+  if (isRecord(thread.observedTurn)) {
     const observedStatus = codexAppServerStatusFromValue(thread.observedTurn.status);
     if (observedStatus) {
       return observedStatus;
@@ -38,7 +39,7 @@ function codexAppServerThreadStatus(thread = {}) {
 async function codexAppServerReadThreadStatus(provider = null, threadId = "", {
   observeLatestTurn = false
 } = {}) {
-  const normalizedThreadId = normalizeText(threadId || "");
+  const normalizedThreadId = normalizeNullableText(threadId || "");
   if (!normalizedThreadId) {
     return null;
   }
@@ -54,7 +55,7 @@ async function codexAppServerReadThreadStatus(provider = null, threadId = "", {
     });
     const observedTurn = Array.isArray(response?.data) ? response.data[0] : null;
     if (provider.isControlProbeTurn?.(normalizedThreadId, observedTurn?.id)) return thread;
-    return isPlainObject(observedTurn)
+    return isRecord(observedTurn)
       ? {
           ...thread,
           observedTurn
@@ -433,7 +434,7 @@ function codexAppServerErrorMessage(value, fallback = "Codex could not be prepar
 }
 
 export function codexAppServerSteerFailure(result = {}, steerFailedCode = "codex_turn_steer_failed") {
-  if (!isPlainObject(result)) {
+  if (!isRecord(result)) {
     return null;
   }
   if (result.ok !== false) {
@@ -484,7 +485,7 @@ function codexAppServerMessageDeferred({
 }
 
 export function codexAppServerInterruptFailure(result = {}, interruptFailedCode = "codex_turn_interrupt_failed") {
-  if (!isPlainObject(result)) {
+  if (!isRecord(result)) {
     return null;
   }
   if (result.ok !== false && result.interrupted !== false) {
@@ -542,14 +543,14 @@ export function codexAppServerMessageText(input = {}) {
   if (typeof input === "string") {
     return normalizeCodexRunText(input);
   }
-  if (!isPlainObject(input)) {
+  if (!isRecord(input)) {
     return "";
   }
   return normalizeCodexRunText(input.message);
 }
 
 export function codexAppServerMessageDisplayText(input = {}, fallback = "") {
-  if (!isPlainObject(input)) {
+  if (!isRecord(input)) {
     return normalizeCodexRunText(fallback || input);
   }
   return normalizeCodexRunText(input.displayMessage || input.message || fallback);

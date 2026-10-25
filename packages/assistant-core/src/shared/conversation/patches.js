@@ -1,9 +1,6 @@
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeThinkingMessageText } from "./thinkingText.js";
 import { conversationLogPageStart, normalizeConversationLogPagination } from "./pagination.js";
-
-function isRecord(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
 
 function normalizeConversationMessage(message = {}, { normalizeAttachments = value => Array.isArray(value) ? value : [] } = {}) {
   if (!message || typeof message !== "object" || Array.isArray(message)) {

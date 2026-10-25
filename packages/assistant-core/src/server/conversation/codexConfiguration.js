@@ -3,7 +3,8 @@ import { execFile } from "node:child_process";
 import { open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { isPlainObject as isRecord, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 
 const execute = promisify(execFile);
 const CODEX_THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -40,9 +41,9 @@ export function codexAppServerThreadSettings({
       ...(config && typeof config === "object" && !Array.isArray(config) ? config : {})
     },
     cwd,
-    ...(typeof systemPrompt === "string" && systemPrompt.trim() ? { systemPrompt: normalizeText(systemPrompt) } : {}),
+    ...(typeof systemPrompt === "string" && systemPrompt.trim() ? { systemPrompt: normalizeNullableText(systemPrompt) } : {}),
     ...(hostContext ? { hostContext } : {}),
-    model: normalizeText(model) || effectiveSettings.model,
+    model: normalizeNullableText(model) || effectiveSettings.model,
     ...(effectiveSettings.modelProviderId ? { modelProvider: effectiveSettings.modelProviderId } : {}),
     sandbox
   };
@@ -73,11 +74,11 @@ export function codexAppServerTurnSettings({
   const settings = {
     approvalPolicy,
     cwd,
-    model: normalizeText(model) || effectiveSettings.model,
+    model: normalizeNullableText(model) || effectiveSettings.model,
     sandboxPolicy: externalSandbox ? { networkAccess: "enabled", type: "externalSandbox" } : sandboxPolicy
   };
   if (effectiveSettings.request.reasoning !== false) {
-    settings.effort = normalizeText(effort) || effectiveSettings.thinking;
+    settings.effort = normalizeNullableText(effort) || effectiveSettings.thinking;
   }
   if (effectiveSettings.request.summary !== false) {
     settings.summary = reasoningSummary;
@@ -115,22 +116,22 @@ export function codexInteractiveArguments({
 export async function codexAppServerProjectHookTrustConfig(provider, cwd = "", {
   persist = false
 } = {}) {
-  const normalizedCwd = normalizeText(cwd);
+  const normalizedCwd = normalizeNullableText(cwd);
   if (!normalizedCwd || typeof provider?.listHooks !== "function") {
     return null;
   }
   await provider.trustProject(normalizedCwd);
   const result = await provider.listHooks([normalizedCwd]);
   const record = (Array.isArray(result?.data) ? result.data : [])
-    .find((item) => normalizeText(item?.cwd) === normalizedCwd);
+    .find((item) => normalizeNullableText(item?.cwd) === normalizedCwd);
   const trustedHooks = (Array.isArray(record?.hooks) ? record.hooks : [])
     // Session flags contain the host's command hook. Trust its exact hash
     // alongside project hooks; unrelated account and plugin hooks stay separate.
     .filter((hook) => hook?.enabled === true && ["project", "sessionFlags"].includes(hook?.source))
     .map((hook) => ({
-      currentHash: normalizeText(hook?.currentHash),
-      key: normalizeText(hook?.key),
-      trustStatus: normalizeText(hook?.trustStatus)
+      currentHash: normalizeNullableText(hook?.currentHash),
+      key: normalizeNullableText(hook?.key),
+      trustStatus: normalizeNullableText(hook?.trustStatus)
     }))
     .filter(({ currentHash, key }) => key && currentHash);
   if (trustedHooks.length === 0) {
@@ -277,7 +278,7 @@ function deepFreezeCodexAppServerHelperConfig(value) {
 }
 
 function codexAppServerIsolationPolicyError(message = "", details = {}) {
-  const error = new Error(normalizeText(message) || "Codex cannot prove the helper execution policy.");
+  const error = new Error(normalizeNullableText(message) || "Codex cannot prove the helper execution policy.");
   error.code = "codex_policy_unenforceable";
   error.details = Object.freeze({ ...details });
   for (const [name, value] of Object.entries(error.details)) {
@@ -346,8 +347,8 @@ export function createCodexAppServerIsolation({
       );
     }
     const context = await provider.currentHelperExecutionContext();
-    const cwd = normalizeText(context?.cwd);
-    const accountIdentitySignature = normalizeText(context?.accountIdentitySignature);
+    const cwd = normalizeNullableText(context?.cwd);
+    const accountIdentitySignature = normalizeNullableText(context?.accountIdentitySignature);
     if (
       context?.executionMode !== "helper" ||
       !cwd ||
@@ -366,7 +367,7 @@ export function createCodexAppServerIsolation({
   }
 
   function codexAppServerSemanticVersionParts(value = "") {
-    const match = normalizeText(value).match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
+    const match = normalizeNullableText(value).match(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u);
     if (!match) {
       return null;
     }
@@ -375,7 +376,7 @@ export function createCodexAppServerIsolation({
   }
 
   function codexAppServerUserAgentVersionParts(value = "") {
-    const userAgent = normalizeText(value);
+    const userAgent = normalizeNullableText(value);
     if (
       !userAgent ||
       userAgent.length > userAgentMaxLength ||
@@ -398,7 +399,7 @@ export function createCodexAppServerIsolation({
         { minimumVersion }
       );
     }
-    const userAgent = normalizeText(provider.currentServerInfo()?.userAgent);
+    const userAgent = normalizeNullableText(provider.currentServerInfo()?.userAgent);
     const actualParts = codexAppServerUserAgentVersionParts(userAgent);
     if (!actualParts) {
       throw createError(
@@ -482,8 +483,8 @@ export function createCodexAppServerIsolation({
     }
     const record = result.data[0];
     if (
-      normalizeText(record?.cwd) !== cwd ||
-      normalizeText(record?.cwd).length > hookFieldMaxLength ||
+      normalizeNullableText(record?.cwd) !== cwd ||
+      normalizeNullableText(record?.cwd).length > hookFieldMaxLength ||
       !Array.isArray(record.hooks) ||
       !Array.isArray(record.errors) ||
       record.hooks.length > hookMaxCount ||
@@ -500,10 +501,10 @@ export function createCodexAppServerIsolation({
       );
     }
     const hooks = record.hooks.map((hook) => {
-      const key = normalizeText(hook?.key);
-      const currentHash = normalizeText(hook?.currentHash);
-      const handlerType = normalizeText(hook?.handlerType);
-      const sourcePath = normalizeText(hook?.sourcePath);
+      const key = normalizeNullableText(hook?.key);
+      const currentHash = normalizeNullableText(hook?.currentHash);
+      const handlerType = normalizeNullableText(hook?.handlerType);
+      const sourcePath = normalizeNullableText(hook?.sourcePath);
       if (
         !key ||
         [key, currentHash, handlerType, sourcePath].some((field) => (
@@ -666,7 +667,7 @@ export function createCodexAppServerIsolation({
   }
 
   function codexAppServerHelperVerificationFailure(error, cleanupError, threadId = "") {
-    const normalizedThreadId = normalizeText(threadId);
+    const normalizedThreadId = normalizeNullableText(threadId);
     if (!cleanupError) {
       error.codexAppServerHelperThreadId = normalizedThreadId;
       error.codexAppServerHelperThreadRetired = true;
@@ -738,7 +739,7 @@ export function createCodexAppServerIsolation({
     }
     const prepared = await prepare();
     const thread = await provider.startThread(prepared.settings);
-    const threadId = normalizeText(thread?.id);
+    const threadId = normalizeNullableText(thread?.id);
     if (!threadId) {
       throw createError(
         "Codex app-server did not return a helper thread id."
@@ -756,7 +757,7 @@ export function createCodexAppServerIsolation({
         "Codex helper execution cannot safely resume and clean up its app-server thread."
       );
     }
-    const normalizedThreadId = normalizeText(threadId);
+    const normalizedThreadId = normalizeNullableText(threadId);
     if (!normalizedThreadId) {
       throw createError(
         "Codex helper resume requires a controller-owned thread id."
@@ -910,19 +911,19 @@ export function codexCatalogReasoningEfforts(model = {}) {
   return new Set((Array.isArray(model?.supportedReasoningEfforts)
     ? model.supportedReasoningEfforts
     : [])
-    .map((option) => normalizeText(option?.reasoningEffort))
+    .map((option) => normalizeNullableText(option?.reasoningEffort))
     .filter(Boolean));
 }
 
 export function codexCatalogModels(rows) {
   return rows.map((model) => ({
-    id: normalizeText(model.model),
-    label: normalizeText(model.displayName) || normalizeText(model.model),
+    id: normalizeNullableText(model.model),
+    label: normalizeNullableText(model.displayName) || normalizeNullableText(model.model),
     status: "available",
     variants: [...codexCatalogReasoningEfforts(model)]
       .map((variantId) => ({
-        id: normalizeText(variantId),
-        label: normalizeText(variantId).replace(/^./u, (value) => value.toUpperCase())
+        id: normalizeNullableText(variantId),
+        label: normalizeNullableText(variantId).replace(/^./u, (value) => value.toUpperCase())
       }))
   }));
 }
@@ -1043,9 +1044,9 @@ export function createCodexAccountReader({
 } = {}) {
   function codexAppServerHelperAuthError(code = "", message = "") {
     const error = new Error(
-      normalizeText(message) || "Codex helper authentication is unavailable. Reconnect Codex and retry."
+      normalizeNullableText(message) || "Codex helper authentication is unavailable. Reconnect Codex and retry."
     );
-    error.code = normalizeText(code) || `${errorPrefix}codex_helper_auth_unavailable`;
+    error.code = normalizeNullableText(code) || `${errorPrefix}codex_helper_auth_unavailable`;
     return error;
   }
 
@@ -1065,7 +1066,7 @@ export function createCodexAccountReader({
   function codexAccountIdentitySignature(authMode = "", identity = "") {
     return `sha256:${createHash("sha256")
       .update(`${identityNamespace}\0`, "utf8")
-      .update(normalizeText(authMode), "utf8")
+      .update(normalizeNullableText(authMode), "utf8")
       .update("\0", "utf8")
       .update(String(identity || ""), "utf8")
       .digest("hex")}`;
@@ -1123,7 +1124,7 @@ export function createCodexAccountReader({
   }
 
   async function readCodexSelectedAccountAuth(options = {}) {
-    const toolHomeSource = normalizeText(options.toolHomeSource);
+    const toolHomeSource = normalizeNullableText(options.toolHomeSource);
     if (!toolHomeSource || !path.isAbsolute(toolHomeSource)) {
       throw codexAppServerHelperAuthError(
         `${errorPrefix}codex_helper_auth_unavailable`,
@@ -1131,7 +1132,7 @@ export function createCodexAccountReader({
       );
     }
     const auth = await readBoundedCodexAuthJson(path.join(toolHomeSource, ".codex", "auth.json"));
-    const storedMode = normalizeText(auth.auth_mode).toLowerCase();
+    const storedMode = normalizeNullableText(auth.auth_mode).toLowerCase();
     if (storedMode === "chatgpt") {
       const tokens = isRecord(auth.tokens) ? auth.tokens : {};
       const accountId = boundedCodexAuthText(tokens.account_id, {

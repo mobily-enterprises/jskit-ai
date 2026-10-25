@@ -5,7 +5,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { createOpenCodeServerClient, readBoundedResponse } from "./openCodeClient.js";
 import { createLocalConversationExecution } from "./localExecution.js";
-import { normalizeText } from "./normalize.js";
+import { normalizeNullableText } from "./normalize.js";
 import { DISCOVERY_TOOL_DESCRIPTORS } from "../lib/serviceToolCatalog.js";
 export { createOpenCodeSharedRuntime, openCodeServerForDirectory, readOpenCodeEnvironments, openCodeEnvironmentForDirectory,
   openCodeEnvironmentForSession, assertOpenCodeModelProvider, limitOpenCodeModelOutput,
@@ -26,7 +26,7 @@ const OPENCODE_ZEN_MODELS_URL = "https://opencode.ai/zen/v1/models";
 const OPENCODE_ZEN_PROVIDER_ID = "opencode";
 const OPENCODE_ZEN_PUBLIC_API_KEY = "public";
 
-const text = normalizeText;
+const text = normalizeNullableText;
 
 export function openCodeProcessEnvironment(baseEnv = {}, {
   cacheRoot = "", dbPath = "", inlineConfig = "", outputTokenMax = 0, password = ""

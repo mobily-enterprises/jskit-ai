@@ -1,8 +1,9 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { openCodeAssistantMessageText as assistantMessageText } from "./openCodeClient.js";
-import { isPlainObject, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 
-const text = normalizeText;
+const text = normalizeNullableText;
 export const OPENCODE_INTERRUPT_TIMEOUT_MS = 5_000;
 const OPENCODE_EVENT_READY_TIMEOUT_MS = 120_000;
 
@@ -25,7 +26,7 @@ export function openCodeStructuredOutput(value = "") {
   return match ? match[1].trim() : original;
 }
 
-const record = value => isPlainObject(value) ? value : {};
+const record = value => isRecord(value) ? value : {};
 
 function openCodeEventSummary(event = {}) {
   const payload = record(event.data);

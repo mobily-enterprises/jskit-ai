@@ -5,14 +5,14 @@ import { setTimeout as delay } from "node:timers/promises";
 import { claudeMessageBlocks, deleteClaudeConversationHistory, readClaudeHistory, requireClaudeSessionId, retireClaudeConversationHistory } from "./claudeHistory.js";
 import { bindClaudeConversationAccount, claudeCodeArguments, createClaudeAccountQueries, createClaudeCodeProcess, stopClaudeCodeProcess } from "./claudeProcess.js";
 import { claudeApplicationToolResponse } from "./claudeTools.js";
-import { normalizeText } from "./normalize.js";
+import { normalizeNullableText } from "./normalize.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
 
 function failure(message, code = "assistant_claude_turn_failed") {
   return Object.assign(new Error(message), { code });
 }
 
-const text = normalizeText;
+const text = normalizeNullableText;
 const now = () => new Date().toISOString();
 
 function hasPendingClaudeStartup(entry) {

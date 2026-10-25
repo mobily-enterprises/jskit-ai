@@ -501,8 +501,6 @@ Exports
 ### `src/server/conversation/codexHelperThreads.js`
 Exports
 - `createCodexHelperThreadLifecycle({ providerOwner, ledgerOwner, applicationName = "Application", errorPrefix = "" } = {})`
-Local functions
-- `isRecord(value)`
 
 ### `src/server/conversation/codexHistoryAdapter.js`
 Exports
@@ -915,8 +913,7 @@ Exports
 
 ### `src/server/conversation/normalize.js`
 Exports
-- `normalizeText(value)`
-- `isPlainObject(value)`
+- `normalizeNullableText(value)`
 - `jsonHash(value)`
 
 ### `src/server/conversation/openCodeClient.js`
@@ -1477,7 +1474,6 @@ Local functions
 - `resolveUniqueToolName(baseName, used)`
 - `parseToolPayload(argumentsText)`
 - `normalizeNonNegativeInteger(value, fallback)`
-- `normalizePositiveInteger(value, fallback)`
 - `serializedByteLength(value)`
 - `createToolError(status, code, message)`
 - `ensureSerializedSize(value, maxBytes, { code = "assistant_tool_result_too_large", label = "Tool result" } = {})`
@@ -1608,8 +1604,6 @@ Exports
 - `normalizeConversationLogPage(payload = {})`
 - `mergeConversationLogPages(pages = [])`
 - `conversationLogReadQuery({ beforeTurnId = "", limit = CONVERSATION_LOG_PAGE_LIMIT } = {})`
-Local functions
-- `isRecord(value)`
 
 ### `src/shared/conversation/patches.js`
 Exports
@@ -1617,7 +1611,6 @@ Exports
 - `normalizeConversationTurn(turn = {}, index = 0, options = {})`
 - `applyConversationLogPatch(payload = {}, patch = null, options = {})`
 Local functions
-- `isRecord(value)`
 - `chronologicalConversationActivity(messages = [])`
 
 ### `src/shared/conversation/questions.js`

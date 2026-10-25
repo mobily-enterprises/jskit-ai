@@ -1,4 +1,4 @@
-import { normalizeText } from "./normalize.js";
+import { normalizeNullableText } from "./normalize.js";
 import { createReentrantConversationStorage } from "./storage.js";
 import { isCompletedEnvelopeTurn } from "./transcript.js";
 import { conversationAgentRunRecord, conversationAgentRunEvent } from "./agentRun.js";
@@ -13,7 +13,7 @@ export function createCodexConversationRunStore({ storage, scope, segmentId, isC
 
   function assertScope(sessionId, requestedRunId = runId) {
     if (sessionId !== scope) throw new Error("The native run belongs to another conversation.");
-    if (normalizeText(requestedRunId) !== runId) throw new TypeError("This binding stores only its Codex app-server run.");
+    if (normalizeNullableText(requestedRunId) !== runId) throw new TypeError("This binding stores only its Codex app-server run.");
     if (!isCurrent()) throw new Error("A retired provider cannot change a native binding.");
   }
 

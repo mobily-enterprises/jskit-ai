@@ -2,7 +2,8 @@ import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { closeSync, openSync } from "node:fs";
 import { mkdtemp, open, readFile, readdir, rm } from "node:fs/promises";
-import { isPlainObject, normalizeText } from "./normalize.js";
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeNullableText } from "./normalize.js";
 import { isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
@@ -283,12 +284,12 @@ export function createConversationProcessIdentity({
   }
 
   function normalizeProcessIdentity(value = {}) {
-    const normalized = isPlainObject(value) ? value : {};
+    const normalized = isRecord(value) ? value : {};
     return {
-      commandHash: normalizeText(normalized.commandHash),
-      platform: normalizeText(normalized.platform),
-      runtimeToken: normalizeText(normalized.runtimeToken),
-      startTimeTicks: normalizeText(normalized.startTimeTicks),
+      commandHash: normalizeNullableText(normalized.commandHash),
+      platform: normalizeNullableText(normalized.platform),
+      runtimeToken: normalizeNullableText(normalized.runtimeToken),
+      startTimeTicks: normalizeNullableText(normalized.startTimeTicks),
       version: Number(normalized.version || 0)
     };
   }
@@ -702,8 +703,8 @@ export function createConversationProcessIdentity({
     reportedIdentity = null,
     runtimeToken = ""
   } = {}) {
-    const expectedCommandHash = normalizeText(commandHash);
-    const expectedRuntimeToken = normalizeText(runtimeToken);
+    const expectedCommandHash = normalizeNullableText(commandHash);
+    const expectedRuntimeToken = normalizeNullableText(runtimeToken);
     const reported = normalizeProcessIdentity(reportedIdentity);
     if (
       processIdentityIsWellFormed(reported) &&
