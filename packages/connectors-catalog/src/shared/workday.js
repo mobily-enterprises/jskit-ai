@@ -34,7 +34,7 @@ const workdayDefinition = Object.freeze({
   ],
   scopes: [],
   permissionsHint: "Select the required functional areas in Workday: Staffing, Organizations and Roles, or Time Off and Leave. Each user's domain and report permissions still apply. Connecting Workday does not create your app's login.",
-  setup: { url: "https://docs.lovable.dev/integrations/workday", steps: [
+  setup: { url: "https://doc.workday.com/peakon/en-us/workday-peakon-employee-voice/integrations/workday-integration/nfa1667304944189.html", steps: [
     "In your Workday tenant, an administrator opens Register API Client and chooses Authorization Code Grant and Bearer access tokens.",
     "Register this confidential client without PKCE so Workday issues a Client Secret. Enter your application's exact backend callback URL.",
     "Select Staffing in Scope (Functional Areas). Grant intended users View access through the Report/Task permissions of the worker REST domains.",

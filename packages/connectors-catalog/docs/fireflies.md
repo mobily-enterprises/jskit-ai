@@ -57,8 +57,7 @@ partial errors, HTTP failures, credential rotation, private persistence and
 application isolation. They do not access real meetings.
 
 Setup rechecked against the official authorization and quickstart guides on
-12 September 2026. The captured Lovable form was an empty shell; exact input
-parity remains unproven. No signed-in Fireflies console was inspected.
+12 September 2026. No signed-in Fireflies console was inspected.
 
 ## Transcript content and search
 
@@ -82,14 +81,12 @@ cache, task tracking and CRM writes through their respective APIs.
 **LIMITATIONS:** assistant tool attachment requires explicit host integration. Example: a
 published app can show a sales call's action items; an assistant
 does not gain meeting access from this configuration. Recording, transcript
-mutation, incoming webhooks and per-user OAuth are not supplied (the Lovable
-reference also describes these as excluded). Exact signed-in screen placement
-was not captured; current official instructions establish API-key setup.
+mutation, incoming webhooks and per-user OAuth are not supplied.
+Exact signed-in screen placement was not captured; current official instructions establish API-key setup.
 
 Rechecked 13 September 2026 against [transcript detail](https://docs.fireflies.ai/graphql-api/query/transcript),
-[search](https://docs.fireflies.ai/graphql-api/query/transcripts),
-[authorization](https://docs.fireflies.ai/fundamentals/authorization) and
-[Lovable's current fields/capabilities](https://docs.lovable.dev/integrations/fireflies).
-The latter resolves the empty original form: display name and an API key are
-required inputs for its shared connection. The host stores a private Env reference
+[search](https://docs.fireflies.ai/graphql-api/query/transcripts) and
+[authorization](https://docs.fireflies.ai/fundamentals/authorization).
+The authorization guide establishes the API key as the only provider credential.
+The host stores a private Env reference
 instead of putting the key in the source file. No live meetings were read.

@@ -173,8 +173,7 @@ An authorized administrator owns tenant access, consent and policy decisions.
 - [Workday REST API security](https://developer.workday.com/documentation/dan1370797986071/) distinguishes REST Report/Task policies from SOAP permissions.
 - [Official Staffing v7 specification](https://community.workday.com/sites/default/files/file-hosting/restapi/staffing_v7_20260905_oas2.json) defines the implemented worker endpoints and functional areas.
 - [Workday's tenant token exchange example](https://doc.workday.com/admin-guide/en-us/workday-ai/agents/external-agents/register-and-define-your-agent-through-an-api.html) documents the `/ccx/oauth2/{tenant}/token` client-secret exchange; its ASOR operations are not implemented here.
-- [Workday OAuth client setup example](https://doc.workday.com/peakon/en-us/workday-peakon-employee-voice/integrations/workday-integration/nfa1667304944189.html) describes tenant OAuth enablement and registration.
-- [Lovable's Workday setup](https://docs.lovable.dev/integrations/workday) documents the captured per-user fields and non-PKCE confidential registration.
+- [Workday OAuth client setup example](https://doc.workday.com/peakon/en-us/workday-peakon-employee-voice/integrations/workday-integration/nfa1667304944189.html) describes tenant OAuth enablement and the Register API Client task with Authorization Code Grant; the editor links it as the provider setup guide.
 
 The host application must compose its authentication,
 callback and connection screens using its framework; saving the editor form does
