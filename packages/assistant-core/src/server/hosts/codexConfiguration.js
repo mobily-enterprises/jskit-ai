@@ -8,6 +8,7 @@ export {
   codexAuthOutputRequiresReconnect,
   codexProviderConfiguration,
   codexProviderFileConfiguration,
+  codexProviderCatalogPath,
   verifyCodexProviderKey,
   codexProviderModelCatalog,
   codexCatalogRows,

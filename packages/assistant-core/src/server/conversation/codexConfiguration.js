@@ -978,12 +978,21 @@ export function codexProviderConfiguration(provider, apiKey) {
   };
 }
 
+/** Where a curated provider home keeps the model catalogue its config.toml names. */
+export function codexProviderCatalogPath(codexHome) {
+  return path.join(codexHome, "models.json");
+}
+
+function codexProviderCatalogSetting(codexHome) {
+  return `model_catalog_json = ${JSON.stringify(codexProviderCatalogPath(codexHome))}`;
+}
+
 /** Format a private native config file from an already-authorized provider and key. */
 export function codexProviderFileConfiguration(provider, key, codexHome) {
   return [
     `model = ${JSON.stringify(provider.models[0].id)}`,
     `model_provider = ${JSON.stringify(provider.id)}`,
-    `model_catalog_json = ${JSON.stringify(path.join(codexHome, "models.json"))}`,
+    codexProviderCatalogSetting(codexHome),
     `model_reasoning_effort = ${JSON.stringify(provider.models[0].defaultThinking)}`,
     'model_reasoning_summary = "none"',
     `web_search = "${provider.webSearch ? "live" : "disabled"}"`,
@@ -995,6 +1004,24 @@ export function codexProviderFileConfiguration(provider, key, codexHome) {
     `experimental_bearer_token = ${JSON.stringify(key)}`,
     ""
   ].join("\n");
+}
+
+/**
+ * Copy a curated provider home's config and catalogue into another home, with
+ * the copied config naming the copied catalogue. A config that does not name
+ * its own home's catalogue exactly once is refused rather than left pointing
+ * at the source home.
+ */
+export async function copyCodexProviderHome(sourceHome, targetHome) {
+  const config = await readFile(path.join(sourceHome, "config.toml"), "utf8");
+  const sourceSetting = codexProviderCatalogSetting(sourceHome);
+  if (config.split(sourceSetting).length !== 2) {
+    throw new Error("Codex provider config does not name its own model catalogue.");
+  }
+  await writeFile(codexProviderCatalogPath(targetHome),
+    await readFile(codexProviderCatalogPath(sourceHome)), { mode: 0o600 });
+  await writeFile(path.join(targetHome, "config.toml"),
+    config.replace(sourceSetting, codexProviderCatalogSetting(targetHome)), { mode: 0o600 });
 }
 
 export async function verifyCodexProviderKey(provider, apiKey, fetchImpl = fetch) {

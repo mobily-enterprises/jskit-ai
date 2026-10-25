@@ -8,9 +8,9 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { CodexAppServerJsonRpcClient, socketPathFromCodexAppServerEndpoint } from "./codexClient.js";
 import { createConversationProcessIdentity } from "./localExecution.js";
-import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { prepareCodexModelCatalog } from "./codexConfiguration.js";
+import { copyCodexProviderHome, prepareCodexModelCatalog } from "./codexConfiguration.js";
 import { startCodexHistoryAdapter } from "./codexHistoryAdapter.js";
 
 const CODEX_APP_SERVER_METADATA_FILE = "runtime.json";
@@ -290,11 +290,6 @@ const CODEX_APP_SERVER_PROCESS_IDENTITY_STATUS = Object.freeze({
   MISMATCH: "mismatch"
 });
 
-export function normalizePositiveInteger(value, fallback) {
-  const number = Number(value);
-  return Number.isSafeInteger(number) && number > 0 ? number : fallback;
-}
-
 function stableHash(value) {
   return createHash("sha256")
     .update(String(value || ""))
@@ -512,7 +507,7 @@ function codexHistoryAdapterUrlIsValid(baseUrl, token) {
 function codexAppServerLivenessTimeoutMs(options = {}) {
   return normalizePositiveInteger(
     options.livenessTimeoutMs,
-    normalizePositiveInteger(options.timeoutMs, CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS)
+    { fallback: normalizePositiveInteger(options.timeoutMs, { fallback: CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS }) }
   );
 }
 
@@ -964,7 +959,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
         status: CODEX_APP_SERVER_ENDPOINT_STATUS.MISSING
       };
     }
-    const normalizedTimeoutMs = normalizePositiveInteger(timeoutMs, CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS);
+    const normalizedTimeoutMs = normalizePositiveInteger(timeoutMs, { fallback: CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS });
     return {
       status: await probeCodexAppServer(normalizedEndpoint, normalizedTimeoutMs, WebSocketImpl)
     };
@@ -1178,13 +1173,13 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       if (providerHome) {
         // The canonical home contains only our curated provider projection. Copy
         // it into the existing isolated helper home; never load OpenAI auth here.
-        const sourceHome = path.join(normalizedToolHomeSource, ".codex");
-        const catalogPath = path.join(helperHome, "models.json");
-        const config = await readFile(path.join(sourceHome, "config.toml"), "utf8");
-        await writeFile(catalogPath, await readFile(path.join(sourceHome, "models.json")), { mode: 0o600 });
-        await writeFile(path.join(helperHome, "config.toml"), config.replace(
-          JSON.stringify(path.join(sourceHome, "models.json")), JSON.stringify(catalogPath)
-        ), { mode: 0o600 });
+        try {
+          await copyCodexProviderHome(path.join(normalizedToolHomeSource, ".codex"), helperHome);
+        } catch (cause) {
+          const error = new Error("Codex isolated helper runtime could not copy the provider home.", { cause });
+          error.code = `${errorPrefix}codex_helper_runtime_start_failed`;
+          throw error;
+        }
       }
     }
     const processCwd = helper
