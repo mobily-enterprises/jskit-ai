@@ -315,7 +315,7 @@ behavior. An explicit `client` override is supported and receives the same
 resource-aware public request options. This does not change server authorization.
 
 For custom form actions, see
-[record form actions](https://mobily-enterprises.github.io/jskit-ai/guide/framework/crud-form-actions).
+[record form actions](./crud-form-actions.md).
 
 ## Strict temporal values
 

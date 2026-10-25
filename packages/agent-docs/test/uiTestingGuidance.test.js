@@ -67,6 +67,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
 
   assert.deepEqual(referenceFiles, [
     "app-operations.md",
+    "crud-form-actions.md",
     "crud-operations.md",
     "existing-application-migration.md",
     "material-3.md",

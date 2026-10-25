@@ -23,6 +23,7 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 
 - [Application operations](/guide/framework/application-operations)
 - [CRUD operations](/guide/framework/crud-operations)
+- [Record form actions](/guide/framework/crud-form-actions)
 - [UI operations](/guide/framework/ui-operations)
 - [Material 3](/guide/framework/material-3)
 - [Complete source pattern library](/patterns/)
@@ -32,6 +33,7 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Mobile Capacitor](/guide/app-extras/mobile-capacitor)
 - [Realtime](/guide/app-extras/realtime)
 - [Assistant](/guide/app-extras/assistant)
+- [Embeddable assistant conversations](/guide/app-extras/assistant-conversation)
 - [Voice conversations](/guide/app-extras/assistant-voice)
 
 ## How to use the guide

@@ -42,12 +42,13 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    own a second project brain or prescribe a particular agent orchestrator.
 4. Load only relevant references:
    - [port guide](references/existing-application-migration.md) for existing apps.
-   - For recurring implementation traps, the [heuristics index](references/heuristics/INDEX.md).
-   - [Workspace invitations](references/multi-homing.md).
+   - [heuristics index](references/heuristics/INDEX.md) for recurring traps.
+   - [multi-homing](references/multi-homing.md) for workspaces or invitations.
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
    - Before database, schema, CRUD, repository, or persistence work, read
-     [CRUD operations](references/crud-operations.md) completely.
+     [CRUD operations](references/crud-operations.md) completely; for custom
+     form actions, also [form actions](references/crud-form-actions.md).
    - For routes, placements, user-facing UI, or browser verification, read
      [UI operations](references/ui-operations.md).
    - For every Vue/Vuetify UI creation, modification, review, or deslop task,
