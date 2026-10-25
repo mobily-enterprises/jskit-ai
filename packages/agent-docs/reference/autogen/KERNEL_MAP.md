@@ -13,7 +13,7 @@ For the full repo inventory, read `reference/autogen/README.md` and the package 
 
 ## Scope
 - Source: `packages/kernel/shared/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`
+- Excludes: `.build/`, `.git/`, `.jscpd/`, `.jskit/`, `coverage/`, `dist/`, `docs/`, `node_modules/`, `test/`, `tests/`, `__tests__/`, `.vitepress/cache/`, `.vitepress/dist/`, `skills/jskit/references/patterns/`, `*.test.*`, `*.spec.*`, `*.vitest.*`
 
 ## Sections
 

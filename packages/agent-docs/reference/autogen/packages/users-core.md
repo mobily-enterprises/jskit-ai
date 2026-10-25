@@ -8,7 +8,7 @@ Use this on demand; do not load the full index at startup.
 
 ## Scope
 - Source: `packages/users-core/**/*{.js,.mjs,.cjs,.vue}`
-- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`
+- Excludes: `.build/`, `.git/`, `.jscpd/`, `.jskit/`, `coverage/`, `dist/`, `docs/`, `node_modules/`, `test/`, `tests/`, `__tests__/`, `.vitepress/cache/`, `.vitepress/dist/`, `skills/jskit/references/patterns/`, `*.test.*`, `*.spec.*`, `*.vitest.*`
 
 ## Sections
 

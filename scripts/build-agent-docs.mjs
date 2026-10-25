@@ -69,11 +69,12 @@ const SKIP_RELATIVE_DIRECTORIES = new Set([
   ".vitepress/dist",
   "skills/jskit/references/patterns"
 ]);
-const SKIP_FILE_PATTERNS = [
-  /\.test\.[^.]+$/i,
-  /\.spec\.[^.]+$/i,
-  /\.vitest\.[^.]+$/i
-];
+const SKIP_FILE_MARKERS = Object.freeze(["test", "spec", "vitest"]);
+const SKIP_FILE_PATTERNS = SKIP_FILE_MARKERS.map((marker) => new RegExp(`\\.${marker}\\.[^.]+$`, "iu"));
+const SCOPE_EXCLUDES_LINE = `- Excludes: ${[
+  ...[...SKIP_DIRECTORY_NAMES, ...SKIP_RELATIVE_DIRECTORIES].map((directory) => `\`${directory}/\``),
+  ...SKIP_FILE_MARKERS.map((marker) => `\`*.${marker}.*\``)
+].join(", ")}`;
 
 function normalizeMarkdownPath(filePath) {
   return filePath.split(path.sep).join("/");
@@ -122,8 +123,9 @@ async function collectWorkspaceDirectories() {
         continue;
       }
       const workspaceDir = path.join(rootDir, entry.name);
+      let packageJsonText;
       try {
-        await readFile(path.join(workspaceDir, "package.json"), "utf8");
+        packageJsonText = await readFile(path.join(workspaceDir, "package.json"), "utf8");
       } catch (error) {
         if (error?.code === "ENOENT") {
           continue;
@@ -133,7 +135,8 @@ async function collectWorkspaceDirectories() {
       results.push({
         groupName,
         workspaceName: entry.name,
-        workspaceDir
+        workspaceDir,
+        packageJson: JSON.parse(packageJsonText)
       });
     }
   }
@@ -141,7 +144,7 @@ async function collectWorkspaceDirectories() {
   return results;
 }
 
-async function collectSourceFilePaths(rootDir) {
+async function collectFiles(rootDir, includeFile) {
   const results = [];
 
   async function walk(currentDir) {
@@ -156,39 +159,7 @@ async function collectSourceFilePaths(rootDir) {
         }
         continue;
       }
-      if (!entry.isFile()) {
-        continue;
-      }
-      if (shouldSkipFile(entry.name)) {
-        continue;
-      }
-      if (!SOURCE_FILE_EXTENSIONS.includes(path.extname(entry.name))) {
-        continue;
-      }
-      results.push(entryPath);
-    }
-  }
-
-  await walk(rootDir);
-  return results;
-}
-
-async function collectMarkdownFilePaths(rootDir) {
-  const results = [];
-
-  async function walk(currentDir) {
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    entries.sort((left, right) => left.name.localeCompare(right.name));
-
-    for (const entry of entries) {
-      const entryPath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        if (!shouldSkipDirectory(rootDir, entryPath, entry.name)) {
-          await walk(entryPath);
-        }
-        continue;
-      }
-      if (entry.isFile() && path.extname(entry.name) === ".md") {
+      if (entry.isFile() && includeFile(entry.name)) {
         results.push(entryPath);
       }
     }
@@ -196,6 +167,14 @@ async function collectMarkdownFilePaths(rootDir) {
 
   await walk(rootDir);
   return results;
+}
+
+function isSourceFileName(fileName) {
+  return !shouldSkipFile(fileName) && SOURCE_FILE_EXTENSIONS.includes(path.extname(fileName));
+}
+
+function isMarkdownFileName(fileName) {
+  return path.extname(fileName) === ".md";
 }
 
 function extractVueScriptText(sourceText = "") {
@@ -444,7 +423,7 @@ function renderMap({ title, commandName, introLines = [], scopeLines = [], secti
 }
 
 async function buildFileEntries(sourceRoot) {
-  const sourceFilePaths = await collectSourceFilePaths(sourceRoot);
+  const sourceFilePaths = await collectFiles(sourceRoot, isSourceFileName);
   const fileEntries = [];
 
   for (const sourceFilePath of sourceFilePaths) {
@@ -518,7 +497,7 @@ async function buildStartupKernelMap(commandName) {
     ],
     scopeLines: [
       `- Source: \`${normalizeMarkdownPath(path.relative(REPO_ROOT, KERNEL_SHARED_ROOT))}/**/*{.js,.mjs,.cjs,.vue}\``,
-      "- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`"
+      SCOPE_EXCLUDES_LINE
     ],
     fileEntries
   });
@@ -557,6 +536,20 @@ function renderReferenceReadme(workspaceMaps, commandName) {
   return `${lines.join("\n").trim()}\n`;
 }
 
+function renderPatternMetadataLines(pattern) {
+  return [
+    `- Id: \`${pattern.id}\``,
+    `- Keywords: ${pattern.keywords.map((keyword) => `\`${keyword}\``).join(", ")}`,
+    `- Owner: \`${pattern.packageId}@${pattern.packageVersion}\``
+  ];
+}
+
+function renderPatternRequiresLines(pattern) {
+  return pattern.requires.length > 0
+    ? [`- Requires: ${pattern.requires.map((packageId) => `\`${packageId}\``).join(", ")}`]
+    : [];
+}
+
 function renderPatternIndex(patterns, commandName, { patternLinkPrefix }) {
   const lines = [
     "# JSKIT Source Pattern Index",
@@ -582,15 +575,13 @@ function renderPatternIndex(patterns, commandName, { patternLinkPrefix }) {
     lines.push("");
     lines.push(pattern.summary);
     lines.push("");
-    lines.push(`- Id: \`${pattern.id}\``);
-    lines.push(`- Keywords: ${pattern.keywords.map((keyword) => `\`${keyword}\``).join(", ")}`);
-    lines.push(`- Owner: \`${pattern.packageId}@${pattern.packageVersion}\``);
     const patternPath = `${patternLinkPrefix}/${pattern.id}`;
-    lines.push(`- Read: [PATTERN.md](${patternPath}/PATTERN.md)`);
-    lines.push(`- Examples: [example/](${patternPath}/example/)`);
-    if (pattern.requires.length > 0) {
-      lines.push(`- Requires: ${pattern.requires.map((packageId) => `\`${packageId}\``).join(", ")}`);
-    }
+    lines.push(
+      ...renderPatternMetadataLines(pattern),
+      `- Read: [PATTERN.md](${patternPath}/PATTERN.md)`,
+      `- Examples: [example/](${patternPath}/example/)`,
+      ...renderPatternRequiresLines(pattern)
+    );
     lines.push("");
   }
 
@@ -635,12 +626,7 @@ function renderPublicPatternIndex(patterns, commandName) {
     lines.push("");
     lines.push(pattern.summary);
     lines.push("");
-    lines.push(`- Id: \`${pattern.id}\``);
-    lines.push(`- Keywords: ${pattern.keywords.map((keyword) => `\`${keyword}\``).join(", ")}`);
-    lines.push(`- Owner: \`${pattern.packageId}@${pattern.packageVersion}\``);
-    if (pattern.requires.length > 0) {
-      lines.push(`- Requires: ${pattern.requires.map((packageId) => `\`${packageId}\``).join(", ")}`);
-    }
+    lines.push(...renderPatternMetadataLines(pattern), ...renderPatternRequiresLines(pattern));
     lines.push("");
   }
 
@@ -679,27 +665,18 @@ function renderPublicPattern(pattern, sourceText, commandName, patterns) {
 
 async function buildPatternIndex(commandName) {
   const patterns = [];
-  for (const workspace of await collectWorkspaceDirectories()) {
-    let packageJson;
-    try {
-      packageJson = JSON.parse(await readFile(path.join(workspace.workspaceDir, "package.json"), "utf8"));
-    } catch (error) {
-      if (error?.code === "ENOENT") {
-        continue;
-      }
-      throw error;
-    }
+  for (const { workspaceDir, packageJson } of await collectWorkspaceDirectories()) {
     if (!String(packageJson?.name || "").trim() || !String(packageJson?.version || "").trim()) {
       continue;
     }
 
     const workspacePatterns = await discoverPackagePatterns({
-      packageRoot: workspace.workspaceDir,
+      packageRoot: workspaceDir,
       packageJson
     });
     patterns.push(...workspacePatterns.map((pattern) => ({
       ...pattern,
-      ownerRoot: workspace.workspaceDir
+      ownerRoot: workspaceDir
     })));
   }
   assertUniquePatternIds(patterns);
@@ -754,7 +731,7 @@ async function buildReferenceMaps(commandName) {
       ],
       scopeLines: [
         `- Source: \`${normalizeMarkdownPath(path.relative(REPO_ROOT, workspace.workspaceDir))}/**/*{.js,.mjs,.cjs,.vue}\``,
-        "- Excludes: `test/`, `tests/`, `__tests__/`, `*.test.*`, `*.spec.*`, `*.vitest.*`, `node_modules/`, `dist/`, `coverage/`, `docs/`, `.vitepress/cache/`, `.vitepress/dist/`"
+        SCOPE_EXCLUDES_LINE
       ],
       fileEntries
     });
@@ -780,7 +757,7 @@ async function buildReferenceMaps(commandName) {
 }
 
 async function buildGuideOutputs(commandName) {
-  const markdownFilePaths = await collectMarkdownFilePaths(GUIDE_SOURCE_ROOT);
+  const markdownFilePaths = await collectFiles(GUIDE_SOURCE_ROOT, isMarkdownFileName);
 
   for (const sourceFilePath of markdownFilePaths) {
     const relativePath = normalizeMarkdownPath(path.relative(GUIDE_SOURCE_ROOT, sourceFilePath));
@@ -809,10 +786,6 @@ async function buildGuideOutputs(commandName) {
 async function main() {
   const commandName = "npm run agent-docs:build";
   await clearAgentDocsOutputs();
-  await mkdir(AGENT_DOCS_ROOT, { recursive: true });
-  await mkdir(REFERENCE_AUTOGEN_ROOT, { recursive: true });
-  await mkdir(GUIDE_SITE_ROOT, { recursive: true });
-  await mkdir(GUIDE_AGENT_ROOT, { recursive: true });
   await buildStartupKernelMap(commandName);
   await buildPatternIndex(commandName);
   await buildReferenceMaps(commandName);

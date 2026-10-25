@@ -117,3 +117,14 @@ test("a clean install of the packed agent-docs package has no dangling indexed p
   await assertIndexedTargetsExist(path.join(installedRoot, "reference/autogen/PATTERN_INDEX.md"));
   await assertIndexedTargetsExist(path.join(installedRoot, "skills/jskit/references/pattern-index.md"));
 });
+
+test("generated reference maps state the exclusions the generator actually applies", async () => {
+  const excludesLine = (source) => source.match(/^- Excludes: .+$/mu)?.[0];
+  const kernelMap = await readFile(path.join(packageRoot, "reference/autogen/KERNEL_MAP.md"), "utf8");
+  const packageMap = await readFile(path.join(packageRoot, "reference/autogen/packages/kernel.md"), "utf8");
+
+  assert.equal(excludesLine(kernelMap), excludesLine(packageMap));
+  for (const excluded of ["node_modules/", ".jskit/", "skills/jskit/references/patterns/", "*.test.*", "*.vitest.*"]) {
+    assert.ok(excludesLine(kernelMap).includes(`\`${excluded}\``), `Excludes line is missing ${excluded}.`);
+  }
+});
