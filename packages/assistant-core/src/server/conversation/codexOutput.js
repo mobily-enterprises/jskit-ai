@@ -12,9 +12,9 @@ import {
 import crypto from "node:crypto";
 import { isPlainObject } from "./normalize.js";
 import {
+  codexAppServerAgentMessageText,
   codexAppServerAssistantItemText,
   classifyCodexAppServerEvent,
-  codexAppServerContentText,
   codexAppServerNotificationEvent,
   codexAppServerNotificationEventType,
   codexAppServerNotificationEventPayload,
@@ -24,7 +24,7 @@ import {
   codexAppServerProviderThreadAssistantSegments
 } from "./codexEvents.js";
 
-// Original native output, reasoning persistence and exact-result identity.
+// Native output, reasoning persistence and exact-result identity.
 // One instance belongs to each retained run owner; its state is shared by reference.
 export function createCodexAppServerOutput({
   namespace,
@@ -83,11 +83,7 @@ export function createCodexAppServerOutput({
           explicit: Boolean(phase),
           phase,
           source: "event",
-          text: normalizeCodexRunText(
-            codexAppServerContentText(payload.message) ||
-            codexAppServerContentText(payload.text) ||
-            codexAppServerContentText(payload.content)
-          )
+          text: codexAppServerAgentMessageText(payload)
         };
       }
     }
@@ -557,15 +553,14 @@ export function createCodexAppServerOutput({
   }
 
   function codexAppServerStreamMessage(classification) {
+    const messageId = codexAppServerConversationMessageId(
+      classification.threadId, classification.turnId, "assistant-item", classification.itemId
+    );
     return {
       nativeIdentity: { threadId: classification.threadId, turnId: classification.turnId },
       turnId: `${classification.threadId}:${classification.turnId}`,
-      outputId: codexAppServerConversationMessageId(
-        classification.threadId, classification.turnId, "assistant-item", classification.itemId
-      ),
-      messageId: codexAppServerConversationMessageId(
-        classification.threadId, classification.turnId, "assistant-item", classification.itemId
-      ),
+      outputId: messageId,
+      messageId,
       role: classification.role,
       delta: classification.delta
     };
@@ -601,11 +596,9 @@ export function createCodexAppServerOutput({
     const store = await createStore(normalizedSessionId);
     const run = await readCodexAppServerAgentRunForSession(store, normalizedSessionId);
     const turn = turnStateFromAgentRun(run || {});
-    if (!codexAppServerTurnCanReceiveProviderActivity(
-      turn,
-      normalizedThreadId,
-      codexAppServerNotificationTurnId(notification)
-    )) {
+    const notificationTurnId = codexAppServerNotificationTurnId(notification);
+    const ownerTurnId = notificationTurnId || turn.turnId;
+    if (!codexAppServerTurnCanReceiveProviderActivity(turn, normalizedThreadId, notificationTurnId)) {
       return null;
     }
     const key = codexAppServerLiveProgressKey(normalizedSessionId, normalizedThreadId, notification);
@@ -615,11 +608,11 @@ export function createCodexAppServerOutput({
     const fingerprintKey = codexAppServerLiveProgressFingerprintKey(
       normalizedSessionId,
       normalizedThreadId,
-      codexAppServerNotificationTurnId(notification) || turn.turnId,
+      ownerTurnId,
       text
     );
     const streamMessageId = codexAppServerConversationMessageId(
-      normalizedThreadId, codexAppServerNotificationTurnId(notification),
+      normalizedThreadId, notificationTurnId,
       "assistant-item", codexAppServerNotificationItemId(notification)
     );
     if (
@@ -645,12 +638,12 @@ export function createCodexAppServerOutput({
           ...(streamMessageId ? { outputId: streamMessageId } : {}),
           messageId: codexAppServerConversationMessageId(
             normalizedThreadId,
-            codexAppServerNotificationTurnId(notification) || turn.turnId,
+            ownerTurnId,
             role,
             text
           ),
           requireOpenTurn: false,
-          nativeIdentity: { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) || turn.turnId },
+          nativeIdentity: { threadId: normalizedThreadId, turnId: ownerTurnId },
           text
         });
         if (!written) {
@@ -660,7 +653,7 @@ export function createCodexAppServerOutput({
       }
       const payload = {
         conversationStream: await store.completeConversationStreamMessage(normalizedSessionId, streamMessageId, {
-          text, role, nativeIdentity: { threadId: normalizedThreadId, turnId: codexAppServerNotificationTurnId(notification) || turn.turnId }
+          text, role, nativeIdentity: { threadId: normalizedThreadId, turnId: ownerTurnId }
         })
       };
       if (written) {

@@ -361,6 +361,15 @@ function codexAppServerNotificationItemId(notification = {}) {
   );
 }
 
+// Text of an event_msg agent_message payload.
+function codexAppServerAgentMessageText(payload = {}) {
+  return normalizeText(
+    codexAppServerContentText(payload.message) ||
+    codexAppServerContentText(payload.text) ||
+    codexAppServerContentText(payload.content)
+  );
+}
+
 function codexAppServerFinalEventText(notification = {}, event = null, payload = {}) {
   const eventType = codexAppServerNotificationEventType(notification, event);
   const payloadType = normalizeText(payload.type);
@@ -372,11 +381,7 @@ function codexAppServerFinalEventText(notification = {}, event = null, payload =
     );
   }
   if (eventType === "event_msg" && payloadType === "agent_message" && phase === "final_answer") {
-    return normalizeText(
-      codexAppServerContentText(payload.message) ||
-      codexAppServerContentText(payload.text) ||
-      codexAppServerContentText(payload.content)
-    );
+    return codexAppServerAgentMessageText(payload);
   }
   if (eventType === "response_item" && phase === "final_answer") {
     return codexAppServerAssistantItemText(payload);
@@ -495,11 +500,7 @@ function classifyCodexAppServerEvent(notification = {}) {
       ...base,
       kind: "live_progress",
       source: eventType,
-      text: normalizeText(
-        codexAppServerContentText(payload.message) ||
-        codexAppServerContentText(payload.text) ||
-        codexAppServerContentText(payload.content)
-      )
+      text: codexAppServerAgentMessageText(payload)
     };
   }
 
@@ -592,17 +593,13 @@ function codexAppServerContextRefreshReason(notification = {}) {
   return "";
 }
 
+// Like codexAppServerThreadRawValue, but provider results may also wrap the
+// thread once more under `thread`, checked after raw and response.thread.
 function codexAppServerProviderThread(value = {}) {
-  if (isPlainObject(value?.raw)) {
-    return value.raw;
-  }
-  if (isPlainObject(value?.response?.thread)) {
-    return value.response.thread;
-  }
-  if (isPlainObject(value?.thread)) {
+  if (!isPlainObject(value?.raw) && !isPlainObject(value?.response?.thread) && isPlainObject(value?.thread)) {
     return value.thread;
   }
-  return isPlainObject(value) ? value : {};
+  return codexAppServerThreadRawValue(value || {});
 }
 
 function codexAppServerProviderTurnId(turn = {}) {
@@ -772,7 +769,7 @@ function codexAppServerProviderTurnForOperation(thread = null, {
   )) || null;
 }
 
-// Native snapshot matching from the original renewal handover/seed paths.
+// Native snapshot matching for renewal handover and seeding.
 // The application projects these classifications into its approval/error policy.
 function inspectCodexAppServerRenewalThread(thread = null, {
   clientMessageId = "",
@@ -818,6 +815,7 @@ export {
   inspectCodexAppServerRenewalThread,
   codexAppServerProviderTurnText,
   codexAppServerProviderTurnError,
+  codexAppServerAgentMessageText,
   codexAppServerAssistantItemText,
   codexAppServerContentText,
   codexAppServerContextRefreshReason,

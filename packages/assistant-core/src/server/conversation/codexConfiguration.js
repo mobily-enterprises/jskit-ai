@@ -288,7 +288,7 @@ function codexAppServerIsolationPolicyError(message = "", details = {}) {
   return error;
 }
 
-/** Original native helper policy verification; hosts supply their profile policy. */
+/** Native helper isolation verification; hosts supply their profile policy. */
 export function createCodexAppServerIsolation({
   clientName = "jskit",
   minimumVersion = "0.151.0",
@@ -600,6 +600,21 @@ export function createCodexAppServerIsolation({
     return frozenConfig;
   }
 
+  function isolationConfigFrom(configResult, hookResult, cwd, { effort = "", summary = "" } = {}) {
+    const mcpServerNames = codexAppServerHelperMcpServerNames(configResult);
+    const hookState = codexAppServerHelperHookState(hookResult, cwd);
+    return {
+      mcpServerNames,
+      hookState,
+      config: codexAppServerHelperIsolationConfig({
+        effort,
+        summary,
+        hookKeys: hookState.hookKeys,
+        mcpServerNames
+      })
+    };
+  }
+
   async function codexAppServerHelperIsolationState(provider, { effort = "", summary = "" } = {}) {
     assertCodexAppServerHelperCompatibility(provider);
     if (
@@ -627,16 +642,13 @@ export function createCodexAppServerIsolation({
         "Codex app-server reconnected during helper policy verification."
       );
     }
-    const mcpServerNames = codexAppServerHelperMcpServerNames(configResult);
-    const hookState = codexAppServerHelperHookState(hookResult, executionContext.cwd);
+    const { mcpServerNames, hookState, config } = isolationConfigFrom(configResult, hookResult, executionContext.cwd, {
+      effort,
+      summary
+    });
     return Object.freeze({
       accountIdentitySignature: executionContext.accountIdentitySignature,
-      config: codexAppServerHelperIsolationConfig({
-        effort,
-        summary,
-        hookKeys: hookState.hookKeys,
-        mcpServerNames
-      }),
+      config,
       connectionGeneration: generation,
       executionCwd: executionContext.cwd,
       hookFingerprint: hookState.fingerprint,
@@ -686,6 +698,35 @@ export function createCodexAppServerIsolation({
     throw codexAppServerHelperVerificationFailure(error, cleanupError, threadId);
   }
 
+  // Re-inspect after the native thread exists; a changed surface retires it.
+  async function verifyHelperThread(provider, enforcement, thread, threadId, phase) {
+    try {
+      const verified = await codexAppServerHelperIsolationState(
+        provider,
+        {
+          effort: enforcement.config.model_reasoning_effort,
+          summary: enforcement.config.model_reasoning_summary
+        }
+      );
+      if (!codexAppServerHelperIsolationMatches(enforcement, verified)) {
+        throw createError(
+          `Codex execution surfaces changed while the helper thread was ${phase}.`
+        );
+      }
+      return Object.freeze({
+        enforcement: verified,
+        thread,
+        threadId
+      });
+    } catch (error) {
+      await throwAfterCodexAppServerHelperVerificationFailure({
+        error,
+        provider,
+        threadId
+      });
+    }
+  }
+
   async function startCodexAppServerHelperThread(provider, prepare) {
     if (
       typeof provider?.startThread !== "function" ||
@@ -703,31 +744,7 @@ export function createCodexAppServerIsolation({
         "Codex app-server did not return a helper thread id."
       );
     }
-    try {
-      const verified = await codexAppServerHelperIsolationState(
-        provider,
-        {
-          effort: prepared.enforcement.config.model_reasoning_effort,
-          summary: prepared.enforcement.config.model_reasoning_summary
-        }
-      );
-      if (!codexAppServerHelperIsolationMatches(prepared.enforcement, verified)) {
-        throw createError(
-          "Codex execution surfaces changed while the helper thread was starting."
-        );
-      }
-      return Object.freeze({
-        enforcement: verified,
-        thread,
-        threadId
-      });
-    } catch (error) {
-      await throwAfterCodexAppServerHelperVerificationFailure({
-        error,
-        provider,
-        threadId
-      });
-    }
+    return verifyHelperThread(provider, prepared.enforcement, thread, threadId, "starting");
   }
 
   async function resumeCodexAppServerHelperThread(provider, threadId, prepare) {
@@ -751,42 +768,11 @@ export function createCodexAppServerIsolation({
       normalizedThreadId,
       prepared.settings
     );
-    try {
-      const verified = await codexAppServerHelperIsolationState(
-        provider,
-        {
-          effort: enforcement.config.model_reasoning_effort,
-          summary: enforcement.config.model_reasoning_summary
-        }
-      );
-      if (!codexAppServerHelperIsolationMatches(enforcement, verified)) {
-        throw createError(
-          "Codex execution surfaces changed while the helper thread was resuming."
-        );
-      }
-      return Object.freeze({
-        enforcement: verified,
-        thread,
-        threadId: normalizedThreadId
-      });
-    } catch (error) {
-      await throwAfterCodexAppServerHelperVerificationFailure({
-        error,
-        provider,
-        threadId: normalizedThreadId
-      });
-    }
+    return verifyHelperThread(provider, enforcement, thread, normalizedThreadId, "resuming");
   }
 
   function configuration({ configResult, hookResult, workdir, effort = "", summary = "" }) {
-    const mcpServerNames = codexAppServerHelperMcpServerNames(configResult);
-    const hookState = codexAppServerHelperHookState(hookResult, workdir);
-    return codexAppServerHelperIsolationConfig({
-      effort,
-      summary,
-      hookKeys: hookState.hookKeys,
-      mcpServerNames
-    });
+    return isolationConfigFrom(configResult, hookResult, workdir, { effort, summary }).config;
   }
 
   // Native Helper requests retain their verified configuration object and the

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { open, realpath } from "node:fs/promises";
-import { createCodexAppServerRuntime } from "../codexProcess.js";
+import { CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES, codexCommandHookDefinition, createCodexAppServerRuntime } from "../codexProcess.js";
 import { CodexAppServerAgentProvider, codexLocalImageInput, ensureCodexAppServerThread, codexApplicationToolConfiguration,
   assertCodexApplicationToolSchemaIdentity, inspectCodexAppServerMessageAdmission, retireCodexConversationHistory } from "../codexProvider.js";
 import { createCodexAppServerProviderOwner } from "../codexProviderOwner.js";
@@ -644,7 +644,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             throw new Error("Codex did not install the host's required command wrapper.");
           }
           toolConfiguration.features.hooks = true;
-          toolConfiguration.hooks.PreToolUse = [{ matcher: "^Bash$", hooks: [{ type: "command", command: hookCommand, timeout: 30 }] }];
+          toolConfiguration.hooks.PreToolUse = codexCommandHookDefinition(hookCommand);
           toolConfiguration.hooks.state[owned[0].key] = { enabled: true, trusted_hash: owned[0].currentHash };
         }
         if (nativeTools) {
@@ -653,7 +653,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           toolConfiguration.include_permissions_instructions = true;
           toolConfiguration.tools.update_plan.enabled = true;
           toolConfiguration.shell_environment_policy.set = Object.fromEntries(Object.entries(env).filter(([name, value]) =>
-            typeof value === "string" && !["DBUS_SESSION_BUS_ADDRESS", "DBUS_STARTER_ADDRESS", "DBUS_STARTER_BUS_TYPE"].includes(name)));
+            typeof value === "string" && !CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES.has(name)));
           toolConfiguration.web_search = selected.config?.web_search || "disabled";
         }
         const params = { developerInstructions: configuration.systemPrompt,
@@ -1048,6 +1048,10 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
           let executingProvider;
           const toolCalls = new Set();
           const toolRegistrations = new Map();
+          // This run still owns the original native provider's current turn.
+          const ownsTurn = (provider, threadId, turnId) => current === active && !disposed && !signal.aborted &&
+            Boolean(provider) && provider === executingProvider && provider === native &&
+            threadId === binding.threadId && turnId === active.turnId;
           function toolHandler(provider, threadId, isRegistered = () => true) {
             return async ({ method, params }) => {
               if (method !== "item/tool/call" || !tools || params?.threadId !== (threadId || binding.threadId) || params.namespace ||
@@ -1080,9 +1084,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
                 try {
                   result = await tools.execute({ id: params.callId, name: params.tool, arguments: JSON.stringify(params.arguments) });
                 } catch (error) {
-                  if (!supplied && owned && current === active && !disposed && !signal.aborted &&
-                      provider === executingProvider && provider === native &&
-                      params.threadId === binding.threadId && params.turnId === active.turnId) active.toolFailure ||= error;
+                  if (!supplied && owned && ownsTurn(provider, params.threadId, params.turnId)) active.toolFailure ||= error;
                   throw error;
                 }
                 return { success: result.ok, contentItems: [{ type: "inputText", text: JSON.stringify(result) }] };
@@ -1187,9 +1189,8 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             // A direct Stop checkpoint can throw before its native completion
             // reaches the queue. Keep the same admitted tool failure with the
             // original observation-stop owner until its pending recovery joins.
-            if (!supplied && error === active.toolFailure && current === active && !disposed && !signal.aborted &&
-                executingProvider && executingProvider === native && binding.threadId === failureThreadId &&
-                active.turnId === failureTurnId && error.code !== "codex_runtime_invalidated") {
+            if (!supplied && error === active.toolFailure && ownsTurn(executingProvider, failureThreadId, failureTurnId) &&
+                error.code !== "codex_runtime_invalidated") {
               toolFailureRecovery = executingProvider.failObservation(error);
             }
           }
@@ -1200,8 +1201,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
             if (!supplied) await providerOwner.pendingRecovery(providerKey, executingProvider);
             if (toolFailureRecovery) {
               await toolFailureRecovery;
-              if (problem === active.toolFailureCleanup && current === active && !disposed && !signal.aborted &&
-                  executingProvider === native && binding.threadId === failureThreadId && active.turnId === failureTurnId &&
+              if (problem === active.toolFailureCleanup && ownsTurn(executingProvider, failureThreadId, failureTurnId) &&
                   !observationError && binding.observationLoss?.stopped === true) delete problem.cleanupFailed;
             }
           } catch (error) { problem = error; }

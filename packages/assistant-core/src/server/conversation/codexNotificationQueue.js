@@ -1,8 +1,7 @@
 import { normalizeCodexRunText } from "./codexTurnState.js";
 
-// Original per-conversation notification order and queued-fragment batching.
-// The existing native delivery methods remain the sink while their connected
-// observer body moves; running batches are never merged or delayed by a timer.
+// Per-session ordered notification tasks. Coalesces only fragments still
+// waiting behind a running write; running batches are never merged or delayed.
 export function createCodexAppServerNotificationQueue({
   namespace = normalizeCodexRunText,
   isClosing = () => false,

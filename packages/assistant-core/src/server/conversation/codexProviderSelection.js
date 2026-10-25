@@ -3,7 +3,8 @@ import { codexAppServerProjectHookTrustConfig } from "./codexConfiguration.js";
 import { createCodexAppServerModelCatalogCache } from "./codexProvider.js";
 import { readCodexAppServerAccountIdentity } from "./codexHelperExecution.js";
 
-// Private composition of unchanged operations from the original run owner.
+// Provider acquisition and per-operation provider contexts for a run owner's
+// managed threads, with their model catalogue and account identity reads.
 export function createCodexProviderSelection({
   providerSessions,
   turnState,

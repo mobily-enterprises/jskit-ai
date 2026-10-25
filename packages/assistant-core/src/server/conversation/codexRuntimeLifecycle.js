@@ -1,7 +1,7 @@
 import { normalizeCodexRunText as normalizeText } from "./codexTurnState.js";
 
-// The original shared runtime shutdown and wellbeing lifecycle. This facet
-// uses the run/provider owners' existing collections; it does not own servers.
+// Shutdown, wellbeing timers and managed-session records for shared Codex
+// runtimes. It works on the run/provider owners' collections; it owns no servers.
 export function createCodexRuntimeLifecycle({
   runOwner,
   providerSessions,

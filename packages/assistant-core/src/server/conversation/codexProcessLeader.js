@@ -1,4 +1,4 @@
-import { runCodexAppServerProcess } from "./codexProcess.js";
+import { CODEX_APP_SERVER_DEFAULT_ENVIRONMENT, runCodexAppServerProcess } from "./codexProcess.js";
 import { codexProviderModelCatalog } from "./codexConfiguration.js";
 import { NATIVE_AI_PROVIDERS } from "../../shared/nativeProviders.js";
 
@@ -7,8 +7,8 @@ await runCodexAppServerProcess({
   runtimeDir,
   command,
   args,
-  runtimeToken: process.env.JSKIT_EXECUTION_RUNTIME_TOKEN,
-  bundled: process.env.JSKIT_CODEX_MODEL_CATALOG_SOURCE === "bundled",
+  runtimeToken: process.env[CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.runtimeToken],
+  bundled: process.env[CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.modelCatalogSource] === "bundled",
   additionalModels: codexProviderModelCatalog({ models: NATIVE_AI_PROVIDERS.flatMap(provider =>
     provider.models.map(model => ({ ...model, label: model.id, defaultThinking: model.variants[0] }))) }).models
 });

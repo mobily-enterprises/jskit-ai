@@ -19,7 +19,7 @@ import {
   codexAppServerThreadError
 } from "./codexEvents.js";
 
-// Original native snapshot reconciliation; existing owners retain all state.
+// Native thread snapshot reconciliation; it holds no state of its own.
 export function createCodexThreadStatus({ journal, settlement, recovery, output, createRuntime, turnState, turnOutcomes, debugLog, debugError }) {
   const { turnResultWasProcessed: codexAppServerTurnResultWasProcessed } = journal;
   const {

@@ -249,7 +249,7 @@ const CODEX_APP_SERVER_READY_TIMEOUT_MS = 60000;
 
 const CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS = 2000;
 
-const CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES = new Set([
+export const CODEX_APP_SERVER_DESKTOP_BUS_ENV_NAMES = new Set([
   "DBUS_SESSION_BUS_ADDRESS",
   "DBUS_STARTER_ADDRESS",
   "DBUS_STARTER_BUS_TYPE"
@@ -501,8 +501,9 @@ export function codexAppServerTerminalEnvHash(terminalEnv = {}) {
 }
 
 function codexHistoryAdapterUrlIsValid(baseUrl, token) {
-  // The previous adapter cannot serve thread-bound compaction recovery. Keep
-  // its process identity readable, but retire it through normal owned cleanup.
+  // Only this adapter URL shape serves thread-bound compaction recovery. Any
+  // other shape keeps its process identity readable but is retired through
+  // normal owned cleanup.
   const match = typeof baseUrl === "string" && /^http:\/\/127\.0\.0\.1:([1-9]\d{0,4})\/[0-9a-f-]{36}\/v2$/iu.exec(baseUrl);
   return Boolean(match && Number(match[1]) <= 65535 && baseUrl.endsWith(`/${token}/v2`));
 }
@@ -535,16 +536,39 @@ const codexAppServerRuntimePreparations = new Map();
 /** The production shared runtime: one process owner per stable runtime directory.
  * Execution and credential facilities retain host policy; threads do not own this process.
  */
+/** Default environment names the runtime and its process leader share. */
+export const CODEX_APP_SERVER_DEFAULT_ENVIRONMENT = Object.freeze({
+  runtimeToken: "JSKIT_EXECUTION_RUNTIME_TOKEN",
+  modelCatalogSource: "JSKIT_CODEX_MODEL_CATALOG_SOURCE",
+  commandHash: "JSKIT_EXECUTION_COMMAND_HASH"
+});
+
+/** The PreToolUse hook that routes native Bash commands through the host's wrapper. */
+export function codexCommandHookDefinition(command) {
+  return [{ matcher: "^Bash$", hooks: [{ type: "command", command, timeout: 30 }] }];
+}
+
+// Inline TOML for `-c` overrides: bare keys, JSON-quoted strings.
+function tomlInlineValue(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(tomlInlineValue).join(",")}]`;
+  }
+  if (isPlainObject(value)) {
+    return `{${Object.entries(value).map(([key, item]) => `${key}=${tomlInlineValue(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 export function createCodexAppServerRuntime({ execution, credentials, configuration = {} }) {
   const {
     clientInfo = { name: "jskit", title: "JSKIT", version: "0.1.0" },
     commandHookCommand,
     errorPrefix = "",
-    modelCatalogEnvironmentName = "JSKIT_CODEX_MODEL_CATALOG_SOURCE",
+    modelCatalogEnvironmentName = CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.modelCatalogSource,
     processLabel = "jskit-codex-app-server",
     processPath = fileURLToPath(new URL("./codexProcessLeader.js", import.meta.url)),
-    runtimeTokenEnvironmentName = "JSKIT_EXECUTION_RUNTIME_TOKEN",
-    commandHashEnvironmentName = "JSKIT_EXECUTION_COMMAND_HASH",
+    runtimeTokenEnvironmentName = CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.runtimeToken,
+    commandHashEnvironmentName = CODEX_APP_SERVER_DEFAULT_ENVIRONMENT.commandHash,
     socketPathHelp = "Configure a shorter host runtime directory.",
     umask = "0007"
   } = configuration;
@@ -563,8 +587,7 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
   const assertCodexAuthGenerationCurrent = credentials.assertCurrent;
 
   function codexAppServerSessionCommandHookConfig() {
-    const command = commandHookCommand;
-    return `hooks.PreToolUse=[{matcher="^Bash$",hooks=[{type="command",command=${JSON.stringify(command)},timeout=30}]}]`;
+    return `hooks.PreToolUse=${tomlInlineValue(codexCommandHookDefinition(commandHookCommand))}`;
   }
 
   async function acquireRuntimeLock(runtimeDir = "", options = {}) {
@@ -941,33 +964,35 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       };
     }
     const normalizedTimeoutMs = normalizePositiveInteger(timeoutMs, CODEX_APP_SERVER_LIVENESS_TIMEOUT_MS);
+    return {
+      status: await probeCodexAppServer(normalizedEndpoint, normalizedTimeoutMs, WebSocketImpl)
+    };
+  }
+
+  // One bounded connect-and-initialize handshake: responsive, timeout or unreachable.
+  async function probeCodexAppServer(endpoint, timeoutMs, WebSocketImpl) {
     const client = new CodexAppServerJsonRpcClient({
-      endpoint: normalizedEndpoint,
-      requestTimeoutMs: normalizedTimeoutMs,
+      endpoint,
+      requestTimeoutMs: timeoutMs,
       WebSocketImpl
     });
     let timeout = null;
     const probe = (async () => {
       await client.connect();
-      await client.initialize({ clientInfo: clientInfo });
+      await client.initialize({ clientInfo });
       return CODEX_APP_SERVER_ENDPOINT_STATUS.RESPONSIVE;
     })();
     probe.catch(() => null);
     try {
-      const status = await Promise.race([
+      return await Promise.race([
         probe,
         new Promise((resolve) => {
-          timeout = setTimeout(() => resolve(CODEX_APP_SERVER_ENDPOINT_STATUS.TIMEOUT), normalizedTimeoutMs);
+          timeout = setTimeout(() => resolve(CODEX_APP_SERVER_ENDPOINT_STATUS.TIMEOUT), timeoutMs);
           timeout.unref?.();
         })
       ]);
-      return {
-        status
-      };
     } catch {
-      return {
-        status: CODEX_APP_SERVER_ENDPOINT_STATUS.UNREACHABLE
-      };
+      return CODEX_APP_SERVER_ENDPOINT_STATUS.UNREACHABLE;
     } finally {
       clearTimeout(timeout);
       client.close();
@@ -1089,35 +1114,10 @@ export function createCodexAppServerRuntime({ execution, credentials, configurat
       await delay(100);
     }
     const remainingMs = Math.max(1, timeoutMs - (Date.now() - startedAt));
-    if (!await fileExists(socketPath) || remainingMs <= 0) {
+    if (!await fileExists(socketPath)) {
       return false;
     }
-    const client = new CodexAppServerJsonRpcClient({
-      endpoint,
-      requestTimeoutMs: remainingMs,
-      WebSocketImpl
-    });
-    let timeout = null;
-    const handshake = (async () => {
-      await client.connect();
-      await client.initialize({ clientInfo: clientInfo });
-      return true;
-    })();
-    handshake.catch(() => null);
-    try {
-      return await Promise.race([
-        handshake,
-        new Promise((resolve) => {
-          timeout = setTimeout(() => resolve(false), remainingMs);
-          timeout.unref?.();
-        })
-      ]);
-    } catch {
-      return false;
-    } finally {
-      clearTimeout(timeout);
-      client.close();
-    }
+    return await probeCodexAppServer(endpoint, remainingMs, WebSocketImpl) === CODEX_APP_SERVER_ENDPOINT_STATUS.RESPONSIVE;
   }
 
   async function startCodexAppServerProcess({

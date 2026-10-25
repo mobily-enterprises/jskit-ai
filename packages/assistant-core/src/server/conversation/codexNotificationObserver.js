@@ -24,8 +24,8 @@ import {
   codexAppServerNotificationUsageLimitExceeded
 } from "./codexEvents.js";
 
-// Original native notifications, goal updates and provider-generation subscriptions.
-// The existing queue and operation owners retain their state and ordering.
+// Native notification routing, goal updates and provider-generation subscriptions.
+// Ordering belongs to the notification queue; state belongs to the operation owners.
 export function createCodexNotificationObserver({
   journal,
   recovery,
@@ -60,8 +60,7 @@ export function createCodexNotificationObserver({
     mirrorTerminalAssistantMessage: mirrorCodexAppServerTerminalAssistantMessage
   } = output;
   const { mirrorTerminalUserMessage: mirrorCodexAppServerTerminalUserMessage } = delivery;
-  const codexAppServerNotificationQueue = notificationQueue;
-  const { run: runCodexAppServerNotificationTask } = codexAppServerNotificationQueue;
+  const { run: runCodexAppServerNotificationTask } = notificationQueue;
   const CODEX_APP_SERVER_GOAL_STATUSES = new Set([
     "active", "blocked", "budgetLimited", "complete", "paused", "usageLimited"
   ]);
@@ -88,11 +87,11 @@ export function createCodexNotificationObserver({
   }
 
   function queueCodexAppServerReasoning(context, notification) {
-    return codexAppServerNotificationQueue.reasoning(context, notification, recordCodexAppServerReasoningForSession);
+    return notificationQueue.reasoning(context, notification, recordCodexAppServerReasoningForSession);
   }
 
   function queueCodexAppServerStream(context, classification) {
-    return codexAppServerNotificationQueue.stream(context, classification, writeCodexAppServerStream);
+    return notificationQueue.stream(context, classification, writeCodexAppServerStream);
   }
 
   async function reconcileCodexAppServerGoalUpdated(
@@ -222,6 +221,14 @@ export function createCodexNotificationObserver({
       });
     });
     const onNotification = (notification = {}) => {
+      const runProviderFailure = (context, turnId, status) => runCodexAppServerNotificationTask(context, () =>
+        stopCodexAppServerTurnWithProviderFailure(normalizedSessionId, normalizedThreadId, turnId, {
+          error: codexAppServerNotificationError(notification),
+          provider,
+          status,
+          usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification),
+          deferFailureDetails: true
+        }));
       const method = normalizeCodexRunText(notification.method);
       if (method === "account/rateLimits/updated" || method === "account/updated") {
         runCodexAppServerNotificationTask({ method, projectContext, provider, sessionId: normalizedSessionId, sessionKey }, () =>
@@ -265,10 +272,12 @@ export function createCodexNotificationObserver({
         codexAppServerAutomaticHookThreads.add(normalizedThreadId);
         return;
       }
+      // Automatic hook turns stay out of the visible conversation phase and output.
+      const hookOwned = codexAppServerAutomaticHookThreads.has(normalizedThreadId);
       const contextRefreshReason = codexAppServerContextRefreshReason(notification);
       const itemType = codexAppServerNotificationItem(notification)?.type;
       const retrying = classification.phase === "retrying";
-      if (!codexAppServerAutomaticHookThreads.has(normalizedThreadId) &&
+      if (!hookOwned &&
           (retrying || method === "item/started" || method === "item/completed" && ["contextCompaction", "reasoning"].includes(itemType))) {
         runCodexAppServerNotificationTask(notificationContext, async () => {
           const phase = retrying ? "retrying" : method === "item/started"
@@ -314,18 +323,16 @@ export function createCodexNotificationObserver({
       if (
         (method.startsWith("item/reasoning/") ||
           method === "item/completed" && codexAppServerNotificationItem(notification)?.type === "reasoning") &&
-        !codexAppServerAutomaticHookThreads.has(normalizedThreadId)
+        !hookOwned
       ) {
         queueCodexAppServerReasoning(notificationContext, notification);
       }
-      if (["assistant_started", "assistant_delta"].includes(classification.kind) &&
-          !codexAppServerAutomaticHookThreads.has(normalizedThreadId)) {
+      if (["assistant_started", "assistant_delta"].includes(classification.kind) && !hookOwned) {
         queueCodexAppServerStream(notificationContext, classification);
       }
       if (classification.kind === "final_assistant_result") {
         const event = codexAppServerNotificationEvent(notification);
         const payload = codexAppServerNotificationEventPayload(notification, event);
-        const params = codexAppServerNotificationParams(notification);
         runCodexAppServerNotificationTask(notificationContext, () => {
           return recordCodexAppServerFinalAssistantResult({
             itemId: classification.itemId,
@@ -334,11 +341,7 @@ export function createCodexNotificationObserver({
             source: classification.source,
             text: classification.text,
             threadId: normalizedThreadId,
-            turnId: normalizeCodexRunText(
-              params.turnId ||
-              params.turn_id ||
-              params.turn?.id
-            )
+            turnId: classification.turnId
           });
         });
         debugLog("appServerFinalAssistantResult.received", {
@@ -354,11 +357,8 @@ export function createCodexNotificationObserver({
           turnId: classification.turnId
         });
       }
-      if (
-        classification.kind === "thinking" ||
-        classification.kind === "live_progress"
-      ) {
-        if (codexAppServerAutomaticHookThreads.has(normalizedThreadId)) {
+      if (classification.kind === "live_progress") {
+        if (hookOwned) {
           return;
         }
         runCodexAppServerNotificationTask(notificationContext, () => {
@@ -395,15 +395,7 @@ export function createCodexNotificationObserver({
         const turnId = codexAppServerNotificationTurnId(notification);
         const status = codexAppServerNotificationTurnStatus(notification) || "completed";
         if (codexAppServerTurnStatusIsProviderFailure(status)) {
-          runCodexAppServerNotificationTask(notificationContext, () => {
-            return stopCodexAppServerTurnWithProviderFailure(normalizedSessionId, normalizedThreadId, turnId, {
-              error: codexAppServerNotificationError(notification),
-              provider,
-              status,
-              usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification),
-              deferFailureDetails: true
-            });
-          });
+          runProviderFailure(notificationContext, turnId, status);
           return;
         }
         if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
@@ -437,15 +429,7 @@ export function createCodexNotificationObserver({
         codexAppServerAutomaticHookThreads.delete(normalizedThreadId);
         const turnId = codexAppServerNotificationTurnId(notification);
         if (codexAppServerTurnStatusIsProviderFailure(status)) {
-          runCodexAppServerNotificationTask(notificationContext, () => {
-            return stopCodexAppServerTurnWithProviderFailure(normalizedSessionId, normalizedThreadId, turnId, {
-              error: codexAppServerNotificationError(notification),
-              provider,
-              status,
-              usageLimitExceeded: codexAppServerNotificationUsageLimitExceeded(notification),
-              deferFailureDetails: true
-            });
-          });
+          runProviderFailure(notificationContext, turnId, status);
           return;
         }
         if (codexAppServerTurnStatusIsSuccessfulComplete(status)) {
