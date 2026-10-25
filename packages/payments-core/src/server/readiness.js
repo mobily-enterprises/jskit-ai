@@ -1,4 +1,4 @@
-import { PaymentError } from "./service.js";
+import { PaymentError } from "./errors.js";
 
 const DEFAULT_CHECKS = Object.freeze([
   { id: "credentials", status: "unknown", detail: "Check the provider credentials for this environment." },

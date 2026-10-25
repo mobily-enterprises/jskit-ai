@@ -1,12 +1,5 @@
-import { createHash } from "node:crypto";
+import { PaymentError, fingerprint } from "./errors.js";
 
-class PaymentError extends Error {
-  constructor(code, message, statusCode = 422) {
-    super(message);
-    this.code = code;
-    this.statusCode = statusCode;
-  }
-}
 const fail = (code, message, status) => { throw new PaymentError(code, message, status); };
 function reference(value) {
   if (typeof value !== "string" || !value || value.length > 150 || ["__proto__", "constructor", "prototype"].includes(value)) fail("payment_input_invalid", "Use a nonempty business reference of at most 150 characters.");
@@ -20,7 +13,6 @@ function timestamp(value) {
   if (!Number.isSafeInteger(value) || value < 0) fail("payment_input_invalid", "Use an integer UTC timestamp in milliseconds.");
   return value;
 }
-const fingerprint = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const unexpired = (lot, now) => lot.expiresAt === null || lot.expiresAt > now;
 const available = (lots, now) => lots.reduce((sum, lot) => sum + (unexpired(lot, now) ? lot.remaining : 0), 0);
 

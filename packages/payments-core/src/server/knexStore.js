@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
+import { PaymentError, fingerprint } from "./errors.js";
 
-const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const empty = () => ({ lots: [], subscriptions: {} });
 
 function merchant(scope) {
@@ -15,7 +14,7 @@ function identifier(value) {
   if (typeof value !== "string" || !value || value.length > 200) throw new TypeError("Payment identity is required (maximum 200 characters).");
   return value;
 }
-const accountKey = (scope) => hash([...merchant(scope), identifier(scope.subjectId)]);
+const accountKey = (scope) => fingerprint([...merchant(scope), identifier(scope.subjectId)]);
 
 function createKnexPaymentStore({ knex }) {
   if (typeof knex !== "function" || typeof knex.transaction !== "function") throw new TypeError("Supply the application's transactional Knex client.");
@@ -35,11 +34,11 @@ function createKnexPaymentStore({ knex }) {
       const result = await work({
         state,
         async find(reference) {
-          const entry = await trx("payment_entries").where({ entry_key: hash([key, identifier(reference)]) }).first();
+          const entry = await trx("payment_entries").where({ entry_key: fingerprint([key, identifier(reference)]) }).first();
           return entry ? JSON.parse(entry.payload) : null;
         },
         async record(reference, payload) {
-          await trx("payment_entries").insert({ entry_key: hash([key, identifier(reference)]), account_key: key, payload: JSON.stringify(payload) });
+          await trx("payment_entries").insert({ entry_key: fingerprint([key, identifier(reference)]), account_key: key, payload: JSON.stringify(payload) });
         }
       });
       await trx("payment_accounts").where({ account_key: key }).update({ payload: JSON.stringify(state) });
@@ -47,25 +46,25 @@ function createKnexPaymentStore({ knex }) {
     });
   }
   async function bindCustomer(scope, customerId, subjectId) {
-    const key = hash([...merchant(scope), identifier(customerId)]);
+    const key = fingerprint([...merchant(scope), identifier(customerId)]);
     identifier(subjectId);
     await knex.transaction(async (trx) => {
       await trx("payment_customers").insert({ customer_key: key, subject_id: subjectId })
         .onConflict("customer_key").merge({ customer_key: key });
       const row = await trx("payment_customers").where({ customer_key: key }).first();
-      if (row.subject_id !== subjectId) throw new Error("This provider customer is already bound to a different billable subject.");
+      if (row.subject_id !== subjectId) throw new PaymentError("payment_customer_conflict", "This provider customer is already bound to a different billable subject.", 409);
     });
   }
   async function resolveCustomer(scope, customerId) {
-    const row = await knex("payment_customers").where({ customer_key: hash([...merchant(scope), identifier(customerId)]) }).first();
+    const row = await knex("payment_customers").where({ customer_key: fingerprint([...merchant(scope), identifier(customerId)]) }).first();
     return row?.subject_id ?? null;
   }
   async function inspectCatalogue(scope) {
-    const row = await knex("payment_catalogues").where({ catalogue_key: hash(merchant(scope)) }).first();
+    const row = await knex("payment_catalogues").where({ catalogue_key: fingerprint(merchant(scope)) }).first();
     return row ? JSON.parse(row.payload) : { plans: {}, history: [] };
   }
   async function withCatalogue(scope, work) {
-    const key = hash(merchant(scope));
+    const key = fingerprint(merchant(scope));
     return knex.transaction(async (trx) => {
       await trx("payment_catalogues").insert({ catalogue_key: key, payload: JSON.stringify({ plans: {}, history: [] }) })
         .onConflict("catalogue_key").merge({ catalogue_key: key });

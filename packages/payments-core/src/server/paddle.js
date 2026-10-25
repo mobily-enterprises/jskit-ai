@@ -1,5 +1,5 @@
 import { Paddle, Environment } from "@paddle/paddle-node-sdk";
-import { PaymentError } from "./service.js";
+import { PaymentError } from "./errors.js";
 import { createPriceBindings } from "./priceBindings.js";
 
 const invalid = () => { throw new PaymentError("payment_provider_result_invalid", "Check the Paddle account, price mapping and subscription shape.", 502); };

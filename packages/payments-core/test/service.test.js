@@ -84,7 +84,7 @@ test("transactional payment state isolates subjects, grants once, prevents overs
     });
     await t.test("customer bindings cannot be stolen or resolved across environments", async () => {
       await store.bindCustomer(scope, "cus_a", "tenant-a");
-      await assert.rejects(store.bindCustomer(scope, "cus_a", "tenant-b"), /already bound/);
+      await assert.rejects(store.bindCustomer(scope, "cus_a", "tenant-b"), { name: "PaymentError", code: "payment_customer_conflict", statusCode: 409, message: /already bound/ });
       await assert.rejects(service.reconcileEvent(scope, { eventId: "evt_unbound", customerId: "cus_b", load: async () => {} }), { code: "payment_customer_unbound" });
     });
     await t.test("event failure rolls back; retries grant once per renewal rather than event", async () => {

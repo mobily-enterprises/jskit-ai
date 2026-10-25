@@ -1,4 +1,4 @@
-import { PaymentError } from "./service.js";
+import { PaymentError } from "./errors.js";
 
 // Plan-to-price bindings shared by the provider adapters. `invalid` throws the
 // adapter's own provider-result error for an unknown or ambiguous price.

@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { PaymentError } from "./service.js";
+import { PaymentError } from "./errors.js";
 import { createPriceBindings } from "./priceBindings.js";
 
 const id = (value) => typeof value === "string" ? value : value?.id;

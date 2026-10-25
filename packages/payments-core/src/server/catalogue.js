@@ -1,7 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
-import { PaymentError } from "./service.js";
+import { randomUUID } from "node:crypto";
+import { PaymentError, fingerprint } from "./errors.js";
 
-const fingerprint = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const priceFields = (plan) => ({ amount: plan.amount, currency: plan.currency, interval: plan.interval });
 const samePrice = (a, b) => fingerprint(priceFields(a)) === fingerprint(priceFields(b));
 

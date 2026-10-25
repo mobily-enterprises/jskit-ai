@@ -1,5 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
-import { PaymentError } from "./service.js";
+import { randomUUID } from "node:crypto";
+import { PaymentError, fingerprint } from "./errors.js";
 
 // Application composition boundary: authorization is mandatory and supplied by
 // the app's framework. Actor and subject must come from its authenticated route.
@@ -43,7 +43,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     adapter.validatePlan(planId);
     if (typeof requestId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(requestId)) throw new PaymentError("payment_request_invalid", "Supply a stable checkout request identifier.");
     if (typeof email !== "string" || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PaymentError("payment_input_invalid", "Supply the authenticated billing contact's email.");
-    const identity = createHash("sha256").update(JSON.stringify(scope)).digest("hex");
+    const identity = fingerprint(scope);
     const customerId = await perform(scope, async (tx) => tx.state.customerId
       ? { cached: true, result: tx.state.customerId }
       : { action: "customer", email },
@@ -62,7 +62,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
       }
       return { action: "checkout", customerId, planId, requestId };
     }, () => adapter.createCheckout({ customerId, planId, returnUrl: target.href,
-      requestId: `checkout-${createHash("sha256").update(JSON.stringify([scope, requestId])).digest("hex")}` }),
+      requestId: `checkout-${fingerprint([scope, requestId])}` }),
     async (tx, result) => { await tx.record(`checkout:${requestId}`, { planId, result }); return result; });
   }
   async function account({ actor, subjectId }) {
