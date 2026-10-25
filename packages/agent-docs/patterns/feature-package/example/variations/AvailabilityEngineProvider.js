@@ -1,5 +1,5 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { emptyInputValidator } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { emptyInputValidator } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { createService } from "./orchestratorService.js";
 
 const AvailabilityEngineProvider = defineFeature({

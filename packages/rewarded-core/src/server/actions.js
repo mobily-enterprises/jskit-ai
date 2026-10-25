@@ -44,10 +44,6 @@ function createRewardedActions({ rewarded } = {}) {
     input: currentQueryInputValidator,
     output: currentStateOutputValidator,
     idempotency: "none",
-    audit: {
-      actionName: ACTION_CURRENT
-    },
-    observability: {},
     async execute(input, context) {
       return rewarded.getCurrentState(input, {
         context
@@ -64,10 +60,6 @@ function createRewardedActions({ rewarded } = {}) {
     input: startCommandInputValidator,
     output: startGateOutputValidator,
     idempotency: "optional",
-    audit: {
-      actionName: ACTION_START
-    },
-    observability: {},
     events: [changedEvent({
       entity: "watch-session",
       operation: "created",
@@ -90,10 +82,6 @@ function createRewardedActions({ rewarded } = {}) {
     input: grantCommandInputValidator,
     output: grantRewardOutputValidator,
     idempotency: "optional",
-    audit: {
-      actionName: ACTION_GRANT
-    },
-    observability: {},
     events: [
       changedEvent({
         entity: "watch-session",
@@ -124,10 +112,6 @@ function createRewardedActions({ rewarded } = {}) {
     input: closeCommandInputValidator,
     output: closeSessionOutputValidator,
     idempotency: "optional",
-    audit: {
-      actionName: ACTION_CLOSE
-    },
-    observability: {},
     events: [changedEvent({
       entity: "watch-session",
       operation: "updated",

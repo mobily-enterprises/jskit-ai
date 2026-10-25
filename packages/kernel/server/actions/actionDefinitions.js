@@ -1,9 +1,7 @@
-import {
-  normalizeSingleSchemaDefinition
-} from "../validators/index.js";
-import { isRecord as isPlainObject, normalizePositiveInteger } from "../support/normalize.js";
-import { normalizePermissionList } from "../support/permissions.js";
-import { normalizeText } from "./textNormalization.js";
+import { normalizeSingleSchemaDefinition } from "../../shared/validators/index.js";
+import { isRecord as isPlainObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
+import { normalizePermissionList } from "../../shared/support/permissions.js";
+import { ARCHITECTURE_ID_PATTERN } from "../../shared/capabilities/defineProvider.js";
 
 const ACTION_KINDS = Object.freeze(["query", "command", "stream"]);
 const ACTION_IDEMPOTENCY_POLICIES = Object.freeze(["none", "optional", "required", "domain_native"]);
@@ -12,7 +10,6 @@ const ACTION_PERMISSION_REQUIRE_MODES = Object.freeze(["none", "authenticated", 
 const ACTION_KIND_SET = new Set(ACTION_KINDS);
 const ACTION_IDEMPOTENCY_SET = new Set(ACTION_IDEMPOTENCY_POLICIES);
 const ACTION_PERMISSION_REQUIRE_SET = new Set(ACTION_PERMISSION_REQUIRE_MODES);
-const ACTION_DOMAIN_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
 class ActionRuntimeError extends Error {
   constructor(status, message, options = {}) {
@@ -38,10 +35,10 @@ function normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_
       code: errorCode
     });
   }
-  if (!ACTION_DOMAIN_PATTERN.test(domain)) {
+  if (!ARCHITECTURE_ID_PATTERN.test(domain)) {
     throw createActionRuntimeError(
       500,
-      `${context} must match ${ACTION_DOMAIN_PATTERN.toString()} (lowercase letters, digits, _, -, .).`,
+      `${context} must match ${ARCHITECTURE_ID_PATTERN.toString()} (lowercase letters, digits, _, -, .).`,
       {
         code: errorCode
       }
@@ -51,23 +48,13 @@ function normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_
   return domain;
 }
 
-function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false } = {}) {
+function normalizeStringArray(value, fieldName) {
   const source = Array.isArray(value) ? value : [];
   const normalized = Array.from(
-    new Set(
-      source
-        .map((entry) => normalizeText(entry).toLowerCase())
-        .filter(Boolean)
-        .filter((entry) => {
-          if (!(allowedSet instanceof Set)) {
-            return true;
-          }
-          return allowedSet.has(entry);
-        })
-    )
+    new Set(source.map((entry) => normalizeText(entry).toLowerCase()).filter(Boolean))
   );
 
-  if (!allowEmpty && normalized.length < 1) {
+  if (normalized.length < 1) {
     throw createActionRuntimeError(500, `Action definition ${fieldName} must include at least one value.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
@@ -76,13 +63,19 @@ function normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false
   return normalized;
 }
 
-function normalizeSingleActionSchema(value, fieldName, { required = false, defaultMode = "" } = {}) {
+function normalizeActionSchema(value, fieldName, { required = false, defaultMode = "" } = {}) {
   if (value == null) {
     if (!required) {
       return null;
     }
 
     throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
+      code: "ACTION_DEFINITION_INVALID"
+    });
+  }
+
+  if (Array.isArray(value)) {
+    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a single schema definition.`, {
       code: "ACTION_DEFINITION_INVALID"
     });
   }
@@ -103,52 +96,6 @@ function normalizeSingleActionSchema(value, fieldName, { required = false, defau
       code: "ACTION_DEFINITION_INVALID"
     });
   }
-}
-
-function normalizeActionInputDefinition(value, fieldName, { required = false } = {}) {
-  if (value == null) {
-    if (!required) {
-      return null;
-    }
-
-    throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  if (Array.isArray(value)) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a single schema definition.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  return normalizeSingleActionSchema(value, fieldName, {
-    required,
-    defaultMode: "patch"
-  });
-}
-
-function normalizeActionOutputDefinition(value, fieldName, { required = false } = {}) {
-  if (value == null) {
-    if (!required) {
-      return null;
-    }
-
-    throw createActionRuntimeError(500, `Action definition ${fieldName} is required.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  if (Array.isArray(value)) {
-    throw createActionRuntimeError(500, `Action definition ${fieldName} must be a single schema definition.`, {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  return normalizeSingleActionSchema(value, fieldName, {
-    required,
-    defaultMode: "replace"
-  });
 }
 
 function normalizeActionPermission(permission, actionId) {
@@ -187,42 +134,6 @@ function normalizeActionPermission(permission, actionId) {
     permissions: Object.freeze(normalizePermissionList(permission.permissions)),
     message: normalizeText(permission.message),
     code: normalizeText(permission.code)
-  });
-}
-
-function normalizeAuditConfig(audit, { actionId }) {
-  const source = audit && typeof audit === "object" ? audit : {};
-  const actionName = normalizeText(source.actionName || actionId);
-  const metadataBuilder = source.metadataBuilder;
-  const piiTags = normalizeStringArray(source.piiTags, {
-    fieldName: "audit.piiTags",
-    allowEmpty: true
-  });
-
-  if (metadataBuilder != null && typeof metadataBuilder !== "function") {
-    throw createActionRuntimeError(500, "Action definition audit.metadataBuilder must be a function when provided.", {
-      code: "ACTION_DEFINITION_INVALID"
-    });
-  }
-
-  return Object.freeze({
-    actionName,
-    metadataBuilder: typeof metadataBuilder === "function" ? metadataBuilder : null,
-    piiTags
-  });
-}
-
-function normalizeObservabilityConfig(observability) {
-  const source = observability && typeof observability === "object" ? observability : {};
-  const metricTags = normalizeStringArray(source.metricTags, {
-    fieldName: "observability.metricTags",
-    allowEmpty: true
-  });
-  const sampleRate = Number(source.sampleRate);
-
-  return Object.freeze({
-    metricTags,
-    sampleRate: Number.isFinite(sampleRate) && sampleRate >= 0 && sampleRate <= 1 ? sampleRate : null
   });
 }
 
@@ -286,13 +197,8 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     });
   }
 
-  const channels = normalizeStringArray(source.channels, {
-    fieldName: "channels"
-  });
-
-  const surfaces = normalizeStringArray(source.surfaces, {
-    fieldName: "surfaces"
-  });
+  const channels = normalizeStringArray(source.channels, "channels");
+  const surfaces = normalizeStringArray(source.surfaces, "surfaces");
 
   const idempotency = normalizeText(source.idempotency || "none").toLowerCase();
   if (!ACTION_IDEMPOTENCY_SET.has(idempotency)) {
@@ -318,18 +224,15 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     kind,
     channels,
     surfaces,
-    input: normalizeActionInputDefinition(source.input, "input", {
-      required: true
+    input: normalizeActionSchema(source.input, "input", {
+      required: true,
+      defaultMode: "patch"
     }),
-    output: normalizeActionOutputDefinition(source.output, "output", {
-      required: false
+    output: normalizeActionSchema(source.output, "output", {
+      defaultMode: "replace"
     }),
     idempotency,
     permission: normalizeActionPermission(source.permission, id),
-    audit: normalizeAuditConfig(source.audit, {
-      actionId: id
-    }),
-    observability: normalizeObservabilityConfig(source.observability),
     extensions: normalizeActionExtensions(source.extensions),
     events: normalizeActionEvents(source.events, id),
     execute: source.execute,
@@ -371,15 +274,7 @@ function createActionVersionKey(actionId, version) {
 }
 
 const __testables = {
-  normalizeText,
-  isPlainObject,
-  normalizeStringArray,
-  normalizeSingleActionSchema,
-  normalizeActionInputDefinition,
-  normalizeActionOutputDefinition,
-  normalizeActionPermission,
-  normalizeAuditConfig,
-  normalizeObservabilityConfig,
+  normalizeActionSchema,
   normalizeActionExtensions
 };
 
@@ -388,8 +283,6 @@ export {
   createActionRuntimeError,
   normalizeActionDefinition,
   normalizeActionContributor,
-  normalizeActionDomain,
   createActionVersionKey,
-  isPlainObject,
   __testables
 };

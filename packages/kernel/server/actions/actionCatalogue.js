@@ -1,4 +1,4 @@
-import { createActionRegistry } from "../../shared/actions/registry.js";
+import { createActionRegistry } from "./registry.js";
 import { isRecord } from "../../shared/support/normalize.js";
 
 function normalizeRegistration(value) {
@@ -9,21 +9,12 @@ function normalizeRegistration(value) {
   return value;
 }
 
-function createActionCatalogue({
-  idempotencyAdapter,
-  auditAdapter,
-  observabilityAdapter,
-  events,
-  logger = null
-} = {}) {
+function createActionCatalogue({ events, logger = null } = {}) {
   const contributors = [];
   const contextContributors = [];
   const contextContributorIds = new Set();
   let registry = createActionRegistry({
     contributors,
-    idempotencyAdapter,
-    auditAdapter,
-    observabilityAdapter,
     events,
     logger
   });
@@ -36,9 +27,6 @@ function createActionCatalogue({
     const nextContributors = [...contributors, normalizeRegistration(contributor)];
     const nextRegistry = createActionRegistry({
       contributors: nextContributors,
-      idempotencyAdapter,
-      auditAdapter,
-      observabilityAdapter,
       events,
       logger
     });

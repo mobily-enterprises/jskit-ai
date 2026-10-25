@@ -198,7 +198,7 @@ product CRUD behavior fixed.
   phases before commit share one repository transaction, and `execute` receives
   `standard(nextInput)` for retaining the normal framework write.
 - Named `actions` expose non-CRUD service methods through normal input,
-  permission, audit, event, and optional HTTP route contracts.
+  permission, event, and optional HTTP route contracts.
 
 Repositories own database access. Services and lifecycle hooks orchestrate
 repositories. External delivery belongs after commit; when it must be durable,

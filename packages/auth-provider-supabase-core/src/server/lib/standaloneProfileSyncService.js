@@ -1,4 +1,4 @@
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const USER_PROFILE_EMAIL_CONFLICT_CODE = "USER_PROFILE_EMAIL_CONFLICT";
 

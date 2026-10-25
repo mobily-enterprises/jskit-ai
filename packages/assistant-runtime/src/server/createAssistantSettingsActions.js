@@ -46,10 +46,6 @@ function createAssistantSettingsActions({ assistantConfigService, settingsSurfac
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: actionIds.settingsRead
-    },
-    observability: {},
     async execute(input, context) {
       return returnJsonApiData(await assistantConfigService.getSettings(input, {
         context
@@ -73,10 +69,6 @@ function createAssistantSettingsActions({ assistantConfigService, settingsSurfac
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: actionIds.settingsUpdate
-    },
-    observability: {},
     async execute(input, context) {
       return returnJsonApiData(await assistantConfigService.updateSettings(input, input.patch, {
         context

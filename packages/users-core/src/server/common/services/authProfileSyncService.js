@@ -1,5 +1,5 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeIdentity } from "../support/identity.js";
 
 function buildNormalizedIdentityKey(identityLike) {

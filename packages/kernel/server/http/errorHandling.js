@@ -1,4 +1,4 @@
-import { ActionRuntimeError } from "../../shared/actions/actionDefinitions.js";
+import { ActionRuntimeError } from "../actions/actionDefinitions.js";
 import { normalizeTransactionOutcome } from "../../shared/support/normalize.js";
 
 const JSON_API_CONTENT_TYPE = "application/vnd.api+json";

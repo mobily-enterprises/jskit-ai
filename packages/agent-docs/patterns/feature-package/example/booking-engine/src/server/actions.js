@@ -14,8 +14,6 @@ function createActions({ bookingEngine } = {}) {
       input: statusQueryInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: ACTION_GET_STATUS },
-      observability: {},
       async execute(input) {
         return bookingEngine.readStatus(input);
       }

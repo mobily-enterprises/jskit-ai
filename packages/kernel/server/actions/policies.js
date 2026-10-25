@@ -1,10 +1,7 @@
 import { createActionRuntimeError } from "./actionDefinitions.js";
-import { normalizeLowerText, normalizeText } from "./textNormalization.js";
-import { hasPermission, normalizePermissionList } from "../support/permissions.js";
-import { isRecord, normalizeOpaqueId } from "../support/normalize.js";
-import {
-  validateSchemaPayload
-} from "../validators/schemaPayloadValidation.js";
+import { hasPermission, normalizePermissionList } from "../../shared/support/permissions.js";
+import { isRecord, normalizeLowerText, normalizeOpaqueId } from "../../shared/support/normalize.js";
+import { validateSchemaPayload } from "../../shared/validators/schemaPayloadValidation.js";
 
 function createActionValidationError({
   status = 400,
@@ -22,13 +19,12 @@ function createActionValidationError({
 
 function ensureActionChannelAllowed(definition, context) {
   const channel = normalizeLowerText(context?.channel);
-  const allowedChannels = Array.isArray(definition?.channels) ? definition.channels : [];
 
-  if (!channel || !allowedChannels.includes(channel)) {
+  if (!channel || !definition.channels.includes(channel)) {
     throw createActionRuntimeError(403, "Forbidden.", {
       code: "ACTION_CHANNEL_FORBIDDEN",
       details: {
-        actionId: definition?.id,
+        actionId: definition.id,
         channel
       }
     });
@@ -37,13 +33,13 @@ function ensureActionChannelAllowed(definition, context) {
 
 function ensureActionSurfaceAllowed(definition, context) {
   const surface = normalizeLowerText(context?.surface);
-  const allowedSurfaces = Array.isArray(definition?.surfaces) ? definition.surfaces : [];
+  const allowedSurfaces = definition.surfaces;
 
   if (!allowedSurfaces.includes("*") && (!surface || !allowedSurfaces.includes(surface))) {
     throw createActionRuntimeError(403, "Forbidden.", {
       code: "ACTION_SURFACE_FORBIDDEN",
       details: {
-        actionId: definition?.id,
+        actionId: definition.id,
         surface
       }
     });
@@ -51,8 +47,8 @@ function ensureActionSurfaceAllowed(definition, context) {
 }
 
 function ensureActionPermissionAllowed(definition, context) {
-  const permission = isRecord(definition?.permission) ? definition.permission : { require: "none" };
-  const mode = normalizeLowerText(permission.require || "none");
+  const { permission } = definition;
+  const mode = permission.require;
 
   if (mode === "none") {
     return;
@@ -63,7 +59,7 @@ function ensureActionPermissionAllowed(definition, context) {
     throw createActionRuntimeError(401, permission.message || "Authentication required.", {
       code: permission.code || "ACTION_AUTHENTICATION_REQUIRED",
       details: {
-        actionId: definition?.id
+        actionId: definition.id
       }
     });
   }
@@ -72,7 +68,7 @@ function ensureActionPermissionAllowed(definition, context) {
     return;
   }
 
-  const requiredPermissions = normalizePermissionList(permission.permissions);
+  const requiredPermissions = permission.permissions;
   if (requiredPermissions.length < 1) {
     return;
   }
@@ -87,7 +83,7 @@ function ensureActionPermissionAllowed(definition, context) {
       throw createActionRuntimeError(403, permission.message || "Forbidden.", {
         code: permission.code || "ACTION_PERMISSION_DENIED",
         details: {
-          actionId: definition?.id,
+          actionId: definition.id,
           permission: requiredPermission
         }
       });
@@ -101,7 +97,7 @@ function ensureActionPermissionAllowed(definition, context) {
     throw createActionRuntimeError(403, permission.message || "Forbidden.", {
       code: permission.code || "ACTION_PERMISSION_DENIED",
       details: {
-        actionId: definition?.id,
+        actionId: definition.id,
         requiredPermissions
       }
     });
@@ -110,9 +106,9 @@ function ensureActionPermissionAllowed(definition, context) {
 
 async function normalizeActionInput(definition, input) {
   try {
-    return validateSchemaPayload(definition?.input, input, {
+    return validateSchemaPayload(definition.input, input, {
       phase: "input",
-      context: `Action ${definition?.id} input`
+      context: `Action ${definition.id} input`
     });
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
@@ -137,14 +133,14 @@ async function normalizeActionInput(definition, input) {
 }
 
 async function normalizeActionOutput(definition, output) {
-  if (!definition?.output) {
+  if (!definition.output) {
     return output;
   }
 
   try {
     return validateSchemaPayload(definition.output, output, {
       phase: "output",
-      context: `Action ${definition?.id} output`
+      context: `Action ${definition.id} output`
     });
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
@@ -180,17 +176,10 @@ async function normalizeActionOutput(definition, output) {
   }
 }
 
-const __testables = {
-  normalizeText,
-  normalizeLowerText,
-  validateSchemaPayload
-};
-
 export {
   ensureActionChannelAllowed,
   ensureActionSurfaceAllowed,
   ensureActionPermissionAllowed,
   normalizeActionInput,
-  normalizeActionOutput,
-  __testables
+  normalizeActionOutput
 };

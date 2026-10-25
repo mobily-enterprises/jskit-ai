@@ -1,7 +1,7 @@
 import { pendingInvitationsAssistantOutput } from "../../shared/resources/workspaceAssistantOutputs.js";
 import {
   emptyInputValidator
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
 import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
@@ -28,10 +28,6 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.invitation.resolve"
-    },
-    observability: {},
     async run(workspacePendingInvitationsService, input, context) {
       return returnJsonApiData(
         await workspacePendingInvitationsService.resolveInviteByToken(input?.token, {
@@ -64,10 +60,6 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.invitations.pending.list"
-    },
-    observability: {},
     async run(workspacePendingInvitationsService, input, context) {
       return returnJsonApiData({
         pendingInvites: await workspacePendingInvitationsService.listPendingInvitesForUser(resolveActionUser(context, input), {
@@ -93,10 +85,6 @@ const workspacePendingInvitationsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.invite.redeem"
-    },
-    observability: {},
     events: WORKSPACE_INVITE_DECISION_EVENTS,
     async run(workspacePendingInvitationsService, input, context) {
       const payload = input || {};

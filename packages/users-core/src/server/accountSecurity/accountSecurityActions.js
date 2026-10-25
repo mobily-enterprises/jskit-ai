@@ -1,6 +1,6 @@
 import {
   resolveRequest
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
@@ -31,10 +31,6 @@ const accountSecurityActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.security.password.change"
-    },
-    observability: {},
     async run(accountSecurityService, input, context) {
       return accountSecurityService.changePassword(
         resolveRequest(context),
@@ -65,10 +61,6 @@ const accountSecurityActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.security.password_method.toggle"
-    },
-    observability: {},
     async run(accountSecurityService, input, context) {
       return accountSecurityService.setPasswordMethodEnabled(
         resolveRequest(context),
@@ -97,10 +89,6 @@ const accountSecurityActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.security.oauth.link.start"
-    },
-    observability: {},
     async run(accountSecurityService, input, context) {
       return accountSecurityService.startOAuthProviderLink(
         resolveRequest(context),
@@ -131,10 +119,6 @@ const accountSecurityActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.security.oauth.unlink"
-    },
-    observability: {},
     async run(accountSecurityService, input, context) {
       return accountSecurityService.unlinkOAuthProvider(
         resolveRequest(context),
@@ -165,10 +149,6 @@ const accountSecurityActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.security.sessions.logout_others"
-    },
-    observability: {},
     async run(accountSecurityService, input, context) {
       return accountSecurityService.logoutOtherSessions(resolveRequest(context), resolveActionUser(context, input), {
         context

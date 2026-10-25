@@ -1,6 +1,6 @@
 import {
   resolveRequest
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
@@ -25,10 +25,6 @@ const accountNotificationsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "settings.notifications.update"
-    },
-    observability: {},
     events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
     async run(accountNotificationsService, input, context) {
       return accountNotificationsService.updateNotifications(

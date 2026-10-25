@@ -1,7 +1,5 @@
-import {
-  normalizeObject,
-  requireServiceMethod
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { requireServiceMethod } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   checkRouteVisibility,

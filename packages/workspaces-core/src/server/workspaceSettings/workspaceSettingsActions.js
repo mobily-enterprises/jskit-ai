@@ -40,10 +40,6 @@ const workspaceSettingsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.settings.read"
-    },
-    observability: {},
     async run(workspaceSettingsService, input, context) {
       const response = await workspaceSettingsService.getWorkspaceSettings(resolveWorkspace(context, input), {
         context
@@ -72,10 +68,6 @@ const workspaceSettingsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.settings.update"
-    },
-    observability: {},
     events: WORKSPACE_SETTINGS_CHANGED_EVENTS,
     async run(workspaceSettingsService, input, context) {
       const { workspaceSlug, ...patch } = input;

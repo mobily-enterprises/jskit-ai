@@ -14,109 +14,9 @@ Use this on demand; do not load the full index at startup.
 
 ### shared
 
-### `shared/actions/actionContributorHelpers.js`
-Exports
-- `normalizeObject`
-- `toPositiveInteger`
-- `requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {})`
-- `resolveRequest(context)`
-- `hasPermission`
-- `emptyInputValidator`
-
-### `shared/actions/actionDefinitions.js`
-Exports
-- `ActionRuntimeError`
-- `createActionRuntimeError(status, message, options = {})`
-- `normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {})`
-- `normalizeActionContributor(contributor)`
-- `normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {})`
-- `createActionVersionKey(actionId, version)`
-- `isPlainObject`
-- `__testables`
-Local functions
-- `normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false } = {})`
-- `normalizeSingleActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
-- `normalizeActionInputDefinition(value, fieldName, { required = false } = {})`
-- `normalizeActionOutputDefinition(value, fieldName, { required = false } = {})`
-- `normalizeActionPermission(permission, actionId)`
-- `normalizeAuditConfig(audit, { actionId })`
-- `normalizeObservabilityConfig(observability)`
-- `normalizeActionExtensions(value)`
-- `normalizeActionEvents(value, actionId)`
-
-### `shared/actions/audit.js`
-Exports
-- `createNoopAuditAdapter()`
-
-### `shared/actions/executionContext.js`
-Exports
-- `normalizeExecutionContext(context = {})`
-- `__testables`
-Local functions
-- `copyRecord(value)`
-- `normalizeActor(actor)`
-- `normalizeTimeMeta(timeMeta)`
-- `copyPassthroughContextEntries(source = {})`
-
-### `shared/actions/idempotency.js`
-Exports
-- `resolveActionIdempotencyKey(definition, context)`
-- `ensureIdempotencyKeyIfRequired(definition, context, key)`
-- `createNoopIdempotencyAdapter()`
-- `__testables`
-Local functions
-- `resolveRequestIdempotencyKey(context)`
-
-### `shared/actions/observability.js`
-Exports
-- `createNoopObservabilityAdapter()`
-
-### `shared/actions/pipeline.js`
-Exports
-- `executeActionPipeline({ definition, input, context, deps = {}, idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
-Local functions
-- `publishActionEvents(events, builders, execution)`
-- `normalizeOutcomeErrorCode(error)`
-- `buildActionLogPayload({ definition, context, outcome, durationMs, errorCode, idempotencyReplay })`
-- `emitAuditEvent(adapter, payload)`
-- `executeIdempotencyClaim(adapter, payload)`
-
-### `shared/actions/policies.js`
-Exports
-- `ensureActionChannelAllowed(definition, context)`
-- `ensureActionSurfaceAllowed(definition, context)`
-- `ensureActionPermissionAllowed(definition, context)`
-- `normalizeActionInput(definition, input)`
-- `normalizeActionOutput(definition, output)`
-- `__testables`
-Local functions
-- `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`
-
-### `shared/actions/registry.js`
-Exports
-- `createActionRegistry({ contributors = [], idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
-- `__testables`
-Local functions
-- `normalizeContributors(contributors)`
-- `buildDefinitionIndex(contributors)`
-- `normalizeRequestedVersion(version)`
-- `resolveActionDefinition(index, actionId, version)`
-
-### `shared/actions/requestMeta.js`
-Exports
-- `normalizeRequestMeta(requestMeta = {}, { fields = DEFAULT_FIELDS, emptyAsNull = false } = {})`
-
-### `shared/actions/textNormalization.js`
-Exports
-- `normalizeText`
-- `normalizeLowerText`
-
-### `shared/actions/withActionDefaults.js`
-Exports
-- `withActionDefaults(actions = [], defaults = {})`
-
 ### `shared/capabilities/defineProvider.js`
 Exports
+- `ARCHITECTURE_ID_PATTERN`
 - `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 Local functions
@@ -126,6 +26,7 @@ Local functions
 
 ### `shared/capabilities/index.js`
 Exports
+- `ARCHITECTURE_ID_PATTERN`
 - `defineProvider`
 - `createCapabilityRuntime`
 
@@ -660,9 +561,31 @@ Exports
 
 ### `server/actions/actionCatalogue.js`
 Exports
-- `createActionCatalogue({ idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = null } = {})`
+- `createActionCatalogue({ events, logger = null } = {})`
 Local functions
 - `normalizeRegistration(value)`
+
+### `server/actions/actionContributorHelpers.js`
+Exports
+- `requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {})`
+- `resolveRequest(context)`
+- `emptyInputValidator`
+
+### `server/actions/actionDefinitions.js`
+Exports
+- `ActionRuntimeError`
+- `createActionRuntimeError(status, message, options = {})`
+- `normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {})`
+- `normalizeActionContributor(contributor)`
+- `createActionVersionKey(actionId, version)`
+- `__testables`
+Local functions
+- `normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {})`
+- `normalizeStringArray(value, fieldName)`
+- `normalizeActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
+- `normalizeActionPermission(permission, actionId)`
+- `normalizeActionExtensions(value)`
+- `normalizeActionEvents(value, actionId)`
 
 ### `server/actions/actionEvents.js`
 Exports
@@ -675,11 +598,54 @@ Local functions
 Exports
 - `createActionProvider(options = {})`
 
+### `server/actions/executionContext.js`
+Exports
+- `normalizeExecutionContext(context = {})`
+Local functions
+- `copyRecord(value)`
+- `normalizeActor(actor)`
+- `normalizeTimeMeta(timeMeta)`
+- `copyPassthroughContextEntries(source = {})`
+
+### `server/actions/idempotency.js`
+Exports
+- `ensureIdempotencyKeyIfRequired(definition, context)`
+
 ### `server/actions/index.js`
 Exports
 - `createActionCatalogue`
 - `createActionProvider`
 - `createEntityChangedActionEvent`
+
+### `server/actions/pipeline.js`
+Exports
+- `executeActionPipeline({ definition, input, context, deps = {}, events, logger = console } = {})`
+Local functions
+- `publishActionEvents(events, builders, execution)`
+- `logActionExecution(logger, { definition, context, outcome, startedAt, errorCode = null })`
+
+### `server/actions/policies.js`
+Exports
+- `ensureActionChannelAllowed(definition, context)`
+- `ensureActionSurfaceAllowed(definition, context)`
+- `ensureActionPermissionAllowed(definition, context)`
+- `normalizeActionInput(definition, input)`
+- `normalizeActionOutput(definition, output)`
+Local functions
+- `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`
+
+### `server/actions/registry.js`
+Exports
+- `createActionRegistry({ contributors = [], events, logger = console } = {})`
+Local functions
+- `normalizeContributors(contributors)`
+- `buildDefinitionIndex(contributors)`
+- `normalizeRequestedVersion(version)`
+- `resolveActionDefinition(index, actionId, version)`
+
+### `server/actions/requestMeta.js`
+Exports
+- `normalizeRequestMeta(requestMeta = {})`
 
 ### `server/features/defineFeature.js`
 Exports

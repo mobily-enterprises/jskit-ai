@@ -1,6 +1,6 @@
 import {
   emptyInputValidator
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
@@ -23,10 +23,6 @@ const consoleSettingsActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "console.settings.read"
-    },
-    observability: {},
     async run(consoleSettingsService, _input, context) {
       return returnJsonApiData(await consoleSettingsService.getSettings({
         context
@@ -45,10 +41,6 @@ const consoleSettingsActionSpecifications = Object.freeze([
     input: consoleSettingsResource.operations.replace.body,
     output: null,
     idempotency: "optional",
-    audit: {
-      actionName: "console.settings.update"
-    },
-    observability: {},
     extensions: {
       assistant: { exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe." },
       realtime: {

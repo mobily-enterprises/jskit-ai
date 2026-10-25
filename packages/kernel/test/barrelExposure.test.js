@@ -27,6 +27,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
   Object.freeze({
     filePath: path.join(REPO_ROOT, "packages", "kernel", "shared", "capabilities", "index.js"),
     expectedExports: Object.freeze([
+      "ARCHITECTURE_ID_PATTERN",
       "createCapabilityRuntime",
       "defineProvider"
     ])

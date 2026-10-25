@@ -134,8 +134,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       input: conversationReadInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationRead },
-      observability: {},
       async execute(input, context) {
         const conversation = await openConversation(input, context);
         const options = {};
@@ -155,8 +153,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       input: conversationSendInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationSend },
-      observability: {},
       async execute(input, context) {
         const conversation = await openConversation(input, context);
         return conversation.send({
@@ -178,8 +174,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       input: conversationInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationCancel },
-      observability: {},
       async execute(input, context) {
         const conversation = await openConversation(input, context);
         return conversation.cancel();
@@ -195,8 +189,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       input: conversationInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationSubscribe },
-      observability: {},
       async execute(input, context, deps) {
         if (typeof deps?.onEvent !== "function" || typeof deps?.onRelease !== "function") {
           throw new TypeError("Conversation subscriptions require their server-owned event and cleanup callbacks.");
@@ -228,8 +220,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       input: conversationInspectInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationInspectDelivery },
-      observability: {},
       async execute(input, context) {
         const conversation = await openConversation(input, context);
         return conversation.inspectDelivery({ messageId: input.messageId });
@@ -245,8 +235,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       input: conversationInputValidator,
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationGoalRead },
-      observability: {},
       async execute(input, context) {
         return (await openConversation(input, context)).readGoal();
       }
@@ -263,8 +251,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       }),
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationGoalUpdate },
-      observability: {},
       async execute(input, context) {
         const conversation = await openConversation(input, context);
         const goal = { action: input.action, expectedSegmentId: input.expectedSegmentId };
@@ -286,8 +272,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       }),
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationConfigure },
-      observability: {},
       async execute(input, context) {
         return (await openConversation(input, context)).configure(input.configuration);
       }
@@ -304,8 +288,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       }),
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationSelect },
-      observability: {},
       async execute(input, context) {
         return (await openConversation(input, context)).select(input.selection);
       }
@@ -322,8 +304,6 @@ function createConversationActions({ conversationRuntime, conversationDataSchema
       }),
       output: null,
       idempotency: "none",
-      audit: { actionName: actionIds.conversationReplace },
-      observability: {},
       async execute(input, context) {
         return (await openConversation(input, context)).replace(input.replacement);
       }
@@ -364,8 +344,7 @@ function createAssistantActions({
         if (!conversationAccess) return definition;
         const selected = definition.id === actionIds.conversationSubscribe ? {
           ...definition,
-          id: conversationAccess.subscribeActionId,
-          audit: { ...definition.audit, actionName: conversationAccess.subscribeActionId }
+          id: conversationAccess.subscribeActionId
         } : definition;
         return conversationAccess.wrapAction(selected);
       }),
@@ -385,10 +364,6 @@ function createAssistantActions({
     },
     input: runtimeChatStreamInputValidator,
     idempotency: "optional",
-    audit: {
-      actionName: actionIds.chatStream
-    },
-    observability: {},
     async execute(input, context, deps) {
       return chatService.streamChat(input, {
         context,
@@ -409,10 +384,6 @@ function createAssistantActions({
     input: runtimeConversationsListInputValidator,
     output: null,
     idempotency: "none",
-    audit: {
-      actionName: actionIds.conversationsList
-    },
-    observability: {},
     async execute(input, context) {
       return returnJsonApiData(await chatService.listConversations(input.query, {
         context,
@@ -432,10 +403,6 @@ function createAssistantActions({
     input: runtimeConversationMessagesListInputValidator,
     output: null,
     idempotency: "none",
-    audit: {
-      actionName: actionIds.conversationMessagesList
-    },
-    observability: {},
     async execute(input, context) {
       return returnJsonApiData(await chatService.getConversationMessages(input.conversationId, input.query, {
         context,

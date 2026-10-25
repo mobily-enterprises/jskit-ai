@@ -2,7 +2,7 @@ import { userSettingsResource } from "../../shared/resources/userSettingsResourc
 import {
   emptyInputValidator,
   resolveRequest
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { userProfileResource } from "../../shared/resources/userProfileResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
@@ -33,10 +33,6 @@ const accountProfileActionSpecifications = deepFreeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.read"
-    },
-    observability: {},
     async run(accountProfileService, input, context) {
       return accountProfileService.getForUser(resolveRequest(context), resolveActionUser(context, input), {
         context
@@ -62,10 +58,6 @@ const accountProfileActionSpecifications = deepFreeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "settings.profile.update"
-    },
-    observability: {},
     events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
     async run(accountProfileService, input, context) {
       return accountProfileService.updateProfile(
@@ -95,10 +87,6 @@ const accountProfileActionSpecifications = deepFreeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.profile.avatar.upload"
-    },
-    observability: {},
     events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
     async run(accountProfileService, input, context) {
       const avatarUpload = {
@@ -137,10 +125,6 @@ const accountProfileActionSpecifications = deepFreeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "settings.profile.avatar.delete"
-    },
-    observability: {},
     events: ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS,
     async run(accountProfileService, input, context) {
       return accountProfileService.deleteAvatar(

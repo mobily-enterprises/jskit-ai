@@ -1,6 +1,6 @@
 import { normalizeRequestMeta } from "./requestMeta.js";
-import { normalizeLowerText, normalizeText } from "./textNormalization.js";
-import { normalizePermissionList } from "../support/permissions.js";
+import { normalizeLowerText, normalizeText } from "../../shared/support/normalize.js";
+import { normalizePermissionList } from "../../shared/support/permissions.js";
 
 function copyRecord(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -73,14 +73,4 @@ function normalizeExecutionContext(context = {}) {
   });
 }
 
-const __testables = {
-  normalizeText,
-  normalizeLowerText,
-  normalizePermissions: normalizePermissionList,
-  copyRecord,
-  normalizeActor,
-  normalizeRequestMeta,
-  normalizeTimeMeta
-};
-
-export { normalizeExecutionContext, __testables };
+export { normalizeExecutionContext };

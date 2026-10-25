@@ -1,7 +1,7 @@
 import { resolveInviteTokenHash } from "@jskit-ai/auth-core/server/inviteTokens";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function createService({

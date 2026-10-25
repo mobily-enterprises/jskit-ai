@@ -120,7 +120,6 @@ test("host access wraps only canonical conversation definitions and receives the
     actionIds.conversationInspectDelivery, actionIds.conversationGoalRead, actionIds.conversationGoalUpdate
   ]);
   assert.equal(findDefinition(definitions, actionIds.conversationSubscribe), undefined);
-  assert.equal(findDefinition(definitions, subscribeActionId).audit.actionName, subscribeActionId);
   for (const definition of wrapped) {
     const adapted = findDefinition(definitions, definition.id);
     assert.equal(adapted.input, definition.input);

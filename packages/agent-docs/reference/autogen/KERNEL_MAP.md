@@ -10,8 +10,6 @@ For the full repo inventory, read `reference/autogen/README.md` and the package 
 1. `packages/kernel/shared/support/*`
 2. `packages/kernel/shared/surface/*`
 3. `packages/kernel/shared/validators/*`
-4. `packages/kernel/shared/actions/*`
-5. `packages/kernel/shared/runtime/*`
 
 ## Scope
 - Source: `packages/kernel/shared/**/*{.js,.mjs,.cjs,.vue}`
@@ -366,109 +364,6 @@ Exports
 - `buildSchemaValidationError({ message = "Schema validation failed.", fieldErrors = null, errors = null, cause, statusCode = null } = {})`
 - `validateSchemaPayload(schemaDefinition, payload, { phase = "input", context = "schema definition", statusCode = null } = {})`
 
-### actions
-
-### `actions/actionContributorHelpers.js`
-Exports
-- `normalizeObject`
-- `toPositiveInteger`
-- `requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {})`
-- `resolveRequest(context)`
-- `hasPermission`
-- `emptyInputValidator`
-
-### `actions/actionDefinitions.js`
-Exports
-- `ActionRuntimeError`
-- `createActionRuntimeError(status, message, options = {})`
-- `normalizeActionDefinition(definition, { contributorId = "", contributorDomain = "" } = {})`
-- `normalizeActionContributor(contributor)`
-- `normalizeActionDomain(value, { context = "domain", errorCode = "ACTION_DEFINITION_INVALID" } = {})`
-- `createActionVersionKey(actionId, version)`
-- `isPlainObject`
-- `__testables`
-Local functions
-- `normalizeStringArray(value, { fieldName, allowedSet, allowEmpty = false } = {})`
-- `normalizeSingleActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
-- `normalizeActionInputDefinition(value, fieldName, { required = false } = {})`
-- `normalizeActionOutputDefinition(value, fieldName, { required = false } = {})`
-- `normalizeActionPermission(permission, actionId)`
-- `normalizeAuditConfig(audit, { actionId })`
-- `normalizeObservabilityConfig(observability)`
-- `normalizeActionExtensions(value)`
-- `normalizeActionEvents(value, actionId)`
-
-### `actions/audit.js`
-Exports
-- `createNoopAuditAdapter()`
-
-### `actions/executionContext.js`
-Exports
-- `normalizeExecutionContext(context = {})`
-- `__testables`
-Local functions
-- `copyRecord(value)`
-- `normalizeActor(actor)`
-- `normalizeTimeMeta(timeMeta)`
-- `copyPassthroughContextEntries(source = {})`
-
-### `actions/idempotency.js`
-Exports
-- `resolveActionIdempotencyKey(definition, context)`
-- `ensureIdempotencyKeyIfRequired(definition, context, key)`
-- `createNoopIdempotencyAdapter()`
-- `__testables`
-Local functions
-- `resolveRequestIdempotencyKey(context)`
-
-### `actions/observability.js`
-Exports
-- `createNoopObservabilityAdapter()`
-
-### `actions/pipeline.js`
-Exports
-- `executeActionPipeline({ definition, input, context, deps = {}, idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
-Local functions
-- `publishActionEvents(events, builders, execution)`
-- `normalizeOutcomeErrorCode(error)`
-- `buildActionLogPayload({ definition, context, outcome, durationMs, errorCode, idempotencyReplay })`
-- `emitAuditEvent(adapter, payload)`
-- `executeIdempotencyClaim(adapter, payload)`
-
-### `actions/policies.js`
-Exports
-- `ensureActionChannelAllowed(definition, context)`
-- `ensureActionSurfaceAllowed(definition, context)`
-- `ensureActionPermissionAllowed(definition, context)`
-- `normalizeActionInput(definition, input)`
-- `normalizeActionOutput(definition, output)`
-- `__testables`
-Local functions
-- `createActionValidationError({ status = 400, message = "Validation failed.", code = "ACTION_VALIDATION_FAILED", details, cause } = {})`
-
-### `actions/registry.js`
-Exports
-- `createActionRegistry({ contributors = [], idempotencyAdapter, auditAdapter, observabilityAdapter, events, logger = console } = {})`
-- `__testables`
-Local functions
-- `normalizeContributors(contributors)`
-- `buildDefinitionIndex(contributors)`
-- `normalizeRequestedVersion(version)`
-- `resolveActionDefinition(index, actionId, version)`
-
-### `actions/requestMeta.js`
-Exports
-- `normalizeRequestMeta(requestMeta = {}, { fields = DEFAULT_FIELDS, emptyAsNull = false } = {})`
-
-### `actions/textNormalization.js`
-Exports
-- `normalizeText`
-- `normalizeLowerText`
-
-### `actions/withActionDefaults.js`
-Exports
-- `withActionDefaults(actions = [], defaults = {})`
-
 ### root
 
 ### `index.js`
@@ -480,6 +375,7 @@ Exports
 
 ### `capabilities/defineProvider.js`
 Exports
+- `ARCHITECTURE_ID_PATTERN`
 - `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 Local functions
@@ -489,6 +385,7 @@ Local functions
 
 ### `capabilities/index.js`
 Exports
+- `ARCHITECTURE_ID_PATTERN`
 - `defineProvider`
 - `createCapabilityRuntime`
 

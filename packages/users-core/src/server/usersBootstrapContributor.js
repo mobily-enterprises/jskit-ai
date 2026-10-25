@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime";
-import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { requireServiceMethod } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { accountAvatarFormatter } from "./common/formatters/accountAvatarFormatter.js";
 import { USER_SETTINGS_BOOTSTRAP_KEYS } from "../shared/resources/userSettingsResource.js";

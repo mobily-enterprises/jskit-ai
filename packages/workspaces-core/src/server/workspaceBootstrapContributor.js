@@ -1,6 +1,6 @@
-import { requireServiceMethod } from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+import { requireServiceMethod } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   TENANCY_MODE_NONE,
   resolveTenancyProfile

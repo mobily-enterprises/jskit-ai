@@ -1,4 +1,4 @@
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   USER_SETTINGS_NOTIFICATION_KEYS,
   USER_SETTINGS_PREFERENCE_KEYS

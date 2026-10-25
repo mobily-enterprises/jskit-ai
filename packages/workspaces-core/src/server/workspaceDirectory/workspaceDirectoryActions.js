@@ -1,7 +1,7 @@
 import {
   emptyInputValidator,
   resolveRequest
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceResource } from "../../shared/resources/workspaceResource.js";
@@ -40,10 +40,6 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.workspaces.create"
-    },
-    observability: {},
     async run(workspaceService, input, context) {
       return returnJsonApiData(await workspaceService.createWorkspaceForAuthenticatedUser(resolveActionUser(context, input), input, {
         request: resolveRequest(context),
@@ -74,10 +70,6 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.workspaces.list"
-    },
-    observability: {},
     async run(workspaceService, input, context) {
       return returnJsonApiData({
         items: await workspaceService.listWorkspacesForAuthenticatedUser(resolveActionUser(context, input), {
@@ -108,10 +100,6 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.workspaces.read"
-    },
-    observability: {},
     async run(workspaceService, input, context) {
       return returnJsonApiData(await workspaceService.getWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
@@ -143,10 +131,6 @@ const workspaceDirectoryActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.workspaces.update"
-    },
-    observability: {},
     async run(workspaceService, input, context) {
       const { workspaceSlug, ...patch } = input;
       return returnJsonApiData(await workspaceService.updateWorkspaceForAuthenticatedUser(

@@ -111,9 +111,6 @@ function resolveActionDefinition(index, actionId, version) {
 
 function createActionRegistry({
   contributors = [],
-  idempotencyAdapter,
-  auditAdapter,
-  observabilityAdapter,
   events,
   logger = console
 } = {}) {
@@ -122,19 +119,14 @@ function createActionRegistry({
 
   async function execute({ actionId, version = null, input = {}, context = {}, deps = {} } = {}) {
     const definition = resolveActionDefinition(index, actionId, version);
-    const execution = await executeActionPipeline({
+    return executeActionPipeline({
       definition,
       input,
       context,
       deps,
-      idempotencyAdapter,
-      auditAdapter,
-      observabilityAdapter,
       events,
       logger
     });
-
-    return execution.result;
   }
 
   async function executeStream({ actionId, version = null, input = {}, context = {}, deps = {} } = {}) {
@@ -150,19 +142,14 @@ function createActionRegistry({
       });
     }
 
-    const execution = await executeActionPipeline({
+    return executeActionPipeline({
       definition,
       input,
       context,
       deps,
-      idempotencyAdapter,
-      auditAdapter,
-      observabilityAdapter,
       events,
       logger
     });
-
-    return execution.result;
   }
 
   function listDefinitions() {
@@ -181,10 +168,4 @@ function createActionRegistry({
   });
 }
 
-const __testables = {
-  normalizeContributors,
-  buildDefinitionIndex,
-  resolveActionDefinition
-};
-
-export { createActionRegistry, __testables };
+export { createActionRegistry };

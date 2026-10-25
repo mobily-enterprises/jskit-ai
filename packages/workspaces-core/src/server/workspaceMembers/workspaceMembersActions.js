@@ -85,10 +85,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.roles.list"
-    },
-    observability: {},
     async run(workspaceMembersService, _input, context) {
       return returnJsonApiData(await workspaceMembersService.listRoles({ context }));
     }
@@ -113,10 +109,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.members.list"
-    },
-    observability: {},
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.listMembers(resolveWorkspace(context, input), {
         context
@@ -143,10 +135,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.member.role.update"
-    },
-    observability: {},
     events: WORKSPACE_MEMBER_CHANGED_EVENTS,
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.updateMemberRole(resolveWorkspace(context, input), {
@@ -177,10 +165,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.member.remove"
-    },
-    observability: {},
     events: WORKSPACE_MEMBER_CHANGED_EVENTS,
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.removeMember(resolveWorkspace(context, input), {
@@ -210,10 +194,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "none",
-    audit: {
-      actionName: "workspace.invites.list"
-    },
-    observability: {},
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.listInvites(resolveWorkspace(context, input), {
         context
@@ -245,10 +225,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.invite.create"
-    },
-    observability: {},
     events: WORKSPACE_INVITE_CREATED_EVENTS,
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.createInvite(
@@ -284,10 +260,6 @@ const workspaceMembersActionSpecifications = Object.freeze([
       }
     },
     idempotency: "optional",
-    audit: {
-      actionName: "workspace.invite.revoke"
-    },
-    observability: {},
     events: WORKSPACE_INVITE_REVOKED_EVENTS,
     async run(workspaceMembersService, input, context) {
       return returnJsonApiData(await workspaceMembersService.revokeInvite(resolveWorkspace(context, input), input.inviteId, {

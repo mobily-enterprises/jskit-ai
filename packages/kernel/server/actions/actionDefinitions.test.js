@@ -56,34 +56,34 @@ function createPatchSchema() {
   };
 }
 
-test("normalizeActionInputDefinition accepts a single schema definition", () => {
-  const definition = __testables.normalizeActionInputDefinition(
+test("normalizeActionSchema accepts a single schema definition", () => {
+  const definition = __testables.normalizeActionSchema(
     createPatchSchema(),
     "input",
-    { required: true }
+    { required: true, defaultMode: "patch" }
   );
 
   assertJsonRestSchemaDefinition(definition);
 });
 
-test("normalizeActionInputDefinition rejects section-map syntax", () => {
+test("normalizeActionSchema rejects section-map syntax", () => {
   assert.throws(
     () =>
-      __testables.normalizeActionInputDefinition(
+      __testables.normalizeActionSchema(
         {
           payload: createPatchSchema()
         },
         "input",
-        { required: true }
+        { required: true, defaultMode: "patch" }
       ),
     /Action definition input must be a schema definition object/
   );
 });
 
-test("normalizeActionInputDefinition rejects bare schema instances", () => {
+test("normalizeActionSchema rejects bare schema instances", () => {
   assert.throws(
     () =>
-      __testables.normalizeActionInputDefinition(
+      __testables.normalizeActionSchema(
         createSchema({
           name: {
             type: "string",
@@ -91,22 +91,22 @@ test("normalizeActionInputDefinition rejects bare schema instances", () => {
           }
         }),
         "input",
-        { required: true }
+        { required: true, defaultMode: "patch" }
       ),
     /Action definition input must be a schema definition object/
   );
 });
 
-test("normalizeActionInputDefinition rejects validator arrays", () => {
+test("normalizeActionSchema rejects validator arrays", () => {
   assert.throws(
     () =>
-      __testables.normalizeActionInputDefinition(
+      __testables.normalizeActionSchema(
         [
           createWorkspaceSlugSchema(),
           createPatchSchema()
         ],
         "input",
-        { required: true }
+        { required: true, defaultMode: "patch" }
       ),
     /input must be a single schema definition/
   );
@@ -148,8 +148,8 @@ test("normalizeActionDefinition stays channel-agnostic and ignores unknown extra
   assert.equal(Object.prototype.hasOwnProperty.call(definition, "customExtension"), false);
 });
 
-test("normalizeActionOutputDefinition accepts single schema definitions", () => {
-  const output = __testables.normalizeActionOutputDefinition(
+test("normalizeActionSchema accepts single schema definitions", () => {
+  const output = __testables.normalizeActionSchema(
     {
       schema: createSchema({
         ok: {
@@ -159,35 +159,89 @@ test("normalizeActionOutputDefinition accepts single schema definitions", () => 
       })
     },
     "output",
-    { required: false }
+    { defaultMode: "replace" }
   );
 
   assertJsonRestSchemaDefinition(output);
 });
 
-test("normalizeActionOutputDefinition rejects section-map syntax", () => {
+test("normalizeActionSchema rejects section-map syntax", () => {
   assert.throws(
     () =>
-      __testables.normalizeActionOutputDefinition(
+      __testables.normalizeActionSchema(
         {
           payload: createPatchSchema()
         },
         "output",
-        { required: false }
+        { defaultMode: "replace" }
       ),
     /Action definition output must be a schema definition object/
   );
 });
 
-test("normalizeActionInputDefinition preserves mode for json-rest-schema definitions", () => {
-  const definition = __testables.normalizeActionInputDefinition(
+test("normalizeActionSchema preserves mode for json-rest-schema definitions", () => {
+  const definition = __testables.normalizeActionSchema(
     {
       schema: createMockJsonRestSchema(),
       mode: "patch"
     },
     "input",
-    { required: true }
+    { required: true, defaultMode: "patch" }
   );
 
   assert.equal(definition.mode, "patch");
+});
+
+test("normalizeActionSchema rejects a missing required schema and allows a missing optional one", () => {
+  assert.equal(__testables.normalizeActionSchema(null, "output"), null);
+  assert.throws(
+    () => __testables.normalizeActionSchema(undefined, "input", { required: true }),
+    /Action definition input is required/
+  );
+});
+
+test("normalizeActionDefinition keeps only the contract the runtime enforces", () => {
+  const definition = normalizeActionDefinition({
+    id: "demo.status.read",
+    domain: "demo",
+    channels: ["api"],
+    surfaces: ["app"],
+    input: { schema: createSchema({}) },
+    audit: { actionName: "demo.status.read" },
+    observability: {},
+    execute: async () => ({})
+  });
+
+  assert.equal(Object.hasOwn(definition, "audit"), false);
+  assert.equal(Object.hasOwn(definition, "observability"), false);
+  assert.deepEqual(Object.keys(definition).sort(), [
+    "channels",
+    "contributorId",
+    "domain",
+    "events",
+    "execute",
+    "extensions",
+    "id",
+    "idempotency",
+    "input",
+    "kind",
+    "output",
+    "permission",
+    "surfaces",
+    "version"
+  ]);
+});
+
+test("normalizeActionDefinition validates domains with the architecture id pattern", () => {
+  const base = {
+    id: "demo.status.read",
+    channels: ["api"],
+    surfaces: ["app"],
+    input: { schema: createSchema({}) },
+    execute: async () => ({})
+  };
+  assert.equal(normalizeActionDefinition({ ...base, domain: " Demo.Status " }).domain, "demo.status");
+  assert.throws(() => normalizeActionDefinition({ ...base, domain: "1demo" }), {
+    code: "ACTION_DEFINITION_INVALID"
+  });
 });

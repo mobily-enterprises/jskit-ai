@@ -1,5 +1,5 @@
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function mapWorkspaceSummary(workspace, membership, roleCatalog = null) {

@@ -96,4 +96,4 @@ function defineProvider({
   });
 }
 
-export { defineProvider, normalizeArchitectureId };
+export { ARCHITECTURE_ID_PATTERN, defineProvider, normalizeArchitectureId };

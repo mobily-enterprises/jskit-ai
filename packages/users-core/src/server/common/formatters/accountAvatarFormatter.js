@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { normalizeLowerText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
 
 const ACCOUNT_AVATAR_FILE_PATH = "/api/settings/profile/avatar";

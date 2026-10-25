@@ -1,6 +1,4 @@
 import { createSchema } from "json-rest-schema";
-import { normalizeObject, normalizePositiveInteger as toPositiveInteger } from "../support/normalize.js";
-import { hasPermission } from "../support/permissions.js";
 
 function requireServiceMethod(service, methodName, contributorId, { serviceLabel } = {}) {
   if (!service || typeof service[methodName] !== "function") {
@@ -19,10 +17,7 @@ const emptyInputValidator = Object.freeze({
 });
 
 export {
-  normalizeObject,
-  toPositiveInteger,
   requireServiceMethod,
   resolveRequest,
-  hasPermission,
   emptyInputValidator
 };

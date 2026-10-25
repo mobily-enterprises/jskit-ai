@@ -1,4 +1,4 @@
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeWorkspaceSlug(value = "") {

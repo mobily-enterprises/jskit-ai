@@ -1,5 +1,5 @@
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { hasPermission } from "./actionContributorHelpers.js";
+import { hasPermission } from "./permissions.js";
 
 test("hasPermission allows wildcard and direct matches", () => {
   assert.equal(hasPermission(["*"], "workspace.billing.manage"), true);

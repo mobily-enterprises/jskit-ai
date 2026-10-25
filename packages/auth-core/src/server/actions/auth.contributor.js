@@ -1,7 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import {
   emptyInputValidator
-} from "@jskit-ai/kernel/shared/actions/actionContributorHelpers";
+} from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import {
   composeSchemaDefinitions
 } from "@jskit-ai/kernel/shared/validators";
@@ -54,10 +54,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authRegisterCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.register"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.register(input);
     }
@@ -70,10 +66,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authRegisterConfirmationResendCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.register.confirmation.resend"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.resendRegisterConfirmation(input);
     }
@@ -86,10 +78,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authLoginPasswordCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.login.password"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.login(input);
     }
@@ -102,10 +90,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authLoginOtpRequestCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.login.otp.request"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.requestOtpLogin(input);
     }
@@ -118,10 +102,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authLoginOtpVerifyCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.login.otp.verify"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.verifyOtpLogin(input);
     }
@@ -134,10 +114,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authLoginOAuthStartInput,
     idempotency: "none",
-    audit: {
-      actionName: "auth.login.oauth.start"
-    },
-    observability: {},
     async run(authService, input, context) {
       return authService.oauthStart(input, context?.requestMeta?.request || null);
     }
@@ -150,10 +126,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authLoginOAuthCompleteCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.login.oauth.complete"
-    },
-    observability: {},
     async run(authService, input, context) {
       return authService.oauthComplete(input, context?.requestMeta?.request || null);
     }
@@ -166,10 +138,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authDevLoginAsCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.dev.loginAs"
-    },
-    observability: {},
     async run(authService, input, context) {
       return authService.devLoginAs(
         requireRequestContext(context, "auth.dev.loginAs"),
@@ -185,10 +153,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authPasswordResetRequestCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.password.reset.request"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.requestPasswordReset(input);
     }
@@ -201,10 +165,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authPasswordRecoveryCompleteCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.password.recovery.complete"
-    },
-    observability: {},
     async run(authService, input) {
       return authService.completePasswordRecovery(input);
     }
@@ -217,10 +177,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: authPasswordResetCommand.operation.body,
     idempotency: "none",
-    audit: {
-      actionName: "auth.password.reset"
-    },
-    observability: {},
     async run(authService, input, context) {
       return authService.resetPassword(requireRequestContext(context, "auth.password.reset"), input);
     }
@@ -234,10 +190,6 @@ const authActionSpecifications = Object.freeze([
     input: emptyInputValidator,
     output: authLogoutOutput,
     idempotency: "none",
-    audit: {
-      actionName: "auth.logout"
-    },
-    observability: {},
     async run(authService, _input, context) {
       let logoutResult = {
         ok: true,
@@ -260,10 +212,6 @@ const authActionSpecifications = Object.freeze([
     surfacesFrom: "enabled",
     input: emptyInputValidator,
     idempotency: "none",
-    audit: {
-      actionName: "auth.session.read"
-    },
-    observability: {},
     async run(authService, _input, context) {
       return authService.authenticateRequest(requireRequestContext(context, "auth.session.read"));
     }

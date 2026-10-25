@@ -1,4 +1,4 @@
-import { normalizeText } from "@jskit-ai/kernel/shared/actions/textNormalization";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 function normalizeMfa(source) {

@@ -5,6 +5,7 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { RestApiWriteError } from "json-rest-api";
 import { normalizeJsonApiFieldsets } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
+import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import {
   decodeJsonApiResourceResponse,
@@ -507,7 +508,7 @@ function normalizeAdditionalActions(value = {}, {
 
   return Object.freeze(Object.entries(value).map(([name, definition]) => {
     const actionName = String(name || "").trim();
-    if (!/^[a-z][a-z0-9_.-]*$/u.test(actionName)) {
+    if (!ARCHITECTURE_ID_PATTERN.test(actionName)) {
       throw new TypeError(`CRUD custom action name "${actionName}" is invalid.`);
     }
     if (CRUD_OPERATION_NAMES.includes(actionName)) {
@@ -537,8 +538,6 @@ function normalizeAdditionalActions(value = {}, {
         ? composeSchemaDefinitions([scopeInputValidator, definition.input])
         : definition.input,
       idempotency: definition.idempotency || (kind === "query" ? "none" : "optional"),
-      audit: definition.audit || { actionName: String(definition.id || `${namespace}.${actionName}`).trim() },
-      observability: definition.observability || {},
       events: definition.events || []
     });
   }));
@@ -713,8 +712,6 @@ function createCrudJsonApiActions({
         assistant: createCrudAssistantExtension(resource, namespace, definition.operation)
       }),
       idempotency: definition.idempotency,
-      audit: { actionName: id },
-      observability: {},
       events: definition.events || [],
       execute: definition.execute
     });
@@ -729,8 +726,6 @@ function createCrudJsonApiActions({
     output: definition.output || null,
     idempotency: definition.idempotency,
     permission: definition.permission,
-    audit: definition.audit,
-    observability: definition.observability,
     extensions: definition.extensions || {},
     events: definition.events,
     async execute(value, context) {

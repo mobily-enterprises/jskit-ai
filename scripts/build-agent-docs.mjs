@@ -514,9 +514,7 @@ async function buildStartupKernelMap(commandName) {
       "## Reuse Order",
       "1. `packages/kernel/shared/support/*`",
       "2. `packages/kernel/shared/surface/*`",
-      "3. `packages/kernel/shared/validators/*`",
-      "4. `packages/kernel/shared/actions/*`",
-      "5. `packages/kernel/shared/runtime/*`"
+      "3. `packages/kernel/shared/validators/*`"
     ],
     scopeLines: [
       `- Source: \`${normalizeMarkdownPath(path.relative(REPO_ROOT, KERNEL_SHARED_ROOT))}/**/*{.js,.mjs,.cjs,.vue}\``,
