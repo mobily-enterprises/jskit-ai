@@ -41,7 +41,7 @@ invoking the service. Matching the configured warehouse is only a target check.
 The library does not resolve ambient AWS profiles or switch to a more privileged
 account after a denial. The application resolves its own credential bindings; editable references do
 not grant AWS permissions. This shared credential mode has no provider callback
-URL and does not depend on an Online registration or allocation.
+URL and does not depend on a hosting platform's registration or allocation.
 
 ## Framework APIs
 

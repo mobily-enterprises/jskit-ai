@@ -79,6 +79,8 @@ Exports
 - `getProviderAccountModes(provider, settings = {})`
 - `getProviderScopes(provider, settings = {}, grantType = DEFAULT_GRANT_TYPE, authenticationMethod)`
 - `getProviderSettingsSchema(provider, settings = {})`
+- `getProviderSetup(provider, settings = {}, authenticationMethod)`
+- `isProviderConfigurationOnly(provider, settings = {})`
 - `secretReference`
 - `integrationsSchema`
 - `IntegrationConfigurationError`

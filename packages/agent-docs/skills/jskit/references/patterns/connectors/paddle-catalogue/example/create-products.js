@@ -1,4 +1,4 @@
-import { paddleProvider } from "../../../src/server/paddle.js";
+import { paddleProvider } from "@jskit-ai/connectors-catalog/server/paddle";
 
 // Application-owned composition: pass an application-mode connection runtime.
 // An assistant host must approve the complete batch before calling this recipe.
@@ -13,6 +13,7 @@ async function createProductsWithPrices({ runtime, context, integrationId, items
         !item.product || !item.price || Object.hasOwn(item.price, "product_id")) {
       throw new TypeError("Each item needs product and price inputs; the new product supplies product_id.");
     }
+    // Shape validation only: the sandbox settings and placeholder product_id are never sent.
     paddleProvider.operations["products.create"].request(item.product, { environment: "sandbox" });
     paddleProvider.operations["prices.create"].request({ ...item.price, product_id: `pro_${"a".repeat(26)}` }, { environment: "sandbox" });
   }

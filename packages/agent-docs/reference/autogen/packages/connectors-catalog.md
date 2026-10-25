@@ -349,7 +349,6 @@ Exports
 - `googleMapsPlatformProvider`
 Local functions
 - `validateGeocoding(result)`
-- `mapsOperation(fields, request, validateResult)`
 
 ### `src/server/google-search-console.js`
 Exports
@@ -365,7 +364,6 @@ Exports
 Local functions
 - `validSheet(value)`
 - `sheetUrl(id)`
-- `write(fields, destination, validateResult)`
 - `checkValues(rows)`
 - `validUpdate(value)`
 
@@ -377,14 +375,13 @@ Local functions
 
 ### `src/server/google.js`
 Exports
+- `googleScope(name)`
 - `googleOperation(scopes, fields, request, validateResult)`
 - `googleRead(scopes, fields, destination, validateResult)`
 - `googleProvider(definition, origin, checkOperation, operations)`
 - `googleFileVerification(get, field)`
 - `documentId`
 - `pageToken`
-Local functions
-- `googleScope(name)`
 
 ### `src/server/granola.js`
 Exports
@@ -443,7 +440,8 @@ Local functions
 ### `src/server/jsonOperation.js`
 Exports
 - `jsonOperation(url, fields, validateResult, method = "GET")`
-- `validatedOperation(fields, build, validateResult)`
+- `validatedOperation(fields, build, validateResult, scopes = [])`
+- `withQuery(url, values)`
 
 ### `src/server/klipy.js`
 Exports
@@ -457,7 +455,6 @@ Exports
 Local functions
 - `pageResult(result)`
 - `resourceResult(result)`
-- `operation(fields, build, validateResult = resourceResult)`
 
 ### `src/server/lightspeed.js`
 Exports
@@ -1027,6 +1024,10 @@ Exports
 - `firebaseMessagingScope`
 - `firebaseProjectId`
 
+### `src/shared/firecrawl.js`
+Exports
+- `firecrawlDefinition`
+
 ### `src/shared/gemini-enterprise.js`
 Exports
 - `geminiEnterpriseDefinition`
@@ -1141,6 +1142,10 @@ Exports
 Exports
 - `prestashopDefinition`
 
+### `src/shared/resend.js`
+Exports
+- `resendDefinition`
+
 ### `src/shared/salesforce.js`
 Exports
 - `salesforceDefinition`
@@ -1156,7 +1161,6 @@ Exports
 ### `src/shared/siteUrl.js`
 Exports
 - `httpsSiteUrlField`
-Local functions
 - `validSiteUrl(value)`
 
 ### `src/shared/slack.js`
