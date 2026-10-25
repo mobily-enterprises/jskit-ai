@@ -105,7 +105,4 @@ function requireAuth(source = {}, options = {}) {
   return actor;
 }
 
-export {
-  resolveServiceContext,
-  requireAuth
-};
+export { requireAuth };

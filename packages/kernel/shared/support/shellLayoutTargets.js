@@ -3,27 +3,8 @@ import {
   normalizeText
 } from "./normalize.js";
 
-const SHELL_OUTLET_TAG_PATTERN = /<ShellOutlet\b([^>]*)\/?>/g;
-const ATTRIBUTE_PATTERN = /([:@]?[A-Za-z_][A-Za-z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'))?/g;
 const PLACEMENT_LAYOUT_CLASSES = Object.freeze(["compact", "medium", "expanded"]);
 const WEB_PLACEMENT_SURFACE_ANY = "*";
-
-function parseTagAttributes(attributesSource = "") {
-  const attributes = {};
-  const source = String(attributesSource || "");
-  for (const match of source.matchAll(ATTRIBUTE_PATTERN)) {
-    const attributeName = normalizeText(match[1]);
-    if (!attributeName) {
-      continue;
-    }
-
-    const hasValue = match[2] != null || match[3] != null;
-    const attributeValue = hasValue ? String(match[2] ?? match[3] ?? "") : true;
-    attributes[attributeName] = attributeValue;
-  }
-
-  return attributes;
-}
 
 function normalizeShellOutletTargetId(value = "") {
   const normalizedValue = normalizeText(value);
@@ -250,99 +231,9 @@ function normalizePlacementTopologyDefinition(
   });
 }
 
-function findShellOutletTargetById(targets = [], targetId = "") {
-  const entries = Array.isArray(targets) ? targets : [];
-  const normalizedTargetId = normalizeShellOutletTargetId(targetId);
-  if (!normalizedTargetId) {
-    return null;
-  }
-
-  return entries.find((entry) => normalizeShellOutletTargetId(entry?.id) === normalizedTargetId) || null;
-}
-
-function describeShellOutletTargets(targets = []) {
-  return (Array.isArray(targets) ? targets : [])
-    .map((entry) => normalizeShellOutletTargetId(entry?.id))
-    .filter(Boolean)
-    .join(", ");
-}
-
-function isDefaultAttributeEnabled(value) {
-  if (value === true) {
-    return true;
-  }
-
-  const normalized = normalizeText(value).toLowerCase();
-  if (!normalized) {
-    return true;
-  }
-
-  return normalized !== "false" && normalized !== "0" && normalized !== "no" && normalized !== "off";
-}
-
-function normalizeShellOutletTargetRecord(value = {}) {
-  const record = normalizeObject(value);
-  const id = normalizeShellOutletTargetId(record.target);
-  if (!id) {
-    return null;
-  }
-
-  return Object.freeze({
-    id,
-    default:
-      Object.hasOwn(record, "default") &&
-      isDefaultAttributeEnabled(record.default)
-  });
-}
-
-function discoverShellOutletTargetsFromVueSource(
-  source = "",
-  {
-    context = "shell layout",
-    enforceSingleDefault = true
-  } = {}
-) {
-  const sourceText = String(source || "");
-  const resolvedContext = normalizeText(context) || "shell layout";
-  const targetById = new Map();
-  let defaultTargetId = "";
-
-  for (const tagMatch of sourceText.matchAll(SHELL_OUTLET_TAG_PATTERN)) {
-    const attributes = parseTagAttributes(tagMatch[1]);
-    const normalizedTarget = normalizeShellOutletTargetRecord(attributes);
-    if (!normalizedTarget) {
-      continue;
-    }
-    if (targetById.has(normalizedTarget.id)) {
-      throw new Error(`${resolvedContext} contains duplicate ShellOutlet target "${normalizedTarget.id}".`);
-    }
-
-    if (normalizedTarget.default) {
-      if (enforceSingleDefault === true && defaultTargetId) {
-        throw new Error(
-          `${resolvedContext} defines multiple default ShellOutlet targets: "${defaultTargetId}" and "${normalizedTarget.id}".`
-        );
-      }
-      if (!defaultTargetId) {
-        defaultTargetId = normalizedTarget.id;
-      }
-    }
-
-    targetById.set(normalizedTarget.id, normalizedTarget);
-  }
-
-  return Object.freeze({
-    targets: Object.freeze([...targetById.values()]),
-    defaultTargetId
-  });
-}
-
 export {
   PLACEMENT_LAYOUT_CLASSES,
   WEB_PLACEMENT_SURFACE_ANY,
-  describeShellOutletTargets,
-  discoverShellOutletTargetsFromVueSource,
-  findShellOutletTargetById,
   normalizePlacementKind,
   normalizePlacementLayoutClass,
   normalizePlacementOwnerId,
@@ -353,6 +244,5 @@ export {
   normalizePlacementTopologyVariant,
   normalizeSemanticPlacementId,
   normalizeShellOutletTargetId,
-  normalizeShellOutletTargetRecord,
   resolvePlacementTargetReference
 };

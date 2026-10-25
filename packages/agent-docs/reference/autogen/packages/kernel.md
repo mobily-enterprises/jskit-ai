@@ -174,9 +174,6 @@ Local functions
 Exports
 - `PLACEMENT_LAYOUT_CLASSES`
 - `WEB_PLACEMENT_SURFACE_ANY`
-- `describeShellOutletTargets(targets = [])`
-- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
-- `findShellOutletTargetById(targets = [], targetId = "")`
 - `normalizePlacementKind(value = "")`
 - `normalizePlacementLayoutClass(value = "")`
 - `normalizePlacementOwnerId(value = "")`
@@ -187,12 +184,9 @@ Exports
 - `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
 - `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
-- `normalizeShellOutletTargetRecord(value = {})`
 - `resolvePlacementTargetReference(value = "")`
 Local functions
-- `parseTagAttributes(attributesSource = "")`
 - `normalizePlacementRenderers(value = {})`
-- `isDefaultAttributeEnabled(value)`
 
 ### `shared/support/sorting.js`
 Exports
@@ -552,6 +546,9 @@ Local functions
 Exports
 - `createEntityChangedActionEvent({ source, entity, operation, entityId, realtime = null } = {})`
 Local functions
+- `resolveContextScope(context = {})`
+- `resolveVisibilityScope(visibilityContext = {})`
+- `resolveEventScope(context = {})`
 - `resolveValue(value, execution)`
 - `normalizeRealtime(value, execution)`
 
@@ -651,6 +648,7 @@ Local functions
 - `resolveRequestRouteTransport(request)`
 - `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true } = {})`
 - `resolveApiErrorStatus(error, code)`
+- `applyErrorHeaders(reply, error)`
 
 ### `server/http/HttpProvider.js`
 Exports
@@ -683,8 +681,7 @@ Local functions
 ### `server/http/lib/router.js`
 Exports
 - `HttpRouter`
-- `createRouter(options = {})`
-- `joinPath(left, right)`
+- `createRouter()`
 Local functions
 - `normalizeMethod(method)`
 - `normalizePath(pathname)`
@@ -705,10 +702,8 @@ Local functions
 - `shouldEnforceRequestContentType(method = "", transport = null, route = null)`
 - `routeRequiresJsonApiContentTypeParser(route = null)`
 - `enforceRequestContentType({ request = null, route = null, transport = null } = {})`
-- `attachRouteTransport(request, transport = null)`
 - `replyHasHeader(reply, name = "")`
-- `normalizeRouteInputTransforms(route)`
-- `buildRequestInput({ request = null, inputTransforms = null, transportInputTransforms = null } = {})`
+- `buildRequestInput(request, { inputTransforms = null, transportInputTransforms = null } = {})`
 - `wrapReplySend({ reply = null, request = null, route = null, outputTransform = null, transport = null } = {})`
 
 ### `server/http/lib/routeSupport.js`
@@ -719,13 +714,13 @@ Exports
 
 ### `server/http/lib/routeTransport.js`
 Exports
+- `JSON_API_CONTENT_TYPE`
 - `ROUTE_TRANSPORT_KINDS`
 - `normalizeRouteOutputTransform(value, { context = "route output", ErrorType = Error } = {})`
 - `normalizeRouteTransport(value, { context = "route transport", ErrorType = Error } = {})`
 
 ### `server/http/lib/routeValidator.js`
 Exports
-- `defineRouteValidator(definition = {})`
 - `compileRouteValidator(validator, { context = "route validator" } = {})`
 - `resolveRouteValidatorOptions({ method = "", path = "", options = {} } = {})`
 Local functions
@@ -736,7 +731,6 @@ Local functions
 - `normalizeRouteValidatorMeta(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {})`
 - `compileNormalizedRouteValidator(normalizedValidator)`
-- `normalizeRouteValidatorSource(validator, { context = "route validator" } = {})`
 
 ### `server/http/responseSerializerFactory.js`
 Exports
@@ -795,22 +789,6 @@ Exports
 - `BootstrapProvider`
 - `createBootstrapRuntime()`
 
-### `server/runtime/entityChangeEvents.js`
-Exports
-- `resolveDefaultScope(visibilityContext = {}, runtime = {})`
-- `createEntityChangePublisher({ domainEvents, source, entity, scopeResolver = resolveDefaultScope } = {})`
-- `createRealtimeEntityChangePublisher({ domainEvents, source, entity, event, serviceId, methodName, scopeResolver = resolveDefaultScope } = {})`
-- `createNoopEntityChangePublisher()`
-Local functions
-- `resolveContextScope(context = {})`
-- `resolveVisibilityScope(visibilityContext = {}, runtimeContext = {})`
-- `resolveCommandId(requestMeta = {})`
-- `resolveSourceClientId(requestMeta = {})`
-- `normalizeMetaTextField(source = {}, fieldName = "", { context = "realtime entity change" } = {})`
-- `normalizeRealtimePayload(value, { context = "realtime entity change.payload" } = {})`
-- `createRealtimeEntityChangeMeta({ serviceId, methodName, event, change = {} } = {})`
-- `resolveRealtimeEntityChangeOptions(change = {}, options = {})`
-
 ### `server/runtime/errors.js`
 Exports
 - `isAppError(error)`
@@ -853,9 +831,9 @@ Exports
 
 ### `server/runtime/serviceAuthorization.js`
 Exports
-- `resolveServiceContext(source = {})`
 - `requireAuth(source = {}, options = {})`
 Local functions
+- `resolveServiceContext(source = {})`
 - `resolveRequireMode(value)`
 - `normalizeRequireAuthOptions(options = {})`
 - `requireAuthenticatedActor(context = {}, options = {})`
@@ -876,10 +854,8 @@ Local functions
 ### `server/support/appConfigFiles.js`
 Exports
 - `loadAppConfigFromAppRoot({ appRoot = "", publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
-- `loadAppConfigFromModuleUrl({ moduleUrl = import.meta.url, publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH, serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH } = {})`
 Local functions
 - `normalizeConfigObject(value)`
-- `resolveAppRootFromModuleUrl(moduleUrl, { publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH } = {})`
 - `loadConfigModuleAtPath(absolutePath)`
 
 ### `server/support/defaultMissingHandler.js`
@@ -908,7 +884,6 @@ Exports
 - `resolveClientAssetMode`
 - `resolveMobileCallbackUrls`
 - `loadAppConfigFromAppRoot`
-- `loadAppConfigFromModuleUrl`
 - `importFreshModuleFromAbsolutePath`
 - `collectPackageDependencyIds`
 - `collectRootDependencySpecifiers`
@@ -916,66 +891,7 @@ Exports
 - `discoverInstalledPackages`
 - `resolveRequiredAppRoot`
 - `toPosixPath`
-- `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
-- `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
-- `listSurfacePageRoots`
-- `normalizePagesRelativeTargetFile`
-- `normalizePagesRelativeTargetRoot`
-- `resolveBestSurfaceMatchFromPageFile`
-- `resolvePageTargetDetails`
-- `deriveDefaultSubpagesHost`
-- `resolveNearestParentSubpagesHost`
-- `resolvePageLinkTargetDetails`
-- `discoverPlacementTopologyFromApp`
-- `discoverShellOutletSourcePathsFromApp`
-- `discoverShellOutletTargetsFromApp`
-- `resolveSemanticPlacementTargetFromApp`
-- `resolveShellOutletPlacementTargetFromApp`
 - `tryAcquireExclusiveFileLock`
-
-### `server/support/pageTargets.js`
-Exports
-- `DEFAULT_PAGE_LINK_COMPONENT_TOKEN`
-- `DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN`
-- `listSurfacePageRoots(appRoot = "", { context = "page target" } = {})`
-- `normalizePagesRelativeTargetFile(targetFile = "", { context = "page target", label = "target file" } = {})`
-- `normalizePagesRelativeTargetRoot(targetRoot = "", { context = "page target", label = "target root" } = {})`
-- `resolveBestSurfaceMatchFromPageFile(relativePath = "", surfacePageRoots = [], { context = "page target" } = {})`
-- `resolvePageTargetDetails({ appRoot, targetFile = "", context = "page target" } = {})`
-- `deriveDefaultSubpagesHost(pageTarget = {})`
-- `resolveNearestParentSubpagesHost({ appRoot, pageTarget = {}, context = "page target" } = {})`
-- `resolvePageLinkTargetDetails({ appRoot, targetFile = "", pageTarget = null, placement = "", componentToken = "", linkTo = "", context = "page target" } = {})`
-Local functions
-- `normalizeRelativeFilePath(value = "")`
-- `validateVueTargetFile(relativePath = "", { context = "page target" } = {})`
-- `isAbsolutePathInput(value = "")`
-- `resolvePagesRelativeAppPath(value = "", { context = "page target", label = "target path" } = {})`
-- `splitTextIntoWords(value = "")`
-- `wordsToKebab(words = [])`
-- `toTitleCase(words = [])`
-- `isRouteGroupSegment(value = "")`
-- `isIndexRouteSegment(value = "")`
-- `isPathlessRouteSegment(value = "")`
-- `normalizePlacementIdSegment(value = "")`
-- `humanizePageSegment(value = "", fallback = "Page")`
-- `loadPublicConfig(appRoot = "", { context = "page target" } = {})`
-- `normalizeSurfaceAccessPolicyId(value = "")`
-- `resolveSurfaceRequiresAuth(surfaceDefinition = {}, surfaceAccessPolicies = {})`
-- `deriveSurfaceMatchesFromPageFile(relativePath = "", surfacePageRoots = [])`
-- `compareSurfaceMatchSpecificity(leftMatch = {}, rightMatch = {})`
-- `deriveRouteInfoFromSurfaceRelativeFile(surfaceRelativeFilePath = "", surfaceId = "")`
-- `buildRouteUrlSuffixFromVisibleSegments(segments = [])`
-- `buildAncestorRouteContexts(pageTarget = {})`
-- `buildParentPageFileCandidates(pageTarget = {}, ancestorRoute = {})`
-- `resolveSubpagesHostTargetFromPageSource(source = "")`
-- `normalizePlacementTargetId(target = {})`
-- `resolveConcreteTargetOwner(target = "")`
-- `topologyPlacementTargetsConcreteOutlet(placement = {}, target = "")`
-- `resolveSemanticPlacementTargetForConcreteOutlet({ appRoot, concreteTarget = "", surface = "", context = "page target" } = {})`
-- `resolveRelativeLinkToFromParent(pageTarget = {}, parentHost = null)`
-- `resolveRelativeLinkToFromNearestIndexOwner(pageTarget = {})`
-- `resolveInferredPageLinkTo({ explicitLinkTo = "", pageTarget = {}, parentHost = null, preservesRelativeSubpageLinks = false, suppressImplicitRelativeLinks = false } = {})`
-- `renderPageLinkWhenLine(pageTarget = {})`
 
 ### `server/support/path.js`
 Exports
@@ -986,27 +902,6 @@ Exports
 Exports
 - `normalizeRoutePolicyConfig(routeOptions, route)`
 - `defaultApplyRoutePolicy(routeOptions, route)`
-
-### `server/support/shellOutlets.js`
-Exports
-- `discoverPlacementTopologyFromApp({ appRoot } = {})`
-- `discoverShellOutletSourcePathsFromApp({ appRoot, sourceRoot = "src" } = {})`
-- `discoverShellOutletTargetsFromApp({ appRoot, sourceRoot = "src" } = {})`
-- `resolveSemanticPlacementTargetFromApp({ appRoot, placement = "", owner = "", surface = "", context = "ui-generator" } = {})`
-- `resolveShellOutletPlacementTargetFromApp({ appRoot, placement = "", context = "ui-generator" } = {})`
-Local functions
-- `parseTagAttributes(attributesSource = "")`
-- `isDefaultEnabled(value)`
-- `normalizeAppRouteOutletTarget({ outlet = {}, sourcePath = "" } = {})`
-- `discoverRouteMetaOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
-- `collectVueFilePaths(rootDirectoryPath)`
-- `normalizePackageOutletTarget({ packageId = "", outlet = {}, manifestPath = "" } = {})`
-- `collectInstalledPackageOutletTargets(appRoot)`
-- `withTopologySource(placement = {}, sourcePath = "")`
-- `loadAppPlacementTopology(appRoot)`
-- `collectInstalledPackagePlacementTopology(appRoot)`
-- `findSemanticPlacementById(placements = [], { id = "", owner = "", surface = "" } = {})`
-- `collectAppSourceShellOutletTargets({ appRoot, sourceRoot = "src", enforceSingleDefault = true, context = "discoverShellOutletTargetsFromApp" } = {})`
 
 ### `server/support/symlinkSafeRequire.js`
 Exports

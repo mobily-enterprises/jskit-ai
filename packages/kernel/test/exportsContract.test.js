@@ -30,9 +30,7 @@ const EXPORTED_UNUSED_ALLOWLIST = new Set([
   // defineFeature(), while infrastructure providers use it directly.
   "./shared/capabilities",
   // Public HTTP composition provider used when assembling a server runtime.
-  "./server/http",
-  // Public helper API for packages that publish entity-change realtime events.
-  "./server/runtime/entityChangeEvents"
+  "./server/http"
 ]);
 
 function normalizeSlash(value) {

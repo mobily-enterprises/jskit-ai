@@ -147,9 +147,6 @@ Local functions
 Exports
 - `PLACEMENT_LAYOUT_CLASSES`
 - `WEB_PLACEMENT_SURFACE_ANY`
-- `describeShellOutletTargets(targets = [])`
-- `discoverShellOutletTargetsFromVueSource(source = "", { context = "shell layout", enforceSingleDefault = true } = {})`
-- `findShellOutletTargetById(targets = [], targetId = "")`
 - `normalizePlacementKind(value = "")`
 - `normalizePlacementLayoutClass(value = "")`
 - `normalizePlacementOwnerId(value = "")`
@@ -160,12 +157,9 @@ Exports
 - `normalizePlacementTopologyVariant(value = {}, { context = "placement topology variant" } = {})`
 - `normalizeSemanticPlacementId(value = "")`
 - `normalizeShellOutletTargetId(value = "")`
-- `normalizeShellOutletTargetRecord(value = {})`
 - `resolvePlacementTargetReference(value = "")`
 Local functions
-- `parseTagAttributes(attributesSource = "")`
 - `normalizePlacementRenderers(value = {})`
-- `isDefaultAttributeEnabled(value)`
 
 ### `support/sorting.js`
 Exports

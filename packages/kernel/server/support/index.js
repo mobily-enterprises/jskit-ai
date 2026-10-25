@@ -1,6 +1,6 @@
 export { symlinkSafeRequire } from "./symlinkSafeRequire.js";
 export { resolveAppConfig, resolveMobileConfig, resolveClientAssetMode, resolveMobileCallbackUrls } from "./appConfig.js";
-export { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl } from "./appConfigFiles.js";
+export { loadAppConfigFromAppRoot } from "./appConfigFiles.js";
 export { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 export {
   collectPackageDependencyIds,
@@ -9,23 +9,4 @@ export {
   discoverInstalledPackages
 } from "../../internal/node/installedPackages.js";
 export { resolveRequiredAppRoot, toPosixPath } from "./path.js";
-export {
-  DEFAULT_PAGE_LINK_COMPONENT_TOKEN,
-  DEFAULT_SUBPAGE_LINK_COMPONENT_TOKEN,
-  listSurfacePageRoots,
-  normalizePagesRelativeTargetFile,
-  normalizePagesRelativeTargetRoot,
-  resolveBestSurfaceMatchFromPageFile,
-  resolvePageTargetDetails,
-  deriveDefaultSubpagesHost,
-  resolveNearestParentSubpagesHost,
-  resolvePageLinkTargetDetails
-} from "./pageTargets.js";
-export {
-  discoverPlacementTopologyFromApp,
-  discoverShellOutletSourcePathsFromApp,
-  discoverShellOutletTargetsFromApp,
-  resolveSemanticPlacementTargetFromApp,
-  resolveShellOutletPlacementTargetFromApp
-} from "./shellOutlets.js";
 export { tryAcquireExclusiveFileLock } from "./fileLock.js";

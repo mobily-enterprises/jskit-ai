@@ -1,5 +1,4 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { fileExists } from "../../internal/node/fileSystem.js";
 import { importFreshModuleFromAbsolutePath } from "./importFreshModuleFromAbsolutePath.js";
 
@@ -8,27 +7,6 @@ const SERVER_CONFIG_RELATIVE_PATH = "config/server.js";
 
 function normalizeConfigObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-async function resolveAppRootFromModuleUrl(
-  moduleUrl,
-  { publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH } = {}
-) {
-  const moduleDirectory = path.dirname(fileURLToPath(moduleUrl));
-  let currentDirectory = path.resolve(moduleDirectory);
-
-  while (true) {
-    const candidateConfigPath = path.join(currentDirectory, publicConfigRelativePath);
-    if (await fileExists(candidateConfigPath)) {
-      return currentDirectory;
-    }
-
-    const parentDirectory = path.dirname(currentDirectory);
-    if (parentDirectory === currentDirectory) {
-      throw new Error(`Unable to locate app root (missing ${publicConfigRelativePath}).`);
-    }
-    currentDirectory = parentDirectory;
-  }
 }
 
 async function loadConfigModuleAtPath(absolutePath) {
@@ -62,19 +40,4 @@ async function loadAppConfigFromAppRoot({
   });
 }
 
-async function loadAppConfigFromModuleUrl({
-  moduleUrl = import.meta.url,
-  publicConfigRelativePath = PUBLIC_CONFIG_RELATIVE_PATH,
-  serverConfigRelativePath = SERVER_CONFIG_RELATIVE_PATH
-} = {}) {
-  const appRoot = await resolveAppRootFromModuleUrl(moduleUrl, {
-    publicConfigRelativePath
-  });
-  return loadAppConfigFromAppRoot({
-    appRoot,
-    publicConfigRelativePath,
-    serverConfigRelativePath
-  });
-}
-
-export { loadAppConfigFromAppRoot, loadAppConfigFromModuleUrl };
+export { loadAppConfigFromAppRoot };
