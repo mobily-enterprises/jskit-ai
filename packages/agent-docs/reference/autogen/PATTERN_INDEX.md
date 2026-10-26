@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.243`
+- Owner: `@jskit-ai/agent-docs@0.1.244`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.243`
+- Owner: `@jskit-ai/agent-docs@0.1.244`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -345,7 +345,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
-- Owner: `@jskit-ai/agent-docs@0.1.243`
+- Owner: `@jskit-ai/agent-docs@0.1.244`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
