@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +32,8 @@ test("voice model installation reuses an exact verified pack without downloading
   await mkdir(path.join(root, "stt"));
   const modelFile = path.join(root, "stt/tokens.txt");
   const modelBytes = Buffer.from("token\n");
-  await writeFile(modelFile, modelBytes);
+  await writeFile(modelFile, modelBytes, { mode: 0o600 });
+  await chmod(path.join(root, "stt"), 0o700);
   await writeFile(path.join(root, "sources.json"), await readFile(modelSources));
   await writeFile(path.join(root, "voice-models.json"), `${JSON.stringify({
     files: [{
@@ -58,6 +59,8 @@ test("voice model installation reuses an exact verified pack without downloading
   assert.match(result.stdout, /Verified 1 voice model file/u);
   assert.match(result.stdout, /Reusing verified voice models/u);
   assert.equal((await stat(root)).mode & 0o777, 0o755);
+  assert.equal((await stat(path.join(root, "stt"))).mode & 0o777, 0o755);
+  assert.equal((await stat(modelFile)).mode & 0o777, 0o644);
 });
 
 test("voice model CLI builds a repeatable manifest that the verifier checks against the files", async (context) => {

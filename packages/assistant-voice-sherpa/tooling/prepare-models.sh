@@ -73,7 +73,9 @@ if [ -f "$models_root/voice-models.json" ] &&
    cmp -s "$hotwords_source" "$models_root/stt/hotwords.txt" &&
    cmp -s "$bpe_vocab_source" "$models_root/stt/bpe.vocab" &&
    "$node_bin" "$model_contract_verifier" "$models_root"; then
-  chmod 0755 "$models_root"
+  # The speech service runs as its own user, so the pack is readable by all
+  # whatever umask prepared it.
+  chmod -R u=rwX,go=rX "$models_root"
   if [ "$retain_downloads" = "0" ]; then
     while IFS= read -r model_id; do
       rm -f -- "$download_cache/$(read_model_field "$model_id" archive)"
@@ -141,7 +143,7 @@ cp -- "$source_manifest" "$stage_root/sources.json"
 
 "$node_bin" "$model_contract_builder" "$stage_root"
 "$node_bin" "$model_contract_verifier" "$stage_root"
-chmod 0755 "$stage_root"
+chmod -R u=rwX,go=rX "$stage_root"
 
 rm -rf -- "$previous_root"
 if [[ -e "$models_root" ]]; then
