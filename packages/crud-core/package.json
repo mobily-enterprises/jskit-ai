@@ -30,7 +30,7 @@
     "@jskit-ai/json-rest-api-core": "0.1.189",
     "@jskit-ai/resource-crud-core": "0.1.187",
     "json-rest-schema": "^1.0.17",
-    "json-rest-api": "2.0.0"
+    "json-rest-api": "2.1.0"
   },
   "description": "Shared server-side CRUD service, repository, route, and query helpers.",
   "jskit": {
