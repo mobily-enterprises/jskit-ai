@@ -12,6 +12,7 @@ AI-first source patterns are indexed in `PATTERN_INDEX.md`.
 
 ## Package Maps
 - [agent-docs](/packages/agent-docs/reference/autogen/packages/agent-docs.md)
+- [architecture-inspector](/packages/agent-docs/reference/autogen/packages/architecture-inspector.md)
 - [assistant-core](/packages/agent-docs/reference/autogen/packages/assistant-core.md)
 - [assistant-runtime](/packages/agent-docs/reference/autogen/packages/assistant-runtime.md)
 - [assistant-voice](/packages/agent-docs/reference/autogen/packages/assistant-voice.md)

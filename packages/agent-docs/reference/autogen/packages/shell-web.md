@@ -20,68 +20,7 @@ Exports
 
 ### `src/architecture/inspectVueArchitecture.js`
 Exports
-- `inspectVueArchitecture({ projectRoot, input, aliases = {}, httpScope = "", apiBasePath = "" })`
-Local functions
-- `hashBytes(source)`
-- `isCanonicalPath(value)`
-- `propertyKey(entry)`
-- `isStaticObjectProperty(entry)`
-- `objectProperty(node, key)`
-- `hasOnlyStaticProperties(node)`
-- `isFunctionNode(node)`
-- `directoryPrefixes(filePath)`
-- `collectNodes(root)`
-- `staticValue(node, bindings, seen = new Set())`
-- `staticObjectValue(node, bindings, seen)`
-- `bindingNode(node, bindings, seen = new Set())`
-- `isShadowed({ ancestors }, name)`
-- `isLocalCall(record, names)`
-- `importedNames(module, source, imported)`
-- `findRecord(module, node)`
-- `kebabCase(name)`
-- `templateTagImport(module, tag)`
-- `sourcePoint(module, index)`
-- `sourceEvidence(module, node, offset = 0)`
-- `pageTitle(file)`
-- `validateInput({ projectRoot, input, aliases })`
-- `createOutput({ input, httpScope })`
-- `warn(inspection, code, message, source)`
-- `loadModule(inspection, filePath)`
-- `scriptUnits(inspection, module)`
-- `indexScriptUnit(inspection, module, unit)`
-- `indexDeclaration(module, node)`
-- `resolveImport(inspection, from, specifier)`
-- `resolvePackageEntryFile(inspection, from, specifier)`
-- `resolvePackageImport(inspection, from, specifier)`
-- `resolveCrudResource(inspection, module, node, seen = new Set())`
-- `resolveExportedCrudResource(inspection, module, name, seen)`
-- `crudOperationKey(inspection, surface, namespace, operation, apiSuffix)`
-- `recordPage(inspection, { file, discovery, identity, registrationModule, registrationNode, parentId = null })`
-- `isSupportedFilesystemOptions(options)`
-- `discoverFilesystemPages(inspection, discovery, module, registrationPath)`
-- `recordFilesystemRoutes(inspection, { tree, discovery, module, node })`
-- `discoverRegisteredPages(inspection, discovery, module, registrationPath)`
-- `routeComponentSpecifier(module, component)`
-- `recordRegisteredRoutes(inspection, { routes, discovery, module, registrationPath })`
-- `discoverPages(inspection, discoveries)`
-- `readTemplate(module)`
-- `discoverComponents(inspection)`
-- `recordComponentUse(inspection, { module, file, parentId, tag, pending })`
-- `recordPackageComponent(inspection, { module, file, tag, imported })`
-- `crudScreenKind(component)`
-- `crudScreenCall(module, tag, list)`
-- `hasDynamicScreenTransport(module, config)`
-- `hasCustomScreenClient(options)`
-- `recordCrudScreenUse(inspection, { module, file, parentId, tag })`
-- `isGlobalFetchCall(module, { node, ancestors })`
-- `recordFetchUses(inspection, { module, parentId, eventHandlers })`
-- `discoverEntryOperations(inspection)`
-- `crudControllerOperations(module, config, resource)`
-- `recordCrudController(inspection, { module, file, record })`
-- `recordFeatureRoute(inspection, { module, file, record, featureFactories })`
-- `importSpecifierName(specifier)`
-- `isTypeOnlyImport(node)`
-- `collectImports(inspection)`
+- `inspectVueArchitecture`
 
 ### `src/client/asyncModuleRecovery/index.js`
 Exports

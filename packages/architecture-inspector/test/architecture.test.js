@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { inspectVueArchitecture } from "../src/architecture/inspectVueArchitecture.js";
+import { inspectVueArchitecture } from "../src/inspectVueArchitecture.js";
 
 async function fixture(t, source, discovery) {
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-architecture-"));
@@ -90,6 +90,23 @@ test("filesystem routing reuses the Vue Router scanner without generated files o
   assert.equal(result.pages.some(page => page.file.endsWith("helper.ts")), false);
   await assert.rejects(readFile(path.join(root, "generated-router.d.ts")), { code: "ENOENT" });
   assert.deepEqual((await readdir(root)).sort(), ["pages", "vite.config.mjs"]);
+});
+
+test("filesystem registrations follow route paths rather than scan order", async t => {
+  const { root, input } = await fixture(t, {
+    "vite.config.mjs": 'import VueRouter from "vue-router/vite";\nVueRouter({ routesFolder: "pages" });\n',
+    "pages/zeta.vue": '<template>Zeta</template>\n',
+    "pages/mid.vue": '<template>Mid</template>\n',
+    "pages/alpha/[id].vue": '<template>Alpha detail</template>\n',
+    "pages/alpha.vue": '<template><router-view /></template>\n',
+  }, { id: "app", adapter: "jskit", surface: "app", mode: "filesystem", registrations: ["vite.config.mjs"], pageRoots: ["pages"], componentRoots: [] });
+  const result = await inspectVueArchitecture({ projectRoot: root, input });
+  assert.deepEqual(result.registrations.map(({ id, identity }) => [id, identity]), [
+    ["registration:app:0", "/alpha"],
+    ["registration:app:1", "/alpha/:id"],
+    ["registration:app:2", "/mid"],
+    ["registration:app:3", "/zeta"],
+  ]);
 });
 
 test("dynamic registration and unsupported routing adapters do not invent pages", async t => {

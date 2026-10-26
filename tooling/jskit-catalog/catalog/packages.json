@@ -6,6 +6,7 @@
   "release": {
     "packages": {
       "@jskit-ai/agent-docs": "0.1.244",
+      "@jskit-ai/architecture-inspector": "0.1.0",
       "@jskit-ai/assistant-core": "0.1.241",
       "@jskit-ai/assistant-runtime": "0.1.235",
       "@jskit-ai/assistant-voice": "0.1.42",
@@ -2760,9 +2761,8 @@
       },
       "packageJson": {
         "dependencies": {
-          "@mdi/js": "^7.4.47",
-          "@babel/parser": "7.29.9",
-          "@vue/compiler-sfc": "3.5.44"
+          "@jskit-ai/architecture-inspector": "0.1.0",
+          "@mdi/js": "^7.4.47"
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.1.246",

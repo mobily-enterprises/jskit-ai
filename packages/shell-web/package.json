@@ -29,8 +29,10 @@
     "./architecture": "./src/architecture/inspectVueArchitecture.js"
   },
   "dependencies": {
-    "@mdi/js": "^7.4.47",
-    "@babel/parser": "7.29.9",
+    "@jskit-ai/architecture-inspector": "0.1.0",
+    "@mdi/js": "^7.4.47"
+  },
+  "devDependencies": {
     "@vue/compiler-sfc": "3.5.44"
   },
   "peerDependencies": {
@@ -382,8 +384,5 @@
         }
       }
     }
-  },
-  "bin": {
-    "jskit-inspect-vue": "./src/architecture/cli.js"
   }
 }
