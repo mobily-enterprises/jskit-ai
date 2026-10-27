@@ -143,6 +143,19 @@ function claudeHistoryFrames(file) {
   return reading;
 }
 
+// The offset just after the last newline between start and size.
+async function completeHistoryOffset(handle, start, size) {
+  const block = Buffer.alloc(64 * 1024);
+  for (let end = size; end > start;) {
+    const from = Math.max(start, end - block.length);
+    await handle.read(block, 0, end - from, from);
+    const newline = block.subarray(0, end - from).lastIndexOf(10);
+    if (newline !== -1) return from + newline + 1;
+    end = from;
+  }
+  return start;
+}
+
 async function readClaudeHistoryFrames(file) {
   const cached = historyCache.get(file.path)?.value;
   const handle = await open(file.path, "r");
@@ -154,18 +167,16 @@ async function readClaudeHistoryFrames(file) {
       reusable = check.equals(cached.check);
     }
     const start = reusable ? cached.offset : 0;
-    const appended = Buffer.alloc(file.size - start);
-    if (appended.length) await handle.read(appended, 0, appended.length, start);
     // Only newline-terminated frames are complete; a writer may still be
     // writing the unfinished tail, which the next read parses.
-    const complete = appended.lastIndexOf(10) + 1;
+    const offset = await completeHistoryOffset(handle, start, file.size);
     const added = [];
-    if (complete) {
-      for await (const frame of readClaudeJsonFrames([appended.subarray(0, complete)])) {
+    if (offset > start) {
+      // Streamed, so a long conversation's history is never held whole in memory.
+      for await (const frame of readClaudeJsonFrames(handle.createReadStream({ start, end: offset - 1, autoClose: false }))) {
         if (!frame.isSidechain) added.push(retainedClaudeFrame(frame));
       }
     }
-    const offset = start + complete;
     const check = Buffer.alloc(Math.min(HISTORY_CHECK_BYTES, offset));
     await handle.read(check, 0, check.length, offset - check.length);
     const value = { dev: file.dev, ino: file.ino, offset, check,
@@ -190,7 +201,6 @@ async function readClaudeHistory(options) {
     ...(options.includeFinalCarriers ? { completedResults: [], failedResults: [], structuredOutputs: [] } : {})
   };
   if (!file || file.size === 0) return { exists: false, messages: [], userIds: [], text: "", ...inspected };
-  if (file.size > 256 * 1024 * 1024) throw new Error("Claude history exceeds the supported read limit.");
   const messages = new Map();
   const userIds = [];
   let lastUserId = "";

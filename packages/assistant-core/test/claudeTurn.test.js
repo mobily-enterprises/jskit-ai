@@ -2712,6 +2712,14 @@ test("live Claude history parses only frames appended since the previous read", 
     parsed = 0;
     assert.deepEqual((await readClaudeHistory(options)).userIds, ["u1", "u2", "u3"]);
     assert.equal(parsed, 0);
+    // An unfinished frame longer than one look-back block is still left for the next read.
+    const long = JSON.stringify({ type: "user", uuid: "u4", message: { content: "x".repeat(200 * 1024) } });
+    await appendFile(file, long.slice(0, 150 * 1024));
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["u1", "u2", "u3"]);
+    assert.equal(parsed, 0);
+    await appendFile(file, long.slice(150 * 1024) + "\n");
+    assert.deepEqual((await readClaudeHistory(options)).userIds, ["u1", "u2", "u3", "u4"]);
+    assert.equal(parsed, 1);
     // Replacement and truncation discard the parsed prefix.
     await write(`${file}.next`, [user("r1"), answer("ra", "r1")].join("\n") + "\n");
     await move(`${file}.next`, file);
