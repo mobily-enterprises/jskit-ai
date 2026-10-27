@@ -326,6 +326,7 @@ Local functions
 - `claudeUserText(content)`
 - `retainedClaudeFrame(frame)`
 - `claudeHistoryFrames(file)`
+- `completeHistoryOffset(handle, start, size)`
 - `readClaudeHistoryFrames(file)`
 
 ### `src/server/conversation/claudeProcess.js`
