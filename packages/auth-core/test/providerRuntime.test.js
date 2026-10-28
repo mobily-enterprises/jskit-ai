@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import Fastify from "fastify";
 import { createActionProvider } from "@jskit-ai/kernel/server/actions";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
@@ -125,4 +126,24 @@ test("auth policy denies protected routes when no auth service is installed", as
     raw: { url: "/api/protected" },
     routeOptions: { config: { authPolicy: "required" } }
   }, {}), /Authentication required/);
+});
+
+test("AuthPolicyProvider checks CSRF on unsafe methods when AUTH_CSRF_UNSAFE_METHODS is unset", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  const runtime = createCapabilityRuntime({
+    inputs: runtimeInputs(app),
+    providers: [
+      createActionProvider(),
+      HttpProvider,
+      AuthExtensionsProvider,
+      AuthFeature,
+      AuthPolicyProvider
+    ]
+  });
+  await runtime.start();
+  app.post("/api/write", { config: { authPolicy: "public" } }, () => ({ accepted: true }));
+
+  const missingToken = await app.inject({ method: "POST", url: "/api/write" });
+  assert.equal(missingToken.statusCode, 403);
 });

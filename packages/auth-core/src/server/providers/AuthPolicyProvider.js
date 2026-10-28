@@ -13,6 +13,7 @@ function defaultHasPermission({ permission, permissions = [] } = {}) {
 }
 
 function createPolicy({ authService, extensions, env }) {
+  const unsafeMethods = parseList(env.AUTH_CSRF_UNSAFE_METHODS);
   return Object.freeze({
     async resolveActor(request) {
       if (authService && typeof authService.authenticateRequest === "function") {
@@ -27,7 +28,8 @@ function createPolicy({ authService, extensions, env }) {
     options: Object.freeze({
       nodeEnv: String(env.NODE_ENV || "development").trim() || "development",
       apiPrefix: String(env.AUTH_API_PREFIX || "/api/").trim() || "/api/",
-      unsafeMethods: Object.freeze(parseList(env.AUTH_CSRF_UNSAFE_METHODS)),
+      // Unset AUTH_CSRF_UNSAFE_METHODS keeps the plugin default (POST, PUT, PATCH, DELETE).
+      unsafeMethods: unsafeMethods.length > 0 ? Object.freeze(unsafeMethods) : undefined,
       // Unset AUTH_CSRF_COOKIE_SECURE follows NODE_ENV (Secure in production).
       csrfCookieOpts: Object.freeze(
         String(env.AUTH_CSRF_COOKIE_SECURE ?? "").trim()
