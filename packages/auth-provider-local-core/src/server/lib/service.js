@@ -14,6 +14,12 @@ import {
 } from "@jskit-ai/auth-core/server/devAuth";
 import { hostOnlyCookieName, normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
+import {
+  AUTH_TEXTS,
+  authFieldErrorDetails,
+  authMessageFields,
+  createAuthError
+} from "@jskit-ai/auth-core/server/authTexts";
 import { normalizePasswordStrategy } from "./passwords.js";
 import { randomToken, sha256Base64url, signToken, verifySignedToken } from "./tokens.js";
 
@@ -203,10 +209,16 @@ function validatePasswordInput(password) {
     normalizedPassword.length < AUTH_PASSWORD_MIN_LENGTH ||
     normalizedPassword.length > AUTH_PASSWORD_MAX_LENGTH
   ) {
+    const params = { min: AUTH_PASSWORD_MIN_LENGTH };
     throw new AppError(400, "Password must be at least 8 characters.", {
+      code: "auth.local.password.tooShort",
+      params,
       details: {
         fieldErrors: {
           password: "Password must be at least 8 characters."
+        },
+        fieldErrorCodes: {
+          password: { code: "auth.local.password.tooShort", params }
         }
       }
     });
@@ -217,9 +229,13 @@ function validateEmailInput(email) {
   const normalized = normalizeEmail(email);
   if (!normalized || !normalized.includes("@")) {
     throw new AppError(400, "Enter a valid email address.", {
+      code: "auth.local.email.invalid",
       details: {
         fieldErrors: {
           email: "Enter a valid email address."
+        },
+        fieldErrorCodes: {
+          email: { code: "auth.local.email.invalid", params: {} }
         }
       }
     });
@@ -227,19 +243,18 @@ function validateEmailInput(email) {
   return normalized;
 }
 
-function devLoginAsValidationError(fieldErrors = {}) {
-  const messages = Object.values(fieldErrors).filter(Boolean);
-  return new AppError(400, messages[0] || "Provide a user id or email.", {
-    details: {
-      fieldErrors
-    }
+// fields: { field: AUTH_TEXTS entry }; the error says the first field's text.
+function devLoginAsValidationError(fields = {}) {
+  const [first = AUTH_TEXTS.devUserRequired] = Object.values(fields);
+  return createAuthError(first, {
+    details: authFieldErrorDetails(fields)
   });
 }
 
 function devLoginAsUserNotFound({ email = "", userId = "" } = {}) {
   return devLoginAsValidationError({
-    ...(userId ? { userId: "User not found." } : {}),
-    ...(email ? { email: "User not found." } : {})
+    ...(userId ? { userId: AUTH_TEXTS.devUserNotFound } : {}),
+    ...(email ? { email: AUTH_TEXTS.devUserNotFound } : {})
   });
 }
 
@@ -396,7 +411,7 @@ function createLocalAuthService({
     const result = await backend.withTransaction(async (tx) => {
       const existing = await tx.users.findByEmail(email);
       if (existing) {
-        throw new AppError(409, "An account already exists for this email.");
+        throw new AppError(409, "An account already exists for this email.", { code: "auth.local.register.emailTaken" });
       }
       const user = await tx.users.create({
         id: createId("usr"),
@@ -426,7 +441,7 @@ function createLocalAuthService({
     return backend.withTransaction(async (tx) => {
       const user = await tx.users.findByEmail(email);
       if (!user || user.disabled || !(await passwords.verifyPassword(password, user.password))) {
-        throw new AppError(401, "Invalid email or password.");
+        throw createAuthError(AUTH_TEXTS.invalidCredentials);
       }
       const session = await createSessionForUser(tx, user);
       return buildAuthPayload({ user, session, profileProjector });
@@ -443,8 +458,8 @@ function createLocalAuthService({
     const email = normalizeEmail(input?.email || "");
     if (!userId && !email) {
       throw devLoginAsValidationError({
-        userId: "Provide a user id or email.",
-        email: "Provide a user id or email."
+        userId: AUTH_TEXTS.devUserRequired,
+        email: AUTH_TEXTS.devUserRequired
       });
     }
 
@@ -607,7 +622,7 @@ function createLocalAuthService({
 
   async function requestPasswordReset(input = {}) {
     if (!recoveryEnabled) {
-      throw new AppError(503, "Password recovery is not configured.");
+      throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
     const email = validateEmailInput(input.email);
     let recoveryUrl = "";
@@ -634,28 +649,30 @@ function createLocalAuthService({
     return {
       ok: true,
       message: "If an account exists for that email, password reset instructions have been sent.",
+      messageCode: "auth.local.recovery.requested",
+      messageParams: {},
       ...(recoveryUrl && !recoverySender && config.recoveryDevOutput === "response" ? { recoveryUrl } : {})
     };
   }
 
   async function completePasswordRecovery(input = {}) {
     if (!recoveryEnabled) {
-      throw new AppError(503, "Password recovery is not configured.");
+      throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
     const token = String(input.code || input.token || "").trim();
     const tokenHash = String(input.tokenHash || "").trim() || (token ? sha256Base64url(token) : "");
     if (!tokenHash) {
-      throw new AppError(400, "Recovery token is required.");
+      throw createAuthError(AUTH_TEXTS.recoveryTokenRequired);
     }
     return backend.withTransaction(async (tx) => {
       const recovery = await tx.recovery.findByTokenHash(tokenHash);
       if (!recovery || recovery.usedAt || isExpiredIso(recovery.expiresAt)) {
-        throw new AppError(401, "Recovery token is invalid or expired.");
+        throw new AppError(401, "Recovery token is invalid or expired.", { code: "auth.local.recovery.tokenInvalid" });
       }
       await tx.recovery.consume(recovery.id);
       const user = await tx.users.findById(recovery.userId);
       if (!user || user.disabled) {
-        throw new AppError(401, "Recovery token is invalid or expired.");
+        throw new AppError(401, "Recovery token is invalid or expired.", { code: "auth.local.recovery.tokenInvalid" });
       }
       const session = await createSessionForUser(tx, user, {
         purpose: "recovery",
@@ -671,16 +688,16 @@ function createLocalAuthService({
     const recoveryAccessToken = String(cookies[RECOVERY_TOKEN_COOKIE] || "").trim();
     const payload = verifySignedToken(recoveryAccessToken, config.sessionSecret);
     if (!payload?.sub || !payload?.sid) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
     const password = await passwords.hashPassword(input.password);
     await backend.withTransaction(async (tx) => {
       const session = await tx.sessions.findById(String(payload.sid));
       if (!session || session.revokedAt || isExpiredIso(session.expiresAt)) {
-        throw new AppError(401, "Authentication required.");
+        throw createAuthError(AUTH_TEXTS.sessionRequired);
       }
       if (session.purpose !== "recovery") {
-        throw new AppError(401, "Recovery session required.");
+        throw new AppError(401, "Recovery session required.", { code: "auth.local.recovery.sessionRequired" });
       }
       await tx.users.updatePassword(String(payload.sub), password);
       await tx.sessions.revokeForUser(String(payload.sub));
@@ -690,7 +707,7 @@ function createLocalAuthService({
     });
     return {
       ok: true,
-      message: "Password updated. Sign in with your new password."
+      ...authMessageFields(AUTH_TEXTS.passwordUpdatedSignIn)
     };
   }
 
@@ -698,7 +715,7 @@ function createLocalAuthService({
     validatePasswordInput(input.newPassword);
     const authResult = await authenticateRequest(request);
     if (authResult.authenticated !== true || authResult.sessionPurpose !== "normal") {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
 
     const currentPassword = String(input.currentPassword || "");
@@ -706,33 +723,35 @@ function createLocalAuthService({
     await backend.withTransaction(async (tx) => {
       const user = await tx.users.findById(authResult.actor.providerUserId);
       if (!user || user.disabled) {
-        throw new AppError(401, "Authentication required.");
+        throw createAuthError(AUTH_TEXTS.sessionRequired);
       }
       if (!(await passwords.verifyPassword(currentPassword, user.password))) {
-        throw new AppError(401, "Current password is invalid.");
+        throw new AppError(401, "Current password is invalid.", { code: "auth.local.password.currentInvalid" });
       }
       await tx.users.updatePassword(user.id, password);
     });
 
     return {
       ok: true,
-      message: "Password updated."
+      message: "Password updated.",
+      messageCode: "auth.local.password.changed",
+      messageParams: {}
     };
   }
 
   async function updateDisplayName(request, input = {}) {
     const authResult = await authenticateRequest(request);
     if (authResult.authenticated !== true) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
     const displayName = String(input.displayName || "").trim();
     if (!displayName) {
-      throw new AppError(400, "Display name is required.");
+      throw createAuthError(AUTH_TEXTS.displayNameRequired);
     }
     return backend.withTransaction(async (tx) => {
       const user = await tx.users.updateProfile(authResult.actor.providerUserId, { displayName });
       if (!user) {
-        throw new AppError(401, "Authentication required.");
+        throw createAuthError(AUTH_TEXTS.sessionRequired);
       }
       return buildAuthPayload({ user, session: null, profileProjector });
     });
@@ -741,7 +760,7 @@ function createLocalAuthService({
   async function getSecurityStatus(request) {
     const authResult = await authenticateRequest(request);
     if (authResult.authenticated !== true) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
     return buildSecurityStatusFromAuthMethodsStatus(
       {
@@ -773,7 +792,7 @@ function createLocalAuthService({
   async function signOutOtherSessions(request) {
     const authResult = await authenticateRequest(request);
     if (authResult.authenticated !== true) {
-      throw new AppError(401, "Authentication required.");
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
     }
     const cookies = safeRequestCookies(request);
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();

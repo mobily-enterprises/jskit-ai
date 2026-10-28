@@ -1,0 +1,25 @@
+{
+  "jskit": {
+    "auth": {
+      "local": {
+        "email": {
+          "invalid": "Enter a valid email address."
+        },
+        "password": {
+          "tooShort": "Password must be at least {min} characters.",
+          "currentInvalid": "Current password is invalid.",
+          "changed": "Password updated."
+        },
+        "register": {
+          "emailTaken": "An account already exists for this email."
+        },
+        "recovery": {
+          "notConfigured": "Password recovery is not configured.",
+          "requested": "If an account exists for that email, password reset instructions have been sent.",
+          "tokenInvalid": "Recovery token is invalid or expired.",
+          "sessionRequired": "Recovery session required."
+        }
+      }
+    }
+  }
+}

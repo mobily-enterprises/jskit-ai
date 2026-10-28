@@ -7,7 +7,8 @@
   },
   "exports": {
     "./server/providers/AuthLocalProvider": "./src/server/providers/AuthLocalProvider.js",
-    "./server/lib/index": "./src/server/lib/index.js"
+    "./server/lib/index": "./src/server/lib/index.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "description": "Local auth provider with a file backend default and no database requirement.",
   "jskit": {
