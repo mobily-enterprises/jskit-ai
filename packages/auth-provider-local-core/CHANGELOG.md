@@ -4,6 +4,10 @@
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
 
+### Upgrading
+
+- Local-account errors now have dotted codes instead of `APP_ERROR` (for example `auth.local.password.currentInvalid`); English and status are unchanged.
+
 ### New message keys (9)
 
 All keys in `locales/en.json` (exported as `./locales/en.json`) are new in this version.

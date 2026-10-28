@@ -4,6 +4,10 @@
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
 
+### Upgrading
+
+- A missing document or record now answers `crud.document.notFound` / `crud.record.notFound` instead of `APP_ERROR` (same English and status).
+
 ### New message keys (9)
 
 All keys in `locales/en.json` (exported as `./locales/en.json`) are new in this version.

@@ -3,7 +3,7 @@
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
-- Definitions carry message keys internally; `./shared` and `./shared/ai` export them rendered to English exactly as before, each linked to its keyed original for connectors-web. The AI model catalogue date follows the reader's locale.
+- Definitions carry message keys internally; `./shared` and `./shared/ai` export them rendered to English exactly as before, each linked to its keyed original for connectors-web. With an app language active, the AI model catalogue date follows it.
 
 ### New message keys (1327)
 

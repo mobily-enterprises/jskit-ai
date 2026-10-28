@@ -4,6 +4,7 @@
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
 - `ConnectorError` carries `messageCode`/`messageParams`; `MESSAGE_KEY_SOURCE` links an English provider definition to its keyed original.
+- `createEnglishProviderTexts(catalog)` renders a keyed provider definition to its English.
 
 ### New message keys (80)
 

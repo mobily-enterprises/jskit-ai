@@ -4,6 +4,7 @@
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
 - Account settings (sections, preferences, avatar upload, toasts) are translated; the language select offers `config.languages`; `useAccountLocale()` exposes the signed-in user's saved locale.
+- Without `config.languages` the language select keeps JSKIT's built-in list unchanged; language names follow the app's language (English without one).
 
 ### New message keys (49)
 

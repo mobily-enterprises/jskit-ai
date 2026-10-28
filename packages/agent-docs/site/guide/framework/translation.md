@@ -97,9 +97,9 @@ config.languages = [
 ];
 ```
 
-Each `name` may also be a message key. Without `config.languages` the select
-keeps JSKIT's built-in list. A saved locale that is not in the list stays
-selectable under its language name.
+Each `name` may also be a message key. A saved locale that is not among the
+configured languages stays selectable under its language name. Without
+`config.languages` the select keeps JSKIT's built-in list, unchanged.
 
 JSKIT never switches the app's language itself. `useAccountLocale()` from
 `@jskit-ai/users-web/client` is a read-only ref holding the signed-in user's
@@ -176,7 +176,8 @@ translate a key and show any other string as written:
 ## Dates and numbers
 
 JSKIT formats dates, times, numbers and relative times with `Intl` in the
-active vue-i18n locale (the browser's default when no instance is supplied).
+active vue-i18n locale. Without an instance, each text keeps the format it had
+before translation support (usually the browser's default).
 App code can use the same helpers from `useJskitText()`: `formatDate`,
 `formatTime`, `formatDateTime`, `formatNumber` and `formatRelativeTime`.
 

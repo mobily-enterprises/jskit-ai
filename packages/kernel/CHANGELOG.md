@@ -9,6 +9,14 @@
 - Client: `useJskitText()` (`t`, `text`, `serverMessage`, `fieldErrorMessages`, Intl formatting helpers), `createTextError`, `registerJskitMessages`, and `bootstrapClientShellApp({ i18n })` for the app's composition-mode vue-i18n instance (optional peer dependency `vue-i18n`).
 - Server: `createServerI18n({ appRoot, catalogs })` renders messages in a recipient's language from the app's `src/locales/<code>/jskit.json`.
 - Shared: `formatMessage`, `catalogMessage`, `mergeCatalogs`, `flattenCatalog`, `messageKeyForCode`, `messageParams`.
+- `serverMessage(source, fallback)` returns the fallback when the source has no message, as `message || fallback` did.
+
+### Upgrading
+
+- Apps translate nothing until they pass a vue-i18n instance; screens and texts stay as they were.
+- Tests that compare whole error payloads exactly: every error response now has `params` (often `{}`), and some have `messageCode`/`messageParams` (a hidden 5xx answer carries `messageCode: "internal_server_error"`). Match the fields you need instead.
+- Tests or code that expect `APP_ERROR` for a JSKIT error: errors that used to fall back to `APP_ERROR` now have their own dotted codes (listed in each package's Codes table), and `createValidationError` answers `validation_failed`. Codes that already existed keep their values.
+- A plain-JSON (non-JSON:API) request body that fails its schema now answers `validation_failed` with `details.fieldErrors`, instead of `request_failed`, so JSKIT forms show the error next to the field.
 
 ### New message keys (74)
 

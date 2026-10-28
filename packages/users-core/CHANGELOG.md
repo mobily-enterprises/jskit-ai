@@ -5,6 +5,10 @@
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
 - Saved locales are canonical BCP 47 codes (`en-AU`); the language list comes from `config.languages` when the app sets it. Exports `./shared/settings`.
 
+### Upgrading
+
+- Success responses that had `meta.message` also carry `meta.messageCode` and `meta.messageParams`.
+
 ### New message keys (11)
 
 All keys in `locales/en.json` (exported as `./locales/en.json`) are new in this version.

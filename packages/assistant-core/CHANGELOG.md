@@ -5,6 +5,10 @@
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
 - `failure(message, code, statusCode, { messageCode, messageParams })`; a non-AppError before streaming now reports `request_failed` (or `internal_server_error`) instead of `app_error`.
 
+### Upgrading
+
+- NDJSON error events (`mapStreamError`) also carry `params`, `messageCode` and `messageParams` when the error has them.
+
 ### New message keys (331)
 
 All keys in `locales/en.json` (exported as `./locales/en.json`) are new in this version.
