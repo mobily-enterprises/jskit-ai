@@ -88,10 +88,14 @@ normal component and placement APIs. Installing realtime does not append it to
 the shell.
 
 The standard status indicator is a button while disconnected. Clicking it starts
-a fresh connection attempt. The client also retries server-initiated disconnects
-and rejected handshakes, backing off from one second to at most thirty seconds.
-Those extra retries pause while the page is hidden or offline and resume when it
-becomes available. Socket.IO continues to own ordinary transport reconnection.
+a fresh connection attempt at once, even while Socket.IO is waiting out a
+reconnection delay; application reconnect controls use `reconnectSocketIoClient`
+from `@jskit-ai/realtime/client/runtime` for the same behavior. The client also
+retries server-initiated disconnects and rejected handshakes, backing off from
+one second to at most thirty seconds. Those extra retries pause while the page
+is hidden or offline. When it becomes visible or online again, a disconnected
+socket reconnects immediately instead of finishing a delay scheduled before the
+device slept. Socket.IO continues to own ordinary transport reconnection.
 Explicit client disconnection and `reconnection: false` remain respected.
 
 Every attempt goes through normal authentication. Reconnection does not restore

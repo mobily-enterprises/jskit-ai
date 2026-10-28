@@ -1,5 +1,6 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from "vue";
 import { EMPTY_REALTIME_SOCKET, useRealtimeSocket } from "../composables/useRealtimeEvent.js";
+import { reconnectSocketIoClient } from "../runtime.js";
 
 const ROOT_STYLE = Object.freeze({
   alignItems: "center",
@@ -111,7 +112,7 @@ const RealtimeConnectionIndicator = defineComponent({
         "button",
         {
           disabled: !realtimeAvailable || connected.value,
-          onClick: () => socket.connect?.(),
+          onClick: () => reconnectSocketIoClient(socket),
           style: { ...ROOT_STYLE, cursor: realtimeAvailable && !connected.value ? "pointer" : "default" },
           title: tooltipText.value,
           type: "button",

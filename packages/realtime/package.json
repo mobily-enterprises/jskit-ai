@@ -90,7 +90,7 @@
           },
           {
             "subpath": "./client/runtime",
-            "summary": "Exports createSocketIoClient and disconnectSocketIoClient."
+            "summary": "Exports createSocketIoClient, disconnectSocketIoClient and reconnectSocketIoClient."
           }
         ],
         "capabilities": {

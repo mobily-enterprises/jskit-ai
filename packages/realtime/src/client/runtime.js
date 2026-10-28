@@ -31,7 +31,21 @@ function disconnectSocketIoClient(socket) {
   socket.disconnect();
 }
 
+// Socket.IO ignores connect() while its own reconnection waits out a backoff
+// delay or an attempt left hanging by a sleeping laptop. Closing that pending
+// attempt first makes connect() open a fresh transport immediately.
+function reconnectSocketIoClient(socket) {
+  if (!socket || socket.connected || typeof socket.connect !== "function") {
+    return;
+  }
+  if (socket.active) {
+    socket.disconnect();
+  }
+  socket.connect();
+}
+
 export {
   createSocketIoClient,
-  disconnectSocketIoClient
+  disconnectSocketIoClient,
+  reconnectSocketIoClient
 };

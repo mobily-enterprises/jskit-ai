@@ -1,3 +1,5 @@
+import { reconnectSocketIoClient } from "./runtime.js";
+
 function attachSocketConnectionRecovery(socket) {
   let timer = null;
   let delay = 1_000;
@@ -44,9 +46,12 @@ function attachSocketConnectionRecovery(socket) {
   }
 
   function onAvailable() {
-    if (!canRetry()) return;
+    if (socket.connected || document?.hidden || window?.navigator?.onLine === false ||
+      !socket.io.reconnection() || (!socket.active && !recovering)) return;
+    // A page that wakes or comes back online reconnects now, not after the
+    // remaining backoff delay that was scheduled before it slept.
     clearRetry();
-    socket.connect();
+    reconnectSocketIoClient(socket);
   }
 
   socket.on("connect", onConnect);

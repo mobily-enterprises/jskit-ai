@@ -4,7 +4,7 @@ import { EventEmitter, once } from "node:events";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 
-import { createSocketIoClient, disconnectSocketIoClient } from "../src/client/runtime.js";
+import { createSocketIoClient, disconnectSocketIoClient, reconnectSocketIoClient } from "../src/client/runtime.js";
 import { attachSocketConnectionRecovery } from "../src/client/connectionRecovery.js";
 
 test("createSocketIoClient calls connect with fixed socket path", () => {
@@ -211,4 +211,51 @@ test("a real server-forced disconnect reconnects through a fresh authenticated h
   await once(client, "connect", { signal: AbortSignal.timeout(8_000) });
   assert.equal(handshakes, 3);
   assert.notEqual(client.id, before);
+});
+
+test("reconnect now opens a fresh transport while Socket.IO waits out its backoff delay", async (t) => {
+  const http = createServer();
+  const io = new Server(http);
+  http.listen(0, "127.0.0.1");
+  await once(http, "listening");
+  const client = createSocketIoClient({
+    url: `http://127.0.0.1:${http.address().port}`,
+    options: { randomizationFactor: 0, reconnectionDelay: 60_000, reconnectionDelayMax: 60_000 }
+  });
+  t.after(async () => {
+    client.disconnect();
+    await new Promise((resolve) => io.close(resolve));
+  });
+  await once(client, "connect", { signal: AbortSignal.timeout(5_000) });
+  const disconnected = once(client, "disconnect");
+  io.sockets.sockets.get(client.id).conn.close();
+  assert.equal((await disconnected)[0], "transport close");
+  assert.equal(client.active, true);
+  client.connect();
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(client.connected, false, "plain connect() waits for the 60 s backoff");
+  const connected = once(client, "connect", { signal: AbortSignal.timeout(5_000) });
+  reconnectSocketIoClient(client);
+  await connected;
+  assert.equal(client.connected, true);
+});
+
+test("a page that wakes mid-backoff reconnects now unless the app disconnected on purpose", (t) => {
+  const previousDocument = globalThis.document;
+  const document = Object.assign(new EventTarget(), { hidden: false });
+  globalThis.document = document;
+  t.after(() => {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  });
+  const { socket } = recoverySocket(t);
+  socket.disconnect = t.mock.fn(() => { socket.active = false; });
+  socket.active = true;
+  socket.emit("disconnect", "transport close");
+  document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(socket.disconnect.mock.callCount(), 1);
+  assert.equal(socket.connect.mock.callCount(), 1);
+  socket.emit("disconnect", "io client disconnect");
+  document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(socket.connect.mock.callCount(), 1);
 });

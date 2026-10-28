@@ -45,6 +45,7 @@ Local functions
 Exports
 - `createSocketIoClient({ url = "", options = {}, connect = connectSocketIoClient } = {})`
 - `disconnectSocketIoClient(socket)`
+- `reconnectSocketIoClient(socket)`
 
 ### `src/server/realtimeAudience.js`
 Exports
