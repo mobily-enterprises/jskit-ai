@@ -58,7 +58,7 @@ function requireActor(context, input) {
   const actor = resolveActionUser(context, input);
   const actorId = actor?.id == null ? "" : String(actor.id).trim();
   if (!actorId) {
-    throw new AppError(401, "Authentication required.");
+    throw new AppError(401, "Authentication required.", { code: "rewarded.auth.required" });
   }
   return actor;
 }
@@ -66,7 +66,7 @@ function requireActor(context, input) {
 function requireWorkspaceSlug(input = {}) {
   const workspaceSlug = normalizeText(input?.workspaceSlug).toLowerCase();
   if (!workspaceSlug) {
-    throw new AppError(400, "workspaceSlug is required.");
+    throw new AppError(400, "workspaceSlug is required.", { code: "rewarded.request.workspaceSlugRequired" });
   }
   return workspaceSlug;
 }
@@ -74,7 +74,7 @@ function requireWorkspaceSlug(input = {}) {
 function requireGateKey(input = {}) {
   const gateKey = normalizeGateKey(input?.gateKey);
   if (!gateKey) {
-    throw new AppError(400, "gateKey is required.");
+    throw new AppError(400, "gateKey is required.", { code: "rewarded.request.gateKeyRequired" });
   }
   return gateKey;
 }
@@ -416,7 +416,7 @@ function createService({
     const workspaceSlug = requireWorkspaceSlug(input);
     const sessionId = input?.sessionId == null ? "" : String(input.sessionId).trim();
     if (!sessionId) {
-      throw new AppError(400, "sessionId is required.");
+      throw new AppError(400, "sessionId is required.", { code: "rewarded.request.sessionIdRequired" });
     }
 
     return rewardedWatchSessionsRepository.withTransaction(async (trx) => {
@@ -425,7 +425,7 @@ function createService({
         trx
       }));
       if (!sessionRecord) {
-        throw new AppError(404, "Watch session not found.");
+        throw new AppError(404, "Watch session not found.", { code: "rewarded.session.notFound" });
       }
 
       const authorized = await authorizeGrant({
@@ -434,11 +434,11 @@ function createService({
         trx
       });
       if (authorized !== true) {
-        throw new AppError(403, "Reward grant is not authorized.");
+        throw new AppError(403, "Reward grant is not authorized.", { code: "rewarded.session.grantNotAuthorized" });
       }
 
       if (normalizeText(sessionRecord.status).toLowerCase() === "closed") {
-        throw new AppError(409, "Watch session is already closed.");
+        throw new AppError(409, "Watch session is already closed.", { code: "rewarded.session.closed" });
       }
       if (sessionRecord.rewardedAt || normalizeText(sessionRecord.status).toLowerCase() === "rewarded") {
         const receiptRecord = await queryFirst(rewardedUnlockReceiptsRepository, {
@@ -465,7 +465,9 @@ function createService({
         trx
       });
       if (!ruleRecord) {
-        throw new AppError(409, "No rewarded rule is configured for this session.");
+        throw new AppError(409, "No rewarded rule is configured for this session.", {
+          code: "rewarded.session.ruleMissing"
+        });
       }
 
       const now = new Date();
@@ -514,7 +516,7 @@ function createService({
     const workspaceSlug = requireWorkspaceSlug(input);
     const sessionId = input?.sessionId == null ? "" : String(input.sessionId).trim();
     if (!sessionId) {
-      throw new AppError(400, "sessionId is required.");
+      throw new AppError(400, "sessionId is required.", { code: "rewarded.request.sessionIdRequired" });
     }
 
     const sessionRecord = normalizeRecord(await rewardedWatchSessionsRepository.getDocumentById(sessionId, {}, {
@@ -522,7 +524,7 @@ function createService({
       trx: options?.trx || null
     }));
     if (!sessionRecord) {
-      throw new AppError(404, "Watch session not found.");
+      throw new AppError(404, "Watch session not found.", { code: "rewarded.session.notFound" });
     }
 
     if (sessionRecord.rewardedAt || normalizeText(sessionRecord.status).toLowerCase() === "rewarded") {

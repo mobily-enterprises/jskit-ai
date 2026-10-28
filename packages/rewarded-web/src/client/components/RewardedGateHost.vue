@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRewardedRuntime } from "../composables/useRewardedRuntime.js";
+import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
   runtime: {
@@ -10,16 +11,17 @@ const props = defineProps({
   }
 });
 
+const { t } = useJskitText();
 const runtime = computed(() => props.runtime || useRewardedRuntime());
 const state = computed(() => runtime.value?.state || null);
 const isVisible = computed(() => {
   const currentState = state.value;
   return currentState?.open === true && currentState?.phase !== "showing-ad";
 });
-const titleText = computed(() => state.value?.gateState?.rule?.title || "Watch an ad to continue");
+const titleText = computed(() => state.value?.gateState?.rule?.title || t("jskit.rewarded.gate.defaultTitle"));
 const descriptionText = computed(() =>
   state.value?.gateState?.rule?.description ||
-  "Watch a rewarded ad to unlock this action."
+  t("jskit.rewarded.gate.defaultDescription")
 );
 
 function handleWatchClick() {
@@ -40,7 +42,7 @@ function handleDismissError() {
     <div v-if="isVisible" class="rewarded-gate">
       <div class="rewarded-gate__scrim" />
       <div class="rewarded-gate__panel">
-        <div class="rewarded-gate__eyebrow">Rewarded unlock</div>
+        <div class="rewarded-gate__eyebrow">{{ t("jskit.rewarded.gate.eyebrow") }}</div>
         <h2 class="rewarded-gate__title">{{ titleText }}</h2>
         <p class="rewarded-gate__description">{{ descriptionText }}</p>
 
@@ -48,14 +50,14 @@ function handleDismissError() {
           v-if="state?.phase === 'loading'"
           class="rewarded-gate__status"
         >
-          Loading Rewarded ad…
+          {{ t("jskit.rewarded.gate.loading") }}
         </p>
 
         <p
           v-else-if="state?.phase === 'error'"
           class="rewarded-gate__status rewarded-gate__status--error"
         >
-          {{ state?.errorMessage || "Unable to start the rewarded ad." }}
+          {{ state?.errorMessage || t("jskit.rewarded.gate.startFailed") }}
         </p>
 
         <div class="rewarded-gate__actions">
@@ -65,7 +67,7 @@ function handleDismissError() {
             class="rewarded-gate__button rewarded-gate__button--primary"
             @click="handleWatchClick"
           >
-            Watch ad
+            {{ t("jskit.rewarded.gate.watch") }}
           </button>
 
           <button
@@ -74,7 +76,7 @@ function handleDismissError() {
             class="rewarded-gate__button"
             @click="handleCancelClick"
           >
-            Not now
+            {{ t("jskit.rewarded.gate.notNow") }}
           </button>
 
           <button
@@ -83,7 +85,7 @@ function handleDismissError() {
             class="rewarded-gate__button rewarded-gate__button--primary"
             @click="handleDismissError"
           >
-            Close
+            {{ t("jskit.rewarded.gate.close") }}
           </button>
         </div>
       </div>

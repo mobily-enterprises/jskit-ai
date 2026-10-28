@@ -1,0 +1,19 @@
+{
+  "jskit": {
+    "rewarded": {
+      "gate": {
+        "eyebrow": "Rewarded unlock",
+        "defaultTitle": "Watch an ad to continue",
+        "defaultDescription": "Watch a rewarded ad to unlock this action.",
+        "loading": "Loading Rewarded ad…",
+        "startFailed": "Unable to start the rewarded ad.",
+        "watch": "Watch ad",
+        "notNow": "Not now",
+        "close": "Close",
+        "adUnavailable": "No rewarded ad was available right now. Please try again later.",
+        "invalidState": "Rewarded gate returned an invalid state.",
+        "alreadyActive": "A Rewarded gate is already active."
+      }
+    }
+  }
+}

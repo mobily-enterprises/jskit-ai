@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
+import { useJskitText } from "../i18n.js";
 
 const REWARDED_RUNTIME_INJECTION_KEY = Symbol("rewarded.web.runtime");
 const REWARDED_CONFIGURATION_REASONS = new Set([
@@ -28,6 +29,11 @@ function createInitialState() {
     session: null,
     request: null
   };
+}
+
+// The English stays the message; messageCode lets the app show it in its language.
+function rewardedClientError(message, { messageCode }) {
+  return Object.assign(new Error(message), { messageCode, messageParams: {} });
 }
 
 function applyState(target, source) {
@@ -74,6 +80,7 @@ function createRewardedRuntime({ launchReward } = {}) {
   if (typeof launchReward !== "function") {
     throw new TypeError("Rewarded runtime requires an explicit launchReward delivery function.");
   }
+  const { t, errorMessage } = useJskitText();
   const state = reactive(createInitialState());
   let pendingResolve = null;
   let activeGrantPromise = null;
@@ -156,7 +163,7 @@ async function requestCurrent(input = {}) {
       workspaceSlug
     });
     if (!isWellFormedGateState(gateState)) {
-      throw new Error("Rewarded gate returned an invalid state.");
+      throw rewardedClientError("Rewarded gate returned an invalid state.", { messageCode: "rewarded.gate.invalidState" });
     }
     const alreadyUnlocked = gateState?.blocked === false && gateState?.unlock;
     if (!gateState?.enabled || !gateState?.blocked) {
@@ -167,7 +174,7 @@ async function requestCurrent(input = {}) {
     }
 
     if (pendingResolve) {
-      throw new Error("A Rewarded gate is already active.");
+      throw rewardedClientError("A Rewarded gate is already active.", { messageCode: "rewarded.gate.alreadyActive" });
     }
 
     applyState(state, {
@@ -271,7 +278,7 @@ async function requestCurrent(input = {}) {
           applyState(state, {
             ...state,
             phase: "error",
-            errorMessage: "No rewarded ad was available right now. Please try again later."
+            errorMessage: t("jskit.rewarded.gate.adUnavailable")
           });
         }
       });
@@ -279,7 +286,7 @@ async function requestCurrent(input = {}) {
       applyState(state, {
         ...state,
         phase: "error",
-        errorMessage: error instanceof Error ? error.message : String(error)
+        errorMessage: error instanceof Error ? errorMessage(error) : String(error)
       });
     }
   }

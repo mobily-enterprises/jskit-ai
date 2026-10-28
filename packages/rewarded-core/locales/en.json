@@ -1,0 +1,28 @@
+{
+  "jskit": {
+    "errors": {
+      "rewarded_unlock_required": "Rewarded unlock required.",
+      "rewarded_cooldown_active": "Rewarded unlock is cooling down.",
+      "rewarded_daily_limit_reached": "Rewarded unlock limit reached.",
+      "rewarded_not_configured": "Rewarded gate is not configured.",
+      "rewarded_unlock_blocked": "Rewarded unlock is required before this action can continue.",
+      "rewarded_gate_state_invalid": "Rewarded gate returned an invalid state."
+    },
+    "rewarded": {
+      "auth": {
+        "required": "Authentication required."
+      },
+      "request": {
+        "workspaceSlugRequired": "workspaceSlug is required.",
+        "gateKeyRequired": "gateKey is required.",
+        "sessionIdRequired": "sessionId is required."
+      },
+      "session": {
+        "notFound": "Watch session not found.",
+        "grantNotAuthorized": "Reward grant is not authorized.",
+        "closed": "Watch session is already closed.",
+        "ruleMissing": "No rewarded rule is configured for this session."
+      }
+    }
+  }
+}
