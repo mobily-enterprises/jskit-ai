@@ -40,7 +40,8 @@ const resolvedTarget = computed(() => resolveMenuLinkHref(placementContext.value
 const resolvedIcon = computed(() =>
   resolveMenuLinkIcon({
     icon: props.icon,
-    label: resolvedLabel.value,
+    // Icons follow the English label, so they do not change with the language.
+    label: text(props.label, { locale: "en" }),
     to: resolvedTarget.value.href || props.to
   })
 );

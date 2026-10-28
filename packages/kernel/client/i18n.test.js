@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createI18n } from "vue-i18n";
 
-import { registerJskitMessages, setJskitI18n, useJskitText } from "./i18n.js";
+import { createTextError, registerJskitMessages, setJskitI18n, useJskitText } from "./i18n.js";
 
 const english = {
   jskit: {
@@ -92,4 +92,29 @@ test("relative times follow the active locale", () => {
   assert.equal(formatRelativeTime("2026-10-28T11:55:00Z", { now }), "5 minutes ago");
   assert.equal(formatRelativeTime("2026-10-29T12:00:00Z", { now }), "tomorrow");
   assert.equal(formatRelativeTime("not a date", { now }), "");
+});
+
+test("a label can be rendered in English while another language is active", () => {
+  reset();
+  setJskitI18n(createI18n({
+    legacy: false,
+    locale: "it",
+    messages: { it: { jskit: { auth: { login: { title: "Accedi" } } } } }
+  }));
+  const { text } = useJskitText();
+  assert.equal(text("jskit.auth.login.title"), "Accedi");
+  assert.equal(text("jskit.auth.login.title", { locale: "en" }), "Sign in");
+  assert.equal(text({ key: "jskit.auth.login.title" }, { locale: "en" }), "Sign in");
+  assert.equal(text("Reports", { locale: "en" }), "Reports");
+});
+
+test("createTextError keeps JSKIT's English and a messageCode for the user's language", () => {
+  reset();
+  const error = createTextError("jskit.auth.password.tooShort", { min: 8 });
+  assert.equal(error.message, "Use at least 8 characters.");
+  assert.equal(error.messageCode, "auth.password.tooShort");
+  assert.deepEqual(error.messageParams, { min: 8 });
+  const plain = createTextError("Something an app wrote.");
+  assert.equal(plain.message, "Something an app wrote.");
+  assert.equal(plain.messageCode, undefined);
 });

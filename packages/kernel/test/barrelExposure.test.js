@@ -103,6 +103,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "createComponentInteractionEmitter",
       "createAsyncModuleRecoveryState",
       "createShellRouter",
+      "createTextError",
       "DEFAULT_GUARD_EVALUATOR_KEY",
       "dismissAsyncModuleRecovery",
       "dynamicImportErrorMessage",

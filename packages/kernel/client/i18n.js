@@ -47,12 +47,14 @@ function pluralOptions(params) {
   return Number.isFinite(count) ? { plural: count } : {};
 }
 
-function t(key = "", params = {}) {
+// { locale } renders in that locale instead of the active one; "en" gives the
+// English a label had before translation, for logic that reads English words.
+function t(key = "", params = {}, { locale } = {}) {
   const { english, i18n } = registry();
   if (i18n) {
     const composer = i18n.global;
-    if (composer.te(key)) {
-      return composer.t(key, params, pluralOptions(params));
+    if (composer.te(key, locale)) {
+      return composer.t(key, params, locale ? { ...pluralOptions(params), locale } : pluralOptions(params));
     }
     if (composer.te(key, ENGLISH)) {
       return composer.t(key, params, { ...pluralOptions(params), locale: ENGLISH });
@@ -69,13 +71,27 @@ function hasMessage(key = "") {
 
 // A placement label or title: a message key, { key, fallback, params }, or plain
 // text shown as written.
-function text(value) {
+function text(value, options) {
   if (value && typeof value === "object") {
     const key = String(value.key || "");
-    return key && hasMessage(key) ? t(key, value.params) : String(value.fallback ?? "");
+    return key && hasMessage(key) ? t(key, value.params, options) : String(value.fallback ?? "");
   }
   const label = String(value ?? "");
-  return label && !/\s/u.test(label) && hasMessage(label) ? t(label) : label;
+  return label && !/\s/u.test(label) && hasMessage(label) ? t(label, {}, options) : label;
+}
+
+// A client-made error: its message is JSKIT's English and its messageCode lets
+// serverMessage() show it in the user's language. Text that is not a registered
+// key (a caller's own sentence) becomes a plain Error.
+function createTextError(keyOrMessage = "", params = {}) {
+  const english = catalogMessage(registry().english, keyOrMessage);
+  if (english === undefined) {
+    return new Error(keyOrMessage);
+  }
+  const error = new Error(formatMessage(english, params));
+  error.messageCode = keyOrMessage.slice("jskit.".length);
+  error.messageParams = params;
+  return error;
 }
 
 // A server code is translated only when the English the server sent is JSKIT's
@@ -176,6 +192,7 @@ function useJskitText() {
 registerJskitMessages(kernelEnglish);
 
 export {
+  createTextError,
   registerJskitMessages,
   setJskitI18n,
   useJskitText
