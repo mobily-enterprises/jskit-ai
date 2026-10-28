@@ -115,3 +115,36 @@ test("discoverInstalledPackages excludes development-only packages from runtime 
   const packages = await discoverInstalledPackages({ appRoot });
   assert.deepEqual(packages.map((entry) => entry.packageId), ["@example/runtime"]);
 });
+
+test("discoverInstalledPackages walks npm alias dependencies but rejects aliased JSKIT packages", async (context) => {
+  const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-package-alias-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  const aliasRoot = path.join(appRoot, "node_modules", "@example", "sdk-v0_3");
+  const runtimeRoot = path.join(appRoot, "node_modules", "@example", "runtime");
+  await mkdir(aliasRoot, { recursive: true });
+  await mkdir(runtimeRoot, { recursive: true });
+  await writeFile(
+    path.join(appRoot, "package.json"),
+    JSON.stringify({ dependencies: { "@example/sdk-v0_3": "npm:@example/sdk@0.3.0" } })
+  );
+  await writeFile(
+    path.join(aliasRoot, "package.json"),
+    JSON.stringify({ name: "@example/sdk", version: "0.3.0", dependencies: { "@example/runtime": "1.0.0" } })
+  );
+  await writeFile(
+    path.join(runtimeRoot, "package.json"),
+    JSON.stringify({ name: "@example/runtime", version: "1.0.0", jskit: { kind: "runtime" } })
+  );
+
+  const packages = await discoverInstalledPackages({ appRoot });
+  assert.deepEqual(packages.map((entry) => entry.packageId), ["@example/runtime"]);
+
+  await writeFile(
+    path.join(aliasRoot, "package.json"),
+    JSON.stringify({ name: "@example/sdk", version: "0.3.0", jskit: { kind: "runtime" } })
+  );
+  await assert.rejects(
+    () => discoverInstalledPackages({ appRoot }),
+    /Installed package manifest mismatch: expected @example\/sdk-v0_3, received @example\/sdk\./
+  );
+});

@@ -207,10 +207,12 @@ async function discoverInstalledPackages({ appRoot } = {}) {
     }
 
     const packageJson = await readJsonFile(packageJsonPath, {});
-    const manifestPackageId = String(packageJson.name || "").trim();
-    if (manifestPackageId && manifestPackageId !== packageId) {
+    const packageMetadata = createPackageMetadata(packageJson);
+    // An npm alias ("alias": "npm:real@1") installs another package under the alias name,
+    // which is only an error for JSKIT packages.
+    if (packageMetadata && packageMetadata.packageId !== packageId) {
       throw new Error(
-        `Installed package manifest mismatch: expected ${packageId}, received ${manifestPackageId}.`
+        `Installed package manifest mismatch: expected ${packageId}, received ${packageMetadata.packageId}.`
       );
     }
 
@@ -219,7 +221,6 @@ async function discoverInstalledPackages({ appRoot } = {}) {
       enqueue({ packageId: dependencyId, parentPackageRoot: roots.packageRoot });
     }
 
-    const packageMetadata = createPackageMetadata(packageJson);
     if (!packageMetadata) {
       continue;
     }
