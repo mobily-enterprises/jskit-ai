@@ -101,3 +101,21 @@ test("dev auth exchange requires the exact fixed-header secret", () => {
     /not authorized/
   );
 });
+
+test("dev auth refusals carry their own codes", () => {
+  const codeOf = (run) => {
+    try {
+      run();
+    } catch (error) {
+      return error.code;
+    }
+    return null;
+  };
+  assert.equal(codeOf(() => ensureDevAuthRuntimeAvailable(resolveDevAuthPolicy(), createRequest())), "auth.dev.unavailable");
+  assert.equal(codeOf(() => ensureDevAuthRuntimeAvailable(enabledPolicy({ secret: "" }), createRequest())), "auth.dev.secretMissing");
+  assert.equal(
+    codeOf(() => ensureDevAuthRuntimeAvailable(enabledPolicy(), createRequest({ host: "example.com" }))),
+    "auth.dev.localhostOnly"
+  );
+  assert.equal(codeOf(() => ensureDevAuthExchangeAvailable(enabledPolicy(), createRequest())), "auth.dev.exchangeUnauthorized");
+});

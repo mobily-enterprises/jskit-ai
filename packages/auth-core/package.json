@@ -15,6 +15,7 @@
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
     "./server/authServiceDecoratorRegistry": "./src/server/authServiceDecoratorRegistry.js",
     "./server/authActor": "./src/server/authActor.js",
+    "./server/authTexts": "./src/server/authTexts.js",
     "./server/booleanFlag": "./src/server/booleanFlag.js",
     "./server/devAuth": "./src/server/devAuth.js",
     "./server/deferredAuthService": "./src/server/deferredAuthService.js",
@@ -55,7 +56,8 @@
     "./shared/commands/authPasswordRecoveryCompleteCommand": "./src/shared/commands/authPasswordRecoveryCompleteCommand.js",
     "./shared/commands/authPasswordResetCommand": "./src/shared/commands/authPasswordResetCommand.js",
     "./shared/commands/authLogoutCommand": "./src/shared/commands/authLogoutCommand.js",
-    "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js"
+    "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

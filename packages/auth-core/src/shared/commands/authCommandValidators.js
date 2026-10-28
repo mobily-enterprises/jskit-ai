@@ -143,10 +143,18 @@ const okOutputValidator = deepFreeze({
   mode: "replace"
 });
 
+// A success message's code and params, so a client can show it in the user's
+// language; message stays the English.
+const messageCodeFieldDefinitions = deepFreeze({
+  messageCode: { type: "string", required: false, minLength: 1 },
+  messageParams: { type: "object", required: false, additionalProperties: true }
+});
+
 const okMessageOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
-    message: { type: "string", required: true, minLength: 1 }
+    message: { type: "string", required: true, minLength: 1 },
+    ...messageCodeFieldDefinitions
   }),
   mode: "replace"
 });
@@ -156,7 +164,8 @@ const registerOutputValidator = deepFreeze({
     ok: { type: "boolean", required: true },
     requiresEmailConfirmation: { type: "boolean", required: true },
     username: { type: "string", required: false, minLength: 1, maxLength: 120 },
-    message: { type: "string", required: false, minLength: 1 }
+    message: { type: "string", required: false, minLength: 1 },
+    ...messageCodeFieldDefinitions
   }),
   mode: "replace"
 });
@@ -378,6 +387,8 @@ const sessionOutputValidator = deepFreeze({
 
 const sessionUnavailableOutputSchema = createSchema({
   error: { type: "string", required: true, minLength: 1 },
+  code: { type: "string", required: false, minLength: 1 },
+  params: { type: "object", required: false, additionalProperties: true },
   csrfToken: { type: "string", required: true, minLength: 1 },
   authCapabilities: {
     type: "object",

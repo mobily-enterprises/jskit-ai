@@ -7,13 +7,16 @@ const AUTH_POLICY_DENY_REASONS = Object.freeze({
   FORBIDDEN_PERMISSION: "forbidden_permission"
 });
 
-function createAuthPolicyError(status, message, { code = "AUTH_POLICY_ERROR" } = {}) {
+// code names the refusal (auth.session.required, auth.policy.permissionDenied...)
+// so a client can show it in the user's language; message stays the English.
+function createAuthPolicyError(status, message, { code, params = {} } = {}) {
   const normalizedStatus = Number(status) || 500;
   const error = new Error(String(message || "Request failed."));
   error.name = "AuthPolicyError";
   error.status = normalizedStatus;
   error.statusCode = normalizedStatus;
-  error.code = String(code || "AUTH_POLICY_ERROR");
+  error.code = code;
+  error.params = params && typeof params === "object" ? { ...params } : {};
   return error;
 }
 

@@ -97,10 +97,8 @@ function authPolicyPlugin(deps = {}, options = {}) {
   const csrfCookieOpts =
     options.csrfCookieOpts && typeof options.csrfCookieOpts === "object" ? options.csrfCookieOpts : {};
   const resolveCsrfTokenFn = typeof options.resolveCsrfToken === "function" ? options.resolveCsrfToken : resolveCsrfToken;
-  const createError =
-    typeof options.createError === "function"
-      ? options.createError
-      : (status, message) => createAuthPolicyError(status, message);
+  // createError(status, englishMessage, { code }) builds each refusal.
+  const createError = typeof options.createError === "function" ? options.createError : createAuthPolicyError;
 
   // CSRF uses tokens checked against a secret cookie, never SameSite alone. In
   // production that cookie is host-only (__Host-), so a sibling host cannot plant
@@ -154,7 +152,9 @@ function authPolicyPlugin(deps = {}, options = {}) {
           actor: actorResolution.actor,
           context: null
         });
-        throw createError(503, "Authentication service temporarily unavailable. Please retry.");
+        throw createError(503, "Authentication service temporarily unavailable. Please retry.", {
+          code: "auth.session.unavailable"
+        });
       }
 
       if (!actorResolution.authenticated) {
@@ -166,7 +166,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
           actor: actorResolution.actor,
           context: null
         });
-        throw createError(401, "Authentication required.");
+        throw createError(401, "Authentication required.", { code: "auth.session.required" });
       }
 
       request.user = actorResolution.actor;
@@ -187,7 +187,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
             actor: actorResolution.actor,
             context: null
           });
-          throw createError(400, "Route owner could not be resolved.");
+          throw createError(400, "Route owner could not be resolved.", { code: "auth.policy.ownerUnresolved" });
         }
 
         if (String(ownerValue) !== String(userValue)) {
@@ -199,7 +199,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
             actor: actorResolution.actor,
             context: null
           });
-          throw createError(403, "Forbidden.");
+          throw createError(403, "Forbidden.", { code: "auth.policy.ownerMismatch" });
         }
       } else if (meta.authPolicy !== AUTH_POLICIES.REQUIRED) {
         notifyPolicyDenied(onPolicyDenied, {
@@ -210,7 +210,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
           actor: actorResolution.actor,
           context: null
         });
-        throw createError(500, "Invalid route auth policy configuration.");
+        throw createError(500, "Invalid route auth policy configuration.", { code: "auth.policy.invalidConfiguration" });
       }
 
       let context = null;
@@ -246,7 +246,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
             actor: actorResolution.actor,
             context
           });
-          throw createError(403, "Forbidden.");
+          throw createError(403, "Forbidden.", { code: "auth.policy.permissionDenied" });
         }
       }
     });

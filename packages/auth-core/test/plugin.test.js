@@ -324,3 +324,46 @@ test("enforces permission checks and resolves workspace context when requested",
 
   assert.deepEqual(denyEvents.map((event) => event.reason), ["forbidden_permission"]);
 });
+
+test("each policy refusal carries its own code next to the English", async () => {
+  const { fastify, state } = createFakeFastifyPolicyRuntime();
+  let resolution = { authenticated: true, actor: { id: 7 }, transientFailure: false };
+  await authPolicyPlugin({
+    async resolveActor() {
+      return resolution;
+    },
+    hasPermission() {
+      return false;
+    }
+  })(fastify);
+
+  async function refusal(config, params = {}) {
+    try {
+      await state.preHandler({ method: "GET", raw: { url: "/api/x" }, headers: {}, params, routeOptions: { config } }, {});
+    } catch (error) {
+      return { status: error.statusCode, message: error.message, code: error.code };
+    }
+    return null;
+  }
+
+  assert.deepEqual(await refusal({ authPolicy: "own", ownerParam: "id" }), {
+    status: 400, message: "Route owner could not be resolved.", code: "auth.policy.ownerUnresolved"
+  });
+  assert.deepEqual(await refusal({ authPolicy: "own", ownerParam: "id", userField: "id" }, { id: 9 }), {
+    status: 403, message: "Forbidden.", code: "auth.policy.ownerMismatch"
+  });
+  assert.deepEqual(await refusal({ authPolicy: "bogus" }), {
+    status: 500, message: "Invalid route auth policy configuration.", code: "auth.policy.invalidConfiguration"
+  });
+  assert.deepEqual(await refusal({ authPolicy: "required", permission: "x.read" }), {
+    status: 403, message: "Forbidden.", code: "auth.policy.permissionDenied"
+  });
+  resolution = { authenticated: false, actor: null, transientFailure: false };
+  assert.deepEqual(await refusal({ authPolicy: "required" }), {
+    status: 401, message: "Authentication required.", code: "auth.session.required"
+  });
+  resolution = { authenticated: false, actor: null, transientFailure: true };
+  assert.deepEqual(await refusal({ authPolicy: "required" }), {
+    status: 503, message: "Authentication service temporarily unavailable. Please retry.", code: "auth.session.unavailable"
+  });
+});

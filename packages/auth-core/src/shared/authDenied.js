@@ -12,12 +12,22 @@ const AUTH_DENIED_DEFAULT_MESSAGES = Object.freeze({
   [AUTH_DENIED_CODES.BLOCKED]: "This account has been blocked from accessing this application."
 });
 
-const AUTH_DENIED_LOGIN_MESSAGES = Object.freeze({
-  [AUTH_DENIED_CODES.NOT_ALLOWLISTED]:
-    "Sign-in succeeded, but this account is not allowed to access this application.",
-  [AUTH_DENIED_CODES.BLOCKED]:
-    "Sign-in succeeded, but this account has been blocked from accessing this application."
+// The sign-in error for each built-in reason: its English and the code a client
+// renders it from in the user's language.
+const AUTH_DENIED_LOGIN_TEXTS = Object.freeze({
+  [AUTH_DENIED_CODES.NOT_ALLOWLISTED]: Object.freeze({
+    message: "Sign-in succeeded, but this account is not allowed to access this application.",
+    messageCode: "auth.denied.notAllowlisted"
+  }),
+  [AUTH_DENIED_CODES.BLOCKED]: Object.freeze({
+    message: "Sign-in succeeded, but this account has been blocked from accessing this application.",
+    messageCode: "auth.denied.blocked"
+  })
 });
+
+const AUTH_DENIED_LOGIN_MESSAGES = Object.freeze(Object.fromEntries(
+  Object.entries(AUTH_DENIED_LOGIN_TEXTS).map(([code, text]) => [code, text.message])
+));
 
 function normalizeAuthDeniedCode(value = "") {
   const code = String(value || "")
@@ -48,13 +58,19 @@ function normalizeAuthDenied(input = null) {
   });
 }
 
-function resolveAuthDeniedLoginMessage(input = null) {
+// { message, messageCode? } for a denied session, or null. A reason the app
+// defined itself keeps the message it sent, without a code.
+function resolveAuthDeniedLoginText(input = null) {
   const authDenied = normalizeAuthDenied(input);
   if (!authDenied) {
-    return "";
+    return null;
   }
 
-  return AUTH_DENIED_LOGIN_MESSAGES[authDenied.code] || authDenied.message;
+  return AUTH_DENIED_LOGIN_TEXTS[authDenied.code] || Object.freeze({ message: authDenied.message });
+}
+
+function resolveAuthDeniedLoginMessage(input = null) {
+  return resolveAuthDeniedLoginText(input)?.message || "";
 }
 
 export {
@@ -63,8 +79,10 @@ export {
   AUTH_DENIED_CODES,
   AUTH_DENIED_DEFAULT_MESSAGES,
   AUTH_DENIED_LOGIN_MESSAGES,
+  AUTH_DENIED_LOGIN_TEXTS,
   AUTH_DENIED_MESSAGE_MAX_LENGTH,
   normalizeAuthDenied,
   normalizeAuthDeniedCode,
-  resolveAuthDeniedLoginMessage
+  resolveAuthDeniedLoginMessage,
+  resolveAuthDeniedLoginText
 };

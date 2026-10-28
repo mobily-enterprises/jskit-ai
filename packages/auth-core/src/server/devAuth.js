@@ -87,13 +87,15 @@ function assertDevAuthPolicy(policy = {}) {
 
 function ensureDevAuthRuntimeAvailable(policy = {}, request = null) {
   if (!policy.enabled || policy.isProduction) {
-    throw new AppError(404, "Not found.");
+    throw new AppError(404, "Not found.", { code: "auth.dev.unavailable" });
   }
   if (!policy.secret) {
-    throw new AppError(500, "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.");
+    throw new AppError(500, "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.", {
+      code: "auth.dev.secretMissing"
+    });
   }
   if (!isLocalDevAuthRequest(request)) {
-    throw new AppError(403, "Dev auth bootstrap is only available from localhost.");
+    throw new AppError(403, "Dev auth bootstrap is only available from localhost.", { code: "auth.dev.localhostOnly" });
   }
 }
 
@@ -112,7 +114,7 @@ function secretMatches(value = "", expected = "") {
 function ensureDevAuthExchangeAvailable(policy = {}, request = null) {
   ensureDevAuthRuntimeAvailable(policy, request);
   if (!secretMatches(requestHeader(request, DEV_AUTH_SECRET_HEADER), policy.secret)) {
-    throw new AppError(403, "Dev auth exchange is not authorized.");
+    throw new AppError(403, "Dev auth exchange is not authorized.", { code: "auth.dev.exchangeUnauthorized" });
   }
 }
 

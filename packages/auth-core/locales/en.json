@@ -1,0 +1,52 @@
+{
+  "jskit": {
+    "auth": {
+      "session": {
+        "required": "Authentication required.",
+        "unavailable": "Authentication service temporarily unavailable. Please retry."
+      },
+      "login": {
+        "invalidCredentials": "Invalid email or password."
+      },
+      "policy": {
+        "ownerUnresolved": "Route owner could not be resolved.",
+        "ownerMismatch": "Forbidden.",
+        "invalidConfiguration": "Invalid route auth policy configuration.",
+        "permissionDenied": "Forbidden."
+      },
+      "dev": {
+        "unavailable": "Not found.",
+        "secretMissing": "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.",
+        "localhostOnly": "Dev auth bootstrap is only available from localhost.",
+        "exchangeUnauthorized": "Dev auth exchange is not authorized.",
+        "userRequired": "Provide a user id or email.",
+        "userNotFound": "User not found."
+      },
+      "operation": {
+        "unsupported": "Auth operation \"{operation}\" is not supported by the active provider."
+      },
+      "validation": {
+        "emailRequired": "Email is required.",
+        "emailInvalid": "Provide a valid email address.",
+        "passwordRequired": "Password is required.",
+        "passwordLength": "Password must be between {min} and {max} characters.",
+        "passwordTooLong": "Password must be at most {max} characters.",
+        "confirmPasswordRequired": "Confirm your password.",
+        "passwordsMismatch": "Passwords do not match."
+      },
+      "profile": {
+        "displayNameRequired": "Display name is required."
+      },
+      "recovery": {
+        "tokenRequired": "Recovery token is required."
+      },
+      "password": {
+        "updatedSignIn": "Password updated. Sign in with your new password."
+      },
+      "denied": {
+        "notAllowlisted": "Sign-in succeeded, but this account is not allowed to access this application.",
+        "blocked": "Sign-in succeeded, but this account has been blocked from accessing this application."
+      }
+    }
+  }
+}
