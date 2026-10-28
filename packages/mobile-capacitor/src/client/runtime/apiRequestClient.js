@@ -1,19 +1,22 @@
+import { createTextError } from "../i18n.js";
+
 const API_ROUTE_PREFIXES = Object.freeze([
   "/api",
   "/socket.io"
 ]);
 
+// Each message is one of this package's message keys or a caller's own text.
 function parseAbsoluteHttpUrl(url = "", {
   apiBaseUrl = "",
-  emptyUrlMessage = "URL is required.",
-  missingApiBaseUrlMessage = "config.mobile.apiBaseUrl is required.",
-  invalidApiBaseUrlMessage = "config.mobile.apiBaseUrl must be a valid absolute URL.",
-  invalidApiBaseUrlProtocolMessage = "config.mobile.apiBaseUrl must use http or https.",
-  invalidUrlProtocolMessage = "URL must use http or https."
+  emptyUrlMessage = "jskit.mobile.apiRequest.urlRequired",
+  missingApiBaseUrlMessage = "jskit.mobile.apiRequest.apiBaseUrlRequired",
+  invalidApiBaseUrlMessage = "jskit.mobile.apiRequest.apiBaseUrlInvalid",
+  invalidApiBaseUrlProtocolMessage = "jskit.mobile.apiRequest.apiBaseUrlProtocol",
+  invalidUrlProtocolMessage = "jskit.mobile.apiRequest.urlProtocol"
 } = {}) {
   const normalizedUrl = String(url || "").trim();
   if (!normalizedUrl) {
-    throw new Error(emptyUrlMessage);
+    throw createTextError(emptyUrlMessage);
   }
 
   let absoluteUrl = null;
@@ -24,26 +27,26 @@ function parseAbsoluteHttpUrl(url = "", {
   if (absoluteUrl) {
     const protocol = String(absoluteUrl.protocol || "").toLowerCase();
     if (protocol !== "http:" && protocol !== "https:") {
-      throw new Error(invalidUrlProtocolMessage);
+      throw createTextError(invalidUrlProtocolMessage);
     }
     return absoluteUrl.toString();
   }
 
   const normalizedApiBaseUrl = String(apiBaseUrl || "").trim();
   if (!normalizedApiBaseUrl) {
-    throw new Error(missingApiBaseUrlMessage);
+    throw createTextError(missingApiBaseUrlMessage);
   }
 
   let baseUrl;
   try {
     baseUrl = new URL(normalizedApiBaseUrl);
   } catch {
-    throw new Error(invalidApiBaseUrlMessage);
+    throw createTextError(invalidApiBaseUrlMessage);
   }
 
   const baseProtocol = String(baseUrl.protocol || "").toLowerCase();
   if (baseProtocol !== "http:" && baseProtocol !== "https:") {
-    throw new Error(invalidApiBaseUrlProtocolMessage);
+    throw createTextError(invalidApiBaseUrlProtocolMessage);
   }
 
   return new URL(normalizedUrl, baseUrl).toString();
@@ -120,9 +123,9 @@ function createCapacitorAwareFetch({
     }
 
     const resolvedUrl = resolveCapacitorAbsoluteHttpUrl(normalizedInput.rawUrl, apiBaseUrl, {
-      emptyUrlMessage: "Capacitor API request URL is required.",
-      missingApiBaseUrlMessage: "config.mobile.apiBaseUrl is required for Capacitor API requests.",
-      invalidUrlProtocolMessage: "Capacitor API request URL must use http or https."
+      emptyUrlMessage: "jskit.mobile.apiRequest.requestUrlRequired",
+      missingApiBaseUrlMessage: "jskit.mobile.apiRequest.apiBaseUrlRequiredForRequests",
+      invalidUrlProtocolMessage: "jskit.mobile.apiRequest.requestUrlProtocol"
     });
 
     return fetchImpl(normalizedInput.rebuild(resolvedUrl), init);

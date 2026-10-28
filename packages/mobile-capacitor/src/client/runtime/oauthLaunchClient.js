@@ -1,11 +1,12 @@
 import { Browser } from "@capacitor/browser";
 import { resolveCapacitorAbsoluteHttpUrl } from "./apiRequestClient.js";
+import { createTextError } from "../i18n.js";
 
 function resolveCapacitorLaunchUrl(url = "", apiBaseUrl = "") {
   return resolveCapacitorAbsoluteHttpUrl(url, apiBaseUrl, {
-    emptyUrlMessage: "OAuth launch URL is required.",
-    missingApiBaseUrlMessage: "config.mobile.apiBaseUrl is required to launch OAuth from the Capacitor shell.",
-    invalidUrlProtocolMessage: "OAuth launch URL must use http or https."
+    emptyUrlMessage: "jskit.mobile.oauth.urlRequired",
+    missingApiBaseUrlMessage: "jskit.mobile.oauth.apiBaseUrlRequired",
+    invalidUrlProtocolMessage: "jskit.mobile.oauth.urlProtocol"
   });
 }
 
@@ -22,7 +23,7 @@ function createCapacitorAwareOAuthLaunchClient({
     async open({ url = "" } = {}) {
       const normalizedUrl = String(url || "").trim();
       if (!normalizedUrl) {
-        throw new Error("OAuth launch URL is required.");
+        throw createTextError("jskit.mobile.oauth.urlRequired");
       }
 
       if (adapter?.available === true && browserPlugin && typeof browserPlugin.open === "function") {
@@ -33,7 +34,7 @@ function createCapacitorAwareOAuthLaunchClient({
       }
 
       if (!resolvedLocation || typeof resolvedLocation.assign !== "function") {
-        throw new Error("Browser location.assign() is unavailable for OAuth launch.");
+        throw createTextError("jskit.mobile.oauth.browserUnavailable");
       }
 
       resolvedLocation.assign(normalizedUrl);

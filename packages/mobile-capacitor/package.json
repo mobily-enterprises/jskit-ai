@@ -8,7 +8,8 @@
   "exports": {
     "./client": "./src/client/index.js",
     "./client/runtime/mobileCapacitorRuntime": "./src/client/runtime/mobileCapacitorRuntime.js",
-    "./client/runtime/globalCapacitorAppAdapter": "./src/client/runtime/globalCapacitorAppAdapter.js"
+    "./client/runtime/globalCapacitorAppAdapter": "./src/client/runtime/globalCapacitorAppAdapter.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@capacitor/browser": "^8.0.5",

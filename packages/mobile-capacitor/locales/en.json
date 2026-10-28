@@ -1,0 +1,22 @@
+{
+  "jskit": {
+    "mobile": {
+      "apiRequest": {
+        "apiBaseUrlInvalid": "config.mobile.apiBaseUrl must be a valid absolute URL.",
+        "apiBaseUrlProtocol": "config.mobile.apiBaseUrl must use http or https.",
+        "apiBaseUrlRequired": "config.mobile.apiBaseUrl is required.",
+        "apiBaseUrlRequiredForRequests": "config.mobile.apiBaseUrl is required for Capacitor API requests.",
+        "urlProtocol": "URL must use http or https.",
+        "urlRequired": "URL is required.",
+        "requestUrlProtocol": "Capacitor API request URL must use http or https.",
+        "requestUrlRequired": "Capacitor API request URL is required."
+      },
+      "oauth": {
+        "apiBaseUrlRequired": "config.mobile.apiBaseUrl is required to launch OAuth from the Capacitor shell.",
+        "browserUnavailable": "Browser location.assign() is unavailable for OAuth launch.",
+        "urlProtocol": "OAuth launch URL must use http or https.",
+        "urlRequired": "OAuth launch URL is required."
+      }
+    }
+  }
+}
