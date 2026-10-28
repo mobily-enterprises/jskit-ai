@@ -10,7 +10,8 @@
     "./server/UsersIdentityProvider": "./src/server/UsersIdentityProvider.js",
     "./server/usersExtensions": "./src/server/usersExtensions.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
-    "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js"
+    "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.248",

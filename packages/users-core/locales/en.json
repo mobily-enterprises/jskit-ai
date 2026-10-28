@@ -1,0 +1,25 @@
+{
+  "jskit": {
+    "users": {
+      "profile": {
+        "notFound": "User profile was not found."
+      },
+      "avatar": {
+        "notFound": "Avatar not found.",
+        "uploadResultMissing": "Avatar upload completed without a profile result."
+      },
+      "security": {
+        "passwordChangeUnavailable": "Password change is not available.",
+        "passwordMethodToggleUnavailable": "Password method toggle is not available.",
+        "oauthLinkUnavailable": "OAuth linking is not available.",
+        "oauthUnlinkUnavailable": "OAuth unlink is not available.",
+        "logoutOtherSessionsUnavailable": "Logout other sessions is not available.",
+        "passwordConfirmationMismatch": "Password confirmation does not match.",
+        "passwordUpdated": "Password updated."
+      },
+      "bootstrap": {
+        "authUnavailable": "Authentication service temporarily unavailable. Please retry."
+      }
+    }
+  }
+}

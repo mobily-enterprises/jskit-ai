@@ -6,7 +6,7 @@ import {
   createJsonRestContext,
   extractJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { DEFAULT_USER_SETTINGS } from "../../../shared/settings.js";
+import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../../../shared/settings.js";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
@@ -73,7 +73,9 @@ function createRepository({ api } = {}) {
       )
     );
 
-    return rows[0] || null;
+    const row = rows[0] || null;
+    // Rows saved before locales were canonical hold lowercased tags ("en-us").
+    return typeof row?.locale === "string" ? { ...row, locale: normalizeLocaleCode(row.locale) } : row;
   }
 
   async function findByUserId(userId, options = {}) {

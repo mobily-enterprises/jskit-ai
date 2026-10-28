@@ -85,7 +85,9 @@ function createUsersBootstrapContributor({
         authService.writeSessionCookies(reply, authResult.session);
       }
       if (authResult?.transientFailure === true) {
-        throw new AppError(503, "Authentication service temporarily unavailable. Please retry.");
+        throw new AppError(503, "Authentication service temporarily unavailable. Please retry.", {
+          code: "users.bootstrap.authUnavailable"
+        });
       }
 
       const normalizedUser = authResult?.authenticated === true ? authResult?.actor || null : null;

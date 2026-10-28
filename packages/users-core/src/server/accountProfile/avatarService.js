@@ -34,7 +34,7 @@ function createService({ userProfilesRepository, avatarStorageService, avatarPol
   async function resolveProfile(user) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
-      throw new AppError(404, "User profile was not found.");
+      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
     }
     return profile;
   }

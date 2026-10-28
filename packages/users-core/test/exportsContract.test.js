@@ -16,7 +16,9 @@ test("users-core exports are explicit and aligned with production/template usage
     requiredExports: [
       "./server/UsersFeature",
       "./server/UsersIdentityProvider",
-      "./server/usersExtensions"
+      "./server/usersExtensions",
+      // The generated client bootstrap registers the package's English catalog.
+      "./locales/en.json"
     ]
   });
 

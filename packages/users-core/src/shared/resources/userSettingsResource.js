@@ -1,12 +1,12 @@
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createSchemaDefinition
 } from "@jskit-ai/resource-core/shared/resource";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 import { createOperationMessages } from "../operationMessages.js";
-import { DEFAULT_USER_SETTINGS } from "../settings.js";
+import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../settings.js";
 import {
   accountSecurityStatusSchema,
   userProfileOutputSchema
@@ -41,7 +41,7 @@ function normalizePositiveInteger(value) {
 
 const userSettingsBodySchema = createSchema({
   theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
-  locale: { type: "string", required: true, minLength: 1, maxLength: 24, lowercase: true },
+  locale: { type: "string", required: true, minLength: 1, maxLength: 24 },
   timeZone: { type: "string", required: true, minLength: 1, maxLength: 64 },
   dateFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
   numberFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
@@ -82,7 +82,7 @@ const userSettingsBodySchema = createSchema({
 
 const userSettingsPreferencesSchema = createSchema({
   theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
-  locale: { type: "string", required: true, minLength: 1, maxLength: 24, lowercase: true },
+  locale: { type: "string", required: true, minLength: 1, maxLength: 24 },
   timeZone: { type: "string", required: true, minLength: 1, maxLength: 64 },
   dateFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
   numberFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
@@ -281,7 +281,7 @@ const userSettingsResource = defineCrudResource({
       required: true,
       max: 24,
       defaultTo: DEFAULT_USER_SETTINGS.locale,
-      setter: (value) => normalizeLowerText(value)
+      setter: (value) => normalizeLocaleCode(value)
     },
     timeZone: {
       type: "string",

@@ -1,0 +1,15 @@
+{
+  "jskit": {
+    "uploads": {
+      "file": {
+        "invalid": "Upload is invalid.",
+        "tooLarge": "{label} file is too large. Maximum allowed size is {maxMb}MB.",
+        "empty": "{label} file is empty.",
+        "typeNotAllowed": "{label} must be one of: {types}.",
+        "tooMany": "{label} upload allows only one file.",
+        "required": "{label} file is required.",
+        "fieldNotAllowed": "{label} field \"{field}\" is not allowed."
+      }
+    }
+  }
+}

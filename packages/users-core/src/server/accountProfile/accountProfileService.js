@@ -21,7 +21,7 @@ function createService({
   async function getForUser(request, user, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
-      throw new AppError(404, "User profile was not found.");
+      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
     }
 
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
@@ -38,7 +38,7 @@ function createService({
   async function updateProfile(request, user, payload = {}, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
-      throw new AppError(404, "User profile was not found.");
+      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
     }
 
     let session = null;
@@ -73,7 +73,9 @@ function createService({
     const result = await avatarService.uploadForUser(user, avatarUpload);
     const profile = result?.profile || null;
     if (!profile) {
-      throw new AppError(500, "Avatar upload completed without a profile result.");
+      throw new AppError(500, "Avatar upload completed without a profile result.", {
+        code: "users.avatar.uploadResultMissing"
+      });
     }
 
     const settings = await userSettingsRepository.ensureForUserId(profile.id);
@@ -107,7 +109,7 @@ function createService({
 
     const avatar = await avatarService.readForUser(user);
     if (!avatar) {
-      throw new AppError(404, "Avatar not found.");
+      throw new AppError(404, "Avatar not found.", { code: "users.avatar.notFound" });
     }
 
     return avatar;

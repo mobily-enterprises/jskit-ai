@@ -5,10 +5,15 @@ import {
   normalizeUploadPolicy
 } from "../../shared/uploadPolicy.js";
 
-function createUploadFieldError(fieldName, message) {
+// message is the English text; code and params let a client show it in the
+// user's language. The label param stays the caller's own word ("Avatar").
+function createUploadFieldError(fieldName, message, { code = "", params = {} } = {}) {
   const normalizedFieldName = String(fieldName || "").trim() || "file";
+  const normalizedMessage = String(message || "").trim();
   return createValidationError({
-    [normalizedFieldName]: String(message || "").trim() || "Upload is invalid."
+    [normalizedFieldName]: normalizedMessage
+      ? { code, params, message: normalizedMessage }
+      : { code: "uploads.file.invalid", params: {}, message: "Upload is invalid." }
   });
 }
 
@@ -32,9 +37,11 @@ async function readUploadBuffer(
     total += bufferChunk.length;
 
     if (total > maxBytes) {
+      const maxMb = Math.floor(maxBytes / (1024 * 1024));
       throw createUploadFieldError(
         fieldName,
-        `${label} file is too large. Maximum allowed size is ${Math.floor(maxBytes / (1024 * 1024))}MB.`
+        `${label} file is too large. Maximum allowed size is ${maxMb}MB.`,
+        { code: "uploads.file.tooLarge", params: { label, maxMb } }
       );
     }
 
@@ -42,7 +49,10 @@ async function readUploadBuffer(
   }
 
   if (chunks.length === 0) {
-    throw createUploadFieldError(fieldName, `${label} file is empty.`);
+    throw createUploadFieldError(fieldName, `${label} file is empty.`, {
+      code: "uploads.file.empty",
+      params: { label }
+    });
   }
 
   return Buffer.concat(chunks);
@@ -59,10 +69,11 @@ function validateUploadMimeType(
   const normalizedMimeType = normalizeMimeType(mimeType);
   const resolvedPolicy = normalizeUploadPolicy(policy);
   if (resolvedPolicy.allowedMimeTypes.length > 0 && !resolvedPolicy.allowedMimeTypes.includes(normalizedMimeType)) {
-    throw createUploadFieldError(
-      fieldName,
-      `${label} must be one of: ${resolvedPolicy.allowedMimeTypes.join(", ")}.`
-    );
+    const types = resolvedPolicy.allowedMimeTypes.join(", ");
+    throw createUploadFieldError(fieldName, `${label} must be one of: ${types}.`, {
+      code: "uploads.file.typeNotAllowed",
+      params: { label, types }
+    });
   }
 
   return normalizedMimeType;

@@ -20,7 +20,9 @@ test("uploads-runtime exports are explicit and aligned with usage", () => {
       "./server/multipart/registerMultipartSupport",
       "./server/multipart/readSingleMultipartFile",
       "./server/policy/uploadPolicy",
-      "./server/storage/createUploadStorageService"
+      "./server/storage/createUploadStorageService",
+      // The generated client bootstrap registers the package's English catalog.
+      "./locales/en.json"
     ]
   });
 

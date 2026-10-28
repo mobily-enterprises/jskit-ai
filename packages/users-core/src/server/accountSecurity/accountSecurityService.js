@@ -20,12 +20,17 @@ function createService({
 
   async function changePassword(request, user, payload = {}, options = {}) {
     if (!authService || typeof authService.changePassword !== "function") {
-      throw new AppError(501, "Password change is not available.");
+      throw new AppError(501, "Password change is not available.", {
+        code: "users.security.passwordChangeUnavailable"
+      });
     }
 
     if (payload.confirmPassword !== payload.newPassword) {
       throw createValidationError({
-        confirmPassword: "Password confirmation does not match."
+        confirmPassword: {
+          code: "users.security.passwordConfirmationMismatch",
+          message: "Password confirmation does not match."
+        }
       });
     }
 
@@ -38,19 +43,23 @@ function createService({
     return {
       session: result?.session || null,
       response: returnJsonApiMeta({
-        message: "Password updated."
+        message: "Password updated.",
+        messageCode: "users.security.passwordUpdated",
+        messageParams: {}
       })
     };
   }
 
   async function setPasswordMethodEnabled(request, user, payload = {}, options = {}) {
     if (!authService || typeof authService.setPasswordSignInEnabled !== "function") {
-      throw new AppError(501, "Password method toggle is not available.");
+      throw new AppError(501, "Password method toggle is not available.", {
+        code: "users.security.passwordMethodToggleUnavailable"
+      });
     }
 
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
-      throw new AppError(404, "User profile was not found.");
+      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
     }
 
     const enabled = payload.enabled === true;
@@ -72,7 +81,9 @@ function createService({
 
   async function startOAuthProviderLink(request, user, payload = {}, options = {}) {
     if (!authService || typeof authService.startProviderLink !== "function") {
-      throw new AppError(501, "OAuth linking is not available.");
+      throw new AppError(501, "OAuth linking is not available.", {
+        code: "users.security.oauthLinkUnavailable"
+      });
     }
 
     return authService.startProviderLink(request, {
@@ -83,7 +94,9 @@ function createService({
 
   async function unlinkOAuthProvider(request, user, payload = {}, options = {}) {
     if (!authService || typeof authService.unlinkProvider !== "function") {
-      throw new AppError(501, "OAuth unlink is not available.");
+      throw new AppError(501, "OAuth unlink is not available.", {
+        code: "users.security.oauthUnlinkUnavailable"
+      });
     }
 
     return returnJsonApiData(await authService.unlinkProvider(request, {
@@ -93,7 +106,9 @@ function createService({
 
   async function logoutOtherSessions(request, _user, options = {}) {
     if (!authService || typeof authService.signOutOtherSessions !== "function") {
-      throw new AppError(501, "Logout other sessions is not available.");
+      throw new AppError(501, "Logout other sessions is not available.", {
+        code: "users.security.logoutOtherSessionsUnavailable"
+      });
     }
 
     await authService.signOutOtherSessions(request);

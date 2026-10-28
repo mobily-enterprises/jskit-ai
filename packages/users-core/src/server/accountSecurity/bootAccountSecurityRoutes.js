@@ -11,6 +11,16 @@ const passwordChangeMetaOutputValidator = deepFreeze({
       type: "string",
       required: true,
       minLength: 1
+    },
+    // The English message's code, so a client can show it in the user's language.
+    messageCode: {
+      type: "string",
+      required: false,
+      minLength: 1
+    },
+    messageParams: {
+      type: "object",
+      required: false
     }
   }),
   mode: "replace"

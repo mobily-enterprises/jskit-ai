@@ -12,7 +12,8 @@
     "./server/multipart/registerMultipartSupport": "./src/server/multipart/registerMultipartSupport.js",
     "./server/multipart/readSingleMultipartFile": "./src/server/multipart/readSingleMultipartFile.js",
     "./server/policy/uploadPolicy": "./src/server/policy/uploadPolicy.js",
-    "./server/storage/createUploadStorageService": "./src/server/storage/createUploadStorageService.js"
+    "./server/storage/createUploadStorageService": "./src/server/storage/createUploadStorageService.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@fastify/multipart": "^10.1.1"

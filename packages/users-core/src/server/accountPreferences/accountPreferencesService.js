@@ -20,7 +20,7 @@ function createService({
   async function updatePreferences(request, user, payload = {}, options = {}) {
     const profile = await resolveUserProfile(userProfilesRepository, user);
     if (!profile) {
-      throw new AppError(404, "User profile was not found.");
+      throw new AppError(404, "User profile was not found.", { code: "users.profile.notFound" });
     }
 
     const settings = await userSettingsRepository.updatePreferences(profile.id, payload);
