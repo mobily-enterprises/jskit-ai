@@ -95,7 +95,9 @@ function registerSurfaceRequestConstraint({
 
     reply.code(404).type("application/json").send({
       ok: false,
-      error: `Path ${pathname} is not served by ${normalizedSurface} surface server.`
+      error: `Path ${pathname} is not served by ${normalizedSurface} surface server.`,
+      code: "kernel.surface.pathNotServed",
+      params: { path: pathname, surface: normalizedSurface }
     });
   });
 }

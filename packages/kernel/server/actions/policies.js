@@ -3,6 +3,15 @@ import { hasPermission, normalizePermissionList } from "../../shared/support/per
 import { isRecord, normalizeLowerText, normalizeOpaqueId } from "../../shared/support/normalize.js";
 import { validateSchemaPayload } from "../../shared/validators/schemaPayloadValidation.js";
 
+// A schema validation error's fieldErrors with their codes, when it has any.
+function schemaFieldErrorDetails(error) {
+  const fieldErrorCodes = error.fieldErrorCodes || error.details?.fieldErrorCodes;
+  return {
+    fieldErrors: error.fieldErrors || error.details?.fieldErrors,
+    ...(isRecord(fieldErrorCodes) ? { fieldErrorCodes } : {})
+  };
+}
+
 function createActionValidationError({
   status = 400,
   message = "Validation failed.",
@@ -113,9 +122,7 @@ async function normalizeActionInput(definition, input) {
   } catch (error) {
     if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
       throw createActionValidationError({
-        details: {
-          fieldErrors: error.fieldErrors || error.details?.fieldErrors
-        },
+        details: schemaFieldErrorDetails(error),
         cause: error
       });
     }
@@ -148,9 +155,7 @@ async function normalizeActionOutput(definition, output) {
         status: 500,
         message: "Action output validation failed.",
         code: "ACTION_OUTPUT_VALIDATION_FAILED",
-        details: {
-          fieldErrors: error.fieldErrors || error.details?.fieldErrors
-        },
+        details: schemaFieldErrorDetails(error),
         cause: error
       });
     }

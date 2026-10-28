@@ -18,6 +18,24 @@ function isDynamicImportError(error = null) {
   return Boolean(text && DYNAMIC_IMPORT_ERROR_PATTERNS.some((pattern) => pattern.test(text)));
 }
 
+const RELOAD_UNAVAILABLE = Object.freeze({
+  message: "The app cannot reload because the app server is not reachable. Restart the server, then click Retry or Reload.",
+  messageCode: "kernel.moduleLoad.reloadUnavailable"
+});
+
+// The built-in labels have whole sentences of their own, so a translation never
+// has to splice an English label into its sentence.
+const BUILT_IN_LABEL_MESSAGE_CODES = Object.freeze({
+  "App module": Object.freeze({
+    stale: { messageCode: "kernel.moduleLoad.appModuleNotDownloaded" },
+    failed: { messageCode: "kernel.moduleLoad.appModuleFailed" }
+  }),
+  Page: Object.freeze({
+    stale: { messageCode: "kernel.moduleLoad.pageNotDownloaded" },
+    failed: { messageCode: "kernel.moduleLoad.pageFailed" }
+  })
+});
+
 function dynamicImportErrorMessage(error = null, {
   label = "App module",
   stale = isDynamicImportError(error)
@@ -27,6 +45,17 @@ function dynamicImportErrorMessage(error = null, {
     return `${moduleLabel} did not download. The app may have been updated, or the network request failed.`;
   }
   return `${moduleLabel} could not load.`;
+}
+
+// The messageCode and messageParams of dynamicImportErrorMessage's sentence.
+function dynamicImportErrorMessageCode(label, stale) {
+  const builtIn = Object.hasOwn(BUILT_IN_LABEL_MESSAGE_CODES, label) ? BUILT_IN_LABEL_MESSAGE_CODES[label] : null;
+  if (builtIn) {
+    return { ...(stale ? builtIn.stale : builtIn.failed), messageParams: {} };
+  }
+  return stale
+    ? { messageCode: "kernel.moduleLoad.notDownloaded", messageParams: { label } }
+    : { messageCode: "kernel.moduleLoad.failed", messageParams: { label } };
 }
 
 function createAsyncModuleRecoveryState({
@@ -39,15 +68,21 @@ function createAsyncModuleRecoveryState({
     error: null,
     label: String(label || "App module").trim(),
     message: String(message || "").trim(),
+    messageCode: "",
+    messageParams: {},
     retry: typeof retry === "function" ? retry : null,
     stale: false,
     visible: false
   };
 }
 
+// state.message is the English; state.messageCode and messageParams render it in the
+// user's language. A caller's own message has a code only when it passes one.
 function notifyAsyncModuleLoadError(state, error = null, {
   label = "App module",
   message = "",
+  messageCode = "",
+  messageParams = {},
   retry = null,
   stale = isDynamicImportError(error)
 } = {}) {
@@ -56,14 +91,20 @@ function notifyAsyncModuleLoadError(state, error = null, {
   }
 
   const normalizedLabel = String(label || "App module").trim();
+  const callerMessage = String(message || "").trim();
+  const coded = callerMessage
+    ? { messageCode: String(messageCode || "").trim(), messageParams: isRecord(messageParams) ? messageParams : {} }
+    : dynamicImportErrorMessageCode(normalizedLabel, Boolean(stale));
   state.attempt = Number(state.attempt || 0) + 1;
   state.error = error || null;
   state.label = normalizedLabel;
-  state.message = String(message || "").trim() ||
+  state.message = callerMessage ||
     dynamicImportErrorMessage(error, {
       label: normalizedLabel,
       stale
     });
+  state.messageCode = coded.messageCode;
+  state.messageParams = coded.messageParams;
   state.retry = typeof retry === "function" ? retry : null;
   state.stale = Boolean(stale);
   state.visible = true;
@@ -84,7 +125,9 @@ async function guardedReloadApp({
   fetchFn = typeof fetch === "function" ? fetch : null,
   state = null,
   label = "App",
-  message = "The app cannot reload because the app server is not reachable. Restart the server, then click Retry or Reload."
+  message = RELOAD_UNAVAILABLE.message,
+  messageCode = message === RELOAD_UNAVAILABLE.message ? RELOAD_UNAVAILABLE.messageCode : "",
+  messageParams = {}
 } = {}) {
   if (!browserWindow?.location) {
     return false;
@@ -113,6 +156,8 @@ async function guardedReloadApp({
       notifyAsyncModuleLoadError(state, error, {
         label,
         message,
+        messageCode,
+        messageParams,
         retry: state.retry,
         stale: false
       });

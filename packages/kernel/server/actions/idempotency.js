@@ -16,6 +16,9 @@ function ensureIdempotencyKeyIfRequired(definition, context) {
     details: {
       fieldErrors: {
         idempotencyKey: "Idempotency key is required for this action."
+      },
+      fieldErrorCodes: {
+        idempotencyKey: { code: "kernel.action.idempotencyKeyRequired", params: {} }
       }
     }
   });

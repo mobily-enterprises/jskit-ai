@@ -183,3 +183,37 @@ test("guarded reload keeps the page alive when the server is unreachable", async
   assert.equal(state.retry, retry);
   assert.equal(state.stale, false);
 });
+
+test("async module recovery gives each sentence a messageCode that renders its English", async () => {
+  const { useJskitText } = await import("./i18n.js");
+  const { serverMessage } = useJskitText();
+  const cases = [
+    [{ label: "App module", stale: true }, "kernel.moduleLoad.appModuleNotDownloaded", {}],
+    [{ label: "App module", stale: false }, "kernel.moduleLoad.appModuleFailed", {}],
+    [{ label: "Page", stale: true }, "kernel.moduleLoad.pageNotDownloaded", {}],
+    [{ label: "Page", stale: false }, "kernel.moduleLoad.pageFailed", {}],
+    [{ label: "Tool", stale: true }, "kernel.moduleLoad.notDownloaded", { label: "Tool" }],
+    [{ label: "Tool", stale: false }, "kernel.moduleLoad.failed", { label: "Tool" }],
+    [{ label: "Tool", message: "Tool is busy." }, "", {}],
+    [{ label: "Tool", message: "Tool is busy.", messageCode: "tools.busy" }, "tools.busy", {}]
+  ];
+  for (const [options, messageCode, messageParams] of cases) {
+    const state = notifyAsyncModuleLoadError(createAsyncModuleRecoveryState(), new Error("boom"), options);
+    assert.equal(state.messageCode, messageCode, JSON.stringify(options));
+    assert.deepEqual(state.messageParams, messageParams);
+    if (messageCode.startsWith("kernel.")) {
+      assert.equal(serverMessage({ ...state, message: "" }), state.message);
+    }
+  }
+
+  const state = createAsyncModuleRecoveryState();
+  await guardedReloadApp({
+    state,
+    browserWindow: { location: { href: "https://example.test/app", reload() {} } },
+    async fetchFn() {
+      throw new TypeError("Failed to fetch");
+    }
+  });
+  assert.equal(state.messageCode, "kernel.moduleLoad.reloadUnavailable");
+  assert.equal(serverMessage({ ...state, message: "" }), state.message);
+});

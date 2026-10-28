@@ -76,6 +76,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "NULLABLE_HTML_TIME_STRING_SCHEMA",
       "RECORD_ID_PATTERN",
       "buildSchemaValidationError",
+      "codedFieldErrors",
       "composeSchemaDefinitions",
       "createCursorListValidator",
       "createSchema",
@@ -93,6 +94,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "recordIdParamsValidator",
       "recordIdSchema",
       "resolveSchemaTransportSchemaDefinition",
+      "resolveValidationIssueCode",
       "validateSchemaPayload"
     ])
   }),

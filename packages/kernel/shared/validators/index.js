@@ -17,8 +17,10 @@ export {
 } from "./schemaDefinitions.js";
 export {
   buildSchemaValidationError,
+  codedFieldErrors,
   validateSchemaPayload
 } from "./schemaPayloadValidation.js";
+export { resolveValidationIssueCode } from "./validationIssueCodes.js";
 export {
   RECORD_ID_PATTERN,
   recordIdSchema,

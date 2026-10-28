@@ -3,6 +3,8 @@ export type AsyncModuleRecoveryState = {
   error: any;
   label: string;
   message: string;
+  messageCode: string;
+  messageParams: Record<string, any>;
   retry: (() => any) | null;
   stale: boolean;
   visible: boolean;
@@ -27,6 +29,8 @@ export function notifyAsyncModuleLoadError(
   options?: {
     label?: string;
     message?: string;
+    messageCode?: string;
+    messageParams?: Record<string, any>;
     retry?: (() => any) | null;
     stale?: boolean;
   }
@@ -40,6 +44,8 @@ export function guardedReloadApp(options?: {
   state?: AsyncModuleRecoveryState | null;
   label?: string;
   message?: string;
+  messageCode?: string;
+  messageParams?: Record<string, any>;
 }): Promise<boolean>;
 
 export function installAsyncModuleRecoveryHandlers(options?: {

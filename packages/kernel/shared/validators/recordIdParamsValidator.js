@@ -20,7 +20,10 @@ const recordIdParamsValidator = deepFreeze({
       ...recordIdSchema,
       required: true,
       messages: {
-        pattern: "Record id must be a canonical positive integer string."
+        pattern: {
+          code: "kernel.validation.recordIdInvalid",
+          message: "Record id must be a canonical positive integer string."
+        }
       }
     }
   }),

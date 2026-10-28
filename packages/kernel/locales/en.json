@@ -19,7 +19,76 @@
       "ACTION_IDEMPOTENCY_KEY_REQUIRED": "Validation failed.",
       "ACTION_ID_REQUIRED": "Validation failed.",
       "ACTION_STREAM_KIND_REQUIRED": "Validation failed.",
-      "ACTION_VERSION_INVALID": "Validation failed."
+      "ACTION_VERSION_INVALID": "Validation failed.",
+      "ACTION_OUTPUT_VALIDATION_FAILED": "Action output validation failed.",
+      "unsupported_media_type": "Content-Type must be {contentType}."
+    },
+    "kernel": {
+      "validation": {
+        "required": "must have required property '{missingProperty}'",
+        "type": "must be {type}",
+        "minLength": "must NOT have fewer than {limit} characters",
+        "maxLength": "must NOT have more than {limit} characters",
+        "minimum": "must be >= {limit}",
+        "maximum": "must be <= {limit}",
+        "exclusiveMinimum": "must be > {limit}",
+        "exclusiveMaximum": "must be < {limit}",
+        "multipleOf": "must be multiple of {multipleOf}",
+        "pattern": "must match pattern \"{pattern}\"",
+        "format": "must match format \"{format}\"",
+        "enum": "must be equal to one of the allowed values",
+        "const": "must be equal to constant",
+        "minItems": "must NOT have fewer than {limit} items",
+        "maxItems": "must NOT have more than {limit} items",
+        "additionalItems": "must NOT have more than {limit} items",
+        "uniqueItems": "must NOT have duplicate items (items ## {j} and {i} are identical)",
+        "minProperties": "must NOT have fewer than {limit} properties",
+        "maxProperties": "must NOT have more than {limit} properties",
+        "additionalProperties": "must NOT have additional properties",
+        "propertyNames": "property name must be valid",
+        "oneOf": "must match exactly one schema in oneOf",
+        "anyOf": "must match a schema in anyOf",
+        "not": "must NOT be valid",
+        "if": "must match \"{failingKeyword}\" schema",
+        "invalid": "Invalid value.",
+        "schemaFailed": "Schema validation failed.",
+        "recordIdInvalid": "Record id must be a canonical positive integer string.",
+        "field": {
+          "required": "Field is required",
+          "typeCastFailed": "Value could not be cast to the required type.",
+          "notNullable": "Field cannot be null",
+          "minLength": "Length must be at least {min} characters.",
+          "maxLength": "Length must be no more than {max} characters.",
+          "minValue": "Value must be at least {min}.",
+          "maxValue": "Value must be no more than {max}.",
+          "pattern": "Value does not match the required pattern.",
+          "enumValue": "Value must match one of the allowed enum values.",
+          "notAllowed": "Field not allowed",
+          "strictBoolean": "Value must be a boolean.",
+          "rangeExceeded": "Numeric value is out of the allowed character range.",
+          "notEmpty": "Field cannot be empty."
+        }
+      },
+      "action": {
+        "versionInvalid": "version must be an integer >= 1.",
+        "idRequired": "actionId is required.",
+        "idempotencyKeyRequired": "Idempotency key is required for this action."
+      },
+      "route": {
+        "handlerUnavailable": "Route handler is not available in this runtime profile."
+      },
+      "surface": {
+        "pathNotServed": "Path {path} is not served by {surface} surface server."
+      },
+      "moduleLoad": {
+        "appModuleNotDownloaded": "App module did not download. The app may have been updated, or the network request failed.",
+        "appModuleFailed": "App module could not load.",
+        "pageNotDownloaded": "Page did not download. The app may have been updated, or the network request failed.",
+        "pageFailed": "Page could not load.",
+        "notDownloaded": "{label} did not download. The app may have been updated, or the network request failed.",
+        "failed": "{label} could not load.",
+        "reloadUnavailable": "The app cannot reload because the app server is not reachable. Restart the server, then click Retry or Reload."
+      }
     }
   }
 }

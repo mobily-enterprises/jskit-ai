@@ -1,5 +1,7 @@
 import { ActionRuntimeError } from "../actions/actionDefinitions.js";
 import { isRecord, normalizeTransactionOutcome } from "../../shared/support/normalize.js";
+import { errorFieldErrors } from "../../shared/validators/schemaPayloadValidation.js";
+import { resolveValidationIssueCode } from "../../shared/validators/validationIssueCodes.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
 
 const JSON_API_CONTENT_TYPE_PARSER_MARKER = Symbol.for("jskit.fastify.jsonApiContentTypeParserRegistered");
@@ -85,9 +87,12 @@ function registerBodylessContentTypeNormalizer(fastify) {
   return true;
 }
 
+// Fastify's Ajv issues as fieldErrors (Ajv's English, first issue per field) and
+// fieldErrorCodes (that issue's kernel.validation.<keyword> code and params).
 function resolveValidationFieldErrors(error) {
   const issues = Array.isArray(error?.validation) ? error.validation : [];
   const fieldErrors = {};
+  const fieldErrorCodes = {};
 
   for (const issue of issues) {
     const fieldFromPath = String(issue.instancePath || "")
@@ -98,16 +103,36 @@ function resolveValidationFieldErrors(error) {
 
     if (!fieldErrors[field]) {
       fieldErrors[field] = issue.message || "Invalid value.";
+      const coded = issue.message ? resolveValidationIssueCode(issue) : { code: "kernel.validation.invalid", params: {} };
+      if (coded) {
+        fieldErrorCodes[field] = coded;
+      }
     }
   }
 
-  return fieldErrors;
+  return { fieldErrors, fieldErrorCodes };
+}
+
+function fieldErrorPayloadFields({ fieldErrors, fieldErrorCodes } = {}) {
+  const hasCodes = isRecord(fieldErrorCodes) && Object.keys(fieldErrorCodes).length > 0;
+  return {
+    fieldErrors,
+    details: {
+      fieldErrors,
+      ...(hasCodes ? { fieldErrorCodes } : {})
+    }
+  };
 }
 
 function messageCodeFields(error, expose = true) {
   return expose && error?.messageCode
     ? { messageCode: String(error.messageCode), messageParams: isRecord(error.messageParams) ? error.messageParams : {} }
     : {};
+}
+
+// A hidden 5xx keeps its own code, so its fixed English gets a messageCode.
+function hiddenServerErrorFields(code = "") {
+  return code === "internal_server_error" ? {} : { messageCode: "internal_server_error", messageParams: {} };
 }
 
 function resolveRequestRouteTransport(request) {
@@ -119,7 +144,8 @@ function applyRouteTransportErrorResponse(reply, request, error, {
   statusCode = 500,
   normalizedErrorCode = "",
   message = error?.message,
-  exposeDetails = true
+  exposeDetails = true,
+  messageFields = {}
 } = {}) {
   const transport = resolveRequestRouteTransport(request);
   const errorSerializer = transport && typeof transport.error === "function" ? transport.error : null;
@@ -133,7 +159,8 @@ function applyRouteTransportErrorResponse(reply, request, error, {
     statusCode,
     code: normalizedErrorCode,
     message,
-    exposeDetails
+    exposeDetails,
+    ...messageFields
   });
 
   if (payload && typeof payload.then === "function") {
@@ -206,11 +233,11 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
     const statusCode = resolveApiErrorStatus(error, normalizedErrorCode);
 
     if (Array.isArray(error?.validation)) {
-      const fieldErrors = resolveValidationFieldErrors(error);
       const validationErrorCode = normalizedErrorCode || "validation_failed";
       if (applyRouteTransportErrorResponse(reply, request, error, {
         statusCode: 400,
-        normalizedErrorCode: validationErrorCode
+        normalizedErrorCode: validationErrorCode,
+        messageFields: { params: {} }
       })) {
         return;
       }
@@ -219,10 +246,7 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
         code: validationErrorCode,
         params: {},
         ...outcomeFields,
-        fieldErrors,
-        details: {
-          fieldErrors
-        }
+        ...fieldErrorPayloadFields(resolveValidationFieldErrors(error))
       });
       return;
     }
@@ -235,10 +259,15 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       }
       const appErrorCode = normalizedErrorCode || "app_error";
       const exposeDetails = shouldExposeAppErrorDetails(appErrorCode);
+      const messageFields = {
+        params: exposeDetails ? error.params || {} : {},
+        ...messageCodeFields(error, exposeDetails)
+      };
       if (applyRouteTransportErrorResponse(reply, request, error, {
         statusCode: error.status,
         normalizedErrorCode: appErrorCode,
-        exposeDetails
+        exposeDetails,
+        messageFields
       })) {
         return;
       }
@@ -246,8 +275,7 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       const payload = {
         error: error.message,
         code: appErrorCode,
-        params: exposeDetails ? error.params || {} : {},
-        ...messageCodeFields(error, exposeDetails),
+        ...messageFields,
         ...outcomeFields
       };
       if (error.details && exposeDetails) {
@@ -267,23 +295,30 @@ function registerApiErrorHandler(app, { isAppError } = {}) {
       app.log.info({ err: error, statusCode }, "Request rejected");
     }
 
-    const message = statusCode >= 500 ? "Internal server error." : String(error?.message || "Request failed.");
+    const hidden = statusCode >= 500;
+    // A 4xx error's field errors (such as a schema validation failure) are its only details sent.
+    const fieldErrorsFound = hidden ? null : errorFieldErrors(error);
+    const message = hidden ? "Internal server error." : String(error?.message || "Request failed.");
     const fallbackErrorCode =
-      normalizedErrorCode || (statusCode >= 500 ? "internal_server_error" : "request_failed");
+      normalizedErrorCode || (hidden ? "internal_server_error" : fieldErrorsFound ? "validation_failed" : "request_failed");
+    const messageFields = hidden
+      ? { params: {}, ...hiddenServerErrorFields(fallbackErrorCode) }
+      : { params: isRecord(error?.params) ? error.params : {}, ...messageCodeFields(error) };
     if (applyRouteTransportErrorResponse(reply, request, error, {
       statusCode,
       normalizedErrorCode: fallbackErrorCode,
       message,
-      exposeDetails: statusCode < 500
+      exposeDetails: !hidden,
+      messageFields
     })) {
       return;
     }
     const payload = {
       error: message,
       code: fallbackErrorCode,
-      params: {},
-      ...messageCodeFields(error, statusCode < 500),
-      ...outcomeFields
+      ...messageFields,
+      ...outcomeFields,
+      ...(fieldErrorsFound ? fieldErrorPayloadFields(fieldErrorsFound) : {})
     };
     if (isCsrfErrorCode) {
       payload.details = {

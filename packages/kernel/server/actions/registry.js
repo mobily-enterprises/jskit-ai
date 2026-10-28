@@ -58,6 +58,9 @@ function normalizeRequestedVersion(version) {
       details: {
         fieldErrors: {
           version: "version must be an integer >= 1."
+        },
+        fieldErrorCodes: {
+          version: { code: "kernel.action.versionInvalid", params: {} }
         }
       }
     });
@@ -74,6 +77,9 @@ function resolveActionDefinition(index, actionId, version) {
       details: {
         fieldErrors: {
           actionId: "actionId is required."
+        },
+        fieldErrorCodes: {
+          actionId: { code: "kernel.action.idRequired", params: {} }
         }
       }
     });

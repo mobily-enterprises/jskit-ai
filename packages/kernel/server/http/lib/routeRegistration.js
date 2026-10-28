@@ -89,7 +89,8 @@ function enforceRequestContentType({ request = null, route = null, transport = n
   }
 
   throw new AppError(415, `Content-Type must be ${transport.contentType}.`, {
-    code: "unsupported_media_type"
+    code: "unsupported_media_type",
+    params: { contentType: transport.contentType }
   });
 }
 
