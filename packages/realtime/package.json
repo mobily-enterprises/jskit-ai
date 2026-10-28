@@ -11,7 +11,8 @@
     "./client": "./src/client/RealtimeClientProvider.js",
     "./client/RealtimeClientProvider": "./src/client/RealtimeClientProvider.js",
     "./client/composables/useRealtimeEvent": "./src/client/composables/useRealtimeEvent.js",
-    "./client/runtime": "./src/client/runtime.js"
+    "./client/runtime": "./src/client/runtime.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
@@ -91,6 +92,10 @@
           {
             "subpath": "./client/runtime",
             "summary": "Exports createSocketIoClient, disconnectSocketIoClient and reconnectSocketIoClient."
+          },
+          {
+            "subpath": "./locales/en.json",
+            "summary": "English catalog for the realtime connection indicator, registered by the generated client bootstrap."
           }
         ],
         "capabilities": {

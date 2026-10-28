@@ -1,0 +1,14 @@
+{
+  "jskit": {
+    "realtime": {
+      "indicator": {
+        "connected": "Realtime connected",
+        "connectedTooltip": "Realtime is connected. Live updates are active.",
+        "disconnected": "Realtime disconnected",
+        "disconnectedTooltip": "Live updates are disconnected. Click to reconnect. If your session expired, sign in again.",
+        "reconnect": "Reconnect live updates",
+        "unavailableTooltip": "Realtime is unavailable. Live updates are disabled for this page."
+      }
+    }
+  }
+}

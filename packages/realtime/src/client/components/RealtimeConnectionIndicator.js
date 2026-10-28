@@ -1,6 +1,9 @@
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from "vue";
 import { EMPTY_REALTIME_SOCKET, useRealtimeSocket } from "../composables/useRealtimeEvent.js";
 import { reconnectSocketIoClient } from "../runtime.js";
+import { useJskitText } from "../i18n.js";
+
+const { t } = useJskitText();
 
 const ROOT_STYLE = Object.freeze({
   alignItems: "center",
@@ -37,12 +40,12 @@ const SR_ONLY_STYLE = Object.freeze({
 
 function resolveTooltipText({ realtimeAvailable, connected }) {
   if (!realtimeAvailable) {
-    return "Realtime is unavailable. Live updates are disabled for this page.";
+    return t("jskit.realtime.indicator.unavailableTooltip");
   }
   if (connected) {
-    return "Realtime is connected. Live updates are active.";
+    return t("jskit.realtime.indicator.connectedTooltip");
   }
-  return "Live updates are disconnected. Click to reconnect. If your session expired, sign in again.";
+  return t("jskit.realtime.indicator.disconnectedTooltip");
 }
 
 const RealtimeConnectionIndicator = defineComponent({
@@ -60,7 +63,9 @@ const RealtimeConnectionIndicator = defineComponent({
       });
     });
 
-    const statusLabel = computed(() => (connected.value ? "Realtime connected" : "Realtime disconnected"));
+    const statusLabel = computed(() =>
+      connected.value ? t("jskit.realtime.indicator.connected") : t("jskit.realtime.indicator.disconnected")
+    );
 
     const dotStyle = computed(() => ({
       ...DOT_STYLE,
@@ -116,7 +121,9 @@ const RealtimeConnectionIndicator = defineComponent({
           style: { ...ROOT_STYLE, cursor: realtimeAvailable && !connected.value ? "pointer" : "default" },
           title: tooltipText.value,
           type: "button",
-          "aria-label": realtimeAvailable && !connected.value ? "Reconnect live updates" : statusLabel.value
+          "aria-label": realtimeAvailable && !connected.value
+            ? t("jskit.realtime.indicator.reconnect")
+            : statusLabel.value
         },
         [
           h("span", { style: dotStyle.value, "aria-hidden": "true" }),

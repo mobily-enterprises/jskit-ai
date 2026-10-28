@@ -33,6 +33,11 @@ function debugEnabled(config, env) {
   return parseDebugFlag(env?.JSKIT_REALTIME_DEBUG, parseDebugFlag(config?.realtime?.debug, false));
 }
 
+// The kernel's code for this English, so a client can show it in the user's language.
+function authenticationRequiredError() {
+  return Object.assign(new Error("Authentication required."), { statusCode: 401, code: "AUTHENTICATION_REQUIRED" });
+}
+
 function createRealtimeCapability({ io }) {
   const capability = Object.freeze({
     onConnection(listener) {
@@ -49,7 +54,7 @@ function createRealtimeCapability({ io }) {
             socket, request, authService: state.authService, audiences: state.audiences
           });
           if (!socket.connected || (!actor && realtimeAuthenticationRequired(state.authService))) {
-            throw Object.assign(new Error("Authentication required."), { statusCode: 401 });
+            throw authenticationRequiredError();
           }
           if (actor) request.user = actor;
           return request;
@@ -70,7 +75,7 @@ function createRealtimeCapability({ io }) {
             readRequest,
             async authenticate() {
               const request = await readRequest();
-              if (!request.user) throw Object.assign(new Error("Authentication required."), { statusCode: 401 });
+              if (!request.user) throw authenticationRequiredError();
               return request;
             }
           });
