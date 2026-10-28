@@ -15,7 +15,8 @@
     "./shared/tenancyProfile": "./src/shared/tenancyProfile.js",
     "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
-    "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js"
+    "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.248",
@@ -35,6 +36,7 @@
       "requires": [
         "auth.extensions",
         "runtime.actions",
+        "runtime.app-root",
         "runtime.bootstrap",
         "runtime.config",
         "runtime.database",

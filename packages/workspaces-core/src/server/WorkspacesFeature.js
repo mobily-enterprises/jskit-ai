@@ -15,6 +15,7 @@ import { createRepository as createWorkspaceInvitesRepository } from "./common/r
 import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceContextService.js";
+import { createWorkspacesServerI18n } from "./i18n.js";
 import { createWorkspaceBootstrapContributor } from "./workspaceBootstrapContributor.js";
 import { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/bootWorkspaceDirectoryRoutes.js";
 import { buildWorkspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
@@ -98,7 +99,7 @@ async function installWorkspaceResources(jsonRestApi) {
   );
 }
 
-function createWorkspacesRuntime({ config, env, jsonRestApi } = {}) {
+function createWorkspacesRuntime({ appRoot = "", config, env, jsonRestApi, users = null } = {}) {
   const tenancyProfile = resolveTenancyProfile(config);
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ config, appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
@@ -136,7 +137,10 @@ function createWorkspacesRuntime({ config, env, jsonRestApi } = {}) {
     workspaceInvitationsEnabled: invitationsEnabled,
     inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: config, env }),
     workspaceInviteMailer: config?.workspaceInviteMailer || null,
-    workspaceInviteEmailTemplate: resolveInviteEmailTemplate(config)
+    workspaceInviteEmailTemplate: resolveInviteEmailTemplate(config),
+    i18n: createWorkspacesServerI18n({ appRoot }),
+    userProfilesRepository: users?.repositories?.userProfiles || null,
+    userSettingsRepository: users?.repositories?.userSettings || null
   });
   const workspaceSettingsService = createWorkspaceSettingsService({
     workspaceSettingsRepository,
@@ -174,6 +178,7 @@ const WorkspacesFeature = defineFeature({
   id: "workspaces.core",
   domain: "workspace",
   requires: {
+    appRoot: "runtime.app-root",
     bootstrap: "runtime.bootstrap",
     config: "runtime.config",
     env: "runtime.env",
@@ -184,9 +189,9 @@ const WorkspacesFeature = defineFeature({
   provides: {
     workspaces: "workspaces.core"
   },
-  async setup({ bootstrap, config, env, http, jsonRestApi, users }) {
+  async setup({ appRoot, bootstrap, config, env, http, jsonRestApi, users }) {
     await installWorkspaceResources(jsonRestApi);
-    const workspaces = createWorkspacesRuntime({ config, env, jsonRestApi });
+    const workspaces = createWorkspacesRuntime({ appRoot, config, env, jsonRestApi, users });
 
     bootstrap.register({
       id: "workspaces.bootstrap",

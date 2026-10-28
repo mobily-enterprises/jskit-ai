@@ -146,7 +146,7 @@ function createRepository({ api } = {}) {
     }
     const row = await options.trx("workspaces").where({ id }).forUpdate().first("id");
     if (!row) {
-      throw new AppError(404, "Invitation workspace no longer exists.");
+      throw new AppError(404, "Invitation workspace no longer exists.", { code: "workspaces.invite.workspaceMissing" });
     }
   }
 
@@ -335,7 +335,9 @@ function createRepository({ api } = {}) {
     if (!workspaceId) {
       const candidate = await queryInvites({ id }, { ...options, lock: false });
       if (!candidate[0]) {
-        throw new AppError(404, "Invitation not found or already handled.");
+        throw new AppError(404, "Invitation not found or already handled.", {
+          code: "workspaces.invite.invitationNotFoundOrHandled"
+        });
       }
       workspaceId = normalizeInviteRecord(candidate[0]).workspaceId;
     }
@@ -344,7 +346,9 @@ function createRepository({ api } = {}) {
     }
     const invite = await findPendingByIdForWorkspace(id, workspaceId, { ...options, lock: true });
     if (!invite) {
-      throw new AppError(404, "Invitation not found or already handled.");
+      throw new AppError(404, "Invitation not found or already handled.", {
+        code: "workspaces.invite.invitationNotFoundOrHandled"
+      });
     }
     const updatedAt = new Date().toISOString();
     await api.resources.workspaceInvites.patch(

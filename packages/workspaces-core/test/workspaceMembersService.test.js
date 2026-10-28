@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
@@ -155,6 +159,8 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   assert.deepEqual(response.inviteDelivery, {
     status: "mailer_unconfigured",
     message: "No workspace invite mailer is configured.",
+    messageCode: "workspaces.invite.mailerUnconfigured",
+    messageParams: {},
     providerMessageId: ""
   });
 });
@@ -245,7 +251,9 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
   assert.equal(templateCalls[0].email, "invitee@example.com");
   assert.equal(templateCalls[0].workspace.name, "Acme");
   assert.equal(templateCalls[0].inviteUrl, response.inviteUrl);
+  assert.equal(templateCalls[0].locale, "en");
   assert.equal(mailerCalls.length, 1);
+  assert.equal(mailerCalls[0].payload.locale, "en");
   assert.equal(mailerCalls[0].payload.email, "invitee@example.com");
   assert.equal(mailerCalls[0].payload.inviteUrl, response.inviteUrl);
   assert.equal(mailerCalls[0].payload.message.subject, "Join Acme");
@@ -527,5 +535,143 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
         authorizedOptions(["workspace.members.manage"])
       ),
     /Cannot remove workspace owner/
+  );
+});
+
+function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
+  let savedInvite;
+  return createService({
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId() {
+        return [];
+      }
+    },
+    workspaceInvitesRepository: {
+      async withTransaction(work) {
+        return work({});
+      },
+      async lockWorkspaceForInvitations() {},
+      async expirePendingByWorkspaceIdAndEmail() {},
+      async insert(payload) {
+        savedInvite = { ...payload, id: "88", workspaceSlug: "acme", workspaceName: "Acme & Co" };
+        return savedInvite;
+      },
+      async listPendingByWorkspaceIdWithWorkspace() {
+        return [];
+      },
+      async findPendingByIdForWorkspace() {
+        return savedInvite;
+      }
+    },
+    inviteExpiresInMs: 30 * 60 * 1000,
+    roleCatalog: createRoleCatalog(),
+    inviteUrlBuilder: ({ token }) => `https://app.example.test/invite/${token}`,
+    workspaceInviteMailer: mailer,
+    i18n: createWorkspacesServerI18n({ appRoot }),
+    userProfilesRepository: {
+      async findByEmail(email) {
+        return accounts[email] ? { id: accounts[email].id } : null;
+      }
+    },
+    userSettingsRepository: {
+      async findByUserId(userId) {
+        const account = Object.values(accounts).find((entry) => entry.id === userId);
+        if (account?.fail) {
+          throw new Error("settings unavailable");
+        }
+        return account ? { locale: account.locale } : null;
+      }
+    }
+  });
+}
+
+test("workspaceMembersService renders the default invitation email in the recipient's saved locale", async (t) => {
+  const appRoot = fs.mkdtempSync(path.join(os.tmpdir(), "workspaces-invite-i18n-"));
+  t.after(() => fs.rmSync(appRoot, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(appRoot, "src", "locales", "it"), { recursive: true });
+  fs.writeFileSync(path.join(appRoot, "src", "locales", "it", "jskit.json"), JSON.stringify({
+    jskit: {
+      workspaces: {
+        inviteEmail: {
+          subject: "Sei invitato in {workspace}",
+          introFromInviter: "{inviter} ti ha invitato in {workspace} come {role}.",
+          accept: "Accetta l'invito"
+        }
+      }
+    }
+  }));
+  const sent = [];
+  const service = createMailingService({
+    appRoot,
+    accounts: {
+      "rossi@example.com": { id: "21", locale: "it-it" },
+      "ada@example.com": { id: "22", locale: "en" },
+      "broken@example.com": { id: "23", fail: true }
+    },
+    mailer: {
+      async sendWorkspaceInvite(payload) {
+        sent.push(payload);
+        return { status: "sent", providerMessageId: `msg-${sent.length}` };
+      }
+    }
+  });
+  const workspace = { id: "7", slug: "acme", name: "Acme & Co", ownerUserId: "9", avatarUrl: "" };
+  const owner = { id: "9", displayName: "Tony <Owner>" };
+  const invite = (email) => service.createInvite(workspace, owner, { email, roleSid: "member" }, authorizedOptions());
+
+  await invite("rossi@example.com");
+  assert.equal(sent[0].locale, "it-it");
+  assert.equal(sent[0].message.subject, "Sei invitato in Acme & Co");
+  assert.match(sent[0].message.text, /^Tony <Owner> ti ha invitato in Acme & Co come member\./u);
+  assert.match(sent[0].message.text, /Open this link to accept the invitation:/u, "missing translations stay English");
+  assert.match(sent[0].message.html, /<p>Tony &lt;Owner&gt; ti ha invitato in Acme &amp; Co come member\.<\/p>/u);
+  assert.match(sent[0].message.html, />Accetta l&#39;invito<\/a>/u);
+
+  for (const email of ["ada@example.com", "stranger@example.com", "broken@example.com"]) {
+    await invite(email);
+    const { locale, message } = sent.at(-1);
+    assert.equal(locale, "en", email);
+    assert.equal(message.subject, "You're invited to Acme & Co", email);
+    assert.match(message.text, /^Tony <Owner> invited you to join Acme & Co as member\./u, email);
+  }
+});
+
+test("workspaceMembersService reports a failed delivery with a message code", async () => {
+  const service = createMailingService({
+    mailer: {
+      async sendWorkspaceInvite() {
+        throw new Error("provider rejected https://app.example.test/invite/secret");
+      }
+    }
+  });
+  const response = await service.createInvite(
+    { id: "7", slug: "acme", name: "Acme", ownerUserId: "9", avatarUrl: "" },
+    { id: "9" },
+    { email: "invitee@example.com", roleSid: "member" },
+    authorizedOptions()
+  );
+  assert.deepEqual(response.inviteDelivery, {
+    status: "failed",
+    message: "Unable to send workspace invite email.",
+    messageCode: "workspaces.invite.sendFailed",
+    messageParams: {},
+    providerMessageId: ""
+  });
+});
+
+test("workspaceMembersService codes a role that cannot be assigned", async () => {
+  const { service, workspace } = createFixture();
+  await assert.rejects(
+    () => service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "owner" }, authorizedOptions()),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.message, "Validation failed.");
+      assert.equal(error.code, "validation_failed");
+      assert.deepEqual(error.details, {
+        fieldErrors: { roleSid: "Role is not assignable." },
+        fieldErrorCodes: { roleSid: { code: "workspaces.member.roleNotAssignable", params: {} } }
+      });
+      return true;
+    }
   );
 });

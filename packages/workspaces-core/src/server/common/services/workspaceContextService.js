@@ -96,7 +96,7 @@ function createService({
         return candidate;
       }
     }
-    throw new AppError(500, "Unable to generate unique workspace slug.");
+    throw new AppError(500, "Unable to generate unique workspace slug.", { code: "workspaces.workspace.slugUnavailable" });
   }
 
   async function ensureWorkspaceSettingsForWorkspace(workspace, options = {}) {
@@ -109,7 +109,7 @@ function createService({
   async function ensurePersonalWorkspaceForUser(user, options = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
-      throw new AppError(400, "Invalid authenticated user payload.");
+      throw new AppError(400, "Invalid authenticated user payload.", { code: "workspaces.user.invalidPayload" });
     }
 
     const existing = await workspacesRepository.findPersonalByOwnerUserId(normalizedUserId, options);
@@ -166,7 +166,7 @@ function createService({
   async function ensureProvisionedWorkspaceForAuthenticatedUser(user, options = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
-      throw new AppError(400, "Invalid authenticated user payload.");
+      throw new AppError(400, "Invalid authenticated user payload.", { code: "workspaces.user.invalidPayload" });
     }
 
     if (workspacePolicy.autoProvision !== true) {
@@ -182,16 +182,18 @@ function createService({
   async function createWorkspaceForAuthenticatedUser(user, payload = {}, options = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
-      throw new AppError(401, "Authentication required.");
+      throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
     }
 
     if (workspacePolicy.allowSelfCreate !== true) {
-      throw new AppError(403, "Workspace creation is disabled for this tenancy mode.");
+      throw new AppError(403, "Workspace creation is disabled for this tenancy mode.", {
+        code: "workspaces.workspace.creationDisabled"
+      });
     }
 
     const createInput = normalizeWorkspaceCreationInput(payload);
     if (!createInput.name) {
-      throw new AppError(400, "Workspace name is required.");
+      throw new AppError(400, "Workspace name is required.", { code: "workspaces.workspace.nameRequired" });
     }
 
     const slugBase = createInput.requestedSlug || toSlugPart(createInput.name);
@@ -226,22 +228,22 @@ function createService({
     const requireMembership = options?.requireMembership !== false;
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
-      throw new AppError(401, "Authentication required.");
+      throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
     }
 
     if (resolvedTenancyMode === TENANCY_MODE_NONE) {
-      throw new AppError(403, "Workspace context is disabled.");
+      throw new AppError(403, "Workspace context is disabled.", { code: "workspaces.workspace.contextDisabled" });
     }
 
     const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
     if (!normalizedWorkspaceSlug) {
-      throw new AppError(400, "workspaceSlug is required.");
+      throw new AppError(400, "workspaceSlug is required.", { code: "workspaces.workspace.slugRequired" });
     }
 
     const workspace = await workspacesRepository.findBySlug(normalizedWorkspaceSlug, options);
 
     if (!workspace) {
-      throw new AppError(404, "Workspace not found.");
+      throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
     }
 
     let membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
@@ -259,7 +261,7 @@ function createService({
     }
 
     if ((!membership || normalizeLowerText(membership.status) !== "active") && requireMembership) {
-      throw new AppError(403, "You do not have access to this workspace.");
+      throw new AppError(403, "You do not have access to this workspace.", { code: "workspaces.workspace.accessDenied" });
     }
 
     if (!membership || normalizeLowerText(membership.status) !== "active") {

@@ -1,0 +1,52 @@
+{
+  "jskit": {
+    "workspaces": {
+      "auth": {
+        "required": "Authentication required."
+      },
+      "user": {
+        "invalidPayload": "Invalid authenticated user payload."
+      },
+      "workspace": {
+        "slugUnavailable": "Unable to generate unique workspace slug.",
+        "creationDisabled": "Workspace creation is disabled for this tenancy mode.",
+        "nameRequired": "Workspace name is required.",
+        "contextDisabled": "Workspace context is disabled.",
+        "slugRequired": "workspaceSlug is required.",
+        "notFound": "Workspace not found.",
+        "accessDenied": "You do not have access to this workspace."
+      },
+      "member": {
+        "roleNotAssignable": "Role is not assignable.",
+        "notFound": "Member not found.",
+        "ownerRoleLocked": "Cannot change workspace owner role.",
+        "ownerNotRemovable": "Cannot remove workspace owner."
+      },
+      "invite": {
+        "disabled": "Workspace invitations are disabled.",
+        "notFound": "Invite not found.",
+        "notFoundOrHandled": "Invite not found or already handled.",
+        "invitationNotFoundOrHandled": "Invitation not found or already handled.",
+        "workspaceMissing": "Invitation workspace no longer exists.",
+        "expired": "Invitation has expired.",
+        "tokenMismatch": "Invitation token does not match the saved invitation.",
+        "tokenRequired": "Invite token is required.",
+        "tokenInvalid": "Invite token is invalid.",
+        "emailMismatchUser": "Invitation email does not match authenticated user.",
+        "emailMismatchAccount": "Invitation email does not match account email.",
+        "notAvailable": "Invitation is not available.",
+        "mailerUnconfigured": "No workspace invite mailer is configured.",
+        "sendFailed": "Unable to send workspace invite email."
+      },
+      "inviteEmail": {
+        "subject": "You're invited to {workspace}",
+        "intro": "You have been invited to join {workspace} as {role}.",
+        "introFromInviter": "{inviter} invited you to join {workspace} as {role}.",
+        "expiry": "This invitation expires at {expiresAt}.",
+        "openLink": "Open this link to accept the invitation:",
+        "accept": "Accept invitation",
+        "workspaceFallback": "the workspace"
+      }
+    }
+  }
+}

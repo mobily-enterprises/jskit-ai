@@ -73,6 +73,7 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
   const runtime = createCapabilityRuntime({
     inputs: {
       "auth.extensions": authExtensions,
+      "runtime.app-root": process.cwd(),
       "runtime.bootstrap": bootstrap,
       "runtime.config": runtimeConfig(),
       "runtime.env": {},

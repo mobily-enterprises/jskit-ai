@@ -105,6 +105,15 @@ const workspaceInviteCreateOutputSchema = createSchema({
         type: "string",
         required: true
       },
+      messageCode: {
+        type: "string",
+        required: false
+      },
+      messageParams: {
+        type: "object",
+        required: false,
+        additionalProperties: true
+      },
       providerMessageId: {
         type: "string",
         required: true

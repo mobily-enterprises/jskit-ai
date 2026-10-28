@@ -52,14 +52,14 @@ function createService({
     }));
     // Commit expiry revocation before reporting the rejection.
     if (result.expired) {
-      throw Object.assign(new AppError(409, "Invitation has expired."), { transactionOutcome: "committed" });
+      throw Object.assign(new AppError(409, "Invitation has expired.", { code: "workspaces.invite.expired" }), { transactionOutcome: "committed" });
     }
     return result;
   }
 
   function requireAuthenticatedInviteUser(user) {
     if (!normalizeRecordId(user?.id, { fallback: null })) {
-      throw new AppError(401, "Authentication required.");
+      throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
     }
 
     return user;
@@ -68,12 +68,12 @@ function createService({
   function requireInviteTokenHash(token) {
     const normalizedToken = normalizeText(token);
     if (!normalizedToken) {
-      throw new AppError(400, "Invite token is required.");
+      throw new AppError(400, "Invite token is required.", { code: "workspaces.invite.tokenRequired" });
     }
 
     const tokenHash = resolveInviteTokenHash(normalizedToken);
     if (!tokenHash) {
-      throw new AppError(400, "Invite token is invalid.");
+      throw new AppError(400, "Invite token is invalid.", { code: "workspaces.invite.tokenInvalid" });
     }
 
     return tokenHash;
@@ -170,11 +170,15 @@ function createService({
 
     const invite = await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
     if (!invite) {
-      throw new AppError(404, "Invitation not found or already handled.");
+      throw new AppError(404, "Invitation not found or already handled.", {
+        code: "workspaces.invite.invitationNotFoundOrHandled"
+      });
     }
 
     if (normalizeLowerText(invite.email) !== normalizeLowerText(actor?.email)) {
-      throw new AppError(403, "Invitation email does not match authenticated user.");
+      throw new AppError(403, "Invitation email does not match authenticated user.", {
+        code: "workspaces.invite.emailMismatchUser"
+      });
     }
 
     return {
@@ -206,10 +210,12 @@ function createService({
   async function resolveInviteContextForAuth({ token, email } = {}, options = {}) {
     const resolved = await resolveInviteByToken(token, options);
     if (resolved.status !== "pending") {
-      throw new AppError(409, "Invitation is not available.");
+      throw new AppError(409, "Invitation is not available.", { code: "workspaces.invite.notAvailable" });
     }
     if (normalizeLowerText(resolved.email) !== normalizeLowerText(email)) {
-      throw new AppError(403, "Invitation email does not match account email.");
+      throw new AppError(403, "Invitation email does not match account email.", {
+        code: "workspaces.invite.emailMismatchAccount"
+      });
     }
 
     return {

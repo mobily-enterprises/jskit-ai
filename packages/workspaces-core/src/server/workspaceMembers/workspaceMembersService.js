@@ -2,9 +2,18 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { OWNER_ROLE_ID, createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
+import { createWorkspacesServerI18n } from "../i18n.js";
 import { renderDefaultWorkspaceInviteEmail } from "./defaultWorkspaceInviteEmail.js";
+
+const DEFAULT_LOCALE = "en";
+
+function roleNotAssignableError() {
+  return createValidationError({
+    roleSid: { code: "workspaces.member.roleNotAssignable", message: "Role is not assignable." }
+  });
+}
 
 function createService({
   workspaceMembershipsRepository,
@@ -14,7 +23,10 @@ function createService({
   workspaceInvitationsEnabled = true,
   inviteUrlBuilder = null,
   workspaceInviteMailer = null,
-  workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail
+  workspaceInviteEmailTemplate = renderDefaultWorkspaceInviteEmail,
+  i18n = createWorkspacesServerI18n(),
+  userProfilesRepository = null,
+  userSettingsRepository = null
 } = {}) {
   if (!workspaceMembershipsRepository || !workspaceInvitesRepository) {
     throw new Error("workspaceMembersService requires membership and invite repositories.");
@@ -43,7 +55,7 @@ function createService({
     if (resolvedWorkspaceInvitationsEnabled) {
       return;
     }
-    throw new AppError(403, "Workspace invitations are disabled.");
+    throw new AppError(403, "Workspace invitations are disabled.", { code: "workspaces.invite.disabled" });
   }
 
   function withRoleCatalog(payload = {}) {
@@ -100,17 +112,36 @@ function createService({
     };
   }
 
+  // The saved locale of an existing account with the invited email, else English.
+  // A failed lookup must not stop the invitation, so it also falls back to English.
+  async function resolveRecipientLocale(email, options = {}) {
+    if (typeof userProfilesRepository?.findByEmail !== "function" ||
+      typeof userSettingsRepository?.findByUserId !== "function") {
+      return DEFAULT_LOCALE;
+    }
+    try {
+      const profile = await userProfilesRepository.findByEmail(email, options);
+      const settings = profile?.id ? await userSettingsRepository.findByUserId(profile.id, options) : null;
+      return normalizeText(settings?.locale) || DEFAULT_LOCALE;
+    } catch {
+      return DEFAULT_LOCALE;
+    }
+  }
+
   async function deliverInviteEmail({ workspace, user, invite, inviteUrl } = {}, options = {}) {
     if (!resolvedWorkspaceInviteMailer || typeof resolvedWorkspaceInviteMailer.sendWorkspaceInvite !== "function") {
       return {
         status: "mailer_unconfigured",
         message: "No workspace invite mailer is configured.",
+        messageCode: "workspaces.invite.mailerUnconfigured",
+        messageParams: {},
         providerMessageId: ""
       };
     }
 
     try {
       const roleLabel = resolvedRoleCatalog.roles?.find((role) => role.id === invite.roleSid)?.label;
+      const locale = await resolveRecipientLocale(invite.email, options);
       const message = await resolvedWorkspaceInviteEmailTemplate({
         email: invite.email,
         inviteUrl,
@@ -118,7 +149,9 @@ function createService({
         inviter: user || null,
         roleSid: invite.roleSid,
         ...(roleLabel ? { roleLabel } : {}),
-        expiresAt: invite.expiresAt
+        expiresAt: invite.expiresAt,
+        locale,
+        t: (key, params) => i18n.t(locale, key, params)
       });
       const result = await resolvedWorkspaceInviteMailer.sendWorkspaceInvite({
         email: invite.email,
@@ -127,6 +160,7 @@ function createService({
         inviter: user || null,
         roleSid: invite.roleSid,
         expiresAt: invite.expiresAt,
+        locale,
         message
       }, options);
       return normalizeInviteDeliveryResult(result || { status: "sent" });
@@ -135,6 +169,8 @@ function createService({
         status: "failed",
         // Provider errors can contain the secret invitation URL.
         message: "Unable to send workspace invite email.",
+        messageCode: "workspaces.invite.sendFailed",
+        messageParams: {},
         providerMessageId: ""
       };
     }
@@ -164,24 +200,18 @@ function createService({
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     const roleSid = normalizeLowerText(payload.roleSid || "");
     if (!memberUserId) {
-      throw new AppError(400, "Validation failed.");
+      throw new AppError(400, "Validation failed.", { code: "validation_failed" });
     }
     if (!assignableRoleIds.includes(roleSid)) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            roleSid: "Role is not assignable."
-          }
-        }
-      });
+      throw roleNotAssignableError();
     }
 
     const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
     if (!existingMembership || existingMembership.status !== "active") {
-      throw new AppError(404, "Member not found.");
+      throw new AppError(404, "Member not found.", { code: "workspaces.member.notFound" });
     }
     if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || existingMembership.roleSid === OWNER_ROLE_ID) {
-      throw new AppError(409, "Cannot change workspace owner role.");
+      throw new AppError(409, "Cannot change workspace owner role.", { code: "workspaces.member.ownerRoleLocked" });
     }
 
     await workspaceMembershipsRepository.upsertMembership(
@@ -200,15 +230,15 @@ function createService({
   async function removeMember(workspace, payload = {}, options = {}) {
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     if (!memberUserId) {
-      throw new AppError(400, "Validation failed.");
+      throw new AppError(400, "Validation failed.", { code: "validation_failed" });
     }
 
     const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
     if (!existingMembership || existingMembership.status !== "active") {
-      throw new AppError(404, "Member not found.");
+      throw new AppError(404, "Member not found.", { code: "workspaces.member.notFound" });
     }
     if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || existingMembership.roleSid === OWNER_ROLE_ID) {
-      throw new AppError(409, "Cannot remove workspace owner.");
+      throw new AppError(409, "Cannot remove workspace owner.", { code: "workspaces.member.ownerNotRemovable" });
     }
 
     await workspaceMembershipsRepository.upsertMembership(
@@ -246,13 +276,7 @@ function createService({
     const email = normalizeLowerText(payload.email);
     const roleSid = normalizeLowerText(payload.roleSid || "member") || "member";
     if (!assignableRoleIds.includes(roleSid)) {
-      throw new AppError(400, "Validation failed.", {
-        details: {
-          fieldErrors: {
-            roleSid: "Role is not assignable."
-          }
-        }
-      });
+      throw roleNotAssignableError();
     }
 
     const token = buildInviteToken();
@@ -291,16 +315,18 @@ function createService({
       { ...options, includeWorkspace: true, lock: false }
     );
     if (!invite) {
-      throw new AppError(404, "Invite not found or already handled.");
+      throw new AppError(404, "Invite not found or already handled.", { code: "workspaces.invite.notFoundOrHandled" });
     }
     if (invite.expiresAt && new Date(invite.expiresAt).getTime() < Date.now()) {
-      throw new AppError(409, "Invitation has expired.");
+      throw new AppError(409, "Invitation has expired.", { code: "workspaces.invite.expired" });
     }
     const token = Object.hasOwn(prepared, "inviteTokenPreview")
       ? normalizeText(prepared.inviteTokenPreview)
       : encodeInviteTokenHash(invite.tokenHash);
     if (!token || resolveInviteTokenHash(token) !== invite.tokenHash) {
-      throw new AppError(400, "Invitation token does not match the saved invitation.");
+      throw new AppError(400, "Invitation token does not match the saved invitation.", {
+        code: "workspaces.invite.tokenMismatch"
+      });
     }
     const savedWorkspace = {
       ...workspace,
@@ -336,7 +362,7 @@ function createService({
     ensureWorkspaceInvitationsEnabled();
     const normalizedInviteId = normalizeRecordId(inviteId, { fallback: null });
     if (!normalizedInviteId) {
-      throw new AppError(400, "Validation failed.");
+      throw new AppError(400, "Validation failed.", { code: "validation_failed" });
     }
 
     const revoke = async (trx) => {
@@ -347,7 +373,7 @@ function createService({
         transactionOptions
       );
       if (!invite) {
-        throw new AppError(404, "Invite not found.");
+        throw new AppError(404, "Invite not found.", { code: "workspaces.invite.notFound" });
       }
       await workspaceInvitesRepository.revokeById(normalizedInviteId, transactionOptions);
       return normalizeRecordId(invite.id, { fallback: null });
