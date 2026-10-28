@@ -19,7 +19,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
   async function perform(scope, operation, remote, complete) {
     const token = randomUUID();
     const prepared = await store.withAccount(scope, async (tx) => {
-      if (tx.state.pendingPaymentOperation) throw new PaymentError("payment_operation_uncertain", "Inspect the unfinished provider request before retrying.", 409);
+      if (tx.state.pendingPaymentOperation) throw new PaymentError("payment_operation_uncertain", "Inspect the unfinished provider request before retrying.", 409, { messageCode: "payments.operation.unfinished" });
       const ready = await operation(tx);
       if (ready.cached) return ready;
       tx.state.pendingPaymentOperation = { token, ...ready };
@@ -30,7 +30,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     // unresolved operation, rather than permitting a duplicate provider write.
     let result;
     try { result = await remote(prepared); }
-    catch { throw new PaymentError("payment_operation_uncertain", "Inspect this account's provider activity before retrying; the request may have succeeded.", 409); }
+    catch { throw new PaymentError("payment_operation_uncertain", "Inspect this account's provider activity before retrying; the request may have succeeded.", 409, { messageCode: "payments.operation.mayHaveSucceeded" }); }
     return store.withAccount(scope, async (tx) => {
       if (tx.state.pendingPaymentOperation?.token !== token) throw new PaymentError("payment_operation_conflict", "The pending payment operation changed.", 409);
       const value = await complete(tx, result, prepared);
@@ -42,7 +42,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     const scope = await allowed(actor, subjectId, "checkout");
     adapter.validatePlan(planId);
     if (typeof requestId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(requestId)) throw new PaymentError("payment_request_invalid", "Supply a stable checkout request identifier.");
-    if (typeof email !== "string" || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PaymentError("payment_input_invalid", "Supply the authenticated billing contact's email.");
+    if (typeof email !== "string" || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PaymentError("payment_input_invalid", "Supply the authenticated billing contact's email.", 422, { messageCode: "payments.input.billingEmail" });
     const identity = fingerprint(scope);
     const customerId = await perform(scope, async (tx) => tx.state.customerId
       ? { cached: true, result: tx.state.customerId }
@@ -53,7 +53,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     return perform(scope, async (tx) => {
       const saved = await tx.find(`checkout:${requestId}`);
       if (saved) {
-        if (saved.planId !== planId) throw new PaymentError("payment_reference_conflict", "The checkout request already selected another plan.", 409);
+        if (saved.planId !== planId) throw new PaymentError("payment_reference_conflict", "The checkout request already selected another plan.", 409, { messageCode: "payments.reference.otherPlan" });
         return { cached: true, result: saved.result };
       }
       if (Object.values(tx.state.subscriptions).some((subscription) =>
@@ -75,7 +75,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     const scope = await allowed(actor, subjectId, "history");
     if (!["subscriptions", "transactions"].includes(collection) ||
       (after !== null && (typeof after !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(after)))) {
-      throw new PaymentError("payment_input_invalid", "Select billing subscriptions or transactions and a valid page cursor.");
+      throw new PaymentError("payment_input_invalid", "Select billing subscriptions or transactions and a valid page cursor.", 422, { messageCode: "payments.input.historyPage" });
     }
     // Never accept a customer identifier from the browser or editor caller.
     const { customerId } = await store.inspect(scope);
@@ -121,7 +121,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     const { eventId, customerId } = identity;
     return payments.reconcileEvent(merchant, { eventId, customerId, load: async () => {
       const facts = await adapter.loadEvent(event);
-      if (!facts || facts.customerId !== customerId) throw new PaymentError("payment_provider_result_invalid", "The event is not a supported subscription payment for this customer.", 422);
+      if (!facts || facts.customerId !== customerId) throw new PaymentError("payment_provider_result_invalid", "The event is not a supported subscription payment for this customer.", 422, { messageCode: "payments.provider.unsupportedEvent" });
       return facts;
     } });
   }

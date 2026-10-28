@@ -15,7 +15,8 @@
     "./server/stripe": "./src/server/stripe.js",
     "./server/paddle": "./src/server/paddle.js",
     "./server/catalogue": "./src/server/catalogue.js",
-    "./server/readiness": "./src/server/readiness.js"
+    "./server/readiness": "./src/server/readiness.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "scripts": {
     "test": "node --test --test-concurrency=1"

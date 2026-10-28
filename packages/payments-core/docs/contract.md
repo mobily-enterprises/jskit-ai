@@ -124,3 +124,11 @@ Configuration failures use `payment_configuration_invalid` (422). Field errors
 identify `extensions.payments/...` paths, including cross-reference failures at
 `environments/<environment>/integrationId` and missing Paddle token/tax-category
 fields. Messages explain the repair without echoing credential values.
+
+Every error keeps its English `message` and its stable `payment_*` `code`. The
+English of a code used for one sentence lives under `jskit.errors.<code>` in
+`locales/en.json`. Where one code covers several sentences, the error also
+carries `messageCode` and `messageParams` naming a `jskit.payments.*` message,
+and binding field errors carry `code` and `params`, so a JSKIT application can
+show them in the user's language. Other implementations may ignore these
+fields.

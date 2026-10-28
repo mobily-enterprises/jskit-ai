@@ -3,7 +3,11 @@ import { PaymentError } from "./errors.js";
 import { createPriceBindings } from "./priceBindings.js";
 
 const id = (value) => typeof value === "string" ? value : value?.id;
-const invalid = () => { throw new PaymentError("payment_provider_result_invalid", "Check the Stripe account, price mapping and subscription shape.", 502); };
+const invalid = () => {
+  throw new PaymentError("payment_provider_result_invalid", "Check the Stripe account, price mapping and subscription shape.", 502, {
+    messageCode: "payments.provider.checkAccount", messageParams: { provider: "Stripe" }
+  });
+};
 
 function createStripePaymentAdapter({ apiKey, webhookSecret, environment, providerAccountId, priceBindings, historicalPriceBindings = {}, client = new Stripe(apiKey, { maxNetworkRetries: 0 }) }) {
   if (!["sandbox", "live"].includes(environment) || typeof webhookSecret !== "string" || !webhookSecret || !providerAccountId) throw new TypeError("Supply Stripe credentials, environment and account identity.");
@@ -16,10 +20,12 @@ function createStripePaymentAdapter({ apiKey, webhookSecret, environment, provid
     return { accountId: account.id, environment, chargesEnabled: account.charges_enabled === true, payoutsEnabled: account.payouts_enabled === true };
   }
   async function verifyEvent(rawBody, signature) {
-    if (!Buffer.isBuffer(rawBody)) throw new PaymentError("payment_signature_invalid", "Supply the unmodified webhook request bytes.", 400);
+    if (!Buffer.isBuffer(rawBody)) throw new PaymentError("payment_signature_invalid", "Supply the unmodified webhook request bytes.", 400, { messageCode: "payments.webhook.rawBodyRequired" });
     let event;
     try { event = client.webhooks.constructEvent(rawBody, signature, webhookSecret); }
-    catch { throw new PaymentError("payment_signature_invalid", "Stripe webhook verification failed.", 400); }
+    catch { throw new PaymentError("payment_signature_invalid", "Stripe webhook verification failed.", 400, {
+      messageCode: "payments.webhook.verificationFailed", messageParams: { provider: "Stripe" }
+    }); }
     if (event.livemode !== live || (event.account && event.account !== providerAccountId)) invalid();
     return event;
   }
@@ -82,7 +88,7 @@ function createStripePaymentAdapter({ apiKey, webhookSecret, environment, provid
     return { id: result.id, url: result.url };
   }
   async function readHistory({ customerId, collection, after = null }) {
-    if (!["subscriptions", "transactions"].includes(collection)) throw new PaymentError("payment_input_invalid", "Select a billing history collection.");
+    if (!["subscriptions", "transactions"].includes(collection)) throw new PaymentError("payment_input_invalid", "Select a billing history collection.", 422, { messageCode: "payments.input.historyCollection" });
     await verifyAccount();
     const query = { customer: customerId, limit: 20, ...(after ? { starting_after: after } : {}) };
     const page = collection === "subscriptions"

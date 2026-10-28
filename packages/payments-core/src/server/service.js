@@ -1,16 +1,16 @@
 import { PaymentError, fingerprint } from "./errors.js";
 
-const fail = (code, message, status) => { throw new PaymentError(code, message, status); };
+const fail = (code, message, status, options) => { throw new PaymentError(code, message, status, options); };
 function reference(value) {
-  if (typeof value !== "string" || !value || value.length > 150 || ["__proto__", "constructor", "prototype"].includes(value)) fail("payment_input_invalid", "Use a nonempty business reference of at most 150 characters.");
+  if (typeof value !== "string" || !value || value.length > 150 || ["__proto__", "constructor", "prototype"].includes(value)) fail("payment_input_invalid", "Use a nonempty business reference of at most 150 characters.", 422, { messageCode: "payments.input.reference" });
   return value;
 }
 function units(value) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > 1e9) fail("payment_input_invalid", "Use a positive integer credit quantity, at most one billion.");
+  if (!Number.isSafeInteger(value) || value < 1 || value > 1e9) fail("payment_input_invalid", "Use a positive integer credit quantity, at most one billion.", 422, { messageCode: "payments.input.creditQuantity" });
   return value;
 }
 function timestamp(value) {
-  if (!Number.isSafeInteger(value) || value < 0) fail("payment_input_invalid", "Use an integer UTC timestamp in milliseconds.");
+  if (!Number.isSafeInteger(value) || value < 0) fail("payment_input_invalid", "Use an integer UTC timestamp in milliseconds.", 422, { messageCode: "payments.input.timestamp" });
   return value;
 }
 const unexpired = (lot, now) => lot.expiresAt === null || lot.expiresAt > now;
@@ -20,7 +20,7 @@ async function once(tx, key, input, work) {
   const digest = fingerprint(input);
   const previous = await tx.find(key);
   if (previous) {
-    if (previous.digest !== digest) fail("payment_reference_conflict", "This business reference was already used with different inputs.", 409);
+    if (previous.digest !== digest) fail("payment_reference_conflict", "This business reference was already used with different inputs.", 409, { messageCode: "payments.reference.differentInputs" });
     return { ...previous.result, duplicate: true };
   }
   const result = await work();
@@ -48,7 +48,9 @@ function createPaymentService({ store, configuration, clock = Date.now }) {
   function checkScope(scope) {
     const expected = environments[scope?.environment];
     if (!expected || expected.integrationId !== scope.integrationId || expected.providerAccountId !== scope.providerAccountId) {
-      fail("payment_scope_invalid", "The payment scope does not match this environment's merchant configuration.", 403);
+      fail("payment_scope_invalid", "The payment scope does not match this environment's merchant configuration.", 403, {
+        messageCode: "payments.scope.merchantMismatch"
+      });
     }
   }
 
@@ -128,7 +130,7 @@ function createPaymentService({ store, configuration, clock = Date.now }) {
       const { subscription, renewal } = await load();
       reference(subscription?.id);
       if (!["active", "trialing", "past_due", "paused", "canceled", "unpaid", "incomplete", "incomplete_expired"].includes(subscription.status) ||
-          !Object.hasOwn(plans, subscription.planId)) fail("payment_provider_result_invalid", "Check the provider subscription and logical price binding.", 502);
+          !Object.hasOwn(plans, subscription.planId)) fail("payment_provider_result_invalid", "Check the provider subscription and logical price binding.", 502, { messageCode: "payments.provider.subscriptionBinding" });
       timestamp(subscription.periodEnd);
       tx.state.subscriptions[subscription.id] = {
         id: subscription.id, status: subscription.status, planId: subscription.planId, periodEnd: subscription.periodEnd
@@ -137,7 +139,7 @@ function createPaymentService({ store, configuration, clock = Date.now }) {
       if (renewal) {
         reference(renewal.id);
         timestamp(renewal.periodEnd);
-        if (!Object.hasOwn(plans, renewal.planId)) fail("payment_provider_result_invalid", "Check the renewal's logical price binding.", 502);
+        if (!Object.hasOwn(plans, renewal.planId)) fail("payment_provider_result_invalid", "Check the renewal's logical price binding.", 502, { messageCode: "payments.provider.renewalBinding" });
         const quantity = plans[renewal.planId].renewalCredits;
         // A provider invoice/transaction is the business key, not its delivery ID.
         if (quantity) creditGrant = await grant(tx, { reference: `renewal:${renewal.id}`, units: quantity, expiresAt: renewal.periodEnd }, timestamp(clock()));

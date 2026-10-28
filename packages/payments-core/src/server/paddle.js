@@ -2,7 +2,11 @@ import { Paddle, Environment } from "@paddle/paddle-node-sdk";
 import { PaymentError } from "./errors.js";
 import { createPriceBindings } from "./priceBindings.js";
 
-const invalid = () => { throw new PaymentError("payment_provider_result_invalid", "Check the Paddle account, price mapping and subscription shape.", 502); };
+const invalid = () => {
+  throw new PaymentError("payment_provider_result_invalid", "Check the Paddle account, price mapping and subscription shape.", 502, {
+    messageCode: "payments.provider.checkAccount", messageParams: { provider: "Paddle" }
+  });
+};
 
 function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceBindings, taxCategory, historicalPriceBindings = {}, client = new Paddle(apiKey, { environment: environment === "live" ? Environment.production : Environment.sandbox }) }) {
   if (!["sandbox", "live"].includes(environment) || typeof webhookSecret !== "string" || !webhookSecret) throw new TypeError("Supply Paddle credentials and environment.");
@@ -14,9 +18,11 @@ function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceB
     return { environment, credentialsVerified: true, accountIdentityVerified: false, merchantApproval: "manual-check-required" };
   }
   async function verifyEvent(rawBody, signature) {
-    if (!Buffer.isBuffer(rawBody)) throw new PaymentError("payment_signature_invalid", "Supply the unmodified webhook request bytes.", 400);
+    if (!Buffer.isBuffer(rawBody)) throw new PaymentError("payment_signature_invalid", "Supply the unmodified webhook request bytes.", 400, { messageCode: "payments.webhook.rawBodyRequired" });
     try { return await client.webhooks.unmarshal(rawBody.toString("utf8"), webhookSecret, signature); }
-    catch { throw new PaymentError("payment_signature_invalid", "Paddle webhook verification failed.", 400); }
+    catch { throw new PaymentError("payment_signature_invalid", "Paddle webhook verification failed.", 400, {
+      messageCode: "payments.webhook.verificationFailed", messageParams: { provider: "Paddle" }
+    }); }
   }
   function eventIdentity(event) {
     if (event.eventType === "transaction.completed") {
@@ -65,7 +71,7 @@ function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceB
     return { id: result.id, url: result.urls.general.overview };
   }
   async function readHistory({ customerId, collection, after = null }) {
-    if (!["subscriptions", "transactions"].includes(collection)) throw new PaymentError("payment_input_invalid", "Select a billing history collection.");
+    if (!["subscriptions", "transactions"].includes(collection)) throw new PaymentError("payment_input_invalid", "Select a billing history collection.", 422, { messageCode: "payments.input.historyCollection" });
     const query = { customerId: [customerId], perPage: 20, ...(after ? { after } : {}) };
     const page = collection === "subscriptions" ? client.subscriptions.list(query) : client.transactions.list(query);
     // Fetch one page only; never iterate the SDK collection over the account.
@@ -89,7 +95,9 @@ function createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceB
     return { id: value.id, name: value.name };
   }
   async function createProduct({ name }) {
-    if (!taxCategory) throw new PaymentError("payment_configuration_invalid", "Set the application's Paddle product tax category before publishing.");
+    if (!taxCategory) throw new PaymentError("payment_configuration_invalid", "Set the application's Paddle product tax category before publishing.", 422, {
+      messageCode: "payments.configuration.taxCategoryUnpublishable"
+    });
     return client.products.create({ name, taxCategory });
   }
   async function renameProduct({ id, name }) {

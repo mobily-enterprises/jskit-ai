@@ -1,0 +1,77 @@
+{
+  "jskit": {
+    "errors": {
+      "payment_plan_unknown": "Select a published payment plan.",
+      "payment_readiness_invalid": "App readiness checks must return bounded status and safe explanatory text.",
+      "payment_forbidden": "You cannot manage this billable account.",
+      "payment_operation_conflict": "The pending payment operation changed.",
+      "payment_request_invalid": "Supply a stable checkout request identifier.",
+      "payment_subscription_exists": "Manage the existing subscription through billing instead of starting another checkout.",
+      "payment_history_unavailable": "Billing history could not be loaded. Check provider access and retry.",
+      "payment_customer_missing": "Create a billing account first.",
+      "payment_reconciliation_required": "Provider inspection did not resolve this request.",
+      "payment_customer_conflict": "This provider customer is already bound to a different billable subject.",
+      "payment_catalogue_pending": "Another catalogue request needs resolution.",
+      "payment_catalogue_uncertain": "Catalogue publication stopped. Inspect the pending provider request before retrying; completed items are preserved.",
+      "payment_balance_limit": "Credit balance exceeds the supported integer range.",
+      "payment_feature_required": "Your subscription does not include this feature.",
+      "payment_insufficient_credits": "Not enough credits for this action.",
+      "payment_debit_missing": "No debit exists for this reference.",
+      "payment_customer_unbound": "Bind this provider customer before processing its events."
+    },
+    "payments": {
+      "scope": {
+        "readinessMismatch": "Readiness returned a different payment account or environment.",
+        "catalogueMismatch": "Catalogue scope does not match its configured environment.",
+        "merchantMismatch": "The payment scope does not match this environment's merchant configuration."
+      },
+      "operation": {
+        "unfinished": "Inspect the unfinished provider request before retrying.",
+        "mayHaveSucceeded": "Inspect this account's provider activity before retrying; the request may have succeeded."
+      },
+      "input": {
+        "billingEmail": "Supply the authenticated billing contact's email.",
+        "historyPage": "Select billing subscriptions or transactions and a valid page cursor.",
+        "historyCollection": "Select a billing history collection.",
+        "recoveryObjectId": "Supply the exact provider object ID to recover.",
+        "reference": "Use a nonempty business reference of at most 150 characters.",
+        "creditQuantity": "Use a positive integer credit quantity, at most one billion.",
+        "timestamp": "Use an integer UTC timestamp in milliseconds."
+      },
+      "reference": {
+        "otherPlan": "The checkout request already selected another plan.",
+        "differentInputs": "This business reference was already used with different inputs."
+      },
+      "provider": {
+        "checkAccount": "Check the {provider} account, price mapping and subscription shape.",
+        "unsupportedEvent": "The event is not a supported subscription payment for this customer.",
+        "objectIdMissing": "The provider did not return an object ID.",
+        "subscriptionBinding": "Check the provider subscription and logical price binding.",
+        "renewalBinding": "Check the renewal's logical price binding."
+      },
+      "webhook": {
+        "rawBodyRequired": "Supply the unmodified webhook request bytes.",
+        "verificationFailed": "{provider} webhook verification failed."
+      },
+      "configuration": {
+        "invalid": "Check the application's payment configuration.",
+        "taxCategoryUnpublishable": "Set the application's Paddle product tax category before publishing.",
+        "sharedConnectionRequired": "Select a shared Stripe or Paddle connection with a backend API-key Env reference for {environment}.",
+        "paddleEnvironment": "Select a Paddle connection configured for {environment}.",
+        "paddleTaxCategory": "Choose the Paddle tax category for the products this app sells.",
+        "paddleClientToken": "Set the Env reference for this environment's Paddle public client token."
+      },
+      "catalogue": {
+        "reviewFirst": "Review the current catalogue and resolve provider drift or unfinished requests first.",
+        "publicationChanged": "Another publication changed the catalogue; review again.",
+        "planChanged": "This plan changed; review again.",
+        "productChanged": "This product changed; review again.",
+        "priceChanged": "This price changed; review again.",
+        "pendingCatalogueRequestChanged": "The pending catalogue request changed.",
+        "recoveryReviewChanged": "The recovery review changed. Inspect the current pending operation first.",
+        "pendingRequestChanged": "The pending request changed.",
+        "objectMismatch": "The provider object does not match the pending operation."
+      }
+    }
+  }
+}

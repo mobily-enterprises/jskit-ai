@@ -27,7 +27,9 @@ function createPaymentReadiness({ adapter, catalogue, scope, inspectApplication 
     catch { set("credentials", "failed", "Provider verification failed. Check the account, credentials and environment."); }
     if (provider) {
       if (provider.environment !== merchant.environment || (provider.accountId && provider.accountId !== merchant.providerAccountId)) {
-        throw new PaymentError("payment_scope_invalid", "Readiness returned a different payment account or environment.", 403);
+        throw new PaymentError("payment_scope_invalid", "Readiness returned a different payment account or environment.", 403, {
+          messageCode: "payments.scope.readinessMismatch"
+        });
       }
       const verified = provider.credentialsVerified === true || provider.accountId === merchant.providerAccountId;
       set("credentials", verified ? "passed" : "unknown", verified
