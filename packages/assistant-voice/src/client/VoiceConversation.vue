@@ -4,6 +4,7 @@ import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/co
 import VoiceAvatar from "./VoiceAvatar.vue";
 import VoiceConversationControls from "./VoiceConversationControls.vue";
 import { mdiMicrophone, mdiVolumeHigh } from "@mdi/js";
+import { useJskitText } from "./i18n.js";
 
 const props = defineProps({
   session: { type: Object, required: true }, disabled: { type: Boolean, default: false },
@@ -12,6 +13,7 @@ const props = defineProps({
   avatarSize: { type: String, default: "compact" }
 });
 defineEmits(["update:avatarSize"]);
+const { t } = useJskitText();
 const { targetLabel, voice, microphoneMuted, heldTranscript, pendingTranscript, sending,
   avatarVisual, callAudioLevel, voiceWords, voiceAnswer } = props.session;
 const presentationAdapter = computed(() => props.adapter && ({
@@ -23,6 +25,11 @@ const voiceWordsTarget = ref(null);
 const voiceAnswerTarget = ref(null);
 const followWords = ref(true);
 const followAnswer = ref(true);
+const youLabel = computed(() => {
+  if (heldTranscript.value && voice.listening.value && !microphoneMuted.value) return t("jskit.assistant.voice.conversation.youHearing");
+  if (pendingTranscript.value && !sending.value) return t("jskit.assistant.voice.conversation.youNotSent");
+  return t("jskit.assistant.voice.conversation.you");
+});
 function isAtBottom(element) { return element.scrollHeight - element.scrollTop - element.clientHeight < 24; }
 for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWords], [voiceAnswer, voiceAnswerTarget, followAnswer]]) {
   watch(text, () => {
@@ -42,10 +49,16 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
       <template v-if="showAvatar" #avatar-tools><div ref="toolsTarget" class="assistant-voice-conversation__tools" /></template>
       <template #avatar-control="scope">
         <slot name="avatar-control" v-bind="scope">
-          <span v-if="scope.size === 'hidden' && voice.listening.value && !microphoneMuted" role="img" aria-label="Listening" title="Listening">
+          <span
+            v-if="scope.size === 'hidden' && voice.listening.value && !microphoneMuted" role="img"
+            :aria-label="t('jskit.assistant.voice.conversation.listening')" :title="t('jskit.assistant.voice.conversation.listening')"
+          >
             <v-icon :icon="mdiMicrophone" size="20" aria-hidden="true" />
           </span>
-          <span v-if="scope.size === 'hidden' && voice.speaking.value" role="img" aria-label="Speaking" title="Speaking">
+          <span
+            v-if="scope.size === 'hidden' && voice.speaking.value" role="img"
+            :aria-label="t('jskit.assistant.voice.conversation.speaking')" :title="t('jskit.assistant.voice.conversation.speaking')"
+          >
             <v-icon :icon="mdiVolumeHigh" size="20" aria-hidden="true" />
           </span>
         </slot>
@@ -61,19 +74,25 @@ for (const [text, target, following] of [[voiceWords, voiceWordsTarget, followWo
   <fieldset v-else class="assistant-voice" :disabled="disabled">
     <section
       class="assistant-voice__call" :class="{ 'assistant-voice__call--without-avatar': !showAvatar }"
-      :aria-label="`${targetLabel} voice chat controls`"
+      :aria-label="t('jskit.assistant.voice.controls.label', { target: targetLabel })"
     >
       <div v-if="showAvatar" class="assistant-voice__call-body">
         <div class="assistant-voice__call-portrait" :style="{ '--call-audio-scale': 1 + callAudioLevel * .16 }" aria-hidden="true">
           <slot name="avatar" v-bind="avatarVisual"><VoiceAvatar v-bind="avatarVisual" /></slot>
         </div>
       </div>
-      <div class="assistant-voice__captions" aria-label="Voice conversation text">
-        <section ref="voiceWordsTarget" class="assistant-voice__caption" aria-label="Recognized words" tabindex="0" @scroll="followWords = isAtBottom($event.currentTarget)">
-          <strong class="text-label-medium">You<span v-if="heldTranscript && voice.listening.value && !microphoneMuted"> · Hearing…</span><span v-else-if="pendingTranscript && !sending"> · Not sent</span></strong>
+      <div class="assistant-voice__captions" :aria-label="t('jskit.assistant.voice.conversation.captions')">
+        <section
+          ref="voiceWordsTarget" class="assistant-voice__caption" :aria-label="t('jskit.assistant.voice.conversation.recognizedWords')" tabindex="0"
+          @scroll="followWords = isAtBottom($event.currentTarget)"
+        >
+          <strong class="text-label-medium">{{ youLabel }}</strong>
           <p class="assistant-voice__caption-text text-body-medium">{{ voiceWords }}</p>
         </section>
-        <section ref="voiceAnswerTarget" class="assistant-voice__caption" :aria-label="`${targetLabel} latest answer`" tabindex="0" @scroll="followAnswer = isAtBottom($event.currentTarget)">
+        <section
+          ref="voiceAnswerTarget" class="assistant-voice__caption" :aria-label="t('jskit.assistant.voice.conversation.latestAnswer', { target: targetLabel })"
+          tabindex="0" @scroll="followAnswer = isAtBottom($event.currentTarget)"
+        >
           <strong class="text-label-medium">{{ targetLabel }}</strong>
           <p class="assistant-voice__caption-text text-body-medium">{{ voiceAnswer }}</p>
         </section>

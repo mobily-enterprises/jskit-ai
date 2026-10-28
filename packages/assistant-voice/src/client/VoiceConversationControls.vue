@@ -2,6 +2,7 @@
 import { computed, useId } from "vue";
 import { mdiMicrophone, mdiMicrophoneOff, mdiStop, mdiVolumeHigh, mdiVolumeOff } from "@mdi/js";
 import { useVoiceLauncher } from "./voiceLauncher.js";
+import { useJskitText, voiceErrorText } from "./i18n.js";
 
 const props = defineProps({
   session: { type: Object, required: true },
@@ -20,22 +21,25 @@ const {
   stopSpeech, startPushToTalk, finishPushToTalk, cancelPushToTalk, toggleHandsFree, readAloud, toggleReadAloud, enableSound,
   deliverTranscript, discardHeldRecording, editTranscript
 } = props.session;
+const { t } = useJskitText();
 const controlStatus = computed(() => {
   if (props.iconOnly && voice.listening.value && !starting.value && !error.value && !voice.error.value) return "";
   if (!props.compact || !props.session.hasUnsentSpeech.value) return callStatus.value;
-  if (pendingTranscript.value) return props.reviewInTranscript ? "" : "Send or discard speech to send text.";
-  if (live.value && callMode.value === "hands-free" && voice.listening.value && !microphoneMuted.value) return "Listening…";
-  return voice.listening.value ? "Recording · finish speech to send text." : "Finish speech to send text.";
+  if (pendingTranscript.value) return props.reviewInTranscript ? "" : t("jskit.assistant.voice.controls.sendOrDiscard");
+  if (live.value && callMode.value === "hands-free" && voice.listening.value && !microphoneMuted.value) return t("jskit.assistant.voice.controls.listening");
+  return voice.listening.value ? t("jskit.assistant.voice.controls.recordingFinish") : t("jskit.assistant.voice.controls.finishSpeech");
 });
 const handsFreeListening = computed(() => live.value && callMode.value === "hands-free" && voice.listening.value && !microphoneMuted.value);
 const canTalk = computed(() => !props.disabled && (!capturing.value || voice.listening.value || pushHolding.value || starting.value));
-const talkLabel = computed(() => starting.value ? "Connecting…" : pushHolding.value ? "Release to send" : handsFreeListening.value ? "Pause" : "Talk");
+const talkLabel = computed(() => t(starting.value ? "jskit.assistant.voice.controls.connecting"
+  : pushHolding.value ? "jskit.assistant.voice.controls.releaseToSend"
+    : handsFreeListening.value ? "jskit.assistant.voice.controls.pause" : "jskit.assistant.voice.controls.talk"));
 const gestureHint = useId();
 const gesture = useVoiceLauncher({
   enabled: canTalk,
   open: () => ({ startHeldRecording: startPushToTalk, finishHeldRecording: finishPushToTalk, discardHeldRecording: cancelPushToTalk }),
   onTap: toggleHandsFree,
-  onError: cause => { error.value = cause.message; }
+  onError: cause => { error.value = voiceErrorText(cause); }
 });
 </script>
 
@@ -50,26 +54,40 @@ const gesture = useVoiceLauncher({
           {{ error || voice.error.value }}
         </p>
         <p v-if="controlStatus" class="assistant-voice-controls__status text-body-small" role="status" :title="callStatus">{{ controlStatus }}</p>
-        <p v-if="compact && !reviewInTranscript && heldTranscript && !pendingTranscript" class="assistant-voice-controls__provisional" role="status" aria-label="Recognized words">Not sent · {{ heldTranscript }}</p>
-        <p v-if="readAloud && voice.playbackBlocked?.value" class="assistant-voice-controls__status" role="status">Sound is blocked. Enable sound to hear future replies.</p>
-        <v-btn v-if="readAloud && voice.playbackBlocked?.value" min-height="48" @click="enableSound">Enable sound</v-btn>
-        <section v-if="!reviewInTranscript && pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review" aria-label="Review voice message">
+        <p
+          v-if="compact && !reviewInTranscript && heldTranscript && !pendingTranscript" class="assistant-voice-controls__provisional" role="status"
+          :aria-label="t('jskit.assistant.voice.conversation.recognizedWords')"
+        >
+          {{ t("jskit.assistant.voice.controls.notSent", { words: heldTranscript }) }}
+        </p>
+        <p v-if="readAloud && voice.playbackBlocked?.value" class="assistant-voice-controls__status" role="status">{{ t("jskit.assistant.voice.controls.soundBlocked") }}</p>
+        <v-btn v-if="readAloud && voice.playbackBlocked?.value" min-height="48" @click="enableSound">{{ t("jskit.assistant.voice.controls.enableSound") }}</v-btn>
+        <section
+          v-if="!reviewInTranscript && pendingTranscript && (pendingTranscript.reviewBeforeSend || !sending)" class="assistant-voice__review"
+          :aria-label="t('jskit.assistant.voice.controls.review')"
+        >
           <v-textarea
-            class="assistant-voice__review-input" :model-value="pendingTranscript.text" label="Review your message" :disabled="sending"
+            class="assistant-voice__review-input" :model-value="pendingTranscript.text" :label="t('jskit.assistant.voice.controls.reviewMessage')" :disabled="sending"
             :density="compact ? 'compact' : 'default'" :rows="compact ? 1 : 2" :max-rows="compact ? 2 : 3"
             auto-grow hide-details @update:model-value="editTranscript"
           />
           <div class="assistant-voice__review-actions">
-            <v-btn :disabled="sending" min-height="48" @click="discardHeldRecording">Discard</v-btn>
-            <v-btn :disabled="sending || !pendingTranscript.text.trim()" min-height="48" color="primary" @click="deliverTranscript">{{ sending ? 'Sending…' : 'Send' }}</v-btn>
+            <v-btn :disabled="sending" min-height="48" @click="discardHeldRecording">{{ t("jskit.assistant.voice.controls.discard") }}</v-btn>
+            <v-btn :disabled="sending || !pendingTranscript.text.trim()" min-height="48" color="primary" @click="deliverTranscript">
+              {{ sending ? t("jskit.assistant.voice.controls.sending") : t("jskit.assistant.voice.controls.send") }}
+            </v-btn>
           </div>
         </section>
       </fieldset>
     </Teleport>
     <Teleport :to="toolsTarget" :disabled="!toolsTarget">
-      <fieldset class="assistant-voice-controls__tools" :class="{ 'assistant-voice-controls__tools--compact': compact, 'assistant-voice-controls__tools--icons': iconOnly }" :disabled="disabled" :aria-label="`${targetLabel} voice chat controls`">
+      <fieldset class="assistant-voice-controls__tools" :class="{ 'assistant-voice-controls__tools--compact': compact, 'assistant-voice-controls__tools--icons': iconOnly }" :disabled="disabled" :aria-label="t('jskit.assistant.voice.controls.label', { target: targetLabel })">
         <div v-if="compact || iconOnly || speechActive" class="assistant-voice-controls__stop">
-          <v-btn v-if="speechActive" :icon="mdiStop" variant="text" min-width="48" min-height="48" :aria-label="`Stop ${targetLabel} speaking`" title="Stop speaking" @click="stopSpeech" />
+          <v-btn
+            v-if="speechActive" :icon="mdiStop" variant="text" min-width="48" min-height="48"
+            :aria-label="t('jskit.assistant.voice.controls.stopTargetSpeaking', { target: targetLabel })"
+            :title="t('jskit.assistant.voice.controls.stopSpeaking')" @click="stopSpeech"
+          />
         </div>
         <slot name="work-control" />
         <div class="assistant-voice__talk-action">
@@ -77,7 +95,7 @@ const gesture = useVoiceLauncher({
             class="assistant-voice__talk" color="primary" :variant="iconOnly ? 'text' : handsFreeListening ? 'tonal' : 'flat'" :min-height="iconOnly ? 44 : compact ? 48 : 64" rounded="xl"
             :icon="iconOnly ? (voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff) : undefined"
             :prepend-icon="iconOnly ? undefined : (voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff)"
-            :aria-label="iconOnly ? talkLabel : undefined" title="click or long press to talk"
+            :aria-label="iconOnly ? talkLabel : undefined" :title="t('jskit.assistant.voice.controls.talkHint')"
             :aria-pressed="handsFreeListening || pushHolding" :aria-describedby="gestureHint"
             :disabled="!canTalk" :slim="compact || iconOnly"
             :width="iconOnly ? 40 : compact ? 148 : undefined" :min-width="iconOnly ? 40 : compact ? 148 : undefined"
@@ -90,8 +108,10 @@ const gesture = useVoiceLauncher({
           </v-btn>
           <v-btn
             :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" :variant="iconOnly ? 'text' : 'tonal'" :color="iconOnly ? 'primary' : undefined" :min-height="iconOnly ? 44 : compact ? 48 : 64" :width="iconOnly ? 40 : undefined" :min-width="iconOnly ? 40 : compact ? 48 : 64" rounded="xl"
-            :aria-label="readAloud ? `Turn ${targetLabel} read-aloud off` : `Read ${targetLabel} answers aloud`"
-            :title="readAloud ? 'Spoken replies on' : 'Spoken replies off'"
+            :aria-label="readAloud
+              ? t('jskit.assistant.voice.controls.readAloudOff', { target: targetLabel })
+              : t('jskit.assistant.voice.controls.readAloudOn', { target: targetLabel })"
+            :title="readAloud ? t('jskit.assistant.voice.controls.spokenRepliesOn') : t('jskit.assistant.voice.controls.spokenRepliesOff')"
             :disabled="speakerDisabled || session.readAloudChangePending?.value === true" @click="toggleReadAloud"
           >
             <template v-if="iconOnly" #default>
@@ -99,7 +119,9 @@ const gesture = useVoiceLauncher({
             </template>
           </v-btn>
           <slot name="settings-control" />
-          <p :id="gestureHint" class="text-body-small text-medium-emphasis">{{ handsFreeListening ? 'Tap to pause · hold to speak' : 'Tap for hands-free · hold to speak' }}</p>
+          <p :id="gestureHint" class="text-body-small text-medium-emphasis">
+            {{ handsFreeListening ? t("jskit.assistant.voice.controls.tapToPause") : t("jskit.assistant.voice.controls.tapForHandsFree") }}
+          </p>
         </div>
       </fieldset>
     </Teleport>

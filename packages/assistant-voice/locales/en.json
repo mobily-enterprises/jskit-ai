@@ -1,0 +1,182 @@
+{
+  "jskit": {
+    "assistant": {
+      "voice": {
+        "assistant": "Assistant",
+        "dialog": {
+          "label": "{title} conversation",
+          "minimize": "Minimize conversation",
+          "close": "Close conversation",
+          "modes": "Conversation mode",
+          "talk": "Talk",
+          "text": "Text"
+        },
+        "host": {
+          "close": "Close voice chat",
+          "switchPrompt": "Finish or discard your recording for {current} before switching to {next}.",
+          "thisConversation": "this conversation",
+          "anotherConversation": "another conversation",
+          "stayHere": "Stay here",
+          "discardAndSwitch": "Discard and switch",
+          "switch": "Switch",
+          "stopWork": "Stop agent work",
+          "reopen": "{label} · Voice chat"
+        },
+        "conversation": {
+          "listening": "Listening",
+          "speaking": "Speaking",
+          "captions": "Voice conversation text",
+          "recognizedWords": "Recognized words",
+          "you": "You",
+          "youHearing": "You · Hearing…",
+          "youNotSent": "You · Not sent",
+          "latestAnswer": "{target} latest answer"
+        },
+        "controls": {
+          "label": "{target} voice chat controls",
+          "sendOrDiscard": "Send or discard speech to send text.",
+          "listening": "Listening…",
+          "recordingFinish": "Recording · finish speech to send text.",
+          "finishSpeech": "Finish speech to send text.",
+          "connecting": "Connecting…",
+          "releaseToSend": "Release to send",
+          "pause": "Pause",
+          "talk": "Talk",
+          "notSent": "Not sent · {words}",
+          "soundBlocked": "Sound is blocked. Enable sound to hear future replies.",
+          "enableSound": "Enable sound",
+          "review": "Review voice message",
+          "reviewMessage": "Review your message",
+          "discard": "Discard",
+          "sending": "Sending…",
+          "send": "Send",
+          "stopTargetSpeaking": "Stop {target} speaking",
+          "stopSpeaking": "Stop speaking",
+          "talkHint": "click or long press to talk",
+          "readAloudOff": "Turn {target} read-aloud off",
+          "readAloudOn": "Read {target} answers aloud",
+          "spokenRepliesOn": "Spoken replies on",
+          "spokenRepliesOff": "Spoken replies off",
+          "tapToPause": "Tap to pause · hold to speak",
+          "tapForHandsFree": "Tap for hands-free · hold to speak"
+        },
+        "settings": {
+          "title": "Voice settings",
+          "speakingVoice": "Speaking voice",
+          "speakingVoiceHint": "Applies to the next spoken reply"
+        },
+        "avatar": {
+          "label": "Assistant avatar"
+        },
+        "status": {
+          "interrupted": "Voice interrupted",
+          "needsAttention": "Voice needs attention",
+          "starting": "Starting voice…",
+          "active": "Voice active",
+          "off": "Voice off",
+          "reconnecting": "Reconnecting…",
+          "connecting": "Connecting…",
+          "openingMicrophone": "Opening microphone…",
+          "openingMic": "Opening mic…",
+          "listeningToYou": "Listening to you",
+          "listening": "Listening",
+          "targetSpeaking": "{target} is speaking",
+          "speaking": "Speaking",
+          "preparingSpeech": "Preparing speech…",
+          "thinking": "Thinking",
+          "sending": "Sending your message…",
+          "review": "Review your message below",
+          "microphoneMuted": "Microphone muted",
+          "transcribing": "Transcribing…",
+          "holdToSpeak": "Hold to speak",
+          "preparingMicrophone": "Preparing microphone…",
+          "live": "Live conversation"
+        },
+        "narration": {
+          "murmur": "Hmm..."
+        },
+        "speech": {
+          "codeOnScreen": "I put the code on screen.",
+          "sqlOnScreen": "I put the SQL on screen.",
+          "detailsInChat": "The details are in the chat.",
+          "image": "an image",
+          "link": "a link"
+        },
+        "errors": {
+          "notAccepted": "The conversation did not accept this message. Review it before retrying.",
+          "setupTimeout": "Voice setup took too long. Try Talk again.",
+          "finishAndReview": "{message} Tap the microphone to finish and review this recording.",
+          "microphoneNotReady": "The microphone was not ready. Hold the avatar again to record.",
+          "recordingInterrupted": "The connection interrupted this recording. These words may be incomplete. Review before sending, or discard and record again.",
+          "noSpeech": "No speech was recognized. Try again.",
+          "couldNotContinue": "Voice could not continue.",
+          "interruptedRecording": "Voice connection was interrupted. Your unfinished recording needs review; use Talk to resume.",
+          "interrupted": "Voice connection was interrupted. The answer remains in chat; use Talk to resume.",
+          "speechStalled": "Speech generation stalled. The answer remains in chat; use Talk to resume.",
+          "notConnected": "Voice is not connected.",
+          "playbackUnsupported": "This browser does not support streamed audio playback.",
+          "soundBlocked": "Sound is blocked by this browser.",
+          "busy": "Voice is busy. Try again shortly.",
+          "serviceCouldNotContinue": "Voice service could not continue.",
+          "invalidResponse": "Voice service sent an invalid response.",
+          "conversationRequired": "Voice requires an available conversation.",
+          "connectTimeout": "Voice service took too long to connect.",
+          "couldNotConnect": "Voice could not connect. Try again.",
+          "unreachable": "Voice service could not be reached.",
+          "closedWhileConnecting": "Voice service closed while connecting.",
+          "microphoneInUse": "Finish the recording in the other conversation before starting this microphone.",
+          "microphoneBehind": "The microphone connection fell behind. Review the unfinished recording before sending.",
+          "microphoneDenied": "Microphone access was denied. Allow it in your browser to talk to the assistant.",
+          "microphoneUnavailable": "The microphone could not be opened on this device.",
+          "pageSuspended": "Voice paused when this page was suspended. Review any unfinished words and use Talk to resume.",
+          "speechNotConfigured": "A speech service is not configured for this conversation.",
+          "noLongerAvailable": "This conversation is no longer available for voice.",
+          "hostDisposed": "The voice host has been disposed.",
+          "notAvailable": "This conversation is not available for voice.",
+          "finishBeforeEnding": "Finish or discard your recording before ending voice."
+        },
+        "protocol": {
+          "chooseVoice": "Choose an available voice before starting speech."
+        },
+        "daemon": {
+          "operationFailed": "Voice operation failed.",
+          "speechFailed": "Speech could not be generated.",
+          "queueClosing": "Voice speech queue is shutting down.",
+          "queueUnavailable": "Voice speech queue is unavailable.",
+          "capacityBusy": "Voice speech capacity is currently busy. Try again shortly.",
+          "speechTooFast": "Speech is arriving faster than playback.",
+          "audioWithoutRecording": "Audio arrived without an active recording.",
+          "noRecording": "No matching voice recording is active.",
+          "voiceUnavailable": "This voice is unavailable. Choose another voice."
+        },
+        "proxy": {
+          "voicesUnavailable": "Speaking voices could not load. Check the speech service and retry.",
+          "notInstalled": "Voice is not installed on this server.",
+          "unreachable": "Voice service could not be reached.",
+          "busy": "Voice is busy. Try again shortly.",
+          "sessionFailed": "Voice could not open for this conversation."
+        }
+      }
+    },
+    "errors": {
+      "voice_turn_id_invalid": "Voice control messages require a valid turn ID.",
+      "voice_control_size_invalid": "Voice control message size is invalid.",
+      "voice_control_json_invalid": "Voice control messages must be valid JSON.",
+      "voice_control_object_required": "Voice control messages must be JSON objects.",
+      "voice_control_type_invalid": "Unsupported voice control type: {type}.",
+      "voice_input_sample_rate_invalid": "Voice input must be {sampleRate} Hz mono PCM.",
+      "voice_segment_invalid": "Choose the current spoken phrase.",
+      "voice_revision_invalid": "Choose the current recognized utterance.",
+      "voice_speech_text_invalid": "Speech text must contain 1-{maximum} characters.",
+      "voice_audio_frame_invalid": "Voice audio frames must contain bounded 16-bit mono PCM.",
+      "voice_utterance_too_long": "Voice recordings are limited to {seconds} seconds.",
+      "voice_recognition_backpressure": "Speech recognition fell behind. Your recording may be incomplete; review the recognized words.",
+      "voice_speech_not_active": "No matching speech stream is open.",
+      "voice_access_revoked": "This application's voice access was revoked.",
+      "voice_playback_backpressure": "Voice playback fell behind. Speech stopped; the answer remains in chat.",
+      "voice_auth_required": "Voice access was denied.",
+      "voice_frame_too_large": "Voice message is too large.",
+      "voice_connecting": "Voice is still connecting. Try again."
+    }
+  }
+}

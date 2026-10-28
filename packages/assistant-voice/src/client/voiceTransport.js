@@ -8,6 +8,7 @@ import {
   speechTextFromAssistant
 } from "../shared/protocol.js";
 import { createMicrophoneCapture } from "./audioCapture.js";
+import { useJskitText, voiceError, voiceErrorText, voiceEventError, voiceSpeechWording } from "./i18n.js";
 import {
   normalizeSpeechSegment,
   pcm16ArrayBufferToFloat32,
@@ -35,6 +36,7 @@ function resolveWebSocketUrl(value) {
 }
 
 function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnListen = false, autoReconnect = false, voiceId = "", onPlayback } = {}) {
+  const { serverMessage, t } = useJskitText();
   const availableVoices = ref([]);
   const selectedVoice = ref(voiceId);
   const connectionState = ref("idle");
@@ -139,7 +141,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     activeListenTurnId.value = "";
     void closeMicrophone().catch(() => null);
     stopPlayback("failed", reason);
-    error.value = String(message || "Voice could not continue.");
+    error.value = String(message || t("jskit.assistant.voice.errors.couldNotContinue"));
     captureState.value = "idle";
     connectionState.value = "idle";
   }
@@ -157,8 +159,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
 
   function connectionLost(message) {
     message ||= activeListenTurnId.value || pendingListenTurnId
-      ? "Voice connection was interrupted. Your unfinished recording needs review; use Talk to resume."
-      : "Voice connection was interrupted. The answer remains in chat; use Talk to resume.";
+      ? t("jskit.assistant.voice.errors.interruptedRecording")
+      : t("jskit.assistant.voice.errors.interrupted");
     const wasActive = Boolean(activeListenTurnId.value || pendingListenTurnId || activeSpeechTurnId.value || reconnecting.value);
     setError(message, "disconnected");
     disconnect({ preserveError: true });
@@ -173,7 +175,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return;
     }
     if (activeSpeechTurnId.value && synthesisPending.value && Date.now() - lastSpeechProgressAt > synthesisTimeoutMs) {
-      connectionLost("Speech generation stalled. The answer remains in chat; use Talk to resume.");
+      connectionLost(t("jskit.assistant.voice.errors.speechStalled"));
       return;
     }
     if (socket?.readyState === WEBSOCKET_OPEN) sendControl({ type: "ping", turnId: "heartbeat" });
@@ -181,7 +183,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
 
   function sendControl(payload) {
     if (socket?.readyState !== WEBSOCKET_OPEN) {
-      throw new Error("Voice is not connected.");
+      throw voiceError("jskit.assistant.voice.errors.notConnected");
     }
     socket.send(JSON.stringify(payload));
   }
@@ -268,7 +270,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextCtor) {
       playbackBlocked.value = true;
-      throw new Error("This browser does not support streamed audio playback.");
+      throw voiceError("jskit.assistant.voice.errors.playbackUnsupported");
     }
     if (!playbackContext || playbackContext.state === "closed") {
       playbackContext = new AudioContextCtor({ latencyHint: "interactive" });
@@ -286,7 +288,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       const resumed = context.resume();
       if (preparation === playbackPreparation && context.state !== "running") playbackBlocked.value = true;
       await resumed;
-      if (context.state !== "running") throw new Error("Sound is blocked by this browser.");
+      if (context.state !== "running") throw voiceError("jskit.assistant.voice.errors.soundBlocked");
       if (preparation === playbackPreparation && !unmounted) playbackBlocked.value = false;
     } catch (cause) {
       // A newer unlock of this same context supersedes an older resume failure.
@@ -379,7 +381,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     playbackQueue = playbackQueue
       .then(() => schedulePcm(buffer, epoch, segment))
       .catch((playbackError) => {
-        if (epoch === playbackEpoch) setError(playbackError?.message || playbackError);
+        if (epoch === playbackEpoch) setError(voiceErrorText(playbackError));
       })
       .finally(() => {
         if (epoch !== playbackEpoch) return;
@@ -528,9 +530,9 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       if (turnId && turnId !== activeListenTurnId.value && turnId !== activeSpeechTurnId.value) {
         return;
       }
-      setError(String(message.message || (type === "busy"
-        ? "Voice is busy. Try again shortly."
-        : "Voice service could not continue.")));
+      setError(serverMessage(message, type === "busy"
+        ? t("jskit.assistant.voice.errors.busy")
+        : t("jskit.assistant.voice.errors.serviceCouldNotContinue")));
     }
   }
 
@@ -547,7 +549,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     try {
       message = JSON.parse(String(event.data || ""));
     } catch {
-      setError("Voice service sent an invalid response.");
+      setError(t("jskit.assistant.voice.errors.invalidResponse"));
       return;
     }
     handleControlMessage(message);
@@ -572,7 +574,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     }
     const path = selectedSocketPath.value;
     if (!path) {
-      throw new Error("Voice requires an available conversation.");
+      throw voiceError("jskit.assistant.voice.errors.conversationRequired");
     }
     if (connectedSocketPath === path && socket?.readyState === WEBSOCKET_OPEN && ready.value) {
       return true;
@@ -590,7 +592,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
     nextSocket.binaryType = "arraybuffer";
     connectPromise = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error("Voice service took too long to connect."));
+        reject(voiceError("jskit.assistant.voice.errors.connectTimeout"));
         nextSocket.close();
       }, 8_000);
       const onReady = (event) => {
@@ -605,7 +607,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
           clearTimeout(timeout);
           nextSocket.removeEventListener("message", onReady);
           if (message.type === "voice.ready") resolve(true);
-          else reject(new Error(message.message || "Voice could not connect. Try again."));
+          else reject(voiceEventError(message, "jskit.assistant.voice.errors.couldNotConnect"));
         } catch {
           // The regular message handler will surface malformed responses.
         }
@@ -613,11 +615,11 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       nextSocket.addEventListener("message", onReady);
       nextSocket.addEventListener("error", () => {
         clearTimeout(timeout);
-        reject(new Error("Voice service could not be reached."));
+        reject(voiceError("jskit.assistant.voice.errors.unreachable"));
       }, { once: true });
       nextSocket.addEventListener("close", () => {
         clearTimeout(timeout);
-        reject(new Error("Voice service closed while connecting."));
+        reject(voiceError("jskit.assistant.voice.errors.closedWhileConnecting"));
       }, { once: true });
     });
     nextSocket.addEventListener("message", (event) => {
@@ -639,7 +641,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return await connectPromise;
     } catch (connectionError) {
       if (socket === nextSocket) {
-        if (!recovery) setError(connectionError?.message || connectionError);
+        if (!recovery) setError(voiceErrorText(connectionError));
         disconnect({ preserveError: true });
       }
       throw connectionError;
@@ -651,7 +653,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return false;
     }
     if (microphoneOwner && microphoneOwner !== microphoneClaim) {
-      error.value = "Finish the recording in the other conversation before starting this microphone.";
+      error.value = t("jskit.assistant.voice.errors.microphoneInUse");
       return false;
     }
     microphoneClaim = Symbol("voice microphone");
@@ -677,7 +679,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
           onPcm(frame) {
             if ((!microphoneMuted.value || preserveBufferedMicrophone) && socket?.readyState === WEBSOCKET_OPEN && activeListenTurnId.value === turnId) {
               if (socket.bufferedAmount > 32 * 1024) {
-                connectionLost("The microphone connection fell behind. Review the unfinished recording before sending.");
+                connectionLost(t("jskit.assistant.voice.errors.microphoneBehind"));
                 return;
               }
               socket.send(frame);
@@ -692,8 +694,8 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
         if (pendingListenTurnId !== turnId) return false;
         const denied = ["NotAllowedError", "PermissionDeniedError"].includes(microphoneError?.name);
         setError(denied
-          ? "Microphone access was denied. Allow it in your browser to talk to the assistant."
-          : "The microphone could not be opened on this device.");
+          ? t("jskit.assistant.voice.errors.microphoneDenied")
+          : t("jskit.assistant.voice.errors.microphoneUnavailable"));
         return false;
       }
       if (pendingListenTurnId !== turnId) {
@@ -718,7 +720,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
       return true;
     } catch (startError) {
       if (pendingListenTurnId !== turnId) return false;
-      setError(startError?.message || startError);
+      setError(voiceErrorText(startError));
       throw startError;
     } finally {
       if (pendingListenTurnId === turnId) pendingListenTurnId = "";
@@ -744,7 +746,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   }
 
   async function speak(text, turnId = createVoiceTurnId("speak"), { stream = false } = {}) {
-    const speechText = speechTextFromAssistant(text);
+    const speechText = speechTextFromAssistant(text, undefined, voiceSpeechWording());
     if (unmounted || !speechOutputEnabled.value || !speechText) {
       return false;
     }
@@ -789,7 +791,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
 
   function appendSpeech(text) {
     if (!canAppendSpeech.value) return false;
-    const speechText = speechTextFromAssistant(text);
+    const speechText = speechTextFromAssistant(text, undefined, voiceSpeechWording());
     if (!speechText) return false;
     if (!synthesisPending.value) lastSpeechProgressAt = Date.now();
     synthesisPending.value += 1;
@@ -893,7 +895,7 @@ function useVoiceTransport({ socketUrl, speechEnabled = true, interruptSpeechOnL
   }, { flush: "sync" });
   function pauseForPageExit() {
     if (activeListenTurnId.value || pendingListenTurnId || activeSpeechTurnId.value) {
-      setError("Voice paused when this page was suspended. Review any unfinished words and use Talk to resume.");
+      setError(t("jskit.assistant.voice.errors.pageSuspended"));
     }
     recoveryWanted = false;
     reconnecting.value = false;

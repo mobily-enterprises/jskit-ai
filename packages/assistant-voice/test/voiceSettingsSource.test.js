@@ -8,9 +8,9 @@ test("the speaking-voice selector is one exported component reused by the settin
   const [select, settings, index] = await Promise.all([
     source("VoiceSpeakingVoiceSelect.vue"), source("VoiceConversationSettings.vue"), source("index.js")
   ]);
-  assert.match(select, /label="Speaking voice"/u);
+  assert.match(select, /:label="t\('jskit\.assistant\.voice\.settings\.speakingVoice'\)"/u);
   assert.match(select, /selectedVoice\.value = value/u);
   assert.match(settings, /<VoiceSpeakingVoiceSelect v-if="voice" :voice="voice" \/>/u);
-  assert.doesNotMatch(settings, /label="Speaking voice"/u);
+  assert.doesNotMatch(settings, /jskit\.assistant\.voice\.settings\.speakingVoice/u);
   assert.match(index, /export \{ default as VoiceSpeakingVoiceSelect \} from "\.\/VoiceSpeakingVoiceSelect\.vue";/u);
 });

@@ -44,10 +44,15 @@ function sendPcm(socket, audio = Buffer.alloc(0)) {
   return true;
 }
 
-function voiceDaemonError(error, fallback = "Voice operation failed.") {
+// An error event keeps its code and English message, and carries what a browser
+// needs to show that sentence in the user's language.
+function voiceDaemonError(error, fallback = { message: "Voice operation failed.", messageCode: "assistant.voice.daemon.operationFailed" }) {
+  const source = error?.message || error ? error : fallback;
   return {
     code: String(error?.code || "voice_operation_failed"),
-    message: String(error?.message || error || fallback)
+    message: String(error?.message || error || fallback.message),
+    ...(source?.params ? { params: source.params } : {}),
+    ...(source?.messageCode ? { messageCode: source.messageCode, messageParams: source.messageParams || {} } : {})
   };
 }
 
@@ -78,8 +83,9 @@ function createBoundedSerialQueue({ maximumQueued = 4 } = {}) {
   return Object.freeze({
     close() {
       closed = true;
-      const error = new Error("Voice speech queue is shutting down.");
-      error.code = "voice_queue_closed";
+      const error = Object.assign(new Error("Voice speech queue is shutting down."), {
+        code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueClosing", messageParams: {}
+      });
       for (const entry of pending.splice(0)) {
         entry.reject(error);
       }
@@ -89,16 +95,18 @@ function createBoundedSerialQueue({ maximumQueued = 4 } = {}) {
     },
     run(operation) {
       if (closed) {
-        const error = new Error("Voice speech queue is unavailable.");
-        error.code = "voice_queue_closed";
+        const error = Object.assign(new Error("Voice speech queue is unavailable."), {
+          code: "voice_queue_closed", messageCode: "assistant.voice.daemon.queueUnavailable", messageParams: {}
+        });
         return Promise.reject(error);
       }
       if (typeof operation !== "function") {
         return Promise.reject(new TypeError("Voice speech queue requires an operation."));
       }
       if (pending.length >= maximumQueued) {
-        const error = new Error("Voice speech capacity is currently busy. Try again shortly.");
-        error.code = "voice_busy";
+        const error = Object.assign(new Error("Voice speech capacity is currently busy. Try again shortly."), {
+          code: "voice_busy", messageCode: "assistant.voice.daemon.capacityBusy", messageParams: {}
+        });
         return Promise.reject(error);
       }
       return new Promise((resolve, reject) => {
@@ -301,7 +309,7 @@ function createVoiceDaemon({
             active.pendingBytes -= frame.byteLength;
             if (active.recognizer.acceptedSamples + frame.byteLength / 2 > VOICE_INPUT_SAMPLE_RATE * VOICE_MAX_UTTERANCE_SECONDS) {
               throw Object.assign(new Error(`Voice recordings are limited to ${VOICE_MAX_UTTERANCE_SECONDS} seconds.`), {
-                code: "voice_utterance_too_long"
+                code: "voice_utterance_too_long", params: { seconds: VOICE_MAX_UTTERANCE_SECONDS }
               });
             }
             active.recognizer.acceptPcm(frame);
@@ -404,7 +412,7 @@ function createVoiceDaemon({
         }
       } catch (error) {
         if (!controller.signal.aborted) sendJson(socket, error?.code === "voice_busy" ? "busy" : "error", {
-          ...voiceDaemonError(error, "Speech could not be generated."), turnId
+          ...voiceDaemonError(error, { message: "Speech could not be generated.", messageCode: "assistant.voice.daemon.speechFailed" }), turnId
         });
         controller.abort();
         if (speaking === active) speaking = null;
@@ -414,7 +422,9 @@ function createVoiceDaemon({
     const startSpeaking = (control) => {
       const voiceId = control.voiceId || engine.defaultVoice;
       if (voiceId && !engine.voices?.some(voice => voice.id === voiceId)) {
-        throw Object.assign(new Error("This voice is unavailable. Choose another voice."), { code: "voice_selection_invalid" });
+        throw Object.assign(new Error("This voice is unavailable. Choose another voice."), {
+          code: "voice_selection_invalid", messageCode: "assistant.voice.daemon.voiceUnavailable", messageParams: {}
+        });
       }
       cancelSpeaking();
       speaking = { controller: new AbortController(), turnId: control.turnId,
@@ -428,9 +438,9 @@ function createVoiceDaemon({
       try {
         if (isBinary) {
           if (!listening || listening.ending) {
-            const error = new Error("Audio arrived without an active recording.");
-            error.code = "voice_listen_not_active";
-            throw error;
+            throw Object.assign(new Error("Audio arrived without an active recording."), {
+              code: "voice_listen_not_active", messageCode: "assistant.voice.daemon.audioWithoutRecording", messageParams: {}
+            });
           }
           const frame = assertVoiceAudioFrame(raw);
           const active = listening;
@@ -448,7 +458,9 @@ function createVoiceDaemon({
           startListening(control);
         } else if (control.type === "listen.stop") {
           if (!listening || listening.ending || listening.turnId !== control.turnId) {
-            throw Object.assign(new Error("No matching voice recording is active."), { code: "voice_listen_not_active" });
+            throw Object.assign(new Error("No matching voice recording is active."), {
+              code: "voice_listen_not_active", messageCode: "assistant.voice.daemon.noRecording", messageParams: {}
+            });
           }
           listening.ending = true;
           queueListening(listening, { control });
@@ -476,7 +488,11 @@ function createVoiceDaemon({
             throw Object.assign(new Error("No matching speech stream is open."), { code: "voice_speech_not_active" });
           }
           if (control.type === "speak.append") {
-            if (speaking.pending.length >= 2) throw Object.assign(new Error("Speech is arriving faster than playback."), { code: "voice_busy" });
+            if (speaking.pending.length >= 2) {
+              throw Object.assign(new Error("Speech is arriving faster than playback."), {
+                code: "voice_busy", messageCode: "assistant.voice.daemon.speechTooFast", messageParams: {}
+              });
+            }
             speaking.pending.push(control.text);
           } else speaking.ended = true;
           void drainSpeech(speaking);

@@ -53,7 +53,8 @@ async function readVoiceCatalogue(config, { fetchImpl = fetch } = {}) {
     return catalogue;
   } catch (cause) {
     throw Object.assign(new Error("Speaking voices could not load. Check the speech service and retry."), {
-      code: "voice_unavailable", statusCode: 503, cause
+      code: "voice_unavailable", statusCode: 503, cause,
+      messageCode: "assistant.voice.proxy.voicesUnavailable", messageParams: {}
     });
   }
 }
@@ -65,9 +66,13 @@ function closeSocket(socket, code, reason) {
   }
 }
 
-function sendSocketError(socket, code, message) {
+// code and message stay the wire contract. params fill a catalogued code's sentence,
+// and messageCode names the sentence where one code has several.
+function sendSocketError(socket, code, message, { params, messageCode, messageParams = {} } = {}) {
   if (socket?.readyState === WEBSOCKET_OPEN) {
-    socket.send(voiceServerMessage("error", { code, message }));
+    socket.send(voiceServerMessage("error", {
+      code, message, ...(params ? { params } : {}), ...(messageCode ? { messageCode, messageParams } : {})
+    }));
   }
 }
 
@@ -103,7 +108,9 @@ function registerVoiceProxyRoute(fastify, {
     browserSocket.once("error", () => closeBoth(1011, "Browser voice connection failed"));
 
     if (!config.available) {
-      sendSocketError(browserSocket, "voice_unavailable", "Voice is not installed on this server.");
+      sendSocketError(browserSocket, "voice_unavailable", "Voice is not installed on this server.", {
+        messageCode: "assistant.voice.proxy.notInstalled"
+      });
       closeBoth(1013, "Voice service unavailable");
       return;
     }
@@ -150,7 +157,8 @@ function registerVoiceProxyRoute(fastify, {
           sendSocketError(
             browserSocket,
             String(error?.code || "voice_control_invalid"),
-            String(error?.message || error)
+            String(error?.message || error),
+            { params: error?.params, messageCode: error?.messageCode, messageParams: error?.messageParams }
           );
           return;
         }
@@ -190,25 +198,27 @@ function registerVoiceProxyRoute(fastify, {
         browserSocket.send(frame, { binary: isBinary });
       });
       serviceSocket.once("unexpected-response", (_request, response) => {
-        const code = Number(response?.statusCode) === 429 ? "voice_busy" : "voice_unavailable";
-        const message = code === "voice_busy"
-          ? "Voice is busy. Try again shortly."
-          : "Voice service could not be reached.";
-        sendSocketError(browserSocket, code, message);
+        const { code, message, messageCode } = Number(response?.statusCode) === 429
+          ? { code: "voice_busy", message: "Voice is busy. Try again shortly.", messageCode: "assistant.voice.proxy.busy" }
+          : { code: "voice_unavailable", message: "Voice service could not be reached.", messageCode: "assistant.voice.proxy.unreachable" };
+        sendSocketError(browserSocket, code, message, { messageCode });
         closeBoth(1013, message);
       });
       serviceSocket.once("close", (code, reason) => {
         closeBoth(code || 1012, reason?.toString() || "Voice service closed");
       });
       serviceSocket.once("error", () => {
-        sendSocketError(browserSocket, "voice_unavailable", "Voice service could not be reached.");
+        sendSocketError(browserSocket, "voice_unavailable", "Voice service could not be reached.", {
+          messageCode: "assistant.voice.proxy.unreachable"
+        });
         closeBoth(1013, "Voice service unavailable");
       });
     })().catch((error) => {
       sendSocketError(
         browserSocket,
         String(error?.code || "voice_session_failed"),
-        "Voice could not open for this conversation."
+        "Voice could not open for this conversation.",
+        { messageCode: "assistant.voice.proxy.sessionFailed" }
       );
       closeBoth([401, 403].includes(error?.statusCode) ? 1008 : 1011, "Voice session failed");
     });

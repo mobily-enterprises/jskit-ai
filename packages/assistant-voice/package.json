@@ -10,10 +10,12 @@
     "./client": "./src/client/index.js",
     "./server": "./src/server/index.js",
     "./shared/protocol": "./src/shared/protocol.js",
-    "./shared/visemes": "./src/shared/visemes.js"
+    "./shared/visemes": "./src/shared/visemes.js",
+    "./locales/en.json": "./locales/en.json"
   },
   "files": [
     "src",
+    "locales",
     "README.md",
     "examples"
   ],
@@ -61,6 +63,7 @@
     }
   },
   "peerDependencies": {
+    "@jskit-ai/kernel": "0.1.247",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },

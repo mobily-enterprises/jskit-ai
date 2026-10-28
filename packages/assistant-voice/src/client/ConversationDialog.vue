@@ -3,17 +3,19 @@ import { mdiClose, mdiMessageTextOutline, mdiMicrophone, mdiMinus } from "@mdi/j
 import { useDisplay } from "vuetify";
 import { VCard, VDialog } from "vuetify/components";
 import { computed } from "vue";
+import { useJskitText } from "./i18n.js";
 
 const { xs } = useDisplay();
+const { t } = useJskitText();
 
 const props = defineProps({
   modelValue: Boolean,
   activator: { type: Object, default: null },
-  title: { type: String, default: "Assistant" },
+  title: { type: String, default: "" },
   mode: { type: String, default: "talk" },
   showModes: Boolean,
   minimizable: Boolean,
-  closeLabel: { type: String, default: "Close conversation" },
+  closeLabel: { type: String, default: "" },
   presentation: { type: String, default: "dialog", validator: value => ["dialog", "inline"].includes(value) }
 });
 const dialogProps = computed(() => props.presentation === "inline" ? {} : {
@@ -24,6 +26,8 @@ const dialogProps = computed(() => props.presentation === "inline" ? {} : {
   contentProps: { style: { margin: xs.value ? 0 : "16px" } },
   "aria-hidden": !props.modelValue
 });
+const displayTitle = computed(() => props.title || t("jskit.assistant.voice.assistant"));
+const displayCloseLabel = computed(() => props.closeLabel || t("jskit.assistant.voice.dialog.close"));
 const emit = defineEmits(["update:modelValue", "update:mode", "minimize"]);
 let dismissedFromActivator = false;
 function outsideClick(event) {
@@ -42,19 +46,25 @@ function updateOpen(value) {
 <template>
   <component
     :is="presentation === 'inline' ? 'section' : VDialog" v-bind="dialogProps"
-    class="conversation-dialog" :class="{ 'conversation-dialog--inline': presentation === 'inline' }" :aria-label="`${title} conversation`"
+    class="conversation-dialog" :class="{ 'conversation-dialog--inline': presentation === 'inline' }" :aria-label="t('jskit.assistant.voice.dialog.label', { title: displayTitle })"
     @click:outside="outsideClick" @update:model-value="updateOpen"
   >
     <component :is="presentation === 'inline' ? 'div' : VCard" class="conversation-dialog__surface" :rounded="presentation === 'inline' ? undefined : xs ? 0 : 'lg'">
       <v-card-title v-if="presentation !== 'inline'" class="conversation-dialog__title text-title-large">
-        <span :title="title">{{ title }}</span>
+        <span :title="displayTitle">{{ displayTitle }}</span>
         <slot name="header-actions" />
-        <v-btn v-if="minimizable" :icon="mdiMinus" variant="text" aria-label="Minimize conversation" title="Minimize conversation" @click="$emit('minimize', $event)" />
-        <v-btn :icon="mdiClose" variant="text" :aria-label="closeLabel" :title="closeLabel" @click="$emit('update:modelValue', false)" />
+        <v-btn
+          v-if="minimizable" :icon="mdiMinus" variant="text" :aria-label="t('jskit.assistant.voice.dialog.minimize')"
+          :title="t('jskit.assistant.voice.dialog.minimize')" @click="$emit('minimize', $event)"
+        />
+        <v-btn :icon="mdiClose" variant="text" :aria-label="displayCloseLabel" :title="displayCloseLabel" @click="$emit('update:modelValue', false)" />
       </v-card-title>
-      <v-tabs v-if="showModes" :model-value="mode" class="conversation-dialog__tabs" grow aria-label="Conversation mode" @update:model-value="$emit('update:mode', $event)">
-        <v-tab value="talk" :prepend-icon="mdiMicrophone">Talk</v-tab>
-        <v-tab value="text" :prepend-icon="mdiMessageTextOutline">Text</v-tab>
+      <v-tabs
+        v-if="showModes" :model-value="mode" class="conversation-dialog__tabs" grow :aria-label="t('jskit.assistant.voice.dialog.modes')"
+        @update:model-value="$emit('update:mode', $event)"
+      >
+        <v-tab value="talk" :prepend-icon="mdiMicrophone">{{ t("jskit.assistant.voice.dialog.talk") }}</v-tab>
+        <v-tab value="text" :prepend-icon="mdiMessageTextOutline">{{ t("jskit.assistant.voice.dialog.text") }}</v-tab>
       </v-tabs>
       <div class="conversation-dialog__body"><slot /></div>
     </component>

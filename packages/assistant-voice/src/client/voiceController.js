@@ -1,9 +1,11 @@
 import { effectScope, shallowReactive, watch } from "vue";
 import { useVoiceConversation } from "./voiceConversation.js";
+import { useJskitText, voiceError, voiceErrorText } from "./i18n.js";
 
 /** One controller per application shell. Bindings retain their own conversation. */
 export function createVoiceConversationController({ connectSpeech, createSession = useVoiceConversation } = {}) {
   if (typeof connectSpeech !== "function") throw new TypeError("Voice requires an application speech connection.");
+  const { t } = useJskitText();
   const state = shallowReactive({ binding: null, session: null, visible: false, nextTarget: null, busy: false, error: "" });
   let scope;
   let revision = 0;
@@ -30,7 +32,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
   async function activate(binding, requestRevision) {
     const socketUrl = await connectSpeech(binding);
     if (disposed || requestRevision !== revision) return false;
-    if (!socketUrl) throw new Error("A speech service is not configured for this conversation.");
+    if (!socketUrl) throw voiceError("jskit.assistant.voice.errors.speechNotConfigured");
     await release();
     if (disposed || requestRevision !== revision) return false;
     const nextScope = effectScope(true);
@@ -44,7 +46,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
       state.nextTarget = null;
       nextScope.run(() => watch(() => binding.available, (available) => {
         if (available !== false) return;
-        state.error = "This conversation is no longer available for voice.";
+        state.error = t("jskit.assistant.voice.errors.noLongerAvailable");
         void end({ discard: true });
       }, { immediate: true }));
       return true;
@@ -59,7 +61,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
     if (!conversation?.id || !conversation.state || typeof conversation.submitText !== "function") {
       return Promise.reject(new TypeError("Voice requires a conversation identity, state and text submission."));
     }
-    if (disposed) return Promise.reject(new Error("The voice host has been disposed."));
+    if (disposed) return Promise.reject(voiceError("jskit.assistant.voice.errors.hostDisposed"));
     const requestRevision = ++revision;
     return serialize(async () => {
       if (requestRevision !== revision || disposed) return false;
@@ -69,7 +71,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
         state.nextTarget = null;
         return true;
       }
-      if (conversation.available === false) throw new Error("This conversation is not available for voice.");
+      if (conversation.available === false) throw voiceError("jskit.assistant.voice.errors.notAvailable");
       if (state.session?.hasUnsentSpeech.value) {
         state.nextTarget = conversation;
         state.visible = true;
@@ -77,7 +79,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
       }
       state.busy = true;
       try { return await activate(conversation, requestRevision); }
-      catch (error) { state.error = error.message; throw error; }
+      catch (error) { state.error = voiceErrorText(error); throw error; }
       finally { state.busy = false; }
     });
   }
@@ -91,7 +93,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
     return serialize(async () => {
       state.busy = true;
       try { return await activate(target, requestRevision); }
-      catch (error) { state.error = error.message; throw error; }
+      catch (error) { state.error = voiceErrorText(error); throw error; }
       finally { state.busy = false; }
     });
   }
@@ -99,7 +101,7 @@ export function createVoiceConversationController({ connectSpeech, createSession
   function end({ discard = false } = {}) {
     if (!discard && state.session?.hasUnsentSpeech.value) {
       state.visible = true;
-      state.error = "Finish or discard your recording before ending voice.";
+      state.error = t("jskit.assistant.voice.errors.finishBeforeEnding");
       return Promise.resolve(false);
     }
     ++revision;

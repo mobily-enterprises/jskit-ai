@@ -1,3 +1,6 @@
+import { catalogMessage } from "@jskit-ai/kernel/shared/i18n";
+import en from "../../locales/en.json" with { type: "json" };
+
 const VOICE_PROTOCOL_VERSION = 1;
 const VOICE_DAEMON_WEBSOCKET_PATH = "/v1/voice";
 const VOICE_INPUT_SAMPLE_RATE = 16_000;
@@ -28,11 +31,24 @@ const VOICE_CLIENT_CONTROL_TYPES = new Set([
   "speak.stop-after"
 ]);
 
-function voiceProtocolError(code, message) {
+// code and the English message are the wire contract; params fill the code's
+// catalogued sentence so a browser can show it in the user's language.
+function voiceProtocolError(code, message, params) {
   const error = new Error(message);
   error.code = code;
+  if (params) error.params = params;
   return error;
 }
+
+// What speech says in place of content it leaves on screen. The browser passes the
+// wording of its active language; the default is JSKIT's English.
+const VOICE_SPEECH_WORDING = Object.freeze({
+  code: catalogMessage(en, "jskit.assistant.voice.speech.codeOnScreen"),
+  sql: catalogMessage(en, "jskit.assistant.voice.speech.sqlOnScreen"),
+  details: catalogMessage(en, "jskit.assistant.voice.speech.detailsInChat"),
+  image: catalogMessage(en, "jskit.assistant.voice.speech.image"),
+  link: catalogMessage(en, "jskit.assistant.voice.speech.link")
+});
 
 function voiceTurnId(value = "") {
   const turnId = String(value || "").trim();
@@ -74,7 +90,8 @@ function parseVoiceClientControl(raw = "") {
   if (!VOICE_CLIENT_CONTROL_TYPES.has(type)) {
     throw voiceProtocolError(
       "voice_control_type_invalid",
-      `Unsupported voice control type: ${type || "(missing)"}.`
+      `Unsupported voice control type: ${type || "(missing)"}.`,
+      { type: type || "(missing)" }
     );
   }
   const turnId = voiceTurnId(input.turnId);
@@ -83,7 +100,8 @@ function parseVoiceClientControl(raw = "") {
     if (sampleRate !== VOICE_INPUT_SAMPLE_RATE) {
       throw voiceProtocolError(
         "voice_input_sample_rate_invalid",
-        `Voice input must be ${VOICE_INPUT_SAMPLE_RATE} Hz mono PCM.`
+        `Voice input must be ${VOICE_INPUT_SAMPLE_RATE} Hz mono PCM.`,
+        { sampleRate: VOICE_INPUT_SAMPLE_RATE }
       );
     }
     return Object.freeze({ sampleRate, turnId, type, ...(input.continuous === true ? { continuous: true } : {}) });
@@ -98,13 +116,16 @@ function parseVoiceClientControl(raw = "") {
   }
   if (type === "speak.start" || type === "speak.append") {
     if (input.voiceId !== undefined && (type !== "speak.start" || typeof input.voiceId !== "string" || !VOICE_ID_PATTERN.test(input.voiceId))) {
-      throw voiceProtocolError("voice_selection_invalid", "Choose an available voice before starting speech.");
+      throw Object.assign(voiceProtocolError("voice_selection_invalid", "Choose an available voice before starting speech."), {
+        messageCode: "assistant.voice.protocol.chooseVoice", messageParams: {}
+      });
     }
     const text = String(input.text || "");
     if ((!text.trim() && !/[\r\n]/u.test(text)) || text.length > VOICE_MAX_SPEECH_TEXT_CHARACTERS) {
       throw voiceProtocolError(
         "voice_speech_text_invalid",
-        `Speech text must contain 1-${VOICE_MAX_SPEECH_TEXT_CHARACTERS} characters.`
+        `Speech text must contain 1-${VOICE_MAX_SPEECH_TEXT_CHARACTERS} characters.`,
+        { maximum: VOICE_MAX_SPEECH_TEXT_CHARACTERS }
       );
     }
     return Object.freeze({ text, turnId, type, ...(input.stream === true ? { stream: true } : {}), ...(input.voiceId ? { voiceId: input.voiceId } : {}) });
@@ -224,24 +245,24 @@ function normalizeRecognizedText(value = "", vocabulary = {}) {
   return result;
 }
 
-function speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS) {
+function speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEECH_TEXT_CHARACTERS, wording = VOICE_SPEECH_WORDING) {
   let omittedCode = false;
   let omittedTable = false;
   let text = String(value || "").slice(0, maximumCharacters * 2);
   text = text.replace(/```([a-z0-9_-]*)[^\n]*\n[\s\S]*?```/giu, (_match, language) => {
     omittedCode = true;
     return String(language || "").toLowerCase() === "sql"
-      ? " I put the SQL on screen. "
-      : " I put the code on screen. ";
+      ? ` ${wording.sql} `
+      : ` ${wording.code} `;
   });
   text = text.replace(/(?:^|\n)\s*\|[^\n]+\|\s*(?=\n|$)/gu, () => {
     omittedTable = true;
     return "\n";
   });
   text = text
-    .replace(/!\[[^\]]*\]\([^)]*\)/gu, " an image ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/gu, () => ` ${wording.image} `)
     .replace(/\[([^\]]+)\]\([^)]*\)/gu, "$1")
-    .replace(/https?:\/\/\S+/giu, " a link ")
+    .replace(/https?:\/\/\S+/giu, () => ` ${wording.link} `)
     .replace(/`([^`\n]+)`/gu, "$1")
     .replace(/^[\t ]{0,3}#{1,6}[\t ]+/gmu, "");
   const lines = text.split(/\r?\n/u);
@@ -255,11 +276,11 @@ function speechTextFromAssistant(value = "", maximumCharacters = VOICE_MAX_SPEEC
       .replace(/[^\S\r\n]+/gu, " ").trim();
     return boundary + words;
   }).join("").replace(/\n{3,}/gu, "\n\n");
-  if (omittedTable && !/details (?:are|remain) in (?:the )?chat/iu.test(text)) {
-    text = `${text}${text ? " " : ""}The details are in the chat.`;
+  if (omittedTable && !/details (?:are|remain) in (?:the )?chat/iu.test(text) && !text.includes(wording.details)) {
+    text = `${text}${text ? " " : ""}${wording.details}`;
   }
   if (omittedCode && !text) {
-    text = "I put the code on screen.";
+    text = wording.code;
   }
   return text.slice(0, maximumCharacters);
 }
@@ -358,7 +379,7 @@ function splitSpeechText(value = "", maximumCharacters = VOICE_MAX_SPEECH_CHUNK_
 
 // Consume only a speakable prefix. Incomplete Markdown stays buffered so code,
 // link targets and revised last words never leak into speech a token at a time.
-function takeStreamingSpeech(text = "", final = false, maximumCharacters = 140) {
+function takeStreamingSpeech(text = "", final = false, maximumCharacters = 140, wording = VOICE_SPEECH_WORDING) {
   const source = String(text);
   // Wait for the whole table before summarizing it. Splitting inside a long
   // row would read cells aloud and repeat the summary for every later row.
@@ -372,7 +393,7 @@ function takeStreamingSpeech(text = "", final = false, maximumCharacters = 140) 
     }
     if (consumed) {
       const boundary = source.slice(0, consumed).match(/(?:\r?\n[\t ]*)+$/u)?.[0] || "";
-      return { text: speechTextFromAssistant(`The details are in the chat.${boundary}`), consumed };
+      return { text: speechTextFromAssistant(`${wording.details}${boundary}`, undefined, wording), consumed };
     }
   }
   let fence = false;
@@ -417,8 +438,8 @@ function takeStreamingSpeech(text = "", final = false, maximumCharacters = 140) 
   if (/\n[\t ]*$/u.test(raw) && /^(?:[-*+]|\d+[.)])[\t ]+/u.test(source.slice(end))) {
     raw = `${raw.trimEnd()}\n\n`;
   }
-  if (final && fence) raw = raw.replace(/```[\s\S]*$/u, " I put the code on screen. ");
-  return { text: speechTextFromAssistant(raw), consumed: end };
+  if (final && fence) raw = raw.replace(/```[\s\S]*$/u, () => ` ${wording.code} `);
+  return { text: speechTextFromAssistant(raw, undefined, wording), consumed: end };
 }
 
 function voiceServerMessage(type = "", fields = {}) {

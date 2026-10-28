@@ -2,10 +2,12 @@ import { computed, onScopeDispose, ref, watch } from "vue";
 import { createVoiceTurnId, useVoiceTransport } from "./voiceTransport.js";
 import { speechTextFromAssistant, takeStreamingSpeech, VOICE_MAX_SPEECH_TEXT_CHARACTERS } from "../shared/protocol.js";
 import { createConversationNarrationTracker } from "./conversationNarration.js";
+import { useJskitText, voiceErrorText, voiceSpeechWording } from "./i18n.js";
 
 /** Created inside the controller's effect scope, independent of a mounted screen. */
 export function useVoiceConversation(binding, { socketUrl, createTransport = useVoiceTransport } = {}) {
-  const targetLabel = computed(() => binding.label || "Assistant");
+  const { serverMessage, t } = useJskitText();
+  const targetLabel = computed(() => binding.label || t("jskit.assistant.voice.assistant"));
   const readAloud = ref(binding.defaults?.readAloud === true);
   const readAloudChangePending = computed(() => binding.readAloudChangePending === true);
   const soundPreparing = ref(false);
@@ -43,29 +45,31 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   const capturing = computed(() => voice.captureState.value !== "idle");
   const speechActive = computed(() => Boolean(voice.activeSpeechTurnId.value));
   const callConnection = computed(() => {
-    if (voice.reconnecting.value) return "Voice interrupted";
-    if (error.value || voice.error.value) return "Voice needs attention";
-    if (starting.value) return "Starting voice…";
-    if (live.value) return "Voice active";
-    return "Voice off";
+    if (voice.reconnecting.value) return t("jskit.assistant.voice.status.interrupted");
+    if (error.value || voice.error.value) return t("jskit.assistant.voice.status.needsAttention");
+    if (starting.value) return t("jskit.assistant.voice.status.starting");
+    if (live.value) return t("jskit.assistant.voice.status.active");
+    return t("jskit.assistant.voice.status.off");
   });
   const callStatus = computed(() => {
-    if (voice.reconnecting.value) return "Reconnecting…";
-    if (starting.value) return "Starting voice…";
-    if (live.value && voice.captureState.value === "connecting") return "Connecting…";
-    if (live.value && voice.captureState.value === "opening") return "Opening microphone…";
-    if (error.value || voice.error.value) return "Voice needs attention";
+    if (voice.reconnecting.value) return t("jskit.assistant.voice.status.reconnecting");
+    if (starting.value) return t("jskit.assistant.voice.status.starting");
+    if (live.value && voice.captureState.value === "connecting") return t("jskit.assistant.voice.status.connecting");
+    if (live.value && voice.captureState.value === "opening") return t("jskit.assistant.voice.status.openingMicrophone");
+    if (error.value || voice.error.value) return t("jskit.assistant.voice.status.needsAttention");
     if (!live.value) return "";
-    if (pushHolding.value && voice.listening.value) return "Listening to you";
-    if (voice.speaking.value) return `${targetLabel.value} is speaking`;
-    if (speechActive.value) return "Preparing speech…";
-    if (binding.state.status === "working") return "Thinking";
-    if (sending.value) return "Sending your message…";
-    if (pendingTranscript.value) return "Review your message below";
-    if (microphoneMuted.value) return "Microphone muted";
-    if (voice.captureState.value === "transcribing") return "Transcribing…";
-    if (voice.listening.value) return "Listening to you";
-    return callMode.value === "push-to-talk" ? "Hold to speak" : "Preparing microphone…";
+    if (pushHolding.value && voice.listening.value) return t("jskit.assistant.voice.status.listeningToYou");
+    if (voice.speaking.value) return t("jskit.assistant.voice.status.targetSpeaking", { target: targetLabel.value });
+    if (speechActive.value) return t("jskit.assistant.voice.status.preparingSpeech");
+    if (binding.state.status === "working") return t("jskit.assistant.voice.status.thinking");
+    if (sending.value) return t("jskit.assistant.voice.status.sending");
+    if (pendingTranscript.value) return t("jskit.assistant.voice.status.review");
+    if (microphoneMuted.value) return t("jskit.assistant.voice.status.microphoneMuted");
+    if (voice.captureState.value === "transcribing") return t("jskit.assistant.voice.status.transcribing");
+    if (voice.listening.value) return t("jskit.assistant.voice.status.listeningToYou");
+    return callMode.value === "push-to-talk"
+      ? t("jskit.assistant.voice.status.holdToSpeak")
+      : t("jskit.assistant.voice.status.preparingMicrophone");
   });
   const callModeBusy = computed(() => starting.value || changingCallMode.value || pushHolding.value || sending.value || Boolean(pendingTranscript.value)
     || capturing.value && Boolean(voice.partialTranscript.value.trim()) || capturing.value && !voice.listening.value);
@@ -79,8 +83,19 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   const callAudioLevel = computed(() => Math.max(0, Math.min(1, voice.speaking.value ? voice.mouthLevel.value
     : voice.listening.value && !microphoneMuted.value ? voice.inputLevel.value : 0)));
   const status = computed(() => {
-    const capture = { connecting: "Connecting…", opening: "Opening mic…", listening: "Listening", transcribing: "Transcribing…" }[voice.captureState.value];
-    return [starting.value ? "Starting voice…" : "", voice.reconnecting.value ? "Reconnecting…" : "", live.value ? "Live conversation" : "", microphoneMuted.value ? "Microphone muted" : capture, voice.speaking.value ? "Speaking" : speechActive.value ? "Preparing speech…" : ""].filter(Boolean).join(" · ");
+    const capture = {
+      connecting: "jskit.assistant.voice.status.connecting",
+      opening: "jskit.assistant.voice.status.openingMic",
+      listening: "jskit.assistant.voice.status.listening",
+      transcribing: "jskit.assistant.voice.status.transcribing"
+    }[voice.captureState.value];
+    return [
+      starting.value ? "jskit.assistant.voice.status.starting" : "",
+      voice.reconnecting.value ? "jskit.assistant.voice.status.reconnecting" : "",
+      live.value ? "jskit.assistant.voice.status.live" : "",
+      microphoneMuted.value ? "jskit.assistant.voice.status.microphoneMuted" : capture,
+      voice.speaking.value ? "jskit.assistant.voice.status.speaking" : speechActive.value ? "jskit.assistant.voice.status.preparingSpeech" : ""
+    ].filter(Boolean).map(key => t(key)).join(" · ");
   });
   const heldTranscript = computed(() => pendingTranscript.value?.text ||
     (["listening", "transcribing"].includes(voice.captureState.value) ? voice.partialTranscript.value : ""));
@@ -147,7 +162,9 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     if (!narrationEnabled() || !narration.working || !narration.thinkingSounds) return;
     thinkingMurmurTimer = setTimeout(() => {
       if (epoch !== narrationEpoch || !narrationEnabled() || !binding.narration?.working || !binding.narration.thinkingSounds) return;
-      if (!speechQueue.length && !draining && !speechActive.value && voice.state.value === "idle") queueNarration("murmur", "Hmm...");
+      if (!speechQueue.length && !draining && !speechActive.value && voice.state.value === "idle") {
+        queueNarration("murmur", t("jskit.assistant.voice.narration.murmur"));
+      }
       scheduleThinkingMurmur(epoch);
     }, 20_000);
   }
@@ -216,6 +233,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
   async function drainSpeech() {
     if (draining || disposed || !readAloud.value || speechSuppressed || soundPreparing.value || voice.playbackBlocked?.value) return;
     draining = true;
+    const wording = voiceSpeechWording();
     try {
       while (speechQueue.length) {
         const reply = speechQueue[0];
@@ -223,13 +241,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         if (reply.started && !speechActive.value) { speechQueue.shift(); continue; }
         if (speechActive.value && !reply.started) return;
         if (reply.started && !voice.canAppendSpeech.value) return;
-        const previousSpeech = reply.narrationKind ? "" : speechTextFromAssistant(reply.raw.slice(0, reply.consumed));
+        const previousSpeech = reply.narrationKind ? "" : speechTextFromAssistant(reply.raw.slice(0, reply.consumed), undefined, wording);
         const maximumCharacters = reply.narrationKind ? (reply.started ? 140 : 64) : Math.max(1, Math.min(
           reply.started ? 140 : 64,
           VOICE_MAX_SPEECH_TEXT_CHARACTERS - previousSpeech.length,
           VOICE_MAX_SPEECH_TEXT_CHARACTERS - reply.spokenCharacters
         ));
-        const chunk = reply.speechCapped ? null : takeStreamingSpeech(reply.raw.slice(reply.consumed), reply.final, maximumCharacters);
+        const chunk = reply.speechCapped ? null : takeStreamingSpeech(reply.raw.slice(reply.consumed), reply.final, maximumCharacters, wording);
         if (!chunk) {
           if (reply.final && reply.started) voice.endSpeech();
           else if (reply.final) {
@@ -244,7 +262,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         if (!reply.narrationKind) {
           // Keep offsets in raw Markdown. The original limit applies after its
           // cleanup, including whitespace between separately streamed phrases.
-          const speech = speechTextFromAssistant(reply.raw.slice(0, reply.consumed));
+          const speech = speechTextFromAssistant(reply.raw.slice(0, reply.consumed), undefined, wording);
           const boundary = speech.startsWith(previousSpeech)
             ? speech.slice(previousSpeech.length).match(/^\s*/u)[0].length : 0;
           text = text.slice(0, Math.max(0, Math.min(
@@ -273,7 +291,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
         } else if (!voice.appendSpeech(text)) return;
         if (reply.speechCapped || (reply.final && reply.consumed >= reply.raw.length)) { voice.endSpeech(); return; }
       }
-    } catch (cause) { error.value = cause.message; stopSpeech(); }
+    } catch (cause) { error.value = voiceErrorText(cause); stopSpeech(); }
     finally { draining = false; }
   }
   function queueReply(message, final) {
@@ -359,9 +377,11 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     try {
       inviteSpeech(pending.messageId);
       const receipt = await binding.submitText(pending.text, { messageId: pending.messageId, context: pending.focus });
-      if (receipt === false || receipt?.ok === false) throw new Error(receipt?.message || "The conversation did not accept this message. Review it before retrying.");
+      if (receipt === false || receipt?.ok === false) {
+        throw new Error(serverMessage(receipt || {}, t("jskit.assistant.voice.errors.notAccepted")));
+      }
       if (pendingTranscript.value === pending) dismissTranscript();
-    } catch (cause) { if (pendingTranscript.value === pending) error.value = cause.message; }
+    } catch (cause) { if (pendingTranscript.value === pending) error.value = voiceErrorText(cause); }
     finally { sending.value = false; }
   }
   async function cancelRecording() {
@@ -401,7 +421,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (capturing.value) { await discardRecording(); return; }
       if (pendingTranscript.value) return;
       await startRecording(false);
-    } catch (cause) { recording = null; error.value = cause.message; }
+    } catch (cause) { recording = null; error.value = voiceErrorText(cause); }
   }
   async function startRecording(reviewBeforeSend, continuous = false) {
     if (disposed || hiddenNarrationPage.value || starting.value || microphoneMuted.value || capturing.value || committing ||
@@ -416,7 +436,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     try {
       const started = await voice.startListening({ continuous });
       if (recording === next) { next.started = started; if (!started) recording = null; }
-    } catch (cause) { if (recording === next) { recording = null; error.value = cause.message; } }
+    } catch (cause) { if (recording === next) { recording = null; error.value = voiceErrorText(cause); } }
   }
   async function toggleMicrophoneMuted({ preserveBuffered = false } = {}) {
     // A person's explicit microphone choice supersedes an Edit-owned pause.
@@ -469,7 +489,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       }
       if (voice.listening.value) await voice.stopListening();
       else await cancelRecording();
-    } catch (cause) { await cancelRecording(); error.value = cause.message; }
+    } catch (cause) { await cancelRecording(); error.value = voiceErrorText(cause); }
   }
   async function cancelPushToTalk(event) {
     if (!pushHolding.value || event?.pointerId !== undefined && event.pointerId !== pushInput) return;
@@ -542,7 +562,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
     } catch (cause) {
       if (startupAbort === controller && !controller.signal.aborted) {
         live.value = false;
-        error.value = signal.aborted ? "Voice setup took too long. Try Talk again." : cause.message;
+        error.value = signal.aborted ? t("jskit.assistant.voice.errors.setupTimeout") : voiceErrorText(cause);
       }
     } finally {
       if (startupAbort === controller) { startupAbort = null; starting.value = false; }
@@ -591,7 +611,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (live.value && candidate === voice.endpoint.value) {
         live.value = false;
         if (recording) recording.reviewBeforeSend = true;
-        error.value = `${cause.message} Tap the microphone to finish and review this recording.`;
+        error.value = t("jskit.assistant.voice.errors.finishAndReview", { message: voiceErrorText(cause) });
       }
     }
   }
@@ -631,7 +651,7 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       // Retire intent before the asynchronous PCM drain so a receipt/reset
       // cannot finalize this capture twice. Its original final watcher sends B.
       delete recording.finishAfterPending;
-      void voice.stopListening().catch(cause => { error.value = cause.message; });
+      void voice.stopListening().catch(cause => { error.value = voiceErrorText(cause); });
       return;
     }
     if (live.value && callMode.value === "hands-free" && !changingCallMode.value && !microphoneMuted.value && !capturing.value && !pendingTranscript.value && !sending.value && !voice.error.value) void startRecording(false, true);
@@ -644,9 +664,9 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (voice.listening.value) await voice.stopListening();
       else {
         await cancelRecording();
-        error.value = "The microphone was not ready. Hold the avatar again to record.";
+        error.value = t("jskit.assistant.voice.errors.microphoneNotReady");
       }
-    } catch (cause) { await cancelRecording(); error.value = cause.message; }
+    } catch (cause) { await cancelRecording(); error.value = voiceErrorText(cause); }
   }
   async function discardHeldRecording() {
     if (sending.value) return;
@@ -664,13 +684,13 @@ export function useVoiceConversation(binding, { socketUrl, createTransport = use
       if (text) {
         pendingTranscript.value = { ...finished, text, reviewBeforeSend: true };
         holding.value = false;
-        error.value = "The connection interrupted this recording. These words may be incomplete. Review before sending, or discard and record again.";
+        error.value = t("jskit.assistant.voice.errors.recordingInterrupted");
       }
       return;
     }
     const text = voice.transcript.value.trim();
     if (!text) {
-      if (!finished.continuous) error.value = "No speech was recognized. Try again.";
+      if (!finished.continuous) error.value = t("jskit.assistant.voice.errors.noSpeech");
       return;
     }
     if (live.value && !finished.reviewBeforeSend && explicitSilence(text)) {
